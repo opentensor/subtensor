@@ -1910,20 +1910,13 @@ mod dispatches {
             Ok(())
         }
 
-        /// Recycles tokens from a cold/hot key pair, reducing AlphaOut on a subnet
+        /// Recycles alpha from a cold/hot key pair, reducing AlphaOut on a subnet
         ///
         /// # Arguments
         /// * `origin` - The origin of the call (must be signed by the coldkey)
         /// * `hotkey` - The hotkey account
-        /// * `amount` - The amount of tokens to recycle
-        /// * `netuid` - The subnet ID from which to reduce AlphaOut
-        ///
-        /// # Errors
-        /// Returns an error if:
-        /// * The transaction is not signed by the correct coldkey.
-        /// * The subnet with `netuid` does not exist.
-        /// * The coldkey does not own the hotkey.
-        /// * The coldkey does not have enough balance.
+        /// * `amount` - The amount of alpha to recycle
+        /// * `netuid` - The subnet ID
         ///
         /// # Events
         /// Emits a `TokensRecycled` event on success.
@@ -1933,28 +1926,22 @@ mod dispatches {
             DispatchClass::Operational,
             Pays::Yes
         ))]
-        pub fn recycle(
+        pub fn recycle_alpha(
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
             amount: u64,
             netuid: u16,
         ) -> DispatchResult {
-            Self::do_recycle(origin, hotkey, amount, netuid)
+            Self::do_recycle_alpha(origin, hotkey, amount, netuid)
         }
 
-        /// Burns tokens from a cold/hot key pair without reducing AlphaOut
+        /// Burns alpha from a cold/hot key pair without reducing `AlphaOut`
         ///
         /// # Arguments
         /// * `origin` - The origin of the call (must be signed by the coldkey)
         /// * `hotkey` - The hotkey account
-        /// * `amount` - The amount of tokens to burn
+        /// * `amount` - The amount of alpha to burn
 		/// * `netuid` - The subnet ID
-        ///
-        /// # Errors
-        /// Returns an error if:
-        /// * The transaction is not signed by the correct coldkey.
-        /// * The coldkey does not own the hotkey.
-        /// * The coldkey does not have enough balance.
         ///
         /// # Events
         /// Emits a `TokensBurned` event on success.
@@ -1964,13 +1951,13 @@ mod dispatches {
             DispatchClass::Operational,
             Pays::Yes
         ))]
-        pub fn burn(
+        pub fn burn_alpha(
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
             amount: u64,
 			netuid: u16,
         ) -> DispatchResult {
-            Self::do_burn(origin, hotkey, amount, netuid)
+            Self::do_burn_alpha(origin, hotkey, amount, netuid)
         }
     }
 }

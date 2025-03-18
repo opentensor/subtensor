@@ -28,33 +28,27 @@ fn test_recycle_success() {
         increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake, netuid);
 
         // get initial total issuance and alpha out
-        let initial_balance = Balances::free_balance(coldkey);
-        let initial_alpha = SubnetAlphaOut::<Test>::get(netuid);
-        let initial_net_tao = SubnetTAO::<Test>::get(netuid);
-        // preset total issuance
-        TotalIssuance::<Test>::put(initial_balance + stake);
-        let initial_issuance = TotalIssuance::<Test>::get();
+        let initial_alpha = TotalHotkeyAlpha::<Test>::get(hotkey, netuid);
+        let initial_net_alpha = SubnetAlphaOut::<Test>::get(netuid);
 
         // amount to recycle
         let recycle_amount = stake / 2;
 
         // recycle
-        assert_ok!(SubtensorModule::recycle(
+        assert_ok!(SubtensorModule::recycle_alpha(
             RuntimeOrigin::signed(coldkey),
             hotkey,
             recycle_amount,
             netuid
         ));
 
-        assert!(Balances::free_balance(coldkey) < initial_balance);
-        assert!(SubnetAlphaOut::<Test>::get(netuid) < initial_alpha);
-        assert!(SubnetTAO::<Test>::get(netuid) < initial_net_tao);
-        assert!(TotalIssuance::<Test>::get() < initial_issuance);
+        assert!(TotalHotkeyAlpha::<Test>::get(hotkey, netuid) < initial_alpha);
+        assert!(SubnetAlphaOut::<Test>::get(netuid) < initial_net_alpha);
 
         assert!(System::events().iter().any(|e| {
             matches!(
                 &e.event,
-                RuntimeEvent::SubtensorModule(Event::TokensRecycled(..))
+                RuntimeEvent::SubtensorModule(Event::AlphaRecycled(..))
             )
         }));
     });
@@ -66,42 +60,45 @@ fn test_burn_success() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
 
-        let subnet_owner_coldkey = U256::from(1001);
-        let subnet_owner_hotkey = U256::from(1002);
-        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let owner_coldkey = U256::from(1001);
+        let owner_hotkey = U256::from(1002);
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
         let initial_balance = 1_000_000_000;
         Balances::make_free_balance_be(&coldkey, initial_balance);
 
+        // associate coldkey and hotkey
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
+        assert!(SubtensorModule::if_subnet_exist(netuid));
+
+        // add stake to coldkey-hotkey pair so we can recycle it
         let stake = 200_000;
         increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake, netuid);
 
-        let initial_balance = Balances::free_balance(&coldkey);
-        let initial_alpha = SubnetAlphaOut::<Test>::get(netuid);
-        let initial_net_tao = SubnetTAO::<Test>::get(netuid);
-        // preset total issuance
-        TotalIssuance::<Test>::put(initial_balance + stake);
-        let initial_issuance = TotalIssuance::<Test>::get();
+        // get initial total issuance and alpha out
+        let initial_alpha = TotalHotkeyAlpha::<Test>::get(hotkey, netuid);
+        let initial_net_alpha = SubnetAlphaOut::<Test>::get(netuid);
 
-        let burn = stake / 2;
-        assert_ok!(SubtensorModule::burn(
+        // amount to recycle
+        let burn_amount = stake / 2;
+
+        // burn
+        assert_ok!(SubtensorModule::burn_alpha(
             RuntimeOrigin::signed(coldkey),
             hotkey,
-            burn,
+            burn_amount,
             netuid
         ));
 
-        assert!(Balances::free_balance(coldkey) < initial_balance);
-        assert!(SubnetAlphaOut::<Test>::get(netuid) == initial_alpha);
-        assert!(SubnetTAO::<Test>::get(netuid) < initial_net_tao);
-        assert!(TotalIssuance::<Test>::get() < initial_issuance);
+        assert!(TotalHotkeyAlpha::<Test>::get(hotkey, netuid) < initial_alpha);
+        assert!(SubnetAlphaOut::<Test>::get(netuid) == initial_net_alpha);
+
         assert!(System::events().iter().any(|e| {
             matches!(
                 &e.event,
-                RuntimeEvent::SubtensorModule(Event::TokensBurned(..))
+                RuntimeEvent::SubtensorModule(Event::AlphaBurned(..))
             )
         }));
     });
@@ -128,7 +125,7 @@ fn test_recycle_errors() {
         increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_amount, netuid);
 
         assert_noop!(
-            SubtensorModule::recycle(
+            SubtensorModule::recycle_alpha(
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 100_000,
@@ -138,7 +135,7 @@ fn test_recycle_errors() {
         );
 
         assert_noop!(
-            SubtensorModule::recycle(
+            SubtensorModule::recycle_alpha(
                 RuntimeOrigin::signed(wrong_coldkey),
                 hotkey,
                 100_000,
@@ -148,7 +145,7 @@ fn test_recycle_errors() {
         );
 
         assert_noop!(
-            SubtensorModule::recycle(
+            SubtensorModule::recycle_alpha(
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 10_000_000_000, // too much
@@ -157,12 +154,16 @@ fn test_recycle_errors() {
             Error::<Test>::NotEnoughStakeToWithdraw
         );
 
-        // Set AlphaOut to 0 to cause InsufficientLiquidity
-        SubnetAlphaIn::<Test>::insert(netuid, 1_000_000); // Ensure there's enough alphaIn
-        SubnetAlphaOut::<Test>::insert(netuid, 0); // But no alphaOut
+        // make it pass the hotkey alpha check
+        TotalHotkeyAlpha::<Test>::set(hotkey, netuid, SubnetAlphaOut::<Test>::get(netuid) + 1);
 
         assert_noop!(
-            SubtensorModule::recycle(RuntimeOrigin::signed(coldkey), hotkey, 100_000, netuid),
+            SubtensorModule::recycle_alpha(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                SubnetAlphaOut::<Test>::get(netuid) + 1,
+                netuid
+            ),
             Error::<Test>::InsufficientLiquidity
         );
     });
@@ -189,7 +190,17 @@ fn test_burn_errors() {
         increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_amount, netuid);
 
         assert_noop!(
-            SubtensorModule::burn(
+            SubtensorModule::burn_alpha(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                100_000,
+                99 // non-existent subnet
+            ),
+            Error::<Test>::SubNetworkDoesNotExist
+        );
+
+        assert_noop!(
+            SubtensorModule::burn_alpha(
                 RuntimeOrigin::signed(wrong_coldkey),
                 hotkey,
                 100_000,
@@ -199,13 +210,26 @@ fn test_burn_errors() {
         );
 
         assert_noop!(
-            SubtensorModule::burn(
+            SubtensorModule::burn_alpha(
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 10_000_000_000, // too much
                 netuid
             ),
             Error::<Test>::NotEnoughStakeToWithdraw
+        );
+
+        // make it pass the hotkey alpha check
+        TotalHotkeyAlpha::<Test>::set(hotkey, netuid, SubnetAlphaOut::<Test>::get(netuid) + 1);
+
+        assert_noop!(
+            SubtensorModule::burn_alpha(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                SubnetAlphaOut::<Test>::get(netuid) + 1,
+                netuid
+            ),
+            Error::<Test>::InsufficientLiquidity
         );
     });
 }
