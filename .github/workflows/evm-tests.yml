@@ -27,6 +27,11 @@ jobs:
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: "22"
+
       - name: Install dependencies
         run: |
           sudo apt-get update &&
