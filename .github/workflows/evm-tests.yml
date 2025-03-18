@@ -1,0 +1,40 @@
+name: EVM E2E Tests
+
+on:
+  pull_request:
+
+  ## Allow running workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      verbose:
+        description: "Output more information when triggered manually"
+        required: false
+        default: ""
+
+env:
+  CARGO_TERM_COLOR: always
+  VERBOSE: ${{ github.events.input.verbose }}
+
+jobs:
+  run:
+    runs-on: SubtensorCI
+    env:
+      RUST_BACKTRACE: full
+    steps:
+      - name: Check-out repository under $GITHUB_WORKSPACE
+        uses: actions/checkout@v4
+
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update &&
+          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
+
+      - name: Run tests
+        working-directory: ${{ github.workspace }}
+        run: |
+          pwd
+          ls
+          sh ./evm-tests/run-ci.sh
