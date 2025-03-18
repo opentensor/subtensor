@@ -12,6 +12,10 @@ while [ $i -le 1000 ]; do
   i=$((i + 1))
 done
 
+echo "port is available"
+pwd
+
+
 # port not available exit with error
 if [ "$i" -eq 1000 ]; then
     exit 1
@@ -19,6 +23,7 @@ fi
 
 echo "go to evm-tests"
 cd evm-tests
+pwd
 
 npm install --global yarn
 
