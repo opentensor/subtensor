@@ -4,11 +4,15 @@ use std::ops::Neg;
 use safe_math::*;
 use substrate_fixed::types::U64F64;
 
-use self::tick_math::{
-    MAX_TICK, MIN_TICK, TickMathError, get_sqrt_ratio_at_tick, get_tick_at_sqrt_ratio,
-    u64f64_to_u256_q64_96, u256_q64_96_to_u64f64,
+use self::error::SwapError;
+use self::tick::{
+    Tick, find_closest_higher_active_tick, find_closest_lower_active_tick,
+    sqrt_price_to_tick_index, tick_index_to_sqrt_price,
 };
+use self::tick_math::{MAX_TICK, MIN_TICK};
 
+mod error;
+mod tick;
 mod tick_math;
 
 type SqrtPrice = U64F64;
@@ -63,32 +67,6 @@ pub struct Position {
 }
 
 impl Position {
-    /// Converts tick index into SQRT of lower price of this tick
-    /// In order to find the higher price of this tick, call
-    /// tick_index_to_sqrt_price(tick_idx + 1)
-    pub fn tick_index_to_sqrt_price(tick_idx: i32) -> Result<SqrtPrice, TickMathError> {
-        // because of u256->u128 conversion we have twice less values for min/max ticks
-        if !(MIN_TICK / 2..=MAX_TICK / 2).contains(&tick_idx) {
-            return Err(TickMathError::TickOutOfBounds);
-        }
-        get_sqrt_ratio_at_tick(tick_idx).and_then(u256_q64_96_to_u64f64)
-    }
-
-    /// Converts SQRT price to tick index
-    /// Because the tick is the range of prices [sqrt_lower_price, sqrt_higher_price),
-    /// the resulting tick index matches the price by the following inequality:
-    ///    sqrt_lower_price <= sqrt_price < sqrt_higher_price
-    pub fn sqrt_price_to_tick_index(sqrt_price: SqrtPrice) -> Result<i32, TickMathError> {
-        let tick = get_tick_at_sqrt_ratio(u64f64_to_u256_q64_96(sqrt_price))?;
-
-        // Correct for rounding error during conversions between different fixed-point formats
-        Ok(if tick == 0 {
-            tick
-        } else {
-            tick.saturating_add(1)
-        })
-    }
-
     /// Converts position to token amounts
     ///
     /// returns tuple of (TAO, Alpha)
@@ -96,9 +74,9 @@ impl Position {
     pub fn to_token_amounts(&self, _current_tick: u64) -> (u64, u64) {
         // let one = 1.into();
 
-        // let sqrt_price_curr = Self::tick_index_to_sqrt_price(current_tick);
-        // let sqrt_pa = Self::tick_index_to_sqrt_price(self.tick_low);
-        // let sqrt_pb = Self::tick_index_to_sqrt_price(self.tick_high);
+        // let sqrt_price_curr = tick_index_to_sqrt_price(current_tick);
+        // let sqrt_pa = tick_index_to_sqrt_price(self.tick_low);
+        // let sqrt_pb = tick_index_to_sqrt_price(self.tick_high);
 
         // if sqrt_price_curr < sqrt_pa {
         //     (
@@ -119,22 +97,6 @@ impl Position {
         // }
         todo!()
     }
-}
-
-/// Tick is the price range determined by tick index (not part of this struct,
-/// but is the key at which the Tick is stored in state hash maps). Tick struct
-/// stores liquidity and fee information.
-///
-///   - Net liquidity
-///   - Gross liquidity
-///   - Fees (above global) in both currencies
-///
-#[derive(Default)]
-pub struct Tick {
-    liquidity_net: i128,
-    liquidity_gross: u64,
-    fees_out_tao: U64F64,
-    fees_out_alpha: U64F64,
 }
 
 /// This trait implementation depends on Runtime and it needs to be implemented
@@ -303,12 +265,12 @@ where
         tick_low: u64,
         tick_high: u64,
         liquidity: u64,
-    ) -> Result<u64, ()> {
+    ) -> Result<u64, SwapError> {
         // Check if we can add a position
         let position_count = self.state_ops.get_position_count(account_id);
         let max_positions = self.state_ops.get_max_positions();
         if position_count >= max_positions {
-            return Err(());
+            return Err(SwapError::MaxPositionsExceeded);
         }
 
         // Add liquidity at tick
@@ -318,45 +280,40 @@ where
         // Update current tick and liquidity
         // TODO: Review why python uses this code to get the new tick index:
         // k = self.get_tick_index(i)
-        let current_price = self.state_ops.get_alpha_sqrt_price();
-        let maybe_current_tick_index = Position::sqrt_price_to_tick_index(current_price.into());
+        let current_tick_index = self.get_current_tick_index();
 
-        if let Ok(current_tick_index) = maybe_current_tick_index {
-            // Update current tick liquidity
-            if (tick_low <= current_tick_index as u64) && (current_tick_index as u64 <= tick_high) {
-                let new_current_liquidity = self
-                    .state_ops
-                    .get_current_liquidity()
-                    .saturating_add(liquidity);
-                self.state_ops.set_current_liquidity(new_current_liquidity);
-            }
-
-            // Update balances
-            let position = Position {
-                tick_low,
-                tick_high,
-                liquidity,
-                fees_tao: 0_u64,
-                fees_alpha: 0_u64,
-            };
-            let (tao, alpha) = position.to_token_amounts(current_tick_index as u64);
-            self.state_ops.withdraw_balances(account_id, tao, alpha);
-
-            // Update reserves
-            let new_tao_reserve = self.state_ops.get_tao_reserve().saturating_add(tao);
-            self.state_ops.set_tao_reserve(new_tao_reserve);
-            let new_alpha_reserve = self.state_ops.get_alpha_reserve().saturating_add(alpha);
-            self.state_ops.set_alpha_reserve(new_alpha_reserve);
-
-            // Update user positions
-            let position_id = position_count.saturating_add(1);
-            self.state_ops
-                .update_position(account_id, position_id, position);
-
-            Ok(liquidity)
-        } else {
-            Err(())
+        // Update current tick liquidity
+        if (tick_low <= current_tick_index as u64) && (current_tick_index as u64 <= tick_high) {
+            let new_current_liquidity = self
+                .state_ops
+                .get_current_liquidity()
+                .saturating_add(liquidity);
+            self.state_ops.set_current_liquidity(new_current_liquidity);
         }
+
+        // Update balances
+        let position = Position {
+            tick_low,
+            tick_high,
+            liquidity,
+            fees_tao: 0_u64,
+            fees_alpha: 0_u64,
+        };
+        let (tao, alpha) = position.to_token_amounts(current_tick_index as u64);
+        self.state_ops.withdraw_balances(account_id, tao, alpha);
+
+        // Update reserves
+        let new_tao_reserve = self.state_ops.get_tao_reserve().saturating_add(tao);
+        self.state_ops.set_tao_reserve(new_tao_reserve);
+        let new_alpha_reserve = self.state_ops.get_alpha_reserve().saturating_add(alpha);
+        self.state_ops.set_alpha_reserve(new_alpha_reserve);
+
+        // Update user positions
+        let position_id = position_count.saturating_add(1);
+        self.state_ops
+            .update_position(account_id, position_id, position);
+
+        Ok(liquidity)
     }
 
     /// Remove liquidity and credit balances back to account_id
@@ -367,54 +324,48 @@ where
         &self,
         account_id: &AccountIdType,
         position_id: u16,
-    ) -> Result<RemoveLiquidityResult, ()> {
+    ) -> Result<RemoveLiquidityResult, SwapError> {
         // Check if position exists
         if let Some(mut pos) = self.state_ops.get_position(account_id, position_id) {
             // Get current price
-            let current_price = self.state_ops.get_alpha_sqrt_price();
-            let maybe_current_tick_index = Position::sqrt_price_to_tick_index(current_price);
+            let current_tick_index = self.get_current_tick_index();
 
-            if let Ok(current_tick_index) = maybe_current_tick_index {
-                // Collect fees and get tao and alpha amounts
-                let (fee_tao, fee_alpha) = self.collect_fees(&mut pos);
-                let (tao, alpha) = pos.to_token_amounts(current_tick_index as u64);
+            // Collect fees and get tao and alpha amounts
+            let (fee_tao, fee_alpha) = self.collect_fees(&mut pos);
+            let (tao, alpha) = pos.to_token_amounts(current_tick_index as u64);
 
-                // Update liquidity at position ticks
-                self.remove_liquidity_at_index(pos.tick_low, pos.liquidity, false);
-                self.remove_liquidity_at_index(pos.tick_high, pos.liquidity, true);
+            // Update liquidity at position ticks
+            self.remove_liquidity_at_index(pos.tick_low, pos.liquidity, false);
+            self.remove_liquidity_at_index(pos.tick_high, pos.liquidity, true);
 
-                // Update current tick liquidity
-                if (pos.tick_low <= current_tick_index as u64)
-                    && (current_tick_index as u64 <= pos.tick_high)
-                {
-                    let new_current_liquidity = self
-                        .state_ops
-                        .get_current_liquidity()
-                        .saturating_sub(pos.liquidity);
-                    self.state_ops.set_current_liquidity(new_current_liquidity);
-                }
-
-                // Remove user position
-                self.state_ops.remove_position(account_id, position_id);
-
-                // TODO: Clear with R&D
-                // Update current price (why?)
-                // self.state_ops.set_alpha_sqrt_price(sqrt_price);
-
-                // Return Ok result
-                Ok(RemoveLiquidityResult {
-                    tao,
-                    alpha,
-                    fee_tao,
-                    fee_alpha,
-                })
-            } else {
-                // Current price is broken
-                Err(())
+            // Update current tick liquidity
+            if (pos.tick_low <= current_tick_index as u64)
+                && (current_tick_index as u64 <= pos.tick_high)
+            {
+                let new_current_liquidity = self
+                    .state_ops
+                    .get_current_liquidity()
+                    .saturating_sub(pos.liquidity);
+                self.state_ops.set_current_liquidity(new_current_liquidity);
             }
+
+            // Remove user position
+            self.state_ops.remove_position(account_id, position_id);
+
+            // TODO: Clear with R&D
+            // Update current price (why?)
+            // self.state_ops.set_alpha_sqrt_price(sqrt_price);
+
+            // Return Ok result
+            Ok(RemoveLiquidityResult {
+                tao,
+                alpha,
+                fee_tao,
+                fee_alpha,
+            })
         } else {
             // Position doesn't exist
-            Err(())
+            Err(SwapError::LiquidityNotFound)
         }
     }
 
@@ -427,7 +378,7 @@ where
         order_type: &OrderType,
         amount: u64,
         sqrt_price_limit: SqrtPrice,
-    ) -> Result<SwapResult, ()> {
+    ) -> Result<SwapResult, SwapError> {
         let one = U64F64::saturating_from_num(1);
 
         // Here we store the remaining amount that needs to be exchanged
@@ -514,7 +465,7 @@ where
                 }
             }
 
-            let swap_result = self.swap_step(order_type, delta_in, final_price, action);
+            let swap_result = self.swap_step(order_type, delta_in, final_price, action)?;
             amount_remaining = amount_remaining.saturating_sub(swap_result.amount_to_take);
             amount_paid_out = amount_paid_out.saturating_add(swap_result.delta_out);
 
@@ -525,7 +476,7 @@ where
 
             iteration_counter = iteration_counter.saturating_add(1);
             if iteration_counter > iter_limit {
-                return Err(());
+                return Err(SwapError::TooManySwapSteps);
             }
         }
 
@@ -533,6 +484,28 @@ where
             amount_paid_out,
             refund,
         })
+    }
+
+    fn get_current_tick_index(&self) -> i32 {
+        let current_price = self.state_ops.get_alpha_sqrt_price();
+        let maybe_current_tick_index = sqrt_price_to_tick_index(current_price);
+        if let Ok(index) = maybe_current_tick_index {
+            index
+        } else {
+            // Current price is out of allow the min-max range, and it should be corrected to
+            // maintain the range.
+            let max_price =
+                tick_index_to_sqrt_price(MAX_TICK).unwrap_or(SqrtPrice::saturating_from_num(1000));
+            let min_price = tick_index_to_sqrt_price(MIN_TICK)
+                .unwrap_or(SqrtPrice::saturating_from_num(0.000001));
+            if current_price > max_price {
+                self.state_ops.set_alpha_sqrt_price(max_price);
+                MAX_TICK
+            } else {
+                self.state_ops.set_alpha_sqrt_price(min_price);
+                MIN_TICK
+            }
+        }
     }
 
     /// Process a single step of a swap
@@ -543,7 +516,7 @@ where
         delta_in: u64,
         sqrt_price_final: SqrtPrice,
         action: SwapStepAction,
-    ) -> SwapStepResult {
+    ) -> Result<SwapStepResult, SwapError> {
         // amount_swapped = delta_in / (1 - self.fee_size)
         let fee_rate = U64F64::saturating_from_num(self.state_ops.get_fee_rate());
         let u16_max = U64F64::saturating_from_num(u16::MAX);
@@ -559,58 +532,37 @@ where
         self.update_reserves(order_type, delta_in, delta_out);
 
         // Get current tick
-        let current_price = self.state_ops.get_alpha_sqrt_price();
-        let maybe_current_tick_index = Position::sqrt_price_to_tick_index(current_price);
-        let current_tick_index;
-        if let Ok(index) = maybe_current_tick_index {
-            current_tick_index = index;
-        } else {
-            return SwapStepResult {
-                amount_to_take: 0,
-                delta_out: 0,
-            };
-        }
+        let current_tick_index = self.get_current_tick_index();
 
         match action {
             SwapStepAction::Crossing => {
-                let mut tick = match order_type {
-                    OrderType::Sell => {
-                        // TODO: Review if non-existing current tick is possible
-                        self.state_ops
-                            .get_tick_by_index(current_tick_index as u64)
-                            .unwrap_or_default()
-                    }
-                    OrderType::Buy => {
-                        // TODO: Active vs all ticks. Just + 1 doesn't work right now
-                        self.state_ops
-                            .get_tick_by_index((current_tick_index + 1) as u64)
-                            .unwrap_or_default()
-                    }
+                let maybe_tick = match order_type {
+                    OrderType::Sell => find_closest_lower_active_tick(current_tick_index),
+                    OrderType::Buy => find_closest_higher_active_tick(current_tick_index),
                 };
-                tick.fees_out_tao = self
-                    .state_ops
-                    .get_fee_global_tao()
-                    .saturating_sub(tick.fees_out_tao);
-                tick.fees_out_alpha = self
-                    .state_ops
-                    .get_fee_global_alpha()
-                    .saturating_sub(tick.fees_out_alpha);
-                self.update_liquidity_at_crossing(order_type);
-                self.state_ops
-                    .insert_tick_by_index(current_tick_index as u64, tick);
+                if let Some(mut tick) = maybe_tick {
+                    tick.fees_out_tao = self
+                        .state_ops
+                        .get_fee_global_tao()
+                        .saturating_sub(tick.fees_out_tao);
+                    tick.fees_out_alpha = self
+                        .state_ops
+                        .get_fee_global_alpha()
+                        .saturating_sub(tick.fees_out_alpha);
+                    self.update_liquidity_at_crossing(order_type)?;
+                    self.state_ops
+                        .insert_tick_by_index(current_tick_index as u64, tick);
+                } else {
+                    return Err(SwapError::InsufficientLiquidity);
+                }
             }
-            SwapStepAction::StopOn => {
-                match order_type {
-                    OrderType::Sell => {}
-                    OrderType::Buy => {
-                        self.update_liquidity_at_crossing(order_type);
+            SwapStepAction::StopOn => match order_type {
+                OrderType::Sell => {}
+                OrderType::Buy => {
+                    self.update_liquidity_at_crossing(order_type)?;
+                    let maybe_tick = find_closest_higher_active_tick(current_tick_index);
 
-                        // TODO: Active vs all ticks. Just + 1 doesn't work right now
-                        let mut tick = self
-                            .state_ops
-                            .get_tick_by_index((current_tick_index + 1) as u64)
-                            .unwrap_or_default();
-
+                    if let Some(mut tick) = maybe_tick {
                         tick.fees_out_tao = self
                             .state_ops
                             .get_fee_global_tao()
@@ -621,19 +573,21 @@ where
                             .saturating_sub(tick.fees_out_alpha);
                         self.state_ops
                             .insert_tick_by_index(current_tick_index as u64, tick);
+                    } else {
+                        return Err(SwapError::InsufficientLiquidity);
                     }
                 }
-            }
+            },
             SwapStepAction::StopIn => {}
         }
 
         // Update current price, which effectively updates current tick too
         self.state_ops.set_alpha_sqrt_price(sqrt_price_final);
 
-        SwapStepResult {
+        Ok(SwapStepResult {
             amount_to_take: amount_swapped.saturating_to_num::<u64>(),
             delta_out,
-        }
+        })
     }
 
     /// Get the square root price at the current tick edge for the given direction (order type)
@@ -645,16 +599,16 @@ where
     ///
     fn get_sqrt_price_edge(&self, order_type: &OrderType) -> SqrtPrice {
         let fallback_price_edge_value = (match order_type {
-            OrderType::Buy => Position::tick_index_to_sqrt_price(MIN_TICK),
-            OrderType::Sell => Position::tick_index_to_sqrt_price(MAX_TICK),
+            OrderType::Buy => tick_index_to_sqrt_price(MIN_TICK),
+            OrderType::Sell => tick_index_to_sqrt_price(MAX_TICK),
         })
         .unwrap_or(SqrtPrice::saturating_from_num(0));
 
         let current_price = self.state_ops.get_alpha_sqrt_price();
-        let maybe_current_tick_index = Position::sqrt_price_to_tick_index(current_price);
+        let maybe_current_tick_index = sqrt_price_to_tick_index(current_price);
 
         if let Ok(current_tick_index) = maybe_current_tick_index {
-            Position::tick_index_to_sqrt_price(match order_type {
+            tick_index_to_sqrt_price(match order_type {
                 OrderType::Buy => current_tick_index.saturating_add(1),
                 OrderType::Sell => current_tick_index,
             })
@@ -888,18 +842,13 @@ where
 
     /// Update liquidity when crossing a tick
     ///
-    fn update_liquidity_at_crossing(&self, order_type: &OrderType) {
+    fn update_liquidity_at_crossing(&self, order_type: &OrderType) -> Result<(), SwapError> {
         let mut liquidity_curr = self.state_ops.get_current_liquidity();
-        let current_price = self.state_ops.get_alpha_sqrt_price();
-        let maybe_current_tick_index = Position::sqrt_price_to_tick_index(current_price);
-        if let Ok(current_tick_index) = maybe_current_tick_index {
-            match order_type {
-                OrderType::Sell => {
-                    // TODO: Review if non-existing current tick is possible
-                    let tick = self
-                        .state_ops
-                        .get_tick_by_index(current_tick_index as u64)
-                        .unwrap_or_default();
+        let current_tick_index = self.get_current_tick_index();
+        match order_type {
+            OrderType::Sell => {
+                let maybe_tick = find_closest_lower_active_tick(current_tick_index);
+                if let Some(tick) = maybe_tick {
                     let liquidity_update_abs_u64 = self.get_liquidity_update_u64(&tick);
 
                     liquidity_curr = if tick.liquidity_net >= 0 {
@@ -907,13 +856,13 @@ where
                     } else {
                         liquidity_curr.saturating_add(liquidity_update_abs_u64)
                     };
+                } else {
+                    return Err(SwapError::InsufficientLiquidity);
                 }
-                OrderType::Buy => {
-                    // TODO: Active vs all ticks. Just + 1 doesn't work right now
-                    let tick = self
-                        .state_ops
-                        .get_tick_by_index((current_tick_index + 1) as u64)
-                        .unwrap_or_default();
+            }
+            OrderType::Buy => {
+                let maybe_tick = find_closest_higher_active_tick(current_tick_index);
+                if let Some(tick) = maybe_tick {
                     let liquidity_update_abs_u64 = self.get_liquidity_update_u64(&tick);
 
                     liquidity_curr = if tick.liquidity_net >= 0 {
@@ -921,10 +870,14 @@ where
                     } else {
                         liquidity_curr.saturating_sub(liquidity_update_abs_u64)
                     };
+                } else {
+                    return Err(SwapError::InsufficientLiquidity);
                 }
             }
         }
+
         self.state_ops.set_current_liquidity(liquidity_curr);
+        Ok(())
     }
 
     /// Collect fees for a position
@@ -1005,94 +958,5 @@ where
 
         // return fee
         todo!()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_tick_index_to_sqrt_price() {
-        let tick_spacing = SqrtPrice::from_num(1.0001);
-
-        // check tick bounds
-        assert_eq!(
-            Position::tick_index_to_sqrt_price(MIN_TICK),
-            Err(TickMathError::TickOutOfBounds)
-        );
-
-        assert_eq!(
-            Position::tick_index_to_sqrt_price(MAX_TICK),
-            Err(TickMathError::TickOutOfBounds),
-        );
-
-        // At tick index 0, the sqrt price should be 1.0
-        let sqrt_price = Position::tick_index_to_sqrt_price(0).unwrap();
-        assert_eq!(sqrt_price, SqrtPrice::from_num(1.0));
-
-        let sqrt_price = Position::tick_index_to_sqrt_price(2).unwrap();
-        assert!(sqrt_price.abs_diff(tick_spacing) < SqrtPrice::from_num(1e-10));
-
-        let sqrt_price = Position::tick_index_to_sqrt_price(4).unwrap();
-        // Calculate the expected value: (1 + TICK_SPACING/1e9 + 1.0)^2
-        let expected = tick_spacing * tick_spacing;
-        assert!(sqrt_price.abs_diff(expected) < SqrtPrice::from_num(1e-10));
-
-        // Test with tick index 10
-        let sqrt_price = Position::tick_index_to_sqrt_price(10).unwrap();
-        // Calculate the expected value: (1 + TICK_SPACING/1e9 + 1.0)^5
-        let expected = tick_spacing.checked_pow(5).unwrap();
-        assert!(
-            sqrt_price.abs_diff(expected) < SqrtPrice::from_num(1e-10),
-            "diff: {}",
-            sqrt_price.abs_diff(expected),
-        );
-    }
-
-    #[test]
-    fn test_sqrt_price_to_tick_index() {
-        let tick_spacing = SqrtPrice::from_num(1.0001);
-        let tick_index = Position::sqrt_price_to_tick_index(SqrtPrice::from_num(1.0)).unwrap();
-        assert_eq!(tick_index, 0);
-
-        // Test with sqrt price equal to tick_spacing_tao (should be tick index 2)
-        let tick_index = Position::sqrt_price_to_tick_index(tick_spacing).unwrap();
-        assert_eq!(tick_index, 2);
-
-        // Test with sqrt price equal to tick_spacing_tao^2 (should be tick index 4)
-        let sqrt_price = tick_spacing * tick_spacing;
-        let tick_index = Position::sqrt_price_to_tick_index(sqrt_price).unwrap();
-        assert_eq!(tick_index, 4);
-
-        // Test with sqrt price equal to tick_spacing_tao^5 (should be tick index 10)
-        let sqrt_price = tick_spacing.checked_pow(5).unwrap();
-        let tick_index = Position::sqrt_price_to_tick_index(sqrt_price).unwrap();
-        assert_eq!(tick_index, 10);
-    }
-
-    #[test]
-    fn test_roundtrip_tick_index_sqrt_price() {
-        for tick_index in [
-            MIN_TICK / 2,
-            -1000,
-            -100,
-            -10,
-            -4,
-            -2,
-            0,
-            2,
-            4,
-            10,
-            100,
-            1000,
-            MAX_TICK / 2,
-        ]
-        .iter()
-        {
-            let sqrt_price = Position::tick_index_to_sqrt_price(*tick_index).unwrap();
-            let round_trip_tick_index = Position::sqrt_price_to_tick_index(sqrt_price).unwrap();
-            assert_eq!(round_trip_tick_index, *tick_index);
-        }
     }
 }
