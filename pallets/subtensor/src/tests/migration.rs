@@ -34,20 +34,21 @@ fn test_initialise_ti() {
     use frame_support::traits::OnRuntimeUpgrade;
 
     new_test_ext(1).execute_with(|| {
-        crate::SubnetLocked::<Test>::insert(1, 100);
-        crate::SubnetLocked::<Test>::insert(2, 5);
         pallet_balances::TotalIssuance::<Test>::put(1000);
-        crate::TotalStake::<Test>::put(25);
+        crate::SubnetTAO::<Test>::insert(1, 100);
+        crate::SubnetTAO::<Test>::insert(2, 5);
 
         // Ensure values are NOT initialized prior to running migration
         assert!(crate::TotalIssuance::<Test>::get() == 0);
+		assert!(crate::TotalStake::<Test>::get() == 0);
 
         crate::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration::<Test>::on_runtime_upgrade();
 
         // Ensure values were initialized correctly
+		assert!(crate::TotalStake::<Test>::get() == 105);
         assert!(
             crate::TotalIssuance::<Test>::get()
-                == 105u64.saturating_add(1000).saturating_add(25)
+                == 105u64.saturating_add(1000)
         );
     });
 }
