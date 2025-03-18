@@ -11,6 +11,7 @@ mod mock;
 mod move_stake;
 mod networks;
 mod neuron_info;
+mod recycle;
 mod registration;
 mod senate;
 mod serving;

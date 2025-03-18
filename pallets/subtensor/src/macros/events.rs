@@ -275,5 +275,17 @@ mod events {
         /// Parameters:
         /// (netuid, new_hotkey)
         SubnetOwnerHotkeySet(u16, T::AccountId),
+
+        /// Tokens have been recycled, reducing AlphaOut on a subnet.
+        ///
+        /// Parameters:
+        /// (coldkey, hotkey, amount, subnet_id, alpha_recycled)
+        TokensRecycled(T::AccountId, T::AccountId, u64, u16, u64),
+
+        /// Tokens have been burned without reducing AlphaOut.
+        ///
+        /// Parameters:
+        /// (coldkey, hotkey, amount, subnet_id)
+        TokensBurned(T::AccountId, T::AccountId, u64, u16),
     }
 }
