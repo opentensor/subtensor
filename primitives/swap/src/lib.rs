@@ -6,7 +6,7 @@ use substrate_fixed::types::U64F64;
 
 use self::error::SwapError;
 use self::tick::{
-    Tick, find_closest_higher_active_tick, find_closest_lower_active_tick,
+    Tick, find_closest_higher_active_tick_index, find_closest_lower_active_tick_index,
     sqrt_price_to_tick_index, tick_index_to_sqrt_price,
 };
 use self::tick_math::{MAX_TICK, MIN_TICK};
@@ -59,8 +59,8 @@ struct SwapStepResult {
 ///
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub struct Position {
-    tick_low: u64,
-    tick_high: u64,
+    tick_low: i32,
+    tick_high: i32,
     liquidity: u64,
     fees_tao: u64,
     fees_alpha: u64,
@@ -71,31 +71,44 @@ impl Position {
     ///
     /// returns tuple of (TAO, Alpha)
     ///
-    pub fn to_token_amounts(&self, _current_tick: u64) -> (u64, u64) {
-        // let one = 1.into();
+    pub fn to_token_amounts(&self, current_tick: i32) -> Result<(u64, u64), SwapError> {
+        let one: U64F64 = U64F64::saturating_from_num(1);
 
-        // let sqrt_price_curr = tick_index_to_sqrt_price(current_tick);
-        // let sqrt_pa = tick_index_to_sqrt_price(self.tick_low);
-        // let sqrt_pb = tick_index_to_sqrt_price(self.tick_high);
+        let sqrt_price_curr: SqrtPrice =
+            tick_index_to_sqrt_price(current_tick).map_err(|_| SwapError::InvalidTickRange)?;
+        let sqrt_pa: SqrtPrice =
+            tick_index_to_sqrt_price(self.tick_low).map_err(|_| SwapError::InvalidTickRange)?;
+        let sqrt_pb: SqrtPrice =
+            tick_index_to_sqrt_price(self.tick_high).map_err(|_| SwapError::InvalidTickRange)?;
+        let liquidity_fixed: U64F64 = U64F64::saturating_from_num(self.liquidity);
 
-        // if sqrt_price_curr < sqrt_pa {
-        //     (
-        //         liquidity
-        //             .saturating_mul(one.safe_div(sqrt_pa).saturating_sub(one.safe_div(sqrt_pb))),
-        //         0,
-        //     )
-        // } else if sqrt_price_curr > sqrt_pb {
-        //     (0, liquidity.saturating_mul(sqrt_pb.saturating_sub(sqrt_pa)))
-        // } else {
-        //     (
-        //         liquidity.saturating_mul(
-        //             one.save_div(sqrt_price_curr)
-        //                 .saturating_sub(one.safe_div(sqrt_pb)),
-        //         ),
-        //         liquidity.saturating_mul(sqrt_price_curr.saturating_sub(sqrt_pa)),
-        //     )
-        // }
-        todo!()
+        Ok(if sqrt_price_curr < sqrt_pa {
+            (
+                liquidity_fixed
+                    .saturating_mul(one.safe_div(sqrt_pa).saturating_sub(one.safe_div(sqrt_pb)))
+                    .saturating_to_num::<u64>(),
+                0,
+            )
+        } else if sqrt_price_curr > sqrt_pb {
+            (
+                0,
+                liquidity_fixed
+                    .saturating_mul(sqrt_pb.saturating_sub(sqrt_pa))
+                    .saturating_to_num::<u64>(),
+            )
+        } else {
+            (
+                liquidity_fixed
+                    .saturating_mul(
+                        one.safe_div(sqrt_price_curr)
+                            .saturating_sub(one.safe_div(sqrt_pb)),
+                    )
+                    .saturating_to_num::<u64>(),
+                liquidity_fixed
+                    .saturating_mul(sqrt_price_curr.saturating_sub(sqrt_pa))
+                    .saturating_to_num::<u64>(),
+            )
+        })
     }
 }
 
@@ -112,9 +125,9 @@ pub trait SwapDataOperations<AccountIdType> {
     fn get_fee_rate(&self) -> u16;
     /// Minimum liquidity that is safe for rounding and integer math.
     fn get_minimum_liquidity(&self) -> u64;
-    fn get_tick_by_index(&self, tick_index: u64) -> Option<Tick>;
-    fn insert_tick_by_index(&self, tick_index: u64, tick: Tick);
-    fn remove_tick_by_index(&self, tick_index: u64);
+    fn get_tick_by_index(&self, tick_index: i32) -> Option<Tick>;
+    fn insert_tick_by_index(&self, tick_index: i32, tick: Tick);
+    fn remove_tick_by_index(&self, tick_index: i32);
     /// Minimum sqrt price across all active ticks
     fn get_min_sqrt_price(&self) -> SqrtPrice;
     /// Maximum sqrt price across all active ticks
@@ -166,14 +179,16 @@ where
     AccountIdType: Eq,
     Ops: SwapDataOperations<AccountIdType>,
 {
-    pub fn new(_ops: Ops) -> Self {
-        // if !ops.is_v3_initialized() {
-        //     // TODO: Initialize the v3
-        //     // Set price, set initial (protocol owned) liquidity and positions, etc.
-        // }
+    pub fn new(ops: Ops) -> Self {
+        if !ops.is_v3_initialized() {
+            // TODO: Initialize the v3
+            // Set price, set initial (protocol owned) liquidity and positions, etc.
+        }
 
-        // Swap { state_ops: ops }
-        todo!()
+        Swap {
+            state_ops: ops,
+            phantom_key: PhantomData,
+        }
     }
 
     /// Auxiliary method to calculate Alpha amount to match given TAO
@@ -199,7 +214,7 @@ where
 
     /// Add liquidity at tick index. Creates new tick if it doesn't exist
     ///
-    fn add_liquidity_at_index(&self, tick_index: u64, liquidity: u64, upper: bool) {
+    fn add_liquidity_at_index(&self, tick_index: i32, liquidity: u64, upper: bool) {
         // Calculate net liquidity addition
         let net_addition = if upper {
             (liquidity as i128).neg()
@@ -229,7 +244,7 @@ where
 
     /// Remove liquidity at tick index.
     ///
-    fn remove_liquidity_at_index(&self, tick_index: u64, liquidity: u64, upper: bool) {
+    fn remove_liquidity_at_index(&self, tick_index: i32, liquidity: u64, upper: bool) {
         // Calculate net liquidity addition
         let net_reduction = if upper {
             (liquidity as i128).neg()
@@ -262,8 +277,8 @@ where
     pub fn add_liquidity(
         &self,
         account_id: &AccountIdType,
-        tick_low: u64,
-        tick_high: u64,
+        tick_low: i32,
+        tick_high: i32,
         liquidity: u64,
     ) -> Result<u64, SwapError> {
         // Check if we can add a position
@@ -283,7 +298,7 @@ where
         let current_tick_index = self.get_current_tick_index();
 
         // Update current tick liquidity
-        if (tick_low <= current_tick_index as u64) && (current_tick_index as u64 <= tick_high) {
+        if (tick_low <= current_tick_index) && (current_tick_index <= tick_high) {
             let new_current_liquidity = self
                 .state_ops
                 .get_current_liquidity()
@@ -299,7 +314,7 @@ where
             fees_tao: 0_u64,
             fees_alpha: 0_u64,
         };
-        let (tao, alpha) = position.to_token_amounts(current_tick_index as u64);
+        let (tao, alpha) = position.to_token_amounts(current_tick_index)?;
         self.state_ops.withdraw_balances(account_id, tao, alpha);
 
         // Update reserves
@@ -332,16 +347,14 @@ where
 
             // Collect fees and get tao and alpha amounts
             let (fee_tao, fee_alpha) = self.collect_fees(&mut pos);
-            let (tao, alpha) = pos.to_token_amounts(current_tick_index as u64);
+            let (tao, alpha) = pos.to_token_amounts(current_tick_index)?;
 
             // Update liquidity at position ticks
             self.remove_liquidity_at_index(pos.tick_low, pos.liquidity, false);
             self.remove_liquidity_at_index(pos.tick_high, pos.liquidity, true);
 
             // Update current tick liquidity
-            if (pos.tick_low <= current_tick_index as u64)
-                && (current_tick_index as u64 <= pos.tick_high)
-            {
+            if (pos.tick_low <= current_tick_index) && (current_tick_index <= pos.tick_high) {
                 let new_current_liquidity = self
                     .state_ops
                     .get_current_liquidity()
@@ -537,8 +550,8 @@ where
         match action {
             SwapStepAction::Crossing => {
                 let maybe_tick = match order_type {
-                    OrderType::Sell => find_closest_lower_active_tick(current_tick_index),
-                    OrderType::Buy => find_closest_higher_active_tick(current_tick_index),
+                    OrderType::Sell => self.find_closest_lower_active_tick(current_tick_index),
+                    OrderType::Buy => self.find_closest_higher_active_tick(current_tick_index),
                 };
                 if let Some(mut tick) = maybe_tick {
                     tick.fees_out_tao = self
@@ -551,7 +564,7 @@ where
                         .saturating_sub(tick.fees_out_alpha);
                     self.update_liquidity_at_crossing(order_type)?;
                     self.state_ops
-                        .insert_tick_by_index(current_tick_index as u64, tick);
+                        .insert_tick_by_index(current_tick_index, tick);
                 } else {
                     return Err(SwapError::InsufficientLiquidity);
                 }
@@ -560,7 +573,7 @@ where
                 OrderType::Sell => {}
                 OrderType::Buy => {
                     self.update_liquidity_at_crossing(order_type)?;
-                    let maybe_tick = find_closest_higher_active_tick(current_tick_index);
+                    let maybe_tick = self.find_closest_higher_active_tick(current_tick_index);
 
                     if let Some(mut tick) = maybe_tick {
                         tick.fees_out_tao = self
@@ -572,7 +585,7 @@ where
                             .get_fee_global_alpha()
                             .saturating_sub(tick.fees_out_alpha);
                         self.state_ops
-                            .insert_tick_by_index(current_tick_index as u64, tick);
+                            .insert_tick_by_index(current_tick_index, tick);
                     } else {
                         return Err(SwapError::InsufficientLiquidity);
                     }
@@ -847,7 +860,7 @@ where
         let current_tick_index = self.get_current_tick_index();
         match order_type {
             OrderType::Sell => {
-                let maybe_tick = find_closest_lower_active_tick(current_tick_index);
+                let maybe_tick = self.find_closest_lower_active_tick(current_tick_index);
                 if let Some(tick) = maybe_tick {
                     let liquidity_update_abs_u64 = self.get_liquidity_update_u64(&tick);
 
@@ -861,7 +874,7 @@ where
                 }
             }
             OrderType::Buy => {
-                let maybe_tick = find_closest_higher_active_tick(current_tick_index);
+                let maybe_tick = self.find_closest_higher_active_tick(current_tick_index);
                 if let Some(tick) = maybe_tick {
                     let liquidity_update_abs_u64 = self.get_liquidity_update_u64(&tick);
 
@@ -921,42 +934,84 @@ where
 
     /// Get fees above a tick
     ///
-    fn get_fees_above(&self, _tick_index: u64, _quote: bool) -> U64F64 {
-        // k = self.get_tick_index(i)
-        // i_arg = self.active_ticks[k]
+    fn get_fees_above(&self, tick_index: i32, quote: bool) -> U64F64 {
+        let maybe_tick_index = find_closest_lower_active_tick_index(&self.state_ops, tick_index);
+        let current_tick = self.get_current_tick_index();
 
-        // if i_arg <= self.i_curr:
-        //     if want_one:
-        //         fee = self.fee_global1 - self.fee_outside1[k]
-        //     else:
-        //         fee = self.fee_global0 - self.fee_outside0[k]
-        // else:
-        //     if want_one:
-        //         fee = self.fee_outside1[k]
-        //     else:
-        //         fee = self.fee_outside0[k]
-
-        // return fee
-        todo!()
+        if let Some(tick_index) = maybe_tick_index {
+            let tick = self
+                .state_ops
+                .get_tick_by_index(tick_index)
+                .unwrap_or_default();
+            if tick_index <= current_tick {
+                if quote {
+                    self.state_ops
+                        .get_fee_global_tao()
+                        .saturating_sub(tick.fees_out_tao)
+                } else {
+                    self.state_ops
+                        .get_fee_global_alpha()
+                        .saturating_sub(tick.fees_out_alpha)
+                }
+            } else {
+                if quote {
+                    tick.fees_out_tao
+                } else {
+                    tick.fees_out_alpha
+                }
+            }
+        } else {
+            U64F64::saturating_from_num(0)
+        }
     }
 
     /// Get fees below a tick
-    fn get_fees_below(&self, _tick_index: u64, _quote: bool) -> U64F64 {
-        // k = self.get_tick_index(i)
-        // i_arg = self.active_ticks[k]
+    fn get_fees_below(&self, tick_index: i32, quote: bool) -> U64F64 {
+        let maybe_tick_index = find_closest_lower_active_tick_index(&self.state_ops, tick_index);
+        let current_tick = self.get_current_tick_index();
 
-        // if i_arg <= self.i_curr:
-        //     if want_one:
-        //         fee = self.fee_outside1[k]
-        //     else:
-        //         fee = self.fee_outside0[k]
-        // else:
-        //     if want_one:
-        //         fee = self.fee_global1 - self.fee_outside1[k]
-        //     else:
-        //         fee = self.fee_global0 - self.fee_outside0[k]
+        if let Some(tick_index) = maybe_tick_index {
+            let tick = self
+                .state_ops
+                .get_tick_by_index(tick_index)
+                .unwrap_or_default();
+            if tick_index <= current_tick {
+                if quote {
+                    tick.fees_out_tao
+                } else {
+                    tick.fees_out_alpha
+                }
+            } else {
+                if quote {
+                    self.state_ops
+                        .get_fee_global_tao()
+                        .saturating_sub(tick.fees_out_tao)
+                } else {
+                    self.state_ops
+                        .get_fee_global_alpha()
+                        .saturating_sub(tick.fees_out_alpha)
+                }
+            }
+        } else {
+            U64F64::saturating_from_num(0)
+        }
+    }
 
-        // return fee
-        todo!()
+    pub fn find_closest_lower_active_tick(&self, index: i32) -> Option<Tick> {
+        let maybe_tick_index = find_closest_lower_active_tick_index(&self.state_ops, index);
+        if let Some(tick_index) = maybe_tick_index {
+            self.state_ops.get_tick_by_index(tick_index)
+        } else {
+            None
+        }
+    }
+
+    pub fn find_closest_higher_active_tick(&self, index: i32) -> Option<Tick> {
+        let maybe_tick_index = find_closest_higher_active_tick_index(&self.state_ops, index);
+        if let Some(tick_index) = maybe_tick_index {
+            self.state_ops.get_tick_by_index(tick_index)
+        } else {
+            None
+        }
     }
 }

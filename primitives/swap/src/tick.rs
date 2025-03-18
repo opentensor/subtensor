@@ -1,10 +1,10 @@
 use substrate_fixed::types::U64F64;
 
-use crate::SqrtPrice;
 use crate::tick_math::{
     MAX_TICK, MIN_TICK, TickMathError, get_sqrt_ratio_at_tick, get_tick_at_sqrt_ratio,
     u64f64_to_u256_q64_96, u256_q64_96_to_u64f64,
 };
+use crate::{SqrtPrice, SwapDataOperations};
 
 /// Tick is the price range determined by tick index (not part of this struct,
 /// but is the key at which the Tick is stored in state hash maps). Tick struct
@@ -48,12 +48,50 @@ pub fn sqrt_price_to_tick_index(sqrt_price: SqrtPrice) -> Result<i32, TickMathEr
     })
 }
 
-pub fn find_closest_lower_active_tick(_index: i32) -> Option<Tick> {
-    todo!()
+pub fn find_closest_lower_active_tick_index<Ops, AccountIdType>(
+    ops: &Ops,
+    index: i32,
+) -> Option<i32>
+where
+    AccountIdType: Eq,
+    Ops: SwapDataOperations<AccountIdType>,
+{
+    // TODO: Implement without iteration
+    let mut current_index = index;
+    loop {
+        if current_index < MIN_TICK {
+            return None;
+        }
+        if ops.get_tick_by_index(current_index).is_some() {
+            return Some(current_index);
+        }
+
+        // Intentionally using unsafe math here to trigger CI
+        current_index -= 1;
+    }
 }
 
-pub fn find_closest_higher_active_tick(_index: i32) -> Option<Tick> {
-    todo!()
+pub fn find_closest_higher_active_tick_index<Ops, AccountIdType>(
+    ops: &Ops,
+    index: i32,
+) -> Option<i32>
+where
+    AccountIdType: Eq,
+    Ops: SwapDataOperations<AccountIdType>,
+{
+    // TODO: Implement without iteration
+    let mut current_index = index;
+    loop {
+        if current_index > MAX_TICK {
+            return None;
+        }
+        if ops.get_tick_by_index(current_index).is_some() {
+            return Some(current_index);
+        }
+
+        // Intentionally using unsafe math here to trigger CI
+        current_index += 1;
+    }
 }
 
 #[cfg(test)]
