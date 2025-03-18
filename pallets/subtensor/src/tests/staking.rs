@@ -57,8 +57,11 @@ fn test_add_stake_ok_no_emission() {
             0
         );
 
-        // Also total stake should be zero
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        // Also total stake should be equal to the network initial lock
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            SubtensorModule::get_network_min_lock()
+        );
 
         // Transfer to hotkey account, and check if the result is ok
         assert_ok!(SubtensorModule::add_stake(
@@ -79,7 +82,10 @@ fn test_add_stake_ok_no_emission() {
         assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 1);
 
         // Check if total stake has increased accordingly.
-        assert_eq!(SubtensorModule::get_total_stake(), amount);
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            amount + SubtensorModule::get_network_min_lock()
+        );
     });
 }
 
@@ -358,7 +364,10 @@ fn test_remove_stake_ok_no_emission() {
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
         // Some basic assertions
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            SubtensorModule::get_network_min_lock()
+        );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
@@ -387,7 +396,10 @@ fn test_remove_stake_ok_no_emission() {
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
         );
-        assert_eq!(SubtensorModule::get_total_stake(), fee);
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            SubtensorModule::get_network_min_lock() + fee
+        );
     });
 }
 
@@ -403,7 +415,10 @@ fn test_remove_stake_amount_too_low() {
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
         // Some basic assertions
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            SubtensorModule::get_network_min_lock()
+        );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
@@ -515,7 +530,10 @@ fn test_remove_stake_total_balance_no_change() {
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
         // Some basic assertions
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            SubtensorModule::get_network_min_lock()
+        );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
@@ -549,7 +567,10 @@ fn test_remove_stake_total_balance_no_change() {
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
         );
-        assert_eq!(SubtensorModule::get_total_stake(), fee);
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            SubtensorModule::get_network_min_lock() + fee
+        );
 
         // Check total balance is equal to the added stake. Even after remove stake (no fee, includes reserved/locked balance)
         let total_balance = Balances::total_balance(&coldkey_account_id);
@@ -648,7 +669,10 @@ fn test_remove_stake_total_issuance_no_change() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
 
         // Some basic assertions
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            SubtensorModule::get_network_min_lock()
+        );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
@@ -697,7 +721,7 @@ fn test_remove_stake_total_issuance_no_change() {
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake(),
-            fee * 2,
+            fee * 2 + SubtensorModule::get_network_min_lock(),
             epsilon = fee / 1000
         );
 
@@ -762,8 +786,11 @@ fn test_add_stake_to_hotkey_account_ok() {
         let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, hotkey_id, coldkey_id, 192213123);
 
-        // There is not stake in the system at first, so result should be 0;
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        // There is no stake in the system at first, other than the network initial lock so result;
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            SubtensorModule::get_network_min_lock()
+        );
 
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_id,
@@ -2497,7 +2524,11 @@ fn test_stake_overflow() {
         );
 
         // Check if total stake has increased accordingly.
-        assert_abs_diff_eq!(SubtensorModule::get_total_stake(), amount, epsilon = 10);
+        assert_abs_diff_eq!(
+            SubtensorModule::get_total_stake(),
+            amount + SubtensorModule::get_network_min_lock(),
+            epsilon = 10
+        );
     });
 }
 
