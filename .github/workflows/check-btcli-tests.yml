@@ -12,6 +12,7 @@ on:
   pull_request:
     branches:
       - devnet
+      - devnet-ready
       - testnet
       - testnet-ready
       - main
