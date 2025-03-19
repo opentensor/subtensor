@@ -1,5 +1,8 @@
 #!/bin/bash
 
+echo "start run-ci.sh"
+pwd
+
 scripts/localnet.sh &>/dev/null &
 
 i=1
