@@ -4,7 +4,6 @@ pub mod migrate_commit_reveal_v2;
 pub mod migrate_create_root_network;
 pub mod migrate_delete_subnet_21;
 pub mod migrate_delete_subnet_3;
-pub mod migrate_dissolve_sn73;
 pub mod migrate_fix_is_network_member;
 pub mod migrate_identities_v2;
 pub mod migrate_init_total_issuance;
