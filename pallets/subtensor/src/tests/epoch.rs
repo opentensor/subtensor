@@ -5,7 +5,9 @@
 )]
 
 use super::mock::*;
-use crate::epoch::math::{fixed, safe_exp, u16_proportion_to_fixed};
+use crate::epoch::math::{
+    fixed, mat_fixed_proportions_to_fixed, safe_exp, u16_proportion_to_fixed,
+};
 use crate::*;
 
 use approx::assert_abs_diff_eq;
@@ -2577,273 +2579,6 @@ fn test_validator_permits() {
 }
 
 #[test]
-fn test_compute_alpha_values() {
-    // Define the consensus values.
-    let consensus = vec![
-        I32F32::from_num(0.1),
-        I32F32::from_num(0.5),
-        I32F32::from_num(0.9),
-    ];
-    // Define the logistic function parameters 'a' and 'b'.
-    let a = I32F32::from_num(1.0);
-    let b = I32F32::from_num(0.0);
-
-    // Compute the alpha values using the function.
-    let alpha = SubtensorModule::compute_alpha_values(&consensus, a, b);
-
-    // Ensure the length of the alpha vector matches the consensus vector.
-    assert_eq!(alpha.len(), consensus.len());
-
-    // Manually compute the expected alpha values for each consensus value.
-    // The logistic function is: 1 / (1 + exp(b - a * c))
-    // where c is the consensus value.
-
-    // For consensus[0] = 0.1:
-    // exp_val = exp(0.0 - 1.0 * 0.1) = exp(-0.1)
-    // alpha[0] = 1 / (1 + exp(-0.1)) ~ 0.9048374180359595
-    let exp_val_0 = I32F32::from_num(0.9048374180359595);
-    let expected_alpha_0 = I32F32::from_num(1.0) / (I32F32::from_num(1.0) + exp_val_0);
-
-    // For consensus[1] = 0.5:
-    // exp_val = exp(0.0 - 1.0 * 0.5) = exp(-0.5)
-    // alpha[1] = 1 / (1 + exp(-0.5)) ~ 0.6065306597126334
-    let exp_val_1 = I32F32::from_num(0.6065306597126334);
-    let expected_alpha_1 = I32F32::from_num(1.0) / (I32F32::from_num(1.0) + exp_val_1);
-
-    // For consensus[2] = 0.9:
-    // exp_val = exp(0.0 - 1.0 * 0.9) = exp(-0.9)
-    // alpha[2] = 1 / (1 + exp(-0.9)) ~ 0.4065696597405991
-    let exp_val_2 = I32F32::from_num(0.4065696597405991);
-    let expected_alpha_2 = I32F32::from_num(1.0) / (I32F32::from_num(1.0) + exp_val_2);
-
-    // Define an epsilon for approximate equality checks.
-    let epsilon = I32F32::from_num(1e-6);
-
-    // Assert that the computed alpha values match the expected values within the epsilon.
-    assert_approx_eq(alpha[0], expected_alpha_0, epsilon);
-    assert_approx_eq(alpha[1], expected_alpha_1, epsilon);
-    assert_approx_eq(alpha[2], expected_alpha_2, epsilon);
-}
-
-#[test]
-fn test_compute_alpha_values_256_miners() {
-    // Define the consensus values for 256 miners.
-    let consensus: Vec<I32F32> = (0..256)
-        .map(|i| I32F32::from_num(i as f32 / 255.0))
-        .collect();
-    // Define the logistic function parameters 'a' and 'b'.
-    let a = I32F32::from_num(1.0);
-    let b = I32F32::from_num(0.0);
-
-    // Compute the alpha values using the function.
-    let alpha = SubtensorModule::compute_alpha_values(&consensus, a, b);
-
-    // Ensure the length of the alpha vector matches the consensus vector.
-    assert_eq!(alpha.len(), consensus.len());
-
-    // Define an epsilon for approximate equality checks.
-    let epsilon = I32F32::from_num(1e-6);
-
-    for (i, &c) in consensus.iter().enumerate() {
-        // Use saturating subtraction and multiplication
-        let exponent = b - (a * c);
-
-        // Use safe_exp instead of exp
-        let exp_val = safe_exp(exponent);
-
-        // Use saturating addition and division
-        let expected_alpha = I32F32::from_num(1.0) / (I32F32::from_num(1.0) + exp_val);
-
-        // Assert that the computed alpha values match the expected values within the epsilon.
-        assert_approx_eq(alpha[i], expected_alpha, epsilon);
-    }
-}
-
-#[test]
-fn test_clamp_alpha_values() {
-    // Define the alpha values.
-    let alpha = vec![
-        I32F32::from_num(0.1),
-        I32F32::from_num(0.5),
-        I32F32::from_num(0.9),
-    ];
-    // Define the high and low clamping values.
-    let alpha_high = I32F32::from_num(0.8);
-    let alpha_low = I32F32::from_num(0.2);
-
-    // Compute the clamped alpha values using the function.
-    let clamped_alpha = SubtensorModule::clamp_alpha_values(alpha.clone(), alpha_high, alpha_low);
-
-    // Ensure the length of the clamped alpha vector matches the original alpha vector.
-    assert_eq!(clamped_alpha.len(), alpha.len());
-
-    // Manually compute the expected clamped alpha values for each alpha value.
-    // The clamping logic is: max(alpha_low, min(alpha_high, a))
-
-    // For alpha[0] = 0.1:
-    // clamped_a = max(0.2, min(0.8, 0.1)) = max(0.2, 0.1) = 0.2
-    let expected_clamped_alpha_0 = I32F32::from_num(0.2);
-
-    // For alpha[1] = 0.5:
-    // clamped_a = max(0.2, min(0.8, 0.5)) = max(0.2, 0.5) = 0.5
-    let expected_clamped_alpha_1 = I32F32::from_num(0.5);
-
-    // For alpha[2] = 0.9:
-    // clamped_a = max(0.2, min(0.8, 0.9)) = max(0.2, 0.8) = 0.8
-    let expected_clamped_alpha_2 = I32F32::from_num(0.8);
-
-    // Assert that the computed clamped alpha values match the expected values.
-    assert_eq!(clamped_alpha[0], expected_clamped_alpha_0);
-    assert_eq!(clamped_alpha[1], expected_clamped_alpha_1);
-    assert_eq!(clamped_alpha[2], expected_clamped_alpha_2);
-}
-
-#[test]
-fn test_calculate_logistic_params() {
-    // Define test inputs
-    let alpha_high = I32F32::from_num(0.9);
-    let alpha_low = I32F32::from_num(0.1);
-    let consensus_high = I32F32::from_num(0.8);
-    let consensus_low = I32F32::from_num(0.2);
-
-    // Expected values
-    // a = (ln((1 / alpha_high - 1)) - ln((1 / alpha_low - 1))) / (consensus_low - consensus_high)
-    //   = (ln((1 / 0.9 - 1)) - ln((1 / 0.1 - 1))) / (0.2 - 0.8)
-    //   = (ln(0.1111) - ln(9)) / -0.6
-    //   = (-2.1972 - 2.1972) / -0.6
-    //   = -4.3944 / -0.6
-    //   = 7.324
-    let expected_a = I32F32::from_num(7.324);
-
-    // b = ln((1 / alpha_low - 1)) + a * consensus_low
-    //   = ln((1 / 0.1 - 1)) + 7.324 * 0.2
-    //   = ln(9) + 1.4648
-    //   = 2.1972 + 1.4648
-    //   = 3.662
-    let expected_b = I32F32::from_num(3.662);
-
-    // Call the function
-    let (a, b) = SubtensorModule::calculate_logistic_params(
-        alpha_high,
-        alpha_low,
-        consensus_high,
-        consensus_low,
-    );
-
-    // Assert the results
-    assert!(
-        (a - expected_a).abs() < I32F32::from_num(0.001),
-        "Expected a: {:?}, got: {:?}",
-        expected_a,
-        a
-    );
-    assert!(
-        (b - expected_b).abs() < I32F32::from_num(0.001),
-        "Expected b: {:?}, got: {:?}",
-        expected_b,
-        b
-    );
-}
-
-#[test]
-fn test_calculate_logistic_params_edge_cases() {
-    // Edge Case 1: Alpha values at their boundaries (0 and 1)
-    let alpha_high = I32F32::from_num(1.0);
-    let alpha_low = I32F32::from_num(0.0);
-    let consensus_high = I32F32::from_num(0.8);
-    let consensus_low = I32F32::from_num(0.2);
-
-    // Call the function
-    let (a, b) = SubtensorModule::calculate_logistic_params(
-        alpha_high,
-        alpha_low,
-        consensus_high,
-        consensus_low,
-    );
-
-    // Assert the results
-    assert_eq!(a, I32F32::from_num(0.0), "Expected a to be 0, got: {:?}", a);
-    assert_eq!(b, I32F32::from_num(0.0), "Expected b to be 0, got: {:?}", b);
-
-    // Edge Case 2: Consensus values at their boundaries (0 and 1)
-    let alpha_high = I32F32::from_num(0.9);
-    let alpha_low = I32F32::from_num(0.1);
-    let consensus_high = I32F32::from_num(1.0);
-    let consensus_low = I32F32::from_num(0.0);
-
-    // Call the function
-    let (a, b) = SubtensorModule::calculate_logistic_params(
-        alpha_high,
-        alpha_low,
-        consensus_high,
-        consensus_low,
-    );
-
-    // Expected values
-    // a = (ln((1 / 0.9 - 1)) - ln((1 / 0.1 - 1))) / (0.0 - 1.0)
-    //   = (ln(0.1111) - ln(9)) / -1.0
-    //   = (-2.1972 - 2.1972) / -1.0
-    //   = -4.3944 / -1.0
-    //   = 4.3944
-    let expected_a = I32F32::from_num(4.3944);
-
-    // b = ln((1 / 0.1 - 1)) + a * 0.0
-    //   = ln(9) + 0
-    //   = 2.1972
-    let expected_b = I32F32::from_num(2.1972);
-
-    // Assert the results
-    assert!(
-        (a - expected_a).abs() < I32F32::from_num(0.001),
-        "Expected a: {:?}, got: {:?}",
-        expected_a,
-        a
-    );
-    assert!(
-        (b - expected_b).abs() < I32F32::from_num(0.001),
-        "Expected b: {:?}, got: {:?}",
-        expected_b,
-        b
-    );
-
-    // Edge Case 3: Alpha values being equal
-    let alpha_high = I32F32::from_num(0.5);
-    let alpha_low = I32F32::from_num(0.5);
-    let consensus_high = I32F32::from_num(0.8);
-    let consensus_low = I32F32::from_num(0.2);
-
-    // Call the function
-    let (a, b) = SubtensorModule::calculate_logistic_params(
-        alpha_high,
-        alpha_low,
-        consensus_high,
-        consensus_low,
-    );
-
-    // Assert the results
-    assert_eq!(a, I32F32::from_num(0.0), "Expected a to be 0, got: {:?}", a);
-    assert_eq!(b, I32F32::from_num(0.0), "Expected b to be 0, got: {:?}", b);
-
-    // Edge Case 4: Consensus values being equal
-    let alpha_high = I32F32::from_num(0.9);
-    let alpha_low = I32F32::from_num(0.1);
-    let consensus_high = I32F32::from_num(0.5);
-    let consensus_low = I32F32::from_num(0.5);
-
-    // Call the function
-    let (a, b) = SubtensorModule::calculate_logistic_params(
-        alpha_high,
-        alpha_low,
-        consensus_high,
-        consensus_low,
-    );
-
-    // Assert the results
-    assert_eq!(a, I32F32::from_num(0.0), "Expected a to be 0, got: {:?}", a);
-    assert_eq!(b, I32F32::from_num(0.0), "Expected b to be 0, got: {:?}", b);
-}
-
-#[test]
 fn test_compute_ema_bonds_sparse() {
     // Define test inputs
     let weights = vec![
@@ -3349,6 +3084,7 @@ fn setup_yuma_4_scenario(netuid: u16, n: u16, sparse: bool, max_stake: u64, stak
     SubtensorModule::set_min_allowed_weights(netuid, 1);
     SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
     SubtensorModule::set_bonds_penalty(netuid, 0);
+    // SubtensorModule::set_bonds_moving_average(netuid, 975_000);
 
     // === Register
     for key in 0..n as u64 {
@@ -3381,8 +3117,9 @@ fn setup_yuma_4_scenario(netuid: u16, n: u16, sparse: bool, max_stake: u64, stak
     // Enable Liquid Alpha
     SubtensorModule::set_kappa(netuid, u16::MAX / 2);
     SubtensorModule::set_liquid_alpha_enabled(netuid, true);
+    SubtensorModule::set_kappa(netuid, u16::MAX / 2);
 
-    SubtensorModule::set_alpha_values_32(netuid, I32F32::from_num(0.9), I32F32::from_num(0.99));
+    SubtensorModule::set_alpha_values_32(netuid, I32F32::from_num(0.1), I32F32::from_num(0.3));
 
     // === Issue validator permits
     SubtensorModule::set_max_allowed_validators(netuid, 3);
@@ -3405,25 +3142,26 @@ fn run_epoch(netuid: u16, sparse: bool) {
 fn run_epoch_and_check_bonds_dividends(
     netuid: u16,
     sparse: bool,
-    target_bonds: &[Vec<u64>],
+    target_bonds: &[Vec<f32>],
     target_dividends: &[f32],
 ) {
     run_epoch(netuid, sparse);
-    let bonds = SubtensorModule::get_bonds(netuid);
+    let mut bonds = SubtensorModule::get_bonds(netuid);
+    bonds = mat_fixed_proportions_to_fixed(bonds.clone());
     let dividends = SubtensorModule::get_dividends(netuid);
 
+    let epsilon = I32F32::from_num(1e-3);
     // Check the bonds
     // server 1
-    assert_eq!(bonds[0][3], target_bonds[0][0]);
-    assert_eq!(bonds[1][3], target_bonds[1][0]);
-    assert_eq!(bonds[2][3], target_bonds[2][0]);
+    assert_approx_eq(bonds[0][3], fixed(target_bonds[0][0]), epsilon);
+    assert_approx_eq(bonds[1][3], fixed(target_bonds[1][0]), epsilon);
+    assert_approx_eq(bonds[2][3], fixed(target_bonds[2][0]), epsilon);
     // server 2
-    assert_eq!(bonds[0][4], target_bonds[0][1]);
-    assert_eq!(bonds[1][4], target_bonds[1][1]);
-    assert_eq!(bonds[2][4], target_bonds[2][1]);
+    assert_approx_eq(bonds[0][4], fixed(target_bonds[0][1]), epsilon);
+    assert_approx_eq(bonds[1][4], fixed(target_bonds[1][1]), epsilon);
+    assert_approx_eq(bonds[2][4], fixed(target_bonds[2][1]), epsilon);
 
     // Check the dividends
-    let epsilon = I32F32::from_num(1e-3);
     for (dividend, target_dividend) in dividends.iter().zip(target_dividends.iter()) {
         assert_approx_eq(
             u16_proportion_to_fixed(*dividend),
@@ -3448,7 +3186,7 @@ fn set_yuma_4_weights(netuid: u16, weights: Vec<Vec<u16>>) {
 #[test]
 fn test_yuma_4_kappa_moves_first() {
     new_test_ext(1).execute_with(|| {
-        let sparse: bool = false;
+        let sparse: bool = true;
         let n: u16 = 5; // 3 validators, 2 servers
         let netuid: u16 = 1;
         let max_stake: u64 = 8;
@@ -3461,49 +3199,44 @@ fn test_yuma_4_kappa_moves_first() {
         setup_yuma_4_scenario(netuid, n, sparse, max_stake, stakes);
         let targets_bonds = [
             vec![
-                vec![656, 0],
-                vec![656, 0],
-                vec![656, 0],
-                vec![0, 0],
-                vec![0, 0],
+                vec![0.1013, 0.0000],
+                vec![0.1013, 0.0000],
+                vec![0.1013, 0.0000],
             ],
             vec![
-                vec![590, 656],
-                vec![7144, 0],
-                vec![7144, 0],
-                vec![0, 0],
-                vec![0, 0],
+                vec![0.0908, 0.1013],
+                vec![0.3697, 0.0000],
+                vec![0.3697, 0.0000],
             ],
             vec![
-                vec![530, 1305],
-                vec![6429, 656],
-                vec![12983, 0],
-                vec![0, 0],
-                vec![0, 0],
+                vec![0.0815, 0.1924],
+                vec![0.3170, 0.1013],
+                vec![0.5580, 0.0000],
             ],
             vec![
-                vec![476, 1947],
-                vec![5786, 1305],
-                vec![11684, 656],
-                vec![0, 0],
-                vec![0, 0],
+                vec![0.0731, 0.2742],
+                vec![0.2765, 0.1924],
+                vec![0.4306, 0.1013],
             ],
             vec![
-                vec![428, 2583],
-                vec![5207, 1947],
-                vec![10515, 1305],
-                vec![0, 0],
-                vec![0, 0],
+                vec![0.0656, 0.3478],
+                vec![0.2435, 0.2742],
+                vec![0.3589, 0.1924],
+            ],
+            vec![
+                vec![0.0588, 0.4139],
+                vec![0.2157, 0.3478],
+                vec![0.3089, 0.2742],
             ],
         ];
 
         let targets_dividends = [
             vec![0.8000, 0.1000, 0.1000, 0.0000, 0.0000],
             vec![1.0000, 0.0000, 0.0000, 0.0000, 0.0000],
-            vec![0.9409, 0.0591, 0.0000, 0.0000, 0.0000],
-            vec![0.8882, 0.0744, 0.0374, 0.0000, 0.0000],
-            vec![0.8640, 0.0814, 0.0545, 0.0000, 0.0000],
-            vec![0.8502, 0.0854, 0.0644, 0.0000, 0.0000],
+            vec![0.9382, 0.0618, 0.0000, 0.0000, 0.0000],
+            vec![0.8819, 0.0773, 0.0407, 0.0000, 0.0000],
+            vec![0.8564, 0.0844, 0.0592, 0.0000, 0.0000],
+            vec![0.8418, 0.0884, 0.0697, 0.0000, 0.0000],
         ];
 
         for (epoch, (target_bonds, target_dividends)) in targets_bonds
@@ -3548,7 +3281,7 @@ fn test_yuma_4_kappa_moves_first() {
 #[test]
 fn test_yuma_4_kappa_moves_second() {
     new_test_ext(1).execute_with(|| {
-        let sparse: bool = true;
+        let sparse: bool = false;
         let n: u16 = 5; // 3 validators, 2 servers
         let netuid: u16 = 1;
         let max_stake: u64 = 8;
@@ -3561,48 +3294,43 @@ fn test_yuma_4_kappa_moves_second() {
         setup_yuma_4_scenario(netuid, n, sparse, max_stake, stakes);
         let targets_bonds = [
             vec![
-                vec![656, 0],
-                vec![656, 0],
-                vec![656, 0],
-                vec![0, 0],
-                vec![0, 0],
+                vec![0.1013, 0.0000],
+                vec![0.1013, 0.0000],
+                vec![0.1013, 0.0000],
             ],
             vec![
-                vec![1305, 0],
-                vec![649, 6553],
-                vec![1305, 0],
-                vec![0, 0],
-                vec![0, 0],
+                vec![0.1924, 0.0000],
+                vec![0.0908, 0.2987],
+                vec![0.1924, 0.0000],
             ],
             vec![
-                vec![1174, 656],
-                vec![584, 7143],
-                vec![7728, 0],
-                vec![0, 0],
-                vec![0, 0],
+                vec![0.1715, 0.1013],
+                vec![0.0815, 0.3697],
+                vec![0.4336, 0.0000],
             ],
             vec![
-                vec![1056, 1305],
-                vec![525, 7727],
-                vec![6955, 656],
-                vec![0, 0],
-                vec![0, 0],
+                vec![0.1531, 0.1924],
+                vec![0.0731, 0.4336],
+                vec![0.3608, 0.1013],
             ],
             vec![
-                vec![950, 1947],
-                vec![472, 8305],
-                vec![6259, 1305],
-                vec![0, 0],
-                vec![0, 0],
+                vec![0.1369, 0.2742],
+                vec![0.0656, 0.4910],
+                vec![0.3103, 0.1924],
+            ],
+            vec![
+                vec![0.1225, 0.3478],
+                vec![0.0588, 0.5426],
+                vec![0.2712, 0.2742],
             ],
         ];
         let targets_dividends = [
-            vec![0.8000, 0.1000, 0.1000],
-            vec![0.8423, 0.0524, 0.1053],
-            vec![0.4233, 0.5767, 0.0000],
-            vec![0.5545, 0.4107, 0.0348],
-            vec![0.6184, 0.3298, 0.0518],
-            vec![0.6562, 0.2820, 0.0618],
+            vec![0.8000, 0.1000, 0.1000, 0.0000, 0.0000],
+            vec![0.8446, 0.0498, 0.1056, 0.0000, 0.0000],
+            vec![0.6868, 0.3132, 0.0000, 0.0000, 0.0000],
+            vec![0.7421, 0.2090, 0.0489, 0.0000, 0.0000],
+            vec![0.7625, 0.1706, 0.0669, 0.0000, 0.0000],
+            vec![0.7730, 0.1508, 0.0762, 0.0000, 0.0000],
         ];
 
         for (epoch, (target_bonds, target_dividends)) in targets_bonds
@@ -3659,19 +3387,44 @@ fn test_yuma_4_kappa_moves_last() {
 
         setup_yuma_4_scenario(netuid, n, sparse, max_stake, stakes);
         let targets_bonds = [
-            vec![vec![656, 0], vec![656, 0], vec![656, 0]],
-            vec![vec![1305, 0], vec![649, 6553], vec![1305, 0]],
-            vec![vec![1947, 0], vec![642, 12451], vec![1291, 6553]],
-            vec![vec![1752, 656], vec![577, 12982], vec![1161, 7143]],
-            vec![vec![1576, 1305], vec![519, 13508], vec![1044, 7727]],
+            vec![
+                vec![0.1013, 0.0000],
+                vec![0.1013, 0.0000],
+                vec![0.1013, 0.0000],
+            ],
+            vec![
+                vec![0.1924, 0.0000],
+                vec![0.0908, 0.2987],
+                vec![0.1924, 0.0000],
+            ],
+            vec![
+                vec![0.2742, 0.0000],
+                vec![0.0815, 0.5081],
+                vec![0.1715, 0.2987],
+            ],
+            vec![
+                vec![0.2416, 0.1013],
+                vec![0.0731, 0.5580],
+                vec![0.1531, 0.3697],
+            ],
+            vec![
+                vec![0.2141, 0.1924],
+                vec![0.0656, 0.6028],
+                vec![0.1369, 0.4336],
+            ],
+            vec![
+                vec![0.1903, 0.2742],
+                vec![0.0588, 0.6430],
+                vec![0.1225, 0.4910],
+            ],
         ];
         let targets_dividends = [
-            vec![0.8000, 0.1000, 0.1000],
-            vec![0.8423, 0.0524, 0.1053],
-            vec![0.8895, 0.0367, 0.0738],
-            vec![0.2067, 0.5117, 0.2816],
-            vec![0.3294, 0.4265, 0.2440],
-            vec![0.4108, 0.3701, 0.2191],
+            vec![0.8000, 0.1000, 0.1000, 0.0000, 0.0000],
+            vec![0.8446, 0.0498, 0.1056, 0.0000, 0.0000],
+            vec![0.8966, 0.0333, 0.0701, 0.0000, 0.0000],
+            vec![0.4663, 0.3210, 0.2127, 0.0000, 0.0000],
+            vec![0.5976, 0.2340, 0.1683, 0.0000, 0.0000],
+            vec![0.6592, 0.1932, 0.1475, 0.0000, 0.0000],
         ];
 
         for (epoch, (target_bonds, target_dividends)) in targets_bonds
@@ -3727,18 +3480,44 @@ fn test_yuma_4_one_epoch_switch() {
         setup_yuma_4_scenario(netuid, n, sparse, max_stake, stakes);
 
         let targets_bonds = [
-            vec![vec![656, 0], vec![656, 0], vec![656, 0]],
-            vec![vec![1305, 0], vec![1305, 0], vec![1305, 0]],
-            vec![vec![1291, 6553], vec![1947, 0], vec![1947, 0]],
-            vec![vec![1934, 5897], vec![2583, 0], vec![2583, 0]],
-            vec![vec![2570, 5307], vec![3213, 0], vec![3213, 0]],
+            vec![
+                vec![0.1013, 0.0000],
+                vec![0.1013, 0.0000],
+                vec![0.1013, 0.0000],
+            ],
+            vec![
+                vec![0.1924, 0.0000],
+                vec![0.1924, 0.0000],
+                vec![0.1924, 0.0000],
+            ],
+            vec![
+                vec![0.2742, 0.0000],
+                vec![0.2742, 0.0000],
+                vec![0.1715, 0.2987],
+            ],
+            vec![
+                vec![0.3478, 0.0000],
+                vec![0.3478, 0.0000],
+                vec![0.2554, 0.2618],
+            ],
+            vec![
+                vec![0.4139, 0.0000],
+                vec![0.4139, 0.0000],
+                vec![0.3309, 0.2312],
+            ],
+            vec![
+                vec![0.4733, 0.0000],
+                vec![0.4733, 0.0000],
+                vec![0.3987, 0.2051],
+            ],
         ];
         let targets_dividends = [
-            vec![0.33, 0.33, 0.34, 0., 0.],
-            vec![0.33, 0.33, 0.34, 0., 0.],
-            vec![0.246_231_48, 0.371_259_12, 0.382_509_4, 0., 0.],
-            vec![0.269_393_1, 0.359_851_15, 0.370_755_73, 0., 0.],
-            vec![0.282_665_13, 0.353_314_2, 0.364_020_68, 0., 0.],
+            vec![0.3300, 0.3300, 0.3400, 0.0000, 0.0000],
+            vec![0.3300, 0.3300, 0.3400, 0.0000, 0.0000],
+            vec![0.3782, 0.3782, 0.2436, 0.0000, 0.0000],
+            vec![0.3628, 0.3628, 0.2745, 0.0000, 0.0000],
+            vec![0.3541, 0.3541, 0.2917, 0.0000, 0.0000],
+            vec![0.3487, 0.3487, 0.3026, 0.0000, 0.0000],
         ];
 
         for (epoch, (target_bonds, target_dividends)) in targets_bonds
@@ -3748,12 +3527,12 @@ fn test_yuma_4_one_epoch_switch() {
         {
             match epoch {
                 2 => {
-                    // Validator A -> Server 2
+                    // Validator A -> Server 1
                     // Validator B -> Server 1
-                    // Validator C -> Server 1
+                    // Validator C -> Server 2
                     set_yuma_4_weights(
                         netuid,
-                        vec![vec![0, u16::MAX], vec![u16::MAX, 0], vec![u16::MAX, 0]],
+                        vec![vec![u16::MAX, 0], vec![u16::MAX, 0], vec![0, u16::MAX]],
                     );
                 }
                 _ => {

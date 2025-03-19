@@ -893,127 +893,6 @@ impl<T: Config> Pallet<T> {
         bonds
     }
 
-    /// Calculate the logistic function parameters 'a' and 'b' based on alpha and consensus values.
-    ///
-    /// # Args:
-    /// * `alpha_high` - The high alpha value.
-    /// * `alpha_low` - The low alpha value.
-    /// * `consensus_high` - The high consensus value.
-    /// * `consensus_low` - The low consensus value.
-    ///
-    /// # Returns:
-    /// A tuple containing the slope 'a' and intercept 'b' for the logistic function.
-    pub fn calculate_logistic_params(
-        alpha_high: I32F32,
-        alpha_low: I32F32,
-        consensus_high: I32F32,
-        consensus_low: I32F32,
-    ) -> (I32F32, I32F32) {
-        log::trace!("alpha_high: {:?}", alpha_high);
-        log::trace!("alpha_low: {:?}", alpha_low);
-        log::trace!("consensus_high: {:?}", consensus_high);
-        log::trace!("consensus_low: {:?}", consensus_low);
-        // Check for division by zero
-        // extra caution to ensure we never divide by zero
-        if consensus_high <= consensus_low || alpha_low == 0 || alpha_high == 0 {
-            // Return 0 for both 'a' and 'b' when consensus values are equal
-            return (
-                I32F32::saturating_from_num(0.0),
-                I32F32::saturating_from_num(0.0),
-            );
-        }
-
-        // Calculate the slope 'a' of the logistic function.
-        // a = (ln((1 / alpha_high - 1)) - ln((1 / alpha_low - 1))) / (consensus_low - consensus_high)
-        let a = (safe_ln(
-            (I32F32::saturating_from_num(1.0).safe_div(alpha_high))
-                .saturating_sub(I32F32::saturating_from_num(1.0)),
-        )
-        .saturating_sub(safe_ln(
-            (I32F32::saturating_from_num(1.0).safe_div(alpha_low))
-                .saturating_sub(I32F32::saturating_from_num(1.0)),
-        )))
-        .safe_div(consensus_low.saturating_sub(consensus_high));
-        log::trace!("a: {:?}", a);
-
-        // Calculate the intercept 'b' of the logistic function.
-        // b = ln((1 / alpha_low - 1)) + a * consensus_low
-        let b = safe_ln(
-            (I32F32::saturating_from_num(1.0).safe_div(alpha_low))
-                .saturating_sub(I32F32::saturating_from_num(1.0)),
-        )
-        .saturating_add(a.saturating_mul(consensus_low));
-        log::trace!("b: {:?}", b);
-
-        // Return the calculated slope 'a' and intercept 'b'.
-        (a, b)
-    }
-
-    /// Compute the alpha values using the logistic function parameters 'a' and 'b'.
-    ///
-    /// # Args:
-    /// * `consensus` - A vector of consensus values.
-    /// * `a` - The slope of the logistic function.
-    /// * `b` - The intercept of the logistic function.
-    ///
-    /// # Returns:
-    /// A vector of computed alpha values.
-    pub fn compute_alpha_values(consensus: &[I32F32], a: I32F32, b: I32F32) -> Vec<I32F32> {
-        // Compute the alpha values for each consensus value.
-        let alpha: Vec<I32F32> = consensus
-            .iter()
-            .map(|c| {
-                // Calculate the exponent value for the logistic function.
-                // exp_val = exp(b - a * c)
-                let exp_val = safe_exp(b.saturating_sub(a.saturating_mul(*c)));
-
-                // Compute the alpha value using the logistic function formula.
-                // alpha = 1 / (1 + exp_val)
-                I32F32::saturating_from_num(1.0)
-                    .safe_div(I32F32::saturating_from_num(1.0).saturating_add(exp_val))
-            })
-            .collect();
-
-        // Log the computed alpha values for debugging purposes.
-        log::trace!("alpha: {:?}", alpha);
-
-        // Return the computed alpha values.
-        alpha
-    }
-
-    /// Clamp the alpha values between alpha_high and alpha_low.
-    ///
-    /// # Args:
-    /// * `alpha` - A vector of alpha values.
-    /// * `alpha_high` - The high alpha value.
-    /// * `alpha_low` - The low alpha value.
-    ///
-    /// # Returns:
-    /// A vector of clamped alpha values.
-    pub fn clamp_alpha_values(
-        alpha: Vec<I32F32>,
-        alpha_high: I32F32,
-        alpha_low: I32F32,
-    ) -> Vec<I32F32> {
-        let clamped_alpha: Vec<I32F32> = alpha
-            .iter()
-            .map(|a| {
-                // First, clamp the value to ensure it does not exceed the upper bound (alpha_high).
-                // If 'a' is greater than 'alpha_high', it will be set to 'alpha_high'.
-                // If 'a' is less than or equal to 'alpha_high', it remains unchanged.
-                let clamped_a = a
-                    .min(&alpha_high)
-                    // Next, clamp the value to ensure it does not go below the lower bound (alpha_low).
-                    // If the value (after the first clamping) is less than 'alpha_low', it will be set to 'alpha_low'.
-                    // If the value is greater than or equal to 'alpha_low', it remains unchanged.
-                    .max(&alpha_low);
-                // Return the clamped value.
-                *clamped_a
-            })
-            .collect();
-        log::trace!("alpha_clamped: {:?}", clamped_alpha);
-        clamped_alpha
-    }
     /// Compute the Exponential Moving Average (EMA) of bonds based on the Liquid Alpha setting
     ///
     /// # Args:
@@ -1041,7 +920,7 @@ impl<T: Config> Pallet<T> {
         {
             // Liquid Alpha is enabled, compute the liquid alphas matrix.
             let alphas: Vec<Vec<I32F32>> =
-                Self::compute_liquid_alphas(netuid, weights, bonds, consensus);
+                Self::compute_liquid_alpha_values(netuid, weights, bonds, consensus);
             log::trace!("alphas: {:?}", &alphas);
 
             // Compute the Exponential Moving Average (EMA) of bonds using the provided clamped alpha values.
@@ -1089,7 +968,7 @@ impl<T: Config> Pallet<T> {
         {
             // Liquid Alpha is enabled, compute the liquid alphas matrix.
             let alphas: Vec<Vec<I32F32>> =
-                Self::compute_liquid_alphas_sparse(netuid, weights, bonds, consensus);
+                Self::compute_liquid_alpha_values_sparse(netuid, weights, bonds, consensus);
             log::trace!("alphas: {:?}", &alphas);
 
             // Compute the Exponential Moving Average (EMA) of bonds using the provided clamped alpha values.
@@ -1124,7 +1003,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns:
     /// A matrix of alphas
-    pub fn compute_liquid_alphas(
+    pub fn compute_liquid_alpha_values(
         netuid: u16,
         weights: &[Vec<I32F32>], // current epoch weights
         bonds: &[Vec<I32F32>],   // previous epoch bonds
@@ -1143,12 +1022,16 @@ impl<T: Config> Pallet<T> {
             let mut row_alphas = Vec::new();
 
             for j in 0..weights[i].len() {
-                let diff_buy = (weights[i][j] - consensus[j])
-                    .max(I32F32::from_num(0.0))
-                    .min(I32F32::from_num(1.0));
-                let diff_sell = (bonds[i][j] - weights[i][j])
-                    .max(I32F32::from_num(0.0))
-                    .min(I32F32::from_num(1.0));
+                let diff_buy = clamp_value(
+                    weights[i][j] - consensus[j],
+                    I32F32::from_num(0.0),
+                    I32F32::from_num(1.0),
+                );
+                let diff_sell = clamp_value(
+                    bonds[i][j] - weights[i][j],
+                    I32F32::from_num(0.0),
+                    I32F32::from_num(1.0),
+                );
 
                 let combined_diff = if weights[i][j] >= bonds[i][j] {
                     diff_buy
@@ -1165,7 +1048,7 @@ impl<T: Config> Pallet<T> {
                         ),
                 );
                 let alpha = alpha_low + sigmoid * (alpha_high - alpha_low);
-                row_alphas.push(alpha.max(alpha_low).min(alpha_high));
+                row_alphas.push(clamp_value(alpha, alpha_low, alpha_high));
             }
             alphas.push(row_alphas);
         }
@@ -1183,7 +1066,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns:
     /// A matrix of alphas (not sparse as very few values will be zero)
-    pub fn compute_liquid_alphas_sparse(
+    pub fn compute_liquid_alpha_values_sparse(
         netuid: u16,
         weights: &[Vec<(u16, I32F32)>], // current epoch weights
         bonds: &[Vec<(u16, I32F32)>],   // previous epoch bonds
