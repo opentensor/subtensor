@@ -195,5 +195,7 @@ mod errors {
         ActivityCutoffTooLow,
         /// Call is disabled
         CallDisabled,
+        /// Not enough AlphaOut on the subnet to recycle
+        NotEnoughAlphaOutToRecycle,
     }
 }
