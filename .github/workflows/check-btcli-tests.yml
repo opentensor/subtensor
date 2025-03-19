@@ -168,10 +168,11 @@ jobs:
           git checkout staging
           git fetch origin staging
           uv run --active pip install --upgrade pip
+          uv run --active pip install '.[dev]'
           uv run --active pip install pytest
 
       - name: Install uv dependencies
-        working-directory: ${{ github.workspace }}
+        working-directory: ${{ github.workspace }}/btcli
         run: uv sync --all-extras --dev
 
       - name: Download Cached Docker Image
@@ -183,10 +184,10 @@ jobs:
         run: docker load -i subtensor-localnet.tar
 
       - name: Run tests
-        working-directory: ${{ github.workspace }}
+        working-directory: ${{ github.workspace }}/btcli
         run: |
           source ${{ github.workspace }}/venv/bin/activate
-          pytest ${{ matrix.test-file }} -s
+          uv run pytest ${{ matrix.test-file }} -s
 
 
   run-unit-test:
