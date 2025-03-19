@@ -217,6 +217,11 @@ impl<T: Config> Pallet<T> {
             Self::burn_tokens(actual_tao_lock_amount_less_pool_tao);
         }
 
+        if actual_tao_lock_amount > 0 && pool_initial_tao > 0 {
+            // Record in TotalStake the initial TAO in the pool.
+            Self::increase_total_stake(pool_initial_tao);
+        }
+
         // --- 15. Add the identity if it exists
         if let Some(identity_value) = identity {
             ensure!(
