@@ -827,3 +827,82 @@ fn test_migrate_dissolve_sn73_doesnt_affect_other_subnets() {
         assert!(NetworkPowRegistrationAllowed::<Test>::try_get(other_netuid).is_ok());
     });
 }
+
+#[test]
+fn test_migrate_dissolve_sn73_pays_out_subnet_tao_lots_of_entries() {
+    new_test_ext(1).execute_with(|| {
+        let this_netuid: u16 = 73;
+        let sn_owner_hk: U256 = U256::from(1);
+        let sn_owner_ck: U256 = U256::from(2);
+
+        let subnet_tao: u64 = 678_900_000_000;
+
+        let mut stakes = vec![];
+        for i in 0..10_000 {
+            stakes.push((
+                U256::from(i),
+                U256::from(100 * i + 1),
+                123_000 * i + 3_450_000_000 - i,
+            ));
+        }
+        let total_alpha = stakes.iter().map(|(_, _, stake)| stake).sum::<u64>();
+
+        let mut created_netuid = 0;
+        while created_netuid < this_netuid {
+            created_netuid = add_dynamic_network(&sn_owner_hk, &sn_owner_ck);
+        }
+        assert_eq!(created_netuid, this_netuid);
+
+        for (hk, ck, stake) in stakes.iter() {
+            SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                hk,
+                ck,
+                this_netuid,
+                *stake,
+            );
+        }
+        // Set subnetTAO
+        SubnetTAO::<Test>::insert(this_netuid, subnet_tao);
+
+        // Run existing remove network dissolve
+        SubtensorModule::remove_network(this_netuid);
+
+        // Run new dissolve migration code
+        crate::migrations::migrate_dissolve_sn73::migrate_dissolve_sn73::<Test>();
+
+        // Calculate expected balances
+        let denom = I96F32::from_num(total_alpha);
+        let subnet_tao_float = I96F32::from_num(subnet_tao);
+
+        log::debug!("Subnet TAO: {}", subnet_tao);
+        log::debug!("Denom: {}", denom);
+        let mut expected_balances: BTreeMap<U256, u64> = BTreeMap::new();
+        for (hk, ck, stake) in stakes.iter() {
+            // Calculate share of the subnetTAO expected for the coldkey
+            let hotkey_alpha = I96F32::from_num(*stake);
+            let hotkey_share = hotkey_alpha.saturating_div(denom);
+            let hotkey_tao = hotkey_share.saturating_mul(subnet_tao_float);
+
+            log::debug!(
+                "Expected: hk {}, ck {}, stake {}, hotkey_tao {}",
+                hk,
+                ck,
+                stake,
+                hotkey_tao
+            );
+            expected_balances
+                .entry(*ck)
+                .and_modify(|e| *e = e.saturating_add(hotkey_tao.saturating_to_num::<u64>()))
+                .or_insert(hotkey_tao.saturating_to_num::<u64>());
+        }
+
+        // Verify that each staker has received their share of the subnetTAO
+        for (ck, expected_balance) in expected_balances {
+            assert_abs_diff_eq!(
+                SubtensorModule::get_coldkey_balance(&ck),
+                expected_balance,
+                epsilon = 500
+            );
+        }
+    });
+}
