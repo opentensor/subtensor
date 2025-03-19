@@ -1941,7 +1941,7 @@ mod dispatches {
         /// * `origin` - The origin of the call (must be signed by the coldkey)
         /// * `hotkey` - The hotkey account
         /// * `amount` - The amount of alpha to burn
-		/// * `netuid` - The subnet ID
+        /// * `netuid` - The subnet ID
         ///
         /// # Events
         /// Emits a `TokensBurned` event on success.
@@ -1955,7 +1955,7 @@ mod dispatches {
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
             amount: u64,
-			netuid: u16,
+            netuid: u16,
         ) -> DispatchResult {
             Self::do_burn_alpha(origin, hotkey, amount, netuid)
         }
