@@ -96,6 +96,7 @@ pub fn migrate_dissolve_sn73<T: Config>() -> Weight {
 
                 let alpha_shares = U64F64::from_num(alpha_i);
                 let coldkey_share: U64F64 = alpha_shares.saturating_div(total_hotkey_shares);
+
                 let coldkey_tao = coldkey_share.saturating_mul(hotkey_tao);
                 let coldkey_alpha = coldkey_share.saturating_mul(total_hotkey_alpha);
                 log::debug!("Alpha shares: {}", alpha_shares);
@@ -143,6 +144,14 @@ pub fn migrate_dissolve_sn73<T: Config>() -> Weight {
                 subnet_tao.saturating_to_num::<u64>(),
                 total_swapped
             );
+            if cfg!(feature = "try-runtime") {
+                assert!(
+                    subnet_tao
+                        .saturating_to_num::<u64>()
+                        .abs_diff(total_swapped)
+                        <= 100_000
+                );
+            }
         }
 
         // === Clear storage entries ===
