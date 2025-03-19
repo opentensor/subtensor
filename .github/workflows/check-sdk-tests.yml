@@ -11,7 +11,10 @@ concurrency:
 on:
   pull_request:
     branches:
-      - devnet-ready
+      - devnet
+      - testnet
+      - testnet-ready
+      - main
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
 env:
