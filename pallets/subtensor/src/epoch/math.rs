@@ -96,6 +96,18 @@ pub fn vec_fixed_proportions_to_u16(vec: Vec<I32F32>) -> Vec<u16> {
 }
 
 #[allow(dead_code)]
+pub fn mat_fixed_proportions_to_u16(mat: Vec<Vec<I32F32>>) -> Vec<Vec<u16>> {
+    mat.into_iter().map(vec_fixed_proportions_to_u16).collect()
+}
+
+#[allow(dead_code)]
+pub fn mat_fixed_proportions_to_fixed(mat: Vec<Vec<I32F32>>) -> Vec<Vec<I32F32>> {
+    mat.into_iter()
+        .map(vec_fixed_proportions_to_fixed)
+        .collect()
+}
+
+#[allow(dead_code)]
 // Max-upscale vector and convert to u16 so max_value = u16::MAX. Assumes non-negative normalized input.
 pub fn vec_max_upscale_to_u16(vec: &[I32F32]) -> Vec<u16> {
     let u16_max: I32F32 = I32F32::saturating_from_num(u16::MAX);
@@ -1317,73 +1329,197 @@ pub fn sparse_threshold(w: &[Vec<(u16, I32F32)>], threshold: I32F32) -> Vec<Vec<
         .collect()
 }
 
+// Return matrix exponential moving average: `alpha * a_ij + one_minus_alpha * b_ij`.
+// `alpha` is the EMA coefficient, how much to add of the new observation, typically small,
+// higher alpha discounts older observations faster.
+#[allow(dead_code)]
+pub fn mat_ema(new: &[Vec<I32F32>], old: &[Vec<I32F32>], alpha: I32F32) -> Vec<Vec<I32F32>> {
+    let Some(first_row) = new.first() else {
+        return vec![vec![]];
+    };
+    if first_row.is_empty() {
+        return vec![vec![]; 1];
+    }
+    let one_minus_alpha: I32F32 = I32F32::saturating_from_num(1.0).saturating_sub(alpha);
+    new.iter()
+        .zip(old)
+        .map(|(new_row, old_row)| {
+            new_row
+                .iter()
+                .zip(old_row)
+                .map(|(new_elem, old_elem)| {
+                    alpha
+                        .saturating_mul(*new_elem)
+                        .saturating_add(one_minus_alpha.saturating_mul(*old_elem))
+                })
+                .collect()
+        })
+        .collect()
+}
+
+// Return sparse matrix exponential moving average: `alpha * a_ij + one_minus_alpha * b_ij`.
+// `alpha` is the EMA coefficient, how much to add of the new observation, typically small,
+// higher alpha discounts older observations faster.
+#[allow(dead_code, clippy::indexing_slicing)]
+pub fn mat_ema_sparse(
+    new: &[Vec<(u16, I32F32)>],
+    old: &[Vec<(u16, I32F32)>],
+    alpha: I32F32,
+) -> Vec<Vec<(u16, I32F32)>> {
+    assert!(new.len() == old.len());
+    let n = new.len(); // assume square matrix, rows=cols
+    let zero: I32F32 = I32F32::saturating_from_num(0.0);
+    let one_minus_alpha: I32F32 = I32F32::saturating_from_num(1.0).saturating_sub(alpha);
+    let mut result: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
+    for i in 0..new.len() {
+        let mut row: Vec<I32F32> = vec![zero; n];
+        for (j, value) in new[i].iter() {
+            row[*j as usize] = row[*j as usize].saturating_add(alpha.saturating_mul(*value));
+        }
+        for (j, value) in old[i].iter() {
+            row[*j as usize] =
+                row[*j as usize].saturating_add(one_minus_alpha.saturating_mul(*value));
+        }
+        for (j, value) in row.iter().enumerate() {
+            if *value > zero {
+                result[i].push((j as u16, *value))
+            }
+        }
+    }
+    result
+}
+
+/// Return matrix exponential moving average: `alpha_j * a_ij + one_minus_alpha_j * b_ij`.
+/// `alpha_` is the EMA coefficient passed as a vector per column.
+#[allow(dead_code)]
+pub fn mat_ema_alpha(
+    new: &[Vec<I32F32>], // Weights
+    old: &[Vec<I32F32>], // Bonds
+    alpha: &[Vec<I32F32>],
+) -> Vec<Vec<I32F32>> {
+    // Check if the new matrix is empty or its first row is empty.
+    if new.is_empty() || new.first().is_none_or(|row| row.is_empty()) {
+        return vec![vec![]; 1];
+    }
+
+    // Ensure the dimensions of the new, old and alpha matrices match.
+    assert!(new.len() == old.len());
+    assert!(new.len() == alpha.len());
+
+    // Initialize the result matrix with zeros, having the same dimensions as the new matrix.
+    let mut result: Vec<Vec<I32F32>> =
+        vec![
+            vec![I32F32::saturating_from_num(0.0); new.first().map_or(0, |row| row.len())];
+            new.len()
+        ];
+
+    // Iterate over each row of the matrices.
+    for (i, ((new_row, old_row), alpha_row)) in new.iter().zip(old).zip(alpha).enumerate() {
+        assert!(new_row.len() == old_row.len());
+        assert!(new_row.len() == alpha_row.len());
+
+        // Iterate over each column of the current row.
+        for j in 0..new_row.len() {
+            // Compute the EMA for the current element using saturating operations.
+            if let (Some(new_val), Some(old_val), Some(alpha_val), Some(result_val)) = (
+                new_row.get(j),
+                old_row.get(j),
+                alpha_row.get(j),
+                result.get_mut(i).and_then(|row| row.get_mut(j)),
+            ) {
+                // Calculate the complement of the alpha value
+                let one_minus_alpha = I32F32::saturating_from_num(1.0).saturating_sub(*alpha_val);
+
+                // Bonds_decayed = Bonds * (1 - alpha)
+                let decayed_val = one_minus_alpha.saturating_mul(*old_val);
+
+                // Calculate remaining capacity to limit bonds purchase
+                let remaining_capacity = I32F32::from_num(1.0)
+                    .saturating_sub(decayed_val)
+                    .max(I32F32::from_num(0.0));
+
+                // Each validator can increase bonds by at most clamped_alpha per epoch towards the cap
+                // Validators allocate their purchase across miners based on weights
+                let purchase_increment = alpha_val.saturating_mul(*new_val);
+
+                // Ensure that purchase does not exceed remaining capacity
+                let purchase = purchase_increment.min(remaining_capacity);
+
+                *result_val = decayed_val
+                    .saturating_add(purchase)
+                    .min(I32F32::from_num(1.0));
+            }
+        }
+    }
+
+    // Return the computed EMA matrix.
+    result
+}
+
 /// Calculates the exponential moving average (EMA) for a sparse matrix using dynamic alpha values.
 /// Return matrix exponential moving average: `alpha_j * a_ij + one_minus_alpha_j * b_ij`.
 // `alpha` is the EMA coefficient, how much to add of the new observation, typically small,
 // higher alpha discounts older observations faster.
 // if liquid alpha off then the alpha vector will be constant
 #[allow(dead_code)]
-pub fn mat_ema_alpha_vec_sparse(
+pub fn mat_ema_alpha_sparse(
     new: &[Vec<(u16, I32F32)>],
     old: &[Vec<(u16, I32F32)>],
-    alpha: &[I32F32],
+    alpha: &[Vec<I32F32>],
 ) -> Vec<Vec<(u16, I32F32)>> {
-    // Ensure the new and old matrices have the same number of rows.
+    // Ensure dimensions match.
     assert!(new.len() == old.len());
+    assert!(new.len() == alpha.len());
+
+    // The output vector of rows.
+    let mut result: Vec<Vec<(u16, I32F32)>> = Vec::with_capacity(new.len());
+
     let n = new.len(); // Assume square matrix, rows=cols
     let zero: I32F32 = I32F32::saturating_from_num(0.0);
-    let mut result: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
 
     // Iterate over each row of the matrices.
     for (i, (new_row, old_row)) in new.iter().zip(old).enumerate() {
         // Initialize a row of zeros for the result matrix.
-        let mut row: Vec<I32F32> = vec![zero; n];
+        let mut decayed_values: Vec<I32F32> = vec![zero; n];
 
-        // Process the new matrix values.
-        for (j, new_val) in new_row.iter() {
-            // Retrieve the alpha value for the current column.
-            let alpha_val: I32F32 = alpha.get(*j as usize).copied().unwrap_or(zero);
-            // Compute the EMA component for the new value using saturating multiplication.
-            if let Some(row_val) = row.get_mut(*j as usize) {
-                // Each validator can increase bonds by at most clamped_alpha per epoch towards the cap
-                // Validators allocate their purchase across miners based on weights
-                *row_val = alpha_val.saturating_mul(*new_val);
-            }
-        }
+        let mut result_row: Vec<(u16, I32F32)> = Vec::new();
 
         // Process the old matrix values.
         for (j, old_val) in old_row.iter() {
-            // Retrieve the alpha value for the current column.
-            let alpha_val: I32F32 = alpha.get(*j as usize).copied().unwrap_or(zero);
-            // Calculate the complement of the alpha value using saturating subtraction.
-            let one_minus_alpha: I32F32 =
-                I32F32::saturating_from_num(1.0).saturating_sub(alpha_val);
-            // Compute the EMA component for the old value and add it to the row using saturating operations.
-            if let Some(purchase_increment) = row.get_mut(*j as usize) {
-                // *row_val = row_val.saturating_add(one_minus_alpha.saturating_mul(*value));
-                let decayed_val = one_minus_alpha.saturating_mul(*old_val);
-                let remaining_capacity = I32F32::from_num(1.0)
-                    .saturating_sub(decayed_val)
-                    .max(I32F32::from_num(0.0));
+            let alpha_val = alpha[i][*j as usize];
+            // Calculate the complement of the alpha value
+            let one_minus_alpha = I32F32::saturating_from_num(1.0).saturating_sub(alpha_val);
 
-                // Ensure that purchase does not exceed remaining capacity
-                let purchase = (*purchase_increment).min(remaining_capacity);
-
-                *purchase_increment = decayed_val
-                    .saturating_add(purchase)
-                    .min(I32F32::from_num(1.0));
-            }
+            // Bonds_decayed = Bonds * (1 - alpha)
+            let decayed_val = one_minus_alpha.saturating_mul(*old_val);
+            decayed_values[*j as usize] = decayed_val;
         }
 
-        // Collect the non-zero values into the result matrix.
-        for (j, value) in row.iter().enumerate() {
-            if *value > zero {
-                if let Some(result_row) = result.get_mut(i) {
-                    result_row.push((j as u16, *value));
-                    log::trace!("result[{}][{}] = {}", i, j, value);
-                }
+        // Process the new matrix values.
+        for (j, new_val) in new_row.iter() {
+            let alpha_val = alpha[i][*j as usize];
+            let decayed_val = decayed_values[*j as usize];
+
+            // Calculate remaining capacity to limit bonds purchase
+            let remaining_capacity = I32F32::from_num(1.0)
+                .saturating_sub(decayed_val)
+                .max(I32F32::from_num(0.0));
+
+            // Each validator can increase bonds by at most clamped_alpha per epoch towards the cap
+            // Validators allocate their purchase across miners based on weights
+            let purchase_increment = alpha_val.saturating_mul(*new_val);
+
+            // Ensure that purchase does not exceed remaining capacity
+            let purchase = purchase_increment.min(remaining_capacity);
+
+            let result_val = decayed_val
+                .saturating_add(purchase)
+                .min(I32F32::from_num(1.0));
+            if result_val > zero {
+                result_row.push(({ *j }, result_val));
             }
         }
+        result.push(result_row);
     }
 
     // Return the computed EMA sparse matrix.
