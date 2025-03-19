@@ -266,8 +266,6 @@ impl<T: Config> Pallet<T> {
             pending_swapped,
             owner_cut
         );
-        // Setup.
-        let zero: I96F32 = asfloat!(0.0);
 
         // Run the epoch.
         let hotkey_emission: Vec<(T::AccountId, u64, u64)> =
@@ -296,6 +294,25 @@ impl<T: Config> Pallet<T> {
         }
         log::debug!("incentives: {:?}", incentives);
         log::debug!("dividends: {:?}", dividends);
+
+        Self::distribute_dividends_and_incentives(
+            netuid,
+            pending_tao,
+            owner_cut,
+            incentives,
+            dividends,
+        );
+    }
+
+    pub fn distribute_dividends_and_incentives(
+        netuid: u16,
+        pending_tao: u64,
+        owner_cut: u64,
+        incentives: BTreeMap<T::AccountId, u64>,
+        dividends: BTreeMap<T::AccountId, I96F32>,
+    ) {
+        // Setup.
+        let zero: I96F32 = asfloat!(0.0);
 
         // Accumulate root divs and alpha_divs. For each hotkey we compute their
         // local and root dividend proportion based on their alpha_stake/root_stake
@@ -375,8 +392,19 @@ impl<T: Config> Pallet<T> {
 
         // Distribute mining incentives.
         for (hotkey, incentive) in incentives {
-            // Increase stake for miner.
             log::debug!("incentives: hotkey: {:?}", incentive);
+
+            if let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
+                if hotkey == owner_hotkey {
+                    log::debug!(
+                        "incentives: hotkey: {:?} is SN owner hotkey, skipping {:?}",
+                        hotkey,
+                        incentive
+                    );
+                    continue; // Skip/burn miner-emission for SN owner hotkey.
+                }
+            }
+            // Increase stake for miner.
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey.clone(),
                 &Owner::<T>::get(hotkey.clone()),
@@ -497,6 +525,7 @@ impl<T: Config> Pallet<T> {
 
         // Calculate the hotkey's share of the validator emission based on its childkey take
         let validating_emission: I96F32 = I96F32::saturating_from_num(dividends);
+        let mut remaining_emission: I96F32 = validating_emission;
         let childkey_take_proportion: I96F32 =
             I96F32::saturating_from_num(Self::get_childkey_take(hotkey, netuid))
                 .safe_div(I96F32::saturating_from_num(u16::MAX));
@@ -507,23 +536,12 @@ impl<T: Config> Pallet<T> {
         );
         // NOTE: Only the validation emission should be split amongst parents.
 
-        // Reserve childkey take
-        let child_emission_take: I96F32 = childkey_take_proportion
-            .saturating_mul(I96F32::saturating_from_num(validating_emission));
-        let remaining_emission: I96F32 = validating_emission.saturating_sub(child_emission_take);
-        log::debug!(
-            "Child emission take: {:?} for hotkey {:?}",
-            child_emission_take,
-            hotkey
-        );
-        log::debug!(
-            "Remaining emission: {:?} for hotkey {:?}",
-            remaining_emission,
-            hotkey
-        );
+        // Grab the owner of the childkey.
+        let childkey_owner = Self::get_owning_coldkey_for_hotkey(hotkey);
 
         // Initialize variables to track emission distribution
         let mut to_parents: u64 = 0;
+        let mut total_child_emission_take: I96F32 = I96F32::saturating_from_num(0);
 
         // Initialize variables to calculate total stakes from parents
         let mut total_contribution: I96F32 = I96F32::saturating_from_num(0);
@@ -580,33 +598,66 @@ impl<T: Config> Pallet<T> {
         // Distribute emission to parents based on their contributions.
         // Deduct childkey take from parent contribution.
         for (parent, contribution) in parent_contributions {
-            // Sum up the total emission for this parent
+            let parent_owner = Self::get_owning_coldkey_for_hotkey(&parent);
+
+            // Get the stake contribution of this parent key of the total stake.
             let emission_factor: I96F32 = contribution
                 .checked_div(total_contribution)
                 .unwrap_or(I96F32::saturating_from_num(0));
-            let parent_emission: u64 =
-                (remaining_emission.saturating_mul(emission_factor)).saturating_to_num::<u64>();
+
+            // Get the parent's portion of the validating emission based on their contribution.
+            let mut parent_emission: I96F32 = validating_emission.saturating_mul(emission_factor);
+            // Remove this emission from the remaining emission.
+            remaining_emission = remaining_emission.saturating_sub(parent_emission);
+
+            // Get the childkey take for this parent.
+            let child_emission_take: I96F32 = if parent_owner == childkey_owner {
+                // The parent is from the same coldkey, so we don't remove any childkey take.
+                I96F32::saturating_from_num(0)
+            } else {
+                childkey_take_proportion
+                    .saturating_mul(I96F32::saturating_from_num(parent_emission))
+            };
+
+            // Remove the childkey take from the parent's emission.
+            parent_emission = parent_emission.saturating_sub(child_emission_take);
+
+            // Add the childkey take to the total childkey take tracker.
+            total_child_emission_take =
+                total_child_emission_take.saturating_add(child_emission_take);
+
+            log::debug!(
+                "Child emission take: {:?} for hotkey {:?}",
+                child_emission_take,
+                hotkey
+            );
+            log::debug!(
+                "Parent emission: {:?} for hotkey {:?}",
+                parent_emission,
+                hotkey
+            );
+            log::debug!("remaining emission: {:?}", remaining_emission);
 
             // Add the parent's emission to the distribution list
-            dividend_tuples.push((parent.clone(), parent_emission));
+            dividend_tuples.push((parent.clone(), parent_emission.saturating_to_num::<u64>()));
 
             // Keep track of total emission distributed to parents
-            to_parents = to_parents.saturating_add(parent_emission);
+            to_parents = to_parents.saturating_add(parent_emission.saturating_to_num::<u64>());
             log::debug!(
-                "Parent contribution for parent {:?} with contribution: {:?}, of total: {:?} of emission: {:?} gets: {:?}",
+                "Parent contribution for parent {:?} with contribution: {:?}, of total: {:?} ({:?}), of emission: {:?} gets: {:?}",
                 parent,
                 contribution,
                 total_contribution,
-                remaining_emission,
-                parent_emission
+                emission_factor,
+                validating_emission,
+                parent_emission,
             );
         }
         // Calculate the final emission for the hotkey itself.
         // This includes the take left from the parents and the self contribution.
         let child_emission = remaining_emission
-            .saturating_add(child_emission_take)
-            .saturating_to_num::<u64>()
-            .saturating_sub(to_parents);
+            .saturating_add(total_child_emission_take)
+            .saturating_to_num::<u64>();
 
         // Add the hotkey's own emission to the distribution list
         dividend_tuples.push((hotkey.clone(), child_emission));

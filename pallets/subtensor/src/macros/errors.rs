@@ -193,5 +193,7 @@ mod errors {
         TransferDisallowed,
         /// Activity cutoff is being set too low.
         ActivityCutoffTooLow,
+        /// Call is disabled
+        CallDisabled,
     }
 }

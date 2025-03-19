@@ -1,0 +1,31 @@
+{
+  "scripts": {
+    "test": "mocha --timeout 999999 --require ts-node/register test/*test.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@polkadot-api/descriptors": "file:.papi/descriptors",
+    "@polkadot-labs/hdkd": "^0.0.10",
+    "@polkadot-labs/hdkd-helpers": "^0.0.11",
+    "@polkadot/api": "15.1.1",
+    "crypto": "^1.0.1",
+    "dotenv": "16.4.7",
+    "ethers": "^6.13.5",
+    "polkadot-api": "^1.9.5",
+    "viem": "2.23.4"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.13",
+    "@types/chai": "^5.0.1",
+    "@types/mocha": "^10.0.10",
+    "assert": "^2.1.0",
+    "chai": "^5.2.0",
+    "mocha": "^11.1.0",
+    "prettier": "^3.3.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.8"
+  }
+}

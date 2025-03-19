@@ -65,8 +65,6 @@ mod events {
         AxonServed(u16, T::AccountId),
         /// the prometheus server information is added to the network.
         PrometheusServed(u16, T::AccountId),
-        /// emission ratios for all networks is set.
-        EmissionValuesSet(),
         /// a hotkey has become a delegate.
         DelegateAdded(T::AccountId, T::AccountId, u16),
         /// the default take is set.
@@ -124,7 +122,7 @@ mod events {
         /// the network minimum locking cost is set.
         NetworkMinLockCostSet(u64),
         /// the maximum number of subnets is set
-        SubnetLimitSet(u16),
+        // SubnetLimitSet(u16),
         /// the lock cost reduction is set
         NetworkLockCostReductionIntervalSet(u64),
         /// the take for a delegate is decreased.
@@ -193,8 +191,8 @@ mod events {
         SetChildren(T::AccountId, u16, Vec<(u64, T::AccountId)>),
         // /// The hotkey emission tempo has been set
         // HotkeyEmissionTempoSet(u64),
-        /// The network maximum stake has been set
-        NetworkMaxStakeSet(u16, u64),
+        // /// The network maximum stake has been set
+        // NetworkMaxStakeSet(u16, u64),
         /// The identity of a coldkey has been set
         ChainIdentitySet(T::AccountId),
         /// The identity of a subnet has been set
@@ -271,5 +269,11 @@ mod events {
         /// Parameters:
         /// (netuid, bool)
         TransferToggle(u16, bool),
+
+        /// The owner hotkey for a subnet has been set.
+        ///
+        /// Parameters:
+        /// (netuid, new_hotkey)
+        SubnetOwnerHotkeySet(u16, T::AccountId),
     }
 }

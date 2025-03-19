@@ -60,10 +60,15 @@ impl<T: Config> Pallet<T> {
         let blocks_since_registration = I96F32::saturating_from_num(
             Self::get_current_block_as_u64().saturating_sub(NetworkRegisteredAt::<T>::get(netuid)),
         );
-        // 7200 * 14 = 100_800 is the halving time
+
+        // Use halving time hyperparameter. The meaning of this parameter can be best explained under
+        // the assumption of a constant price and SubnetMovingAlpha == 0.5: It is how many blocks it
+        // will take in order for the distance between current EMA of price and current price to shorten
+        // by half.
+        let halving_time = EMAPriceHalvingBlocks::<T>::get(netuid);
         let alpha: I96F32 =
             SubnetMovingAlpha::<T>::get().saturating_mul(blocks_since_registration.safe_div(
-                blocks_since_registration.saturating_add(I96F32::saturating_from_num(100_800)),
+                blocks_since_registration.saturating_add(I96F32::saturating_from_num(halving_time)),
             ));
         let minus_alpha: I96F32 = I96F32::saturating_from_num(1.0).saturating_sub(alpha);
         let current_price: I96F32 = alpha
@@ -553,8 +558,12 @@ impl<T: Config> Pallet<T> {
         amount: u64,
     ) -> u64 {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
+        // We expect to add a positive amount here.
         let actual_alpha = alpha_share_pool.update_value_for_one(coldkey, amount as i64);
-        actual_alpha.unsigned_abs()
+
+        // We should return a positive amount, or 0 if the operation failed.
+        // e.g. the stake was removed due to precision issues.
+        actual_alpha.max(0).unsigned_abs()
     }
 
     pub fn try_increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -583,6 +592,8 @@ impl<T: Config> Pallet<T> {
         amount: u64,
     ) -> u64 {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
+
+        // We expect a negative value here
         let mut actual_alpha = 0;
         if let Ok(value) = alpha_share_pool.try_get_value(coldkey) {
             if value >= amount {
@@ -590,7 +601,11 @@ impl<T: Config> Pallet<T> {
                     alpha_share_pool.update_value_for_one(coldkey, (amount as i64).neg());
             }
         }
-        actual_alpha.unsigned_abs()
+
+        // Get the negation of the removed alpha, and clamp at 0.
+        // This ensures we return a positive value, but only if
+        // `actual_alpha` was negative (i.e. a decrease in stake).
+        actual_alpha.neg().max(0).unsigned_abs()
     }
 
     /// Calculates Some(Alpha) returned from pool by staking operation
@@ -780,7 +795,7 @@ impl<T: Config> Pallet<T> {
             actual_alpha_decrease,
             netuid,
         ));
-        log::info!(
+        log::debug!(
             "StakeRemoved( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?} )",
             coldkey.clone(),
             hotkey.clone(),
@@ -796,7 +811,7 @@ impl<T: Config> Pallet<T> {
     /// Stakes TAO into a subnet for a given hotkey and coldkey pair.
     ///
     /// We update the pools associated with a subnet as well as update hotkey alpha shares.
-    pub fn stake_into_subnet(
+    pub(crate) fn stake_into_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: u16,
@@ -843,7 +858,7 @@ impl<T: Config> Pallet<T> {
             actual_alpha,
             netuid,
         ));
-        log::info!(
+        log::debug!(
             "StakeAdded( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?} )",
             coldkey.clone(),
             hotkey.clone(),
@@ -1055,6 +1070,52 @@ impl<T: Config> Pallet<T> {
         }
 
         Ok(())
+    }
+
+    pub(crate) fn calculate_staking_fee(
+        origin: Option<(&T::AccountId, u16)>,
+        _origin_coldkey: &T::AccountId,
+        destination: Option<(&T::AccountId, u16)>,
+        _destination_coldkey: &T::AccountId,
+        alpha_estimate: I96F32,
+    ) -> u64 {
+        match origin {
+            // If origin is defined, we are removing/moving stake
+            Some((origin_hotkey, origin_netuid)) => {
+                if let Some((_destination_hotkey, destination_netuid)) = destination {
+                    // This is a stake move/swap/transfer
+                    if destination_netuid == origin_netuid {
+                        // If destination is on the same subnet, use the default fee
+                        return DefaultStakingFee::<T>::get();
+                    }
+                }
+
+                if origin_netuid == Self::get_root_netuid()
+                    || SubnetMechanism::<T>::get(origin_netuid) == 0
+                {
+                    // If the origin netuid is root, or the subnet mechanism is 0, use the default fee
+                    DefaultStakingFee::<T>::get()
+                } else {
+                    // Otherwise, calculate the fee based on the alpha estimate
+                    let fee = alpha_estimate
+                        .saturating_mul(
+                            I96F32::saturating_from_num(AlphaDividendsPerSubnet::<T>::get(
+                                origin_netuid,
+                                &origin_hotkey,
+                            ))
+                            .safe_div(I96F32::saturating_from_num(
+                                TotalHotkeyAlpha::<T>::get(&origin_hotkey, origin_netuid),
+                            )),
+                        )
+                        .saturating_mul(Self::get_alpha_price(origin_netuid)) // fee needs to be in TAO
+                        .saturating_to_num::<u64>();
+
+                    fee.max(DefaultStakingFee::<T>::get())
+                }
+            }
+            // If origin is not defined, we are adding stake; use default fee
+            None => DefaultStakingFee::<T>::get(),
+        }
     }
 }
 

@@ -66,7 +66,7 @@ pallet-transaction-payment = { workspace = true }
 pallet-commitments = { path = "../pallets/commitments" }
 pallet-drand = { workspace = true }
 sp-crypto-ec-utils = { workspace = true }
-sp-keystore = { workspace = true,  default-features = false }
+sp-keystore = { workspace = true, default-features = false }
 
 
 # These dependencies are used for the subtensor's RPCs
@@ -105,9 +105,10 @@ thiserror = { workspace = true }
 num-traits = { version = "0.2", features = ["std"] }
 
 # Local Dependencies
-node-subtensor-runtime = { path = "../runtime" }
-subtensor-custom-rpc = { path = "../pallets/subtensor/rpc" }
-subtensor-custom-rpc-runtime-api = { path = "../pallets/subtensor/runtime-api" }
+node-subtensor-runtime = { workspace = true, features = ["std"] }
+subtensor-runtime-common = { workspace = true, features = ["std"] }
+subtensor-custom-rpc = { workspace = true, features = ["std"] }
+subtensor-custom-rpc-runtime-api = { workspace = true, features = ["std"] }
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true }
@@ -133,7 +134,7 @@ runtime-benchmarks = [
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"pallet-commitments/runtime-benchmarks",
-	"pallet-drand/runtime-benchmarks"
+	"pallet-drand/runtime-benchmarks",
 ]
 pow-faucet = []
 
@@ -145,7 +146,7 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
 	"pallet-commitments/try-runtime",
-	"pallet-drand/try-runtime"
+	"pallet-drand/try-runtime",
 ]
 
 metadata-hash = ["node-subtensor-runtime/metadata-hash"]
