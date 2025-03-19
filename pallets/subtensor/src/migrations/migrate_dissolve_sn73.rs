@@ -36,6 +36,18 @@ pub fn migrate_dissolve_sn73<T: Config>() -> Weight {
         weight = weight.saturating_add(T::DbWeight::get().reads(1));
         log::debug!("Subnet TAO: {}", subnet_tao);
 
+        // Adjust total stake and total issuance
+        TotalStake::<T>::mutate(|total| {
+            *total = total.saturating_sub(subnet_tao.saturating_to_num::<u64>());
+        });
+        TotalIssuance::<T>::mutate(|total| {
+            *total = total.saturating_sub(subnet_tao.saturating_to_num::<u64>());
+        });
+        weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 2));
+
+        // Record for total issuance tracking
+        let mut total_swapped: u64 = 0;
+
         let mut total_alpha: I96F32 = I96F32::from_num(0);
         // Iterate over every hotkey and sum up the total alpha
         let mut hotkeys_to_remove: Vec<T::AccountId> = Vec::new();
@@ -96,6 +108,7 @@ pub fn migrate_dissolve_sn73<T: Config>() -> Weight {
 
                 if as_tao > 0 {
                     Pallet::<T>::add_balance_to_coldkey_account(&coldkey, as_tao);
+                    total_swapped = total_swapped.saturating_add(as_tao);
                     weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 
                     // Emit event
@@ -113,6 +126,23 @@ pub fn migrate_dissolve_sn73<T: Config>() -> Weight {
                 Alpha::<T>::remove((&hotkey, coldkey, this_netuid));
                 weight = weight.saturating_add(T::DbWeight::get().writes(1));
             }
+        }
+
+        // Update total issuance
+        TotalIssuance::<T>::mutate(|v| *v = v.saturating_add(total_swapped));
+        weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
+
+        // Verify total issuance change is correct
+        if subnet_tao
+            .saturating_to_num::<u64>()
+            .abs_diff(total_swapped)
+            >= 100_000
+        {
+            log::info!(
+                "Total issuance change is incorrect: {} != {}",
+                subnet_tao.saturating_to_num::<u64>(),
+                total_swapped
+            );
         }
 
         // === Clear storage entries ===
@@ -153,12 +183,6 @@ pub fn migrate_dissolve_sn73<T: Config>() -> Weight {
         weight = weight.saturating_add(T::DbWeight::get().writes(clear_results_0.unique.into()));
         let clear_results_1 = TaoDividendsPerSubnet::<T>::clear_prefix(this_netuid, u32::MAX, None);
         weight = weight.saturating_add(T::DbWeight::get().writes(clear_results_1.unique.into()));
-
-        // Adjust total stake
-        TotalStake::<T>::mutate(|total| {
-            *total = total.saturating_sub(subnet_tao.saturating_to_num::<u64>());
-        });
-        weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 
         // Clear subnet volume
         SubnetVolume::<T>::remove(this_netuid);

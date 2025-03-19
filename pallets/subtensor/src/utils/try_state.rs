@@ -6,16 +6,11 @@ impl<T: Config> Pallet<T> {
     /// Checks [`TotalIssuance`] equals the sum of currency issuance, total stake, and total subnet
     /// locked.
     pub(crate) fn check_total_issuance() -> Result<(), sp_runtime::TryRuntimeError> {
-        // Get the total subnet locked amount
-        let total_subnet_locked = Self::get_total_subnet_locked();
-
         // Get the total currency issuance
         let currency_issuance = T::Currency::total_issuance();
 
         // Calculate the expected total issuance
-        let expected_total_issuance = currency_issuance
-            .saturating_add(TotalStake::<T>::get())
-            .saturating_add(total_subnet_locked);
+        let expected_total_issuance = currency_issuance.saturating_add(TotalStake::<T>::get());
 
         // Verify the diff between calculated TI and actual TI is less than delta
         //
