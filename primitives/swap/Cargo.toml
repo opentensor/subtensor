@@ -5,6 +5,7 @@ edition = { workspace = true }
 
 [dependencies]
 alloy-primitives = { workspace = true }
+approx = { workspace = true }
 safe-math = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-std = { workspace = true }

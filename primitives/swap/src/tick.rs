@@ -6,6 +6,12 @@ use crate::tick_math::{
 };
 use crate::{SqrtPrice, SwapDataOperations};
 
+// Maximum and minimum values of the tick index
+// The tick_math library uses different bitness, so we have to divide by 2.
+// Do not use tick_math::MIN_TICK and tick_math::MAX_TICK
+pub const MAX_TICK_INDEX: i32 = MAX_TICK / 2;
+pub const MIN_TICK_INDEX: i32 = MIN_TICK / 2;
+
 /// Tick is the price range determined by tick index (not part of this struct,
 /// but is the key at which the Tick is stored in state hash maps). Tick struct
 /// stores liquidity and fee information.
@@ -14,7 +20,7 @@ use crate::{SqrtPrice, SwapDataOperations};
 ///   - Gross liquidity
 ///   - Fees (above global) in both currencies
 ///
-#[derive(Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Tick {
     pub liquidity_net: i128,
     pub liquidity_gross: u64,

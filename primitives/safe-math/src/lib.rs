@@ -76,14 +76,23 @@ pub trait FixedExt: Fixed {
     /// Safe sqrt with good precision
     fn checked_sqrt(&self, epsilon: Self) -> Option<Self> {
         let zero = Self::saturating_from_num(0);
+        let one = Self::saturating_from_num(1);
         let two = Self::saturating_from_num(2);
 
         if *self < zero {
             return None;
         }
 
-        let mut high = *self;
-        let mut low = zero;
+        let mut high;
+        let mut low;
+        if *self > one {
+            high = *self;
+            low = zero;
+        } else {
+            high = one;
+            low = *self;
+        }
+
         let mut middle = high.saturating_add(low).safe_div(two);
 
         let mut iteration: i32 = 0;
@@ -268,7 +277,8 @@ mod tests {
 
         let result: Option<U110F18> = value.checked_sqrt(epsilon);
         assert!(result.is_some());
-        assert_eq!(result.unwrap(), U110F18::from_num(0.0));
+        let sqrt_result: U110F18 = result.unwrap();
+        assert!(sqrt_result.abs_diff(U110F18::from_num(0)) <= epsilon);
     }
 
     #[test]
