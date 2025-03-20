@@ -327,6 +327,8 @@ impl<T: Config> Pallet<T> {
         ValidatorPermit::<T>::insert(netuid, new_validator_permits.clone());
 
         // Column max-upscale EMA bonds for storage: max_i w_ij = 1.
+        inplace_col_max_upscale(&mut ema_bonds);
+        // Then normalize.
         inplace_col_normalize(&mut ema_bonds);
         new_validator_permits
             .iter()
@@ -713,6 +715,8 @@ impl<T: Config> Pallet<T> {
         ValidatorPermit::<T>::insert(netuid, new_validator_permits.clone());
 
         // Column max-upscale EMA bonds for storage: max_i w_ij = 1.
+        inplace_col_max_upscale_sparse(&mut ema_bonds, n);
+        // Then normalize.
         inplace_col_normalize_sparse(&mut ema_bonds, n);
         new_validator_permits
             .iter()
