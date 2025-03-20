@@ -282,7 +282,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: subtensor-localnet
-          path: subtensor-localnet.tar
 
       - name: Load Docker Image
         run: docker load -i subtensor-localnet.tar
