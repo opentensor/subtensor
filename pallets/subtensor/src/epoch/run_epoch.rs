@@ -22,6 +22,10 @@ impl<T: Config> Pallet<T> {
         let current_block: u64 = Self::get_current_block_as_u64();
         log::trace!("current_block:\n{:?}\n", current_block);
 
+        // Get tempo.
+        let tempo: u64 = Self::get_tempo(netuid).into();
+        log::trace!("tempo:\n{:?}\n", tempo);
+
         // Get activity cutoff.
         let activity_cutoff: u64 = Self::get_activity_cutoff(netuid) as u64;
         log::trace!("activity_cutoff:\n{:?}\n", activity_cutoff);
@@ -44,7 +48,7 @@ impl<T: Config> Pallet<T> {
         let block_at_registration: Vec<u64> = Self::get_block_at_registration(netuid);
         log::trace!("Block at registration:\n{:?}\n", &block_at_registration);
 
-        // Outdated matrix, updated_ij=True if i has last updated (weights) after j has last registered.
+        // Outdated matrix, outdated_ij=True if i has last updated (weights) after j has last registered.
         let outdated: Vec<Vec<bool>> = last_update
             .iter()
             .map(|updated| {
@@ -55,6 +59,16 @@ impl<T: Config> Pallet<T> {
             })
             .collect();
         log::trace!("Outdated:\n{:?}\n", &outdated);
+
+        // Recently registered matrix, recently_ij=True if last_tempo was *before* j was last registered.
+        // Mask if: the last tempo block happened *before* the registration block
+        // ==> last_tempo <= registered
+        let last_tempo: u64 = current_block.saturating_sub(tempo);
+        let recently_registered: Vec<bool> = block_at_registration
+            .iter()
+            .map(|registered| last_tempo <= *registered)
+            .collect();
+        log::trace!("Recently registered:\n{:?}\n", &recently_registered);
 
         // ===========
         // == Stake ==
@@ -185,17 +199,16 @@ impl<T: Config> Pallet<T> {
 
         // Access network bonds.
         let mut bonds: Vec<Vec<I32F32>> = Self::get_bonds(netuid);
-        inplace_mask_matrix(&outdated, &mut bonds); // mask outdated bonds
-        inplace_col_normalize(&mut bonds); // sum_i b_ij = 1
-        log::trace!("B:\n{:?}\n", &bonds);
+
+        // Remove bonds referring to neurons that have registered since last tempo.
+        inplace_mask_cols(&recently_registered, &mut bonds); // mask recently registered bonds
 
         // Compute bonds delta column normalized.
-        let mut bonds_delta: Vec<Vec<I32F32>> = row_hadamard(&weights_for_bonds, &active_stake); // ΔB = W◦S
-        inplace_col_normalize(&mut bonds_delta); // sum_i b_ij = 1
+        let bonds_delta: Vec<Vec<I32F32>> = row_hadamard(&weights_for_bonds, &active_stake); // ΔB = W◦S
         log::trace!("ΔB:\n{:?}\n", &bonds_delta);
+
         // Compute the Exponential Moving Average (EMA) of bonds.
-        let mut ema_bonds = Self::compute_ema_bonds(netuid, consensus.clone(), bonds_delta, bonds);
-        inplace_col_normalize(&mut ema_bonds); // sum_i b_ij = 1
+        let ema_bonds = Self::compute_ema_bonds(netuid, consensus.clone(), bonds_delta, bonds);
         log::trace!("emaB:\n{:?}\n", &ema_bonds);
 
         // Compute dividends: d_i = SUM(j) b_ij * inc_j
@@ -326,10 +339,6 @@ impl<T: Config> Pallet<T> {
         ValidatorTrust::<T>::insert(netuid, cloned_validator_trust);
         ValidatorPermit::<T>::insert(netuid, new_validator_permits.clone());
 
-        // Column max-upscale EMA bonds for storage: max_i w_ij = 1.
-        inplace_col_max_upscale(&mut ema_bonds);
-        // Then normalize.
-        inplace_col_normalize(&mut ema_bonds);
         new_validator_permits
             .iter()
             .zip(validator_permits)
@@ -387,6 +396,10 @@ impl<T: Config> Pallet<T> {
         // Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
         log::trace!("current_block: {:?}", current_block);
+
+        // Get tempo.
+        let tempo: u64 = Self::get_tempo(netuid).into();
+        log::trace!("tempo: {:?}", tempo);
 
         // Get activity cutoff.
         let activity_cutoff: u64 = Self::get_activity_cutoff(netuid) as u64;
@@ -550,33 +563,26 @@ impl<T: Config> Pallet<T> {
         let mut bonds: Vec<Vec<(u16, I32F32)>> = Self::get_bonds_sparse(netuid);
         log::trace!("B: {:?}", &bonds);
 
-        // Remove bonds referring to deregistered neurons.
-        bonds = vec_mask_sparse_matrix(
+        // Remove bonds referring to neurons that have registered since last tempo.
+        // Mask if: the last tempo block happened *before* the registration block
+        // ==> last_tempo <= registered
+        let last_tempo: u64 = current_block.saturating_sub(tempo);
+        bonds = scalar_vec_mask_sparse_matrix(
             &bonds,
-            &last_update,
+            last_tempo,
             &block_at_registration,
-            &|updated, registered| updated <= registered,
+            &|last_tempo, registered| last_tempo <= registered,
         );
         log::trace!("B (outdatedmask): {:?}", &bonds);
 
-        // Normalize remaining bonds: sum_i b_ij = 1.
-        inplace_col_normalize_sparse(&mut bonds, n);
-        log::trace!("B (mask+norm): {:?}", &bonds);
-
         // Compute bonds delta column normalized.
-        let mut bonds_delta: Vec<Vec<(u16, I32F32)>> =
+        let bonds_delta: Vec<Vec<(u16, I32F32)>> =
             row_hadamard_sparse(&weights_for_bonds, &active_stake); // ΔB = W◦S (outdated W masked)
         log::trace!("ΔB: {:?}", &bonds_delta);
 
-        // Normalize bonds delta.
-        inplace_col_normalize_sparse(&mut bonds_delta, n); // sum_i b_ij = 1
-        log::trace!("ΔB (norm): {:?}", &bonds_delta);
-
         // Compute the Exponential Moving Average (EMA) of bonds.
-        let mut ema_bonds =
+        let ema_bonds =
             Self::compute_ema_bonds_sparse(netuid, consensus.clone(), bonds_delta, bonds);
-        // Normalize EMA bonds.
-        inplace_col_normalize_sparse(&mut ema_bonds, n); // sum_i b_ij = 1
         log::trace!("Exponential Moving Average Bonds: {:?}", &ema_bonds);
 
         // Compute dividends: d_i = SUM(j) b_ij * inc_j.
@@ -714,10 +720,6 @@ impl<T: Config> Pallet<T> {
         ValidatorTrust::<T>::insert(netuid, cloned_validator_trust);
         ValidatorPermit::<T>::insert(netuid, new_validator_permits.clone());
 
-        // Column max-upscale EMA bonds for storage: max_i w_ij = 1.
-        inplace_col_max_upscale_sparse(&mut ema_bonds, n);
-        // Then normalize.
-        inplace_col_normalize_sparse(&mut ema_bonds, n);
         new_validator_permits
             .iter()
             .zip(validator_permits)

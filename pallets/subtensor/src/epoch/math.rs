@@ -549,6 +549,24 @@ pub fn inplace_mask_rows(mask: &[bool], matrix: &mut [Vec<I32F32>]) {
         });
 }
 
+// Apply column mask to matrix, mask=true will mask out, i.e. set to 0.
+// Assumes each column has the same length.
+#[allow(dead_code)]
+pub fn inplace_mask_cols(mask: &[bool], matrix: &mut [Vec<I32F32>]) {
+    let Some(first_row) = matrix.first() else {
+        return;
+    };
+    assert_eq!(mask.len(), first_row.len());
+    let zero: I32F32 = I32F32::saturating_from_num(0);
+    matrix.iter_mut().for_each(|row_elem| {
+        row_elem.iter_mut().zip(mask).for_each(|(elem, mask_col)| {
+            if *mask_col {
+                *elem = zero;
+            }
+        });
+    });
+}
+
 // Mask out the diagonal of the input matrix in-place.
 #[allow(dead_code)]
 pub fn inplace_mask_diag(matrix: &mut [Vec<I32F32>]) {
