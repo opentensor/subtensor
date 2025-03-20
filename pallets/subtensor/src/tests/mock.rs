@@ -664,6 +664,7 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+    LastEmissionBlockNumber::<Test>::insert(netuid, 0);
 }
 
 #[allow(dead_code)]
@@ -678,6 +679,7 @@ pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> u16 {
     ));
     NetworkRegistrationAllowed::<Test>::insert(netuid, true);
     NetworkPowRegistrationAllowed::<Test>::insert(netuid, true);
+    LastEmissionBlockNumber::<Test>::insert(netuid, 0);
     netuid
 }
 
