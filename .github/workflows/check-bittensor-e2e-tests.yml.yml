@@ -153,7 +153,7 @@ jobs:
       - check-label
       - find-btcli-e2e-tests
       - build-image-with-current-branch
-    if: always() && needs.check-labels.outputs.run-cli-tests == 'true'
+    if: always() && needs.check-label.outputs.run-bittensor-e2e-tests == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -226,7 +226,7 @@ jobs:
       - check-label
       - find-sdk-e2e-tests
       - build-image-with-current-branch
-    if: always() && needs.check-labels.outputs.run-sdk-tests == 'true'
+    if: always() && needs.check-label.outputs.run-bittensor-e2e-tests == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
