@@ -56,6 +56,7 @@ subtensor-custom-rpc = { default-features = false, path = "pallets/subtensor/rpc
 subtensor-custom-rpc-runtime-api = { default-features = false, path = "pallets/subtensor/runtime-api" }
 subtensor-precompiles = { default-features = false, path = "precompiles" }
 subtensor-runtime-common = { default-features = false, path = "common" }
+pallet-subtensor-swap-interface = { default-features = false, path = "pallets/swap-interface" }
 
 async-trait = "0.1"
 cargo-husky = { version = "1", default-features = false }

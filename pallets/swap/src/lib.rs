@@ -1,6 +1,7 @@
 use core::marker::PhantomData;
 use std::ops::Neg;
 
+use pallet_subtensor_swap_interface::OrderType;
 use safe_math::*;
 use sp_arithmetic::helpers_128bit::sqrt;
 use substrate_fixed::types::U64F64;
@@ -13,15 +14,8 @@ use self::tick::{
 
 mod error;
 mod tick;
-mod tick_math;
 
 type SqrtPrice = U64F64;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum OrderType {
-    Sell,
-    Buy,
-}
 
 pub enum SwapStepAction {
     Crossing,
@@ -84,7 +78,7 @@ impl Position {
     ///     else:
     ///         tao = L * (self.sqrt_price_curr - sqrt_pa)
     ///         alpha = L * (1 / self.sqrt_price_curr - 1 / sqrt_pb)
-    ///  
+    ///
     pub fn to_token_amounts(&self, sqrt_price_curr: SqrtPrice) -> Result<(u64, u64), SwapError> {
         let one: U64F64 = U64F64::saturating_from_num(1);
 
@@ -1692,11 +1686,7 @@ mod tests {
         // Test case is (price_low, price_high, liquidity)
         [
             // Repeat the protocol liquidity at maximum range: Expect all the same values
-            (
-                min_price,
-                max_price,
-                2_000_000_000_u64,
-            ),
+            (min_price, max_price, 2_000_000_000_u64),
         ]
         .iter()
         .for_each(|(price_low, price_high, liquidity)| {
@@ -1724,5 +1714,4 @@ mod tests {
             );
         });
     }
-
 }
