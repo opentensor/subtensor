@@ -23,6 +23,30 @@ interface IStaking {
     function addStake(bytes32 hotkey, uint256 amount, uint256 netuid) external payable;
 
     /**
+     * @dev Swaps a subtensor stake from one subnet to another.
+     *
+     * This function allows external accounts and contracts to swap a subtensor stake between two different subnets.
+     * It effectively calls `swap_stake` on the subtensor pallet with specified hotkey, origin subnet, destination subnet,
+     * and alpha amount as parameters.
+     *
+     * @param hotkey The hotkey public key (32 bytes).
+     * @param originNetuid The subnet to swap from (uint256).
+     * @param destinationNetuid The subnet to swap to (uint256).
+     * @param alphaAmount The amount to swap in rao
+     *
+     * Requirements:
+     * - `hotkey` must be a valid hotkey registered on the network, ensuring that the stake is
+     *   correctly attributed.
+     * - `originNetuid` and `destinationNetuid` must be valid subnets on the network.
+     */
+    function swapStake(
+      bytes32 hotkey,
+      uint256 originNetuid,
+      uint256 destinationNetuid,
+      uint256 alphaAmount
+    ) external;
+
+    /**
      * @dev Removes a subtensor stake `amount` from the specified `hotkey`.
      *
      * This function allows external accounts and contracts to unstake TAO from the subtensor pallet,
@@ -44,6 +68,34 @@ interface IStaking {
         bytes32 hotkey,
         uint256 amount,
         uint256 netuid
+    ) external;
+
+    /**
+     * @dev Transfers a subtensor stake from one hotkey to another.
+     *
+     * This function allows external accounts and contracts to transfer a subtensor stake from one hotkey to another.
+     * It effectively calls `transfer_stake` on the subtensor pallet with specified destination coldkey, hotkey, origin subnet,
+     * destination subnet, and alpha amount as parameters.
+     *
+     * @param destinationColdkey The coldkey public key (32 bytes) of the destination account.
+     * @param hotkey The hotkey public key (32 bytes) of the source account.
+     * @param originNetuid The subnet to transfer from (uint256).
+     * @param destinationNetuid The subnet to transfer to (uint256).
+     * @param alphaAmount The amount to transfer in rao.
+     *
+     * Requirements:
+     * - `hotkey` must be a valid hotkey registered on the network, ensuring that the stake is
+     *   correctly attributed.
+     * - `destinationColdkey` must be a valid coldkey registered on the network, ensuring that the stake is
+     *   correctly attributed.
+     * - `originNetuid` and `destinationNetuid` must be valid subnets on the network.
+     */
+    function transferStake(
+        bytes32 destinationColdkey,
+        bytes32 hotkey,
+        uint256 originNetuid,
+        uint256 destinationNetuid,
+        uint256 alphaAmount
     ) external;
 
     /**

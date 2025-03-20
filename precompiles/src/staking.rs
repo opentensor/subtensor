@@ -99,6 +99,28 @@ where
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
     }
 
+    #[precompile::public("swapStake(bytes32,uint256,uint256,uint256)")]
+    fn swap_stake(
+        handle: &mut impl PrecompileHandle,
+        hotkey: H256,
+        origin_netuid: U256,
+        destination_netuid: U256,
+        alpha_amount: U256,
+    ) -> EvmResult<()> {
+        let account_id = handle.caller_account_id::<R>();
+        let hotkey = R::AccountId::from(hotkey.0);
+        let origin_netuid = try_u16_from_u256(origin_netuid)?;
+        let destination_netuid = try_u16_from_u256(destination_netuid)?;
+        let alpha_amount = alpha_amount.unique_saturated_into();
+        let call = pallet_subtensor::Call::<R>::swap_stake {
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            alpha_amount,
+        };
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+    }
+
     #[precompile::public("removeStake(bytes32,uint256,uint256)")]
     fn remove_stake(
         handle: &mut impl PrecompileHandle,
@@ -114,6 +136,32 @@ where
             hotkey,
             netuid,
             amount_unstaked,
+        };
+
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+    }
+
+    #[precompile::public("transferStake(bytes32,bytes32,uint256,uint256,uint256)")]
+    fn transfer_stake(
+        handle: &mut impl PrecompileHandle,
+        destination_coldkey: H256,
+        hotkey: H256,
+        origin_netuid: U256,
+        destination_netuid: U256,
+        alpha_amount: U256,
+    ) -> EvmResult<()> {
+        let account_id = handle.caller_account_id::<R>();
+        let destination_coldkey = R::AccountId::from(destination_coldkey.0);
+        let hotkey = R::AccountId::from(hotkey.0);
+        let origin_netuid = try_u16_from_u256(origin_netuid)?;
+        let destination_netuid = try_u16_from_u256(destination_netuid)?;
+        let alpha_amount = alpha_amount.unique_saturated_into();
+        let call = pallet_subtensor::Call::<R>::transfer_stake {
+            destination_coldkey,
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            alpha_amount,
         };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
