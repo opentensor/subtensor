@@ -102,6 +102,9 @@ mod config {
         /// Rho constant.
         #[pallet::constant]
         type InitialRho: Get<u16>;
+        /// AlphaSigmoidSteepness constant.
+        #[pallet::constant]
+        type InitialAlphaSigmoidSteepness: Get<u16>;
         /// Kappa constant.
         #[pallet::constant]
         type InitialKappa: Get<u16>;

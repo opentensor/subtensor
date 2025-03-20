@@ -1476,6 +1476,35 @@ pub mod pallet {
             );
             Ok(())
         }
+
+        ///
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the root account.
+        /// * `netuid` - The unique identifier for the subnet.
+        /// * `steepness` - The new steepness for the alpha sigmoid function.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the caller is not the root account.
+        /// # Weight
+        /// Weight is handled by the `#[pallet::weight]` attribute.
+        #[pallet::call_index(66)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_alpha_sigmoid_steepness(
+            origin: OriginFor<T>,
+            netuid: u16,
+            steepness: u16,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_alpha_sigmoid_steepness(netuid, steepness);
+
+            log::debug!(
+                "AlphaSigmoidSteepnessSet( netuid: {:?}, steepness: {:?} )",
+                netuid,
+                steepness
+            );
+            Ok(())
+        }
     }
 }
 

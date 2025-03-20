@@ -43,6 +43,8 @@ mod events {
         ActivityCutoffSet(u16, u16),
         /// Rho value is set.
         RhoSet(u16, u16),
+        /// steepness of the sigmoid used to compute alpha values.
+        AlphaSigmoidSteepnessSet(u16, u16),
         /// Kappa is set for a subnet.
         KappaSet(u16, u16),
         /// minimum allowed weight is set for a subnet.

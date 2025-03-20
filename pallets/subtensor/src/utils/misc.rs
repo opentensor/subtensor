@@ -687,6 +687,14 @@ impl<T: Config> Pallet<T> {
         (converted_low, converted_high)
     }
 
+    pub fn set_alpha_sigmoid_steepness(netuid: u16, steepness: u16) {
+        AlphaSigmoidSteepness::<T>::insert(netuid, steepness);
+    }
+    pub fn get_alpha_sigmoid_steepness(netuid: u16) -> I32F32 {
+        let alpha = AlphaSigmoidSteepness::<T>::get(netuid);
+        I32F32::saturating_from_num(alpha).safe_div(I32F32::saturating_from_num(u16::MAX))
+    }
+
     pub fn set_liquid_alpha_enabled(netuid: u16, enabled: bool) {
         LiquidAlphaOn::<T>::set(netuid, enabled);
     }

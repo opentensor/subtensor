@@ -7,6 +7,7 @@ TxRateLimit: u64 = 1; // [1 @ 64,888]
 ### netuid 1 (text_prompting)
 ```rust
 Rho: u16 = 10;
+AlphaSigmoidSteepness: u16 = 10.0
 Kappa: u16 = 32_767; // 0.5 = 65535/2
 MaxAllowedUids: u16 = 1024;
 Issuance: u64 = 0;
@@ -46,6 +47,7 @@ WeightsSetRateLimit: u64 = 100;
 ### netuid 3 (causallmnext)
 ```rust
 Rho: u16 = 10;
+AlphaSigmoidSteepness: u16 = 10.0
 Kappa: u16 = 32_767; // 0.5 = 65535/2
 MaxAllowedUids: u16 = 4096;
 Issuance: u64 = 0;
