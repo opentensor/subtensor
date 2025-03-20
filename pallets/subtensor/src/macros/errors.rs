@@ -195,5 +195,9 @@ mod errors {
         ActivityCutoffTooLow,
         /// Call is disabled
         CallDisabled,
+        /// LastEmissionBlockNumber is already set.
+        LastEmissionBlockNumberAlreadySet,
+        /// need wait for more blocks to accept the start call extrinsic.
+        NeedMoreBlocksToStarCall,
     }
 }

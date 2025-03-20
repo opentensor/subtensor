@@ -275,5 +275,11 @@ mod events {
         /// Parameters:
         /// (netuid, new_hotkey)
         SubnetOwnerHotkeySet(u16, T::AccountId),
+        /// LastEmissionBlockNumber is set via start call extrinsic
+        ///
+        /// Parameters:
+        /// netuid
+        /// block number
+        LastEmissionBlockNumberSet(u16, u64),
     }
 }

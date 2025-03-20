@@ -1909,5 +1909,19 @@ mod dispatches {
 
             Ok(())
         }
+
+        /// Initiates a call on a subnet.
+        ///
+        #[pallet::call_index(92)]
+        #[pallet::weight((
+            Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().reads_writes(3, 3)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn start_call(origin: T::RuntimeOrigin, netuid: u16) -> DispatchResult {
+            let _ = Self::do_start_call(origin, netuid);
+
+            Ok(())
+        }
     }
 }

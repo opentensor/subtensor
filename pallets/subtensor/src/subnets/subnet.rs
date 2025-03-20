@@ -320,4 +320,38 @@ impl<T: Config> Pallet<T> {
             );
         }
     }
+
+    /// Initiates a call on a subnet.
+    ///
+    pub fn do_start_call(origin: T::RuntimeOrigin, netuid: u16) -> DispatchResult {
+        ensure!(
+            Self::if_subnet_exist(netuid),
+            Error::<T>::SubNetworkDoesNotExist
+        );
+        Self::ensure_subnet_owner(origin, netuid)?;
+        ensure!(
+            LastEmissionBlockNumber::<T>::get(netuid).is_none(),
+            Error::<T>::LastEmissionBlockNumberAlreadySet
+        );
+
+        let registration_block_number = NetworkRegisteredAt::<T>::get(netuid);
+        let current_block_number = Self::get_current_block_as_u64();
+
+        ensure!(
+            current_block_number
+                > registration_block_number.saturating_add(T::DurationOfStartCall::get()),
+            Error::<T>::NeedMoreBlocksToStarCall
+        );
+
+        LastEmissionBlockNumber::<T>::insert(netuid, current_block_number);
+        Self::deposit_event(Event::LastEmissionBlockNumberSet(
+            netuid,
+            current_block_number,
+        ));
+        Ok(())
+    }
+
+    pub fn is_valid_subnet_for_emission(netuid: u16) -> bool {
+        LastEmissionBlockNumber::<T>::get(netuid).is_some()
+    }
 }
