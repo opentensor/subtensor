@@ -200,7 +200,6 @@ impl<T: Config> Pallet<T> {
         // Access network bonds.
         let mut bonds: Vec<Vec<I32F32>> = Self::get_bonds(netuid);
         inplace_mask_matrix(&outdated, &mut bonds); // mask outdated bonds
-        bonds = mat_fixed_proportions_to_fixed(bonds.clone()); // TODO
         log::trace!("B: {:?}", &bonds);
 
         // Compute the Exponential Moving Average (EMA) of bonds.
@@ -587,16 +586,7 @@ impl<T: Config> Pallet<T> {
             &block_at_registration,
             &|last_tempo, registered| last_tempo <= registered,
         );
-        log::trace!("Bonds (outdatedmask): {:?}", &bonds);
-
-        let mut result: Vec<Vec<(u16, I32F32)>> = vec![vec![]; bonds.len()];
-        for (i, sparse_row) in bonds.iter().enumerate() {
-            for (j, value) in sparse_row {
-                result[i].push((*j, fixed_proportion_to_fixed(*value)));
-            }
-        }
-        let bonds = result;
-        log::trace!("Bonds: (mask+norm) {:?}", &bonds);
+        log::trace!("Bonds: (mask) {:?}", &bonds);
 
         // Compute the Exponential Moving Average (EMA) of bonds.
         log::trace!("weights_for_bonds: {:?}", &weights_for_bonds);
@@ -867,7 +857,7 @@ impl<T: Config> Pallet<T> {
                 bonds
                     .get_mut(uid_i as usize)
                     .expect("uid_i is filtered to be less than n; qed")
-                    .push((uid_j, I32F32::saturating_from_num(bonds_ij)));
+                    .push((uid_j, u16_proportion_to_fixed(bonds_ij)));
             }
         }
         bonds
@@ -887,7 +877,7 @@ impl<T: Config> Pallet<T> {
                     .expect("uid_i has been filtered to be less than n; qed")
                     .get_mut(uid_j as usize)
                     .expect("uid_j has been filtered to be less than n; qed") =
-                    I32F32::saturating_from_num(bonds_ij);
+                    u16_proportion_to_fixed(bonds_ij);
             }
         }
         bonds
@@ -932,16 +922,14 @@ impl<T: Config> Pallet<T> {
             // Compute bonds delta column normalized.
             let mut bonds_delta: Vec<Vec<I32F32>> = row_hadamard(weights, active_stake); // ΔB = W◦S
             inplace_col_normalize(&mut bonds_delta); // sum_i b_ij = 1
-            log::trace!("ΔB:\n{:?}\n", &bonds_delta);
+            log::trace!("ΔB: {:?}", &bonds_delta);
 
             // Compute the Exponential Moving Average (EMA) of bonds using the calculated alpha value.
-
-            // Return the computed EMA bonds.
             mat_ema(&bonds_delta, bonds, alpha)
         }
     }
 
-    /// Compute the Exponential Moving Average (EMA) of bonds based on the Liquid Alpha setting
+    /// Compute the Exponential Moving Average (EMA) of bonds based on the Liquid Alpha setting for a sparse matrix.
     ///
     /// # Args:
     /// * `netuid` - The network ID.
@@ -983,11 +971,9 @@ impl<T: Config> Pallet<T> {
             let mut bonds_delta: Vec<Vec<(u16, I32F32)>> =
                 row_hadamard_sparse(weights, active_stake); // ΔB = W◦S
             inplace_col_normalize_sparse(&mut bonds_delta, n); // sum_i b_ij = 1
-            log::trace!("ΔB:\n{:?}\n", &bonds_delta);
+            log::trace!("ΔB: {:?}", &bonds_delta);
 
             // Compute the Exponential Moving Average (EMA) of bonds using the calculated alpha value.
-
-            // Return the computed EMA bonds.
             mat_ema_sparse(&bonds_delta, bonds, alpha)
         }
     }
@@ -1065,7 +1051,7 @@ impl<T: Config> Pallet<T> {
     /// * `consensus` - A vector of consensus values.
     ///
     /// # Returns:
-    /// A matrix of alphas (not sparse as very few values will be zero)
+    /// A dense matrix of alphas
     pub fn compute_liquid_alpha_values_sparse(
         netuid: u16,
         weights: &[Vec<(u16, I32F32)>], // current epoch weights
