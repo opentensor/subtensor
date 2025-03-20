@@ -11569,18 +11569,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
-name = "swap"
-version = "0.1.0"
-dependencies = [
- "alloy-primitives",
- "approx",
- "safe-math",
- "sp-arithmetic",
- "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409)",
- "substrate-fixed",
-]
-
-[[package]]
 name = "syn"
 version = "1.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
