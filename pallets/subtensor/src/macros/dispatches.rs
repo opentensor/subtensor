@@ -1919,7 +1919,7 @@ mod dispatches {
             Pays::Yes
         ))]
         pub fn start_call(origin: T::RuntimeOrigin, netuid: u16) -> DispatchResult {
-            let _ = Self::do_start_call(origin, netuid);
+            Self::do_start_call(origin, netuid)?;
 
             Ok(())
         }

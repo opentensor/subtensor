@@ -339,8 +339,8 @@ impl<T: Config> Pallet<T> {
 
         ensure!(
             current_block_number
-                > registration_block_number.saturating_add(T::DurationOfStartCall::get()),
-            Error::<T>::NeedMoreBlocksToStarCall
+                >= registration_block_number.saturating_add(T::DurationOfStartCall::get()),
+            Error::<T>::NeedWaitingMoreBlocksToStarCall
         );
 
         LastEmissionBlockNumber::<T>::insert(netuid, current_block_number);

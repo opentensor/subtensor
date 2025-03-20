@@ -245,6 +245,9 @@ impl<T: Config> Pallet<T> {
                     pending_swapped,
                     owner_cut,
                 );
+
+                // Set last emission block
+                LastEmissionBlockNumber::<T>::insert(netuid, Self::get_current_block_as_u64())
             } else {
                 // Increment
                 BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));

@@ -198,7 +198,7 @@ mod errors {
         /// LastEmissionBlockNumber is already set.
         LastEmissionBlockNumberAlreadySet,
         /// need wait for more blocks to accept the start call extrinsic.
-        NeedMoreBlocksToStarCall,
+        NeedWaitingMoreBlocksToStarCall,
         /// Not enough AlphaOut on the subnet to recycle
         NotEnoughAlphaOutToRecycle,
     }
