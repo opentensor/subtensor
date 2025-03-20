@@ -14,7 +14,6 @@ use self::tick::{
 
 mod error;
 mod tick;
-mod tick_math;
 
 type SqrtPrice = U64F64;
 

@@ -1692,11 +1692,7 @@ mod tests {
         // Test case is (price_low, price_high, liquidity)
         [
             // Repeat the protocol liquidity at maximum range: Expect all the same values
-            (
-                min_price,
-                max_price,
-                2_000_000_000_u64,
-            ),
+            (min_price, max_price, 2_000_000_000_u64),
         ]
         .iter()
         .for_each(|(price_low, price_high, liquidity)| {
@@ -1724,5 +1720,4 @@ mod tests {
             );
         });
     }
-
 }
