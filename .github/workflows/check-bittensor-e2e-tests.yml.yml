@@ -1,4 +1,4 @@
-name: Bittensor BTCLI Test
+name: Bittensor Bittensor E2E Test
 
 permissions:
   pull-requests: write
@@ -27,21 +27,21 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.pull_request.draft == false }}
     outputs:
-      should_continue_cli: ${{ steps.check.outputs.should_continue_cli }}
+      should_continue: ${{ steps.check.outputs.should_continue }}
     steps:
       - name: Check
         id: check
         run: |
           ACTION="${{ github.event.action }}"
           if [[ "$ACTION" == "opened" || "$ACTION" == "reopened" ]]; then
-            echo "should_continue_cli=true" >> $GITHUB_OUTPUT
+            echo "should_continue=true" >> $GITHUB_OUTPUT
           else
-            echo "should_continue_cli=false" >> $GITHUB_OUTPUT
+            echo "should_continue=false" >> $GITHUB_OUTPUT
           fi
         shell: bash
 
       - name: Add label
-        if: steps.check.outputs.should_continue_cli == 'true'
+        if: steps.check.outputs.should_continue == 'true'
         uses: actions-ecosystem/action-add-labels@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -99,7 +99,7 @@ jobs:
 
   find-sdk-e2e-tests:
     needs: check-label
-    if: always() && needs.check-labels.outputs.run-bittensor-e2e-tests == 'true'
+    if: always() && needs.check-label.outputs.run-bittensor-e2e-tests == 'true'
     runs-on: ubuntu-latest
     outputs:
       test-files: ${{ steps.get-sdk-tests.outputs.test-files }}
@@ -122,7 +122,7 @@ jobs:
           echo "::set-output name=test-files::$test_files"
         shell: bash
 
-  build-image:
+  build-image-with-current-branch:
     needs: check-label
     runs-on: SubtensorCI
     steps:
@@ -152,7 +152,7 @@ jobs:
     needs:
       - check-label
       - find-btcli-e2e-tests
-      - build-image
+      - build-image-with-current-branch
     if: always() && needs.check-labels.outputs.run-cli-tests == 'true'
     runs-on: ubuntu-latest
     strategy:
@@ -225,7 +225,7 @@ jobs:
     needs:
       - check-label
       - find-sdk-e2e-tests
-      - build-image
+      - build-image-with-current-branch
     if: always() && needs.check-labels.outputs.run-sdk-tests == 'true'
     runs-on: ubuntu-latest
     strategy:
