@@ -674,6 +674,26 @@ pub fn vec_mask_sparse_matrix(
     result
 }
 
+// Remove cells from sparse matrix where the mask function of a scalar and a vector is true.
+#[allow(dead_code, clippy::indexing_slicing)]
+pub fn scalar_vec_mask_sparse_matrix(
+    sparse_matrix: &[Vec<(u16, I32F32)>],
+    scalar: u64,
+    vector: &[u64],
+    mask_fn: &dyn Fn(u64, u64) -> bool,
+) -> Vec<Vec<(u16, I32F32)>> {
+    let n: usize = sparse_matrix.len();
+    let mut result: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
+    for (i, sparse_row) in sparse_matrix.iter().enumerate() {
+        for (j, value) in sparse_row {
+            if !mask_fn(scalar, vector[*j as usize]) {
+                result[i].push((*j, *value));
+            }
+        }
+    }
+    result
+}
+
 // Row-wise matrix-vector hadamard product.
 #[allow(dead_code)]
 pub fn row_hadamard(matrix: &[Vec<I32F32>], vector: &[I32F32]) -> Vec<Vec<I32F32>> {
