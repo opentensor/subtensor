@@ -1539,69 +1539,6 @@ pub fn mat_ema_alpha_sparse(
     result
 }
 
-/// Return matrix exponential moving average: `alpha_j * a_ij + one_minus_alpha_j * b_ij`.
-/// `alpha_` is the EMA coefficient passed as a vector per column.
-// if liquid alpha off then the alpha vector will be constant
-#[allow(dead_code)]
-pub fn mat_ema_alpha_vec(
-    new: &[Vec<I32F32>],
-    old: &[Vec<I32F32>],
-    alpha: &[I32F32],
-) -> Vec<Vec<I32F32>> {
-    // Check if the new matrix is empty or its first row is empty.
-    if new.is_empty() || new.first().is_none_or(|row| row.is_empty()) {
-        return vec![vec![]; 1];
-    }
-
-    // Ensure the dimensions of the new and old matrices match.
-    assert!(new.len() == old.len());
-    assert!(new.first().map_or(0, |row| row.len()) == alpha.len());
-
-    // Initialize the result matrix with zeros, having the same dimensions as the new matrix.
-    let mut result: Vec<Vec<I32F32>> =
-        vec![
-            vec![I32F32::saturating_from_num(0.0); new.first().map_or(0, |row| row.len())];
-            new.len()
-        ];
-
-    // Iterate over each row of the matrices.
-    for (i, (new_row, old_row)) in new.iter().zip(old).enumerate() {
-        assert!(new_row.len() == old_row.len());
-
-        // Iterate over each column of the current row.
-        for (j, &alpha_val) in alpha.iter().enumerate().take(new_row.len()) {
-            // Calculate the complement of the alpha value using saturating subtraction.
-            let one_minus_alpha = I32F32::saturating_from_num(1.0).saturating_sub(alpha_val);
-
-            // Compute the EMA for the current element using saturating operations.
-            if let (Some(new_val), Some(old_val), Some(result_val)) = (
-                new_row.get(j),
-                old_row.get(j),
-                result.get_mut(i).and_then(|row| row.get_mut(j)),
-            ) {
-                let decayed_val = one_minus_alpha.saturating_mul(*old_val);
-                let remaining_capacity = I32F32::from_num(1.0)
-                    .saturating_sub(decayed_val)
-                    .max(I32F32::from_num(0.0));
-
-                // Each validator can increase bonds by at most clamped_alpha per epoch towards the cap
-                // Validators allocate their purchase across miners based on weights
-                let purchase_increment = alpha_val.saturating_mul(*new_val);
-
-                // Ensure that purchase does not exceed remaining capacity
-                let purchase = purchase_increment.min(remaining_capacity);
-
-                *result_val = decayed_val
-                    .saturating_add(purchase)
-                    .min(I32F32::from_num(1.0));
-            }
-        }
-    }
-
-    // Return the computed EMA matrix.
-    result
-}
-
 /// Return the quantile of a vector of I32F32 values.
 pub fn quantile(data: &[I32F32], quantile: f64) -> I32F32 {
     // Clone the input data to avoid modifying the original vector.

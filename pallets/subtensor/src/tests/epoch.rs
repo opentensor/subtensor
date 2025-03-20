@@ -5,9 +5,7 @@
 )]
 
 use super::mock::*;
-use crate::epoch::math::{
-    fixed, mat_fixed_proportions_to_fixed, safe_exp, u16_proportion_to_fixed,
-};
+use crate::epoch::math::{fixed, mat_fixed_proportions_to_fixed, u16_proportion_to_fixed};
 use crate::*;
 
 use approx::assert_abs_diff_eq;
@@ -2576,66 +2574,6 @@ fn test_validator_permits() {
             }
         }
     }
-}
-
-#[test]
-fn test_compute_ema_bonds_sparse() {
-    // Define test inputs
-    let weights = vec![
-        vec![(0, I32F32::from_num(0.1)), (1, I32F32::from_num(0.2))],
-        vec![(0, I32F32::from_num(0.3)), (1, I32F32::from_num(0.4))],
-    ];
-    let bonds = vec![
-        vec![(0, I32F32::from_num(0.5)), (1, I32F32::from_num(0.6))],
-        vec![(0, I32F32::from_num(0.7)), (1, I32F32::from_num(0.8))],
-    ];
-    let alpha = vec![I32F32::from_num(0.9), I32F32::from_num(0.8)];
-
-    // Expected values
-    // EMA calculation for each bond:
-    // EMA = alpha * bond_delta + (1 - alpha) * bond
-    // For bond (0, 0):
-    // EMA = 0.9 * 0.1 + (1 - 0.9) * 0.5 = 0.09 + 0.05 = 0.14
-    // For bond (0, 1):
-    // EMA = 0.8 * 0.2 + (1 - 0.8) * 0.6 = 0.16 + 0.12 = 0.28
-    // For bond (1, 0):
-    // EMA = 0.9 * 0.3 + (1 - 0.9) * 0.7 = 0.27 + 0.07 = 0.34
-    // For bond (1, 1):
-    // EMA = 0.8 * 0.4 + (1 - 0.8) * 0.8 = 0.32 + 0.16 = 0.48
-
-    let expected_ema_bonds = vec![
-        vec![(0, I32F32::from_num(0.14)), (1, I32F32::from_num(0.28))],
-        vec![(0, I32F32::from_num(0.34)), (1, I32F32::from_num(0.48))],
-    ];
-
-    // Call the function
-    let ema_bonds = SubtensorModule::compute_ema_bonds_sparse(&weights, &bonds, alpha);
-
-    // Assert the results with an epsilon for approximate equality
-    let epsilon = I32F32::from_num(1e-6);
-
-    assert_approx_eq_vec_of_vec(&ema_bonds, &expected_ema_bonds, epsilon);
-}
-
-#[test]
-fn test_compute_ema_bonds_sparse_empty() {
-    // Test with empty inputs
-    let weights: Vec<Vec<(u16, I32F32)>> = vec![];
-    let bonds: Vec<Vec<(u16, I32F32)>> = vec![];
-    let alpha: Vec<I32F32> = vec![];
-
-    // Expected values: Empty Vec
-    let expected_ema_bonds: Vec<Vec<(u16, I32F32)>> = vec![];
-
-    // Call the function
-    let ema_bonds = SubtensorModule::compute_ema_bonds_sparse(&weights, &bonds, alpha);
-
-    // Assert the results
-    assert_eq!(
-        ema_bonds, expected_ema_bonds,
-        "Expected EMA bonds: {:?}, got: {:?}",
-        expected_ema_bonds, ema_bonds
-    );
 }
 
 #[test]
