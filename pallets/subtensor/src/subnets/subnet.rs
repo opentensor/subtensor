@@ -321,8 +321,27 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Initiates a call on a subnet.
+    /// Execute the start call for a subnet.
     ///
+    /// This function is used to trigger the start call process for a subnet identified by `netuid`.
+    /// It ensures that the subnet exists, the caller is the subnet owner,
+    /// and the last emission block number has not been set yet.
+    /// It then sets the last emission block number to the current block number.
+    ///
+    /// # Parameters
+    ///
+    /// * `origin`: The origin of the call, which is used to ensure the caller is the subnet owner.
+    /// * `netuid`: The unique identifier of the subnet for which the start call process is being initiated.
+    ///
+    /// # Raises
+    ///
+    /// * `Error::<T>::SubNetworkDoesNotExist`: If the subnet does not exist.
+    /// * `DispatchError::BadOrigin`: If the caller is not the subnet owner.
+    /// * `Error::<T>::LastEmissionBlockNumberAlreadySet`: If the last emission block number has already been set.
+    ///
+    /// # Returns
+    ///
+    /// * `DispatchResult`: A result indicating the success or failure of the operation.
     pub fn do_start_call(origin: T::RuntimeOrigin, netuid: u16) -> DispatchResult {
         ensure!(
             Self::if_subnet_exist(netuid),

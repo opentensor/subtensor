@@ -1912,6 +1912,12 @@ mod dispatches {
 
         /// Initiates a call on a subnet.
         ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be signed by the subnet owner.
+        /// * `netuid` - The unique identifier of the subnet on which the call is being initiated.
+        ///
+        /// # Events
+        /// Emits a `CallInitiated` event on success.
         #[pallet::call_index(92)]
         #[pallet::weight((
             Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().reads_writes(3, 3)),
@@ -1920,7 +1926,6 @@ mod dispatches {
         ))]
         pub fn start_call(origin: T::RuntimeOrigin, netuid: u16) -> DispatchResult {
             Self::do_start_call(origin, netuid)?;
-
             Ok(())
         }
 
