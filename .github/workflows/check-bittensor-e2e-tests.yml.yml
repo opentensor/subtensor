@@ -74,10 +74,10 @@ jobs:
 
   find-btcli-e2e-tests:
     needs: check-label
-    if: always() && needs.check-labels.outputs.run-cli-tests == 'true'
+    if: always() && needs.check-label.outputs.run-bittensor-e2e-tests == 'true'
     runs-on: ubuntu-latest
     outputs:
-      test-files: ${{ steps.get-tests.outputs.test-files }}
+      test-files: ${{ steps.get-btcli-tests.outputs.test-files }}
     steps:
       - name: Research preparation
         working-directory: ${{ github.workspace }}
@@ -91,7 +91,7 @@ jobs:
         run: sudo apt-get install -y jq
 
       - name: Find e2e test files
-        id: get-tests
+        id: get-btcli-tests
         run: |
           test_files=$(find ${{ github.workspace }}/btcli/tests/e2e_tests -name "test*.py" | jq -R -s -c 'split("\n") | map(select(. != ""))')
           echo "::set-output name=test-files::$test_files"
@@ -99,10 +99,10 @@ jobs:
 
   find-sdk-e2e-tests:
     needs: check-label
-    if: always() && needs.check-labels.outputs.run-sdk-tests == 'true'
+    if: always() && needs.check-labels.outputs.run-bittensor-e2e-tests == 'true'
     runs-on: ubuntu-latest
     outputs:
-      test-files: ${{ steps.get-tests.outputs.test-files }}
+      test-files: ${{ steps.get-sdk-tests.outputs.test-files }}
     steps:
       - name: Research preparation
         working-directory: ${{ github.workspace }}
@@ -116,7 +116,7 @@ jobs:
         run: sudo apt-get install -y jq
 
       - name: Find e2e test files
-        id: get-tests
+        id: get-sdk-tests
         run: |
           test_files=$(find ${{ github.workspace }}/bittensor/tests/e2e_tests -name "test*.py" | jq -R -s -c 'split("\n") | map(select(. != ""))')
           echo "::set-output name=test-files::$test_files"
