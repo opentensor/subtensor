@@ -966,7 +966,7 @@ mod dispatches {
         ) -> DispatchResultWithPostInfo {
             // Ensure it's called with root privileges (scheduler has root privileges)
             ensure_root(origin)?;
-            log::info!("swap_coldkey: {:?} -> {:?}", old_coldkey, new_coldkey);
+            log::debug!("swap_coldkey: {:?} -> {:?}", old_coldkey, new_coldkey);
 
             Self::do_swap_coldkey(&old_coldkey, &new_coldkey, swap_cost)
         }
@@ -1389,40 +1389,42 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
         pub fn schedule_dissolve_network(
-            origin: OriginFor<T>,
-            netuid: u16,
+            _origin: OriginFor<T>,
+            _netuid: u16,
         ) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
+            Err(Error::<T>::CallDisabled.into())
 
-            let current_block: BlockNumberFor<T> = <frame_system::Pallet<T>>::block_number();
-            let duration: BlockNumberFor<T> = DissolveNetworkScheduleDuration::<T>::get();
-            let when: BlockNumberFor<T> = current_block.saturating_add(duration);
+            // let who = ensure_signed(origin)?;
 
-            let call = Call::<T>::dissolve_network {
-                coldkey: who.clone(),
-                netuid,
-            };
+            // let current_block: BlockNumberFor<T> = <frame_system::Pallet<T>>::block_number();
+            // let duration: BlockNumberFor<T> = DissolveNetworkScheduleDuration::<T>::get();
+            // let when: BlockNumberFor<T> = current_block.saturating_add(duration);
 
-            let bound_call = T::Preimages::bound(LocalCallOf::<T>::from(call.clone()))
-                .map_err(|_| Error::<T>::FailedToSchedule)?;
+            // let call = Call::<T>::dissolve_network {
+            //     coldkey: who.clone(),
+            //     netuid,
+            // };
 
-            T::Scheduler::schedule(
-                DispatchTime::At(when),
-                None,
-                63,
-                frame_system::RawOrigin::Root.into(),
-                bound_call,
-            )
-            .map_err(|_| Error::<T>::FailedToSchedule)?;
+            // let bound_call = T::Preimages::bound(LocalCallOf::<T>::from(call.clone()))
+            //     .map_err(|_| Error::<T>::FailedToSchedule)?;
 
-            // Emit the SwapScheduled event
-            Self::deposit_event(Event::DissolveNetworkScheduled {
-                account: who.clone(),
-                netuid,
-                execution_block: when,
-            });
+            // T::Scheduler::schedule(
+            //     DispatchTime::At(when),
+            //     None,
+            //     63,
+            //     frame_system::RawOrigin::Root.into(),
+            //     bound_call,
+            // )
+            // .map_err(|_| Error::<T>::FailedToSchedule)?;
 
-            Ok(().into())
+            // // Emit the SwapScheduled event
+            // Self::deposit_event(Event::DissolveNetworkScheduled {
+            //     account: who.clone(),
+            //     netuid,
+            //     execution_block: when,
+            // });
+
+            // Ok(().into())
         }
 
         /// ---- Set prometheus information for the neuron.
@@ -1906,6 +1908,56 @@ mod dispatches {
             let _ = Self::do_try_associate_hotkey(&coldkey, &hotkey);
 
             Ok(())
+        }
+
+        /// Recycles alpha from a cold/hot key pair, reducing AlphaOut on a subnet
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call (must be signed by the coldkey)
+        /// * `hotkey` - The hotkey account
+        /// * `amount` - The amount of alpha to recycle
+        /// * `netuid` - The subnet ID
+        ///
+        /// # Events
+        /// Emits a `TokensRecycled` event on success.
+        #[pallet::call_index(101)]
+        #[pallet::weight((
+            Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().reads_writes(3, 2)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn recycle_alpha(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+            amount: u64,
+            netuid: u16,
+        ) -> DispatchResult {
+            Self::do_recycle_alpha(origin, hotkey, amount, netuid)
+        }
+
+        /// Burns alpha from a cold/hot key pair without reducing `AlphaOut`
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call (must be signed by the coldkey)
+        /// * `hotkey` - The hotkey account
+        /// * `amount` - The amount of alpha to burn
+        /// * `netuid` - The subnet ID
+        ///
+        /// # Events
+        /// Emits a `TokensBurned` event on success.
+        #[pallet::call_index(102)]
+        #[pallet::weight((
+            Weight::from_parts(2_000_000, 0).saturating_add(T::DbWeight::get().reads_writes(2, 1)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn burn_alpha(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+            amount: u64,
+            netuid: u16,
+        ) -> DispatchResult {
+            Self::do_burn_alpha(origin, hotkey, amount, netuid)
         }
     }
 }
