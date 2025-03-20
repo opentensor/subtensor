@@ -2,14 +2,14 @@ use core::marker::PhantomData;
 use std::ops::Neg;
 
 use safe_math::*;
+use sp_arithmetic::helpers_128bit::sqrt;
 use substrate_fixed::types::U64F64;
 
 use self::error::SwapError;
 use self::tick::{
-    Tick, find_closest_higher_active_tick, find_closest_lower_active_tick,
-    sqrt_price_to_tick_index, tick_index_to_sqrt_price,
+    MAX_TICK_INDEX, MIN_TICK_INDEX, Tick, find_closest_higher_active_tick_index,
+    find_closest_lower_active_tick_index, sqrt_price_to_tick_index, tick_index_to_sqrt_price,
 };
-use self::tick_math::{MAX_TICK, MIN_TICK};
 
 mod error;
 mod tick;
@@ -29,6 +29,7 @@ pub enum SwapStepAction {
     StopIn,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct RemoveLiquidityResult {
     tao: u64,
     alpha: u64,
@@ -36,11 +37,13 @@ pub struct RemoveLiquidityResult {
     fee_alpha: u64,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct SwapResult {
     amount_paid_out: u64,
     refund: u64,
 }
 
+#[derive(Debug, PartialEq)]
 struct SwapStepResult {
     amount_to_take: u64,
     delta_out: u64,
@@ -57,10 +60,10 @@ struct SwapStepResult {
 /// fees_tao - fees accrued by the position in quote currency (TAO)
 /// fees_alpha - fees accrued by the position in base currency (Alpha)
 ///
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct Position {
-    tick_low: u64,
-    tick_high: u64,
+    tick_low: i32,
+    tick_high: i32,
     liquidity: u64,
     fees_tao: u64,
     fees_alpha: u64,
@@ -71,31 +74,53 @@ impl Position {
     ///
     /// returns tuple of (TAO, Alpha)
     ///
-    pub fn to_token_amounts(&self, _current_tick: u64) -> (u64, u64) {
-        // let one = 1.into();
+    /// Pseudocode:
+    ///     if self.sqrt_price_curr < sqrt_pa:
+    ///         tao = 0
+    ///         alpha = L * (1 / sqrt_pa - 1 / sqrt_pb)
+    ///     elif self.sqrt_price_curr > sqrt_pb:
+    ///         tao = L * (sqrt_pb - sqrt_pa)
+    ///         alpha = 0
+    ///     else:
+    ///         tao = L * (self.sqrt_price_curr - sqrt_pa)
+    ///         alpha = L * (1 / self.sqrt_price_curr - 1 / sqrt_pb)
+    ///  
+    pub fn to_token_amounts(&self, sqrt_price_curr: SqrtPrice) -> Result<(u64, u64), SwapError> {
+        let one: U64F64 = U64F64::saturating_from_num(1);
 
-        // let sqrt_price_curr = tick_index_to_sqrt_price(current_tick);
-        // let sqrt_pa = tick_index_to_sqrt_price(self.tick_low);
-        // let sqrt_pb = tick_index_to_sqrt_price(self.tick_high);
+        let sqrt_pa: SqrtPrice =
+            tick_index_to_sqrt_price(self.tick_low).map_err(|_| SwapError::InvalidTickRange)?;
+        let sqrt_pb: SqrtPrice =
+            tick_index_to_sqrt_price(self.tick_high).map_err(|_| SwapError::InvalidTickRange)?;
+        let liquidity_fixed: U64F64 = U64F64::saturating_from_num(self.liquidity);
 
-        // if sqrt_price_curr < sqrt_pa {
-        //     (
-        //         liquidity
-        //             .saturating_mul(one.safe_div(sqrt_pa).saturating_sub(one.safe_div(sqrt_pb))),
-        //         0,
-        //     )
-        // } else if sqrt_price_curr > sqrt_pb {
-        //     (0, liquidity.saturating_mul(sqrt_pb.saturating_sub(sqrt_pa)))
-        // } else {
-        //     (
-        //         liquidity.saturating_mul(
-        //             one.save_div(sqrt_price_curr)
-        //                 .saturating_sub(one.safe_div(sqrt_pb)),
-        //         ),
-        //         liquidity.saturating_mul(sqrt_price_curr.saturating_sub(sqrt_pa)),
-        //     )
-        // }
-        todo!()
+        Ok(if sqrt_price_curr < sqrt_pa {
+            (
+                0,
+                liquidity_fixed
+                    .saturating_mul(one.safe_div(sqrt_pa).saturating_sub(one.safe_div(sqrt_pb)))
+                    .saturating_to_num::<u64>(),
+            )
+        } else if sqrt_price_curr > sqrt_pb {
+            (
+                liquidity_fixed
+                    .saturating_mul(sqrt_pb.saturating_sub(sqrt_pa))
+                    .saturating_to_num::<u64>(),
+                0,
+            )
+        } else {
+            (
+                liquidity_fixed
+                    .saturating_mul(sqrt_price_curr.saturating_sub(sqrt_pa))
+                    .saturating_to_num::<u64>(),
+                liquidity_fixed
+                    .saturating_mul(
+                        one.safe_div(sqrt_price_curr)
+                            .saturating_sub(one.safe_div(sqrt_pb)),
+                    )
+                    .saturating_to_num::<u64>(),
+            )
+        })
     }
 }
 
@@ -108,44 +133,56 @@ pub trait SwapDataOperations<AccountIdType> {
     /// reserves, while v3 also stores ticks and positions, which need to be initialized
     /// at the first pool creation.
     fn is_v3_initialized(&self) -> bool;
+    fn set_v3_initialized(&mut self);
     /// Returns u16::MAX normalized fee rate. For example, 0.3% is approximately 196.
     fn get_fee_rate(&self) -> u16;
     /// Minimum liquidity that is safe for rounding and integer math.
     fn get_minimum_liquidity(&self) -> u64;
-    fn get_tick_by_index(&self, tick_index: u64) -> Option<Tick>;
-    fn insert_tick_by_index(&self, tick_index: u64, tick: Tick);
-    fn remove_tick_by_index(&self, tick_index: u64);
+    fn get_tick_by_index(&self, tick_index: i32) -> Option<Tick>;
+    fn insert_tick_by_index(&mut self, tick_index: i32, tick: Tick);
+    fn remove_tick_by_index(&mut self, tick_index: i32);
     /// Minimum sqrt price across all active ticks
     fn get_min_sqrt_price(&self) -> SqrtPrice;
     /// Maximum sqrt price across all active ticks
     fn get_max_sqrt_price(&self) -> SqrtPrice;
     fn get_tao_reserve(&self) -> u64;
-    fn set_tao_reserve(&self, tao: u64) -> u64;
+    fn set_tao_reserve(&mut self, tao: u64) -> u64;
     fn get_alpha_reserve(&self) -> u64;
-    fn set_alpha_reserve(&self, alpha: u64) -> u64;
+    fn set_alpha_reserve(&mut self, alpha: u64) -> u64;
     fn get_alpha_sqrt_price(&self) -> SqrtPrice;
-    fn set_alpha_sqrt_price(&self, sqrt_price: SqrtPrice) -> u64;
+    fn set_alpha_sqrt_price(&mut self, sqrt_price: SqrtPrice);
 
     // Getters/setters for global accrued fees in alpha and tao per subnet
     fn get_fee_global_tao(&self) -> U64F64;
-    fn set_fee_global_tao(&self, fee: U64F64);
+    fn set_fee_global_tao(&mut self, fee: U64F64);
     fn get_fee_global_alpha(&self) -> U64F64;
-    fn set_fee_global_alpha(&self, fee: U64F64);
+    fn set_fee_global_alpha(&mut self, fee: U64F64);
 
     /// Get current tick liquidity
     fn get_current_liquidity(&self) -> u64;
     /// Set current tick liquidity
-    fn set_current_liquidity(&self, liquidity: u64);
+    fn set_current_liquidity(&mut self, liquidity: u64);
 
     // User account operations
+    fn get_protocol_account_id(&self) -> AccountIdType;
     fn get_max_positions(&self) -> u16;
-    fn withdraw_balances(&self, account_id: &AccountIdType, tao: u64, alpha: u64) -> (u64, u64);
-    fn deposit_balances(&self, account_id: &AccountIdType, tao: u64, alpha: u64);
+    fn withdraw_balances(
+        &mut self,
+        account_id: &AccountIdType,
+        tao: u64,
+        alpha: u64,
+    ) -> Result<(u64, u64), SwapError>;
+    fn deposit_balances(&mut self, account_id: &AccountIdType, tao: u64, alpha: u64);
     fn get_position_count(&self, account_id: &AccountIdType) -> u16;
     fn get_position(&self, account_id: &AccountIdType, position_id: u16) -> Option<Position>;
-    fn create_position(&self, account_id: &AccountIdType, positions: Position);
-    fn update_position(&self, account_id: &AccountIdType, position_id: u16, positions: Position);
-    fn remove_position(&self, account_id: &AccountIdType, position_id: u16);
+    fn create_position(&mut self, account_id: &AccountIdType, positions: Position) -> u16;
+    fn update_position(
+        &mut self,
+        account_id: &AccountIdType,
+        position_id: u16,
+        positions: Position,
+    );
+    fn remove_position(&mut self, account_id: &AccountIdType, position_id: u16);
 }
 
 /// All main swapping logic abstracted from Runtime implementation is concentrated
@@ -157,7 +194,7 @@ where
     AccountIdType: Eq,
     Ops: SwapDataOperations<AccountIdType>,
 {
-    state_ops: Ops,
+    pub(crate) state_ops: Ops,
     phantom_key: PhantomData<AccountIdType>,
 }
 
@@ -166,14 +203,48 @@ where
     AccountIdType: Eq,
     Ops: SwapDataOperations<AccountIdType>,
 {
-    pub fn new(_ops: Ops) -> Self {
-        // if !ops.is_v3_initialized() {
-        //     // TODO: Initialize the v3
-        //     // Set price, set initial (protocol owned) liquidity and positions, etc.
-        // }
+    pub fn new(mut ops: Ops) -> Self {
+        if !ops.is_v3_initialized() {
+            // Initialize the v3:
+            // Reserves are re-purposed, nothing to set, just query values for liquidity and price calculation
+            let tao_reserve = ops.get_tao_reserve();
+            let alpha_reserve = ops.get_alpha_reserve();
 
-        // Swap { state_ops: ops }
-        todo!()
+            // Set price
+            let price: U64F64 = U64F64::saturating_from_num(tao_reserve)
+                .safe_div(U64F64::saturating_from_num(alpha_reserve));
+
+            let epsilon: U64F64 = U64F64::saturating_from_num(0.000001);
+            ops.set_alpha_sqrt_price(
+                price
+                    .checked_sqrt(epsilon)
+                    .unwrap_or(U64F64::saturating_from_num(0)),
+            );
+
+            // Set initial (protocol owned) liquidity and positions
+            // Protocol liquidity makes one position from MIN_TICK_INDEX to MAX_TICK_INDEX
+            // We are using the sp_arithmetic sqrt here, which works for u128
+            let liquidity: u64 = sqrt(tao_reserve as u128 * alpha_reserve as u128) as u64;
+            let mut swap = Swap {
+                state_ops: ops,
+                phantom_key: PhantomData,
+            };
+            let protocol_account_id = swap.state_ops.get_protocol_account_id();
+            let _ = swap.add_liquidity(
+                &protocol_account_id,
+                MIN_TICK_INDEX,
+                MAX_TICK_INDEX,
+                liquidity,
+                true,
+            );
+
+            swap
+        } else {
+            Swap {
+                state_ops: ops,
+                phantom_key: PhantomData,
+            }
+        }
     }
 
     /// Auxiliary method to calculate Alpha amount to match given TAO
@@ -199,7 +270,7 @@ where
 
     /// Add liquidity at tick index. Creates new tick if it doesn't exist
     ///
-    fn add_liquidity_at_index(&self, tick_index: u64, liquidity: u64, upper: bool) {
+    fn add_liquidity_at_index(&mut self, tick_index: i32, liquidity: u64, upper: bool) {
         // Calculate net liquidity addition
         let net_addition = if upper {
             (liquidity as i128).neg()
@@ -229,7 +300,7 @@ where
 
     /// Remove liquidity at tick index.
     ///
-    fn remove_liquidity_at_index(&self, tick_index: u64, liquidity: u64, upper: bool) {
+    fn remove_liquidity_at_index(&mut self, tick_index: i32, liquidity: u64, upper: bool) {
         // Calculate net liquidity addition
         let net_reduction = if upper {
             (liquidity as i128).neg()
@@ -251,21 +322,47 @@ where
         };
     }
 
-    /// Add liquidity
+    /// Adds liquidity to the specified price range.
     ///
-    /// The added liquidity amount can be calculated from TAO and Alpha
-    /// amounts using get_tao_based_liquidity and get_alpha_based_liquidity
-    /// for the current price tick.
+    /// This function allows an account to provide liquidity to a given range of price ticks.
+    /// The amount of liquidity to be added can be determined using the functions
+    /// [`get_tao_based_liquidity`] and [`get_alpha_based_liquidity`], which compute the
+    /// required liquidity based on TAO and Alpha balances for the current price tick.
     ///
-    /// Removes the balances using state_ops.withdraw_balances()
+    /// ### Behavior:
+    /// - If the `protocol` flag is **not set** (`false`), the function will attempt to
+    ///   **withdraw balances** from the account using `state_ops.withdraw_balances()`.
+    /// - If the `protocol` flag is **set** (`true`), the liquidity is added without modifying balances.
+    ///
+    /// ### Parameters:
+    /// - `account_id`: A reference to the account that is providing liquidity.
+    /// - `tick_low`: The lower bound of the price tick range.
+    /// - `tick_high`: The upper bound of the price tick range.
+    /// - `liquidity`: The amount of liquidity to be added.
+    /// - `protocol`: A boolean flag indicating whether the operation is protocol-managed:
+    ///   - `true` -> Do not use this value outside of this implementation. Liquidity is added **without**
+    ///               withdrawing balances.
+    ///   - `false` -> Use this value for all user transactions. Liquidity is added
+    ///               **after withdrawing balances**.
+    ///
+    /// ### Returns:
+    /// - `Ok(u64)`: The final liquidity amount added.
+    /// - `Err(SwapError)`: If the operation fails due to insufficient balance, invalid tick range,
+    ///   or other swap-related errors.
+    ///
+    /// ### Errors:
+    /// - [`SwapError::InsufficientBalance`] if the account does not have enough balance.
+    /// - [`SwapError::InvalidTickRange`] if `tick_low` is greater than or equal to `tick_high`.
+    /// - Other [`SwapError`] variants as applicable.
     ///
     pub fn add_liquidity(
-        &self,
+        &mut self,
         account_id: &AccountIdType,
-        tick_low: u64,
-        tick_high: u64,
+        tick_low: i32,
+        tick_high: i32,
         liquidity: u64,
-    ) -> Result<u64, SwapError> {
+        protocol: bool,
+    ) -> Result<(), SwapError> {
         // Check if we can add a position
         let position_count = self.state_ops.get_position_count(account_id);
         let max_positions = self.state_ops.get_max_positions();
@@ -277,13 +374,9 @@ where
         self.add_liquidity_at_index(tick_low, liquidity, false);
         self.add_liquidity_at_index(tick_high, liquidity, true);
 
-        // Update current tick and liquidity
-        // TODO: Review why python uses this code to get the new tick index:
-        // k = self.get_tick_index(i)
-        let current_tick_index = self.get_current_tick_index();
-
         // Update current tick liquidity
-        if (tick_low <= current_tick_index as u64) && (current_tick_index as u64 <= tick_high) {
+        let current_tick_index = self.get_current_tick_index();
+        if (tick_low <= current_tick_index) && (current_tick_index <= tick_high) {
             let new_current_liquidity = self
                 .state_ops
                 .get_current_liquidity()
@@ -291,7 +384,7 @@ where
             self.state_ops.set_current_liquidity(new_current_liquidity);
         }
 
-        // Update balances
+        // New position
         let position = Position {
             tick_low,
             tick_high,
@@ -299,21 +392,24 @@ where
             fees_tao: 0_u64,
             fees_alpha: 0_u64,
         };
-        let (tao, alpha) = position.to_token_amounts(current_tick_index as u64);
-        self.state_ops.withdraw_balances(account_id, tao, alpha);
 
-        // Update reserves
-        let new_tao_reserve = self.state_ops.get_tao_reserve().saturating_add(tao);
-        self.state_ops.set_tao_reserve(new_tao_reserve);
-        let new_alpha_reserve = self.state_ops.get_alpha_reserve().saturating_add(alpha);
-        self.state_ops.set_alpha_reserve(new_alpha_reserve);
+        // If this is a user transaction, withdraw balances and update reserves
+        if !protocol {
+            let current_price: SqrtPrice = self.state_ops.get_alpha_sqrt_price();
+            let (tao, alpha) = position.to_token_amounts(current_price)?;
+            self.state_ops.withdraw_balances(account_id, tao, alpha)?;
 
-        // Update user positions
-        let position_id = position_count.saturating_add(1);
-        self.state_ops
-            .update_position(account_id, position_id, position);
+            // Update reserves
+            let new_tao_reserve = self.state_ops.get_tao_reserve().saturating_add(tao);
+            self.state_ops.set_tao_reserve(new_tao_reserve);
+            let new_alpha_reserve = self.state_ops.get_alpha_reserve().saturating_add(alpha);
+            self.state_ops.set_alpha_reserve(new_alpha_reserve);
+        }
 
-        Ok(liquidity)
+        // Create a new user position
+        self.state_ops.create_position(account_id, position);
+
+        Ok(())
     }
 
     /// Remove liquidity and credit balances back to account_id
@@ -321,7 +417,7 @@ where
     /// Account ID and Position ID identify position in the storage map
     ///
     pub fn remove_liquidity(
-        &self,
+        &mut self,
         account_id: &AccountIdType,
         position_id: u16,
     ) -> Result<RemoveLiquidityResult, SwapError> {
@@ -332,16 +428,15 @@ where
 
             // Collect fees and get tao and alpha amounts
             let (fee_tao, fee_alpha) = self.collect_fees(&mut pos);
-            let (tao, alpha) = pos.to_token_amounts(current_tick_index as u64);
+            let current_price: SqrtPrice = self.state_ops.get_alpha_sqrt_price();
+            let (tao, alpha) = pos.to_token_amounts(current_price)?;
 
             // Update liquidity at position ticks
             self.remove_liquidity_at_index(pos.tick_low, pos.liquidity, false);
             self.remove_liquidity_at_index(pos.tick_high, pos.liquidity, true);
 
             // Update current tick liquidity
-            if (pos.tick_low <= current_tick_index as u64)
-                && (current_tick_index as u64 <= pos.tick_high)
-            {
+            if (pos.tick_low <= current_tick_index) && (current_tick_index <= pos.tick_high) {
                 let new_current_liquidity = self
                     .state_ops
                     .get_current_liquidity()
@@ -351,6 +446,15 @@ where
 
             // Remove user position
             self.state_ops.remove_position(account_id, position_id);
+
+            // Deposit balances
+            self.state_ops.deposit_balances(account_id, tao, alpha);
+
+            // Update reserves
+            let new_tao_reserve = self.state_ops.get_tao_reserve().saturating_sub(tao);
+            self.state_ops.set_tao_reserve(new_tao_reserve);
+            let new_alpha_reserve = self.state_ops.get_alpha_reserve().saturating_sub(alpha);
+            self.state_ops.set_alpha_reserve(new_alpha_reserve);
 
             // TODO: Clear with R&D
             // Update current price (why?)
@@ -374,7 +478,7 @@ where
     /// Returns a tuple (amount, refund), where amount is the resulting paid out amount
     ///
     pub fn swap(
-        &self,
+        &mut self,
         order_type: &OrderType,
         amount: u64,
         sqrt_price_limit: SqrtPrice,
@@ -486,7 +590,7 @@ where
         })
     }
 
-    fn get_current_tick_index(&self) -> i32 {
+    fn get_current_tick_index(&mut self) -> i32 {
         let current_price = self.state_ops.get_alpha_sqrt_price();
         let maybe_current_tick_index = sqrt_price_to_tick_index(current_price);
         if let Ok(index) = maybe_current_tick_index {
@@ -494,16 +598,16 @@ where
         } else {
             // Current price is out of allow the min-max range, and it should be corrected to
             // maintain the range.
-            let max_price =
-                tick_index_to_sqrt_price(MAX_TICK).unwrap_or(SqrtPrice::saturating_from_num(1000));
-            let min_price = tick_index_to_sqrt_price(MIN_TICK)
+            let max_price = tick_index_to_sqrt_price(MAX_TICK_INDEX)
+                .unwrap_or(SqrtPrice::saturating_from_num(1000));
+            let min_price = tick_index_to_sqrt_price(MIN_TICK_INDEX)
                 .unwrap_or(SqrtPrice::saturating_from_num(0.000001));
             if current_price > max_price {
                 self.state_ops.set_alpha_sqrt_price(max_price);
-                MAX_TICK
+                MAX_TICK_INDEX
             } else {
                 self.state_ops.set_alpha_sqrt_price(min_price);
-                MIN_TICK
+                MIN_TICK_INDEX
             }
         }
     }
@@ -511,7 +615,7 @@ where
     /// Process a single step of a swap
     ///
     fn swap_step(
-        &self,
+        &mut self,
         order_type: &OrderType,
         delta_in: u64,
         sqrt_price_final: SqrtPrice,
@@ -537,8 +641,8 @@ where
         match action {
             SwapStepAction::Crossing => {
                 let maybe_tick = match order_type {
-                    OrderType::Sell => find_closest_lower_active_tick(current_tick_index),
-                    OrderType::Buy => find_closest_higher_active_tick(current_tick_index),
+                    OrderType::Sell => self.find_closest_lower_active_tick(current_tick_index),
+                    OrderType::Buy => self.find_closest_higher_active_tick(current_tick_index),
                 };
                 if let Some(mut tick) = maybe_tick {
                     tick.fees_out_tao = self
@@ -551,7 +655,7 @@ where
                         .saturating_sub(tick.fees_out_alpha);
                     self.update_liquidity_at_crossing(order_type)?;
                     self.state_ops
-                        .insert_tick_by_index(current_tick_index as u64, tick);
+                        .insert_tick_by_index(current_tick_index, tick);
                 } else {
                     return Err(SwapError::InsufficientLiquidity);
                 }
@@ -560,7 +664,7 @@ where
                 OrderType::Sell => {}
                 OrderType::Buy => {
                     self.update_liquidity_at_crossing(order_type)?;
-                    let maybe_tick = find_closest_higher_active_tick(current_tick_index);
+                    let maybe_tick = self.find_closest_higher_active_tick(current_tick_index);
 
                     if let Some(mut tick) = maybe_tick {
                         tick.fees_out_tao = self
@@ -572,7 +676,7 @@ where
                             .get_fee_global_alpha()
                             .saturating_sub(tick.fees_out_alpha);
                         self.state_ops
-                            .insert_tick_by_index(current_tick_index as u64, tick);
+                            .insert_tick_by_index(current_tick_index, tick);
                     } else {
                         return Err(SwapError::InsufficientLiquidity);
                     }
@@ -599,8 +703,8 @@ where
     ///
     fn get_sqrt_price_edge(&self, order_type: &OrderType) -> SqrtPrice {
         let fallback_price_edge_value = (match order_type {
-            OrderType::Buy => tick_index_to_sqrt_price(MIN_TICK),
-            OrderType::Sell => tick_index_to_sqrt_price(MAX_TICK),
+            OrderType::Buy => tick_index_to_sqrt_price(MIN_TICK_INDEX),
+            OrderType::Sell => tick_index_to_sqrt_price(MAX_TICK_INDEX),
         })
         .unwrap_or(SqrtPrice::saturating_from_num(0));
 
@@ -715,7 +819,7 @@ where
     }
 
     /// Add fees to the global fee counters
-    fn add_fees(&self, order_type: &OrderType, fee: u64) {
+    fn add_fees(&mut self, order_type: &OrderType, fee: u64) {
         let liquidity_curr = self.get_safe_current_liquidity();
         if liquidity_curr > 0 {
             let fee_global_tao: U64F64 = self.state_ops.get_fee_global_tao();
@@ -811,7 +915,7 @@ where
 
     /// Update token reserves after a swap
     ///
-    fn update_reserves(&self, order_type: &OrderType, amount_in: u64, amount_out: u64) {
+    fn update_reserves(&mut self, order_type: &OrderType, amount_in: u64, amount_out: u64) {
         let (new_tao_reserve, new_alpha_reserve) = match order_type {
             OrderType::Sell => (
                 self.state_ops.get_tao_reserve().saturating_add(amount_in),
@@ -842,12 +946,12 @@ where
 
     /// Update liquidity when crossing a tick
     ///
-    fn update_liquidity_at_crossing(&self, order_type: &OrderType) -> Result<(), SwapError> {
+    fn update_liquidity_at_crossing(&mut self, order_type: &OrderType) -> Result<(), SwapError> {
         let mut liquidity_curr = self.state_ops.get_current_liquidity();
         let current_tick_index = self.get_current_tick_index();
         match order_type {
             OrderType::Sell => {
-                let maybe_tick = find_closest_lower_active_tick(current_tick_index);
+                let maybe_tick = self.find_closest_lower_active_tick(current_tick_index);
                 if let Some(tick) = maybe_tick {
                     let liquidity_update_abs_u64 = self.get_liquidity_update_u64(&tick);
 
@@ -861,7 +965,7 @@ where
                 }
             }
             OrderType::Buy => {
-                let maybe_tick = find_closest_higher_active_tick(current_tick_index);
+                let maybe_tick = self.find_closest_higher_active_tick(current_tick_index);
                 if let Some(tick) = maybe_tick {
                     let liquidity_update_abs_u64 = self.get_liquidity_update_u64(&tick);
 
@@ -883,7 +987,7 @@ where
     /// Collect fees for a position
     /// Updates the position
     ///
-    fn collect_fees(&self, position: &mut Position) -> (u64, u64) {
+    fn collect_fees(&mut self, position: &mut Position) -> (u64, u64) {
         let mut fee_tao = self.get_fees_in_range(position, true);
         let mut fee_alpha = self.get_fees_in_range(position, false);
 
@@ -903,7 +1007,7 @@ where
     ///
     /// If quote flag is true, Tao is returned, otherwise alpha.
     ///
-    fn get_fees_in_range(&self, position: &mut Position, quote: bool) -> u64 {
+    fn get_fees_in_range(&mut self, position: &mut Position, quote: bool) -> u64 {
         let i_lower = position.tick_low;
         let i_upper = position.tick_high;
 
@@ -921,42 +1025,704 @@ where
 
     /// Get fees above a tick
     ///
-    fn get_fees_above(&self, _tick_index: u64, _quote: bool) -> U64F64 {
-        // k = self.get_tick_index(i)
-        // i_arg = self.active_ticks[k]
+    fn get_fees_above(&mut self, tick_index: i32, quote: bool) -> U64F64 {
+        let maybe_tick_index = find_closest_lower_active_tick_index(&self.state_ops, tick_index);
+        let current_tick = self.get_current_tick_index();
 
-        // if i_arg <= self.i_curr:
-        //     if want_one:
-        //         fee = self.fee_global1 - self.fee_outside1[k]
-        //     else:
-        //         fee = self.fee_global0 - self.fee_outside0[k]
-        // else:
-        //     if want_one:
-        //         fee = self.fee_outside1[k]
-        //     else:
-        //         fee = self.fee_outside0[k]
-
-        // return fee
-        todo!()
+        if let Some(tick_index) = maybe_tick_index {
+            let tick = self
+                .state_ops
+                .get_tick_by_index(tick_index)
+                .unwrap_or_default();
+            if tick_index <= current_tick {
+                if quote {
+                    self.state_ops
+                        .get_fee_global_tao()
+                        .saturating_sub(tick.fees_out_tao)
+                } else {
+                    self.state_ops
+                        .get_fee_global_alpha()
+                        .saturating_sub(tick.fees_out_alpha)
+                }
+            } else {
+                if quote {
+                    tick.fees_out_tao
+                } else {
+                    tick.fees_out_alpha
+                }
+            }
+        } else {
+            U64F64::saturating_from_num(0)
+        }
     }
 
     /// Get fees below a tick
-    fn get_fees_below(&self, _tick_index: u64, _quote: bool) -> U64F64 {
-        // k = self.get_tick_index(i)
-        // i_arg = self.active_ticks[k]
+    fn get_fees_below(&mut self, tick_index: i32, quote: bool) -> U64F64 {
+        let maybe_tick_index = find_closest_lower_active_tick_index(&self.state_ops, tick_index);
+        let current_tick = self.get_current_tick_index();
 
-        // if i_arg <= self.i_curr:
-        //     if want_one:
-        //         fee = self.fee_outside1[k]
-        //     else:
-        //         fee = self.fee_outside0[k]
-        // else:
-        //     if want_one:
-        //         fee = self.fee_global1 - self.fee_outside1[k]
-        //     else:
-        //         fee = self.fee_global0 - self.fee_outside0[k]
-
-        // return fee
-        todo!()
+        if let Some(tick_index) = maybe_tick_index {
+            let tick = self
+                .state_ops
+                .get_tick_by_index(tick_index)
+                .unwrap_or_default();
+            if tick_index <= current_tick {
+                if quote {
+                    tick.fees_out_tao
+                } else {
+                    tick.fees_out_alpha
+                }
+            } else {
+                if quote {
+                    self.state_ops
+                        .get_fee_global_tao()
+                        .saturating_sub(tick.fees_out_tao)
+                } else {
+                    self.state_ops
+                        .get_fee_global_alpha()
+                        .saturating_sub(tick.fees_out_alpha)
+                }
+            }
+        } else {
+            U64F64::saturating_from_num(0)
+        }
     }
+
+    pub fn find_closest_lower_active_tick(&self, index: i32) -> Option<Tick> {
+        let maybe_tick_index = find_closest_lower_active_tick_index(&self.state_ops, index);
+        if let Some(tick_index) = maybe_tick_index {
+            self.state_ops.get_tick_by_index(tick_index)
+        } else {
+            None
+        }
+    }
+
+    pub fn find_closest_higher_active_tick(&self, index: i32) -> Option<Tick> {
+        let maybe_tick_index = find_closest_higher_active_tick_index(&self.state_ops, index);
+        if let Some(tick_index) = maybe_tick_index {
+            self.state_ops.get_tick_by_index(tick_index)
+        } else {
+            None
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_abs_diff_eq;
+    use sp_arithmetic::helpers_128bit::sqrt;
+    use std::collections::HashMap;
+
+    #[derive(Debug, Clone)]
+    pub struct MockSwapDataOperations {
+        is_initialized: bool,
+        fee_rate: u16,
+        minimum_liquidity: u64,
+        ticks: HashMap<i32, Tick>,
+        min_sqrt_price: SqrtPrice,
+        max_sqrt_price: SqrtPrice,
+        tao_reserve: u64,
+        alpha_reserve: u64,
+        alpha_sqrt_price: SqrtPrice,
+        fee_global_tao: U64F64,
+        fee_global_alpha: U64F64,
+        current_liquidity: u64,
+        max_positions: u16,
+        balances: HashMap<u16, (u64, u64)>,
+        positions: HashMap<u16, HashMap<u16, Position>>,
+    }
+
+    impl MockSwapDataOperations {
+        pub fn new() -> Self {
+            Self {
+                is_initialized: false,
+                fee_rate: 196,
+                minimum_liquidity: 1000,
+                ticks: HashMap::new(),
+                min_sqrt_price: SqrtPrice::from_num(0.01),
+                max_sqrt_price: SqrtPrice::from_num(10),
+                tao_reserve: 0,
+                alpha_reserve: 0,
+                alpha_sqrt_price: SqrtPrice::from_num(0),
+                fee_global_tao: U64F64::from_num(0),
+                fee_global_alpha: U64F64::from_num(0),
+                current_liquidity: 0,
+                max_positions: 100,
+                balances: HashMap::new(),
+                positions: HashMap::new(),
+            }
+        }
+    }
+
+    impl SwapDataOperations<u16> for MockSwapDataOperations {
+        fn is_v3_initialized(&self) -> bool {
+            self.is_initialized
+        }
+
+        fn set_v3_initialized(&mut self) {
+            self.is_initialized = true;
+        }
+
+        fn get_fee_rate(&self) -> u16 {
+            self.fee_rate
+        }
+
+        fn get_minimum_liquidity(&self) -> u64 {
+            self.minimum_liquidity
+        }
+
+        fn get_tick_by_index(&self, tick_index: i32) -> Option<Tick> {
+            self.ticks.get(&tick_index).cloned()
+        }
+
+        fn insert_tick_by_index(&mut self, tick_index: i32, tick: Tick) {
+            self.ticks.insert(tick_index, tick);
+        }
+
+        fn remove_tick_by_index(&mut self, tick_index: i32) {
+            self.ticks.remove(&tick_index);
+        }
+
+        fn get_min_sqrt_price(&self) -> SqrtPrice {
+            self.min_sqrt_price
+        }
+
+        fn get_max_sqrt_price(&self) -> SqrtPrice {
+            self.max_sqrt_price
+        }
+
+        fn get_tao_reserve(&self) -> u64 {
+            self.tao_reserve
+        }
+
+        fn set_tao_reserve(&mut self, tao: u64) -> u64 {
+            self.tao_reserve = tao;
+            tao
+        }
+
+        fn get_alpha_reserve(&self) -> u64 {
+            self.alpha_reserve
+        }
+
+        fn set_alpha_reserve(&mut self, alpha: u64) -> u64 {
+            self.alpha_reserve = alpha;
+            alpha
+        }
+
+        fn get_alpha_sqrt_price(&self) -> SqrtPrice {
+            self.alpha_sqrt_price
+        }
+
+        fn set_alpha_sqrt_price(&mut self, sqrt_price: SqrtPrice) {
+            self.alpha_sqrt_price = sqrt_price;
+        }
+
+        fn get_fee_global_tao(&self) -> U64F64 {
+            self.fee_global_tao
+        }
+
+        fn set_fee_global_tao(&mut self, fee: U64F64) {
+            self.fee_global_tao = fee;
+        }
+
+        fn get_fee_global_alpha(&self) -> U64F64 {
+            self.fee_global_alpha
+        }
+
+        fn set_fee_global_alpha(&mut self, fee: U64F64) {
+            self.fee_global_alpha = fee;
+        }
+
+        fn get_current_liquidity(&self) -> u64 {
+            self.current_liquidity
+        }
+
+        fn set_current_liquidity(&mut self, liquidity: u64) {
+            self.current_liquidity = liquidity;
+        }
+
+        fn get_max_positions(&self) -> u16 {
+            self.max_positions
+        }
+
+        fn withdraw_balances(
+            &mut self,
+            account_id: &u16,
+            tao: u64,
+            alpha: u64,
+        ) -> Result<(u64, u64), SwapError> {
+            let (current_tao, current_alpha) =
+                self.balances.get(account_id).cloned().unwrap_or((0, 0));
+
+            if (tao > current_tao) || (alpha > current_alpha) {
+                return Err(SwapError::InsufficientBalance);
+            }
+
+            self.balances
+                .insert(*account_id, (current_tao - tao, current_alpha - alpha));
+
+            Ok((tao, alpha))
+        }
+
+        fn deposit_balances(&mut self, account_id: &u16, tao: u64, alpha: u64) {
+            let (current_tao, current_alpha) =
+                self.balances.get(account_id).cloned().unwrap_or((0, 0));
+            self.balances.insert(
+                account_id.clone(),
+                (current_tao + tao, current_alpha + alpha),
+            );
+        }
+
+        fn get_protocol_account_id(&self) -> u16 {
+            0xFFFF
+        }
+
+        fn get_position_count(&self, account_id: &u16) -> u16 {
+            self.positions.get(account_id).map_or(0, |p| p.len() as u16)
+        }
+
+        fn get_position(&self, account_id: &u16, position_id: u16) -> Option<Position> {
+            self.positions
+                .get(account_id)
+                .and_then(|p| p.get(&position_id).cloned())
+        }
+
+        fn create_position(&mut self, account_id: &u16, position: Position) -> u16 {
+            let entry = self
+                .positions
+                .entry(account_id.clone())
+                .or_insert_with(HashMap::new);
+
+            // Find the next available position ID
+            let new_position_id = entry.keys().max().map_or(0, |max_id| max_id + 1);
+
+            entry.insert(new_position_id, position);
+            new_position_id
+        }
+
+        fn update_position(&mut self, account_id: &u16, position_id: u16, position: Position) {
+            if let Some(account_positions) = self.positions.get_mut(account_id) {
+                account_positions.insert(position_id, position);
+            }
+        }
+
+        fn remove_position(&mut self, account_id: &u16, position_id: u16) {
+            if let Some(account_positions) = self.positions.get_mut(account_id) {
+                account_positions.remove(&position_id);
+            }
+        }
+    }
+
+    #[test]
+    fn test_swap_initialization() {
+        let tao = 1_000_000_000;
+        let alpha = 4_000_000_000;
+
+        let mut mock_ops = MockSwapDataOperations::new();
+        mock_ops.set_tao_reserve(tao);
+        mock_ops.set_alpha_reserve(alpha);
+        let swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+
+        // Active ticks
+        let tick_low = swap.state_ops.get_tick_by_index(MIN_TICK_INDEX).unwrap();
+        let tick_high = swap.state_ops.get_tick_by_index(MAX_TICK_INDEX).unwrap();
+        let liquidity = sqrt(alpha as u128 * tao as u128) as u64;
+        let expected_liquidity_net_low: i128 = liquidity as i128;
+        let expected_liquidity_gross_low: u64 = liquidity;
+        let expected_liquidity_net_high: i128 = (liquidity as i128).neg();
+        let expected_liquidity_gross_high: u64 = liquidity;
+        assert_eq!(tick_low.liquidity_net, expected_liquidity_net_low,);
+        assert_eq!(tick_low.liquidity_gross, expected_liquidity_gross_low,);
+        assert_eq!(tick_high.liquidity_net, expected_liquidity_net_high,);
+        assert_eq!(tick_high.liquidity_gross, expected_liquidity_gross_high,);
+
+        // Liquidity position at correct ticks
+        let account_id = swap.state_ops.get_protocol_account_id();
+        assert_eq!(swap.state_ops.get_position_count(&account_id), 1);
+
+        let position = swap.state_ops.get_position(&account_id, 0).unwrap();
+        assert_eq!(position.liquidity, liquidity);
+        assert_eq!(position.tick_low, MIN_TICK_INDEX);
+        assert_eq!(position.tick_high, MAX_TICK_INDEX);
+        assert_eq!(position.fees_alpha, 0);
+        assert_eq!(position.fees_tao, 0);
+
+        // Current liquidity
+        assert_eq!(swap.state_ops.get_current_liquidity(), liquidity);
+
+        // Current price
+        let sqrt_price = swap.state_ops.get_alpha_sqrt_price();
+        assert_abs_diff_eq!(sqrt_price.to_num::<f64>(), 0.50, epsilon = 0.00001,);
+    }
+
+    fn price_to_tick(price: f64) -> i32 {
+        let price_sqrt: SqrtPrice = SqrtPrice::from_num(price.sqrt());
+        let mut tick = sqrt_price_to_tick_index(price_sqrt).unwrap();
+        if tick > MAX_TICK_INDEX {
+            tick = MAX_TICK_INDEX
+        }
+        tick
+    }
+
+    fn tick_to_price(tick: i32) -> f64 {
+        let price_sqrt: SqrtPrice = tick_index_to_sqrt_price(tick).unwrap();
+        (price_sqrt * price_sqrt).to_num::<f64>()
+    }
+
+    #[test]
+    fn test_tick_price_sanity_check() {
+        let min_price = tick_to_price(MIN_TICK_INDEX);
+        let max_price = tick_to_price(MAX_TICK_INDEX);
+        assert!(min_price > 0.);
+        assert!(max_price > 0.);
+        assert!(max_price > min_price);
+        assert!(min_price < 0.000001);
+        assert!(max_price > 10.);
+
+        // Roundtrip conversions
+        let min_price_sqrt: SqrtPrice = tick_index_to_sqrt_price(MIN_TICK_INDEX).unwrap();
+        let min_tick = sqrt_price_to_tick_index(min_price_sqrt).unwrap();
+        assert_eq!(min_tick, MIN_TICK_INDEX);
+
+        let max_price_sqrt: SqrtPrice = tick_index_to_sqrt_price(MAX_TICK_INDEX).unwrap();
+        let max_tick = sqrt_price_to_tick_index(max_price_sqrt).unwrap();
+        assert_eq!(max_tick, MAX_TICK_INDEX);
+    }
+
+    // Test adding liquidity on top of the existing protocol liquidity
+    #[test]
+    fn test_add_liquidity_basic() {
+        let protocol_tao = 1_000_000_000;
+        let protocol_alpha = 4_000_000_000;
+        let user_tao = 100_000_000_000;
+        let user_alpha = 100_000_000_000;
+        let account_id = 1;
+        let min_price = tick_to_price(MIN_TICK_INDEX);
+        let max_price = tick_to_price(MAX_TICK_INDEX);
+        let max_tick = price_to_tick(max_price);
+        let current_price = 0.25;
+        assert_eq!(max_tick, MAX_TICK_INDEX);
+
+        // As a user add liquidity with all possible corner cases
+        //   - Initial price is 0.25
+        //   - liquidity is expressed in RAO units
+        // Test case is (price_low, price_high, liquidity, tao, alpha)
+        [
+            // Repeat the protocol liquidity at maximum range: Expect all the same values
+            (
+                min_price,
+                max_price,
+                2_000_000_000_u64,
+                1_000_000_000_u64,
+                4_000_000_000_u64,
+            ),
+            // Repeat the protocol liquidity at current to max range: Expect the same alpha
+            (0.25, max_price, 2_000_000_000_u64, 0, 4_000_000_000),
+            // Repeat the protocol liquidity at min to current range: Expect all the same tao
+            (min_price, 0.24999, 2_000_000_000_u64, 1_000_000_000, 0),
+            // Half to double price - just some sane wothdraw amounts
+            (0.125, 0.5, 2_000_000_000_u64, 293_000_000, 1_171_000_000),
+            // Both below price - tao is non-zero, alpha is zero
+            (0.12, 0.13, 2_000_000_000_u64, 28_270_000, 0),
+            // Both above price - tao is zero, alpha is non-zero
+            (0.3, 0.4, 2_000_000_000_u64, 0, 489_200_000),
+        ]
+        .iter()
+        .for_each(|(price_low, price_high, liquidity, tao, alpha)| {
+            // Calculate ticks (assuming tick math is tested separately)
+            let tick_low = price_to_tick(*price_low);
+            let tick_high = price_to_tick(*price_high);
+
+            // Setup swap
+            let mut mock_ops = MockSwapDataOperations::new();
+            mock_ops.set_tao_reserve(protocol_tao);
+            mock_ops.set_alpha_reserve(protocol_alpha);
+            mock_ops.deposit_balances(&account_id, user_tao, user_alpha);
+            let mut swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+
+            // Get tick infos and liquidity before adding (to account for protocol liquidity)
+            let tick_low_info_before = swap
+                .state_ops
+                .get_tick_by_index(tick_low)
+                .unwrap_or_default();
+            let tick_high_info_before = swap
+                .state_ops
+                .get_tick_by_index(tick_high)
+                .unwrap_or_default();
+            let liquidity_before = swap.state_ops.get_current_liquidity();
+
+            // Add liquidity
+            assert!(
+                swap.add_liquidity(&account_id, tick_low, tick_high, *liquidity, false)
+                    .is_ok()
+            );
+
+            // Check that low and high ticks appear in the state and are properly updated
+            let tick_low_info = swap.state_ops.get_tick_by_index(tick_low).unwrap();
+            let tick_high_info = swap.state_ops.get_tick_by_index(tick_high).unwrap();
+            let expected_liquidity_net_low: i128 = *liquidity as i128;
+            let expected_liquidity_gross_low: u64 = *liquidity;
+            let expected_liquidity_net_high: i128 = (*liquidity as i128).neg();
+            let expected_liquidity_gross_high: u64 = *liquidity;
+            assert_eq!(
+                tick_low_info.liquidity_net - tick_low_info_before.liquidity_net,
+                expected_liquidity_net_low,
+            );
+            assert_eq!(
+                tick_low_info.liquidity_gross - tick_low_info_before.liquidity_gross,
+                expected_liquidity_gross_low,
+            );
+            assert_eq!(
+                tick_high_info.liquidity_net - tick_high_info_before.liquidity_net,
+                expected_liquidity_net_high,
+            );
+            assert_eq!(
+                tick_high_info.liquidity_gross - tick_high_info_before.liquidity_gross,
+                expected_liquidity_gross_high,
+            );
+
+            // Balances are withdrawn
+            let (user_tao_after, user_alpha_after) =
+                swap.state_ops.balances.get(&account_id).unwrap();
+            let tao_withdrawn = user_tao - user_tao_after;
+            let alpha_withdrawn = user_alpha - user_alpha_after;
+            assert_abs_diff_eq!(tao_withdrawn, *tao, epsilon = *tao / 1000);
+            assert_abs_diff_eq!(alpha_withdrawn, *alpha, epsilon = *alpha / 1000);
+
+            // Liquidity position at correct ticks
+            assert_eq!(swap.state_ops.get_position_count(&account_id), 1);
+
+            let position = swap.state_ops.get_position(&account_id, 0).unwrap();
+            assert_eq!(position.liquidity, *liquidity);
+            assert_eq!(position.tick_low, tick_low);
+            assert_eq!(position.tick_high, tick_high);
+            assert_eq!(position.fees_alpha, 0);
+            assert_eq!(position.fees_tao, 0);
+
+            // Current liquidity is updated only when price range includes the current price
+            if (*price_high >= current_price) && (*price_low <= current_price) {
+                assert_eq!(
+                    swap.state_ops.get_current_liquidity(),
+                    liquidity_before + *liquidity
+                );
+            } else {
+                assert_eq!(swap.state_ops.get_current_liquidity(), liquidity_before);
+            }
+
+            // Reserves are updated
+            assert_eq!(
+                swap.state_ops.get_tao_reserve(),
+                tao_withdrawn + protocol_tao,
+            );
+            assert_eq!(
+                swap.state_ops.get_alpha_reserve(),
+                alpha_withdrawn + protocol_alpha,
+            );
+        });
+    }
+
+    #[test]
+    fn test_add_liquidity_out_of_bounds() {
+        let protocol_tao = 1_000_000_000;
+        let protocol_alpha = 2_000_000_000;
+        let user_tao = 100_000_000_000;
+        let user_alpha = 100_000_000_000;
+        let account_id = 1;
+
+        [
+            (MIN_TICK_INDEX - 1, MAX_TICK_INDEX, 1_000_000_000_u64),
+            (MIN_TICK_INDEX, MAX_TICK_INDEX + 1, 1_000_000_000_u64),
+            (MIN_TICK_INDEX - 1, MAX_TICK_INDEX + 1, 1_000_000_000_u64),
+            (
+                MIN_TICK_INDEX - 100,
+                MAX_TICK_INDEX + 100,
+                1_000_000_000_u64,
+            ),
+        ]
+        .iter()
+        .for_each(|(tick_low, tick_high, liquidity)| {
+            // Setup swap
+            let mut mock_ops = MockSwapDataOperations::new();
+            mock_ops.set_tao_reserve(protocol_tao);
+            mock_ops.set_alpha_reserve(protocol_alpha);
+            mock_ops.deposit_balances(&account_id, user_tao, user_alpha);
+            let mut swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+
+            // Add liquidity
+            assert_eq!(
+                swap.add_liquidity(&account_id, *tick_low, *tick_high, *liquidity, false),
+                Err(SwapError::InvalidTickRange),
+            );
+        });
+    }
+
+    #[test]
+    fn test_add_liquidity_over_balance() {
+        let protocol_tao = 1_000_000_000;
+        let protocol_alpha = 4_000_000_000;
+        let user_tao = 1_000_000_000;
+        let user_alpha = 1_000_000_000;
+        let account_id = 1;
+
+        [
+            // Lower than price (not enough alpha)
+            (0.1, 0.2, 100_000_000_000_u64),
+            // Higher than price (not enough tao)
+            (0.3, 0.4, 100_000_000_000_u64),
+            // Around the price (not enough both)
+            (0.1, 0.4, 100_000_000_000_u64),
+        ]
+        .iter()
+        .for_each(|(price_low, price_high, liquidity)| {
+            // Calculate ticks
+            let tick_low = price_to_tick(*price_low);
+            let tick_high = price_to_tick(*price_high);
+
+            // Setup swap
+            let mut mock_ops = MockSwapDataOperations::new();
+            mock_ops.set_tao_reserve(protocol_tao);
+            mock_ops.set_alpha_reserve(protocol_alpha);
+            mock_ops.deposit_balances(&account_id, user_tao, user_alpha);
+            let mut swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+
+            // Add liquidity
+            assert_eq!(
+                swap.add_liquidity(&account_id, tick_low, tick_high, *liquidity, false),
+                Err(SwapError::InsufficientBalance),
+            );
+        });
+    }
+
+    // Test removing liquidity
+    #[test]
+    fn test_remove_liquidity_basic() {
+        let protocol_tao = 1_000_000_000;
+        let protocol_alpha = 4_000_000_000;
+        let user_tao = 100_000_000_000;
+        let user_alpha = 100_000_000_000;
+        let account_id = 1;
+        let min_price = tick_to_price(MIN_TICK_INDEX);
+        let max_price = tick_to_price(MAX_TICK_INDEX);
+        let max_tick = price_to_tick(max_price);
+        assert_eq!(max_tick, MAX_TICK_INDEX);
+
+        // As a user add liquidity with all possible corner cases
+        //   - Initial price is 0.25
+        //   - liquidity is expressed in RAO units
+        // Test case is (price_low, price_high, liquidity, tao, alpha)
+        [
+            // Repeat the protocol liquidity at maximum range: Expect all the same values
+            (
+                min_price,
+                max_price,
+                2_000_000_000_u64,
+                1_000_000_000_u64,
+                4_000_000_000_u64,
+            ),
+            // Repeat the protocol liquidity at current to max range: Expect the same alpha
+            (0.25, max_price, 2_000_000_000_u64, 0, 4_000_000_000),
+            // Repeat the protocol liquidity at min to current range: Expect all the same tao
+            (min_price, 0.24999, 2_000_000_000_u64, 1_000_000_000, 0),
+            // Half to double price - just some sane wothdraw amounts
+            (0.125, 0.5, 2_000_000_000_u64, 293_000_000, 1_171_000_000),
+            // Both below price - tao is non-zero, alpha is zero
+            (0.12, 0.13, 2_000_000_000_u64, 28_270_000, 0),
+            // Both above price - tao is zero, alpha is non-zero
+            (0.3, 0.4, 2_000_000_000_u64, 0, 489_200_000),
+        ]
+        .iter()
+        .for_each(|(price_low, price_high, liquidity, tao, alpha)| {
+            // Calculate ticks (assuming tick math is tested separately)
+            let tick_low = price_to_tick(*price_low);
+            let tick_high = price_to_tick(*price_high);
+
+            // Setup swap
+            let mut mock_ops = MockSwapDataOperations::new();
+            mock_ops.set_tao_reserve(protocol_tao);
+            mock_ops.set_alpha_reserve(protocol_alpha);
+            mock_ops.deposit_balances(&account_id, user_tao, user_alpha);
+            let mut swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+            let liquidity_before = swap.state_ops.get_current_liquidity();
+
+            // Add liquidity
+            assert!(
+                swap.add_liquidity(&account_id, tick_low, tick_high, *liquidity, false)
+                    .is_ok()
+            );
+
+            // Remove liquidity
+            let remove_result = swap.remove_liquidity(&account_id, 0).unwrap();
+            assert_abs_diff_eq!(remove_result.tao, *tao, epsilon = *tao / 1000);
+            assert_abs_diff_eq!(remove_result.alpha, *alpha, epsilon = *alpha / 1000);
+            assert_eq!(remove_result.fee_tao, 0);
+            assert_eq!(remove_result.fee_alpha, 0);
+
+            // Balances are returned
+            let (user_tao_after, user_alpha_after) =
+                swap.state_ops.balances.get(&account_id).unwrap();
+            assert_eq!(user_tao, *user_tao_after);
+            assert_eq!(user_alpha, *user_alpha_after);
+
+            // Liquidity position is removed
+            assert_eq!(swap.state_ops.get_position_count(&account_id), 0);
+            assert!(swap.state_ops.get_position(&account_id, 0).is_none());
+
+            // Current liquidity is updated (back where it was)
+            assert_eq!(swap.state_ops.get_current_liquidity(), liquidity_before);
+
+            // Reserves are updated (back where they were)
+            assert_eq!(swap.state_ops.get_tao_reserve(), protocol_tao,);
+            assert_eq!(swap.state_ops.get_alpha_reserve(), protocol_alpha,);
+        });
+    }
+
+    #[test]
+    fn test_remove_liquidity_nonexisting_position() {
+        let protocol_tao = 1_000_000_000;
+        let protocol_alpha = 4_000_000_000;
+        let user_tao = 100_000_000_000;
+        let user_alpha = 100_000_000_000;
+        let account_id = 1;
+        let min_price = tick_to_price(MIN_TICK_INDEX);
+        let max_price = tick_to_price(MAX_TICK_INDEX);
+        let max_tick = price_to_tick(max_price);
+        assert_eq!(max_tick, MAX_TICK_INDEX);
+
+        // Test case is (price_low, price_high, liquidity)
+        [
+            // Repeat the protocol liquidity at maximum range: Expect all the same values
+            (
+                min_price,
+                max_price,
+                2_000_000_000_u64,
+            ),
+        ]
+        .iter()
+        .for_each(|(price_low, price_high, liquidity)| {
+            // Calculate ticks (assuming tick math is tested separately)
+            let tick_low = price_to_tick(*price_low);
+            let tick_high = price_to_tick(*price_high);
+
+            // Setup swap
+            let mut mock_ops = MockSwapDataOperations::new();
+            mock_ops.set_tao_reserve(protocol_tao);
+            mock_ops.set_alpha_reserve(protocol_alpha);
+            mock_ops.deposit_balances(&account_id, user_tao, user_alpha);
+            let mut swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+
+            // Add liquidity
+            assert!(
+                swap.add_liquidity(&account_id, tick_low, tick_high, *liquidity, false)
+                    .is_ok()
+            );
+
+            // Remove liquidity
+            assert_eq!(
+                swap.remove_liquidity(&account_id, 1),
+                Err(SwapError::LiquidityNotFound),
+            );
+        });
+    }
+
 }

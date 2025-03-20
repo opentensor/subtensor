@@ -1,10 +1,16 @@
 use substrate_fixed::types::U64F64;
 
-use crate::SqrtPrice;
 use crate::tick_math::{
     MAX_TICK, MIN_TICK, TickMathError, get_sqrt_ratio_at_tick, get_tick_at_sqrt_ratio,
     u64f64_to_u256_q64_96, u256_q64_96_to_u64f64,
 };
+use crate::{SqrtPrice, SwapDataOperations};
+
+// Maximum and minimum values of the tick index
+// The tick_math library uses different bitness, so we have to divide by 2.
+// Do not use tick_math::MIN_TICK and tick_math::MAX_TICK
+pub const MAX_TICK_INDEX: i32 = MAX_TICK / 2;
+pub const MIN_TICK_INDEX: i32 = MIN_TICK / 2;
 
 /// Tick is the price range determined by tick index (not part of this struct,
 /// but is the key at which the Tick is stored in state hash maps). Tick struct
@@ -14,7 +20,7 @@ use crate::tick_math::{
 ///   - Gross liquidity
 ///   - Fees (above global) in both currencies
 ///
-#[derive(Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Tick {
     pub liquidity_net: i128,
     pub liquidity_gross: u64,
@@ -48,12 +54,50 @@ pub fn sqrt_price_to_tick_index(sqrt_price: SqrtPrice) -> Result<i32, TickMathEr
     })
 }
 
-pub fn find_closest_lower_active_tick(_index: i32) -> Option<Tick> {
-    todo!()
+pub fn find_closest_lower_active_tick_index<Ops, AccountIdType>(
+    ops: &Ops,
+    index: i32,
+) -> Option<i32>
+where
+    AccountIdType: Eq,
+    Ops: SwapDataOperations<AccountIdType>,
+{
+    // TODO: Implement without iteration
+    let mut current_index = index;
+    loop {
+        if current_index < MIN_TICK {
+            return None;
+        }
+        if ops.get_tick_by_index(current_index).is_some() {
+            return Some(current_index);
+        }
+
+        // Intentionally using unsafe math here to trigger CI
+        current_index -= 1;
+    }
 }
 
-pub fn find_closest_higher_active_tick(_index: i32) -> Option<Tick> {
-    todo!()
+pub fn find_closest_higher_active_tick_index<Ops, AccountIdType>(
+    ops: &Ops,
+    index: i32,
+) -> Option<i32>
+where
+    AccountIdType: Eq,
+    Ops: SwapDataOperations<AccountIdType>,
+{
+    // TODO: Implement without iteration
+    let mut current_index = index;
+    loop {
+        if current_index > MAX_TICK {
+            return None;
+        }
+        if ops.get_tick_by_index(current_index).is_some() {
+            return Some(current_index);
+        }
+
+        // Intentionally using unsafe math here to trigger CI
+        current_index += 1;
+    }
 }
 
 #[cfg(test)]
