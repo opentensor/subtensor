@@ -1923,5 +1923,55 @@ mod dispatches {
 
             Ok(())
         }
+
+        /// Recycles alpha from a cold/hot key pair, reducing AlphaOut on a subnet
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call (must be signed by the coldkey)
+        /// * `hotkey` - The hotkey account
+        /// * `amount` - The amount of alpha to recycle
+        /// * `netuid` - The subnet ID
+        ///
+        /// # Events
+        /// Emits a `TokensRecycled` event on success.
+        #[pallet::call_index(101)]
+        #[pallet::weight((
+            Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().reads_writes(3, 2)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn recycle_alpha(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+            amount: u64,
+            netuid: u16,
+        ) -> DispatchResult {
+            Self::do_recycle_alpha(origin, hotkey, amount, netuid)
+        }
+
+        /// Burns alpha from a cold/hot key pair without reducing `AlphaOut`
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call (must be signed by the coldkey)
+        /// * `hotkey` - The hotkey account
+        /// * `amount` - The amount of alpha to burn
+        /// * `netuid` - The subnet ID
+        ///
+        /// # Events
+        /// Emits a `TokensBurned` event on success.
+        #[pallet::call_index(102)]
+        #[pallet::weight((
+            Weight::from_parts(2_000_000, 0).saturating_add(T::DbWeight::get().reads_writes(2, 1)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn burn_alpha(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+            amount: u64,
+            netuid: u16,
+        ) -> DispatchResult {
+            Self::do_burn_alpha(origin, hotkey, amount, netuid)
+        }
     }
 }
