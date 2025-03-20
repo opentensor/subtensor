@@ -1380,50 +1380,48 @@ pub fn mat_ema_alpha_sparse(
 
     // The output vector of rows.
     let mut result: Vec<Vec<(u16, I32F32)>> = Vec::with_capacity(new.len());
-
-    let n = new.len(); // Assume square matrix, rows=cols
     let zero: I32F32 = I32F32::saturating_from_num(0.0);
+    let one = I32F32::saturating_from_num(1.0);
 
     // Iterate over each row of the matrices.
-    for (i, (new_row, old_row)) in new.iter().zip(old).enumerate() {
+    for ((new_row, old_row), alpha_row) in new.iter().zip(old).zip(alpha) {
         // Initialize a row of zeros for the result matrix.
-        let mut decayed_values: Vec<I32F32> = vec![zero; n];
+        let mut decayed_values: Vec<I32F32> = vec![zero; alpha_row.len()];
 
         let mut result_row: Vec<(u16, I32F32)> = Vec::new();
 
         // Process the old matrix values.
         for (j, old_val) in old_row.iter() {
-            let alpha_val = alpha[i][*j as usize];
-            // Calculate the complement of the alpha value
-            let one_minus_alpha = I32F32::saturating_from_num(1.0).saturating_sub(alpha_val);
-
-            // Bonds_decayed = Bonds * (1 - alpha)
-            let decayed_val = one_minus_alpha.saturating_mul(*old_val);
-            decayed_values[*j as usize] = decayed_val;
+            if let (Some(alpha_val), Some(decayed_val)) = (
+                alpha_row.get(*j as usize),
+                decayed_values.get_mut(*j as usize),
+            ) {
+                // Calculate the complement of the alpha value
+                let one_minus_alpha = one.saturating_sub(*alpha_val);
+                // Bonds_decayed = Bonds * (1 - alpha)
+                *decayed_val = one_minus_alpha.saturating_mul(*old_val);
+            }
         }
 
         // Process the new matrix values.
         for (j, new_val) in new_row.iter() {
-            let alpha_val = alpha[i][*j as usize];
-            let decayed_val = decayed_values[*j as usize];
+            if let (Some(alpha_val), Some(decayed_val)) =
+                (alpha_row.get(*j as usize), decayed_values.get(*j as usize))
+            {
+                // Calculate remaining capacity to limit bonds purchase
+                let remaining_capacity = one.saturating_sub(*decayed_val).max(zero);
 
-            // Calculate remaining capacity to limit bonds purchase
-            let remaining_capacity = I32F32::from_num(1.0)
-                .saturating_sub(decayed_val)
-                .max(I32F32::from_num(0.0));
+                // Each validator can increase bonds by at most clamped_alpha per epoch towards the cap
+                // Validators allocate their purchase across miners based on weights
+                let purchase_increment = alpha_val.saturating_mul(*new_val);
 
-            // Each validator can increase bonds by at most clamped_alpha per epoch towards the cap
-            // Validators allocate their purchase across miners based on weights
-            let purchase_increment = alpha_val.saturating_mul(*new_val);
+                // Ensure that purchase does not exceed remaining capacity
+                let purchase = purchase_increment.min(remaining_capacity);
 
-            // Ensure that purchase does not exceed remaining capacity
-            let purchase = purchase_increment.min(remaining_capacity);
-
-            let result_val = decayed_val
-                .saturating_add(purchase)
-                .min(I32F32::from_num(1.0));
-            if result_val > zero {
-                result_row.push(({ *j }, result_val));
+                let result_val = decayed_val.saturating_add(purchase).min(one);
+                if result_val > zero {
+                    result_row.push((*j, result_val));
+                }
             }
         }
         result.push(result_row);
@@ -1450,11 +1448,11 @@ pub fn mat_ema_alpha(
     assert!(new.len() == alpha.len());
 
     // Initialize the result matrix with zeros, having the same dimensions as the new matrix.
-    let mut result: Vec<Vec<I32F32>> =
-        vec![
-            vec![I32F32::saturating_from_num(0.0); new.first().map_or(0, |row| row.len())];
-            new.len()
-        ];
+    let zero: I32F32 = I32F32::saturating_from_num(0.0);
+    let one = I32F32::saturating_from_num(1.0);
+    let n = new.len(); // assume square matrix
+
+    let mut result: Vec<Vec<I32F32>> = vec![vec![zero; n]; n];
 
     // Iterate over each row of the matrices.
     for (i, ((new_row, old_row), alpha_row)) in new.iter().zip(old).zip(alpha).enumerate() {
@@ -1471,15 +1469,13 @@ pub fn mat_ema_alpha(
                 result.get_mut(i).and_then(|row| row.get_mut(j)),
             ) {
                 // Calculate the complement of the alpha value
-                let one_minus_alpha = I32F32::saturating_from_num(1.0).saturating_sub(*alpha_val);
+                let one_minus_alpha = one.saturating_sub(*alpha_val);
 
                 // Bonds_decayed = Bonds * (1 - alpha)
                 let decayed_val = one_minus_alpha.saturating_mul(*old_val);
 
                 // Calculate remaining capacity to limit bonds purchase
-                let remaining_capacity = I32F32::from_num(1.0)
-                    .saturating_sub(decayed_val)
-                    .max(I32F32::from_num(0.0));
+                let remaining_capacity = one.saturating_sub(decayed_val).max(zero);
 
                 // Each validator can increase bonds by at most clamped_alpha per epoch towards the cap
                 // Validators allocate their purchase across miners based on weights
@@ -1488,9 +1484,7 @@ pub fn mat_ema_alpha(
                 // Ensure that purchase does not exceed remaining capacity
                 let purchase = purchase_increment.min(remaining_capacity);
 
-                *result_val = decayed_val
-                    .saturating_add(purchase)
-                    .min(I32F32::from_num(1.0));
+                *result_val = decayed_val.saturating_add(purchase).min(one);
             }
         }
     }

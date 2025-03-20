@@ -898,8 +898,8 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         weights: &[Vec<I32F32>], // weights_for_bonds
         bonds: &[Vec<I32F32>],
-        consensus: &Vec<I32F32>,
-        active_stake: &Vec<I32F32>,
+        consensus: &[I32F32],
+        active_stake: &[I32F32],
     ) -> Vec<Vec<I32F32>> {
         // Check if Liquid Alpha is enabled, consensus is not empty, and contains non-zero values.
         if LiquidAlphaOn::<T>::get(netuid)
@@ -944,8 +944,8 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         weights: &[Vec<(u16, I32F32)>],
         bonds: &[Vec<(u16, I32F32)>],
-        consensus: &Vec<I32F32>,
-        active_stake: &Vec<I32F32>,
+        consensus: &[I32F32],
+        active_stake: &[I32F32],
     ) -> Vec<Vec<(u16, I32F32)>> {
         // Check if Liquid Alpha is enabled, consensus is not empty, and contains non-zero values.
         if LiquidAlphaOn::<T>::get(netuid)
@@ -993,10 +993,9 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         weights: &[Vec<I32F32>], // current epoch weights
         bonds: &[Vec<I32F32>],   // previous epoch bonds
-        consensus: &Vec<I32F32>, // previous epoch consensus weights
+        consensus: &[I32F32],    // previous epoch consensus weights
     ) -> Vec<Vec<I32F32>> {
         assert!(weights.len() == bonds.len());
-        let n = weights.len(); // Assume square matrix, rows=cols
 
         // Get the high and low alpha values for the network.
         let alpha_sigmoid_steepness: I32F32 = I32F32::from_num(10.0);
@@ -1004,37 +1003,19 @@ impl<T: Config> Pallet<T> {
 
         let mut alphas = Vec::new();
 
-        for i in 0..n {
+        for (w_row, b_row) in weights.iter().zip(bonds.iter()) {
             let mut row_alphas = Vec::new();
 
-            for j in 0..weights[i].len() {
-                let diff_buy = clamp_value(
-                    weights[i][j] - consensus[j],
-                    I32F32::from_num(0.0),
-                    I32F32::from_num(1.0),
+            for ((weight, bond), cons) in w_row.iter().zip(b_row.iter()).zip(consensus.iter()) {
+                let alpha = Self::alpha_sigmoid(
+                    *cons,
+                    *weight,
+                    *bond,
+                    alpha_low,
+                    alpha_high,
+                    alpha_sigmoid_steepness,
                 );
-                let diff_sell = clamp_value(
-                    bonds[i][j] - weights[i][j],
-                    I32F32::from_num(0.0),
-                    I32F32::from_num(1.0),
-                );
-
-                let combined_diff = if weights[i][j] >= bonds[i][j] {
-                    diff_buy
-                } else {
-                    diff_sell
-                };
-
-                // sigmoid = 1. / (1. + e^(-alpha_sigmoid_steepness * (combined_diff - 0.5)))
-                let sigmoid = I32F32::from_num(1.0).saturating_div(
-                    I32F32::from_num(1.0)
-                        + safe_exp(
-                            -alpha_sigmoid_steepness
-                                .saturating_mul(combined_diff - I32F32::from_num(0.5)),
-                        ),
-                );
-                let alpha = alpha_low + sigmoid * (alpha_high - alpha_low);
-                row_alphas.push(clamp_value(alpha, alpha_low, alpha_high));
+                row_alphas.push(alpha);
             }
             alphas.push(row_alphas);
         }
@@ -1056,63 +1037,92 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         weights: &[Vec<(u16, I32F32)>], // current epoch weights
         bonds: &[Vec<(u16, I32F32)>],   // previous epoch bonds
-        consensus: &Vec<I32F32>,        // previous epoch consensus weights
+        consensus: &[I32F32],           // previous epoch consensus weights
     ) -> Vec<Vec<I32F32>> {
         assert!(weights.len() == bonds.len());
-        let n = weights.len() as u16; // Assume square matrix, rows=cols
-        //
+
         let alpha_sigmoid_steepness: I32F32 = I32F32::from_num(10.0);
         let (alpha_low, alpha_high): (I32F32, I32F32) = Self::get_alpha_values_32(netuid);
 
-        let mut alphas = Vec::with_capacity(n as usize);
+        let mut alphas = Vec::with_capacity(consensus.len());
+        let zero = I32F32::from_num(0.0);
 
         // iterate over rows
         for (w_row, b_row) in weights.iter().zip(bonds.iter()) {
             let mut row_alphas = Vec::with_capacity(w_row.len());
-            let mut w_iter = 0;
-            let mut b_iter = 0;
-            for j in 0..n {
-                while w_iter < w_row.len() && w_row[w_iter].0 < j {
-                    w_iter += 1;
+            let mut w_iter = w_row.iter().peekable();
+            let mut b_iter = b_row.iter().peekable();
+            for (j_pos, consensus_val) in consensus.iter().enumerate() {
+                let j = j_pos as u16;
+
+                let mut weight = zero;
+                while let Some(&&(i, val)) = w_iter.peek() {
+                    if i < j {
+                        w_iter.next();
+                    } else {
+                        if i == j {
+                            weight = val;
+                        }
+                        break;
+                    }
                 }
-                let w_val = if w_iter < w_row.len() && w_row[w_iter].0 == j {
-                    w_row[w_iter].1
-                } else {
-                    I32F32::from_num(0.0)
-                };
 
-                while b_iter < b_row.len() && b_row[b_iter].0 < j {
-                    b_iter += 1;
+                let mut bond = zero;
+                while let Some(&&(i, val)) = b_iter.peek() {
+                    if i < j {
+                        b_iter.next();
+                    } else {
+                        if i == j {
+                            bond = val;
+                        }
+                        break;
+                    }
                 }
-                let b_val = if b_iter < b_row.len() && b_row[b_iter].0 == j {
-                    b_row[b_iter].1
-                } else {
-                    I32F32::from_num(0.0)
-                };
 
-                let diff_buy = (w_val - consensus[j as usize])
-                    .max(I32F32::from_num(0.0))
-                    .min(I32F32::from_num(1.0));
-                let diff_sell = (b_val - w_val)
-                    .max(I32F32::from_num(0.0))
-                    .min(I32F32::from_num(1.0));
-                let combined_diff = if w_val >= b_val { diff_buy } else { diff_sell };
-
-                // sigmoid = 1. / (1. + e^(-alpha_sigmoid_steepness * (combined_diff - 0.5)))
-                let sigmoid = I32F32::from_num(1.0).saturating_div(
-                    I32F32::from_num(1.0)
-                        + safe_exp(
-                            -alpha_sigmoid_steepness
-                                .saturating_mul(combined_diff - I32F32::from_num(0.5)),
-                        ),
+                let alpha = Self::alpha_sigmoid(
+                    *consensus_val,
+                    weight,
+                    bond,
+                    alpha_low,
+                    alpha_high,
+                    alpha_sigmoid_steepness,
                 );
-                let mut alpha = alpha_low + sigmoid * (alpha_high - alpha_low);
-                alpha = alpha.max(alpha_low).min(alpha_high);
                 row_alphas.push(alpha);
             }
             alphas.push(row_alphas);
         }
         alphas
+    }
+
+    /// Helper function to compute the alpha value using a sigmoid function.
+    pub fn alpha_sigmoid(
+        consensus: I32F32,
+        weight: I32F32,
+        bond: I32F32,
+        alpha_low: I32F32,
+        alpha_high: I32F32,
+        alpha_sigmoid_steepness: I32F32,
+    ) -> I32F32 {
+        let zero = I32F32::from_num(0.0);
+        let one = I32F32::from_num(1.0);
+
+        let diff_buy = clamp_value(weight.saturating_sub(consensus), zero, one);
+        let diff_sell = clamp_value(bond.saturating_sub(weight), zero, one);
+        let combined_diff = if weight >= bond { diff_buy } else { diff_sell };
+
+        // sigmoid = 1. / (1. + e^(-steepness * (combined_diff - 0.5)))
+        let sigmoid = one.saturating_div(
+            one.saturating_add(safe_exp(
+                I32F32::from_num(-1).saturating_mul(
+                    alpha_sigmoid_steepness
+                        .saturating_mul(combined_diff.saturating_sub(I32F32::from_num(0.5))),
+                ),
+            )),
+        );
+        let alpha =
+            alpha_low.saturating_add(sigmoid.saturating_mul(alpha_high.saturating_sub(alpha_low)));
+
+        clamp_value(alpha, alpha_low, alpha_high)
     }
 
     pub fn compute_disabled_liquid_alpha(netuid: u16) -> I32F32 {

@@ -3002,33 +3002,6 @@ pub fn assert_approx_eq(left: I32F32, right: I32F32, epsilon: I32F32) {
     }
 }
 
-/// Helper function to assert approximate equality of two vectors of vectors of tuples.
-fn assert_approx_eq_vec_of_vec(
-    left: &[Vec<(u16, I32F32)>],
-    right: &[Vec<(u16, I32F32)>],
-    epsilon: I32F32,
-) {
-    assert_eq!(left.len(), right.len(), "Vectors have different lengths");
-    for (left_row, right_row) in left.iter().zip(right.iter()) {
-        assert_eq!(
-            left_row.len(),
-            right_row.len(),
-            "Rows have different lengths"
-        );
-        for ((left_idx, left_val), (right_idx, right_val)) in left_row.iter().zip(right_row.iter())
-        {
-            assert_eq!(left_idx, right_idx, "Indices are different");
-            assert!(
-                (left_val - right_val).abs() < epsilon,
-                "Values are different: left = {:?}, right = {:?}, epsilon = {:?}",
-                left_val,
-                right_val,
-                epsilon
-            );
-        }
-    }
-}
-
 // test Yuma 4 scenarios over a sequence of epochs.
 fn setup_yuma_4_scenario(netuid: u16, n: u16, sparse: bool, max_stake: u64, stakes: Vec<u64>) {
     let block_number = System::block_number();
