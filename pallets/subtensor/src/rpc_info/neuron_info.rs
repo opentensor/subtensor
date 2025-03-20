@@ -3,7 +3,7 @@ use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
 use codec::Compact;
 
-#[freeze_struct("d6da7340b3350951")]
+#[freeze_struct("31bcfd3825aca916")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct NeuronInfo<AccountId: TypeInfo + Encode + Decode> {
     hotkey: AccountId,
@@ -24,7 +24,7 @@ pub struct NeuronInfo<AccountId: TypeInfo + Encode + Decode> {
     last_update: Compact<u64>,
     validator_permit: bool,
     weights: Vec<(Compact<u16>, Compact<u16>)>, // Vec of (uid, weight)
-    bonds: Vec<(Compact<u16>, Compact<u16>)>,   // Vec of (uid, bond)
+    bonds: Vec<(Compact<u16>, Compact<u32>)>,   // Vec of (uid, bond)
     pruning_score: Compact<u16>,
 }
 
@@ -115,7 +115,7 @@ impl<T: Config> Pallet<T> {
                     None
                 }
             })
-            .collect::<Vec<(Compact<u16>, Compact<u16>)>>();
+            .collect::<Vec<(Compact<u16>, Compact<u32>)>>();
         let stake: Vec<(T::AccountId, Compact<u64>)> = vec![(
             coldkey.clone(),
             Self::get_stake_for_hotkey_on_subnet(&hotkey, netuid).into(),

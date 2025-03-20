@@ -347,13 +347,13 @@ impl<T: Config> Pallet<T> {
             .for_each(|(i, ((new_permit, validator_permit), ema_bond))| {
                 // Set bonds only if uid retains validator permit, otherwise clear bonds.
                 if *new_permit {
-                    let new_bonds_row: Vec<(u16, u16)> = (0..n)
-                        .zip(vec_fixed_proportions_to_u16(ema_bond.clone()))
+                    let new_bonds_row: Vec<(u16, u32)> = (0..n)
+                        .zip(vec_fixed_proportions_to_u32(ema_bond.clone()))
                         .collect();
                     Bonds::<T>::insert(netuid, i as u16, new_bonds_row);
                 } else if validator_permit {
                     // Only overwrite the intersection.
-                    let new_empty_bonds_row: Vec<(u16, u16)> = vec![];
+                    let new_empty_bonds_row: Vec<(u16, u32)> = vec![];
                     Bonds::<T>::insert(netuid, i as u16, new_empty_bonds_row);
                 }
             });
@@ -728,14 +728,14 @@ impl<T: Config> Pallet<T> {
             .for_each(|(i, ((new_permit, validator_permit), ema_bond))| {
                 // Set bonds only if uid retains validator permit, otherwise clear bonds.
                 if *new_permit {
-                    let new_bonds_row: Vec<(u16, u16)> = ema_bond
+                    let new_bonds_row: Vec<(u16, u32)> = ema_bond
                         .iter()
-                        .map(|(j, value)| (*j, fixed_proportion_to_u16(*value)))
+                        .map(|(j, value)| (*j, fixed_proportion_to_u32(*value)))
                         .collect();
                     Bonds::<T>::insert(netuid, i as u16, new_bonds_row);
                 } else if validator_permit {
                     // Only overwrite the intersection.
-                    let new_empty_bonds_row: Vec<(u16, u16)> = vec![];
+                    let new_empty_bonds_row: Vec<(u16, u32)> = vec![];
                     Bonds::<T>::insert(netuid, i as u16, new_empty_bonds_row);
                 }
             });
@@ -820,12 +820,12 @@ impl<T: Config> Pallet<T> {
         weights
     }
 
-    /// Output unnormalized sparse bonds, input bonds are assumed to be column max-upscaled in u16.
+    /// Output unnormalized sparse bonds.
     pub fn get_bonds_sparse(netuid: u16) -> Vec<Vec<(u16, I32F32)>> {
         let n: usize = Self::get_subnetwork_n(netuid) as usize;
         let mut bonds: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
         for (uid_i, bonds_vec) in
-            <Bonds<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid)
+            <Bonds<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u32)>>>::iter_prefix(netuid)
                 .filter(|(uid_i, _)| *uid_i < n as u16)
         {
             for (uid_j, bonds_ij) in bonds_vec {
@@ -838,12 +838,12 @@ impl<T: Config> Pallet<T> {
         bonds
     }
 
-    /// Output unnormalized bonds in [n, n] matrix, input bonds are assumed to be column max-upscaled in u16.
+    /// Output unnormalized bonds in [n, n] matrix.
     pub fn get_bonds(netuid: u16) -> Vec<Vec<I32F32>> {
         let n: usize = Self::get_subnetwork_n(netuid) as usize;
         let mut bonds: Vec<Vec<I32F32>> = vec![vec![I32F32::saturating_from_num(0.0); n]; n];
         for (uid_i, bonds_vec) in
-            <Bonds<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid)
+            <Bonds<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u32)>>>::iter_prefix(netuid)
                 .filter(|(uid_i, _)| *uid_i < n as u16)
         {
             for (uid_j, bonds_ij) in bonds_vec.into_iter().filter(|(uid_j, _)| *uid_j < n as u16) {

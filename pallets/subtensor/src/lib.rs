@@ -666,8 +666,8 @@ pub mod pallet {
         vec![]
     }
     #[pallet::type_value]
-    /// Value definition for bonds with type vector of (u16, u16).
-    pub fn DefaultBonds<T: Config>() -> Vec<(u16, u16)> {
+    /// Value definition for bonds with type vector of (u16, u32).
+    pub fn DefaultBonds<T: Config>() -> Vec<(u16, u32)> {
         vec![]
     }
     #[pallet::type_value]
@@ -1416,7 +1416,7 @@ pub mod pallet {
         u16,
         Identity,
         u16,
-        Vec<(u16, u16)>,
+        Vec<(u16, u32)>,
         ValueQuery,
         DefaultBonds<T>,
     >;
