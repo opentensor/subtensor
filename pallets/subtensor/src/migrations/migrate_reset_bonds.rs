@@ -26,7 +26,7 @@ pub fn migrate_reset_bonds<T: Config>() -> Weight {
         String::from_utf8_lossy(&migration_name)
     );
 
-    /// ===== Migration Body =====
+    // ===== Migration Body =====
     // Clear all bonds
     let mut curr = Bonds::<T>::clear(u32::MAX, None);
     weight = weight
@@ -37,7 +37,7 @@ pub fn migrate_reset_bonds<T: Config>() -> Weight {
             .saturating_add(T::DbWeight::get().reads_writes(curr.loops as u64, curr.unique as u64));
     }
 
-    /// ===== Migration End =====
+    // ===== Migration End =====
     // -----------------------------
     // Mark the migration as done
     // -----------------------------
