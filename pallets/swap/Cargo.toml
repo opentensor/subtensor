@@ -1,0 +1,27 @@
+[package]
+name = "pallet-subtensor-swap"
+version = "0.1.0"
+edition = { workspace = true }
+
+[dependencies]
+alloy-primitives = { workspace = true }
+approx = { workspace = true }
+safe-math = { workspace = true }
+sp-arithmetic = { workspace = true }
+sp-std = { workspace = true }
+substrate-fixed = { workspace = true }
+
+pallet-subtensor-swap-interface = { workspace = true }
+
+[lints]
+workspace = true
+
+[features]
+default = ["std"]
+std = [
+	"alloy-primitives/std",
+	"safe-math/std",
+	"sp-arithmetic/std",
+	"sp-std/std",
+	"substrate-fixed/std",
+]

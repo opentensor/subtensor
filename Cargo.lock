@@ -6835,6 +6835,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-subtensor-swap"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "approx",
+ "pallet-subtensor-swap-interface",
+ "safe-math",
+ "sp-arithmetic",
+ "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409)",
+ "substrate-fixed",
+]
+
+[[package]]
+name = "pallet-subtensor-swap-interface"
+version = "0.1.0"
+
+[[package]]
 name = "pallet-sudo"
 version = "38.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409#87971b3e92721bdf10bf40b410eaae779d494ca0"
