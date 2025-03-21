@@ -3016,7 +3016,7 @@ fn setup_yuma_4_scenario(netuid: u16, n: u16, sparse: bool, max_stake: u64, stak
     SubtensorModule::set_min_allowed_weights(netuid, 1);
     SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
     SubtensorModule::set_bonds_penalty(netuid, 0);
-    // SubtensorModule::set_bonds_moving_average(netuid, 975_000);
+    SubtensorModule::set_alpha_sigmoid_steepness(netuid, 10);
 
     // === Register
     for key in 0..n as u64 {

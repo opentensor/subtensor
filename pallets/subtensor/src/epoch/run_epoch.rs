@@ -1018,7 +1018,7 @@ impl<T: Config> Pallet<T> {
         assert!(weights.len() == bonds.len());
 
         // Get the high and low alpha values for the network.
-        let alpha_sigmoid_steepness: I32F32 = I32F32::from_num(10.0);
+        let alpha_sigmoid_steepness: I32F32 = Self::get_alpha_sigmoid_steepness(netuid);
         let (alpha_low, alpha_high): (I32F32, I32F32) = Self::get_alpha_values_32(netuid);
 
         let mut alphas = Vec::new();
@@ -1063,7 +1063,7 @@ impl<T: Config> Pallet<T> {
     ) -> Vec<Vec<I32F32>> {
         assert!(weights.len() == bonds.len());
 
-        let alpha_sigmoid_steepness: I32F32 = I32F32::from_num(10.0);
+        let alpha_sigmoid_steepness: I32F32 = Self::get_alpha_sigmoid_steepness(netuid);
         let (alpha_low, alpha_high): (I32F32, I32F32) = Self::get_alpha_values_32(netuid);
 
         let mut alphas = Vec::with_capacity(consensus.len());

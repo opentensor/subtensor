@@ -132,7 +132,7 @@ parameter_types! {
     pub const TransactionByteFee: Balance = 100;
     pub const SDebug:u64 = 1;
     pub const InitialRho: u16 = 30;
-    pub const InitialAlphaSigmoidSteepness: u16 = u16::MAX/10;
+    pub const InitialAlphaSigmoidSteepness: u16 = 10;
     pub const InitialKappa: u16 = 32_767;
     pub const InitialTempo: u16 = 360;
     pub const SelfOwnership: u64 = 2;

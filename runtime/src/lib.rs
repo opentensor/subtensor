@@ -990,7 +990,7 @@ pub const INITIAL_CHILDKEY_TAKE_RATELIMIT: u64 = 5;
 
 // Configure the pallet subtensor.
 parameter_types! {
-    pub const SubtensorInitialRho: u16 = u16::MAX/10; // 10%
+    pub const SubtensorInitialRho: u16 = 10;
     pub const SubtensorInitialAlphaSigmoidSteepness: u16 = 1000;
     pub const SubtensorInitialKappa: u16 = 32_767; // 0.5 = 65535/2
     pub const SubtensorInitialMaxAllowedUids: u16 = 4096;
