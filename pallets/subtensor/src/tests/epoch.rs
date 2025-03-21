@@ -2124,6 +2124,186 @@ fn test_zero_weights() {
     });
 }
 
+// Test that recently/deregistered miner bonds are cleared before EMA.
+#[test]
+fn test_deregistered_miner_bonds() {
+    new_test_ext(1).execute_with(|| {
+        let sparse: bool = true;
+        let n: u16 = 4;
+        let netuid: u16 = 1;
+        let high_tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
+
+        let stake: u64 = 1;
+        add_network(netuid, high_tempo, 0);
+        SubtensorModule::set_max_allowed_uids(netuid, n);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        SubtensorModule::set_max_registrations_per_block(netuid, n);
+        SubtensorModule::set_target_registrations_per_interval(netuid, n);
+        SubtensorModule::set_min_allowed_weights(netuid, 0);
+        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
+        SubtensorModule::set_bonds_penalty(netuid, u16::MAX);
+        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
+
+        // === Register [validator1, validator2, server1, server2]
+        let block_number = System::block_number();
+        for key in 0..n as u64 {
+            SubtensorModule::add_balance_to_coldkey_account(&U256::from(key), stake);
+            let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+                netuid,
+                block_number,
+                key * 1_000_000,
+                &U256::from(key),
+            );
+            assert_ok!(SubtensorModule::register(
+                RuntimeOrigin::signed(U256::from(key)),
+                netuid,
+                block_number,
+                nonce,
+                work,
+                U256::from(key),
+                U256::from(key)
+            ));
+            SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                &U256::from(key),
+                &U256::from(key),
+                netuid,
+                stake,
+            );
+        }
+        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
+        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 4);
+
+        // === Issue validator permits
+        SubtensorModule::set_max_allowed_validators(netuid, n);
+        assert_eq!(SubtensorModule::get_max_allowed_validators(netuid), n);
+        SubtensorModule::epoch(netuid, 1_000_000_000); // run first epoch to set allowed validators
+        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 4);
+        next_block(); // run to next block to ensure weights are set on nodes after their registration block
+        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
+
+        // === Set weights [val1->srv1: 2/3, val1->srv2: 1/3, val2->srv1: 2/3, val2->srv2: 1/3]
+        for uid in 0..(n / 2) as u64 {
+            assert_ok!(SubtensorModule::set_weights(
+                RuntimeOrigin::signed(U256::from(uid)),
+                netuid,
+                ((n / 2)..n).collect(),
+                vec![2 * (u16::MAX / 3), u16::MAX / 3],
+                0
+            ));
+        }
+
+        // Set tempo high so we don't automatically run epochs
+        SubtensorModule::set_tempo(netuid, high_tempo);
+
+        // Run 2 blocks
+        next_block();
+        next_block();
+
+        // set tempo to 2 blocks
+        SubtensorModule::set_tempo(netuid, 2);
+        // Run epoch
+        if sparse {
+            SubtensorModule::epoch(netuid, 1_000_000_000);
+        } else {
+            SubtensorModule::epoch_dense(netuid, 1_000_000_000);
+        }
+
+        // Check the bond values for the servers
+        let bonds = SubtensorModule::get_bonds(netuid);
+        let bond_0_2 = bonds[0][2];
+        let bond_0_3 = bonds[0][3];
+
+        // Non-zero bonds
+        assert!(bond_0_2 > 0);
+        assert!(bond_0_3 > 0);
+
+        // Set tempo high so we don't automatically run epochs
+        SubtensorModule::set_tempo(netuid, high_tempo);
+
+        // Run one more block
+        next_block();
+
+        // === Dereg server2 at uid3 (least emission) + register new key over uid3
+        let new_key: u64 = n as u64; // register a new key while at max capacity, which means the least incentive uid will be deregistered
+        let block_number = System::block_number();
+        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+            netuid,
+            block_number,
+            0,
+            &U256::from(new_key),
+        );
+        assert_eq!(SubtensorModule::get_max_registrations_per_block(netuid), n);
+        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
+        assert_ok!(SubtensorModule::register(
+            RuntimeOrigin::signed(U256::from(new_key)),
+            netuid,
+            block_number,
+            nonce,
+            work,
+            U256::from(new_key),
+            U256::from(new_key)
+        ));
+        let deregistered_uid: u16 = n - 1; // since uid=n-1 only recieved 1/3 of weight, it will get pruned first
+        assert_eq!(
+            U256::from(new_key),
+            SubtensorModule::get_hotkey_for_net_and_uid(netuid, deregistered_uid)
+                .expect("Not registered")
+        );
+
+        // Set weights again so they're active.
+        for uid in 0..(n / 2) as u64 {
+            assert_ok!(SubtensorModule::set_weights(
+                RuntimeOrigin::signed(U256::from(uid)),
+                netuid,
+                ((n / 2)..n).collect(),
+                vec![2 * (u16::MAX / 3), u16::MAX / 3],
+                0
+            ));
+        }
+
+        // Run 1 block
+        next_block();
+        // Assert block at registration happened after the last tempo
+        let block_at_registration = SubtensorModule::get_neuron_block_at_registration(netuid, 3);
+        let block_number = System::block_number();
+        assert!(
+            block_at_registration >= block_number - 2,
+            "block at registration: {}, block number: {}",
+            block_at_registration,
+            block_number
+        );
+
+        // set tempo to 2 blocks
+        SubtensorModule::set_tempo(netuid, 2);
+        // Run epoch again.
+        if sparse {
+            SubtensorModule::epoch(netuid, 1_000_000_000);
+        } else {
+            SubtensorModule::epoch_dense(netuid, 1_000_000_000);
+        }
+
+        // Check the bond values for the servers
+        let bonds = SubtensorModule::get_bonds(netuid);
+        let bond_0_2_new = bonds[0][2];
+        let bond_0_3_new = bonds[0][3];
+
+        // We expect the old bonds for server2, (uid3), to be reset.
+        // For server1, (uid2), the bond should be higher than before.
+        assert!(
+            bond_0_2_new > bond_0_2,
+            "bond_0_2_new: {}, bond_0_2: {}",
+            bond_0_2_new,
+            bond_0_2
+        );
+        assert!(
+            bond_0_3_new <= bond_0_3,
+            "bond_0_3_new: {}, bond_0_3: {}",
+            bond_0_3_new,
+            bond_0_3
+        );
+    });
+}
+
 // Test that epoch assigns validator permits to highest stake uids, varies uid interleaving and stake values.
 #[test]
 fn test_validator_permits() {
