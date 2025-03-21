@@ -1457,7 +1457,6 @@ fn test_incentive_to_subnet_owner_is_burned() {
         let pending_alpha: u64 = 0; // None to valis
         let owner_cut: u64 = 0;
         let mut incentives: BTreeMap<U256, u64> = BTreeMap::new();
-        let mut dividends: BTreeMap<U256, I96F32> = BTreeMap::new();
 
         // Give incentive to other_hk
         incentives.insert(other_hk, 10_000_000);
@@ -1475,11 +1474,10 @@ fn test_incentive_to_subnet_owner_is_burned() {
         // Distribute dividends and incentives
         SubtensorModule::distribute_dividends_and_incentives(
             netuid,
-            pending_tao,
-            pending_alpha,
             owner_cut,
             incentives,
-            dividends,
+            BTreeMap::new(),
+            BTreeMap::new(),
         );
 
         // Verify stake after
@@ -1490,3 +1488,4 @@ fn test_incentive_to_subnet_owner_is_burned() {
         assert!(other_stake_after > 0);
     });
 }
+
