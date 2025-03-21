@@ -1,18 +1,19 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 use core::marker::PhantomData;
-use std::ops::Neg;
+use core::ops::Neg;
 
 use pallet_subtensor_swap_interface::OrderType;
 use safe_math::*;
 use sp_arithmetic::helpers_128bit::sqrt;
 use substrate_fixed::types::U64F64;
 
-use self::error::SwapError;
 use self::tick::{
-    MAX_TICK_INDEX, MIN_TICK_INDEX, Tick, find_closest_higher_active_tick_index,
+    MAX_TICK_INDEX, MIN_TICK_INDEX, Tick, TickIndex, find_closest_higher_active_tick_index,
     find_closest_lower_active_tick_index, sqrt_price_to_tick_index, tick_index_to_sqrt_price,
 };
 
-mod error;
+pub mod pallet;
 mod tick;
 
 type SqrtPrice = U64F64;
@@ -56,8 +57,8 @@ struct SwapStepResult {
 ///
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 pub struct Position {
-    tick_low: i32,
-    tick_high: i32,
+    tick_low: TickIndex,
+    tick_high: TickIndex,
     liquidity: u64,
     fees_tao: u64,
     fees_alpha: u64,
@@ -132,9 +133,9 @@ pub trait SwapDataOperations<AccountIdType> {
     fn get_fee_rate(&self) -> u16;
     /// Minimum liquidity that is safe for rounding and integer math.
     fn get_minimum_liquidity(&self) -> u64;
-    fn get_tick_by_index(&self, tick_index: i32) -> Option<Tick>;
-    fn insert_tick_by_index(&mut self, tick_index: i32, tick: Tick);
-    fn remove_tick_by_index(&mut self, tick_index: i32);
+    fn get_tick_by_index(&self, tick_index: TickIndex) -> Option<Tick>;
+    fn insert_tick_by_index(&mut self, tick_index: TickIndex, tick: Tick);
+    fn remove_tick_by_index(&mut self, tick_index: TickIndex);
     /// Minimum sqrt price across all active ticks
     fn get_min_sqrt_price(&self) -> SqrtPrice;
     /// Maximum sqrt price across all active ticks
@@ -1099,6 +1100,33 @@ where
             None
         }
     }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum SwapError {
+    /// The provided amount is insufficient for the swap.
+    InsufficientInputAmount,
+
+    /// The provided liquidity is insufficient for the operation.
+    InsufficientLiquidity,
+
+    /// The operation would exceed the price limit.
+    PriceLimitExceeded,
+
+    /// The caller does not have enough balance for the operation.
+    InsufficientBalance,
+
+    /// Attempted to remove liquidity that does not exist.
+    LiquidityNotFound,
+
+    /// The provided tick range is invalid.
+    InvalidTickRange,
+
+    /// Maximum user positions exceeded
+    MaxPositionsExceeded,
+
+    /// Too many swap steps
+    TooManySwapSteps,
 }
 
 #[cfg(test)]

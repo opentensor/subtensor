@@ -5,14 +5,15 @@ use core::ops::{BitOr, Neg, Shl, Shr};
 
 use alloy_primitives::{I256, U256};
 use substrate_fixed::types::U64F64;
+use frame_support::pallet_prelude::*;
 
 use crate::{SqrtPrice, SwapDataOperations};
 
 /// Maximum and minimum values of the tick index
 /// The tick_math library uses different bitness, so we have to divide by 2.
 /// Do not use tick_math::MIN_TICK and tick_math::MAX_TICK
-pub const MAX_TICK_INDEX: i32 = MAX_TICK / 2;
-pub const MIN_TICK_INDEX: i32 = MIN_TICK / 2;
+pub const MAX_TICK_INDEX: TickIndex = MAX_TICK / 2;
+pub const MIN_TICK_INDEX: TickIndex = MIN_TICK / 2;
 
 const U256_1: U256 = U256::from_limbs([1, 0, 0, 0]);
 const U256_2: U256 = U256::from_limbs([2, 0, 0, 0]);
@@ -74,7 +75,10 @@ const TICK_HIGH: I256 = I256::from_raw(U256::from_limbs([
 ///   - Gross liquidity
 ///   - Fees (above global) in both currencies
 ///
-#[derive(Debug, Default, Clone)]
+/// Type alias for tick index used throughout the crate
+pub type TickIndex = i32;
+
+#[derive(Debug, Default, Clone, Encode, Decode, TypeInfo, MaxEncodedLen, PartialEq, Eq)]
 pub struct Tick {
     pub liquidity_net: i128,
     pub liquidity_gross: u64,
@@ -85,7 +89,7 @@ pub struct Tick {
 /// Converts tick index into SQRT of lower price of this tick
 /// In order to find the higher price of this tick, call
 /// tick_index_to_sqrt_price(tick_idx + 1)
-pub fn tick_index_to_sqrt_price(tick_idx: i32) -> Result<SqrtPrice, TickMathError> {
+pub fn tick_index_to_sqrt_price(tick_idx: TickIndex) -> Result<SqrtPrice, TickMathError> {
     // because of u256->u128 conversion we have twice less values for min/max ticks
     if !(MIN_TICK / 2..=MAX_TICK / 2).contains(&tick_idx) {
         return Err(TickMathError::TickOutOfBounds);
@@ -97,7 +101,7 @@ pub fn tick_index_to_sqrt_price(tick_idx: i32) -> Result<SqrtPrice, TickMathErro
 /// Because the tick is the range of prices [sqrt_lower_price, sqrt_higher_price),
 /// the resulting tick index matches the price by the following inequality:
 ///    sqrt_lower_price <= sqrt_price < sqrt_higher_price
-pub fn sqrt_price_to_tick_index(sqrt_price: SqrtPrice) -> Result<i32, TickMathError> {
+pub fn sqrt_price_to_tick_index(sqrt_price: SqrtPrice) -> Result<TickIndex, TickMathError> {
     let tick = get_tick_at_sqrt_ratio(u64f64_to_u256_q64_96(sqrt_price))?;
 
     // Correct for rounding error during conversions between different fixed-point formats
@@ -110,8 +114,8 @@ pub fn sqrt_price_to_tick_index(sqrt_price: SqrtPrice) -> Result<i32, TickMathEr
 
 pub fn find_closest_lower_active_tick_index<Ops, AccountIdType>(
     ops: &Ops,
-    index: i32,
-) -> Option<i32>
+    index: TickIndex,
+) -> Option<TickIndex>
 where
     AccountIdType: Eq,
     Ops: SwapDataOperations<AccountIdType>,
@@ -133,8 +137,8 @@ where
 
 pub fn find_closest_higher_active_tick_index<Ops, AccountIdType>(
     ops: &Ops,
-    index: i32,
-) -> Option<i32>
+    index: TickIndex,
+) -> Option<TickIndex>
 where
     AccountIdType: Eq,
     Ops: SwapDataOperations<AccountIdType>,
