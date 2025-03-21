@@ -290,6 +290,7 @@ impl<T: Config> Pallet<T> {
     pub fn calculate_dividend_distribution(
         pending_alpha: u64,
         pending_tao: u64,
+        tao_weight: I96F32,
         stake_map: BTreeMap<T::AccountId, (u64, u64)>,
         dividends: BTreeMap<T::AccountId, I96F32>,
     ) -> (
@@ -313,7 +314,7 @@ impl<T: Config> Pallet<T> {
                 let root_stake: I96F32 = asfloat!(*root_stake_u64);
 
                 // Convert TAO to alpha with weight.
-                let root_alpha: I96F32 = root_stake.saturating_mul(Self::get_tao_weight());
+                let root_alpha: I96F32 = root_stake.saturating_mul(tao_weight);
                 // Get total from root and local
                 let total_alpha: I96F32 = alpha_stake.saturating_add(root_alpha);
                 // Compute root prop.
@@ -530,9 +531,12 @@ impl<T: Config> Pallet<T> {
         let stake_map: BTreeMap<T::AccountId, (u64, u64)> =
             Self::get_stake_map(netuid, dividends.keys().collect::<Vec<_>>());
 
+        let tao_weight = Self::get_tao_weight();
+
         let (alpha_dividends, tao_dividends) = Self::calculate_dividend_distribution(
             pending_validator_alpha,
             pending_tao,
+            tao_weight,
             stake_map,
             dividends,
         );
