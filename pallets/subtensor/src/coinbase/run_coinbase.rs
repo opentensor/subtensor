@@ -100,52 +100,6 @@ impl<T: Config> Pallet<T> {
         log::debug!("alpha_in: {:?}", alpha_in);
         log::debug!("alpha_out: {:?}", alpha_out);
 
-        // --- 7. Drain pending emission through the subnet based on tempo.
-        for &netuid in subnets.iter() {
-            // Pass on subnets that have not reached their tempo.
-            if Self::should_run_epoch(netuid, current_block) {
-                if let Err(e) = Self::reveal_crv3_commits(netuid) {
-                    log::warn!(
-                        "Failed to reveal commits for subnet {} due to error: {:?}",
-                        netuid,
-                        e
-                    );
-                };
-
-                // Restart counters.
-                BlocksSinceLastStep::<T>::insert(netuid, 0);
-                LastMechansimStepBlock::<T>::insert(netuid, current_block);
-
-                // Get and drain the subnet pending emission.
-                let pending_alpha: u64 = PendingEmission::<T>::get(netuid);
-                PendingEmission::<T>::insert(netuid, 0);
-
-                // Get and drain the subnet pending root divs.
-                let pending_tao: u64 = PendingRootDivs::<T>::get(netuid);
-                PendingRootDivs::<T>::insert(netuid, 0);
-
-                // Get this amount as alpha that was swapped for pending root divs.
-                let pending_swapped: u64 = PendingAlphaSwapped::<T>::get(netuid);
-                PendingAlphaSwapped::<T>::insert(netuid, 0);
-
-                // Get owner cut and drain.
-                let owner_cut: u64 = PendingOwnerCut::<T>::get(netuid);
-                PendingOwnerCut::<T>::insert(netuid, 0);
-
-                // Drain pending root divs, alpha emission, and owner cut.
-                Self::drain_pending_emission(
-                    netuid,
-                    pending_alpha,
-                    pending_tao,
-                    pending_swapped,
-                    owner_cut,
-                );
-            } else {
-                // Increment
-                BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));
-            }
-        }
-
         // --- 4. Injection.
         // Actually perform the injection of alpha_in, alpha_out and tao_in into the subnet pool.
         // This operation changes the pool liquidity each block.
@@ -248,6 +202,52 @@ impl<T: Config> Pallet<T> {
         for netuid_i in subnets.iter() {
             // Update moving prices after using them above.
             Self::update_moving_price(*netuid_i);
+        }
+
+        // --- 7. Drain pending emission through the subnet based on tempo.
+        for &netuid in subnets.iter() {
+            // Pass on subnets that have not reached their tempo.
+            if Self::should_run_epoch(netuid, current_block) {
+                if let Err(e) = Self::reveal_crv3_commits(netuid) {
+                    log::warn!(
+                        "Failed to reveal commits for subnet {} due to error: {:?}",
+                        netuid,
+                        e
+                    );
+                };
+
+                // Restart counters.
+                BlocksSinceLastStep::<T>::insert(netuid, 0);
+                LastMechansimStepBlock::<T>::insert(netuid, current_block);
+
+                // Get and drain the subnet pending emission.
+                let pending_alpha: u64 = PendingEmission::<T>::get(netuid);
+                PendingEmission::<T>::insert(netuid, 0);
+
+                // Get and drain the subnet pending root divs.
+                let pending_tao: u64 = PendingRootDivs::<T>::get(netuid);
+                PendingRootDivs::<T>::insert(netuid, 0);
+
+                // Get this amount as alpha that was swapped for pending root divs.
+                let pending_swapped: u64 = PendingAlphaSwapped::<T>::get(netuid);
+                PendingAlphaSwapped::<T>::insert(netuid, 0);
+
+                // Get owner cut and drain.
+                let owner_cut: u64 = PendingOwnerCut::<T>::get(netuid);
+                PendingOwnerCut::<T>::insert(netuid, 0);
+
+                // Drain pending root divs, alpha emission, and owner cut.
+                Self::drain_pending_emission(
+                    netuid,
+                    pending_alpha,
+                    pending_tao,
+                    pending_swapped,
+                    owner_cut,
+                );
+            } else {
+                // Increment
+                BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));
+            }
         }
     }
 
