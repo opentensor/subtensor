@@ -1302,17 +1302,31 @@ impl<T: Config> Pallet<T> {
             return Ok(());
         }
 
-        // Reset all bonds for this subnet
-        log::info!(
-            "Reseting bonds for netuid: {:?} triggered by {:?}",
-            netuid,
-            account_id
-        );
-        let n = Self::get_subnetwork_n(netuid);
-        let new_bonds_row: Vec<(u16, u16)> = (0..n).zip(vec![0; n as usize]).collect();
-        for uid in 0..n {
-            Bonds::<T>::insert(netuid, uid, new_bonds_row.clone());
+        if let Ok(uid) = Self::get_uid_for_net_and_hotkey(netuid, &account_id) {
+            for (i, bonds_vec) in
+                <Bonds<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(
+                    netuid,
+                )
+            {
+                Bonds::<T>::insert(
+                    netuid,
+                    i,
+                    bonds_vec
+                        .clone()
+                        .iter()
+                        .filter(|(j, _)| *j != uid)
+                        .collect::<Vec<&(u16, u16)>>(),
+                );
+            }
+            log::debug!("Reset bonds for {:?}, netuid {:?}", account_id, netuid);
+        } else {
+            log::warn!(
+                "Uid not found for {:?}, netuid {:?} - skipping bonds reset",
+                account_id,
+                netuid
+            );
         }
+
         Ok(())
     }
 }

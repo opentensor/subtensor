@@ -5,7 +5,7 @@
 )]
 
 use super::mock::*;
-use crate::epoch::math::safe_exp;
+use crate::epoch::math::{fixed, safe_exp, u16_proportion_to_fixed, u16_to_fixed};
 use crate::*;
 
 use approx::assert_abs_diff_eq;
@@ -2770,15 +2770,41 @@ fn test_bonds_reset() {
     new_test_ext(1).execute_with(|| {
         let netuid = 1;
         let n: u16 = 10;
+        add_network(netuid, u16::MAX - 1, 0);
         SubnetworkN::<Test>::insert(netuid, n);
         SubtensorModule::set_max_allowed_uids(netuid, n);
+        SubtensorModule::set_max_registrations_per_block(netuid, n);
+        SubtensorModule::set_target_registrations_per_interval(netuid, n);
+        for key in 0..n as u64 {
+            SubtensorModule::add_balance_to_coldkey_account(&U256::from(key), 10);
+            let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+                netuid,
+                0,
+                key * 1_000_000,
+                &U256::from(key),
+            );
+            assert_ok!(SubtensorModule::register(
+                <<Test as frame_system::Config>::RuntimeOrigin>::signed(U256::from(key)),
+                netuid,
+                0,
+                nonce,
+                work,
+                U256::from(key),
+                U256::from(key)
+            ));
+        }
+
         let initial_bonds: Vec<(u16, u16)> = (1..n).map(|i| (i, i)).collect();
         for uid in 0..n {
             Bonds::<Test>::insert(netuid, uid, initial_bonds.clone());
         }
 
+        let uid_to_reset = 7;
+        let hotkey = SubtensorModule::get_hotkey_for_net_and_uid(netuid, uid_to_reset)
+            .expect("Hotkey not found");
+
         SubtensorModule::set_bonds_reset(netuid, false);
-        let _ = SubtensorModule::do_reset_bonds(netuid, U256::from(0));
+        let _ = SubtensorModule::do_reset_bonds(netuid, hotkey);
         // should noop
         let new_bonds = SubtensorModule::get_bonds(netuid);
         let target_bond: Vec<_> = (0..n).map(u16_to_fixed).collect();
@@ -2787,12 +2813,10 @@ fn test_bonds_reset() {
         }
 
         SubtensorModule::set_bonds_reset(netuid, true);
-        let _ = SubtensorModule::do_reset_bonds(netuid, U256::from(0));
-        // should reset all netuid bonds to 0
+        let _ = SubtensorModule::do_reset_bonds(netuid, hotkey);
         let new_bonds = SubtensorModule::get_bonds(netuid);
-        let target_bond: Vec<I32F32> = vec![I32F32::from(0); n as usize];
         for new_bond in new_bonds.iter() {
-            assert_eq!(new_bond, &target_bond);
+            assert_eq!(new_bond[uid_to_reset as usize], 0);
         }
     })
 }
@@ -3423,39 +3447,89 @@ fn test_yuma_4_bonds_reset() {
         let stakes: Vec<u64> = vec![8, 1, 1, 0, 0];
 
         setup_yuma_4_scenario(netuid, n, sparse, max_stake, stakes);
+        SubtensorModule::set_bonds_reset(netuid, true);
 
         // target bonds and dividends for specific epoch
         let targets_dividends: std::collections::HashMap<_, _> = [
             (0, vec![0.8000, 0.1000, 0.1000, 0.0000, 0.0000]),
-            (1, vec![0.8894, 0.0553, 0.0553, 0.0000, 0.0000]),
-            (2, vec![0.2686, 0.3656, 0.3656, 0.0000, 0.0000]),
-            (19, vec![0.7267, 0.1366, 0.1366, 0.0000, 0.0000]),
-            (20, vec![0.8000, 0.1000, 0.1000, 0.0000, 0.0000]),
-            (21, vec![0.8893, 0.0553, 0.0553, 0.0000, 0.0000]),
-            (40, vec![0.7306, 0.1346, 0.1346, 0.0000, 0.0000]),
+            (1, vec![0.8944, 0.0528, 0.0528, 0.0000, 0.0000]),
+            (2, vec![0.5230, 0.2385, 0.2385, 0.0000, 0.0000]),
+            (19, vec![0.7919, 0.1040, 0.1040, 0.0000, 0.0000]),
+            (20, vec![0.7928, 0.1036, 0.1036, 0.0000, 0.0000]),
+            (21, vec![0.8467, 0.0766, 0.0766, 0.0000, 0.0000]),
+            (40, vec![0.7928, 0.1036, 0.1036, 0.0000, 0.0000]),
         ]
         .into_iter()
         .collect();
         let targets_bonds: std::collections::HashMap<_, _> = [
-            (0, vec![vec![656, 0], vec![656, 0], vec![656, 0]]),
-            (1, vec![vec![1305, 0], vec![649, 6553], vec![649, 6553]]),
-            (2, vec![vec![1174, 656], vec![584, 7143], vec![584, 7143]]),
-            (19, vec![vec![191, 10847], vec![93, 16313], vec![93, 16313]]),
-            (20, vec![vec![0, 656], vec![0, 656], vec![0, 656]]),
-            (21, vec![vec![0, 1305], vec![6553, 649], vec![6553, 649]]),
-            (40, vec![vec![11394, 171], vec![16805, 83], vec![16805, 83]]),
+            (
+                0,
+                vec![
+                    vec![0.1013, 0.0000],
+                    vec![0.1013, 0.0000],
+                    vec![0.1013, 0.0000],
+                ],
+            ),
+            (
+                1,
+                vec![
+                    vec![0.1924, 0.0000],
+                    vec![0.0908, 0.2987],
+                    vec![0.0908, 0.2987],
+                ],
+            ),
+            (
+                2,
+                vec![
+                    vec![0.1715, 0.1013],
+                    vec![0.0815, 0.3697],
+                    vec![0.0815, 0.3697],
+                ],
+            ),
+            (
+                19,
+                vec![
+                    vec![0.0269, 0.8539],
+                    vec![0.0131, 0.8975],
+                    vec![0.0131, 0.8975],
+                ],
+            ),
+            (
+                20,
+                vec![
+                    vec![0.0000, 0.8687],
+                    vec![0.0000, 0.9079],
+                    vec![0.0000, 0.9079],
+                ],
+            ),
+            (
+                21,
+                vec![
+                    vec![0.0000, 0.8820],
+                    vec![0.2987, 0.6386],
+                    vec![0.2987, 0.6386],
+                ],
+            ),
+            (
+                40,
+                vec![
+                    vec![0.8687, 0.0578],
+                    vec![0.9079, 0.0523],
+                    vec![0.9079, 0.0523],
+                ],
+            ),
         ]
         .into_iter()
         .collect();
 
         for epoch in 0..=40 {
-            log::warn!("Epoch: {}", epoch);
             match epoch {
                 0 => {
                     // All validators -> Server 1
                     set_yuma_4_weights(netuid, vec![vec![u16::MAX, 0]; 3]);
                 }
                 1 => {
+                    // validators B, C switch
                     // Validator A -> Server 1
                     // Validator B -> Server 2
                     // Validator C -> Server 2
@@ -3465,13 +3539,17 @@ fn test_yuma_4_bonds_reset() {
                     );
                 }
                 (2..=20) => {
+                    // validator A copies weights
                     // All validators -> Server 2
                     set_yuma_4_weights(netuid, vec![vec![0, u16::MAX]; 3]);
                     if epoch == 20 {
-                        let _ = SubtensorModule::do_reset_bonds(netuid, U256::from(0));
+                        let hotkey = SubtensorModule::get_hotkey_for_net_and_uid(netuid, 3)
+                            .expect("Hotkey not found");
+                        let _ = SubtensorModule::do_reset_bonds(netuid, hotkey);
                     }
                 }
                 21 => {
+                    // validators B, C switch back
                     // Validator A -> Server 2
                     // Validator B -> Server 1
                     // Validator C -> Server 1
@@ -3481,6 +3559,7 @@ fn test_yuma_4_bonds_reset() {
                     );
                 }
                 _ => {
+                    // validator A copies weights
                     // All validators -> Server 1
                     set_yuma_4_weights(netuid, vec![vec![u16::MAX, 0]; 3]);
                 }
