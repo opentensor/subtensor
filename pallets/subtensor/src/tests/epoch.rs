@@ -3078,7 +3078,7 @@ fn run_epoch_and_check_bonds_dividends(
     target_dividends: &[f32],
 ) {
     run_epoch(netuid, sparse);
-    let bonds = SubtensorModule::get_bonds(netuid);
+    let bonds = SubtensorModule::get_bonds_fixed_proportion(netuid);
     let dividends = SubtensorModule::get_dividends(netuid);
 
     let epsilon = I32F32::from_num(1e-3);

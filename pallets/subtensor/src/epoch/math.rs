@@ -56,6 +56,11 @@ pub fn u16_proportion_to_fixed(x: u16) -> I32F32 {
 }
 
 #[allow(dead_code)]
+pub fn fixed_to_fixed_proportion(x: I32F32) -> I32F32 {
+    x.safe_div(I32F32::saturating_from_num(u16::MAX))
+}
+
+#[allow(dead_code)]
 pub fn fixed_proportion_to_u16(x: I32F32) -> u16 {
     fixed_to_u16(x.saturating_mul(I32F32::saturating_from_num(u16::MAX)))
 }
@@ -1450,24 +1455,21 @@ pub fn mat_ema_alpha(
     // Initialize the result matrix with zeros, having the same dimensions as the new matrix.
     let zero: I32F32 = I32F32::saturating_from_num(0.0);
     let one = I32F32::saturating_from_num(1.0);
-    let n = new.len(); // assume square matrix
 
-    let mut result: Vec<Vec<I32F32>> = vec![vec![zero; n]; n];
+    let mut result: Vec<Vec<I32F32>> = Vec::with_capacity(new.len());
 
     // Iterate over each row of the matrices.
-    for (i, ((new_row, old_row), alpha_row)) in new.iter().zip(old).zip(alpha).enumerate() {
+    for ((new_row, old_row), alpha_row) in new.iter().zip(old).zip(alpha) {
         assert!(new_row.len() == old_row.len());
         assert!(new_row.len() == alpha_row.len());
+        let mut result_row: Vec<I32F32> = Vec::new();
 
         // Iterate over each column of the current row.
         for j in 0..new_row.len() {
             // Compute the EMA for the current element using saturating operations.
-            if let (Some(new_val), Some(old_val), Some(alpha_val), Some(result_val)) = (
-                new_row.get(j),
-                old_row.get(j),
-                alpha_row.get(j),
-                result.get_mut(i).and_then(|row| row.get_mut(j)),
-            ) {
+            if let (Some(new_val), Some(old_val), Some(alpha_val)) =
+                (new_row.get(j), old_row.get(j), alpha_row.get(j))
+            {
                 // Calculate the complement of the alpha value
                 let one_minus_alpha = one.saturating_sub(*alpha_val);
 
@@ -1484,9 +1486,11 @@ pub fn mat_ema_alpha(
                 // Ensure that purchase does not exceed remaining capacity
                 let purchase = purchase_increment.min(remaining_capacity);
 
-                *result_val = decayed_val.saturating_add(purchase).min(one);
+                let result_val = decayed_val.saturating_add(purchase).min(one);
+                result_row.push(result_val);
             }
         }
+        result.push(result_row);
     }
 
     // Return the computed EMA matrix.

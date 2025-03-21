@@ -198,7 +198,7 @@ impl<T: Config> Pallet<T> {
             interpolate(&weights, &clipped_weights, bonds_penalty);
 
         // Access network bonds.
-        let mut bonds: Vec<Vec<I32F32>> = Self::get_bonds(netuid);
+        let mut bonds: Vec<Vec<I32F32>> = Self::get_bonds_fixed_proportion(netuid);
         inplace_mask_matrix(&outdated, &mut bonds); // mask outdated bonds
         log::trace!("B: {:?}", &bonds);
 
@@ -573,7 +573,7 @@ impl<T: Config> Pallet<T> {
             interpolate_sparse(&weights, &clipped_weights, n, bonds_penalty);
 
         // Access network bonds.
-        let mut bonds: Vec<Vec<(u16, I32F32)>> = Self::get_bonds_sparse(netuid);
+        let mut bonds: Vec<Vec<(u16, I32F32)>> = Self::get_bonds_sparse_fixed_proportion(netuid);
         log::trace!("Bonds: {:?}", &bonds);
 
         // Remove bonds referring to neurons that have registered since last tempo.
@@ -857,7 +857,7 @@ impl<T: Config> Pallet<T> {
                 bonds
                     .get_mut(uid_i as usize)
                     .expect("uid_i is filtered to be less than n; qed")
-                    .push((uid_j, u16_proportion_to_fixed(bonds_ij)));
+                    .push((uid_j, u16_to_fixed(bonds_ij)));
             }
         }
         bonds
@@ -877,9 +877,29 @@ impl<T: Config> Pallet<T> {
                     .expect("uid_i has been filtered to be less than n; qed")
                     .get_mut(uid_j as usize)
                     .expect("uid_j has been filtered to be less than n; qed") =
-                    u16_proportion_to_fixed(bonds_ij);
+                    u16_to_fixed(bonds_ij);
             }
         }
+        bonds
+    }
+
+    pub fn get_bonds_fixed_proportion(netuid: u16) -> Vec<Vec<I32F32>> {
+        let mut bonds = Self::get_bonds(netuid);
+        bonds.iter_mut().for_each(|bonds_row| {
+            bonds_row
+                .iter_mut()
+                .for_each(|bond| *bond = fixed_to_fixed_proportion(*bond));
+        });
+        bonds
+    }
+
+    pub fn get_bonds_sparse_fixed_proportion(netuid: u16) -> Vec<Vec<(u16, I32F32)>> {
+        let mut bonds = Self::get_bonds_sparse(netuid);
+        bonds.iter_mut().for_each(|bonds_row| {
+            bonds_row
+                .iter_mut()
+                .for_each(|(_, bond)| *bond = fixed_to_fixed_proportion(*bond));
+        });
         bonds
     }
 
@@ -1006,9 +1026,11 @@ impl<T: Config> Pallet<T> {
         for (w_row, b_row) in weights.iter().zip(bonds.iter()) {
             let mut row_alphas = Vec::new();
 
-            for ((weight, bond), cons) in w_row.iter().zip(b_row.iter()).zip(consensus.iter()) {
+            for ((weight, bond), consensus_val) in
+                w_row.iter().zip(b_row.iter()).zip(consensus.iter())
+            {
                 let alpha = Self::alpha_sigmoid(
-                    *cons,
+                    *consensus_val,
                     *weight,
                     *bond,
                     alpha_low,
