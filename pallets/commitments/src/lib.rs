@@ -123,12 +123,12 @@ pub mod pallet {
     }
 
     #[pallet::type_value]
-    /// Default value for commitment rate limit.
+    /// *DEPRECATED* Default value for commitment rate limit.
     pub fn DefaultRateLimit<T: Config>() -> BlockNumberFor<T> {
         T::DefaultRateLimit::get()
     }
 
-    /// The rate limit for commitments
+    /// *DEPRECATED* The rate limit for commitments
     #[pallet::storage]
     pub type RateLimit<T> = StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultRateLimit<T>>;
 
