@@ -272,7 +272,7 @@ impl<T: Config> Pallet<T> {
                 .or_insert(incentive);
             // Accumulate dividends to parents.
             let div_tuples: Vec<(T::AccountId, u64)> =
-                Self::get_dividends_distribution(&hotkey, netuid, dividend);
+                Self::get_parent_child_dividends_distribution(&hotkey, netuid, dividend);
             // Accumulate dividends per hotkey.
             for (parent, parent_div) in div_tuples {
                 dividends
@@ -575,7 +575,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * dividend_tuples: `Vec<(T::AccountId, u64)>` - Vector of (hotkey, divs) for each parent including self.
     ///
-    pub fn get_dividends_distribution(
+    pub fn get_parent_child_dividends_distribution(
         hotkey: &T::AccountId,
         netuid: u16,
         dividends: u64,
