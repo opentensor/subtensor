@@ -387,7 +387,7 @@ impl<T: Config> Pallet<T> {
 
         // Compute proportional alpha divs using the pending alpha and total alpha divs from the epoch.
         let mut prop_alpha_dividends: BTreeMap<T::AccountId, I96F32> = BTreeMap::new();
-        for (hotkey, alpha_divs) in alpha_dividends.iter() {
+        for (hotkey, alpha_divs) in alpha_dividends {
             // Alpha proportion.
             let alpha_share: I96F32 = alpha_divs.checked_div(total_alpha_divs).unwrap_or(zero);
             log::debug!("hotkey: {:?}, alpha_share: {:?}", hotkey, alpha_share);
@@ -447,7 +447,7 @@ impl<T: Config> Pallet<T> {
 
         // Distribute alpha divs.
         let _ = AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
-        for (hotkey, mut alpha_divs) in alpha_dividends {
+        for (hotkey, mut alpha_divs) in prop_alpha_dividends {
             // Get take prop
             let alpha_take: I96F32 =
                 Self::get_hotkey_take_float(&hotkey).saturating_mul(alpha_divs);
