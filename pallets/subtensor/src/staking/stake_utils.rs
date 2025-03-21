@@ -1075,13 +1075,21 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn calculate_staking_fee(
         origin: Option<(&T::AccountId, u16)>,
         _origin_coldkey: &T::AccountId,
-        _destination: Option<(&T::AccountId, u16)>,
+        destination: Option<(&T::AccountId, u16)>,
         _destination_coldkey: &T::AccountId,
         alpha_estimate: I96F32,
     ) -> u64 {
         match origin {
             // If origin is defined, we are removing/moving stake
             Some((origin_hotkey, origin_netuid)) => {
+                if let Some((_destination_hotkey, destination_netuid)) = destination {
+                    // This is a stake move/swap/transfer
+                    if destination_netuid == origin_netuid {
+                        // If destination is on the same subnet, use the default fee
+                        return DefaultStakingFee::<T>::get();
+                    }
+                }
+
                 if origin_netuid == Self::get_root_netuid()
                     || SubnetMechanism::<T>::get(origin_netuid) == 0
                 {

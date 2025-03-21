@@ -914,5 +914,35 @@ fn test_stake_fee_calculation() {
             I96F32::from_num(stake_amount),
         ); // Charged a dynamic fee
         assert_ne!(stake_fee_5, default_fee);
+
+        // Test stake fee for move between hotkeys on non-root
+        let stake_fee_6 = SubtensorModule::calculate_staking_fee(
+            Some((&hotkey1, netuid0)),
+            &coldkey1,
+            Some((&hotkey2, netuid0)),
+            &coldkey1,
+            I96F32::from_num(stake_amount),
+        ); // Charge the default fee
+        assert_eq!(stake_fee_6, default_fee);
+
+        // Test stake fee for move between coldkeys on non-root
+        let stake_fee_7 = SubtensorModule::calculate_staking_fee(
+            Some((&hotkey1, netuid0)),
+            &coldkey1,
+            Some((&hotkey1, netuid0)),
+            &coldkey2,
+            I96F32::from_num(stake_amount),
+        ); // Charge the default fee; stake did not leave the subnet.
+        assert_eq!(stake_fee_7, default_fee);
+
+        // Test stake fee for *swap* from non-root to non-root
+        let stake_fee_8 = SubtensorModule::calculate_staking_fee(
+            Some((&hotkey1, netuid0)),
+            &coldkey1,
+            Some((&hotkey1, netuid1)),
+            &coldkey1,
+            I96F32::from_num(stake_amount),
+        ); // Charged a dynamic fee
+        assert_ne!(stake_fee_8, default_fee);
     });
 }
