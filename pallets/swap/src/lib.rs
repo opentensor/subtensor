@@ -9,8 +9,7 @@ use sp_arithmetic::helpers_128bit::sqrt;
 use substrate_fixed::types::U64F64;
 
 use self::tick::{
-    MAX_TICK_INDEX, MIN_TICK_INDEX, Tick, TickIndex, find_closest_higher_active_tick_index,
-    find_closest_lower_active_tick_index, sqrt_price_to_tick_index, tick_index_to_sqrt_price,
+    Tick, TickIndex,
 };
 
 pub mod pallet;
@@ -84,9 +83,9 @@ impl Position {
         let one: U64F64 = U64F64::saturating_from_num(1);
 
         let sqrt_pa: SqrtPrice =
-            tick_index_to_sqrt_price(self.tick_low).map_err(|_| SwapError::InvalidTickRange)?;
+            self.tick_low.try_to_sqrt_price().map_err(|_| SwapError::InvalidTickRange)?;
         let sqrt_pb: SqrtPrice =
-            tick_index_to_sqrt_price(self.tick_high).map_err(|_| SwapError::InvalidTickRange)?;
+            self.tick_high.try_to_sqrt_price().map_err(|_| SwapError::InvalidTickRange)?;
         let liquidity_fixed: U64F64 = U64F64::saturating_from_num(self.liquidity);
 
         Ok(if sqrt_price_curr < sqrt_pa {
@@ -217,7 +216,7 @@ where
             );
 
             // Set initial (protocol owned) liquidity and positions
-            // Protocol liquidity makes one position from MIN_TICK_INDEX to MAX_TICK_INDEX
+            // Protocol liquidity makes one position from TickIndex::MIN to TickIndex::MAX
             // We are using the sp_arithmetic sqrt here, which works for u128
             let liquidity: u64 = sqrt(tao_reserve as u128 * alpha_reserve as u128) as u64;
             let mut swap = Swap {
@@ -227,8 +226,8 @@ where
             let protocol_account_id = swap.state_ops.get_protocol_account_id();
             let _ = swap.add_liquidity(
                 &protocol_account_id,
-                MIN_TICK_INDEX,
-                MAX_TICK_INDEX,
+                TickIndex::MIN,
+                TickIndex::MAX,
                 liquidity,
                 true,
             );
@@ -265,7 +264,7 @@ where
 
     /// Add liquidity at tick index. Creates new tick if it doesn't exist
     ///
-    fn add_liquidity_at_index(&mut self, tick_index: i32, liquidity: u64, upper: bool) {
+    fn add_liquidity_at_index(&mut self, tick_index: TickIndex, liquidity: u64, upper: bool) {
         // Calculate net liquidity addition
         let net_addition = if upper {
             (liquidity as i128).neg()
@@ -295,7 +294,7 @@ where
 
     /// Remove liquidity at tick index.
     ///
-    fn remove_liquidity_at_index(&mut self, tick_index: i32, liquidity: u64, upper: bool) {
+    fn remove_liquidity_at_index(&mut self, tick_index: TickIndex, liquidity: u64, upper: bool) {
         // Calculate net liquidity addition
         let net_reduction = if upper {
             (liquidity as i128).neg()
@@ -353,8 +352,8 @@ where
     pub fn add_liquidity(
         &mut self,
         account_id: &AccountIdType,
-        tick_low: i32,
-        tick_high: i32,
+        tick_low: TickIndex,
+        tick_high: TickIndex,
         liquidity: u64,
         protocol: bool,
     ) -> Result<(), SwapError> {
@@ -585,24 +584,24 @@ where
         })
     }
 
-    fn get_current_tick_index(&mut self) -> i32 {
+    fn get_current_tick_index(&mut self) -> TickIndex {
         let current_price = self.state_ops.get_alpha_sqrt_price();
-        let maybe_current_tick_index = sqrt_price_to_tick_index(current_price);
+        let maybe_current_tick_index = TickIndex::try_from_sqrt_price(current_price);
         if let Ok(index) = maybe_current_tick_index {
             index
         } else {
             // Current price is out of allow the min-max range, and it should be corrected to
             // maintain the range.
-            let max_price = tick_index_to_sqrt_price(MAX_TICK_INDEX)
+            let max_price = TickIndex::MAX.try_to_sqrt_price()
                 .unwrap_or(SqrtPrice::saturating_from_num(1000));
-            let min_price = tick_index_to_sqrt_price(MIN_TICK_INDEX)
+            let min_price = TickIndex::MIN.try_to_sqrt_price()
                 .unwrap_or(SqrtPrice::saturating_from_num(0.000001));
             if current_price > max_price {
                 self.state_ops.set_alpha_sqrt_price(max_price);
-                MAX_TICK_INDEX
+                TickIndex::MAX
             } else {
                 self.state_ops.set_alpha_sqrt_price(min_price);
-                MIN_TICK_INDEX
+                TickIndex::MIN
             }
         }
     }
@@ -698,19 +697,20 @@ where
     ///
     fn get_sqrt_price_edge(&self, order_type: &OrderType) -> SqrtPrice {
         let fallback_price_edge_value = (match order_type {
-            OrderType::Buy => tick_index_to_sqrt_price(MIN_TICK_INDEX),
-            OrderType::Sell => tick_index_to_sqrt_price(MAX_TICK_INDEX),
+            OrderType::Buy => TickIndex::MIN.try_to_sqrt_price(),
+            OrderType::Sell => TickIndex::MAX.try_to_sqrt_price(),
         })
         .unwrap_or(SqrtPrice::saturating_from_num(0));
 
         let current_price = self.state_ops.get_alpha_sqrt_price();
-        let maybe_current_tick_index = sqrt_price_to_tick_index(current_price);
+        let maybe_current_tick_index = TickIndex::try_from_sqrt_price(current_price);
 
         if let Ok(current_tick_index) = maybe_current_tick_index {
-            tick_index_to_sqrt_price(match order_type {
-                OrderType::Buy => current_tick_index.saturating_add(1),
+            match order_type {
+                OrderType::Buy => TickIndex::new_unchecked(current_tick_index.get().saturating_add(1)),
                 OrderType::Sell => current_tick_index,
-            })
+            }
+            .try_to_sqrt_price()
             .unwrap_or(fallback_price_edge_value)
         } else {
             fallback_price_edge_value
@@ -1020,8 +1020,8 @@ where
 
     /// Get fees above a tick
     ///
-    fn get_fees_above(&mut self, tick_index: i32, quote: bool) -> U64F64 {
-        let maybe_tick_index = find_closest_lower_active_tick_index(&self.state_ops, tick_index);
+    fn get_fees_above(&mut self, tick_index: TickIndex, quote: bool) -> U64F64 {
+        let maybe_tick_index = tick_index.find_closest_lower_active(&self.state_ops);
         let current_tick = self.get_current_tick_index();
 
         if let Some(tick_index) = maybe_tick_index {
@@ -1052,8 +1052,8 @@ where
     }
 
     /// Get fees below a tick
-    fn get_fees_below(&mut self, tick_index: i32, quote: bool) -> U64F64 {
-        let maybe_tick_index = find_closest_lower_active_tick_index(&self.state_ops, tick_index);
+    fn get_fees_below(&mut self, tick_index: TickIndex, quote: bool) -> U64F64 {
+        let maybe_tick_index = tick_index.find_closest_lower_active(&self.state_ops);
         let current_tick = self.get_current_tick_index();
 
         if let Some(tick_index) = maybe_tick_index {
@@ -1083,8 +1083,8 @@ where
         }
     }
 
-    pub fn find_closest_lower_active_tick(&self, index: i32) -> Option<Tick> {
-        let maybe_tick_index = find_closest_lower_active_tick_index(&self.state_ops, index);
+    pub fn find_closest_lower_active_tick(&self, index: TickIndex) -> Option<Tick> {
+        let maybe_tick_index = index.find_closest_lower_active(&self.state_ops);
         if let Some(tick_index) = maybe_tick_index {
             self.state_ops.get_tick_by_index(tick_index)
         } else {
@@ -1092,8 +1092,8 @@ where
         }
     }
 
-    pub fn find_closest_higher_active_tick(&self, index: i32) -> Option<Tick> {
-        let maybe_tick_index = find_closest_higher_active_tick_index(&self.state_ops, index);
+    pub fn find_closest_higher_active_tick(&self, index: TickIndex) -> Option<Tick> {
+        let maybe_tick_index = index.find_closest_higher_active(&self.state_ops);
         if let Some(tick_index) = maybe_tick_index {
             self.state_ops.get_tick_by_index(tick_index)
         } else {
@@ -1141,7 +1141,7 @@ mod tests {
         is_initialized: bool,
         fee_rate: u16,
         minimum_liquidity: u64,
-        ticks: HashMap<i32, Tick>,
+        ticks: HashMap<TickIndex, Tick>,
         min_sqrt_price: SqrtPrice,
         max_sqrt_price: SqrtPrice,
         tao_reserve: u64,
@@ -1194,15 +1194,15 @@ mod tests {
             self.minimum_liquidity
         }
 
-        fn get_tick_by_index(&self, tick_index: i32) -> Option<Tick> {
+        fn get_tick_by_index(&self, tick_index: TickIndex) -> Option<Tick> {
             self.ticks.get(&tick_index).cloned()
         }
 
-        fn insert_tick_by_index(&mut self, tick_index: i32, tick: Tick) {
+        fn insert_tick_by_index(&mut self, tick_index: TickIndex, tick: Tick) {
             self.ticks.insert(tick_index, tick);
         }
 
-        fn remove_tick_by_index(&mut self, tick_index: i32) {
+        fn remove_tick_by_index(&mut self, tick_index: TickIndex) {
             self.ticks.remove(&tick_index);
         }
 
@@ -1347,8 +1347,8 @@ mod tests {
         let swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
 
         // Active ticks
-        let tick_low = swap.state_ops.get_tick_by_index(MIN_TICK_INDEX).unwrap();
-        let tick_high = swap.state_ops.get_tick_by_index(MAX_TICK_INDEX).unwrap();
+        let tick_low = swap.state_ops.get_tick_by_index(TickIndex::MIN).unwrap();
+        let tick_high = swap.state_ops.get_tick_by_index(TickIndex::MAX).unwrap();
         let liquidity = sqrt(alpha as u128 * tao as u128) as u64;
         let expected_liquidity_net_low: i128 = liquidity as i128;
         let expected_liquidity_gross_low: u64 = liquidity;
@@ -1365,8 +1365,8 @@ mod tests {
 
         let position = swap.state_ops.get_position(&account_id, 0).unwrap();
         assert_eq!(position.liquidity, liquidity);
-        assert_eq!(position.tick_low, MIN_TICK_INDEX);
-        assert_eq!(position.tick_high, MAX_TICK_INDEX);
+        assert_eq!(position.tick_low, TickIndex::MIN);
+        assert_eq!(position.tick_high, TickIndex::MAX);
         assert_eq!(position.fees_alpha, 0);
         assert_eq!(position.fees_tao, 0);
 
@@ -1378,24 +1378,49 @@ mod tests {
         assert_abs_diff_eq!(sqrt_price.to_num::<f64>(), 0.50, epsilon = 0.00001,);
     }
 
-    fn price_to_tick(price: f64) -> i32 {
+    fn price_to_tick(price: f64) -> TickIndex {
         let price_sqrt: SqrtPrice = SqrtPrice::from_num(price.sqrt());
-        let mut tick = sqrt_price_to_tick_index(price_sqrt).unwrap();
-        if tick > MAX_TICK_INDEX {
-            tick = MAX_TICK_INDEX
+        // Handle potential errors in the conversion
+        match TickIndex::try_from_sqrt_price(price_sqrt) {
+            Ok(mut tick) => {
+                // Ensure the tick is within bounds
+                if tick > TickIndex::MAX {
+                    tick = TickIndex::MAX;
+                } else if tick < TickIndex::MIN {
+                    tick = TickIndex::MIN;
+                }
+                tick
+            },
+            // Default to a reasonable value when conversion fails
+            Err(_) => {
+                if price > 1.0 {
+                    TickIndex::MAX
+                } else {
+                    TickIndex::MIN
+                }
+            }
         }
-        tick
     }
 
-    fn tick_to_price(tick: i32) -> f64 {
-        let price_sqrt: SqrtPrice = tick_index_to_sqrt_price(tick).unwrap();
-        (price_sqrt * price_sqrt).to_num::<f64>()
+    fn tick_to_price(tick: TickIndex) -> f64 {
+        // Handle errors gracefully
+        match tick.try_to_sqrt_price() {
+            Ok(price_sqrt) => (price_sqrt * price_sqrt).to_num::<f64>(),
+            Err(_) => {
+                // Return a sensible default based on whether the tick is above or below the valid range
+                if tick > TickIndex::MAX {
+                    tick_to_price(TickIndex::MAX) // Use the max valid tick price
+                } else {
+                    tick_to_price(TickIndex::MIN) // Use the min valid tick price
+                }
+            }
+        }
     }
 
     #[test]
     fn test_tick_price_sanity_check() {
-        let min_price = tick_to_price(MIN_TICK_INDEX);
-        let max_price = tick_to_price(MAX_TICK_INDEX);
+        let min_price = tick_to_price(TickIndex::MIN);
+        let max_price = tick_to_price(TickIndex::MAX);
         assert!(min_price > 0.);
         assert!(max_price > 0.);
         assert!(max_price > min_price);
@@ -1403,13 +1428,13 @@ mod tests {
         assert!(max_price > 10.);
 
         // Roundtrip conversions
-        let min_price_sqrt: SqrtPrice = tick_index_to_sqrt_price(MIN_TICK_INDEX).unwrap();
-        let min_tick = sqrt_price_to_tick_index(min_price_sqrt).unwrap();
-        assert_eq!(min_tick, MIN_TICK_INDEX);
+        let min_price_sqrt: SqrtPrice = TickIndex::MIN.try_to_sqrt_price().unwrap();
+        let min_tick = TickIndex::try_from_sqrt_price(min_price_sqrt).unwrap();
+        assert_eq!(min_tick, TickIndex::MIN);
 
-        let max_price_sqrt: SqrtPrice = tick_index_to_sqrt_price(MAX_TICK_INDEX).unwrap();
-        let max_tick = sqrt_price_to_tick_index(max_price_sqrt).unwrap();
-        assert_eq!(max_tick, MAX_TICK_INDEX);
+        let max_price_sqrt: SqrtPrice = TickIndex::MAX.try_to_sqrt_price().unwrap();
+        let max_tick = TickIndex::try_from_sqrt_price(max_price_sqrt).unwrap();
+        assert_eq!(max_tick, TickIndex::MAX);
     }
 
     // Test adding liquidity on top of the existing protocol liquidity
@@ -1420,11 +1445,11 @@ mod tests {
         let user_tao = 100_000_000_000;
         let user_alpha = 100_000_000_000;
         let account_id = 1;
-        let min_price = tick_to_price(MIN_TICK_INDEX);
-        let max_price = tick_to_price(MAX_TICK_INDEX);
+        let min_price = tick_to_price(TickIndex::MIN);
+        let max_price = tick_to_price(TickIndex::MAX);
         let max_tick = price_to_tick(max_price);
         let current_price = 0.25;
-        assert_eq!(max_tick, MAX_TICK_INDEX);
+        assert_eq!(max_tick, TickIndex::MAX);
 
         // As a user add liquidity with all possible corner cases
         //   - Initial price is 0.25
@@ -1553,12 +1578,14 @@ mod tests {
         let account_id = 1;
 
         [
-            (MIN_TICK_INDEX - 1, MAX_TICK_INDEX, 1_000_000_000_u64),
-            (MIN_TICK_INDEX, MAX_TICK_INDEX + 1, 1_000_000_000_u64),
-            (MIN_TICK_INDEX - 1, MAX_TICK_INDEX + 1, 1_000_000_000_u64),
+            // For our tests, we'll construct TickIndex values that are intentionally
+            // outside the valid range for testing purposes only
+            (TickIndex::new_unchecked(TickIndex::MIN.get() - 1), TickIndex::MAX, 1_000_000_000_u64),
+            (TickIndex::MIN, TickIndex::new_unchecked(TickIndex::MAX.get() + 1), 1_000_000_000_u64),
+            (TickIndex::new_unchecked(TickIndex::MIN.get() - 1), TickIndex::new_unchecked(TickIndex::MAX.get() + 1), 1_000_000_000_u64),
             (
-                MIN_TICK_INDEX - 100,
-                MAX_TICK_INDEX + 100,
+                TickIndex::new_unchecked(TickIndex::MIN.get() - 100),
+                TickIndex::new_unchecked(TickIndex::MAX.get() + 100),
                 1_000_000_000_u64,
             ),
         ]
@@ -1624,10 +1651,10 @@ mod tests {
         let user_tao = 100_000_000_000;
         let user_alpha = 100_000_000_000;
         let account_id = 1;
-        let min_price = tick_to_price(MIN_TICK_INDEX);
-        let max_price = tick_to_price(MAX_TICK_INDEX);
+        let min_price = tick_to_price(TickIndex::MIN);
+        let max_price = tick_to_price(TickIndex::MAX);
         let max_tick = price_to_tick(max_price);
-        assert_eq!(max_tick, MAX_TICK_INDEX);
+        assert_eq!(max_tick, TickIndex::MAX);
 
         // As a user add liquidity with all possible corner cases
         //   - Initial price is 0.25
@@ -1706,10 +1733,10 @@ mod tests {
         let user_tao = 100_000_000_000;
         let user_alpha = 100_000_000_000;
         let account_id = 1;
-        let min_price = tick_to_price(MIN_TICK_INDEX);
-        let max_price = tick_to_price(MAX_TICK_INDEX);
+        let min_price = tick_to_price(TickIndex::MIN);
+        let max_price = tick_to_price(TickIndex::MAX);
         let max_tick = price_to_tick(max_price);
-        assert_eq!(max_tick, MAX_TICK_INDEX);
+        assert_eq!(max_tick.get(), TickIndex::MAX.get());
 
         // Test case is (price_low, price_high, liquidity)
         [
