@@ -2311,7 +2311,10 @@ fn test_remove_stake_fee_realistic_values() {
         );
 
         // Estimate fees
-        let expected_fee: f64 = current_price * alpha_divs as f64;
+        let mut expected_fee: f64 = current_price * alpha_divs as f64;
+        if expected_fee < alpha_to_unstake as f64 * 0.00005 {
+            expected_fee = alpha_to_unstake as f64 * 0.00005;
+        }
 
         // Remove stake to measure fee
         let balance_before = SubtensorModule::get_coldkey_balance(&coldkey);
@@ -3903,7 +3906,7 @@ fn test_remove_99_9991_per_cent_stake_removes_all() {
         let coldkey_account_id = U256::from(81337);
         let amount = 10_000_000_000;
         let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        let fee = DefaultStakingFee::<Test>::get();
+        let mut fee = DefaultStakingFee::<Test>::get();
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
         // Give it some $$$ in his coldkey balance
@@ -3923,17 +3926,19 @@ fn test_remove_99_9991_per_cent_stake_removes_all() {
             &coldkey_account_id,
             netuid,
         );
+        let remove_amount = (U64F64::from_num(alpha) * U64F64::from_num(0.999991)).to_num::<u64>();
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
             netuid,
-            (U64F64::from_num(alpha) * U64F64::from_num(0.999991)).to_num::<u64>()
+            remove_amount,
         ));
 
         // Check that all alpha was unstaked and all TAO balance was returned (less fees)
+        fee = fee + fee.max((remove_amount as f64 * 0.00005) as u64);
         assert_abs_diff_eq!(
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
-            amount - fee * 2,
+            amount - fee,
             epsilon = 10000,
         );
         assert_eq!(
