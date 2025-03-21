@@ -100,6 +100,52 @@ impl<T: Config> Pallet<T> {
         log::debug!("alpha_in: {:?}", alpha_in);
         log::debug!("alpha_out: {:?}", alpha_out);
 
+        // --- 7. Drain pending emission through the subnet based on tempo.
+        for &netuid in subnets.iter() {
+            // Pass on subnets that have not reached their tempo.
+            if Self::should_run_epoch(netuid, current_block) {
+                if let Err(e) = Self::reveal_crv3_commits(netuid) {
+                    log::warn!(
+                        "Failed to reveal commits for subnet {} due to error: {:?}",
+                        netuid,
+                        e
+                    );
+                };
+
+                // Restart counters.
+                BlocksSinceLastStep::<T>::insert(netuid, 0);
+                LastMechansimStepBlock::<T>::insert(netuid, current_block);
+
+                // Get and drain the subnet pending emission.
+                let pending_alpha: u64 = PendingEmission::<T>::get(netuid);
+                PendingEmission::<T>::insert(netuid, 0);
+
+                // Get and drain the subnet pending root divs.
+                let pending_tao: u64 = PendingRootDivs::<T>::get(netuid);
+                PendingRootDivs::<T>::insert(netuid, 0);
+
+                // Get this amount as alpha that was swapped for pending root divs.
+                let pending_swapped: u64 = PendingAlphaSwapped::<T>::get(netuid);
+                PendingAlphaSwapped::<T>::insert(netuid, 0);
+
+                // Get owner cut and drain.
+                let owner_cut: u64 = PendingOwnerCut::<T>::get(netuid);
+                PendingOwnerCut::<T>::insert(netuid, 0);
+
+                // Drain pending root divs, alpha emission, and owner cut.
+                Self::drain_pending_emission(
+                    netuid,
+                    pending_alpha,
+                    pending_tao,
+                    pending_swapped,
+                    owner_cut,
+                );
+            } else {
+                // Increment
+                BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));
+            }
+        }
+
         // --- 4. Injection.
         // Actually perform the injection of alpha_in, alpha_out and tao_in into the subnet pool.
         // This operation changes the pool liquidity each block.
@@ -203,52 +249,6 @@ impl<T: Config> Pallet<T> {
             // Update moving prices after using them above.
             Self::update_moving_price(*netuid_i);
         }
-
-        // --- 7. Drain pending emission through the subnet based on tempo.
-        for &netuid in subnets.iter() {
-            // Pass on subnets that have not reached their tempo.
-            if Self::should_run_epoch(netuid, current_block) {
-                if let Err(e) = Self::reveal_crv3_commits(netuid) {
-                    log::warn!(
-                        "Failed to reveal commits for subnet {} due to error: {:?}",
-                        netuid,
-                        e
-                    );
-                };
-
-                // Restart counters.
-                BlocksSinceLastStep::<T>::insert(netuid, 0);
-                LastMechansimStepBlock::<T>::insert(netuid, current_block);
-
-                // Get and drain the subnet pending emission.
-                let pending_alpha: u64 = PendingEmission::<T>::get(netuid);
-                PendingEmission::<T>::insert(netuid, 0);
-
-                // Get and drain the subnet pending root divs.
-                let pending_tao: u64 = PendingRootDivs::<T>::get(netuid);
-                PendingRootDivs::<T>::insert(netuid, 0);
-
-                // Get this amount as alpha that was swapped for pending root divs.
-                let pending_swapped: u64 = PendingAlphaSwapped::<T>::get(netuid);
-                PendingAlphaSwapped::<T>::insert(netuid, 0);
-
-                // Get owner cut and drain.
-                let owner_cut: u64 = PendingOwnerCut::<T>::get(netuid);
-                PendingOwnerCut::<T>::insert(netuid, 0);
-
-                // Drain pending root divs, alpha emission, and owner cut.
-                Self::drain_pending_emission(
-                    netuid,
-                    pending_alpha,
-                    pending_tao,
-                    pending_swapped,
-                    owner_cut,
-                );
-            } else {
-                // Increment
-                BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));
-            }
-        }
     }
 
     pub fn drain_pending_emission(
@@ -295,9 +295,19 @@ impl<T: Config> Pallet<T> {
         log::debug!("incentives: {:?}", incentives);
         log::debug!("dividends: {:?}", dividends);
 
+        // Compute the pending validator alpha.
+        // This is the total alpha being injected,
+        // minus the the alpha for the miners, (50%)
+        // and minus the alpha swapped for TAO (pending_swapped).
+        let pending_validator_alpha: u64 = pending_alpha
+            .saturating_add(pending_swapped)
+            .saturating_div(2)
+            .saturating_sub(pending_swapped);
+
         Self::distribute_dividends_and_incentives(
             netuid,
             pending_tao,
+            pending_validator_alpha,
             owner_cut,
             incentives,
             dividends,
@@ -307,6 +317,7 @@ impl<T: Config> Pallet<T> {
     pub fn distribute_dividends_and_incentives(
         netuid: u16,
         pending_tao: u64,
+        pending_alpha: u64,
         owner_cut: u64,
         incentives: BTreeMap<T::AccountId, u64>,
         dividends: BTreeMap<T::AccountId, I96F32>,
@@ -317,6 +328,7 @@ impl<T: Config> Pallet<T> {
         // Accumulate root divs and alpha_divs. For each hotkey we compute their
         // local and root dividend proportion based on their alpha_stake/root_stake
         let mut total_root_divs: I96F32 = asfloat!(0);
+        let mut total_alpha_divs: I96F32 = asfloat!(0);
         let mut root_dividends: BTreeMap<T::AccountId, I96F32> = BTreeMap::new();
         let mut alpha_dividends: BTreeMap<T::AccountId, I96F32> = BTreeMap::new();
         for (hotkey, dividend) in dividends {
@@ -331,7 +343,7 @@ impl<T: Config> Pallet<T> {
             let root_alpha: I96F32 = root_stake.saturating_mul(Self::get_tao_weight());
             // Get total from root and local
             let total_alpha: I96F32 = alpha_stake.saturating_add(root_alpha);
-            // Copmute root prop.
+            // Compute root prop.
             let root_prop: I96F32 = root_alpha.checked_div(total_alpha).unwrap_or(zero);
             // Compute root dividends
             let root_divs: I96F32 = dividend.saturating_mul(root_prop);
@@ -342,6 +354,8 @@ impl<T: Config> Pallet<T> {
                 .entry(hotkey.clone())
                 .and_modify(|e| *e = e.saturating_add(alpha_divs))
                 .or_insert(alpha_divs);
+            // Accumulate total alpha divs.
+            total_alpha_divs = total_alpha_divs.saturating_add(alpha_divs);
             // Record the root dividends.
             root_dividends
                 .entry(hotkey.clone())
@@ -370,6 +384,24 @@ impl<T: Config> Pallet<T> {
                 .or_insert(root_tao);
         }
         log::debug!("tao_dividends: {:?}", tao_dividends);
+
+        // Compute proportional alpha divs using the pending alpha and total alpha divs from the epoch.
+        let mut prop_alpha_dividends: BTreeMap<T::AccountId, I96F32> = BTreeMap::new();
+        for (hotkey, alpha_divs) in alpha_dividends.iter() {
+            // Alpha proportion.
+            let alpha_share: I96F32 = alpha_divs.checked_div(total_alpha_divs).unwrap_or(zero);
+            log::debug!("hotkey: {:?}, alpha_share: {:?}", hotkey, alpha_share);
+
+            // Compute the proportional pending_alpha to this hotkey.
+            let prop_alpha: I96F32 = asfloat!(pending_alpha).saturating_mul(alpha_share);
+            log::debug!("hotkey: {:?}, prop_alpha: {:?}", hotkey, prop_alpha);
+            // Record the proportional alpha dividends.
+            prop_alpha_dividends
+                .entry(hotkey.clone())
+                .and_modify(|e| *e = prop_alpha)
+                .or_insert(prop_alpha);
+        }
+        log::debug!("prop_alpha_dividends: {:?}", prop_alpha_dividends);
 
         // Distribute the owner cut.
         if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {

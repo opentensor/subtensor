@@ -1454,6 +1454,7 @@ fn test_incentive_to_subnet_owner_is_burned() {
         let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
 
         let pending_tao: u64 = 1_000_000_000;
+        let pending_alpha: u64 = 0; // None to valis
         let owner_cut: u64 = 0;
         let mut incentives: BTreeMap<U256, u64> = BTreeMap::new();
         let mut dividends: BTreeMap<U256, I96F32> = BTreeMap::new();
@@ -1475,6 +1476,7 @@ fn test_incentive_to_subnet_owner_is_burned() {
         SubtensorModule::distribute_dividends_and_incentives(
             netuid,
             pending_tao,
+            pending_alpha,
             owner_cut,
             incentives,
             dividends,
