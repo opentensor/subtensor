@@ -8,6 +8,7 @@ use super::mock::*;
 use crate::epoch::math::safe_exp;
 use crate::*;
 
+use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_ok};
 
 // use frame_system::Config;
@@ -2825,6 +2826,41 @@ fn test_can_set_self_weight_as_subnet_owner() {
 
         // Their incentive should be equal
         assert_eq!(hotkey_emission[0].1, hotkey_emission[1].1);
+    });
+}
+
+#[test]
+fn test_epoch_outputs_single_staker_registered_no_weights() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let high_tempo: u16 = u16::MAX - 1; // Don't run automatically.
+        add_network(netuid, high_tempo, 0);
+
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        // Give non-zero alpha
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid, 1,
+        );
+
+        let pending_alpha: u64 = 1_000_000_000;
+        let hotkey_emission: Vec<(U256, u64, u64)> = SubtensorModule::epoch(netuid, pending_alpha);
+
+        let sum_incentives: u64 = hotkey_emission
+            .iter()
+            .map(|(_, incentive, _)| incentive)
+            .sum();
+        let sum_dividends: u64 = hotkey_emission
+            .iter()
+            .map(|(_, _, dividend)| dividend)
+            .sum();
+
+        assert_abs_diff_eq!(
+            sum_incentives.saturating_add(sum_dividends),
+            pending_alpha,
+            epsilon = 1_000
+        );
     });
 }
 
