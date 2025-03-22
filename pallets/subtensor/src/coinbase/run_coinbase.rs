@@ -253,14 +253,8 @@ impl<T: Config> Pallet<T> {
 
     pub fn calculate_dividends_and_incentives(
         netuid: u16,
-        pending_alpha: u64,
-        pending_swapped: u64,
+        hotkey_emission: Vec<(T::AccountId, u64, u64)>,
     ) -> (BTreeMap<T::AccountId, u64>, BTreeMap<T::AccountId, I96F32>) {
-        // Run the epoch.
-        let hotkey_emission: Vec<(T::AccountId, u64, u64)> =
-            Self::epoch(netuid, pending_alpha.saturating_add(pending_swapped));
-        log::debug!("hotkey_emission: {:?}", hotkey_emission);
-
         // Accumulate emission of dividends and incentive per hotkey.
         let mut incentives: BTreeMap<T::AccountId, u64> = BTreeMap::new();
         let mut dividends: BTreeMap<T::AccountId, I96F32> = BTreeMap::new();
@@ -502,9 +496,10 @@ impl<T: Config> Pallet<T> {
 
     pub fn calculate_dividend_and_incentive_distribution(
         netuid: u16,
-        pending_alpha: u64,
         pending_tao: u64,
-        pending_swapped: u64,
+        pending_validator_alpha: u64,
+        hotkey_emission: Vec<(T::AccountId, u64, u64)>,
+        tao_weight: I96F32,
     ) -> (
         BTreeMap<T::AccountId, u64>,
         (
@@ -512,22 +507,11 @@ impl<T: Config> Pallet<T> {
             BTreeMap<T::AccountId, I96F32>,
         ),
     ) {
-        // Compute the pending validator alpha.
-        // This is the total alpha being injected,
-        // minus the the alpha for the miners, (50%)
-        // and minus the alpha swapped for TAO (pending_swapped).
-        let pending_validator_alpha: u64 = pending_alpha
-            .saturating_add(pending_swapped)
-            .saturating_div(2)
-            .saturating_sub(pending_swapped);
-
         let (incentives, dividends) =
-            Self::calculate_dividends_and_incentives(netuid, pending_alpha, pending_swapped);
+            Self::calculate_dividends_and_incentives(netuid, hotkey_emission);
 
         let stake_map: BTreeMap<T::AccountId, (u64, u64)> =
             Self::get_stake_map(netuid, dividends.keys().collect::<Vec<_>>());
-
-        let tao_weight = Self::get_tao_weight();
 
         let (alpha_dividends, tao_dividends) = Self::calculate_dividend_distribution(
             pending_validator_alpha,
@@ -556,12 +540,29 @@ impl<T: Config> Pallet<T> {
             owner_cut
         );
 
+        let tao_weight = Self::get_tao_weight();
+
+        // Run the epoch.
+        let hotkey_emission: Vec<(T::AccountId, u64, u64)> =
+            Self::epoch(netuid, pending_alpha.saturating_add(pending_swapped));
+        log::debug!("hotkey_emission: {:?}", hotkey_emission);
+
+        // Compute the pending validator alpha.
+        // This is the total alpha being injected,
+        // minus the the alpha for the miners, (50%)
+        // and minus the alpha swapped for TAO (pending_swapped).
+        let pending_validator_alpha: u64 = pending_alpha
+            .saturating_add(pending_swapped)
+            .saturating_div(2)
+            .saturating_sub(pending_swapped);
+
         let (incentives, (alpha_dividends, tao_dividends)) =
             Self::calculate_dividend_and_incentive_distribution(
                 netuid,
-                pending_alpha,
                 pending_tao,
-                pending_swapped,
+                pending_validator_alpha,
+                hotkey_emission,
+                tao_weight,
             );
 
         Self::distribute_dividends_and_incentives(
