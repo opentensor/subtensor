@@ -1662,7 +1662,7 @@ fn test_calculate_dividend_distribution_total_only_alpha() {
 }
 
 #[test]
-fn test_calculate_dividends_and_incentives_only_alpha() {
+fn test_calculate_dividend_and_incentive_distribution() {
     new_test_ext(1).execute_with(|| {
         let sn_owner_hk = U256::from(0);
         let sn_owner_ck = U256::from(1);
@@ -1672,22 +1672,113 @@ fn test_calculate_dividends_and_incentives_only_alpha() {
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
-		// Give non-zero alpha
-		SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            netuid,
-            1,
+        // Give non-zero alpha
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid, 1,
         );
 
         let pending_alpha = 123_456_789;
+        let pending_validator_alpha = pending_alpha / 2; // Pay half to validators.
+        let pending_tao: u64 = 0;
         let pending_swapped = 0; // Only alpha output.
+        let tao_weight: I96F32 = I96F32::saturating_from_num(0.0); // 0%
 
-        let (incentives, dividends) = SubtensorModule::calculate_dividends_and_incentives(
-            netuid,
-            pending_alpha,
-            pending_swapped,
+        // Hotkey, Incentive, Dividend
+        let hotkey_emission = vec![(hotkey, pending_alpha / 2, pending_alpha / 2)];
+
+        let (incentives, (alpha_dividends, tao_dividends)) =
+            SubtensorModule::calculate_dividend_and_incentive_distribution(
+                netuid,
+                pending_tao,
+                pending_validator_alpha,
+                hotkey_emission,
+                tao_weight,
+            );
+
+        let incentives_total = incentives.values().sum::<u64>();
+        let dividends_total = alpha_dividends
+            .values()
+            .sum::<I96F32>()
+            .saturating_to_num::<u64>();
+
+        assert_eq!(
+            dividends_total.saturating_add(incentives_total),
+            pending_alpha
         );
+    });
+}
+
+#[test]
+fn test_calculate_dividend_and_incentive_distribution_all_to_validators() {
+    new_test_ext(1).execute_with(|| {
+        let sn_owner_hk = U256::from(0);
+        let sn_owner_ck = U256::from(1);
+        let netuid = add_dynamic_network(&sn_owner_hk, &sn_owner_ck);
+
+        // Register a single neuron.
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        // Give non-zero alpha
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid, 1,
+        );
+
+        let pending_alpha = 123_456_789;
+        let pending_validator_alpha = pending_alpha; // Pay all to validators.
+        let pending_tao: u64 = 0;
+        let tao_weight: I96F32 = I96F32::saturating_from_num(0.0); // 0%
+
+        // Hotkey, Incentive, Dividend
+        let hotkey_emission = vec![(hotkey, 0, pending_alpha)];
+
+        let (incentives, (alpha_dividends, tao_dividends)) =
+            SubtensorModule::calculate_dividend_and_incentive_distribution(
+                netuid,
+                pending_tao,
+                pending_validator_alpha,
+                hotkey_emission,
+                tao_weight,
+            );
+
+        let incentives_total = incentives.values().sum::<u64>();
+        let dividends_total = alpha_dividends
+            .values()
+            .sum::<I96F32>()
+            .saturating_to_num::<u64>();
+
+        assert_eq!(
+            dividends_total.saturating_add(incentives_total),
+            pending_alpha
+        );
+    });
+}
+
+#[test]
+fn test_calculate_dividends_and_incentives() {
+    new_test_ext(1).execute_with(|| {
+        let sn_owner_hk = U256::from(0);
+        let sn_owner_ck = U256::from(1);
+        let netuid = add_dynamic_network(&sn_owner_hk, &sn_owner_ck);
+
+        // Register a single neuron.
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        // Give non-zero alpha
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid, 1,
+        );
+
+        let divdends: u64 = 123_456_789;
+        let incentive: u64 = 683_051_923;
+        let total_emission: u64 = divdends.saturating_add(incentive);
+
+        // Hotkey, Incentive, Dividend
+        let hotkey_emission = vec![(hotkey, incentive, divdends)];
+
+        let (incentives, dividends) =
+            SubtensorModule::calculate_dividends_and_incentives(netuid, hotkey_emission);
 
         let incentives_total = incentives.values().sum::<u64>();
         let dividends_total = dividends
@@ -1697,7 +1788,79 @@ fn test_calculate_dividends_and_incentives_only_alpha() {
 
         assert_eq!(
             dividends_total.saturating_add(incentives_total),
-            pending_alpha
+            total_emission
         );
+    });
+}
+
+#[test]
+fn test_calculate_dividends_and_incentives_only_validators() {
+    new_test_ext(1).execute_with(|| {
+        let sn_owner_hk = U256::from(0);
+        let sn_owner_ck = U256::from(1);
+        let netuid = add_dynamic_network(&sn_owner_hk, &sn_owner_ck);
+
+        // Register a single neuron.
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        // Give non-zero alpha
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid, 1,
+        );
+
+        let divdends: u64 = 123_456_789;
+        let incentive: u64 = 0;
+
+        // Hotkey, Incentive, Dividend
+        let hotkey_emission = vec![(hotkey, incentive, divdends)];
+
+        let (incentives, dividends) =
+            SubtensorModule::calculate_dividends_and_incentives(netuid, hotkey_emission);
+
+        let incentives_total = incentives.values().sum::<u64>();
+        let dividends_total = dividends
+            .values()
+            .sum::<I96F32>()
+            .saturating_to_num::<u64>();
+
+        assert_eq!(dividends_total, divdends);
+        assert_eq!(incentives_total, 0);
+    });
+}
+
+#[test]
+fn test_calculate_dividends_and_incentives_only_miners() {
+    new_test_ext(1).execute_with(|| {
+        let sn_owner_hk = U256::from(0);
+        let sn_owner_ck = U256::from(1);
+        let netuid = add_dynamic_network(&sn_owner_hk, &sn_owner_ck);
+
+        // Register a single neuron.
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        // Give non-zero alpha
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid, 1,
+        );
+
+        let divdends: u64 = 0;
+        let incentive: u64 = 123_456_789;
+
+        // Hotkey, Incentive, Dividend
+        let hotkey_emission = vec![(hotkey, incentive, divdends)];
+
+        let (incentives, dividends) =
+            SubtensorModule::calculate_dividends_and_incentives(netuid, hotkey_emission);
+
+        let incentives_total = incentives.values().sum::<u64>();
+        let dividends_total = dividends
+            .values()
+            .sum::<I96F32>()
+            .saturating_to_num::<u64>();
+
+        assert_eq!(incentives_total, incentive);
+        assert_eq!(dividends_total, divdends);
     });
 }
