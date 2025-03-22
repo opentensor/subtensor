@@ -500,22 +500,18 @@ impl<T: Config> Pallet<T> {
         stake_map
     }
 
-    pub fn drain_pending_emission(
+    pub fn calculate_dividend_and_incentive_distribution(
         netuid: u16,
         pending_alpha: u64,
         pending_tao: u64,
         pending_swapped: u64,
-        owner_cut: u64,
+    ) -> (
+        BTreeMap<T::AccountId, u64>,
+        (
+            BTreeMap<T::AccountId, I96F32>,
+            BTreeMap<T::AccountId, I96F32>,
+        ),
     ) {
-        log::debug!(
-            "Draining pending alpha emission for netuid {:?}, pending_alpha: {:?}, pending_tao: {:?}, pending_swapped: {:?}, owner_cut: {:?}",
-            netuid,
-            pending_alpha,
-            pending_tao,
-            pending_swapped,
-            owner_cut
-        );
-
         // Compute the pending validator alpha.
         // This is the total alpha being injected,
         // minus the the alpha for the miners, (50%)
@@ -540,6 +536,33 @@ impl<T: Config> Pallet<T> {
             stake_map,
             dividends,
         );
+
+        (incentives, (alpha_dividends, tao_dividends))
+    }
+
+    pub fn drain_pending_emission(
+        netuid: u16,
+        pending_alpha: u64,
+        pending_tao: u64,
+        pending_swapped: u64,
+        owner_cut: u64,
+    ) {
+        log::debug!(
+            "Draining pending alpha emission for netuid {:?}, pending_alpha: {:?}, pending_tao: {:?}, pending_swapped: {:?}, owner_cut: {:?}",
+            netuid,
+            pending_alpha,
+            pending_tao,
+            pending_swapped,
+            owner_cut
+        );
+
+        let (incentives, (alpha_dividends, tao_dividends)) =
+            Self::calculate_dividend_and_incentive_distribution(
+                netuid,
+                pending_alpha,
+                pending_tao,
+                pending_swapped,
+            );
 
         Self::distribute_dividends_and_incentives(
             netuid,
