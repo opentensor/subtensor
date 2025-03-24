@@ -1,8 +1,7 @@
 use super::*;
 use frame_support::{traits::Get, weights::Weight};
-use scale_info::prelude::string::String;
 use log;
-
+use scale_info::prelude::string::String;
 
 pub fn migrate_remove_zero_total_hotkey_alpha<T: Config>() -> Weight {
     let migration_name = b"migrate_remove_zero_total_hotkey_alpha".to_vec();

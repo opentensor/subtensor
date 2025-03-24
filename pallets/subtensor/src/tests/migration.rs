@@ -461,7 +461,7 @@ fn test_migrate_remove_zero_total_hotkey_alpha() {
         );
 
         let weight = crate::migrations::migrate_remove_zero_total_hotkey_alpha::migrate_remove_zero_total_hotkey_alpha::<Test>();
-        
+
         assert!(
             HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
             "Migration should be marked as run."
