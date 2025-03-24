@@ -361,11 +361,12 @@ impl<T: Config> Pallet<T> {
                 >= registration_block_number.saturating_add(T::DurationOfStartCall::get()),
             Error::<T>::NeedWaitingMoreBlocksToStarCall
         );
+        let next_block_number = current_block_number.saturating_add(1);
 
-        FirstEmissionBlockNumber::<T>::insert(netuid, current_block_number + 1);
+        FirstEmissionBlockNumber::<T>::insert(netuid, next_block_number);
         Self::deposit_event(Event::FirstEmissionBlockNumberSet(
             netuid,
-            current_block_number + 1,
+            next_block_number,
         ));
         Ok(())
     }
