@@ -89,6 +89,8 @@ pub use sp_runtime::{Perbill, Permill};
 
 use core::marker::PhantomData;
 
+use scale_info::TypeInfo;
+
 // Frontier
 use fp_rpc::TransactionStatus;
 use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
@@ -918,12 +920,22 @@ impl pallet_registry::Config for Runtime {
 }
 
 parameter_types! {
-    pub const MaxCommitFields: u32 = 1;
+    pub const MaxCommitFieldsInner: u32 = 1;
     pub const CommitmentInitialDeposit: Balance = 0; // Free
     pub const CommitmentFieldDeposit: Balance = 0; // Free
     pub const CommitmentRateLimit: BlockNumber = 100; // Allow commitment every 100 blocks
 }
 
+#[subtensor_macros::freeze_struct("7c76bd954afbb54e")]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
+pub struct MaxCommitFields;
+impl Get<u32> for MaxCommitFields {
+    fn get() -> u32 {
+        MaxCommitFieldsInner::get()
+    }
+}
+
+#[subtensor_macros::freeze_struct("c39297f5eb97ee82")]
 pub struct AllowCommitments;
 impl CanCommit<AccountId> for AllowCommitments {
     #[cfg(not(feature = "runtime-benchmarks"))]
@@ -948,6 +960,20 @@ impl pallet_commitments::Config for Runtime {
     type InitialDeposit = CommitmentInitialDeposit;
     type FieldDeposit = CommitmentFieldDeposit;
     type DefaultRateLimit = CommitmentRateLimit;
+    type TempoInterface = TempoInterface;
+}
+
+pub struct TempoInterface;
+impl pallet_commitments::GetTempoInterface for TempoInterface {
+    fn get_epoch_index(netuid: u16, cur_block: u64) -> u64 {
+        SubtensorModule::get_epoch_index(netuid, cur_block)
+    }
+}
+
+impl pallet_commitments::GetTempoInterface for Runtime {
+    fn get_epoch_index(netuid: u16, cur_block: u64) -> u64 {
+        SubtensorModule::get_epoch_index(netuid, cur_block)
+    }
 }
 
 #[cfg(not(feature = "fast-blocks"))]
