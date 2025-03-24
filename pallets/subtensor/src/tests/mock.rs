@@ -185,6 +185,7 @@ parameter_types! {
     pub const InitialDissolveNetworkScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
     pub const InitialTaoWeight: u64 = 0; // 100% global weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
+    pub const DurationOfStartCall: u64 =  7 * 24 * 60 * 60 / 12; // Default as 7 days
 }
 
 // Configure collective pallet for council
@@ -408,6 +409,7 @@ impl crate::Config for Test {
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
+    type DurationOfStartCall = DurationOfStartCall;
 }
 
 pub struct OriginPrivilegeCmp;
@@ -662,10 +664,34 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+    FirstEmissionBlockNumber::<Test>::insert(netuid, 1);
+}
+
+#[allow(dead_code)]
+pub fn add_network_without_emission_block(netuid: u16, tempo: u16, _modality: u16) {
+    SubtensorModule::init_new_network(netuid, tempo);
+    SubtensorModule::set_network_registration_allowed(netuid, true);
+    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
 }
 
 #[allow(dead_code)]
 pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> u16 {
+    let netuid = SubtensorModule::get_next_netuid();
+    let lock_cost = SubtensorModule::get_network_lock_cost();
+    SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost);
+
+    assert_ok!(SubtensorModule::register_network(
+        RawOrigin::Signed(*coldkey).into(),
+        *hotkey
+    ));
+    NetworkRegistrationAllowed::<Test>::insert(netuid, true);
+    NetworkPowRegistrationAllowed::<Test>::insert(netuid, true);
+    FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
+    netuid
+}
+
+#[allow(dead_code)]
+pub fn add_dynamic_network_without_emission_block(hotkey: &U256, coldkey: &U256) -> u16 {
     let netuid = SubtensorModule::get_next_netuid();
     let lock_cost = SubtensorModule::get_network_lock_cost();
     SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost);

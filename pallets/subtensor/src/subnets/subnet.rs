@@ -320,4 +320,58 @@ impl<T: Config> Pallet<T> {
             );
         }
     }
+
+    /// Execute the start call for a subnet.
+    ///
+    /// This function is used to trigger the start call process for a subnet identified by `netuid`.
+    /// It ensures that the subnet exists, the caller is the subnet owner,
+    /// and the last emission block number has not been set yet.
+    /// It then sets the last emission block number to the current block number.
+    ///
+    /// # Parameters
+    ///
+    /// * `origin`: The origin of the call, which is used to ensure the caller is the subnet owner.
+    /// * `netuid`: The unique identifier of the subnet for which the start call process is being initiated.
+    ///
+    /// # Raises
+    ///
+    /// * `Error::<T>::SubNetworkDoesNotExist`: If the subnet does not exist.
+    /// * `DispatchError::BadOrigin`: If the caller is not the subnet owner.
+    /// * `Error::<T>::FirstEmissionBlockNumberAlreadySet`: If the last emission block number has already been set.
+    ///
+    /// # Returns
+    ///
+    /// * `DispatchResult`: A result indicating the success or failure of the operation.
+    pub fn do_start_call(origin: T::RuntimeOrigin, netuid: u16) -> DispatchResult {
+        ensure!(
+            Self::if_subnet_exist(netuid),
+            Error::<T>::SubNetworkDoesNotExist
+        );
+        Self::ensure_subnet_owner(origin, netuid)?;
+        ensure!(
+            FirstEmissionBlockNumber::<T>::get(netuid).is_none(),
+            Error::<T>::FirstEmissionBlockNumberAlreadySet
+        );
+
+        let registration_block_number = NetworkRegisteredAt::<T>::get(netuid);
+        let current_block_number = Self::get_current_block_as_u64();
+
+        ensure!(
+            current_block_number
+                >= registration_block_number.saturating_add(T::DurationOfStartCall::get()),
+            Error::<T>::NeedWaitingMoreBlocksToStarCall
+        );
+        let next_block_number = current_block_number.saturating_add(1);
+
+        FirstEmissionBlockNumber::<T>::insert(netuid, next_block_number);
+        Self::deposit_event(Event::FirstEmissionBlockNumberSet(
+            netuid,
+            next_block_number,
+        ));
+        Ok(())
+    }
+
+    pub fn is_valid_subnet_for_emission(netuid: u16) -> bool {
+        FirstEmissionBlockNumber::<T>::get(netuid).is_some()
+    }
 }

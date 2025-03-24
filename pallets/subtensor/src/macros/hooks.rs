@@ -81,7 +81,9 @@ mod hooks {
                 // Remove Stake map entries
 				.saturating_add(migrations::migrate_remove_stake_map::migrate_remove_stake_map::<T>())
                 // Remove unused maps entries
-				.saturating_add(migrations::migrate_remove_unused_maps_and_values::migrate_remove_unused_maps_and_values::<T>());
+				.saturating_add(migrations::migrate_remove_unused_maps_and_values::migrate_remove_unused_maps_and_values::<T>())
+                // Set last emission block number for all existed subnets before start call feature applied
+                .saturating_add(migrations::migrate_set_first_emission_block_number::migrate_set_first_emission_block_number::<T>());
             weight
         }
 

@@ -11,6 +11,7 @@ use frame_support::{
     traits::{StorageInstance, StoredMap},
     weights::Weight,
 };
+
 use frame_system::Config;
 use sp_core::{H256, U256, crypto::Ss58Codec};
 use sp_io::hashing::twox_128;
@@ -415,4 +416,25 @@ fn test_migrate_subnet_volume() {
         let new_value: Option<u128> = get(&old_key);
         assert_eq!(new_value, Some(old_value as u128));
     });
+}
+
+#[test]
+fn test_migrate_set_first_emission_block_number() {
+    new_test_ext(1).execute_with(|| {
+    let netuids: [u16; 3] = [1, 2, 3];
+    let block_number = 100;
+    for netuid in netuids.iter() {
+        add_network(*netuid, 1, 0);
+    }
+    run_to_block(block_number);
+    let weight = crate::migrations::migrate_set_first_emission_block_number::migrate_set_first_emission_block_number::<Test>();
+
+    let expected_weight: Weight = <Test as Config>::DbWeight::get().reads(3) + <Test as Config>::DbWeight::get().writes(netuids.len() as u64);
+    assert_eq!(weight, expected_weight);
+
+    assert_eq!(FirstEmissionBlockNumber::<Test>::get(0), None);
+    for netuid in netuids.iter() {
+        assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), Some(block_number));
+    }
+});
 }
