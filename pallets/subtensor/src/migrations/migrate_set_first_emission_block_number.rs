@@ -6,7 +6,7 @@ use scale_info::prelude::string::String;
 pub fn migrate_set_first_emission_block_number<T: Config>() -> Weight {
     let migration_name = b"migrate_set_first_emission_block_number".to_vec();
 
-    let mut weight = T::DbWeight::get().reads(1);
+    let mut weight = <T as frame_system::Config>::DbWeight::get().reads(1);
     if HasMigrationRun::<T>::get(&migration_name) {
         log::info!(
             "Migration '{:?}' has already run. Skipping.",
@@ -36,12 +36,12 @@ pub fn migrate_set_first_emission_block_number<T: Config>() -> Weight {
     // ------------------------------
 
     HasMigrationRun::<T>::insert(&migration_name, true);
-    weight = weight.saturating_add(T::DbWeight::get().reads(2));
+    weight = weight.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2));
 
     if netuids.is_empty() {
-        weight = weight.saturating_add(T::DbWeight::get().writes(1_u64));
+        weight = weight.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64));
     } else {
-        weight = weight.saturating_add(T::DbWeight::get().writes(netuids.len() as u64));
+        weight = weight.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(netuids.len() as u64));
     }
 
     log::info!(

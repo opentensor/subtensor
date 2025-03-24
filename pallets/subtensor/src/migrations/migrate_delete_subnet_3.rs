@@ -44,7 +44,7 @@ pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
     let new_storage_version = 5;
 
     // Initialize weight counter
-    let mut weight = T::DbWeight::get().reads(1);
+    let mut weight = <T as frame_system::Config>::DbWeight::get().reads(1);
 
     // Get current on-chain storage version
     let onchain_version = Pallet::<T>::on_chain_storage_version();
@@ -74,7 +74,7 @@ pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
         // Remove network registration time
         NetworkRegisteredAt::<T>::remove(netuid);
 
-        weight.saturating_accrue(T::DbWeight::get().writes(5));
+        weight.saturating_accrue(<T as frame_system::Config>::DbWeight::get().writes(5));
 
         // Remove incentive mechanism memory
         let _ = Uids::<T>::clear_prefix(netuid, u32::MAX, None);
@@ -82,7 +82,7 @@ pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
         let _ = Bonds::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = Weights::<T>::clear_prefix(netuid, u32::MAX, None);
 
-        weight.saturating_accrue(T::DbWeight::get().writes(4));
+        weight.saturating_accrue(<T as frame_system::Config>::DbWeight::get().writes(4));
 
         // Remove various network-related parameters
         Rank::<T>::remove(netuid);
@@ -97,7 +97,7 @@ pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
         ValidatorPermit::<T>::remove(netuid);
         ValidatorTrust::<T>::remove(netuid);
 
-        weight.saturating_accrue(T::DbWeight::get().writes(11));
+        weight.saturating_accrue(<T as frame_system::Config>::DbWeight::get().writes(11));
 
         // Erase network parameters
         Tempo::<T>::remove(netuid);
@@ -112,11 +112,11 @@ pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
         POWRegistrationsThisInterval::<T>::remove(netuid);
         BurnRegistrationsThisInterval::<T>::remove(netuid);
 
-        weight.saturating_accrue(T::DbWeight::get().writes(12));
+        weight.saturating_accrue(<T as frame_system::Config>::DbWeight::get().writes(12));
 
         // Update storage version
         StorageVersion::new(new_storage_version).put::<Pallet<T>>();
-        weight.saturating_accrue(T::DbWeight::get().writes(1));
+        weight.saturating_accrue(<T as frame_system::Config>::DbWeight::get().writes(1));
 
         weight
     } else {

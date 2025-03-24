@@ -84,10 +84,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(5_143_145, 0).saturating_mul(m.into()))
 			// Standard Error: 64_700
 			.saturating_add(Weight::from_parts(7_480_941, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(p.into())))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
-			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(p.into())))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads((1_u64).saturating_mul(p.into())))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(2_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes((1_u64).saturating_mul(p.into())))
 			.saturating_add(Weight::from_parts(0, 7809).saturating_mul(m.into()))
 			.saturating_add(Weight::from_parts(0, 10238).saturating_mul(p.into()))
 	}
@@ -105,7 +105,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(1_775, 0).saturating_mul(b.into()))
 			// Standard Error: 334
 			.saturating_add(Weight::from_parts(17_052, 0).saturating_mul(m.into()))
-			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
 			.saturating_add(Weight::from_parts(0, 32).saturating_mul(m.into()))
 	}
 	/// Storage: Council Members (r:1 w:0)
@@ -124,7 +124,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(1_807, 0).saturating_mul(b.into()))
 			// Standard Error: 432
 			.saturating_add(Weight::from_parts(27_986, 0).saturating_mul(m.into()))
-			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
 			.saturating_add(Weight::from_parts(0, 64).saturating_mul(m.into()))
 	}
 	/// Storage: Council Members (r:1 w:0)
@@ -152,8 +152,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(20_518, 0).saturating_mul(m.into()))
 			// Standard Error: 755
 			.saturating_add(Weight::from_parts(85_670, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads(4_u64))
-			.saturating_add(T::DbWeight::get().writes(4_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(4_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(4_u64))
 			.saturating_add(Weight::from_parts(0, 165).saturating_mul(m.into()))
 			.saturating_add(Weight::from_parts(0, 180).saturating_mul(p.into()))
 	}
@@ -170,8 +170,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(20_528_275, 4980)
 			// Standard Error: 651
 			.saturating_add(Weight::from_parts(48_856, 0).saturating_mul(m.into()))
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 			.saturating_add(Weight::from_parts(0, 128).saturating_mul(m.into()))
 	}
 	/// Storage: Council Voting (r:1 w:1)
@@ -194,8 +194,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(27_956, 0).saturating_mul(m.into()))
 			// Standard Error: 595
 			.saturating_add(Weight::from_parts(84_835, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads(3_u64))
-			.saturating_add(T::DbWeight::get().writes(3_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(3_u64))
 			.saturating_add(Weight::from_parts(0, 260).saturating_mul(m.into()))
 			.saturating_add(Weight::from_parts(0, 144).saturating_mul(p.into()))
 	}
@@ -222,8 +222,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(22_182, 0).saturating_mul(m.into()))
 			// Standard Error: 1_010
 			.saturating_add(Weight::from_parts(100_034, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads(4_u64))
-			.saturating_add(T::DbWeight::get().writes(3_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(4_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(3_u64))
 			.saturating_add(Weight::from_parts(0, 4).saturating_mul(b.into()))
 			.saturating_add(Weight::from_parts(0, 264).saturating_mul(m.into()))
 			.saturating_add(Weight::from_parts(0, 160).saturating_mul(p.into()))
@@ -250,8 +250,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(34_031, 0).saturating_mul(m.into()))
 			// Standard Error: 599
 			.saturating_add(Weight::from_parts(85_744, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads(4_u64))
-			.saturating_add(T::DbWeight::get().writes(3_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(4_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(3_u64))
 			.saturating_add(Weight::from_parts(0, 325).saturating_mul(m.into()))
 			.saturating_add(Weight::from_parts(0, 180).saturating_mul(p.into()))
 	}
@@ -280,8 +280,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(22_669, 0).saturating_mul(m.into()))
 			// Standard Error: 872
 			.saturating_add(Weight::from_parts(95_525, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads(5_u64))
-			.saturating_add(T::DbWeight::get().writes(3_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(5_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(3_u64))
 			.saturating_add(Weight::from_parts(0, 5).saturating_mul(b.into()))
 			.saturating_add(Weight::from_parts(0, 330).saturating_mul(m.into()))
 			.saturating_add(Weight::from_parts(0, 200).saturating_mul(p.into()))
@@ -301,8 +301,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(16_393_818, 1668)
 			// Standard Error: 612
 			.saturating_add(Weight::from_parts(76_786, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(3_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(3_u64))
 			.saturating_add(Weight::from_parts(0, 96).saturating_mul(p.into()))
 	}
 }

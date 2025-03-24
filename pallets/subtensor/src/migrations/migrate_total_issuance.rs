@@ -38,7 +38,7 @@ pub mod deprecated_loaded_emission_format {
 /// ```
 pub fn migrate_total_issuance<T: Config>(test: bool) -> Weight {
     // Initialize migration weight with the cost of reading the storage version
-    let mut weight = T::DbWeight::get().reads(1);
+    let mut weight = <T as frame_system::Config>::DbWeight::get().reads(1);
 
     // Execute migration if the current storage version is 5 or if in test mode
     if Pallet::<T>::on_chain_storage_version() == StorageVersion::new(5) || test {
@@ -48,7 +48,7 @@ pub fn migrate_total_issuance<T: Config>(test: bool) -> Weight {
             .fold(0, |acc, stake| acc.saturating_add(stake));
         // Add weight for reading all Owner and TotalHotkeyStake entries
         weight = weight.saturating_add(
-            T::DbWeight::get().reads((Owner::<T>::iter().count() as u64).saturating_mul(2)),
+            <T as frame_system::Config>::DbWeight::get().reads((Owner::<T>::iter().count() as u64).saturating_mul(2)),
         );
 
         // Calculate the sum of all locked subnet values
@@ -56,12 +56,12 @@ pub fn migrate_total_issuance<T: Config>(test: bool) -> Weight {
             SubnetLocked::<T>::iter().fold(0, |acc, (_, locked)| acc.saturating_add(locked));
         // Add weight for reading all subnet locked entries
         weight = weight
-            .saturating_add(T::DbWeight::get().reads(SubnetLocked::<T>::iter().count() as u64));
+            .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(SubnetLocked::<T>::iter().count() as u64));
 
         // Retrieve the total balance sum
         let total_balance = T::Currency::total_issuance();
         // Add weight for reading total issuance
-        weight = weight.saturating_add(T::DbWeight::get().reads(1));
+        weight = weight.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1));
 
         // Attempt to convert total balance to u64
         match TryInto::<u64>::try_into(total_balance) {
@@ -78,7 +78,7 @@ pub fn migrate_total_issuance<T: Config>(test: bool) -> Weight {
                 StorageVersion::new(6).put::<Pallet<T>>();
 
                 // Add weight for writing total issuance and storage version
-                weight = weight.saturating_add(T::DbWeight::get().writes(2));
+                weight = weight.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(2));
             }
             Err(_) => {
                 // TODO: Implement proper error handling for conversion failure

@@ -42,7 +42,7 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
     use deprecated_loaded_emission_format as old;
 
     // Initialize weight counter
-    let mut weight = T::DbWeight::get().reads_writes(1, 0);
+    let mut weight = <T as frame_system::Config>::DbWeight::get().reads_writes(1, 0);
 
     // Get current on-chain storage version
     let onchain_version = Pallet::<T>::on_chain_storage_version();
@@ -59,9 +59,9 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
 
         // Remove any undecodable entries
         for netuid in curr_loaded_emission {
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
+            weight.saturating_accrue(<T as frame_system::Config>::DbWeight::get().reads(1));
             if old::LoadedEmission::<T>::try_get(netuid).is_err() {
-                weight.saturating_accrue(T::DbWeight::get().writes(1));
+                weight.saturating_accrue(<T as frame_system::Config>::DbWeight::get().writes(1));
                 old::LoadedEmission::<T>::remove(netuid);
                 warn!(
                     "Was unable to decode old loaded_emission for netuid {}",
@@ -85,7 +85,7 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
                     .collect();
 
                 // Update weight for read and write operations
-                weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+                weight.saturating_accrue(<T as frame_system::Config>::DbWeight::get().reads_writes(1, 1));
 
                 Some(new_netuid_emissions)
             },
@@ -93,7 +93,7 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
 
         // Update storage version to 1
         StorageVersion::new(1).put::<Pallet<T>>();
-        weight.saturating_accrue(T::DbWeight::get().writes(1));
+        weight.saturating_accrue(<T as frame_system::Config>::DbWeight::get().writes(1));
 
         weight
     } else {

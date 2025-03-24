@@ -74,7 +74,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(2_694_370, 3997)
 			// Standard Error: 5_055
 			.saturating_add(Weight::from_parts(5_005_941, 0).saturating_mul(c.into()))
-			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
 	}
 	/// Storage: `SafeMode::EnteredUntil` (r:1 w:0)
 	/// Proof: `SafeMode::EnteredUntil` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
@@ -86,7 +86,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `3997`
 		// Minimum execution time: 9_263_000 picoseconds.
 		Weight::from_parts(9_639_000, 3997)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
 	}
 	/// Storage: `SafeMode::EnteredUntil` (r:1 w:0)
 	/// Proof: `SafeMode::EnteredUntil` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
@@ -101,7 +101,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(12_948_874, 3997)
 			// Standard Error: 4_643
 			.saturating_add(Weight::from_parts(5_162_821, 0).saturating_mul(c.into()))
-			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
 	}
 	fn dispatch_as() -> Weight {
 		// Proof Size summary in bytes:
@@ -123,7 +123,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(4_879_712, 3997)
 			// Standard Error: 4_988
 			.saturating_add(Weight::from_parts(4_955_816, 0).saturating_mul(c.into()))
-			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
 	}
 }
 

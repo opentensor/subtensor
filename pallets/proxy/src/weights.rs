@@ -81,7 +81,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(19_655_145, 4706)
 			// Standard Error: 2_345
 			.saturating_add(Weight::from_parts(36_306, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
 	}
 	/// Storage: `Proxy::Proxies` (r:1 w:0)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
@@ -105,8 +105,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(163_029, 0).saturating_mul(a.into()))
 			// Standard Error: 3_817
 			.saturating_add(Weight::from_parts(79_539, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads(5_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(5_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Proxy::Announcements` (r:1 w:1)
 	/// Proof: `Proxy::Announcements` (`max_values`: None, `max_size`: Some(2233), added: 4708, mode: `MaxEncodedLen`)
@@ -124,8 +124,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(170_629, 0).saturating_mul(a.into()))
 			// Standard Error: 1_857
 			.saturating_add(Weight::from_parts(18_799, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Proxy::Announcements` (r:1 w:1)
 	/// Proof: `Proxy::Announcements` (`max_values`: None, `max_size`: Some(2233), added: 4708, mode: `MaxEncodedLen`)
@@ -143,8 +143,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(168_822, 0).saturating_mul(a.into()))
 			// Standard Error: 1_921
 			.saturating_add(Weight::from_parts(21_839, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Proxy::Proxies` (r:1 w:0)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
@@ -164,8 +164,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(167_596, 0).saturating_mul(a.into()))
 			// Standard Error: 4_225
 			.saturating_add(Weight::from_parts(67_833, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads(3_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(3_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Proxy::Proxies` (r:1 w:1)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
@@ -178,8 +178,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(22_358_457, 4706)
 			// Standard Error: 1_606
 			.saturating_add(Weight::from_parts(64_322, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Proxy::Proxies` (r:1 w:1)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
@@ -192,8 +192,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(22_579_308, 4706)
 			// Standard Error: 2_571
 			.saturating_add(Weight::from_parts(62_404, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Proxy::Proxies` (r:1 w:1)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
@@ -206,8 +206,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(21_456_750, 4706)
 			// Standard Error: 1_697
 			.saturating_add(Weight::from_parts(45_387, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Proxy::Proxies` (r:1 w:1)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
@@ -220,8 +220,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(23_878_644, 4706)
 			// Standard Error: 1_600
 			.saturating_add(Weight::from_parts(10_149, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Proxy::Proxies` (r:1 w:1)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
@@ -234,8 +234,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(22_067_418, 4706)
 			// Standard Error: 1_673
 			.saturating_add(Weight::from_parts(52_703, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 }
 

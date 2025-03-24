@@ -44,8 +44,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `3499`
 		// Minimum execution time: 41_000_000 picoseconds.
 		Weight::from_parts(41_000_000, 3499)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: Registry IdentityOf (r:1 w:1)
 	/// Proof Skipped: Registry IdentityOf (max_values: None, max_size: None, mode: Measured)
@@ -55,8 +55,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `3860`
 		// Minimum execution time: 36_000_000 picoseconds.
 		Weight::from_parts(36_000_000, 3860)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 }
 

@@ -41,7 +41,7 @@ pub fn migrate_transfer_ownership_to_foundation<T: Config>(coldkey: [u8; 32]) ->
     let new_storage_version = 3;
 
     // Initialize weight counter
-    let mut weight = T::DbWeight::get().reads(1);
+    let mut weight = <T as frame_system::Config>::DbWeight::get().reads(1);
 
     // Get current on-chain storage version
     let onchain_version = Pallet::<T>::on_chain_storage_version();
@@ -62,7 +62,7 @@ pub fn migrate_transfer_ownership_to_foundation<T: Config>(coldkey: [u8; 32]) ->
 
         // Get the current block number
         let current_block = Pallet::<T>::get_current_block_as_u64();
-        weight.saturating_accrue(T::DbWeight::get().reads(1));
+        weight.saturating_accrue(<T as frame_system::Config>::DbWeight::get().reads(1));
 
         // Transfer ownership of subnets 1 and 11 to the foundation
         SubnetOwner::<T>::insert(1, coldkey_account.clone());
@@ -73,11 +73,11 @@ pub fn migrate_transfer_ownership_to_foundation<T: Config>(coldkey: [u8; 32]) ->
         // Set the registration time for subnet 11 to the current block
         NetworkRegisteredAt::<T>::insert(11, current_block);
 
-        weight.saturating_accrue(T::DbWeight::get().writes(4));
+        weight.saturating_accrue(<T as frame_system::Config>::DbWeight::get().writes(4));
 
         // Update the storage version to prevent re-running this migration
         StorageVersion::new(new_storage_version).put::<Pallet<T>>();
-        weight.saturating_accrue(T::DbWeight::get().writes(1));
+        weight.saturating_accrue(<T as frame_system::Config>::DbWeight::get().writes(1));
 
         weight
     } else {

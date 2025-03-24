@@ -412,8 +412,8 @@ impl<T: Config> Pallet<T> {
         let member_count = members.len() as u32;
         let vote_weight = Weight::from_parts(20_528_275, 4980)
             .saturating_add(Weight::from_parts(48_856, 0).saturating_mul(member_count.into()))
-            .saturating_add(T::DbWeight::get().reads(2_u64))
-            .saturating_add(T::DbWeight::get().writes(1_u64))
+            .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
+            .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
             .saturating_add(Weight::from_parts(0, 128).saturating_mul(member_count.into()));
 
         Ok((

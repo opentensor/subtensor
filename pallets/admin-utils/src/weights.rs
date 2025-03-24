@@ -83,8 +83,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(20_410_228, 1127)
 			// Standard Error: 8_309
 			.saturating_add(Weight::from_parts(199_399, 0).saturating_mul(a.into()))
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(2_u64))
 	}
 	/// Storage: SubtensorModule DefaultTake (r:0 w:1)
 	/// Proof Skipped: SubtensorModule DefaultTake (max_values: Some(1), max_size: None, mode: Measured)
@@ -94,7 +94,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `655`
 		// Minimum execution time: 26_770_000 picoseconds.
 		Weight::from_parts(27_199_000, 655)
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule DefaultTake (r:0 w:1)
 	/// Proof Skipped: SubtensorModule DefaultTake (max_values: Some(1), max_size: None, mode: Measured)
@@ -104,7 +104,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `655`
 		// Minimum execution time: 26_770_000 picoseconds.
 		Weight::from_parts(27_199_000, 655)
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule ServingRateLimit (r:0 w:1)
 	/// Proof Skipped: SubtensorModule ServingRateLimit (max_values: None, max_size: None, mode: Measured)
@@ -114,7 +114,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `655`
 		// Minimum execution time: 27_700_000 picoseconds.
 		Weight::from_parts(28_290_000, 655)
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
 	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
@@ -126,8 +126,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `4697`
 		// Minimum execution time: 46_450_000 picoseconds.
 		Weight::from_parts(47_279_000, 4697)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
 	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
@@ -139,8 +139,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `4697`
 		// Minimum execution time: 46_110_000 picoseconds.
 		Weight::from_parts(46_909_000, 4697)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
 	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
@@ -152,8 +152,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `4697`
 		// Minimum execution time: 46_349_000 picoseconds.
 		Weight::from_parts(46_970_000, 4697)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
 	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
@@ -165,8 +165,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `4697`
 		// Minimum execution time: 45_940_000 picoseconds.
 		Weight::from_parts(47_460_000, 4697)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
 	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
@@ -178,8 +178,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `4697`
 		// Minimum execution time: 46_099_000 picoseconds.
 		Weight::from_parts(47_510_000, 4697)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
 	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
@@ -191,8 +191,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `4697`
 		// Minimum execution time: 46_099_000 picoseconds.
 		Weight::from_parts(47_510_000, 4697)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
 	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
@@ -206,8 +206,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `8412`
 		// Minimum execution time: 52_599_000 picoseconds.
 		Weight::from_parts(53_640_000, 8412)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
 	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
@@ -219,8 +219,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `4697`
 		// Minimum execution time: 46_240_000 picoseconds.
 		Weight::from_parts(47_130_000, 4697)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
 	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
@@ -232,8 +232,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `4697`
 		// Minimum execution time: 45_430_000 picoseconds.
 		Weight::from_parts(46_790_000, 4697)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
 	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
@@ -245,8 +245,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `4697`
 		// Minimum execution time: 45_899_000 picoseconds.
 		Weight::from_parts(47_099_000, 4697)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
 	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
@@ -258,8 +258,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `4697`
 		// Minimum execution time: 46_029_000 picoseconds.
 		Weight::from_parts(46_759_000, 4697)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
 	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
@@ -271,8 +271,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `4281`
 		// Minimum execution time: 30_980_000 picoseconds.
 		Weight::from_parts(31_820_000, 4281)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
 	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
@@ -284,8 +284,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `4697`
 		// Minimum execution time: 45_620_000 picoseconds.
 		Weight::from_parts(46_440_000, 4697)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
 	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
@@ -299,8 +299,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `8301`
 		// Minimum execution time: 50_270_000 picoseconds.
 		Weight::from_parts(51_149_000, 8301)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
 	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
@@ -312,8 +312,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `4697`
 		// Minimum execution time: 45_990_000 picoseconds.
 		Weight::from_parts(47_390_000, 4697)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
 	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
@@ -325,8 +325,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `4697`
 		// Minimum execution time: 45_939_000 picoseconds.
 		Weight::from_parts(46_960_000, 4697)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
 	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
@@ -338,8 +338,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `4697`
 		// Minimum execution time: 45_480_000 picoseconds.
 		Weight::from_parts(46_590_000, 4697)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
 	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
@@ -351,8 +351,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `4697`
 		// Minimum execution time: 45_289_000 picoseconds.
 		Weight::from_parts(46_679_000, 4697)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
 	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
@@ -364,8 +364,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `4697`
 		// Minimum execution time: 45_850_000 picoseconds.
 		Weight::from_parts(46_589_000, 4697)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
 	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
@@ -377,8 +377,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `4697`
 		// Minimum execution time: 45_330_000 picoseconds.
 		Weight::from_parts(46_490_000, 4697)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
 	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
@@ -390,8 +390,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `4697`
 		// Minimum execution time: 45_390_000 picoseconds.
 		Weight::from_parts(46_339_000, 4697)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
 	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
@@ -403,8 +403,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `4697`
 		// Minimum execution time: 45_189_000 picoseconds.
 		Weight::from_parts(46_109_000, 4697)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule NetworkPowRegistrationAllowed (r:0 w:1)
 	/// Proof Skipped: SubtensorModule NetworkPowRegistrationAllowed (max_values: None, max_size: None, mode: Measured)
@@ -414,7 +414,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `655`
 		// Minimum execution time: 33_600_000 picoseconds.
 		Weight::from_parts(34_599_000, 655)
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
 	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
@@ -426,8 +426,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `4697`
 		// Minimum execution time: 44_739_000 picoseconds.
 		Weight::from_parts(45_489_000, 4697)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_commit_reveal_weights_interval() -> Weight {
 		// Proof Size summary in bytes:
@@ -435,8 +435,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `3921`
 		// Minimum execution time: 19_070_000 picoseconds.
 		Weight::from_parts(19_380_000, 456)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_commit_reveal_weights_enabled() -> Weight {
 		// Proof Size summary in bytes:
@@ -444,8 +444,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `4697`
 		// Minimum execution time: 46_450_000 picoseconds.
 		Weight::from_parts(47_279_000, 4697)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_evm_chain_id() -> Weight {
 		Weight::from_parts(20_200_000, 0)

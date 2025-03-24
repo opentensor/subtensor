@@ -8,7 +8,7 @@ pub fn migrate_identities_to_v2<T: Config>() -> Weight {
     let migration_name = b"migrate_identities_to_v2".to_vec();
 
     // Start counting weight
-    let mut weight = T::DbWeight::get().reads(1);
+    let mut weight = <T as frame_system::Config>::DbWeight::get().reads(1);
 
     // Check if we already ran this migration
     if HasMigrationRun::<T>::get(&migration_name) {
@@ -43,13 +43,13 @@ pub fn migrate_identities_to_v2<T: Config>() -> Weight {
 
         // Insert into the new storage map
         IdentitiesV2::<T>::insert(&account_id, &new_identity);
-        weight = weight.saturating_add(T::DbWeight::get().writes(1));
+        weight = weight.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1));
 
         Identities::<T>::remove(&account_id);
-        weight = weight.saturating_add(T::DbWeight::get().writes(1));
+        weight = weight.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1));
     }
 
-    weight = weight.saturating_add(T::DbWeight::get().reads(old_identities.len() as u64));
+    weight = weight.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(old_identities.len() as u64));
 
     // -----------------------------
     // 2) Migrate Subnet Identities
@@ -68,18 +68,18 @@ pub fn migrate_identities_to_v2<T: Config>() -> Weight {
 
         // Insert into the new storage map
         SubnetIdentitiesV2::<T>::insert(netuid, &new_subnet_identity);
-        weight = weight.saturating_add(T::DbWeight::get().writes(1));
+        weight = weight.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1));
 
         SubnetIdentities::<T>::remove(netuid);
-        weight = weight.saturating_add(T::DbWeight::get().writes(1));
+        weight = weight.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1));
     }
-    weight = weight.saturating_add(T::DbWeight::get().reads(old_subnet_identities.len() as u64));
+    weight = weight.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(old_subnet_identities.len() as u64));
 
     // -----------------------------
     // Mark the migration as done
     // -----------------------------
     HasMigrationRun::<T>::insert(&migration_name, true);
-    weight = weight.saturating_add(T::DbWeight::get().writes(1));
+    weight = weight.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1));
 
     log::info!(
         target: "runtime",

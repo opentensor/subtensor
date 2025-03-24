@@ -34,7 +34,7 @@ pub fn migrate_set_hotkey_identities<T: Config>() -> Weight {
     let migration_name = b"migrate_identities".to_vec();
 
     // Initialize the weight with one read operation.
-    let mut weight = T::DbWeight::get().reads(1);
+    let mut weight = <T as frame_system::Config>::DbWeight::get().reads(1);
 
     // Check if the migration has already run
     if HasMigrationRun::<T>::get(&migration_name) {
@@ -148,18 +148,18 @@ pub fn migrate_set_hotkey_identities<T: Config>() -> Weight {
             let coldkey = Owner::<T>::get(decoded_hotkey.clone());
             log::info!("ColdKey: {:?}", decoded_hotkey);
 
-            weight = weight.saturating_add(T::DbWeight::get().reads(1));
+            weight = weight.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1));
 
             // Sink into the map.
             Identities::<T>::insert(coldkey.clone(), identity.clone());
-            weight = weight.saturating_add(T::DbWeight::get().writes(1));
+            weight = weight.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1));
         }
     } else {
         log::info!("Failed to decode JSON");
     }
     // Mark the migration as completed
     HasMigrationRun::<T>::insert(&migration_name, true);
-    weight = weight.saturating_add(T::DbWeight::get().writes(1));
+    weight = weight.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1));
 
     log::info!(
         "Migration '{:?}' completed. Storage version set to 7.",

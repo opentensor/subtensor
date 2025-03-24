@@ -43,7 +43,7 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
     let root_netuid: u16 = 0;
 
     // Initialize weight counter
-    let mut weight = T::DbWeight::get().reads(1);
+    let mut weight = <T as frame_system::Config>::DbWeight::get().reads(1);
 
     // Check if root network already exists
     if NetworksAdded::<T>::get(root_netuid) {
@@ -82,7 +82,7 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
     // WeightsSetRateLimit::<T>::insert(root_netuid, 7200);
 
     // Accrue weight for database writes
-    weight.saturating_accrue(T::DbWeight::get().writes(8));
+    weight.saturating_accrue(<T as frame_system::Config>::DbWeight::get().writes(8));
 
     // Remove all existing senate members
     for hotkey_i in T::SenateMembers::members().iter() {
@@ -92,7 +92,7 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
         T::SenateMembers::remove_member(hotkey_i).defensive_ok();
 
         // Accrue weight for database operations
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+        weight.saturating_accrue(<T as frame_system::Config>::DbWeight::get().reads_writes(2, 2));
     }
 
     log::info!("Migrated create root network");

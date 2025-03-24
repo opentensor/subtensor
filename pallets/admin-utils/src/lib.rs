@@ -350,8 +350,8 @@ pub mod pallet {
         #[pallet::call_index(9)]
         #[pallet::weight((
             Weight::from_parts(14_000_000, 0)
-                .saturating_add(T::DbWeight::get().writes(1))
-                .saturating_add(T::DbWeight::get().reads(1)),
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1))
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1)),
             DispatchClass::Operational,
             Pays::No
         ))]
@@ -549,7 +549,7 @@ pub mod pallet {
         #[pallet::weight((
 			Weight::from_parts(4_000_000, 0)
 				.saturating_add(Weight::from_parts(0, 0))
-				.saturating_add(T::DbWeight::get().writes(1)),
+				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
 			Pays::No
 		))]
@@ -577,7 +577,7 @@ pub mod pallet {
         #[pallet::call_index(20)]
         #[pallet::weight((
 			Weight::from_parts(14_000_000, 0)
-				.saturating_add(T::DbWeight::get().writes(1)),
+				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
 			Pays::No
 		))]
@@ -818,7 +818,7 @@ pub mod pallet {
         #[pallet::call_index(28)]
         #[pallet::weight((
 			Weight::from_parts(14_000_000, 0)
-				.saturating_add(T::DbWeight::get().writes(1)),
+				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
 			Pays::No
 		))]
@@ -841,7 +841,7 @@ pub mod pallet {
         #[pallet::call_index(29)]
         #[pallet::weight((
 			Weight::from_parts(14_000_000, 0)
-				.saturating_add(T::DbWeight::get().writes(1)),
+				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
 			Pays::No
 		))]
@@ -893,7 +893,7 @@ pub mod pallet {
         #[pallet::call_index(35)]
         #[pallet::weight((
 			Weight::from_parts(14_000_000, 0)
-				.saturating_add(T::DbWeight::get().writes(1)),
+				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
 			Pays::No
 		))]
@@ -916,7 +916,7 @@ pub mod pallet {
         #[pallet::call_index(36)]
         #[pallet::weight((
 			Weight::from_parts(14_000_000, 0)
-				.saturating_add(T::DbWeight::get().writes(1)),
+				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
 			Pays::No
 		))]
@@ -939,7 +939,7 @@ pub mod pallet {
         #[pallet::call_index(37)]
         #[pallet::weight((
 			Weight::from_parts(14_000_000, 0)
-				.saturating_add(T::DbWeight::get().writes(1)),
+				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
 			Pays::No
 		))]
@@ -954,7 +954,7 @@ pub mod pallet {
         #[pallet::call_index(38)]
         #[pallet::weight((
 			Weight::from_parts(14_000_000, 0)
-				.saturating_add(T::DbWeight::get().writes(1)),
+				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
 			Pays::No
 		))]

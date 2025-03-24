@@ -201,7 +201,7 @@ pub mod pallet {
 				Pays::No => Weight::zero(),
 			};
 			let base_weight = T::WeightInfo::proxy(T::MaxProxies::get())
-				.saturating_add(T::DbWeight::get().reads_writes(1, 1));
+				.saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(1, 1));
 			(base_weight.saturating_add(inner_call_weight), di.class)
 		})]
         pub fn proxy(
@@ -502,7 +502,7 @@ pub mod pallet {
 			let di = call.get_dispatch_info();
 			(T::WeightInfo::proxy_announced(T::MaxPending::get(), T::MaxProxies::get())
 				 // AccountData for inner call origin accountdata.
-				.saturating_add(T::DbWeight::get().reads_writes(1, 1))
+				.saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(1, 1))
 				.saturating_add(di.weight),
 			di.class)
 		})]

@@ -10,7 +10,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
     let migration_name = b"migrate_rao".to_vec();
 
     // Initialize the weight with one read operation.
-    let mut weight = T::DbWeight::get().reads(1);
+    let mut weight = <T as frame_system::Config>::DbWeight::get().reads(1);
 
     // Check if the migration has already run
     if HasMigrationRun::<T>::get(&migration_name) {
@@ -28,7 +28,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
     let netuids: Vec<u16> = <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter()
         .map(|(netuid, _)| netuid)
         .collect();
-    weight = weight.saturating_add(T::DbWeight::get().reads_writes(netuids.len() as u64, 0));
+    weight = weight.saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(netuids.len() as u64, 0));
 
     // Set the Dynamic block.
     DynamicBlock::<T>::set(Pallet::<T>::get_current_block_as_u64());
@@ -56,7 +56,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
     //         *total = total.saturating_add(stake)
     //     });
     //     // 6 reads and 6 writes.
-    //     weight = weight.saturating_add(T::DbWeight::get().reads_writes(6, 6));
+    //     weight = weight.saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(6, 6));
     // });
 
     // Convert subnets and give them lock.
@@ -149,7 +149,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
 
     // Mark the migration as completed
     HasMigrationRun::<T>::insert(&migration_name, true);
-    weight = weight.saturating_add(T::DbWeight::get().writes(1));
+    weight = weight.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1));
 
     log::info!(
         "Migration '{:?}' completed. Storage version set to 7.",

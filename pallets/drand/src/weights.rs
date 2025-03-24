@@ -67,7 +67,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 8_000_000 picoseconds.
 		Weight::from_parts(8_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			.saturating_add(T::DbWeight::get().writes(2))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(2))
 	}
 	/// Storage: `Drand::BeaconConfig` (r:1 w:0)
 	/// Proof: `Drand::BeaconConfig` (`max_values`: Some(1), `max_size`: Some(238), added: 733, mode: `MaxEncodedLen`)
@@ -75,6 +75,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Adjust the weight calculation based on pulses_count
 		Weight::from_parts(6_000_000 * pulses_count as u64, 0)
 			.saturating_add(Weight::from_parts(0, 1723 * pulses_count as u64))
-			.saturating_add(T::DbWeight::get().reads_writes(1, pulses_count as u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(1, pulses_count as u64))
 	}	
 }

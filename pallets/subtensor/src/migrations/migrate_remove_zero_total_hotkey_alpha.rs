@@ -5,7 +5,7 @@ use scale_info::prelude::string::String;
 
 pub fn migrate_remove_zero_total_hotkey_alpha<T: Config>() -> Weight {
     let migration_name = b"migrate_remove_zero_total_hotkey_alpha".to_vec();
-    let mut weight = T::DbWeight::get().reads(1);
+    let mut weight = <T as frame_system::Config>::DbWeight::get().reads(1);
 
     // ------------------------------
     // Step 0: Check if already run
@@ -37,8 +37,8 @@ pub fn migrate_remove_zero_total_hotkey_alpha<T: Config>() -> Weight {
         }
     }
 
-    weight = weight.saturating_add(T::DbWeight::get().reads(removed_entries_count));
-    weight = weight.saturating_add(T::DbWeight::get().writes(removed_entries_count));
+    weight = weight.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(removed_entries_count));
+    weight = weight.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(removed_entries_count));
 
     log::info!(
         "Removed {} zero entries from TotalHotkeyAlpha.",
@@ -49,7 +49,7 @@ pub fn migrate_remove_zero_total_hotkey_alpha<T: Config>() -> Weight {
     // Step 2: Mark Migration as Completed
     // ------------------------------
     HasMigrationRun::<T>::insert(&migration_name, true);
-    weight = weight.saturating_add(T::DbWeight::get().writes(1));
+    weight = weight.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1));
 
     log::info!(
         "Migration '{:?}' completed successfully.",

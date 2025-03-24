@@ -46,8 +46,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `6344`
 		// Minimum execution time: 28_000_000 picoseconds.
 		Weight::from_parts(28_000_000, 6344)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
+			.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(2_u64))
 	}
 	/// Sudo setting rate limit for commitments
 	fn set_rate_limit() -> Weight {

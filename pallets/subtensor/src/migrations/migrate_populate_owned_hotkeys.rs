@@ -22,7 +22,7 @@ pub mod deprecated_loaded_emission_format {
 /// Migrate the OwnedHotkeys map to the new storage format
 pub fn migrate_populate_owned<T: Config>() -> Weight {
     // Setup migration weight
-    let mut weight = T::DbWeight::get().reads(1);
+    let mut weight = <T as frame_system::Config>::DbWeight::get().reads(1);
     let migration_name = "Populate OwnedHotkeys map";
 
     // Check if this migration is needed (if OwnedHotkeys map is empty)
@@ -61,7 +61,7 @@ pub fn migrate_populate_owned<T: Config>() -> Weight {
             }
 
             // Accrue weight for reads and writes
-            weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 1));
+            weight = weight.saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(2, 1));
         });
 
         // Log migration results
