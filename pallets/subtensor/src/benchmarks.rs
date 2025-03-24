@@ -681,7 +681,7 @@ benchmark_start_call {
 
   assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
   assert_eq!(SubnetOwner::<T>::get(netuid), coldkey.clone());
-  assert_eq!(LastEmissionBlockNumber::<T>::get(netuid), None);
+  assert_eq!(FirstEmissionBlockNumber::<T>::get(netuid), None);
   let current_block: u64 = Subtensor::<T>::get_current_block_as_u64();
   let duration = <T as Config>::DurationOfStartCall::get();
   let block: BlockNumberFor<T> = (current_block + duration).try_into().ok().expect("");

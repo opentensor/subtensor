@@ -337,7 +337,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `Error::<T>::SubNetworkDoesNotExist`: If the subnet does not exist.
     /// * `DispatchError::BadOrigin`: If the caller is not the subnet owner.
-    /// * `Error::<T>::LastEmissionBlockNumberAlreadySet`: If the last emission block number has already been set.
+    /// * `Error::<T>::FirstEmissionBlockNumberAlreadySet`: If the last emission block number has already been set.
     ///
     /// # Returns
     ///
@@ -349,8 +349,8 @@ impl<T: Config> Pallet<T> {
         );
         Self::ensure_subnet_owner(origin, netuid)?;
         ensure!(
-            LastEmissionBlockNumber::<T>::get(netuid).is_none(),
-            Error::<T>::LastEmissionBlockNumberAlreadySet
+            FirstEmissionBlockNumber::<T>::get(netuid).is_none(),
+            Error::<T>::FirstEmissionBlockNumberAlreadySet
         );
 
         let registration_block_number = NetworkRegisteredAt::<T>::get(netuid);
@@ -362,15 +362,15 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NeedWaitingMoreBlocksToStarCall
         );
 
-        LastEmissionBlockNumber::<T>::insert(netuid, current_block_number);
-        Self::deposit_event(Event::LastEmissionBlockNumberSet(
+        FirstEmissionBlockNumber::<T>::insert(netuid, current_block_number + 1);
+        Self::deposit_event(Event::FirstEmissionBlockNumberSet(
             netuid,
-            current_block_number,
+            current_block_number + 1,
         ));
         Ok(())
     }
 
     pub fn is_valid_subnet_for_emission(netuid: u16) -> bool {
-        LastEmissionBlockNumber::<T>::get(netuid).is_some()
+        FirstEmissionBlockNumber::<T>::get(netuid).is_some()
     }
 }

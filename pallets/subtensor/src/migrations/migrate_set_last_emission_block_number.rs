@@ -27,7 +27,7 @@ pub fn migrate_set_last_emission_block_number<T: Config>() -> Weight {
     let current_block_number = Pallet::<T>::get_current_block_as_u64();
     for netuid in netuids.iter() {
         if *netuid != 0 {
-            LastEmissionBlockNumber::<T>::insert(netuid, current_block_number);
+            FirstEmissionBlockNumber::<T>::insert(netuid, current_block_number);
         }
     }
 

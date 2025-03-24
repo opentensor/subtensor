@@ -41,7 +41,7 @@ impl<T: Config> Pallet<T> {
         let subnets: Vec<u16> = Self::get_all_subnet_netuids()
             .into_iter()
             .filter(|netuid| *netuid != 0)
-            .filter(|netuid| LastEmissionBlockNumber::<T>::get(*netuid).is_some())
+            .filter(|netuid| FirstEmissionBlockNumber::<T>::get(*netuid).is_some())
             .collect();
         log::debug!("All subnet netuids: {:?}", subnets);
 
@@ -245,9 +245,6 @@ impl<T: Config> Pallet<T> {
                     pending_swapped,
                     owner_cut,
                 );
-
-                // Set last emission block
-                LastEmissionBlockNumber::<T>::insert(netuid, Self::get_current_block_as_u64())
             } else {
                 // Increment
                 BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));

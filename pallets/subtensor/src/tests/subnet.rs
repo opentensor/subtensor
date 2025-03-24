@@ -19,7 +19,7 @@ fn test_do_start_call_ok() {
         //add network
         SubtensorModule::set_burn(netuid, burn_cost);
         add_network_without_emission_block(netuid, tempo, 0);
-        assert_eq!(LastEmissionBlockNumber::<Test>::get(netuid), None);
+        assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
 
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -42,8 +42,8 @@ fn test_do_start_call_ok() {
         ));
 
         assert_eq!(
-            LastEmissionBlockNumber::<Test>::get(netuid),
-            Some(block_number)
+            FirstEmissionBlockNumber::<Test>::get(netuid),
+            Some(block_number + 1)
         );
     });
 }
@@ -143,7 +143,7 @@ fn test_do_start_call_fail_for_set_again() {
         //add network
         SubtensorModule::set_burn(netuid, burn_cost);
         add_network_without_emission_block(netuid, tempo, 0);
-        assert_eq!(LastEmissionBlockNumber::<Test>::get(netuid), None);
+        assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
 
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -170,7 +170,7 @@ fn test_do_start_call_fail_for_set_again() {
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 netuid
             ),
-            Error::<Test>::LastEmissionBlockNumberAlreadySet
+            Error::<Test>::FirstEmissionBlockNumberAlreadySet
         );
     });
 }
@@ -186,7 +186,7 @@ fn test_do_start_call_ok_with_updated_block_number_after_coinbase() {
         //add network
         SubtensorModule::set_burn(netuid, burn_cost);
         add_network_without_emission_block(netuid, tempo, 0);
-        assert_eq!(LastEmissionBlockNumber::<Test>::get(netuid), None);
+        assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
 
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -209,14 +209,14 @@ fn test_do_start_call_ok_with_updated_block_number_after_coinbase() {
         ));
 
         assert_eq!(
-            LastEmissionBlockNumber::<Test>::get(netuid),
-            Some(block_number)
+            FirstEmissionBlockNumber::<Test>::get(netuid),
+            Some(block_number + 1)
         );
 
         step_block(tempo);
-        match LastEmissionBlockNumber::<Test>::get(netuid) {
+        match FirstEmissionBlockNumber::<Test>::get(netuid) {
             Some(new_emission_block_number) => assert!(new_emission_block_number > block_number),
-            None => assert!(LastEmissionBlockNumber::<Test>::get(netuid).is_some()),
+            None => assert!(FirstEmissionBlockNumber::<Test>::get(netuid).is_some()),
         }
     });
 }

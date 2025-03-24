@@ -1127,7 +1127,7 @@ pub mod pallet {
     /// ============================
     /// --- MAP ( netuid ) --> block number of last emission
     #[pallet::storage]
-    pub type LastEmissionBlockNumber<T: Config> = StorageMap<_, Identity, u16, u64, OptionQuery>;
+    pub type FirstEmissionBlockNumber<T: Config> = StorageMap<_, Identity, u16, u64, OptionQuery>;
     /// --- MAP ( netuid ) --> subnet mechanism
     #[pallet::storage]
     pub type SubnetMechanism<T: Config> =

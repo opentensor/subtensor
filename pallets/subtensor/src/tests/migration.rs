@@ -432,9 +432,9 @@ fn test_migrate_set_last_emission_block_number() {
     let expected_weight: Weight = <Test as Config>::DbWeight::get().reads(3) + <Test as Config>::DbWeight::get().writes(netuids.len() as u64);
     assert_eq!(weight, expected_weight);
 
-    assert_eq!(LastEmissionBlockNumber::<Test>::get(0), None);
+    assert_eq!(FirstEmissionBlockNumber::<Test>::get(0), None);
     for netuid in netuids.iter() {
-        assert_eq!(LastEmissionBlockNumber::<Test>::get(netuid), Some(block_number));
+        assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), Some(block_number));
     }
 });
 }

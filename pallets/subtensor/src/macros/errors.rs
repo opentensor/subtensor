@@ -195,8 +195,8 @@ mod errors {
         ActivityCutoffTooLow,
         /// Call is disabled
         CallDisabled,
-        /// LastEmissionBlockNumber is already set.
-        LastEmissionBlockNumberAlreadySet,
+        /// FirstEmissionBlockNumber is already set.
+        FirstEmissionBlockNumberAlreadySet,
         /// need wait for more blocks to accept the start call extrinsic.
         NeedWaitingMoreBlocksToStarCall,
         /// Not enough AlphaOut on the subnet to recycle
