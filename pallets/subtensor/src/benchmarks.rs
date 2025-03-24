@@ -6,7 +6,7 @@ use crate::Pallet as Subtensor;
 use crate::*;
 use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 use frame_support::assert_ok;
-use frame_system::RawOrigin;
+use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
 pub use pallet::*;
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, Hash};
@@ -594,5 +594,99 @@ batch_reveal_weights {
   version_keys
 )
 
+benchmark_recycle_alpha {
+  let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+  let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
+  let netuid: u16 = 1;
+  let tempo: u16 = 1;
+  let seed: u32 = 1;
+
+  // Set up coldkey and hotkey
+  let coldkey: T::AccountId = account("Test", 0, seed);
+  let hotkey: T::AccountId = account("Alice", 0, seed);
+
+  // Initialize network
+  Subtensor::<T>::init_new_network(netuid, tempo);
+  Subtensor::<T>::set_network_registration_allowed(netuid, true);
+
+  // Register the neuron
+  Subtensor::<T>::set_burn(netuid, 1);
+  let amount_to_be_staked = 1000000u32.into();
+  Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
+
+  assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
+
+  // Add alpha to the hotkey
+  let alpha_amount: u64 = 1000000;
+  TotalHotkeyAlpha::<T>::insert(&hotkey, netuid, alpha_amount);
+  SubnetAlphaOut::<T>::insert(netuid, alpha_amount * 2);
+
+  // Verify the alpha has been added
+  assert_eq!(TotalHotkeyAlpha::<T>::get(&hotkey, netuid), alpha_amount);
+
+}: recycle_alpha(RawOrigin::Signed(coldkey), hotkey, alpha_amount, netuid)
+
+benchmark_burn_alpha {
+  let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+  let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
+  let netuid = 1;
+  let tempo = 1;
+  let seed = 1;
+
+  // Set up coldkey and hotkey
+  let coldkey: T::AccountId = account("Test", 0, seed);
+  let hotkey: T::AccountId = account("Alice", 0, seed);
+
+  // Initialize network
+  Subtensor::<T>::init_new_network(netuid, tempo);
+  Subtensor::<T>::set_network_registration_allowed(netuid, true);
+
+  // Register the neuron
+  Subtensor::<T>::set_burn(netuid, 1);
+  let amount_to_be_staked = 1000000u32.into();
+  Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
+
+  assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
+
+  // Add alpha to the hotkey
+  let alpha_amount: u64 = 1000000;
+  TotalHotkeyAlpha::<T>::insert(&hotkey, netuid, alpha_amount);
+  SubnetAlphaOut::<T>::insert(netuid, alpha_amount * 2);
+
+  // Verify the alpha has been added
+  assert_eq!(TotalHotkeyAlpha::<T>::get(&hotkey, netuid), alpha_amount);
+
+}: burn_alpha(RawOrigin::Signed(coldkey), hotkey, alpha_amount, netuid)
+
+
+benchmark_start_call {
+  let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+  let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
+  let netuid: u16 = 1;
+  let tempo: u16 = 1;
+  let seed: u32 = 1;
+
+  // Set up coldkey and hotkey
+  let coldkey: T::AccountId = account("Test", 0, seed);
+  let hotkey: T::AccountId = account("Alice", 0, seed);
+
+  // Initialize network
+  Subtensor::<T>::init_new_network(netuid, tempo);
+  Subtensor::<T>::set_network_registration_allowed(netuid, true);
+
+  // Register the neuron
+  Subtensor::<T>::set_burn(netuid, 1);
+  let amount_to_be_staked = 1000000u32.into();
+  Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
+
+  assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
+  assert_eq!(SubnetOwner::<T>::get(netuid), coldkey.clone());
+  assert_eq!(FirstEmissionBlockNumber::<T>::get(netuid), None);
+  let current_block: u64 = Subtensor::<T>::get_current_block_as_u64();
+  let duration = <T as Config>::DurationOfStartCall::get();
+  let block: BlockNumberFor<T> = (current_block + duration).try_into().ok().expect("can't convert to block number");
+  frame_system::Pallet::<T>::set_block_number(block);
+
+}: start_call(RawOrigin::Signed(coldkey), netuid)
 
 }

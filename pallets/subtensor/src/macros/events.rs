@@ -275,5 +275,23 @@ mod events {
         /// Parameters:
         /// (netuid, new_hotkey)
         SubnetOwnerHotkeySet(u16, T::AccountId),
+        /// FirstEmissionBlockNumber is set via start call extrinsic
+        ///
+        /// Parameters:
+        /// netuid
+        /// block number
+        FirstEmissionBlockNumberSet(u16, u64),
+
+        /// Alpha has been recycled, reducing AlphaOut on a subnet.
+        ///
+        /// Parameters:
+        /// (coldkey, hotkey, amount, subnet_id)
+        AlphaRecycled(T::AccountId, T::AccountId, u64, u16),
+
+        /// Alpha have been burned without reducing AlphaOut.
+        ///
+        /// Parameters:
+        /// (coldkey, hotkey, amount, subnet_id)
+        AlphaBurned(T::AccountId, T::AccountId, u64, u16),
     }
 }
