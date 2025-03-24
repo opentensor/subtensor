@@ -794,7 +794,7 @@ impl<T: Config> Pallet<T> {
             tao_unstaked,
             actual_alpha_decrease,
             netuid,
-            actual_fee
+            actual_fee,
         ));
         log::debug!(
             "StakeRemoved( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?}, fee: {:?} )",
@@ -859,7 +859,7 @@ impl<T: Config> Pallet<T> {
             tao_staked,
             actual_alpha,
             netuid,
-            actual_fee
+            actual_fee,
         ));
         log::debug!(
             "StakeAdded( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?}, fee: {:?} )",
