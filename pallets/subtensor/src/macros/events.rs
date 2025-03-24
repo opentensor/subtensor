@@ -14,9 +14,9 @@ mod events {
         /// a network is removed.
         NetworkRemoved(u16),
         /// stake has been transferred from the a coldkey account onto the hotkey staking account.
-        StakeAdded(T::AccountId, T::AccountId, u64, u64, u16),
+        StakeAdded(T::AccountId, T::AccountId, u64, u64, u16, u64),
         /// stake has been removed from the hotkey staking account onto the coldkey account.
-        StakeRemoved(T::AccountId, T::AccountId, u64, u64, u16),
+        StakeRemoved(T::AccountId, T::AccountId, u64, u64, u16, u64),
         /// stake has been moved from origin (hotkey, subnet ID) to destination (hotkey, subnet ID) of this amount (in TAO).
         StakeMoved(T::AccountId, T::AccountId, u16, T::AccountId, u16, u64),
         /// a caller successfully sets their weights on a subnetwork.
