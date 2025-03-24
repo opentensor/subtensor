@@ -11,16 +11,16 @@ use crate::{PrecompileExt, PrecompileHandleExt};
 
 pub(crate) struct BalanceTransferPrecompile<R>(PhantomData<R>);
 
-impl<R> PrecompileExt<R::AccountId> for BalanceTransferPrecompile<R>
+impl<R> PrecompileExt<<R as frame_system::Config>::AccountId> for BalanceTransferPrecompile<R>
 where
     R: frame_system::Config + pallet_balances::Config + pallet_evm::Config,
-    R::AccountId: From<[u8; 32]>,
+    <R as frame_system::Config>::AccountId: From<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall:
         GetDispatchInfo + Dispatchable<PostInfo = PostDispatchInfo>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_balances::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
-    <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
+    <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<<R as frame_system::Config>::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
 {
     const INDEX: u64 = 2048;
@@ -30,13 +30,13 @@ where
 impl<R> BalanceTransferPrecompile<R>
 where
     R: frame_system::Config + pallet_balances::Config + pallet_evm::Config,
-    R::AccountId: From<[u8; 32]>,
+    <R as frame_system::Config>::AccountId: From<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall:
         GetDispatchInfo + Dispatchable<PostInfo = PostDispatchInfo>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_balances::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
-    <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
+    <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<<R as frame_system::Config>::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
 {
     #[precompile::public("transfer(bytes32)")]
@@ -48,7 +48,7 @@ where
             return Ok(());
         }
 
-        let dest = R::AccountId::from(address.0).into();
+        let dest = <R as frame_system::Config>::AccountId::from(address.0).into();
 
         let call = pallet_balances::Call::<R>::transfer_allow_death {
             dest,

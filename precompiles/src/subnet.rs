@@ -12,18 +12,19 @@ use crate::{PrecompileExt, PrecompileHandleExt};
 
 pub struct SubnetPrecompile<R>(PhantomData<R>);
 
-impl<R> PrecompileExt<R::AccountId> for SubnetPrecompile<R>
+impl<R> PrecompileExt<<R as frame_system::Config>::AccountId> for SubnetPrecompile<R>
 where
     R: frame_system::Config
         + pallet_evm::Config
         + pallet_subtensor::Config
         + pallet_admin_utils::Config,
-    R::AccountId: From<[u8; 32]>,
+    <R as frame_system::Config>::AccountId: From<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_admin_utils::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
-    <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
+    <R as pallet_evm::Config>::AddressMapping:
+        AddressMapping<<R as frame_system::Config>::AccountId>,
 {
     const INDEX: u64 = 2051;
 }
@@ -35,17 +36,18 @@ where
         + pallet_evm::Config
         + pallet_subtensor::Config
         + pallet_admin_utils::Config,
-    R::AccountId: From<[u8; 32]>,
+    <R as frame_system::Config>::AccountId: From<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_admin_utils::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
-    <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
+    <R as pallet_evm::Config>::AddressMapping:
+        AddressMapping<<R as frame_system::Config>::AccountId>,
 {
     #[precompile::public("registerNetwork(bytes32)")]
     #[precompile::payable]
     fn register_network(handle: &mut impl PrecompileHandle, hotkey: H256) -> EvmResult<()> {
-        let hotkey = R::AccountId::from(hotkey.0);
+        let hotkey = <R as frame_system::Config>::AccountId::from(hotkey.0);
         let call = pallet_subtensor::Call::<R>::register_network_with_identity {
             hotkey,
             identity: None,
@@ -73,7 +75,7 @@ where
         description: BoundedString<ConstU32<1024>>,
         additional: BoundedString<ConstU32<1024>>,
     ) -> EvmResult<()> {
-        let hotkey = R::AccountId::from(hotkey.0);
+        let hotkey = <R as frame_system::Config>::AccountId::from(hotkey.0);
         let identity = pallet_subtensor::SubnetIdentityOfV2 {
             subnet_name: subnet_name.into(),
             github_repo: github_repo.into(),

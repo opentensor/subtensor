@@ -45,16 +45,16 @@ where
         + pallet_admin_utils::Config
         + pallet_subtensor::Config
         + pallet_proxy::Config<ProxyType = ProxyType>,
-    R::AccountId: From<[u8; 32]> + ByteArray,
+    <R as frame_system::Config>::AccountId: From<[u8; 32]> + ByteArray,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_proxy::Call<R>>
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
-    <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
+    <R as pallet_evm::Config>::AddressMapping: AddressMapping<<R as frame_system::Config>::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
-    <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
+    <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<<R as frame_system::Config>::AccountId>,
 {
     fn default() -> Self {
         Self::new()
@@ -69,16 +69,16 @@ where
         + pallet_admin_utils::Config
         + pallet_subtensor::Config
         + pallet_proxy::Config<ProxyType = ProxyType>,
-    R::AccountId: From<[u8; 32]> + ByteArray,
+    <R as frame_system::Config>::AccountId: From<[u8; 32]> + ByteArray,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_proxy::Call<R>>
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
-    <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
+    <R as pallet_evm::Config>::AddressMapping: AddressMapping<<R as frame_system::Config>::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
-    <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
+    <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<<R as frame_system::Config>::AccountId>,
 {
     pub fn new() -> Self {
         Self(Default::default())
@@ -93,7 +93,7 @@ where
             hash(5),
             hash(1024),
             hash(1025),
-            hash(Ed25519Verify::<R::AccountId>::INDEX),
+            hash(Ed25519Verify::<<R as frame_system::Config>::AccountId>::INDEX),
             hash(BalanceTransferPrecompile::<R>::INDEX),
             hash(StakingPrecompile::<R>::INDEX),
             hash(SubnetPrecompile::<R>::INDEX),
@@ -111,16 +111,16 @@ where
         + pallet_admin_utils::Config
         + pallet_subtensor::Config
         + pallet_proxy::Config<ProxyType = ProxyType>,
-    R::AccountId: From<[u8; 32]> + ByteArray,
+    <R as frame_system::Config>::AccountId: From<[u8; 32]> + ByteArray,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_proxy::Call<R>>
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
-    <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
+    <R as pallet_evm::Config>::AddressMapping: AddressMapping<<R as frame_system::Config>::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
-    <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
+    <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<<R as frame_system::Config>::AccountId>,
 {
     fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<PrecompileResult> {
         match handle.code_address() {
@@ -133,8 +133,8 @@ where
             // Non-Frontier specific nor Ethereum precompiles :
             a if a == hash(1024) => Some(Sha3FIPS256::execute(handle)),
             a if a == hash(1025) => Some(ECRecoverPublicKey::execute(handle)),
-            a if a == hash(Ed25519Verify::<R::AccountId>::INDEX) => {
-                Some(Ed25519Verify::<R::AccountId>::execute(handle))
+            a if a == hash(Ed25519Verify::<<R as frame_system::Config>::AccountId>::INDEX) => {
+                Some(Ed25519Verify::<<R as frame_system::Config>::AccountId>::execute(handle))
             }
             // Subtensor specific precompiles :
             a if a == hash(BalanceTransferPrecompile::<R>::INDEX) => {

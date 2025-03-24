@@ -15,10 +15,10 @@ use sp_runtime::traits::Dispatchable;
 use sp_std::vec::Vec;
 
 pub(crate) trait PrecompileHandleExt: PrecompileHandle {
-    fn caller_account_id<R>(&self) -> R::AccountId
+    fn caller_account_id<R>(&self) -> <R as frame_system::Config>::AccountId
     where
         R: frame_system::Config + pallet_evm::Config,
-        <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
+        <R as pallet_evm::Config>::AddressMapping: AddressMapping<<R as frame_system::Config>::AccountId>,
     {
         <R as pallet_evm::Config>::AddressMapping::into_account_id(self.context().caller)
     }
@@ -41,13 +41,13 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
     fn try_dispatch_runtime_call<R, Call>(
         &mut self,
         call: Call,
-        origin: RawOrigin<R::AccountId>,
+        origin: RawOrigin<<R as frame_system::Config>::AccountId>,
     ) -> EvmResult<()>
     where
         R: frame_system::Config + pallet_evm::Config,
         R::RuntimeCall: From<Call>,
         R::RuntimeCall: GetDispatchInfo + Dispatchable<PostInfo = PostDispatchInfo>,
-        R::RuntimeOrigin: From<RawOrigin<R::AccountId>>,
+        R::RuntimeOrigin: From<RawOrigin<<R as frame_system::Config>::AccountId>>,
     {
         let call = R::RuntimeCall::from(call);
         let info = GetDispatchInfo::get_dispatch_info(&call);

@@ -12,14 +12,14 @@ use crate::{PrecompileExt, PrecompileHandleExt};
 
 pub struct NeuronPrecompile<R>(PhantomData<R>);
 
-impl<R> PrecompileExt<R::AccountId> for NeuronPrecompile<R>
+impl<R> PrecompileExt<<R as frame_system::Config>::AccountId> for NeuronPrecompile<R>
 where
     R: frame_system::Config + pallet_evm::Config + pallet_subtensor::Config,
-    R::AccountId: From<[u8; 32]>,
+    <R as frame_system::Config>::AccountId: From<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
-    <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
+    <R as pallet_evm::Config>::AddressMapping: AddressMapping<<R as frame_system::Config>::AccountId>,
 {
     const INDEX: u64 = 2052;
 }
@@ -28,11 +28,11 @@ where
 impl<R> NeuronPrecompile<R>
 where
     R: frame_system::Config + pallet_evm::Config + pallet_subtensor::Config,
-    R::AccountId: From<[u8; 32]>,
+    <R as frame_system::Config>::AccountId: From<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
-    <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
+    <R as pallet_evm::Config>::AddressMapping: AddressMapping<<R as frame_system::Config>::AccountId>,
 {
     #[precompile::public("setWeights(uint16,uint16[],uint16[],uint64)")]
     #[precompile::payable]
@@ -106,7 +106,7 @@ where
         hotkey: H256,
     ) -> EvmResult<()> {
         let coldkey = handle.caller_account_id::<R>();
-        let hotkey = R::AccountId::from(hotkey.0);
+        let hotkey = <R as frame_system::Config>::AccountId::from(hotkey.0);
         let call = pallet_subtensor::Call::<R>::burned_register { netuid, hotkey };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(coldkey))

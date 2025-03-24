@@ -10,10 +10,10 @@ use crate::PrecompileExt;
 
 pub struct MetagraphPrecompile<R>(PhantomData<R>);
 
-impl<R> PrecompileExt<R::AccountId> for MetagraphPrecompile<R>
+impl<R> PrecompileExt<<R as frame_system::Config>::AccountId> for MetagraphPrecompile<R>
 where
     R: frame_system::Config + pallet_subtensor::Config,
-    R::AccountId: From<[u8; 32]> + ByteArray,
+    <R as frame_system::Config>::AccountId: From<[u8; 32]> + ByteArray,
 {
     const INDEX: u64 = 2050;
 }
@@ -22,7 +22,7 @@ where
 impl<R> MetagraphPrecompile<R>
 where
     R: frame_system::Config + pallet_subtensor::Config,
-    R::AccountId: ByteArray,
+    <R as frame_system::Config>::AccountId: ByteArray,
 {
     #[precompile::public("getUidCount(uint16)")]
     #[precompile::view]

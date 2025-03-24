@@ -46,19 +46,21 @@ use crate::{PrecompileExt, PrecompileHandleExt};
 // All the future extensions should happen in StakingPrecompileV2.
 pub(crate) struct StakingPrecompileV2<R>(PhantomData<R>);
 
-impl<R> PrecompileExt<R::AccountId> for StakingPrecompileV2<R>
+impl<R> PrecompileExt<<R as frame_system::Config>::AccountId> for StakingPrecompileV2<R>
 where
     R: frame_system::Config
         + pallet_evm::Config
         + pallet_subtensor::Config
         + pallet_proxy::Config<ProxyType = ProxyType>,
-    R::AccountId: From<[u8; 32]>,
+    <R as frame_system::Config>::AccountId: From<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_proxy::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
-    <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
-    <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
+    <R as pallet_evm::Config>::AddressMapping:
+        AddressMapping<<R as frame_system::Config>::AccountId>,
+    <<R as frame_system::Config>::Lookup as StaticLookup>::Source:
+        From<<R as frame_system::Config>::AccountId>,
 {
     const INDEX: u64 = 2053;
 }
@@ -70,13 +72,15 @@ where
         + pallet_evm::Config
         + pallet_subtensor::Config
         + pallet_proxy::Config<ProxyType = ProxyType>,
-    R::AccountId: From<[u8; 32]>,
+    <R as frame_system::Config>::AccountId: From<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_proxy::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
-    <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
-    <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
+    <R as pallet_evm::Config>::AddressMapping:
+        AddressMapping<<R as frame_system::Config>::AccountId>,
+    <<R as frame_system::Config>::Lookup as StaticLookup>::Source:
+        From<<R as frame_system::Config>::AccountId>,
 {
     #[precompile::public("addStake(bytes32,uint256,uint256)")]
     #[precompile::payable]
@@ -88,7 +92,7 @@ where
     ) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();
         let amount_staked = amount_rao.unique_saturated_into();
-        let hotkey = R::AccountId::from(address.0);
+        let hotkey = <R as frame_system::Config>::AccountId::from(address.0);
         let netuid = try_u16_from_u256(netuid)?;
         let call = pallet_subtensor::Call::<R>::add_stake {
             hotkey,
@@ -107,7 +111,7 @@ where
         netuid: U256,
     ) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();
-        let hotkey = R::AccountId::from(address.0);
+        let hotkey = <R as frame_system::Config>::AccountId::from(address.0);
         let netuid = try_u16_from_u256(netuid)?;
         let amount_unstaked = amount_alpha.unique_saturated_into();
         let call = pallet_subtensor::Call::<R>::remove_stake {
@@ -125,7 +129,7 @@ where
         _handle: &mut impl PrecompileHandle,
         coldkey: H256,
     ) -> EvmResult<U256> {
-        let coldkey = R::AccountId::from(coldkey.0);
+        let coldkey = <R as frame_system::Config>::AccountId::from(coldkey.0);
         let stake = pallet_subtensor::Pallet::<R>::get_total_stake_for_coldkey(&coldkey);
 
         Ok(stake.into())
@@ -137,7 +141,7 @@ where
         _handle: &mut impl PrecompileHandle,
         hotkey: H256,
     ) -> EvmResult<U256> {
-        let hotkey = R::AccountId::from(hotkey.0);
+        let hotkey = <R as frame_system::Config>::AccountId::from(hotkey.0);
         let stake = pallet_subtensor::Pallet::<R>::get_total_stake_for_hotkey(&hotkey);
 
         Ok(stake.into())
@@ -151,8 +155,8 @@ where
         coldkey: H256,
         netuid: U256,
     ) -> EvmResult<U256> {
-        let hotkey = R::AccountId::from(hotkey.0);
-        let coldkey = R::AccountId::from(coldkey.0);
+        let hotkey = <R as frame_system::Config>::AccountId::from(hotkey.0);
+        let coldkey = <R as frame_system::Config>::AccountId::from(coldkey.0);
         let netuid = try_u16_from_u256(netuid)?;
         let stake = pallet_subtensor::Pallet::<R>::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey, &coldkey, netuid,
@@ -164,7 +168,7 @@ where
     #[precompile::public("addProxy(bytes32)")]
     fn add_proxy(handle: &mut impl PrecompileHandle, delegate: H256) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();
-        let delegate = R::AccountId::from(delegate.0);
+        let delegate = <R as frame_system::Config>::AccountId::from(delegate.0);
         let delegate = <R as frame_system::Config>::Lookup::unlookup(delegate);
         let call = pallet_proxy::Call::<R>::add_proxy {
             delegate,
@@ -178,7 +182,7 @@ where
     #[precompile::public("removeProxy(bytes32)")]
     fn remove_proxy(handle: &mut impl PrecompileHandle, delegate: H256) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();
-        let delegate = R::AccountId::from(delegate.0);
+        let delegate = <R as frame_system::Config>::AccountId::from(delegate.0);
         let delegate = <R as frame_system::Config>::Lookup::unlookup(delegate);
         let call = pallet_proxy::Call::<R>::remove_proxy {
             delegate,
@@ -193,22 +197,24 @@ where
 // Deprecated, exists for backward compatibility.
 pub(crate) struct StakingPrecompile<R>(PhantomData<R>);
 
-impl<R> PrecompileExt<R::AccountId> for StakingPrecompile<R>
+impl<R> PrecompileExt<<R as frame_system::Config>::AccountId> for StakingPrecompile<R>
 where
     R: frame_system::Config
         + pallet_evm::Config
         + pallet_subtensor::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_balances::Config,
-    R::AccountId: From<[u8; 32]>,
+    <R as frame_system::Config>::AccountId: From<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_proxy::Call<R>>
         + From<pallet_balances::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
-    <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
+    <R as pallet_evm::Config>::AddressMapping:
+        AddressMapping<<R as frame_system::Config>::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
-    <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
+    <<R as frame_system::Config>::Lookup as StaticLookup>::Source:
+        From<<R as frame_system::Config>::AccountId>,
 {
     const INDEX: u64 = 2049;
 }
@@ -221,15 +227,17 @@ where
         + pallet_subtensor::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_balances::Config,
-    R::AccountId: From<[u8; 32]>,
+    <R as frame_system::Config>::AccountId: From<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_proxy::Call<R>>
         + From<pallet_balances::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
-    <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
+    <R as pallet_evm::Config>::AddressMapping:
+        AddressMapping<<R as frame_system::Config>::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
-    <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
+    <<R as frame_system::Config>::Lookup as StaticLookup>::Source:
+        From<<R as frame_system::Config>::AccountId>,
 {
     #[precompile::public("addStake(bytes32,uint256)")]
     #[precompile::payable]
@@ -242,7 +250,7 @@ where
         }
 
         let amount_sub = handle.try_convert_apparent_value::<R>()?;
-        let hotkey = R::AccountId::from(address.0);
+        let hotkey = <R as frame_system::Config>::AccountId::from(address.0);
         let netuid = try_u16_from_u256(netuid)?;
         let call = pallet_subtensor::Call::<R>::add_stake {
             hotkey,
@@ -261,7 +269,7 @@ where
         netuid: U256,
     ) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();
-        let hotkey = R::AccountId::from(address.0);
+        let hotkey = <R as frame_system::Config>::AccountId::from(address.0);
         let netuid = try_u16_from_u256(netuid)?;
         let amount_unstaked =
             <R as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
@@ -282,7 +290,7 @@ where
         _handle: &mut impl PrecompileHandle,
         coldkey: H256,
     ) -> EvmResult<U256> {
-        let coldkey = R::AccountId::from(coldkey.0);
+        let coldkey = <R as frame_system::Config>::AccountId::from(coldkey.0);
 
         // get total stake of coldkey
         let total_stake = pallet_subtensor::Pallet::<R>::get_total_stake_for_coldkey(&coldkey);
@@ -300,7 +308,7 @@ where
         _handle: &mut impl PrecompileHandle,
         hotkey: H256,
     ) -> EvmResult<U256> {
-        let hotkey = R::AccountId::from(hotkey.0);
+        let hotkey = <R as frame_system::Config>::AccountId::from(hotkey.0);
 
         // get total stake of hotkey
         let total_stake = pallet_subtensor::Pallet::<R>::get_total_stake_for_hotkey(&hotkey);
@@ -320,8 +328,8 @@ where
         coldkey: H256,
         netuid: U256,
     ) -> EvmResult<U256> {
-        let hotkey = R::AccountId::from(hotkey.0);
-        let coldkey = R::AccountId::from(coldkey.0);
+        let hotkey = <R as frame_system::Config>::AccountId::from(hotkey.0);
+        let coldkey = <R as frame_system::Config>::AccountId::from(coldkey.0);
         let netuid = try_u16_from_u256(netuid)?;
         let stake = pallet_subtensor::Pallet::<R>::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey, &coldkey, netuid,
@@ -336,7 +344,7 @@ where
     #[precompile::public("addProxy(bytes32)")]
     fn add_proxy(handle: &mut impl PrecompileHandle, delegate: H256) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();
-        let delegate = R::AccountId::from(delegate.0);
+        let delegate = <R as frame_system::Config>::AccountId::from(delegate.0);
         let delegate = <R as frame_system::Config>::Lookup::unlookup(delegate);
         let call = pallet_proxy::Call::<R>::add_proxy {
             delegate,
@@ -350,7 +358,7 @@ where
     #[precompile::public("removeProxy(bytes32)")]
     fn remove_proxy(handle: &mut impl PrecompileHandle, delegate: H256) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();
-        let delegate = R::AccountId::from(delegate.0);
+        let delegate = <R as frame_system::Config>::AccountId::from(delegate.0);
         let delegate = <R as frame_system::Config>::Lookup::unlookup(delegate);
         let call = pallet_proxy::Call::<R>::remove_proxy {
             delegate,
