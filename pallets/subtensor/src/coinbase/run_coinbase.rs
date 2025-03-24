@@ -37,7 +37,7 @@ impl<T: Config> Pallet<T> {
         let current_block: u64 = Self::get_current_block_as_u64();
         log::debug!("Current block: {:?}", current_block);
 
-        // --- 1. Get all netuids (filter out root and new subnet)
+        // --- 1. Get all netuids (filter out root and new subnet without first emission block)
         let subnets: Vec<u16> = Self::get_all_subnet_netuids()
             .into_iter()
             .filter(|netuid| *netuid != 0)

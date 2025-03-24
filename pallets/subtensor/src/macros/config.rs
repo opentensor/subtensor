@@ -210,7 +210,7 @@ mod config {
         /// Initial EMA price halving period
         #[pallet::constant]
         type InitialEmaPriceHalvingPeriod: Get<u64>;
-        /// Block number for a new subnet accept the start call extrinsic.
+        /// Block number after a new subnet accept the start call extrinsic.
         #[pallet::constant]
         type DurationOfStartCall: Get<u64>;
     }

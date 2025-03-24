@@ -1917,7 +1917,7 @@ mod dispatches {
         /// * `netuid` - The unique identifier of the subnet on which the call is being initiated.
         ///
         /// # Events
-        /// Emits a `CallInitiated` event on success.
+        /// Emits a `FirstEmissionBlockNumberSet` event on success.
         #[pallet::call_index(92)]
         #[pallet::weight((
             Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().reads_writes(6, 1)),

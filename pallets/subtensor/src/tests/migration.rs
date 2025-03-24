@@ -419,7 +419,7 @@ fn test_migrate_subnet_volume() {
 }
 
 #[test]
-fn test_migrate_set_last_emission_block_number() {
+fn test_migrate_set_first_emission_block_number() {
     new_test_ext(1).execute_with(|| {
     let netuids: [u16; 3] = [1, 2, 3];
     let block_number = 100;
@@ -427,7 +427,7 @@ fn test_migrate_set_last_emission_block_number() {
         add_network(*netuid, 1, 0);
     }
     run_to_block(block_number);
-    let weight = crate::migrations::migrate_set_last_emission_block_number::migrate_set_last_emission_block_number::<Test>();
+    let weight = crate::migrations::migrate_set_first_emission_block_number::migrate_set_first_emission_block_number::<Test>();
 
     let expected_weight: Weight = <Test as Config>::DbWeight::get().reads(3) + <Test as Config>::DbWeight::get().writes(netuids.len() as u64);
     assert_eq!(weight, expected_weight);

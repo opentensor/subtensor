@@ -684,7 +684,7 @@ benchmark_start_call {
   assert_eq!(FirstEmissionBlockNumber::<T>::get(netuid), None);
   let current_block: u64 = Subtensor::<T>::get_current_block_as_u64();
   let duration = <T as Config>::DurationOfStartCall::get();
-  let block: BlockNumberFor<T> = (current_block + duration).try_into().ok().expect("");
+  let block: BlockNumberFor<T> = (current_block + duration).try_into().ok().expect("can't convert to block number");
   frame_system::Pallet::<T>::set_block_number(block);
 
 }: start_call(RawOrigin::Signed(coldkey), netuid)
