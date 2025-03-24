@@ -25,8 +25,8 @@ impl<T: Config> Pallet<T> {
     /// * `NotEnoughBalanceToPaySwapHotKey` - If there is not enough balance to pay for the swap.
     pub fn do_swap_hotkey(
         origin: T::RuntimeOrigin,
-        old_hotkey: &T::AccountId,
-        new_hotkey: &T::AccountId,
+        old_hotkey: &<T as frame_system::Config>::AccountId,
+        new_hotkey: &<T as frame_system::Config>::AccountId,
     ) -> DispatchResultWithPostInfo {
         // 1. Ensure the origin is signed and get the coldkey
         let coldkey = ensure_signed(origin)?;
@@ -135,9 +135,9 @@ impl<T: Config> Pallet<T> {
     /// This function performs extensive storage reads and writes, which can be computationally expensive.
     /// The accumulated weight should be carefully considered in the context of block limits.
     pub fn perform_hotkey_swap(
-        old_hotkey: &T::AccountId,
-        new_hotkey: &T::AccountId,
-        coldkey: &T::AccountId,
+        old_hotkey: &<T as frame_system::Config>::AccountId,
+        new_hotkey: &<T as frame_system::Config>::AccountId,
+        coldkey: &<T as frame_system::Config>::AccountId,
         weight: &mut Weight,
     ) -> DispatchResult {
         // 1. Swap owner.
@@ -312,7 +312,7 @@ impl<T: Config> Pallet<T> {
 
         // 11. Swap Alpha
         // Alpha( hotkey, coldkey, netuid ) -> alpha
-        let old_alpha_values: Vec<((T::AccountId, u16), U64F64)> =
+        let old_alpha_values: Vec<((<T as frame_system::Config>::AccountId, u16), U64F64)> =
             Alpha::<T>::iter_prefix((old_hotkey,)).collect();
         // Clear the entire old prefix here.
         let _ = Alpha::<T>::clear_prefix((old_hotkey,), old_alpha_values.len() as u32, None);
@@ -344,7 +344,7 @@ impl<T: Config> Pallet<T> {
         // ChildKeys( parent, netuid ) --> Vec<(proportion,child)> -- the child keys of the parent.
         for netuid in Self::get_all_subnet_netuids() {
             // Get the children of the old hotkey for this subnet
-            let my_children: Vec<(u64, T::AccountId)> = ChildKeys::<T>::get(old_hotkey, netuid);
+            let my_children: Vec<(u64, <T as frame_system::Config>::AccountId)> = ChildKeys::<T>::get(old_hotkey, netuid);
             // Remove the old hotkey's child entries
             ChildKeys::<T>::remove(old_hotkey, netuid);
             // Insert the same child entries for the new hotkey
@@ -352,7 +352,7 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
             for (_, child_key_i) in my_children {
                 // For each child, update their parent list
-                let mut child_parents: Vec<(u64, T::AccountId)> =
+                let mut child_parents: Vec<(u64, <T as frame_system::Config>::AccountId)> =
                     ParentKeys::<T>::get(child_key_i.clone(), netuid);
                 for parent in child_parents.iter_mut() {
                     // If the parent is the old hotkey, replace it with the new hotkey
@@ -370,7 +370,7 @@ impl<T: Config> Pallet<T> {
         // ParentKeys( child, netuid ) --> Vec<(proportion,parent)> -- the parent keys of the child.
         for netuid in Self::get_all_subnet_netuids() {
             // Get the parents of the old hotkey for this subnet
-            let parents: Vec<(u64, T::AccountId)> = ParentKeys::<T>::get(old_hotkey, netuid);
+            let parents: Vec<(u64, <T as frame_system::Config>::AccountId)> = ParentKeys::<T>::get(old_hotkey, netuid);
             // Remove the old hotkey's parent entries
             ParentKeys::<T>::remove(old_hotkey, netuid);
             // Insert the same parent entries for the new hotkey
@@ -378,7 +378,7 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
             for (_, parent_key_i) in parents {
                 // For each parent, update their children list
-                let mut parent_children: Vec<(u64, T::AccountId)> =
+                let mut parent_children: Vec<(u64, <T as frame_system::Config>::AccountId)> =
                     ChildKeys::<T>::get(parent_key_i.clone(), netuid);
                 for child in parent_children.iter_mut() {
                     // If the child is the old hotkey, replace it with the new hotkey
@@ -439,8 +439,8 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn swap_senate_member(
-        old_hotkey: &T::AccountId,
-        new_hotkey: &T::AccountId,
+        old_hotkey: &<T as frame_system::Config>::AccountId,
+        new_hotkey: &<T as frame_system::Config>::AccountId,
         weight: &mut Weight,
     ) -> DispatchResult {
         weight.saturating_accrue(T::DbWeight::get().reads(1));

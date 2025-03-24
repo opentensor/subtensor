@@ -127,7 +127,7 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn do_register_network(
         origin: T::RuntimeOrigin,
-        hotkey: &T::AccountId,
+        hotkey: &<T as frame_system::Config>::AccountId,
         mechid: u16,
         identity: Option<SubnetIdentityOfV2>,
     ) -> DispatchResult {

@@ -7,7 +7,7 @@ impl<T: Config> Pallet<T> {
     /// * 'origin': (<T as frame_system::Config>::RuntimeOrigin):
     ///     - The signature of the caller's coldkey.
     ///
-    /// * 'hotkey' (T::AccountId):
+    /// * 'hotkey' (<T as frame_system::Config>::AccountId):
     ///     - The hotkey we are delegating (must be owned by the coldkey.)
     ///
     /// * 'take' (u16):
@@ -29,7 +29,7 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn do_decrease_take(
         origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
+        hotkey: <T as frame_system::Config>::AccountId,
         take: u16,
     ) -> dispatch::DispatchResult {
         // --- 1. We check the coldkey signature.

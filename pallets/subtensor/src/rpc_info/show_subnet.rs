@@ -50,7 +50,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     ///
     /// * `Vec<Vec<Compact<u64>>>` - A vector of vectors containing the emission history for each hotkey across all subnets.
-    pub fn get_emissions_history(hotkeys: Vec<T::AccountId>) -> Vec<Vec<Compact<u64>>> {
+    pub fn get_emissions_history(hotkeys: Vec<<T as frame_system::Config>::AccountId>) -> Vec<Vec<Compact<u64>>> {
         let mut result: Vec<Vec<Compact<u64>>> = vec![];
         for netuid in Self::get_all_subnet_netuids() {
             let mut hotkeys_emissions: Vec<Compact<u64>> = vec![];
@@ -77,15 +77,15 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     ///
-    /// * `Option<SubnetState<T::AccountId>>` - An optional `SubnetState` struct containing the collected data for the subnet.
+    /// * `Option<SubnetState<<T as frame_system::Config>::AccountId>>` - An optional `SubnetState` struct containing the collected data for the subnet.
     ///   Returns `None` if the subnet does not exist.
-    pub fn get_subnet_state(netuid: u16) -> Option<SubnetState<T::AccountId>> {
+    pub fn get_subnet_state(netuid: u16) -> Option<SubnetState<<T as frame_system::Config>::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }
         let n: u16 = Self::get_subnetwork_n(netuid);
-        let mut hotkeys: Vec<T::AccountId> = vec![];
-        let mut coldkeys: Vec<T::AccountId> = vec![];
+        let mut hotkeys: Vec<<T as frame_system::Config>::AccountId> = vec![];
+        let mut coldkeys: Vec<<T as frame_system::Config>::AccountId> = vec![];
         let mut block_at_registration: Vec<Compact<u64>> = vec![];
         // let mut identities: Vec<ChainIdentityOf> = vec![];
         for uid in 0..n {

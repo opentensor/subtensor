@@ -35,9 +35,9 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn do_schedule_children(
         origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
+        hotkey: <T as frame_system::Config>::AccountId,
         netuid: u16,
-        children: Vec<(u64, T::AccountId)>,
+        children: Vec<(u64, <T as frame_system::Config>::AccountId)>,
     ) -> DispatchResult {
         // Check that the caller has signed the transaction. (the coldkey of the pairing)
         let coldkey = ensure_signed(origin)?;
@@ -178,17 +178,17 @@ impl<T: Config> Pallet<T> {
             |(hotkey, (children, cool_down_block))| {
                 if cool_down_block < current_block {
                     // Erase myself from old children's parents.
-                    let old_children: Vec<(u64, T::AccountId)> =
+                    let old_children: Vec<(u64, <T as frame_system::Config>::AccountId)> =
                         ChildKeys::<T>::get(hotkey.clone(), netuid);
 
                     // Iterate over all my old children and remove myself from their parent's map.
                     for (_, old_child_i) in old_children.clone().iter() {
                         // Get the old child's parents on this network.
-                        let my_old_child_parents: Vec<(u64, T::AccountId)> =
+                        let my_old_child_parents: Vec<(u64, <T as frame_system::Config>::AccountId)> =
                             ParentKeys::<T>::get(old_child_i.clone(), netuid);
 
                         // Filter my hotkey from my old children's parents list.
-                        let filtered_parents: Vec<(u64, T::AccountId)> = my_old_child_parents
+                        let filtered_parents: Vec<(u64, <T as frame_system::Config>::AccountId)> = my_old_child_parents
                             .into_iter()
                             .filter(|(_, parent)| *parent != hotkey)
                             .collect();
@@ -203,7 +203,7 @@ impl<T: Config> Pallet<T> {
                     // Update the parents list for my new children.
                     for (proportion, new_child_i) in children.clone().iter() {
                         // Get the child's parents on this network.
-                        let mut new_child_previous_parents: Vec<(u64, T::AccountId)> =
+                        let mut new_child_previous_parents: Vec<(u64, <T as frame_system::Config>::AccountId)> =
                             ParentKeys::<T>::get(new_child_i.clone(), netuid);
 
                         // Append my hotkey and proportion to my new child's parents list.
@@ -245,13 +245,13 @@ impl<T: Config> Pallet<T> {
     /// * `netuid` - The network identifier.
     ///
     /// # Returns
-    /// * `Vec<(u64, T::AccountId)>` - A vector of tuples containing the proportion and child account ID.
+    /// * `Vec<(u64, <T as frame_system::Config>::AccountId)>` - A vector of tuples containing the proportion and child account ID.
     ///
     /// # Example
     /// ```
     /// let children = SubtensorModule::get_children(&hotkey, netuid);
      */
-    pub fn get_children(hotkey: &T::AccountId, netuid: u16) -> Vec<(u64, T::AccountId)> {
+    pub fn get_children(hotkey: &<T as frame_system::Config>::AccountId, netuid: u16) -> Vec<(u64, <T as frame_system::Config>::AccountId)> {
         ChildKeys::<T>::get(hotkey, netuid)
     }
 
@@ -262,13 +262,13 @@ impl<T: Config> Pallet<T> {
     /// * `netuid` - The network identifier.
     ///
     /// # Returns
-    /// * `Vec<(u64, T::AccountId)>` - A vector of tuples containing the proportion and parent account ID.
+    /// * `Vec<(u64, <T as frame_system::Config>::AccountId)>` - A vector of tuples containing the proportion and parent account ID.
     ///
     /// # Example
     /// ```
     /// let parents = SubtensorModule::get_parents(&child, netuid);
      */
-    pub fn get_parents(child: &T::AccountId, netuid: u16) -> Vec<(u64, T::AccountId)> {
+    pub fn get_parents(child: &<T as frame_system::Config>::AccountId, netuid: u16) -> Vec<(u64, <T as frame_system::Config>::AccountId)> {
         ParentKeys::<T>::get(child, netuid)
     }
 
@@ -279,10 +279,10 @@ impl<T: Config> Pallet<T> {
     /// when distributing stake to its children.
     ///
     /// # Arguments:
-    /// * `coldkey` (T::AccountId):
+    /// * `coldkey` (<T as frame_system::Config>::AccountId):
     ///     - The coldkey that owns the hotkey.
     ///
-    /// * `hotkey` (T::AccountId):
+    /// * `hotkey` (<T as frame_system::Config>::AccountId):
     ///     - The hotkey for which the childkey take will be set.
     ///
     /// * `take` (u16):
@@ -300,8 +300,8 @@ impl<T: Config> Pallet<T> {
     /// * `TxChildkeyTakeRateLimitExceeded`:
     ///     - The rate limit for changing childkey take has been exceeded.
     pub fn do_set_childkey_take(
-        coldkey: T::AccountId,
-        hotkey: T::AccountId,
+        coldkey: <T as frame_system::Config>::AccountId,
+        hotkey: <T as frame_system::Config>::AccountId,
         netuid: u16,
         take: u16,
     ) -> DispatchResult {
@@ -363,13 +363,13 @@ impl<T: Config> Pallet<T> {
     /// If no specific take value has been set, it returns the default childkey take.
     ///
     /// # Arguments:
-    /// * `hotkey` (&T::AccountId):
+    /// * `hotkey` (&<T as frame_system::Config>::AccountId):
     ///     - The hotkey for which to retrieve the childkey take.
     ///
     /// # Returns:
     /// * `u16` - The childkey take value. This is a percentage represented as a value between 0 and 10000,
     ///           where 10000 represents 100%.
-    pub fn get_childkey_take(hotkey: &T::AccountId, netuid: u16) -> u16 {
+    pub fn get_childkey_take(hotkey: &<T as frame_system::Config>::AccountId, netuid: u16) -> u16 {
         ChildkeyTake::<T>::get(hotkey, netuid)
     }
 }

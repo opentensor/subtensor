@@ -70,12 +70,12 @@ pub mod pallet {
         /// Emitted when a user registers an identity
         IdentitySet {
             /// The account that registered the identity
-            who: T::AccountId,
+            who: <T as frame_system::Config>::AccountId,
         },
         /// Emitted when a user dissolves an identity
         IdentityDissolved {
             /// The account that dissolved the identity
-            who: T::AccountId,
+            who: <T as frame_system::Config>::AccountId,
         },
     }
 
@@ -102,7 +102,7 @@ pub mod pallet {
     pub(super) type IdentityOf<T: Config> = StorageMap<
         _,
         Twox64Concat,
-        T::AccountId,
+        <T as frame_system::Config>::AccountId,
         Registration<BalanceOf<T>, T::MaxAdditionalFields>,
         OptionQuery,
     >;
@@ -117,7 +117,7 @@ pub mod pallet {
 		))]
         pub fn set_identity(
             origin: OriginFor<T>,
-            identified: T::AccountId,
+            identified: <T as frame_system::Config>::AccountId,
             info: Box<IdentityInfo<T::MaxAdditionalFields>>,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
@@ -176,7 +176,7 @@ pub mod pallet {
         #[pallet::weight(T::WeightInfo::clear_identity())]
         pub fn clear_identity(
             origin: OriginFor<T>,
-            identified: T::AccountId,
+            identified: <T as frame_system::Config>::AccountId,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 

@@ -49,7 +49,7 @@ benchmarks_instance_pallet! {
         // We compute the difference of old and new members, so it should influence timing.
         let mut old_members = vec![];
         for i in 0 .. m {
-            let old_member = account::<T::AccountId>("old member", i, SEED);
+            let old_member = account::<<T as frame_system::Config>::AccountId>("old member", i, SEED);
             old_members.push(old_member);
         }
         let old_members_count = old_members.len() as u32;
@@ -97,7 +97,7 @@ benchmarks_instance_pallet! {
         // It should influence timing since it will sort this vector.
         let mut new_members = vec![];
         for i in 0 .. n {
-            let member = account::<T::AccountId>("member", i, SEED);
+            let member = account::<<T as frame_system::Config>::AccountId>("member", i, SEED);
             new_members.push(member);
         }
 
@@ -116,11 +116,11 @@ benchmarks_instance_pallet! {
         // Construct `members`.
         let mut members = vec![];
         for i in 0 .. m - 1 {
-            let member = account::<T::AccountId>("member", i, SEED);
+            let member = account::<<T as frame_system::Config>::AccountId>("member", i, SEED);
             members.push(member);
         }
 
-        let caller: T::AccountId = whitelisted_caller();
+        let caller: <T as frame_system::Config>::AccountId = whitelisted_caller();
         members.push(caller.clone());
 
         Collective::<T, I>::set_members(SystemOrigin::Root.into(), members, None, T::MaxMembers::get())?;
@@ -147,10 +147,10 @@ benchmarks_instance_pallet! {
         // Construct `members`.
         let mut members = vec![];
         for i in 0 .. m - 1 {
-            let member = account::<T::AccountId>("member", i, SEED);
+            let member = account::<<T as frame_system::Config>::AccountId>("member", i, SEED);
             members.push(member);
         }
-        let caller: T::AccountId = whitelisted_caller();
+        let caller: <T as frame_system::Config>::AccountId = whitelisted_caller();
         members.push(caller.clone());
         Collective::<T, I>::set_members(SystemOrigin::Root.into(), members, None, T::MaxMembers::get())?;
 
@@ -189,13 +189,13 @@ benchmarks_instance_pallet! {
 
         // Construct `members`.
         let mut members = vec![];
-        let proposer: T::AccountId = account::<T::AccountId>("proposer", 0, SEED);
+        let proposer: <T as frame_system::Config>::AccountId = account::<<T as frame_system::Config>::AccountId>("proposer", 0, SEED);
         members.push(proposer.clone());
         for i in 1 .. m - 1 {
-            let member = account::<T::AccountId>("member", i, SEED);
+            let member = account::<<T as frame_system::Config>::AccountId>("member", i, SEED);
             members.push(member);
         }
-        let voter: T::AccountId = account::<T::AccountId>("voter", 0, SEED);
+        let voter: <T as frame_system::Config>::AccountId = account::<<T as frame_system::Config>::AccountId>("voter", 0, SEED);
         members.push(voter.clone());
         Collective::<T, I>::set_members(SystemOrigin::Root.into(), members.clone(), None, T::MaxMembers::get())?;
 
@@ -264,13 +264,13 @@ benchmarks_instance_pallet! {
 
         // Construct `members`.
         let mut members = vec![];
-        let proposer = account::<T::AccountId>("proposer", 0, SEED);
+        let proposer = account::<<T as frame_system::Config>::AccountId>("proposer", 0, SEED);
         members.push(proposer.clone());
         for i in 1 .. m - 1 {
-            let member = account::<T::AccountId>("member", i, SEED);
+            let member = account::<<T as frame_system::Config>::AccountId>("member", i, SEED);
             members.push(member);
         }
-        let voter = account::<T::AccountId>("voter", 0, SEED);
+        let voter = account::<<T as frame_system::Config>::AccountId>("voter", 0, SEED);
         members.push(voter.clone());
         Collective::<T, I>::set_members(SystemOrigin::Root.into(), members.clone(), None, T::MaxMembers::get())?;
 
@@ -333,10 +333,10 @@ benchmarks_instance_pallet! {
         // Construct `members`.
         let mut members = vec![];
         for i in 0 .. m - 1 {
-            let member = account::<T::AccountId>("member", i, SEED);
+            let member = account::<<T as frame_system::Config>::AccountId>("member", i, SEED);
             members.push(member);
         }
-        let caller: T::AccountId = whitelisted_caller();
+        let caller: <T as frame_system::Config>::AccountId = whitelisted_caller();
         members.push(caller.clone());
         Collective::<T, I>::set_members(SystemOrigin::Root.into(), members.clone(), None, T::MaxMembers::get())?;
 
@@ -411,10 +411,10 @@ benchmarks_instance_pallet! {
         // Construct `members`.
         let mut members = vec![];
         for i in 0 .. m - 1 {
-            let member = account::<T::AccountId>("member", i, SEED);
+            let member = account::<<T as frame_system::Config>::AccountId>("member", i, SEED);
             members.push(member);
         }
-        let caller: T::AccountId = whitelisted_caller();
+        let caller: <T as frame_system::Config>::AccountId = whitelisted_caller();
         members.push(caller.clone());
         Collective::<T, I>::set_members(
             SystemOrigin::Root.into(),
@@ -490,10 +490,10 @@ benchmarks_instance_pallet! {
         // Construct `members`.
         let mut members = vec![];
         for i in 0 .. m - 1 {
-            let member = account::<T::AccountId>("member", i, SEED);
+            let member = account::<<T as frame_system::Config>::AccountId>("member", i, SEED);
             members.push(member);
         }
-        let caller: T::AccountId = whitelisted_caller();
+        let caller: <T as frame_system::Config>::AccountId = whitelisted_caller();
         members.push(caller.clone());
         Collective::<T, I>::set_members(
             SystemOrigin::Root.into(),
@@ -558,10 +558,10 @@ benchmarks_instance_pallet! {
         // Construct `members`.
         let mut members = vec![];
         for i in 0 .. m - 1 {
-            let member = account::<T::AccountId>("member", i, SEED);
+            let member = account::<<T as frame_system::Config>::AccountId>("member", i, SEED);
             members.push(member);
         }
-        let caller = account::<T::AccountId>("caller", 0, SEED);
+        let caller = account::<<T as frame_system::Config>::AccountId>("caller", 0, SEED);
         members.push(caller.clone());
         Collective::<T, I>::set_members(
             SystemOrigin::Root.into(),

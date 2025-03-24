@@ -48,7 +48,7 @@ impl<T: Config> SignedExtension for CheckNonce<T>
 where
     T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 {
-    type AccountId = T::AccountId;
+    type AccountId = <T as frame_system::Config>::AccountId;
     type Call = T::RuntimeCall;
     type AdditionalSigned = ();
     type Pre = ();

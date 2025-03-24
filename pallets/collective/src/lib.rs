@@ -234,7 +234,7 @@ pub mod pallet {
         /// The phantom just for type place holder.
         pub phantom: PhantomData<I>,
         /// The initial members of the collective.
-        pub members: Vec<T::AccountId>,
+        pub members: Vec<<T as frame_system::Config>::AccountId>,
     }
 
     impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
@@ -281,7 +281,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn voting)]
     pub type Voting<T: Config<I>, I: 'static = ()> =
-        StorageMap<_, Identity, T::Hash, Votes<T::AccountId, BlockNumberFor<T>>, OptionQuery>;
+        StorageMap<_, Identity, T::Hash, Votes<<T as frame_system::Config>::AccountId, BlockNumberFor<T>>, OptionQuery>;
 
     /// Proposals so far.
     #[pallet::storage]
@@ -292,12 +292,12 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn members)]
     pub type Members<T: Config<I>, I: 'static = ()> =
-        StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+        StorageValue<_, Vec<<T as frame_system::Config>::AccountId>, ValueQuery>;
 
     /// The prime member that helps determine the default vote behavior in case of absentations.
     #[pallet::storage]
     #[pallet::getter(fn prime)]
-    pub type Prime<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AccountId, OptionQuery>;
+    pub type Prime<T: Config<I>, I: 'static = ()> = StorageValue<_, <T as frame_system::Config>::AccountId, OptionQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -306,7 +306,7 @@ pub mod pallet {
         /// `MemberCount`).
         Proposed {
             /// The account that proposed the motion.
-            account: T::AccountId,
+            account: <T as frame_system::Config>::AccountId,
             /// The index of the proposal.
             proposal_index: ProposalIndex,
             /// The hash of the proposal.
@@ -318,7 +318,7 @@ pub mod pallet {
         /// a tally (yes votes and no votes given respectively as `MemberCount`).
         Voted {
             /// The account that voted.
-            account: T::AccountId,
+            account: <T as frame_system::Config>::AccountId,
             /// The hash of the proposal.
             proposal_hash: T::Hash,
             /// Whether the account voted aye.
@@ -425,8 +425,8 @@ pub mod pallet {
 		))]
         pub fn set_members(
             origin: OriginFor<T>,
-            new_members: Vec<T::AccountId>,
-            prime: Option<T::AccountId>,
+            new_members: Vec<<T as frame_system::Config>::AccountId>,
+            prime: Option<<T as frame_system::Config>::AccountId>,
             old_count: MemberCount,
         ) -> DispatchResultWithPostInfo {
             T::SetMembersOrigin::ensure_origin(origin)?;
@@ -450,7 +450,7 @@ pub mod pallet {
             }
             let mut new_members = new_members;
             new_members.sort();
-            <Self as ChangeMembers<T::AccountId>>::set_members_sorted(&new_members, &old);
+            <Self as ChangeMembers<<T as frame_system::Config>::AccountId>>::set_members_sorted(&new_members, &old);
             Prime::<T, I>::set(prime);
 
             Ok(Some(T::WeightInfo::set_members(
@@ -687,7 +687,7 @@ fn get_result_weight(result: DispatchResultWithPostInfo) -> Option<Weight> {
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
     /// Check whether `who` is a member of the collective.
-    pub fn is_member(who: &T::AccountId) -> bool {
+    pub fn is_member(who: &<T as frame_system::Config>::AccountId) -> bool {
         // Note: The dispatchables *do not* use this to check membership so make sure
         // to update those if this is changed.
         Self::members().contains(who)
@@ -695,7 +695,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
     /// Add a new proposal to be voted.
     pub fn do_propose_proposed(
-        who: T::AccountId,
+        who: <T as frame_system::Config>::AccountId,
         threshold: MemberCount,
         proposal: Box<<T as Config<I>>::Proposal>,
         length_bound: MemberCount,
@@ -753,7 +753,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     /// Add an aye or nay vote for the member to the given proposal, returns true if it's the first
     /// vote of the member in the motion
     pub fn do_vote(
-        who: T::AccountId,
+        who: <T as frame_system::Config>::AccountId,
         proposal: T::Hash,
         index: ProposalIndex,
         approve: bool,
@@ -997,7 +997,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         num_proposals as u32
     }
 
-    pub fn remove_votes(who: &T::AccountId) -> Result<bool, DispatchError> {
+    pub fn remove_votes(who: &<T as frame_system::Config>::AccountId) -> Result<bool, DispatchError> {
         for h in Self::proposals().into_iter() {
             <Voting<T, I>>::mutate(h, |v| {
                 if let Some(mut votes) = v.take() {
@@ -1014,7 +1014,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     pub fn has_voted(
         proposal: T::Hash,
         index: ProposalIndex,
-        who: &T::AccountId,
+        who: &<T as frame_system::Config>::AccountId,
     ) -> Result<bool, DispatchError> {
         let voting = Self::voting(proposal).ok_or(Error::<T, I>::ProposalNotExists)?;
         ensure!(
@@ -1029,7 +1029,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     }
 }
 
-impl<T: Config<I>, I: 'static> ChangeMembers<T::AccountId> for Pallet<T, I> {
+impl<T: Config<I>, I: 'static> ChangeMembers<<T as frame_system::Config>::AccountId> for Pallet<T, I> {
     /// Update the members of the collective. Votes are updated and the prime is reset.
     ///
     /// NOTE: Does not enforce the expected `MaxMembers` limit on the amount of members, but
@@ -1041,9 +1041,9 @@ impl<T: Config<I>, I: 'static> ChangeMembers<T::AccountId> for Pallet<T, I> {
     ///   - where `N` new-members-count (governance-bounded)
     ///   - where `P` proposals-count
     fn change_members_sorted(
-        _incoming: &[T::AccountId],
-        outgoing: &[T::AccountId],
-        new: &[T::AccountId],
+        _incoming: &[<T as frame_system::Config>::AccountId],
+        outgoing: &[<T as frame_system::Config>::AccountId],
+        new: &[<T as frame_system::Config>::AccountId],
     ) {
         if new.len() > T::MaxMembers::get() as usize {
             log::error!(
@@ -1069,17 +1069,17 @@ impl<T: Config<I>, I: 'static> ChangeMembers<T::AccountId> for Pallet<T, I> {
         Prime::<T, I>::kill();
     }
 
-    fn set_prime(prime: Option<T::AccountId>) {
+    fn set_prime(prime: Option<<T as frame_system::Config>::AccountId>) {
         Prime::<T, I>::set(prime);
     }
 
-    fn get_prime() -> Option<T::AccountId> {
+    fn get_prime() -> Option<<T as frame_system::Config>::AccountId> {
         Prime::<T, I>::get()
     }
 }
 
-impl<T: Config<I>, I: 'static> InitializeMembers<T::AccountId> for Pallet<T, I> {
-    fn initialize_members(members: &[T::AccountId]) {
+impl<T: Config<I>, I: 'static> InitializeMembers<<T as frame_system::Config>::AccountId> for Pallet<T, I> {
+    fn initialize_members(members: &[<T as frame_system::Config>::AccountId]) {
         if !members.is_empty() {
             assert!(
                 <Members<T, I>>::get().is_empty(),

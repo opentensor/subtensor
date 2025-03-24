@@ -52,9 +52,9 @@ impl<T: Config> Pallet<T> {
     fn get_delegate_by_existing_account(
         delegate: AccountIdOf<T>,
         skip_nominators: bool,
-    ) -> DelegateInfo<T::AccountId> {
-        let mut nominators = Vec::<(T::AccountId, Vec<(Compact<u16>, Compact<u64>)>)>::new();
-        let mut nominator_map = BTreeMap::<T::AccountId, Vec<(Compact<u16>, Compact<u64>)>>::new();
+    ) -> DelegateInfo<<T as frame_system::Config>::AccountId> {
+        let mut nominators = Vec::<(<T as frame_system::Config>::AccountId, Vec<(Compact<u16>, Compact<u64>)>)>::new();
+        let mut nominator_map = BTreeMap::<<T as frame_system::Config>::AccountId, Vec<(Compact<u16>, Compact<u64>)>>::new();
 
         if !skip_nominators {
             let mut alpha_share_pools = vec![];
@@ -125,7 +125,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn get_delegate(delegate: T::AccountId) -> Option<DelegateInfo<T::AccountId>> {
+    pub fn get_delegate(delegate: <T as frame_system::Config>::AccountId) -> Option<DelegateInfo<<T as frame_system::Config>::AccountId>> {
         // Check delegate exists
         if !<Delegates<T>>::contains_key(delegate.clone()) {
             return None;
@@ -137,9 +137,9 @@ impl<T: Config> Pallet<T> {
 
     /// get all delegates info from storage
     ///
-    pub fn get_delegates() -> Vec<DelegateInfo<T::AccountId>> {
-        let mut delegates = Vec::<DelegateInfo<T::AccountId>>::new();
-        for delegate in <Delegates<T> as IterableStorageMap<T::AccountId, u16>>::iter_keys() {
+    pub fn get_delegates() -> Vec<DelegateInfo<<T as frame_system::Config>::AccountId>> {
+        let mut delegates = Vec::<DelegateInfo<<T as frame_system::Config>::AccountId>>::new();
+        for delegate in <Delegates<T> as IterableStorageMap<<T as frame_system::Config>::AccountId, u16>>::iter_keys() {
             let delegate_info = Self::get_delegate_by_existing_account(delegate.clone(), false);
             delegates.push(delegate_info);
         }
@@ -150,11 +150,11 @@ impl<T: Config> Pallet<T> {
     /// get all delegate info and staked token amount for a given delegatee account
     ///
     pub fn get_delegated(
-        delegatee: T::AccountId,
-    ) -> Vec<(DelegateInfo<T::AccountId>, (Compact<u16>, Compact<u64>))> {
-        let mut delegates: Vec<(DelegateInfo<T::AccountId>, (Compact<u16>, Compact<u64>))> =
+        delegatee: <T as frame_system::Config>::AccountId,
+    ) -> Vec<(DelegateInfo<<T as frame_system::Config>::AccountId>, (Compact<u16>, Compact<u64>))> {
+        let mut delegates: Vec<(DelegateInfo<<T as frame_system::Config>::AccountId>, (Compact<u16>, Compact<u64>))> =
             Vec::new();
-        for delegate in <Delegates<T> as IterableStorageMap<T::AccountId, u16>>::iter_keys() {
+        for delegate in <Delegates<T> as IterableStorageMap<<T as frame_system::Config>::AccountId, u16>>::iter_keys() {
             // Staked to this delegate, so add to list
             for (netuid, _) in Alpha::<T>::iter_prefix((delegate.clone(), delegatee.clone())) {
                 let delegate_info = Self::get_delegate_by_existing_account(delegate.clone(), true);
@@ -175,7 +175,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // Helper function to get the coldkey associated with a hotkey
-    pub fn get_coldkey_for_hotkey(hotkey: &T::AccountId) -> T::AccountId {
+    pub fn get_coldkey_for_hotkey(hotkey: &<T as frame_system::Config>::AccountId) -> <T as frame_system::Config>::AccountId {
         Owner::<T>::get(hotkey)
     }
 }

@@ -84,7 +84,7 @@ pub struct SubnetHyperparams {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn get_subnet_info(netuid: u16) -> Option<SubnetInfo<T::AccountId>> {
+    pub fn get_subnet_info(netuid: u16) -> Option<SubnetInfo<<T as frame_system::Config>::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }
@@ -131,7 +131,7 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    pub fn get_subnets_info() -> Vec<Option<SubnetInfo<T::AccountId>>> {
+    pub fn get_subnets_info() -> Vec<Option<SubnetInfo<<T as frame_system::Config>::AccountId>>> {
         let mut subnet_netuids = Vec::<u16>::new();
         let mut max_netuid: u16 = 0;
         for (netuid, added) in <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter() {
@@ -143,7 +143,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        let mut subnets_info = Vec::<Option<SubnetInfo<T::AccountId>>>::new();
+        let mut subnets_info = Vec::<Option<SubnetInfo<<T as frame_system::Config>::AccountId>>>::new();
         for netuid_ in 0..=max_netuid {
             if subnet_netuids.contains(&netuid_) {
                 subnets_info.push(Self::get_subnet_info(netuid_));
@@ -153,7 +153,7 @@ impl<T: Config> Pallet<T> {
         subnets_info
     }
 
-    pub fn get_subnet_info_v2(netuid: u16) -> Option<SubnetInfov2<T::AccountId>> {
+    pub fn get_subnet_info_v2(netuid: u16) -> Option<SubnetInfov2<<T as frame_system::Config>::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }
@@ -203,7 +203,7 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    pub fn get_subnets_info_v2() -> Vec<Option<SubnetInfov2<T::AccountId>>> {
+    pub fn get_subnets_info_v2() -> Vec<Option<SubnetInfov2<<T as frame_system::Config>::AccountId>>> {
         let mut subnet_netuids = Vec::<u16>::new();
         let mut max_netuid: u16 = 0;
         for (netuid, added) in <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter() {
@@ -215,7 +215,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        let mut subnets_info = Vec::<Option<SubnetInfov2<T::AccountId>>>::new();
+        let mut subnets_info = Vec::<Option<SubnetInfov2<<T as frame_system::Config>::AccountId>>>::new();
         for netuid_ in 0..=max_netuid {
             if subnet_netuids.contains(&netuid_) {
                 subnets_info.push(Self::get_subnet_info_v2(netuid_));

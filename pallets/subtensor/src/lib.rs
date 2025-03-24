@@ -358,8 +358,8 @@ pub mod pallet {
     }
     #[pallet::type_value]
     /// Default account, derived from zero trailing bytes.
-    pub fn DefaultAccount<T: Config>() -> T::AccountId {
-        T::AccountId::decode(&mut TrailingZeroInput::zeroes())
+    pub fn DefaultAccount<T: Config>() -> <T as frame_system::Config>::AccountId {
+        <T as frame_system::Config>::AccountId::decode(&mut TrailingZeroInput::zeroes())
             .expect("trailing zeroes always produce a valid account ID; qed")
     }
     // pub fn DefaultStakeInterval<T: Config>() -> u64 {
@@ -367,12 +367,14 @@ pub mod pallet {
     // } (DEPRECATED)
     #[pallet::type_value]
     /// Default account linkage
-    pub fn DefaultAccountLinkage<T: Config>() -> Vec<(u64, T::AccountId)> {
+    pub fn DefaultAccountLinkage<T: Config>() -> Vec<(u64, <T as frame_system::Config>::AccountId)>
+    {
         vec![]
     }
     #[pallet::type_value]
     /// Default pending childkeys
-    pub fn DefaultPendingChildkeys<T: Config>() -> (Vec<(u64, T::AccountId)>, u64) {
+    pub fn DefaultPendingChildkeys<T: Config>()
+    -> (Vec<(u64, <T as frame_system::Config>::AccountId)>, u64) {
         (vec![], 0)
     }
     #[pallet::type_value]
@@ -536,9 +538,11 @@ pub mod pallet {
     }
     #[pallet::type_value]
     /// Default value for subnet owner.
-    pub fn DefaultSubnetOwner<T: Config>() -> T::AccountId {
-        T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
-            .expect("trailing zeroes always produce a valid account ID; qed")
+    pub fn DefaultSubnetOwner<T: Config>() -> <T as frame_system::Config>::AccountId {
+        <T as frame_system::Config>::AccountId::decode(
+            &mut sp_runtime::traits::TrailingZeroInput::zeroes(),
+        )
+        .expect("trailing zeroes always produce a valid account ID; qed")
     }
     #[pallet::type_value]
     /// Default value for subnet locked.
@@ -676,10 +680,12 @@ pub mod pallet {
         vec![]
     }
     #[pallet::type_value]
-    /// Default value for key with type T::AccountId derived from trailing zeroes.
-    pub fn DefaultKey<T: Config>() -> T::AccountId {
-        T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
-            .expect("trailing zeroes always produce a valid account ID; qed")
+    /// Default value for key with type <T as frame_system::Config>::AccountId derived from trailing zeroes.
+    pub fn DefaultKey<T: Config>() -> <T as frame_system::Config>::AccountId {
+        <T as frame_system::Config>::AccountId::decode(
+            &mut sp_runtime::traits::TrailingZeroInput::zeroes(),
+        )
+        .expect("trailing zeroes always produce a valid account ID; qed")
     }
     // pub fn DefaultHotkeyEmissionTempo<T: Config>() -> u64 {
     //     T::InitialHotkeyEmissionTempo::get()
@@ -845,18 +851,30 @@ pub mod pallet {
     pub type MinChildkeyTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinChildKeyTake<T>>;
     #[pallet::storage]
     /// MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
-    pub type Owner<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
+    pub type Owner<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        <T as frame_system::Config>::AccountId,
+        <T as frame_system::Config>::AccountId,
+        ValueQuery,
+        DefaultAccount<T>,
+    >;
     #[pallet::storage]
     /// MAP ( hot ) --> take | Returns the hotkey delegation take. And signals that this key is open for delegation.
-    pub type Delegates<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, u16, ValueQuery, DefaultDelegateTake<T>>;
+    pub type Delegates<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        <T as frame_system::Config>::AccountId,
+        u16,
+        ValueQuery,
+        DefaultDelegateTake<T>,
+    >;
     #[pallet::storage]
     /// DMAP ( hot, netuid ) --> take | Returns the hotkey childkey take for a specific subnet
     pub type ChildkeyTake<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        T::AccountId, // First key: hotkey
+        <T as frame_system::Config>::AccountId, // First key: hotkey
         Identity,
         u16, // Second key: netuid
         u16, // Value: take
@@ -869,8 +887,8 @@ pub mod pallet {
         Identity,
         u16,
         Blake2_128Concat,
-        T::AccountId,
-        (Vec<(u64, T::AccountId)>, u64),
+        <T as frame_system::Config>::AccountId,
+        (Vec<(u64, <T as frame_system::Config>::AccountId)>, u64),
         ValueQuery,
         DefaultPendingChildkeys<T>,
     >;
@@ -879,10 +897,10 @@ pub mod pallet {
     pub type ChildKeys<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        T::AccountId,
+        <T as frame_system::Config>::AccountId,
         Identity,
         u16,
-        Vec<(u64, T::AccountId)>,
+        Vec<(u64, <T as frame_system::Config>::AccountId)>,
         ValueQuery,
         DefaultAccountLinkage<T>,
     >;
@@ -891,10 +909,10 @@ pub mod pallet {
     pub type ParentKeys<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        T::AccountId,
+        <T as frame_system::Config>::AccountId,
         Identity,
         u16,
-        Vec<(u64, T::AccountId)>,
+        Vec<(u64, <T as frame_system::Config>::AccountId)>,
         ValueQuery,
         DefaultAccountLinkage<T>,
     >;
@@ -904,7 +922,7 @@ pub mod pallet {
         Identity,
         u16,
         Blake2_128Concat,
-        T::AccountId,
+        <T as frame_system::Config>::AccountId,
         u64,
         ValueQuery,
         DefaultZeroU64<T>,
@@ -915,7 +933,7 @@ pub mod pallet {
         Identity,
         u16,
         Blake2_128Concat,
-        T::AccountId,
+        <T as frame_system::Config>::AccountId,
         u64,
         ValueQuery,
         DefaultZeroU64<T>,
@@ -932,7 +950,7 @@ pub mod pallet {
     pub type LastHotkeyEmissionOnNetuid<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        T::AccountId,
+        <T as frame_system::Config>::AccountId,
         Identity,
         u16,
         u64,
@@ -944,9 +962,9 @@ pub mod pallet {
     pub type LastHotkeyColdkeyEmissionOnNetuid<T: Config> = StorageNMap<
         _,
         (
-            NMapKey<Blake2_128Concat, T::AccountId>, // hot
-            NMapKey<Blake2_128Concat, T::AccountId>, // cold
-            NMapKey<Identity, u16>,                  // subnet
+            NMapKey<Blake2_128Concat, <T as frame_system::Config>::AccountId>, // hot
+            NMapKey<Blake2_128Concat, <T as frame_system::Config>::AccountId>, // cold
+            NMapKey<Identity, u16>,                                            // subnet
         ),
         u64, // Stake
         ValueQuery,
@@ -1003,21 +1021,31 @@ pub mod pallet {
     pub type SubnetAlphaOut<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
-    pub type StakingHotkeys<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
+    pub type StakingHotkeys<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        <T as frame_system::Config>::AccountId,
+        Vec<<T as frame_system::Config>::AccountId>,
+        ValueQuery,
+    >;
     #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Returns the vector of hotkeys controlled by this coldkey.
-    pub type OwnedHotkeys<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
+    pub type OwnedHotkeys<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        <T as frame_system::Config>::AccountId,
+        Vec<<T as frame_system::Config>::AccountId>,
+        ValueQuery,
+    >;
 
     #[pallet::storage] // --- DMAP ( cold ) --> () | Maps coldkey to if a coldkey swap is scheduled.
     pub type ColdkeySwapScheduled<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, (), ValueQuery>;
+        StorageMap<_, Blake2_128Concat, <T as frame_system::Config>::AccountId, (), ValueQuery>;
 
     #[pallet::storage] // --- DMAP ( hot, netuid ) --> alpha | Returns the total amount of alpha a hotkey owns.
     pub type TotalHotkeyAlpha<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        T::AccountId,
+        <T as frame_system::Config>::AccountId,
         Identity,
         u16,
         u64,
@@ -1029,7 +1057,7 @@ pub mod pallet {
     pub type TotalHotkeyShares<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        T::AccountId,
+        <T as frame_system::Config>::AccountId,
         Identity,
         u16,
         U64F64,
@@ -1040,9 +1068,9 @@ pub mod pallet {
     pub type Alpha<T: Config> = StorageNMap<
         _,
         (
-            NMapKey<Blake2_128Concat, T::AccountId>, // hot
-            NMapKey<Blake2_128Concat, T::AccountId>, // cold
-            NMapKey<Identity, u16>,                  // subnet
+            NMapKey<Blake2_128Concat, <T as frame_system::Config>::AccountId>, // hot
+            NMapKey<Blake2_128Concat, <T as frame_system::Config>::AccountId>, // cold
+            NMapKey<Identity, u16>,                                            // subnet
         ),
         U64F64, // Shares
         ValueQuery,
@@ -1147,7 +1175,7 @@ pub mod pallet {
     pub type IsNetworkMember<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        T::AccountId,
+        <T as frame_system::Config>::AccountId,
         Identity,
         u16,
         bool,
@@ -1190,12 +1218,24 @@ pub mod pallet {
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultLastMechanismStepBlock<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> subnet_owner
-    pub type SubnetOwner<T: Config> =
-        StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
+    pub type SubnetOwner<T: Config> = StorageMap<
+        _,
+        Identity,
+        u16,
+        <T as frame_system::Config>::AccountId,
+        ValueQuery,
+        DefaultSubnetOwner<T>,
+    >;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> subnet_owner_hotkey
-    pub type SubnetOwnerHotkey<T: Config> =
-        StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
+    pub type SubnetOwnerHotkey<T: Config> = StorageMap<
+        _,
+        Identity,
+        u16,
+        <T as frame_system::Config>::AccountId,
+        ValueQuery,
+        DefaultSubnetOwner<T>,
+    >;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> serving_rate_limit
     pub type ServingRateLimit<T> =
@@ -1348,16 +1388,36 @@ pub mod pallet {
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
     /// --- DMAP ( netuid, hotkey ) --> uid
-    pub type Uids<T: Config> =
-        StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, u16, OptionQuery>;
+    pub type Uids<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        u16,
+        Blake2_128Concat,
+        <T as frame_system::Config>::AccountId,
+        u16,
+        OptionQuery,
+    >;
     #[pallet::storage]
     /// --- DMAP ( netuid, uid ) --> hotkey
-    pub type Keys<T: Config> =
-        StorageDoubleMap<_, Identity, u16, Identity, u16, T::AccountId, ValueQuery, DefaultKey<T>>;
+    pub type Keys<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        u16,
+        Identity,
+        u16,
+        <T as frame_system::Config>::AccountId,
+        ValueQuery,
+        DefaultKey<T>,
+    >;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> (hotkey, se, ve)
-    pub type LoadedEmission<T: Config> =
-        StorageMap<_, Identity, u16, Vec<(T::AccountId, u64, u64)>, OptionQuery>;
+    pub type LoadedEmission<T: Config> = StorageMap<
+        _,
+        Identity,
+        u16,
+        Vec<(<T as frame_system::Config>::AccountId, u64, u64)>,
+        OptionQuery,
+    >;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> active
     pub type Active<T: Config> =
@@ -1438,8 +1498,15 @@ pub mod pallet {
     >;
     #[pallet::storage]
     /// --- MAP ( netuid, hotkey ) --> axon_info
-    pub type Axons<T: Config> =
-        StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, AxonInfoOf, OptionQuery>;
+    pub type Axons<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        u16,
+        Blake2_128Concat,
+        <T as frame_system::Config>::AccountId,
+        AxonInfoOf,
+        OptionQuery,
+    >;
     /// --- MAP ( netuid, hotkey ) --> certificate
     #[pallet::storage]
     pub type NeuronCertificates<T: Config> = StorageDoubleMap<
@@ -1447,7 +1514,7 @@ pub mod pallet {
         Identity,
         u16,
         Blake2_128Concat,
-        T::AccountId,
+        <T as frame_system::Config>::AccountId,
         NeuronCertificateOf,
         OptionQuery,
     >;
@@ -1458,17 +1525,27 @@ pub mod pallet {
         Identity,
         u16,
         Blake2_128Concat,
-        T::AccountId,
+        <T as frame_system::Config>::AccountId,
         PrometheusInfoOf,
         OptionQuery,
     >;
     #[pallet::storage] // --- MAP ( coldkey ) --> identity. (DEPRECATED for V2)
-    pub type Identities<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, ChainIdentityOf, OptionQuery>;
+    pub type Identities<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        <T as frame_system::Config>::AccountId,
+        ChainIdentityOf,
+        OptionQuery,
+    >;
 
     #[pallet::storage] // --- MAP ( coldkey ) --> identity
-    pub type IdentitiesV2<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, ChainIdentityOfV2, OptionQuery>;
+    pub type IdentitiesV2<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        <T as frame_system::Config>::AccountId,
+        ChainIdentityOfV2,
+        OptionQuery,
+    >;
 
     #[pallet::storage] // --- MAP ( netuid ) --> identity. (DEPRECATED for V2)
     pub type SubnetIdentities<T: Config> =
@@ -1485,25 +1562,43 @@ pub mod pallet {
     pub type TransactionKeyLastBlock<T: Config> = StorageNMap<
         _,
         (
-            NMapKey<Blake2_128Concat, T::AccountId>, // hot
-            NMapKey<Identity, u16>,                  // netuid
-            NMapKey<Identity, u16>,                  // extrinsic enum.
+            NMapKey<Blake2_128Concat, <T as frame_system::Config>::AccountId>, // hot
+            NMapKey<Identity, u16>,                                            // netuid
+            NMapKey<Identity, u16>,                                            // extrinsic enum.
         ),
         u64,
         ValueQuery,
     >;
     #[pallet::storage]
     /// --- MAP ( key ) --> last_block
-    pub type LastTxBlock<T: Config> =
-        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
+    pub type LastTxBlock<T: Config> = StorageMap<
+        _,
+        Identity,
+        <T as frame_system::Config>::AccountId,
+        u64,
+        ValueQuery,
+        DefaultLastTxBlock<T>,
+    >;
     #[pallet::storage]
     /// --- MAP ( key ) --> last_tx_block_childkey_take
-    pub type LastTxBlockChildKeyTake<T: Config> =
-        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
+    pub type LastTxBlockChildKeyTake<T: Config> = StorageMap<
+        _,
+        Identity,
+        <T as frame_system::Config>::AccountId,
+        u64,
+        ValueQuery,
+        DefaultLastTxBlock<T>,
+    >;
     #[pallet::storage]
     /// --- MAP ( key ) --> last_tx_block_delegate_take
-    pub type LastTxBlockDelegateTake<T: Config> =
-        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
+    pub type LastTxBlockDelegateTake<T: Config> = StorageMap<
+        _,
+        Identity,
+        <T as frame_system::Config>::AccountId,
+        u64,
+        ValueQuery,
+        DefaultLastTxBlock<T>,
+    >;
     #[pallet::storage]
     /// ITEM( weights_min_stake )
     pub type StakeThreshold<T> = StorageValue<_, u64, ValueQuery, DefaultStakeThreshold<T>>;
@@ -1514,7 +1609,7 @@ pub mod pallet {
         Twox64Concat,
         u16,
         Twox64Concat,
-        T::AccountId,
+        <T as frame_system::Config>::AccountId,
         VecDeque<(H256, u64, u64, u64)>,
         OptionQuery,
     >;
@@ -1527,7 +1622,7 @@ pub mod pallet {
         Twox64Concat,
         u64,
         VecDeque<(
-            T::AccountId,
+            <T as frame_system::Config>::AccountId,
             BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
             RoundNumber,
         )>,
@@ -1543,9 +1638,9 @@ pub mod pallet {
     pub type LastColdkeyHotkeyStakeBlock<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
-        T::AccountId,
+        <T as frame_system::Config>::AccountId,
         Twox64Concat,
-        T::AccountId,
+        <T as frame_system::Config>::AccountId,
         u64,
         OptionQuery,
     >;
@@ -1559,7 +1654,10 @@ pub mod pallet {
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         /// Stakes record in genesis.
-        pub stakes: Vec<(T::AccountId, Vec<(T::AccountId, (u64, u16))>)>,
+        pub stakes: Vec<(
+            <T as frame_system::Config>::AccountId,
+            Vec<(<T as frame_system::Config>::AccountId, (u64, u16))>,
+        )>,
         /// The total issued balance in genesis
         pub balances_issuance: u64,
     }
@@ -1576,7 +1674,10 @@ pub mod pallet {
     // ---- Subtensor helper functions.
     impl<T: Config> Pallet<T> {
         /// Returns the transaction priority for setting weights.
-        pub fn get_priority_set_weights(hotkey: &T::AccountId, netuid: u16) -> u64 {
+        pub fn get_priority_set_weights(
+            hotkey: &<T as frame_system::Config>::AccountId,
+            netuid: u16,
+        ) -> u64 {
             if let Ok(uid) = Self::get_uid_for_net_and_hotkey(netuid, hotkey) {
                 // TODO rethink this.
                 let _stake = Self::get_inherited_for_hotkey_on_subnet(hotkey, netuid);
@@ -1590,8 +1691,8 @@ pub mod pallet {
 
         /// Returns the transaction priority for stake operations.
         pub fn get_priority_staking(
-            coldkey: &T::AccountId,
-            hotkey: &T::AccountId,
+            coldkey: &<T as frame_system::Config>::AccountId,
+            hotkey: &<T as frame_system::Config>::AccountId,
             stake_amount: u64,
         ) -> u64 {
             match LastColdkeyHotkeyStakeBlock::<T>::get(coldkey, hotkey) {
@@ -1608,7 +1709,10 @@ pub mod pallet {
         }
 
         /// Is the caller allowed to set weights
-        pub fn check_weights_min_stake(hotkey: &T::AccountId, netuid: u16) -> bool {
+        pub fn check_weights_min_stake(
+            hotkey: &<T as frame_system::Config>::AccountId,
+            netuid: u16,
+        ) -> bool {
             // Blacklist weights transactions for low stake peers.
             let (total_stake, _, _) = Self::get_stake_weights_for_hotkey_on_subnet(hotkey, netuid);
             total_stake >= Self::get_stake_threshold()
@@ -1728,19 +1832,25 @@ where
         u64::MAX
     }
 
-    pub fn get_priority_set_weights(who: &T::AccountId, netuid: u16) -> u64 {
+    pub fn get_priority_set_weights(
+        who: &<T as frame_system::Config>::AccountId,
+        netuid: u16,
+    ) -> u64 {
         Pallet::<T>::get_priority_set_weights(who, netuid)
     }
 
     pub fn get_priority_staking(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
+        coldkey: &<T as frame_system::Config>::AccountId,
+        hotkey: &<T as frame_system::Config>::AccountId,
         stake_amount: u64,
     ) -> u64 {
         Pallet::<T>::get_priority_staking(coldkey, hotkey, stake_amount)
     }
 
-    pub fn check_weights_min_stake(who: &T::AccountId, netuid: u16) -> bool {
+    pub fn check_weights_min_stake(
+        who: &<T as frame_system::Config>::AccountId,
+        netuid: u16,
+    ) -> bool {
         Pallet::<T>::check_weights_min_stake(who, netuid)
     }
 
@@ -1824,7 +1934,7 @@ where
 {
     const IDENTIFIER: &'static str = "SubtensorSignedExtension";
 
-    type AccountId = T::AccountId;
+    type AccountId = <T as frame_system::Config>::AccountId;
     type Call = <T as frame_system::Config>::RuntimeCall;
     type AdditionalSigned = ();
     type Pre = (CallType, u64, Self::AccountId);

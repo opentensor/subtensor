@@ -8,7 +8,7 @@ impl<T: Config> Pallet<T> {
     /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
     ///     -  The signature of the caller's coldkey.
     ///
-    /// * 'hotkey' (T::AccountId):
+    /// * 'hotkey' (<T as frame_system::Config>::AccountId):
     ///     -  The associated hotkey account.
     ///
     /// * 'stake_to_be_added' (u64):
@@ -33,11 +33,11 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn do_remove_stake(
         origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
+        hotkey: <T as frame_system::Config>::AccountId,
         netuid: u16,
         alpha_unstaked: u64,
     ) -> dispatch::DispatchResult {
-        // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
+        // 1. We check the transaction is signed by the caller and retrieve the <T as frame_system::Config>::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::debug!(
             "do_remove_stake( origin:{:?} hotkey:{:?}, netuid: {:?}, alpha_unstaked:{:?} )",
@@ -91,7 +91,7 @@ impl<T: Config> Pallet<T> {
     /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
     ///     -  The signature of the caller's coldkey.
     ///
-    /// * 'hotkey' (T::AccountId):
+    /// * 'hotkey' (<T as frame_system::Config>::AccountId):
     ///     -  The associated hotkey account.
     ///
     /// # Event:
@@ -113,9 +113,9 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn do_unstake_all(
         origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
+        hotkey: <T as frame_system::Config>::AccountId,
     ) -> dispatch::DispatchResult {
-        // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
+        // 1. We check the transaction is signed by the caller and retrieve the <T as frame_system::Config>::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::debug!("do_unstake_all( origin:{:?} hotkey:{:?} )", coldkey, hotkey);
 
@@ -165,7 +165,7 @@ impl<T: Config> Pallet<T> {
     /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
     ///     -  The signature of the caller's coldkey.
     ///
-    /// * 'hotkey' (T::AccountId):
+    /// * 'hotkey' (<T as frame_system::Config>::AccountId):
     ///     -  The associated hotkey account.
     ///
     /// # Event:
@@ -187,9 +187,9 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn do_unstake_all_alpha(
         origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
+        hotkey: <T as frame_system::Config>::AccountId,
     ) -> dispatch::DispatchResult {
-        // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
+        // 1. We check the transaction is signed by the caller and retrieve the <T as frame_system::Config>::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::debug!("do_unstake_all( origin:{:?} hotkey:{:?} )", coldkey, hotkey);
 
@@ -257,7 +257,7 @@ impl<T: Config> Pallet<T> {
     /// * 'origin': (<T as frame_system::Config>Origin):
     ///     - The signature of the caller's coldkey.
     ///
-    /// * 'hotkey' (T::AccountId):
+    /// * 'hotkey' (<T as frame_system::Config>::AccountId):
     ///     - The associated hotkey account.
     ///
     /// * 'amount_unstaked' (u64):
@@ -286,13 +286,13 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn do_remove_stake_limit(
         origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
+        hotkey: <T as frame_system::Config>::AccountId,
         netuid: u16,
         alpha_unstaked: u64,
         limit_price: u64,
         allow_partial: bool,
     ) -> dispatch::DispatchResult {
-        // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
+        // 1. We check the transaction is signed by the caller and retrieve the <T as frame_system::Config>::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::debug!(
             "do_remove_stake( origin:{:?} hotkey:{:?}, netuid: {:?}, alpha_unstaked:{:?} )",

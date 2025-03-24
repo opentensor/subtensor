@@ -541,28 +541,28 @@ pub mod pallet {
         /// A pure account has been created by new proxy with given
         /// disambiguation index and proxy type.
         PureCreated {
-            pure: T::AccountId,
-            who: T::AccountId,
+            pure: <T as frame_system::Config>::AccountId,
+            who: <T as frame_system::Config>::AccountId,
             proxy_type: T::ProxyType,
             disambiguation_index: u16,
         },
         /// An announcement was placed to make a call in the future.
         Announced {
-            real: T::AccountId,
-            proxy: T::AccountId,
+            real: <T as frame_system::Config>::AccountId,
+            proxy: <T as frame_system::Config>::AccountId,
             call_hash: CallHashOf<T>,
         },
         /// A proxy was added.
         ProxyAdded {
-            delegator: T::AccountId,
-            delegatee: T::AccountId,
+            delegator: <T as frame_system::Config>::AccountId,
+            delegatee: <T as frame_system::Config>::AccountId,
             proxy_type: T::ProxyType,
             delay: BlockNumberFor<T>,
         },
         /// A proxy was removed.
         ProxyRemoved {
-            delegator: T::AccountId,
-            delegatee: T::AccountId,
+            delegator: <T as frame_system::Config>::AccountId,
+            delegatee: <T as frame_system::Config>::AccountId,
             proxy_type: T::ProxyType,
             delay: BlockNumberFor<T>,
         },
@@ -594,10 +594,10 @@ pub mod pallet {
     pub type Proxies<T: Config> = StorageMap<
         _,
         Twox64Concat,
-        T::AccountId,
+        <T as frame_system::Config>::AccountId,
         (
             BoundedVec<
-                ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>,
+                ProxyDefinition<<T as frame_system::Config>::AccountId, T::ProxyType, BlockNumberFor<T>>,
                 T::MaxProxies,
             >,
             BalanceOf<T>,
@@ -610,9 +610,9 @@ pub mod pallet {
     pub type Announcements<T: Config> = StorageMap<
         _,
         Twox64Concat,
-        T::AccountId,
+        <T as frame_system::Config>::AccountId,
         (
-            BoundedVec<Announcement<T::AccountId, CallHashOf<T>, BlockNumberFor<T>>, T::MaxPending>,
+            BoundedVec<Announcement<<T as frame_system::Config>::AccountId, CallHashOf<T>, BlockNumberFor<T>>, T::MaxPending>,
             BalanceOf<T>,
         ),
         ValueQuery,
@@ -622,9 +622,9 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
     /// Public function to proxies storage.
     pub fn proxies(
-        account: T::AccountId,
+        account: <T as frame_system::Config>::AccountId,
     ) -> (
-        BoundedVec<ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>, T::MaxProxies>,
+        BoundedVec<ProxyDefinition<<T as frame_system::Config>::AccountId, T::ProxyType, BlockNumberFor<T>>, T::MaxProxies>,
         BalanceOf<T>,
     ) {
         Proxies::<T>::get(account)
@@ -632,9 +632,9 @@ impl<T: Config> Pallet<T> {
 
     /// Public function to announcements storage.
     pub fn announcements(
-        account: T::AccountId,
+        account: <T as frame_system::Config>::AccountId,
     ) -> (
-        BoundedVec<Announcement<T::AccountId, CallHashOf<T>, BlockNumberFor<T>>, T::MaxPending>,
+        BoundedVec<Announcement<<T as frame_system::Config>::AccountId, CallHashOf<T>, BlockNumberFor<T>>, T::MaxPending>,
         BalanceOf<T>,
     ) {
         Announcements::<T>::get(account)
@@ -652,11 +652,11 @@ impl<T: Config> Pallet<T> {
     /// - `maybe_when`: The block height and extrinsic index of when the pure account was
     ///   created. None to use current block height and extrinsic index.
     pub fn pure_account(
-        who: &T::AccountId,
+        who: &<T as frame_system::Config>::AccountId,
         proxy_type: &T::ProxyType,
         index: u16,
         maybe_when: Option<(BlockNumberFor<T>, u32)>,
-    ) -> T::AccountId {
+    ) -> <T as frame_system::Config>::AccountId {
         let (height, ext_index) = maybe_when.unwrap_or_else(|| {
             (
                 system::Pallet::<T>::block_number(),
@@ -685,8 +685,8 @@ impl<T: Config> Pallet<T> {
     /// - `delay`: The announcement period required of the initial proxy. Will generally be
     ///   zero.
     pub fn add_proxy_delegate(
-        delegator: &T::AccountId,
-        delegatee: T::AccountId,
+        delegator: &<T as frame_system::Config>::AccountId,
+        delegatee: <T as frame_system::Config>::AccountId,
         proxy_type: T::ProxyType,
         delay: BlockNumberFor<T>,
     ) -> DispatchResult {
@@ -734,8 +734,8 @@ impl<T: Config> Pallet<T> {
     /// - `delay`: The announcement period required of the initial proxy. Will generally be
     ///   zero.
     pub fn remove_proxy_delegate(
-        delegator: &T::AccountId,
-        delegatee: T::AccountId,
+        delegator: &<T as frame_system::Config>::AccountId,
+        delegatee: <T as frame_system::Config>::AccountId,
         proxy_type: T::ProxyType,
         delay: BlockNumberFor<T>,
     ) -> DispatchResult {
@@ -784,7 +784,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn rejig_deposit(
-        who: &T::AccountId,
+        who: &<T as frame_system::Config>::AccountId,
         old_deposit: BalanceOf<T>,
         base: BalanceOf<T>,
         factor: BalanceOf<T>,
@@ -808,9 +808,9 @@ impl<T: Config> Pallet<T> {
     }
 
     fn edit_announcements<
-        F: FnMut(&Announcement<T::AccountId, CallHashOf<T>, BlockNumberFor<T>>) -> bool,
+        F: FnMut(&Announcement<<T as frame_system::Config>::AccountId, CallHashOf<T>, BlockNumberFor<T>>) -> bool,
     >(
-        delegate: &T::AccountId,
+        delegate: &<T as frame_system::Config>::AccountId,
         mut f: F,
     ) -> DispatchResult {
         Announcements::<T>::try_mutate_exists(delegate, |x| {
@@ -831,11 +831,11 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn find_proxy(
-        real: &T::AccountId,
-        delegate: &T::AccountId,
+        real: &<T as frame_system::Config>::AccountId,
+        delegate: &<T as frame_system::Config>::AccountId,
         force_proxy_type: Option<T::ProxyType>,
-    ) -> Result<ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>, DispatchError> {
-        let f = |x: &ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>| -> bool {
+    ) -> Result<ProxyDefinition<<T as frame_system::Config>::AccountId, T::ProxyType, BlockNumberFor<T>>, DispatchError> {
+        let f = |x: &ProxyDefinition<<T as frame_system::Config>::AccountId, T::ProxyType, BlockNumberFor<T>>| -> bool {
             &x.delegate == delegate && force_proxy_type.as_ref().is_none_or(|y| &x.proxy_type == y)
         };
         Ok(Proxies::<T>::get(real)
@@ -846,8 +846,8 @@ impl<T: Config> Pallet<T> {
     }
 
     fn do_proxy(
-        def: ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>,
-        real: T::AccountId,
+        def: ProxyDefinition<<T as frame_system::Config>::AccountId, T::ProxyType, BlockNumberFor<T>>,
+        real: <T as frame_system::Config>::AccountId,
         call: <T as Config>::RuntimeCall,
     ) {
         // This is a freshly authenticated new account, the origin restrictions doesn't apply.
@@ -884,7 +884,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// Parameters:
     /// - `delegator`: The delegator account.
-    pub fn remove_all_proxy_delegates(delegator: &T::AccountId) {
+    pub fn remove_all_proxy_delegates(delegator: &<T as frame_system::Config>::AccountId) {
         let (_, old_deposit) = Proxies::<T>::take(delegator);
         T::Currency::unreserve(delegator, old_deposit);
     }

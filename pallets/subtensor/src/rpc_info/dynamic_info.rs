@@ -32,7 +32,7 @@ pub struct DynamicInfo<AccountId: TypeInfo + Encode + Decode> {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn get_dynamic_info(netuid: u16) -> Option<DynamicInfo<T::AccountId>> {
+    pub fn get_dynamic_info(netuid: u16) -> Option<DynamicInfo<<T as frame_system::Config>::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }
@@ -69,9 +69,9 @@ impl<T: Config> Pallet<T> {
             moving_price: SubnetMovingPrice::<T>::get(netuid),
         })
     }
-    pub fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<T::AccountId>>> {
+    pub fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<<T as frame_system::Config>::AccountId>>> {
         let netuids: Vec<u16> = Self::get_all_subnet_netuids();
-        let mut dynamic_info = Vec::<Option<DynamicInfo<T::AccountId>>>::new();
+        let mut dynamic_info = Vec::<Option<DynamicInfo<<T as frame_system::Config>::AccountId>>>::new();
         for netuid in netuids.clone().iter() {
             dynamic_info.push(Self::get_dynamic_info(*netuid));
         }

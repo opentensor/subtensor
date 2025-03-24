@@ -37,7 +37,7 @@ mod benchmarks {
     fn set_commitment() {
         // The target user
         let netuid = 1;
-        let caller: T::AccountId = whitelisted_caller();
+        let caller: <T as frame_system::Config>::AccountId = whitelisted_caller();
         let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 
         #[extrinsic_call]

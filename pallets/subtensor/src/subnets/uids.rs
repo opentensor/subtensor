@@ -30,7 +30,7 @@ impl<T: Config> Pallet<T> {
     pub fn replace_neuron(
         netuid: u16,
         uid_to_replace: u16,
-        new_hotkey: &T::AccountId,
+        new_hotkey: &<T as frame_system::Config>::AccountId,
         block_number: u64,
     ) {
         log::debug!(
@@ -41,7 +41,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // 1. Get the old hotkey under this position.
-        let old_hotkey: T::AccountId = Keys::<T>::get(netuid, uid_to_replace);
+        let old_hotkey: <T as frame_system::Config>::AccountId = Keys::<T>::get(netuid, uid_to_replace);
 
         // Do not replace owner hotkey from `SubnetOwnerHotkey`
         if let Ok(sn_owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
@@ -82,7 +82,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Appends the uid to the network.
-    pub fn append_neuron(netuid: u16, new_hotkey: &T::AccountId, block_number: u64) {
+    pub fn append_neuron(netuid: u16, new_hotkey: &<T as frame_system::Config>::AccountId, block_number: u64) {
         // 1. Get the next uid. This is always equal to subnetwork_n.
         let next_uid: u16 = Self::get_subnetwork_n(netuid);
         log::debug!(
@@ -123,7 +123,7 @@ impl<T: Config> Pallet<T> {
 
     /// Returns true if the hotkey holds a slot on the network.
     ///
-    pub fn is_hotkey_registered_on_network(netuid: u16, hotkey: &T::AccountId) -> bool {
+    pub fn is_hotkey_registered_on_network(netuid: u16, hotkey: &<T as frame_system::Config>::AccountId) -> bool {
         Uids::<T>::contains_key(netuid, hotkey)
     }
 
@@ -132,7 +132,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_hotkey_for_net_and_uid(
         netuid: u16,
         neuron_uid: u16,
-    ) -> Result<T::AccountId, DispatchError> {
+    ) -> Result<<T as frame_system::Config>::AccountId, DispatchError> {
         Keys::<T>::try_get(netuid, neuron_uid)
             .map_err(|_err| Error::<T>::HotKeyNotRegisteredInSubNet.into())
     }
@@ -141,7 +141,7 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn get_uid_for_net_and_hotkey(
         netuid: u16,
-        hotkey: &T::AccountId,
+        hotkey: &<T as frame_system::Config>::AccountId,
     ) -> Result<u16, DispatchError> {
         Uids::<T>::try_get(netuid, hotkey)
             .map_err(|_err| Error::<T>::HotKeyNotRegisteredInSubNet.into())
@@ -159,10 +159,10 @@ impl<T: Config> Pallet<T> {
 
     /// Return a list of all networks a hotkey is registered on.
     ///
-    pub fn get_registered_networks_for_hotkey(hotkey: &T::AccountId) -> Vec<u16> {
+    pub fn get_registered_networks_for_hotkey(hotkey: &<T as frame_system::Config>::AccountId) -> Vec<u16> {
         let mut all_networks: Vec<u16> = vec![];
         for (network, is_registered) in
-            <IsNetworkMember<T> as IterableStorageDoubleMap<T::AccountId, u16, bool>>::iter_prefix(
+            <IsNetworkMember<T> as IterableStorageDoubleMap<<T as frame_system::Config>::AccountId, u16, bool>>::iter_prefix(
                 hotkey,
             )
         {
@@ -175,9 +175,9 @@ impl<T: Config> Pallet<T> {
 
     /// Return true if a hotkey is registered on any network.
     ///
-    pub fn is_hotkey_registered_on_any_network(hotkey: &T::AccountId) -> bool {
+    pub fn is_hotkey_registered_on_any_network(hotkey: &<T as frame_system::Config>::AccountId) -> bool {
         for (_, is_registered) in
-            <IsNetworkMember<T> as IterableStorageDoubleMap<T::AccountId, u16, bool>>::iter_prefix(
+            <IsNetworkMember<T> as IterableStorageDoubleMap<<T as frame_system::Config>::AccountId, u16, bool>>::iter_prefix(
                 hotkey,
             )
         {

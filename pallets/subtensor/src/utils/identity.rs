@@ -37,7 +37,7 @@ impl<T: Config> Pallet<T> {
         let coldkey = ensure_signed(origin)?;
 
         // Retrieve all hotkeys associated with this coldkey
-        let hotkeys: Vec<T::AccountId> = OwnedHotkeys::<T>::get(coldkey.clone());
+        let hotkeys: Vec<<T as frame_system::Config>::AccountId> = OwnedHotkeys::<T>::get(coldkey.clone());
 
         // Ensure that at least one of the associated hotkeys is registered on any network
         ensure!(

@@ -513,7 +513,7 @@ impl TypeId for IndexedUtilityPalletId {
 
 impl<T: Config> Pallet<T> {
     /// Derive a derivative account ID from the owner account and the sub-account index.
-    pub fn derivative_account_id(who: T::AccountId, index: u16) -> T::AccountId {
+    pub fn derivative_account_id(who: <T as frame_system::Config>::AccountId, index: u16) -> <T as frame_system::Config>::AccountId {
         let entropy = (b"modlpy/utilisuba", who, index).using_encoded(blake2_256);
         Decode::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
             .expect("infinite length input; no invalid inputs for type; qed")

@@ -12,13 +12,13 @@ use frame_support::traits::{
 impl<T: Config> Pallet<T> {
     // Returns true if the passed hotkey allow delegative staking.
     //
-    pub fn hotkey_is_delegate(hotkey: &T::AccountId) -> bool {
+    pub fn hotkey_is_delegate(hotkey: &<T as frame_system::Config>::AccountId) -> bool {
         Delegates::<T>::contains_key(hotkey)
     }
 
     // Sets the hotkey as a delegate with take.
     //
-    pub fn delegate_hotkey(hotkey: &T::AccountId, take: u16) {
+    pub fn delegate_hotkey(hotkey: &<T as frame_system::Config>::AccountId, take: u16) {
         Delegates::<T>::insert(hotkey, take);
     }
 
@@ -42,7 +42,7 @@ impl<T: Config> Pallet<T> {
 
     // Returns the total amount of stake under a hotkey (delegative or otherwise)
     //
-    pub fn get_total_stake_for_hotkey(hotkey: &T::AccountId) -> u64 {
+    pub fn get_total_stake_for_hotkey(hotkey: &<T as frame_system::Config>::AccountId) -> u64 {
         Self::get_all_subnet_netuids()
             .iter()
             .map(|netuid| {
@@ -57,7 +57,7 @@ impl<T: Config> Pallet<T> {
 
     // Returns the total amount of stake under a coldkey
     //
-    pub fn get_total_stake_for_coldkey(coldkey: &T::AccountId) -> u64 {
+    pub fn get_total_stake_for_coldkey(coldkey: &<T as frame_system::Config>::AccountId) -> u64 {
         let hotkeys = StakingHotkeys::<T>::get(coldkey);
         hotkeys
             .iter()
@@ -80,7 +80,7 @@ impl<T: Config> Pallet<T> {
 
     // Creates a cold - hot pairing account if the hotkey is not already an active account.
     //
-    pub fn create_account_if_non_existent(coldkey: &T::AccountId, hotkey: &T::AccountId) {
+    pub fn create_account_if_non_existent(coldkey: &<T as frame_system::Config>::AccountId, hotkey: &<T as frame_system::Config>::AccountId) {
         if !Self::hotkey_account_exists(hotkey) {
             Owner::<T>::insert(hotkey, coldkey);
 
@@ -101,7 +101,7 @@ impl<T: Config> Pallet<T> {
     }
 
     //// If the hotkey is not a delegate, make it a delegate.
-    pub fn maybe_become_delegate(hotkey: &T::AccountId) {
+    pub fn maybe_become_delegate(hotkey: &<T as frame_system::Config>::AccountId) {
         if !Self::hotkey_is_delegate(hotkey) {
             Self::delegate_hotkey(hotkey, Self::get_hotkey_take(hotkey));
         }
@@ -114,7 +114,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     /// The coldkey account ID that owns the hotkey.
-    pub fn get_owning_coldkey_for_hotkey(hotkey: &T::AccountId) -> T::AccountId {
+    pub fn get_owning_coldkey_for_hotkey(hotkey: &<T as frame_system::Config>::AccountId) -> <T as frame_system::Config>::AccountId {
         Owner::<T>::get(hotkey)
     }
 
@@ -125,10 +125,10 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     /// The take value of the hotkey.
-    pub fn get_hotkey_take(hotkey: &T::AccountId) -> u16 {
+    pub fn get_hotkey_take(hotkey: &<T as frame_system::Config>::AccountId) -> u16 {
         Delegates::<T>::get(hotkey)
     }
-    pub fn get_hotkey_take_float(hotkey: &T::AccountId) -> I96F32 {
+    pub fn get_hotkey_take_float(hotkey: &<T as frame_system::Config>::AccountId) -> I96F32 {
         I96F32::saturating_from_num(Self::get_hotkey_take(hotkey))
             .checked_div(I96F32::saturating_from_num(u16::MAX))
             .unwrap_or(I96F32::saturating_from_num(0.0))
@@ -141,7 +141,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     /// True if the hotkey account exists, false otherwise.
-    pub fn hotkey_account_exists(hotkey: &T::AccountId) -> bool {
+    pub fn hotkey_account_exists(hotkey: &<T as frame_system::Config>::AccountId) -> bool {
         Owner::<T>::contains_key(hotkey)
     }
 
@@ -153,7 +153,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     /// True if the coldkey owns the hotkey, false otherwise.
-    pub fn coldkey_owns_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId) -> bool {
+    pub fn coldkey_owns_hotkey(coldkey: &<T as frame_system::Config>::AccountId, hotkey: &<T as frame_system::Config>::AccountId) -> bool {
         if Self::hotkey_account_exists(hotkey) {
             Owner::<T>::get(hotkey) == *coldkey
         } else {
@@ -163,8 +163,8 @@ impl<T: Config> Pallet<T> {
 
     /// Clears the nomination for an account, if it is a nominator account and the stake is below the minimum required threshold.
     pub fn clear_small_nomination_if_required(
-        hotkey: &T::AccountId,
-        coldkey: &T::AccountId,
+        hotkey: &<T as frame_system::Config>::AccountId,
+        coldkey: &<T as frame_system::Config>::AccountId,
         netuid: u16,
     ) {
         // Verify if the account is a nominator account by checking ownership of the hotkey by the coldkey.
@@ -197,7 +197,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn add_balance_to_coldkey_account(
-        coldkey: &T::AccountId,
+        coldkey: &<T as frame_system::Config>::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) {
         // infallible
@@ -205,7 +205,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn can_remove_balance_from_coldkey_account(
-        coldkey: &T::AccountId,
+        coldkey: &<T as frame_system::Config>::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) -> bool {
         let current_balance = Self::get_coldkey_balance(coldkey);
@@ -221,7 +221,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_coldkey_balance(
-        coldkey: &T::AccountId,
+        coldkey: &<T as frame_system::Config>::AccountId,
     ) -> <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance
     {
         T::Currency::reducible_balance(coldkey, Preservation::Expendable, Fortitude::Polite)
@@ -229,7 +229,7 @@ impl<T: Config> Pallet<T> {
 
     #[must_use = "Balance must be used to preserve total issuance of token"]
     pub fn remove_balance_from_coldkey_account(
-        coldkey: &T::AccountId,
+        coldkey: &<T as frame_system::Config>::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) -> Result<u64, DispatchError> {
         if amount == 0 {
@@ -254,7 +254,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn kill_coldkey_account(
-        coldkey: &T::AccountId,
+        coldkey: &<T as frame_system::Config>::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) -> Result<u64, DispatchError> {
         if amount == 0 {

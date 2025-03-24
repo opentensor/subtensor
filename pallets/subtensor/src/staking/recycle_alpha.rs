@@ -16,7 +16,7 @@ impl<T: Config> Pallet<T> {
     /// * `DispatchResult` - Success or error
     pub(crate) fn do_recycle_alpha(
         origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
+        hotkey: <T as frame_system::Config>::AccountId,
         amount: u64,
         netuid: u16,
     ) -> DispatchResult {
@@ -73,7 +73,7 @@ impl<T: Config> Pallet<T> {
     /// * `DispatchResult` - Success or error
     pub(crate) fn do_burn_alpha(
         origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
+        hotkey: <T as frame_system::Config>::AccountId,
         amount: u64,
         netuid: u16,
     ) -> DispatchResult {

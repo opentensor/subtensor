@@ -65,7 +65,7 @@ impl<T: Config> Pallet<T> {
         last_block == 0 || block.saturating_sub(last_block) >= limit
     }
 
-    pub fn passes_rate_limit(tx_type: &TransactionType, key: &T::AccountId) -> bool {
+    pub fn passes_rate_limit(tx_type: &TransactionType, key: &<T as frame_system::Config>::AccountId) -> bool {
         let block: u64 = Self::get_current_block_as_u64();
         let limit: u64 = Self::get_rate_limit(tx_type);
         let last_block: u64 = Self::get_last_transaction_block(key, tx_type);
@@ -76,7 +76,7 @@ impl<T: Config> Pallet<T> {
     /// Check if a transaction should be rate limited on a specific subnet
     pub fn passes_rate_limit_on_subnet(
         tx_type: &TransactionType,
-        hotkey: &T::AccountId,
+        hotkey: &<T as frame_system::Config>::AccountId,
         netuid: u16,
     ) -> bool {
         let block: u64 = Self::get_current_block_as_u64();
@@ -87,7 +87,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Get the block number of the last transaction for a specific key, and transaction type
-    pub fn get_last_transaction_block(key: &T::AccountId, tx_type: &TransactionType) -> u64 {
+    pub fn get_last_transaction_block(key: &<T as frame_system::Config>::AccountId, tx_type: &TransactionType) -> u64 {
         match tx_type {
             TransactionType::RegisterNetwork => Self::get_network_last_lock_block(),
             _ => Self::get_last_transaction_block_on_subnet(key, 0, tx_type),
@@ -96,7 +96,7 @@ impl<T: Config> Pallet<T> {
 
     /// Get the block number of the last transaction for a specific hotkey, network, and transaction type
     pub fn get_last_transaction_block_on_subnet(
-        hotkey: &T::AccountId,
+        hotkey: &<T as frame_system::Config>::AccountId,
         netuid: u16,
         tx_type: &TransactionType,
     ) -> u64 {
@@ -110,7 +110,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Set the block number of the last transaction for a specific key, and transaction type
-    pub fn set_last_transaction_block(key: &T::AccountId, tx_type: &TransactionType, block: u64) {
+    pub fn set_last_transaction_block(key: &<T as frame_system::Config>::AccountId, tx_type: &TransactionType, block: u64) {
         match tx_type {
             TransactionType::RegisterNetwork => Self::set_network_last_lock_block(block),
             _ => Self::set_last_transaction_block_on_subnet(key, 0, tx_type, block),
@@ -119,7 +119,7 @@ impl<T: Config> Pallet<T> {
 
     /// Set the block number of the last transaction for a specific hotkey, network, and transaction type
     pub fn set_last_transaction_block_on_subnet(
-        key: &T::AccountId,
+        key: &<T as frame_system::Config>::AccountId,
         netuid: u16,
         tx_type: &TransactionType,
         block: u64,
@@ -133,19 +133,19 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn set_last_tx_block(key: &T::AccountId, block: u64) {
+    pub fn set_last_tx_block(key: &<T as frame_system::Config>::AccountId, block: u64) {
         LastTxBlock::<T>::insert(key, block)
     }
-    pub fn get_last_tx_block(key: &T::AccountId) -> u64 {
+    pub fn get_last_tx_block(key: &<T as frame_system::Config>::AccountId) -> u64 {
         LastTxBlock::<T>::get(key)
     }
-    pub fn set_last_tx_block_delegate_take(key: &T::AccountId, block: u64) {
+    pub fn set_last_tx_block_delegate_take(key: &<T as frame_system::Config>::AccountId, block: u64) {
         LastTxBlockDelegateTake::<T>::insert(key, block)
     }
-    pub fn get_last_tx_block_delegate_take(key: &T::AccountId) -> u64 {
+    pub fn get_last_tx_block_delegate_take(key: &<T as frame_system::Config>::AccountId) -> u64 {
         LastTxBlockDelegateTake::<T>::get(key)
     }
-    pub fn get_last_tx_block_childkey_take(key: &T::AccountId) -> u64 {
+    pub fn get_last_tx_block_childkey_take(key: &<T as frame_system::Config>::AccountId) -> u64 {
         LastTxBlockChildKeyTake::<T>::get(key)
     }
     pub fn exceeds_tx_rate_limit(prev_tx_block: u64, current_block: u64) -> bool {

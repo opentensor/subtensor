@@ -33,7 +33,7 @@ pub fn migrate_populate_owned<T: Config>() -> Weight {
         info!(target: LOG_TARGET_1, ">>> Starting Migration: {}", migration_name);
 
         let mut longest_hotkey_vector: usize = 0;
-        let mut longest_coldkey: Option<T::AccountId> = None;
+        let mut longest_coldkey: Option<<T as frame_system::Config>::AccountId> = None;
         let mut keys_touched: u64 = 0;
         let mut storage_reads: u64 = 0;
         let mut storage_writes: u64 = 0;

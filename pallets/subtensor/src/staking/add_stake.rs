@@ -8,7 +8,7 @@ impl<T: Config> Pallet<T> {
     /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
     ///     -  The signature of the caller's coldkey.
     ///
-    /// * 'hotkey' (T::AccountId):
+    /// * 'hotkey' (<T as frame_system::Config>::AccountId):
     ///     -  The associated hotkey account.
     ///
     /// * 'stake_to_be_added' (u64):
@@ -33,11 +33,11 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn do_add_stake(
         origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
+        hotkey: <T as frame_system::Config>::AccountId,
         netuid: u16,
         stake_to_be_added: u64,
     ) -> dispatch::DispatchResult {
-        // 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
+        // 1. We check that the transaction is signed by the caller and retrieve the <T as frame_system::Config>::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::debug!(
             "do_add_stake( origin:{:?} hotkey:{:?}, netuid:{:?}, stake_to_be_added:{:?} )",
@@ -83,7 +83,7 @@ impl<T: Config> Pallet<T> {
     /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
     ///     -  The signature of the caller's coldkey.
     ///
-    /// * 'hotkey' (T::AccountId):
+    /// * 'hotkey' (<T as frame_system::Config>::AccountId):
     ///     -  The associated hotkey account.
     ///
     /// * 'stake_to_be_added' (u64):
@@ -115,13 +115,13 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn do_add_stake_limit(
         origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
+        hotkey: <T as frame_system::Config>::AccountId,
         netuid: u16,
         stake_to_be_added: u64,
         limit_price: u64,
         allow_partial: bool,
     ) -> dispatch::DispatchResult {
-        // 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
+        // 1. We check that the transaction is signed by the caller and retrieve the <T as frame_system::Config>::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::debug!(
             "do_add_stake( origin:{:?} hotkey:{:?}, netuid:{:?}, stake_to_be_added:{:?} )",

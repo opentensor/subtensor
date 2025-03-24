@@ -46,13 +46,13 @@ mod benchmarks {
     #[benchmark]
     fn set_identity() {
         // The target user
-        let caller: T::AccountId = whitelisted_caller();
+        let caller: <T as frame_system::Config>::AccountId = whitelisted_caller();
         let _ = T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
 
         #[extrinsic_call]
         _(
             RawOrigin::Signed(caller.clone()),
-            account::<T::AccountId>("account", 0, 0u32),
+            account::<<T as frame_system::Config>::AccountId>("account", 0, 0u32),
             Box::new(create_identity_info::<T>(0)),
         );
 
@@ -62,10 +62,10 @@ mod benchmarks {
     #[benchmark]
     fn clear_identity() {
         // The target user
-        let caller: T::AccountId = whitelisted_caller();
+        let caller: <T as frame_system::Config>::AccountId = whitelisted_caller();
         let _ = T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
 
-        let vali_account = account::<T::AccountId>("account", 0, 0u32);
+        let vali_account = account::<<T as frame_system::Config>::AccountId>("account", 0, 0u32);
 
         Registry::<T>::set_identity(
             RawOrigin::Signed(caller.clone()).into(),

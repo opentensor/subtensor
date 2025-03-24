@@ -14,15 +14,15 @@ mod events {
         /// a network is removed.
         NetworkRemoved(u16),
         /// stake has been transferred from the a coldkey account onto the hotkey staking account.
-        StakeAdded(T::AccountId, T::AccountId, u64, u64, u16),
+        StakeAdded(<T as frame_system::Config>::AccountId, <T as frame_system::Config>::AccountId, u64, u64, u16),
         /// stake has been removed from the hotkey staking account onto the coldkey account.
-        StakeRemoved(T::AccountId, T::AccountId, u64, u64, u16),
+        StakeRemoved(<T as frame_system::Config>::AccountId, <T as frame_system::Config>::AccountId, u64, u64, u16),
         /// stake has been moved from origin (hotkey, subnet ID) to destination (hotkey, subnet ID) of this amount (in TAO).
-        StakeMoved(T::AccountId, T::AccountId, u16, T::AccountId, u16, u64),
+        StakeMoved(<T as frame_system::Config>::AccountId, <T as frame_system::Config>::AccountId, u16, <T as frame_system::Config>::AccountId, u16, u64),
         /// a caller successfully sets their weights on a subnetwork.
         WeightsSet(u16, u16),
         /// a new neuron account has been registered to the chain.
-        NeuronRegistered(u16, u16, T::AccountId),
+        NeuronRegistered(u16, u16, <T as frame_system::Config>::AccountId),
         /// multiple uids have been concurrently registered.
         BulkNeuronsRegistered(u16, u16),
         /// FIXME: Not used yet
@@ -62,11 +62,11 @@ mod events {
         /// setting the max number of allowed validators on a subnet.
         MaxAllowedValidatorsSet(u16, u16),
         /// the axon server information is added to the network.
-        AxonServed(u16, T::AccountId),
+        AxonServed(u16, <T as frame_system::Config>::AccountId),
         /// the prometheus server information is added to the network.
-        PrometheusServed(u16, T::AccountId),
+        PrometheusServed(u16, <T as frame_system::Config>::AccountId),
         /// a hotkey has become a delegate.
-        DelegateAdded(T::AccountId, T::AccountId, u16),
+        DelegateAdded(<T as frame_system::Config>::AccountId, <T as frame_system::Config>::AccountId, u16),
         /// the default take is set.
         DefaultTakeSet(u16),
         /// weights version key is set for a network.
@@ -94,7 +94,7 @@ mod events {
         /// maximum childkey take set
         MaxChildKeyTakeSet(u16),
         /// childkey take set
-        ChildKeyTakeSet(T::AccountId, u16),
+        ChildKeyTakeSet(<T as frame_system::Config>::AccountId, u16),
         /// a sudo call is done.
         Sudid(DispatchResult),
         /// registration is allowed/disallowed for a subnet.
@@ -112,7 +112,7 @@ mod events {
         /// setting the adjustment alpha on a subnet.
         AdjustmentAlphaSet(u16, u64),
         /// the faucet it called on the test net.
-        Faucet(T::AccountId, u64),
+        Faucet(<T as frame_system::Config>::AccountId, u64),
         /// the subnet owner cut is set.
         SubnetOwnerCutSet(u16),
         /// the network creation rate limit is set.
@@ -126,17 +126,17 @@ mod events {
         /// the lock cost reduction is set
         NetworkLockCostReductionIntervalSet(u64),
         /// the take for a delegate is decreased.
-        TakeDecreased(T::AccountId, T::AccountId, u16),
+        TakeDecreased(<T as frame_system::Config>::AccountId, <T as frame_system::Config>::AccountId, u16),
         /// the take for a delegate is increased.
-        TakeIncreased(T::AccountId, T::AccountId, u16),
+        TakeIncreased(<T as frame_system::Config>::AccountId, <T as frame_system::Config>::AccountId, u16),
         /// the hotkey is swapped
         HotkeySwapped {
             /// the account ID of coldkey
-            coldkey: T::AccountId,
+            coldkey: <T as frame_system::Config>::AccountId,
             /// the account ID of old hotkey
-            old_hotkey: T::AccountId,
+            old_hotkey: <T as frame_system::Config>::AccountId,
             /// the account ID of new hotkey
-            new_hotkey: T::AccountId,
+            new_hotkey: <T as frame_system::Config>::AccountId,
         },
         /// maximum delegate take is set by sudo/admin transaction
         MaxDelegateTakeSet(u16),
@@ -145,25 +145,25 @@ mod events {
         /// a member of the senate is adjusted
         SenateAdjusted {
             /// the account ID of the old senate member, if any
-            old_member: Option<T::AccountId>,
+            old_member: Option<<T as frame_system::Config>::AccountId>,
             /// the account ID of the new senate member
-            new_member: T::AccountId,
+            new_member: <T as frame_system::Config>::AccountId,
         },
         /// A coldkey has been swapped
         ColdkeySwapped {
             /// the account ID of old coldkey
-            old_coldkey: T::AccountId,
+            old_coldkey: <T as frame_system::Config>::AccountId,
             /// the account ID of new coldkey
-            new_coldkey: T::AccountId,
+            new_coldkey: <T as frame_system::Config>::AccountId,
             /// the swap cost
             swap_cost: u64,
         },
         /// All balance of a hotkey has been unstaked and transferred to a new coldkey
         AllBalanceUnstakedAndTransferredToNewColdkey {
             /// The account ID of the current coldkey
-            current_coldkey: T::AccountId,
+            current_coldkey: <T as frame_system::Config>::AccountId,
             /// The account ID of the new coldkey
-            new_coldkey: T::AccountId,
+            new_coldkey: <T as frame_system::Config>::AccountId,
             /// The total balance of the hotkey
             total_balance: <<T as Config>::Currency as fungible::Inspect<
                 <T as frame_system::Config>::AccountId,
@@ -172,9 +172,9 @@ mod events {
         /// A coldkey swap has been scheduled
         ColdkeySwapScheduled {
             /// The account ID of the old coldkey
-            old_coldkey: T::AccountId,
+            old_coldkey: <T as frame_system::Config>::AccountId,
             /// The account ID of the new coldkey
-            new_coldkey: T::AccountId,
+            new_coldkey: <T as frame_system::Config>::AccountId,
             /// The arbitration block for the coldkey swap
             execution_block: BlockNumberFor<T>,
             /// The swap cost
@@ -183,18 +183,18 @@ mod events {
         /// The arbitration period has been extended
         ArbitrationPeriodExtended {
             /// The account ID of the coldkey
-            coldkey: T::AccountId,
+            coldkey: <T as frame_system::Config>::AccountId,
         },
         /// Setting of children of a hotkey have been scheduled
-        SetChildrenScheduled(T::AccountId, u16, u64, Vec<(u64, T::AccountId)>),
+        SetChildrenScheduled(<T as frame_system::Config>::AccountId, u16, u64, Vec<(u64, <T as frame_system::Config>::AccountId)>),
         /// The children of a hotkey have been set
-        SetChildren(T::AccountId, u16, Vec<(u64, T::AccountId)>),
+        SetChildren(<T as frame_system::Config>::AccountId, u16, Vec<(u64, <T as frame_system::Config>::AccountId)>),
         // /// The hotkey emission tempo has been set
         // HotkeyEmissionTempoSet(u64),
         // /// The network maximum stake has been set
         // NetworkMaxStakeSet(u16, u64),
         /// The identity of a coldkey has been set
-        ChainIdentitySet(T::AccountId),
+        ChainIdentitySet(<T as frame_system::Config>::AccountId),
         /// The identity of a subnet has been set
         SubnetIdentitySet(u16),
         /// The identity of a subnet has been removed
@@ -202,7 +202,7 @@ mod events {
         /// A dissolve network extrinsic scheduled.
         DissolveNetworkScheduled {
             /// The account ID schedule the dissolve network extrisnic
-            account: T::AccountId,
+            account: <T as frame_system::Config>::AccountId,
             /// network ID will be dissolved
             netuid: u16,
             /// extrinsic execution block number
@@ -217,33 +217,33 @@ mod events {
         /// - **who**: The account ID of the user committing the weights.
         /// - **netuid**: The network identifier.
         /// - **commit_hash**: The hash representing the committed weights.
-        CRV3WeightsCommitted(T::AccountId, u16, H256),
+        CRV3WeightsCommitted(<T as frame_system::Config>::AccountId, u16, H256),
         /// Weights have been successfully committed.
         ///
         /// - **who**: The account ID of the user committing the weights.
         /// - **netuid**: The network identifier.
         /// - **commit_hash**: The hash representing the committed weights.
-        WeightsCommitted(T::AccountId, u16, H256),
+        WeightsCommitted(<T as frame_system::Config>::AccountId, u16, H256),
 
         /// Weights have been successfully revealed.
         ///
         /// - **who**: The account ID of the user revealing the weights.
         /// - **netuid**: The network identifier.
         /// - **commit_hash**: The hash of the revealed weights.
-        WeightsRevealed(T::AccountId, u16, H256),
+        WeightsRevealed(<T as frame_system::Config>::AccountId, u16, H256),
 
         /// Weights have been successfully batch revealed.
         ///
         /// - **who**: The account ID of the user revealing the weights.
         /// - **netuid**: The network identifier.
         /// - **revealed_hashes**: A vector of hashes representing each revealed weight set.
-        WeightsBatchRevealed(T::AccountId, u16, Vec<H256>),
+        WeightsBatchRevealed(<T as frame_system::Config>::AccountId, u16, Vec<H256>),
 
         /// A batch of weights (or commits) have been force-set.
         ///
         /// - **netuids**: The netuids these weights were successfully set/committed for.
         /// - **who**: The hotkey that set this batch.
-        BatchWeightsCompleted(Vec<Compact<u16>>, T::AccountId),
+        BatchWeightsCompleted(Vec<Compact<u16>>, <T as frame_system::Config>::AccountId),
 
         /// A batch extrinsic completed but with some errors.
         BatchCompletedWithErrors(),
@@ -256,13 +256,13 @@ mod events {
         /// Stake has been transferred from one coldkey to another on the same subnet.
         /// Parameters:
         /// (origin_coldkey, destination_coldkey, hotkey, origin_netuid, destination_netuid, amount)
-        StakeTransferred(T::AccountId, T::AccountId, T::AccountId, u16, u16, u64),
+        StakeTransferred(<T as frame_system::Config>::AccountId, <T as frame_system::Config>::AccountId, <T as frame_system::Config>::AccountId, u16, u16, u64),
 
         /// Stake has been swapped from one subnet to another for the same coldkey-hotkey pair.
         ///
         /// Parameters:
         /// (coldkey, hotkey, origin_netuid, destination_netuid, amount)
-        StakeSwapped(T::AccountId, T::AccountId, u16, u16, u64),
+        StakeSwapped(<T as frame_system::Config>::AccountId, <T as frame_system::Config>::AccountId, u16, u16, u64),
 
         /// Event called when transfer is toggled on a subnet.
         ///
@@ -274,7 +274,7 @@ mod events {
         ///
         /// Parameters:
         /// (netuid, new_hotkey)
-        SubnetOwnerHotkeySet(u16, T::AccountId),
+        SubnetOwnerHotkeySet(u16, <T as frame_system::Config>::AccountId),
         /// FirstEmissionBlockNumber is set via start call extrinsic
         ///
         /// Parameters:
@@ -286,12 +286,12 @@ mod events {
         ///
         /// Parameters:
         /// (coldkey, hotkey, amount, subnet_id)
-        AlphaRecycled(T::AccountId, T::AccountId, u64, u16),
+        AlphaRecycled(<T as frame_system::Config>::AccountId, <T as frame_system::Config>::AccountId, u64, u16),
 
         /// Alpha have been burned without reducing AlphaOut.
         ///
         /// Parameters:
         /// (coldkey, hotkey, amount, subnet_id)
-        AlphaBurned(T::AccountId, T::AccountId, u64, u16),
+        AlphaBurned(<T as frame_system::Config>::AccountId, <T as frame_system::Config>::AccountId, u64, u16),
     }
 }

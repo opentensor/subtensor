@@ -70,7 +70,7 @@ pub fn migrate_set_hotkey_identities<T: Config>() -> Weight {
                     continue;
                 }
             };
-            let decoded_hotkey: T::AccountId = match T::AccountId::decode(&mut hotkey.as_ref()) {
+            let decoded_hotkey: <T as frame_system::Config>::AccountId = match <T as frame_system::Config>::AccountId::decode(&mut hotkey.as_ref()) {
                 Ok(decoded) => decoded,
                 Err(e) => {
                     log::warn!("Failed to decode hotkey: {:?}. Skipping this delegate.", e);

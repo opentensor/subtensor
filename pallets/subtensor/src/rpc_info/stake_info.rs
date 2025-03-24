@@ -20,17 +20,17 @@ pub struct StakeInfo<AccountId: TypeInfo + Encode + Decode> {
 
 impl<T: Config> Pallet<T> {
     fn _get_stake_info_for_coldkeys(
-        coldkeys: Vec<T::AccountId>,
-    ) -> Vec<(T::AccountId, Vec<StakeInfo<T::AccountId>>)> {
+        coldkeys: Vec<<T as frame_system::Config>::AccountId>,
+    ) -> Vec<(<T as frame_system::Config>::AccountId, Vec<StakeInfo<<T as frame_system::Config>::AccountId>>)> {
         if coldkeys.is_empty() {
             return Vec::new(); // No coldkeys to check
         }
         let netuids: Vec<u16> = Self::get_all_subnet_netuids();
-        let mut stake_info: Vec<(T::AccountId, Vec<StakeInfo<T::AccountId>>)> = Vec::new();
+        let mut stake_info: Vec<(<T as frame_system::Config>::AccountId, Vec<StakeInfo<<T as frame_system::Config>::AccountId>>)> = Vec::new();
         for coldkey_i in coldkeys.clone().iter() {
             // Get all hotkeys associated with this coldkey.
             let staking_hotkeys = StakingHotkeys::<T>::get(coldkey_i.clone());
-            let mut stake_info_for_coldkey: Vec<StakeInfo<T::AccountId>> = Vec::new();
+            let mut stake_info_for_coldkey: Vec<StakeInfo<<T as frame_system::Config>::AccountId>> = Vec::new();
             for netuid_i in netuids.clone().iter() {
                 for hotkey_i in staking_hotkeys.clone().iter() {
                     let alpha: u64 = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -62,8 +62,8 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_stake_info_for_coldkeys(
-        coldkey_accounts: Vec<T::AccountId>,
-    ) -> Vec<(T::AccountId, Vec<StakeInfo<T::AccountId>>)> {
+        coldkey_accounts: Vec<<T as frame_system::Config>::AccountId>,
+    ) -> Vec<(<T as frame_system::Config>::AccountId, Vec<StakeInfo<<T as frame_system::Config>::AccountId>>)> {
         if coldkey_accounts.is_empty() {
             return Vec::new(); // Empty coldkeys
         }
@@ -72,8 +72,8 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_stake_info_for_coldkey(
-        coldkey_account: T::AccountId,
-    ) -> Vec<StakeInfo<T::AccountId>> {
+        coldkey_account: <T as frame_system::Config>::AccountId,
+    ) -> Vec<StakeInfo<<T as frame_system::Config>::AccountId>> {
         let stake_info = Self::_get_stake_info_for_coldkeys(vec![coldkey_account]);
 
         if stake_info.is_empty() {
@@ -88,10 +88,10 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_stake_info_for_hotkey_coldkey_netuid(
-        hotkey_account: T::AccountId,
-        coldkey_account: T::AccountId,
+        hotkey_account: <T as frame_system::Config>::AccountId,
+        coldkey_account: <T as frame_system::Config>::AccountId,
         netuid: u16,
-    ) -> Option<StakeInfo<T::AccountId>> {
+    ) -> Option<StakeInfo<<T as frame_system::Config>::AccountId>> {
         let alpha: u64 = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_account,
             &coldkey_account,
@@ -115,13 +115,13 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_stake_fee(
-        origin: Option<(T::AccountId, u16)>,
-        origin_coldkey_account: T::AccountId,
-        destination: Option<(T::AccountId, u16)>,
-        destination_coldkey_account: T::AccountId,
+        origin: Option<(<T as frame_system::Config>::AccountId, u16)>,
+        origin_coldkey_account: <T as frame_system::Config>::AccountId,
+        destination: Option<(<T as frame_system::Config>::AccountId, u16)>,
+        destination_coldkey_account: <T as frame_system::Config>::AccountId,
         amount: u64,
     ) -> u64 {
-        let origin_: Option<(&T::AccountId, u16)> =
+        let origin_: Option<(&<T as frame_system::Config>::AccountId, u16)> =
             if let Some((ref origin_hotkey, origin_netuid)) = origin {
                 Some((origin_hotkey, origin_netuid))
             } else {

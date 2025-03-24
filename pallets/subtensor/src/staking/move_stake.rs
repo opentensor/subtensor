@@ -27,8 +27,8 @@ impl<T: Config> Pallet<T> {
     /// Emits a `StakeMoved` event upon successful completion of the stake movement.
     pub fn do_move_stake(
         origin: T::RuntimeOrigin,
-        origin_hotkey: T::AccountId,
-        destination_hotkey: T::AccountId,
+        origin_hotkey: <T as frame_system::Config>::AccountId,
+        destination_hotkey: <T as frame_system::Config>::AccountId,
         origin_netuid: u16,
         destination_netuid: u16,
         alpha_amount: u64,
@@ -109,8 +109,8 @@ impl<T: Config> Pallet<T> {
     }
     pub fn do_transfer_stake(
         origin: T::RuntimeOrigin,
-        destination_coldkey: T::AccountId,
-        hotkey: T::AccountId,
+        destination_coldkey: <T as frame_system::Config>::AccountId,
+        hotkey: <T as frame_system::Config>::AccountId,
         origin_netuid: u16,
         destination_netuid: u16,
         alpha_amount: u64,
@@ -180,7 +180,7 @@ impl<T: Config> Pallet<T> {
     /// Emits a `StakeSwapped` event upon successful completion.
     pub fn do_swap_stake(
         origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
+        hotkey: <T as frame_system::Config>::AccountId,
         origin_netuid: u16,
         destination_netuid: u16,
         alpha_amount: u64,
@@ -250,7 +250,7 @@ impl<T: Config> Pallet<T> {
     /// Emits a `StakeSwapped` event upon successful completion.
     pub fn do_swap_stake_limit(
         origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
+        hotkey: <T as frame_system::Config>::AccountId,
         origin_netuid: u16,
         destination_netuid: u16,
         alpha_amount: u64,
@@ -298,10 +298,10 @@ impl<T: Config> Pallet<T> {
     // If limit_price is None, this is a regular operation, otherwise, it is slippage-protected
     // by setting limit price between origin_netuid and destination_netuid token
     fn transition_stake_internal(
-        origin_coldkey: &T::AccountId,
-        destination_coldkey: &T::AccountId,
-        origin_hotkey: &T::AccountId,
-        destination_hotkey: &T::AccountId,
+        origin_coldkey: &<T as frame_system::Config>::AccountId,
+        destination_coldkey: &<T as frame_system::Config>::AccountId,
+        origin_hotkey: &<T as frame_system::Config>::AccountId,
+        destination_hotkey: &<T as frame_system::Config>::AccountId,
         origin_netuid: u16,
         destination_netuid: u16,
         alpha_amount: u64,

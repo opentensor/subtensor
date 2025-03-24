@@ -358,7 +358,7 @@ mod dispatches {
         /// * `netuid` (u16):
         /// 	- The network uid we are setting these weights on.
         ///
-        /// * `hotkey` (T::AccountId):
+        /// * `hotkey` (<T as frame_system::Config>::AccountId):
         /// 	- The hotkey associated with the operation and the calling coldkey.
         ///
         /// * `dests` (Vec<u16>):
@@ -418,7 +418,7 @@ mod dispatches {
         pub fn set_tao_weights(
             _origin: OriginFor<T>,
             _netuid: u16,
-            _hotkey: T::AccountId,
+            _hotkey: <T as frame_system::Config>::AccountId,
             _dests: Vec<u16>,
             _weights: Vec<u16>,
             _version_key: u64,
@@ -435,7 +435,7 @@ mod dispatches {
         /// * 'origin': (<T as frame_system::Config>Origin):
         /// 	- The signature of the caller's coldkey.
         ///
-        /// * 'hotkey' (T::AccountId):
+        /// * 'hotkey' (<T as frame_system::Config>::AccountId):
         /// 	- The hotkey we are delegating (must be owned by the coldkey.)
         ///
         /// * 'take' (u64):
@@ -456,7 +456,7 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(79_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
-        pub fn become_delegate(_origin: OriginFor<T>, _hotkey: T::AccountId) -> DispatchResult {
+        pub fn become_delegate(_origin: OriginFor<T>, _hotkey: <T as frame_system::Config>::AccountId) -> DispatchResult {
             // DEPRECATED
             // Self::do_become_delegate(origin, hotkey, Self::get_default_delegate_take())
 
@@ -469,7 +469,7 @@ mod dispatches {
         /// * 'origin': (<T as frame_system::Config>::Origin):
         /// 	- The signature of the caller's coldkey.
         ///
-        /// * 'hotkey' (T::AccountId):
+        /// * 'hotkey' (<T as frame_system::Config>::AccountId):
         /// 	- The hotkey we are delegating (must be owned by the coldkey.)
         ///
         /// * 'netuid' (u16):
@@ -500,7 +500,7 @@ mod dispatches {
         #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
         pub fn decrease_take(
             origin: OriginFor<T>,
-            hotkey: T::AccountId,
+            hotkey: <T as frame_system::Config>::AccountId,
             take: u16,
         ) -> DispatchResult {
             Self::do_decrease_take(origin, hotkey, take)
@@ -512,7 +512,7 @@ mod dispatches {
         /// * 'origin': (<T as frame_system::Config>::Origin):
         /// 	- The signature of the caller's coldkey.
         ///
-        /// * 'hotkey' (T::AccountId):
+        /// * 'hotkey' (<T as frame_system::Config>::AccountId):
         /// 	- The hotkey we are delegating (must be owned by the coldkey.)
         ///
         /// * 'take' (u16):
@@ -540,7 +540,7 @@ mod dispatches {
         #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
         pub fn increase_take(
             origin: OriginFor<T>,
-            hotkey: T::AccountId,
+            hotkey: <T as frame_system::Config>::AccountId,
             take: u16,
         ) -> DispatchResult {
             Self::do_increase_take(origin, hotkey, take)
@@ -556,7 +556,7 @@ mod dispatches {
         ///  * 'origin': (<T as frame_system::Config>Origin):
         /// 	- The signature of the caller's coldkey.
         ///
-        ///  * 'hotkey' (T::AccountId):
+        ///  * 'hotkey' (<T as frame_system::Config>::AccountId):
         /// 	- The associated hotkey account.
         ///
         ///  * 'amount_staked' (u64):
@@ -582,7 +582,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(7)), DispatchClass::Normal, Pays::No))]
         pub fn add_stake(
             origin: OriginFor<T>,
-            hotkey: T::AccountId,
+            hotkey: <T as frame_system::Config>::AccountId,
             netuid: u16,
             amount_staked: u64,
         ) -> DispatchResult {
@@ -597,7 +597,7 @@ mod dispatches {
         /// * 'origin': (<T as frame_system::Config>Origin):
         /// 	- The signature of the caller's coldkey.
         ///
-        /// * 'hotkey' (T::AccountId):
+        /// * 'hotkey' (<T as frame_system::Config>::AccountId):
         /// 	- The associated hotkey account.
         ///
         /// * 'amount_unstaked' (u64):
@@ -624,7 +624,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(7)), DispatchClass::Normal, Pays::No))]
         pub fn remove_stake(
             origin: OriginFor<T>,
-            hotkey: T::AccountId,
+            hotkey: <T as frame_system::Config>::AccountId,
             netuid: u16,
             amount_unstaked: u64,
         ) -> DispatchResult {
@@ -849,10 +849,10 @@ mod dispatches {
         /// * 'work' ( Vec<u8> ):
         /// 	- Vector encoded bytes representing work done.
         ///
-        /// * 'hotkey' ( T::AccountId ):
+        /// * 'hotkey' ( <T as frame_system::Config>::AccountId ):
         /// 	- Hotkey to be registered to the network.
         ///
-        /// * 'coldkey' ( T::AccountId ):
+        /// * 'coldkey' ( <T as frame_system::Config>::AccountId ):
         /// 	- Associated coldkey account.
         ///
         /// # Event:
@@ -888,8 +888,8 @@ mod dispatches {
             block_number: u64,
             nonce: u64,
             work: Vec<u8>,
-            hotkey: T::AccountId,
-            coldkey: T::AccountId,
+            hotkey: <T as frame_system::Config>::AccountId,
+            coldkey: <T as frame_system::Config>::AccountId,
         ) -> DispatchResult {
             Self::do_registration(origin, netuid, block_number, nonce, work, hotkey, coldkey)
         }
@@ -899,7 +899,7 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(164_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(23))
 		.saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Normal, Pays::No))]
-        pub fn root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+        pub fn root_register(origin: OriginFor<T>, hotkey: <T as frame_system::Config>::AccountId) -> DispatchResult {
             Self::do_root_register(origin, hotkey)
         }
 
@@ -908,7 +908,7 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(0, 0)
 		.saturating_add(T::DbWeight::get().reads(0))
 		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Normal, Pays::Yes))]
-        pub fn adjust_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+        pub fn adjust_senate(origin: OriginFor<T>, hotkey: <T as frame_system::Config>::AccountId) -> DispatchResult {
             Self::do_adjust_senate(origin, hotkey)
         }
 
@@ -920,7 +920,7 @@ mod dispatches {
         pub fn burned_register(
             origin: OriginFor<T>,
             netuid: u16,
-            hotkey: T::AccountId,
+            hotkey: <T as frame_system::Config>::AccountId,
         ) -> DispatchResult {
             Self::do_burned_registration(origin, netuid, hotkey)
         }
@@ -932,8 +932,8 @@ mod dispatches {
         .saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
         pub fn swap_hotkey(
             origin: OriginFor<T>,
-            hotkey: T::AccountId,
-            new_hotkey: T::AccountId,
+            hotkey: <T as frame_system::Config>::AccountId,
+            new_hotkey: <T as frame_system::Config>::AccountId,
         ) -> DispatchResultWithPostInfo {
             Self::do_swap_hotkey(origin, &hotkey, &new_hotkey)
         }
@@ -960,8 +960,8 @@ mod dispatches {
         .saturating_add(T::DbWeight::get().writes(12)), DispatchClass::Operational, Pays::No))]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
-            old_coldkey: T::AccountId,
-            new_coldkey: T::AccountId,
+            old_coldkey: <T as frame_system::Config>::AccountId,
+            new_coldkey: <T as frame_system::Config>::AccountId,
             swap_cost: u64,
         ) -> DispatchResultWithPostInfo {
             // Ensure it's called with root privileges (scheduler has root privileges)
@@ -981,7 +981,7 @@ mod dispatches {
         /// * `origin` (<T as frame_system::Config>::RuntimeOrigin):
         ///     - The signature of the calling coldkey. Setting childkey take can only be done by the coldkey.
         ///
-        /// * `hotkey` (T::AccountId):
+        /// * `hotkey` (<T as frame_system::Config>::AccountId):
         ///     - The hotkey for which the childkey take will be set.
         ///
         /// * `take` (u16):
@@ -1010,7 +1010,7 @@ mod dispatches {
 ))]
         pub fn set_childkey_take(
             origin: OriginFor<T>,
-            hotkey: T::AccountId,
+            hotkey: <T as frame_system::Config>::AccountId,
             netuid: u16,
             take: u16,
         ) -> DispatchResult {
@@ -1171,7 +1171,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Operational))]
         pub fn vote(
             origin: OriginFor<T>,
-            hotkey: T::AccountId,
+            hotkey: <T as frame_system::Config>::AccountId,
             proposal: T::Hash,
             #[pallet::compact] index: u32,
             approve: bool,
@@ -1184,7 +1184,7 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(157_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))
 		.saturating_add(T::DbWeight::get().writes(30)), DispatchClass::Operational, Pays::No))]
-        pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+        pub fn register_network(origin: OriginFor<T>, hotkey: <T as frame_system::Config>::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
         }
 
@@ -1216,7 +1216,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
         pub fn dissolve_network(
             origin: OriginFor<T>,
-            coldkey: T::AccountId,
+            coldkey: <T as frame_system::Config>::AccountId,
             netuid: u16,
         ) -> DispatchResult {
             ensure_root(origin)?;
@@ -1232,10 +1232,10 @@ mod dispatches {
         /// * `origin` (<T as frame_system::Config>::RuntimeOrigin):
         ///     - The signature of the calling coldkey. Setting a hotkey child can only be done by the coldkey.
         ///
-        /// * `hotkey` (T::AccountId):
+        /// * `hotkey` (<T as frame_system::Config>::AccountId):
         ///     - The hotkey which will be assigned the child.
         ///
-        /// * `child` (T::AccountId):
+        /// * `child` (<T as frame_system::Config>::AccountId):
         ///     - The child which will be assigned to the hotkey.
         ///
         /// * `netuid` (u16):
@@ -1274,9 +1274,9 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
         pub fn set_children(
             origin: T::RuntimeOrigin,
-            hotkey: T::AccountId,
+            hotkey: <T as frame_system::Config>::AccountId,
             netuid: u16,
-            children: Vec<(u64, T::AccountId)>,
+            children: Vec<(u64, <T as frame_system::Config>::AccountId)>,
         ) -> DispatchResultWithPostInfo {
             Self::do_schedule_children(origin, hotkey, netuid, children)?;
             Ok(().into())
@@ -1320,7 +1320,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
         pub fn schedule_swap_coldkey(
             origin: OriginFor<T>,
-            new_coldkey: T::AccountId,
+            new_coldkey: <T as frame_system::Config>::AccountId,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
             ensure!(
@@ -1524,7 +1524,7 @@ mod dispatches {
                 .saturating_add(T::DbWeight::get().writes(30)), DispatchClass::Operational, Pays::No))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
-            hotkey: T::AccountId,
+            hotkey: <T as frame_system::Config>::AccountId,
             identity: Option<SubnetIdentityOfV2>,
         ) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, identity)
@@ -1536,7 +1536,7 @@ mod dispatches {
         /// * `origin` - (<T as frame_system::Config>::Origin):
         ///     - The signature of the caller's coldkey.
         ///
-        /// * `hotkey` (T::AccountId):
+        /// * `hotkey` (<T as frame_system::Config>::AccountId):
         ///     - The associated hotkey account.
         ///
         /// # Event:
@@ -1557,7 +1557,7 @@ mod dispatches {
         ///     - Thrown if key has hit transaction rate limit
         #[pallet::call_index(83)]
         #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        pub fn unstake_all(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+        pub fn unstake_all(origin: OriginFor<T>, hotkey: <T as frame_system::Config>::AccountId) -> DispatchResult {
             Self::do_unstake_all(origin, hotkey)
         }
 
@@ -1567,7 +1567,7 @@ mod dispatches {
         /// * `origin` - (<T as frame_system::Config>::Origin):
         ///     - The signature of the caller's coldkey.
         ///
-        /// * `hotkey` (T::AccountId):
+        /// * `hotkey` (<T as frame_system::Config>::AccountId):
         ///     - The associated hotkey account.
         ///
         /// # Event:
@@ -1588,7 +1588,7 @@ mod dispatches {
         ///     - Thrown if key has hit transaction rate limit
         #[pallet::call_index(84)]
         #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        pub fn unstake_all_alpha(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+        pub fn unstake_all_alpha(origin: OriginFor<T>, hotkey: <T as frame_system::Config>::AccountId) -> DispatchResult {
             Self::do_unstake_all_alpha(origin, hotkey)
         }
 
@@ -1598,27 +1598,27 @@ mod dispatches {
         /// * `origin` - (<T as frame_system::Config>::Origin):
         ///     - The signature of the caller's coldkey.
         ///
-        /// * `origin_hotkey` (T::AccountId):
+        /// * `origin_hotkey` (<T as frame_system::Config>::AccountId):
         ///     - The hotkey account to move stake from.
         ///
-        /// * `destination_hotkey` (T::AccountId):
+        /// * `destination_hotkey` (<T as frame_system::Config>::AccountId):
         ///     - The hotkey account to move stake to.
         ///
-        /// * `origin_netuid` (T::AccountId):
+        /// * `origin_netuid` (<T as frame_system::Config>::AccountId):
         ///     - The subnet ID to move stake from.
         ///
-        /// * `destination_netuid` (T::AccountId):
+        /// * `destination_netuid` (<T as frame_system::Config>::AccountId):
         ///     - The subnet ID to move stake to.
         ///
-        /// * `alpha_amount` (T::AccountId):
+        /// * `alpha_amount` (<T as frame_system::Config>::AccountId):
         ///     - The alpha stake amount to move.
         ///
         #[pallet::call_index(85)]
         #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn move_stake(
             origin: T::RuntimeOrigin,
-            origin_hotkey: T::AccountId,
-            destination_hotkey: T::AccountId,
+            origin_hotkey: <T as frame_system::Config>::AccountId,
+            destination_hotkey: <T as frame_system::Config>::AccountId,
             origin_netuid: u16,
             destination_netuid: u16,
             alpha_amount: u64,
@@ -1658,8 +1658,8 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn transfer_stake(
             origin: T::RuntimeOrigin,
-            destination_coldkey: T::AccountId,
-            hotkey: T::AccountId,
+            destination_coldkey: <T as frame_system::Config>::AccountId,
+            hotkey: <T as frame_system::Config>::AccountId,
             origin_netuid: u16,
             destination_netuid: u16,
             alpha_amount: u64,
@@ -1701,7 +1701,7 @@ mod dispatches {
         ))]
         pub fn swap_stake(
             origin: T::RuntimeOrigin,
-            hotkey: T::AccountId,
+            hotkey: <T as frame_system::Config>::AccountId,
             origin_netuid: u16,
             destination_netuid: u16,
             alpha_amount: u64,
@@ -1727,7 +1727,7 @@ mod dispatches {
         ///  * 'origin': (<T as frame_system::Config>Origin):
         /// 	- The signature of the caller's coldkey.
         ///
-        ///  * 'hotkey' (T::AccountId):
+        ///  * 'hotkey' (<T as frame_system::Config>::AccountId):
         /// 	- The associated hotkey account.
         ///
         ///  * 'amount_staked' (u64):
@@ -1760,7 +1760,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(7)), DispatchClass::Normal, Pays::No))]
         pub fn add_stake_limit(
             origin: OriginFor<T>,
-            hotkey: T::AccountId,
+            hotkey: <T as frame_system::Config>::AccountId,
             netuid: u16,
             amount_staked: u64,
             limit_price: u64,
@@ -1788,7 +1788,7 @@ mod dispatches {
         /// * 'origin': (<T as frame_system::Config>Origin):
         /// 	- The signature of the caller's coldkey.
         ///
-        /// * 'hotkey' (T::AccountId):
+        /// * 'hotkey' (<T as frame_system::Config>::AccountId):
         /// 	- The associated hotkey account.
         ///
         /// * 'amount_unstaked' (u64):
@@ -1822,7 +1822,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(7)), DispatchClass::Normal, Pays::No))]
         pub fn remove_stake_limit(
             origin: OriginFor<T>,
-            hotkey: T::AccountId,
+            hotkey: <T as frame_system::Config>::AccountId,
             netuid: u16,
             amount_unstaked: u64,
             limit_price: u64,
@@ -1867,7 +1867,7 @@ mod dispatches {
         ))]
         pub fn swap_stake_limit(
             origin: T::RuntimeOrigin,
-            hotkey: T::AccountId,
+            hotkey: <T as frame_system::Config>::AccountId,
             origin_netuid: u16,
             destination_netuid: u16,
             alpha_amount: u64,
@@ -1901,7 +1901,7 @@ mod dispatches {
         ))]
         pub fn try_associate_hotkey(
             origin: T::RuntimeOrigin,
-            hotkey: T::AccountId,
+            hotkey: <T as frame_system::Config>::AccountId,
         ) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
 
@@ -1947,7 +1947,7 @@ mod dispatches {
         ))]
         pub fn recycle_alpha(
             origin: T::RuntimeOrigin,
-            hotkey: T::AccountId,
+            hotkey: <T as frame_system::Config>::AccountId,
             amount: u64,
             netuid: u16,
         ) -> DispatchResult {
@@ -1972,7 +1972,7 @@ mod dispatches {
         ))]
         pub fn burn_alpha(
             origin: T::RuntimeOrigin,
-            hotkey: T::AccountId,
+            hotkey: <T as frame_system::Config>::AccountId,
             amount: u64,
             netuid: u16,
         ) -> DispatchResult {

@@ -792,7 +792,7 @@ pub fn benchmarks(
                     let whitelisted_caller_key = <#frame_system::Account<
                         T,
                     > as #krate::__private::storage::StorageMap<_, _,>>::hashed_key_for(
-                        #krate::whitelisted_caller::<T::AccountId>()
+                        #krate::whitelisted_caller::<<T as frame_system::Config>::AccountId>()
                     );
                     whitelist.push(whitelisted_caller_key.into());
                     let transactional_layer_key = #krate::__private::TrackedStorageKey::new(

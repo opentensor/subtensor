@@ -18,8 +18,8 @@ benchmarks! {
     let netuid: u16 = 1; //11 is the benchmark network.
     let tempo: u16 = 1;
     let modality: u16 = 0;
-    let hotkey: T::AccountId = account("Alice", 0, 1);
-    let coldkey: T::AccountId = account("Test", 0, 2);
+    let hotkey: <T as frame_system::Config>::AccountId = account("Alice", 0, 1);
+    let coldkey: <T as frame_system::Config>::AccountId = account("Test", 0, 2);
 
     Subtensor::<T>::init_new_network(netuid, tempo);
     Subtensor::<T>::set_network_registration_allowed(netuid, true);
@@ -54,11 +54,11 @@ benchmarks! {
     let mut seed : u32 = 1;
     let mut dests: Vec<u16> = vec![];
     let mut weights: Vec<u16> = vec![];
-    let signer : T::AccountId = account("Alice", 0, seed);
+    let signer : <T as frame_system::Config>::AccountId = account("Alice", 0, seed);
 
     for id in 0..4096_u16 {
-      let hotkey: T::AccountId = account("Alice", 0, seed);
-      let coldkey: T::AccountId = account("Test", 0, seed);
+      let hotkey: <T as frame_system::Config>::AccountId = account("Alice", 0, seed);
+      let coldkey: <T as frame_system::Config>::AccountId = account("Test", 0, seed);
       seed += 1;
 
         Subtensor::<T>::set_burn(netuid, 1);
@@ -78,7 +78,7 @@ benchmarks! {
 
   benchmark_become_delegate {
     // This is a whitelisted caller who can make transaction without weights.
-    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+    let caller: <T as frame_system::Config>::AccountId = whitelisted_caller::<AccountIdOf<T>>();
     let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
     let netuid: u16 = 1;
     let version_key: u64 = 1;
@@ -93,8 +93,8 @@ benchmarks! {
     Subtensor::<T>::set_network_registration_allowed( netuid, true);
     assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
 
-    let coldkey: T::AccountId = account("Test", 0, seed);
-    let hotkey: T::AccountId = account("Alice", 0, seed);
+    let coldkey: <T as frame_system::Config>::AccountId = account("Test", 0, seed);
+    let hotkey: <T as frame_system::Config>::AccountId = account("Alice", 0, seed);
 
     let amount_to_be_staked = 1000000000u32.into();
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
@@ -103,7 +103,7 @@ benchmarks! {
   }: become_delegate(RawOrigin::Signed( coldkey.clone() ), hotkey.clone())
 
   benchmark_add_stake {
-    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+    let caller: <T as frame_system::Config>::AccountId = whitelisted_caller::<AccountIdOf<T>>();
     let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
     let netuid: u16 = 1;
     let version_key: u64 = 1;
@@ -119,8 +119,8 @@ benchmarks! {
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
     assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
 
-    let coldkey: T::AccountId = account("Test", 0, seed);
-    let hotkey: T::AccountId = account("Alice", 0, seed);
+    let coldkey: <T as frame_system::Config>::AccountId = account("Test", 0, seed);
+    let hotkey: <T as frame_system::Config>::AccountId = account("Alice", 0, seed);
 
     let amount: u64 = 1;
     let amount_to_be_staked = 1000000000u64;
@@ -130,7 +130,7 @@ benchmarks! {
   }: add_stake(RawOrigin::Signed( coldkey.clone() ), hotkey, netuid, amount)
 
   benchmark_remove_stake{
-    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+    let caller: <T as frame_system::Config>::AccountId = whitelisted_caller::<AccountIdOf<T>>();
     let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
     let netuid: u16 = 1;
     let version_key: u64 = 1;
@@ -147,8 +147,8 @@ benchmarks! {
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
     assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
 
-    let coldkey: T::AccountId = account("Test", 0, seed);
-    let hotkey: T::AccountId = account("Alice", 0, seed);
+    let coldkey: <T as frame_system::Config>::AccountId = account("Test", 0, seed);
+    let hotkey: <T as frame_system::Config>::AccountId = account("Alice", 0, seed);
       Subtensor::<T>::set_burn(netuid, 1);
 
     let wallet_bal = 1000000u32.into();
@@ -166,7 +166,7 @@ benchmarks! {
   }: remove_stake(RawOrigin::Signed( coldkey.clone() ), hotkey.clone(), netuid, amount_unstaked)
 
   benchmark_serve_axon{
-    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+    let caller: <T as frame_system::Config>::AccountId = whitelisted_caller::<AccountIdOf<T>>();
     let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
     let netuid: u16 = 1;
     let tempo: u16 = 1;
@@ -195,7 +195,7 @@ benchmarks! {
   }: serve_axon(RawOrigin::Signed( caller.clone() ), netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2)
 
   benchmark_serve_prometheus {
-    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+    let caller: <T as frame_system::Config>::AccountId = whitelisted_caller::<AccountIdOf<T>>();
     let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
     let netuid: u16 = 1;
     let tempo: u16 = 1;
@@ -221,7 +221,7 @@ benchmarks! {
 
   /*
   benchmark_sudo_register {
-    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+    let caller: <T as frame_system::Config>::AccountId = whitelisted_caller::<AccountIdOf<T>>();
     let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
     let netuid: u16 = 1;
     let tempo: u16 = 0;
@@ -235,8 +235,8 @@ benchmarks! {
 
     let seed : u32 = 1;
     let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
-    let hotkey: T::AccountId = account("Alice", 0, seed);
-    let coldkey: T::AccountId = account("Test", 0, seed);
+    let hotkey: <T as frame_system::Config>::AccountId = account("Alice", 0, seed);
+    let coldkey: <T as frame_system::Config>::AccountId = account("Test", 0, seed);
 
     let amount_to_be_staked = balance.into();
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
@@ -246,8 +246,8 @@ benchmarks! {
   benchmark_burned_register {
     let netuid: u16 = 1;
     let seed : u32 = 1;
-    let hotkey: T::AccountId = account("Alice", 0, seed);
-    let coldkey: T::AccountId = account("Test", 0, seed);
+    let hotkey: <T as frame_system::Config>::AccountId = account("Alice", 0, seed);
+    let coldkey: <T as frame_system::Config>::AccountId = account("Test", 0, seed);
     let modality: u16 = 0;
     let tempo: u16 = 1;
 
@@ -274,8 +274,8 @@ benchmarks! {
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
     assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
 
-    let coldkey: T::AccountId = account("Test", 0, seed);
-    let hotkey: T::AccountId = account("Alice", 0, seed);
+    let coldkey: <T as frame_system::Config>::AccountId = account("Test", 0, seed);
+    let hotkey: <T as frame_system::Config>::AccountId = account("Alice", 0, seed);
 
     let amount: u64 = 1;
     let amount_to_be_staked =  100_000_000_000_000u64;
@@ -287,8 +287,8 @@ benchmarks! {
   benchmark_register_network {
     let seed : u32 = 1;
 
-    let coldkey: T::AccountId = account("Test", 0, seed);
-    let hotkey: T::AccountId = account("TestHotkey", 0, seed);
+    let coldkey: <T as frame_system::Config>::AccountId = account("Test", 0, seed);
+    let hotkey: <T as frame_system::Config>::AccountId = account("TestHotkey", 0, seed);
 
     Subtensor::<T>::set_network_rate_limit(1);
 
@@ -300,8 +300,8 @@ benchmarks! {
   benchmark_dissolve_network {
     let seed : u32 = 1;
 
-    let coldkey: T::AccountId = account("Test", 0, seed);
-    let hotkey: T::AccountId = account("TestHotkey", 0, seed);
+    let coldkey: <T as frame_system::Config>::AccountId = account("Test", 0, seed);
+    let hotkey: <T as frame_system::Config>::AccountId = account("TestHotkey", 0, seed);
 
     Subtensor::<T>::set_network_rate_limit(0);
 
@@ -314,9 +314,9 @@ benchmarks! {
 
   // swap_hotkey {
   //   let seed: u32 = 1;
-  //   let coldkey: T::AccountId = account("Alice", 0, seed);
-  //   let old_hotkey: T::AccountId = account("Bob", 0, seed);
-  //   let new_hotkey: T::AccountId = account("Charlie", 0, seed);
+  //   let coldkey: <T as frame_system::Config>::AccountId = account("Alice", 0, seed);
+  //   let old_hotkey: <T as frame_system::Config>::AccountId = account("Bob", 0, seed);
+  //   let new_hotkey: <T as frame_system::Config>::AccountId = account("Charlie", 0, seed);
 
   //   let netuid = 1u16;
   //   Subtensor::<T>::init_new_network(netuid, 100);
@@ -331,8 +331,8 @@ benchmarks! {
 
   //   let max_uids = Subtensor::<T>::get_max_allowed_uids(netuid) as u32;
   //   for i in 0..max_uids - 1 {
-  //       let coldkey: T::AccountId = account("Axon", 0, i);
-  //       let hotkey: T::AccountId = account("Hotkey", 0, i);
+  //       let coldkey: <T as frame_system::Config>::AccountId = account("Axon", 0, i);
+  //       let hotkey: <T as frame_system::Config>::AccountId = account("Hotkey", 0, i);
 
   //       Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), 10_000_000_000u64);
   //       assert_ok!(Subtensor::<T>::burned_register(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey));
@@ -346,8 +346,8 @@ benchmarks! {
     let version_key: u64 = 0;
     let uids: Vec<u16> = vec![0];
     let weight_values: Vec<u16> = vec![10];
-    let hotkey: T::AccountId = account("hot", 0, 1);
-    let coldkey: T::AccountId = account("cold", 0, 2);
+    let hotkey: <T as frame_system::Config>::AccountId = account("hot", 0, 1);
+    let coldkey: <T as frame_system::Config>::AccountId = account("cold", 0, 2);
     let start_nonce = 300000;
 
     let commit_hash: H256 = BlakeTwo256::hash_of(&(
@@ -387,8 +387,8 @@ reveal_weights {
     let uids: Vec<u16> = vec![0];
     let weight_values: Vec<u16> = vec![10];
     let salt: Vec<u16> = vec![8];
-    let hotkey: T::AccountId = account("hot", 0, 1);
-    let coldkey: T::AccountId = account("cold", 1, 2);
+    let hotkey: <T as frame_system::Config>::AccountId = account("hot", 0, 1);
+    let coldkey: <T as frame_system::Config>::AccountId = account("cold", 1, 2);
 
     Subtensor::<T>::init_new_network(netuid, tempo);
     Subtensor::<T>::set_network_registration_allowed(netuid, true);
@@ -427,12 +427,12 @@ reveal_weights {
   }: reveal_weights(RawOrigin::Signed(hotkey.clone()), netuid, uids, weight_values, salt, version_key)
 
   schedule_swap_coldkey {
-    let old_coldkey: T::AccountId = account("old_cold", 0, 1);
-    let new_coldkey: T::AccountId = account("new_cold", 1, 2);
+    let old_coldkey: <T as frame_system::Config>::AccountId = account("old_cold", 0, 1);
+    let new_coldkey: <T as frame_system::Config>::AccountId = account("new_cold", 1, 2);
     }: schedule_swap_coldkey(RawOrigin::Signed(old_coldkey.clone()), new_coldkey.clone())
 
     schedule_dissolve_network {
-        let coldkey: T::AccountId = account("coldkey", 0, 1);
+        let coldkey: <T as frame_system::Config>::AccountId = account("coldkey", 0, 1);
         let netuid = 1;
     }: schedule_dissolve_network(RawOrigin::Signed(coldkey.clone()), netuid)
   benchmark_sudo_set_tx_childkey_take_rate_limit {
@@ -446,8 +446,8 @@ reveal_weights {
   let netuid: u16 = 1;
   let tempo: u16 = 1;
   let seed: u32 = 1;
-  let coldkey: T::AccountId = account("Cold", 0, seed);
-  let hotkey: T::AccountId = account("Hot", 0, seed);
+  let coldkey: <T as frame_system::Config>::AccountId = account("Cold", 0, seed);
+  let hotkey: <T as frame_system::Config>::AccountId = account("Hot", 0, seed);
   let take: u16 = 1000; // 10% in basis points
 
   // Initialize the network
@@ -462,9 +462,9 @@ reveal_weights {
 
   swap_coldkey {
     // Set up initial state
-    let old_coldkey: T::AccountId = account("old_coldkey", 0, 0);
-    let new_coldkey: T::AccountId = account("new_coldkey", 0, 0);
-    let hotkey1: T::AccountId = account("hotkey1", 0, 0);
+    let old_coldkey: <T as frame_system::Config>::AccountId = account("old_coldkey", 0, 0);
+    let new_coldkey: <T as frame_system::Config>::AccountId = account("new_coldkey", 0, 0);
+    let hotkey1: <T as frame_system::Config>::AccountId = account("hotkey1", 0, 0);
     let netuid = 1u16;
     let stake_amount1 = 1000u64;
     let stake_amount2 = 2000u64;
@@ -522,8 +522,8 @@ batch_reveal_weights {
   let netuid: u16 = 1;
   let num_commits: usize = 10;
 
-  let hotkey: T::AccountId = account("hot", 0, 1);
-  let coldkey: T::AccountId = account("cold", 0, 2);
+  let hotkey: <T as frame_system::Config>::AccountId = account("hot", 0, 1);
+  let coldkey: <T as frame_system::Config>::AccountId = account("cold", 0, 2);
 
   Subtensor::<T>::init_new_network(netuid, tempo);
   Subtensor::<T>::set_network_registration_allowed(netuid, true);
@@ -595,15 +595,15 @@ batch_reveal_weights {
 )
 
 benchmark_recycle_alpha {
-  let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+  let caller: <T as frame_system::Config>::AccountId = whitelisted_caller::<AccountIdOf<T>>();
   let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
   let netuid: u16 = 1;
   let tempo: u16 = 1;
   let seed: u32 = 1;
 
   // Set up coldkey and hotkey
-  let coldkey: T::AccountId = account("Test", 0, seed);
-  let hotkey: T::AccountId = account("Alice", 0, seed);
+  let coldkey: <T as frame_system::Config>::AccountId = account("Test", 0, seed);
+  let hotkey: <T as frame_system::Config>::AccountId = account("Alice", 0, seed);
 
   // Initialize network
   Subtensor::<T>::init_new_network(netuid, tempo);
@@ -627,15 +627,15 @@ benchmark_recycle_alpha {
 }: recycle_alpha(RawOrigin::Signed(coldkey), hotkey, alpha_amount, netuid)
 
 benchmark_burn_alpha {
-  let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+  let caller: <T as frame_system::Config>::AccountId = whitelisted_caller::<AccountIdOf<T>>();
   let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
   let netuid = 1;
   let tempo = 1;
   let seed = 1;
 
   // Set up coldkey and hotkey
-  let coldkey: T::AccountId = account("Test", 0, seed);
-  let hotkey: T::AccountId = account("Alice", 0, seed);
+  let coldkey: <T as frame_system::Config>::AccountId = account("Test", 0, seed);
+  let hotkey: <T as frame_system::Config>::AccountId = account("Alice", 0, seed);
 
   // Initialize network
   Subtensor::<T>::init_new_network(netuid, tempo);
@@ -660,15 +660,15 @@ benchmark_burn_alpha {
 
 
 benchmark_start_call {
-  let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+  let caller: <T as frame_system::Config>::AccountId = whitelisted_caller::<AccountIdOf<T>>();
   let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
   let netuid: u16 = 1;
   let tempo: u16 = 1;
   let seed: u32 = 1;
 
   // Set up coldkey and hotkey
-  let coldkey: T::AccountId = account("Test", 0, seed);
-  let hotkey: T::AccountId = account("Alice", 0, seed);
+  let coldkey: <T as frame_system::Config>::AccountId = account("Test", 0, seed);
+  let hotkey: <T as frame_system::Config>::AccountId = account("Alice", 0, seed);
 
   // Initialize network
   Subtensor::<T>::init_new_network(netuid, tempo);

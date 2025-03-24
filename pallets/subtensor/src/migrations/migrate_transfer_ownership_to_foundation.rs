@@ -56,7 +56,7 @@ pub fn migrate_transfer_ownership_to_foundation<T: Config>(coldkey: [u8; 32]) ->
 
         // Decode the foundation's coldkey into an AccountId
         // TODO: Consider error handling for decoding failure
-        let coldkey_account: T::AccountId = T::AccountId::decode(&mut &coldkey[..])
+        let coldkey_account: <T as frame_system::Config>::AccountId = <T as frame_system::Config>::AccountId::decode(&mut &coldkey[..])
             .expect("coldkey should be a valid 32-byte array");
         info!(target: LOG_TARGET, "Foundation coldkey: {:?}", coldkey_account);
 

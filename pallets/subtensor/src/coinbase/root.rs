@@ -132,7 +132,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns:
     /// * 'DispatchResult': A result type indicating success or failure of the registration.
     ///
-    pub fn do_root_register(origin: T::RuntimeOrigin, hotkey: T::AccountId) -> DispatchResult {
+    pub fn do_root_register(origin: T::RuntimeOrigin, hotkey: <T as frame_system::Config>::AccountId) -> DispatchResult {
         // --- 0. Get the unique identifier (UID) for the root network.
         let root_netuid: u16 = Self::get_root_netuid();
         let current_block_number: u64 = Self::get_current_block_as_u64();
@@ -195,7 +195,7 @@ impl<T: Config> Pallet<T> {
 
             // Iterate over all keys in the root network to find the neuron with the lowest stake.
             for (uid_i, hotkey_i) in
-                <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(
+                <Keys<T> as IterableStorageDoubleMap<u16, u16, <T as frame_system::Config>::AccountId>>::iter_prefix(
                     root_netuid,
                 )
             {
@@ -206,7 +206,7 @@ impl<T: Config> Pallet<T> {
                 }
             }
             subnetwork_uid = lowest_uid;
-            let replaced_hotkey: T::AccountId =
+            let replaced_hotkey: <T as frame_system::Config>::AccountId =
                 Self::get_hotkey_for_net_and_uid(root_netuid, subnetwork_uid)?;
 
             // --- 13.1.2 The new account has a higher stake than the one being replaced.
@@ -269,7 +269,7 @@ impl<T: Config> Pallet<T> {
     // # Returns:
     // * 'DispatchResult': A result type indicating success or failure of the registration.
     //
-    pub fn do_adjust_senate(origin: T::RuntimeOrigin, hotkey: T::AccountId) -> DispatchResult {
+    pub fn do_adjust_senate(origin: T::RuntimeOrigin, hotkey: <T as frame_system::Config>::AccountId) -> DispatchResult {
         // --- 0. Get the unique identifier (UID) for the root network.
         let root_netuid: u16 = Self::get_root_netuid();
         ensure!(
@@ -329,9 +329,9 @@ impl<T: Config> Pallet<T> {
     // * 'hotkey': The hotkey that the user wants to register to the root network.
     //
     // # Returns:
-    // * 'Result<Option<&T::AccountId>, Error<T>>': A result containing the replaced member, if any.
+    // * 'Result<Option<&<T as frame_system::Config>::AccountId>, Error<T>>': A result containing the replaced member, if any.
     //
-    fn join_senate_if_eligible(hotkey: &T::AccountId) -> Result<Option<&T::AccountId>, Error<T>> {
+    fn join_senate_if_eligible(hotkey: &<T as frame_system::Config>::AccountId) -> Result<Option<&<T as frame_system::Config>::AccountId>, Error<T>> {
         // Get the root network UID.
         let root_netuid: u16 = Self::get_root_netuid();
 
@@ -353,7 +353,7 @@ impl<T: Config> Pallet<T> {
         // Add the hotkey to the Senate.
         // If we're full, we'll swap out the lowest stake member.
         let members = T::SenateMembers::members();
-        let last: Option<&T::AccountId> = None;
+        let last: Option<&<T as frame_system::Config>::AccountId> = None;
         if (members.len() as u32) == T::SenateMembers::max_members() {
             let mut sorted_members = members.clone();
             sorted_members.sort_by(|a, b| {
@@ -383,7 +383,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn do_vote_root(
         origin: T::RuntimeOrigin,
-        hotkey: &T::AccountId,
+        hotkey: &<T as frame_system::Config>::AccountId,
         proposal: T::Hash,
         index: u32,
         approve: bool,
@@ -440,7 +440,7 @@ impl<T: Config> Pallet<T> {
     /// * 'SubNetworkDoesNotExist': If the specified network does not exist.
     /// * 'NotSubnetOwner': If the caller does not own the specified subnet.
     ///
-    pub fn user_remove_network(coldkey: T::AccountId, netuid: u16) -> dispatch::DispatchResult {
+    pub fn user_remove_network(coldkey: <T as frame_system::Config>::AccountId, netuid: u16) -> dispatch::DispatchResult {
         // --- 1. Ensure this subnet exists.
         ensure!(
             Self::if_subnet_exist(netuid),
@@ -483,7 +483,7 @@ impl<T: Config> Pallet<T> {
     /// returns if any internal checks fail.
     pub fn remove_network(netuid: u16) {
         // --- 1. Return balance to subnet owner.
-        let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
+        let owner_coldkey: <T as frame_system::Config>::AccountId = SubnetOwner::<T>::get(netuid);
         let reserved_amount: u64 = Self::get_subnet_locked_balance(netuid);
 
         // --- 2. Remove network count.

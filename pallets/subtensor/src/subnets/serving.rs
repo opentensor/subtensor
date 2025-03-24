@@ -239,7 +239,10 @@ impl<T: Config> Pallet<T> {
         rate_limit == 0 || last_serve == 0 || current_block.saturating_sub(last_serve) >= rate_limit
     }
 
-    pub fn get_axon_info(netuid: u16, hotkey: &T::AccountId) -> AxonInfoOf {
+    pub fn get_axon_info(
+        netuid: u16,
+        hotkey: &<T as frame_system::Config>::AccountId,
+    ) -> AxonInfoOf {
         if let Some(axons) = Axons::<T>::get(netuid, hotkey) {
             axons
         } else {
@@ -256,7 +259,10 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn get_prometheus_info(netuid: u16, hotkey: &T::AccountId) -> PrometheusInfoOf {
+    pub fn get_prometheus_info(
+        netuid: u16,
+        hotkey: &<T as frame_system::Config>::AccountId,
+    ) -> PrometheusInfoOf {
         if let Some(prometheus) = Prometheus::<T>::get(netuid, hotkey) {
             prometheus
         } else {
@@ -327,7 +333,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn validate_serve_axon(
-        hotkey_id: &T::AccountId,
+        hotkey_id: &<T as frame_system::Config>::AccountId,
         netuid: u16,
         version: u32,
         ip: u128,

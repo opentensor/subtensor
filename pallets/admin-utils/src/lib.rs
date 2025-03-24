@@ -1435,7 +1435,7 @@ pub mod pallet {
         pub fn sudo_set_subnet_owner_hotkey(
             origin: OriginFor<T>,
             netuid: u16,
-            hotkey: T::AccountId,
+            hotkey: <T as frame_system::Config>::AccountId,
         ) -> DispatchResult {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner(origin.clone(), netuid)?;
             pallet_subtensor::Pallet::<T>::set_subnet_owner_hotkey(netuid, &hotkey);

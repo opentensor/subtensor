@@ -269,13 +269,13 @@ impl<T: Config> Pallet<T> {
         );
 
         // Run the epoch.
-        let hotkey_emission: Vec<(T::AccountId, u64, u64)> =
+        let hotkey_emission: Vec<(<T as frame_system::Config>::AccountId, u64, u64)> =
             Self::epoch(netuid, pending_alpha.saturating_add(pending_swapped));
         log::debug!("hotkey_emission: {:?}", hotkey_emission);
 
         // Accumulate emission of dividends and incentive per hotkey.
-        let mut incentives: BTreeMap<T::AccountId, u64> = BTreeMap::new();
-        let mut dividends: BTreeMap<T::AccountId, I96F32> = BTreeMap::new();
+        let mut incentives: BTreeMap<<T as frame_system::Config>::AccountId, u64> = BTreeMap::new();
+        let mut dividends: BTreeMap<<T as frame_system::Config>::AccountId, I96F32> = BTreeMap::new();
         for (hotkey, incentive, dividend) in hotkey_emission {
             // Accumulate incentives to miners.
             incentives
@@ -283,7 +283,7 @@ impl<T: Config> Pallet<T> {
                 .and_modify(|e| *e = e.saturating_add(incentive))
                 .or_insert(incentive);
             // Accumulate dividends to parents.
-            let div_tuples: Vec<(T::AccountId, u64)> =
+            let div_tuples: Vec<(<T as frame_system::Config>::AccountId, u64)> =
                 Self::get_dividends_distribution(&hotkey, netuid, dividend);
             // Accumulate dividends per hotkey.
             for (parent, parent_div) in div_tuples {
@@ -309,8 +309,8 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         pending_tao: u64,
         owner_cut: u64,
-        incentives: BTreeMap<T::AccountId, u64>,
-        dividends: BTreeMap<T::AccountId, I96F32>,
+        incentives: BTreeMap<<T as frame_system::Config>::AccountId, u64>,
+        dividends: BTreeMap<<T as frame_system::Config>::AccountId, I96F32>,
     ) {
         // Setup.
         let zero: I96F32 = asfloat!(0.0);
@@ -318,8 +318,8 @@ impl<T: Config> Pallet<T> {
         // Accumulate root divs and alpha_divs. For each hotkey we compute their
         // local and root dividend proportion based on their alpha_stake/root_stake
         let mut total_root_divs: I96F32 = asfloat!(0);
-        let mut root_dividends: BTreeMap<T::AccountId, I96F32> = BTreeMap::new();
-        let mut alpha_dividends: BTreeMap<T::AccountId, I96F32> = BTreeMap::new();
+        let mut root_dividends: BTreeMap<<T as frame_system::Config>::AccountId, I96F32> = BTreeMap::new();
+        let mut alpha_dividends: BTreeMap<<T as frame_system::Config>::AccountId, I96F32> = BTreeMap::new();
         for (hotkey, dividend) in dividends {
             // Get hotkey ALPHA on subnet.
             let alpha_stake = asfloat!(Self::get_stake_for_hotkey_on_subnet(&hotkey, netuid));
@@ -356,7 +356,7 @@ impl<T: Config> Pallet<T> {
         log::debug!("total_root_divs: {:?}", total_root_divs);
 
         // Compute root divs as TAO. Here we take
-        let mut tao_dividends: BTreeMap<T::AccountId, I96F32> = BTreeMap::new();
+        let mut tao_dividends: BTreeMap<<T as frame_system::Config>::AccountId, I96F32> = BTreeMap::new();
         for (hotkey, root_divs) in root_dividends {
             // Root proportion.
             let root_share: I96F32 = root_divs.checked_div(total_root_divs).unwrap_or(zero);
@@ -470,7 +470,7 @@ impl<T: Config> Pallet<T> {
 
     /// Returns the self contribution of a hotkey on a subnet.
     /// This is the portion of the hotkey's stake that is provided by itself, and not delegated to other hotkeys.
-    pub fn get_self_contribution(hotkey: &T::AccountId, netuid: u16) -> u64 {
+    pub fn get_self_contribution(hotkey: &<T as frame_system::Config>::AccountId, netuid: u16) -> u64 {
         // Get all childkeys for this hotkey.
         let childkeys = Self::get_children(hotkey, netuid);
         let mut remaining_proportion: I96F32 = I96F32::saturating_from_num(1.0);
@@ -514,15 +514,15 @@ impl<T: Config> Pallet<T> {
     /// * `dividends` - the dividends to distribute.
     ///
     /// # Returns
-    /// * dividend_tuples: `Vec<(T::AccountId, u64)>` - Vector of (hotkey, divs) for each parent including self.
+    /// * dividend_tuples: `Vec<(<T as frame_system::Config>::AccountId, u64)>` - Vector of (hotkey, divs) for each parent including self.
     ///
     pub fn get_dividends_distribution(
-        hotkey: &T::AccountId,
+        hotkey: &<T as frame_system::Config>::AccountId,
         netuid: u16,
         dividends: u64,
-    ) -> Vec<(T::AccountId, u64)> {
+    ) -> Vec<(<T as frame_system::Config>::AccountId, u64)> {
         // hotkey dividends.
-        let mut dividend_tuples: Vec<(T::AccountId, u64)> = vec![];
+        let mut dividend_tuples: Vec<(<T as frame_system::Config>::AccountId, u64)> = vec![];
 
         // Calculate the hotkey's share of the validator emission based on its childkey take
         let validating_emission: I96F32 = I96F32::saturating_from_num(dividends);
@@ -546,7 +546,7 @@ impl<T: Config> Pallet<T> {
 
         // Initialize variables to calculate total stakes from parents
         let mut total_contribution: I96F32 = I96F32::saturating_from_num(0);
-        let mut parent_contributions: Vec<(T::AccountId, I96F32)> = Vec::new();
+        let mut parent_contributions: Vec<(<T as frame_system::Config>::AccountId, I96F32)> = Vec::new();
 
         // Get the weights for root and alpha stakes in emission distribution
         let tao_weight: I96F32 = Self::get_tao_weight();

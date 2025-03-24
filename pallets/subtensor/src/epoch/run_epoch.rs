@@ -9,7 +9,7 @@ impl<T: Config> Pallet<T> {
     /// Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.
     /// (Dense version used only for testing purposes.)
     #[allow(clippy::indexing_slicing)]
-    pub fn epoch_dense(netuid: u16, rao_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
+    pub fn epoch_dense(netuid: u16, rao_emission: u64) -> Vec<(<T as frame_system::Config>::AccountId, u64, u64)> {
         // Get subnetwork size.
         let n: u16 = Self::get_subnetwork_n(netuid);
         log::trace!("n:\n{:?}\n", n);
@@ -74,8 +74,8 @@ impl<T: Config> Pallet<T> {
         // == Stake ==
         // ===========
 
-        let hotkeys: Vec<(u16, T::AccountId)> =
-            <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(netuid)
+        let hotkeys: Vec<(u16, <T as frame_system::Config>::AccountId)> =
+            <Keys<T> as IterableStorageDoubleMap<u16, u16, <T as frame_system::Config>::AccountId>>::iter_prefix(netuid)
                 .collect();
         log::trace!("hotkeys: {:?}", &hotkeys);
 
@@ -388,7 +388,7 @@ impl<T: Config> Pallet<T> {
     ///     - Print debugging outputs.
     ///
     #[allow(clippy::indexing_slicing)]
-    pub fn epoch(netuid: u16, rao_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
+    pub fn epoch(netuid: u16, rao_emission: u64) -> Vec<(<T as frame_system::Config>::AccountId, u64, u64)> {
         // Get subnetwork size.
         let n: u16 = Self::get_subnetwork_n(netuid);
         log::trace!("Number of Neurons in Network: {:?}", n);
@@ -431,8 +431,8 @@ impl<T: Config> Pallet<T> {
         // == Stake ==
         // ===========
 
-        let hotkeys: Vec<(u16, T::AccountId)> =
-            <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(netuid)
+        let hotkeys: Vec<(u16, <T as frame_system::Config>::AccountId)> =
+            <Keys<T> as IterableStorageDoubleMap<u16, u16, <T as frame_system::Config>::AccountId>>::iter_prefix(netuid)
                 .collect();
         log::debug!("hotkeys: {:?}", &hotkeys);
 

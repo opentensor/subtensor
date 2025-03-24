@@ -247,7 +247,7 @@ impl<T: Config> Pallet<T> {
     // ========================
     // ===== Take checks ======
     // ========================
-    pub fn do_take_checks(coldkey: &T::AccountId, hotkey: &T::AccountId) -> Result<(), Error<T>> {
+    pub fn do_take_checks(coldkey: &<T as frame_system::Config>::AccountId, hotkey: &<T as frame_system::Config>::AccountId) -> Result<(), Error<T>> {
         // Ensure we are delegating a known key.
         ensure!(
             Self::hotkey_account_exists(hotkey),
@@ -592,7 +592,7 @@ impl<T: Config> Pallet<T> {
         ));
     }
 
-    pub fn get_subnet_owner(netuid: u16) -> T::AccountId {
+    pub fn get_subnet_owner(netuid: u16) -> <T as frame_system::Config>::AccountId {
         SubnetOwner::<T>::get(netuid)
     }
     pub fn get_subnet_owner_cut() -> u16 {
@@ -607,10 +607,10 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::SubnetOwnerCutSet(subnet_owner_cut));
     }
 
-    pub fn get_owned_hotkeys(coldkey: &T::AccountId) -> Vec<T::AccountId> {
+    pub fn get_owned_hotkeys(coldkey: &<T as frame_system::Config>::AccountId) -> Vec<<T as frame_system::Config>::AccountId> {
         OwnedHotkeys::<T>::get(coldkey)
     }
-    pub fn get_all_staked_hotkeys(coldkey: &T::AccountId) -> Vec<T::AccountId> {
+    pub fn get_all_staked_hotkeys(coldkey: &<T as frame_system::Config>::AccountId) -> Vec<<T as frame_system::Config>::AccountId> {
         StakingHotkeys::<T>::get(coldkey)
     }
 
@@ -635,7 +635,7 @@ impl<T: Config> Pallet<T> {
         SenateRequiredStakePercentage::<T>::put(required_percent);
     }
 
-    pub fn is_senate_member(hotkey: &T::AccountId) -> bool {
+    pub fn is_senate_member(hotkey: &<T as frame_system::Config>::AccountId) -> bool {
         T::SenateMembers::is_member(hotkey)
     }
 
@@ -650,7 +650,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn is_subnet_owner(address: &T::AccountId) -> bool {
+    pub fn is_subnet_owner(address: &<T as frame_system::Config>::AccountId) -> bool {
         SubnetOwner::<T>::iter_values().any(|owner| *address == owner)
     }
 
@@ -729,7 +729,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * Update the SubnetOwnerHotkey storage.
     /// * Emits a SubnetOwnerHotkeySet event.
-    pub fn set_subnet_owner_hotkey(netuid: u16, hotkey: &T::AccountId) {
+    pub fn set_subnet_owner_hotkey(netuid: u16, hotkey: &<T as frame_system::Config>::AccountId) {
         SubnetOwnerHotkey::<T>::insert(netuid, hotkey.clone());
         Self::deposit_event(Event::SubnetOwnerHotkeySet(netuid, hotkey.clone()));
     }

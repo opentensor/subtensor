@@ -90,14 +90,14 @@ pub mod pallet {
             /// The netuid of the commitment
             netuid: u16,
             /// The account
-            who: T::AccountId,
+            who: <T as frame_system::Config>::AccountId,
         },
         /// A timelock-encrypted commitment was set
         TimelockCommitment {
             /// The netuid of the commitment
             netuid: u16,
             /// The account
-            who: T::AccountId,
+            who: <T as frame_system::Config>::AccountId,
             /// The drand round to reveal
             reveal_round: u64,
         },
@@ -106,7 +106,7 @@ pub mod pallet {
             /// The netuid of the commitment
             netuid: u16,
             /// The account
-            who: T::AccountId,
+            who: <T as frame_system::Config>::AccountId,
         },
     }
 
@@ -136,7 +136,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn timelocked_index)]
     pub type TimelockedIndex<T: Config> =
-        StorageValue<_, BTreeSet<(u16, T::AccountId)>, ValueQuery>;
+        StorageValue<_, BTreeSet<(u16, <T as frame_system::Config>::AccountId)>, ValueQuery>;
 
     /// Identity data by account
     #[pallet::storage]
@@ -146,7 +146,7 @@ pub mod pallet {
         Identity,
         u16,
         Twox64Concat,
-        T::AccountId,
+        <T as frame_system::Config>::AccountId,
         Registration<BalanceOf<T>, T::MaxFields, BlockNumberFor<T>>,
         OptionQuery,
     >;
@@ -158,7 +158,7 @@ pub mod pallet {
         Identity,
         u16,
         Twox64Concat,
-        T::AccountId,
+        <T as frame_system::Config>::AccountId,
         BlockNumberFor<T>,
         OptionQuery,
     >;
@@ -169,7 +169,7 @@ pub mod pallet {
         Identity,
         u16,
         Twox64Concat,
-        T::AccountId,
+        <T as frame_system::Config>::AccountId,
         RevealedData<BalanceOf<T>, T::MaxFields, BlockNumberFor<T>>,
         OptionQuery,
     >;
@@ -179,7 +179,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn used_space_of)]
     pub type UsedSpaceOf<T: Config> =
-        StorageDoubleMap<_, Identity, u16, Twox64Concat, T::AccountId, UsageTracker, OptionQuery>;
+        StorageDoubleMap<_, Identity, u16, Twox64Concat, <T as frame_system::Config>::AccountId, UsageTracker, OptionQuery>;
 
     #[pallet::type_value]
     /// The default Maximum Space
@@ -418,7 +418,7 @@ where
 {
     const IDENTIFIER: &'static str = "CommitmentsSignedExtension";
 
-    type AccountId = T::AccountId;
+    type AccountId = <T as frame_system::Config>::AccountId;
     type Call = T::RuntimeCall;
     type AdditionalSigned = ();
     type Pre = (CallType, u64, Self::AccountId);

@@ -31,8 +31,8 @@ impl<T: Config> Pallet<T> {
     ///
     /// Weight is tracked and updated throughout the function execution.
     pub fn do_swap_coldkey(
-        old_coldkey: &T::AccountId,
-        new_coldkey: &T::AccountId,
+        old_coldkey: &<T as frame_system::Config>::AccountId,
+        new_coldkey: &<T as frame_system::Config>::AccountId,
         swap_cost: u64,
     ) -> DispatchResultWithPostInfo {
         // 2. Initialize the weight for this operation
@@ -132,8 +132,8 @@ impl<T: Config> Pallet<T> {
     ///
     /// This function is a critical part of the coldkey swap process and should be called only after all necessary checks and validations have been performed.
     pub fn perform_swap_coldkey(
-        old_coldkey: &T::AccountId,
-        new_coldkey: &T::AccountId,
+        old_coldkey: &<T as frame_system::Config>::AccountId,
+        new_coldkey: &<T as frame_system::Config>::AccountId,
         weight: &mut Weight,
     ) -> DispatchResult {
         // 1. Swap TotalHotkeyColdkeyStakesThisInterval
@@ -192,8 +192,8 @@ impl<T: Config> Pallet<T> {
 
         // 5. Swap StakingHotkeys.
         // StakingHotkeys: MAP ( coldkey ) --> Vec<hotkeys> | Hotkeys staking for the coldkey.
-        let old_staking_hotkeys: Vec<T::AccountId> = StakingHotkeys::<T>::get(old_coldkey);
-        let mut new_staking_hotkeys: Vec<T::AccountId> = StakingHotkeys::<T>::get(new_coldkey);
+        let old_staking_hotkeys: Vec<<T as frame_system::Config>::AccountId> = StakingHotkeys::<T>::get(old_coldkey);
+        let mut new_staking_hotkeys: Vec<<T as frame_system::Config>::AccountId> = StakingHotkeys::<T>::get(new_coldkey);
         for hotkey in old_staking_hotkeys {
             // If the hotkey is not already in the new coldkey, add it.
             if !new_staking_hotkeys.contains(&hotkey) {
@@ -207,8 +207,8 @@ impl<T: Config> Pallet<T> {
         // 6. Swap hotkey owners.
         // Owner: MAP ( hotkey ) --> coldkey | Owner of the hotkey.
         // OwnedHotkeys: MAP ( coldkey ) --> Vec<hotkeys> | Hotkeys owned by the coldkey.
-        let old_owned_hotkeys: Vec<T::AccountId> = OwnedHotkeys::<T>::get(old_coldkey);
-        let mut new_owned_hotkeys: Vec<T::AccountId> = OwnedHotkeys::<T>::get(new_coldkey);
+        let old_owned_hotkeys: Vec<<T as frame_system::Config>::AccountId> = OwnedHotkeys::<T>::get(old_coldkey);
+        let mut new_owned_hotkeys: Vec<<T as frame_system::Config>::AccountId> = OwnedHotkeys::<T>::get(new_coldkey);
         for owned_hotkey in old_owned_hotkeys.iter() {
             // Remove the hotkey from the old coldkey.
             Owner::<T>::remove(owned_hotkey);

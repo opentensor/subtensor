@@ -7,7 +7,7 @@ use system::pallet_prelude::BlockNumberFor;
 const LOG_TARGET: &str = "runtime::subtensor::registration";
 
 impl<T: Config> Pallet<T> {
-    pub fn register_neuron(netuid: u16, hotkey: &T::AccountId) -> u16 {
+    pub fn register_neuron(netuid: u16, hotkey: &<T as frame_system::Config>::AccountId) -> u16 {
         // Init param
         let neuron_uid: u16;
         let block_number: u64 = Self::get_current_block_as_u64();
@@ -45,7 +45,7 @@ impl<T: Config> Pallet<T> {
     /// * 'netuid' (u16):
     ///     - The u16 network identifier.
     ///
-    /// * 'hotkey' ( T::AccountId ):
+    /// * 'hotkey' ( <T as frame_system::Config>::AccountId ):
     ///     - Hotkey to be registered to the network.
     ///
     /// # Event:
@@ -65,7 +65,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_burned_registration(
         origin: T::RuntimeOrigin,
         netuid: u16,
-        hotkey: T::AccountId,
+        hotkey: <T as frame_system::Config>::AccountId,
     ) -> DispatchResult {
         // --- 1. Check that the caller has signed the transaction. (the coldkey of the pairing)
         let coldkey = ensure_signed(origin)?;
@@ -182,10 +182,10 @@ impl<T: Config> Pallet<T> {
     /// *'work' ( Vec<u8> ):
     ///     - Vector encoded bytes representing work done.
     ///
-    /// *'hotkey' ( T::AccountId ):
+    /// *'hotkey' ( <T as frame_system::Config>::AccountId ):
     ///     - Hotkey to be registered to the network.
     ///
-    /// *'coldkey' ( T::AccountId ):
+    /// *'coldkey' ( <T as frame_system::Config>::AccountId ):
     ///     - Associated coldkey account.
     ///
     /// # Event:
@@ -217,8 +217,8 @@ impl<T: Config> Pallet<T> {
         block_number: u64,
         nonce: u64,
         work: Vec<u8>,
-        hotkey: T::AccountId,
-        coldkey: T::AccountId,
+        hotkey: <T as frame_system::Config>::AccountId,
+        coldkey: <T as frame_system::Config>::AccountId,
     ) -> DispatchResult {
         // --- 1. Check that the caller has signed the transaction.
         let signing_origin = ensure_signed(origin)?;
@@ -524,7 +524,7 @@ impl<T: Config> Pallet<T> {
         hash_as_vec
     }
 
-    pub fn hash_block_and_hotkey(block_hash_bytes: &[u8; 32], hotkey: &T::AccountId) -> H256 {
+    pub fn hash_block_and_hotkey(block_hash_bytes: &[u8; 32], hotkey: &<T as frame_system::Config>::AccountId) -> H256 {
         let binding = hotkey.encode();
         // Safe because Substrate guarantees that all AccountId types are at least 32 bytes
         let (hotkey_bytes, _) = binding.split_at(32);
@@ -537,7 +537,7 @@ impl<T: Config> Pallet<T> {
         H256::from_slice(&keccak_256_seal_hash_vec)
     }
 
-    pub fn hash_hotkey_to_u64(hotkey: &T::AccountId) -> u64 {
+    pub fn hash_hotkey_to_u64(hotkey: &<T as frame_system::Config>::AccountId) -> u64 {
         let binding = hotkey.encode();
         let (hotkey_bytes, _) = binding.split_at(32);
         let mut full_bytes = [0u8; 64];
@@ -552,7 +552,7 @@ impl<T: Config> Pallet<T> {
         hash_u64
     }
 
-    pub fn create_seal_hash(block_number_u64: u64, nonce_u64: u64, hotkey: &T::AccountId) -> H256 {
+    pub fn create_seal_hash(block_number_u64: u64, nonce_u64: u64, hotkey: &<T as frame_system::Config>::AccountId) -> H256 {
         let nonce = nonce_u64.to_le_bytes();
         let block_hash_at_number: H256 = Self::get_block_hash_from_u64(block_number_u64);
         let block_hash_bytes: &[u8; 32] = block_hash_at_number.as_fixed_bytes();
@@ -587,7 +587,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         block_number: u64,
         start_nonce: u64,
-        hotkey: &T::AccountId,
+        hotkey: &<T as frame_system::Config>::AccountId,
     ) -> (u64, Vec<u8>) {
         let difficulty: U256 = Self::get_difficulty(netuid);
         let mut nonce: u64 = start_nonce;

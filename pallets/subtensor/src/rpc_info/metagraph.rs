@@ -108,14 +108,14 @@ pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn get_metagraph(netuid: u16) -> Option<Metagraph<T::AccountId>> {
+    pub fn get_metagraph(netuid: u16) -> Option<Metagraph<<T as frame_system::Config>::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }
 
         let n: u16 = Self::get_subnetwork_n(netuid);
-        let mut hotkeys: Vec<T::AccountId> = vec![];
-        let mut coldkeys: Vec<T::AccountId> = vec![];
+        let mut hotkeys: Vec<<T as frame_system::Config>::AccountId> = vec![];
+        let mut coldkeys: Vec<<T as frame_system::Config>::AccountId> = vec![];
         let mut block_at_registration: Vec<Compact<u64>> = vec![];
         let mut identities: Vec<Option<ChainIdentityOfV2>> = vec![];
         let mut axons: Vec<AxonInfo> = vec![];
@@ -128,8 +128,8 @@ impl<T: Config> Pallet<T> {
             identities.push(IdentitiesV2::<T>::get(coldkey.clone()));
             axons.push(Self::get_axon_info(netuid, &hotkey));
         }
-        let mut tao_dividends_per_hotkey: Vec<(T::AccountId, Compact<u64>)> = vec![];
-        let mut alpha_dividends_per_hotkey: Vec<(T::AccountId, Compact<u64>)> = vec![];
+        let mut tao_dividends_per_hotkey: Vec<(<T as frame_system::Config>::AccountId, Compact<u64>)> = vec![];
+        let mut alpha_dividends_per_hotkey: Vec<(<T as frame_system::Config>::AccountId, Compact<u64>)> = vec![];
         for hotkey in hotkeys.clone() {
             let tao_divs = TaoDividendsPerSubnet::<T>::get(netuid, hotkey.clone());
             let alpha_divs = AlphaDividendsPerSubnet::<T>::get(netuid, hotkey.clone());
@@ -283,9 +283,9 @@ impl<T: Config> Pallet<T> {
             alpha_dividends_per_hotkey,
         })
     }
-    pub fn get_all_metagraphs() -> Vec<Option<Metagraph<T::AccountId>>> {
+    pub fn get_all_metagraphs() -> Vec<Option<Metagraph<<T as frame_system::Config>::AccountId>>> {
         let netuids: Vec<u16> = Self::get_all_subnet_netuids();
-        let mut metagraphs = Vec::<Option<Metagraph<T::AccountId>>>::new();
+        let mut metagraphs = Vec::<Option<Metagraph<<T as frame_system::Config>::AccountId>>>::new();
         for netuid in netuids.clone().iter() {
             metagraphs.push(Self::get_metagraph(*netuid));
         }
