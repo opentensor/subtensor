@@ -18,7 +18,8 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
     fn caller_account_id<R>(&self) -> <R as frame_system::Config>::AccountId
     where
         R: frame_system::Config + pallet_evm::Config,
-        <R as pallet_evm::Config>::AddressMapping: AddressMapping<<R as frame_system::Config>::AccountId>,
+        <R as pallet_evm::Config>::AddressMapping:
+            AddressMapping<<R as frame_system::Config>::AccountId>,
     {
         <R as pallet_evm::Config>::AddressMapping::into_account_id(self.context().caller)
     }
@@ -45,11 +46,12 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
     ) -> EvmResult<()>
     where
         R: frame_system::Config + pallet_evm::Config,
-        R::RuntimeCall: From<Call>,
-        R::RuntimeCall: GetDispatchInfo + Dispatchable<PostInfo = PostDispatchInfo>,
+        <R as frame_system::Config>::RuntimeCall: From<Call>,
+        <R as frame_system::Config>::RuntimeCall:
+            GetDispatchInfo + Dispatchable<PostInfo = PostDispatchInfo>,
         R::RuntimeOrigin: From<RawOrigin<<R as frame_system::Config>::AccountId>>,
     {
-        let call = R::RuntimeCall::from(call);
+        let call = <R as frame_system::Config>::RuntimeCall::from(call);
         let info = GetDispatchInfo::get_dispatch_info(&call);
 
         let target_gas = self.gas_limit();
