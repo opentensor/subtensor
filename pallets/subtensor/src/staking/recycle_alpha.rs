@@ -42,7 +42,14 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InsufficientLiquidity
         );
 
-        TotalHotkeyAlpha::<T>::mutate(&hotkey, netuid, |v| *v = v.saturating_sub(amount));
+        if TotalHotkeyAlpha::<T>::mutate(&hotkey, netuid, |v| {
+            *v = v.saturating_sub(amount);
+            *v
+        }) == 0
+        {
+            TotalHotkeyAlpha::<T>::remove(&hotkey, netuid);
+        }
+
         SubnetAlphaOut::<T>::mutate(netuid, |total| {
             *total = total.saturating_sub(amount);
         });
@@ -92,7 +99,13 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InsufficientLiquidity
         );
 
-        TotalHotkeyAlpha::<T>::mutate(&hotkey, netuid, |v| *v = v.saturating_sub(amount));
+        if TotalHotkeyAlpha::<T>::mutate(&hotkey, netuid, |v| {
+            *v = v.saturating_sub(amount);
+            *v
+        }) == 0
+        {
+            TotalHotkeyAlpha::<T>::remove(&hotkey, netuid);
+        }
 
         // Deposit event
         Self::deposit_event(Event::AlphaBurned(coldkey, hotkey, amount, netuid));
