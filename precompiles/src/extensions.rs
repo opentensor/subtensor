@@ -49,7 +49,8 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
         <R as frame_system::Config>::RuntimeCall: From<Call>,
         <R as frame_system::Config>::RuntimeCall:
             GetDispatchInfo + Dispatchable<PostInfo = PostDispatchInfo>,
-        R::RuntimeOrigin: From<RawOrigin<<R as frame_system::Config>::AccountId>>,
+        <R as frame_system::Config>::RuntimeOrigin:
+            From<RawOrigin<<R as frame_system::Config>::AccountId>>,
     {
         let call = <R as frame_system::Config>::RuntimeCall::from(call);
         let info = GetDispatchInfo::get_dispatch_info(&call);
@@ -71,7 +72,7 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
             None,
         )?;
 
-        match call.dispatch(R::RuntimeOrigin::from(origin)) {
+        match call.dispatch(<R as frame_system::Config>::RuntimeOrigin::from(origin)) {
             Ok(post_info) => {
                 if post_info.pays_fee(&info) == Pays::Yes {
                     let actual_weight = post_info.actual_weight.unwrap_or(info.weight);
