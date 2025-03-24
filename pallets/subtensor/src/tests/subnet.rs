@@ -176,7 +176,7 @@ fn test_do_start_call_fail_for_set_again() {
 }
 
 #[test]
-fn test_do_start_call_ok_with_updated_block_number_after_coinbase() {
+fn test_do_start_call_ok_with_same_block_number_after_coinbase() {
     new_test_ext(0).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
@@ -215,7 +215,9 @@ fn test_do_start_call_ok_with_updated_block_number_after_coinbase() {
 
         step_block(tempo);
         match FirstEmissionBlockNumber::<Test>::get(netuid) {
-            Some(new_emission_block_number) => assert!(new_emission_block_number > block_number),
+            Some(new_emission_block_number) => {
+                assert_eq!(new_emission_block_number, block_number + 1)
+            }
             None => assert!(FirstEmissionBlockNumber::<Test>::get(netuid).is_some()),
         }
     });
