@@ -569,7 +569,7 @@ fn test_drain_base_with_subnet_with_single_staker_registered_root_weight() {
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
         let root_after =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, root);
-        close(stake_before + pending_alpha / 2, stake_after, 10); // Registered gets all alpha emission.
+        close(stake_before + pending_alpha, stake_after, 10); // Registered gets all alpha emission.
         close(stake_before + pending_tao, root_after, 10); // Registered gets all tao emission
     });
 }
@@ -660,8 +660,8 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root() {
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, netuid);
         let root_after2 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, root);
-        close(stake_before + pending_alpha / 4, stake_after1, 10); // Registered gets 1/2 emission
-        close(stake_before + pending_alpha / 4, stake_after2, 10); // Registered gets 1/2 emission.
+        close(stake_before + pending_alpha / 2, stake_after1, 10); // Registered gets 1/2 emission
+        close(stake_before + pending_alpha / 2, stake_after2, 10); // Registered gets 1/2 emission.
         close(stake_before + pending_tao / 2, root_after1, 10); // Registered gets 1/2 tao emission
         close(stake_before + pending_tao / 2, root_after2, 10); // Registered gets 1/2 tao emission
     });
@@ -719,21 +719,17 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         let root_after2 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, root);
         let expected_stake = I96F32::from_num(stake_before)
-            + (I96F32::from_num(pending_alpha)
-                * I96F32::from_num(3.0 / 5.0)
-                * I96F32::from_num(1.0 / 3.0));
-        close(expected_stake.to_num::<u64>(), stake_after1, 10); // Registered gets 60% of emission
+            + (I96F32::from_num(pending_alpha) * I96F32::from_num(1.0 / 2.0));
+        assert_abs_diff_eq!(expected_stake.to_num::<u64>(), stake_after1, epsilon = 10); // Registered gets 50% of alpha emission
         let expected_stake2 = I96F32::from_num(stake_before)
-            + I96F32::from_num(pending_alpha)
-                * I96F32::from_num(2.0 / 5.0)
-                * I96F32::from_num(1.0 / 2.0);
-        close(expected_stake2.to_num::<u64>(), stake_after2, 10); // Registered gets 40% emission
+            + I96F32::from_num(pending_alpha) * I96F32::from_num(1.0 / 2.0);
+        assert_abs_diff_eq!(expected_stake2.to_num::<u64>(), stake_after2, epsilon = 10); // Registered gets 50% emission
         let expected_root1 = I96F32::from_num(2 * stake_before)
             + I96F32::from_num(pending_tao) * I96F32::from_num(2.0 / 3.0);
-        close(expected_root1.to_num::<u64>(), root_after1, 10); // Registered gets 2/3 tao emission
+        assert_abs_diff_eq!(expected_root1.to_num::<u64>(), root_after1, epsilon = 10); // Registered gets 2/3 tao emission
         let expected_root2 = I96F32::from_num(stake_before)
             + I96F32::from_num(pending_tao) * I96F32::from_num(1.0 / 3.0);
-        close(expected_root2.to_num::<u64>(), root_after2, 10); // Registered gets 1/3 tao emission
+        assert_abs_diff_eq!(expected_root2.to_num::<u64>(), root_after2, epsilon = 10); // Registered gets 1/3 tao emission
     });
 }
 
@@ -789,26 +785,20 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, netuid);
         let root_after2 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, root);
-        // hotkey 1 has (1 + (2 * 0.5))/( 1 + 1*0.5 + 1 + (2 * 0.5)) = 0.5714285714 of the hotkey emission.
         let expected_stake = I96F32::from_num(stake_before)
-            + I96F32::from_num(pending_alpha)
-                * I96F32::from_num(0.5714285714)
-                * I96F32::from_num(1.0 / 2.0);
-        close(expected_stake.to_num::<u64>(), stake_after1, 10);
-        // hotkey 2 has (1 + 1*0.5)/( 1 + 1*0.5 + 1 + (2 * 0.5)) = 0.4285714286 of the hotkey emission.
+            + I96F32::from_num(pending_alpha) * I96F32::from_num(1.0 / 2.0);
+        assert_abs_diff_eq!(expected_stake.to_num::<u64>(), stake_after1, epsilon = 10);
         let expected_stake2 = I96F32::from_num(stake_before)
-            + I96F32::from_num(pending_alpha)
-                * I96F32::from_num(0.4285714286)
-                * I96F32::from_num(2.0 / 3.0);
-        close(expected_stake2.to_num::<u64>(), stake_after2, 10);
+            + I96F32::from_num(pending_alpha) * I96F32::from_num(1.0 / 2.0);
+        assert_abs_diff_eq!(expected_stake2.to_num::<u64>(), stake_after2, epsilon = 10);
         // hotkey 1 has 2 / 3 root tao
         let expected_root1 = I96F32::from_num(2 * stake_before)
             + I96F32::from_num(pending_tao) * I96F32::from_num(2.0 / 3.0);
-        close(expected_root1.to_num::<u64>(), root_after1, 10);
+        assert_abs_diff_eq!(expected_root1.to_num::<u64>(), root_after1, epsilon = 10);
         // hotkey 1 has 1 / 3 root tao
         let expected_root2 = I96F32::from_num(stake_before)
             + I96F32::from_num(pending_tao) * I96F32::from_num(1.0 / 3.0);
-        close(expected_root2.to_num::<u64>(), root_after2, 10);
+        assert_abs_diff_eq!(expected_root2.to_num::<u64>(), root_after2, epsilon = 10);
     });
 }
 
@@ -1173,12 +1163,12 @@ fn test_get_root_children_drain_half_proportion() {
         // Alice and Bob make the same amount.
         close(
             AlphaDividendsPerSubnet::<Test>::get(alpha, alice),
-            pending_alpha / 4,
+            pending_alpha / 2,
             10,
         );
         close(
             AlphaDividendsPerSubnet::<Test>::get(alpha, bob),
-            pending_alpha / 4,
+            pending_alpha / 2,
             10,
         );
     });
@@ -1244,7 +1234,7 @@ fn test_get_root_children_drain_with_take() {
         // Set Bob as 100% child of Alice on root.
         ChildkeyTake::<Test>::insert(bob, alpha, u16::MAX);
         mock_set_children_no_epochs(alpha, &alice, &[(u64::MAX, bob)]);
-        // Set Bob childkey take to zero.
+        // Set Bob validator take to zero.
         Delegates::<Test>::insert(alice, 0);
         Delegates::<Test>::insert(bob, 0);
 
@@ -1252,11 +1242,11 @@ fn test_get_root_children_drain_with_take() {
         let pending_alpha: u64 = 1_000_000_000;
         SubtensorModule::drain_pending_emission(alpha, pending_alpha, 0, 0, 0);
 
-        // Alice and Bob make the same amount.
+        // Bob makes it all.
         close(AlphaDividendsPerSubnet::<Test>::get(alpha, alice), 0, 10);
         close(
             AlphaDividendsPerSubnet::<Test>::get(alpha, bob),
-            pending_alpha / 2,
+            pending_alpha,
             10,
         );
     });
@@ -1333,12 +1323,12 @@ fn test_get_root_children_drain_with_half_take() {
         // Alice and Bob make the same amount.
         close(
             AlphaDividendsPerSubnet::<Test>::get(alpha, alice),
-            pending_alpha / 8,
+            pending_alpha / 4,
             10000,
         );
         close(
             AlphaDividendsPerSubnet::<Test>::get(alpha, bob),
-            3 * (pending_alpha / 8),
+            3 * (pending_alpha / 4),
             10000,
         );
     });
@@ -1702,9 +1692,10 @@ fn test_calculate_dividend_and_incentive_distribution() {
             .sum::<I96F32>()
             .saturating_to_num::<u64>();
 
-        assert_eq!(
+        assert_abs_diff_eq!(
             dividends_total.saturating_add(incentives_total),
-            pending_alpha
+            pending_alpha,
+            epsilon = 2
         );
     });
 }

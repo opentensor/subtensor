@@ -342,6 +342,7 @@ impl<T: Config> Pallet<T> {
         log::debug!("alpha_dividends: {:?}", alpha_dividends);
         log::debug!("root_dividends: {:?}", root_dividends);
         log::debug!("total_root_divs: {:?}", total_root_divs);
+        log::debug!("total_alpha_divs: {:?}", total_alpha_divs);
 
         // Compute root divs as TAO. Here we take
         let mut tao_dividends: BTreeMap<T::AccountId, I96F32> = BTreeMap::new();
