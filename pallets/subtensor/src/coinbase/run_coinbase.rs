@@ -252,27 +252,10 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn drain_pending_emission(
+    pub fn calculate_dividends_and_incentives(
         netuid: u16,
-        pending_alpha: u64,
-        pending_tao: u64,
-        pending_swapped: u64,
-        owner_cut: u64,
-    ) {
-        log::debug!(
-            "Draining pending alpha emission for netuid {:?}, pending_alpha: {:?}, pending_tao: {:?}, pending_swapped: {:?}, owner_cut: {:?}",
-            netuid,
-            pending_alpha,
-            pending_tao,
-            pending_swapped,
-            owner_cut
-        );
-
-        // Run the epoch.
-        let hotkey_emission: Vec<(T::AccountId, u64, u64)> =
-            Self::epoch(netuid, pending_alpha.saturating_add(pending_swapped));
-        log::debug!("hotkey_emission: {:?}", hotkey_emission);
-
+        hotkey_emission: Vec<(T::AccountId, u64, u64)>,
+    ) -> (BTreeMap<T::AccountId, u64>, BTreeMap<T::AccountId, I96F32>) {
         // Accumulate emission of dividends and incentive per hotkey.
         let mut incentives: BTreeMap<T::AccountId, u64> = BTreeMap::new();
         let mut dividends: BTreeMap<T::AccountId, I96F32> = BTreeMap::new();
@@ -284,7 +267,7 @@ impl<T: Config> Pallet<T> {
                 .or_insert(incentive);
             // Accumulate dividends to parents.
             let div_tuples: Vec<(T::AccountId, u64)> =
-                Self::get_dividends_distribution(&hotkey, netuid, dividend);
+                Self::get_parent_child_dividends_distribution(&hotkey, netuid, dividend);
             // Accumulate dividends per hotkey.
             for (parent, parent_div) in div_tuples {
                 dividends
@@ -296,64 +279,71 @@ impl<T: Config> Pallet<T> {
         log::debug!("incentives: {:?}", incentives);
         log::debug!("dividends: {:?}", dividends);
 
-        Self::distribute_dividends_and_incentives(
-            netuid,
-            pending_tao,
-            owner_cut,
-            incentives,
-            dividends,
-        );
+        (incentives, dividends)
     }
 
-    pub fn distribute_dividends_and_incentives(
-        netuid: u16,
+    pub fn calculate_dividend_distribution(
+        pending_alpha: u64,
         pending_tao: u64,
-        owner_cut: u64,
-        incentives: BTreeMap<T::AccountId, u64>,
+        tao_weight: I96F32,
+        stake_map: BTreeMap<T::AccountId, (u64, u64)>,
         dividends: BTreeMap<T::AccountId, I96F32>,
+    ) -> (
+        BTreeMap<T::AccountId, I96F32>,
+        BTreeMap<T::AccountId, I96F32>,
     ) {
+        log::debug!("dividends: {:?}", dividends);
+        log::debug!("stake_map: {:?}", stake_map);
+        log::debug!("pending_alpha: {:?}", pending_alpha);
+        log::debug!("pending_tao: {:?}", pending_tao);
+        log::debug!("tao_weight: {:?}", tao_weight);
+
         // Setup.
         let zero: I96F32 = asfloat!(0.0);
 
         // Accumulate root divs and alpha_divs. For each hotkey we compute their
         // local and root dividend proportion based on their alpha_stake/root_stake
         let mut total_root_divs: I96F32 = asfloat!(0);
+        let mut total_alpha_divs: I96F32 = asfloat!(0);
         let mut root_dividends: BTreeMap<T::AccountId, I96F32> = BTreeMap::new();
         let mut alpha_dividends: BTreeMap<T::AccountId, I96F32> = BTreeMap::new();
         for (hotkey, dividend) in dividends {
-            // Get hotkey ALPHA on subnet.
-            let alpha_stake = asfloat!(Self::get_stake_for_hotkey_on_subnet(&hotkey, netuid));
-            // Get hotkey TAO on root.
-            let root_stake: I96F32 = asfloat!(Self::get_stake_for_hotkey_on_subnet(
-                &hotkey,
-                Self::get_root_netuid()
-            ));
-            // Convert TAO to alpha with weight.
-            let root_alpha: I96F32 = root_stake.saturating_mul(Self::get_tao_weight());
-            // Get total from root and local
-            let total_alpha: I96F32 = alpha_stake.saturating_add(root_alpha);
-            // Copmute root prop.
-            let root_prop: I96F32 = root_alpha.checked_div(total_alpha).unwrap_or(zero);
-            // Compute root dividends
-            let root_divs: I96F32 = dividend.saturating_mul(root_prop);
-            // Compute alpha dividends
-            let alpha_divs: I96F32 = dividend.saturating_sub(root_divs);
-            // Record the alpha dividends.
-            alpha_dividends
-                .entry(hotkey.clone())
-                .and_modify(|e| *e = e.saturating_add(alpha_divs))
-                .or_insert(alpha_divs);
-            // Record the root dividends.
-            root_dividends
-                .entry(hotkey.clone())
-                .and_modify(|e| *e = e.saturating_add(root_divs))
-                .or_insert(root_divs);
-            // Accumulate total root divs.
-            total_root_divs = total_root_divs.saturating_add(root_divs);
+            if let Some((alpha_stake_u64, root_stake_u64)) = stake_map.get(&hotkey) {
+                // Get hotkey ALPHA on subnet.
+                let alpha_stake: I96F32 = asfloat!(*alpha_stake_u64);
+                // Get hotkey TAO on root.
+                let root_stake: I96F32 = asfloat!(*root_stake_u64);
+
+                // Convert TAO to alpha with weight.
+                let root_alpha: I96F32 = root_stake.saturating_mul(tao_weight);
+                // Get total from root and local
+                let total_alpha: I96F32 = alpha_stake.saturating_add(root_alpha);
+                // Compute root prop.
+                let root_prop: I96F32 = root_alpha.checked_div(total_alpha).unwrap_or(zero);
+                // Compute root dividends
+                let root_divs: I96F32 = dividend.saturating_mul(root_prop);
+                // Compute alpha dividends
+                let alpha_divs: I96F32 = dividend.saturating_sub(root_divs);
+                // Record the alpha dividends.
+                alpha_dividends
+                    .entry(hotkey.clone())
+                    .and_modify(|e| *e = e.saturating_add(alpha_divs))
+                    .or_insert(alpha_divs);
+                // Accumulate total alpha divs.
+                total_alpha_divs = total_alpha_divs.saturating_add(alpha_divs);
+                // Record the root dividends.
+                root_dividends
+                    .entry(hotkey.clone())
+                    .and_modify(|e| *e = e.saturating_add(root_divs))
+                    .or_insert(root_divs);
+                // Accumulate total root divs.
+                total_root_divs = total_root_divs.saturating_add(root_divs);
+            }
         }
         log::debug!("alpha_dividends: {:?}", alpha_dividends);
         log::debug!("root_dividends: {:?}", root_dividends);
         log::debug!("total_root_divs: {:?}", total_root_divs);
+        log::debug!("total_alpha_divs: {:?}", total_alpha_divs);
 
         // Compute root divs as TAO. Here we take
         let mut tao_dividends: BTreeMap<T::AccountId, I96F32> = BTreeMap::new();
@@ -372,6 +362,34 @@ impl<T: Config> Pallet<T> {
         }
         log::debug!("tao_dividends: {:?}", tao_dividends);
 
+        // Compute proportional alpha divs using the pending alpha and total alpha divs from the epoch.
+        let mut prop_alpha_dividends: BTreeMap<T::AccountId, I96F32> = BTreeMap::new();
+        for (hotkey, alpha_divs) in alpha_dividends {
+            // Alpha proportion.
+            let alpha_share: I96F32 = alpha_divs.checked_div(total_alpha_divs).unwrap_or(zero);
+            log::debug!("hotkey: {:?}, alpha_share: {:?}", hotkey, alpha_share);
+
+            // Compute the proportional pending_alpha to this hotkey.
+            let prop_alpha: I96F32 = asfloat!(pending_alpha).saturating_mul(alpha_share);
+            log::debug!("hotkey: {:?}, prop_alpha: {:?}", hotkey, prop_alpha);
+            // Record the proportional alpha dividends.
+            prop_alpha_dividends
+                .entry(hotkey.clone())
+                .and_modify(|e| *e = prop_alpha)
+                .or_insert(prop_alpha);
+        }
+        log::debug!("prop_alpha_dividends: {:?}", prop_alpha_dividends);
+
+        (prop_alpha_dividends, tao_dividends)
+    }
+
+    pub fn distribute_dividends_and_incentives(
+        netuid: u16,
+        owner_cut: u64,
+        incentives: BTreeMap<T::AccountId, u64>,
+        alpha_dividends: BTreeMap<T::AccountId, I96F32>,
+        tao_dividends: BTreeMap<T::AccountId, I96F32>,
+    ) {
         // Distribute the owner cut.
         if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
             if let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
@@ -468,6 +486,114 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    pub fn get_stake_map(
+        netuid: u16,
+        hotkeys: Vec<&T::AccountId>,
+    ) -> BTreeMap<T::AccountId, (u64, u64)> {
+        let mut stake_map: BTreeMap<T::AccountId, (u64, u64)> = BTreeMap::new();
+        for hotkey in hotkeys {
+            // Get hotkey ALPHA on subnet.
+            let alpha_stake: u64 = Self::get_stake_for_hotkey_on_subnet(hotkey, netuid);
+            // Get hotkey TAO on root.
+            let root_stake: u64 =
+                Self::get_stake_for_hotkey_on_subnet(hotkey, Self::get_root_netuid());
+            stake_map.insert(hotkey.clone(), (alpha_stake, root_stake));
+        }
+        stake_map
+    }
+
+    pub fn calculate_dividend_and_incentive_distribution(
+        netuid: u16,
+        pending_tao: u64,
+        pending_validator_alpha: u64,
+        hotkey_emission: Vec<(T::AccountId, u64, u64)>,
+        tao_weight: I96F32,
+    ) -> (
+        BTreeMap<T::AccountId, u64>,
+        (
+            BTreeMap<T::AccountId, I96F32>,
+            BTreeMap<T::AccountId, I96F32>,
+        ),
+    ) {
+        let (incentives, dividends) =
+            Self::calculate_dividends_and_incentives(netuid, hotkey_emission);
+
+        let stake_map: BTreeMap<T::AccountId, (u64, u64)> =
+            Self::get_stake_map(netuid, dividends.keys().collect::<Vec<_>>());
+
+        let (alpha_dividends, tao_dividends) = Self::calculate_dividend_distribution(
+            pending_validator_alpha,
+            pending_tao,
+            tao_weight,
+            stake_map,
+            dividends,
+        );
+
+        (incentives, (alpha_dividends, tao_dividends))
+    }
+
+    pub fn drain_pending_emission(
+        netuid: u16,
+        pending_alpha: u64,
+        pending_tao: u64,
+        pending_swapped: u64,
+        owner_cut: u64,
+    ) {
+        log::debug!(
+            "Draining pending alpha emission for netuid {:?}, pending_alpha: {:?}, pending_tao: {:?}, pending_swapped: {:?}, owner_cut: {:?}",
+            netuid,
+            pending_alpha,
+            pending_tao,
+            pending_swapped,
+            owner_cut
+        );
+
+        let tao_weight = Self::get_tao_weight();
+
+        // Run the epoch.
+        let hotkey_emission: Vec<(T::AccountId, u64, u64)> =
+            Self::epoch(netuid, pending_alpha.saturating_add(pending_swapped));
+        log::debug!("hotkey_emission: {:?}", hotkey_emission);
+
+        // Compute the pending validator alpha.
+        // This is the total alpha being injected,
+        // minus the the alpha for the miners, (50%)
+        // and minus the alpha swapped for TAO (pending_swapped).
+        // Important! If the incentives are 0, then Validators get 100% of the alpha.
+        let incentive_sum = hotkey_emission
+            .iter()
+            .map(|(_, incentive, _)| incentive)
+            .sum::<u64>();
+        log::debug!("incentive_sum: {:?}", incentive_sum);
+
+        let pending_validator_alpha: u64 = if incentive_sum != 0 {
+            pending_alpha
+                .saturating_add(pending_swapped)
+                .saturating_div(2)
+                .saturating_sub(pending_swapped)
+        } else {
+            // If the incentive is 0, then Validators get 100% of the alpha.
+            pending_alpha
+        };
+
+        let (incentives, (alpha_dividends, tao_dividends)) =
+            Self::calculate_dividend_and_incentive_distribution(
+                netuid,
+                pending_tao,
+                pending_validator_alpha,
+                hotkey_emission,
+                tao_weight,
+            );
+
+        Self::distribute_dividends_and_incentives(
+            netuid,
+            owner_cut,
+            incentives,
+            alpha_dividends,
+            tao_dividends,
+        );
+    }
+
     /// Returns the self contribution of a hotkey on a subnet.
     /// This is the portion of the hotkey's stake that is provided by itself, and not delegated to other hotkeys.
     pub fn get_self_contribution(hotkey: &T::AccountId, netuid: u16) -> u64 {
@@ -516,7 +642,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * dividend_tuples: `Vec<(T::AccountId, u64)>` - Vector of (hotkey, divs) for each parent including self.
     ///
-    pub fn get_dividends_distribution(
+    pub fn get_parent_child_dividends_distribution(
         hotkey: &T::AccountId,
         netuid: u16,
         dividends: u64,
