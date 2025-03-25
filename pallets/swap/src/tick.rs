@@ -98,7 +98,7 @@ pub struct Tick {
     Ord,
     Hash,
 )]
-pub struct TickIndex(i32);
+pub struct TickIndex(pub i32);
 
 impl Add<TickIndex> for TickIndex {
     type Output = Self;

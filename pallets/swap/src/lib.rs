@@ -18,7 +18,9 @@ mod tick;
 
 type SqrtPrice = U64F64;
 
-const TICK_OFFSET: u32 = 887272;
+/// All tick indexes are offset by TICK_OFFSET for the search and active tick storage needs 
+/// so that tick indexes are positive, which simplifies bit logic
+pub const TICK_OFFSET: u32 = 887272;
 
 pub enum SwapStepAction {
     Crossing,
@@ -645,7 +647,7 @@ where
         self.update_reserves(order_type, delta_in, delta_out);
 
         // Get current tick
-        let current_tick_index = self.get_current_tick_index();
+        let TickIndex(current_tick_index) = self.get_current_tick_index();
 
         match action {
             SwapStepAction::Crossing => {
@@ -664,7 +666,7 @@ where
                         .saturating_sub(tick.fees_out_alpha);
                     self.update_liquidity_at_crossing(order_type)?;
                     self.state_ops
-                        .insert_tick_by_index(current_tick_index, tick);
+                        .insert_tick_by_index(TickIndex(current_tick_index), tick);
                 } else {
                     return Err(SwapError::InsufficientLiquidity);
                 }
@@ -685,7 +687,7 @@ where
                             .get_fee_global_alpha()
                             .saturating_sub(tick.fees_out_alpha);
                         self.state_ops
-                            .insert_tick_by_index(current_tick_index, tick);
+                            .insert_tick_by_index(TickIndex(current_tick_index), tick);
                     } else {
                         return Err(SwapError::InsufficientLiquidity);
                     }
@@ -958,7 +960,7 @@ where
     ///
     fn update_liquidity_at_crossing(&mut self, order_type: &OrderType) -> Result<(), SwapError> {
         let mut liquidity_curr = self.state_ops.get_current_liquidity();
-        let current_tick_index = self.get_current_tick_index();
+        let TickIndex(current_tick_index) = self.get_current_tick_index();
         match order_type {
             OrderType::Sell => {
                 let maybe_tick = self.find_closest_lower_active_tick(current_tick_index);
@@ -1323,18 +1325,18 @@ where
     }
 
     pub fn find_closest_lower_active_tick(&self, index: i32) -> Option<Tick> {
-        let maybe_tick_index = find_closest_lower_active_tick_index(&self.state_ops, index);
+        let maybe_tick_index = self.find_closest_lower_active_tick_index(index);
         if let Some(tick_index) = maybe_tick_index {
-            self.state_ops.get_tick_by_index(tick_index)
+            self.state_ops.get_tick_by_index(TickIndex(tick_index))
         } else {
             None
         }
     }
 
-    pub fn find_closest_higher_active_tick(&self, index: TickIndex) -> Option<Tick> {
-        let maybe_tick_index = index.find_closest_higher_active(&self.state_ops);
+    pub fn find_closest_higher_active_tick(&self, index: i32) -> Option<Tick> {
+        let maybe_tick_index = self.find_closest_higher_active_tick_index(index);
         if let Some(tick_index) = maybe_tick_index {
-            self.state_ops.get_tick_by_index(tick_index)
+            self.state_ops.get_tick_by_index(TickIndex(tick_index))
         } else {
             None
         }
@@ -1392,6 +1394,9 @@ mod tests {
         max_positions: u16,
         balances: HashMap<u16, (u64, u64)>,
         positions: HashMap<u16, HashMap<u16, Position>>,
+        tick_index_l0: HashMap<u32, u128>,
+        tick_index_l1: HashMap<u32, u128>,
+        tick_index_l2: HashMap<u32, u128>,
     }
 
     impl MockSwapDataOperations {
@@ -1412,6 +1417,9 @@ mod tests {
                 max_positions: 100,
                 balances: HashMap::new(),
                 positions: HashMap::new(),
+                tick_index_l0: HashMap::new(),
+                tick_index_l1: HashMap::new(),
+                tick_index_l2: HashMap::new(),
             }
         }
     }
@@ -1572,6 +1580,25 @@ mod tests {
             if let Some(account_positions) = self.positions.get_mut(account_id) {
                 account_positions.remove(&position_id);
             }
+        }
+
+        fn get_layer0_word(&self, word_index: u32) -> u128 {
+            *self.tick_index_l0.get(&word_index).unwrap_or(&0_u128)
+        }
+        fn get_layer1_word(&self, word_index: u32) -> u128 {
+            *self.tick_index_l1.get(&word_index).unwrap_or(&0_u128)
+        }
+        fn get_layer2_word(&self, word_index: u32) -> u128 {
+            *self.tick_index_l2.get(&word_index).unwrap_or(&0_u128)
+        }
+        fn set_layer0_word(&mut self, word_index: u32, word: u128) {
+            self.tick_index_l0.insert(word_index, word);
+        }
+        fn set_layer1_word(&mut self, word_index: u32, word: u128) {
+            self.tick_index_l1.insert(word_index, word);
+        }
+        fn set_layer2_word(&mut self, word_index: u32, word: u128) {
+            self.tick_index_l2.insert(word_index, word);
         }
     }
 
