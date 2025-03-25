@@ -6840,9 +6840,15 @@ version = "0.1.0"
 dependencies = [
  "alloy-primitives",
  "approx",
+ "frame-support",
+ "frame-system",
  "pallet-subtensor-swap-interface",
+ "parity-scale-codec",
  "safe-math",
+ "scale-info",
+ "serde",
  "sp-arithmetic",
+ "sp-runtime",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409)",
  "substrate-fixed",
 ]

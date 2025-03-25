@@ -6,8 +6,14 @@ edition = { workspace = true }
 [dependencies]
 alloy-primitives = { workspace = true }
 approx = { workspace = true }
+codec = {workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
 safe-math = { workspace = true }
+scale-info = { workspace = true }
+serde = { workspace = true, optional = true }
 sp-arithmetic = { workspace = true }
+sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 substrate-fixed = { workspace = true }
 
@@ -20,8 +26,15 @@ workspace = true
 default = ["std"]
 std = [
 	"alloy-primitives/std",
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-subtensor-swap-interface/std",
 	"safe-math/std",
+	"scale-info/std",
+	"serde/std",
 	"sp-arithmetic/std",
+	"sp-runtime/std",
 	"sp-std/std",
 	"substrate-fixed/std",
 ]

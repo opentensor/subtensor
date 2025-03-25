@@ -1,18 +1,14 @@
 //! The math is adapted from github.com/0xKitsune/uniswap-v3-math
+use core::convert::TryFrom;
 use core::error::Error;
 use core::fmt;
 use core::ops::{BitOr, Neg, Shl, Shr};
 
 use alloy_primitives::{I256, U256};
+use frame_support::pallet_prelude::*;
 use substrate_fixed::types::U64F64;
 
 use crate::{SqrtPrice, SwapDataOperations};
-
-/// Maximum and minimum values of the tick index
-/// The tick_math library uses different bitness, so we have to divide by 2.
-/// Do not use tick_math::MIN_TICK and tick_math::MAX_TICK
-pub const MAX_TICK_INDEX: i32 = MAX_TICK / 2;
-pub const MIN_TICK_INDEX: i32 = MIN_TICK / 2;
 
 const U256_1: U256 = U256::from_limbs([1, 0, 0, 0]);
 const U256_2: U256 = U256::from_limbs([2, 0, 0, 0]);
@@ -66,15 +62,16 @@ const TICK_HIGH: I256 = I256::from_raw(U256::from_limbs([
     0,
 ]));
 
-/// Tick is the price range determined by tick index (not part of this struct,
-/// but is the key at which the Tick is stored in state hash maps). Tick struct
-/// stores liquidity and fee information.
+/// Tick is the price range determined by tick index (not part of this struct, but is the key at
+/// which the Tick is stored in state hash maps). Tick struct stores liquidity and fee information.
 ///
-///   - Net liquidity
-///   - Gross liquidity
-///   - Fees (above global) in both currencies
-///
-#[derive(Debug, Default, Clone)]
+///  - Net liquidity
+///  - Gross liquidity
+///  - Fees (above global) in both currencies
+use core::hash::Hash;
+use core::ops::{Add, AddAssign, Deref, Sub, SubAssign};
+
+#[derive(Debug, Default, Clone, Encode, Decode, TypeInfo, MaxEncodedLen, PartialEq, Eq)]
 pub struct Tick {
     pub liquidity_net: i128,
     pub liquidity_gross: u64,
@@ -82,75 +79,254 @@ pub struct Tick {
     pub fees_out_alpha: U64F64,
 }
 
-/// Converts tick index into SQRT of lower price of this tick
-/// In order to find the higher price of this tick, call
-/// tick_index_to_sqrt_price(tick_idx + 1)
-pub fn tick_index_to_sqrt_price(tick_idx: i32) -> Result<SqrtPrice, TickMathError> {
-    // because of u256->u128 conversion we have twice less values for min/max ticks
-    if !(MIN_TICK / 2..=MAX_TICK / 2).contains(&tick_idx) {
-        return Err(TickMathError::TickOutOfBounds);
-    }
-    get_sqrt_ratio_at_tick(tick_idx).and_then(u256_q64_96_to_u64f64)
-}
+/// Struct representing a tick index
+#[derive(
+    Debug,
+    Default,
+    Clone,
+    Copy,
+    Encode,
+    Decode,
+    TypeInfo,
+    MaxEncodedLen,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+)]
+pub struct TickIndex(i32);
 
-/// Converts SQRT price to tick index
-/// Because the tick is the range of prices [sqrt_lower_price, sqrt_higher_price),
-/// the resulting tick index matches the price by the following inequality:
-///    sqrt_lower_price <= sqrt_price < sqrt_higher_price
-pub fn sqrt_price_to_tick_index(sqrt_price: SqrtPrice) -> Result<i32, TickMathError> {
-    let tick = get_tick_at_sqrt_ratio(u64f64_to_u256_q64_96(sqrt_price))?;
+impl Add<TickIndex> for TickIndex {
+    type Output = Self;
 
-    // Correct for rounding error during conversions between different fixed-point formats
-    Ok(if tick == 0 {
-        tick
-    } else {
-        tick.saturating_add(1)
-    })
-}
-
-pub fn find_closest_lower_active_tick_index<Ops, AccountIdType>(
-    ops: &Ops,
-    index: i32,
-) -> Option<i32>
-where
-    AccountIdType: Eq,
-    Ops: SwapDataOperations<AccountIdType>,
-{
-    // TODO: Implement without iteration
-    let mut current_index = index;
-    loop {
-        if current_index < MIN_TICK {
-            return None;
-        }
-        if ops.get_tick_by_index(current_index).is_some() {
-            return Some(current_index);
-        }
-
-        // Intentionally using unsafe math here to trigger CI
-        current_index -= 1;
+    fn add(self, rhs: Self) -> Self::Output {
+        // Note: This assumes the result is within bounds.
+        // For a safer implementation, consider using checked_add.
+        Self::new_unchecked(self.get() + rhs.get())
     }
 }
 
-pub fn find_closest_higher_active_tick_index<Ops, AccountIdType>(
-    ops: &Ops,
-    index: i32,
-) -> Option<i32>
-where
-    AccountIdType: Eq,
-    Ops: SwapDataOperations<AccountIdType>,
-{
-    // TODO: Implement without iteration
-    let mut current_index = index;
-    loop {
-        if current_index > MAX_TICK {
-            return None;
-        }
-        if ops.get_tick_by_index(current_index).is_some() {
-            return Some(current_index);
-        }
+impl Sub<TickIndex> for TickIndex {
+    type Output = Self;
 
-        // Intentionally using unsafe math here to trigger CI
-        current_index += 1;
+    fn sub(self, rhs: Self) -> Self::Output {
+        // Note: This assumes the result is within bounds.
+        // For a safer implementation, consider using checked_sub.
+        Self::new_unchecked(self.get() - rhs.get())
+    }
+}
+
+impl AddAssign<TickIndex> for TickIndex {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = Self::new_unchecked(self.get() + rhs.get());
+    }
+}
+
+impl SubAssign<TickIndex> for TickIndex {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = Self::new_unchecked(self.get() - rhs.get());
+    }
+}
+
+impl TryFrom<i32> for TickIndex {
+    type Error = TickMathError;
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl Deref for TickIndex {
+    type Target = i32;
+
+    fn deref(&self) -> &Self::Target {
+        // Using get() would create an infinite recursion, so this is one place where we need direct
+        // field access. This is safe because Self::Target is i32, which is exactly what we're
+        // storing
+        &self.0
+    }
+}
+
+/// Extension trait to make working with TryFrom more ergonomic
+pub trait TryIntoTickIndex {
+    /// Convert an i32 into a TickIndex, with bounds checking
+    fn into_tick_index(self) -> Result<TickIndex, TickMathError>;
+}
+
+impl TryIntoTickIndex for i32 {
+    fn into_tick_index(self) -> Result<TickIndex, TickMathError> {
+        TickIndex::try_from(self)
+    }
+}
+
+impl TickIndex {
+    /// Maximum value of the tick index
+    /// The tick_math library uses different bitness, so we have to divide by 2.
+    pub const MAX: Self = Self(MAX_TICK / 2);
+
+    /// Minimum value of the tick index
+    /// The tick_math library uses different bitness, so we have to divide by 2.
+    pub const MIN: Self = Self(MIN_TICK / 2);
+
+    /// Converts a sqrt price to a tick index, ensuring it's within valid bounds
+    ///
+    /// If the price is outside the valid range, this function will return the appropriate boundary
+    /// tick index (MIN or MAX) instead of an error.
+    ///
+    /// # Arguments
+    /// * `sqrt_price` - The square root price to convert to a tick index
+    ///
+    /// # Returns
+    /// * `TickIndex` - A tick index that is guaranteed to be within valid bounds
+    pub fn from_sqrt_price_bounded(sqrt_price: SqrtPrice) -> Self {
+        match Self::try_from_sqrt_price(sqrt_price) {
+            Ok(index) => index,
+            Err(_) => {
+                let max_price = Self::MAX
+                    .try_to_sqrt_price()
+                    .unwrap_or(SqrtPrice::saturating_from_num(1000));
+
+                if sqrt_price > max_price {
+                    Self::MAX
+                } else {
+                    Self::MIN
+                }
+            }
+        }
+    }
+
+    /// Converts a tick index to a sqrt price, ensuring it's within valid bounds
+    ///
+    /// Unlike try_to_sqrt_price which returns an error for boundary indices, this function
+    /// guarantees a valid sqrt price by using fallback values if conversion fails.
+    ///
+    /// # Returns
+    /// * `SqrtPrice` - A sqrt price that is guaranteed to be a valid value
+    pub fn to_sqrt_price_bounded(&self) -> SqrtPrice {
+        self.try_to_sqrt_price().unwrap_or_else(|_| {
+            if *self >= Self::MAX {
+                SqrtPrice::saturating_from_num(1000)
+            } else {
+                SqrtPrice::saturating_from_num(0.000001)
+            }
+        })
+    }
+
+    /// Creates a new TickIndex instance with bounds checking
+    pub fn new(value: i32) -> Result<Self, TickMathError> {
+        if !(Self::MIN.0..=Self::MAX.0).contains(&value) {
+            Err(TickMathError::TickOutOfBounds)
+        } else {
+            Ok(Self(value))
+        }
+    }
+
+    /// Creates a new TickIndex without bounds checking
+    /// Use this function with caution, only when you're certain the value is valid
+    pub fn new_unchecked(value: i32) -> Self {
+        Self(value)
+    }
+
+    /// Get the inner value
+    pub fn get(&self) -> i32 {
+        self.0
+    }
+
+    /// Get the next tick index (incrementing by 1)
+    pub fn next(&self) -> Result<Self, TickMathError> {
+        Self::new(self.0 + 1)
+    }
+
+    /// Get the previous tick index (decrementing by 1)
+    pub fn prev(&self) -> Result<Self, TickMathError> {
+        Self::new(self.0 - 1)
+    }
+
+    /// Add a value to this tick index with bounds checking
+    pub fn checked_add(&self, value: i32) -> Result<Self, TickMathError> {
+        Self::new(self.0 + value)
+    }
+
+    /// Subtract a value from this tick index with bounds checking
+    pub fn checked_sub(&self, value: i32) -> Result<Self, TickMathError> {
+        Self::new(self.0 - value)
+    }
+
+    /// Converts tick index into SQRT of lower price of this tick In order to find the higher price
+    /// of this tick, call tick_index_to_sqrt_price(tick_idx + 1)
+    pub fn try_to_sqrt_price(&self) -> Result<SqrtPrice, TickMathError> {
+        // because of u256->u128 conversion we have twice less values for min/max ticks
+        if !(Self::MIN..=Self::MAX).contains(self) {
+            return Err(TickMathError::TickOutOfBounds);
+        }
+        get_sqrt_ratio_at_tick(self.0).and_then(u256_q64_96_to_u64f64)
+    }
+
+    /// Converts SQRT price to tick index
+    /// Because the tick is the range of prices [sqrt_lower_price, sqrt_higher_price), the resulting
+    /// tick index matches the price by the following inequality:
+    ///    sqrt_lower_price <= sqrt_price < sqrt_higher_price
+    pub fn try_from_sqrt_price(sqrt_price: SqrtPrice) -> Result<Self, TickMathError> {
+        let tick = get_tick_at_sqrt_ratio(u64f64_to_u256_q64_96(sqrt_price))?;
+
+        // Correct for rounding error during conversions between different fixed-point formats
+        if tick == 0 {
+            Ok(Self(tick))
+        } else {
+            match (tick + 1).into_tick_index() {
+                Ok(incremented) => Ok(incremented),
+                Err(e) => Err(e),
+            }
+        }
+    }
+
+    /// Find the closest lower active tick index
+    pub fn find_closest_lower_active<Ops, AccountIdType>(&self, ops: &Ops) -> Option<Self>
+    where
+        AccountIdType: Eq,
+        Ops: SwapDataOperations<AccountIdType>,
+    {
+        // TODO: Implement without iteration
+        let mut current_index = *self;
+        loop {
+            if current_index.get() < Self::MIN.get() {
+                return None;
+            }
+            if ops.get_tick_by_index(current_index).is_some() {
+                return Some(current_index);
+            }
+
+            // Create a new index with value one less
+            match current_index.prev() {
+                Ok(next_index) => current_index = next_index,
+                Err(_) => return None, // Return None if we go out of bounds
+            }
+        }
+    }
+
+    /// Find the closest higher active tick index
+    pub fn find_closest_higher_active<Ops, AccountIdType>(&self, ops: &Ops) -> Option<Self>
+    where
+        AccountIdType: Eq,
+        Ops: SwapDataOperations<AccountIdType>,
+    {
+        // TODO: Implement without iteration
+        let mut current_index = *self;
+        loop {
+            if current_index.get() > Self::MAX.get() {
+                return None;
+            }
+            if ops.get_tick_by_index(current_index).is_some() {
+                return Some(current_index);
+            }
+
+            // Create a new index with value one more
+            match current_index.next() {
+                Ok(next_index) => current_index = next_index,
+                Err(_) => return None, // Return None if we go out of bounds
+            }
+        }
     }
 }
 
@@ -638,29 +814,29 @@ mod tests {
 
         // check tick bounds
         assert_eq!(
-            tick_index_to_sqrt_price(MIN_TICK),
+            TickIndex(MIN_TICK).try_to_sqrt_price(),
             Err(TickMathError::TickOutOfBounds)
         );
 
         assert_eq!(
-            tick_index_to_sqrt_price(MAX_TICK),
+            TickIndex(MAX_TICK).try_to_sqrt_price(),
             Err(TickMathError::TickOutOfBounds),
         );
 
         // At tick index 0, the sqrt price should be 1.0
-        let sqrt_price = tick_index_to_sqrt_price(0).unwrap();
+        let sqrt_price = TickIndex(0).try_to_sqrt_price().unwrap();
         assert_eq!(sqrt_price, SqrtPrice::from_num(1.0));
 
-        let sqrt_price = tick_index_to_sqrt_price(2).unwrap();
+        let sqrt_price = TickIndex(2).try_to_sqrt_price().unwrap();
         assert!(sqrt_price.abs_diff(tick_spacing) < SqrtPrice::from_num(1e-10));
 
-        let sqrt_price = tick_index_to_sqrt_price(4).unwrap();
+        let sqrt_price = TickIndex(4).try_to_sqrt_price().unwrap();
         // Calculate the expected value: (1 + TICK_SPACING/1e9 + 1.0)^2
         let expected = tick_spacing * tick_spacing;
         assert!(sqrt_price.abs_diff(expected) < SqrtPrice::from_num(1e-10));
 
         // Test with tick index 10
-        let sqrt_price = tick_index_to_sqrt_price(10).unwrap();
+        let sqrt_price = TickIndex(10).try_to_sqrt_price().unwrap();
         // Calculate the expected value: (1 + TICK_SPACING/1e9 + 1.0)^5
         let expected = tick_spacing.checked_pow(5).unwrap();
         assert!(
@@ -673,27 +849,27 @@ mod tests {
     #[test]
     fn test_sqrt_price_to_tick_index() {
         let tick_spacing = SqrtPrice::from_num(1.0001);
-        let tick_index = sqrt_price_to_tick_index(SqrtPrice::from_num(1.0)).unwrap();
-        assert_eq!(tick_index, 0);
+        let tick_index = TickIndex::try_from_sqrt_price(SqrtPrice::from_num(1.0)).unwrap();
+        assert_eq!(tick_index, TickIndex::new_unchecked(0));
 
         // Test with sqrt price equal to tick_spacing_tao (should be tick index 2)
-        let tick_index = sqrt_price_to_tick_index(tick_spacing).unwrap();
-        assert_eq!(tick_index, 2);
+        let tick_index = TickIndex::try_from_sqrt_price(tick_spacing).unwrap();
+        assert_eq!(tick_index, TickIndex::new_unchecked(2));
 
         // Test with sqrt price equal to tick_spacing_tao^2 (should be tick index 4)
         let sqrt_price = tick_spacing * tick_spacing;
-        let tick_index = sqrt_price_to_tick_index(sqrt_price).unwrap();
-        assert_eq!(tick_index, 4);
+        let tick_index = TickIndex::try_from_sqrt_price(sqrt_price).unwrap();
+        assert_eq!(tick_index, TickIndex::new_unchecked(4));
 
         // Test with sqrt price equal to tick_spacing_tao^5 (should be tick index 10)
         let sqrt_price = tick_spacing.checked_pow(5).unwrap();
-        let tick_index = sqrt_price_to_tick_index(sqrt_price).unwrap();
-        assert_eq!(tick_index, 10);
+        let tick_index = TickIndex::try_from_sqrt_price(sqrt_price).unwrap();
+        assert_eq!(tick_index, TickIndex::new_unchecked(10));
     }
 
     #[test]
     fn test_roundtrip_tick_index_sqrt_price() {
-        for tick_index in [
+        for i32_value in [
             MIN_TICK / 2,
             -1000,
             -100,
@@ -710,9 +886,10 @@ mod tests {
         ]
         .iter()
         {
-            let sqrt_price = tick_index_to_sqrt_price(*tick_index).unwrap();
-            let round_trip_tick_index = sqrt_price_to_tick_index(sqrt_price).unwrap();
-            assert_eq!(round_trip_tick_index, *tick_index);
+            let tick_index = TickIndex(*i32_value);
+            let sqrt_price = tick_index.try_to_sqrt_price().unwrap();
+            let round_trip_tick_index = TickIndex::try_from_sqrt_price(sqrt_price).unwrap();
+            assert_eq!(round_trip_tick_index, tick_index);
         }
     }
 }
