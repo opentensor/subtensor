@@ -10,13 +10,17 @@ use substrate_fixed::types::U64F64;
 use frame_support::pallet_prelude::*;
 
 use self::tick::{
-    Tick, TickIndex,
+    MAX_TICK_INDEX, MIN_TICK_INDEX, Tick, TickIndex,
 };
 
 pub mod pallet;
 mod tick;
 
 type SqrtPrice = U64F64;
+
+/// All tick indexes are offset by TICK_OFFSET for the search and active tick storage needs 
+/// so that tick indexes are positive, which simplifies bit logic
+pub const TICK_OFFSET: u32 = 887272;
 
 pub enum SwapStepAction {
     Crossing,
@@ -55,7 +59,6 @@ struct SwapStepResult {
 /// fees_tao - fees accrued by the position in quote currency (TAO)
 /// fees_alpha - fees accrued by the position in base currency (Alpha)
 ///
-#[cfg_attr(test, derive(Debug, PartialEq, Clone))]
 #[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen, Default)]
 pub struct Position {
     pub tick_low: TickIndex,
@@ -179,6 +182,18 @@ pub trait SwapDataOperations<AccountIdType> {
         positions: Position,
     );
     fn remove_position(&mut self, account_id: &AccountIdType, position_id: u16);
+
+    // Tick index storage
+    // Storage is organized in 3 layers:
+    //    Layer 0 consists of one u128 that stores 55 bits. Each bit indicates which layer 1 words are active.
+    //    Layer 1 consists of up to 55 u128's that store 6932 bits for the layer 2 words.
+    //    Layer 2 consists of up to 6932 u128's that store 887272 bits for active/inactive ticks.
+    fn get_layer0_word(&self, word_index: u32) -> u128;
+    fn get_layer1_word(&self, word_index: u32) -> u128;
+    fn get_layer2_word(&self, word_index: u32) -> u128;
+    fn set_layer0_word(&mut self, word_index: u32, word: u128);
+    fn set_layer1_word(&mut self, word_index: u32, word: u128);
+    fn set_layer2_word(&mut self, word_index: u32, word: u128);
 }
 
 /// All main swapping logic abstracted from Runtime implementation is concentrated
@@ -632,7 +647,7 @@ where
         self.update_reserves(order_type, delta_in, delta_out);
 
         // Get current tick
-        let current_tick_index = self.get_current_tick_index();
+        let TickIndex(current_tick_index) = self.get_current_tick_index();
 
         match action {
             SwapStepAction::Crossing => {
@@ -651,7 +666,7 @@ where
                         .saturating_sub(tick.fees_out_alpha);
                     self.update_liquidity_at_crossing(order_type)?;
                     self.state_ops
-                        .insert_tick_by_index(current_tick_index, tick);
+                        .insert_tick_by_index(TickIndex(current_tick_index), tick);
                 } else {
                     return Err(SwapError::InsufficientLiquidity);
                 }
@@ -672,7 +687,7 @@ where
                             .get_fee_global_alpha()
                             .saturating_sub(tick.fees_out_alpha);
                         self.state_ops
-                            .insert_tick_by_index(current_tick_index, tick);
+                            .insert_tick_by_index(TickIndex(current_tick_index), tick);
                     } else {
                         return Err(SwapError::InsufficientLiquidity);
                     }
@@ -945,7 +960,7 @@ where
     ///
     fn update_liquidity_at_crossing(&mut self, order_type: &OrderType) -> Result<(), SwapError> {
         let mut liquidity_curr = self.state_ops.get_current_liquidity();
-        let current_tick_index = self.get_current_tick_index();
+        let TickIndex(current_tick_index) = self.get_current_tick_index();
         match order_type {
             OrderType::Sell => {
                 let maybe_tick = self.find_closest_lower_active_tick(current_tick_index);
@@ -1085,19 +1100,243 @@ where
         }
     }
 
-    pub fn find_closest_lower_active_tick(&self, index: TickIndex) -> Option<Tick> {
-        let maybe_tick_index = index.find_closest_lower_active(&self.state_ops);
-        if let Some(tick_index) = maybe_tick_index {
-            self.state_ops.get_tick_by_index(tick_index)
+    /// Active tick operations
+    /// 
+    /// Data structure: 
+    ///    Active ticks are stored in three hash maps, each representing a "Level"
+    ///    Level 0 stores one u128 word, where each bit represents one Level 1 word.
+    ///    Level 1 words each store also a u128 word, where each bit represents one Level 2 word.
+    ///    Level 2 words each store u128 word, where each bit represents a tick.
+    /// 
+    /// Insertion: 3 reads, 3 writes
+    /// Search: 3-5 reads
+    /// Deletion: 2 reads, 1-3 writes
+    ///
+
+    // Addresses an index as (word, bit)
+    fn index_to_address(index: u32) -> (u32, u32) {
+        let word: u32 = index.safe_div(128);
+        let bit: u32 = index.checked_rem(128).unwrap_or_default();
+        (word, bit)
+    }
+
+    // Reconstructs an index from address in lower level
+    fn address_to_index(word: u32, bit: u32) -> u32 {
+        word.saturating_mul(128).saturating_add(bit)
+    }
+
+    pub fn insert_active_tick(&mut self, index: i32) {
+        // Check the range
+        if (index < MIN_TICK_INDEX) || (index > MAX_TICK_INDEX) {
+            return;
+        }
+
+        // Ticks are between -443636 and 443636, so there is no
+        // overflow here. The u32 offset_index is the format we store indexes in the tree
+        // to avoid working with the sign bit.
+        let offset_index = (index.saturating_add(TICK_OFFSET as i32)) as u32;
+
+        // Calculate index in each layer
+        let (layer2_word, layer2_bit) = Self::index_to_address(offset_index);
+        let (layer1_word, layer1_bit) = Self::index_to_address(layer2_word);
+        let (layer0_word, layer0_bit) = Self::index_to_address(layer1_word);
+
+        // Update layer words
+        let mut word0_value = self.state_ops.get_layer0_word(layer0_word);
+        let mut word1_value = self.state_ops.get_layer1_word(layer1_word);
+        let mut word2_value = self.state_ops.get_layer2_word(layer2_word);        
+
+        let bit: u128 = 1;
+        word0_value = word0_value | bit.wrapping_shl(layer0_bit);
+        word1_value = word1_value | bit.wrapping_shl(layer1_bit);
+        word2_value = word2_value | bit.wrapping_shl(layer2_bit);
+
+        self.state_ops.set_layer0_word(layer0_word, word0_value);
+        self.state_ops.set_layer1_word(layer1_word, word1_value);
+        self.state_ops.set_layer2_word(layer2_word, word2_value);        
+    }
+
+    pub fn remove_active_tick(&mut self, index: i32) {
+        // Check the range
+        if (index < MIN_TICK_INDEX) || (index > MAX_TICK_INDEX) {
+            return;
+        }
+
+        // Ticks are between -443636 and 443636, so there is no
+        // overflow here. The u32 offset_index is the format we store indexes in the tree
+        // to avoid working with the sign bit.
+        let offset_index = (index.saturating_add(TICK_OFFSET as i32)) as u32;
+
+        // Calculate index in each layer
+        let (layer2_word, layer2_bit) = Self::index_to_address(offset_index);
+        let (layer1_word, layer1_bit) = Self::index_to_address(layer2_word);
+        let (layer0_word, layer0_bit) = Self::index_to_address(layer1_word);
+
+        // Update layer words
+        let mut word0_value = self.state_ops.get_layer0_word(layer0_word);
+        let mut word1_value = self.state_ops.get_layer1_word(layer1_word);
+        let mut word2_value = self.state_ops.get_layer2_word(layer2_word);        
+
+        // Turn the bit off (& !bit) and save as needed
+        let bit: u128 = 1;
+        word2_value = word2_value & !bit.wrapping_shl(layer2_bit);
+        self.state_ops.set_layer2_word(layer2_word, word2_value);        
+        if word2_value == 0 {
+            word1_value = word1_value & !bit.wrapping_shl(layer1_bit);
+            self.state_ops.set_layer1_word(layer1_word, word1_value);
+        }
+        if word1_value == 0 {
+            word0_value = word0_value & !bit.wrapping_shl(layer0_bit);
+            self.state_ops.set_layer0_word(layer0_word, word0_value);
+        }
+    }
+
+    // Finds the closest active bit and, if active bit exactly matches bit, then the next one
+    // Exact match: return Some([next, bit])
+    // Non-exact match: return Some([next])
+    // No match: return None
+    fn find_closest_active_bit_candidates(&self, word: u128, bit: u32, lower: bool) -> Vec<u32> {
+        let mut result = vec![];
+        let mut mask: u128 = 1_u128.wrapping_shl(bit);
+        let mut layer0_active_bit: u32 = bit;
+        while mask > 0 {
+            if mask & word != 0 {
+                result.push(layer0_active_bit);
+                if layer0_active_bit != bit {
+                    break;
+                }
+            }
+            mask = if lower {
+                layer0_active_bit = layer0_active_bit.saturating_sub(1);
+                mask.wrapping_shr(1)
+            } else {
+                layer0_active_bit = layer0_active_bit.saturating_add(1);
+                mask.wrapping_shl(1)
+            };
+        }
+        result
+    }
+
+    pub fn find_closest_active_tick_index(
+        &self,
+        index: i32,
+        lower: bool,
+    ) -> Option<i32>
+    {
+        // Check the range
+        if (index < MIN_TICK_INDEX) || (index > MAX_TICK_INDEX) {
+            return None;
+        }
+
+        // Ticks are between -443636 and 443636, so there is no
+        // overflow here. The u32 offset_index is the format we store indexes in the tree
+        // to avoid working with the sign bit.
+        let offset_index = (index.saturating_add(TICK_OFFSET as i32)) as u32;
+        let mut found = false;
+        let mut result: u32 = 0;
+
+        // Calculate index in each layer
+        let (layer2_word, layer2_bit) = Self::index_to_address(offset_index);
+        let (layer1_word, layer1_bit) = Self::index_to_address(layer2_word);
+        let (layer0_word, layer0_bit) = Self::index_to_address(layer1_word);
+
+        // Find the closest active bits in layer 0, then 1, then 2
+
+        ///////////////
+        // Level 0
+        let word0 = self.state_ops.get_layer0_word(layer0_word);
+        let closest_bits_l0 = self.find_closest_active_bit_candidates(word0, layer0_bit, lower);
+
+        closest_bits_l0.iter().for_each(|&closest_bit_l0| {
+            ///////////////
+            // Level 1
+            let word1_index = Self::address_to_index(0, closest_bit_l0);
+
+            // Layer 1 words are different, shift the bit to the word edge
+            let start_from_l1_bit = 
+                if word1_index < layer1_word {
+                    127
+                } else if word1_index > layer1_word {
+                    0
+                } else {
+                    layer1_bit
+                };
+            let word1_value = self.state_ops.get_layer1_word(word1_index);
+
+            let closest_bits_l1 = self.find_closest_active_bit_candidates(word1_value, start_from_l1_bit, lower);
+            closest_bits_l1.iter().for_each(|&closest_bit_l1| {
+                ///////////////
+                // Level 2
+                let word2_index = Self::address_to_index(word1_index, closest_bit_l1);
+
+                // Layer 2 words are different, shift the bit to the word edge
+                let start_from_l2_bit = 
+                    if word2_index < layer2_word {
+                        127
+                    } else if word2_index > layer2_word {
+                        0
+                    } else {
+                        layer2_bit
+                    };
+
+                let word2_value = self.state_ops.get_layer2_word(word2_index);
+                let closest_bits_l2 = self.find_closest_active_bit_candidates(word2_value, start_from_l2_bit, lower);
+
+                if closest_bits_l2.len() > 0 {
+                    // The active tick is found, restore its full index and return
+                    let offset_found_index = Self::address_to_index(word2_index, closest_bits_l2[0]);
+
+                    if lower {
+                        if (offset_found_index > result) || (!found) {
+                            result = offset_found_index;
+                            found = true;
+                        }
+                    } else {
+                        if (offset_found_index < result) || (!found) {
+                            result = offset_found_index;
+                            found = true;
+                        }
+                    }
+                }
+            });
+        });
+
+        if found {
+            Some((result as i32).saturating_sub(TICK_OFFSET as i32))
         } else {
             None
         }
     }
 
-    pub fn find_closest_higher_active_tick(&self, index: TickIndex) -> Option<Tick> {
-        let maybe_tick_index = index.find_closest_higher_active(&self.state_ops);
+    pub fn find_closest_lower_active_tick_index(
+        &self,
+        index: i32,
+    ) -> Option<i32>
+    {
+        self.find_closest_active_tick_index(index, true)
+    }
+
+    pub fn find_closest_higher_active_tick_index(
+        &self,
+        index: i32,
+    ) -> Option<i32>
+    {
+        self.find_closest_active_tick_index(index, false)
+    }
+
+    pub fn find_closest_lower_active_tick(&self, index: i32) -> Option<Tick> {
+        let maybe_tick_index = self.find_closest_lower_active_tick_index(index);
         if let Some(tick_index) = maybe_tick_index {
-            self.state_ops.get_tick_by_index(tick_index)
+            self.state_ops.get_tick_by_index(TickIndex(tick_index))
+        } else {
+            None
+        }
+    }
+
+    pub fn find_closest_higher_active_tick(&self, index: i32) -> Option<Tick> {
+        let maybe_tick_index = self.find_closest_higher_active_tick_index(index);
+        if let Some(tick_index) = maybe_tick_index {
+            self.state_ops.get_tick_by_index(TickIndex(tick_index))
         } else {
             None
         }
@@ -1155,6 +1394,9 @@ mod tests {
         max_positions: u16,
         balances: HashMap<u16, (u64, u64)>,
         positions: HashMap<u16, HashMap<u16, Position>>,
+        tick_index_l0: HashMap<u32, u128>,
+        tick_index_l1: HashMap<u32, u128>,
+        tick_index_l2: HashMap<u32, u128>,
     }
 
     impl MockSwapDataOperations {
@@ -1175,6 +1417,9 @@ mod tests {
                 max_positions: 100,
                 balances: HashMap::new(),
                 positions: HashMap::new(),
+                tick_index_l0: HashMap::new(),
+                tick_index_l1: HashMap::new(),
+                tick_index_l2: HashMap::new(),
             }
         }
     }
@@ -1335,6 +1580,25 @@ mod tests {
             if let Some(account_positions) = self.positions.get_mut(account_id) {
                 account_positions.remove(&position_id);
             }
+        }
+
+        fn get_layer0_word(&self, word_index: u32) -> u128 {
+            *self.tick_index_l0.get(&word_index).unwrap_or(&0_u128)
+        }
+        fn get_layer1_word(&self, word_index: u32) -> u128 {
+            *self.tick_index_l1.get(&word_index).unwrap_or(&0_u128)
+        }
+        fn get_layer2_word(&self, word_index: u32) -> u128 {
+            *self.tick_index_l2.get(&word_index).unwrap_or(&0_u128)
+        }
+        fn set_layer0_word(&mut self, word_index: u32, word: u128) {
+            self.tick_index_l0.insert(word_index, word);
+        }
+        fn set_layer1_word(&mut self, word_index: u32, word: u128) {
+            self.tick_index_l1.insert(word_index, word);
+        }
+        fn set_layer2_word(&mut self, word_index: u32, word: u128) {
+            self.tick_index_l2.insert(word_index, word);
         }
     }
 
@@ -1770,5 +2034,222 @@ mod tests {
                 Err(SwapError::LiquidityNotFound),
             );
         });
+    }
+
+    // cargo test --package pallet-subtensor-swap --lib -- tests::test_tick_search_basic --exact --show-output
+    #[test]
+    fn test_tick_search_basic() {
+        let mock_ops = MockSwapDataOperations::new();
+        let mut swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+
+        swap.insert_active_tick(MIN_TICK_INDEX);
+        assert_eq!(swap.find_closest_lower_active_tick_index(MIN_TICK_INDEX).unwrap(), MIN_TICK_INDEX);
+        assert_eq!(swap.find_closest_lower_active_tick_index(MAX_TICK_INDEX).unwrap(), MIN_TICK_INDEX);
+        assert_eq!(swap.find_closest_lower_active_tick_index(MAX_TICK_INDEX/2).unwrap(), MIN_TICK_INDEX);
+        assert_eq!(swap.find_closest_lower_active_tick_index(MAX_TICK_INDEX - 1).unwrap(), MIN_TICK_INDEX);
+        assert_eq!(swap.find_closest_lower_active_tick_index(MIN_TICK_INDEX+1).unwrap(), MIN_TICK_INDEX);
+
+        assert_eq!(swap.find_closest_higher_active_tick_index(MIN_TICK_INDEX).unwrap(), MIN_TICK_INDEX);
+        assert_eq!(swap.find_closest_higher_active_tick_index(MAX_TICK_INDEX), None);
+        assert_eq!(swap.find_closest_higher_active_tick_index(MAX_TICK_INDEX/2), None);
+        assert_eq!(swap.find_closest_higher_active_tick_index(MAX_TICK_INDEX - 1), None);
+        assert_eq!(swap.find_closest_higher_active_tick_index(MIN_TICK_INDEX+1), None);
+
+        swap.insert_active_tick(MAX_TICK_INDEX);
+        assert_eq!(swap.find_closest_lower_active_tick_index(MIN_TICK_INDEX).unwrap(), MIN_TICK_INDEX);
+        assert_eq!(swap.find_closest_lower_active_tick_index(MAX_TICK_INDEX).unwrap(), MAX_TICK_INDEX);
+        assert_eq!(swap.find_closest_lower_active_tick_index(MAX_TICK_INDEX/2).unwrap(), MIN_TICK_INDEX);
+        assert_eq!(swap.find_closest_lower_active_tick_index(MAX_TICK_INDEX - 1).unwrap(), MIN_TICK_INDEX);
+        assert_eq!(swap.find_closest_lower_active_tick_index(MIN_TICK_INDEX + 1).unwrap(), MIN_TICK_INDEX);
+    }
+
+    #[test]
+    fn test_tick_search_sparse_queries() {
+        let mock_ops = MockSwapDataOperations::new();
+        let mut swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+
+        swap.insert_active_tick(MIN_TICK_INDEX + 10);
+        assert_eq!(swap.find_closest_lower_active_tick_index(MIN_TICK_INDEX + 10).unwrap(), MIN_TICK_INDEX + 10);
+        assert_eq!(swap.find_closest_lower_active_tick_index(MIN_TICK_INDEX + 11).unwrap(), MIN_TICK_INDEX + 10);
+        assert_eq!(swap.find_closest_lower_active_tick_index(MIN_TICK_INDEX + 12).unwrap(), MIN_TICK_INDEX + 10);
+        assert_eq!(swap.find_closest_lower_active_tick_index(MIN_TICK_INDEX), None);
+        assert_eq!(swap.find_closest_lower_active_tick_index(MIN_TICK_INDEX + 9), None);
+
+        assert_eq!(swap.find_closest_higher_active_tick_index(MIN_TICK_INDEX + 10).unwrap(), MIN_TICK_INDEX + 10);
+        assert_eq!(swap.find_closest_higher_active_tick_index(MIN_TICK_INDEX + 11), None);
+        assert_eq!(swap.find_closest_higher_active_tick_index(MIN_TICK_INDEX + 12), None);
+        assert_eq!(swap.find_closest_higher_active_tick_index(MIN_TICK_INDEX).unwrap(), MIN_TICK_INDEX + 10);
+        assert_eq!(swap.find_closest_higher_active_tick_index(MIN_TICK_INDEX + 9).unwrap(), MIN_TICK_INDEX + 10); 
+    }
+
+    #[test]
+    fn test_tick_search_many_lows() {
+        let mock_ops = MockSwapDataOperations::new();
+        let mut swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+
+        for i in 0..1000 {
+            swap.insert_active_tick(MIN_TICK_INDEX + i);
+        }
+        for i in 0..1000 {
+            assert_eq!(swap.find_closest_lower_active_tick_index(MIN_TICK_INDEX + i).unwrap(), MIN_TICK_INDEX + i);
+            assert_eq!(swap.find_closest_higher_active_tick_index(MIN_TICK_INDEX + i).unwrap(), MIN_TICK_INDEX + i);
+        }
+    }
+
+    #[test]
+    fn test_tick_search_many_sparse() {
+        let mock_ops = MockSwapDataOperations::new();
+        let mut swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+        let count: i32 = 1000;
+
+        for i in 0..=count {
+            swap.insert_active_tick(i * 10);
+        }
+        for i in 1..count {
+            assert_eq!(swap.find_closest_lower_active_tick_index(i * 10).unwrap(), i * 10);
+            assert_eq!(swap.find_closest_higher_active_tick_index(i * 10).unwrap(), i * 10);
+            for j in 1..=9 {
+                assert_eq!(swap.find_closest_lower_active_tick_index(i * 10 - j).unwrap(), (i-1) * 10);
+                assert_eq!(swap.find_closest_lower_active_tick_index(i * 10 + j).unwrap(), i * 10);
+                assert_eq!(swap.find_closest_higher_active_tick_index(i * 10 - j).unwrap(), i * 10);
+                assert_eq!(swap.find_closest_higher_active_tick_index(i * 10 + j).unwrap(), (i+1) * 10);
+            }
+        }
+    }
+
+    #[test]
+    fn test_tick_search_many_lows_sparse_reversed() {
+        let mock_ops = MockSwapDataOperations::new();
+        let mut swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+        let count: i32 = 1000;
+
+        for i in (0..=count).rev() {
+            swap.insert_active_tick(i * 10);
+        }
+        for i in 1..count {
+            assert_eq!(swap.find_closest_lower_active_tick_index(i * 10).unwrap(), i * 10);
+            assert_eq!(swap.find_closest_higher_active_tick_index(i * 10).unwrap(), i * 10);
+            for j in 1..=9 {
+                assert_eq!(swap.find_closest_lower_active_tick_index(i * 10 - j).unwrap(), (i-1) * 10);
+                assert_eq!(swap.find_closest_lower_active_tick_index(i * 10 + j).unwrap(), i * 10);
+                assert_eq!(swap.find_closest_higher_active_tick_index(i * 10 - j).unwrap(), i * 10);
+                assert_eq!(swap.find_closest_higher_active_tick_index(i * 10 + j).unwrap(), (i+1) * 10);
+            }
+        }        
+    }
+
+    #[test]
+    fn test_tick_search_repeated_insertions() {
+        let mock_ops = MockSwapDataOperations::new();
+        let mut swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+        let count: i32 = 1000;
+
+        for _ in 0..10 {
+            for i in 0..=count {
+                swap.insert_active_tick(i * 10);
+            }
+            for i in 1..count {
+                assert_eq!(swap.find_closest_lower_active_tick_index(i * 10).unwrap(), i * 10);
+                assert_eq!(swap.find_closest_higher_active_tick_index(i * 10).unwrap(), i * 10);
+                for j in 1..=9 {
+                    assert_eq!(swap.find_closest_lower_active_tick_index(i * 10 - j).unwrap(), (i-1) * 10);
+                    assert_eq!(swap.find_closest_lower_active_tick_index(i * 10 + j).unwrap(), i * 10);
+                    assert_eq!(swap.find_closest_higher_active_tick_index(i * 10 - j).unwrap(), i * 10);
+                    assert_eq!(swap.find_closest_higher_active_tick_index(i * 10 + j).unwrap(), (i+1) * 10);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_tick_search_full_range() {
+        let mock_ops = MockSwapDataOperations::new();
+        let mut swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+        let step= 1019;
+        let count = (MAX_TICK_INDEX - MIN_TICK_INDEX) / step;
+
+        for i in 0..=count {
+            let index = MIN_TICK_INDEX + i * step;
+            swap.insert_active_tick(index);
+        }
+        for i in 1..count {
+            let index = MIN_TICK_INDEX + i * step;
+
+            assert_eq!(swap.find_closest_lower_active_tick_index(index - step).unwrap(), index - step);
+            assert_eq!(swap.find_closest_lower_active_tick_index(index).unwrap(), index);
+            assert_eq!(swap.find_closest_lower_active_tick_index(index + step - 1).unwrap(), index);
+            assert_eq!(swap.find_closest_lower_active_tick_index(index + step/2).unwrap(), index);
+
+            assert_eq!(swap.find_closest_higher_active_tick_index(index).unwrap(), index);
+            assert_eq!(swap.find_closest_higher_active_tick_index(index + step).unwrap(), index + step);
+            assert_eq!(swap.find_closest_higher_active_tick_index(index + step/2).unwrap(), index + step);
+            assert_eq!(swap.find_closest_higher_active_tick_index(index + step - 1).unwrap(), index + step);
+            for j in 1..=9 {
+                assert_eq!(swap.find_closest_lower_active_tick_index(index - j).unwrap(), index - step);
+                assert_eq!(swap.find_closest_lower_active_tick_index(index + j).unwrap(), index);
+                assert_eq!(swap.find_closest_higher_active_tick_index(index - j).unwrap(), index);
+                assert_eq!(swap.find_closest_higher_active_tick_index(index + j).unwrap(), index + step);
+            }
+        }
+    }    
+
+    #[test]
+    fn test_tick_remove_basic() {
+        let mock_ops = MockSwapDataOperations::new();
+        let mut swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+
+        swap.insert_active_tick(MIN_TICK_INDEX);
+        swap.insert_active_tick(MAX_TICK_INDEX);
+        swap.remove_active_tick(MAX_TICK_INDEX);
+
+        assert_eq!(swap.find_closest_lower_active_tick_index(MIN_TICK_INDEX).unwrap(), MIN_TICK_INDEX);
+        assert_eq!(swap.find_closest_lower_active_tick_index(MAX_TICK_INDEX).unwrap(), MIN_TICK_INDEX);
+        assert_eq!(swap.find_closest_lower_active_tick_index(MAX_TICK_INDEX/2).unwrap(), MIN_TICK_INDEX);
+        assert_eq!(swap.find_closest_lower_active_tick_index(MAX_TICK_INDEX - 1).unwrap(), MIN_TICK_INDEX);
+        assert_eq!(swap.find_closest_lower_active_tick_index(MIN_TICK_INDEX+1).unwrap(), MIN_TICK_INDEX);
+
+        assert_eq!(swap.find_closest_higher_active_tick_index(MIN_TICK_INDEX).unwrap(), MIN_TICK_INDEX);
+        assert_eq!(swap.find_closest_higher_active_tick_index(MAX_TICK_INDEX), None);
+        assert_eq!(swap.find_closest_higher_active_tick_index(MAX_TICK_INDEX/2), None);
+        assert_eq!(swap.find_closest_higher_active_tick_index(MAX_TICK_INDEX - 1), None);
+        assert_eq!(swap.find_closest_higher_active_tick_index(MIN_TICK_INDEX+1), None);
+    }    
+
+    #[test]
+    fn test_tick_remove_full_range() {
+        let mock_ops = MockSwapDataOperations::new();
+        let mut swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+        let step= 1019;
+        let count = (MAX_TICK_INDEX - MIN_TICK_INDEX) / step;
+        let remove_frequency = 5; // Remove every 5th tick
+
+        // Insert ticks
+        for i in 0..=count {
+            let index = MIN_TICK_INDEX + i * step;
+            swap.insert_active_tick(index);
+        }
+
+        // Remove some ticks
+        for i in 1..count {
+            if i % remove_frequency == 0 {
+                let index = MIN_TICK_INDEX + i * step;
+                swap.remove_active_tick(index);
+            }
+        }
+
+        // Verify
+        for i in 1..count {
+            let index = MIN_TICK_INDEX + i * step;
+
+            if i % remove_frequency == 0 {
+                let lower = swap.find_closest_lower_active_tick_index(index);
+                let higher = swap.find_closest_higher_active_tick_index(index);
+                assert!(lower != Some(index));
+                assert!(higher != Some(index));
+            } else {
+                assert_eq!(swap.find_closest_lower_active_tick_index(index).unwrap(), index);
+                assert_eq!(swap.find_closest_higher_active_tick_index(index).unwrap(), index);
+            }
+        }
     }
 }

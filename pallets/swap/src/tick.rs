@@ -44,6 +44,9 @@ const U256_MAX_TICK: U256 = U256::from_limbs([887272, 0, 0, 0]);
 const MIN_TICK: i32 = -887272;
 const MAX_TICK: i32 = -MIN_TICK;
 
+pub const MIN_TICK_INDEX: i32 = -443636;
+pub const MAX_TICK_INDEX: i32 = -MIN_TICK_INDEX;
+
 const MIN_SQRT_RATIO: U256 = U256::from_limbs([4295128739, 0, 0, 0]);
 const MAX_SQRT_RATIO: U256 =
     U256::from_limbs([6743328256752651558, 17280870778742802505, 4294805859, 0]);
@@ -95,7 +98,7 @@ pub struct Tick {
     Ord,
     Hash,
 )]
-pub struct TickIndex(i32);
+pub struct TickIndex(pub i32);
 
 impl Add<TickIndex> for TickIndex {
     type Output = Self;
