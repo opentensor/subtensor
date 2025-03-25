@@ -3049,13 +3049,10 @@ fn setup_yuma_3_scenario(netuid: u16, n: u16, sparse: bool, max_stake: u64, stak
     // Enable Liquid Alpha
     SubtensorModule::set_kappa(netuid, u16::MAX / 2);
     SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-    SubtensorModule::set_kappa(netuid, u16::MAX / 2);
-
     SubtensorModule::set_alpha_values_32(netuid, I32F32::from_num(0.1), I32F32::from_num(0.3));
 
     // === Issue validator permits
     SubtensorModule::set_max_allowed_validators(netuid, 3);
-    assert_eq!(SubtensorModule::get_max_allowed_validators(netuid), 3);
 
     // run first epoch to set allowed validators
     // run to next block to ensure weights are set on nodes after their registration block
@@ -3083,15 +3080,12 @@ fn run_epoch_and_check_bonds_dividends(
 
     let epsilon = I32F32::from_num(1e-3);
     // Check the bonds
-    // server 1
-    assert_approx_eq(bonds[0][3], fixed(target_bonds[0][0]), epsilon);
-    assert_approx_eq(bonds[1][3], fixed(target_bonds[1][0]), epsilon);
-    assert_approx_eq(bonds[2][3], fixed(target_bonds[2][0]), epsilon);
-    // server 2
-    assert_approx_eq(bonds[0][4], fixed(target_bonds[0][1]), epsilon);
-    assert_approx_eq(bonds[1][4], fixed(target_bonds[1][1]), epsilon);
-    assert_approx_eq(bonds[2][4], fixed(target_bonds[2][1]), epsilon);
-
+    for (bond, target_bond) in bonds.iter().zip(target_bonds.iter()) {
+        // skip the 3 validators
+        for (b, t) in bond.iter().zip(target_bond.iter().skip(3)) {
+            assert_approx_eq(*b, fixed(*t), epsilon);
+        }
+    }
     // Check the dividends
     for (dividend, target_dividend) in dividends.iter().zip(target_dividends.iter()) {
         assert_approx_eq(
@@ -3102,12 +3096,12 @@ fn run_epoch_and_check_bonds_dividends(
     }
 }
 
-fn set_yuma_3_weights(netuid: u16, weights: Vec<Vec<u16>>) {
+fn set_yuma_3_weights(netuid: u16, weights: Vec<Vec<u16>>, indices: Vec<u16>) {
     for (uid, weight) in weights.iter().enumerate() {
         assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(U256::from(uid as u64)),
             netuid,
-            vec![3, 4],
+            indices.clone(),
             weight.to_vec(),
             0
         ));
@@ -3116,362 +3110,487 @@ fn set_yuma_3_weights(netuid: u16, weights: Vec<Vec<u16>>) {
 
 #[test]
 fn test_yuma_3_kappa_moves_first() {
-    new_test_ext(1).execute_with(|| {
-        let sparse: bool = true;
-        let n: u16 = 5; // 3 validators, 2 servers
-        let netuid: u16 = 1;
-        let max_stake: u64 = 8;
+    for sparse in [true, false].iter() {
+        new_test_ext(1).execute_with(|| {
+            let n: u16 = 5; // 3 validators, 2 servers
+            let netuid: u16 = 1;
+            let max_stake: u64 = 8;
 
-        // Validator A: kappa / Big validator (0.8) - moves first
-        // Validator B: Small eager validator (0.1) - moves second
-        // Validator C: Small lazy validator (0.1) - moves last
-        let stakes: Vec<u64> = vec![8, 1, 1, 0, 0];
+            // Validator A: kappa / Big validator (0.8) - moves first
+            // Validator B: Small eager validator (0.1) - moves second
+            // Validator C: Small lazy validator (0.1) - moves last
+            let stakes: Vec<u64> = vec![8, 1, 1, 0, 0];
 
-        setup_yuma_3_scenario(netuid, n, sparse, max_stake, stakes);
-        let targets_bonds = [
-            vec![
-                vec![0.1013, 0.0000],
-                vec![0.1013, 0.0000],
-                vec![0.1013, 0.0000],
-            ],
-            vec![
-                vec![0.0908, 0.1013],
-                vec![0.3697, 0.0000],
-                vec![0.3697, 0.0000],
-            ],
-            vec![
-                vec![0.0815, 0.1924],
-                vec![0.3170, 0.1013],
-                vec![0.5580, 0.0000],
-            ],
-            vec![
-                vec![0.0731, 0.2742],
-                vec![0.2765, 0.1924],
-                vec![0.4306, 0.1013],
-            ],
-            vec![
-                vec![0.0656, 0.3478],
-                vec![0.2435, 0.2742],
-                vec![0.3589, 0.1924],
-            ],
-            vec![
-                vec![0.0588, 0.4139],
-                vec![0.2157, 0.3478],
-                vec![0.3089, 0.2742],
-            ],
-        ];
+            setup_yuma_3_scenario(netuid, n, *sparse, max_stake, stakes);
+            let targets_bonds = [
+                vec![
+                    vec![0.1013, 0.0000],
+                    vec![0.1013, 0.0000],
+                    vec![0.1013, 0.0000],
+                ],
+                vec![
+                    vec![0.0908, 0.1013],
+                    vec![0.3697, 0.0000],
+                    vec![0.3697, 0.0000],
+                ],
+                vec![
+                    vec![0.0815, 0.1924],
+                    vec![0.3170, 0.1013],
+                    vec![0.5580, 0.0000],
+                ],
+                vec![
+                    vec![0.0731, 0.2742],
+                    vec![0.2765, 0.1924],
+                    vec![0.4306, 0.1013],
+                ],
+                vec![
+                    vec![0.0656, 0.3478],
+                    vec![0.2435, 0.2742],
+                    vec![0.3589, 0.1924],
+                ],
+                vec![
+                    vec![0.0588, 0.4139],
+                    vec![0.2157, 0.3478],
+                    vec![0.3089, 0.2742],
+                ],
+            ];
 
-        let targets_dividends = [
-            vec![0.8000, 0.1000, 0.1000, 0.0000, 0.0000],
-            vec![1.0000, 0.0000, 0.0000, 0.0000, 0.0000],
-            vec![0.9382, 0.0618, 0.0000, 0.0000, 0.0000],
-            vec![0.8819, 0.0773, 0.0407, 0.0000, 0.0000],
-            vec![0.8564, 0.0844, 0.0592, 0.0000, 0.0000],
-            vec![0.8418, 0.0884, 0.0697, 0.0000, 0.0000],
-        ];
+            let targets_dividends = [
+                vec![0.8000, 0.1000, 0.1000, 0.0000, 0.0000],
+                vec![1.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+                vec![0.9382, 0.0618, 0.0000, 0.0000, 0.0000],
+                vec![0.8819, 0.0773, 0.0407, 0.0000, 0.0000],
+                vec![0.8564, 0.0844, 0.0592, 0.0000, 0.0000],
+                vec![0.8418, 0.0884, 0.0697, 0.0000, 0.0000],
+            ];
 
-        for (epoch, (target_bonds, target_dividends)) in targets_bonds
-            .iter()
-            .zip(targets_dividends.iter())
-            .enumerate()
-        {
-            match epoch {
-                0 => {
-                    // Initially, consensus is achieved by all Validators
-                    set_yuma_3_weights(netuid, vec![vec![u16::MAX, 0]; 3]);
-                }
-                1 => {
-                    // Validator A -> Server 2
-                    // Validator B -> Server 1
-                    // Validator C -> Server 1
-                    set_yuma_3_weights(
-                        netuid,
-                        vec![vec![0, u16::MAX], vec![u16::MAX, 0], vec![u16::MAX, 0]],
-                    );
-                }
-                2 => {
-                    // Validator A -> Server 2
-                    // Validator B -> Server 2
-                    // Validator C -> Server 1
-                    set_yuma_3_weights(
-                        netuid,
-                        vec![vec![0, u16::MAX], vec![0, u16::MAX], vec![u16::MAX, 0]],
-                    );
-                }
-                3 => {
-                    // Subsequent epochs All validators -> Server 2
-                    set_yuma_3_weights(netuid, vec![vec![0, u16::MAX]; 3]);
-                }
-                _ => {}
-            };
-            run_epoch_and_check_bonds_dividends(netuid, sparse, target_bonds, target_dividends);
-        }
-    })
+            for (epoch, (target_bonds, target_dividends)) in targets_bonds
+                .iter()
+                .zip(targets_dividends.iter())
+                .enumerate()
+            {
+                match epoch {
+                    0 => {
+                        // Initially, consensus is achieved by all Validators
+                        set_yuma_3_weights(netuid, vec![vec![u16::MAX, 0]; 3], vec![3, 4]);
+                    }
+                    1 => {
+                        // Validator A -> Server 2
+                        // Validator B -> Server 1
+                        // Validator C -> Server 1
+                        set_yuma_3_weights(
+                            netuid,
+                            vec![vec![0, u16::MAX], vec![u16::MAX, 0], vec![u16::MAX, 0]],
+                            vec![3, 4],
+                        );
+                    }
+                    2 => {
+                        // Validator A -> Server 2
+                        // Validator B -> Server 2
+                        // Validator C -> Server 1
+                        set_yuma_3_weights(
+                            netuid,
+                            vec![vec![0, u16::MAX], vec![0, u16::MAX], vec![u16::MAX, 0]],
+                            vec![3, 4],
+                        );
+                    }
+                    3 => {
+                        // Subsequent epochs All validators -> Server 2
+                        set_yuma_3_weights(netuid, vec![vec![0, u16::MAX]; 3], vec![3, 4]);
+                    }
+                    _ => {}
+                };
+                run_epoch_and_check_bonds_dividends(netuid, *sparse, target_bonds, target_dividends);
+            }
+        })
+    }
 }
 
 #[test]
 fn test_yuma_3_kappa_moves_second() {
-    new_test_ext(1).execute_with(|| {
-        let sparse: bool = false;
-        let n: u16 = 5; // 3 validators, 2 servers
-        let netuid: u16 = 1;
-        let max_stake: u64 = 8;
+    for sparse in [true, false].iter() {
+        new_test_ext(1).execute_with(|| {
+            let n: u16 = 5; // 3 validators, 2 servers
+            let netuid: u16 = 1;
+            let max_stake: u64 = 8;
 
-        // Validator A: kappa / Big validator (0.8) - moves second
-        // Validator B: Small eager validator (0.1) - moves first
-        // Validator C: Small lazy validator (0.1) - moves last
-        let stakes: Vec<u64> = vec![8, 1, 1, 0, 0];
+            // Validator A: kappa / Big validator (0.8) - moves second
+            // Validator B: Small eager validator (0.1) - moves first
+            // Validator C: Small lazy validator (0.1) - moves last
+            let stakes: Vec<u64> = vec![8, 1, 1, 0, 0];
 
-        setup_yuma_3_scenario(netuid, n, sparse, max_stake, stakes);
-        let targets_bonds = [
-            vec![
-                vec![0.1013, 0.0000],
-                vec![0.1013, 0.0000],
-                vec![0.1013, 0.0000],
-            ],
-            vec![
-                vec![0.1924, 0.0000],
-                vec![0.0908, 0.2987],
-                vec![0.1924, 0.0000],
-            ],
-            vec![
-                vec![0.1715, 0.1013],
-                vec![0.0815, 0.3697],
-                vec![0.4336, 0.0000],
-            ],
-            vec![
-                vec![0.1531, 0.1924],
-                vec![0.0731, 0.4336],
-                vec![0.3608, 0.1013],
-            ],
-            vec![
-                vec![0.1369, 0.2742],
-                vec![0.0656, 0.4910],
-                vec![0.3103, 0.1924],
-            ],
-            vec![
-                vec![0.1225, 0.3478],
-                vec![0.0588, 0.5426],
-                vec![0.2712, 0.2742],
-            ],
-        ];
-        let targets_dividends = [
-            vec![0.8000, 0.1000, 0.1000, 0.0000, 0.0000],
-            vec![0.8446, 0.0498, 0.1056, 0.0000, 0.0000],
-            vec![0.6868, 0.3132, 0.0000, 0.0000, 0.0000],
-            vec![0.7421, 0.2090, 0.0489, 0.0000, 0.0000],
-            vec![0.7625, 0.1706, 0.0669, 0.0000, 0.0000],
-            vec![0.7730, 0.1508, 0.0762, 0.0000, 0.0000],
-        ];
+            setup_yuma_3_scenario(netuid, n, *sparse, max_stake, stakes);
+            let targets_bonds = [
+                vec![
+                    vec![0.1013, 0.0000],
+                    vec![0.1013, 0.0000],
+                    vec![0.1013, 0.0000],
+                ],
+                vec![
+                    vec![0.1924, 0.0000],
+                    vec![0.0908, 0.2987],
+                    vec![0.1924, 0.0000],
+                ],
+                vec![
+                    vec![0.1715, 0.1013],
+                    vec![0.0815, 0.3697],
+                    vec![0.4336, 0.0000],
+                ],
+                vec![
+                    vec![0.1531, 0.1924],
+                    vec![0.0731, 0.4336],
+                    vec![0.3608, 0.1013],
+                ],
+                vec![
+                    vec![0.1369, 0.2742],
+                    vec![0.0656, 0.4910],
+                    vec![0.3103, 0.1924],
+                ],
+                vec![
+                    vec![0.1225, 0.3478],
+                    vec![0.0588, 0.5426],
+                    vec![0.2712, 0.2742],
+                ],
+            ];
+            let targets_dividends = [
+                vec![0.8000, 0.1000, 0.1000, 0.0000, 0.0000],
+                vec![0.8446, 0.0498, 0.1056, 0.0000, 0.0000],
+                vec![0.6868, 0.3132, 0.0000, 0.0000, 0.0000],
+                vec![0.7421, 0.2090, 0.0489, 0.0000, 0.0000],
+                vec![0.7625, 0.1706, 0.0669, 0.0000, 0.0000],
+                vec![0.7730, 0.1508, 0.0762, 0.0000, 0.0000],
+            ];
 
-        for (epoch, (target_bonds, target_dividends)) in targets_bonds
-            .iter()
-            .zip(targets_dividends.iter())
-            .enumerate()
-        {
-            match epoch {
-                0 => {
-                    // Initially, consensus is achieved by all Validators
-                    set_yuma_3_weights(netuid, vec![vec![u16::MAX, 0]; 3]);
-                }
-                1 => {
-                    // Validator A -> Server 1
-                    // Validator B -> Server 2
-                    // Validator C -> Server 1
-                    set_yuma_3_weights(
-                        netuid,
-                        vec![vec![u16::MAX, 0], vec![0, u16::MAX], vec![u16::MAX, 0]],
-                    );
-                }
-                2 => {
-                    // Validator A -> Server 2
-                    // Validator B -> Server 2
-                    // Validator C -> Server 1
-                    set_yuma_3_weights(
-                        netuid,
-                        vec![vec![0, u16::MAX], vec![0, u16::MAX], vec![u16::MAX, 0]],
-                    );
-                }
-                3 => {
-                    // Subsequent epochs All validators -> Server 2
-                    set_yuma_3_weights(netuid, vec![vec![0, u16::MAX]; 3]);
-                }
-                _ => {}
-            };
-            run_epoch_and_check_bonds_dividends(netuid, sparse, target_bonds, target_dividends);
-        }
-    })
+            for (epoch, (target_bonds, target_dividends)) in targets_bonds
+                .iter()
+                .zip(targets_dividends.iter())
+                .enumerate()
+            {
+                match epoch {
+                    0 => {
+                        // Initially, consensus is achieved by all Validators
+                        set_yuma_3_weights(netuid, vec![vec![u16::MAX, 0]; 3], vec![3, 4]);
+                    }
+                    1 => {
+                        // Validator A -> Server 1
+                        // Validator B -> Server 2
+                        // Validator C -> Server 1
+                        set_yuma_3_weights(
+                            netuid,
+                            vec![vec![u16::MAX, 0], vec![0, u16::MAX], vec![u16::MAX, 0]],
+                            vec![3, 4],
+                        );
+                    }
+                    2 => {
+                        // Validator A -> Server 2
+                        // Validator B -> Server 2
+                        // Validator C -> Server 1
+                        set_yuma_3_weights(
+                            netuid,
+                            vec![vec![0, u16::MAX], vec![0, u16::MAX], vec![u16::MAX, 0]],
+                            vec![3, 4],
+                        );
+                    }
+                    3 => {
+                        // Subsequent epochs All validators -> Server 2
+                        set_yuma_3_weights(netuid, vec![vec![0, u16::MAX]; 3], vec![3, 4]);
+                    }
+                    _ => {}
+                };
+                run_epoch_and_check_bonds_dividends(netuid, *sparse, target_bonds, target_dividends);
+            }
+        })
+    }
 }
 
 #[test]
 fn test_yuma_3_kappa_moves_last() {
-    new_test_ext(1).execute_with(|| {
-        let sparse: bool = true;
-        let n: u16 = 5; // 3 validators, 2 servers
-        let netuid: u16 = 1;
-        let max_stake: u64 = 8;
+    for sparse in [true, false].iter() {
+        new_test_ext(1).execute_with(|| {
+            let n: u16 = 5; // 3 validators, 2 servers
+            let netuid: u16 = 1;
+            let max_stake: u64 = 8;
 
-        // Validator A: kappa / Big validator (0.8) - moves last
-        // Validator B: Small eager validator (0.1) - moves first
-        // Validator C: Small lazy validator (0.1) - moves second
-        let stakes: Vec<u64> = vec![8, 1, 1, 0, 0];
+            // Validator A: kappa / Big validator (0.8) - moves last
+            // Validator B: Small eager validator (0.1) - moves first
+            // Validator C: Small lazy validator (0.1) - moves second
+            let stakes: Vec<u64> = vec![8, 1, 1, 0, 0];
 
-        setup_yuma_3_scenario(netuid, n, sparse, max_stake, stakes);
-        let targets_bonds = [
-            vec![
-                vec![0.1013, 0.0000],
-                vec![0.1013, 0.0000],
-                vec![0.1013, 0.0000],
-            ],
-            vec![
-                vec![0.1924, 0.0000],
-                vec![0.0908, 0.2987],
-                vec![0.1924, 0.0000],
-            ],
-            vec![
-                vec![0.2742, 0.0000],
-                vec![0.0815, 0.5081],
-                vec![0.1715, 0.2987],
-            ],
-            vec![
-                vec![0.2416, 0.1013],
-                vec![0.0731, 0.5580],
-                vec![0.1531, 0.3697],
-            ],
-            vec![
-                vec![0.2141, 0.1924],
-                vec![0.0656, 0.6028],
-                vec![0.1369, 0.4336],
-            ],
-            vec![
-                vec![0.1903, 0.2742],
-                vec![0.0588, 0.6430],
-                vec![0.1225, 0.4910],
-            ],
-        ];
-        let targets_dividends = [
-            vec![0.8000, 0.1000, 0.1000, 0.0000, 0.0000],
-            vec![0.8446, 0.0498, 0.1056, 0.0000, 0.0000],
-            vec![0.8966, 0.0333, 0.0701, 0.0000, 0.0000],
-            vec![0.4663, 0.3210, 0.2127, 0.0000, 0.0000],
-            vec![0.5976, 0.2340, 0.1683, 0.0000, 0.0000],
-            vec![0.6592, 0.1932, 0.1475, 0.0000, 0.0000],
-        ];
+            setup_yuma_3_scenario(netuid, n, *sparse, max_stake, stakes);
+            let targets_bonds = [
+                vec![
+                    vec![0.1013, 0.0000],
+                    vec![0.1013, 0.0000],
+                    vec![0.1013, 0.0000],
+                ],
+                vec![
+                    vec![0.1924, 0.0000],
+                    vec![0.0908, 0.2987],
+                    vec![0.1924, 0.0000],
+                ],
+                vec![
+                    vec![0.2742, 0.0000],
+                    vec![0.0815, 0.5081],
+                    vec![0.1715, 0.2987],
+                ],
+                vec![
+                    vec![0.2416, 0.1013],
+                    vec![0.0731, 0.5580],
+                    vec![0.1531, 0.3697],
+                ],
+                vec![
+                    vec![0.2141, 0.1924],
+                    vec![0.0656, 0.6028],
+                    vec![0.1369, 0.4336],
+                ],
+                vec![
+                    vec![0.1903, 0.2742],
+                    vec![0.0588, 0.6430],
+                    vec![0.1225, 0.4910],
+                ],
+            ];
+            let targets_dividends = [
+                vec![0.8000, 0.1000, 0.1000, 0.0000, 0.0000],
+                vec![0.8446, 0.0498, 0.1056, 0.0000, 0.0000],
+                vec![0.8966, 0.0333, 0.0701, 0.0000, 0.0000],
+                vec![0.4663, 0.3210, 0.2127, 0.0000, 0.0000],
+                vec![0.5976, 0.2340, 0.1683, 0.0000, 0.0000],
+                vec![0.6592, 0.1932, 0.1475, 0.0000, 0.0000],
+            ];
 
-        for (epoch, (target_bonds, target_dividends)) in targets_bonds
-            .iter()
-            .zip(targets_dividends.iter())
-            .enumerate()
-        {
-            match epoch {
-                0 => {
-                    // Initially, consensus is achieved by all Validators
-                    set_yuma_3_weights(netuid, vec![vec![u16::MAX, 0]; 3]);
-                }
-                1 => {
-                    // Validator A -> Server 1
-                    // Validator B -> Server 2
-                    // Validator C -> Server 1
-                    set_yuma_3_weights(
-                        netuid,
-                        vec![vec![u16::MAX, 0], vec![0, u16::MAX], vec![u16::MAX, 0]],
-                    );
-                }
-                2 => {
-                    // Validator A -> Server 1
-                    // Validator B -> Server 2
-                    // Validator C -> Server 2
-                    set_yuma_3_weights(
-                        netuid,
-                        vec![vec![u16::MAX, 0], vec![0, u16::MAX], vec![0, u16::MAX]],
-                    );
-                }
-                3 => {
-                    // Subsequent epochs All validators -> Server 2
-                    set_yuma_3_weights(netuid, vec![vec![0, u16::MAX]; 3]);
-                }
-                _ => {}
-            };
-            run_epoch_and_check_bonds_dividends(netuid, sparse, target_bonds, target_dividends);
-        }
-    })
+            for (epoch, (target_bonds, target_dividends)) in targets_bonds
+                .iter()
+                .zip(targets_dividends.iter())
+                .enumerate()
+            {
+                match epoch {
+                    0 => {
+                        // Initially, consensus is achieved by all Validators
+                        set_yuma_3_weights(netuid, vec![vec![u16::MAX, 0]; 3], vec![3, 4]);
+                    }
+                    1 => {
+                        // Validator A -> Server 1
+                        // Validator B -> Server 2
+                        // Validator C -> Server 1
+                        set_yuma_3_weights(
+                            netuid,
+                            vec![vec![u16::MAX, 0], vec![0, u16::MAX], vec![u16::MAX, 0]],
+                            vec![3, 4],
+                        );
+                    }
+                    2 => {
+                        // Validator A -> Server 1
+                        // Validator B -> Server 2
+                        // Validator C -> Server 2
+                        set_yuma_3_weights(
+                            netuid,
+                            vec![vec![u16::MAX, 0], vec![0, u16::MAX], vec![0, u16::MAX]],
+                            vec![3, 4],
+                        );
+                    }
+                    3 => {
+                        // Subsequent epochs All validators -> Server 2
+                        set_yuma_3_weights(netuid, vec![vec![0, u16::MAX]; 3], vec![3, 4]);
+                    }
+                    _ => {}
+                };
+                run_epoch_and_check_bonds_dividends(netuid, *sparse, target_bonds, target_dividends);
+            }
+        })
+    }
 }
 
 #[test]
 fn test_yuma_3_one_epoch_switch() {
-    new_test_ext(1).execute_with(|| {
-        let sparse: bool = true;
-        let n: u16 = 5; // 3 validators, 2 servers
-        let netuid: u16 = 1;
-        let max_stake: u64 = 8;
+    for sparse in [true, false].iter() {
+        new_test_ext(1).execute_with(|| {
+            let n: u16 = 5; // 3 validators, 2 servers
+            let netuid: u16 = 1;
+            let max_stake: u64 = 8;
 
-        // Equal stake validators
-        let stakes: Vec<u64> = vec![33, 33, 34, 0, 0];
+            // Equal stake validators
+            let stakes: Vec<u64> = vec![33, 33, 34, 0, 0];
 
-        setup_yuma_3_scenario(netuid, n, sparse, max_stake, stakes);
+            setup_yuma_3_scenario(netuid, n, *sparse, max_stake, stakes);
 
-        let targets_bonds = [
-            vec![
-                vec![0.1013, 0.0000],
-                vec![0.1013, 0.0000],
-                vec![0.1013, 0.0000],
-            ],
-            vec![
-                vec![0.1924, 0.0000],
-                vec![0.1924, 0.0000],
-                vec![0.1924, 0.0000],
-            ],
-            vec![
-                vec![0.2742, 0.0000],
-                vec![0.2742, 0.0000],
-                vec![0.1715, 0.2987],
-            ],
-            vec![
-                vec![0.3478, 0.0000],
-                vec![0.3478, 0.0000],
-                vec![0.2554, 0.2618],
-            ],
-            vec![
-                vec![0.4139, 0.0000],
-                vec![0.4139, 0.0000],
-                vec![0.3309, 0.2312],
-            ],
-            vec![
-                vec![0.4733, 0.0000],
-                vec![0.4733, 0.0000],
-                vec![0.3987, 0.2051],
-            ],
-        ];
-        let targets_dividends = [
-            vec![0.3300, 0.3300, 0.3400, 0.0000, 0.0000],
-            vec![0.3300, 0.3300, 0.3400, 0.0000, 0.0000],
-            vec![0.3782, 0.3782, 0.2436, 0.0000, 0.0000],
-            vec![0.3628, 0.3628, 0.2745, 0.0000, 0.0000],
-            vec![0.3541, 0.3541, 0.2917, 0.0000, 0.0000],
-            vec![0.3487, 0.3487, 0.3026, 0.0000, 0.0000],
-        ];
+            let targets_bonds = [
+                vec![
+                    vec![0.1013, 0.0000],
+                    vec![0.1013, 0.0000],
+                    vec![0.1013, 0.0000],
+                ],
+                vec![
+                    vec![0.1924, 0.0000],
+                    vec![0.1924, 0.0000],
+                    vec![0.1924, 0.0000],
+                ],
+                vec![
+                    vec![0.2742, 0.0000],
+                    vec![0.2742, 0.0000],
+                    vec![0.1715, 0.2987],
+                ],
+                vec![
+                    vec![0.3478, 0.0000],
+                    vec![0.3478, 0.0000],
+                    vec![0.2554, 0.2618],
+                ],
+                vec![
+                    vec![0.4139, 0.0000],
+                    vec![0.4139, 0.0000],
+                    vec![0.3309, 0.2312],
+                ],
+                vec![
+                    vec![0.4733, 0.0000],
+                    vec![0.4733, 0.0000],
+                    vec![0.3987, 0.2051],
+                ],
+            ];
+            let targets_dividends = [
+                vec![0.3300, 0.3300, 0.3400, 0.0000, 0.0000],
+                vec![0.3300, 0.3300, 0.3400, 0.0000, 0.0000],
+                vec![0.3782, 0.3782, 0.2436, 0.0000, 0.0000],
+                vec![0.3628, 0.3628, 0.2745, 0.0000, 0.0000],
+                vec![0.3541, 0.3541, 0.2917, 0.0000, 0.0000],
+                vec![0.3487, 0.3487, 0.3026, 0.0000, 0.0000],
+            ];
 
-        for (epoch, (target_bonds, target_dividends)) in targets_bonds
-            .iter()
-            .zip(targets_dividends.iter())
-            .enumerate()
-        {
-            match epoch {
-                2 => {
-                    // Validator A -> Server 1
-                    // Validator B -> Server 1
-                    // Validator C -> Server 2
-                    set_yuma_3_weights(
-                        netuid,
-                        vec![vec![u16::MAX, 0], vec![u16::MAX, 0], vec![0, u16::MAX]],
-                    );
-                }
-                _ => {
-                    // All validators -> Server 1
-                    set_yuma_3_weights(netuid, vec![vec![u16::MAX, 0]; 3]);
-                }
-            };
-            run_epoch_and_check_bonds_dividends(netuid, sparse, target_bonds, target_dividends);
-        }
-    })
+            for (epoch, (target_bonds, target_dividends)) in targets_bonds
+                .iter()
+                .zip(targets_dividends.iter())
+                .enumerate()
+            {
+                match epoch {
+                    2 => {
+                        // Validator A -> Server 1
+                        // Validator B -> Server 1
+                        // Validator C -> Server 2
+                        set_yuma_3_weights(
+                            netuid,
+                            vec![vec![u16::MAX, 0], vec![u16::MAX, 0], vec![0, u16::MAX]],
+                            vec![3, 4],
+                        );
+                    }
+                    _ => {
+                        // All validators -> Server 1
+                        set_yuma_3_weights(netuid, vec![vec![u16::MAX, 0]; 3], vec![3, 4]);
+                    }
+                };
+                run_epoch_and_check_bonds_dividends(netuid, *sparse, target_bonds, target_dividends);
+            }
+        })
+    }
+}
+
+#[test]
+fn test_yuma_3_stable_miner() {
+    for sparse in [true, false].iter() {
+        new_test_ext(1).execute_with(|| {
+            let netuid: u16 = 1;
+            let n: u16 = 6; // 3 validators, 3 servers
+            let max_stake: u64 = 8;
+
+            // Validator A: kappa / Big validator (0.8)
+            // Validator B: Small eager validator (0.1)
+            // Validator C: Small lazy validator (0.1)
+            let stakes: Vec<u64> = vec![8, 1, 1, 0, 0, 0];
+
+            setup_yuma_3_scenario(netuid, n, *sparse, max_stake, stakes);
+            let targets_bonds = [
+                vec![
+                    vec![0.0507, 0.0000, 0.0507],
+                    vec![0.0507, 0.0000, 0.0507],
+                    vec![0.0507, 0.0000, 0.0507],
+                ],
+                vec![
+                    vec![0.0962, 0.0000, 0.0962],
+                    vec![0.0455, 0.1000, 0.0962],
+                    vec![0.0962, 0.0000, 0.0962],
+                ],
+                vec![
+                    vec![0.0863, 0.0507, 0.1371],
+                    vec![0.0408, 0.1405, 0.1371],
+                    vec![0.1770, 0.0000, 0.1371],
+                ],
+                vec![
+                    vec![0.0774, 0.0962, 0.1739],
+                    vec![0.0367, 0.1770, 0.1739],
+                    vec![0.1579, 0.0507, 0.1739],
+                ],
+                vec![
+                    vec![0.0694, 0.1371, 0.2069],
+                    vec![0.0329, 0.2097, 0.2069],
+                    vec![0.1411, 0.0962, 0.2069],
+                ],
+                vec![
+                    vec![0.0623, 0.1739, 0.2366],
+                    vec![0.0296, 0.2391, 0.2366],
+                    vec![0.1263, 0.1371, 0.2366],
+                ],
+            ];
+            let targets_dividends = [
+                vec![0.8000, 0.1000, 0.1000, 0.0000, 0.0000, 0.0000],
+                vec![0.8226, 0.0745, 0.1028, 0.0000, 0.0000, 0.0000],
+                vec![0.7750, 0.1685, 0.0565, 0.0000, 0.0000, 0.0000],
+                vec![0.7864, 0.1372, 0.0764, 0.0000, 0.0000, 0.0000],
+                vec![0.7912, 0.1241, 0.0847, 0.0000, 0.0000, 0.0000],
+                vec![0.7937, 0.1173, 0.0890, 0.0000, 0.0000, 0.0000],
+            ];
+
+            for (epoch, (target_bonds, target_dividends)) in targets_bonds
+                .iter()
+                .zip(targets_dividends.iter())
+                .enumerate()
+            {
+                match epoch {
+                    0 => {
+                        // all validators 0.5 for first and third server
+                        set_yuma_3_weights(
+                            netuid,
+                            vec![vec![u16::MAX / 2, 0, u16::MAX / 2]; 3],
+                            vec![3, 4, 5],
+                        );
+                    }
+                    1 => {
+                        // one of small validators moves 0.5 to seconds server
+                        set_yuma_3_weights(
+                            netuid,
+                            vec![
+                                vec![u16::MAX / 2, 0, u16::MAX / 2],
+                                vec![0, u16::MAX / 2, u16::MAX / 2],
+                                vec![u16::MAX / 2, 0, u16::MAX / 2],
+                            ],
+                            vec![3, 4, 5],
+                        );
+                    }
+                    2 => {
+                        // big validator follows
+                        set_yuma_3_weights(
+                            netuid,
+                            vec![
+                                vec![0, u16::MAX / 2, u16::MAX / 2],
+                                vec![0, u16::MAX / 2, u16::MAX / 2],
+                                vec![u16::MAX / 2, 0, u16::MAX / 2],
+                            ],
+                            vec![3, 4, 5],
+                        );
+                    }
+                    3 => {
+                        // Subsequent epochs all validators have moves
+                        set_yuma_3_weights(
+                            netuid,
+                            vec![vec![0, u16::MAX / 2, u16::MAX / 2]; 3],
+                            vec![3, 4, 5],
+                        );
+                    }
+                    _ => {}
+                };
+                run_epoch_and_check_bonds_dividends(
+                    netuid,
+                    *sparse,
+                    target_bonds,
+                    target_dividends,
+                );
+            }
+        })
+    }
 }
