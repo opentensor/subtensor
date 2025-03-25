@@ -246,9 +246,42 @@ where
     ///
     /// Returns (Alpha, Liquidity) tuple
     ///
-    pub fn get_tao_based_liquidity(&self, _tao: u64) -> (u64, u64) {
-        // let current_price = self.state_ops.get_alpha_sqrt_price();
-        todo!()
+    pub fn get_tao_based_liquidity(
+        &self,
+        _tao: u64,
+        tick_lower: i32,
+        tick_upper: i32,
+    ) -> Result<(u64, u64), SwapError> {
+        if _tao == 0 {
+            return Err(SwapError::InsufficientInputAmount);
+        }
+
+        let tao_fixed = U64F64::saturating_from_num(_tao);
+        let curr_sqrt_price = self.state_ops.get_alpha_sqrt_price();
+        let sqrt_p_a =
+            tick_index_to_sqrt_price(tick_lower).map_err(|_| SwapError::InvalidTickRange)?;
+        let sqrt_p_b =
+            tick_index_to_sqrt_price(tick_upper).map_err(|_| SwapError::InvalidTickRange)?;
+
+        if curr_sqrt_price < sqrt_p_a {
+            return Err(SwapError::InvalidTickRange);
+        } else if curr_sqrt_price > sqrt_p_b {
+            let liquidity = tao_fixed.saturating_div(sqrt_p_b.saturating_sub(sqrt_p_a));
+            let liquidity_u64 = liquidity.to_num::<u64>();
+            return Ok((0, liquidity_u64));
+        } else {
+            let sqrt_p_box = std::cmp::min(sqrt_p_b, std::cmp::max(sqrt_p_a, curr_sqrt_price));
+            let a = sqrt_p_box.saturating_sub(sqrt_p_a);
+            let b = U64F64::saturating_from_num(1)
+                .safe_div(sqrt_p_box)
+                .saturating_sub(U64F64::saturating_from_num(1).safe_div(sqrt_p_b));
+
+            let liquidity = tao_fixed.saturating_div(a);
+            let alpha = liquidity.saturating_mul(b);
+            let alpha_u64 = alpha.to_num::<u64>();
+            let liquidity_u64 = liquidity.to_num::<u64>();
+            Ok((alpha_u64, liquidity_u64))
+        }
     }
 
     /// Auxiliary method to calculate TAO amount to match given Alpha
@@ -256,10 +289,46 @@ where
     ///
     /// Returns (TAO, Liquidity) tuple
     ///
-    pub fn get_alpha_based_liquidity(&self, _alpha: u64) -> (u64, u64) {
-        // let current_price = self.state_ops.get_alpha_sqrt_price();
+    pub fn get_alpha_based_liquidity(
+        &self,
+        _alpha: u64,
+        tick_lower: i32,
+        tick_upper: i32,
+    ) -> Result<(u64, u64), SwapError> {
+        if _alpha == 0 {
+            return Err(SwapError::InsufficientInputAmount);
+        }
 
-        todo!()
+        let alpha_fixed = U64F64::saturating_from_num(_alpha);
+        let curr_sqrt_price = self.state_ops.get_alpha_sqrt_price();
+        let sqrt_p_a =
+            tick_index_to_sqrt_price(tick_lower).unwrap_or(SqrtPrice::saturating_from_num(0));
+        let sqrt_p_b =
+            tick_index_to_sqrt_price(tick_upper).unwrap_or(SqrtPrice::saturating_from_num(0));
+
+        if curr_sqrt_price < sqrt_p_a {
+            let liquidity = alpha_fixed.saturating_div(
+                U64F64::saturating_from_num(1)
+                    .safe_div(sqrt_p_a)
+                    .saturating_sub(U64F64::saturating_from_num(1).safe_div(sqrt_p_b)),
+            );
+            let liquidity_u64 = liquidity.to_num::<u64>();
+            return Ok((0, liquidity_u64));
+        } else if curr_sqrt_price > sqrt_p_b {
+            return Err(SwapError::InvalidTickRange);
+        } else {
+            let sqrt_p_box = std::cmp::min(sqrt_p_b, std::cmp::max(sqrt_p_a, curr_sqrt_price));
+            let a = sqrt_p_box.saturating_sub(sqrt_p_a);
+            let b = U64F64::saturating_from_num(1)
+                .safe_div(sqrt_p_box)
+                .saturating_sub(U64F64::saturating_from_num(1).safe_div(sqrt_p_b));
+
+            let liquidity = alpha_fixed.saturating_div(b);
+            let tao = liquidity.saturating_mul(a);
+            let tao_u64 = tao.to_num::<u64>();
+            let liquidity_u64 = liquidity.to_num::<u64>();
+            Ok((tao_u64, liquidity_u64))
+        }
     }
 
     /// Add liquidity at tick index. Creates new tick if it doesn't exist
@@ -1713,5 +1782,192 @@ mod tests {
                 Err(SwapError::LiquidityNotFound),
             );
         });
+    }
+
+    #[test]
+    fn test_get_tao_based_liquidity_within_range() {
+        let mut mock_ops = MockSwapDataOperations::new();
+        mock_ops.is_initialized = true;
+        mock_ops.alpha_sqrt_price = SqrtPrice::from_num(1.0);
+        mock_ops.tao_reserve = 1_000_000_000;
+        mock_ops.alpha_reserve = 1_000_000_000;
+        let swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+
+        let tick_lower = -70;
+        let tick_upper = 136542;
+        let _tao = 100_000_000;
+
+        let sqrt_p_a = tick_index_to_sqrt_price(tick_lower).unwrap();
+        let sqrt_p_b = tick_index_to_sqrt_price(tick_upper).unwrap();
+        let curr_sqrt_price = swap.state_ops.get_alpha_sqrt_price();
+        assert!(sqrt_p_a < curr_sqrt_price && curr_sqrt_price < sqrt_p_b);
+
+        let result = swap
+            .get_tao_based_liquidity(_tao, tick_lower, tick_upper)
+            .unwrap();
+
+        let alpha = result.0;
+        let liquidity = result.1;
+        assert_eq!(alpha, 28591848564);
+        assert_eq!(liquidity, 28622886284);
+    }
+
+    #[test]
+    fn test_get_tao_based_liquidity_above_range() {
+        let tick_lower = -70;
+        let tick_upper = 136542;
+        let curr_sqrt_price = tick_index_to_sqrt_price(tick_upper + 4).unwrap();
+        let _tao = 100_000_000;
+
+        let mut mock_ops = MockSwapDataOperations::new();
+        mock_ops.is_initialized = true;
+        mock_ops.alpha_sqrt_price = curr_sqrt_price;
+        mock_ops.tao_reserve = 1_000_000_000;
+        mock_ops.alpha_reserve = 1_000_000_000;
+        let swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+
+        let sqrt_p_b = tick_index_to_sqrt_price(tick_upper).unwrap();
+        assert!(curr_sqrt_price > sqrt_p_b);
+        let result = swap
+            .get_tao_based_liquidity(_tao, tick_lower, tick_upper)
+            .unwrap();
+        let alpha = result.0;
+        let liquidity = result.1;
+        assert_eq!(alpha, 0);
+        assert_eq!(liquidity, 108554);
+    }
+
+    #[test]
+    fn test_get_tao_based_liquidity_below_range() {
+        let tick_lower = -70;
+        let tick_upper = 136542;
+        let _tao = 100_000_000;
+        let curr_sqrt_price = tick_index_to_sqrt_price(tick_lower - 4).unwrap();
+
+        let mut mock_ops = MockSwapDataOperations::new();
+        mock_ops.is_initialized = true;
+        mock_ops.alpha_sqrt_price = curr_sqrt_price;
+        mock_ops.tao_reserve = 1_000_000_000;
+        mock_ops.alpha_reserve = 1_000_000_000;
+        let swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+
+        let sqrt_p_a = tick_index_to_sqrt_price(tick_lower).unwrap();
+        let curr_sqrt_price = swap.state_ops.get_alpha_sqrt_price();
+        assert!(curr_sqrt_price < sqrt_p_a);
+        let result = swap.get_tao_based_liquidity(_tao, tick_lower, tick_upper);
+        assert_eq!(result, Err(SwapError::InvalidTickRange));
+    }
+
+    #[test]
+    fn test_get_tao_based_liquidity_zero_amount() {
+        let tick_lower = -70;
+        let tick_upper = 136542;
+        let curr_sqrt_price = tick_index_to_sqrt_price((tick_upper + tick_lower) / 2).unwrap();
+
+        let mut mock_ops = MockSwapDataOperations::new();
+        mock_ops.is_initialized = true;
+        mock_ops.alpha_sqrt_price = curr_sqrt_price;
+        mock_ops.tao_reserve = 1_000_000_000;
+        mock_ops.alpha_reserve = 1_000_000_000;
+        let swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+
+        let result = swap.get_tao_based_liquidity(0, tick_lower, tick_upper);
+        assert_eq!(result, Err(SwapError::InsufficientInputAmount));
+    }
+
+    #[test]
+    fn test_get_alpha_based_liquidity_within_range() {
+        let mut mock_ops = MockSwapDataOperations::new();
+        mock_ops.is_initialized = true;
+        mock_ops.alpha_sqrt_price = SqrtPrice::from_num(1.0);
+        mock_ops.tao_reserve = 1_000_000_000;
+        mock_ops.alpha_reserve = 1_000_000_000;
+        let swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+
+        let tick_lower = -70;
+        let tick_upper = 136542;
+        let _alpha = 100_000_000;
+
+        let sqrt_p_a = tick_index_to_sqrt_price(tick_lower).unwrap();
+        let sqrt_p_b = tick_index_to_sqrt_price(tick_upper).unwrap();
+        let curr_sqrt_price = swap.state_ops.get_alpha_sqrt_price();
+        assert!(sqrt_p_a <= curr_sqrt_price && curr_sqrt_price <= sqrt_p_b);
+
+        let result = swap
+            .get_alpha_based_liquidity(_alpha, tick_lower, tick_upper)
+            .unwrap();
+
+        let tao = result.0;
+        let liquidity = result.1;
+        assert_eq!(tao, 349750);
+        assert_eq!(liquidity, 100108554);
+    }
+
+    #[test]
+    fn test_get_alpha_based_liquidity_below_range() {
+        let tick_lower = -70;
+        let tick_upper = 136542;
+        let _alpha = 100_000_000;
+        let curr_sqrt_price = tick_index_to_sqrt_price(tick_lower - 4).unwrap();
+
+        let mut mock_ops = MockSwapDataOperations::new();
+        mock_ops.is_initialized = true;
+        mock_ops.alpha_sqrt_price = curr_sqrt_price;
+        mock_ops.tao_reserve = 1_000_000_000;
+        mock_ops.alpha_reserve = 1_000_000_000;
+        let swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+
+        let sqrt_p_a = tick_index_to_sqrt_price(tick_lower).unwrap();
+        let curr_sqrt_price = swap.state_ops.get_alpha_sqrt_price();
+        assert!(curr_sqrt_price < sqrt_p_a);
+
+        let result = swap
+            .get_alpha_based_liquidity(_alpha, tick_lower, tick_upper)
+            .unwrap();
+
+        let tao = result.0;
+        let liquidity = result.1;
+
+        assert_eq!(tao, 0);
+        assert_eq!(liquidity, 99758426);
+    }
+
+    #[test]
+    fn test_get_alpha_based_liquidity_above_range() {
+        let tick_lower = -70;
+        let tick_upper = 136542;
+        let _alpha = 100_000_000;
+        let curr_sqrt_price = tick_index_to_sqrt_price(tick_upper + 4).unwrap();
+
+        let mut mock_ops = MockSwapDataOperations::new();
+        mock_ops.is_initialized = true;
+        mock_ops.alpha_sqrt_price = curr_sqrt_price;
+        mock_ops.tao_reserve = 1_000_000_000;
+        mock_ops.alpha_reserve = 1_000_000_000;
+        let swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+
+        let sqrt_p_b = tick_index_to_sqrt_price(tick_upper).unwrap();
+        let curr_sqrt_price = swap.state_ops.get_alpha_sqrt_price();
+        assert!(curr_sqrt_price > sqrt_p_b);
+
+        let result = swap.get_alpha_based_liquidity(_alpha, tick_lower, tick_upper);
+        assert_eq!(result, Err(SwapError::InvalidTickRange));
+    }
+
+    #[test]
+    fn test_get_alpha_based_liquidity_zero_amount() {
+        let tick_lower = -70;
+        let tick_upper = 136542;
+        let curr_sqrt_price = tick_index_to_sqrt_price((tick_upper + tick_lower) / 2).unwrap();
+
+        let mut mock_ops = MockSwapDataOperations::new();
+        mock_ops.is_initialized = true;
+        mock_ops.alpha_sqrt_price = curr_sqrt_price;
+        mock_ops.tao_reserve = 1_000_000_000;
+        mock_ops.alpha_reserve = 1_000_000_000;
+        let swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+
+        let result = swap.get_alpha_based_liquidity(0, tick_lower, tick_upper);
+        assert_eq!(result, Err(SwapError::InsufficientInputAmount));
     }
 }
