@@ -3002,10 +3002,10 @@ pub fn assert_approx_eq(left: I32F32, right: I32F32, epsilon: I32F32) {
     }
 }
 
-// test Yuma 4 scenarios over a sequence of epochs.
+// test Yuma 3 scenarios over a sequence of epochs.
 fn setup_yuma_3_scenario(netuid: u16, n: u16, sparse: bool, max_stake: u64, stakes: Vec<u64>) {
     let block_number = System::block_number();
-    let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
+    let tempo: u16 = 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
     add_network(netuid, tempo, 0);
 
     SubtensorModule::set_max_allowed_uids(netuid, n);
@@ -3060,7 +3060,7 @@ fn setup_yuma_3_scenario(netuid: u16, n: u16, sparse: bool, max_stake: u64, stak
 }
 
 fn run_epoch(netuid: u16, sparse: bool) {
-    next_block();
+    next_block_no_epoch(netuid);
     if sparse {
         SubtensorModule::epoch(netuid, 1_000_000_000);
     } else {
@@ -3200,7 +3200,12 @@ fn test_yuma_3_kappa_moves_first() {
                     }
                     _ => {}
                 };
-                run_epoch_and_check_bonds_dividends(netuid, *sparse, target_bonds, target_dividends);
+                run_epoch_and_check_bonds_dividends(
+                    netuid,
+                    *sparse,
+                    target_bonds,
+                    target_dividends,
+                );
             }
         })
     }
@@ -3297,7 +3302,12 @@ fn test_yuma_3_kappa_moves_second() {
                     }
                     _ => {}
                 };
-                run_epoch_and_check_bonds_dividends(netuid, *sparse, target_bonds, target_dividends);
+                run_epoch_and_check_bonds_dividends(
+                    netuid,
+                    *sparse,
+                    target_bonds,
+                    target_dividends,
+                );
             }
         })
     }
@@ -3394,7 +3404,12 @@ fn test_yuma_3_kappa_moves_last() {
                     }
                     _ => {}
                 };
-                run_epoch_and_check_bonds_dividends(netuid, *sparse, target_bonds, target_dividends);
+                run_epoch_and_check_bonds_dividends(
+                    netuid,
+                    *sparse,
+                    target_bonds,
+                    target_dividends,
+                );
             }
         })
     }
@@ -3475,7 +3490,12 @@ fn test_yuma_3_one_epoch_switch() {
                         set_yuma_3_weights(netuid, vec![vec![u16::MAX, 0]; 3], vec![3, 4]);
                     }
                 };
-                run_epoch_and_check_bonds_dividends(netuid, *sparse, target_bonds, target_dividends);
+                run_epoch_and_check_bonds_dividends(
+                    netuid,
+                    *sparse,
+                    target_bonds,
+                    target_dividends,
+                );
             }
         })
     }

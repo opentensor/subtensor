@@ -68,7 +68,7 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|registered| last_tempo <= *registered)
             .collect();
-        log::trace!("Recently registered:\n{:?}\n", &recently_registered);
+        log::trace!("Recently registered: {:?}", &recently_registered);
 
         // ===========
         // == Stake ==
@@ -199,7 +199,7 @@ impl<T: Config> Pallet<T> {
 
         // Access network bonds.
         let mut bonds: Vec<Vec<I32F32>> = Self::get_bonds_fixed_proportion(netuid);
-        inplace_mask_matrix(&outdated, &mut bonds); // mask outdated bonds
+        inplace_mask_cols(&recently_registered, &mut bonds); // mask outdated bonds
         log::trace!("B: {:?}", &bonds);
 
         // Compute the Exponential Moving Average (EMA) of bonds.
