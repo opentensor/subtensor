@@ -45,7 +45,8 @@ impl<T: Config> Pallet<T> {
         log::debug!("All subnet netuids: {:?}", subnets);
         // Filter out subnets with no first emission block number.
         let subnets_to_emit_to: Vec<u16> = subnets
-            .iter()
+            .clone()
+            .into_iter()
             .filter(|netuid| FirstEmissionBlockNumber::<T>::get(*netuid).is_some())
             .collect();
         log::debug!("Subnets to emit to: {:?}", subnets_to_emit_to);
