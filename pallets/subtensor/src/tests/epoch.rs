@@ -2804,7 +2804,7 @@ fn test_bonds_reset() {
             .expect("Hotkey not found");
 
         SubtensorModule::set_bonds_reset(netuid, false);
-        let _ = SubtensorModule::do_reset_bonds(netuid, hotkey);
+        let _ = SubtensorModule::do_reset_bonds(netuid, &hotkey);
         // should noop
         let new_bonds = SubtensorModule::get_bonds(netuid);
         let target_bond: Vec<_> = (0..n).map(u16_to_fixed).collect();
@@ -2813,7 +2813,7 @@ fn test_bonds_reset() {
         }
 
         SubtensorModule::set_bonds_reset(netuid, true);
-        let _ = SubtensorModule::do_reset_bonds(netuid, hotkey);
+        let _ = SubtensorModule::do_reset_bonds(netuid, &hotkey);
         let new_bonds = SubtensorModule::get_bonds(netuid);
         for new_bond in new_bonds.iter() {
             assert_eq!(new_bond[uid_to_reset as usize], 0);
@@ -3254,186 +3254,8 @@ fn assert_approx_eq_vec_of_vec(
     }
 }
 
-// test Yuma 4 scenarios over a sequence of epochs.
-fn setup_yuma_4_scenario(netuid: u16, n: u16, max_stake: u64, stakes: Vec<u64>) {
-    let block_number = System::block_number();
-    let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
-    add_network(netuid, tempo, 0);
-
-    SubtensorModule::set_max_allowed_uids(netuid, n);
-    assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
-    SubtensorModule::set_max_registrations_per_block(netuid, n);
-    SubtensorModule::set_target_registrations_per_interval(netuid, n);
-    SubtensorModule::set_weights_set_rate_limit(netuid, 0);
-    SubtensorModule::set_min_allowed_weights(netuid, 1);
-    SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
-    SubtensorModule::set_bonds_penalty(netuid, 0);
-
-    // === Register
-    for key in 0..n as u64 {
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(key), max_stake);
-        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
-            netuid,
-            block_number,
-            key * 1_000_000,
-            &U256::from(key),
-        );
-        assert_ok!(SubtensorModule::register(
-            <<Test as frame_system::Config>::RuntimeOrigin>::signed(U256::from(key)),
-            netuid,
-            block_number,
-            nonce,
-            work,
-            U256::from(key),
-            U256::from(key)
-        ));
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &U256::from(key),
-            &U256::from(key),
-            netuid,
-            stakes[key as usize],
-        );
-    }
-    assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
-    assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
-
-    // Enable Liquid Alpha
-    SubtensorModule::set_kappa(netuid, u16::MAX / 2);
-    SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-
-    SubtensorModule::set_alpha_values_32(netuid, I32F32::from_num(0.9), I32F32::from_num(0.99));
-
-    // === Issue validator permits
-    SubtensorModule::set_max_allowed_validators(netuid, 3);
-    assert_eq!(SubtensorModule::get_max_allowed_validators(netuid), 3);
-    SubtensorModule::epoch(netuid, 1_000_000_000); // run first epoch to set allowed validators
-    next_block(); // run to next block to ensure weights are set on nodes after their registration block
-}
-
-fn run_epoch_check_bonds(netuid: u16, sparse: bool, target_bonds: Vec<Vec<u64>>) {
-    next_block();
-    if sparse {
-        SubtensorModule::epoch(netuid, 1_000_000_000);
-    } else {
-        SubtensorModule::epoch_dense(netuid, 1_000_000_000);
-    }
-    let bonds = SubtensorModule::get_bonds(netuid);
-    let dividends = SubtensorModule::get_dividends(netuid);
-
-    // Check the bonds
-    // server 1
-    assert_eq!(bonds[0][3], target_bonds[0][0]);
-    assert_eq!(bonds[1][3], target_bonds[1][0]);
-    assert_eq!(bonds[2][3], target_bonds[2][0]);
-    // server 2
-    assert_eq!(bonds[0][4], target_bonds[0][1]);
-    assert_eq!(bonds[1][4], target_bonds[1][1]);
-    assert_eq!(bonds[2][4], target_bonds[2][1]);
-
-    // Check the dividends
-    let epsilon = I32F32::from_num(1e-3);
-    for (dividend, target_dividend) in dividends.iter().zip(target_dividends.iter()) {
-        assert_approx_eq(
-            u16_proportion_to_fixed(*dividend),
-            fixed(*target_dividend),
-            epsilon,
-        );
-    }
-}
-
-fn set_yuma_4_weights(netuid: u16, weights: Vec<Vec<u16>>) {
-    for (uid, weight) in weights.iter().enumerate() {
-        assert_ok!(SubtensorModule::set_weights(
-            RuntimeOrigin::signed(U256::from(uid as u64)),
-            netuid,
-            vec![3, 4],
-            weight.to_vec(),
-            0
-        ));
-    }
-}
-
 #[test]
-fn test_yuma_4_kappa_moves_last() {
-    new_test_ext(1).execute_with(|| {
-        let sparse: bool = false;
-        let n: u16 = 5; // 3 validators, 2 servers
-        let netuid: u16 = 1;
-        let max_stake: u64 = 8;
-
-        // Validator A: kappa / Big validator (0.8) - moves last
-        // Validator B: Small eager validator (0.1) - moves first
-        // Validator C: Small lazy validator (0.1) - moves second
-        let stakes: Vec<u64> = vec![8, 1, 1, 0, 0];
-
-        setup_yuma_4_scenario(netuid, n, max_stake, stakes);
-
-        // Initially, consensus is achieved by all Validators
-        for uid in [0, 1, 2] {
-            assert_ok!(SubtensorModule::set_weights(
-                RuntimeOrigin::signed(U256::from(uid)),
-                netuid,
-                vec![3, 4],
-                vec![u16::MAX, 0],
-                0
-            ));
-        }
-        let target = vec![vec![656, 0], vec![656, 0], vec![656, 0]];
-        run_epoch_check_bonds(netuid, sparse, target);
-
-        // Validator A -> Server 1
-        // Validator B -> Server 2
-        // Validator C -> Server 1
-        for (uid, weights) in [vec![u16::MAX, 0], vec![0, u16::MAX], vec![u16::MAX, 0]]
-            .iter()
-            .enumerate()
-        {
-            assert_ok!(SubtensorModule::set_weights(
-                RuntimeOrigin::signed(U256::from(uid)),
-                netuid,
-                vec![3, 4],
-                weights.to_vec(),
-                0
-            ));
-        }
-        let target = vec![vec![1305, 0], vec![649, 6553], vec![1305, 0]];
-        run_epoch_check_bonds(netuid, sparse, target);
-
-        // Validator A -> Server 1
-        // Validator B -> Server 2
-        // Validator C -> Server 2
-        for (uid, weights) in [vec![u16::MAX, 0], vec![0, u16::MAX], vec![0, u16::MAX]]
-            .iter()
-            .enumerate()
-        {
-            assert_ok!(SubtensorModule::set_weights(
-                RuntimeOrigin::signed(U256::from(uid)),
-                netuid,
-                vec![3, 4],
-                weights.to_vec(),
-                0
-            ));
-        }
-        let target = vec![vec![1947, 0], vec![642, 12451], vec![1291, 6553]];
-        run_epoch_check_bonds(netuid, sparse, target);
-
-        // Subsequent epochs All validators -> Server 2
-        for uid in [0, 1, 2] {
-            assert_ok!(SubtensorModule::set_weights(
-                RuntimeOrigin::signed(U256::from(uid)),
-                netuid,
-                vec![3, 4],
-                vec![0, u16::MAX],
-                0
-            ));
-        }
-        let target = vec![vec![1752, 656], vec![577, 12982], vec![1161, 7143]];
-        run_epoch_check_bonds(netuid, sparse, target);
-    })
-}
-
-#[test]
-fn test_yuma_4_bonds_reset() {
+fn test_yuma_3_bonds_reset() {
     new_test_ext(1).execute_with(|| {
         let sparse: bool = true;
         let n: u16 = 5; // 3 validators, 2 servers
@@ -3446,7 +3268,7 @@ fn test_yuma_4_bonds_reset() {
         // Small eager-eager vali 2. (0.1)
         let stakes: Vec<u64> = vec![8, 1, 1, 0, 0];
 
-        setup_yuma_4_scenario(netuid, n, sparse, max_stake, stakes);
+        setup_yuma_3_scenario(netuid, n, sparse, max_stake, stakes);
         SubtensorModule::set_bonds_reset(netuid, true);
 
         // target bonds and dividends for specific epoch
@@ -3526,26 +3348,27 @@ fn test_yuma_4_bonds_reset() {
             match epoch {
                 0 => {
                     // All validators -> Server 1
-                    set_yuma_4_weights(netuid, vec![vec![u16::MAX, 0]; 3]);
+                    set_yuma_3_weights(netuid, vec![vec![u16::MAX, 0]; 3], vec![3, 4]);
                 }
                 1 => {
                     // validators B, C switch
                     // Validator A -> Server 1
                     // Validator B -> Server 2
                     // Validator C -> Server 2
-                    set_yuma_4_weights(
+                    set_yuma_3_weights(
                         netuid,
                         vec![vec![u16::MAX, 0], vec![0, u16::MAX], vec![0, u16::MAX]],
+                        vec![3, 4],
                     );
                 }
                 (2..=20) => {
                     // validator A copies weights
                     // All validators -> Server 2
-                    set_yuma_4_weights(netuid, vec![vec![0, u16::MAX]; 3]);
+                    set_yuma_3_weights(netuid, vec![vec![0, u16::MAX]; 3], vec![3, 4]);
                     if epoch == 20 {
                         let hotkey = SubtensorModule::get_hotkey_for_net_and_uid(netuid, 3)
                             .expect("Hotkey not found");
-                        let _ = SubtensorModule::do_reset_bonds(netuid, hotkey);
+                        let _ = SubtensorModule::do_reset_bonds(netuid, &hotkey);
                     }
                 }
                 21 => {
@@ -3553,15 +3376,16 @@ fn test_yuma_4_bonds_reset() {
                     // Validator A -> Server 2
                     // Validator B -> Server 1
                     // Validator C -> Server 1
-                    set_yuma_4_weights(
+                    set_yuma_3_weights(
                         netuid,
                         vec![vec![0, u16::MAX], vec![u16::MAX, 0], vec![u16::MAX, 0]],
+                        vec![3, 4],
                     );
                 }
                 _ => {
                     // validator A copies weights
                     // All validators -> Server 1
-                    set_yuma_4_weights(netuid, vec![vec![u16::MAX, 0]; 3]);
+                    set_yuma_3_weights(netuid, vec![vec![u16::MAX, 0]; 3], vec![3, 4]);
                 }
             };
 

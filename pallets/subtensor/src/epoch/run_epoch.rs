@@ -1295,14 +1295,14 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn do_reset_bonds(netuid: u16, account_id: T::AccountId) -> Result<(), DispatchError> {
+    pub fn do_reset_bonds(netuid: u16, account_id: &T::AccountId) -> Result<(), DispatchError> {
         // check bonds reset enabled for this subnet
         let bonds_reset_enabled: bool = Self::get_bonds_reset(netuid);
         if !bonds_reset_enabled {
             return Ok(());
         }
 
-        if let Ok(uid) = Self::get_uid_for_net_and_hotkey(netuid, &account_id) {
+        if let Ok(uid) = Self::get_uid_for_net_and_hotkey(netuid, account_id) {
             for (i, bonds_vec) in
                 <Bonds<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(
                     netuid,
