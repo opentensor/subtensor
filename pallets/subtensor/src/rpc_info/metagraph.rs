@@ -107,9 +107,9 @@ pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     alpha_dividends_per_hotkey: Vec<(AccountId, Compact<u64>)>, // List of dividend payout in alpha via subnet.
 }
 
-#[freeze_struct("d745be982b4d29ea")]
+#[freeze_struct("182c7375fee9db7b")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
-pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode> {
+pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode + Clone> {
     // Subnet index
     netuid: Compact<u16>,
 
@@ -207,9 +207,174 @@ pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode> {
     alpha_dividends_per_hotkey: Option<Vec<(AccountId, Compact<u64>)>>, // List of dividend payout in alpha via subnet.
 }
 
+impl<AccountId> SelectiveMetagraph<AccountId>
+where
+    AccountId: TypeInfo + Encode + Decode + Clone,
+{
+    pub fn merge_value(
+        &mut self,
+        other: &Self,
+        metagraph_index: SelectiveMetagraphIndex,
+    ) -> &mut Self {
+        match SelectiveMetagraphIndex::from_index(metagraph_index as usize) {
+            // Name and symbol
+            Some(SelectiveMetagraphIndex::Name) => self.name = other.name.clone(),
+            Some(SelectiveMetagraphIndex::Symbol) => self.symbol = other.symbol.clone(),
+            Some(SelectiveMetagraphIndex::Identity) => self.identity = other.identity.clone(),
+            Some(SelectiveMetagraphIndex::NetworkRegisteredAt) => {
+                self.network_registered_at = other.network_registered_at
+            }
+            Some(SelectiveMetagraphIndex::OwnerHotkey) => {
+                self.owner_hotkey = other.owner_hotkey.clone()
+            }
+            Some(SelectiveMetagraphIndex::OwnerColdkey) => {
+                self.owner_coldkey = other.owner_coldkey.clone()
+            }
+            Some(SelectiveMetagraphIndex::Block) => self.block = other.block,
+            Some(SelectiveMetagraphIndex::Tempo) => self.tempo = other.tempo,
+            Some(SelectiveMetagraphIndex::LastStep) => self.last_step = other.last_step,
+            Some(SelectiveMetagraphIndex::BlocksSinceLastStep) => {
+                self.blocks_since_last_step = other.blocks_since_last_step
+            }
+            Some(SelectiveMetagraphIndex::SubnetEmission) => {
+                self.subnet_emission = other.subnet_emission
+            }
+            Some(SelectiveMetagraphIndex::AlphaIn) => self.alpha_in = other.alpha_in,
+            Some(SelectiveMetagraphIndex::AlphaOut) => self.alpha_out = other.alpha_out,
+            Some(SelectiveMetagraphIndex::TaoIn) => self.tao_in = other.tao_in,
+            Some(SelectiveMetagraphIndex::AlphaOutEmission) => {
+                self.alpha_out_emission = other.alpha_out_emission
+            }
+            Some(SelectiveMetagraphIndex::AlphaInEmission) => {
+                self.alpha_in_emission = other.alpha_in_emission
+            }
+            Some(SelectiveMetagraphIndex::TaoInEmission) => {
+                self.tao_in_emission = other.tao_in_emission
+            }
+            Some(SelectiveMetagraphIndex::PendingAlphaEmission) => {
+                self.pending_alpha_emission = other.pending_alpha_emission
+            }
+            Some(SelectiveMetagraphIndex::PendingRootEmission) => {
+                self.pending_root_emission = other.pending_root_emission
+            }
+            Some(SelectiveMetagraphIndex::SubnetVolume) => self.subnet_volume = other.subnet_volume,
+            Some(SelectiveMetagraphIndex::MovingPrice) => self.moving_price = other.moving_price,
+            Some(SelectiveMetagraphIndex::Rho) => self.rho = other.rho,
+            Some(SelectiveMetagraphIndex::Kappa) => self.kappa = other.kappa,
+            Some(SelectiveMetagraphIndex::MinAllowedWeights) => {
+                self.min_allowed_weights = other.min_allowed_weights
+            }
+            Some(SelectiveMetagraphIndex::MaxWeightsLimit) => {
+                self.max_weights_limit = other.max_weights_limit
+            }
+            Some(SelectiveMetagraphIndex::WeightsVersion) => {
+                self.weights_version = other.weights_version
+            }
+            Some(SelectiveMetagraphIndex::WeightsRateLimit) => {
+                self.weights_rate_limit = other.weights_rate_limit
+            }
+            Some(SelectiveMetagraphIndex::ActivityCutoff) => {
+                self.activity_cutoff = other.activity_cutoff
+            }
+            Some(SelectiveMetagraphIndex::MaxValidators) => {
+                self.max_validators = other.max_validators
+            }
+            Some(SelectiveMetagraphIndex::NumUids) => self.num_uids = other.num_uids,
+            Some(SelectiveMetagraphIndex::MaxUids) => self.max_uids = other.max_uids,
+            Some(SelectiveMetagraphIndex::Burn) => self.burn = other.burn,
+            Some(SelectiveMetagraphIndex::Difficulty) => self.difficulty = other.difficulty,
+            Some(SelectiveMetagraphIndex::RegistrationAllowed) => {
+                self.registration_allowed = other.registration_allowed
+            }
+            Some(SelectiveMetagraphIndex::PowRegistrationAllowed) => {
+                self.pow_registration_allowed = other.pow_registration_allowed
+            }
+            Some(SelectiveMetagraphIndex::ImmunityPeriod) => {
+                self.immunity_period = other.immunity_period
+            }
+            Some(SelectiveMetagraphIndex::MinDifficulty) => {
+                self.min_difficulty = other.min_difficulty
+            }
+            Some(SelectiveMetagraphIndex::MaxDifficulty) => {
+                self.max_difficulty = other.max_difficulty
+            }
+            Some(SelectiveMetagraphIndex::MinBurn) => self.min_burn = other.min_burn,
+            Some(SelectiveMetagraphIndex::MaxBurn) => self.max_burn = other.max_burn,
+            Some(SelectiveMetagraphIndex::AdjustmentAlpha) => {
+                self.adjustment_alpha = other.adjustment_alpha
+            }
+            Some(SelectiveMetagraphIndex::AdjustmentInterval) => {
+                self.adjustment_interval = other.adjustment_interval
+            }
+            Some(SelectiveMetagraphIndex::TargetRegsPerInterval) => {
+                self.target_regs_per_interval = other.target_regs_per_interval
+            }
+            Some(SelectiveMetagraphIndex::MaxRegsPerBlock) => {
+                self.max_regs_per_block = other.max_regs_per_block
+            }
+            Some(SelectiveMetagraphIndex::ServingRateLimit) => {
+                self.serving_rate_limit = other.serving_rate_limit
+            }
+            Some(SelectiveMetagraphIndex::CommitRevealWeightsEnabled) => {
+                self.commit_reveal_weights_enabled = other.commit_reveal_weights_enabled
+            }
+            Some(SelectiveMetagraphIndex::CommitRevealPeriod) => {
+                self.commit_reveal_period = other.commit_reveal_period
+            }
+            Some(SelectiveMetagraphIndex::LiquidAlphaEnabled) => {
+                self.liquid_alpha_enabled = other.liquid_alpha_enabled
+            }
+            Some(SelectiveMetagraphIndex::AlphaHigh) => self.alpha_high = other.alpha_high,
+            Some(SelectiveMetagraphIndex::AlphaLow) => self.alpha_low = other.alpha_low,
+            Some(SelectiveMetagraphIndex::BondsMovingAvg) => {
+                self.bonds_moving_avg = other.bonds_moving_avg
+            }
+            Some(SelectiveMetagraphIndex::Hotkeys) => self.hotkeys = other.hotkeys.clone(),
+            Some(SelectiveMetagraphIndex::Coldkeys) => self.coldkeys = other.coldkeys.clone(),
+            Some(SelectiveMetagraphIndex::Identities) => self.identities = other.identities.clone(),
+            Some(SelectiveMetagraphIndex::Axons) => self.axons = other.axons.clone(),
+            Some(SelectiveMetagraphIndex::Active) => self.active = other.active.clone(),
+            Some(SelectiveMetagraphIndex::ValidatorPermit) => {
+                self.validator_permit = other.validator_permit.clone()
+            }
+            Some(SelectiveMetagraphIndex::PruningScore) => {
+                self.pruning_score = other.pruning_score.clone()
+            }
+            Some(SelectiveMetagraphIndex::LastUpdate) => {
+                self.last_update = other.last_update.clone()
+            }
+            Some(SelectiveMetagraphIndex::Emission) => self.emission = other.emission.clone(),
+            Some(SelectiveMetagraphIndex::Dividends) => self.dividends = other.dividends.clone(),
+            Some(SelectiveMetagraphIndex::Incentives) => self.incentives = other.incentives.clone(),
+            Some(SelectiveMetagraphIndex::Consensus) => self.consensus = other.consensus.clone(),
+            Some(SelectiveMetagraphIndex::Trust) => self.trust = other.trust.clone(),
+            Some(SelectiveMetagraphIndex::Rank) => self.rank = other.rank.clone(),
+            Some(SelectiveMetagraphIndex::BlockAtRegistration) => {
+                self.block_at_registration = other.block_at_registration.clone()
+            }
+            Some(SelectiveMetagraphIndex::AlphaStake) => {
+                self.alpha_stake = other.alpha_stake.clone()
+            }
+            Some(SelectiveMetagraphIndex::TaoStake) => self.tao_stake = other.tao_stake.clone(),
+            Some(SelectiveMetagraphIndex::TotalStake) => {
+                self.total_stake = other.total_stake.clone()
+            }
+            Some(SelectiveMetagraphIndex::TaoDividendsPerHotkey) => {
+                self.tao_dividends_per_hotkey = other.tao_dividends_per_hotkey.clone()
+            }
+            Some(SelectiveMetagraphIndex::AlphaDividendsPerHotkey) => {
+                self.alpha_dividends_per_hotkey = other.alpha_dividends_per_hotkey.clone()
+            }
+
+            None => {}
+        };
+        self
+    }
+}
+
 impl<AccountId> Default for SelectiveMetagraph<AccountId>
 where
-    AccountId: TypeInfo + Encode + Decode,
+    AccountId: TypeInfo + Encode + Decode + Clone,
 {
     fn default() -> Self {
         Self {
