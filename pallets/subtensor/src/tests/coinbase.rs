@@ -1864,3 +1864,36 @@ fn test_calculate_dividends_and_incentives_only_miners() {
         assert_eq!(dividends_total, divdends);
     });
 }
+
+#[test]
+fn test_drain_pending_emission_no_miners_all_drained() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = add_dynamic_network(&U256::from(1), &U256::from(2));
+        let hotkey = U256::from(3);
+        let coldkey = U256::from(4);
+        let init_stake: u64 = 1;
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        // Give non-zero stake
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid, init_stake,
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+            init_stake
+        );
+
+        // Set the weight of root TAO to be 0%, so only alpha is effective.
+        SubtensorModule::set_tao_weight(0);
+
+        // Set the emission to be 1 million.
+        let emission: u64 = 1_000_000;
+        // Run drain pending without any miners.
+        SubtensorModule::drain_pending_emission(netuid, emission, 0, 0, 0);
+
+        // Get the new stake of the hotkey.
+        let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
+        // We expect this neuron to get *all* the emission.
+        // Slight epsilon due to rounding (hotkey_take).
+        assert_abs_diff_eq!(new_stake, emission.saturating_add(init_stake), epsilon = 1);
+    });
+}

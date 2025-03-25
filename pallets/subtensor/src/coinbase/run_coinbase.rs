@@ -291,6 +291,12 @@ impl<T: Config> Pallet<T> {
         BTreeMap<T::AccountId, I96F32>,
         BTreeMap<T::AccountId, I96F32>,
     ) {
+        log::debug!("dividends: {:?}", dividends);
+        log::debug!("stake_map: {:?}", stake_map);
+        log::debug!("pending_alpha: {:?}", pending_alpha);
+        log::debug!("pending_tao: {:?}", pending_tao);
+        log::debug!("tao_weight: {:?}", tao_weight);
+
         // Setup.
         let zero: I96F32 = asfloat!(0.0);
 
@@ -551,10 +557,22 @@ impl<T: Config> Pallet<T> {
         // This is the total alpha being injected,
         // minus the the alpha for the miners, (50%)
         // and minus the alpha swapped for TAO (pending_swapped).
-        let pending_validator_alpha: u64 = pending_alpha
-            .saturating_add(pending_swapped)
-            .saturating_div(2)
-            .saturating_sub(pending_swapped);
+        // Important! If the incentives are 0, then Validators get 100% of the alpha.
+        let incentive_sum = hotkey_emission
+            .iter()
+            .map(|(_, incentive, _)| incentive)
+            .sum::<u64>();
+        log::debug!("incentive_sum: {:?}", incentive_sum);
+
+        let pending_validator_alpha: u64 = if incentive_sum != 0 {
+            pending_alpha
+                .saturating_add(pending_swapped)
+                .saturating_div(2)
+                .saturating_sub(pending_swapped)
+        } else {
+            // If the incentive is 0, then Validators get 100% of the alpha.
+            pending_alpha
+        };
 
         let (incentives, (alpha_dividends, tao_dividends)) =
             Self::calculate_dividend_and_incentive_distribution(
