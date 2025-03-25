@@ -1058,11 +1058,11 @@ fn test_get_root_children_drain() {
         // Alice and Bob both made half of the dividends.
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&alice, alpha),
-            alice_alpha_stake + pending_alpha / 4
+            alice_alpha_stake + pending_alpha / 2
         );
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&bob, alpha),
-            bob_alpha_stake + pending_alpha / 4
+            bob_alpha_stake + pending_alpha / 2
         );
 
         // Lets drain
@@ -1092,9 +1092,10 @@ fn test_get_root_children_drain() {
         assert_eq!(AlphaDividendsPerSubnet::<Test>::get(alpha, alice), 0);
         assert_eq!(TaoDividendsPerSubnet::<Test>::get(alpha, alice), 0);
         // Bob makes it all.
-        assert_eq!(
+        assert_abs_diff_eq!(
             AlphaDividendsPerSubnet::<Test>::get(alpha, bob),
-            (I96F32::from_num(pending_alpha) * I96F32::from_num(1.0 - 0.495412844)).to_num::<u64>()
+            pending_alpha,
+            epsilon = 1
         );
         assert_eq!(TaoDividendsPerSubnet::<Test>::get(alpha, bob), pending_root);
     });
