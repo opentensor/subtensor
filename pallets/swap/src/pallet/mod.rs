@@ -1,8 +1,12 @@
-use frame_support::{pallet_prelude::*, traits::BuildGenesisConfig};
+use frame_support::{PalletId, pallet_prelude::*, traits::Get};
 use frame_system::pallet_prelude::*;
-use core::marker::PhantomData;
+use pallet_subtensor_swap_interface::LiquidityDataProvider;
+use substrate_fixed::types::U64F64;
 
+use crate::Position;
 use crate::tick::{Tick, TickIndex};
+
+mod impls;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -20,83 +24,117 @@ pub mod pallet {
         /// The origin which may configure the swap parameters
         type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
+        /// Implementor of
+        /// [`LiquidityDataProvider`](pallet_subtensor_swap_interface::LiquidityDataProvider).
+        type LiquidityDataProvider: LiquidityDataProvider;
+
+        /// This type is used to derive protocol accoun ID.
+        #[pallet::constant]
+        type ProtocolId: Get<PalletId>;
+
         /// The maximum fee rate that can be set
         #[pallet::constant]
         type MaxFeeRate: Get<u16>;
+
+        /// The maximum number of positions a user can have
+        #[pallet::constant]
+        type MaxPositions: Get<u32>;
     }
 
-    /// The fee rate applied to swaps, normalized value between 0 and u16::MAX
+    /// The fee rate applied to swaps per subnet, normalized value between 0 and u16::MAX
     ///
     /// For example, 0.3% is approximately 196
     #[pallet::storage]
     #[pallet::getter(fn fee_rate)]
-    pub type FeeRate<T> = StorageValue<_, u16, ValueQuery>;
-    
-    /// Storage for all ticks, mapped by tick index
+    pub type FeeRate<T> = StorageMap<_, Twox64Concat, u16, u16, ValueQuery>;
+
+    /// Storage for all ticks, using subnet ID as the primary key and tick index as the secondary key
     #[pallet::storage]
     #[pallet::getter(fn ticks)]
-    pub type Ticks<T> = StorageMap<_, Twox64Concat, TickIndex, Tick>;
+    pub type Ticks<T> = StorageDoubleMap<_, Twox64Concat, u16, Twox64Concat, TickIndex, Tick>;
+
+    /// Storage to determine whether swap V3 was initialized for a specific subnet.
+    #[pallet::storage]
+    #[pallet::getter(fn swap_v3_initialized)]
+    pub type SwapV3Initialized<T> = StorageMap<_, Twox64Concat, u16, bool, ValueQuery>;
+
+    /// Storage for the square root price of Alpha token for each subnet.
+    #[pallet::storage]
+    #[pallet::getter(fn alpha_sqrt_price)]
+    pub type AlphaSqrtPrice<T> = StorageMap<_, Twox64Concat, u16, U64F64, ValueQuery>;
+
+    /// Storage for the current liquidity amount for each subnet.
+    #[pallet::storage]
+    #[pallet::getter(fn current_liquidity)]
+    pub type CurrentLiquidity<T> = StorageMap<_, Twox64Concat, u16, u64, ValueQuery>;
+
+    /// Storage for user positions, using subnet ID and account ID as keys
+    /// The value is a bounded vector of Position structs with details about the liquidity positions
+    #[pallet::storage]
+    #[pallet::getter(fn positions)]
+    pub type Positions<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        u16,
+        Twox64Concat,
+        T::AccountId,
+        BoundedVec<Position, T::MaxPositions>,
+        ValueQuery,
+    >;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        /// Event emitted when the fee rate has been updated
-        FeeRateSet { rate: u16 },
+        /// Event emitted when the fee rate has been updated for a subnet
+        FeeRateSet { netuid: u16, rate: u16 },
     }
 
     #[pallet::error]
     pub enum Error<T> {
         /// The fee rate is too high
         FeeRateTooHigh,
-    }
 
-    /// Genesis configuration for the swap pallet
-    #[pallet::genesis_config]
-    pub struct GenesisConfig<T: Config> {
-        /// Initial fee rate
-        pub fee_rate: u16,
-        /// Phantom data for unused generic
-        pub _phantom: PhantomData<T>,
-    }
+        /// The provided amount is insufficient for the swap.
+        InsufficientInputAmount,
 
-    impl<T: Config> Default for GenesisConfig<T> {
-        fn default() -> Self {
-            Self {
-                fee_rate: 0, // Default to 0% fee
-                _phantom: PhantomData,
-            }
-        }
-    }
+        /// The provided liquidity is insufficient for the operation.
+        InsufficientLiquidity,
 
-    #[pallet::genesis_build]
-    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
-        fn build(&self) {
-            // Ensure the fee rate is within bounds
-            assert!(
-                self.fee_rate <= T::MaxFeeRate::get(),
-                "Fee rate in genesis config is too high"
-            );
+        /// The operation would exceed the price limit.
+        PriceLimitExceeded,
 
-            // Set the initial fee rate
-            <FeeRate<T>>::put(self.fee_rate);
-        }
+        /// The caller does not have enough balance for the operation.
+        InsufficientBalance,
+
+        /// Attempted to remove liquidity that does not exist.
+        LiquidityNotFound,
+
+        /// The provided tick range is invalid.
+        InvalidTickRange,
+
+        /// Maximum user positions exceeded
+        MaxPositionsExceeded,
+
+        /// Too many swap steps
+        TooManySwapSteps,
     }
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Set the fee rate for swaps (normalized value). For example, 0.3% is approximately 196.
+        /// Set the fee rate for swaps on a specific subnet (normalized value).
+        /// For example, 0.3% is approximately 196.
         ///
         /// Only callable by the admin origin
         #[pallet::call_index(0)]
         #[pallet::weight(10_000)]
-        pub fn set_fee_rate(origin: OriginFor<T>, rate: u16) -> DispatchResult {
+        pub fn set_fee_rate(origin: OriginFor<T>, netuid: u16, rate: u16) -> DispatchResult {
             T::AdminOrigin::ensure_origin(origin)?;
 
             ensure!(rate <= T::MaxFeeRate::get(), Error::<T>::FeeRateTooHigh);
 
-            <FeeRate<T>>::put(rate);
+            FeeRate::<T>::insert(netuid, rate);
 
-            Self::deposit_event(Event::FeeRateSet { rate });
+            Self::deposit_event(Event::FeeRateSet { netuid, rate });
 
             Ok(())
         }

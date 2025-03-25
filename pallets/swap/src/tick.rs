@@ -169,6 +169,50 @@ impl TickIndex {
     /// The tick_math library uses different bitness, so we have to divide by 2.
     pub const MIN: Self = Self(MIN_TICK / 2);
 
+    /// Converts a sqrt price to a tick index, ensuring it's within valid bounds
+    ///
+    /// If the price is outside the valid range, this function will return the appropriate boundary
+    /// tick index (MIN or MAX) instead of an error.
+    ///
+    /// # Arguments
+    /// * `sqrt_price` - The square root price to convert to a tick index
+    ///
+    /// # Returns
+    /// * `TickIndex` - A tick index that is guaranteed to be within valid bounds
+    pub fn from_sqrt_price_bounded(sqrt_price: SqrtPrice) -> Self {
+        match Self::try_from_sqrt_price(sqrt_price) {
+            Ok(index) => index,
+            Err(_) => {
+                let max_price = Self::MAX
+                    .try_to_sqrt_price()
+                    .unwrap_or(SqrtPrice::saturating_from_num(1000));
+
+                if sqrt_price > max_price {
+                    Self::MAX
+                } else {
+                    Self::MIN
+                }
+            }
+        }
+    }
+
+    /// Converts a tick index to a sqrt price, ensuring it's within valid bounds
+    ///
+    /// Unlike try_to_sqrt_price which returns an error for boundary indices, this function
+    /// guarantees a valid sqrt price by using fallback values if conversion fails.
+    ///
+    /// # Returns
+    /// * `SqrtPrice` - A sqrt price that is guaranteed to be a valid value
+    pub fn to_sqrt_price_bounded(&self) -> SqrtPrice {
+        self.try_to_sqrt_price().unwrap_or_else(|_| {
+            if *self >= Self::MAX {
+                SqrtPrice::saturating_from_num(1000)
+            } else {
+                SqrtPrice::saturating_from_num(0.000001)
+            }
+        })
+    }
+
     /// Creates a new TickIndex instance with bounds checking
     pub fn new(value: i32) -> Result<Self, TickMathError> {
         if !(Self::MIN.0..=Self::MAX.0).contains(&value) {
@@ -209,9 +253,8 @@ impl TickIndex {
         Self::new(self.0 - value)
     }
 
-    /// Converts tick index into SQRT of lower price of this tick
-    /// In order to find the higher price of this tick, call
-    /// tick_index_to_sqrt_price(tick_idx + 1)
+    /// Converts tick index into SQRT of lower price of this tick In order to find the higher price
+    /// of this tick, call tick_index_to_sqrt_price(tick_idx + 1)
     pub fn try_to_sqrt_price(&self) -> Result<SqrtPrice, TickMathError> {
         // because of u256->u128 conversion we have twice less values for min/max ticks
         if !(Self::MIN..=Self::MAX).contains(self) {
@@ -221,8 +264,8 @@ impl TickIndex {
     }
 
     /// Converts SQRT price to tick index
-    /// Because the tick is the range of prices [sqrt_lower_price, sqrt_higher_price),
-    /// the resulting tick index matches the price by the following inequality:
+    /// Because the tick is the range of prices [sqrt_lower_price, sqrt_higher_price), the resulting
+    /// tick index matches the price by the following inequality:
     ///    sqrt_lower_price <= sqrt_price < sqrt_higher_price
     pub fn try_from_sqrt_price(sqrt_price: SqrtPrice) -> Result<Self, TickMathError> {
         let tick = get_tick_at_sqrt_ratio(u64f64_to_u256_q64_96(sqrt_price))?;

@@ -7,6 +7,7 @@ use pallet_subtensor_swap_interface::OrderType;
 use safe_math::*;
 use sp_arithmetic::helpers_128bit::sqrt;
 use substrate_fixed::types::U64F64;
+use frame_support::pallet_prelude::*;
 
 use self::tick::{
     Tick, TickIndex,
@@ -55,12 +56,13 @@ struct SwapStepResult {
 /// fees_alpha - fees accrued by the position in base currency (Alpha)
 ///
 #[cfg_attr(test, derive(Debug, PartialEq, Clone))]
+#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen, Default)]
 pub struct Position {
-    tick_low: TickIndex,
-    tick_high: TickIndex,
-    liquidity: u64,
-    fees_tao: u64,
-    fees_alpha: u64,
+    pub tick_low: TickIndex,
+    pub tick_high: TickIndex,
+    pub liquidity: u64,
+    pub fees_tao: u64,
+    pub fees_alpha: u64,
 }
 
 impl Position {
