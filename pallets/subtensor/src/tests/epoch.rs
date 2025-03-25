@@ -3003,7 +3003,7 @@ pub fn assert_approx_eq(left: I32F32, right: I32F32, epsilon: I32F32) {
 }
 
 // test Yuma 4 scenarios over a sequence of epochs.
-fn setup_yuma_4_scenario(netuid: u16, n: u16, sparse: bool, max_stake: u64, stakes: Vec<u64>) {
+fn setup_yuma_3_scenario(netuid: u16, n: u16, sparse: bool, max_stake: u64, stakes: Vec<u64>) {
     let block_number = System::block_number();
     let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
     add_network(netuid, tempo, 0);
@@ -3102,7 +3102,7 @@ fn run_epoch_and_check_bonds_dividends(
     }
 }
 
-fn set_yuma_4_weights(netuid: u16, weights: Vec<Vec<u16>>) {
+fn set_yuma_3_weights(netuid: u16, weights: Vec<Vec<u16>>) {
     for (uid, weight) in weights.iter().enumerate() {
         assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(U256::from(uid as u64)),
@@ -3115,7 +3115,7 @@ fn set_yuma_4_weights(netuid: u16, weights: Vec<Vec<u16>>) {
 }
 
 #[test]
-fn test_yuma_4_kappa_moves_first() {
+fn test_yuma_3_kappa_moves_first() {
     new_test_ext(1).execute_with(|| {
         let sparse: bool = true;
         let n: u16 = 5; // 3 validators, 2 servers
@@ -3127,7 +3127,7 @@ fn test_yuma_4_kappa_moves_first() {
         // Validator C: Small lazy validator (0.1) - moves last
         let stakes: Vec<u64> = vec![8, 1, 1, 0, 0];
 
-        setup_yuma_4_scenario(netuid, n, sparse, max_stake, stakes);
+        setup_yuma_3_scenario(netuid, n, sparse, max_stake, stakes);
         let targets_bonds = [
             vec![
                 vec![0.1013, 0.0000],
@@ -3178,13 +3178,13 @@ fn test_yuma_4_kappa_moves_first() {
             match epoch {
                 0 => {
                     // Initially, consensus is achieved by all Validators
-                    set_yuma_4_weights(netuid, vec![vec![u16::MAX, 0]; 3]);
+                    set_yuma_3_weights(netuid, vec![vec![u16::MAX, 0]; 3]);
                 }
                 1 => {
                     // Validator A -> Server 2
                     // Validator B -> Server 1
                     // Validator C -> Server 1
-                    set_yuma_4_weights(
+                    set_yuma_3_weights(
                         netuid,
                         vec![vec![0, u16::MAX], vec![u16::MAX, 0], vec![u16::MAX, 0]],
                     );
@@ -3193,14 +3193,14 @@ fn test_yuma_4_kappa_moves_first() {
                     // Validator A -> Server 2
                     // Validator B -> Server 2
                     // Validator C -> Server 1
-                    set_yuma_4_weights(
+                    set_yuma_3_weights(
                         netuid,
                         vec![vec![0, u16::MAX], vec![0, u16::MAX], vec![u16::MAX, 0]],
                     );
                 }
                 3 => {
                     // Subsequent epochs All validators -> Server 2
-                    set_yuma_4_weights(netuid, vec![vec![0, u16::MAX]; 3]);
+                    set_yuma_3_weights(netuid, vec![vec![0, u16::MAX]; 3]);
                 }
                 _ => {}
             };
@@ -3210,7 +3210,7 @@ fn test_yuma_4_kappa_moves_first() {
 }
 
 #[test]
-fn test_yuma_4_kappa_moves_second() {
+fn test_yuma_3_kappa_moves_second() {
     new_test_ext(1).execute_with(|| {
         let sparse: bool = false;
         let n: u16 = 5; // 3 validators, 2 servers
@@ -3222,7 +3222,7 @@ fn test_yuma_4_kappa_moves_second() {
         // Validator C: Small lazy validator (0.1) - moves last
         let stakes: Vec<u64> = vec![8, 1, 1, 0, 0];
 
-        setup_yuma_4_scenario(netuid, n, sparse, max_stake, stakes);
+        setup_yuma_3_scenario(netuid, n, sparse, max_stake, stakes);
         let targets_bonds = [
             vec![
                 vec![0.1013, 0.0000],
@@ -3272,13 +3272,13 @@ fn test_yuma_4_kappa_moves_second() {
             match epoch {
                 0 => {
                     // Initially, consensus is achieved by all Validators
-                    set_yuma_4_weights(netuid, vec![vec![u16::MAX, 0]; 3]);
+                    set_yuma_3_weights(netuid, vec![vec![u16::MAX, 0]; 3]);
                 }
                 1 => {
                     // Validator A -> Server 1
                     // Validator B -> Server 2
                     // Validator C -> Server 1
-                    set_yuma_4_weights(
+                    set_yuma_3_weights(
                         netuid,
                         vec![vec![u16::MAX, 0], vec![0, u16::MAX], vec![u16::MAX, 0]],
                     );
@@ -3287,14 +3287,14 @@ fn test_yuma_4_kappa_moves_second() {
                     // Validator A -> Server 2
                     // Validator B -> Server 2
                     // Validator C -> Server 1
-                    set_yuma_4_weights(
+                    set_yuma_3_weights(
                         netuid,
                         vec![vec![0, u16::MAX], vec![0, u16::MAX], vec![u16::MAX, 0]],
                     );
                 }
                 3 => {
                     // Subsequent epochs All validators -> Server 2
-                    set_yuma_4_weights(netuid, vec![vec![0, u16::MAX]; 3]);
+                    set_yuma_3_weights(netuid, vec![vec![0, u16::MAX]; 3]);
                 }
                 _ => {}
             };
@@ -3304,7 +3304,7 @@ fn test_yuma_4_kappa_moves_second() {
 }
 
 #[test]
-fn test_yuma_4_kappa_moves_last() {
+fn test_yuma_3_kappa_moves_last() {
     new_test_ext(1).execute_with(|| {
         let sparse: bool = true;
         let n: u16 = 5; // 3 validators, 2 servers
@@ -3316,7 +3316,7 @@ fn test_yuma_4_kappa_moves_last() {
         // Validator C: Small lazy validator (0.1) - moves second
         let stakes: Vec<u64> = vec![8, 1, 1, 0, 0];
 
-        setup_yuma_4_scenario(netuid, n, sparse, max_stake, stakes);
+        setup_yuma_3_scenario(netuid, n, sparse, max_stake, stakes);
         let targets_bonds = [
             vec![
                 vec![0.1013, 0.0000],
@@ -3366,13 +3366,13 @@ fn test_yuma_4_kappa_moves_last() {
             match epoch {
                 0 => {
                     // Initially, consensus is achieved by all Validators
-                    set_yuma_4_weights(netuid, vec![vec![u16::MAX, 0]; 3]);
+                    set_yuma_3_weights(netuid, vec![vec![u16::MAX, 0]; 3]);
                 }
                 1 => {
                     // Validator A -> Server 1
                     // Validator B -> Server 2
                     // Validator C -> Server 1
-                    set_yuma_4_weights(
+                    set_yuma_3_weights(
                         netuid,
                         vec![vec![u16::MAX, 0], vec![0, u16::MAX], vec![u16::MAX, 0]],
                     );
@@ -3381,14 +3381,14 @@ fn test_yuma_4_kappa_moves_last() {
                     // Validator A -> Server 1
                     // Validator B -> Server 2
                     // Validator C -> Server 2
-                    set_yuma_4_weights(
+                    set_yuma_3_weights(
                         netuid,
                         vec![vec![u16::MAX, 0], vec![0, u16::MAX], vec![0, u16::MAX]],
                     );
                 }
                 3 => {
                     // Subsequent epochs All validators -> Server 2
-                    set_yuma_4_weights(netuid, vec![vec![0, u16::MAX]; 3]);
+                    set_yuma_3_weights(netuid, vec![vec![0, u16::MAX]; 3]);
                 }
                 _ => {}
             };
@@ -3398,7 +3398,7 @@ fn test_yuma_4_kappa_moves_last() {
 }
 
 #[test]
-fn test_yuma_4_one_epoch_switch() {
+fn test_yuma_3_one_epoch_switch() {
     new_test_ext(1).execute_with(|| {
         let sparse: bool = true;
         let n: u16 = 5; // 3 validators, 2 servers
@@ -3408,7 +3408,7 @@ fn test_yuma_4_one_epoch_switch() {
         // Equal stake validators
         let stakes: Vec<u64> = vec![33, 33, 34, 0, 0];
 
-        setup_yuma_4_scenario(netuid, n, sparse, max_stake, stakes);
+        setup_yuma_3_scenario(netuid, n, sparse, max_stake, stakes);
 
         let targets_bonds = [
             vec![
@@ -3461,14 +3461,14 @@ fn test_yuma_4_one_epoch_switch() {
                     // Validator A -> Server 1
                     // Validator B -> Server 1
                     // Validator C -> Server 2
-                    set_yuma_4_weights(
+                    set_yuma_3_weights(
                         netuid,
                         vec![vec![u16::MAX, 0], vec![u16::MAX, 0], vec![0, u16::MAX]],
                     );
                 }
                 _ => {
                     // All validators -> Server 1
-                    set_yuma_4_weights(netuid, vec![vec![u16::MAX, 0]; 3]);
+                    set_yuma_3_weights(netuid, vec![vec![u16::MAX, 0]; 3]);
                 }
             };
             run_epoch_and_check_bonds_dividends(netuid, sparse, target_bonds, target_dividends);
