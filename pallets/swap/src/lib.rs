@@ -2111,13 +2111,21 @@ mod tests {
                 expected_liquidity_gross_high,
             );
 
-            // Fees should 
+            // Expected fee amount
+            let fee_rate = swap.state_ops.get_fee_rate() as f64 / u16::MAX as f64;
+            let expected_fee = output_amount * fee_rate as u64;
 
-            let fee_tao: U64F64 = swap.state_ops.get_fee_global_tao();
-            let fee_alpha: U64F64 = swap.state_ops.get_fee_global_alpha();
+            // Global fees should be updated
+            let actual_global_fee: U64F64 = match order_type {
+                OrderType::Buy => swap.state_ops.get_fee_global_alpha(),
+                OrderType::Sell => swap.state_ops.get_fee_global_tao(),
+            };
+            println!("actual_global_fee {:?}", actual_global_fee);
+            assert_eq!(actual_global_fee, expected_fee);
 
-            println!("fee_tao {:?}", fee_tao);
-            println!("fee_alpha {:?}", fee_alpha);
+            // Tick fees should be updated
+
+
 
 
             // Liquidity position should not be updated
