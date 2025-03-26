@@ -1358,3 +1358,110 @@ impl<T: Config> Pallet<T> {
         }
     }
 }
+
+#[test]
+fn test_selective_metagraph() {
+    let mut metagraph = SelectiveMetagraph::<u32>::default();
+    let expected = SelectiveMetagraph::<u32> {
+        netuid: 0_u16.into(),
+        name: None,
+        symbol: None,
+        identity: None,
+        network_registered_at: None,
+        owner_hotkey: None,
+        owner_coldkey: None,
+        block: None,
+        tempo: None,
+        last_step: None,
+        blocks_since_last_step: None,
+        subnet_emission: None,
+        alpha_in: None,
+        alpha_out: None,
+        tao_in: None,
+        alpha_out_emission: None,
+        alpha_in_emission: None,
+        tao_in_emission: None,
+        pending_alpha_emission: None,
+        pending_root_emission: None,
+        subnet_volume: None,
+        moving_price: None,
+        rho: None,
+        kappa: None,
+        min_allowed_weights: None,
+        max_weights_limit: None,
+        weights_version: None,
+        weights_rate_limit: None,
+        activity_cutoff: None,
+        max_validators: None,
+        num_uids: None,
+        max_uids: None,
+        burn: None,
+        difficulty: None,
+        registration_allowed: None,
+        pow_registration_allowed: None,
+        immunity_period: None,
+        min_difficulty: None,
+        max_difficulty: None,
+        min_burn: None,
+        max_burn: None,
+        adjustment_alpha: None,
+        adjustment_interval: None,
+        target_regs_per_interval: None,
+        max_regs_per_block: None,
+        serving_rate_limit: None,
+        commit_reveal_weights_enabled: None,
+        commit_reveal_period: None,
+        liquid_alpha_enabled: None,
+        alpha_high: None,
+        alpha_low: None,
+        bonds_moving_avg: None,
+        hotkeys: None,
+        coldkeys: None,
+        identities: None,
+        axons: None,
+        active: None,
+        validator_permit: None,
+        pruning_score: None,
+        last_update: None,
+        emission: None,
+        dividends: None,
+        incentives: None,
+        consensus: None,
+        trust: None,
+        rank: None,
+        block_at_registration: None,
+        alpha_stake: None,
+        tao_stake: None,
+        total_stake: None,
+        tao_dividends_per_hotkey: None,
+        alpha_dividends_per_hotkey: None,
+    };
+
+    // test init value
+    assert_eq!(metagraph, expected);
+
+    let wrong_index: usize = 100;
+    let metagraph_name = SelectiveMetagraph::<u32> {
+        netuid: 0_u16.into(),
+        name: Some(vec![1_u8].into_iter().map(Compact).collect()),
+        ..Default::default()
+    };
+
+    // test merge function
+    metagraph.merge_value(&metagraph_name, wrong_index);
+    assert!(metagraph.name.is_none());
+
+    let name_index: usize = 0;
+    metagraph.merge_value(&metagraph_name, name_index);
+    assert!(metagraph.name.is_some());
+
+    let alph_low_index: usize = 49;
+    let metagraph_alpha_low = SelectiveMetagraph::<u32> {
+        netuid: 0_u16.into(),
+        alpha_low: Some(0_16.into()),
+        ..Default::default()
+    };
+    assert!(metagraph.alpha_low.is_none());
+    metagraph.merge_value(&metagraph_alpha_low, alph_low_index);
+    assert!(metagraph.alpha_low.is_some());
+}
