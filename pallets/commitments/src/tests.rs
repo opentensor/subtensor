@@ -4,14 +4,17 @@ use sp_std::prelude::*;
 #[cfg(test)]
 use crate::{
     CommitmentInfo, CommitmentOf, Config, Data, Error, Event, MaxSpace, Pallet, RateLimit,
-    RevealedCommitments, TimelockedIndex,
+    Registration, RevealedCommitments, TimelockedIndex,
     mock::{
-        DRAND_QUICKNET_SIG_HEX, RuntimeEvent, RuntimeOrigin, Test, insert_drand_pulse,
+        Balances, DRAND_QUICKNET_SIG_HEX, RuntimeEvent, RuntimeOrigin, Test, insert_drand_pulse,
         new_test_ext, produce_ciphertext,
     },
 };
 use frame_support::pallet_prelude::Hooks;
-use frame_support::{BoundedVec, assert_noop, assert_ok, traits::Get};
+use frame_support::{
+    BoundedVec, assert_noop, assert_ok,
+    traits::{Currency, Get, ReservableCurrency},
+};
 use frame_system::Pallet as System;
 
 #[allow(clippy::indexing_slicing)]
@@ -1218,5 +1221,44 @@ fn on_initialize_reveals_matured_timelocks() {
         } else {
             panic!("Expected a Data::Raw variant in revealed data.");
         }
+    });
+}
+
+#[test]
+fn set_commitment_unreserve_leftover_fails() {
+    new_test_ext().execute_with(|| {
+        use frame_system::RawOrigin;
+
+        let netuid = 999;
+        let who = 99;
+
+        Balances::make_free_balance_be(&who, 10_000);
+
+        let fake_deposit = 100;
+        let dummy_info = CommitmentInfo {
+            fields: BoundedVec::try_from(vec![]).expect("empty fields is fine"),
+        };
+        let registration = Registration {
+            deposit: fake_deposit,
+            info: dummy_info,
+            block: 0u64.into(),
+        };
+
+        CommitmentOf::<Test>::insert(netuid, who, registration);
+
+        assert_ok!(Balances::reserve(&who, fake_deposit));
+        assert_eq!(Balances::reserved_balance(who), 100);
+
+        Balances::unreserve(&who, 10_000);
+        assert_eq!(Balances::reserved_balance(who), 0);
+
+        let commit_small = Box::new(CommitmentInfo {
+            fields: BoundedVec::try_from(vec![]).expect("no fields is fine"),
+        });
+
+        assert_noop!(
+            Pallet::<Test>::set_commitment(RawOrigin::Signed(who).into(), netuid, commit_small),
+            Error::<Test>::UnexpectedUnreserveLeftover
+        );
     });
 }
