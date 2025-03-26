@@ -379,11 +379,11 @@ impl TickIndex {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TickIndexBitmap {
     /// The position in layer 0 (top layer)
-    pub layer0: (u32, u32), // (word, bit)
+    layer0: (u32, u32), // (word, bit)
     /// The position in layer 1 (middle layer)
-    pub layer1: (u32, u32), // (word, bit)
+    layer1: (u32, u32), // (word, bit)
     /// The position in layer 2 (bottom layer)
-    pub layer2: (u32, u32), // (word, bit)
+    layer2: (u32, u32), // (word, bit)
 }
 
 impl TickIndexBitmap {
