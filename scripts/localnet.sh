@@ -1,16 +1,21 @@
 #!/bin/bash
 
-# Check if `--no-purge` passed as a parameter
+# Check if `--no-purge` flag passed as a parameter
 NO_PURGE=0
 
-# Check if `--build-only` passed as parameter
+# Check if `--build-only` flag passed as parameter
 BUILD_ONLY=0
+
+# Check if `--start-call-limit` flag wasn't passed as parameter
+NO_START_CALL_LIMIT=1
 
 for arg in "$@"; do
   if [ "$arg" = "--no-purge" ]; then
     NO_PURGE=1
   elif [ "$arg" = "--build-only" ]; then
     BUILD_ONLY=1
+  elif [ "$arg" = "--start-call-limit" ]; then
+    NO_START_CALL_LIMIT=0
   fi
 done
 
@@ -38,6 +43,12 @@ else
   : "${BUILD_BINARY:=1}"
   : "${FEATURES:="pow-faucet fast-blocks"}"
   BUILD_DIR="$BASE_DIR/target/fast-blocks"
+fi
+
+if [ "$NO_START_CALL_LIMIT" == "1" ]; then
+  FEATURES="$FEATURES no-start-call-limit"
+  echo "Chain starts without START CALL time limit."
+  echo $FEATURES
 fi
 
 # Ensure the build directory exists

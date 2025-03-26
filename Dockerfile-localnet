@@ -29,7 +29,7 @@ RUN rustup toolchain install
 RUN rustup target add wasm32-unknown-unknown
 
 ## Build fast-blocks node
-RUN ./scripts/localnet.sh --build-only
+RUN ./scripts/localnet.sh --build-only --no-start-call-limit
 # Build non-fast-blocks
 RUN ./scripts/localnet.sh False --build-only
 

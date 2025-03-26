@@ -1044,8 +1044,8 @@ parameter_types! {
     pub const InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const SubtensorInitialTaoWeight: u64 = 971_718_665_099_567_868; // 0.05267697438728329% tao weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
-    pub const DurationOfStartCall: u64 = if cfg!(feature = "fast-blocks") {
-        10 // Only 10 blocks for fast blocks
+    pub const DurationOfStartCall: u64 = if cfg!(feature = "no-start-call-limit") {
+        10 // Only 10 blocks for localnet.sh run
     } else {
         7 * 24 * 60 * 60 / 12 // 7 days
     };
