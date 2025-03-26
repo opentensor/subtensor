@@ -266,7 +266,11 @@ pub mod pallet {
                 T::Currency::reserve(&who, id.deposit.saturating_sub(old_deposit))?;
             }
             if old_deposit > id.deposit {
-                return Err(Error::<T>::UnexpectedUnreserveLeftover.into());
+                let err_amount =
+                    T::Currency::unreserve(&who, old_deposit.saturating_sub(id.deposit));
+                if !err_amount.is_zero() {
+                    return Err(Error::<T>::UnexpectedUnreserveLeftover.into());
+                }
             }
 
             <CommitmentOf<T>>::insert(netuid, &who, id);
