@@ -37,17 +37,24 @@ impl<T: Config> Pallet<T> {
         let current_block: u64 = Self::get_current_block_as_u64();
         log::debug!("Current block: {:?}", current_block);
 
-        // --- 1. Get all netuids (filter out root and new subnet without first emission block)
+        // --- 1. Get all netuids (filter out root)
         let subnets: Vec<u16> = Self::get_all_subnet_netuids()
             .into_iter()
             .filter(|netuid| *netuid != 0)
-            .filter(|netuid| FirstEmissionBlockNumber::<T>::get(*netuid).is_some())
             .collect();
         log::debug!("All subnet netuids: {:?}", subnets);
+        // Filter out subnets with no first emission block number.
+        let subnets_to_emit_to: Vec<u16> = subnets
+            .clone()
+            .into_iter()
+            .filter(|netuid| FirstEmissionBlockNumber::<T>::get(*netuid).is_some())
+            .collect();
+        log::debug!("Subnets to emit to: {:?}", subnets_to_emit_to);
 
         // --- 2. Get sum of tao reserves ( in a later version we will switch to prices. )
         let mut total_moving_prices: I96F32 = I96F32::saturating_from_num(0.0);
-        for netuid_i in subnets.iter() {
+        // Only get price EMA for subnets that we emit to.
+        for netuid_i in subnets_to_emit_to.iter() {
             // Get and update the moving price of each subnet adding the total together.
             total_moving_prices =
                 total_moving_prices.saturating_add(Self::get_moving_alpha_price(*netuid_i));
@@ -59,7 +66,8 @@ impl<T: Config> Pallet<T> {
         let mut tao_in: BTreeMap<u16, I96F32> = BTreeMap::new();
         let mut alpha_in: BTreeMap<u16, I96F32> = BTreeMap::new();
         let mut alpha_out: BTreeMap<u16, I96F32> = BTreeMap::new();
-        for netuid_i in subnets.iter() {
+        // Only calculate for subnets that we are emitting to.
+        for netuid_i in subnets_to_emit_to.iter() {
             // Get subnet price.
             let price_i: I96F32 = Self::get_alpha_price(*netuid_i);
             log::debug!("price_i: {:?}", price_i);
@@ -104,7 +112,7 @@ impl<T: Config> Pallet<T> {
         // --- 4. Injection.
         // Actually perform the injection of alpha_in, alpha_out and tao_in into the subnet pool.
         // This operation changes the pool liquidity each block.
-        for netuid_i in subnets.iter() {
+        for netuid_i in subnets_to_emit_to.iter() {
             // Inject Alpha in.
             let alpha_in_i: u64 = tou64!(*alpha_in.get(netuid_i).unwrap_or(&asfloat!(0)));
             SubnetAlphaInEmission::<T>::insert(*netuid_i, alpha_in_i);
@@ -136,7 +144,7 @@ impl<T: Config> Pallet<T> {
         // Owner cuts are accumulated and then fed to the drain at the end of this func.
         let cut_percent: I96F32 = Self::get_float_subnet_owner_cut();
         let mut owner_cuts: BTreeMap<u16, I96F32> = BTreeMap::new();
-        for netuid_i in subnets.iter() {
+        for netuid_i in subnets_to_emit_to.iter() {
             // Get alpha out.
             let alpha_out_i: I96F32 = *alpha_out.get(netuid_i).unwrap_or(&asfloat!(0));
             log::debug!("alpha_out_i: {:?}", alpha_out_i);
@@ -155,7 +163,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 6. Seperate out root dividends in alpha and sell them into tao.
         // Then accumulate those dividends for later.
-        for netuid_i in subnets.iter() {
+        for netuid_i in subnets_to_emit_to.iter() {
             // Get remaining alpha out.
             let alpha_out_i: I96F32 = *alpha_out.get(netuid_i).unwrap_or(&asfloat!(0.0));
             log::debug!("alpha_out_i: {:?}", alpha_out_i);
@@ -200,12 +208,14 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 7 Update moving prices after using them in the emission calculation.
-        for netuid_i in subnets.iter() {
+        // Only update price EMA for subnets that we emit to.
+        for netuid_i in subnets_to_emit_to.iter() {
             // Update moving prices after using them above.
             Self::update_moving_price(*netuid_i);
         }
 
         // --- 7. Drain pending emission through the subnet based on tempo.
+        // Run the epoch for *all* subnets, even if we don't emit anything.
         for &netuid in subnets.iter() {
             // Pass on subnets that have not reached their tempo.
             if Self::should_run_epoch(netuid, current_block) {
