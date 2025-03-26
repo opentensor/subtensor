@@ -794,14 +794,16 @@ impl<T: Config> Pallet<T> {
             tao_unstaked,
             actual_alpha_decrease,
             netuid,
+            actual_fee,
         ));
         log::debug!(
-            "StakeRemoved( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?} )",
+            "StakeRemoved( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?}, fee: {:?} )",
             coldkey.clone(),
             hotkey.clone(),
             tao_unstaked,
             actual_alpha_decrease,
-            netuid
+            netuid,
+            actual_fee
         );
 
         // Step 6: Return the amount of TAO unstaked.
@@ -857,14 +859,16 @@ impl<T: Config> Pallet<T> {
             tao_staked,
             actual_alpha,
             netuid,
+            actual_fee,
         ));
         log::debug!(
-            "StakeAdded( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?} )",
+            "StakeAdded( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?}, fee: {:?} )",
             coldkey.clone(),
             hotkey.clone(),
             tao_staked,
             actual_alpha,
-            netuid
+            netuid,
+            actual_fee
         );
 
         // Step 7: Return the amount of alpha staked
