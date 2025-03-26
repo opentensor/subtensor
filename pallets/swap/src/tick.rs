@@ -172,7 +172,7 @@ impl TickIndex {
 
     /// All tick indexes are offset by this value for storage needs
     /// so that tick indexes are positive, which simplifies bit logic
-    pub const OFFSET: Self = Self(MAX_TICK);
+    const OFFSET: Self = Self(MAX_TICK);
 
     /// Converts a sqrt price to a tick index, ensuring it's within valid bounds
     ///
