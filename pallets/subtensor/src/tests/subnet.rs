@@ -225,7 +225,7 @@ fn test_do_start_call_ok_with_same_block_number_after_coinbase() {
 
 #[test]
 fn test_register_network_min_burn_at_default() {
-    new_test_ext(0).execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let sn_owner_coldkey = U256::from(0);
         let sn_owner_hotkey = U256::from(1);
         let cost = SubtensorModule::get_network_lock_cost();
@@ -245,13 +245,13 @@ fn test_register_network_min_burn_at_default() {
             .filter(|event| {
                 matches!(
                     event.event,
-                    RuntimeEvent::SubtensorModule(SubtensorEvent::NetworkAdded(_, _))
+                    RuntimeEvent::SubtensorModule(Event::<Test>::NetworkAdded(..))
                 )
             })
             .last()
             .unwrap();
         let netuid = match min_burn_event.event {
-            RuntimeEvent::SubtensorModule(SubtensorEvent::NetworkAdded(netuid, _)) => netuid,
+            RuntimeEvent::SubtensorModule(Event::<Test>::NetworkAdded(netuid, _)) => netuid,
             _ => panic!("Expected NetworkAdded event"),
         };
 
