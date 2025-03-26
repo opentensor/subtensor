@@ -641,6 +641,9 @@ where
 
         // Hold the fees
         let fee = self.get_fee_amount(amount_swapped.saturating_to_num::<u64>());
+
+        println!("fee = {:?}", fee);
+
         self.add_fees(order_type, fee);
         let delta_out = self.convert_deltas(order_type, delta_in);
 
@@ -2035,6 +2038,115 @@ mod tests {
             );
         });
     }
+
+    // Test swapping against protocol liquidity only
+    #[test]
+    fn test_swap_basic() {
+        let protocol_tao = 1_000_000_000;
+        let protocol_alpha = 4_000_000_000;
+
+        // Current price is 0.25
+        // Test case is (order_type, liquidity, limit_price, output_amount)
+        [
+            (OrderType::Buy, 500_000_000u64, 1000.0_f64, 3990_u64),
+        ]
+        .iter()
+        .for_each(|(order_type, liquidity, limit_price, output_amount)| {
+            // Consumed liquidity ticks
+            let tick_low = TickIndex(MIN_TICK_INDEX);
+            let tick_high = TickIndex(MAX_TICK_INDEX);
+
+            // Setup swap
+            let mut mock_ops = MockSwapDataOperations::new();
+            mock_ops.set_tao_reserve(protocol_tao);
+            mock_ops.set_alpha_reserve(protocol_alpha);
+            let mut swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+
+            // Get tick infos before the swap
+            let tick_low_info_before = swap
+                .state_ops
+                .get_tick_by_index(tick_low)
+                .unwrap_or_default();
+            let tick_high_info_before = swap
+                .state_ops
+                .get_tick_by_index(tick_high)
+                .unwrap_or_default();
+            let liquidity_before = swap.state_ops.get_current_liquidity();
+
+            // Swap
+            let sqrt_limit_price: SqrtPrice = SqrtPrice::from_num((*limit_price).sqrt());
+            let swap_result = swap.swap(order_type, *liquidity, sqrt_limit_price);
+            // assert_abs_diff_eq!(
+            //     swap_result.unwrap().amount_paid_out,
+            //     *output_amount,
+            //     epsilon = *output_amount/1000
+            // );
+
+            // Check that low and high ticks' fees were updated properly, and liquidity values were not updated
+            let tick_low_info = swap.state_ops.get_tick_by_index(tick_low).unwrap();
+            let tick_high_info = swap.state_ops.get_tick_by_index(tick_high).unwrap();
+            let expected_liquidity_net_low: i128 = tick_low_info_before.liquidity_net;
+            let expected_liquidity_gross_low: u64 = tick_low_info_before.liquidity_gross;
+            let expected_liquidity_net_high: i128 = tick_high_info_before.liquidity_net;
+            let expected_liquidity_gross_high: u64 = tick_high_info_before.liquidity_gross;
+            assert_eq!(
+                tick_low_info.liquidity_net,
+                expected_liquidity_net_low,
+            );
+            assert_eq!(
+                tick_low_info.liquidity_gross,
+                expected_liquidity_gross_low,
+            );
+            assert_eq!(
+                tick_high_info.liquidity_net,
+                expected_liquidity_net_high,
+            );
+            assert_eq!(
+                tick_high_info.liquidity_gross,
+                expected_liquidity_gross_high,
+            );
+
+            // Fees should 
+
+            let fee_tao: U64F64 = swap.state_ops.get_fee_global_tao();
+            let fee_alpha: U64F64 = swap.state_ops.get_fee_global_alpha();
+
+            println!("fee_tao {:?}", fee_tao);
+            println!("fee_alpha {:?}", fee_alpha);
+
+
+            // Liquidity position should not be updated
+            let protocol_id = swap.state_ops.get_protocol_account_id();
+
+            let position = swap.state_ops.get_position(&protocol_id, 0).unwrap();
+            assert_eq!(position.liquidity, sqrt(protocol_tao as u128 * protocol_alpha as u128) as u64);
+            assert_eq!(position.tick_low, tick_low);
+            assert_eq!(position.tick_high, tick_high);
+            assert_eq!(position.fees_alpha, 0);
+            assert_eq!(position.fees_tao, 0);
+
+            // // Current liquidity is updated only when price range includes the current price
+            // if (*price_high >= current_price) && (*price_low <= current_price) {
+            //     assert_eq!(
+            //         swap.state_ops.get_current_liquidity(),
+            //         liquidity_before + *liquidity
+            //     );
+            // } else {
+            //     assert_eq!(swap.state_ops.get_current_liquidity(), liquidity_before);
+            // }
+
+            // // Reserves are updated
+            // assert_eq!(
+            //     swap.state_ops.get_tao_reserve(),
+            //     tao_withdrawn + protocol_tao,
+            // );
+            // assert_eq!(
+            //     swap.state_ops.get_alpha_reserve(),
+            //     alpha_withdrawn + protocol_alpha,
+            // );
+        });
+    }
+
 
     // cargo test --package pallet-subtensor-swap --lib -- tests::test_tick_search_basic --exact --show-output
     #[test]
