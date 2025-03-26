@@ -116,6 +116,7 @@ substrate-build-script-utils = { workspace = true }
 [features]
 default = ["rocksdb", "sql", "txpool"]
 fast-blocks = ["node-subtensor-runtime/fast-blocks"]
+no-start-call-limit = ["node-subtensor-runtime/no-start-call-limit"]
 sql = ["fc-db/sql", "fc-mapping-sync/sql"]
 rocksdb = [
 	"sc-service/rocksdb",
