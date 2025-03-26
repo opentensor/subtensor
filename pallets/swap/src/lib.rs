@@ -1040,7 +1040,7 @@ where
     /// Get fees above a tick
     ///
     fn get_fees_above(&mut self, tick_index: TickIndex, quote: bool) -> U64F64 {
-        let maybe_tick_index = tick_index.find_closest_lower_active(&self.state_ops);
+        let maybe_tick_index = self.find_closest_lower_active_tick_index(tick_index);
         let current_tick = self.get_current_tick_index();
 
         if let Some(tick_index) = maybe_tick_index {
@@ -1072,7 +1072,7 @@ where
 
     /// Get fees below a tick
     fn get_fees_below(&mut self, tick_index: TickIndex, quote: bool) -> U64F64 {
-        let maybe_tick_index = tick_index.find_closest_lower_active(&self.state_ops);
+        let maybe_tick_index = self.find_closest_lower_active_tick_index(tick_index);
         let current_tick = self.get_current_tick_index();
 
         if let Some(tick_index) = maybe_tick_index {

@@ -373,54 +373,6 @@ impl TickIndex {
             }
         }
     }
-
-    /// Find the closest lower active tick index
-    pub fn find_closest_lower_active<Ops, AccountIdType>(&self, ops: &Ops) -> Option<Self>
-    where
-        AccountIdType: Eq,
-        Ops: SwapDataOperations<AccountIdType>,
-    {
-        // TODO: Implement without iteration
-        let mut current_index = *self;
-        loop {
-            if current_index.get() < Self::MIN.get() {
-                return None;
-            }
-            if ops.get_tick_by_index(current_index).is_some() {
-                return Some(current_index);
-            }
-
-            // Create a new index with value one less
-            match current_index.prev() {
-                Ok(next_index) => current_index = next_index,
-                Err(_) => return None, // Return None if we go out of bounds
-            }
-        }
-    }
-
-    /// Find the closest higher active tick index
-    pub fn find_closest_higher_active<Ops, AccountIdType>(&self, ops: &Ops) -> Option<Self>
-    where
-        AccountIdType: Eq,
-        Ops: SwapDataOperations<AccountIdType>,
-    {
-        // TODO: Implement without iteration
-        let mut current_index = *self;
-        loop {
-            if current_index.get() > Self::MAX.get() {
-                return None;
-            }
-            if ops.get_tick_by_index(current_index).is_some() {
-                return Some(current_index);
-            }
-
-            // Create a new index with value one more
-            match current_index.next() {
-                Ok(next_index) => current_index = next_index,
-                Err(_) => return None, // Return None if we go out of bounds
-            }
-        }
-    }
 }
 
 /// A bitmap representation of a tick index position across the three-layer structure
