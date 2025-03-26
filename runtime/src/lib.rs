@@ -207,7 +207,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 254,
+    spec_version: 255,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1010,7 +1010,7 @@ parameter_types! {
     pub const SubtensorInitialMaxRegistrationsPerBlock: u16 = 1;
     pub const SubtensorInitialPruningScore : u16 = u16::MAX;
     pub const SubtensorInitialBondsMovingAverage: u64 = 900_000;
-    pub const SubtensorInitialBondsPenalty: u16 = 0;
+    pub const SubtensorInitialBondsPenalty: u16 = u16::MAX;
     pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
     pub const SubtensorInitialMinDelegateTake: u16 = 0; // Allow 0% delegate take
     pub const SubtensorInitialDefaultChildKeyTake: u16 = 0; // Allow 0% childkey take
@@ -1044,7 +1044,11 @@ parameter_types! {
     pub const InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const SubtensorInitialTaoWeight: u64 = 971_718_665_099_567_868; // 0.05267697438728329% tao weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
-    pub const DurationOfStartCall: u64 = 7 * 24 * 60 * 60 / 12; // 7 days
+    pub const DurationOfStartCall: u64 = if cfg!(feature = "fast-blocks") {
+        10 // Only 10 blocks for fast blocks
+    } else {
+        7 * 24 * 60 * 60 / 12 // 7 days
+    };
 }
 
 impl pallet_subtensor::Config for Runtime {
