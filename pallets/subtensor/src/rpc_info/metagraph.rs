@@ -211,12 +211,8 @@ impl<AccountId> SelectiveMetagraph<AccountId>
 where
     AccountId: TypeInfo + Encode + Decode + Clone,
 {
-    pub fn merge_value(
-        &mut self,
-        other: &Self,
-        metagraph_index: SelectiveMetagraphIndex,
-    ) -> &mut Self {
-        match SelectiveMetagraphIndex::from_index(metagraph_index as usize) {
+    pub fn merge_value(&mut self, other: &Self, metagraph_index: usize) {
+        match SelectiveMetagraphIndex::from_index(metagraph_index) {
             // Name and symbol
             Some(SelectiveMetagraphIndex::Name) => self.name = other.name.clone(),
             Some(SelectiveMetagraphIndex::Symbol) => self.symbol = other.symbol.clone(),
@@ -368,7 +364,6 @@ where
 
             None => {}
         };
-        self
     }
 }
 
@@ -793,15 +788,27 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_selective_metagraph(
         netuid: u16,
-        metagraph_index: u16,
+        metagraph_indexes: Vec<u16>,
     ) -> Option<SelectiveMetagraph<T::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
-            return None;
+            None
+        } else {
+            let mut result = SelectiveMetagraph::default();
+            for index in metagraph_indexes.iter() {
+                let value = Self::get_single_selective_metagraph(netuid, *index);
+                result.merge_value(&value, *index as usize);
+            }
+            Some(result)
         }
+    }
 
+    fn get_single_selective_metagraph(
+        netuid: u16,
+        metagraph_index: u16,
+    ) -> SelectiveMetagraph<T::AccountId> {
         match SelectiveMetagraphIndex::from_index(metagraph_index as usize) {
             // Name and symbol
-            Some(SelectiveMetagraphIndex::Name) => Some(SelectiveMetagraph {
+            Some(SelectiveMetagraphIndex::Name) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 name: Some(
                     Self::get_name_for_subnet(netuid)
@@ -810,8 +817,8 @@ impl<T: Config> Pallet<T> {
                         .collect(),
                 ),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::Symbol) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::Symbol) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 symbol: Some(
                     Self::get_symbol_for_subnet(netuid)
@@ -820,281 +827,281 @@ impl<T: Config> Pallet<T> {
                         .collect(),
                 ),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::Identity) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::Identity) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 identity: Some(SubnetIdentitiesV2::<T>::get(netuid)),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::NetworkRegisteredAt) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::NetworkRegisteredAt) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 network_registered_at: Some(NetworkRegisteredAt::<T>::get(netuid).into()),
                 ..Default::default()
-            }),
+            },
 
             // Keys for owner.
-            Some(SelectiveMetagraphIndex::OwnerHotkey) => Some(SelectiveMetagraph {
+            Some(SelectiveMetagraphIndex::OwnerHotkey) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 owner_hotkey: Some(SubnetOwnerHotkey::<T>::get(netuid)),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::OwnerColdkey) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::OwnerColdkey) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 owner_coldkey: Some(SubnetOwner::<T>::get(netuid)),
                 ..Default::default()
-            }),
+            },
 
             // Tempo terms.
-            Some(SelectiveMetagraphIndex::Block) => Some(SelectiveMetagraph {
+            Some(SelectiveMetagraphIndex::Block) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 block: Some(Pallet::<T>::get_current_block_as_u64().into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::Tempo) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::Tempo) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 tempo: Some(Self::get_tempo(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::LastStep) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::LastStep) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 last_step: Some(LastMechansimStepBlock::<T>::get(netuid).into()),
                 ..Default::default()
-            }),
+            },
             Some(SelectiveMetagraphIndex::BlocksSinceLastStep) => {
                 let current_block: u64 = Pallet::<T>::get_current_block_as_u64();
                 let last_step = LastMechansimStepBlock::<T>::get(netuid);
                 let blocks_since_last_step: u64 = current_block.saturating_sub(last_step);
-                Some(SelectiveMetagraph {
+                SelectiveMetagraph {
                     netuid: netuid.into(),
                     blocks_since_last_step: Some(blocks_since_last_step.into()),
                     ..Default::default()
-                })
+                }
             }
 
             // Subnet emission terms
-            Some(SelectiveMetagraphIndex::SubnetEmission) => Some(SelectiveMetagraph {
+            Some(SelectiveMetagraphIndex::SubnetEmission) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 subnet_emission: Some(0.into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::AlphaIn) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::AlphaIn) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 alpha_in: Some(SubnetAlphaIn::<T>::get(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::AlphaOut) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::AlphaOut) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 alpha_out: Some(SubnetAlphaOut::<T>::get(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::TaoIn) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::TaoIn) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 tao_in: Some(SubnetTAO::<T>::get(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::AlphaOutEmission) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::AlphaOutEmission) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 alpha_out_emission: Some(SubnetAlphaOutEmission::<T>::get(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::AlphaInEmission) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::AlphaInEmission) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 alpha_in_emission: Some(SubnetAlphaInEmission::<T>::get(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::TaoInEmission) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::TaoInEmission) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 tao_in_emission: Some(SubnetTaoInEmission::<T>::get(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::PendingAlphaEmission) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::PendingAlphaEmission) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 pending_alpha_emission: Some(PendingEmission::<T>::get(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::PendingRootEmission) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::PendingRootEmission) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 pending_root_emission: Some(PendingRootDivs::<T>::get(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::SubnetVolume) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::SubnetVolume) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 subnet_volume: Some(SubnetVolume::<T>::get(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::MovingPrice) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::MovingPrice) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 moving_price: Some(SubnetMovingPrice::<T>::get(netuid)),
                 ..Default::default()
-            }),
+            },
 
             // Hparams for epoch
-            Some(SelectiveMetagraphIndex::Rho) => Some(SelectiveMetagraph {
+            Some(SelectiveMetagraphIndex::Rho) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 rho: Some(Self::get_rho(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::Kappa) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::Kappa) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 kappa: Some(Self::get_kappa(netuid).into()),
                 ..Default::default()
-            }),
+            },
 
             // Validator params
-            Some(SelectiveMetagraphIndex::MinAllowedWeights) => Some(SelectiveMetagraph {
+            Some(SelectiveMetagraphIndex::MinAllowedWeights) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 min_allowed_weights: Some(Self::get_min_allowed_weights(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::MaxWeightsLimit) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::MaxWeightsLimit) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 max_weights_limit: Some(Self::get_max_weight_limit(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::WeightsVersion) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::WeightsVersion) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 weights_version: Some(Self::get_weights_version_key(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::WeightsRateLimit) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::WeightsRateLimit) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 weights_rate_limit: Some(Self::get_weights_set_rate_limit(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::ActivityCutoff) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::ActivityCutoff) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 activity_cutoff: Some(Self::get_activity_cutoff(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::MaxValidators) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::MaxValidators) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 max_validators: Some(Self::get_max_allowed_validators(netuid).into()),
                 ..Default::default()
-            }),
+            },
 
             // Registration
-            Some(SelectiveMetagraphIndex::NumUids) => Some(SelectiveMetagraph {
+            Some(SelectiveMetagraphIndex::NumUids) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 num_uids: Some(Self::get_subnetwork_n(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::MaxUids) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::MaxUids) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 max_uids: Some(Self::get_max_allowed_uids(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::RegistrationAllowed) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::RegistrationAllowed) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 registration_allowed: Some(Self::get_network_registration_allowed(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::PowRegistrationAllowed) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::PowRegistrationAllowed) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 pow_registration_allowed: Some(
                     Self::get_network_pow_registration_allowed(netuid).into(),
                 ),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::Difficulty) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::Difficulty) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 difficulty: Some(Self::get_difficulty_as_u64(netuid).into()),
                 ..Default::default()
-            }),
+            },
 
-            Some(SelectiveMetagraphIndex::Burn) => Some(SelectiveMetagraph {
+            Some(SelectiveMetagraphIndex::Burn) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 burn: Some(Self::get_burn_as_u64(netuid).into()),
                 ..Default::default()
-            }),
+            },
 
-            Some(SelectiveMetagraphIndex::ImmunityPeriod) => Some(SelectiveMetagraph {
+            Some(SelectiveMetagraphIndex::ImmunityPeriod) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 immunity_period: Some(Self::get_immunity_period(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::MinDifficulty) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::MinDifficulty) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 min_difficulty: Some(Self::get_min_difficulty(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::MaxDifficulty) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::MaxDifficulty) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 max_difficulty: Some(Self::get_max_difficulty(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::MinBurn) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::MinBurn) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 min_burn: Some(Self::get_min_burn_as_u64(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::MaxBurn) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::MaxBurn) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 max_burn: Some(Self::get_max_burn_as_u64(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::AdjustmentAlpha) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::AdjustmentAlpha) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 adjustment_alpha: Some(Self::get_adjustment_alpha(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::AdjustmentInterval) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::AdjustmentInterval) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 adjustment_interval: Some(Self::get_adjustment_interval(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::TargetRegsPerInterval) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::TargetRegsPerInterval) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 target_regs_per_interval: Some(
                     Self::get_target_registrations_per_interval(netuid).into(),
                 ),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::MaxRegsPerBlock) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::MaxRegsPerBlock) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 max_regs_per_block: Some(Self::get_max_registrations_per_block(netuid).into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::ServingRateLimit) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::ServingRateLimit) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 serving_rate_limit: Some(Self::get_serving_rate_limit(netuid).into()),
                 ..Default::default()
-            }),
+            },
 
             // CR
-            Some(SelectiveMetagraphIndex::CommitRevealWeightsEnabled) => Some(SelectiveMetagraph {
+            Some(SelectiveMetagraphIndex::CommitRevealWeightsEnabled) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 commit_reveal_weights_enabled: Some(Self::get_commit_reveal_weights_enabled(
                     netuid,
                 )),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::CommitRevealPeriod) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::CommitRevealPeriod) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 commit_reveal_period: Some(Self::get_reveal_period(netuid).into()),
                 ..Default::default()
-            }),
+            },
 
             // Bonds
-            Some(SelectiveMetagraphIndex::LiquidAlphaEnabled) => Some(SelectiveMetagraph {
+            Some(SelectiveMetagraphIndex::LiquidAlphaEnabled) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 liquid_alpha_enabled: Some(Self::get_liquid_alpha_enabled(netuid)),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::AlphaHigh) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::AlphaHigh) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 alpha_high: Some(Self::get_alpha_values(netuid).1.into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::AlphaLow) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::AlphaLow) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 alpha_low: Some(Self::get_alpha_values(netuid).0.into()),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::BondsMovingAvg) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::BondsMovingAvg) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 bonds_moving_avg: Some(Self::get_bonds_moving_average(netuid).into()),
                 ..Default::default()
-            }),
+            },
 
             // Metagraph info.
             Some(SelectiveMetagraphIndex::Hotkeys) => {
@@ -1105,11 +1112,11 @@ impl<T: Config> Pallet<T> {
                     hotkeys.push(hotkey.clone());
                 }
 
-                Some(SelectiveMetagraph {
+                SelectiveMetagraph {
                     netuid: netuid.into(),
                     hotkeys: Some(hotkeys),
                     ..Default::default()
-                })
+                }
             }
             Some(SelectiveMetagraphIndex::Coldkeys) => {
                 let n: u16 = Self::get_subnetwork_n(netuid);
@@ -1119,11 +1126,11 @@ impl<T: Config> Pallet<T> {
                     let coldkey = Owner::<T>::get(hotkey.clone());
                     coldkeys.push(coldkey.clone());
                 }
-                Some(SelectiveMetagraph {
+                SelectiveMetagraph {
                     netuid: netuid.into(),
                     coldkeys: Some(coldkeys),
                     ..Default::default()
-                })
+                }
             }
             Some(SelectiveMetagraphIndex::Identities) => {
                 let n: u16 = Self::get_subnetwork_n(netuid);
@@ -1133,11 +1140,11 @@ impl<T: Config> Pallet<T> {
                     let coldkey = Owner::<T>::get(hotkey.clone());
                     identities.push(IdentitiesV2::<T>::get(coldkey.clone()));
                 }
-                Some(SelectiveMetagraph {
+                SelectiveMetagraph {
                     netuid: netuid.into(),
                     identities: Some(identities),
                     ..Default::default()
-                })
+                }
             }
             Some(SelectiveMetagraphIndex::Axons) => {
                 let n: u16 = Self::get_subnetwork_n(netuid);
@@ -1146,24 +1153,24 @@ impl<T: Config> Pallet<T> {
                     let hotkey = Keys::<T>::get(netuid, uid);
                     axons.push(Self::get_axon_info(netuid, &hotkey));
                 }
-                Some(SelectiveMetagraph {
+                SelectiveMetagraph {
                     netuid: netuid.into(),
                     axons: Some(axons),
                     ..Default::default()
-                })
+                }
             }
-            Some(SelectiveMetagraphIndex::Active) => Some(SelectiveMetagraph {
+            Some(SelectiveMetagraphIndex::Active) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 active: Some(Active::<T>::get(netuid)),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::ValidatorPermit) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::ValidatorPermit) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 active: Some(ValidatorPermit::<T>::get(netuid)),
                 ..Default::default()
-            }),
+            },
 
-            Some(SelectiveMetagraphIndex::PruningScore) => Some(SelectiveMetagraph {
+            Some(SelectiveMetagraphIndex::PruningScore) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 pruning_score: Some(
                     PruningScores::<T>::get(netuid)
@@ -1172,9 +1179,9 @@ impl<T: Config> Pallet<T> {
                         .collect(),
                 ),
                 ..Default::default()
-            }),
+            },
 
-            Some(SelectiveMetagraphIndex::LastUpdate) => Some(SelectiveMetagraph {
+            Some(SelectiveMetagraphIndex::LastUpdate) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 last_update: Some(
                     LastUpdate::<T>::get(netuid)
@@ -1183,9 +1190,9 @@ impl<T: Config> Pallet<T> {
                         .collect(),
                 ),
                 ..Default::default()
-            }),
+            },
 
-            Some(SelectiveMetagraphIndex::Emission) => Some(SelectiveMetagraph {
+            Some(SelectiveMetagraphIndex::Emission) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 emission: Some(
                     Emission::<T>::get(netuid)
@@ -1194,9 +1201,9 @@ impl<T: Config> Pallet<T> {
                         .collect(),
                 ),
                 ..Default::default()
-            }),
+            },
 
-            Some(SelectiveMetagraphIndex::Dividends) => Some(SelectiveMetagraph {
+            Some(SelectiveMetagraphIndex::Dividends) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 dividends: Some(
                     Dividends::<T>::get(netuid)
@@ -1205,9 +1212,9 @@ impl<T: Config> Pallet<T> {
                         .collect(),
                 ),
                 ..Default::default()
-            }),
+            },
 
-            Some(SelectiveMetagraphIndex::Incentives) => Some(SelectiveMetagraph {
+            Some(SelectiveMetagraphIndex::Incentives) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 incentives: Some(
                     Incentive::<T>::get(netuid)
@@ -1216,9 +1223,9 @@ impl<T: Config> Pallet<T> {
                         .collect(),
                 ),
                 ..Default::default()
-            }),
+            },
 
-            Some(SelectiveMetagraphIndex::Consensus) => Some(SelectiveMetagraph {
+            Some(SelectiveMetagraphIndex::Consensus) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 consensus: Some(
                     Consensus::<T>::get(netuid)
@@ -1227,9 +1234,9 @@ impl<T: Config> Pallet<T> {
                         .collect(),
                 ),
                 ..Default::default()
-            }),
+            },
 
-            Some(SelectiveMetagraphIndex::Trust) => Some(SelectiveMetagraph {
+            Some(SelectiveMetagraphIndex::Trust) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 trust: Some(
                     Trust::<T>::get(netuid)
@@ -1238,8 +1245,8 @@ impl<T: Config> Pallet<T> {
                         .collect(),
                 ),
                 ..Default::default()
-            }),
-            Some(SelectiveMetagraphIndex::Rank) => Some(SelectiveMetagraph {
+            },
+            Some(SelectiveMetagraphIndex::Rank) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 rank: Some(
                     Rank::<T>::get(netuid)
@@ -1248,23 +1255,23 @@ impl<T: Config> Pallet<T> {
                         .collect(),
                 ),
                 ..Default::default()
-            }),
+            },
             Some(SelectiveMetagraphIndex::BlockAtRegistration) => {
                 let n: u16 = Self::get_subnetwork_n(netuid);
                 let mut block_at_registration: Vec<Compact<u64>> = vec![];
                 for uid in 0..n {
                     block_at_registration.push(BlockAtRegistration::<T>::get(netuid, uid).into());
                 }
-                Some(SelectiveMetagraph {
+                SelectiveMetagraph {
                     netuid: netuid.into(),
                     block_at_registration: Some(block_at_registration),
                     ..Default::default()
-                })
+                }
             }
             Some(SelectiveMetagraphIndex::AlphaStake) => {
                 let (_, alpha_stake_fl, _): (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) =
                     Self::get_stake_weights_for_network(netuid);
-                Some(SelectiveMetagraph {
+                SelectiveMetagraph {
                     netuid: netuid.into(),
                     alpha_stake: Some(
                         alpha_stake_fl
@@ -1273,12 +1280,12 @@ impl<T: Config> Pallet<T> {
                             .collect::<Vec<Compact<u64>>>(),
                     ),
                     ..Default::default()
-                })
+                }
             }
             Some(SelectiveMetagraphIndex::TaoStake) => {
                 let (_, _, tao_stake_fl): (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) =
                     Self::get_stake_weights_for_network(netuid);
-                Some(SelectiveMetagraph {
+                SelectiveMetagraph {
                     netuid: netuid.into(),
                     tao_stake: Some(
                         tao_stake_fl
@@ -1287,12 +1294,12 @@ impl<T: Config> Pallet<T> {
                             .collect::<Vec<Compact<u64>>>(),
                     ),
                     ..Default::default()
-                })
+                }
             }
             Some(SelectiveMetagraphIndex::TotalStake) => {
                 let (total_stake_fl, _, _): (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) =
                     Self::get_stake_weights_for_network(netuid);
-                Some(SelectiveMetagraph {
+                SelectiveMetagraph {
                     netuid: netuid.into(),
                     total_stake: Some(
                         total_stake_fl
@@ -1301,7 +1308,7 @@ impl<T: Config> Pallet<T> {
                             .collect::<Vec<Compact<u64>>>(),
                     ),
                     ..Default::default()
-                })
+                }
             }
 
             // Dividend break down.
@@ -1317,11 +1324,11 @@ impl<T: Config> Pallet<T> {
                     let tao_divs = TaoDividendsPerSubnet::<T>::get(netuid, hotkey.clone());
                     tao_dividends_per_hotkey.push((hotkey.clone(), tao_divs.into()));
                 }
-                Some(SelectiveMetagraph {
+                SelectiveMetagraph {
                     netuid: netuid.into(),
                     tao_dividends_per_hotkey: Some(tao_dividends_per_hotkey),
                     ..Default::default()
-                })
+                }
             }
             Some(SelectiveMetagraphIndex::AlphaDividendsPerHotkey) => {
                 let mut alpha_dividends_per_hotkey: Vec<(T::AccountId, Compact<u64>)> = vec![];
@@ -1337,19 +1344,17 @@ impl<T: Config> Pallet<T> {
                     let alpha_divs = AlphaDividendsPerSubnet::<T>::get(netuid, hotkey.clone());
                     alpha_dividends_per_hotkey.push((hotkey.clone(), alpha_divs.into()));
                 }
-                Some(SelectiveMetagraph {
+                SelectiveMetagraph {
                     netuid: netuid.into(),
                     alpha_dividends_per_hotkey: Some(alpha_dividends_per_hotkey),
                     ..Default::default()
-                })
+                }
             }
-            None => {
-                Some(SelectiveMetagraph {
-                    // Subnet index
-                    netuid: netuid.into(),
-                    ..Default::default()
-                })
-            }
+            None => SelectiveMetagraph {
+                // Subnet index
+                netuid: netuid.into(),
+                ..Default::default()
+            },
         }
     }
 }
