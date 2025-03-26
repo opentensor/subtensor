@@ -1889,3 +1889,245 @@ fn test_drain_pending_emission_no_miners_all_drained() {
         assert_abs_diff_eq!(new_stake, emission.saturating_add(init_stake), epsilon = 1);
     });
 }
+
+#[test]
+fn test_drain_pending_emission_zero_emission() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = add_dynamic_network(&U256::from(1), &U256::from(2));
+        let hotkey = U256::from(3);
+        let coldkey = U256::from(4);
+        let miner_hk = U256::from(5);
+        let miner_ck = U256::from(6);
+        let init_stake: u64 = 100_000_000_000_000;
+        let tempo = 2;
+        SubtensorModule::set_tempo(netuid, tempo);
+        // Set weight-set limit to 0.
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        register_ok_neuron(netuid, miner_hk, miner_ck, 0);
+        // Give non-zero stake
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid, init_stake,
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+            init_stake
+        );
+
+        // Set the weight of root TAO to be 0%, so only alpha is effective.
+        SubtensorModule::set_tao_weight(0);
+
+        run_to_block_no_epoch(netuid, 50);
+
+        // Run epoch for initial setup.
+        SubtensorModule::epoch(netuid, 0);
+
+        // Set weights on miner
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            vec![0, 1, 2],
+            vec![0, 0, 1],
+            0,
+        ));
+
+        run_to_block_no_epoch(netuid, 50);
+
+        // Clear incentive and dividends.
+        Incentive::<Test>::remove(netuid);
+        Dividends::<Test>::remove(netuid);
+
+        // Set the emission to be ZERO.
+        SubtensorModule::drain_pending_emission(netuid, 0, 0, 0, 0);
+
+        // Get the new stake of the hotkey.
+        let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
+        // We expect the stake to remain unchanged.
+        assert_eq!(new_stake, init_stake);
+
+        // Check that the incentive and dividends are set by epoch.
+        assert!(Incentive::<Test>::get(netuid).iter().sum::<u16>() > 0);
+        assert!(Dividends::<Test>::get(netuid).iter().sum::<u16>() > 0);
+    });
+}
+
+#[test]
+fn test_run_coinbase_not_started() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let tempo = 2;
+
+        let sn_owner_hk = U256::from(7);
+        let sn_owner_ck = U256::from(8);
+
+        add_network_without_emission_block(netuid, tempo, 0);
+        assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
+
+        SubnetOwner::<Test>::insert(netuid, sn_owner_ck);
+        SubnetOwnerHotkey::<Test>::insert(netuid, sn_owner_hk);
+
+        let hotkey = U256::from(3);
+        let coldkey = U256::from(4);
+        let miner_hk = U256::from(5);
+        let miner_ck = U256::from(6);
+        let init_stake: u64 = 100_000_000_000_000;
+        let tempo = 2;
+        SubtensorModule::set_tempo(netuid, tempo);
+        // Set weight-set limit to 0.
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        register_ok_neuron(netuid, miner_hk, miner_ck, 0);
+        register_ok_neuron(netuid, sn_owner_hk, sn_owner_ck, 0);
+        // Give non-zero stake
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid, init_stake,
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+            init_stake
+        );
+
+        // Set the weight of root TAO to be 0%, so only alpha is effective.
+        SubtensorModule::set_tao_weight(0);
+
+        run_to_block_no_epoch(netuid, 30);
+
+        // Run epoch for initial setup.
+        SubtensorModule::epoch(netuid, 0);
+
+        // Set weights on miner
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            vec![0, 1, 2],
+            vec![0, 0, 1],
+            0,
+        ));
+
+        // Clear incentive and dividends.
+        Incentive::<Test>::remove(netuid);
+        Dividends::<Test>::remove(netuid);
+
+        // Step so tempo should run.
+        next_block_no_epoch(netuid);
+        next_block_no_epoch(netuid);
+        next_block_no_epoch(netuid);
+        let current_block = System::block_number();
+        assert!(SubtensorModule::should_run_epoch(netuid, current_block));
+
+        // Run coinbase with emission.
+        SubtensorModule::run_coinbase(I96F32::saturating_from_num(100_000_000));
+
+        // We expect that the epoch ran.
+        assert_eq!(BlocksSinceLastStep::<Test>::get(netuid), 0);
+
+        // Get the new stake of the hotkey. We expect no emissions.
+        let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
+        // We expect the stake to remain unchanged.
+        assert_eq!(new_stake, init_stake);
+
+        // Check that the incentive and dividends are set.
+        assert!(Incentive::<Test>::get(netuid).iter().sum::<u16>() > 0);
+        assert!(Dividends::<Test>::get(netuid).iter().sum::<u16>() > 0);
+    });
+}
+
+#[test]
+fn test_run_coinbase_not_started_start_after() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let tempo = 2;
+
+        let sn_owner_hk = U256::from(7);
+        let sn_owner_ck = U256::from(8);
+
+        add_network_without_emission_block(netuid, tempo, 0);
+        assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
+
+        SubnetOwner::<Test>::insert(netuid, sn_owner_ck);
+        SubnetOwnerHotkey::<Test>::insert(netuid, sn_owner_hk);
+
+        let hotkey = U256::from(3);
+        let coldkey = U256::from(4);
+        let miner_hk = U256::from(5);
+        let miner_ck = U256::from(6);
+        let init_stake: u64 = 100_000_000_000_000;
+        let tempo = 2;
+        SubtensorModule::set_tempo(netuid, tempo);
+        // Set weight-set limit to 0.
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        register_ok_neuron(netuid, miner_hk, miner_ck, 0);
+        register_ok_neuron(netuid, sn_owner_hk, sn_owner_ck, 0);
+        // Give non-zero stake
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid, init_stake,
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+            init_stake
+        );
+
+        // Set the weight of root TAO to be 0%, so only alpha is effective.
+        SubtensorModule::set_tao_weight(0);
+
+        run_to_block_no_epoch(netuid, 30);
+
+        // Run epoch for initial setup.
+        SubtensorModule::epoch(netuid, 0);
+
+        // Set weights on miner
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            vec![0, 1, 2],
+            vec![0, 0, 1],
+            0,
+        ));
+
+        // Clear incentive and dividends.
+        Incentive::<Test>::remove(netuid);
+        Dividends::<Test>::remove(netuid);
+
+        // Step so tempo should run.
+        next_block_no_epoch(netuid);
+        next_block_no_epoch(netuid);
+        next_block_no_epoch(netuid);
+        let current_block = System::block_number();
+        assert!(SubtensorModule::should_run_epoch(netuid, current_block));
+
+        // Run coinbase with emission.
+        SubtensorModule::run_coinbase(I96F32::saturating_from_num(100_000_000));
+        // We expect that the epoch ran.
+        assert_eq!(BlocksSinceLastStep::<Test>::get(netuid), 0);
+
+        let block_number = DurationOfStartCall::get();
+        run_to_block_no_epoch(netuid, block_number);
+
+        let current_block = System::block_number();
+
+        // Run start call.
+        assert_ok!(SubtensorModule::start_call(
+            RuntimeOrigin::signed(sn_owner_ck),
+            netuid
+        ));
+        assert_eq!(
+            FirstEmissionBlockNumber::<Test>::get(netuid),
+            Some(current_block + 1)
+        );
+
+        // Run coinbase with emission.
+        SubtensorModule::run_coinbase(I96F32::saturating_from_num(100_000_000));
+        // We expect that the epoch ran.
+        assert_eq!(BlocksSinceLastStep::<Test>::get(netuid), 0);
+
+        // Get the new stake of the hotkey. We expect no emissions.
+        let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
+        // We expect the stake to remain unchanged.
+        assert!(new_stake > init_stake);
+        log::info!("new_stake: {}", new_stake);
+    });
+}

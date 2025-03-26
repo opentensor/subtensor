@@ -595,6 +595,30 @@ pub(crate) fn run_to_block(n: u64) {
 }
 
 #[allow(dead_code)]
+pub(crate) fn next_block_no_epoch(netuid: u16) -> u64 {
+    // high tempo to skip automatic epochs in on_initialize
+    let high_tempo: u16 = u16::MAX - 1;
+    let old_tempo: u16 = SubtensorModule::get_tempo(netuid);
+
+    SubtensorModule::set_tempo(netuid, high_tempo);
+    let new_block = next_block();
+    SubtensorModule::set_tempo(netuid, old_tempo);
+
+    new_block
+}
+
+#[allow(dead_code)]
+pub(crate) fn run_to_block_no_epoch(netuid: u16, n: u64) {
+    // high tempo to skip automatic epochs in on_initialize
+    let high_tempo: u16 = u16::MAX - 1;
+    let old_tempo: u16 = SubtensorModule::get_tempo(netuid);
+
+    SubtensorModule::set_tempo(netuid, high_tempo);
+    run_to_block(n);
+    SubtensorModule::set_tempo(netuid, old_tempo);
+}
+
+#[allow(dead_code)]
 pub(crate) fn step_epochs(count: u16, netuid: u16) {
     for _ in 0..count {
         let blocks_to_next_epoch = SubtensorModule::blocks_until_next_epoch(
