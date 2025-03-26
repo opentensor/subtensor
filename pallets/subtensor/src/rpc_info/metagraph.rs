@@ -1458,7 +1458,7 @@ fn test_selective_metagraph() {
     let alph_low_index: usize = 49;
     let metagraph_alpha_low = SelectiveMetagraph::<u32> {
         netuid: 0_u16.into(),
-        alpha_low: Some(0_16.into()),
+        alpha_low: Some(0_u16.into()),
         ..Default::default()
     };
     assert!(metagraph.alpha_low.is_none());
