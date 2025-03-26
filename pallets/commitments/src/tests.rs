@@ -1244,7 +1244,7 @@ fn set_commitment_unreserve_leftover_fails() {
             block: 0u64.into(),
         };
 
-        CommitmentOf::<Test>::insert(netuid, &who, registration);
+        CommitmentOf::<Test>::insert(netuid, who, registration);
 
         assert_ok!(Balances::reserve(&who, fake_deposit));
         assert_eq!(Balances::reserved_balance(who), 100);
