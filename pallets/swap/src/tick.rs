@@ -2,7 +2,8 @@
 use core::convert::TryFrom;
 use core::error::Error;
 use core::fmt;
-use core::ops::{BitOr, Neg, Shl, Shr};
+use core::hash::Hash;
+use core::ops::{Add, AddAssign, BitOr, Deref, Neg, Shl, Shr, Sub, SubAssign};
 
 use alloy_primitives::{I256, U256};
 use frame_support::pallet_prelude::*;
@@ -44,9 +45,6 @@ const U256_MAX_TICK: U256 = U256::from_limbs([887272, 0, 0, 0]);
 const MIN_TICK: i32 = -887272;
 const MAX_TICK: i32 = -MIN_TICK;
 
-pub const MIN_TICK_INDEX: i32 = -443636;
-pub const MAX_TICK_INDEX: i32 = -MIN_TICK_INDEX;
-
 const MIN_SQRT_RATIO: U256 = U256::from_limbs([4295128739, 0, 0, 0]);
 const MAX_SQRT_RATIO: U256 =
     U256::from_limbs([6743328256752651558, 17280870778742802505, 4294805859, 0]);
@@ -71,9 +69,6 @@ const TICK_HIGH: I256 = I256::from_raw(U256::from_limbs([
 ///  - Net liquidity
 ///  - Gross liquidity
 ///  - Fees (above global) in both currencies
-use core::hash::Hash;
-use core::ops::{Add, AddAssign, Deref, Sub, SubAssign};
-
 #[derive(Debug, Default, Clone, Encode, Decode, TypeInfo, MaxEncodedLen, PartialEq, Eq)]
 pub struct Tick {
     pub liquidity_net: i128,
@@ -98,7 +93,7 @@ pub struct Tick {
     Ord,
     Hash,
 )]
-pub struct TickIndex(pub i32);
+pub struct TickIndex(i32);
 
 impl Add<TickIndex> for TickIndex {
     type Output = Self;
@@ -171,6 +166,10 @@ impl TickIndex {
     /// Minimum value of the tick index
     /// The tick_math library uses different bitness, so we have to divide by 2.
     pub const MIN: Self = Self(MIN_TICK / 2);
+    
+    /// All tick indexes are offset by this value for storage needs
+    /// so that tick indexes are positive, which simplifies bit logic
+    pub const OFFSET: Self = Self(MAX_TICK);
 
     /// Converts a sqrt price to a tick index, ensuring it's within valid bounds
     ///
@@ -254,6 +253,82 @@ impl TickIndex {
     /// Subtract a value from this tick index with bounds checking
     pub fn checked_sub(&self, value: i32) -> Result<Self, TickMathError> {
         Self::new(self.0 - value)
+    }
+
+    /// Add a value to this tick index, saturating at the bounds instead of overflowing
+    pub fn saturating_add(&self, value: i32) -> Self {
+        match self.checked_add(value) {
+            Ok(result) => result,
+            Err(_) => {
+                if value > 0 {
+                    Self::MAX
+                } else {
+                    Self::MIN
+                }
+            }
+        }
+    }
+
+    /// Subtract a value from this tick index, saturating at the bounds instead of overflowing
+    pub fn saturating_sub(&self, value: i32) -> Self {
+        match self.checked_sub(value) {
+            Ok(result) => result,
+            Err(_) => {
+                if value > 0 {
+                    Self::MIN
+                } else {
+                    Self::MAX
+                }
+            }
+        }
+    }
+
+    /// Divide the tick index by a value with bounds checking
+    pub fn checked_div(&self, value: i32) -> Result<Self, TickMathError> {
+        if value == 0 {
+            return Err(TickMathError::DivisionByZero);
+        }
+        Self::new(self.0 / value)
+    }
+
+    /// Divide the tick index by a value, saturating at the bounds
+    pub fn saturating_div(&self, value: i32) -> Self {
+        if value == 0 {
+            return Self::MAX; // Return MAX for division by zero
+        }
+        match self.checked_div(value) {
+            Ok(result) => result,
+            Err(_) => {
+                if (self.0 < 0 && value > 0) || (self.0 > 0 && value < 0) {
+                    Self::MIN
+                } else {
+                    Self::MAX
+                }
+            }
+        }
+    }
+
+    /// Multiply the tick index by a value with bounds checking
+    pub fn checked_mul(&self, value: i32) -> Result<Self, TickMathError> {
+        // Check for potential overflow
+        match self.0.checked_mul(value) {
+            Some(result) => Self::new(result),
+            None => Err(TickMathError::Overflow),
+        }
+    }
+
+    /// Multiply the tick index by a value, saturating at the bounds
+    pub fn saturating_mul(&self, value: i32) -> Self {
+        match self.checked_mul(value) {
+            Ok(result) => result,
+            Err(_) => {
+                if (self.0 < 0 && value > 0) || (self.0 > 0 && value < 0) {
+                    Self::MIN
+                } else {
+                    Self::MAX
+                }
+            }
+        }
     }
 
     /// Converts tick index into SQRT of lower price of this tick In order to find the higher price
@@ -600,6 +675,7 @@ pub enum TickMathError {
     SqrtPriceOutOfBounds,
     ConversionError,
     Overflow,
+    DivisionByZero,
 }
 
 impl fmt::Display for TickMathError {
@@ -608,7 +684,8 @@ impl fmt::Display for TickMathError {
 			Self::TickOutOfBounds => f.write_str("The given tick is outside of the minimum/maximum values."),
 			Self::SqrtPriceOutOfBounds =>f.write_str("Second inequality must be < because the price can never reach the price at the max tick"),
 			Self::ConversionError => f.write_str("Error converting from one number type into another"),
-			Self::Overflow => f.write_str("Number overflow in arithmetic operation")
+			Self::Overflow => f.write_str("Number overflow in arithmetic operation"),
+			Self::DivisionByZero => f.write_str("Division by zero is not allowed")
 		}
     }
 }
