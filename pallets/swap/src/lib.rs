@@ -2047,80 +2047,80 @@ mod tests {
         let mock_ops = MockSwapDataOperations::new();
         let mut swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
 
-        swap.insert_active_tick(MIN_TICK_INDEX);
+        swap.insert_active_tick(TickIndex::MIN);
         assert_eq!(
-            swap.find_closest_lower_active_tick_index(MIN_TICK_INDEX)
+            swap.find_closest_lower_active_tick_index(TickIndex::MIN)
                 .unwrap(),
-            MIN_TICK_INDEX
+            TickIndex::MIN
         );
         assert_eq!(
-            swap.find_closest_lower_active_tick_index(MAX_TICK_INDEX)
+            swap.find_closest_lower_active_tick_index(TickIndex::MAX)
                 .unwrap(),
-            MIN_TICK_INDEX
+            TickIndex::MIN
         );
         assert_eq!(
-            swap.find_closest_lower_active_tick_index(MAX_TICK_INDEX / 2)
+            swap.find_closest_lower_active_tick_index(TickIndex::MAX.saturating_div(2))
                 .unwrap(),
-            MIN_TICK_INDEX
+            TickIndex::MIN
         );
         assert_eq!(
-            swap.find_closest_lower_active_tick_index(MAX_TICK_INDEX - 1)
+            swap.find_closest_lower_active_tick_index(TickIndex::MAX.prev().unwrap())
                 .unwrap(),
-            MIN_TICK_INDEX
+            TickIndex::MIN
         );
         assert_eq!(
-            swap.find_closest_lower_active_tick_index(MIN_TICK_INDEX + 1)
+            swap.find_closest_lower_active_tick_index(TickIndex::MIN.next().unwrap())
                 .unwrap(),
-            MIN_TICK_INDEX
+            TickIndex::MIN
         );
 
         assert_eq!(
-            swap.find_closest_higher_active_tick_index(MIN_TICK_INDEX)
+            swap.find_closest_higher_active_tick_index(TickIndex::MIN)
                 .unwrap(),
-            MIN_TICK_INDEX
+            TickIndex::MIN
         );
         assert_eq!(
-            swap.find_closest_higher_active_tick_index(MAX_TICK_INDEX),
+            swap.find_closest_higher_active_tick_index(TickIndex::MAX),
             None
         );
         assert_eq!(
-            swap.find_closest_higher_active_tick_index(MAX_TICK_INDEX / 2),
+            swap.find_closest_higher_active_tick_index(TickIndex::MAX.saturating_div(2)),
             None
         );
         assert_eq!(
-            swap.find_closest_higher_active_tick_index(MAX_TICK_INDEX - 1),
+            swap.find_closest_higher_active_tick_index(TickIndex::MAX.prev().unwrap()),
             None
         );
         assert_eq!(
-            swap.find_closest_higher_active_tick_index(MIN_TICK_INDEX + 1),
+            swap.find_closest_higher_active_tick_index(TickIndex::MIN.next().unwrap()),
             None
         );
 
-        swap.insert_active_tick(MAX_TICK_INDEX);
+        swap.insert_active_tick(TickIndex::MAX);
         assert_eq!(
-            swap.find_closest_lower_active_tick_index(MIN_TICK_INDEX)
+            swap.find_closest_lower_active_tick_index(TickIndex::MIN)
                 .unwrap(),
-            MIN_TICK_INDEX
+            TickIndex::MIN
         );
         assert_eq!(
-            swap.find_closest_lower_active_tick_index(MAX_TICK_INDEX)
+            swap.find_closest_lower_active_tick_index(TickIndex::MAX)
                 .unwrap(),
-            MAX_TICK_INDEX
+            TickIndex::MAX
         );
         assert_eq!(
-            swap.find_closest_lower_active_tick_index(MAX_TICK_INDEX / 2)
+            swap.find_closest_lower_active_tick_index(TickIndex::MAX.saturating_div(2))
                 .unwrap(),
-            MIN_TICK_INDEX
+            TickIndex::MIN
         );
         assert_eq!(
-            swap.find_closest_lower_active_tick_index(MAX_TICK_INDEX - 1)
+            swap.find_closest_lower_active_tick_index(TickIndex::MAX.prev().unwrap())
                 .unwrap(),
-            MIN_TICK_INDEX
+            TickIndex::MIN
         );
         assert_eq!(
-            swap.find_closest_lower_active_tick_index(MIN_TICK_INDEX + 1)
+            swap.find_closest_lower_active_tick_index(TickIndex::MIN.next().unwrap())
                 .unwrap(),
-            MIN_TICK_INDEX
+            TickIndex::MIN
         );
     }
 
@@ -2129,53 +2129,54 @@ mod tests {
         let mock_ops = MockSwapDataOperations::new();
         let mut swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
 
-        swap.insert_active_tick(MIN_TICK_INDEX + 10);
+        let active_index = TickIndex::MIN.saturating_add(10);
+        swap.insert_active_tick(active_index);
         assert_eq!(
-            swap.find_closest_lower_active_tick_index(MIN_TICK_INDEX + 10)
+            swap.find_closest_lower_active_tick_index(active_index)
                 .unwrap(),
-            MIN_TICK_INDEX + 10
+            active_index
         );
         assert_eq!(
-            swap.find_closest_lower_active_tick_index(MIN_TICK_INDEX + 11)
+            swap.find_closest_lower_active_tick_index(TickIndex::MIN.saturating_add(11))
                 .unwrap(),
-            MIN_TICK_INDEX + 10
+            active_index
         );
         assert_eq!(
-            swap.find_closest_lower_active_tick_index(MIN_TICK_INDEX + 12)
+            swap.find_closest_lower_active_tick_index(TickIndex::MIN.saturating_add(12))
                 .unwrap(),
-            MIN_TICK_INDEX + 10
+            active_index
         );
         assert_eq!(
-            swap.find_closest_lower_active_tick_index(MIN_TICK_INDEX),
+            swap.find_closest_lower_active_tick_index(TickIndex::MIN),
             None
         );
         assert_eq!(
-            swap.find_closest_lower_active_tick_index(MIN_TICK_INDEX + 9),
+            swap.find_closest_lower_active_tick_index(TickIndex::MIN.saturating_add(9)),
             None
         );
 
         assert_eq!(
-            swap.find_closest_higher_active_tick_index(MIN_TICK_INDEX + 10)
+            swap.find_closest_higher_active_tick_index(active_index)
                 .unwrap(),
-            MIN_TICK_INDEX + 10
+            active_index
         );
         assert_eq!(
-            swap.find_closest_higher_active_tick_index(MIN_TICK_INDEX + 11),
+            swap.find_closest_higher_active_tick_index(TickIndex::MIN.saturating_add(11)),
             None
         );
         assert_eq!(
-            swap.find_closest_higher_active_tick_index(MIN_TICK_INDEX + 12),
+            swap.find_closest_higher_active_tick_index(TickIndex::MIN.saturating_add(12)),
             None
         );
         assert_eq!(
-            swap.find_closest_higher_active_tick_index(MIN_TICK_INDEX)
+            swap.find_closest_higher_active_tick_index(TickIndex::MIN)
                 .unwrap(),
-            MIN_TICK_INDEX + 10
+            active_index
         );
         assert_eq!(
-            swap.find_closest_higher_active_tick_index(MIN_TICK_INDEX + 9)
+            swap.find_closest_higher_active_tick_index(TickIndex::MIN.saturating_add(9))
                 .unwrap(),
-            MIN_TICK_INDEX + 10
+            active_index
         );
     }
 
@@ -2184,19 +2185,21 @@ mod tests {
         let mock_ops = MockSwapDataOperations::new();
         let mut swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
 
+        (0..1000).for_each(|i| {
+            swap.insert_active_tick(TickIndex::MIN.saturating_add(i));
+        });
+
         for i in 0..1000 {
-            swap.insert_active_tick(MIN_TICK_INDEX + i);
-        }
-        for i in 0..1000 {
+            let test_index = TickIndex::MIN.saturating_add(i);
             assert_eq!(
-                swap.find_closest_lower_active_tick_index(MIN_TICK_INDEX + i)
+                swap.find_closest_lower_active_tick_index(test_index)
                     .unwrap(),
-                MIN_TICK_INDEX + i
+                test_index
             );
             assert_eq!(
-                swap.find_closest_higher_active_tick_index(MIN_TICK_INDEX + i)
+                swap.find_closest_higher_active_tick_index(test_index)
                     .unwrap(),
-                MIN_TICK_INDEX + i
+                test_index
             );
         }
     }
@@ -2208,37 +2211,42 @@ mod tests {
         let count: i32 = 1000;
 
         for i in 0..=count {
-            swap.insert_active_tick(i * 10);
+            swap.insert_active_tick(TickIndex::new_unchecked(i * 10));
         }
         for i in 1..count {
+            let tick = TickIndex::new_unchecked(i * 10);
             assert_eq!(
-                swap.find_closest_lower_active_tick_index(i * 10).unwrap(),
-                i * 10
+                swap.find_closest_lower_active_tick_index(tick).unwrap(),
+                tick
             );
             assert_eq!(
-                swap.find_closest_higher_active_tick_index(i * 10).unwrap(),
-                i * 10
+                swap.find_closest_higher_active_tick_index(tick).unwrap(),
+                tick
             );
             for j in 1..=9 {
+                let before_tick = TickIndex::new_unchecked(i * 10 - j);
+                let after_tick = TickIndex::new_unchecked(i * 10 + j);
+                let prev_tick = TickIndex::new_unchecked((i - 1) * 10);
+                let next_tick = TickIndex::new_unchecked((i + 1) * 10);
                 assert_eq!(
-                    swap.find_closest_lower_active_tick_index(i * 10 - j)
+                    swap.find_closest_lower_active_tick_index(before_tick)
                         .unwrap(),
-                    (i - 1) * 10
+                    prev_tick
                 );
                 assert_eq!(
-                    swap.find_closest_lower_active_tick_index(i * 10 + j)
+                    swap.find_closest_lower_active_tick_index(after_tick)
                         .unwrap(),
-                    i * 10
+                    tick
                 );
                 assert_eq!(
-                    swap.find_closest_higher_active_tick_index(i * 10 - j)
+                    swap.find_closest_higher_active_tick_index(before_tick)
                         .unwrap(),
-                    i * 10
+                    tick
                 );
                 assert_eq!(
-                    swap.find_closest_higher_active_tick_index(i * 10 + j)
+                    swap.find_closest_higher_active_tick_index(after_tick)
                         .unwrap(),
-                    (i + 1) * 10
+                    next_tick
                 );
             }
         }
@@ -2251,37 +2259,43 @@ mod tests {
         let count: i32 = 1000;
 
         for i in (0..=count).rev() {
-            swap.insert_active_tick(i * 10);
+            swap.insert_active_tick(TickIndex::new_unchecked(i * 10));
         }
         for i in 1..count {
+            let tick = TickIndex::new_unchecked(i * 10);
             assert_eq!(
-                swap.find_closest_lower_active_tick_index(i * 10).unwrap(),
-                i * 10
+                swap.find_closest_lower_active_tick_index(tick).unwrap(),
+                tick
             );
             assert_eq!(
-                swap.find_closest_higher_active_tick_index(i * 10).unwrap(),
-                i * 10
+                swap.find_closest_higher_active_tick_index(tick).unwrap(),
+                tick
             );
             for j in 1..=9 {
+                let before_tick = TickIndex::new_unchecked(i * 10 - j);
+                let after_tick = TickIndex::new_unchecked(i * 10 + j);
+                let prev_tick = TickIndex::new_unchecked((i - 1) * 10);
+                let next_tick = TickIndex::new_unchecked((i + 1) * 10);
+
                 assert_eq!(
-                    swap.find_closest_lower_active_tick_index(i * 10 - j)
+                    swap.find_closest_lower_active_tick_index(before_tick)
                         .unwrap(),
-                    (i - 1) * 10
+                    prev_tick
                 );
                 assert_eq!(
-                    swap.find_closest_lower_active_tick_index(i * 10 + j)
+                    swap.find_closest_lower_active_tick_index(after_tick)
                         .unwrap(),
-                    i * 10
+                    tick
                 );
                 assert_eq!(
-                    swap.find_closest_higher_active_tick_index(i * 10 - j)
+                    swap.find_closest_higher_active_tick_index(before_tick)
                         .unwrap(),
-                    i * 10
+                    tick
                 );
                 assert_eq!(
-                    swap.find_closest_higher_active_tick_index(i * 10 + j)
+                    swap.find_closest_higher_active_tick_index(after_tick)
                         .unwrap(),
-                    (i + 1) * 10
+                    next_tick
                 );
             }
         }
@@ -2295,37 +2309,44 @@ mod tests {
 
         for _ in 0..10 {
             for i in 0..=count {
-                swap.insert_active_tick(i * 10);
+                let tick = TickIndex::new_unchecked(i * 10);
+                swap.insert_active_tick(tick);
             }
             for i in 1..count {
+                let tick = TickIndex::new_unchecked(i * 10);
                 assert_eq!(
-                    swap.find_closest_lower_active_tick_index(i * 10).unwrap(),
-                    i * 10
+                    swap.find_closest_lower_active_tick_index(tick).unwrap(),
+                    tick
                 );
                 assert_eq!(
-                    swap.find_closest_higher_active_tick_index(i * 10).unwrap(),
-                    i * 10
+                    swap.find_closest_higher_active_tick_index(tick).unwrap(),
+                    tick
                 );
                 for j in 1..=9 {
+                    let before_tick = TickIndex::new_unchecked(i * 10 - j);
+                    let after_tick = TickIndex::new_unchecked(i * 10 + j);
+                    let prev_tick = TickIndex::new_unchecked((i - 1) * 10);
+                    let next_tick = TickIndex::new_unchecked((i + 1) * 10);
+
                     assert_eq!(
-                        swap.find_closest_lower_active_tick_index(i * 10 - j)
+                        swap.find_closest_lower_active_tick_index(before_tick)
                             .unwrap(),
-                        (i - 1) * 10
+                        prev_tick
                     );
                     assert_eq!(
-                        swap.find_closest_lower_active_tick_index(i * 10 + j)
+                        swap.find_closest_lower_active_tick_index(after_tick)
                             .unwrap(),
-                        i * 10
+                        tick
                     );
                     assert_eq!(
-                        swap.find_closest_higher_active_tick_index(i * 10 - j)
+                        swap.find_closest_higher_active_tick_index(before_tick)
                             .unwrap(),
-                        i * 10
+                        tick
                     );
                     assert_eq!(
-                        swap.find_closest_higher_active_tick_index(i * 10 + j)
+                        swap.find_closest_higher_active_tick_index(after_tick)
                             .unwrap(),
-                        (i + 1) * 10
+                        next_tick
                     );
                 }
             }
@@ -2337,32 +2358,37 @@ mod tests {
         let mock_ops = MockSwapDataOperations::new();
         let mut swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
         let step = 1019;
-        let count = (MAX_TICK_INDEX - MIN_TICK_INDEX) / step;
+        // Get the full valid tick range by subtracting MIN from MAX
+        let count = (TickIndex::MAX.get() - TickIndex::MIN.get()) / step;
 
         for i in 0..=count {
-            let index = MIN_TICK_INDEX + i * step;
+            let index = TickIndex::MIN.saturating_add(i * step);
             swap.insert_active_tick(index);
         }
         for i in 1..count {
-            let index = MIN_TICK_INDEX + i * step;
+            let index = TickIndex::MIN.saturating_add(i * step);
+
+            let prev_index = TickIndex::new_unchecked(index.get() - step);
+            let next_minus_one = TickIndex::new_unchecked(index.get() + step - 1);
 
             assert_eq!(
-                swap.find_closest_lower_active_tick_index(index - step)
+                swap.find_closest_lower_active_tick_index(prev_index)
                     .unwrap(),
-                index - step
+                prev_index
             );
             assert_eq!(
                 swap.find_closest_lower_active_tick_index(index).unwrap(),
                 index
             );
             assert_eq!(
-                swap.find_closest_lower_active_tick_index(index + step - 1)
+                swap.find_closest_lower_active_tick_index(next_minus_one)
                     .unwrap(),
                 index
             );
+
+            let mid_next = TickIndex::new_unchecked(index.get() + step / 2);
             assert_eq!(
-                swap.find_closest_lower_active_tick_index(index + step / 2)
-                    .unwrap(),
+                swap.find_closest_lower_active_tick_index(mid_next).unwrap(),
                 index
             );
 
@@ -2370,41 +2396,50 @@ mod tests {
                 swap.find_closest_higher_active_tick_index(index).unwrap(),
                 index
             );
+
+            let next_index = TickIndex::new_unchecked(index.get() + step);
             assert_eq!(
-                swap.find_closest_higher_active_tick_index(index + step)
+                swap.find_closest_higher_active_tick_index(next_index)
                     .unwrap(),
-                index + step
+                next_index
             );
+
+            let mid_next = TickIndex::new_unchecked(index.get() + step / 2);
             assert_eq!(
-                swap.find_closest_higher_active_tick_index(index + step / 2)
+                swap.find_closest_higher_active_tick_index(mid_next)
                     .unwrap(),
-                index + step
+                next_index
             );
+
+            let next_minus_1 = TickIndex::new_unchecked(index.get() + step - 1);
             assert_eq!(
-                swap.find_closest_higher_active_tick_index(index + step - 1)
+                swap.find_closest_higher_active_tick_index(next_minus_1)
                     .unwrap(),
-                index + step
+                next_index
             );
             for j in 1..=9 {
+                let before_index = TickIndex::new_unchecked(index.get() - j);
+                let after_index = TickIndex::new_unchecked(index.get() + j);
+
                 assert_eq!(
-                    swap.find_closest_lower_active_tick_index(index - j)
+                    swap.find_closest_lower_active_tick_index(before_index)
                         .unwrap(),
-                    index - step
+                    prev_index
                 );
                 assert_eq!(
-                    swap.find_closest_lower_active_tick_index(index + j)
+                    swap.find_closest_lower_active_tick_index(after_index)
                         .unwrap(),
                     index
                 );
                 assert_eq!(
-                    swap.find_closest_higher_active_tick_index(index - j)
+                    swap.find_closest_higher_active_tick_index(before_index)
                         .unwrap(),
                     index
                 );
                 assert_eq!(
-                    swap.find_closest_higher_active_tick_index(index + j)
+                    swap.find_closest_higher_active_tick_index(after_index)
                         .unwrap(),
-                    index + step
+                    next_index
                 );
             }
         }
@@ -2415,55 +2450,55 @@ mod tests {
         let mock_ops = MockSwapDataOperations::new();
         let mut swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
 
-        swap.insert_active_tick(MIN_TICK_INDEX);
-        swap.insert_active_tick(MAX_TICK_INDEX);
-        swap.remove_active_tick(MAX_TICK_INDEX);
+        swap.insert_active_tick(TickIndex::MIN);
+        swap.insert_active_tick(TickIndex::MAX);
+        swap.remove_active_tick(TickIndex::MAX);
 
         assert_eq!(
-            swap.find_closest_lower_active_tick_index(MIN_TICK_INDEX)
+            swap.find_closest_lower_active_tick_index(TickIndex::MIN)
                 .unwrap(),
-            MIN_TICK_INDEX
+            TickIndex::MIN
         );
         assert_eq!(
-            swap.find_closest_lower_active_tick_index(MAX_TICK_INDEX)
+            swap.find_closest_lower_active_tick_index(TickIndex::MAX)
                 .unwrap(),
-            MIN_TICK_INDEX
+            TickIndex::MIN
         );
         assert_eq!(
-            swap.find_closest_lower_active_tick_index(MAX_TICK_INDEX / 2)
+            swap.find_closest_lower_active_tick_index(TickIndex::MAX.saturating_div(2))
                 .unwrap(),
-            MIN_TICK_INDEX
+            TickIndex::MIN
         );
         assert_eq!(
-            swap.find_closest_lower_active_tick_index(MAX_TICK_INDEX - 1)
+            swap.find_closest_lower_active_tick_index(TickIndex::MAX.prev().unwrap())
                 .unwrap(),
-            MIN_TICK_INDEX
+            TickIndex::MIN
         );
         assert_eq!(
-            swap.find_closest_lower_active_tick_index(MIN_TICK_INDEX + 1)
+            swap.find_closest_lower_active_tick_index(TickIndex::MIN.next().unwrap())
                 .unwrap(),
-            MIN_TICK_INDEX
+            TickIndex::MIN
         );
 
         assert_eq!(
-            swap.find_closest_higher_active_tick_index(MIN_TICK_INDEX)
+            swap.find_closest_higher_active_tick_index(TickIndex::MIN)
                 .unwrap(),
-            MIN_TICK_INDEX
+            TickIndex::MIN
         );
         assert_eq!(
-            swap.find_closest_higher_active_tick_index(MAX_TICK_INDEX),
+            swap.find_closest_higher_active_tick_index(TickIndex::MAX),
             None
         );
         assert_eq!(
-            swap.find_closest_higher_active_tick_index(MAX_TICK_INDEX / 2),
+            swap.find_closest_higher_active_tick_index(TickIndex::MAX.saturating_div(2)),
             None
         );
         assert_eq!(
-            swap.find_closest_higher_active_tick_index(MAX_TICK_INDEX - 1),
+            swap.find_closest_higher_active_tick_index(TickIndex::MAX.prev().unwrap()),
             None
         );
         assert_eq!(
-            swap.find_closest_higher_active_tick_index(MIN_TICK_INDEX + 1),
+            swap.find_closest_higher_active_tick_index(TickIndex::MIN.next().unwrap()),
             None
         );
     }
@@ -2473,26 +2508,27 @@ mod tests {
         let mock_ops = MockSwapDataOperations::new();
         let mut swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
         let step = 1019;
-        let count = (MAX_TICK_INDEX - MIN_TICK_INDEX) / step;
+        // Get the full valid tick range by subtracting MIN from MAX
+        let count = (TickIndex::MAX.get() - TickIndex::MIN.get()) / step;
         let remove_frequency = 5; // Remove every 5th tick
 
         // Insert ticks
         for i in 0..=count {
-            let index = MIN_TICK_INDEX + i * step;
+            let index = TickIndex::MIN.saturating_add(i * step);
             swap.insert_active_tick(index);
         }
 
         // Remove some ticks
         for i in 1..count {
             if i % remove_frequency == 0 {
-                let index = MIN_TICK_INDEX + i * step;
+                let index = TickIndex::MIN.saturating_add(i * step);
                 swap.remove_active_tick(index);
             }
         }
 
         // Verify
         for i in 1..count {
-            let index = MIN_TICK_INDEX + i * step;
+            let index = TickIndex::MIN.saturating_add(i * step);
 
             if i % remove_frequency == 0 {
                 let lower = swap.find_closest_lower_active_tick_index(index);
