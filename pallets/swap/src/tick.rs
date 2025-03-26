@@ -7,6 +7,7 @@ use core::ops::{Add, AddAssign, BitOr, Deref, Neg, Shl, Shr, Sub, SubAssign};
 
 use alloy_primitives::{I256, U256};
 use frame_support::pallet_prelude::*;
+use safe_math::*;
 use substrate_fixed::types::U64F64;
 
 use crate::{SqrtPrice, SwapDataOperations};
@@ -159,14 +160,16 @@ impl TryIntoTickIndex for i32 {
 }
 
 impl TickIndex {
-    /// Maximum value of the tick index
-    /// The tick_math library uses different bitness, so we have to divide by 2.
-    pub const MAX: Self = Self(MAX_TICK / 2);
-
     /// Minimum value of the tick index
     /// The tick_math library uses different bitness, so we have to divide by 2.
+    /// It's unsafe to change this value to something else.
     pub const MIN: Self = Self(MIN_TICK / 2);
-    
+
+    /// Maximum value of the tick index
+    /// The tick_math library uses different bitness, so we have to divide by 2.
+    /// It's unsafe to change this value to something else.
+    pub const MAX: Self = Self(MAX_TICK / 2);
+
     /// All tick indexes are offset by this value for storage needs
     /// so that tick indexes are positive, which simplifies bit logic
     pub const OFFSET: Self = Self(MAX_TICK);
@@ -233,6 +236,18 @@ impl TickIndex {
     /// Get the inner value
     pub fn get(&self) -> i32 {
         self.0
+    }
+
+    /// Creates a TickIndex from an offset representation (u32)
+    ///
+    /// # Arguments
+    /// * `offset_index` - An offset index (u32 value) representing a tick index
+    ///
+    /// # Returns
+    /// * `Result<TickIndex, TickMathError>` - The corresponding TickIndex if within valid bounds
+    pub fn from_offset_index(offset_index: u32) -> Result<Self, TickMathError> {
+        let signed_index = (offset_index as i64 - Self::OFFSET.get() as i64) as i32;
+        Self::new(signed_index)
     }
 
     /// Get the next tick index (incrementing by 1)
@@ -404,6 +419,122 @@ impl TickIndex {
                 Ok(next_index) => current_index = next_index,
                 Err(_) => return None, // Return None if we go out of bounds
             }
+        }
+    }
+}
+
+/// A bitmap representation of a tick index position across the three-layer structure
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TickIndexBitmap {
+    /// The position in layer 0 (top layer)
+    pub layer0: (u32, u32), // (word, bit)
+    /// The position in layer 1 (middle layer)
+    pub layer1: (u32, u32), // (word, bit)
+    /// The position in layer 2 (bottom layer)
+    pub layer2: (u32, u32), // (word, bit)
+}
+
+impl TickIndexBitmap {
+    /// Helper function to convert a bitmap index to a (word, bit) tuple in a bitmap layer using
+    /// safe methods
+    ///
+    /// Note: This function operates on bitmap navigation indices, NOT tick indices.
+    /// It converts a flat index within the bitmap structure to a (word, bit) position.
+    fn index_to_layer(index: u32) -> (u32, u32) {
+        let word = index.safe_div(128);
+        let bit = index.checked_rem(128).unwrap_or_default();
+        (word, bit)
+    }
+
+    /// Converts a position (word, bit) within a layer to a word index in the next layer down
+    /// Note: This returns a bitmap navigation index, NOT a tick index
+    pub fn layer_to_index(word: u32, bit: u32) -> u32 {
+        word.saturating_mul(128).saturating_add(bit)
+    }
+
+    /// Get the mask for a bit in the specified layer
+    pub fn bit_mask(&self, layer: u8) -> u128 {
+        match layer {
+            0 => 1u128 << self.layer0.1,
+            1 => 1u128 << self.layer1.1,
+            2 => 1u128 << self.layer2.1,
+            _ => panic!("Invalid layer: must be 0, 1, or 2"),
+        }
+    }
+
+    /// Get the word for the specified layer
+    pub fn word_at(&self, layer: u8) -> u32 {
+        match layer {
+            0 => self.layer0.0,
+            1 => self.layer1.0,
+            2 => self.layer2.0,
+            _ => panic!("Invalid layer: must be 0, 1, or 2"),
+        }
+    }
+
+    /// Get the bit for the specified layer
+    pub fn bit_at(&self, layer: u8) -> u32 {
+        match layer {
+            0 => self.layer0.1,
+            1 => self.layer1.1,
+            2 => self.layer2.1,
+            _ => panic!("Invalid layer: must be 0, 1, or 2"),
+        }
+    }
+
+    /// Finds the closest active bit in a bitmap word, and if the active bit exactly matches the
+    /// requested bit, then it finds the next one as well
+    ///
+    /// # Arguments
+    /// * `word` - The bitmap word to search within
+    /// * `bit` - The bit position to start searching from
+    /// * `lower` - If true, search for lower bits (decreasing bit position),
+    ///             if false, search for higher bits (increasing bit position)
+    ///
+    /// # Returns
+    /// * Exact match: Vec with [next_bit, bit]
+    /// * Non-exact match: Vec with [closest_bit]
+    /// * No match: Empty Vec
+    pub fn find_closest_active_bit_candidates(word: u128, bit: u32, lower: bool) -> Vec<u32> {
+        let mut result = vec![];
+        let mut mask: u128 = 1_u128.wrapping_shl(bit);
+        let mut active_bit: u32 = bit;
+
+        while mask > 0 {
+            if mask & word != 0 {
+                result.push(active_bit);
+                if active_bit != bit {
+                    break;
+                }
+            }
+
+            mask = if lower {
+                active_bit = active_bit.saturating_sub(1);
+                mask.wrapping_shr(1)
+            } else {
+                active_bit = active_bit.saturating_add(1);
+                mask.wrapping_shl(1)
+            };
+        }
+
+        result
+    }
+}
+
+impl From<TickIndex> for TickIndexBitmap {
+    fn from(tick_index: TickIndex) -> Self {
+        // Convert to offset index (internal operation only)
+        let offset_index = (tick_index.get().saturating_add(TickIndex::OFFSET.get())) as u32;
+
+        // Calculate layer positions
+        let layer2 = Self::index_to_layer(offset_index);
+        let layer1 = Self::index_to_layer(layer2.0);
+        let layer0 = Self::index_to_layer(layer1.0);
+
+        Self {
+            layer0,
+            layer1,
+            layer2,
         }
     }
 }
@@ -971,5 +1102,36 @@ mod tests {
             let round_trip_tick_index = TickIndex::try_from_sqrt_price(sqrt_price).unwrap();
             assert_eq!(round_trip_tick_index, tick_index);
         }
+    }
+
+    #[test]
+    fn test_from_offset_index() {
+        // Test various tick indices
+        for i32_value in [
+            MIN_TICK / 2,
+            -1000,
+            -100,
+            -10,
+            0,
+            10,
+            100,
+            1000,
+            MAX_TICK / 2,
+        ] {
+            let original_tick = TickIndex::new_unchecked(i32_value);
+
+            // Calculate the offset index (adding OFFSET)
+            let offset_index = (i32_value + TickIndex::OFFSET.get()) as u32;
+
+            // Convert back from offset index to tick index
+            let roundtrip_tick = TickIndex::from_offset_index(offset_index).unwrap();
+
+            // Check that we get the same tick index back
+            assert_eq!(original_tick, roundtrip_tick);
+        }
+
+        // Test out of bounds values
+        let too_large = (TickIndex::MAX.get() + TickIndex::OFFSET.get() + 1) as u32;
+        assert!(TickIndex::from_offset_index(too_large).is_err());
     }
 }

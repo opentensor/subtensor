@@ -9,7 +9,7 @@ use safe_math::*;
 use sp_arithmetic::helpers_128bit::sqrt;
 use substrate_fixed::types::U64F64;
 
-use self::tick::{Tick, TickIndex};
+use self::tick::{Tick, TickIndex, TickIndexBitmap};
 
 pub mod pallet;
 mod tick;
@@ -1115,17 +1115,7 @@ where
     /// Deletion: 2 reads, 1-3 writes
     ///
 
-    // Addresses an index as (word, bit)
-    fn index_to_address(index: u32) -> (u32, u32) {
-        let word: u32 = index.safe_div(128);
-        let bit: u32 = index.checked_rem(128).unwrap_or_default();
-        (word, bit)
-    }
-
-    // Reconstructs an index from address in lower level
-    fn address_to_index(word: u32, bit: u32) -> u32 {
-        word.saturating_mul(128).saturating_add(bit)
-    }
+    // Use TickIndexBitmap::layer_to_index instead
 
     pub fn insert_active_tick(&mut self, index: TickIndex) {
         // Check the range
@@ -1133,28 +1123,26 @@ where
             return;
         }
 
-        // Convert the tick index value to an offset_index for the tree representation
-        // to avoid working with the sign bit.
-        let offset_index = (index.get() + TickIndex::OFFSET.get()) as u32;
-
-        // Calculate index in each layer
-        let (layer2_word, layer2_bit) = Self::index_to_address(offset_index);
-        let (layer1_word, layer1_bit) = Self::index_to_address(layer2_word);
-        let (layer0_word, layer0_bit) = Self::index_to_address(layer1_word);
+        // Convert to bitmap representation
+        let bitmap = TickIndexBitmap::from(index);
 
         // Update layer words
-        let mut word0_value = self.state_ops.get_layer0_word(layer0_word);
-        let mut word1_value = self.state_ops.get_layer1_word(layer1_word);
-        let mut word2_value = self.state_ops.get_layer2_word(layer2_word);
+        let mut word0_value = self.state_ops.get_layer0_word(bitmap.word_at(0));
+        let mut word1_value = self.state_ops.get_layer1_word(bitmap.word_at(1));
+        let mut word2_value = self.state_ops.get_layer2_word(bitmap.word_at(2));
 
-        let bit: u128 = 1;
-        word0_value = word0_value | bit.wrapping_shl(layer0_bit);
-        word1_value = word1_value | bit.wrapping_shl(layer1_bit);
-        word2_value = word2_value | bit.wrapping_shl(layer2_bit);
+        // Set bits in each layer
+        word0_value |= bitmap.bit_mask(0);
+        word1_value |= bitmap.bit_mask(1);
+        word2_value |= bitmap.bit_mask(2);
 
-        self.state_ops.set_layer0_word(layer0_word, word0_value);
-        self.state_ops.set_layer1_word(layer1_word, word1_value);
-        self.state_ops.set_layer2_word(layer2_word, word2_value);
+        // Update the storage
+        self.state_ops
+            .set_layer0_word(bitmap.word_at(0), word0_value);
+        self.state_ops
+            .set_layer1_word(bitmap.word_at(1), word1_value);
+        self.state_ops
+            .set_layer2_word(bitmap.word_at(2), word2_value);
     }
 
     pub fn remove_active_tick(&mut self, index: TickIndex) {
@@ -1163,58 +1151,30 @@ where
             return;
         }
 
-        // Convert the tick index value to an offset_index for the tree representation
-        // to avoid working with the sign bit.
-        let offset_index = (index.get() + TickIndex::OFFSET.get()) as u32;
-
-        // Calculate index in each layer
-        let (layer2_word, layer2_bit) = Self::index_to_address(offset_index);
-        let (layer1_word, layer1_bit) = Self::index_to_address(layer2_word);
-        let (layer0_word, layer0_bit) = Self::index_to_address(layer1_word);
+        // Convert to bitmap representation
+        let bitmap = TickIndexBitmap::from(index);
 
         // Update layer words
-        let mut word0_value = self.state_ops.get_layer0_word(layer0_word);
-        let mut word1_value = self.state_ops.get_layer1_word(layer1_word);
-        let mut word2_value = self.state_ops.get_layer2_word(layer2_word);
+        let mut word0_value = self.state_ops.get_layer0_word(bitmap.word_at(0));
+        let mut word1_value = self.state_ops.get_layer1_word(bitmap.word_at(1));
+        let mut word2_value = self.state_ops.get_layer2_word(bitmap.word_at(2));
 
         // Turn the bit off (& !bit) and save as needed
-        let bit: u128 = 1;
-        word2_value = word2_value & !bit.wrapping_shl(layer2_bit);
-        self.state_ops.set_layer2_word(layer2_word, word2_value);
-        if word2_value == 0 {
-            word1_value = word1_value & !bit.wrapping_shl(layer1_bit);
-            self.state_ops.set_layer1_word(layer1_word, word1_value);
-        }
-        if word1_value == 0 {
-            word0_value = word0_value & !bit.wrapping_shl(layer0_bit);
-            self.state_ops.set_layer0_word(layer0_word, word0_value);
-        }
-    }
+        word2_value &= !bitmap.bit_mask(2);
+        self.state_ops
+            .set_layer2_word(bitmap.word_at(2), word2_value);
 
-    // Finds the closest active bit and, if active bit exactly matches bit, then the next one
-    // Exact match: return Some([next, bit])
-    // Non-exact match: return Some([next])
-    // No match: return None
-    fn find_closest_active_bit_candidates(&self, word: u128, bit: u32, lower: bool) -> Vec<u32> {
-        let mut result = vec![];
-        let mut mask: u128 = 1_u128.wrapping_shl(bit);
-        let mut layer0_active_bit: u32 = bit;
-        while mask > 0 {
-            if mask & word != 0 {
-                result.push(layer0_active_bit);
-                if layer0_active_bit != bit {
-                    break;
-                }
-            }
-            mask = if lower {
-                layer0_active_bit = layer0_active_bit.saturating_sub(1);
-                mask.wrapping_shr(1)
-            } else {
-                layer0_active_bit = layer0_active_bit.saturating_add(1);
-                mask.wrapping_shl(1)
-            };
+        if word2_value == 0 {
+            word1_value &= !bitmap.bit_mask(1);
+            self.state_ops
+                .set_layer1_word(bitmap.word_at(1), word1_value);
         }
-        result
+
+        if word1_value == 0 {
+            word0_value &= !bitmap.bit_mask(0);
+            self.state_ops
+                .set_layer0_word(bitmap.word_at(0), word0_value);
+        }
     }
 
     pub fn find_closest_active_tick_index(
@@ -1227,28 +1187,31 @@ where
             return None;
         }
 
-        // Convert the tick index value to an offset_index for the tree representation
-        // to avoid working with the sign bit.
-        let offset_index = (index.get() + TickIndex::OFFSET.get()) as u32;
+        // Convert to bitmap representation
+        let bitmap = TickIndexBitmap::from(index);
         let mut found = false;
         let mut result: u32 = 0;
 
-        // Calculate index in each layer
-        let (layer2_word, layer2_bit) = Self::index_to_address(offset_index);
-        let (layer1_word, layer1_bit) = Self::index_to_address(layer2_word);
-        let (layer0_word, layer0_bit) = Self::index_to_address(layer1_word);
+        // Layer positions from bitmap
+        let layer0_word = bitmap.word_at(0);
+        let layer0_bit = bitmap.bit_at(0);
+        let layer1_word = bitmap.word_at(1);
+        let layer1_bit = bitmap.bit_at(1);
+        let layer2_word = bitmap.word_at(2);
+        let layer2_bit = bitmap.bit_at(2);
 
         // Find the closest active bits in layer 0, then 1, then 2
 
         ///////////////
         // Level 0
         let word0 = self.state_ops.get_layer0_word(layer0_word);
-        let closest_bits_l0 = self.find_closest_active_bit_candidates(word0, layer0_bit, lower);
+        let closest_bits_l0 =
+            TickIndexBitmap::find_closest_active_bit_candidates(word0, layer0_bit, lower);
 
         closest_bits_l0.iter().for_each(|&closest_bit_l0| {
             ///////////////
             // Level 1
-            let word1_index = Self::address_to_index(0, closest_bit_l0);
+            let word1_index = TickIndexBitmap::layer_to_index(0, closest_bit_l0);
 
             // Layer 1 words are different, shift the bit to the word edge
             let start_from_l1_bit = if word1_index < layer1_word {
@@ -1260,12 +1223,15 @@ where
             };
             let word1_value = self.state_ops.get_layer1_word(word1_index);
 
-            let closest_bits_l1 =
-                self.find_closest_active_bit_candidates(word1_value, start_from_l1_bit, lower);
+            let closest_bits_l1 = TickIndexBitmap::find_closest_active_bit_candidates(
+                word1_value,
+                start_from_l1_bit,
+                lower,
+            );
             closest_bits_l1.iter().for_each(|&closest_bit_l1| {
                 ///////////////
                 // Level 2
-                let word2_index = Self::address_to_index(word1_index, closest_bit_l1);
+                let word2_index = TickIndexBitmap::layer_to_index(word1_index, closest_bit_l1);
 
                 // Layer 2 words are different, shift the bit to the word edge
                 let start_from_l2_bit = if word2_index < layer2_word {
@@ -1277,13 +1243,16 @@ where
                 };
 
                 let word2_value = self.state_ops.get_layer2_word(word2_index);
-                let closest_bits_l2 =
-                    self.find_closest_active_bit_candidates(word2_value, start_from_l2_bit, lower);
+                let closest_bits_l2 = TickIndexBitmap::find_closest_active_bit_candidates(
+                    word2_value,
+                    start_from_l2_bit,
+                    lower,
+                );
 
                 if closest_bits_l2.len() > 0 {
                     // The active tick is found, restore its full index and return
                     let offset_found_index =
-                        Self::address_to_index(word2_index, closest_bits_l2[0]);
+                        TickIndexBitmap::layer_to_index(word2_index, closest_bits_l2[0]);
 
                     if lower {
                         if (offset_found_index > result) || (!found) {
@@ -1300,13 +1269,12 @@ where
             });
         });
 
-        if found {
-            // Convert the tree offset_index back to a tick index value
-            let tick_value = (result as i32).saturating_sub(TickIndex::OFFSET.get());
-            Some(TickIndex::new_unchecked(tick_value))
-        } else {
-            None
+        if !found {
+            return None;
         }
+
+        // Convert the result offset_index back to a tick index
+        TickIndex::from_offset_index(result).ok()
     }
 
     pub fn find_closest_lower_active_tick_index(&self, index: TickIndex) -> Option<TickIndex> {
