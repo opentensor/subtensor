@@ -239,7 +239,7 @@ impl<T: Config> Pallet<T> {
             netuid_to_register,
             mechid
         );
-        Self::deposit_event(Event::NetworkAdded(netuid_to_register, 0));
+        Self::deposit_event(Event::NetworkAdded(netuid_to_register, mechid));
 
         // --- 17. Return success.
         Ok(())
