@@ -10,7 +10,7 @@ use frame_support::pallet_prelude::*;
 use safe_math::*;
 use substrate_fixed::types::U64F64;
 
-use crate::{SqrtPrice, SwapDataOperations};
+use crate::SqrtPrice;
 
 const U256_1: U256 = U256::from_limbs([1, 0, 0, 0]);
 const U256_2: U256 = U256::from_limbs([2, 0, 0, 0]);
@@ -375,6 +375,17 @@ impl TickIndex {
     }
 }
 
+/// Represents the three layers in the Uniswap V3 bitmap structure
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Layer {
+    /// Top layer (highest level of the hierarchy)
+    Top = 0,
+    /// Middle layer
+    Middle = 1,
+    /// Bottom layer (contains the actual ticks)
+    Bottom = 2,
+}
+
 /// A bitmap representation of a tick index position across the three-layer structure
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TickIndexBitmap {
@@ -405,32 +416,29 @@ impl TickIndexBitmap {
     }
 
     /// Get the mask for a bit in the specified layer
-    pub fn bit_mask(&self, layer: u8) -> u128 {
+    pub fn bit_mask(&self, layer: Layer) -> u128 {
         match layer {
-            0 => 1u128 << self.layer0.1,
-            1 => 1u128 << self.layer1.1,
-            2 => 1u128 << self.layer2.1,
-            _ => panic!("Invalid layer: must be 0, 1, or 2"),
+            Layer::Top => 1u128 << self.layer0.1,
+            Layer::Middle => 1u128 << self.layer1.1,
+            Layer::Bottom => 1u128 << self.layer2.1,
         }
     }
 
     /// Get the word for the specified layer
-    pub fn word_at(&self, layer: u8) -> u32 {
+    pub fn word_at(&self, layer: Layer) -> u32 {
         match layer {
-            0 => self.layer0.0,
-            1 => self.layer1.0,
-            2 => self.layer2.0,
-            _ => panic!("Invalid layer: must be 0, 1, or 2"),
+            Layer::Top => self.layer0.0,
+            Layer::Middle => self.layer1.0,
+            Layer::Bottom => self.layer2.0,
         }
     }
 
     /// Get the bit for the specified layer
-    pub fn bit_at(&self, layer: u8) -> u32 {
+    pub fn bit_at(&self, layer: Layer) -> u32 {
         match layer {
-            0 => self.layer0.1,
-            1 => self.layer1.1,
-            2 => self.layer2.1,
-            _ => panic!("Invalid layer: must be 0, 1, or 2"),
+            Layer::Top => self.layer0.1,
+            Layer::Middle => self.layer1.1,
+            Layer::Bottom => self.layer2.1,
         }
     }
 

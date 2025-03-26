@@ -9,7 +9,7 @@ use safe_math::*;
 use sp_arithmetic::helpers_128bit::sqrt;
 use substrate_fixed::types::U64F64;
 
-use self::tick::{Tick, TickIndex, TickIndexBitmap};
+use self::tick::{Layer, Tick, TickIndex, TickIndexBitmap};
 
 pub mod pallet;
 mod tick;
@@ -1127,22 +1127,26 @@ where
         let bitmap = TickIndexBitmap::from(index);
 
         // Update layer words
-        let mut word0_value = self.state_ops.get_layer0_word(bitmap.word_at(0));
-        let mut word1_value = self.state_ops.get_layer1_word(bitmap.word_at(1));
-        let mut word2_value = self.state_ops.get_layer2_word(bitmap.word_at(2));
+        let mut word0_value = self.state_ops.get_layer0_word(bitmap.word_at(Layer::Top));
+        let mut word1_value = self
+            .state_ops
+            .get_layer1_word(bitmap.word_at(Layer::Middle));
+        let mut word2_value = self
+            .state_ops
+            .get_layer2_word(bitmap.word_at(Layer::Bottom));
 
         // Set bits in each layer
-        word0_value |= bitmap.bit_mask(0);
-        word1_value |= bitmap.bit_mask(1);
-        word2_value |= bitmap.bit_mask(2);
+        word0_value |= bitmap.bit_mask(Layer::Top);
+        word1_value |= bitmap.bit_mask(Layer::Middle);
+        word2_value |= bitmap.bit_mask(Layer::Bottom);
 
         // Update the storage
         self.state_ops
-            .set_layer0_word(bitmap.word_at(0), word0_value);
+            .set_layer0_word(bitmap.word_at(Layer::Top), word0_value);
         self.state_ops
-            .set_layer1_word(bitmap.word_at(1), word1_value);
+            .set_layer1_word(bitmap.word_at(Layer::Middle), word1_value);
         self.state_ops
-            .set_layer2_word(bitmap.word_at(2), word2_value);
+            .set_layer2_word(bitmap.word_at(Layer::Bottom), word2_value);
     }
 
     pub fn remove_active_tick(&mut self, index: TickIndex) {
@@ -1155,25 +1159,29 @@ where
         let bitmap = TickIndexBitmap::from(index);
 
         // Update layer words
-        let mut word0_value = self.state_ops.get_layer0_word(bitmap.word_at(0));
-        let mut word1_value = self.state_ops.get_layer1_word(bitmap.word_at(1));
-        let mut word2_value = self.state_ops.get_layer2_word(bitmap.word_at(2));
+        let mut word0_value = self.state_ops.get_layer0_word(bitmap.word_at(Layer::Top));
+        let mut word1_value = self
+            .state_ops
+            .get_layer1_word(bitmap.word_at(Layer::Middle));
+        let mut word2_value = self
+            .state_ops
+            .get_layer2_word(bitmap.word_at(Layer::Bottom));
 
         // Turn the bit off (& !bit) and save as needed
-        word2_value &= !bitmap.bit_mask(2);
+        word2_value &= !bitmap.bit_mask(Layer::Bottom);
         self.state_ops
-            .set_layer2_word(bitmap.word_at(2), word2_value);
+            .set_layer2_word(bitmap.word_at(Layer::Bottom), word2_value);
 
         if word2_value == 0 {
-            word1_value &= !bitmap.bit_mask(1);
+            word1_value &= !bitmap.bit_mask(Layer::Middle);
             self.state_ops
-                .set_layer1_word(bitmap.word_at(1), word1_value);
+                .set_layer1_word(bitmap.word_at(Layer::Middle), word1_value);
         }
 
         if word1_value == 0 {
-            word0_value &= !bitmap.bit_mask(0);
+            word0_value &= !bitmap.bit_mask(Layer::Top);
             self.state_ops
-                .set_layer0_word(bitmap.word_at(0), word0_value);
+                .set_layer0_word(bitmap.word_at(Layer::Top), word0_value);
         }
     }
 
@@ -1193,12 +1201,12 @@ where
         let mut result: u32 = 0;
 
         // Layer positions from bitmap
-        let layer0_word = bitmap.word_at(0);
-        let layer0_bit = bitmap.bit_at(0);
-        let layer1_word = bitmap.word_at(1);
-        let layer1_bit = bitmap.bit_at(1);
-        let layer2_word = bitmap.word_at(2);
-        let layer2_bit = bitmap.bit_at(2);
+        let layer0_word = bitmap.word_at(Layer::Top);
+        let layer0_bit = bitmap.bit_at(Layer::Top);
+        let layer1_word = bitmap.word_at(Layer::Middle);
+        let layer1_bit = bitmap.bit_at(Layer::Middle);
+        let layer2_word = bitmap.word_at(Layer::Bottom);
+        let layer2_bit = bitmap.bit_at(Layer::Bottom);
 
         // Find the closest active bits in layer 0, then 1, then 2
 
