@@ -16,10 +16,6 @@ mod tick;
 
 type SqrtPrice = U64F64;
 
-/// All tick indexes are offset by TICK_OFFSET for the search and active tick storage needs
-/// so that tick indexes are positive, which simplifies bit logic
-pub const TICK_OFFSET: u32 = 887272;
-
 pub enum SwapStepAction {
     Crossing,
     StopOn,
@@ -1131,15 +1127,15 @@ where
         word.saturating_mul(128).saturating_add(bit)
     }
 
-    pub fn insert_active_tick(&mut self, index: tick::TickIndex) {
+    pub fn insert_active_tick(&mut self, index: TickIndex) {
         // Check the range
-        if (index < tick::TickIndex::MIN) || (index > tick::TickIndex::MAX) {
+        if (index < TickIndex::MIN) || (index > TickIndex::MAX) {
             return;
         }
 
         // Convert the tick index value to an offset_index for the tree representation
         // to avoid working with the sign bit.
-        let offset_index = index.saturating_add(TICK_OFFSET as i32).get() as u32;
+        let offset_index = (index.get() + TickIndex::OFFSET.get()) as u32;
 
         // Calculate index in each layer
         let (layer2_word, layer2_bit) = Self::index_to_address(offset_index);
@@ -1161,15 +1157,15 @@ where
         self.state_ops.set_layer2_word(layer2_word, word2_value);
     }
 
-    pub fn remove_active_tick(&mut self, index: tick::TickIndex) {
+    pub fn remove_active_tick(&mut self, index: TickIndex) {
         // Check the range
-        if (index < tick::TickIndex::MIN) || (index > tick::TickIndex::MAX) {
+        if (index < TickIndex::MIN) || (index > TickIndex::MAX) {
             return;
         }
 
         // Convert the tick index value to an offset_index for the tree representation
         // to avoid working with the sign bit.
-        let offset_index = index.saturating_add(TICK_OFFSET as i32).get() as u32;
+        let offset_index = (index.get() + TickIndex::OFFSET.get()) as u32;
 
         // Calculate index in each layer
         let (layer2_word, layer2_bit) = Self::index_to_address(offset_index);
@@ -1223,17 +1219,17 @@ where
 
     pub fn find_closest_active_tick_index(
         &self,
-        index: tick::TickIndex,
+        index: TickIndex,
         lower: bool,
-    ) -> Option<tick::TickIndex> {
+    ) -> Option<TickIndex> {
         // Check the range
-        if (index < tick::TickIndex::MIN) || (index > tick::TickIndex::MAX) {
+        if (index < TickIndex::MIN) || (index > TickIndex::MAX) {
             return None;
         }
 
         // Convert the tick index value to an offset_index for the tree representation
         // to avoid working with the sign bit.
-        let offset_index = index.saturating_add(TICK_OFFSET as i32).get() as u32;
+        let offset_index = (index.get() + TickIndex::OFFSET.get()) as u32;
         let mut found = false;
         let mut result: u32 = 0;
 
@@ -1306,28 +1302,22 @@ where
 
         if found {
             // Convert the tree offset_index back to a tick index value
-            let tick_value = (result as i32).saturating_sub(TICK_OFFSET as i32);
-            Some(tick::TickIndex::new_unchecked(tick_value))
+            let tick_value = (result as i32).saturating_sub(TickIndex::OFFSET.get());
+            Some(TickIndex::new_unchecked(tick_value))
         } else {
             None
         }
     }
 
-    pub fn find_closest_lower_active_tick_index(
-        &self,
-        index: tick::TickIndex,
-    ) -> Option<tick::TickIndex> {
+    pub fn find_closest_lower_active_tick_index(&self, index: TickIndex) -> Option<TickIndex> {
         self.find_closest_active_tick_index(index, true)
     }
 
-    pub fn find_closest_higher_active_tick_index(
-        &self,
-        index: tick::TickIndex,
-    ) -> Option<tick::TickIndex> {
+    pub fn find_closest_higher_active_tick_index(&self, index: TickIndex) -> Option<TickIndex> {
         self.find_closest_active_tick_index(index, false)
     }
 
-    pub fn find_closest_lower_active_tick(&self, index: tick::TickIndex) -> Option<Tick> {
+    pub fn find_closest_lower_active_tick(&self, index: TickIndex) -> Option<Tick> {
         let maybe_tick_index = self.find_closest_lower_active_tick_index(index);
         if let Some(tick_index) = maybe_tick_index {
             self.state_ops.get_tick_by_index(tick_index)
@@ -1336,7 +1326,7 @@ where
         }
     }
 
-    pub fn find_closest_higher_active_tick(&self, index: tick::TickIndex) -> Option<Tick> {
+    pub fn find_closest_higher_active_tick(&self, index: TickIndex) -> Option<Tick> {
         let maybe_tick_index = self.find_closest_higher_active_tick_index(index);
         if let Some(tick_index) = maybe_tick_index {
             self.state_ops.get_tick_by_index(tick_index)

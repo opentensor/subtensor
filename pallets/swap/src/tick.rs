@@ -166,6 +166,10 @@ impl TickIndex {
     /// Minimum value of the tick index
     /// The tick_math library uses different bitness, so we have to divide by 2.
     pub const MIN: Self = Self(MIN_TICK / 2);
+    
+    /// All tick indexes are offset by this value for storage needs
+    /// so that tick indexes are positive, which simplifies bit logic
+    pub const OFFSET: Self = Self(MAX_TICK);
 
     /// Converts a sqrt price to a tick index, ensuring it's within valid bounds
     ///
