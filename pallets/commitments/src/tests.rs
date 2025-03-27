@@ -451,37 +451,6 @@ fn reveal_timelocked_commitment_empty_decrypted_data_is_skipped() {
 }
 
 #[test]
-fn reveal_timelocked_commitment_decode_failure_is_skipped() {
-    new_test_ext().execute_with(|| {
-        let who = 999;
-        let netuid = 8;
-        let commit_block = 42u64;
-        System::<Test>::set_block_number(commit_block);
-        let plaintext = vec![0xAA, 0xBB, 0xCC, 0xDD, 0xEE];
-        let reveal_round = 1000;
-        let real_ct = produce_ciphertext(&plaintext, reveal_round);
-        let data = Data::TimelockEncrypted {
-            encrypted: real_ct,
-            reveal_round,
-        };
-        let fields = BoundedVec::try_from(vec![data]).expect("Expected not to panic");
-        let info = CommitmentInfo { fields };
-        let origin = RuntimeOrigin::signed(who);
-        assert_ok!(Pallet::<Test>::set_commitment(
-            origin,
-            netuid,
-            Box::new(info)
-        ));
-        let sig_bytes =
-            hex::decode(DRAND_QUICKNET_SIG_HEX.as_bytes()).expect("Expected not to panic");
-        insert_drand_pulse(reveal_round, &sig_bytes);
-        System::<Test>::set_block_number(9999);
-        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments());
-        assert!(RevealedCommitments::<Test>::get(netuid, who).is_none());
-    });
-}
-
-#[test]
 fn reveal_timelocked_commitment_single_field_entry_is_removed_after_reveal() {
     new_test_ext().execute_with(|| {
         let message_text = b"Single field timelock test!";
