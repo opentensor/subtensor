@@ -27,7 +27,7 @@ fn test_create_subnet_lending_pool_successfully() {
         assert_eq!(
             LendingPools::<Test>::get(0),
             Some(LendingPool {
-                creator: creator_coldkey.clone(),
+                creator: creator_coldkey,
                 initial_deposit,
                 max_lending_cap,
                 emissions_share,
