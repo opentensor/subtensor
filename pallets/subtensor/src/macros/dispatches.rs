@@ -1912,7 +1912,7 @@ mod dispatches {
 
         /// Create a new lending pool for a subnet.
         #[pallet::call_index(92)]
-		#[pallet::weight(0)]
+        #[pallet::weight(0)]
         pub fn create_subnet_lending_pool(
             origin: OriginFor<T>,
             initial_deposit: u64,
