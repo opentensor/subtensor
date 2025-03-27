@@ -172,7 +172,7 @@ pub mod pallet {
         u16,
         Twox64Concat,
         T::AccountId,
-        (Vec<u8>, u64), // Data, RevealBlock
+        Vec<(Vec<u8>, u64)>, // Reveals<(Data, RevealBlock)>
         OptionQuery,
     >;
 
@@ -577,14 +577,26 @@ impl<T: Config> Pallet<T> {
                 }
             }
 
-            let current_block = <frame_system::Pallet<T>>::block_number();
-            for field in revealed_fields {
-                <RevealedCommitments<T>>::insert(netuid, &who, (field, current_block.saturated_into::<u64>()));
-                Self::deposit_event(Event::CommitmentRevealed {
-                    netuid,
-                    who: who.clone(),
-                });
+            if !revealed_fields.is_empty() {
+                let mut existing_reveals =
+                    RevealedCommitments::<T>::get(netuid, &who).unwrap_or_default();
+
+                let current_block = <frame_system::Pallet<T>>::block_number();    
+                let block_u64 = current_block.saturated_into::<u64>();
+
+                // Push newly revealed items onto the tail of existing_reveals and emit the event
+                for revealed_bytes in revealed_fields {
+                    existing_reveals.push((revealed_bytes, block_u64));
+
+                    Self::deposit_event(Event::CommitmentRevealed {
+                        netuid,
+                        who: who.clone(),
+                    });
+                }
+
+                RevealedCommitments::<T>::insert(netuid, &who, existing_reveals);
             }
+
 
             registration.info.fields = BoundedVec::try_from(remain_fields)
                 .map_err(|_| "Failed to build BoundedVec for remain_fields")?;

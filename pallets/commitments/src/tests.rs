@@ -16,7 +16,6 @@ use frame_support::{
     traits::{Currency, Get, ReservableCurrency},
 };
 use frame_system::Pallet as System;
-use sp_core::Decode;
 
 #[allow(clippy::indexing_slicing)]
 #[test]
@@ -320,7 +319,7 @@ fn happy_path_timelock_commitments() {
         let revealed =
             RevealedCommitments::<Test>::get(netuid, who).expect("Should have revealed data");
 
-        let (revealed_bytes, _reveal_block) = revealed;
+        let (revealed_bytes, _reveal_block) = revealed[0].clone();
 
         let revealed_str = sp_std::str::from_utf8(&revealed_bytes)
             .expect("Expected valid UTF-8 in the revealed bytes for this test");
@@ -498,8 +497,8 @@ fn reveal_timelocked_commitment_single_field_entry_is_removed_after_reveal() {
         System::<Test>::set_block_number(9999);
         assert_ok!(Pallet::<Test>::reveal_timelocked_commitments());
 
-        let (revealed_bytes, _reveal_block) =
-            RevealedCommitments::<Test>::get(netuid, who).expect("Expected to find revealed data");
+        let revealed =  RevealedCommitments::<Test>::get(netuid, who).expect("Expected to find revealed data");
+        let (revealed_bytes, _reveal_block) = revealed[0].clone();
 
         // The decrypted bytes have some extra SCALE metadata in front:
         // we slice off the first two bytes before checking the string.
@@ -619,33 +618,17 @@ fn reveal_timelocked_multiple_fields_only_correct_ones_removed() {
         let revealed_data = RevealedCommitments::<Test>::get(netuid, who)
             .expect("Expected revealed data for TLE #1 and #2");
 
-        let (revealed_bytes, _reveal_block) = revealed_data;
+        let (revealed_bytes1, reveal_block1) = revealed_data[0].clone();
+        let (revealed_bytes2, reveal_block2) = revealed_data[1].clone();
 
-        let revealed_info: CommitmentInfo<<Test as Config>::MaxFields> =
-            Decode::decode(&mut &revealed_bytes[..])
-                .expect("Decoding must not fail for multiple timelock test");
+        let truncated1 = &revealed_bytes1[2..];
+        let truncated2 = &revealed_bytes2[2..];
 
-        assert_eq!(
-            revealed_info.fields.len(),
-            2,
-            "We revealed both TLE #1 and TLE #2 in the same pass"
-        );
+        assert_eq!(truncated1, msg_1);
+        assert_eq!(reveal_block1,  50);
+        assert_eq!(truncated2, msg_2);
+        assert_eq!(reveal_block2, 50);
 
-        let mut found_msg1 = false;
-        let mut found_msg2 = false;
-        for item in &revealed_info.fields {
-            if let Data::Raw(bytes) = item {
-                if bytes.as_slice() == msg_1 {
-                    found_msg1 = true;
-                } else if bytes.as_slice() == msg_2 {
-                    found_msg2 = true;
-                }
-            }
-        }
-        assert!(
-            found_msg1 && found_msg2,
-            "Should see both TLE #1 and TLE #2 in the revealed data"
-        );
         // 9) A second reveal call now does nothing, because no timelocks remain
         System::<Test>::set_block_number(51);
         assert_ok!(Pallet::<Test>::reveal_timelocked_commitments());
@@ -1198,7 +1181,7 @@ fn on_initialize_reveals_matured_timelocks() {
             "No longer in TimelockedIndex after reveal."
         );
 
-        let (revealed_bytes, reveal_block) = revealed_opt.expect("expected to not panic");
+        let (revealed_bytes, reveal_block) = revealed_opt.expect("expected to not panic")[0].clone();
         assert_eq!(reveal_block, 2, "Should have revealed at block #2");
 
         let revealed_str = sp_std::str::from_utf8(&revealed_bytes)
