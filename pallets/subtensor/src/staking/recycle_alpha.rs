@@ -27,6 +27,11 @@ impl<T: Config> Pallet<T> {
             Error::<T>::SubNetworkDoesNotExist
         );
 
+        ensure!(
+            netuid != Self::get_root_netuid(),
+            Error::<T>::CannotBurnOrRecycleOnRootSubnet
+        );
+
         // Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
             Self::hotkey_account_exists(&hotkey),
@@ -87,6 +92,11 @@ impl<T: Config> Pallet<T> {
         ensure!(
             Self::if_subnet_exist(netuid),
             Error::<T>::SubNetworkDoesNotExist
+        );
+
+        ensure!(
+            netuid != Self::get_root_netuid(),
+            Error::<T>::CannotBurnOrRecycleOnRootSubnet
         );
 
         // Ensure that the hotkey account exists this is only possible through registration.
