@@ -427,6 +427,16 @@ fn test_recycle_errors() {
         assert_noop!(
             SubtensorModule::recycle_alpha(
                 RuntimeOrigin::signed(coldkey),
+                hotkey,
+                100_000,
+                SubtensorModule::get_root_netuid(),
+            ),
+            Error::<Test>::CannotBurnOrRecycleOnRootSubnet
+        );
+
+        assert_noop!(
+            SubtensorModule::recycle_alpha(
+                RuntimeOrigin::signed(coldkey),
                 wrong_hotkey,
                 100_000,
                 netuid
@@ -491,6 +501,16 @@ fn test_burn_errors() {
                 99 // non-existent subnet
             ),
             Error::<Test>::SubNetworkDoesNotExist
+        );
+
+        assert_noop!(
+            SubtensorModule::burn_alpha(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                100_000,
+                SubtensorModule::get_root_netuid(),
+            ),
+            Error::<Test>::CannotBurnOrRecycleOnRootSubnet
         );
 
         assert_noop!(
