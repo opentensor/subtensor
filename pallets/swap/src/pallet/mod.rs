@@ -4,7 +4,8 @@ use pallet_subtensor_swap_interface::LiquidityDataProvider;
 use substrate_fixed::types::U64F64;
 
 use crate::{
-    NetUid, Position, PositionId,
+    NetUid,
+    position::{Position, PositionId},
     tick::{Tick, TickIndex},
 };
 

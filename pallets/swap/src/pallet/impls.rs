@@ -7,7 +7,8 @@ use substrate_fixed::types::U64F64;
 
 use super::pallet::*;
 use crate::{
-    NetUid, Position, PositionId, RemoveLiquidityResult,
+    NetUid, RemoveLiquidityResult,
+    position::{Position, PositionId},
     tick::{Tick, TickIndex},
 };
 
@@ -183,7 +184,7 @@ impl<T: Config> Pallet<T> {
         let current_tick_index = CurrentTickIndex::<T>::get(netuid);
 
         // Collect fees and get tao and alpha amounts
-		// let (fee_tao, fee_alpha) = self.collect_fees(&mut pos);
+        // let (fee_tao, fee_alpha) = self.collect_fees(&mut pos);
         //     let current_price: SqrtPrice = self.state_ops.get_alpha_sqrt_price();
         //     let (tao, alpha) = pos.to_token_amounts(current_price)?;
 
