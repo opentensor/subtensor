@@ -201,5 +201,7 @@ mod errors {
         NeedWaitingMoreBlocksToStarCall,
         /// Not enough AlphaOut on the subnet to recycle
         NotEnoughAlphaOutToRecycle,
+        /// Cannot burn or recycle TAO from root subnet
+        CannotBurnOrRecycleOnRootSubnet,
     }
 }
