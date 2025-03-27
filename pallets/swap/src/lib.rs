@@ -10,7 +10,7 @@ use safe_math::*;
 use substrate_fixed::types::U64F64;
 use uuid::Uuid;
 
-use self::tick::{Layer, Tick, TickIndex, TickIndexBitmap};
+use self::tick::{LayerLevel, Tick, TickIndex, TickIndexBitmap};
 use crate::pallet::{Config, Error};
 
 pub mod pallet;
@@ -27,7 +27,6 @@ pub struct RemoveLiquidityResult {
     fee_tao: u64,
     fee_alpha: u64,
 }
-
 
 #[derive(
     Clone, Copy, Decode, Default, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo,

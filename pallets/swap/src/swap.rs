@@ -6,8 +6,9 @@ use safe_math::*;
 use substrate_fixed::types::U64F64;
 
 use crate::{
-    position::Position, RemoveLiquidityResult, SqrtPrice, SwapError,
-    tick::{Layer, Tick, TickIndex, TickIndexBitmap},
+    RemoveLiquidityResult, SqrtPrice, SwapError,
+    position::Position,
+    tick::{LayerLevel, Tick, TickIndex, TickIndexBitmap},
 };
 
 #[derive(Debug, PartialEq)]
@@ -750,19 +751,7 @@ where
     /// Updates the position
     ///
     fn collect_fees(&mut self, position: &mut Position) -> (u64, u64) {
-        let mut fee_tao = self.get_fees_in_range(position, true);
-        let mut fee_alpha = self.get_fees_in_range(position, false);
-
-        fee_tao = fee_tao.saturating_sub(position.fees_tao);
-        fee_alpha = fee_alpha.saturating_sub(position.fees_alpha);
-
-        position.fees_tao = fee_tao;
-        position.fees_alpha = fee_alpha;
-
-        fee_tao = position.liquidity.saturating_mul(fee_tao);
-        fee_alpha = position.liquidity.saturating_mul(fee_alpha);
-
-        (fee_tao, fee_alpha)
+        todo!("moved to Position::collect_fees")
     }
 
     /// Get fees in a position's range
@@ -770,84 +759,18 @@ where
     /// If quote flag is true, Tao is returned, otherwise alpha.
     ///
     fn get_fees_in_range(&mut self, position: &Position, quote: bool) -> u64 {
-        let i_lower = position.tick_low;
-        let i_upper = position.tick_high;
-
-        let fee_global = if quote {
-            self.state_ops.get_fee_global_tao()
-        } else {
-            self.state_ops.get_fee_global_alpha()
-        };
-
-        fee_global
-            .saturating_sub(self.get_fees_below(i_lower, quote))
-            .saturating_sub(self.get_fees_above(i_upper, quote))
-            .saturating_to_num::<u64>()
+        todo!("moved to Position::fees_in_range")
     }
 
     /// Get fees above a tick
     ///
     fn get_fees_above(&mut self, tick_index: TickIndex, quote: bool) -> U64F64 {
-        let maybe_tick_index = self.find_closest_lower_active_tick_index(tick_index);
-        let current_tick = self.get_current_tick_index();
-
-        if let Some(tick_index) = maybe_tick_index {
-            let tick = self
-                .state_ops
-                .get_tick_by_index(tick_index)
-                .unwrap_or_default();
-            if tick_index <= current_tick {
-                if quote {
-                    self.state_ops
-                        .get_fee_global_tao()
-                        .saturating_sub(tick.fees_out_tao)
-                } else {
-                    self.state_ops
-                        .get_fee_global_alpha()
-                        .saturating_sub(tick.fees_out_alpha)
-                }
-            } else {
-                if quote {
-                    tick.fees_out_tao
-                } else {
-                    tick.fees_out_alpha
-                }
-            }
-        } else {
-            U64F64::saturating_from_num(0)
-        }
+        todo!("moved to TickIndex::fees_above")
     }
 
     /// Get fees below a tick
     fn get_fees_below(&mut self, tick_index: TickIndex, quote: bool) -> U64F64 {
-        let maybe_tick_index = self.find_closest_lower_active_tick_index(tick_index);
-        let current_tick = self.get_current_tick_index();
-
-        if let Some(tick_index) = maybe_tick_index {
-            let tick = self
-                .state_ops
-                .get_tick_by_index(tick_index)
-                .unwrap_or_default();
-            if tick_index <= current_tick {
-                if quote {
-                    tick.fees_out_tao
-                } else {
-                    tick.fees_out_alpha
-                }
-            } else {
-                if quote {
-                    self.state_ops
-                        .get_fee_global_tao()
-                        .saturating_sub(tick.fees_out_tao)
-                } else {
-                    self.state_ops
-                        .get_fee_global_alpha()
-                        .saturating_sub(tick.fees_out_alpha)
-                }
-            }
-        } else {
-            U64F64::saturating_from_num(0)
-        }
+		todo!("moved to TickIndex::fees_below")
     }
 
     /// Active tick operations
@@ -866,71 +789,11 @@ where
     // Use TickIndexBitmap::layer_to_index instead
 
     pub fn insert_active_tick(&mut self, index: TickIndex) {
-        // Check the range
-        if (index < TickIndex::MIN) || (index > TickIndex::MAX) {
-            return;
-        }
-
-        // Convert to bitmap representation
-        let bitmap = TickIndexBitmap::from(index);
-
-        // Update layer words
-        let mut word0_value = self.state_ops.get_layer0_word(bitmap.word_at(Layer::Top));
-        let mut word1_value = self
-            .state_ops
-            .get_layer1_word(bitmap.word_at(Layer::Middle));
-        let mut word2_value = self
-            .state_ops
-            .get_layer2_word(bitmap.word_at(Layer::Bottom));
-
-        // Set bits in each layer
-        word0_value |= bitmap.bit_mask(Layer::Top);
-        word1_value |= bitmap.bit_mask(Layer::Middle);
-        word2_value |= bitmap.bit_mask(Layer::Bottom);
-
-        // Update the storage
-        self.state_ops
-            .set_layer0_word(bitmap.word_at(Layer::Top), word0_value);
-        self.state_ops
-            .set_layer1_word(bitmap.word_at(Layer::Middle), word1_value);
-        self.state_ops
-            .set_layer2_word(bitmap.word_at(Layer::Bottom), word2_value);
+		todo!("moved to ActiveTickIndexManager::insert")
     }
 
     pub fn remove_active_tick(&mut self, index: TickIndex) {
-        // Check the range
-        if (index < TickIndex::MIN) || (index > TickIndex::MAX) {
-            return;
-        }
-
-        // Convert to bitmap representation
-        let bitmap = TickIndexBitmap::from(index);
-
-        // Update layer words
-        let mut word0_value = self.state_ops.get_layer0_word(bitmap.word_at(Layer::Top));
-        let mut word1_value = self
-            .state_ops
-            .get_layer1_word(bitmap.word_at(Layer::Middle));
-        let mut word2_value = self
-            .state_ops
-            .get_layer2_word(bitmap.word_at(Layer::Bottom));
-
-        // Turn the bit off (& !bit) and save as needed
-        word2_value &= !bitmap.bit_mask(Layer::Bottom);
-        self.state_ops
-            .set_layer2_word(bitmap.word_at(Layer::Bottom), word2_value);
-
-        if word2_value == 0 {
-            word1_value &= !bitmap.bit_mask(Layer::Middle);
-            self.state_ops
-                .set_layer1_word(bitmap.word_at(Layer::Middle), word1_value);
-        }
-
-        if word1_value == 0 {
-            word0_value &= !bitmap.bit_mask(Layer::Top);
-            self.state_ops
-                .set_layer0_word(bitmap.word_at(Layer::Top), word0_value);
-        }
+		todo!("moved to ActiveTickIndexManager::remove")
     }
 
     pub fn find_closest_active_tick_index(
@@ -938,107 +801,15 @@ where
         index: TickIndex,
         lower: bool,
     ) -> Option<TickIndex> {
-        // Check the range
-        if (index < TickIndex::MIN) || (index > TickIndex::MAX) {
-            return None;
-        }
-
-        // Convert to bitmap representation
-        let bitmap = TickIndexBitmap::from(index);
-        let mut found = false;
-        let mut result: u32 = 0;
-
-        // Layer positions from bitmap
-        let layer0_word = bitmap.word_at(Layer::Top);
-        let layer0_bit = bitmap.bit_at(Layer::Top);
-        let layer1_word = bitmap.word_at(Layer::Middle);
-        let layer1_bit = bitmap.bit_at(Layer::Middle);
-        let layer2_word = bitmap.word_at(Layer::Bottom);
-        let layer2_bit = bitmap.bit_at(Layer::Bottom);
-
-        // Find the closest active bits in layer 0, then 1, then 2
-
-        ///////////////
-        // Level 0
-        let word0 = self.state_ops.get_layer0_word(layer0_word);
-        let closest_bits_l0 =
-            TickIndexBitmap::find_closest_active_bit_candidates(word0, layer0_bit, lower);
-
-        closest_bits_l0.iter().for_each(|&closest_bit_l0| {
-            ///////////////
-            // Level 1
-            let word1_index = TickIndexBitmap::layer_to_index(0, closest_bit_l0);
-
-            // Layer 1 words are different, shift the bit to the word edge
-            let start_from_l1_bit = if word1_index < layer1_word {
-                127
-            } else if word1_index > layer1_word {
-                0
-            } else {
-                layer1_bit
-            };
-            let word1_value = self.state_ops.get_layer1_word(word1_index);
-
-            let closest_bits_l1 = TickIndexBitmap::find_closest_active_bit_candidates(
-                word1_value,
-                start_from_l1_bit,
-                lower,
-            );
-            closest_bits_l1.iter().for_each(|&closest_bit_l1| {
-                ///////////////
-                // Level 2
-                let word2_index = TickIndexBitmap::layer_to_index(word1_index, closest_bit_l1);
-
-                // Layer 2 words are different, shift the bit to the word edge
-                let start_from_l2_bit = if word2_index < layer2_word {
-                    127
-                } else if word2_index > layer2_word {
-                    0
-                } else {
-                    layer2_bit
-                };
-
-                let word2_value = self.state_ops.get_layer2_word(word2_index);
-                let closest_bits_l2 = TickIndexBitmap::find_closest_active_bit_candidates(
-                    word2_value,
-                    start_from_l2_bit,
-                    lower,
-                );
-
-                if closest_bits_l2.len() > 0 {
-                    // The active tick is found, restore its full index and return
-                    let offset_found_index =
-                        TickIndexBitmap::layer_to_index(word2_index, closest_bits_l2[0]);
-
-                    if lower {
-                        if (offset_found_index > result) || (!found) {
-                            result = offset_found_index;
-                            found = true;
-                        }
-                    } else {
-                        if (offset_found_index < result) || (!found) {
-                            result = offset_found_index;
-                            found = true;
-                        }
-                    }
-                }
-            });
-        });
-
-        if !found {
-            return None;
-        }
-
-        // Convert the result offset_index back to a tick index
-        TickIndex::from_offset_index(result).ok()
+		todo!("moved to ActiveTickIndexManager::find_closet")
     }
 
     pub fn find_closest_lower_active_tick_index(&self, index: TickIndex) -> Option<TickIndex> {
-        self.find_closest_active_tick_index(index, true)
+        todo!("moved to ActiveTickIndexManager::find_closest_lower")
     }
 
     pub fn find_closest_higher_active_tick_index(&self, index: TickIndex) -> Option<TickIndex> {
-        self.find_closest_active_tick_index(index, false)
+        todo!("moved to ActiveTickIndexManager::find_closest_higher")
     }
 
     pub fn find_closest_lower_active_tick(&self, index: TickIndex) -> Option<Tick> {
@@ -1738,7 +1509,7 @@ mod tests {
         });
     }
 
-	// Test swapping against protocol liquidity only
+    // Test swapping against protocol liquidity only
     #[test]
     fn test_swap_basic() {
         let protocol_tao = 1_000_000_000;
@@ -1746,112 +1517,101 @@ mod tests {
 
         // Current price is 0.25
         // Test case is (order_type, liquidity, limit_price, output_amount)
-        [
-            (OrderType::Buy, 500_000_000u64, 1000.0_f64, 3990_u64),
-        ]
-        .iter()
-        .for_each(|(order_type, liquidity, limit_price, output_amount)| {
-            // Consumed liquidity ticks
-            let tick_low = TickIndex::MIN;
-            let tick_high = TickIndex::MAX;
+        [(OrderType::Buy, 500_000_000u64, 1000.0_f64, 3990_u64)]
+            .iter()
+            .for_each(|(order_type, liquidity, limit_price, output_amount)| {
+                // Consumed liquidity ticks
+                let tick_low = TickIndex::MIN;
+                let tick_high = TickIndex::MAX;
 
-            // Setup swap
-            let mut mock_ops = MockSwapDataOperations::new();
-            mock_ops.set_tao_reserve(protocol_tao);
-            mock_ops.set_alpha_reserve(protocol_alpha);
-            let mut swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+                // Setup swap
+                let mut mock_ops = MockSwapDataOperations::new();
+                mock_ops.set_tao_reserve(protocol_tao);
+                mock_ops.set_alpha_reserve(protocol_alpha);
+                let mut swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
 
-            // Get tick infos before the swap
-            let tick_low_info_before = swap
-                .state_ops
-                .get_tick_by_index(tick_low)
-                .unwrap_or_default();
-            let tick_high_info_before = swap
-                .state_ops
-                .get_tick_by_index(tick_high)
-                .unwrap_or_default();
-            let liquidity_before = swap.state_ops.get_current_liquidity();
+                // Get tick infos before the swap
+                let tick_low_info_before = swap
+                    .state_ops
+                    .get_tick_by_index(tick_low)
+                    .unwrap_or_default();
+                let tick_high_info_before = swap
+                    .state_ops
+                    .get_tick_by_index(tick_high)
+                    .unwrap_or_default();
+                let liquidity_before = swap.state_ops.get_current_liquidity();
 
-            // Swap
-            let sqrt_limit_price: SqrtPrice = SqrtPrice::from_num((*limit_price).sqrt());
-            let swap_result = swap.swap(order_type, *liquidity, sqrt_limit_price);
-            // assert_abs_diff_eq!(
-            //     swap_result.unwrap().amount_paid_out,
-            //     *output_amount,
-            //     epsilon = *output_amount/1000
-            // );
+                // Swap
+                let sqrt_limit_price: SqrtPrice = SqrtPrice::from_num((*limit_price).sqrt());
+                let swap_result = swap.swap(order_type, *liquidity, sqrt_limit_price);
+                // assert_abs_diff_eq!(
+                //     swap_result.unwrap().amount_paid_out,
+                //     *output_amount,
+                //     epsilon = *output_amount/1000
+                // );
 
-            // Check that low and high ticks' fees were updated properly, and liquidity values were not updated
-            let tick_low_info = swap.state_ops.get_tick_by_index(tick_low).unwrap();
-            let tick_high_info = swap.state_ops.get_tick_by_index(tick_high).unwrap();
-            let expected_liquidity_net_low: i128 = tick_low_info_before.liquidity_net;
-            let expected_liquidity_gross_low: u64 = tick_low_info_before.liquidity_gross;
-            let expected_liquidity_net_high: i128 = tick_high_info_before.liquidity_net;
-            let expected_liquidity_gross_high: u64 = tick_high_info_before.liquidity_gross;
-            assert_eq!(
-                tick_low_info.liquidity_net,
-                expected_liquidity_net_low,
-            );
-            assert_eq!(
-                tick_low_info.liquidity_gross,
-                expected_liquidity_gross_low,
-            );
-            assert_eq!(
-                tick_high_info.liquidity_net,
-                expected_liquidity_net_high,
-            );
-            assert_eq!(
-                tick_high_info.liquidity_gross,
-                expected_liquidity_gross_high,
-            );
+                // Check that low and high ticks' fees were updated properly, and liquidity values were not updated
+                let tick_low_info = swap.state_ops.get_tick_by_index(tick_low).unwrap();
+                let tick_high_info = swap.state_ops.get_tick_by_index(tick_high).unwrap();
+                let expected_liquidity_net_low: i128 = tick_low_info_before.liquidity_net;
+                let expected_liquidity_gross_low: u64 = tick_low_info_before.liquidity_gross;
+                let expected_liquidity_net_high: i128 = tick_high_info_before.liquidity_net;
+                let expected_liquidity_gross_high: u64 = tick_high_info_before.liquidity_gross;
+                assert_eq!(tick_low_info.liquidity_net, expected_liquidity_net_low,);
+                assert_eq!(tick_low_info.liquidity_gross, expected_liquidity_gross_low,);
+                assert_eq!(tick_high_info.liquidity_net, expected_liquidity_net_high,);
+                assert_eq!(
+                    tick_high_info.liquidity_gross,
+                    expected_liquidity_gross_high,
+                );
 
-            // Expected fee amount
-            let fee_rate = swap.state_ops.get_fee_rate() as f64 / u16::MAX as f64;
-            let expected_fee = output_amount * fee_rate as u64;
+                // Expected fee amount
+                let fee_rate = swap.state_ops.get_fee_rate() as f64 / u16::MAX as f64;
+                let expected_fee = output_amount * fee_rate as u64;
 
-            // Global fees should be updated
-            let actual_global_fee: U64F64 = match order_type {
-                OrderType::Buy => swap.state_ops.get_fee_global_alpha(),
-                OrderType::Sell => swap.state_ops.get_fee_global_tao(),
-            };
-            println!("actual_global_fee {:?}", actual_global_fee);
-            assert_eq!(actual_global_fee, expected_fee);
+                // Global fees should be updated
+                let actual_global_fee: U64F64 = match order_type {
+                    OrderType::Buy => swap.state_ops.get_fee_global_alpha(),
+                    OrderType::Sell => swap.state_ops.get_fee_global_tao(),
+                };
+                println!("actual_global_fee {:?}", actual_global_fee);
+                assert_eq!(actual_global_fee, expected_fee);
 
-            // Tick fees should be updated
+                // Tick fees should be updated
 
+                // Liquidity position should not be updated
+                let protocol_id = swap.state_ops.get_protocol_account_id();
 
+                let position = swap.state_ops.get_position(&protocol_id, 0).unwrap();
+                assert_eq!(
+                    position.liquidity,
+                    sqrt(protocol_tao as u128 * protocol_alpha as u128) as u64
+                );
+                assert_eq!(position.tick_low, tick_low);
+                assert_eq!(position.tick_high, tick_high);
+                assert_eq!(position.fees_alpha, 0);
+                assert_eq!(position.fees_tao, 0);
 
+                // // Current liquidity is updated only when price range includes the current price
+                // if (*price_high >= current_price) && (*price_low <= current_price) {
+                //     assert_eq!(
+                //         swap.state_ops.get_current_liquidity(),
+                //         liquidity_before + *liquidity
+                //     );
+                // } else {
+                //     assert_eq!(swap.state_ops.get_current_liquidity(), liquidity_before);
+                // }
 
-            // Liquidity position should not be updated
-            let protocol_id = swap.state_ops.get_protocol_account_id();
-
-            let position = swap.state_ops.get_position(&protocol_id, 0).unwrap();
-            assert_eq!(position.liquidity, sqrt(protocol_tao as u128 * protocol_alpha as u128) as u64);
-            assert_eq!(position.tick_low, tick_low);
-            assert_eq!(position.tick_high, tick_high);
-            assert_eq!(position.fees_alpha, 0);
-            assert_eq!(position.fees_tao, 0);
-
-            // // Current liquidity is updated only when price range includes the current price
-            // if (*price_high >= current_price) && (*price_low <= current_price) {
-            //     assert_eq!(
-            //         swap.state_ops.get_current_liquidity(),
-            //         liquidity_before + *liquidity
-            //     );
-            // } else {
-            //     assert_eq!(swap.state_ops.get_current_liquidity(), liquidity_before);
-            // }
-
-            // // Reserves are updated
-            // assert_eq!(
-            //     swap.state_ops.get_tao_reserve(),
-            //     tao_withdrawn + protocol_tao,
-            // );
-            // assert_eq!(
-            //     swap.state_ops.get_alpha_reserve(),
-            //     alpha_withdrawn + protocol_alpha,
-            // );
-        });
+                // // Reserves are updated
+                // assert_eq!(
+                //     swap.state_ops.get_tao_reserve(),
+                //     tao_withdrawn + protocol_tao,
+                // );
+                // assert_eq!(
+                //     swap.state_ops.get_alpha_reserve(),
+                //     alpha_withdrawn + protocol_alpha,
+                // );
+            });
     }
 
     // cargo test --package pallet-subtensor-swap --lib -- tests::test_tick_search_basic --exact --show-output

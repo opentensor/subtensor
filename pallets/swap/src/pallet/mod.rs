@@ -6,7 +6,7 @@ use substrate_fixed::types::U64F64;
 use crate::{
     NetUid,
     position::{Position, PositionId},
-    tick::{Tick, TickIndex},
+    tick::{LayerLevel, Tick, TickIndex},
 };
 
 pub use pallet::*;
@@ -76,7 +76,6 @@ mod pallet {
     /// Storage for user positions, using subnet ID and account ID as keys
     /// The value is a bounded vector of Position structs with details about the liquidity positions
     #[pallet::storage]
-    #[pallet::getter(fn positions)]
     pub type Positions<T: Config> = StorageNMap<
         _,
         (
@@ -86,6 +85,27 @@ mod pallet {
         ),
         Position,
         OptionQuery,
+    >;
+
+    // Global accrued fees in tao per subnet
+    #[pallet::storage]
+    pub type FeeGlobalTao<T> = StorageMap<_, Twox64Concat, NetUid, U64F64>;
+
+    // Global accrued fees in alpha per subnet
+    #[pallet::storage]
+    pub type FeeGlobalAlpha<T> = StorageMap<_, Twox64Concat, NetUid, U64F64>;
+
+    /// Tick index bitmap words storage
+    #[pallet::storage]
+    pub type TickIndexBitmapWords<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Twox64Concat, NetUid>,     // Subnet ID
+            NMapKey<Twox64Concat, LayerLevel>, // Layer level
+            NMapKey<Twox64Concat, u32>,        // word index
+        ),
+        u128,
+        ValueQuery,
     >;
 
     #[pallet::event]

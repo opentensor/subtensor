@@ -4,9 +4,9 @@ use safe_math::*;
 use substrate_fixed::types::U64F64;
 use uuid::Uuid;
 
-use crate::SqrtPrice;
-use crate::pallet::{Config, Error};
+use crate::pallet::{Config, Error, FeeGlobalAlpha, FeeGlobalTao};
 use crate::tick::TickIndex;
+use crate::{NetUid, SqrtPrice};
 
 /// Position designates one liquidity position.
 ///
@@ -21,6 +21,7 @@ use crate::tick::TickIndex;
 #[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen, Default)]
 pub struct Position {
     pub id: PositionId,
+    pub netuid: NetUid,
     pub tick_low: TickIndex,
     pub tick_high: TickIndex,
     pub liquidity: u64,
@@ -87,6 +88,38 @@ impl Position {
                     .saturating_to_num::<u64>(),
             )
         })
+    }
+
+    /// Collect fees for a position
+    /// Updates the position
+    pub fn collect_fees<T: Config>(&mut self) -> (u64, u64) {
+        let mut fee_tao = self.fees_in_range::<T>(true);
+        let mut fee_alpha = self.fees_in_range::<T>(false);
+
+        fee_tao = fee_tao.saturating_sub(self.fees_tao);
+        fee_alpha = fee_alpha.saturating_sub(self.fees_alpha);
+
+        self.fees_tao = fee_tao;
+        self.fees_alpha = fee_alpha;
+
+        fee_tao = self.liquidity.saturating_mul(fee_tao);
+        fee_alpha = self.liquidity.saturating_mul(fee_alpha);
+
+        (fee_tao, fee_alpha)
+    }
+
+    /// Get fees in a position's range
+    ///
+    /// If quote flag is true, Tao is returned, otherwise alpha.
+    fn fees_in_range<T: Config>(&self, quote: bool) -> u64 {
+        if quote {
+            FeeGlobalTao::<T>::get(self.netuid).unwrap_or_default()
+        } else {
+            FeeGlobalAlpha::<T>::get(self.netuid).unwrap_or_default()
+        }
+        .saturating_sub(self.tick_low.fees_below::<T>(self.netuid, quote))
+        .saturating_sub(self.tick_high.fees_above::<T>(self.netuid, quote))
+        .saturating_to_num::<u64>()
     }
 }
 
