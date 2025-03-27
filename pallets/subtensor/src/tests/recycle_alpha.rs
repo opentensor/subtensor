@@ -405,6 +405,9 @@ fn test_recycle_errors() {
         let subnet_owner_hotkey = U256::from(1002);
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
+        // Create root subnet
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
+
         let initial_balance = 1_000_000_000;
         Balances::make_free_balance_be(&coldkey, initial_balance);
 
@@ -483,6 +486,9 @@ fn test_burn_errors() {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        // Create root subnet
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
         let initial_balance = 1_000_000_000;
         Balances::make_free_balance_be(&coldkey, initial_balance);
