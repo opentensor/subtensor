@@ -101,6 +101,7 @@ thiserror = "1.0"
 walkdir = "2"
 approx = "0.5"
 alloy-primitives = { version = "0.8.23", default-features = false }
+uuid = { version = "1.16.0", default-features = false }
 
 subtensor-macros = { path = "support/macros" }
 

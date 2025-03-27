@@ -3,13 +3,18 @@ use frame_system::pallet_prelude::*;
 use pallet_subtensor_swap_interface::LiquidityDataProvider;
 use substrate_fixed::types::U64F64;
 
-use crate::Position;
-use crate::tick::{Tick, TickIndex};
+use crate::{
+    NetUid, Position, PositionId,
+    tick::{Tick, TickIndex},
+};
+
+pub use pallet::*;
 
 mod impls;
 
+#[allow(clippy::module_inception)]
 #[frame_support::pallet]
-pub mod pallet {
+mod pallet {
     use super::*;
 
     #[pallet::pallet]
@@ -45,48 +50,48 @@ pub mod pallet {
     ///
     /// For example, 0.3% is approximately 196
     #[pallet::storage]
-    #[pallet::getter(fn fee_rate)]
-    pub type FeeRate<T> = StorageMap<_, Twox64Concat, u16, u16, ValueQuery>;
+    pub type FeeRate<T> = StorageMap<_, Twox64Concat, NetUid, u16, ValueQuery>;
 
     /// Storage for all ticks, using subnet ID as the primary key and tick index as the secondary key
     #[pallet::storage]
-    #[pallet::getter(fn ticks)]
-    pub type Ticks<T> = StorageDoubleMap<_, Twox64Concat, u16, Twox64Concat, TickIndex, Tick>;
+    pub type Ticks<T> = StorageDoubleMap<_, Twox64Concat, NetUid, Twox64Concat, TickIndex, Tick>;
 
     /// Storage to determine whether swap V3 was initialized for a specific subnet.
     #[pallet::storage]
-    #[pallet::getter(fn swap_v3_initialized)]
-    pub type SwapV3Initialized<T> = StorageMap<_, Twox64Concat, u16, bool, ValueQuery>;
+    pub type SwapV3Initialized<T> = StorageMap<_, Twox64Concat, NetUid, bool, ValueQuery>;
 
     /// Storage for the square root price of Alpha token for each subnet.
     #[pallet::storage]
-    #[pallet::getter(fn alpha_sqrt_price)]
-    pub type AlphaSqrtPrice<T> = StorageMap<_, Twox64Concat, u16, U64F64, ValueQuery>;
+    pub type AlphaSqrtPrice<T> = StorageMap<_, Twox64Concat, NetUid, U64F64, ValueQuery>;
 
     /// Storage for the current liquidity amount for each subnet.
     #[pallet::storage]
-    #[pallet::getter(fn current_liquidity)]
-    pub type CurrentLiquidity<T> = StorageMap<_, Twox64Concat, u16, u64, ValueQuery>;
+    pub type CurrentLiquidity<T> = StorageMap<_, Twox64Concat, NetUid, u64, ValueQuery>;
+
+    /// Storage for the current tick index for each subnet.
+    #[pallet::storage]
+    pub type CurrentTickIndex<T> = StorageMap<_, Twox64Concat, NetUid, TickIndex>;
 
     /// Storage for user positions, using subnet ID and account ID as keys
     /// The value is a bounded vector of Position structs with details about the liquidity positions
     #[pallet::storage]
     #[pallet::getter(fn positions)]
-    pub type Positions<T: Config> = StorageDoubleMap<
+    pub type Positions<T: Config> = StorageNMap<
         _,
-        Twox64Concat,
-        u16,
-        Twox64Concat,
-        T::AccountId,
-        BoundedVec<Position, T::MaxPositions>,
-        ValueQuery,
+        (
+            NMapKey<Twox64Concat, NetUid>,       // Subnet ID
+            NMapKey<Twox64Concat, T::AccountId>, // Account ID
+            NMapKey<Twox64Concat, PositionId>,   // Position ID
+        ),
+        Position,
+        OptionQuery,
     >;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// Event emitted when the fee rate has been updated for a subnet
-        FeeRateSet { netuid: u16, rate: u16 },
+        FeeRateSet { netuid: NetUid, rate: u16 },
     }
 
     #[pallet::error]
@@ -129,6 +134,9 @@ pub mod pallet {
         #[pallet::weight(10_000)]
         pub fn set_fee_rate(origin: OriginFor<T>, netuid: u16, rate: u16) -> DispatchResult {
             T::AdminOrigin::ensure_origin(origin)?;
+
+            // using u16 for compatibility
+            let netuid = netuid.into();
 
             ensure!(rate <= T::MaxFeeRate::get(), Error::<T>::FeeRateTooHigh);
 
