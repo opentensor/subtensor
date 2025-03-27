@@ -1018,6 +1018,10 @@ parameter_types! {
     pub const InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const SubtensorInitialTaoWeight: u64 = 971_718_665_099_567_868; // 0.05267697438728329% tao weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
+    pub const LendingPoolsLimit: u32 = 10_000; // 10 000 lending pools
+    pub const LendingPoolMinInitialDeposit: u64 = 10_000_000_000; // 10 TAO
+    pub const LendingPoolMaxLendingCap: u64 = 100_000_000_000_000; // 100 000 TAO
+    pub const LendingPoolMinEmissionsShare: u64 = 5; // 5%
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1082,6 +1086,10 @@ impl pallet_subtensor::Config for Runtime {
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
+    type LendingPoolsLimit = LendingPoolsLimit;
+    type LendingPoolMinInitialDeposit = LendingPoolMinInitialDeposit;
+    type LendingPoolMaxLendingCap = LendingPoolMaxLendingCap;
+    type LendingPoolMinEmissionsShare = LendingPoolMinEmissionsShare;
 }
 
 use sp_runtime::BoundedVec;

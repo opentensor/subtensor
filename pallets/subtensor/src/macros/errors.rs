@@ -195,5 +195,19 @@ mod errors {
         ActivityCutoffTooLow,
         /// Call is disabled
         CallDisabled,
+        /// Maximum number of lending pools reached.
+        LendingPoolsLimitReached,
+        /// Lending pool initial deposit is too low.
+        LendingPoolInitialDepositTooLow,
+        /// Lending pool lending cap is inferior to initial deposit.
+        LendingPoolLendingCapInferiorToInitialDeposit,
+        /// Lending pool lending cap is too high.
+        LendingPoolLendingCapTooHigh,
+        /// Lending pool emissions share is too low.
+        LendingPoolEmissionsShareTooLow,
+        /// Lending pool emissions share is too high.
+        LendingPoolEmissionsShareTooHigh,
+        /// Lending pool creator coldkey does not have enough balance to pay initial deposit.
+        LendingPoolNotEnoughBalanceToPayInitialDeposit,
     }
 }

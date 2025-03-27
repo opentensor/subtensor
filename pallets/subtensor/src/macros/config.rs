@@ -5,6 +5,7 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod config {
+
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
     pub trait Config: frame_system::Config + pallet_drand::Config {
@@ -210,5 +211,17 @@ mod config {
         /// Initial EMA price halving period
         #[pallet::constant]
         type InitialEmaPriceHalvingPeriod: Get<u64>;
+        /// Maximum number of lending pools
+        #[pallet::constant]
+        type LendingPoolsLimit: Get<u32>;
+        /// Minimum initial deposit for a lending pool
+        #[pallet::constant]
+        type LendingPoolMinInitialDeposit: Get<u64>;
+        /// Maximum funding cap for a lending pool
+        #[pallet::constant]
+        type LendingPoolMaxLendingCap: Get<u64>;
+        /// Minimum emissions share for a lending pool
+        #[pallet::constant]
+        type LendingPoolMinEmissionsShare: Get<u64>;
     }
 }

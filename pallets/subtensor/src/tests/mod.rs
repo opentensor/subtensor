@@ -5,6 +5,7 @@ mod delegate_info;
 mod difficulty;
 mod emission;
 mod epoch;
+mod lending_pools;
 mod math;
 mod migration;
 mod mock;

@@ -1909,5 +1909,22 @@ mod dispatches {
 
             Ok(())
         }
+
+        /// Create a new lending pool for a subnet.
+        #[pallet::call_index(92)]
+		#[pallet::weight(0)]
+        pub fn create_subnet_lending_pool(
+            origin: OriginFor<T>,
+            initial_deposit: u64,
+            max_lending_cap: u64,
+            emissions_share: u64,
+        ) -> DispatchResult {
+            Self::do_create_subnet_lending_pool(
+                origin,
+                initial_deposit,
+                max_lending_cap,
+                emissions_share,
+            )
+        }
     }
 }

@@ -199,6 +199,10 @@ impl pallet_subtensor::Config for Test {
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
+    type LendingPoolsLimit = ();
+    type LendingPoolMinInitialDeposit = ();
+    type LendingPoolMaxLendingCap = ();
+    type LendingPoolMinEmissionsShare = ();
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
