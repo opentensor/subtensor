@@ -399,7 +399,7 @@ fn test_recycle_errors() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let wrong_coldkey = U256::from(3);
+        let wrong_hotkey = U256::from(3);
 
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
@@ -426,12 +426,12 @@ fn test_recycle_errors() {
 
         assert_noop!(
             SubtensorModule::recycle_alpha(
-                RuntimeOrigin::signed(wrong_coldkey),
-                hotkey,
+                RuntimeOrigin::signed(coldkey),
+                wrong_hotkey,
                 100_000,
                 netuid
             ),
-            Error::<Test>::NonAssociatedColdKey
+            Error::<Test>::HotKeyAccountNotExists
         );
 
         assert_noop!(
@@ -444,8 +444,12 @@ fn test_recycle_errors() {
             Error::<Test>::NotEnoughStakeToWithdraw
         );
 
-        // make it pass the hotkey alpha check
-        TotalHotkeyAlpha::<Test>::set(hotkey, netuid, SubnetAlphaOut::<Test>::get(netuid) + 1);
+        // make it pass the stake check
+        TotalHotkeyAlpha::<Test>::set(
+            hotkey,
+            netuid,
+            SubnetAlphaOut::<Test>::get(netuid).saturating_mul(2),
+        );
 
         assert_noop!(
             SubtensorModule::recycle_alpha(
@@ -464,7 +468,7 @@ fn test_burn_errors() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let wrong_coldkey = U256::from(3);
+        let wrong_hotkey = U256::from(3);
 
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
@@ -491,12 +495,12 @@ fn test_burn_errors() {
 
         assert_noop!(
             SubtensorModule::burn_alpha(
-                RuntimeOrigin::signed(wrong_coldkey),
-                hotkey,
+                RuntimeOrigin::signed(coldkey),
+                wrong_hotkey,
                 100_000,
                 netuid
             ),
-            Error::<Test>::NonAssociatedColdKey
+            Error::<Test>::HotKeyAccountNotExists
         );
 
         assert_noop!(
@@ -510,7 +514,11 @@ fn test_burn_errors() {
         );
 
         // make it pass the hotkey alpha check
-        TotalHotkeyAlpha::<Test>::set(hotkey, netuid, SubnetAlphaOut::<Test>::get(netuid) + 1);
+        TotalHotkeyAlpha::<Test>::set(
+            hotkey,
+            netuid,
+            SubnetAlphaOut::<Test>::get(netuid).saturating_mul(2),
+        );
 
         assert_noop!(
             SubtensorModule::burn_alpha(
