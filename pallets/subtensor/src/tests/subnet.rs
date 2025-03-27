@@ -222,3 +222,40 @@ fn test_do_start_call_ok_with_same_block_number_after_coinbase() {
         }
     });
 }
+
+#[test]
+fn test_register_network_min_burn_at_default() {
+    new_test_ext(1).execute_with(|| {
+        let sn_owner_coldkey = U256::from(0);
+        let sn_owner_hotkey = U256::from(1);
+        let cost = SubtensorModule::get_network_lock_cost();
+
+        // Give coldkey enough for lock
+        SubtensorModule::add_balance_to_coldkey_account(&sn_owner_coldkey, cost + 10_000_000_000);
+
+        // Register network
+        assert_ok!(SubtensorModule::register_network(
+            <<Test as Config>::RuntimeOrigin>::signed(sn_owner_coldkey),
+            sn_owner_hotkey
+        ));
+        // Get last events
+        let events = System::events();
+        let min_burn_event = events
+            .iter()
+            .filter(|event| {
+                matches!(
+                    event.event,
+                    RuntimeEvent::SubtensorModule(Event::<Test>::NetworkAdded(..))
+                )
+            })
+            .last();
+
+        let netuid = match min_burn_event.map(|event| event.event.clone()) {
+            Some(RuntimeEvent::SubtensorModule(Event::<Test>::NetworkAdded(netuid, _))) => netuid,
+            _ => panic!("Expected NetworkAdded event"),
+        };
+
+        // Check min burn is set to default
+        assert_eq!(MinBurn::<Test>::get(netuid), InitialMinBurn::get());
+    });
+}
