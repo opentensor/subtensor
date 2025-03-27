@@ -20,20 +20,22 @@ impl<T: Config> Pallet<T> {
         amount: u64,
         netuid: u16,
     ) -> DispatchResult {
-        let coldkey = ensure_signed(origin)?;
+        let coldkey: T::AccountId = ensure_signed(origin)?;
 
         ensure!(
             Self::if_subnet_exist(netuid),
             Error::<T>::SubNetworkDoesNotExist
         );
 
+        // Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
-            Self::coldkey_owns_hotkey(&coldkey, &hotkey),
-            Error::<T>::NonAssociatedColdKey
+            Self::hotkey_account_exists(&hotkey),
+            Error::<T>::HotKeyAccountNotExists
         );
 
+        // Ensure that the hotkey has enough stake to withdraw.
         ensure!(
-            TotalHotkeyAlpha::<T>::get(&hotkey, netuid) >= amount,
+            Self::has_enough_stake_on_subnet(&hotkey, &coldkey, netuid, amount),
             Error::<T>::NotEnoughStakeToWithdraw
         );
 
@@ -42,19 +44,22 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InsufficientLiquidity
         );
 
-        if TotalHotkeyAlpha::<T>::mutate(&hotkey, netuid, |v| {
-            *v = v.saturating_sub(amount);
-            *v
-        }) == 0
-        {
-            TotalHotkeyAlpha::<T>::remove(&hotkey, netuid);
-        }
+        // Deduct from the coldkey's stake.
+        let actual_alpha_decrease = Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid, amount,
+        );
 
+        // Recycle means we should decrease the alpha issuance tracker.
         SubnetAlphaOut::<T>::mutate(netuid, |total| {
-            *total = total.saturating_sub(amount);
+            *total = total.saturating_sub(actual_alpha_decrease);
         });
 
-        Self::deposit_event(Event::AlphaRecycled(coldkey, hotkey, amount, netuid));
+        Self::deposit_event(Event::AlphaRecycled(
+            coldkey,
+            hotkey,
+            actual_alpha_decrease,
+            netuid,
+        ));
 
         Ok(())
     }
