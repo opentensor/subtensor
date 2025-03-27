@@ -172,7 +172,7 @@ pub mod pallet {
         u16,
         Twox64Concat,
         T::AccountId,
-        RevealedData<BalanceOf<T>, T::MaxFields, BlockNumberFor<T>>,
+        (Vec<u8>, u64), // Data, RevealBlock
         OptionQuery,
     >;
 
@@ -478,7 +478,6 @@ where
 
 impl<T: Config> Pallet<T> {
     pub fn reveal_timelocked_commitments() -> DispatchResult {
-        let current_block = <frame_system::Pallet<T>>::block_number();
         let index = TimelockedIndex::<T>::get();
         for (netuid, who) in index.clone() {
             let Some(mut registration) = <CommitmentOf<T>>::get(netuid, &who) else {
@@ -570,50 +569,17 @@ impl<T: Config> Pallet<T> {
                             continue;
                         }
 
-                        let mut reader = &decrypted_bytes[..];
-                        let revealed_info: CommitmentInfo<T::MaxFields> =
-                            match Decode::decode(&mut reader) {
-                                Ok(info) => info,
-                                Err(e) => {
-                                    log::warn!(
-                                        "Failed to decode decrypted data for {:?}: {:?}",
-                                        who,
-                                        e
-                                    );
-                                    remain_fields.push(Data::TimelockEncrypted {
-                                        encrypted,
-                                        reveal_round,
-                                    });
-                                    continue;
-                                }
-                            };
+                        revealed_fields.push(decrypted_bytes);
 
-                        revealed_fields.push(revealed_info);
                     }
 
                     other => remain_fields.push(other),
                 }
             }
 
-            if !revealed_fields.is_empty() {
-                let mut all_revealed_data = Vec::new();
-                for info in revealed_fields {
-                    all_revealed_data.extend(info.fields.into_inner());
-                }
-
-                let bounded_revealed = BoundedVec::try_from(all_revealed_data)
-                    .map_err(|_| "Could not build BoundedVec for revealed fields")?;
-
-                let combined_revealed_info = CommitmentInfo {
-                    fields: bounded_revealed,
-                };
-
-                let revealed_data = RevealedData {
-                    info: combined_revealed_info,
-                    revealed_block: current_block,
-                    deposit: registration.deposit,
-                };
-                <RevealedCommitments<T>>::insert(netuid, &who, revealed_data);
+            let current_block = <frame_system::Pallet<T>>::block_number();
+            for field in revealed_fields {
+                <RevealedCommitments<T>>::insert(netuid, &who, (field, current_block.saturated_into::<u64>()));
                 Self::deposit_event(Event::CommitmentRevealed {
                     netuid,
                     who: who.clone(),
