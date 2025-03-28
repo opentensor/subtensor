@@ -12,7 +12,7 @@ use safe_math::*;
 use substrate_fixed::types::U64F64;
 
 use crate::pallet::{
-    Config, CurrentTickIndex, FeeGlobalAlpha, FeeGlobalTao, TickIndexBitmapWords, Ticks,
+    AlphaSqrtPrice, Config, FeeGlobalAlpha, FeeGlobalTao, TickIndexBitmapWords, Ticks,
 };
 use crate::{NetUid, SqrtPrice};
 
@@ -180,7 +180,7 @@ impl TickIndex {
 
     /// Get fees above a tick
     pub fn fees_above<T: Config>(&self, netuid: NetUid, quote: bool) -> U64F64 {
-        let current_tick = CurrentTickIndex::<T>::get(netuid).unwrap_or_default();
+        let current_tick = Self::current_bounded::<T>(netuid);
 
         let Some(tick_index) = ActiveTickIndexManager::find_closest_lower::<T>(netuid, *self)
         else {
@@ -207,7 +207,7 @@ impl TickIndex {
 
     /// Get fees below a tick
     pub fn fees_below<T: Config>(&self, netuid: NetUid, quote: bool) -> U64F64 {
-        let current_tick = CurrentTickIndex::<T>::get(netuid).unwrap_or_default();
+        let current_tick = Self::current_bounded::<T>(netuid);
 
         let Some(tick_index) = ActiveTickIndexManager::find_closest_lower::<T>(netuid, *self)
         else {
@@ -231,6 +231,12 @@ impl TickIndex {
                 .unwrap_or_default()
                 .saturating_sub(tick.fees_out_alpha)
         }
+    }
+
+    /// Get the current tick index for a subnet, ensuring it's within valid bounds
+    pub fn current_bounded<T: Config>(netuid: NetUid) -> Self {
+        let current_price = AlphaSqrtPrice::<T>::get(netuid);
+        Self::from_sqrt_price_bounded(current_price)
     }
 
     /// Converts a sqrt price to a tick index, ensuring it's within valid bounds

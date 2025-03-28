@@ -69,10 +69,6 @@ mod pallet {
     #[pallet::storage]
     pub type CurrentLiquidity<T> = StorageMap<_, Twox64Concat, NetUid, u64, ValueQuery>;
 
-    /// Storage for the current tick index for each subnet.
-    #[pallet::storage]
-    pub type CurrentTickIndex<T> = StorageMap<_, Twox64Concat, NetUid, TickIndex>;
-
     /// Storage for user positions, using subnet ID and account ID as keys
     /// The value is a bounded vector of Position structs with details about the liquidity positions
     #[pallet::storage]

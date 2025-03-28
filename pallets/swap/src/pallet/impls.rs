@@ -99,7 +99,7 @@ impl<T: Config> Pallet<T> {
         Self::add_liquidity_at_index(netuid, tick_high, liquidity, true);
 
         // Update current tick liquidity
-        let current_tick_index = Self::bounded_current_tick_index(netuid);
+        let current_tick_index = TickIndex::current_bounded::<T>(netuid);
         Self::clamp_sqrt_price(netuid, current_tick_index);
 
         Self::update_liquidity_if_needed(netuid, tick_low, tick_high, liquidity as i128);
@@ -141,6 +141,63 @@ impl<T: Config> Pallet<T> {
         Ok((tao, alpha))
     }
 
+    /// Remove liquidity and credit balances back to account_id
+    ///
+    /// Account ID and Position ID identify position in the storage map
+    pub fn remove_liquidity(
+        netuid: NetUid,
+        account_id: &T::AccountId,
+        position_id: PositionId,
+    ) -> Result<RemoveLiquidityResult, Error<T>> {
+        let Some(mut pos) = Positions::<T>::get((netuid, account_id, position_id)) else {
+            return Err(Error::<T>::LiquidityNotFound);
+        };
+        let current_tick_index = TickIndex::current_bounded::<T>(netuid);
+
+        // Collect fees and get tao and alpha amounts
+        let (fee_tao, fee_alpha) = pos.collect_fees::<T>();
+        let current_price = AlphaSqrtPrice::<T>::get(netuid);
+        let (tao, alpha) = pos.to_token_amounts(current_price)?;
+
+        // Update liquidity at position ticks
+        Self::remove_liquidity_at_index(netuid, pos.tick_low, pos.liquidity, false);
+        Self::remove_liquidity_at_index(netuid, pos.tick_high, pos.liquidity, true);
+
+        // Update current tick liquidity
+        Self::update_liquidity_if_needed(
+            netuid,
+            pos.tick_low,
+            pos.tick_high,
+            -(pos.liquidity as i128),
+        );
+
+        // Remove user position
+        Positions::<T>::remove((netuid, account_id, position_id));
+
+        {
+            // TODO we move this logic to the outside depender to prevent mutating its state
+            //     // Deposit balances
+            //     self.state_ops.deposit_balances(account_id, tao, alpha);
+
+            //     // Update reserves
+            //     let new_tao_reserve = self.state_ops.get_tao_reserve().saturating_sub(tao);
+            //     self.state_ops.set_tao_reserve(new_tao_reserve);
+            //     let new_alpha_reserve = self.state_ops.get_alpha_reserve().saturating_sub(alpha);
+            //     self.state_ops.set_alpha_reserve(new_alpha_reserve);
+        }
+
+        // TODO: Clear with R&D
+        // Update current price (why?)
+        // AlphaSqrtPrice::<T>::set(netuid, sqrt_price);
+
+        Ok(RemoveLiquidityResult {
+            tao,
+            alpha,
+            fee_tao,
+            fee_alpha,
+        })
+    }
+
     /// Adds or updates liquidity at a specific tick index for a subnet
     ///
     /// # Arguments
@@ -171,75 +228,31 @@ impl<T: Config> Pallet<T> {
         });
     }
 
-    /// Remove liquidity and credit balances back to account_id
-    ///
-    /// Account ID and Position ID identify position in the storage map
-    pub fn remove_liquidity(
+    /// Remove liquidity at tick index.
+    fn remove_liquidity_at_index(
         netuid: NetUid,
-        account_id: &T::AccountId,
-        position_id: PositionId,
-    ) -> Result<RemoveLiquidityResult, Error<T>> {
-        let Some(mut pos) = Positions::<T>::get((netuid, account_id, position_id)) else {
-            return Err(Error::<T>::LiquidityNotFound);
+        tick_index: TickIndex,
+        liquidity: u64,
+        upper: bool,
+    ) {
+        // Calculate net liquidity addition
+        let net_reduction = if upper {
+            -(liquidity as i128)
+        } else {
+            liquidity as i128
         };
-        let current_tick_index = CurrentTickIndex::<T>::get(netuid);
 
-        // Collect fees and get tao and alpha amounts
-        let (fee_tao, fee_alpha) = pos.collect_fees::<T>();
-        //     let current_price: SqrtPrice = self.state_ops.get_alpha_sqrt_price();
-        //     let (tao, alpha) = pos.to_token_amounts(current_price)?;
+        Ticks::<T>::mutate_exists(netuid, tick_index, |maybe_tick| {
+            if let Some(tick) = maybe_tick {
+                tick.liquidity_net = tick.liquidity_net.saturating_sub(net_reduction);
+                tick.liquidity_gross = tick.liquidity_gross.saturating_sub(liquidity);
 
-        //     // Update liquidity at position ticks
-        //     self.remove_liquidity_at_index(pos.tick_low, pos.liquidity, false);
-        //     self.remove_liquidity_at_index(pos.tick_high, pos.liquidity, true);
-
-        //     // Update current tick liquidity
-        //     if (pos.tick_low <= current_tick_index) && (current_tick_index <= pos.tick_high) {
-        //         let new_current_liquidity = self
-        //             .state_ops
-        //             .get_current_liquidity()
-        //             .saturating_sub(pos.liquidity);
-        //         self.state_ops.set_current_liquidity(new_current_liquidity);
-        //     }
-
-        //     // Remove user position
-        //     self.state_ops.remove_position(account_id, position_id);
-
-        //     // Deposit balances
-        //     self.state_ops.deposit_balances(account_id, tao, alpha);
-
-        //     // Update reserves
-        //     let new_tao_reserve = self.state_ops.get_tao_reserve().saturating_sub(tao);
-        //     self.state_ops.set_tao_reserve(new_tao_reserve);
-        //     let new_alpha_reserve = self.state_ops.get_alpha_reserve().saturating_sub(alpha);
-        //     self.state_ops.set_alpha_reserve(new_alpha_reserve);
-
-        //     // TODO: Clear with R&D
-        //     // Update current price (why?)
-        //     // self.state_ops.set_alpha_sqrt_price(sqrt_price);
-
-        //     // Return Ok result
-        //     Ok(RemoveLiquidityResult {
-        //         tao,
-        //         alpha,
-        //         fee_tao,
-        //         fee_alpha,
-        //     })
-        todo!()
-    }
-
-    /// Gets the current tick index for a subnet, ensuring it's within valid bounds
-    fn bounded_current_tick_index(netuid: NetUid) -> TickIndex {
-        let current_price = AlphaSqrtPrice::<T>::get(netuid);
-        TickIndex::from_sqrt_price_bounded(current_price)
-    }
-
-    /// Clamps the subnet's sqrt price when tick index is outside of valid bounds
-    fn clamp_sqrt_price(netuid: NetUid, tick_index: TickIndex) {
-        if tick_index >= TickIndex::MAX || tick_index <= TickIndex::MIN {
-            let corrected_price = tick_index.to_sqrt_price_bounded();
-            AlphaSqrtPrice::<T>::set(netuid, corrected_price);
-        }
+                // If no liquidity is left at the tick, remove it
+                if tick.liquidity_gross == 0 {
+                    *maybe_tick = None;
+                }
+            }
+        });
     }
 
     /// Updates the current liquidity for a subnet if the current tick index is within the specified
@@ -254,7 +267,7 @@ impl<T: Config> Pallet<T> {
         tick_high: TickIndex,
         liquidity: i128,
     ) {
-        let current_tick_index = Self::bounded_current_tick_index(netuid);
+        let current_tick_index = TickIndex::current_bounded::<T>(netuid);
         if (tick_low <= current_tick_index) && (current_tick_index <= tick_high) {
             CurrentLiquidity::<T>::mutate(netuid, |current_liquidity| {
                 let is_neg = liquidity.is_negative();
@@ -265,6 +278,14 @@ impl<T: Config> Pallet<T> {
                     *current_liquidity = current_liquidity.saturating_add(liquidity);
                 }
             });
+        }
+    }
+
+    /// Clamps the subnet's sqrt price when tick index is outside of valid bounds
+    fn clamp_sqrt_price(netuid: NetUid, tick_index: TickIndex) {
+        if tick_index >= TickIndex::MAX || tick_index <= TickIndex::MIN {
+            let corrected_price = tick_index.to_sqrt_price_bounded();
+            AlphaSqrtPrice::<T>::set(netuid, corrected_price);
         }
     }
 

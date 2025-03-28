@@ -154,25 +154,7 @@ where
     /// Remove liquidity at tick index.
     ///
     fn remove_liquidity_at_index(&mut self, tick_index: TickIndex, liquidity: u64, upper: bool) {
-        // Calculate net liquidity addition
-        let net_reduction = if upper {
-            (liquidity as i128).neg()
-        } else {
-            liquidity as i128
-        };
-
-        // Find tick by index
-        if let Some(mut tick) = self.state_ops.get_tick_by_index(tick_index) {
-            tick.liquidity_net = tick.liquidity_net.saturating_sub(net_reduction);
-            tick.liquidity_gross = tick.liquidity_gross.saturating_sub(liquidity);
-
-            // If any liquidity is left at the tick, update it, otherwise remove
-            if tick.liquidity_gross == 0 {
-                self.state_ops.remove_tick_by_index(tick_index);
-            } else {
-                self.state_ops.insert_tick_by_index(tick_index, tick);
-            }
-        };
+        todo!("moved to Pallet::remove_liquidity_at_index");
     }
 
     /// Adds liquidity to the specified price range.
@@ -349,27 +331,7 @@ where
     }
 
     fn get_current_tick_index(&mut self) -> TickIndex {
-        let current_price = self.state_ops.get_alpha_sqrt_price();
-        let maybe_current_tick_index = TickIndex::try_from_sqrt_price(current_price);
-        if let Ok(index) = maybe_current_tick_index {
-            index
-        } else {
-            // Current price is out of allow the min-max range, and it should be corrected to
-            // maintain the range.
-            let max_price = TickIndex::MAX
-                .try_to_sqrt_price()
-                .unwrap_or(SqrtPrice::saturating_from_num(1000));
-            let min_price = TickIndex::MIN
-                .try_to_sqrt_price()
-                .unwrap_or(SqrtPrice::saturating_from_num(0.000001));
-            if current_price > max_price {
-                self.state_ops.set_alpha_sqrt_price(max_price);
-                TickIndex::MAX
-            } else {
-                self.state_ops.set_alpha_sqrt_price(min_price);
-                TickIndex::MIN
-            }
-        }
+        todo!("moved to TickIndex::current_bounded")
     }
 
     /// Process a single step of a swap
@@ -770,7 +732,7 @@ where
 
     /// Get fees below a tick
     fn get_fees_below(&mut self, tick_index: TickIndex, quote: bool) -> U64F64 {
-		todo!("moved to TickIndex::fees_below")
+        todo!("moved to TickIndex::fees_below")
     }
 
     /// Active tick operations
@@ -789,11 +751,11 @@ where
     // Use TickIndexBitmap::layer_to_index instead
 
     pub fn insert_active_tick(&mut self, index: TickIndex) {
-		todo!("moved to ActiveTickIndexManager::insert")
+        todo!("moved to ActiveTickIndexManager::insert")
     }
 
     pub fn remove_active_tick(&mut self, index: TickIndex) {
-		todo!("moved to ActiveTickIndexManager::remove")
+        todo!("moved to ActiveTickIndexManager::remove")
     }
 
     pub fn find_closest_active_tick_index(
@@ -801,7 +763,7 @@ where
         index: TickIndex,
         lower: bool,
     ) -> Option<TickIndex> {
-		todo!("moved to ActiveTickIndexManager::find_closet")
+        todo!("moved to ActiveTickIndexManager::find_closet")
     }
 
     pub fn find_closest_lower_active_tick_index(&self, index: TickIndex) -> Option<TickIndex> {
