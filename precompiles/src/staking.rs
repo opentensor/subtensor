@@ -175,10 +175,7 @@ where
         for ((coldkey, netuid_in_alpha), _) in pallet_subtensor::Alpha::<R>::iter_prefix((hotkey,))
         {
             if netuid == netuid_in_alpha {
-                let key: [u8; 32] = coldkey.try_into().map_err(|_| PrecompileFailure::Error {
-                    exit_status: ExitError::Other("the value is outside of u16 bounds".into()),
-                })?;
-
+                let key: [u8; 32] = coldkey.into();
                 coldkeys.push(key.into());
             }
         }
