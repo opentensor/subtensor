@@ -9,7 +9,7 @@ mod dispatches {
     use frame_support::traits::schedule::DispatchTime;
     use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
     use frame_system::pallet_prelude::BlockNumberFor;
-    use sp_runtime::traits::Saturating;
+    use sp_runtime::{Percent, traits::Saturating};
 
     use crate::MAX_CRV3_COMMIT_SIZE_BYTES;
     /// Dispatchable functions allow users to interact with the pallet and invoke state changes.
@@ -1910,21 +1910,17 @@ mod dispatches {
             Ok(())
         }
 
-        /// Create a new lending pool for a subnet.
+        /// Create a new crowdloan for a subnet.
         #[pallet::call_index(92)]
         #[pallet::weight(0)]
-        pub fn create_subnet_lending_pool(
+        pub fn create_subnet_crowdloan(
             origin: OriginFor<T>,
             initial_deposit: u64,
-            max_lending_cap: u64,
-            emissions_share: u64,
+            cap: u64,
+            emissions_share: Percent,
+            end: BlockNumberFor<T>,
         ) -> DispatchResult {
-            Self::do_create_subnet_lending_pool(
-                origin,
-                initial_deposit,
-                max_lending_cap,
-                emissions_share,
-            )
+            Self::do_create_subnet_crowdloan(origin, initial_deposit, cap, emissions_share, end)
         }
     }
 }

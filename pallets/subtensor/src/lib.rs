@@ -38,8 +38,8 @@ mod benchmarks;
 //	==== Pallet Imports =====
 // =========================
 pub mod coinbase;
+pub mod crowdloan;
 pub mod epoch;
-pub mod lending_pools;
 pub mod macros;
 pub mod migrations;
 pub mod rpc_info;
@@ -1563,19 +1563,19 @@ pub mod pallet {
     >;
 
     /// =====================================
-    /// ==== Subnet Lending Pool Storage ====
+    /// ==== Subnet Crowdloan Storage ====
     /// =====================================
     ///
-    /// All lending pools.
-    /// MAP (pool_id) -> The lending pool with the given pool_id.
+    /// All subnet crowdloans.
+    /// MAP (crowdloan_id) -> The crowdloan with the given crowdloan_id.
     #[pallet::storage]
-    pub type LendingPools<T: Config> =
+    pub type SubnetCrowdloans<T: Config> =
         StorageMap<_, Identity, u32, LendingPool<T::AccountId>, OptionQuery>;
     ///
-    /// Next lending pool id.
+    /// Next subnet crowdloan id.
     /// ITEM(pool_id)
     #[pallet::storage]
-    pub type NextLendingPoolId<T: Config> = StorageValue<_, u32, ValueQuery, ConstU32<0>>;
+    pub type NextSubnetCrowdloanIndex<T: Config> = StorageValue<_, u32, ValueQuery, ConstU32<0>>;
 
     /// Individual contributions to each lending pool.
     /// MAP (pool_id, contributor_coldkey) -> u64

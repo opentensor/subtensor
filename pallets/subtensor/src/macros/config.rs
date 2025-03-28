@@ -211,6 +211,12 @@ mod config {
         /// Initial EMA price halving period
         #[pallet::constant]
         type InitialEmaPriceHalvingPeriod: Get<u64>;
+        /// Minimum crowdloan blocks duration
+        #[pallet::constant]
+        type MinCrowdloanBlocksDuration: Get<BlockNumberFor<Self>>;
+        /// Minimum initial deposit for a crowdloan
+        #[pallet::constant]
+        type MinCrowdloanInitialDeposit: Get<u64>;
         /// Maximum number of lending pools
         #[pallet::constant]
         type LendingPoolsLimit: Get<u32>;
