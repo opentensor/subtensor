@@ -570,7 +570,6 @@ impl<T: Config> Pallet<T> {
                         }
 
                         revealed_fields.push(decrypted_bytes);
-
                     }
 
                     other => remain_fields.push(other),
@@ -581,7 +580,7 @@ impl<T: Config> Pallet<T> {
                 let mut existing_reveals =
                     RevealedCommitments::<T>::get(netuid, &who).unwrap_or_default();
 
-                let current_block = <frame_system::Pallet<T>>::block_number();    
+                let current_block = <frame_system::Pallet<T>>::block_number();
                 let block_u64 = current_block.saturated_into::<u64>();
 
                 // Push newly revealed items onto the tail of existing_reveals and emit the event
@@ -596,7 +595,6 @@ impl<T: Config> Pallet<T> {
 
                 RevealedCommitments::<T>::insert(netuid, &who, existing_reveals);
             }
-
 
             registration.info.fields = BoundedVec::try_from(remain_fields)
                 .map_err(|_| "Failed to build BoundedVec for remain_fields")?;
