@@ -1703,8 +1703,7 @@ fn revealed_commitments_keeps_only_10_newest_with_individual_single_field_commit
             assert_eq!(
                 revealed_str, expected_str,
                 "Revealed data #{} should match the truncated TLE #{}",
-                idx,
-                expected_i
+                idx, expected_i
             );
 
             let expected_reveal_block = expected_i as u64 + 1;
