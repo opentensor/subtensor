@@ -331,9 +331,9 @@ impl<T: Config> Pallet<T> {
                 // Compute root prop.
                 let root_prop: I96F32 = root_alpha.checked_div(total_alpha).unwrap_or(zero);
                 // Compute root dividends
-                let root_divs: I96F32 = dividend.saturating_mul(root_prop);
+                let root_divs: I96F32 = dividend.saturating_mul(root_prop).max(zero);
                 // Compute alpha dividends
-                let alpha_divs: I96F32 = dividend.saturating_sub(root_divs);
+                let alpha_divs: I96F32 = dividend.saturating_sub(root_divs).max(zero);
                 // Record the alpha dividends.
                 alpha_dividends
                     .entry(hotkey.clone())
