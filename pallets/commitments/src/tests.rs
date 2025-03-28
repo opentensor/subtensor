@@ -1571,3 +1571,132 @@ fn reveal_timelocked_bad_timelocks_are_removed() {
         assert_eq!(revealed.len(), 1, "Only TLE #4 ended up in revealed list");
     });
 }
+
+#[test]
+fn revealed_commitments_keeps_only_10_items() {
+    new_test_ext().execute_with(|| {
+        let netuid = 1;
+        let who = 2;
+        let reveal_round = 1000;
+
+        let drand_sig_bytes = hex::decode(DRAND_QUICKNET_SIG_HEX).expect("Should decode DRAND sig");
+        insert_drand_pulse(reveal_round, &drand_sig_bytes);
+
+        // --- 1) Build 12 TimelockEncrypted fields ---
+        // Each one has a unique plaintext "TLE #i"
+        const TOTAL_TLES: usize = 12;
+        let mut fields = Vec::with_capacity(TOTAL_TLES);
+
+        for i in 0..TOTAL_TLES {
+            let plaintext = format!("TLE #{}", i).into_bytes();
+            let ciphertext = produce_ciphertext(&plaintext, reveal_round);
+            let timelock = Data::TimelockEncrypted {
+                encrypted: ciphertext,
+                reveal_round,
+            };
+            fields.push(timelock);
+        }
+        let fields_bounded = BoundedVec::try_from(fields).expect("Should not exceed MaxFields");
+        let info = CommitmentInfo { fields: fields_bounded };
+
+        // --- 2) Set the commitment => 12 timelocks in storage ---
+        System::<Test>::set_block_number(1);
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(who),
+            netuid,
+            Box::new(info)
+        ));
+
+        // --- 3) Reveal => all 12 are decrypted in one shot ---
+        System::<Test>::set_block_number(2);
+        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments());
+
+        // --- 4) Check we only keep 10 in `RevealedCommitments` ---
+        let revealed = RevealedCommitments::<Test>::get(netuid, who)
+            .expect("Should have at least some revealed data");
+        assert_eq!(
+            revealed.len(),
+            10,
+            "We must only keep the newest 10, out of 12 total"
+        );
+
+        // The oldest 2 ("TLE #0" and "TLE #1") must be dropped.
+        // The items in `revealed` now correspond to "TLE #2" .. "TLE #11".
+        for (idx, (revealed_bytes, reveal_block)) in revealed.iter().enumerate() {
+            // Convert to UTF-8
+            let revealed_str = sp_std::str::from_utf8(revealed_bytes)
+                .expect("Decrypted data should be valid UTF-8 for this test case");
+
+            // We expect them to be TLE #2..TLE #11
+            let expected_index = idx + 2; // since we dropped #0 and #1
+            let expected_str = format!("TLE #{}", expected_index);
+            assert_eq!(revealed_str, expected_str, "Check which TLE is kept");
+
+            // Also check it was revealed at block 2
+            assert_eq!(*reveal_block, 2, "All reveal in the same block #2");
+        }
+    });
+}
+
+
+#[test]
+fn revealed_commitments_keeps_only_10_items_across_multiple_calls() {
+    new_test_ext().execute_with(|| {
+        let netuid = 1;
+        let who = 2;
+        let reveal_round = 1000;
+
+        let drand_sig_bytes = hex::decode(DRAND_QUICKNET_SIG_HEX).expect("Should decode DRAND sig");
+        insert_drand_pulse(reveal_round, &drand_sig_bytes);
+
+        //
+        // We'll create 12 separate commitments, each with a single TLE (#0..#11).
+        //
+        const TOTAL_TLES: usize = 12;
+        for i in 0..TOTAL_TLES {
+            let plaintext = format!("TLE #{}", i).into_bytes();
+            let ciphertext = produce_ciphertext(&plaintext, reveal_round);
+
+            let timelock = Data::TimelockEncrypted {
+                encrypted: ciphertext,
+                reveal_round,
+            };
+            let fields = BoundedVec::try_from(vec![timelock])
+                .expect("Single field is well within MaxFields");
+
+            let info = CommitmentInfo { fields };
+            assert_ok!(Pallet::<Test>::set_commitment(
+                RuntimeOrigin::signed(who),
+                netuid,
+                Box::new(info)
+            ));
+        }
+
+        System::<Test>::set_block_number(2);
+        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments());
+
+        let revealed = RevealedCommitments::<Test>::get(netuid, who)
+            .expect("Should have revealed items after decryption");
+
+        assert_eq!(
+            revealed.len(),
+            10,
+            "We must only keep the 10 newest out of 12 total"
+        );
+
+        //
+        // The first 2 TLEs we inserted ("TLE #0" and "TLE #1") should be dropped,
+        // leaving us with "TLE #2" through "TLE #11".
+        //
+        for (idx, (revealed_bytes, reveal_block)) in revealed.iter().enumerate() {
+            let revealed_str =
+                sp_std::str::from_utf8(revealed_bytes).expect("Should be valid UTF-8 in this test");
+
+            let expected_num = idx + 2; // i.e. TLE #2..#11
+            let expected_str = format!("TLE #{}", expected_num);
+
+            assert_eq!(revealed_str, expected_str, "Check which TLE is stored");
+            assert_eq!(*reveal_block, 2, "All items revealed at block #2");
+        }
+    });
+}
