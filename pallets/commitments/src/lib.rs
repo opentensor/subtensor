@@ -527,10 +527,7 @@ impl<T: Config> Pallet<T> {
                             .ok();
 
                         let Some(sig) = sig else {
-                            remain_fields.push(Data::TimelockEncrypted {
-                                encrypted,
-                                reveal_round,
-                            });
+                            log::warn!("No sig after deserialization");
                             continue;
                         };
 
@@ -546,10 +543,7 @@ impl<T: Config> Pallet<T> {
                             .ok();
 
                         let Some(commit) = commit else {
-                            remain_fields.push(Data::TimelockEncrypted {
-                                encrypted,
-                                reveal_round,
-                            });
+                            log::warn!("No commit after deserialization");
                             continue;
                         };
 
@@ -562,10 +556,7 @@ impl<T: Config> Pallet<T> {
                                 .unwrap_or_default();
 
                         if decrypted_bytes.is_empty() {
-                            remain_fields.push(Data::TimelockEncrypted {
-                                encrypted,
-                                reveal_round,
-                            });
+                            log::warn!("Bytes were decrypted for {:?} but they are empty", who);
                             continue;
                         }
 
