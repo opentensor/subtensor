@@ -449,6 +449,7 @@ fn reveal_timelocked_commitment_empty_decrypted_data_is_skipped() {
     });
 }
 
+#[allow(clippy::indexing_slicing)]
 #[test]
 fn reveal_timelocked_commitment_single_field_entry_is_removed_after_reveal() {
     new_test_ext().execute_with(|| {
@@ -1260,7 +1261,8 @@ fn timelocked_index_complex_scenario_works() {
             }
         };
 
-        let make_raw_data = |payload: &[u8]| Data::Raw(payload.to_vec().try_into().unwrap());
+        let make_raw_data =
+            |payload: &[u8]| Data::Raw(payload.to_vec().try_into().expect("expected to not panic"));
 
         // ----------------------------------------------------
         // (1) USER A => no timelocks => NOT in index
@@ -1340,7 +1342,7 @@ fn timelocked_index_complex_scenario_works() {
         // ----------------------------------------------------
         let b_timelock_2 = make_timelock_data(b"B TLE #2", 2000);
         let info_b3 = CommitmentInfo::<TestMaxFields> {
-            fields: BoundedVec::try_from(vec![b_timelock_2]).unwrap(),
+            fields: BoundedVec::try_from(vec![b_timelock_2]).expect("expected to not panic"),
         };
         assert_ok!(Pallet::<Test>::set_commitment(
             RuntimeOrigin::signed(user_b),
@@ -1356,7 +1358,7 @@ fn timelocked_index_complex_scenario_works() {
         // ----------------------------------------------------
         let c_timelock_1 = make_timelock_data(b"C TLE #1", 2000);
         let info_c1 = CommitmentInfo::<TestMaxFields> {
-            fields: BoundedVec::try_from(vec![c_timelock_1]).unwrap(),
+            fields: BoundedVec::try_from(vec![c_timelock_1]).expect("expected to not panic"),
         };
         assert_ok!(Pallet::<Test>::set_commitment(
             RuntimeOrigin::signed(user_c),
