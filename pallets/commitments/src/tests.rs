@@ -6,8 +6,8 @@ use crate::{
     CommitmentInfo, CommitmentOf, Config, Data, Error, Event, MaxSpace, Pallet, RateLimit,
     Registration, RevealedCommitments, TimelockedIndex,
     mock::{
-        Balances, DRAND_QUICKNET_SIG_HEX, RuntimeEvent, RuntimeOrigin, Test, insert_drand_pulse,
-        new_test_ext, produce_ciphertext,
+        Balances, DRAND_QUICKNET_SIG_2000_HEX, DRAND_QUICKNET_SIG_HEX, RuntimeEvent, RuntimeOrigin,
+        Test, TestMaxFields, insert_drand_pulse, new_test_ext, produce_ciphertext,
     },
 };
 use frame_support::pallet_prelude::Hooks;
@@ -323,9 +323,9 @@ fn happy_path_timelock_commitments() {
 
         let revealed_str = sp_std::str::from_utf8(&revealed_bytes)
             .expect("Expected valid UTF-8 in the revealed bytes for this test");
-        
-        let original_str = sp_std::str::from_utf8(message_text)
-            .expect("`message_text` is valid UTF-8");
+
+        let original_str =
+            sp_std::str::from_utf8(message_text).expect("`message_text` is valid UTF-8");
         assert!(
             revealed_str.contains(original_str),
             "Revealed data must contain the original message text."
@@ -497,21 +497,21 @@ fn reveal_timelocked_commitment_single_field_entry_is_removed_after_reveal() {
         System::<Test>::set_block_number(9999);
         assert_ok!(Pallet::<Test>::reveal_timelocked_commitments());
 
-        let revealed =  RevealedCommitments::<Test>::get(netuid, who).expect("Expected to find revealed data");
+        let revealed =
+            RevealedCommitments::<Test>::get(netuid, who).expect("Expected to find revealed data");
         let (revealed_bytes, _reveal_block) = revealed[0].clone();
 
         // The decrypted bytes have some extra SCALE metadata in front:
         // we slice off the first two bytes before checking the string.
-        let offset = 2; 
+        let offset = 2;
         let truncated = &revealed_bytes[offset..];
         let revealed_str = sp_std::str::from_utf8(truncated)
             .expect("Truncated bytes should be valid UTF-8 in this test");
 
-        let original_str = sp_std::str::from_utf8(message_text)
-            .expect("`message_text` should be valid UTF-8");
+        let original_str =
+            sp_std::str::from_utf8(message_text).expect("`message_text` should be valid UTF-8");
         assert_eq!(
-            revealed_str,
-            original_str,
+            revealed_str, original_str,
             "Expected the revealed data (minus prefix) to match the original message"
         );
         assert!(
@@ -625,7 +625,7 @@ fn reveal_timelocked_multiple_fields_only_correct_ones_removed() {
         let truncated2 = &revealed_bytes2[2..];
 
         assert_eq!(truncated1, msg_1);
-        assert_eq!(reveal_block1,  50);
+        assert_eq!(reveal_block1, 50);
         assert_eq!(truncated2, msg_2);
         assert_eq!(reveal_block2, 50);
 
@@ -1181,14 +1181,15 @@ fn on_initialize_reveals_matured_timelocks() {
             "No longer in TimelockedIndex after reveal."
         );
 
-        let (revealed_bytes, reveal_block) = revealed_opt.expect("expected to not panic")[0].clone();
+        let (revealed_bytes, reveal_block) =
+            revealed_opt.expect("expected to not panic")[0].clone();
         assert_eq!(reveal_block, 2, "Should have revealed at block #2");
 
         let revealed_str = sp_std::str::from_utf8(&revealed_bytes)
             .expect("Expected valid UTF-8 in the revealed bytes for this test");
-        
-        let original_str = sp_std::str::from_utf8(message_text)
-            .expect("`message_text` is valid UTF-8");
+
+        let original_str =
+            sp_std::str::from_utf8(message_text).expect("`message_text` is valid UTF-8");
         assert!(
             revealed_str.contains(original_str),
             "Revealed data must contain the original message text."
@@ -1232,5 +1233,192 @@ fn set_commitment_unreserve_leftover_fails() {
             Pallet::<Test>::set_commitment(RawOrigin::Signed(who).into(), netuid, commit_small),
             Error::<Test>::UnexpectedUnreserveLeftover
         );
+    });
+}
+
+#[test]
+fn timelocked_index_complex_scenario_works() {
+    new_test_ext().execute_with(|| {
+        System::<Test>::set_block_number(1);
+
+        let netuid = 42;
+        let user_a = 1000;
+        let user_b = 2000;
+        let user_c = 3000;
+
+        let make_timelock_data = |plaintext: &[u8], round: u64| {
+            let inner = CommitmentInfo::<TestMaxFields> {
+                fields: BoundedVec::try_from(vec![Data::Raw(
+                    plaintext.to_vec().try_into().expect("<=128 bytes"),
+                )])
+                .expect("1 field is fine"),
+            };
+            let ct = produce_ciphertext(&inner.encode(), round);
+            Data::TimelockEncrypted {
+                encrypted: ct,
+                reveal_round: round,
+            }
+        };
+
+        let make_raw_data = |payload: &[u8]| Data::Raw(payload.to_vec().try_into().unwrap());
+
+        // ----------------------------------------------------
+        // (1) USER A => no timelocks => NOT in index
+        // ----------------------------------------------------
+        let info_a1 = CommitmentInfo::<TestMaxFields> {
+            fields: BoundedVec::try_from(vec![make_raw_data(b"A-regular")])
+                .expect("1 field is fine"),
+        };
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(user_a),
+            netuid,
+            Box::new(info_a1),
+        ));
+        assert!(
+            !TimelockedIndex::<Test>::get().contains(&(netuid, user_a)),
+            "A has no timelocks => not in TimelockedIndex"
+        );
+
+        // ----------------------------------------------------
+        // (2) USER B => Single TLE => BUT USE round=2000!
+        //     => B is in index
+        // ----------------------------------------------------
+        let b_timelock_1 = make_timelock_data(b"B first TLE", 2000);
+        let info_b1 = CommitmentInfo::<TestMaxFields> {
+            fields: BoundedVec::try_from(vec![b_timelock_1]).expect("Single TLE is fine"),
+        };
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(user_b),
+            netuid,
+            Box::new(info_b1),
+        ));
+        let idx = TimelockedIndex::<Test>::get();
+        assert!(!idx.contains(&(netuid, user_a)), "A not in index");
+        assert!(idx.contains(&(netuid, user_b)), "B in index (has TLE)");
+
+        // ----------------------------------------------------
+        // (3) USER A => 2 timelocks: round=1000 & round=2000
+        //     => A is in index
+        // ----------------------------------------------------
+        let a_timelock_1 = make_timelock_data(b"A TLE #1", 1000);
+        let a_timelock_2 = make_timelock_data(b"A TLE #2", 2000);
+        let info_a2 = CommitmentInfo::<TestMaxFields> {
+            fields: BoundedVec::try_from(vec![a_timelock_1, a_timelock_2])
+                .expect("2 TLE fields OK"),
+        };
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(user_a),
+            netuid,
+            Box::new(info_a2),
+        ));
+
+        let idx = TimelockedIndex::<Test>::get();
+        assert!(idx.contains(&(netuid, user_a)), "A in index");
+        assert!(idx.contains(&(netuid, user_b)), "B still in index");
+
+        // ----------------------------------------------------
+        // (4) USER B => remove all timelocks => B out of index
+        // ----------------------------------------------------
+        let info_b2 = CommitmentInfo::<TestMaxFields> {
+            fields: BoundedVec::try_from(vec![make_raw_data(b"B back to raw")])
+                .expect("no TLE => B out"),
+        };
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(user_b),
+            netuid,
+            Box::new(info_b2),
+        ));
+        let idx = TimelockedIndex::<Test>::get();
+        assert!(idx.contains(&(netuid, user_a)), "A remains");
+        assert!(
+            !idx.contains(&(netuid, user_b)),
+            "B removed after losing TLEs"
+        );
+
+        // ----------------------------------------------------
+        // (5) USER B => re-add TLE => round=2000 => back in index
+        // ----------------------------------------------------
+        let b_timelock_2 = make_timelock_data(b"B TLE #2", 2000);
+        let info_b3 = CommitmentInfo::<TestMaxFields> {
+            fields: BoundedVec::try_from(vec![b_timelock_2]).unwrap(),
+        };
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(user_b),
+            netuid,
+            Box::new(info_b3),
+        ));
+        let idx = TimelockedIndex::<Test>::get();
+        assert!(idx.contains(&(netuid, user_a)), "A in index");
+        assert!(idx.contains(&(netuid, user_b)), "B back in index");
+
+        // ----------------------------------------------------
+        // (6) USER C => sets 1 TLE => round=2000 => in index
+        // ----------------------------------------------------
+        let c_timelock_1 = make_timelock_data(b"C TLE #1", 2000);
+        let info_c1 = CommitmentInfo::<TestMaxFields> {
+            fields: BoundedVec::try_from(vec![c_timelock_1]).unwrap(),
+        };
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(user_c),
+            netuid,
+            Box::new(info_c1),
+        ));
+        let idx = TimelockedIndex::<Test>::get();
+        assert!(idx.contains(&(netuid, user_a)), "A");
+        assert!(idx.contains(&(netuid, user_b)), "B");
+        assert!(idx.contains(&(netuid, user_c)), "C");
+
+        // ----------------------------------------------------
+        // (7) Partial reveal for round=1000 => affects only A
+        //     because B & C have round=2000
+        // ----------------------------------------------------
+        let drand_sig_1000 =
+            hex::decode(DRAND_QUICKNET_SIG_HEX).expect("decode signature for round=1000");
+        insert_drand_pulse(1000, &drand_sig_1000);
+
+        System::<Test>::set_block_number(10);
+        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments());
+
+        // After revealing round=1000:
+        // - A: Loses TLE #1 (1000), still has TLE #2 (2000) => remains in index
+        // - B: referencing 2000 => unaffected => remains
+        // - C: referencing 2000 => remains
+        let idx = TimelockedIndex::<Test>::get();
+        assert!(
+            idx.contains(&(netuid, user_a)),
+            "A has leftover round=2000 => remains in index"
+        );
+        assert!(idx.contains(&(netuid, user_b)), "B unaffected");
+        assert!(idx.contains(&(netuid, user_c)), "C unaffected");
+
+        // ----------------------------------------------------
+        // (8) Reveal round=2000 => fully remove A, B, and C
+        // ----------------------------------------------------
+        let drand_sig_2000 =
+            hex::decode(DRAND_QUICKNET_SIG_2000_HEX).expect("decode signature for round=2000");
+        insert_drand_pulse(2000, &drand_sig_2000);
+
+        System::<Test>::set_block_number(11);
+        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments());
+
+        // Now:
+        // - A's final TLE (#2 at 2000) is removed => A out
+        // - B had 2000 => out
+        // - C had 2000 => out
+        let idx = TimelockedIndex::<Test>::get();
+        assert!(
+            !idx.contains(&(netuid, user_a)),
+            "A removed after 2000 reveal"
+        );
+        assert!(
+            !idx.contains(&(netuid, user_b)),
+            "B removed after 2000 reveal"
+        );
+        assert!(
+            !idx.contains(&(netuid, user_c)),
+            "C removed after 2000 reveal"
+        );
+
+        assert_eq!(idx.len(), 0, "All users revealed => index is empty");
     });
 }
