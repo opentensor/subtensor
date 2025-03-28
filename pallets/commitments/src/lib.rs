@@ -584,6 +584,12 @@ impl<T: Config> Pallet<T> {
                     });
                 }
 
+                const MAX_REVEALS: usize = 10;
+                if existing_reveals.len() > MAX_REVEALS {
+                    let remove_count = existing_reveals.len() - MAX_REVEALS;
+                    existing_reveals.drain(0..remove_count);
+                }
+
                 RevealedCommitments::<T>::insert(netuid, &who, existing_reveals);
             }
 
