@@ -1597,7 +1597,9 @@ fn revealed_commitments_keeps_only_10_items() {
             fields.push(timelock);
         }
         let fields_bounded = BoundedVec::try_from(fields).expect("Should not exceed MaxFields");
-        let info = CommitmentInfo { fields: fields_bounded };
+        let info = CommitmentInfo {
+            fields: fields_bounded,
+        };
 
         // --- 2) Set the commitment => 12 timelocks in storage ---
         System::<Test>::set_block_number(1);
@@ -1638,65 +1640,79 @@ fn revealed_commitments_keeps_only_10_items() {
     });
 }
 
-
 #[test]
-fn revealed_commitments_keeps_only_10_items_across_multiple_calls() {
+fn revealed_commitments_keeps_only_10_newest_with_individual_single_field_commits() {
     new_test_ext().execute_with(|| {
         let netuid = 1;
         let who = 2;
         let reveal_round = 1000;
 
-        let drand_sig_bytes = hex::decode(DRAND_QUICKNET_SIG_HEX).expect("Should decode DRAND sig");
+        let drand_sig_bytes = hex::decode(DRAND_QUICKNET_SIG_HEX).expect("decode DRAND sig");
         insert_drand_pulse(reveal_round, &drand_sig_bytes);
 
-        //
-        // We'll create 12 separate commitments, each with a single TLE (#0..#11).
-        //
-        const TOTAL_TLES: usize = 12;
-        for i in 0..TOTAL_TLES {
+        // We will add 12 separate timelocks, one per iteration, each in its own set_commitment call.
+        // After each insertion, we call reveal + increment the block by 1.
+
+        for i in 0..12 {
+            System::<Test>::set_block_number(i as u64 + 1);
+
             let plaintext = format!("TLE #{}", i).into_bytes();
             let ciphertext = produce_ciphertext(&plaintext, reveal_round);
 
-            let timelock = Data::TimelockEncrypted {
+            let new_timelock = Data::TimelockEncrypted {
                 encrypted: ciphertext,
                 reveal_round,
             };
-            let fields = BoundedVec::try_from(vec![timelock])
-                .expect("Single field is well within MaxFields");
 
+            let fields = BoundedVec::try_from(vec![new_timelock])
+                .expect("Single field is well within MaxFields");
             let info = CommitmentInfo { fields };
+
             assert_ok!(Pallet::<Test>::set_commitment(
                 RuntimeOrigin::signed(who),
                 netuid,
                 Box::new(info)
             ));
+
+            assert_ok!(Pallet::<Test>::reveal_timelocked_commitments());
+
+            let revealed = RevealedCommitments::<Test>::get(netuid, who).unwrap_or_default();
+            let expected_count = (i + 1).min(10);
+            assert_eq!(
+                revealed.len(),
+                expected_count,
+                "At iteration {}, we keep at most 10 reveals",
+                i
+            );
         }
 
-        System::<Test>::set_block_number(2);
-        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments());
-
-        let revealed = RevealedCommitments::<Test>::get(netuid, who)
-            .expect("Should have revealed items after decryption");
-
+        let revealed = RevealedCommitments::<Test>::get(netuid, who).unwrap();
         assert_eq!(
             revealed.len(),
             10,
-            "We must only keep the 10 newest out of 12 total"
+            "After 12 total commits, only 10 remain revealed"
         );
 
-        //
-        // The first 2 TLEs we inserted ("TLE #0" and "TLE #1") should be dropped,
-        // leaving us with "TLE #2" through "TLE #11".
-        //
+        // Check that TLE #0 and TLE #1 are dropped; TLE #2..#11 remain in ascending order.
         for (idx, (revealed_bytes, reveal_block)) in revealed.iter().enumerate() {
             let revealed_str =
-                sp_std::str::from_utf8(revealed_bytes).expect("Should be valid UTF-8 in this test");
+                sp_std::str::from_utf8(revealed_bytes).expect("Should be valid UTF-8");
+            let expected_i = idx + 2; // i=0 => "TLE #2", i=1 => "TLE #3", etc.
+            let expected_str = format!("TLE #{}", expected_i);
 
-            let expected_num = idx + 2; // i.e. TLE #2..#11
-            let expected_str = format!("TLE #{}", expected_num);
+            assert_eq!(
+                revealed_str, expected_str,
+                "Revealed data #{} should match the truncated TLE #{}",
+                idx,
+                expected_i
+            );
 
-            assert_eq!(revealed_str, expected_str, "Check which TLE is stored");
-            assert_eq!(*reveal_block, 2, "All items revealed at block #2");
+            let expected_reveal_block = expected_i as u64 + 1;
+            assert_eq!(
+                *reveal_block, expected_reveal_block,
+                "Check which block TLE #{} was revealed in",
+                expected_i
+            );
         }
     });
 }
