@@ -293,7 +293,7 @@ impl frame_system::Config for Runtime {
     type Nonce = Nonce;
     type Block = Block;
     type SingleBlockMigrations = Migrations;
-    type MultiBlockMigrator = ();
+    type MultiBlockMigrator = MultiBlockMigrator;
     type PreInherents = ();
     type PostInherents = ();
     type PostTransactions = ();
@@ -335,6 +335,27 @@ impl pallet_utility::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+    pub MbmServiceWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;
+}
+
+impl pallet_migrations::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    #[cfg(not(feature = "runtime-benchmarks"))]
+    type Migrations = (); // Add to this tuple to schedule migrations for the next runtime upgrade
+    #[cfg(feature = "runtime-benchmarks")]
+    type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
+    type CursorMaxLen = ConstU32<65_536>;
+    type IdentifierMaxLen = ConstU32<256>;
+    type MigrationStatusHandler = ();
+    type FailedMigrationHandler = frame_support::migrations::EnterSafeModeOnFailedMigration<
+        SafeMode,
+        frame_support::migrations::FreezeChainOnFailedMigration,
+    >;
+    type MaxServiceWeight = MbmServiceWeight;
+    type WeightInfo = pallet_migrations::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -1423,6 +1444,7 @@ construct_runtime!(
         Commitments: pallet_commitments = 18,
         AdminUtils: pallet_admin_utils = 19,
         SafeMode: pallet_safe_mode = 20,
+        MultiBlockMigrator: pallet_migrations = 27,
 
         // Frontier
         Ethereum: pallet_ethereum = 21,
@@ -1458,7 +1480,7 @@ pub type SignedExtra = (
 
 type Migrations = (
     // Leave this migration in the runtime, so every runtime upgrade tiny rounding errors (fractions of fractions
-    // of a cent) are cleaned up. These tiny rounding errors occur due to floating point coversion.
+    // of a cent) are cleaned up. These tiny rounding errors occur due to floating point conversion.
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
         Runtime,
     >,
