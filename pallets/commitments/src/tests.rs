@@ -1686,7 +1686,8 @@ fn revealed_commitments_keeps_only_10_newest_with_individual_single_field_commit
             );
         }
 
-        let revealed = RevealedCommitments::<Test>::get(netuid, who).unwrap();
+        let revealed =
+            RevealedCommitments::<Test>::get(netuid, who).expect("expected to not panic");
         assert_eq!(
             revealed.len(),
             10,
