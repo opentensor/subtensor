@@ -6,28 +6,10 @@ use safe_math::*;
 use substrate_fixed::types::U64F64;
 
 use crate::{
-    RemoveLiquidityResult, SqrtPrice, SwapError,
+    RemoveLiquidityResult, SqrtPrice, SwapError, SwapResult, SwapStepAction, SwapStepResult,
     position::Position,
     tick::{LayerLevel, Tick, TickIndex, TickIndexBitmap},
 };
-
-#[derive(Debug, PartialEq)]
-pub struct SwapResult {
-    amount_paid_out: u64,
-    refund: u64,
-}
-
-pub enum SwapStepAction {
-    Crossing,
-    StopOn,
-    StopIn,
-}
-
-#[derive(Debug, PartialEq)]
-struct SwapStepResult {
-    amount_to_take: u64,
-    delta_out: u64,
-}
 
 /// This trait implementation depends on Runtime and it needs to be implemented
 /// in the pallet to be able to work with chain state and per subnet. All subnet
@@ -223,111 +205,7 @@ where
         amount: u64,
         sqrt_price_limit: SqrtPrice,
     ) -> Result<SwapResult, SwapError> {
-        let one = U64F64::saturating_from_num(1);
-
-        // Here we store the remaining amount that needs to be exchanged
-        // If order_type is Buy, then it expresses Tao amount, if it is Sell,
-        // then amount_remaining is Alpha.
-        let mut amount_remaining = amount;
-        let mut amount_paid_out: u64 = 0;
-        let mut refund: u64 = 0;
-
-        // A bit of fool proofing
-        let mut iteration_counter: u16 = 0;
-        let iter_limit: u16 = 1000;
-
-        // Swap one tick at a time until we reach one of the following conditions:
-        //   - Swap all provided amount
-        //   - Reach limit price
-        //   - Use up all liquidity (up to safe minimum)
-        while amount_remaining > 0 {
-            let sqrt_price_edge = self.get_sqrt_price_edge(order_type);
-            let possible_delta_in =
-                amount_remaining.saturating_sub(self.get_fee_amount(amount_remaining));
-            let sqrt_price_target = self.get_sqrt_price_target(order_type, possible_delta_in);
-            let target_quantity = self.get_target_quantity(order_type, possible_delta_in);
-            let edge_quantity = U64F64::saturating_from_num(1).safe_div(sqrt_price_edge.into());
-            let lim_quantity = one
-                .safe_div(self.state_ops.get_min_sqrt_price())
-                .saturating_add(one.safe_div(sqrt_price_limit.into()));
-
-            let action: SwapStepAction;
-            let delta_in;
-            let final_price;
-            let mut stop_and_refund = false;
-
-            if target_quantity < edge_quantity {
-                if target_quantity <= lim_quantity {
-                    // stop_in at price target
-                    action = SwapStepAction::StopIn;
-                    delta_in = possible_delta_in;
-                    final_price = sqrt_price_target;
-                } else {
-                    // stop_in at price limit
-                    action = SwapStepAction::StopIn;
-                    delta_in = self.get_delta_in(order_type, sqrt_price_limit);
-                    final_price = sqrt_price_limit;
-                    stop_and_refund = true;
-                }
-            } else if target_quantity > edge_quantity {
-                if edge_quantity < lim_quantity {
-                    // do crossing at price edge
-                    action = SwapStepAction::Crossing;
-                    delta_in = self.get_delta_in(order_type, sqrt_price_edge);
-                    final_price = sqrt_price_edge;
-                } else if edge_quantity > lim_quantity {
-                    // stop_in at price limit
-                    action = SwapStepAction::StopIn;
-                    delta_in = self.get_delta_in(order_type, sqrt_price_limit);
-                    final_price = sqrt_price_limit;
-                    stop_and_refund = true;
-                } else {
-                    // stop_on at price limit
-                    action = SwapStepAction::StopOn;
-                    delta_in = self.get_delta_in(order_type, sqrt_price_edge);
-                    final_price = sqrt_price_edge;
-                    stop_and_refund = true;
-                }
-            } else {
-                // targetQuantity = edgeQuantity
-                if target_quantity <= lim_quantity {
-                    // stop_on at price edge
-                    delta_in = self.get_delta_in(order_type, sqrt_price_edge);
-                    final_price = sqrt_price_edge;
-                    action = if delta_in > 0 {
-                        SwapStepAction::StopOn
-                    } else {
-                        SwapStepAction::Crossing
-                    };
-                } else {
-                    // targetQuantity > limQuantity
-                    // stop_in at price lim
-                    action = SwapStepAction::StopIn;
-                    delta_in = self.get_delta_in(order_type, sqrt_price_limit);
-                    final_price = sqrt_price_limit;
-                    stop_and_refund = true;
-                }
-            }
-
-            let swap_result = self.swap_step(order_type, delta_in, final_price, action)?;
-            amount_remaining = amount_remaining.saturating_sub(swap_result.amount_to_take);
-            amount_paid_out = amount_paid_out.saturating_add(swap_result.delta_out);
-
-            if stop_and_refund {
-                refund = amount_remaining;
-                amount_remaining = 0;
-            }
-
-            iteration_counter = iteration_counter.saturating_add(1);
-            if iteration_counter > iter_limit {
-                return Err(SwapError::TooManySwapSteps);
-            }
-        }
-
-        Ok(SwapResult {
-            amount_paid_out,
-            refund,
-        })
+        todo!("moved to Pallet::swap")
     }
 
     fn get_current_tick_index(&mut self) -> TickIndex {
@@ -343,77 +221,7 @@ where
         sqrt_price_final: SqrtPrice,
         action: SwapStepAction,
     ) -> Result<SwapStepResult, SwapError> {
-        // amount_swapped = delta_in / (1 - self.fee_size)
-        let fee_rate = U64F64::saturating_from_num(self.state_ops.get_fee_rate());
-        let u16_max = U64F64::saturating_from_num(u16::MAX);
-        let delta_fixed = U64F64::saturating_from_num(delta_in);
-        let amount_swapped =
-            delta_fixed.saturating_mul(u16_max.safe_div(u16_max.saturating_sub(fee_rate)));
-
-        // Hold the fees
-        let fee = self.get_fee_amount(amount_swapped.saturating_to_num::<u64>());
-        self.add_fees(order_type, fee);
-        let delta_out = self.convert_deltas(order_type, delta_in);
-
-        self.update_reserves(order_type, delta_in, delta_out);
-
-        // Get current tick
-        let current_tick_index = self.get_current_tick_index();
-
-        match action {
-            SwapStepAction::Crossing => {
-                let maybe_tick = match order_type {
-                    OrderType::Sell => self.find_closest_lower_active_tick(current_tick_index),
-                    OrderType::Buy => self.find_closest_higher_active_tick(current_tick_index),
-                };
-                if let Some(mut tick) = maybe_tick {
-                    tick.fees_out_tao = self
-                        .state_ops
-                        .get_fee_global_tao()
-                        .saturating_sub(tick.fees_out_tao);
-                    tick.fees_out_alpha = self
-                        .state_ops
-                        .get_fee_global_alpha()
-                        .saturating_sub(tick.fees_out_alpha);
-                    self.update_liquidity_at_crossing(order_type)?;
-                    self.state_ops
-                        .insert_tick_by_index(current_tick_index, tick);
-                } else {
-                    return Err(SwapError::InsufficientLiquidity);
-                }
-            }
-            SwapStepAction::StopOn => match order_type {
-                OrderType::Sell => {}
-                OrderType::Buy => {
-                    self.update_liquidity_at_crossing(order_type)?;
-                    let maybe_tick = self.find_closest_higher_active_tick(current_tick_index);
-
-                    if let Some(mut tick) = maybe_tick {
-                        tick.fees_out_tao = self
-                            .state_ops
-                            .get_fee_global_tao()
-                            .saturating_sub(tick.fees_out_tao);
-                        tick.fees_out_alpha = self
-                            .state_ops
-                            .get_fee_global_alpha()
-                            .saturating_sub(tick.fees_out_alpha);
-                        self.state_ops
-                            .insert_tick_by_index(current_tick_index, tick);
-                    } else {
-                        return Err(SwapError::InsufficientLiquidity);
-                    }
-                }
-            },
-            SwapStepAction::StopIn => {}
-        }
-
-        // Update current price, which effectively updates current tick too
-        self.state_ops.set_alpha_sqrt_price(sqrt_price_final);
-
-        Ok(SwapStepResult {
-            amount_to_take: amount_swapped.saturating_to_num::<u64>(),
-            delta_out,
-        })
+        todo!("moved to Pallet::swap_step")
     }
 
     /// Get the square root price at the current tick edge for the given direction (order type)
@@ -424,27 +232,7 @@ where
     /// return the edge that is impossible to execute
     ///
     fn get_sqrt_price_edge(&self, order_type: &OrderType) -> SqrtPrice {
-        let fallback_price_edge_value = (match order_type {
-            OrderType::Buy => TickIndex::MIN.try_to_sqrt_price(),
-            OrderType::Sell => TickIndex::MAX.try_to_sqrt_price(),
-        })
-        .unwrap_or(SqrtPrice::saturating_from_num(0));
-
-        let current_price = self.state_ops.get_alpha_sqrt_price();
-        let maybe_current_tick_index = TickIndex::try_from_sqrt_price(current_price);
-
-        if let Ok(current_tick_index) = maybe_current_tick_index {
-            match order_type {
-                OrderType::Buy => {
-                    TickIndex::new_unchecked(current_tick_index.get().saturating_add(1))
-                }
-                OrderType::Sell => current_tick_index,
-            }
-            .try_to_sqrt_price()
-            .unwrap_or(fallback_price_edge_value)
-        } else {
-            fallback_price_edge_value
-        }
+        todo!("moved to Pallet::sqrt_price_edge")
     }
 
     /// Calculate fee amount
@@ -452,47 +240,20 @@ where
     /// Fee is provided by state ops as u16-normalized value.
     ///
     fn get_fee_amount(&self, amount: u64) -> u64 {
-        let fee_rate = U64F64::saturating_from_num(self.state_ops.get_fee_rate())
-            .safe_div(U64F64::saturating_from_num(u16::MAX));
-        U64F64::saturating_from_num(amount)
-            .saturating_mul(fee_rate)
-            .saturating_to_num::<u64>()
+        todo!("moved to Pallet::calculate_fee_amount")
     }
 
     /// Here we subtract minimum safe liquidity from current liquidity to stay in the
     /// safe range
     ///
     fn get_safe_current_liquidity(&self) -> U64F64 {
-        U64F64::saturating_from_num(
-            self.state_ops
-                .get_current_liquidity()
-                .saturating_sub(self.state_ops.get_minimum_liquidity()),
-        )
+        todo!("moved to Pallet::current_liquidity_safe")
     }
 
     /// Get the target square root price based on the input amount
     ///
     fn get_sqrt_price_target(&self, order_type: &OrderType, delta_in: u64) -> SqrtPrice {
-        let liquidity_curr = self.get_safe_current_liquidity();
-        let sqrt_price_curr = self.state_ops.get_alpha_sqrt_price().into();
-        let delta_fixed = U64F64::saturating_from_num(delta_in);
-        let one = U64F64::saturating_from_num(1);
-
-        if liquidity_curr > 0 {
-            match order_type {
-                OrderType::Buy => one.safe_div(
-                    delta_fixed
-                        .safe_div(liquidity_curr)
-                        .saturating_add(one.safe_div(sqrt_price_curr)),
-                ),
-                OrderType::Sell => delta_fixed
-                    .safe_div(liquidity_curr)
-                    .saturating_add(sqrt_price_curr),
-            }
-        } else {
-            // No liquidity means price should remain current
-            sqrt_price_curr
-        }
+        todo!("moved to Pallet::sqrt_price_target")
     }
 
     /// Get the target quantity, which is
@@ -502,68 +263,18 @@ where
     /// ...based on the input amount, current liquidity, and current alpha price
     ///
     fn get_target_quantity(&self, order_type: &OrderType, delta_in: u64) -> SqrtPrice {
-        let liquidity_curr = self.get_safe_current_liquidity();
-        let sqrt_price_curr = self.state_ops.get_alpha_sqrt_price().into();
-        let delta_fixed = U64F64::saturating_from_num(delta_in);
-        let one = U64F64::saturating_from_num(1);
-
-        if liquidity_curr > 0 {
-            match order_type {
-                OrderType::Buy => delta_fixed
-                    .safe_div(liquidity_curr)
-                    .saturating_add(sqrt_price_curr)
-                    .into(),
-                OrderType::Sell => delta_fixed
-                    .safe_div(liquidity_curr)
-                    .saturating_add(one.safe_div(sqrt_price_curr))
-                    .into(),
-            }
-        } else {
-            // No liquidity means zero
-            SqrtPrice::saturating_from_num(0)
-        }
+        todo!("moved to Pallet::target_quantity")
     }
 
     /// Get the input amount needed to reach the target price
     ///
     fn get_delta_in(&self, order_type: &OrderType, sqrt_price_target: SqrtPrice) -> u64 {
-        let liquidity_curr = self.get_safe_current_liquidity();
-        let one = U64F64::saturating_from_num(1);
-        let sqrt_price_curr = self.state_ops.get_alpha_sqrt_price().into();
-
-        (match order_type {
-            OrderType::Sell => liquidity_curr.saturating_mul(
-                one.safe_div(sqrt_price_target.into())
-                    .saturating_sub(one.safe_div(sqrt_price_curr)),
-            ),
-            OrderType::Buy => {
-                liquidity_curr.saturating_mul(sqrt_price_target.saturating_sub(sqrt_price_curr))
-            }
-        })
-        .saturating_to_num::<u64>()
+        todo!("moved to Pallet::delat_in")
     }
 
     /// Add fees to the global fee counters
     fn add_fees(&mut self, order_type: &OrderType, fee: u64) {
-        let liquidity_curr = self.get_safe_current_liquidity();
-        if liquidity_curr > 0 {
-            let fee_global_tao: U64F64 = self.state_ops.get_fee_global_tao();
-            let fee_global_alpha: U64F64 = self.state_ops.get_fee_global_alpha();
-            let fee_fixed: U64F64 = U64F64::saturating_from_num(fee);
-
-            match order_type {
-                OrderType::Sell => {
-                    self.state_ops.set_fee_global_tao(
-                        fee_global_tao.saturating_add(fee_fixed.safe_div(liquidity_curr)),
-                    );
-                }
-                OrderType::Buy => {
-                    self.state_ops.set_fee_global_alpha(
-                        fee_global_alpha.saturating_add(fee_fixed.safe_div(liquidity_curr)),
-                    );
-                }
-            }
-        }
+        todo!("moved to Pallet::add_fees")
     }
 
     /// Convert input amount (delta_in) to output amount (delta_out)
@@ -573,52 +284,7 @@ where
     /// price tick.
     ///
     fn convert_deltas(&self, order_type: &OrderType, delta_in: u64) -> u64 {
-        let liquidity_curr = SqrtPrice::saturating_from_num(self.state_ops.get_current_liquidity());
-        let sqrt_price_curr = self.state_ops.get_alpha_sqrt_price();
-        let delta_fixed = SqrtPrice::saturating_from_num(delta_in);
-
-        // TODO: Implement in safe and non-overflowing math
-        // Intentionally using unsafe math here to trigger CI
-
-        // // Prevent overflows:
-        // // If liquidity or delta are too large, reduce their precision and
-        // // save their factor for final correction. Price can take full U64F64
-        // // range, and it will not overflow u128 divisions or multiplications.
-        // let mut liquidity_factor: u64 = 1;
-        // if liquidity_curr > u32::MAX as u64 {
-        //     liquidity_factor = u32::MAX as u64;
-        //     liquidity_curr = liquidity_curr.safe_div(liquidity_factor);
-        // }
-        // let mut delta = delta_in as u64;
-        // let mut delta_factor: u64 = 1;
-        // if delta > u32::MAX as u64 {
-        //     delta_factor = u32::MAX as u64;
-        //     delta = delta.safe_div(delta_factor);
-        // }
-
-        // // This product does not overflow because we limit both
-        // // multipliers by u32::MAX (despite the u64 type)
-        // let delta_liquidity = delta.saturating_mul(liquidity);
-
-        // // This is product of delta_in * liquidity_curr * sqrt_price_curr
-        // let delta_liquidity_price: u128 =
-        //     Self::mul_u64_u64f64(delta_liquidity, sqrt_price_curr.into());
-
-        if delta_in > 0 {
-            (match order_type {
-                OrderType::Sell => {
-                    liquidity_curr * sqrt_price_curr * delta_fixed
-                        / (liquidity_curr / sqrt_price_curr + delta_fixed)
-                }
-                OrderType::Buy => {
-                    liquidity_curr / sqrt_price_curr * delta_fixed
-                        / (liquidity_curr * sqrt_price_curr + delta_fixed)
-                }
-            })
-            .to_num::<u64>()
-        } else {
-            0
-        }
+        todo!("moved to Pallet::convert_deltas")
     }
 
     /// Multiplies a `u64` by a `U64F64` and returns a `u128` result without overflow.
@@ -661,52 +327,13 @@ where
     }
 
     fn get_liquidity_update_u64(&self, tick: &Tick) -> u64 {
-        let liquidity_update_abs_i128 = tick.liquidity_net.abs();
-        if liquidity_update_abs_i128 > u64::MAX as i128 {
-            u64::MAX
-        } else {
-            liquidity_update_abs_i128 as u64
-        }
+        todo!("moved to Tick::liquidity_net_as_u64")
     }
 
     /// Update liquidity when crossing a tick
     ///
     fn update_liquidity_at_crossing(&mut self, order_type: &OrderType) -> Result<(), SwapError> {
-        let mut liquidity_curr = self.state_ops.get_current_liquidity();
-        let current_tick_index = self.get_current_tick_index();
-        match order_type {
-            OrderType::Sell => {
-                let maybe_tick = self.find_closest_lower_active_tick(current_tick_index);
-                if let Some(tick) = maybe_tick {
-                    let liquidity_update_abs_u64 = self.get_liquidity_update_u64(&tick);
-
-                    liquidity_curr = if tick.liquidity_net >= 0 {
-                        liquidity_curr.saturating_sub(liquidity_update_abs_u64)
-                    } else {
-                        liquidity_curr.saturating_add(liquidity_update_abs_u64)
-                    };
-                } else {
-                    return Err(SwapError::InsufficientLiquidity);
-                }
-            }
-            OrderType::Buy => {
-                let maybe_tick = self.find_closest_higher_active_tick(current_tick_index);
-                if let Some(tick) = maybe_tick {
-                    let liquidity_update_abs_u64 = self.get_liquidity_update_u64(&tick);
-
-                    liquidity_curr = if tick.liquidity_net >= 0 {
-                        liquidity_curr.saturating_add(liquidity_update_abs_u64)
-                    } else {
-                        liquidity_curr.saturating_sub(liquidity_update_abs_u64)
-                    };
-                } else {
-                    return Err(SwapError::InsufficientLiquidity);
-                }
-            }
-        }
-
-        self.state_ops.set_current_liquidity(liquidity_curr);
-        Ok(())
+        todo!("moved to Pallet::update_liquidity_at_crossing")
     }
 
     /// Collect fees for a position
@@ -775,21 +402,11 @@ where
     }
 
     pub fn find_closest_lower_active_tick(&self, index: TickIndex) -> Option<Tick> {
-        let maybe_tick_index = self.find_closest_lower_active_tick_index(index);
-        if let Some(tick_index) = maybe_tick_index {
-            self.state_ops.get_tick_by_index(tick_index)
-        } else {
-            None
-        }
+        todo!("moved to Pallet::find_closest_lower")
     }
 
     pub fn find_closest_higher_active_tick(&self, index: TickIndex) -> Option<Tick> {
-        let maybe_tick_index = self.find_closest_higher_active_tick_index(index);
-        if let Some(tick_index) = maybe_tick_index {
-            self.state_ops.get_tick_by_index(tick_index)
-        } else {
-            None
-        }
+        todo!("moved to Pallet::find_closest_higher")
     }
 }
 

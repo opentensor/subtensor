@@ -82,6 +82,12 @@ pub struct Tick {
     pub fees_out_alpha: U64F64,
 }
 
+impl Tick {
+    pub fn liquidity_net_as_u64(&self) -> u64 {
+        self.liquidity_net.abs().min(u64::MAX as i128) as u64
+    }
+}
+
 /// Struct representing a tick index
 #[derive(
     Debug,
@@ -191,11 +197,9 @@ impl TickIndex {
         if tick_index <= current_tick {
             if quote {
                 FeeGlobalTao::<T>::get(netuid)
-                    .unwrap_or_default()
                     .saturating_sub(tick.fees_out_tao)
             } else {
                 FeeGlobalAlpha::<T>::get(netuid)
-                    .unwrap_or_default()
                     .saturating_sub(tick.fees_out_alpha)
             }
         } else if quote {
@@ -224,11 +228,9 @@ impl TickIndex {
             }
         } else if quote {
             FeeGlobalTao::<T>::get(netuid)
-                .unwrap_or_default()
                 .saturating_sub(tick.fees_out_tao)
         } else {
             FeeGlobalAlpha::<T>::get(netuid)
-                .unwrap_or_default()
                 .saturating_sub(tick.fees_out_alpha)
         }
     }

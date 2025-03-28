@@ -4,7 +4,7 @@ use pallet_subtensor_swap_interface::LiquidityDataProvider;
 use substrate_fixed::types::U64F64;
 
 use crate::{
-    NetUid,
+    NetUid, SqrtPrice,
     position::{Position, PositionId},
     tick::{LayerLevel, Tick, TickIndex},
 };
@@ -45,6 +45,18 @@ mod pallet {
         /// The maximum number of positions a user can have
         #[pallet::constant]
         type MaxPositions: Get<u32>;
+
+        /// Minimum liquidity that is safe for rounding and integer math.
+        #[pallet::constant]
+        type MinimumLiquidity: Get<u64>;
+
+        /// Minimum sqrt price across all active ticks
+        #[pallet::constant]
+        type MinSqrtPrice: Get<SqrtPrice>;
+
+        /// Maximum sqrt price across all active ticks
+        #[pallet::constant]
+        type MaxSqrtPrice: Get<SqrtPrice>;
     }
 
     /// The fee rate applied to swaps per subnet, normalized value between 0 and u16::MAX
@@ -52,6 +64,14 @@ mod pallet {
     /// For example, 0.3% is approximately 196
     #[pallet::storage]
     pub type FeeRate<T> = StorageMap<_, Twox64Concat, NetUid, u16, ValueQuery>;
+
+    // Global accrued fees in tao per subnet
+    #[pallet::storage]
+    pub type FeeGlobalTao<T> = StorageMap<_, Twox64Concat, NetUid, U64F64, ValueQuery>;
+
+    // Global accrued fees in alpha per subnet
+    #[pallet::storage]
+    pub type FeeGlobalAlpha<T> = StorageMap<_, Twox64Concat, NetUid, U64F64, ValueQuery>;
 
     /// Storage for all ticks, using subnet ID as the primary key and tick index as the secondary key
     #[pallet::storage]
@@ -82,14 +102,6 @@ mod pallet {
         Position,
         OptionQuery,
     >;
-
-    // Global accrued fees in tao per subnet
-    #[pallet::storage]
-    pub type FeeGlobalTao<T> = StorageMap<_, Twox64Concat, NetUid, U64F64>;
-
-    // Global accrued fees in alpha per subnet
-    #[pallet::storage]
-    pub type FeeGlobalAlpha<T> = StorageMap<_, Twox64Concat, NetUid, U64F64>;
 
     /// Tick index bitmap words storage
     #[pallet::storage]

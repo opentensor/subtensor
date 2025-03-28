@@ -45,6 +45,24 @@ impl From<u16> for NetUid {
     }
 }
 
+#[derive(Debug, PartialEq)]
+pub struct SwapResult {
+    amount_paid_out: u64,
+    refund: u64,
+}
+
+#[derive(Debug, PartialEq)]
+struct SwapStepResult {
+    amount_to_take: u64,
+    delta_out: u64,
+}
+
+pub enum SwapStepAction {
+    Crossing,
+    StopOn,
+    StopIn,
+}
+
 #[derive(Debug, Decode, Encode, Eq, PartialEq)]
 pub enum SwapError {
     /// The provided amount is insufficient for the swap.

@@ -113,9 +113,9 @@ impl Position {
     /// If quote flag is true, Tao is returned, otherwise alpha.
     fn fees_in_range<T: Config>(&self, quote: bool) -> u64 {
         if quote {
-            FeeGlobalTao::<T>::get(self.netuid).unwrap_or_default()
+            FeeGlobalTao::<T>::get(self.netuid)
         } else {
-            FeeGlobalAlpha::<T>::get(self.netuid).unwrap_or_default()
+            FeeGlobalAlpha::<T>::get(self.netuid)
         }
         .saturating_sub(self.tick_low.fees_below::<T>(self.netuid, quote))
         .saturating_sub(self.tick_high.fees_above::<T>(self.netuid, quote))
