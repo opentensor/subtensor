@@ -120,6 +120,8 @@ pub mod pallet {
         CommitmentSetRateLimitExceeded,
         /// Space Limit Exceeded for the current interval
         SpaceLimitExceeded,
+        /// Indicates that unreserve returned a leftover, which is unexpected.
+        UnexpectedUnreserveLeftover,
     }
 
     #[pallet::type_value]
@@ -266,7 +268,9 @@ pub mod pallet {
             if old_deposit > id.deposit {
                 let err_amount =
                     T::Currency::unreserve(&who, old_deposit.saturating_sub(id.deposit));
-                debug_assert!(err_amount.is_zero());
+                if !err_amount.is_zero() {
+                    return Err(Error::<T>::UnexpectedUnreserveLeftover.into());
+                }
             }
 
             <CommitmentOf<T>>::insert(netuid, &who, id);
