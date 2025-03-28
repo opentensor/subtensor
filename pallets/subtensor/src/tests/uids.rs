@@ -68,6 +68,7 @@ fn test_replace_neuron() {
         Dividends::<Test>::mutate(netuid, |v| {
             SubtensorModule::set_element_at(v, neuron_uid as usize, 5u16)
         });
+        Bonds::<Test>::insert(netuid, neuron_uid, vec![(0, 1)]);
 
         // serve axon mock address
         let ip: u128 = 1676056785;
@@ -138,6 +139,76 @@ fn test_replace_neuron() {
         assert_eq!(axon_info.ip, 0);
         assert_eq!(axon_info.port, 0);
         assert_eq!(axon_info.ip_type, 0);
+
+        // Check bonds are cleared.
+        assert_eq!(Bonds::<Test>::get(netuid, neuron_uid), vec![]);
+    });
+}
+
+#[test]
+fn test_bonds_cleared_on_replace() {
+    new_test_ext(1).execute_with(|| {
+        let block_number: u64 = 0;
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+        let hotkey_account_id = U256::from(1);
+        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+            netuid,
+            block_number,
+            111111,
+            &hotkey_account_id,
+        );
+        let coldkey_account_id = U256::from(1234);
+
+        let new_hotkey_account_id = U256::from(2);
+        let _new_colkey_account_id = U256::from(12345);
+
+        //add network
+        add_network(netuid, tempo, 0);
+
+        // Register a neuron.
+        assert_ok!(SubtensorModule::register(
+            <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
+            netuid,
+            block_number,
+            nonce,
+            work,
+            hotkey_account_id,
+            coldkey_account_id
+        ));
+
+        // Get UID
+        let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id);
+        assert_ok!(neuron_uid);
+        let neuron_uid = neuron_uid.unwrap();
+
+        // set non-default bonds
+        Bonds::<Test>::insert(netuid, neuron_uid, vec![(0, 1)]);
+
+        // Replace the neuron.
+        SubtensorModule::replace_neuron(netuid, neuron_uid, &new_hotkey_account_id, block_number);
+
+        // Check old hotkey is not registered on any network.
+        assert!(SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).is_err());
+        assert!(!SubtensorModule::is_hotkey_registered_on_any_network(
+            &hotkey_account_id
+        ));
+
+        let curr_hotkey = SubtensorModule::get_hotkey_for_net_and_uid(netuid, neuron_uid);
+        assert_ok!(curr_hotkey);
+        assert_ne!(curr_hotkey.unwrap(), hotkey_account_id);
+
+        // Check new hotkey is registered on the network.
+        assert!(
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &new_hotkey_account_id).is_ok()
+        );
+        assert!(SubtensorModule::is_hotkey_registered_on_any_network(
+            &new_hotkey_account_id
+        ));
+        assert_eq!(curr_hotkey.unwrap(), new_hotkey_account_id);
+
+        // Check bonds are cleared.
+        assert_eq!(Bonds::<Test>::get(netuid, neuron_uid), vec![]);
     });
 }
 

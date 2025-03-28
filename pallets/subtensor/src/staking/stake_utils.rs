@@ -794,14 +794,16 @@ impl<T: Config> Pallet<T> {
             tao_unstaked,
             actual_alpha_decrease,
             netuid,
+            actual_fee,
         ));
         log::debug!(
-            "StakeRemoved( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?} )",
+            "StakeRemoved( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?}, fee: {:?} )",
             coldkey.clone(),
             hotkey.clone(),
             tao_unstaked,
             actual_alpha_decrease,
-            netuid
+            netuid,
+            actual_fee
         );
 
         // Step 6: Return the amount of TAO unstaked.
@@ -857,14 +859,16 @@ impl<T: Config> Pallet<T> {
             tao_staked,
             actual_alpha,
             netuid,
+            actual_fee,
         ));
         log::debug!(
-            "StakeAdded( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?} )",
+            "StakeAdded( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?}, fee: {:?} )",
             coldkey.clone(),
             hotkey.clone(),
             tao_staked,
             actual_alpha,
-            netuid
+            netuid,
+            actual_fee
         );
 
         // Step 7: Return the amount of alpha staked
@@ -1097,7 +1101,7 @@ impl<T: Config> Pallet<T> {
                     DefaultStakingFee::<T>::get()
                 } else {
                     // Otherwise, calculate the fee based on the alpha estimate
-                    let fee = alpha_estimate
+                    let mut fee = alpha_estimate
                         .saturating_mul(
                             I96F32::saturating_from_num(AlphaDividendsPerSubnet::<T>::get(
                                 origin_netuid,
@@ -1110,6 +1114,16 @@ impl<T: Config> Pallet<T> {
                         .saturating_mul(Self::get_alpha_price(origin_netuid)) // fee needs to be in TAO
                         .saturating_to_num::<u64>();
 
+                    // 0.005% per epoch matches to 44% annual in compound interest. Do not allow the fee
+                    // to be lower than that. (1.00005^(365*20) ~= 1.44)
+                    let apr_20_percent = I96F32::saturating_from_num(0.00005);
+                    fee = fee.max(
+                        alpha_estimate
+                            .saturating_mul(apr_20_percent)
+                            .saturating_to_num::<u64>(),
+                    );
+
+                    // We should at least get DefaultStakingFee anyway
                     fee.max(DefaultStakingFee::<T>::get())
                 }
             }
