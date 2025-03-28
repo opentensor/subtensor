@@ -277,4 +277,13 @@ impl<T: Config> Pallet<T> {
 
         Ok(credit)
     }
+
+    // Returns the total amount of stake under a hotkey (delegative or otherwise) on a subnet
+    //
+    pub fn get_total_stake_for_hotkey_on_netuid(hotkey: &T::AccountId, netuid: u16) -> u64 {
+        let alpha: I96F32 =
+            I96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
+        let tao_price: I96F32 = Self::get_alpha_price(netuid);
+        alpha.saturating_mul(tao_price).saturating_to_num::<u64>()
+    }
 }
