@@ -3110,7 +3110,7 @@ fn test_reveal_at_exact_block() {
             let current_block = SubtensorModule::get_current_block_as_u64();
             if current_block < reveal_epoch_start_block {
                 // Advance to one block before the reveal epoch starts
-                let blocks_to_advance = reveal_epoch_start_block.saturating_sub(current_block);
+                let blocks_to_advance = reveal_epoch_start_block - current_block;
                 if blocks_to_advance > 1 {
                     // Advance to one block before the reveal epoch
                     let new_block_number = current_block + blocks_to_advance - 1;
@@ -3181,9 +3181,7 @@ fn test_reveal_at_exact_block() {
             let commit_epoch = SubtensorModule::get_epoch_index(netuid, commit_block);
             let reveal_epoch = commit_epoch.saturating_add(reveal_period);
             let expiration_epoch = reveal_epoch.saturating_add(1);
-            let expiration_epoch_start_block = expiration_epoch
-                .saturating_mul(tempo_plus_one)
-                .saturating_sub(netuid_plus_one);
+            let expiration_epoch_start_block = expiration_epoch * tempo_plus_one - netuid_plus_one;
 
             let current_block = SubtensorModule::get_current_block_as_u64();
             if current_block < expiration_epoch_start_block {
