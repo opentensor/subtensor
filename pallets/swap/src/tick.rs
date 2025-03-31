@@ -196,11 +196,9 @@ impl TickIndex {
         let tick = Ticks::<T>::get(netuid, tick_index).unwrap_or_default();
         if tick_index <= current_tick {
             if quote {
-                FeeGlobalTao::<T>::get(netuid)
-                    .saturating_sub(tick.fees_out_tao)
+                FeeGlobalTao::<T>::get(netuid).saturating_sub(tick.fees_out_tao)
             } else {
-                FeeGlobalAlpha::<T>::get(netuid)
-                    .saturating_sub(tick.fees_out_alpha)
+                FeeGlobalAlpha::<T>::get(netuid).saturating_sub(tick.fees_out_alpha)
             }
         } else if quote {
             tick.fees_out_tao
@@ -227,11 +225,9 @@ impl TickIndex {
                 tick.fees_out_alpha
             }
         } else if quote {
-            FeeGlobalTao::<T>::get(netuid)
-                .saturating_sub(tick.fees_out_tao)
+            FeeGlobalTao::<T>::get(netuid).saturating_sub(tick.fees_out_tao)
         } else {
-            FeeGlobalAlpha::<T>::get(netuid)
-                .saturating_sub(tick.fees_out_alpha)
+            FeeGlobalAlpha::<T>::get(netuid).saturating_sub(tick.fees_out_alpha)
         }
     }
 
@@ -1282,6 +1278,7 @@ mod tests {
         let back_to_u256 = u64f64_to_u256(fixed_value, 32);
         assert_eq!(back_to_u256, value_32frac);
     }
+
     #[test]
     fn test_tick_index_to_sqrt_price() {
         let tick_spacing = SqrtPrice::from_num(1.0001);
@@ -1344,7 +1341,7 @@ mod tests {
     #[test]
     fn test_roundtrip_tick_index_sqrt_price() {
         for i32_value in [
-            MIN_TICK / 2,
+            TickIndex::MIN.get(),
             -1000,
             -100,
             -10,
@@ -1356,7 +1353,7 @@ mod tests {
             10,
             100,
             1000,
-            MAX_TICK / 2,
+            TickIndex::MAX.get(),
         ]
         .iter()
         {
@@ -1371,7 +1368,7 @@ mod tests {
     fn test_from_offset_index() {
         // Test various tick indices
         for i32_value in [
-            MIN_TICK / 2,
+            TickIndex::MIN.get(),
             -1000,
             -100,
             -10,
@@ -1379,7 +1376,7 @@ mod tests {
             10,
             100,
             1000,
-            MAX_TICK / 2,
+            TickIndex::MAX.get(),
         ] {
             let original_tick = TickIndex::new_unchecked(i32_value);
 
@@ -1396,5 +1393,26 @@ mod tests {
         // Test out of bounds values
         let too_large = (TickIndex::MAX.get() + TickIndex::OFFSET.get() + 1) as u32;
         assert!(TickIndex::from_offset_index(too_large).is_err());
+    }
+
+    #[test]
+    fn test_tick_price_sanity_check() {
+        let min_price = TickIndex::MIN.try_to_sqrt_price().unwrap();
+        let max_price = TickIndex::MAX.try_to_sqrt_price().unwrap();
+
+        assert!(min_price > 0.);
+        assert!(max_price > 0.);
+        assert!(max_price > min_price);
+        assert!(min_price < 0.000001);
+        assert!(max_price > 10.);
+
+        // Roundtrip conversions
+        let min_price_sqrt = TickIndex::MIN.try_to_sqrt_price().unwrap();
+        let min_tick = TickIndex::try_from_sqrt_price(min_price_sqrt).unwrap();
+        assert_eq!(min_tick, TickIndex::MIN);
+
+        let max_price_sqrt: SqrtPrice = TickIndex::MAX.try_to_sqrt_price().unwrap();
+        let max_tick = TickIndex::try_from_sqrt_price(max_price_sqrt).unwrap();
+        assert_eq!(max_tick, TickIndex::MAX);
     }
 }

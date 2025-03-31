@@ -18,6 +18,9 @@ mod tick;
 mod position;
 pub(crate) mod swap;
 
+#[cfg(test)]
+pub(crate) mod mock;
+
 type SqrtPrice = U64F64;
 
 #[derive(Debug, PartialEq)]

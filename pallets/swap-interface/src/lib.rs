@@ -18,6 +18,6 @@ pub trait SwapHandler<AccountId> {
 }
 
 pub trait LiquidityDataProvider {
-    fn tao_reserve() -> u64;
-    fn alpha_reserve() -> u64;
+    fn tao_reserve(netuid: u16) -> u64;
+    fn alpha_reserve(netuid: u16) -> u64;
 }

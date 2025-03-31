@@ -124,6 +124,7 @@ mod pallet {
     }
 
     #[pallet::error]
+	#[derive(PartialEq)]
     pub enum Error<T> {
         /// The fee rate is too high
         FeeRateTooHigh,
@@ -175,5 +176,42 @@ mod pallet {
 
             Ok(())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        NetUid,
+        mock::*,
+        pallet::{Error, FeeRate, Pallet as SwapModule},
+    };
+    use frame_support::{assert_noop, assert_ok};
+
+    #[test]
+    fn test_set_fee_rate() {
+        new_test_ext().execute_with(|| {
+            // Create a test subnet
+            let netuid = 1u16;
+            let fee_rate = 500; // 0.76% fee
+
+            // Set fee rate (requires admin/root origin)
+            assert_ok!(SwapModule::<Test>::set_fee_rate(
+                RuntimeOrigin::root(),
+                netuid,
+                fee_rate
+            ));
+
+            // Check that fee rate was set correctly
+            let netuid_struct = NetUid::from(netuid);
+            assert_eq!(FeeRate::<Test>::get(netuid_struct), fee_rate);
+
+            // Verify fee rate validation - should fail if too high
+            let too_high_fee = MaxFeeRate::get() + 1;
+            assert_noop!(
+                SwapModule::<Test>::set_fee_rate(RuntimeOrigin::root(), netuid, too_high_fee),
+                Error::<Test>::FeeRateTooHigh
+            );
+        });
     }
 }

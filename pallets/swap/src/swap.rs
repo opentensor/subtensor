@@ -642,48 +642,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_swap_initialization() {
-        let tao = 1_000_000_000;
-        let alpha = 4_000_000_000;
-
-        let mut mock_ops = MockSwapDataOperations::new();
-        mock_ops.set_tao_reserve(tao);
-        mock_ops.set_alpha_reserve(alpha);
-        let swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
-
-        // Active ticks
-        let tick_low = swap.state_ops.get_tick_by_index(TickIndex::MIN).unwrap();
-        let tick_high = swap.state_ops.get_tick_by_index(TickIndex::MAX).unwrap();
-        let liquidity = sqrt(alpha as u128 * tao as u128) as u64;
-        let expected_liquidity_net_low: i128 = liquidity as i128;
-        let expected_liquidity_gross_low: u64 = liquidity;
-        let expected_liquidity_net_high: i128 = (liquidity as i128).neg();
-        let expected_liquidity_gross_high: u64 = liquidity;
-        assert_eq!(tick_low.liquidity_net, expected_liquidity_net_low,);
-        assert_eq!(tick_low.liquidity_gross, expected_liquidity_gross_low,);
-        assert_eq!(tick_high.liquidity_net, expected_liquidity_net_high,);
-        assert_eq!(tick_high.liquidity_gross, expected_liquidity_gross_high,);
-
-        // Liquidity position at correct ticks
-        let account_id = swap.state_ops.get_protocol_account_id();
-        assert_eq!(swap.state_ops.get_position_count(&account_id), 1);
-
-        let position = swap.state_ops.get_position(&account_id, 0).unwrap();
-        assert_eq!(position.liquidity, liquidity);
-        assert_eq!(position.tick_low, TickIndex::MIN);
-        assert_eq!(position.tick_high, TickIndex::MAX);
-        assert_eq!(position.fees_alpha, 0);
-        assert_eq!(position.fees_tao, 0);
-
-        // Current liquidity
-        assert_eq!(swap.state_ops.get_current_liquidity(), liquidity);
-
-        // Current price
-        let sqrt_price = swap.state_ops.get_alpha_sqrt_price();
-        assert_abs_diff_eq!(sqrt_price.to_num::<f64>(), 0.50, epsilon = 0.00001,);
-    }
-
     fn price_to_tick(price: f64) -> TickIndex {
         let price_sqrt: SqrtPrice = SqrtPrice::from_num(price.sqrt());
         // Handle potential errors in the conversion
@@ -723,27 +681,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_tick_price_sanity_check() {
-        let min_price = tick_to_price(TickIndex::MIN);
-        let max_price = tick_to_price(TickIndex::MAX);
-        assert!(min_price > 0.);
-        assert!(max_price > 0.);
-        assert!(max_price > min_price);
-        assert!(min_price < 0.000001);
-        assert!(max_price > 10.);
-
-        // Roundtrip conversions
-        let min_price_sqrt: SqrtPrice = TickIndex::MIN.try_to_sqrt_price().unwrap();
-        let min_tick = TickIndex::try_from_sqrt_price(min_price_sqrt).unwrap();
-        assert_eq!(min_tick, TickIndex::MIN);
-
-        let max_price_sqrt: SqrtPrice = TickIndex::MAX.try_to_sqrt_price().unwrap();
-        let max_tick = TickIndex::try_from_sqrt_price(max_price_sqrt).unwrap();
-        assert_eq!(max_tick, TickIndex::MAX);
-    }
-
     // Test adding liquidity on top of the existing protocol liquidity
+	#[ignore]
     #[test]
     fn test_add_liquidity_basic() {
         let protocol_tao = 1_000_000_000;
@@ -875,6 +814,7 @@ mod tests {
         });
     }
 
+	#[ignore]
     #[test]
     fn test_add_liquidity_out_of_bounds() {
         let protocol_tao = 1_000_000_000;
@@ -924,6 +864,7 @@ mod tests {
         });
     }
 
+	#[ignore]
     #[test]
     fn test_add_liquidity_over_balance() {
         let protocol_tao = 1_000_000_000;

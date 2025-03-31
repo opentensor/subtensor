@@ -22,8 +22,8 @@ impl<T: Config> Pallet<T> {
 
         // Initialize the v3:
         // Reserves are re-purposed, nothing to set, just query values for liquidity and price calculation
-        let tao_reserve = <T as Config>::LiquidityDataProvider::tao_reserve();
-        let alpha_reserve = <T as Config>::LiquidityDataProvider::alpha_reserve();
+        let tao_reserve = <T as Config>::LiquidityDataProvider::tao_reserve(netuid.into());
+        let alpha_reserve = <T as Config>::LiquidityDataProvider::alpha_reserve(netuid.into());
 
         // Set price
         let price = U64F64::saturating_from_num(tao_reserve)
@@ -813,5 +813,327 @@ impl<T: Config> Pallet<T> {
     /// The number of positions that the account has in the specified subnet
     fn count_positions(netuid: NetUid, account_id: &T::AccountId) -> usize {
         Positions::<T>::iter_prefix_values((netuid, account_id.clone())).count()
+    }
+
+    /// Returns the protocol account ID
+    ///
+    /// # Returns
+    /// The account ID of the protocol account
+    pub fn protocol_account_id() -> T::AccountId {
+        T::ProtocolId::get().into_account_truncating()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use approx::assert_abs_diff_eq;
+    use frame_support::{assert_err, assert_ok};
+    use sp_arithmetic::helpers_128bit;
+
+    use super::*;
+    use crate::{mock::*, pallet::*};
+
+    #[test]
+    fn test_swap_initialization() {
+        new_test_ext().execute_with(|| {
+            let netuid = NetUid::from(1);
+
+            // Get reserves from the mock provider
+            let tao = MockLiquidityProvider::tao_reserve(netuid.into());
+            let alpha = MockLiquidityProvider::alpha_reserve(netuid.into());
+
+            assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+
+            assert!(SwapV3Initialized::<Test>::get(netuid));
+
+            let sqrt_price = AlphaSqrtPrice::<Test>::get(netuid);
+            let expected_sqrt_price = U64F64::from_num(tao)
+                .safe_div(U64F64::from_num(alpha))
+                .checked_sqrt(U64F64::from_num(0.000001))
+                .unwrap();
+            assert_eq!(sqrt_price, expected_sqrt_price);
+
+            // Calculate expected liquidity
+            let expected_liquidity =
+                helpers_128bit::sqrt((tao as u128).saturating_mul(alpha as u128)) as u64;
+
+            // Get the protocol account
+            let protocol_account_id = Pallet::<Test>::protocol_account_id();
+
+            // Verify position created for protocol account
+            let positions = Positions::<Test>::iter_prefix_values((netuid, protocol_account_id))
+                .collect::<Vec<_>>();
+            assert_eq!(positions.len(), 1);
+
+            let position = &positions[0];
+            assert_eq!(position.liquidity, expected_liquidity);
+            assert_eq!(position.tick_low, TickIndex::MIN);
+            assert_eq!(position.tick_high, TickIndex::MAX);
+            assert_eq!(position.fees_tao, 0);
+            assert_eq!(position.fees_alpha, 0);
+
+            // Verify ticks were created
+            let tick_low = Ticks::<Test>::get(netuid, TickIndex::MIN).unwrap();
+            let tick_high = Ticks::<Test>::get(netuid, TickIndex::MAX).unwrap();
+
+            // Check liquidity values
+            assert_eq!(tick_low.liquidity_net, expected_liquidity as i128);
+            assert_eq!(tick_low.liquidity_gross, expected_liquidity);
+            assert_eq!(tick_high.liquidity_net, -(expected_liquidity as i128));
+            assert_eq!(tick_high.liquidity_gross, expected_liquidity);
+
+            // Verify current liquidity is set
+            assert_eq!(CurrentLiquidity::<Test>::get(netuid), expected_liquidity);
+        });
+    }
+
+    // Test adding liquidity on top of the existing protocol liquidity
+    #[test]
+    fn test_add_liquidity_basic() {
+        assert!(false, "unfinished transfering from Swap");
+
+        new_test_ext().execute_with(|| {
+            let account_id = 1;
+            let netuid = NetUid::from(1);
+            let min_price = TickIndex::MIN
+                .try_to_sqrt_price()
+                .unwrap()
+                .saturating_to_num::<f32>();
+            let max_price = TickIndex::MAX
+                .try_to_sqrt_price()
+                .unwrap()
+                .saturating_to_num::<f32>();
+            let max_tick = TickIndex::from_sqrt_price_bounded(SqrtPrice::from_num(max_price));
+            let current_price = 0.25;
+            assert_eq!(max_tick, TickIndex::MAX);
+
+            assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+
+            // As a user add liquidity with all possible corner cases
+            //   - Initial price is 0.25
+            //   - liquidity is expressed in RAO units
+            // Test case is (price_low, price_high, liquidity, tao, alpha)
+            [
+                // Repeat the protocol liquidity at maximum range: Expect all the same values
+                (
+                    min_price,
+                    max_price,
+                    2_000_000_000_u64,
+                    1_000_000_000_u64,
+                    4_000_000_000_u64,
+                ),
+                // Repeat the protocol liquidity at current to max range: Expect the same alpha
+                (0.25, max_price, 2_000_000_000_u64, 0, 4_000_000_000),
+                // Repeat the protocol liquidity at min to current range: Expect all the same tao
+                (min_price, 0.24999, 2_000_000_000_u64, 1_000_000_000, 0),
+                // Half to double price - just some sane wothdraw amounts
+                (0.125, 0.5, 2_000_000_000_u64, 293_000_000, 1_171_000_000),
+                // Both below price - tao is non-zero, alpha is zero
+                (0.12, 0.13, 2_000_000_000_u64, 28_270_000, 0),
+                // Both above price - tao is zero, alpha is non-zero
+                (0.3, 0.4, 2_000_000_000_u64, 0, 489_200_000),
+            ]
+            .into_iter()
+            .enumerate()
+            .map(|(n, (price_low, price_high, liquidity, tao, alpha))| {
+                (
+                    n + 1,
+                    SqrtPrice::from_num(price_low),
+                    SqrtPrice::from_num(price_high),
+                    liquidity,
+                    tao,
+                    alpha,
+                )
+            })
+            .for_each(
+                |(
+                    expected_count,
+                    price_low,
+                    price_high,
+                    liquidity,
+                    expected_tao,
+                    expected_alpha,
+                )| {
+                    // Calculate ticks (assuming tick math is tested separately)
+                    let tick_low = TickIndex::from_sqrt_price_bounded(price_low);
+                    let tick_high = TickIndex::from_sqrt_price_bounded(price_high);
+
+                    // // Setup swap
+                    // let mut mock_ops = MockSwapDataOperations::new();
+                    // mock_ops.set_tao_reserve(protocol_tao);
+                    // mock_ops.set_alpha_reserve(protocol_alpha);
+                    // mock_ops.deposit_balances(&account_id, user_tao, user_alpha);
+                    // let mut swap = Swap::<u16, MockSwapDataOperations>::new(mock_ops);
+
+                    // Get tick infos and liquidity before adding (to account for protocol liquidity)
+                    let tick_low_info_before =
+                        Ticks::<Test>::get(netuid, tick_low).unwrap_or_default();
+                    let tick_high_info_before =
+                        Ticks::<Test>::get(netuid, tick_high).unwrap_or_default();
+                    let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
+
+                    // Add liquidity
+                    let (tao, alpha) = Pallet::<Test>::add_liquidity(
+                        netuid,
+                        &account_id,
+                        tick_low,
+                        tick_high,
+                        liquidity,
+                    )
+                    .unwrap();
+
+                    assert_abs_diff_eq!(tao, expected_tao, epsilon = tao / 1000);
+                    assert_abs_diff_eq!(alpha, expected_alpha, epsilon = alpha / 1000);
+
+                    // Check that low and high ticks appear in the state and are properly updated
+                    let tick_low_info = Ticks::<Test>::get(netuid, tick_low).unwrap();
+                    let tick_high_info = Ticks::<Test>::get(netuid, tick_high).unwrap();
+                    let expected_liquidity_net_low = liquidity as i128;
+                    let expected_liquidity_gross_low = liquidity;
+                    let expected_liquidity_net_high = -(liquidity as i128);
+                    let expected_liquidity_gross_high = liquidity;
+
+                    assert_eq!(
+                        tick_low_info.liquidity_net - tick_low_info_before.liquidity_net,
+                        expected_liquidity_net_low,
+                    );
+                    assert_eq!(
+                        tick_low_info.liquidity_gross - tick_low_info_before.liquidity_gross,
+                        expected_liquidity_gross_low,
+                    );
+                    assert_eq!(
+                        tick_high_info.liquidity_net - tick_high_info_before.liquidity_net,
+                        expected_liquidity_net_high,
+                    );
+                    assert_eq!(
+                        tick_high_info.liquidity_gross - tick_high_info_before.liquidity_gross,
+                        expected_liquidity_gross_high,
+                    );
+
+                    // // Balances are withdrawn
+                    // let (user_tao_after, user_alpha_after) =
+                    //     swap.state_ops.balances.get(&account_id).unwrap();
+                    // let tao_withdrawn = user_tao - user_tao_after;
+                    // let alpha_withdrawn = user_alpha - user_alpha_after;
+                    // assert_abs_diff_eq!(tao_withdrawn, *tao, epsilon = *tao / 1000);
+                    // assert_abs_diff_eq!(alpha_withdrawn, *alpha, epsilon = *alpha / 1000);
+
+                    // Liquidity position at correct ticks
+                    assert_eq!(
+                        Pallet::<Test>::count_positions(netuid, &account_id),
+                        expected_count
+                    );
+
+                    // let position = swap.state_ops.get_position(&account_id, 0).unwrap();
+                    // assert_eq!(position.liquidity, *liquidity);
+                    // assert_eq!(position.tick_low, tick_low);
+                    // assert_eq!(position.tick_high, tick_high);
+                    // assert_eq!(position.fees_alpha, 0);
+                    // assert_eq!(position.fees_tao, 0);
+
+                    // // Current liquidity is updated only when price range includes the current price
+                    // if (*price_high >= current_price) && (*price_low <= current_price) {
+                    //     assert_eq!(
+                    //         swap.state_ops.get_current_liquidity(),
+                    //         liquidity_before + *liquidity
+                    //     );
+                    // } else {
+                    //     assert_eq!(swap.state_ops.get_current_liquidity(), liquidity_before);
+                    // }
+
+                    // // Reserves are updated
+                    // assert_eq!(
+                    //     swap.state_ops.get_tao_reserve(),
+                    //     tao_withdrawn + protocol_tao,
+                    // );
+                    // assert_eq!(
+                    //     swap.state_ops.get_alpha_reserve(),
+                    //     alpha_withdrawn + protocol_alpha,
+                    // );
+                },
+            );
+        });
+    }
+
+    #[test]
+    fn test_add_liquidity_out_of_bounds() {
+        new_test_ext().execute_with(|| {
+            let netuid = NetUid::from(1);
+            let account_id = 1;
+
+            assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+
+            [
+                // For our tests, we'll construct TickIndex values that are intentionally
+                // outside the valid range for testing purposes only
+                (
+                    TickIndex::new_unchecked(TickIndex::MIN.get() - 1),
+                    TickIndex::MAX,
+                    1_000_000_000_u64,
+                ),
+                (
+                    TickIndex::MIN,
+                    TickIndex::new_unchecked(TickIndex::MAX.get() + 1),
+                    1_000_000_000_u64,
+                ),
+                (
+                    TickIndex::new_unchecked(TickIndex::MIN.get() - 1),
+                    TickIndex::new_unchecked(TickIndex::MAX.get() + 1),
+                    1_000_000_000_u64,
+                ),
+                (
+                    TickIndex::new_unchecked(TickIndex::MIN.get() - 100),
+                    TickIndex::new_unchecked(TickIndex::MAX.get() + 100),
+                    1_000_000_000_u64,
+                ),
+            ]
+            .into_iter()
+            .for_each(|(tick_low, tick_high, liquidity)| {
+                // Add liquidity
+                assert_err!(
+                    Swap::add_liquidity(netuid, &account_id, tick_low, tick_high, liquidity),
+                    Error::<Test>::InvalidTickRange,
+                );
+            });
+        });
+    }
+
+    #[test]
+    fn test_add_liquidity_over_balance() {
+        assert!(false, "unfinished transfering from Swap");
+        new_test_ext().execute_with(|| {
+            let account_id = 1;
+            let netuid = NetUid::from(1);
+
+            assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+
+            [
+                // Lower than price (not enough alpha)
+                (0.1, 0.2, 100_000_000_000_u64),
+                // Higher than price (not enough tao)
+                (0.3, 0.4, 100_000_000_000_u64),
+                // Around the price (not enough both)
+                (0.1, 0.4, 100_000_000_000_u64),
+            ]
+            .into_iter()
+            .map(|(pl, ph, l)| (SqrtPrice::from_num(pl), SqrtPrice::from_num(ph), l))
+            .for_each(|(price_low, price_high, liquidity)| {
+                // Calculate ticks
+                let tick_low = TickIndex::from_sqrt_price_bounded(price_low);
+                let tick_high = TickIndex::from_sqrt_price_bounded(price_high);
+
+                // Add liquidity
+                assert_err!(
+                    Pallet::<Test>::add_liquidity(
+                        netuid,
+                        &account_id,
+                        tick_low,
+                        tick_high,
+                        liquidity
+                    ),
+                    Error::<Test>::InsufficientBalance,
+                );
+            });
+        });
     }
 }
