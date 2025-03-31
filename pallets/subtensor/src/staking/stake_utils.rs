@@ -1114,7 +1114,7 @@ impl<T: Config> Pallet<T> {
                                 origin_netuid,
                                 &origin_hotkey,
                             ))
-                            .safe_div(I96F32::saturating_from_num(
+                            .safe_div(U96F32::saturating_from_num(
                                 TotalHotkeyAlphaLastEpoch::<T>::get(&origin_hotkey, origin_netuid),
                             )),
                         )
