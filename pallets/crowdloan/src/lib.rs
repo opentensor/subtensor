@@ -254,6 +254,13 @@ pub mod pallet {
                 .ok_or(Error::<T>::Overflow)?;
             ensure!(crowdloan.raised <= crowdloan.cap, Error::<T>::CapExceeded);
 
+            CurrencyOf::<T>::transfer(
+                &contributor,
+                &Self::crowdloan_account_id(crowdloan_id),
+                amount,
+                ExistenceRequirement::AllowDeath,
+            )?;
+
             // Ensure the contribution does not overflow the contributor's balance and update
             // the contribution
             let contribution = Contributions::<T>::get(&crowdloan_id, &contributor)
@@ -269,17 +276,11 @@ pub mod pallet {
                 crowdloan_id,
                 amount,
             });
-            Ok(())
+            
+                    Ok(())
         }
 
-        /// Withdraw all contributior balance from a crowdloan
-        #[pallet::call_index(2)]
-        pub fn withdraw(origin: OriginFor<T>) -> DispatchResult {
-            Ok(())
-        }
-
-        /// Refund every contributor's balance from a crowdloan
-        #[pallet::call_index(3)]
+                #[pallet::call_index(3)]
         pub fn withdraw(
             origin: OriginFor<T>,
             contributor: T::AccountId,
@@ -309,7 +310,7 @@ pub mod pallet {
             )?;
 
             // Remove the contribution from the contributions map and update
-            // tracked refund so far
+            // tracked refunds so far
             Contributions::<T>::remove(&crowdloan_id, &contributor);
             crowdloan.raised = crowdloan.raised.saturating_sub(amount);
 

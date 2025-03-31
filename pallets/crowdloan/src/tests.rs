@@ -407,6 +407,10 @@ fn test_contribute_succeeds() {
                 }
                 .into()
             );
+            assert_eq!(
+                pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, depositor),
+                Some(100)
+            );
 
             // second contribution to the crowdloan
             let contributor1: AccountOf<Test> = U256::from(2);
@@ -424,6 +428,10 @@ fn test_contribute_succeeds() {
                     amount,
                 }
                 .into()
+            );
+            assert_eq!(
+                pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, contributor1),
+                Some(100)
             );
 
             // third contribution to the crowdloan
@@ -443,19 +451,17 @@ fn test_contribute_succeeds() {
                 }
                 .into()
             );
-
-            // ensure the contributions are updated correctly
-            assert_eq!(
-                pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, depositor),
-                Some(100)
-            );
-            assert_eq!(
-                pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, contributor1),
-                Some(100)
-            );
             assert_eq!(
                 pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, contributor2),
                 Some(50)
+            );
+
+            // ensure the contributions are present in the crowdloan account
+            let crowdloan_account_id: AccountOf<Test> =
+                pallet_crowdloan::Pallet::<Test>::crowdloan_account_id(crowdloan_id);
+            assert_eq!(
+                pallet_balances::Pallet::<Test>::free_balance(&crowdloan_account_id),
+                250
             );
 
             // ensure the crowdloan raised amount is updated correctly
@@ -624,6 +630,329 @@ fn test_contribute_fails_if_contribution_will_make_the_raised_amount_exceed_the_
             assert_err!(
                 Crowdloan::contribute(RuntimeOrigin::signed(contributor), crowdloan_id, amount),
                 pallet_crowdloan::Error::<Test>::CapExceeded
+            );
+        });
+}
+
+#[test]
+fn test_withdraw_succeeds() {
+    TestState::default()
+        .with_balance(U256::from(1), 100)
+        .with_balance(U256::from(2), 100)
+        .with_balance(U256::from(3), 100)
+        .build_and_execute(|| {
+            // create a crowdloan
+            let depositor: AccountOf<Test> = U256::from(1);
+            let initial_deposit: BalanceOf<Test> = 50;
+            let minimum_contribution: BalanceOf<Test> = 10;
+            let cap: BalanceOf<Test> = 300;
+            let end: BlockNumberFor<Test> = 50;
+            assert_ok!(Crowdloan::create(
+                RuntimeOrigin::signed(depositor),
+                initial_deposit,
+                minimum_contribution,
+                cap,
+                end
+            ));
+
+            // run some blocks
+            run_to_block(10);
+
+            // contribute to the crowdloan
+            let crowdloan_id: CrowdloanId = 0;
+            let contributor: AccountOf<Test> = U256::from(2);
+            let amount: BalanceOf<Test> = 100;
+            assert_ok!(Crowdloan::contribute(
+                RuntimeOrigin::signed(contributor),
+                crowdloan_id,
+                amount
+            ));
+
+            // run some more blocks past the end of the contribution period
+            run_to_block(60);
+
+            // withdraw from depositor
+            assert_ok!(Crowdloan::withdraw(
+                RuntimeOrigin::signed(depositor),
+                depositor,
+                crowdloan_id
+            ));
+            // ensure the depositor has the correct amount
+            assert_eq!(
+                pallet_balances::Pallet::<Test>::free_balance(&depositor),
+                100
+            );
+
+            // withdraw from contributor
+            assert_ok!(Crowdloan::withdraw(
+                RuntimeOrigin::signed(contributor),
+                contributor,
+                crowdloan_id
+            ));
+            // ensure the contributor has the correct amount
+            assert_eq!(
+                pallet_balances::Pallet::<Test>::free_balance(&contributor),
+                100
+            );
+
+            // ensure the crowdloan account has the correct amount
+            let crowdloan_account_id: AccountOf<Test> =
+                pallet_crowdloan::Pallet::<Test>::crowdloan_account_id(crowdloan_id);
+            assert_eq!(
+                pallet_balances::Pallet::<Test>::free_balance(&crowdloan_account_id),
+                0
+            );
+            // ensure the crowdloan raised amount is updated correctly
+            assert!(
+                pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id)
+                    .is_some_and(|c| c.raised == 0)
+            );
+        });
+}
+
+#[test]
+fn test_withdraw_succeeds_for_another_contributor() {
+    TestState::default()
+        .with_balance(U256::from(1), 100)
+        .with_balance(U256::from(2), 100)
+        .build_and_execute(|| {
+            // create a crowdloan
+            let depositor: AccountOf<Test> = U256::from(1);
+            let initial_deposit: BalanceOf<Test> = 50;
+            let minimum_contribution: BalanceOf<Test> = 10;
+            let cap: BalanceOf<Test> = 300;
+            let end: BlockNumberFor<Test> = 50;
+            assert_ok!(Crowdloan::create(
+                RuntimeOrigin::signed(depositor),
+                initial_deposit,
+                minimum_contribution,
+                cap,
+                end
+            ));
+
+            // run some blocks
+            run_to_block(10);
+
+            // contribute to the crowdloan
+            let crowdloan_id: CrowdloanId = 0;
+            let contributor: AccountOf<Test> = U256::from(2);
+            let amount: BalanceOf<Test> = 100;
+            assert_ok!(Crowdloan::contribute(
+                RuntimeOrigin::signed(contributor),
+                crowdloan_id,
+                amount
+            ));
+
+            // run some more blocks past the end of the contribution period
+            run_to_block(60);
+
+            // withdraw for depositor as a contributor
+            assert_ok!(Crowdloan::withdraw(
+                RuntimeOrigin::signed(contributor),
+                depositor,
+                crowdloan_id
+            ));
+
+            // ensure the depositor has the correct amount
+            assert_eq!(
+                pallet_balances::Pallet::<Test>::free_balance(&depositor),
+                100
+            );
+
+            // ensure the contributor has the correct amount
+            assert_eq!(
+                pallet_balances::Pallet::<Test>::free_balance(&contributor),
+                0
+            );
+
+            // ensure the crowdloan account has the correct amount
+            let crowdloan_account_id: AccountOf<Test> =
+                pallet_crowdloan::Pallet::<Test>::crowdloan_account_id(crowdloan_id);
+            assert_eq!(
+                pallet_balances::Pallet::<Test>::free_balance(&crowdloan_account_id),
+                100
+            );
+
+            // ensure the crowdloan raised amount is updated correctly
+            assert!(
+                pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id)
+                    .is_some_and(|c| c.raised == 100)
+            );
+        });
+}
+
+#[test]
+fn test_withdraw_fails_if_crowdloan_does_not_exists() {
+    TestState::default().build_and_execute(|| {
+        let contributor: AccountOf<Test> = U256::from(1);
+        let crowdloan_id: CrowdloanId = 0;
+
+        assert_err!(
+            Crowdloan::withdraw(
+                RuntimeOrigin::signed(contributor),
+                contributor,
+                crowdloan_id
+            ),
+            pallet_crowdloan::Error::<Test>::InvalidCrowdloanId
+        );
+    });
+}
+
+#[test]
+fn test_withdraw_fails_if_contribution_period_has_not_ended() {
+    TestState::default()
+        .with_balance(U256::from(1), 100)
+        .with_balance(U256::from(2), 100)
+        .build_and_execute(|| {
+            // create a crowdloan
+            let depositor: AccountOf<Test> = U256::from(1);
+            let initial_deposit: BalanceOf<Test> = 50;
+            let minimum_contribution: BalanceOf<Test> = 10;
+            let cap: BalanceOf<Test> = 300;
+            let end: BlockNumberFor<Test> = 50;
+            assert_ok!(Crowdloan::create(
+                RuntimeOrigin::signed(depositor),
+                initial_deposit,
+                minimum_contribution,
+                cap,
+                end
+            ));
+
+            // run some blocks
+            run_to_block(10);
+
+            // contribute to the crowdloan
+            let contributor: AccountOf<Test> = U256::from(2);
+            let crowdloan_id: CrowdloanId = 0;
+            let amount: BalanceOf<Test> = 100;
+            assert_ok!(Crowdloan::contribute(
+                RuntimeOrigin::signed(contributor),
+                crowdloan_id,
+                amount
+            ));
+
+            // run some more blocks
+            run_to_block(20);
+
+            // try to withdraw
+            assert_err!(
+                Crowdloan::withdraw(
+                    RuntimeOrigin::signed(contributor),
+                    contributor,
+                    crowdloan_id
+                ),
+                pallet_crowdloan::Error::<Test>::ContributionPeriodNotEnded
+            );
+        });
+}
+
+#[test]
+fn test_withdraw_fails_if_cap_was_fully_raised() {
+    TestState::default()
+        .with_balance(U256::from(1), 100)
+        .with_balance(U256::from(2), 200)
+        .with_balance(U256::from(3), 200)
+        .build_and_execute(|| {
+            // create a crowdloan
+            let depositor: AccountOf<Test> = U256::from(1);
+            let initial_deposit: BalanceOf<Test> = 50;
+            let minimum_contribution: BalanceOf<Test> = 10;
+            let cap: BalanceOf<Test> = 300;
+            let end: BlockNumberFor<Test> = 50;
+            assert_ok!(Crowdloan::create(
+                RuntimeOrigin::signed(depositor),
+                initial_deposit,
+                minimum_contribution,
+                cap,
+                end
+            ));
+
+            // run some blocks
+            run_to_block(10);
+
+            // contribute to the crowdloan
+            let contributor: AccountOf<Test> = U256::from(2);
+            let crowdloan_id: CrowdloanId = 0;
+            let amount: BalanceOf<Test> = 150;
+            assert_ok!(Crowdloan::contribute(
+                RuntimeOrigin::signed(contributor),
+                crowdloan_id,
+                amount
+            ));
+
+            // run some more blocks
+            run_to_block(20);
+
+            // another contribution to the crowdloan
+            let contributor2: AccountOf<Test> = U256::from(3);
+            let amount: BalanceOf<Test> = 100;
+            assert_ok!(Crowdloan::contribute(
+                RuntimeOrigin::signed(contributor2),
+                crowdloan_id,
+                amount
+            ));
+
+            // run some more blocks past the end of the contribution period
+            run_to_block(60);
+
+            // try to withdraw
+            assert_err!(
+                Crowdloan::withdraw(
+                    RuntimeOrigin::signed(contributor),
+                    contributor,
+                    crowdloan_id
+                ),
+                pallet_crowdloan::Error::<Test>::CapRaised
+            );
+        });
+}
+
+#[test]
+fn test_withdraw_fails_if_contribution_is_not_found() {
+    TestState::default()
+        .with_balance(U256::from(1), 100)
+        .with_balance(U256::from(2), 200)
+        .with_balance(U256::from(3), 100)
+        .build_and_execute(|| {
+            // create a crowdloan
+            let depositor: AccountOf<Test> = U256::from(1);
+            let initial_deposit: BalanceOf<Test> = 50;
+            let minimum_contribution: BalanceOf<Test> = 10;
+            let cap: BalanceOf<Test> = 300;
+            let end: BlockNumberFor<Test> = 50;
+            assert_ok!(Crowdloan::create(
+                RuntimeOrigin::signed(depositor),
+                initial_deposit,
+                minimum_contribution,
+                cap,
+                end
+            ));
+
+            // run some blocks
+            run_to_block(10);
+
+            // contribute to the crowdloan
+            let contributor: AccountOf<Test> = U256::from(2);
+            let crowdloan_id: CrowdloanId = 0;
+            let amount: BalanceOf<Test> = 100;
+            assert_ok!(Crowdloan::contribute(
+                RuntimeOrigin::signed(contributor),
+                crowdloan_id,
+                amount
+            ));
+
+            // run some more blocks past the end of the contribution period
+            run_to_block(60);
+
+            // try to withdraw
+            let contributor2: AccountOf<Test> = U256::from(3);
+            assert_err!(
+                Crowdloan::withdraw(
+                    RuntimeOrigin::signed(contributor2),
+                    contributor2,
+                    crowdloan_id
+                ),
+                pallet_crowdloan::Error::<Test>::NoContribution
             );
         });
 }
