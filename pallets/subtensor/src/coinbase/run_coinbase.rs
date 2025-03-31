@@ -454,17 +454,21 @@ impl<T: Config> Pallet<T> {
             log::debug!("hotkey: {:?} alpha_take: {:?}", hotkey, alpha_take);
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey,
-                &Owner::<T>::get(hotkey.clone()),
+                &Owner::<T>::get(&hotkey),
                 netuid,
                 tou64!(alpha_take),
             );
             // Give all other nominators.
             log::debug!("hotkey: {:?} alpha_divs: {:?}", hotkey, alpha_divs);
-            Self::increase_stake_for_hotkey_on_subnet(&hotkey.clone(), netuid, tou64!(alpha_divs));
+            Self::increase_stake_for_hotkey_on_subnet(&hotkey, netuid, tou64!(alpha_divs));
             // Record dividends for this hotkey.
-            AlphaDividendsPerSubnet::<T>::mutate(netuid, hotkey.clone(), |divs| {
+            AlphaDividendsPerSubnet::<T>::mutate(netuid, &hotkey, |divs| {
                 *divs = divs.saturating_add(tou64!(alpha_divs));
             });
+            // Record total hotkey alpha based on which this value of AlphaDividendsPerSubnet
+            // was calculated
+            let total_hotkey_alpha = TotalHotkeyAlpha::<T>::get(&hotkey, netuid);
+            TotalHotkeyAlphaLastEpoch::<T>::insert(hotkey, netuid, total_hotkey_alpha);
         }
 
         // Distribute root tao divs.

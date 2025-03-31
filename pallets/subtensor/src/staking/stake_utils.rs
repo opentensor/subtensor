@@ -1101,6 +1101,8 @@ impl<T: Config> Pallet<T> {
                     DefaultStakingFee::<T>::get()
                 } else {
                     // Otherwise, calculate the fee based on the alpha estimate
+                    // Here we are using TotalHotkeyAlphaLastEpoch, which is exactly the value that
+                    // was used to calculate AlphaDividendsPerSubnet
                     let mut fee = alpha_estimate
                         .saturating_mul(
                             I96F32::saturating_from_num(AlphaDividendsPerSubnet::<T>::get(
@@ -1108,7 +1110,7 @@ impl<T: Config> Pallet<T> {
                                 &origin_hotkey,
                             ))
                             .safe_div(I96F32::saturating_from_num(
-                                TotalHotkeyAlpha::<T>::get(&origin_hotkey, origin_netuid),
+                                TotalHotkeyAlphaLastEpoch::<T>::get(&origin_hotkey, origin_netuid),
                             )),
                         )
                         .saturating_mul(Self::get_alpha_price(origin_netuid)) // fee needs to be in TAO
