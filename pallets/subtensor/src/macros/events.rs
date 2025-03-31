@@ -310,6 +310,6 @@ mod events {
         ///
         /// - **netuid**: The network identifier.
         /// - **Enabled**: Is Commit-Reveal enabled.
-        CommitRevealEnabled(u16, bool)
+        CommitRevealEnabled(u16, bool),
     }
 }
