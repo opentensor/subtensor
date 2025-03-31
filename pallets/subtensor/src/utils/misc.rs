@@ -475,6 +475,7 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
         CommitRevealWeightsEnabled::<T>::set(netuid, enabled);
+        Self::deposit_event(Event::CommitRevealEnabled(netuid, enabled));
     }
 
     pub fn get_rho(netuid: u16) -> u16 {

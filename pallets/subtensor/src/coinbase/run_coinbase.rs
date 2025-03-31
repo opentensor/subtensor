@@ -961,6 +961,8 @@ impl<T: Config> Pallet<T> {
                     e
                 );
                 continue;
+            } else {
+                Self::deposit_event(Event::CRV3WeightsRevealed(netuid, who));
             };
         }
 
