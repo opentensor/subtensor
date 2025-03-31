@@ -275,5 +275,17 @@ mod events {
         /// Parameters:
         /// (netuid, new_hotkey)
         SubnetOwnerHotkeySet(u16, T::AccountId),
+
+        /// An EVM key has been associated with a hotkey.
+        EvmKeyAssociated {
+            /// The subnet that the hotkey belongs to.
+            netuid: u16,
+            /// The hotkey associated with the EVM key.
+            hotkey: T::AccountId,
+            /// The EVM key being associated with the hotkey.
+            evm_key: H160,
+            /// The block where the association happened.
+            block_associated: u64,
+        },
     }
 }

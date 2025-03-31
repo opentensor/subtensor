@@ -193,5 +193,9 @@ mod errors {
         TransferDisallowed,
         /// Activity cutoff is being set too low.
         ActivityCutoffTooLow,
+        /// Public key cannot be recovered.
+        UnableToRecoverPublicKey,
+        /// Recovered public key is invalid.
+        InvalidRecoveredPublicKey,
     }
 }
