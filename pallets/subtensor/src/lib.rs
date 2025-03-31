@@ -38,7 +38,6 @@ mod benchmarks;
 //	==== Pallet Imports =====
 // =========================
 pub mod coinbase;
-pub mod crowdloan;
 pub mod epoch;
 pub mod macros;
 pub mod migrations;
@@ -78,7 +77,7 @@ pub mod pallet {
     };
     use frame_system::pallet_prelude::*;
     use pallet_drand::types::RoundNumber;
-    use sp_core::{ConstU32, ConstU64, H256};
+    use sp_core::{ConstU32, H256};
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::collections::vec_deque::VecDeque;
     use sp_std::vec;
@@ -268,20 +267,6 @@ pub mod pallet {
         pub description: Vec<u8>,
         /// Additional information about the subnet
         pub additional: Vec<u8>,
-    }
-
-    ///  Data structure for a subnet lending pool
-    // #[crate::freeze_struct("27945e6b9277e22b")]
-    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
-    pub struct LendingPool<AccountId> {
-        /// The creator of the pool and future owner of the subnet
-        pub creator: AccountId,
-        /// Initial deposit from the creator
-        pub initial_deposit: u64,
-        /// Hard cap for the fundraising
-        pub max_lending_cap: u64,
-        /// Share of future subnet emissions distributed to lenders
-        pub emissions_share: u64,
     }
 
     /// ============================
@@ -1561,33 +1546,6 @@ pub mod pallet {
         u64,
         OptionQuery,
     >;
-
-    /// =====================================
-    /// ==== Subnet Crowdloan Storage ====
-    /// =====================================
-    ///
-    /// All subnet crowdloans.
-    /// MAP (crowdloan_id) -> The crowdloan with the given crowdloan_id.
-    #[pallet::storage]
-    pub type SubnetCrowdloans<T: Config> =
-        StorageMap<_, Identity, u32, LendingPool<T::AccountId>, OptionQuery>;
-    ///
-    /// Next subnet crowdloan id.
-    /// ITEM(pool_id)
-    #[pallet::storage]
-    pub type NextSubnetCrowdloanIndex<T: Config> = StorageValue<_, u32, ValueQuery, ConstU32<0>>;
-
-    /// Individual contributions to each lending pool.
-    /// MAP (pool_id, contributor_coldkey) -> u64
-    #[pallet::storage]
-    pub type LendingPoolIndividualContributions<T: Config> =
-        StorageDoubleMap<_, Identity, u32, Identity, T::AccountId, u64, ValueQuery, ConstU64<0>>;
-
-    /// Total contributions to each lending pool.
-    /// MAP (pool_id) -> u64
-    #[pallet::storage]
-    pub type LendingPoolTotalContributions<T: Config> =
-        StorageMap<_, Identity, u32, u64, ValueQuery, ConstU64<0>>;
 
     /// ==================
     /// ==== Genesis =====

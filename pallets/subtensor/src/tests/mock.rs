@@ -185,12 +185,6 @@ parameter_types! {
     pub const InitialDissolveNetworkScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
     pub const InitialTaoWeight: u64 = 0; // 100% global weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
-    pub const MinCrowdloanBlocksDuration: u64 = 20; // 20 blocks
-    pub const MinCrowdloanInitialDeposit: u64 = 2_000_000_000; // 2 TAO
-    pub const LendingPoolsLimit: u32 = 5; // 5 lending pools
-    pub const LendingPoolMinInitialDeposit: u64 = 1_000_000_000; // 1 TAO
-    pub const LendingPoolMaxLendingCap: u64 = 1_000_000_000_000; // 1000 TAO
-    pub const LendingPoolMinEmissionsShare: u64 = 5; // 5%
 }
 
 // Configure collective pallet for council
@@ -414,12 +408,6 @@ impl crate::Config for Test {
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
-    type MinCrowdloanBlocksDuration = MinCrowdloanBlocksDuration;
-    type MinCrowdloanInitialDeposit = MinCrowdloanInitialDeposit;
-    type LendingPoolsLimit = LendingPoolsLimit;
-    type LendingPoolMinInitialDeposit = LendingPoolMinInitialDeposit;
-    type LendingPoolMaxLendingCap = LendingPoolMaxLendingCap;
-    type LendingPoolMinEmissionsShare = LendingPoolMinEmissionsShare;
 }
 
 pub struct OriginPrivilegeCmp;

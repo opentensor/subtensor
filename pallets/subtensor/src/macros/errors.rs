@@ -195,23 +195,5 @@ mod errors {
         ActivityCutoffTooLow,
         /// Call is disabled
         CallDisabled,
-        /// Crowdloan cannot end in the past.
-        CrowdloanCannotEndInPast,
-        /// Crowdloan blocks duration is too short.
-        CrowdloanBlocksDurationTooShort,
-        /// Crowdloan initial deposit is too low.
-        CrowdloanInitialDepositTooLow,
-        /// Crowdloan cap is inferior to initial deposit.
-        CrowdloanCapInferiorToInitialDeposit,
-        /// Lending pool emissions share is too low.
-        LendingPoolEmissionsShareTooLow,
-        /// Lending pool emissions share is too high.
-        LendingPoolEmissionsShareTooHigh,
-        /// Lending pool creator coldkey does not have enough balance to pay initial deposit.
-        LendingPoolNotEnoughBalanceToPayInitialDeposit,
-        /// Lending pool does not exist.
-        LendingPoolDoesNotExist,
-        /// Not enough balance to contribute to lending pool.
-        NotEnoughBalanceToContributeToLendingPool,
     }
 }
