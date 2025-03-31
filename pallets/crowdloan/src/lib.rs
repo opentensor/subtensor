@@ -179,6 +179,7 @@ pub mod pallet {
             NextCrowdloanId::<T>::put(next_crowdloan_id);
 
             // Transfer the deposit to the crowdloan account
+            frame_system::Pallet::<T>::inc_providers(&Self::crowdloan_account_id(crowdloan_id));
             T::Currency::transfer(
                 &depositor,
                 &Self::crowdloan_account_id(crowdloan_id),
