@@ -1,18 +1,20 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
+use frame_support::pallet_prelude::*;
 use frame_support::{
     PalletId,
     dispatch::GetDispatchInfo,
     sp_runtime::RuntimeDebug,
     traits::{Currency, Get, IsSubType, ReservableCurrency, tokens::ExistenceRequirement},
 };
+use frame_system::pallet_prelude::*;
 use scale_info::TypeInfo;
 
 pub use pallet::*;
 use sp_runtime::traits::{AccountIdConversion, CheckedAdd, Zero};
 
-type CrowdloanIndex = u32;
+type CrowdloanId = u32;
 
 mod tests;
 
@@ -29,12 +31,14 @@ pub struct CrowdloanInfo<AccountId, Balance, BlockNumber> {
     pub raised: Balance,
 }
 
+type CrowdloanInfoOf<T> =
+    CrowdloanInfo<<T as frame_system::Config>::AccountId, BalanceOf<T>, BlockNumberFor<T>>;
+
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
     use super::*;
-    use frame_support::{pallet_prelude::*, sp_runtime::traits::Dispatchable};
-    use frame_system::pallet_prelude::{BlockNumberFor, *};
-    use sp_runtime::traits::CheckedSub;
+    use frame_support::sp_runtime::traits::Dispatchable;
+    use sp_runtime::traits::{CheckedSub, Saturating};
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
@@ -72,19 +76,19 @@ pub mod pallet {
     pub type Crowdloans<T: Config> = StorageMap<
         _,
         Identity,
-        CrowdloanIndex,
+        CrowdloanId,
         CrowdloanInfo<T::AccountId, BalanceOf<T>, BlockNumberFor<T>>,
         OptionQuery,
     >;
 
     #[pallet::storage]
-    pub type NextCrowdloanIndex<T> = StorageValue<_, CrowdloanIndex, ValueQuery, ConstU32<0>>;
+    pub type NextCrowdloanId<T> = StorageValue<_, CrowdloanId, ValueQuery, ConstU32<0>>;
 
     #[pallet::storage]
     pub type Contributions<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        CrowdloanIndex,
+        CrowdloanId,
         Identity,
         T::AccountId,
         BalanceOf<T>,
@@ -95,13 +99,18 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         Created {
-            crowdloan_id: CrowdloanIndex,
+            crowdloan_id: CrowdloanId,
             depositor: T::AccountId,
             end: BlockNumberFor<T>,
             cap: BalanceOf<T>,
         },
         Contributed {
-            crowdloan_id: CrowdloanIndex,
+            crowdloan_id: CrowdloanId,
+            contributor: T::AccountId,
+            amount: BalanceOf<T>,
+        },
+        Withdrew {
+            crowdloan_id: CrowdloanId,
             contributor: T::AccountId,
             amount: BalanceOf<T>,
         },
@@ -117,11 +126,15 @@ pub mod pallet {
         BlockDurationTooLong,
         InsufficientBalance,
         Overflow,
-        InvalidCrowdloanIndex,
+        InvalidCrowdloanId,
         CapRaised,
         CapExceeded,
         ContributionPeriodEnded,
         ContributionTooLow,
+        InvalidOrigin,
+        AlreadyFinalized,
+        ContributionPeriodNotEnded,
+        NoContribution,
     }
 
     #[pallet::call]
@@ -167,11 +180,11 @@ pub mod pallet {
 
             // Ensure the depositor has enough balance to pay the deposit.
             ensure!(
-                T::Currency::free_balance(&depositor) >= deposit,
+                CurrencyOf::<T>::free_balance(&depositor) >= deposit,
                 Error::<T>::InsufficientBalance
             );
 
-            let crowdloan_id = NextCrowdloanIndex::<T>::get();
+            let crowdloan_id = NextCrowdloanId::<T>::get();
             let next_crowdloan_id = crowdloan_id.checked_add(1).ok_or(Error::<T>::Overflow)?;
 
             Crowdloans::<T>::insert(
@@ -186,11 +199,11 @@ pub mod pallet {
                 },
             );
 
-            NextCrowdloanIndex::<T>::put(next_crowdloan_id);
+            NextCrowdloanId::<T>::put(next_crowdloan_id);
 
             // Transfer the deposit to the crowdloan account
             frame_system::Pallet::<T>::inc_providers(&Self::crowdloan_account_id(crowdloan_id));
-            T::Currency::transfer(
+            CurrencyOf::<T>::transfer(
                 &depositor,
                 &Self::crowdloan_account_id(crowdloan_id),
                 deposit,
@@ -206,6 +219,7 @@ pub mod pallet {
                 end,
                 cap,
             });
+
             Ok(())
         }
 
@@ -213,14 +227,11 @@ pub mod pallet {
         #[pallet::call_index(1)]
         pub fn contribute(
             origin: OriginFor<T>,
-            #[pallet::compact] crowdloan_id: CrowdloanIndex,
+            #[pallet::compact] crowdloan_id: CrowdloanId,
             #[pallet::compact] amount: BalanceOf<T>,
         ) -> DispatchResult {
             let contributor = ensure_signed(origin)?;
-
-            // Ensure the crowdloan exists
-            let mut crowdloan =
-                Crowdloans::<T>::get(crowdloan_id).ok_or(Error::<T>::InvalidCrowdloanIndex)?;
+            let mut crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
 
             // Ensure the crowdloan has not ended
             let now = frame_system::Pallet::<T>::block_number();
@@ -269,7 +280,47 @@ pub mod pallet {
 
         /// Refund every contributor's balance from a crowdloan
         #[pallet::call_index(3)]
-        pub fn refund(origin: OriginFor<T>) -> DispatchResult {
+        pub fn withdraw(
+            origin: OriginFor<T>,
+            contributor: T::AccountId,
+            #[pallet::compact] crowdloan_id: CrowdloanId,
+        ) -> DispatchResult {
+            ensure_signed(origin)?;
+
+            let mut crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
+
+            // Ensure the contribution period has ended
+            let now = frame_system::Pallet::<T>::block_number();
+            ensure!(now >= crowdloan.end, Error::<T>::ContributionPeriodNotEnded);
+
+            // Ensure the crowdloan hasn't raised the cap
+            ensure!(crowdloan.raised < crowdloan.cap, Error::<T>::CapRaised);
+
+            // Ensure the contributor has a contribution
+            let amount = Contributions::<T>::get(&crowdloan_id, &contributor)
+                .unwrap_or_else(|| Zero::zero());
+            ensure!(amount > Zero::zero(), Error::<T>::NoContribution);
+
+            CurrencyOf::<T>::transfer(
+                &Self::crowdloan_account_id(crowdloan_id),
+                &contributor,
+                amount,
+                ExistenceRequirement::AllowDeath,
+            )?;
+
+            // Remove the contribution from the contributions map and update
+            // tracked refund so far
+            Contributions::<T>::remove(&crowdloan_id, &contributor);
+            crowdloan.raised = crowdloan.raised.saturating_sub(amount);
+
+            Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
+
+            Self::deposit_event(Event::<T>::Withdrew {
+                contributor,
+                crowdloan_id,
+                amount,
+            });
+
             Ok(())
         }
 
@@ -288,7 +339,11 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn crowdloan_account_id(id: CrowdloanIndex) -> T::AccountId {
+    fn crowdloan_account_id(id: CrowdloanId) -> T::AccountId {
         T::PalletId::get().into_sub_account_truncating(id)
+    }
+
+    fn ensure_crowdloan_exists(crowdloan_id: CrowdloanId) -> Result<CrowdloanInfoOf<T>, Error<T>> {
+        Crowdloans::<T>::get(crowdloan_id).ok_or(Error::<T>::InvalidCrowdloanId)
     }
 }

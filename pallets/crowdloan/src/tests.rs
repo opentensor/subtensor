@@ -8,7 +8,7 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use sp_core::U256;
 use sp_runtime::{BuildStorage, DispatchError, traits::IdentityLookup};
 
-use crate::{BalanceOf, CrowdloanIndex, CrowdloanInfo, pallet as pallet_crowdloan};
+use crate::{BalanceOf, CrowdloanId, CrowdloanInfo, pallet as pallet_crowdloan};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 type AccountOf<T> = <T as frame_system::Config>::AccountId;
@@ -36,7 +36,7 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-    pub const CrowdloanId: PalletId = PalletId(*b"bt/cloan");
+    pub const CrowdloanPalletId: PalletId = PalletId(*b"bt/cloan");
     pub const MinimumDeposit: u64 = 50;
     pub const AbsoluteMinimumContribution: u64 = 10;
     pub const MinimumBlockDuration: u64 = 20;
@@ -44,7 +44,7 @@ parameter_types! {
 }
 
 impl pallet_crowdloan::Config for Test {
-    type PalletId = CrowdloanId;
+    type PalletId = CrowdloanPalletId;
     type Currency = Balances;
     type RuntimeCall = RuntimeCall;
     type RuntimeEvent = RuntimeEvent;
@@ -391,7 +391,7 @@ fn test_contribute_succeeds() {
             run_to_block(10);
 
             // first contribution to the crowdloan from depositor
-            let crowdloan_id: CrowdloanIndex = 0;
+            let crowdloan_id: CrowdloanId = 0;
             let amount: BalanceOf<Test> = 50;
             assert_ok!(Crowdloan::contribute(
                 RuntimeOrigin::signed(depositor),
@@ -472,12 +472,12 @@ fn test_contribute_fails_if_crowdloan_does_not_exist() {
         .with_balance(U256::from(1), 100)
         .build_and_execute(|| {
             let contributor: AccountOf<Test> = U256::from(1);
-            let crowdloan_id: CrowdloanIndex = 0;
+            let crowdloan_id: CrowdloanId = 0;
             let amount: BalanceOf<Test> = 20;
 
             assert_err!(
                 Crowdloan::contribute(RuntimeOrigin::signed(contributor), crowdloan_id, amount),
-                pallet_crowdloan::Error::<Test>::InvalidCrowdloanIndex
+                pallet_crowdloan::Error::<Test>::InvalidCrowdloanId
             );
         });
 }
@@ -507,7 +507,7 @@ fn test_contribute_fails_if_crowdloan_has_ended() {
 
             // contribute to the crowdloan
             let contributor: AccountOf<Test> = U256::from(2);
-            let crowdloan_id: CrowdloanIndex = 0;
+            let crowdloan_id: CrowdloanId = 0;
             let amount: BalanceOf<Test> = 20;
             assert_err!(
                 Crowdloan::contribute(RuntimeOrigin::signed(contributor), crowdloan_id, amount),
@@ -541,7 +541,7 @@ fn test_contribute_fails_if_cap_has_been_raised() {
             run_to_block(10);
 
             // first contribution to the crowdloan fully raise the cap
-            let crowdloan_id: CrowdloanIndex = 0;
+            let crowdloan_id: CrowdloanId = 0;
             let contributor1: AccountOf<Test> = U256::from(2);
             let amount: BalanceOf<Test> = cap - initial_deposit;
             assert_ok!(Crowdloan::contribute(
@@ -585,7 +585,7 @@ fn test_contribute_fails_if_contribution_is_below_minimum_contribution() {
 
             // contribute to the crowdloan
             let contributor: AccountOf<Test> = U256::from(2);
-            let crowdloan_id: CrowdloanIndex = 0;
+            let crowdloan_id: CrowdloanId = 0;
             let amount: BalanceOf<Test> = 5;
             assert_err!(
                 Crowdloan::contribute(RuntimeOrigin::signed(contributor), crowdloan_id, amount),
@@ -619,7 +619,7 @@ fn test_contribute_fails_if_contribution_will_make_the_raised_amount_exceed_the_
 
             // contribute to the crowdloan
             let contributor: AccountOf<Test> = U256::from(2);
-            let crowdloan_id: CrowdloanIndex = 0;
+            let crowdloan_id: CrowdloanId = 0;
             let amount: BalanceOf<Test> = 300;
             assert_err!(
                 Crowdloan::contribute(RuntimeOrigin::signed(contributor), crowdloan_id, amount),
