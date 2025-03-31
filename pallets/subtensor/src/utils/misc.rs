@@ -7,7 +7,7 @@ use safe_math::*;
 use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::Saturating;
-use substrate_fixed::types::{I32F32, I96F32};
+use substrate_fixed::types::{I32F32, U96F32};
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
@@ -599,9 +599,9 @@ impl<T: Config> Pallet<T> {
     pub fn get_subnet_owner_cut() -> u16 {
         SubnetOwnerCut::<T>::get()
     }
-    pub fn get_float_subnet_owner_cut() -> I96F32 {
-        I96F32::saturating_from_num(SubnetOwnerCut::<T>::get())
-            .safe_div(I96F32::saturating_from_num(u16::MAX))
+    pub fn get_float_subnet_owner_cut() -> U96F32 {
+        U96F32::saturating_from_num(SubnetOwnerCut::<T>::get())
+            .safe_div(U96F32::saturating_from_num(u16::MAX))
     }
     pub fn set_subnet_owner_cut(subnet_owner_cut: u16) {
         SubnetOwnerCut::<T>::set(subnet_owner_cut);

@@ -387,7 +387,7 @@ fn test_remove_stake_ok_no_emission() {
 
         // Add subnet TAO for the equivalent amount added at price
         let amount_tao =
-            I96F32::saturating_from_num(amount) * SubtensorModule::get_alpha_price(netuid);
+            U96F32::saturating_from_num(amount) * SubtensorModule::get_alpha_price(netuid);
         SubnetTAO::<Test>::mutate(netuid, |v| *v += amount_tao.saturating_to_num::<u64>());
         TotalStake::<Test>::mutate(|v| *v += amount_tao.saturating_to_num::<u64>());
 
@@ -404,7 +404,7 @@ fn test_remove_stake_ok_no_emission() {
             &coldkey_account_id,
             None,
             &coldkey_account_id,
-            I96F32::saturating_from_num(amount),
+            U96F32::saturating_from_num(amount),
         );
 
         // we do not expect the exact amount due to slippage
@@ -568,7 +568,7 @@ fn test_remove_stake_total_balance_no_change() {
 
         // Add subnet TAO for the equivalent amount added at price
         let amount_tao =
-            I96F32::saturating_from_num(amount) * SubtensorModule::get_alpha_price(netuid);
+            U96F32::saturating_from_num(amount) * SubtensorModule::get_alpha_price(netuid);
         SubnetTAO::<Test>::mutate(netuid, |v| *v += amount_tao.saturating_to_num::<u64>());
         TotalStake::<Test>::mutate(|v| *v += amount_tao.saturating_to_num::<u64>());
 
@@ -585,7 +585,7 @@ fn test_remove_stake_total_balance_no_change() {
             &coldkey_account_id,
             None,
             &coldkey_account_id,
-            I96F32::saturating_from_num(amount),
+            U96F32::saturating_from_num(amount),
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
@@ -3526,8 +3526,11 @@ fn test_add_stake_limit_ok() {
         // Check that price has updated to ~24 = (150+450) / (100 - 75)
         let exp_price = U96F32::from_num(24.0);
         let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
-        assert!(exp_price.saturating_sub(current_price) < 0.0001);
-        assert!(current_price.saturating_sub(exp_price) < 0.0001);
+        assert_abs_diff_eq!(
+            exp_price.to_num::<f64>(),
+            current_price.to_num::<f64>(),
+            epsilon = 0.0001,
+        );
     });
 }
 
