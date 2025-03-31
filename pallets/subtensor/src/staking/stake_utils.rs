@@ -2,7 +2,7 @@ use super::*;
 use safe_math::*;
 use share_pool::{SharePool, SharePoolDataOperations};
 use sp_std::ops::Neg;
-use substrate_fixed::types::{I64F64, I96F32, I110F18, U64F64};
+use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32, U110F18};
 
 impl<T: Config> Pallet<T> {
     /// Retrieves the total alpha issuance for a given subnet.
@@ -30,34 +30,35 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     /// * `I96F32` - The price of alpha for the specified subnet.
-    pub fn get_alpha_price(netuid: u16) -> I96F32 {
+    pub fn get_alpha_price(netuid: u16) -> U96F32 {
         if netuid == Self::get_root_netuid() {
-            return I96F32::saturating_from_num(1.0); // Root.
+            return U96F32::saturating_from_num(1.0); // Root.
         }
         if SubnetMechanism::<T>::get(netuid) == 0 {
-            return I96F32::saturating_from_num(1.0); // Stable
+            return U96F32::saturating_from_num(1.0); // Stable
         }
         if SubnetAlphaIn::<T>::get(netuid) == 0 {
-            I96F32::saturating_from_num(0)
+            U96F32::saturating_from_num(0)
         } else {
-            I96F32::saturating_from_num(SubnetTAO::<T>::get(netuid))
-                .checked_div(I96F32::saturating_from_num(SubnetAlphaIn::<T>::get(netuid)))
-                .unwrap_or(I96F32::saturating_from_num(0))
+            U96F32::saturating_from_num(SubnetTAO::<T>::get(netuid))
+                .checked_div(U96F32::saturating_from_num(SubnetAlphaIn::<T>::get(netuid)))
+                .unwrap_or(U96F32::saturating_from_num(0))
         }
     }
-    pub fn get_moving_alpha_price(netuid: u16) -> I96F32 {
+    pub fn get_moving_alpha_price(netuid: u16) -> U96F32 {
+        let one = U96F32::saturating_from_num(1.0);
         if netuid == Self::get_root_netuid() {
             // Root.
-            I96F32::saturating_from_num(1.0)
+            one
         } else if SubnetMechanism::<T>::get(netuid) == 0 {
             // Stable
-            I96F32::saturating_from_num(1.0)
+            one
         } else {
-            SubnetMovingPrice::<T>::get(netuid)
+            U96F32::saturating_from_num(SubnetMovingPrice::<T>::get(netuid))
         }
     }
     pub fn update_moving_price(netuid: u16) {
-        let blocks_since_registration = I96F32::saturating_from_num(
+        let blocks_since_registration = U96F32::saturating_from_num(
             Self::get_current_block_as_u64().saturating_sub(NetworkRegisteredAt::<T>::get(netuid)),
         );
 
@@ -66,16 +67,20 @@ impl<T: Config> Pallet<T> {
         // will take in order for the distance between current EMA of price and current price to shorten
         // by half.
         let halving_time = EMAPriceHalvingBlocks::<T>::get(netuid);
-        let alpha: I96F32 =
-            SubnetMovingAlpha::<T>::get().saturating_mul(blocks_since_registration.safe_div(
-                blocks_since_registration.saturating_add(I96F32::saturating_from_num(halving_time)),
-            ));
-        let minus_alpha: I96F32 = I96F32::saturating_from_num(1.0).saturating_sub(alpha);
-        let current_price: I96F32 = alpha
-            .saturating_mul(Self::get_alpha_price(netuid).min(I96F32::saturating_from_num(1.0)));
-        let current_moving: I96F32 =
-            minus_alpha.saturating_mul(Self::get_moving_alpha_price(netuid));
-        let new_moving: I96F32 = current_price.saturating_add(current_moving);
+        let current_ma_unsigned = U96F32::saturating_from_num(SubnetMovingAlpha::<T>::get());
+        let alpha: U96F32 = current_ma_unsigned.saturating_mul(blocks_since_registration.safe_div(
+            blocks_since_registration.saturating_add(U96F32::saturating_from_num(halving_time)),
+        ));
+        // Because alpha = b / (b + h), where b and h > 0, alpha < 1, so 1 - alpha > 0.
+        // We can use unsigned type here: U96F32
+        let one_minus_alpha: U96F32 = U96F32::saturating_from_num(1.0).saturating_sub(alpha);
+        let current_price: U96F32 = alpha
+            .saturating_mul(Self::get_alpha_price(netuid).min(U96F32::saturating_from_num(1.0)));
+        let current_moving: U96F32 =
+            one_minus_alpha.saturating_mul(Self::get_moving_alpha_price(netuid));
+        // Convert batch to signed I96F32 to avoid migration of SubnetMovingPrice for now``
+        let new_moving: I96F32 =
+            I96F32::saturating_from_num(current_price.saturating_add(current_moving));
         SubnetMovingPrice::<T>::insert(netuid, new_moving);
     }
 
@@ -83,28 +88,28 @@ impl<T: Config> Pallet<T> {
     ///
     /// This function performs the following steps:
     /// 1. Fetches the global weight from storage using the TaoWeight storage item.
-    /// 2. Converts the retrieved u64 value to a fixed-point number (I96F32).
+    /// 2. Converts the retrieved u64 value to a fixed-point number (U96F32).
     /// 3. Normalizes the weight by dividing it by the maximum possible u64 value.
-    /// 4. Returns the normalized weight as an I96F32 fixed-point number.
+    /// 4. Returns the normalized weight as an U96F32 fixed-point number.
     ///
     /// The normalization ensures that the returned value is always between 0 and 1,
     /// regardless of the actual stored weight value.
     ///
     /// # Returns
-    /// * `I96F32` - The normalized global global weight as a fixed-point number between 0 and 1.
+    /// * `U96F32` - The normalized global global weight as a fixed-point number between 0 and 1.
     ///
     /// # Note
     /// This function uses saturating division to prevent potential overflow errors.
-    pub fn get_tao_weight() -> I96F32 {
+    pub fn get_tao_weight() -> U96F32 {
         // Step 1: Fetch the global weight from storage
         let stored_weight = TaoWeight::<T>::get();
 
-        // Step 2: Convert the u64 weight to I96F32
-        let weight_fixed = I96F32::saturating_from_num(stored_weight);
+        // Step 2: Convert the u64 weight to U96F32
+        let weight_fixed = U96F32::saturating_from_num(stored_weight);
 
         // Step 3: Normalize the weight by dividing by u64::MAX
         // This ensures the result is always between 0 and 1
-        weight_fixed.safe_div(I96F32::saturating_from_num(u64::MAX))
+        weight_fixed.safe_div(U96F32::saturating_from_num(u64::MAX))
     }
 
     /// Sets the global global weight in storage.
@@ -237,13 +242,13 @@ impl<T: Config> Pallet<T> {
     /// # Note
     /// This function uses saturating arithmetic to prevent overflows.
     pub fn get_tao_inherited_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
-        let initial_tao: I96F32 = I96F32::saturating_from_num(
+        let initial_tao: U96F32 = U96F32::saturating_from_num(
             Self::get_stake_for_hotkey_on_subnet(hotkey, Self::get_root_netuid()),
         );
 
         // Initialize variables to track alpha allocated to children and inherited from parents.
-        let mut tao_to_children: I96F32 = I96F32::saturating_from_num(0);
-        let mut tao_from_parents: I96F32 = I96F32::saturating_from_num(0);
+        let mut tao_to_children: U96F32 = U96F32::saturating_from_num(0);
+        let mut tao_from_parents: U96F32 = U96F32::saturating_from_num(0);
 
         // Step 2: Retrieve the lists of parents and children for the hotkey on the subnet.
         let parents: Vec<(u64, T::AccountId)> = Self::get_parents(hotkey, netuid);
@@ -264,16 +269,16 @@ impl<T: Config> Pallet<T> {
         // Step 3: Calculate the total tao allocated to children.
         for (proportion, _) in children {
             // Convert the proportion to a normalized value between 0 and 1.
-            let normalized_proportion: I96F32 = I96F32::saturating_from_num(proportion)
-                .safe_div(I96F32::saturating_from_num(u64::MAX));
+            let normalized_proportion: U96F32 = U96F32::saturating_from_num(proportion)
+                .safe_div(U96F32::saturating_from_num(u64::MAX));
             log::trace!(
                 "Normalized proportion for child: {:?}",
                 normalized_proportion
             );
 
             // Calculate the amount of tao to be allocated to this child.
-            let tao_proportion_to_child: I96F32 =
-                I96F32::saturating_from_num(initial_tao).saturating_mul(normalized_proportion);
+            let tao_proportion_to_child: U96F32 =
+                U96F32::saturating_from_num(initial_tao).saturating_mul(normalized_proportion);
             log::trace!("Tao proportion to child: {:?}", tao_proportion_to_child);
 
             // Add this child's allocation to the total tao allocated to children.
@@ -284,7 +289,7 @@ impl<T: Config> Pallet<T> {
         // Step 4: Calculate the total tao inherited from parents.
         for (proportion, parent) in parents {
             // Retrieve the parent's total stake on this subnet.
-            let parent_tao: I96F32 = I96F32::saturating_from_num(
+            let parent_tao: U96F32 = U96F32::saturating_from_num(
                 Self::get_stake_for_hotkey_on_subnet(&parent, Self::get_root_netuid()),
             );
             log::trace!(
@@ -295,16 +300,16 @@ impl<T: Config> Pallet<T> {
             );
 
             // Convert the proportion to a normalized value between 0 and 1.
-            let normalized_proportion: I96F32 = I96F32::saturating_from_num(proportion)
-                .safe_div(I96F32::saturating_from_num(u64::MAX));
+            let normalized_proportion: U96F32 = U96F32::saturating_from_num(proportion)
+                .safe_div(U96F32::saturating_from_num(u64::MAX));
             log::trace!(
                 "Normalized proportion from parent: {:?}",
                 normalized_proportion
             );
 
             // Calculate the amount of tao to be inherited from this parent.
-            let tao_proportion_from_parent: I96F32 =
-                I96F32::saturating_from_num(parent_tao).saturating_mul(normalized_proportion);
+            let tao_proportion_from_parent: U96F32 =
+                U96F32::saturating_from_num(parent_tao).saturating_mul(normalized_proportion);
             log::trace!(
                 "Tao proportion from parent: {:?}",
                 tao_proportion_from_parent
@@ -316,7 +321,7 @@ impl<T: Config> Pallet<T> {
         log::trace!("Total tao inherited from parents: {:?}", tao_from_parents);
 
         // Step 5: Calculate the final inherited tao for the hotkey.
-        let finalized_tao: I96F32 = initial_tao
+        let finalized_tao: U96F32 = initial_tao
             .saturating_sub(tao_to_children) // Subtract tao allocated to children
             .saturating_add(tao_from_parents); // Add tao inherited from parents
         log::trace!(
@@ -332,8 +337,8 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_inherited_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
         // Step 1: Retrieve the initial total stake (alpha) for the hotkey on the specified subnet.
-        let initial_alpha: I96F32 =
-            I96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
+        let initial_alpha: U96F32 =
+            U96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
         log::debug!(
             "Initial alpha for hotkey {:?} on subnet {}: {:?}",
             hotkey,
@@ -345,8 +350,8 @@ impl<T: Config> Pallet<T> {
         }
 
         // Initialize variables to track alpha allocated to children and inherited from parents.
-        let mut alpha_to_children: I96F32 = I96F32::saturating_from_num(0);
-        let mut alpha_from_parents: I96F32 = I96F32::saturating_from_num(0);
+        let mut alpha_to_children: U96F32 = U96F32::saturating_from_num(0);
+        let mut alpha_from_parents: U96F32 = U96F32::saturating_from_num(0);
 
         // Step 2: Retrieve the lists of parents and children for the hotkey on the subnet.
         let parents: Vec<(u64, T::AccountId)> = Self::get_parents(hotkey, netuid);
@@ -367,16 +372,16 @@ impl<T: Config> Pallet<T> {
         // Step 3: Calculate the total alpha allocated to children.
         for (proportion, _) in children {
             // Convert the proportion to a normalized value between 0 and 1.
-            let normalized_proportion: I96F32 = I96F32::saturating_from_num(proportion)
-                .safe_div(I96F32::saturating_from_num(u64::MAX));
+            let normalized_proportion: U96F32 = U96F32::saturating_from_num(proportion)
+                .safe_div(U96F32::saturating_from_num(u64::MAX));
             log::trace!(
                 "Normalized proportion for child: {:?}",
                 normalized_proportion
             );
 
             // Calculate the amount of alpha to be allocated to this child.
-            let alpha_proportion_to_child: I96F32 =
-                I96F32::saturating_from_num(initial_alpha).saturating_mul(normalized_proportion);
+            let alpha_proportion_to_child: U96F32 =
+                U96F32::saturating_from_num(initial_alpha).saturating_mul(normalized_proportion);
             log::trace!("Alpha proportion to child: {:?}", alpha_proportion_to_child);
 
             // Add this child's allocation to the total alpha allocated to children.
@@ -387,8 +392,8 @@ impl<T: Config> Pallet<T> {
         // Step 4: Calculate the total alpha inherited from parents.
         for (proportion, parent) in parents {
             // Retrieve the parent's total stake on this subnet.
-            let parent_alpha: I96F32 =
-                I96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(&parent, netuid));
+            let parent_alpha: U96F32 =
+                U96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(&parent, netuid));
             log::trace!(
                 "Parent alpha for parent {:?} on subnet {}: {:?}",
                 parent,
@@ -397,16 +402,16 @@ impl<T: Config> Pallet<T> {
             );
 
             // Convert the proportion to a normalized value between 0 and 1.
-            let normalized_proportion: I96F32 = I96F32::saturating_from_num(proportion)
-                .safe_div(I96F32::saturating_from_num(u64::MAX));
+            let normalized_proportion: U96F32 = U96F32::saturating_from_num(proportion)
+                .safe_div(U96F32::saturating_from_num(u64::MAX));
             log::trace!(
                 "Normalized proportion from parent: {:?}",
                 normalized_proportion
             );
 
             // Calculate the amount of alpha to be inherited from this parent.
-            let alpha_proportion_from_parent: I96F32 =
-                I96F32::saturating_from_num(parent_alpha).saturating_mul(normalized_proportion);
+            let alpha_proportion_from_parent: U96F32 =
+                U96F32::saturating_from_num(parent_alpha).saturating_mul(normalized_proportion);
             log::trace!(
                 "Alpha proportion from parent: {:?}",
                 alpha_proportion_from_parent
@@ -421,7 +426,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Step 5: Calculate the final inherited alpha for the hotkey.
-        let finalized_alpha: I96F32 = initial_alpha
+        let finalized_alpha: U96F32 = initial_alpha
             .saturating_sub(alpha_to_children) // Subtract alpha allocated to children
             .saturating_add(alpha_from_parents); // Add alpha inherited from parents
         log::trace!(
@@ -620,15 +625,15 @@ impl<T: Config> Pallet<T> {
         // Step 2: Initialized vars.
         if mechanism_id == 1 {
             // Step 3.a.1: Dynamic mechanism calculations
-            let tao_reserves: I110F18 = I110F18::saturating_from_num(SubnetTAO::<T>::get(netuid));
-            let alpha_reserves: I110F18 =
-                I110F18::saturating_from_num(SubnetAlphaIn::<T>::get(netuid));
+            let tao_reserves: U110F18 = U110F18::saturating_from_num(SubnetTAO::<T>::get(netuid));
+            let alpha_reserves: U110F18 =
+                U110F18::saturating_from_num(SubnetAlphaIn::<T>::get(netuid));
             // Step 3.a.2: Compute constant product k = alpha * tao
-            let k: I110F18 = alpha_reserves.saturating_mul(tao_reserves);
+            let k: U110F18 = alpha_reserves.saturating_mul(tao_reserves);
 
             // Calculate new alpha reserve
-            let new_alpha_reserves: I110F18 =
-                k.safe_div(tao_reserves.saturating_add(I110F18::saturating_from_num(tao)));
+            let new_alpha_reserves: U110F18 =
+                k.safe_div(tao_reserves.saturating_add(U110F18::saturating_from_num(tao)));
 
             // Step 3.a.3: Calculate alpha staked using the constant product formula
             // alpha_stake_recieved = current_alpha - (k / (current_tao + new_tao))
@@ -659,16 +664,16 @@ impl<T: Config> Pallet<T> {
         // Step 2: Swap alpha and attain tao
         if mechanism_id == 1 {
             // Step 3.a.1: Dynamic mechanism calculations
-            let tao_reserves: I110F18 = I110F18::saturating_from_num(SubnetTAO::<T>::get(netuid));
-            let alpha_reserves: I110F18 =
-                I110F18::saturating_from_num(SubnetAlphaIn::<T>::get(netuid));
+            let tao_reserves: U110F18 = U110F18::saturating_from_num(SubnetTAO::<T>::get(netuid));
+            let alpha_reserves: U110F18 =
+                U110F18::saturating_from_num(SubnetAlphaIn::<T>::get(netuid));
             // Step 3.a.2: Compute constant product k = alpha * tao
-            let k: I110F18 = alpha_reserves.saturating_mul(tao_reserves);
+            let k: U110F18 = alpha_reserves.saturating_mul(tao_reserves);
 
             // Calculate new tao reserve
-            let new_tao_reserves: I110F18 = k
-                .checked_div(alpha_reserves.saturating_add(I110F18::saturating_from_num(alpha)))
-                .unwrap_or(I110F18::saturating_from_num(0));
+            let new_tao_reserves: U110F18 = k
+                .checked_div(alpha_reserves.saturating_add(U110F18::saturating_from_num(alpha)))
+                .unwrap_or(U110F18::saturating_from_num(0));
 
             // Step 3.a.3: Calculate alpha staked using the constant product formula
             // tao_recieved = tao_reserves - (k / (alpha_reserves + new_tao))
@@ -1081,7 +1086,7 @@ impl<T: Config> Pallet<T> {
         _origin_coldkey: &T::AccountId,
         destination: Option<(&T::AccountId, u16)>,
         _destination_coldkey: &T::AccountId,
-        alpha_estimate: I96F32,
+        alpha_estimate: U96F32,
     ) -> u64 {
         match origin {
             // If origin is defined, we are removing/moving stake
@@ -1105,7 +1110,7 @@ impl<T: Config> Pallet<T> {
                     // was used to calculate AlphaDividendsPerSubnet
                     let mut fee = alpha_estimate
                         .saturating_mul(
-                            I96F32::saturating_from_num(AlphaDividendsPerSubnet::<T>::get(
+                            U96F32::saturating_from_num(AlphaDividendsPerSubnet::<T>::get(
                                 origin_netuid,
                                 &origin_hotkey,
                             ))
@@ -1118,7 +1123,7 @@ impl<T: Config> Pallet<T> {
 
                     // 0.005% per epoch matches to 44% annual in compound interest. Do not allow the fee
                     // to be lower than that. (1.00005^(365*20) ~= 1.44)
-                    let apr_20_percent = I96F32::saturating_from_num(0.00005);
+                    let apr_20_percent = U96F32::saturating_from_num(0.00005);
                     fee = fee.max(
                         alpha_estimate
                             .saturating_mul(apr_20_percent)
