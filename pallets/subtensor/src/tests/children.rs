@@ -3382,17 +3382,17 @@ fn test_dividend_distribution_with_children() {
             "C should have pending emission of 1/9 of total emission"
         );
 
-        let dividends_a = SubtensorModule::get_dividends_distribution(
+        let dividends_a = SubtensorModule::get_parent_child_dividends_distribution(
             &hotkey_a,
             netuid,
             hardcoded_emission.saturating_to_num::<u64>(),
         );
-        let dividends_b = SubtensorModule::get_dividends_distribution(
+        let dividends_b = SubtensorModule::get_parent_child_dividends_distribution(
             &hotkey_b,
             netuid,
             hardcoded_emission.saturating_to_num::<u64>(),
         );
-        let dividends_c = SubtensorModule::get_dividends_distribution(
+        let dividends_c = SubtensorModule::get_parent_child_dividends_distribution(
             &hotkey_c,
             netuid,
             hardcoded_emission.saturating_to_num::<u64>(),
@@ -3883,12 +3883,12 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
         );
 
         // Get the distribution of dividends including the Parent/Child relationship.
-        let dividends_a = SubtensorModule::get_dividends_distribution(
+        let dividends_a = SubtensorModule::get_parent_child_dividends_distribution(
             &hotkey_a,
             netuid,
             hardcoded_emission.saturating_to_num::<u64>(),
         );
-        let dividends_b = SubtensorModule::get_dividends_distribution(
+        let dividends_b = SubtensorModule::get_parent_child_dividends_distribution(
             &hotkey_b,
             netuid,
             hardcoded_emission.saturating_to_num::<u64>(),

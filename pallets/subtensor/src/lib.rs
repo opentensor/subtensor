@@ -1125,7 +1125,11 @@ pub mod pallet {
     /// ============================
     /// ==== Subnet Parameters =====
     /// ============================
-    #[pallet::storage] // --- MAP ( netuid ) --> subnet mechanism
+    /// --- MAP ( netuid ) --> block number of first emission
+    #[pallet::storage]
+    pub type FirstEmissionBlockNumber<T: Config> = StorageMap<_, Identity, u16, u64, OptionQuery>;
+    /// --- MAP ( netuid ) --> subnet mechanism
+    #[pallet::storage]
     pub type SubnetMechanism<T: Config> =
         StorageMap<_, Identity, u16, u16, ValueQuery, DefaultZeroU16<T>>;
     #[pallet::storage]
