@@ -4,7 +4,7 @@ use sp_std::prelude::*;
 #[cfg(test)]
 use crate::{
     CommitmentInfo, CommitmentOf, Config, Data, Error, Event, MaxSpace, Pallet, RateLimit,
-    Registration, RevealedCommitments, TimelockedIndex,
+    Registration, RevealedCommitments, TimelockedIndex, UsedSpaceOf,
     mock::{
         Balances, DRAND_QUICKNET_SIG_2000_HEX, DRAND_QUICKNET_SIG_HEX, RuntimeEvent, RuntimeOrigin,
         Test, TestMaxFields, insert_drand_pulse, new_test_ext, produce_ciphertext,
@@ -887,7 +887,7 @@ fn tempo_based_space_limit_accumulates_in_same_window() {
     new_test_ext().execute_with(|| {
         let netuid = 1;
         let who = 100;
-        let space_limit = 50;
+        let space_limit = 150;
         MaxSpace::<Test>::set(space_limit);
         System::<Test>::set_block_number(0);
 
@@ -921,7 +921,7 @@ fn tempo_based_space_limit_resets_after_tempo() {
         let netuid = 2;
         let who = 101;
 
-        MaxSpace::<Test>::set(40);
+        MaxSpace::<Test>::set(250);
         System::<Test>::set_block_number(1);
 
         let commit_small = Box::new(CommitmentInfo {
@@ -979,7 +979,7 @@ fn tempo_based_space_limit_does_not_affect_different_netuid() {
         let netuid_a = 10;
         let netuid_b = 20;
         let who = 111;
-        let space_limit = 50;
+        let space_limit = 199;
         MaxSpace::<Test>::set(space_limit);
 
         let commit_large = Box::new(CommitmentInfo {
@@ -1029,7 +1029,7 @@ fn tempo_based_space_limit_does_not_affect_different_user() {
         let netuid = 10;
         let user1 = 123;
         let user2 = 456;
-        let space_limit = 50;
+        let space_limit = 199;
         MaxSpace::<Test>::set(space_limit);
 
         let commit_large = Box::new(CommitmentInfo {
@@ -1078,7 +1078,7 @@ fn tempo_based_space_limit_sudo_set_max_space() {
     new_test_ext().execute_with(|| {
         let netuid = 3;
         let who = 15;
-        MaxSpace::<Test>::set(30);
+        MaxSpace::<Test>::set(100);
 
         System::<Test>::set_block_number(1);
         let commit_25 = Box::new(CommitmentInfo {
@@ -1098,7 +1098,7 @@ fn tempo_based_space_limit_sudo_set_max_space() {
             Error::<Test>::SpaceLimitExceeded
         );
 
-        assert_ok!(Pallet::<Test>::set_max_space(RuntimeOrigin::root(), 100));
+        assert_ok!(Pallet::<Test>::set_max_space(RuntimeOrigin::root(), 300));
 
         assert_ok!(Pallet::<Test>::set_commitment(
             RuntimeOrigin::signed(who),
@@ -1714,5 +1714,80 @@ fn revealed_commitments_keeps_only_10_newest_with_individual_single_field_commit
                 expected_i
             );
         }
+    });
+}
+
+#[test]
+fn usage_respects_minimum_of_100_bytes() {
+    new_test_ext().execute_with(|| {
+        MaxSpace::<Test>::set(1000);
+
+        let netuid = 1;
+        let who = 99;
+
+        System::<Test>::set_block_number(1);
+
+        let small_data = Data::Raw(vec![0u8; 50].try_into().expect("<=128 bytes for Raw"));
+        let info_small = Box::new(CommitmentInfo {
+            fields: BoundedVec::try_from(vec![small_data]).expect("Must not exceed MaxFields"),
+        });
+
+        let usage_before = UsedSpaceOf::<Test>::get(netuid, who).unwrap_or_default();
+        assert_eq!(usage_before.used_space, 0);
+
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(who),
+            netuid,
+            info_small
+        ));
+
+        let usage_after_small =
+            UsedSpaceOf::<Test>::get(netuid, who).expect("expected to not panic");
+        assert_eq!(
+            usage_after_small.used_space, 100,
+            "Usage must jump to 100 even though we only used 50 bytes"
+        );
+
+        let big_data = Data::Raw(vec![0u8; 110].try_into().expect("<=128 bytes for Raw"));
+        let info_big = Box::new(CommitmentInfo {
+            fields: BoundedVec::try_from(vec![big_data]).expect("Must not exceed MaxFields"),
+        });
+
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(who),
+            netuid,
+            info_big
+        ));
+
+        let usage_after_big = UsedSpaceOf::<Test>::get(netuid, who).expect("expected to not panic");
+        assert_eq!(
+            usage_after_big.used_space, 210,
+            "Usage should be 100 + 110 = 210 in this epoch"
+        );
+
+        UsedSpaceOf::<Test>::remove(netuid, who);
+        let usage_after_wipe = UsedSpaceOf::<Test>::get(netuid, who);
+        assert!(
+            usage_after_wipe.is_none(),
+            "Expected `UsedSpaceOf` entry to be removed"
+        );
+
+        let bigger_data = Data::Raw(vec![0u8; 120].try_into().expect("<=128 bytes for Raw"));
+        let info_bigger = Box::new(CommitmentInfo {
+            fields: BoundedVec::try_from(vec![bigger_data]).expect("Must not exceed MaxFields"),
+        });
+
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(who),
+            netuid,
+            info_bigger
+        ));
+
+        let usage_after_reset =
+            UsedSpaceOf::<Test>::get(netuid, who).expect("expected to not panic");
+        assert_eq!(
+            usage_after_reset.used_space, 120,
+            "After wiping old usage, the new usage should be exactly 120"
+        );
     });
 }
