@@ -6848,6 +6848,8 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-arithmetic",
+ "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409)",
  "substrate-fixed",

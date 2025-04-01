@@ -6,11 +6,15 @@ use core::hash::Hash;
 use core::ops::{Add, AddAssign, BitOr, Deref, Neg, Shl, Shr, Sub, SubAssign};
 
 use alloy_primitives::{I256, U256};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
 use safe_math::*;
 use substrate_fixed::types::U64F64;
 
-use crate::SqrtPrice;
+use crate::pallet::{
+    AlphaSqrtPrice, Config, FeeGlobalAlpha, FeeGlobalTao, TickIndexBitmapWords, Ticks,
+};
+use crate::{NetUid, SqrtPrice};
 
 const U256_1: U256 = U256::from_limbs([1, 0, 0, 0]);
 const U256_2: U256 = U256::from_limbs([2, 0, 0, 0]);
@@ -76,6 +80,12 @@ pub struct Tick {
     pub liquidity_gross: u64,
     pub fees_out_tao: U64F64,
     pub fees_out_alpha: U64F64,
+}
+
+impl Tick {
+    pub fn liquidity_net_as_u64(&self) -> u64 {
+        self.liquidity_net.abs().min(u64::MAX as i128) as u64
+    }
 }
 
 /// Struct representing a tick index
@@ -173,6 +183,59 @@ impl TickIndex {
     /// All tick indexes are offset by this value for storage needs
     /// so that tick indexes are positive, which simplifies bit logic
     const OFFSET: Self = Self(MAX_TICK);
+
+    /// Get fees above a tick
+    pub fn fees_above<T: Config>(&self, netuid: NetUid, quote: bool) -> U64F64 {
+        let current_tick = Self::current_bounded::<T>(netuid);
+
+        let Some(tick_index) = ActiveTickIndexManager::find_closest_lower::<T>(netuid, *self)
+        else {
+            return U64F64::from_num(0);
+        };
+
+        let tick = Ticks::<T>::get(netuid, tick_index).unwrap_or_default();
+        if tick_index <= current_tick {
+            if quote {
+                FeeGlobalTao::<T>::get(netuid).saturating_sub(tick.fees_out_tao)
+            } else {
+                FeeGlobalAlpha::<T>::get(netuid).saturating_sub(tick.fees_out_alpha)
+            }
+        } else if quote {
+            tick.fees_out_tao
+        } else {
+            tick.fees_out_alpha
+        }
+    }
+
+    /// Get fees below a tick
+    pub fn fees_below<T: Config>(&self, netuid: NetUid, quote: bool) -> U64F64 {
+        let current_tick = Self::current_bounded::<T>(netuid);
+
+        let Some(tick_index) = ActiveTickIndexManager::find_closest_lower::<T>(netuid, *self)
+        else {
+            return U64F64::saturating_from_num(0);
+        };
+
+        let tick = Ticks::<T>::get(netuid, tick_index).unwrap_or_default();
+
+        if tick_index <= current_tick {
+            if quote {
+                tick.fees_out_tao
+            } else {
+                tick.fees_out_alpha
+            }
+        } else if quote {
+            FeeGlobalTao::<T>::get(netuid).saturating_sub(tick.fees_out_tao)
+        } else {
+            FeeGlobalAlpha::<T>::get(netuid).saturating_sub(tick.fees_out_alpha)
+        }
+    }
+
+    /// Get the current tick index for a subnet, ensuring it's within valid bounds
+    pub fn current_bounded<T: Config>(netuid: NetUid) -> Self {
+        let current_price = AlphaSqrtPrice::<T>::get(netuid);
+        Self::from_sqrt_price_bounded(current_price)
+    }
 
     /// Converts a sqrt price to a tick index, ensuring it's within valid bounds
     ///
@@ -375,9 +438,233 @@ impl TickIndex {
     }
 }
 
+pub struct ActiveTickIndexManager;
+
+impl ActiveTickIndexManager {
+    pub fn insert<T: Config>(netuid: NetUid, index: TickIndex) {
+        // Check the range
+        if (index < TickIndex::MIN) || (index > TickIndex::MAX) {
+            return;
+        }
+
+        // Convert to bitmap representation
+        let bitmap = TickIndexBitmap::from(index);
+
+        // Update layer words
+        let mut word0_value = TickIndexBitmapWords::<T>::get((
+            netuid,
+            LayerLevel::Top,
+            bitmap.word_at(LayerLevel::Top),
+        ));
+        let mut word1_value = TickIndexBitmapWords::<T>::get((
+            netuid,
+            LayerLevel::Middle,
+            bitmap.word_at(LayerLevel::Middle),
+        ));
+        let mut word2_value = TickIndexBitmapWords::<T>::get((
+            netuid,
+            LayerLevel::Bottom,
+            bitmap.word_at(LayerLevel::Bottom),
+        ));
+
+        // Set bits in each layer
+        word0_value |= bitmap.bit_mask(LayerLevel::Top);
+        word1_value |= bitmap.bit_mask(LayerLevel::Middle);
+        word2_value |= bitmap.bit_mask(LayerLevel::Bottom);
+
+        // Update the storage
+        TickIndexBitmapWords::<T>::set(
+            (netuid, LayerLevel::Top, bitmap.word_at(LayerLevel::Top)),
+            word0_value,
+        );
+        TickIndexBitmapWords::<T>::set(
+            (
+                netuid,
+                LayerLevel::Middle,
+                bitmap.word_at(LayerLevel::Middle),
+            ),
+            word1_value,
+        );
+        TickIndexBitmapWords::<T>::set(
+            (
+                netuid,
+                LayerLevel::Bottom,
+                bitmap.word_at(LayerLevel::Bottom),
+            ),
+            word2_value,
+        );
+    }
+
+    pub fn remove<T: Config>(netuid: NetUid, index: TickIndex) {
+        // Check the range
+        if (index < TickIndex::MIN) || (index > TickIndex::MAX) {
+            return;
+        }
+
+        // Convert to bitmap representation
+        let bitmap = TickIndexBitmap::from(index);
+
+        // Update layer words
+        let mut word0_value = TickIndexBitmapWords::<T>::get((
+            netuid,
+            LayerLevel::Top,
+            bitmap.word_at(LayerLevel::Top),
+        ));
+        let mut word1_value = TickIndexBitmapWords::<T>::get((
+            netuid,
+            LayerLevel::Middle,
+            bitmap.word_at(LayerLevel::Middle),
+        ));
+        let mut word2_value = TickIndexBitmapWords::<T>::get((
+            netuid,
+            LayerLevel::Bottom,
+            bitmap.word_at(LayerLevel::Bottom),
+        ));
+
+        // Turn the bit off (& !bit) and save as needed
+        word2_value &= !bitmap.bit_mask(LayerLevel::Bottom);
+        TickIndexBitmapWords::<T>::set(
+            (
+                netuid,
+                LayerLevel::Bottom,
+                bitmap.word_at(LayerLevel::Bottom),
+            ),
+            word2_value,
+        );
+
+        if word2_value == 0 {
+            word1_value &= !bitmap.bit_mask(LayerLevel::Middle);
+            TickIndexBitmapWords::<T>::set(
+                (
+                    netuid,
+                    LayerLevel::Middle,
+                    bitmap.word_at(LayerLevel::Middle),
+                ),
+                word1_value,
+            );
+        }
+
+        if word1_value == 0 {
+            word0_value &= !bitmap.bit_mask(LayerLevel::Top);
+            TickIndexBitmapWords::<T>::set(
+                (netuid, LayerLevel::Top, bitmap.word_at(LayerLevel::Top)),
+                word0_value,
+            );
+        }
+    }
+
+    pub fn find_closest_lower<T: Config>(netuid: NetUid, index: TickIndex) -> Option<TickIndex> {
+        Self::find_closest::<T>(netuid, index, true)
+    }
+
+    pub fn find_closest_higher<T: Config>(netuid: NetUid, index: TickIndex) -> Option<TickIndex> {
+        Self::find_closest::<T>(netuid, index, false)
+    }
+
+    fn find_closest<T: Config>(netuid: NetUid, index: TickIndex, lower: bool) -> Option<TickIndex> {
+        // Check the range
+        if (index < TickIndex::MIN) || (index > TickIndex::MAX) {
+            return None;
+        }
+
+        // Convert to bitmap representation
+        let bitmap = TickIndexBitmap::from(index);
+        let mut found = false;
+        let mut result: u32 = 0;
+
+        // Layer positions from bitmap
+        let layer0_word = bitmap.word_at(LayerLevel::Top);
+        let layer0_bit = bitmap.bit_at(LayerLevel::Top);
+        let layer1_word = bitmap.word_at(LayerLevel::Middle);
+        let layer1_bit = bitmap.bit_at(LayerLevel::Middle);
+        let layer2_word = bitmap.word_at(LayerLevel::Bottom);
+        let layer2_bit = bitmap.bit_at(LayerLevel::Bottom);
+
+        // Find the closest active bits in layer 0, then 1, then 2
+
+        ///////////////
+        // Level 0
+        let word0 = TickIndexBitmapWords::<T>::get((netuid, LayerLevel::Top, layer0_word));
+        let closest_bits_l0 =
+            TickIndexBitmap::find_closest_active_bit_candidates(word0, layer0_bit, lower);
+
+        for closest_bit_l0 in closest_bits_l0.iter() {
+            ///////////////
+            // Level 1
+            let word1_index = TickIndexBitmap::layer_to_index(BitmapLayer::new(0, *closest_bit_l0));
+
+            // Layer 1 words are different, shift the bit to the word edge
+            let start_from_l1_bit = if word1_index < layer1_word {
+                127
+            } else if word1_index > layer1_word {
+                0
+            } else {
+                layer1_bit
+            };
+            let word1_value =
+                TickIndexBitmapWords::<T>::get((netuid, LayerLevel::Middle, word1_index));
+            let closest_bits_l1 = TickIndexBitmap::find_closest_active_bit_candidates(
+                word1_value,
+                start_from_l1_bit,
+                lower,
+            );
+
+            for closest_bit_l1 in closest_bits_l1.iter() {
+                ///////////////
+                // Level 2
+                let word2_index =
+                    TickIndexBitmap::layer_to_index(BitmapLayer::new(word1_index, *closest_bit_l1));
+
+                // Layer 2 words are different, shift the bit to the word edge
+                let start_from_l2_bit = if word2_index < layer2_word {
+                    127
+                } else if word2_index > layer2_word {
+                    0
+                } else {
+                    layer2_bit
+                };
+
+                let word2_value =
+                    TickIndexBitmapWords::<T>::get((netuid, LayerLevel::Bottom, word2_index));
+
+                let closest_bits_l2 = TickIndexBitmap::find_closest_active_bit_candidates(
+                    word2_value,
+                    start_from_l2_bit,
+                    lower,
+                );
+
+                if closest_bits_l2.len() > 0 {
+                    // The active tick is found, restore its full index and return
+                    let offset_found_index = TickIndexBitmap::layer_to_index(BitmapLayer::new(
+                        word2_index,
+                        closest_bits_l2[0],
+                    ));
+
+                    if lower {
+                        if (offset_found_index > result) || (!found) {
+                            result = offset_found_index;
+                            found = true;
+                        }
+                    } else if (offset_found_index < result) || (!found) {
+                        result = offset_found_index;
+                        found = true;
+                    }
+                }
+            }
+        }
+
+        if !found {
+            return None;
+        }
+
+        // Convert the result offset_index back to a tick index
+        TickIndex::from_offset_index(result).ok()
+    }
+}
+
 /// Represents the three layers in the Uniswap V3 bitmap structure
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Layer {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo, MaxEncodedLen)]
+pub enum LayerLevel {
     /// Top layer (highest level of the hierarchy)
     Top = 0,
     /// Middle layer
@@ -386,15 +673,27 @@ pub enum Layer {
     Bottom = 2,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo, MaxEncodedLen)]
+struct BitmapLayer {
+    word: u32,
+    bit: u32,
+}
+
+impl BitmapLayer {
+    pub fn new(word: u32, bit: u32) -> Self {
+        Self { word, bit }
+    }
+}
+
 /// A bitmap representation of a tick index position across the three-layer structure
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TickIndexBitmap {
     /// The position in layer 0 (top layer)
-    layer0: (u32, u32), // (word, bit)
+    layer0: BitmapLayer,
     /// The position in layer 1 (middle layer)
-    layer1: (u32, u32), // (word, bit)
+    layer1: BitmapLayer,
     /// The position in layer 2 (bottom layer)
-    layer2: (u32, u32), // (word, bit)
+    layer2: BitmapLayer,
 }
 
 impl TickIndexBitmap {
@@ -403,42 +702,42 @@ impl TickIndexBitmap {
     ///
     /// Note: This function operates on bitmap navigation indices, NOT tick indices.
     /// It converts a flat index within the bitmap structure to a (word, bit) position.
-    fn index_to_layer(index: u32) -> (u32, u32) {
+    fn index_to_layer(index: u32) -> BitmapLayer {
         let word = index.safe_div(128);
         let bit = index.checked_rem(128).unwrap_or_default();
-        (word, bit)
+        BitmapLayer { word, bit }
     }
 
     /// Converts a position (word, bit) within a layer to a word index in the next layer down
     /// Note: This returns a bitmap navigation index, NOT a tick index
-    pub fn layer_to_index(word: u32, bit: u32) -> u32 {
-        word.saturating_mul(128).saturating_add(bit)
+    pub fn layer_to_index(layer: BitmapLayer) -> u32 {
+        layer.word.saturating_mul(128).saturating_add(layer.bit)
     }
 
     /// Get the mask for a bit in the specified layer
-    pub fn bit_mask(&self, layer: Layer) -> u128 {
+    pub fn bit_mask(&self, layer: LayerLevel) -> u128 {
         match layer {
-            Layer::Top => 1u128 << self.layer0.1,
-            Layer::Middle => 1u128 << self.layer1.1,
-            Layer::Bottom => 1u128 << self.layer2.1,
+            LayerLevel::Top => 1u128 << self.layer0.bit,
+            LayerLevel::Middle => 1u128 << self.layer1.bit,
+            LayerLevel::Bottom => 1u128 << self.layer2.bit,
         }
     }
 
     /// Get the word for the specified layer
-    pub fn word_at(&self, layer: Layer) -> u32 {
+    pub fn word_at(&self, layer: LayerLevel) -> u32 {
         match layer {
-            Layer::Top => self.layer0.0,
-            Layer::Middle => self.layer1.0,
-            Layer::Bottom => self.layer2.0,
+            LayerLevel::Top => self.layer0.word,
+            LayerLevel::Middle => self.layer1.word,
+            LayerLevel::Bottom => self.layer2.word,
         }
     }
 
     /// Get the bit for the specified layer
-    pub fn bit_at(&self, layer: Layer) -> u32 {
+    pub fn bit_at(&self, layer: LayerLevel) -> u32 {
         match layer {
-            Layer::Top => self.layer0.1,
-            Layer::Middle => self.layer1.1,
-            Layer::Bottom => self.layer2.1,
+            LayerLevel::Top => self.layer0.bit,
+            LayerLevel::Middle => self.layer1.bit,
+            LayerLevel::Bottom => self.layer2.bit,
         }
     }
 
@@ -488,8 +787,8 @@ impl From<TickIndex> for TickIndexBitmap {
 
         // Calculate layer positions
         let layer2 = Self::index_to_layer(offset_index);
-        let layer1 = Self::index_to_layer(layer2.0);
-        let layer0 = Self::index_to_layer(layer1.0);
+        let layer1 = Self::index_to_layer(layer2.word);
+        let layer0 = Self::index_to_layer(layer1.word);
 
         Self {
             layer0,
@@ -790,6 +1089,7 @@ mod tests {
     use safe_math::FixedExt;
 
     use super::*;
+    use crate::mock::*;
 
     #[test]
     fn test_get_sqrt_ratio_at_tick_bounds() {
@@ -979,6 +1279,7 @@ mod tests {
         let back_to_u256 = u64f64_to_u256(fixed_value, 32);
         assert_eq!(back_to_u256, value_32frac);
     }
+
     #[test]
     fn test_tick_index_to_sqrt_price() {
         let tick_spacing = SqrtPrice::from_num(1.0001);
@@ -1041,7 +1342,7 @@ mod tests {
     #[test]
     fn test_roundtrip_tick_index_sqrt_price() {
         for i32_value in [
-            MIN_TICK / 2,
+            TickIndex::MIN.get(),
             -1000,
             -100,
             -10,
@@ -1053,7 +1354,7 @@ mod tests {
             10,
             100,
             1000,
-            MAX_TICK / 2,
+            TickIndex::MAX.get(),
         ]
         .iter()
         {
@@ -1068,7 +1369,7 @@ mod tests {
     fn test_from_offset_index() {
         // Test various tick indices
         for i32_value in [
-            MIN_TICK / 2,
+            TickIndex::MIN.get(),
             -1000,
             -100,
             -10,
@@ -1076,7 +1377,7 @@ mod tests {
             10,
             100,
             1000,
-            MAX_TICK / 2,
+            TickIndex::MAX.get(),
         ] {
             let original_tick = TickIndex::new_unchecked(i32_value);
 
@@ -1093,5 +1394,669 @@ mod tests {
         // Test out of bounds values
         let too_large = (TickIndex::MAX.get() + TickIndex::OFFSET.get() + 1) as u32;
         assert!(TickIndex::from_offset_index(too_large).is_err());
+    }
+
+    #[test]
+    fn test_tick_price_sanity_check() {
+        let min_price = TickIndex::MIN.try_to_sqrt_price().unwrap();
+        let max_price = TickIndex::MAX.try_to_sqrt_price().unwrap();
+
+        assert!(min_price > 0.);
+        assert!(max_price > 0.);
+        assert!(max_price > min_price);
+        assert!(min_price < 0.000001);
+        assert!(max_price > 10.);
+
+        // Roundtrip conversions
+        let min_price_sqrt = TickIndex::MIN.try_to_sqrt_price().unwrap();
+        let min_tick = TickIndex::try_from_sqrt_price(min_price_sqrt).unwrap();
+        assert_eq!(min_tick, TickIndex::MIN);
+
+        let max_price_sqrt: SqrtPrice = TickIndex::MAX.try_to_sqrt_price().unwrap();
+        let max_tick = TickIndex::try_from_sqrt_price(max_price_sqrt).unwrap();
+        assert_eq!(max_tick, TickIndex::MAX);
+    }
+
+    #[test]
+    fn test_to_sqrt_price_bounded() {
+        assert_eq!(
+            TickIndex::MAX.to_sqrt_price_bounded(),
+            TickIndex::MAX.try_to_sqrt_price().unwrap()
+        );
+
+        assert_eq!(
+            TickIndex::MIN.to_sqrt_price_bounded(),
+            TickIndex::MIN.try_to_sqrt_price().unwrap()
+        );
+    }
+
+    mod active_tick_index_manager {
+
+        use super::*;
+
+        #[test]
+        fn test_tick_search_basic() {
+            new_test_ext().execute_with(|| {
+                let netuid = NetUid::from(1);
+
+                ActiveTickIndexManager::insert::<Test>(netuid, TickIndex::MIN);
+
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_lower::<Test>(netuid, TickIndex::MIN)
+                        .unwrap(),
+                    TickIndex::MIN
+                );
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_lower::<Test>(netuid, TickIndex::MAX)
+                        .unwrap(),
+                    TickIndex::MIN
+                );
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_lower::<Test>(
+                        netuid,
+                        TickIndex::MAX.saturating_div(2)
+                    )
+                    .unwrap(),
+                    TickIndex::MIN
+                );
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_lower::<Test>(
+                        netuid,
+                        TickIndex::MAX.prev().unwrap()
+                    )
+                    .unwrap(),
+                    TickIndex::MIN
+                );
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_lower::<Test>(
+                        netuid,
+                        TickIndex::MIN.next().unwrap()
+                    )
+                    .unwrap(),
+                    TickIndex::MIN
+                );
+
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_higher::<Test>(netuid, TickIndex::MIN)
+                        .unwrap(),
+                    TickIndex::MIN
+                );
+                assert!(
+                    ActiveTickIndexManager::find_closest_higher::<Test>(netuid, TickIndex::MAX)
+                        .is_none()
+                );
+                assert!(
+                    ActiveTickIndexManager::find_closest_higher::<Test>(
+                        netuid,
+                        TickIndex::MAX.saturating_div(2)
+                    )
+                    .is_none()
+                );
+                assert!(
+                    ActiveTickIndexManager::find_closest_higher::<Test>(
+                        netuid,
+                        TickIndex::MAX.prev().unwrap()
+                    )
+                    .is_none()
+                );
+                assert!(
+                    ActiveTickIndexManager::find_closest_higher::<Test>(
+                        netuid,
+                        TickIndex::MIN.next().unwrap()
+                    )
+                    .is_none()
+                );
+
+                ActiveTickIndexManager::insert::<Test>(netuid, TickIndex::MAX);
+
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_lower::<Test>(netuid, TickIndex::MIN)
+                        .unwrap(),
+                    TickIndex::MIN
+                );
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_lower::<Test>(netuid, TickIndex::MAX)
+                        .unwrap(),
+                    TickIndex::MAX
+                );
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_lower::<Test>(
+                        netuid,
+                        TickIndex::MAX.saturating_div(2)
+                    )
+                    .unwrap(),
+                    TickIndex::MIN
+                );
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_lower::<Test>(
+                        netuid,
+                        TickIndex::MAX.prev().unwrap()
+                    )
+                    .unwrap(),
+                    TickIndex::MIN
+                );
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_lower::<Test>(
+                        netuid,
+                        TickIndex::MIN.next().unwrap()
+                    )
+                    .unwrap(),
+                    TickIndex::MIN
+                );
+            });
+        }
+
+        #[test]
+        fn test_tick_search_sparse_queries() {
+            new_test_ext().execute_with(|| {
+                let active_index = TickIndex::MIN.saturating_add(10);
+                let netuid = NetUid::from(1);
+
+                ActiveTickIndexManager::insert::<Test>(netuid, active_index);
+
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_lower::<Test>(netuid, active_index)
+                        .unwrap(),
+                    active_index
+                );
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_lower::<Test>(
+                        netuid,
+                        TickIndex::MIN.saturating_add(11)
+                    )
+                    .unwrap(),
+                    active_index
+                );
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_lower::<Test>(
+                        netuid,
+                        TickIndex::MIN.saturating_add(12)
+                    )
+                    .unwrap(),
+                    active_index
+                );
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_lower::<Test>(netuid, TickIndex::MIN),
+                    None
+                );
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_lower::<Test>(
+                        netuid,
+                        TickIndex::MIN.saturating_add(9)
+                    ),
+                    None
+                );
+
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_higher::<Test>(netuid, active_index)
+                        .unwrap(),
+                    active_index
+                );
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_higher::<Test>(
+                        netuid,
+                        TickIndex::MIN.saturating_add(11)
+                    ),
+                    None
+                );
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_higher::<Test>(
+                        netuid,
+                        TickIndex::MIN.saturating_add(12)
+                    ),
+                    None
+                );
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_higher::<Test>(netuid, TickIndex::MIN)
+                        .unwrap(),
+                    active_index
+                );
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_higher::<Test>(
+                        netuid,
+                        TickIndex::MIN.saturating_add(9)
+                    )
+                    .unwrap(),
+                    active_index
+                );
+            });
+        }
+
+        #[test]
+        fn test_tick_search_many_lows() {
+            new_test_ext().execute_with(|| {
+                let netuid = NetUid::from(1);
+
+                (0..1000).for_each(|i| {
+                    ActiveTickIndexManager::insert::<Test>(
+                        netuid,
+                        TickIndex::MIN.saturating_add(i),
+                    );
+                });
+
+                for i in 0..1000 {
+                    let test_index = TickIndex::MIN.saturating_add(i);
+                    assert_eq!(
+                        ActiveTickIndexManager::find_closest_lower::<Test>(netuid, test_index)
+                            .unwrap(),
+                        test_index
+                    );
+                    assert_eq!(
+                        ActiveTickIndexManager::find_closest_higher::<Test>(netuid, test_index)
+                            .unwrap(),
+                        test_index
+                    );
+                }
+            });
+        }
+
+        #[test]
+        fn test_tick_search_many_sparse() {
+            new_test_ext().execute_with(|| {
+                let netuid = NetUid::from(1);
+                let count = 1000;
+
+                for i in 0..=count {
+                    ActiveTickIndexManager::insert::<Test>(
+                        netuid,
+                        TickIndex::new_unchecked(i * 10),
+                    );
+                }
+
+                for i in 1..count {
+                    let tick = TickIndex::new_unchecked(i * 10);
+                    assert_eq!(
+                        ActiveTickIndexManager::find_closest_lower::<Test>(netuid, tick).unwrap(),
+                        tick
+                    );
+                    assert_eq!(
+                        ActiveTickIndexManager::find_closest_higher::<Test>(netuid, tick).unwrap(),
+                        tick
+                    );
+                    for j in 1..=9 {
+                        let before_tick = TickIndex::new_unchecked(i * 10 - j);
+                        let after_tick = TickIndex::new_unchecked(i * 10 + j);
+                        let prev_tick = TickIndex::new_unchecked((i - 1) * 10);
+                        let next_tick = TickIndex::new_unchecked((i + 1) * 10);
+                        assert_eq!(
+                            ActiveTickIndexManager::find_closest_lower::<Test>(netuid, before_tick)
+                                .unwrap(),
+                            prev_tick
+                        );
+                        assert_eq!(
+                            ActiveTickIndexManager::find_closest_lower::<Test>(netuid, after_tick)
+                                .unwrap(),
+                            tick
+                        );
+                        assert_eq!(
+                            ActiveTickIndexManager::find_closest_higher::<Test>(
+                                netuid,
+                                before_tick
+                            )
+                            .unwrap(),
+                            tick
+                        );
+                        assert_eq!(
+                            ActiveTickIndexManager::find_closest_higher::<Test>(netuid, after_tick)
+                                .unwrap(),
+                            next_tick
+                        );
+                    }
+                }
+            });
+        }
+
+        #[test]
+        fn test_tick_search_many_lows_sparse_reversed() {
+            new_test_ext().execute_with(|| {
+                let netuid = NetUid::from(1);
+                let count = 1000;
+
+                for i in (0..=count).rev() {
+                    ActiveTickIndexManager::insert::<Test>(
+                        netuid,
+                        TickIndex::new_unchecked(i * 10),
+                    );
+                }
+
+                for i in 1..count {
+                    let tick = TickIndex::new_unchecked(i * 10);
+                    assert_eq!(
+                        ActiveTickIndexManager::find_closest_lower::<Test>(netuid, tick).unwrap(),
+                        tick
+                    );
+                    assert_eq!(
+                        ActiveTickIndexManager::find_closest_higher::<Test>(netuid, tick).unwrap(),
+                        tick
+                    );
+                    for j in 1..=9 {
+                        let before_tick = TickIndex::new_unchecked(i * 10 - j);
+                        let after_tick = TickIndex::new_unchecked(i * 10 + j);
+                        let prev_tick = TickIndex::new_unchecked((i - 1) * 10);
+                        let next_tick = TickIndex::new_unchecked((i + 1) * 10);
+
+                        assert_eq!(
+                            ActiveTickIndexManager::find_closest_lower::<Test>(netuid, before_tick)
+                                .unwrap(),
+                            prev_tick
+                        );
+                        assert_eq!(
+                            ActiveTickIndexManager::find_closest_lower::<Test>(netuid, after_tick)
+                                .unwrap(),
+                            tick
+                        );
+                        assert_eq!(
+                            ActiveTickIndexManager::find_closest_higher::<Test>(
+                                netuid,
+                                before_tick
+                            )
+                            .unwrap(),
+                            tick
+                        );
+                        assert_eq!(
+                            ActiveTickIndexManager::find_closest_higher::<Test>(netuid, after_tick)
+                                .unwrap(),
+                            next_tick
+                        );
+                    }
+                }
+            });
+        }
+
+        #[test]
+        fn test_tick_search_repeated_insertions() {
+            new_test_ext().execute_with(|| {
+                let netuid = NetUid::from(1);
+                let count = 1000;
+
+                for _ in 0..10 {
+                    for i in 0..=count {
+                        let tick = TickIndex::new_unchecked(i * 10);
+                        ActiveTickIndexManager::insert::<Test>(netuid, tick);
+                    }
+
+                    for i in 1..count {
+                        let tick = TickIndex::new_unchecked(i * 10);
+                        assert_eq!(
+                            ActiveTickIndexManager::find_closest_lower::<Test>(netuid, tick)
+                                .unwrap(),
+                            tick
+                        );
+                        assert_eq!(
+                            ActiveTickIndexManager::find_closest_higher::<Test>(netuid, tick)
+                                .unwrap(),
+                            tick
+                        );
+                        for j in 1..=9 {
+                            let before_tick = TickIndex::new_unchecked(i * 10 - j);
+                            let after_tick = TickIndex::new_unchecked(i * 10 + j);
+                            let prev_tick = TickIndex::new_unchecked((i - 1) * 10);
+                            let next_tick = TickIndex::new_unchecked((i + 1) * 10);
+
+                            assert_eq!(
+                                ActiveTickIndexManager::find_closest_lower::<Test>(
+                                    netuid,
+                                    before_tick
+                                )
+                                .unwrap(),
+                                prev_tick
+                            );
+                            assert_eq!(
+                                ActiveTickIndexManager::find_closest_lower::<Test>(
+                                    netuid, after_tick
+                                )
+                                .unwrap(),
+                                tick
+                            );
+                            assert_eq!(
+                                ActiveTickIndexManager::find_closest_higher::<Test>(
+                                    netuid,
+                                    before_tick
+                                )
+                                .unwrap(),
+                                tick
+                            );
+                            assert_eq!(
+                                ActiveTickIndexManager::find_closest_higher::<Test>(
+                                    netuid, after_tick
+                                )
+                                .unwrap(),
+                                next_tick
+                            );
+                        }
+                    }
+                }
+            });
+        }
+
+        #[test]
+        fn test_tick_search_full_range() {
+            new_test_ext().execute_with(|| {
+                let netuid = NetUid::from(1);
+                let step = 1019;
+                // Get the full valid tick range by subtracting MIN from MAX
+                let count = (TickIndex::MAX.get() - TickIndex::MIN.get()) / step;
+
+                for i in 0..=count {
+                    let index = TickIndex::MIN.saturating_add(i * step);
+                    ActiveTickIndexManager::insert::<Test>(netuid, index);
+                }
+                for i in 1..count {
+                    let index = TickIndex::MIN.saturating_add(i * step);
+
+                    let prev_index = TickIndex::new_unchecked(index.get() - step);
+                    let next_minus_one = TickIndex::new_unchecked(index.get() + step - 1);
+
+                    assert_eq!(
+                        ActiveTickIndexManager::find_closest_lower::<Test>(netuid, prev_index)
+                            .unwrap(),
+                        prev_index
+                    );
+                    assert_eq!(
+                        ActiveTickIndexManager::find_closest_lower::<Test>(netuid, index).unwrap(),
+                        index
+                    );
+                    assert_eq!(
+                        ActiveTickIndexManager::find_closest_lower::<Test>(netuid, next_minus_one)
+                            .unwrap(),
+                        index
+                    );
+
+                    let mid_next = TickIndex::new_unchecked(index.get() + step / 2);
+                    assert_eq!(
+                        ActiveTickIndexManager::find_closest_lower::<Test>(netuid, mid_next)
+                            .unwrap(),
+                        index
+                    );
+
+                    assert_eq!(
+                        ActiveTickIndexManager::find_closest_higher::<Test>(netuid, index).unwrap(),
+                        index
+                    );
+
+                    let next_index = TickIndex::new_unchecked(index.get() + step);
+                    assert_eq!(
+                        ActiveTickIndexManager::find_closest_higher::<Test>(netuid, next_index)
+                            .unwrap(),
+                        next_index
+                    );
+
+                    let mid_next = TickIndex::new_unchecked(index.get() + step / 2);
+                    assert_eq!(
+                        ActiveTickIndexManager::find_closest_higher::<Test>(netuid, mid_next)
+                            .unwrap(),
+                        next_index
+                    );
+
+                    let next_minus_1 = TickIndex::new_unchecked(index.get() + step - 1);
+                    assert_eq!(
+                        ActiveTickIndexManager::find_closest_higher::<Test>(netuid, next_minus_1)
+                            .unwrap(),
+                        next_index
+                    );
+                    for j in 1..=9 {
+                        let before_index = TickIndex::new_unchecked(index.get() - j);
+                        let after_index = TickIndex::new_unchecked(index.get() + j);
+
+                        assert_eq!(
+                            ActiveTickIndexManager::find_closest_lower::<Test>(
+                                netuid,
+                                before_index
+                            )
+                            .unwrap(),
+                            prev_index
+                        );
+                        assert_eq!(
+                            ActiveTickIndexManager::find_closest_lower::<Test>(netuid, after_index)
+                                .unwrap(),
+                            index
+                        );
+                        assert_eq!(
+                            ActiveTickIndexManager::find_closest_higher::<Test>(
+                                netuid,
+                                before_index
+                            )
+                            .unwrap(),
+                            index
+                        );
+                        assert_eq!(
+                            ActiveTickIndexManager::find_closest_higher::<Test>(
+                                netuid,
+                                after_index
+                            )
+                            .unwrap(),
+                            next_index
+                        );
+                    }
+                }
+            });
+        }
+
+        #[test]
+        fn test_tick_remove_basic() {
+            new_test_ext().execute_with(|| {
+                let netuid = NetUid::from(1);
+
+                ActiveTickIndexManager::insert::<Test>(netuid, TickIndex::MIN);
+                ActiveTickIndexManager::insert::<Test>(netuid, TickIndex::MAX);
+                ActiveTickIndexManager::remove::<Test>(netuid, TickIndex::MAX);
+
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_lower::<Test>(netuid, TickIndex::MIN)
+                        .unwrap(),
+                    TickIndex::MIN
+                );
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_lower::<Test>(netuid, TickIndex::MAX)
+                        .unwrap(),
+                    TickIndex::MIN
+                );
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_lower::<Test>(
+                        netuid,
+                        TickIndex::MAX.saturating_div(2)
+                    )
+                    .unwrap(),
+                    TickIndex::MIN
+                );
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_lower::<Test>(
+                        netuid,
+                        TickIndex::MAX.prev().unwrap()
+                    )
+                    .unwrap(),
+                    TickIndex::MIN
+                );
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_lower::<Test>(
+                        netuid,
+                        TickIndex::MIN.next().unwrap()
+                    )
+                    .unwrap(),
+                    TickIndex::MIN
+                );
+
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_higher::<Test>(netuid, TickIndex::MIN)
+                        .unwrap(),
+                    TickIndex::MIN
+                );
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_higher::<Test>(netuid, TickIndex::MAX),
+                    None
+                );
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_higher::<Test>(
+                        netuid,
+                        TickIndex::MAX.saturating_div(2)
+                    ),
+                    None
+                );
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_higher::<Test>(
+                        netuid,
+                        TickIndex::MAX.prev().unwrap()
+                    ),
+                    None
+                );
+                assert_eq!(
+                    ActiveTickIndexManager::find_closest_higher::<Test>(
+                        netuid,
+                        TickIndex::MIN.next().unwrap()
+                    ),
+                    None
+                );
+            });
+        }
+
+        #[test]
+        fn test_tick_remove_full_range() {
+            new_test_ext().execute_with(|| {
+                let netuid = NetUid::from(1);
+                let step = 1019;
+                // Get the full valid tick range by subtracting MIN from MAX
+                let count = (TickIndex::MAX.get() - TickIndex::MIN.get()) / step;
+                let remove_frequency = 5; // Remove every 5th tick
+
+                // Insert ticks
+                for i in 0..=count {
+                    let index = TickIndex::MIN.saturating_add(i * step);
+                    ActiveTickIndexManager::insert::<Test>(netuid, index);
+                }
+
+                // Remove some ticks
+                for i in 1..count {
+                    if i % remove_frequency == 0 {
+                        let index = TickIndex::MIN.saturating_add(i * step);
+                        ActiveTickIndexManager::remove::<Test>(netuid, index);
+                    }
+                }
+
+                // Verify
+                for i in 1..count {
+                    let index = TickIndex::MIN.saturating_add(i * step);
+
+                    if i % remove_frequency == 0 {
+                        let lower =
+                            ActiveTickIndexManager::find_closest_lower::<Test>(netuid, index);
+                        let higher =
+                            ActiveTickIndexManager::find_closest_higher::<Test>(netuid, index);
+                        assert!(lower != Some(index));
+                        assert!(higher != Some(index));
+                    } else {
+                        assert_eq!(
+                            ActiveTickIndexManager::find_closest_lower::<Test>(netuid, index)
+                                .unwrap(),
+                            index
+                        );
+                        assert_eq!(
+                            ActiveTickIndexManager::find_closest_higher::<Test>(netuid, index)
+                                .unwrap(),
+                            index
+                        );
+                    }
+                }
+            });
+        }
     }
 }

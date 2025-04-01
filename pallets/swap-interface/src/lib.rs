@@ -17,7 +17,9 @@ pub trait SwapHandler<AccountId> {
     fn remove_liquidity(account_id: AccountId) -> Result<(), Box<dyn Error>>;
 }
 
-pub trait LiquidityDataProvider {
-    fn tao_reserve() -> u64;
-    fn alpha_reserve() -> u64;
+pub trait LiquidityDataProvider<AccountId> {
+    fn tao_reserve(netuid: u16) -> u64;
+    fn alpha_reserve(netuid: u16) -> u64;
+    fn tao_balance(netuid: u16, account_id: &AccountId) -> u64;
+    fn alpha_balance(netuid: u16, account_id: &AccountId) -> u64;
 }
