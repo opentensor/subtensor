@@ -17,6 +17,7 @@ mod senate;
 mod serving;
 mod staking;
 mod staking2;
+mod subnet;
 mod swap_coldkey;
 mod swap_hotkey;
 mod uids;

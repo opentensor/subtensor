@@ -14,9 +14,9 @@ mod events {
         /// a network is removed.
         NetworkRemoved(u16),
         /// stake has been transferred from the a coldkey account onto the hotkey staking account.
-        StakeAdded(T::AccountId, T::AccountId, u64, u64, u16),
+        StakeAdded(T::AccountId, T::AccountId, u64, u64, u16, u64),
         /// stake has been removed from the hotkey staking account onto the coldkey account.
-        StakeRemoved(T::AccountId, T::AccountId, u64, u64, u16),
+        StakeRemoved(T::AccountId, T::AccountId, u64, u64, u16, u64),
         /// stake has been moved from origin (hotkey, subnet ID) to destination (hotkey, subnet ID) of this amount (in TAO).
         StakeMoved(T::AccountId, T::AccountId, u16, T::AccountId, u16, u64),
         /// a caller successfully sets their weights on a subnetwork.
@@ -275,6 +275,12 @@ mod events {
         /// Parameters:
         /// (netuid, new_hotkey)
         SubnetOwnerHotkeySet(u16, T::AccountId),
+        /// FirstEmissionBlockNumber is set via start call extrinsic
+        ///
+        /// Parameters:
+        /// netuid
+        /// block number
+        FirstEmissionBlockNumberSet(u16, u64),
 
         /// Alpha has been recycled, reducing AlphaOut on a subnet.
         ///
@@ -287,5 +293,23 @@ mod events {
         /// Parameters:
         /// (coldkey, hotkey, amount, subnet_id)
         AlphaBurned(T::AccountId, T::AccountId, u64, u16),
+
+        /// CRV3 Weights have been successfully revealed.
+        ///
+        /// - **netuid**: The network identifier.
+        /// - **who**: The account ID of the user revealing the weights.
+        CRV3WeightsRevealed(u16, T::AccountId),
+
+        /// Commit-Reveal periods has been successfully set.
+        ///
+        /// - **netuid**: The network identifier.
+        /// - **periods**: The number of epochs before the reveal.
+        CommitRevealPeriodsSet(u16, u64),
+
+        /// Commit-Reveal has been successfully toggled.
+        ///
+        /// - **netuid**: The network identifier.
+        /// - **Enabled**: Is Commit-Reveal enabled.
+        CommitRevealEnabled(u16, bool),
     }
 }

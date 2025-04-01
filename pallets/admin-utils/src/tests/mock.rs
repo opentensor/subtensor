@@ -86,7 +86,7 @@ parameter_types! {
     pub const InitialImmunityPeriod: u16 = 2;
     pub const InitialMaxAllowedUids: u16 = 2;
     pub const InitialBondsMovingAverage: u64 = 900_000;
-    pub const InitialBondsPenalty: u16 = 0;
+    pub const InitialBondsPenalty: u16 = u16::MAX;
     pub const InitialStakePruningMin: u16 = 0;
     pub const InitialFoundationDistribution: u64 = 0;
     pub const InitialDefaultDelegateTake: u16 = 11_796; // 18% honest number.
@@ -135,6 +135,7 @@ parameter_types! {
     pub const InitialDissolveNetworkScheduleDuration: u64 = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const InitialTaoWeight: u64 = u64::MAX/10; // 10% global weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
+    pub const DurationOfStartCall: u64 = 7 * 24 * 60 * 60 / 12; // 7 days
 }
 
 impl pallet_subtensor::Config for Test {
@@ -199,6 +200,7 @@ impl pallet_subtensor::Config for Test {
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
+    type DurationOfStartCall = DurationOfStartCall;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]

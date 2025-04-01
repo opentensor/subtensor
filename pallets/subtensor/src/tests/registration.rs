@@ -1,5 +1,6 @@
 #![allow(clippy::unwrap_used)]
 
+use approx::assert_abs_diff_eq;
 use frame_support::traits::Currency;
 
 use super::mock::*;
@@ -535,11 +536,11 @@ fn test_burn_adjustment() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
-        let burn_cost: u64 = 1000;
+        let init_burn_cost: u64 = InitialMinBurn::get() + 10_000;
         let adjustment_interval = 1;
         let target_registrations_per_interval = 1;
         add_network(netuid, tempo, 0);
-        SubtensorModule::set_burn(netuid, burn_cost);
+        SubtensorModule::set_burn(netuid, init_burn_cost);
         SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
         SubtensorModule::set_adjustment_alpha(netuid, 58000); // Set to old value.
         SubtensorModule::set_target_registrations_per_interval(
@@ -550,7 +551,7 @@ fn test_burn_adjustment() {
         // Register key 1.
         let hotkey_account_id_1 = U256::from(1);
         let coldkey_account_id_1 = U256::from(1);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id_1, 10000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id_1, init_burn_cost);
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_1),
             netuid,
@@ -560,7 +561,7 @@ fn test_burn_adjustment() {
         // Register key 2.
         let hotkey_account_id_2 = U256::from(2);
         let coldkey_account_id_2 = U256::from(2);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id_2, 10000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id_2, init_burn_cost);
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_2),
             netuid,
@@ -571,8 +572,13 @@ fn test_burn_adjustment() {
         // Step the block and trigger the adjustment.
         step_block(1);
 
-        // Check the adjusted burn.
-        assert_eq!(SubtensorModule::get_burn_as_u64(netuid), 1500);
+        // Check the adjusted burn is above the initial min burn.
+        assert!(SubtensorModule::get_burn_as_u64(netuid) > init_burn_cost);
+        assert_abs_diff_eq!(
+            SubtensorModule::get_burn_as_u64(netuid),
+            init_burn_cost.saturating_mul(3).saturating_div(2), // 1.5x
+            epsilon = 1000
+        );
     });
 }
 

@@ -4,7 +4,7 @@
 use super::mock::*;
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_noop, assert_ok};
-use substrate_fixed::types::{I64F64, I96F32};
+use substrate_fixed::types::{I64F64, I96F32, U96F32};
 
 use crate::{utils::rate_limiting::TransactionType, *};
 use sp_core::U256;
@@ -961,7 +961,7 @@ fn test_childkey_take_rate_limiting() {
                 last_block,
                 limit,
                 passes,
-                current_block.saturating_sub(last_block)
+                current_block - last_block
             );
         };
 
@@ -2764,9 +2764,7 @@ fn test_set_weights_no_parent() {
 
         // Set a minimum stake to set weights
         SubtensorModule::set_stake_threshold(
-            curr_stake_weight
-                .saturating_sub(I64F64::saturating_from_num(5))
-                .saturating_to_num::<u64>(),
+            (curr_stake_weight - I64F64::from_num(5)).to_num::<u64>(),
         );
 
         // Check if the stake for the hotkey is above
@@ -3029,7 +3027,7 @@ fn test_parent_child_chain_emission() {
         // Set the weight of root TAO to be 0%, so only alpha is effective.
         SubtensorModule::set_tao_weight(0);
 
-        let emission: I96F32 = I96F32::from_num(SubtensorModule::get_block_emission().unwrap_or(0));
+        let emission: U96F32 = U96F32::from_num(SubtensorModule::get_block_emission().unwrap_or(0));
 
         // Set pending emission to 0
         PendingEmission::<Test>::insert(netuid, 0);
@@ -3382,17 +3380,17 @@ fn test_dividend_distribution_with_children() {
             "C should have pending emission of 1/9 of total emission"
         );
 
-        let dividends_a = SubtensorModule::get_dividends_distribution(
+        let dividends_a = SubtensorModule::get_parent_child_dividends_distribution(
             &hotkey_a,
             netuid,
             hardcoded_emission.saturating_to_num::<u64>(),
         );
-        let dividends_b = SubtensorModule::get_dividends_distribution(
+        let dividends_b = SubtensorModule::get_parent_child_dividends_distribution(
             &hotkey_b,
             netuid,
             hardcoded_emission.saturating_to_num::<u64>(),
         );
-        let dividends_c = SubtensorModule::get_dividends_distribution(
+        let dividends_c = SubtensorModule::get_parent_child_dividends_distribution(
             &hotkey_c,
             netuid,
             hardcoded_emission.saturating_to_num::<u64>(),
@@ -3883,12 +3881,12 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
         );
 
         // Get the distribution of dividends including the Parent/Child relationship.
-        let dividends_a = SubtensorModule::get_dividends_distribution(
+        let dividends_a = SubtensorModule::get_parent_child_dividends_distribution(
             &hotkey_a,
             netuid,
             hardcoded_emission.saturating_to_num::<u64>(),
         );
-        let dividends_b = SubtensorModule::get_dividends_distribution(
+        let dividends_b = SubtensorModule::get_parent_child_dividends_distribution(
             &hotkey_b,
             netuid,
             hardcoded_emission.saturating_to_num::<u64>(),
