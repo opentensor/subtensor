@@ -28,6 +28,8 @@ echo "go to evm-tests"
 cd evm-tests
 pwd
 
+sudo apt-get install -y nodejs
+
 npm install --global yarn
 
 sh get-metadata.sh
