@@ -32,6 +32,7 @@ sudo apt-get install -y nodejs
 
 sh get-metadata.sh
 
+echo "yarn path"
 which yarn
 
 sleep 5
