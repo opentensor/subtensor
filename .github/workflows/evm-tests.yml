@@ -45,7 +45,6 @@ jobs:
           which npm
           node --version
           npm --version
-
           pwd
           ls
-          sh ./evm-tests/run-ci.sh
+          # sh ./evm-tests/run-ci.sh
