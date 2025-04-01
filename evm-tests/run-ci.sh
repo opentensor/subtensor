@@ -30,11 +30,11 @@ pwd
 
 npm install --global yarn
 
+sh get-metadata.sh
+
 yarn
 
 sleep 5
-
-sh get-metadata.sh
 
 yarn run test
 
