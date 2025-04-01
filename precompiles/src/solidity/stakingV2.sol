@@ -20,7 +20,11 @@ interface IStaking {
      * - `hotkey` must be a valid hotkey registered on the network, ensuring that the stake is
      *   correctly attributed.
      */
-    function addStake(bytes32 hotkey, uint256 amount, uint256 netuid) external payable;
+    function addStake(
+        bytes32 hotkey,
+        uint256 amount,
+        uint256 netuid
+    ) external payable;
 
     /**
      * @dev Removes a subtensor stake `amount` from the specified `hotkey`.
@@ -112,7 +116,9 @@ interface IStaking {
      * @param coldkey The coldkey public key (32 bytes).
      * @return The amount of RAO staked by the coldkey.
      */
-    function getTotalColdkeyStake(bytes32 coldkey) external view returns (uint256);
+    function getTotalColdkeyStake(
+        bytes32 coldkey
+    ) external view returns (uint256);
 
     /**
      * @dev Returns the total amount of stake under a hotkey (delegative or otherwise)
@@ -124,7 +130,9 @@ interface IStaking {
      * @param hotkey The hotkey public key (32 bytes).
      * @return The total amount of RAO staked under the hotkey.
      */
-    function getTotalHotkeyStake(bytes32 hotkey) external view returns (uint256);
+    function getTotalHotkeyStake(
+        bytes32 hotkey
+    ) external view returns (uint256);
 
     /**
      * @dev Returns the stake amount associated with the specified `hotkey` and `coldkey`.
@@ -156,4 +164,34 @@ interface IStaking {
      * @param delegate The public key (32 bytes) of the delegate.
      */
     function removeProxy(bytes32 delegate) external;
+
+    /**
+     * @dev Returns the validators that have staked alpha under a hotkey.
+     *
+     * This function retrieves the validators that have staked alpha under a specific hotkey.
+     * It is a view function, meaning it does not modify the state of the contract and is free to call.
+     *
+     * @param hotkey The hotkey public key (32 bytes).
+     * @param netuid The subnet the stake is on (uint256).
+     * @return An array of validators that have staked alpha under the hotkey.
+     */
+    function getAlphaStakedValidators(
+        bytes32 hotkey,
+        uint256 netuid
+    ) external view returns (uint256[] memory);
+
+    /**
+     * @dev Returns the total amount of alpha staked under a hotkey.
+     *
+     * This function retrieves the total amount of alpha staked under a specific hotkey.
+     * It is a view function, meaning it does not modify the state of the contract and is free to call.
+     *
+     * @param hotkey The hotkey public key (32 bytes).
+     * @param netuid The subnet the stake is on (uint256).
+     * @return The total amount of alpha staked under the hotkey.
+     */
+    function getTotalAlphaStaked(
+        bytes32 hotkey,
+        uint256 netuid
+    ) external view returns (uint256);
 }
