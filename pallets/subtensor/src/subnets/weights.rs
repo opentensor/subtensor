@@ -1092,6 +1092,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn set_reveal_period(netuid: u16, reveal_period: u64) {
         RevealPeriodEpochs::<T>::insert(netuid, reveal_period);
+        Self::deposit_event(Event::CommitRevealPeriodsSet(netuid, reveal_period));
     }
     pub fn get_reveal_period(netuid: u16) -> u64 {
         RevealPeriodEpochs::<T>::get(netuid)

@@ -897,8 +897,11 @@ fn test_swap_stake_success() {
 
         // Initialize staking variables for old_hotkey
         TotalHotkeyAlpha::<Test>::insert(old_hotkey, netuid, amount);
+        TotalHotkeyAlphaLastEpoch::<Test>::insert(old_hotkey, netuid, amount * 2);
         TotalHotkeyShares::<Test>::insert(old_hotkey, netuid, U64F64::from_num(shares));
         Alpha::<Test>::insert((old_hotkey, coldkey, netuid), U64F64::from_num(amount));
+        AlphaDividendsPerSubnet::<Test>::insert(netuid, old_hotkey, amount);
+        TaoDividendsPerSubnet::<Test>::insert(netuid, old_hotkey, amount);
 
         // Perform the swap
         SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
@@ -906,6 +909,14 @@ fn test_swap_stake_success() {
         // Verify the swap
         assert_eq!(TotalHotkeyAlpha::<Test>::get(old_hotkey, netuid), 0);
         assert_eq!(TotalHotkeyAlpha::<Test>::get(new_hotkey, netuid), amount);
+        assert_eq!(
+            TotalHotkeyAlphaLastEpoch::<Test>::get(old_hotkey, netuid),
+            0
+        );
+        assert_eq!(
+            TotalHotkeyAlphaLastEpoch::<Test>::get(new_hotkey, netuid),
+            amount * 2
+        );
         assert_eq!(
             TotalHotkeyShares::<Test>::get(old_hotkey, netuid),
             U64F64::from_num(0)
@@ -921,6 +932,16 @@ fn test_swap_stake_success() {
         assert_eq!(
             Alpha::<Test>::get((new_hotkey, coldkey, netuid)),
             U64F64::from_num(amount)
+        );
+        assert_eq!(AlphaDividendsPerSubnet::<Test>::get(netuid, old_hotkey), 0);
+        assert_eq!(
+            AlphaDividendsPerSubnet::<Test>::get(netuid, new_hotkey),
+            amount
+        );
+        assert_eq!(TaoDividendsPerSubnet::<Test>::get(netuid, old_hotkey), 0);
+        assert_eq!(
+            TaoDividendsPerSubnet::<Test>::get(netuid, new_hotkey),
+            amount
         );
     });
 }
