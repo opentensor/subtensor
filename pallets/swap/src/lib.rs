@@ -14,9 +14,8 @@ use self::tick::{LayerLevel, Tick, TickIndex, TickIndexBitmap};
 use crate::pallet::{Config, Error};
 
 pub mod pallet;
-mod tick;
 mod position;
-pub(crate) mod swap;
+mod tick;
 
 #[cfg(test)]
 pub(crate) mod mock;
@@ -92,4 +91,3 @@ pub enum SwapError {
     /// Too many swap steps
     TooManySwapSteps,
 }
-
