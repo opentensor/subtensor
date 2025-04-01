@@ -4,7 +4,7 @@ use sp_std::prelude::*;
 #[cfg(test)]
 use crate::{
     CommitmentInfo, CommitmentOf, Config, Data, Error, Event, MaxSpace, Pallet, RateLimit,
-    Registration, RevealedCommitments, TimelockedIndex,
+    Registration, RevealedCommitments, TimelockedIndex, UsedSpaceOf,
     mock::{
         Balances, DRAND_QUICKNET_SIG_2000_HEX, DRAND_QUICKNET_SIG_HEX, RuntimeEvent, RuntimeOrigin,
         Test, TestMaxFields, insert_drand_pulse, new_test_ext, produce_ciphertext,
@@ -1714,5 +1714,78 @@ fn revealed_commitments_keeps_only_10_newest_with_individual_single_field_commit
                 expected_i
             );
         }
+    });
+}
+
+#[test]
+fn usage_respects_minimum_of_100_bytes() {
+    new_test_ext().execute_with(|| {
+        MaxSpace::<Test>::set(1000);
+
+        let netuid = 1;
+        let who = 99;
+
+        System::<Test>::set_block_number(1);
+
+        let small_data = Data::Raw(vec![0u8; 50].try_into().expect("<=128 bytes for Raw"));
+        let info_small = Box::new(CommitmentInfo {
+            fields: BoundedVec::try_from(vec![small_data]).expect("Must not exceed MaxFields"),
+        });
+
+        let usage_before = UsedSpaceOf::<Test>::get(netuid, &who).unwrap_or_default();
+        assert_eq!(usage_before.used_space, 0);
+
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(who),
+            netuid,
+            info_small
+        ));
+
+        let usage_after_small = UsedSpaceOf::<Test>::get(netuid, &who).unwrap();
+        assert_eq!(
+            usage_after_small.used_space, 100,
+            "Usage must jump to 100 even though we only used 50 bytes"
+        );
+
+        let big_data = Data::Raw(vec![0u8; 110].try_into().expect("<=128 bytes for Raw"));
+        let info_big = Box::new(CommitmentInfo {
+            fields: BoundedVec::try_from(vec![big_data]).expect("Must not exceed MaxFields"),
+        });
+
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(who),
+            netuid,
+            info_big
+        ));
+
+        let usage_after_big = UsedSpaceOf::<Test>::get(netuid, &who).unwrap();
+        assert_eq!(
+            usage_after_big.used_space, 210,
+            "Usage should be 100 + 110 = 210 in this epoch"
+        );
+
+        UsedSpaceOf::<Test>::remove(netuid, &who);
+        let usage_after_wipe = UsedSpaceOf::<Test>::get(netuid, &who);
+        assert!(
+            usage_after_wipe.is_none(),
+            "Expected `UsedSpaceOf` entry to be removed"
+        );
+
+        let bigger_data = Data::Raw(vec![0u8; 120].try_into().expect("<=128 bytes for Raw"));
+        let info_bigger = Box::new(CommitmentInfo {
+            fields: BoundedVec::try_from(vec![bigger_data]).expect("Must not exceed MaxFields"),
+        });
+
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(who),
+            netuid,
+            info_bigger
+        ));
+
+        let usage_after_reset = UsedSpaceOf::<Test>::get(netuid, &who).unwrap();
+        assert_eq!(
+            usage_after_reset.used_space, 120,
+            "After wiping old usage, the new usage should be exactly 120"
+        );
     });
 }
