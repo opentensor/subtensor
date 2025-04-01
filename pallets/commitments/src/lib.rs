@@ -172,7 +172,7 @@ pub mod pallet {
         u16,
         Twox64Concat,
         T::AccountId,
-        RevealedData<BalanceOf<T>, T::MaxFields, BlockNumberFor<T>>,
+        Vec<(Vec<u8>, u64)>, // Reveals<(Data, RevealBlock)>
         OptionQuery,
     >;
 
@@ -221,11 +221,13 @@ pub mod pallet {
 
             let cur_block = <frame_system::Pallet<T>>::block_number();
 
+            let min_used_space: u64 = 100;
             let required_space: u64 = info
                 .fields
                 .iter()
                 .map(|field| field.len_for_rate_limit())
-                .sum();
+                .sum::<u64>()
+                .max(min_used_space);
 
             let mut usage = UsedSpaceOf::<T>::get(netuid, &who).unwrap_or_default();
             let cur_block_u64 = cur_block.saturated_into::<u64>();
@@ -478,7 +480,6 @@ where
 
 impl<T: Config> Pallet<T> {
     pub fn reveal_timelocked_commitments() -> DispatchResult {
-        let current_block = <frame_system::Pallet<T>>::block_number();
         let index = TimelockedIndex::<T>::get();
         for (netuid, who) in index.clone() {
             let Some(mut registration) = <CommitmentOf<T>>::get(netuid, &who) else {
@@ -528,10 +529,7 @@ impl<T: Config> Pallet<T> {
                             .ok();
 
                         let Some(sig) = sig else {
-                            remain_fields.push(Data::TimelockEncrypted {
-                                encrypted,
-                                reveal_round,
-                            });
+                            log::warn!("No sig after deserialization");
                             continue;
                         };
 
@@ -547,10 +545,7 @@ impl<T: Config> Pallet<T> {
                             .ok();
 
                         let Some(commit) = commit else {
-                            remain_fields.push(Data::TimelockEncrypted {
-                                encrypted,
-                                reveal_round,
-                            });
+                            log::warn!("No commit after deserialization");
                             continue;
                         };
 
@@ -563,32 +558,11 @@ impl<T: Config> Pallet<T> {
                                 .unwrap_or_default();
 
                         if decrypted_bytes.is_empty() {
-                            remain_fields.push(Data::TimelockEncrypted {
-                                encrypted,
-                                reveal_round,
-                            });
+                            log::warn!("Bytes were decrypted for {:?} but they are empty", who);
                             continue;
                         }
 
-                        let mut reader = &decrypted_bytes[..];
-                        let revealed_info: CommitmentInfo<T::MaxFields> =
-                            match Decode::decode(&mut reader) {
-                                Ok(info) => info,
-                                Err(e) => {
-                                    log::warn!(
-                                        "Failed to decode decrypted data for {:?}: {:?}",
-                                        who,
-                                        e
-                                    );
-                                    remain_fields.push(Data::TimelockEncrypted {
-                                        encrypted,
-                                        reveal_round,
-                                    });
-                                    continue;
-                                }
-                            };
-
-                        revealed_fields.push(revealed_info);
+                        revealed_fields.push(decrypted_bytes);
                     }
 
                     other => remain_fields.push(other),
@@ -596,28 +570,29 @@ impl<T: Config> Pallet<T> {
             }
 
             if !revealed_fields.is_empty() {
-                let mut all_revealed_data = Vec::new();
-                for info in revealed_fields {
-                    all_revealed_data.extend(info.fields.into_inner());
+                let mut existing_reveals =
+                    RevealedCommitments::<T>::get(netuid, &who).unwrap_or_default();
+
+                let current_block = <frame_system::Pallet<T>>::block_number();
+                let block_u64 = current_block.saturated_into::<u64>();
+
+                // Push newly revealed items onto the tail of existing_reveals and emit the event
+                for revealed_bytes in revealed_fields {
+                    existing_reveals.push((revealed_bytes, block_u64));
+
+                    Self::deposit_event(Event::CommitmentRevealed {
+                        netuid,
+                        who: who.clone(),
+                    });
                 }
 
-                let bounded_revealed = BoundedVec::try_from(all_revealed_data)
-                    .map_err(|_| "Could not build BoundedVec for revealed fields")?;
+                const MAX_REVEALS: usize = 10;
+                if existing_reveals.len() > MAX_REVEALS {
+                    let remove_count = existing_reveals.len().saturating_sub(MAX_REVEALS);
+                    existing_reveals.drain(0..remove_count);
+                }
 
-                let combined_revealed_info = CommitmentInfo {
-                    fields: bounded_revealed,
-                };
-
-                let revealed_data = RevealedData {
-                    info: combined_revealed_info,
-                    revealed_block: current_block,
-                    deposit: registration.deposit,
-                };
-                <RevealedCommitments<T>>::insert(netuid, &who, revealed_data);
-                Self::deposit_event(Event::CommitmentRevealed {
-                    netuid,
-                    who: who.clone(),
-                });
+                RevealedCommitments::<T>::insert(netuid, &who, existing_reveals);
             }
 
             registration.info.fields = BoundedVec::try_from(remain_fields)

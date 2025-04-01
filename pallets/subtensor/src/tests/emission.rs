@@ -102,7 +102,7 @@ fn test_consecutive_blocks() {
         let mut last_result = SubtensorModule::blocks_until_next_epoch(netuid, tempo, 0);
         for i in 1..tempo - 1 {
             let current_result = SubtensorModule::blocks_until_next_epoch(netuid, tempo, i as u64);
-            assert_eq!(current_result, last_result.saturating_sub(1));
+            assert_eq!(current_result, last_result - 1);
             last_result = current_result;
         }
     });
