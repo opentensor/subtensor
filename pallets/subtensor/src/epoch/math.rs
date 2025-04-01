@@ -1300,6 +1300,7 @@ pub fn hadamard_sparse(
 }
 
 /// Clamp the input value between high and low.
+/// Note: assumes high > low
 pub fn clamp_value(value: I32F32, low: I32F32, high: I32F32) -> I32F32 {
     // First, clamp the value to ensure it does not exceed the upper bound (high).
     // If the value is greater than 'high', it will be set to 'high'.
