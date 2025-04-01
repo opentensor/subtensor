@@ -1106,24 +1106,32 @@ impl<T: Config> Pallet<T> {
                     DefaultStakingFee::<T>::get()
                 } else {
                     // Otherwise, calculate the fee based on the alpha estimate
-                    let mut fee = alpha_estimate
+                    // Here we are using TotalHotkeyAlphaLastEpoch, which is exactly the value that
+                    // was used to calculate AlphaDividendsPerSubnet
+                    let tao_estimate = U96F32::saturating_from_num(
+                        Self::sim_swap_alpha_for_tao(
+                            origin_netuid,
+                            alpha_estimate.saturating_to_num::<u64>(),
+                        )
+                        .unwrap_or(0),
+                    );
+                    let mut fee = tao_estimate
                         .saturating_mul(
                             U96F32::saturating_from_num(AlphaDividendsPerSubnet::<T>::get(
                                 origin_netuid,
                                 &origin_hotkey,
                             ))
                             .safe_div(U96F32::saturating_from_num(
-                                TotalHotkeyAlpha::<T>::get(&origin_hotkey, origin_netuid),
+                                TotalHotkeyAlphaLastEpoch::<T>::get(&origin_hotkey, origin_netuid),
                             )),
                         )
-                        .saturating_mul(Self::get_alpha_price(origin_netuid)) // fee needs to be in TAO
                         .saturating_to_num::<u64>();
 
                     // 0.005% per epoch matches to 44% annual in compound interest. Do not allow the fee
                     // to be lower than that. (1.00005^(365*20) ~= 1.44)
                     let apr_20_percent = U96F32::saturating_from_num(0.00005);
                     fee = fee.max(
-                        alpha_estimate
+                        tao_estimate
                             .saturating_mul(apr_20_percent)
                             .saturating_to_num::<u64>(),
                     );
