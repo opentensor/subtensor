@@ -1732,7 +1732,7 @@ fn usage_respects_minimum_of_100_bytes() {
             fields: BoundedVec::try_from(vec![small_data]).expect("Must not exceed MaxFields"),
         });
 
-        let usage_before = UsedSpaceOf::<Test>::get(netuid, &who).unwrap_or_default();
+        let usage_before = UsedSpaceOf::<Test>::get(netuid, who).unwrap_or_default();
         assert_eq!(usage_before.used_space, 0);
 
         assert_ok!(Pallet::<Test>::set_commitment(
@@ -1741,7 +1741,8 @@ fn usage_respects_minimum_of_100_bytes() {
             info_small
         ));
 
-        let usage_after_small = UsedSpaceOf::<Test>::get(netuid, &who).unwrap();
+        let usage_after_small =
+            UsedSpaceOf::<Test>::get(netuid, who).expect("expected to not panic");
         assert_eq!(
             usage_after_small.used_space, 100,
             "Usage must jump to 100 even though we only used 50 bytes"
@@ -1758,14 +1759,14 @@ fn usage_respects_minimum_of_100_bytes() {
             info_big
         ));
 
-        let usage_after_big = UsedSpaceOf::<Test>::get(netuid, &who).unwrap();
+        let usage_after_big = UsedSpaceOf::<Test>::get(netuid, who).expect("expected to not panic");
         assert_eq!(
             usage_after_big.used_space, 210,
             "Usage should be 100 + 110 = 210 in this epoch"
         );
 
-        UsedSpaceOf::<Test>::remove(netuid, &who);
-        let usage_after_wipe = UsedSpaceOf::<Test>::get(netuid, &who);
+        UsedSpaceOf::<Test>::remove(netuid, who);
+        let usage_after_wipe = UsedSpaceOf::<Test>::get(netuid, who);
         assert!(
             usage_after_wipe.is_none(),
             "Expected `UsedSpaceOf` entry to be removed"
@@ -1782,7 +1783,8 @@ fn usage_respects_minimum_of_100_bytes() {
             info_bigger
         ));
 
-        let usage_after_reset = UsedSpaceOf::<Test>::get(netuid, &who).unwrap();
+        let usage_after_reset =
+            UsedSpaceOf::<Test>::get(netuid, who).expect("expected to not panic");
         assert_eq!(
             usage_after_reset.used_space, 120,
             "After wiping old usage, the new usage should be exactly 120"
