@@ -1414,17 +1414,11 @@ pub fn mat_ema_alpha_sparse(
             if let (Some(alpha_val), Some(decayed_val)) =
                 (alpha_row.get(*j as usize), decayed_values.get(*j as usize))
             {
-                // Calculate remaining capacity to limit bonds purchase
-                let remaining_capacity = one.saturating_sub(*decayed_val).max(zero);
-
                 // Each validator can increase bonds by at most clamped_alpha per epoch towards the cap
                 // Validators allocate their purchase across miners based on weights
-                let purchase_increment = alpha_val.saturating_mul(*new_val);
+                let purchase_increment = alpha_val.saturating_mul(*new_val).max(zero);
+                let result_val = decayed_val.saturating_add(purchase_increment).min(one);
 
-                // Ensure that purchase does not exceed remaining capacity
-                let purchase = purchase_increment.min(remaining_capacity);
-
-                let result_val = decayed_val.saturating_add(purchase).min(one);
                 if result_val > zero {
                     result_row.push((*j, result_val));
                 }
@@ -1477,17 +1471,10 @@ pub fn mat_ema_alpha(
                 // Bonds_decayed = Bonds * (1 - alpha)
                 let decayed_val = one_minus_alpha.saturating_mul(*old_val);
 
-                // Calculate remaining capacity to limit bonds purchase
-                let remaining_capacity = one.saturating_sub(decayed_val).max(zero);
-
                 // Each validator can increase bonds by at most clamped_alpha per epoch towards the cap
                 // Validators allocate their purchase across miners based on weights
-                let purchase_increment = alpha_val.saturating_mul(*new_val);
-
-                // Ensure that purchase does not exceed remaining capacity
-                let purchase = purchase_increment.min(remaining_capacity);
-
-                let result_val = decayed_val.saturating_add(purchase).min(one);
+                let purchase_increment = alpha_val.saturating_mul(*new_val).max(zero);
+                let result_val = decayed_val.saturating_add(purchase_increment).min(one);
                 result_row.push(result_val);
             }
         }
