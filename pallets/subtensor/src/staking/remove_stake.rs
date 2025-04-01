@@ -39,7 +39,7 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
-        log::info!(
+        log::debug!(
             "do_remove_stake( origin:{:?} hotkey:{:?}, netuid: {:?}, alpha_unstaked:{:?} )",
             coldkey,
             hotkey,
@@ -117,7 +117,7 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
-        log::info!("do_unstake_all( origin:{:?} hotkey:{:?} )", coldkey, hotkey);
+        log::debug!("do_unstake_all( origin:{:?} hotkey:{:?} )", coldkey, hotkey);
 
         // 2. Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
@@ -191,7 +191,7 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
-        log::info!("do_unstake_all( origin:{:?} hotkey:{:?} )", coldkey, hotkey);
+        log::debug!("do_unstake_all( origin:{:?} hotkey:{:?} )", coldkey, hotkey);
 
         // 2. Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
@@ -294,7 +294,7 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
-        log::info!(
+        log::debug!(
             "do_remove_stake( origin:{:?} hotkey:{:?}, netuid: {:?}, alpha_unstaked:{:?} )",
             coldkey,
             hotkey,

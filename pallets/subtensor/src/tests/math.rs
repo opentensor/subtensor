@@ -1221,6 +1221,45 @@ fn test_math_vec_mask_sparse_matrix() {
 }
 
 #[test]
+fn test_math_scalar_vec_mask_sparse_matrix() {
+    let vector: Vec<f32> = vec![1., 2., 3., 4., 5., 6., 7., 8., 9.];
+    let target: Vec<f32> = vec![0., 2., 3., 0., 5., 6., 0., 8., 9.];
+    let mat = vec_to_sparse_mat_fixed(&vector, 3, false);
+    let scalar: u64 = 1;
+    let masking_vector: Vec<u64> = vec![1, 4, 7];
+    let result = scalar_vec_mask_sparse_matrix(&mat, scalar, &masking_vector, &|a, b| a == b);
+    assert_sparse_mat_compare(
+        &result,
+        &vec_to_sparse_mat_fixed(&target, 3, false),
+        I32F32::from_num(0),
+    );
+
+    let vector: Vec<f32> = vec![1., 2., 3., 4., 5., 6., 7., 8., 9.];
+    let target: Vec<f32> = vec![1., 2., 0., 4., 5., 0., 7., 8., 0.];
+    let mat = vec_to_sparse_mat_fixed(&vector, 3, false);
+    let scalar: u64 = 5;
+    let masking_vector: Vec<u64> = vec![1, 4, 7];
+    let result = scalar_vec_mask_sparse_matrix(&mat, scalar, &masking_vector, &|a, b| a <= b);
+    assert_sparse_mat_compare(
+        &result,
+        &vec_to_sparse_mat_fixed(&target, 3, false),
+        I32F32::from_num(0),
+    );
+
+    let vector: Vec<f32> = vec![1., 2., 3., 4., 5., 6., 7., 8., 9.];
+    let target: Vec<f32> = vec![0., 0., 3., 0., 0., 6., 0., 0., 9.];
+    let mat = vec_to_sparse_mat_fixed(&vector, 3, false);
+    let scalar: u64 = 5;
+    let masking_vector: Vec<u64> = vec![1, 4, 7];
+    let result = scalar_vec_mask_sparse_matrix(&mat, scalar, &masking_vector, &|a, b| a >= b);
+    assert_sparse_mat_compare(
+        &result,
+        &vec_to_sparse_mat_fixed(&target, 3, false),
+        I32F32::from_num(0),
+    );
+}
+
+#[test]
 fn test_math_row_hadamard() {
     let vector: Vec<I32F32> = vec_to_fixed(&[1., 2., 3., 4.]);
     let matrix: Vec<f32> = vec![1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11., 12.];

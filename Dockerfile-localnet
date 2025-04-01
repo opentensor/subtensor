@@ -62,4 +62,6 @@ ENV RUN_IN_DOCKER=1
 EXPOSE 30334 30335 9944 9945
 
 ENTRYPOINT ["/scripts/localnet.sh"]
+# Fast blocks defaults to True, you can disable it by passing False to the docker command, e.g.:
+# docker run ghcr.io/opentensor/subtensor-localnet False
 CMD ["True"]

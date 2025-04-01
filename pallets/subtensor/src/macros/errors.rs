@@ -193,5 +193,15 @@ mod errors {
         TransferDisallowed,
         /// Activity cutoff is being set too low.
         ActivityCutoffTooLow,
+        /// Call is disabled
+        CallDisabled,
+        /// FirstEmissionBlockNumber is already set.
+        FirstEmissionBlockNumberAlreadySet,
+        /// need wait for more blocks to accept the start call extrinsic.
+        NeedWaitingMoreBlocksToStarCall,
+        /// Not enough AlphaOut on the subnet to recycle
+        NotEnoughAlphaOutToRecycle,
+        /// Cannot burn or recycle TAO from root subnet
+        CannotBurnOrRecycleOnRootSubnet,
     }
 }

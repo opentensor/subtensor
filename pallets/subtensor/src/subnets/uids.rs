@@ -23,6 +23,7 @@ impl<T: Config> Pallet<T> {
         Consensus::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
         Incentive::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
         Dividends::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
+        Bonds::<T>::remove(netuid, neuron_uid); // Remove bonds for Validator.
     }
 
     /// Replace the neuron under this uid.

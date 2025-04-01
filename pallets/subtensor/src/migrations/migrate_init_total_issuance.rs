@@ -15,10 +15,7 @@ pub mod deprecated_loaded_emission_format {
 }
 
 pub(crate) fn migrate_init_total_issuance<T: Config>() -> Weight {
-    // Calculate the total locked tokens across all subnets
     let subnets_len = crate::SubnetLocked::<T>::iter().count() as u64;
-    let total_subnet_locked: u64 =
-        crate::SubnetLocked::<T>::iter().fold(0, |acc, (_, v)| acc.saturating_add(v));
 
     // Retrieve the total balance of all accounts
     let total_account_balances = <<T as crate::Config>::Currency as fungible::Inspect<
@@ -26,15 +23,25 @@ pub(crate) fn migrate_init_total_issuance<T: Config>() -> Weight {
     >>::total_issuance();
 
     // Get the total stake from the system
-    let total_stake = crate::TotalStake::<T>::get();
+    let prev_total_stake = crate::TotalStake::<T>::get();
 
+    // Calculate new total stake using the sum of all subnet TAO
+    let total_subnet_tao: u64 =
+        crate::SubnetTAO::<T>::iter().fold(0, |acc, (_, v)| acc.saturating_add(v));
+
+    let total_stake = total_subnet_tao;
+    // Update the total stake in storage
+    crate::TotalStake::<T>::put(total_stake);
+    log::info!(
+        "Subtensor Pallet Total Stake Updated: previous: {:?}, new: {:?}",
+        prev_total_stake,
+        total_stake
+    );
     // Retrieve the previous total issuance for logging purposes
     let prev_total_issuance = crate::TotalIssuance::<T>::get();
 
     // Calculate the new total issuance
-    let new_total_issuance = total_account_balances
-        .saturating_add(total_stake)
-        .saturating_add(total_subnet_locked);
+    let new_total_issuance = total_account_balances.saturating_add(total_stake);
 
     // Update the total issuance in storage
     crate::TotalIssuance::<T>::put(new_total_issuance);
@@ -48,7 +55,7 @@ pub(crate) fn migrate_init_total_issuance<T: Config>() -> Weight {
 
     // Return the weight of the operation
     // We performed subnets_len + 5 reads and 1 write
-    <T as frame_system::Config>::DbWeight::get().reads_writes(subnets_len.saturating_add(5), 1)
+    <T as frame_system::Config>::DbWeight::get().reads_writes(subnets_len.saturating_add(5), 2)
 }
 
 pub mod initialise_total_issuance {
