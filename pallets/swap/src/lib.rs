@@ -1,17 +1,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use core::marker::PhantomData;
-use core::ops::Neg;
-
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
 use pallet_subtensor_swap_interface::OrderType;
-use safe_math::*;
 use substrate_fixed::types::U64F64;
-use uuid::Uuid;
-
-use self::tick::{LayerLevel, Tick, TickIndex, TickIndexBitmap};
-use crate::pallet::{Config, Error};
 
 pub mod pallet;
 mod position;

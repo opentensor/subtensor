@@ -124,7 +124,7 @@ mod pallet {
     }
 
     #[pallet::error]
-	#[derive(PartialEq)]
+    #[derive(PartialEq)]
     pub enum Error<T> {
         /// The fee rate is too high
         FeeRateTooHigh,
