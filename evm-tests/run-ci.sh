@@ -30,14 +30,18 @@ pwd
 
 sudo apt-get install -y nodejs
 
-sh get-metadata.sh
-
-echo "yarn path"
+echo "yarn path is"
 which yarn
 
-sleep 5
-
 yarn
+
+echo "install papi"
+
+npm install polkadot-api
+
+sh get-metadata.sh
+
+sleep 5
 
 yarn run test
 
