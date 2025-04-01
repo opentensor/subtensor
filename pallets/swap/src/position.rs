@@ -146,3 +146,9 @@ impl From<PositionId> for Uuid {
         Uuid::from_bytes(value.0)
     }
 }
+
+impl From<[u8; 16]> for PositionId {
+    fn from(value: [u8; 16]) -> Self {
+        Self(value)
+    }
+}

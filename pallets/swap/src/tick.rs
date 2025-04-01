@@ -1415,4 +1415,17 @@ mod tests {
         let max_tick = TickIndex::try_from_sqrt_price(max_price_sqrt).unwrap();
         assert_eq!(max_tick, TickIndex::MAX);
     }
+
+    #[test]
+    fn test_to_sqrt_price_bounded() {
+        assert_eq!(
+            TickIndex::MAX.to_sqrt_price_bounded(),
+            TickIndex::MAX.try_to_sqrt_price().unwrap()
+        );
+
+        assert_eq!(
+            TickIndex::MIN.to_sqrt_price_bounded(),
+            TickIndex::MIN.try_to_sqrt_price().unwrap()
+        );
+    }
 }

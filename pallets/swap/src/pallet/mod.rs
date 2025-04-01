@@ -32,7 +32,7 @@ mod pallet {
 
         /// Implementor of
         /// [`LiquidityDataProvider`](pallet_subtensor_swap_interface::LiquidityDataProvider).
-        type LiquidityDataProvider: LiquidityDataProvider;
+        type LiquidityDataProvider: LiquidityDataProvider<Self::AccountId>;
 
         /// This type is used to derive protocol accoun ID.
         #[pallet::constant]

@@ -5,7 +5,7 @@ use frame_support::{
 };
 use frame_system::{self as system, EnsureRoot};
 use pallet_subtensor_swap_interface::LiquidityDataProvider;
-use sp_core::{H256, U256};
+use sp_core::H256;
 use sp_runtime::{
     BuildStorage,
     traits::{BlakeTwo256, IdentityLookup},
@@ -26,6 +26,7 @@ construct_runtime!(
 
 pub type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = u32;
+pub const OK_ACCOUNT_ID: AccountId = 1;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -69,20 +70,36 @@ parameter_types! {
     pub const MaxFeeRate: u16 = 10000; // 15.26%
     pub const MaxPositions: u32 = 100;
     pub const MinimumLiquidity: u64 = 1_000;
-    pub MinSqrtPrice: SqrtPrice = U64F64::from_num(0.00001);
-    pub MaxSqrtPrice: SqrtPrice = U64F64::from_num(100000.0);
+    pub MinSqrtPrice: SqrtPrice = U64F64::from_num(0.001);
+    pub MaxSqrtPrice: SqrtPrice = U64F64::from_num(10.0);
 }
 
 // Mock implementor of LiquidityDataProvider trait
 pub struct MockLiquidityProvider;
 
-impl LiquidityDataProvider for MockLiquidityProvider {
+impl LiquidityDataProvider<AccountId> for MockLiquidityProvider {
     fn tao_reserve(_: u16) -> u64 {
-        1_000_000_000 // 1 TAO
+        1_000_000_000
     }
 
     fn alpha_reserve(_: u16) -> u64 {
-        4_000_000_000 // 4 Alpha
+        4_000_000_000
+    }
+
+    fn tao_balance(_: u16, account_id: &AccountId) -> u64 {
+        if *account_id == OK_ACCOUNT_ID {
+            100_000_000_000
+        } else {
+            1_000_000_000
+        }
+    }
+
+    fn alpha_balance(_: u16, account_id: &AccountId) -> u64 {
+        if *account_id == OK_ACCOUNT_ID {
+            100_000_000_000
+        } else {
+            1_000_000_000
+        }
     }
 }
 
