@@ -887,7 +887,7 @@ fn tempo_based_space_limit_accumulates_in_same_window() {
     new_test_ext().execute_with(|| {
         let netuid = 1;
         let who = 100;
-        let space_limit = 50;
+        let space_limit = 150;
         MaxSpace::<Test>::set(space_limit);
         System::<Test>::set_block_number(0);
 
@@ -921,7 +921,7 @@ fn tempo_based_space_limit_resets_after_tempo() {
         let netuid = 2;
         let who = 101;
 
-        MaxSpace::<Test>::set(40);
+        MaxSpace::<Test>::set(250);
         System::<Test>::set_block_number(1);
 
         let commit_small = Box::new(CommitmentInfo {
@@ -979,7 +979,7 @@ fn tempo_based_space_limit_does_not_affect_different_netuid() {
         let netuid_a = 10;
         let netuid_b = 20;
         let who = 111;
-        let space_limit = 50;
+        let space_limit = 199;
         MaxSpace::<Test>::set(space_limit);
 
         let commit_large = Box::new(CommitmentInfo {
@@ -1029,7 +1029,7 @@ fn tempo_based_space_limit_does_not_affect_different_user() {
         let netuid = 10;
         let user1 = 123;
         let user2 = 456;
-        let space_limit = 50;
+        let space_limit = 199;
         MaxSpace::<Test>::set(space_limit);
 
         let commit_large = Box::new(CommitmentInfo {
@@ -1078,7 +1078,7 @@ fn tempo_based_space_limit_sudo_set_max_space() {
     new_test_ext().execute_with(|| {
         let netuid = 3;
         let who = 15;
-        MaxSpace::<Test>::set(30);
+        MaxSpace::<Test>::set(100);
 
         System::<Test>::set_block_number(1);
         let commit_25 = Box::new(CommitmentInfo {
@@ -1098,7 +1098,7 @@ fn tempo_based_space_limit_sudo_set_max_space() {
             Error::<Test>::SpaceLimitExceeded
         );
 
-        assert_ok!(Pallet::<Test>::set_max_space(RuntimeOrigin::root(), 100));
+        assert_ok!(Pallet::<Test>::set_max_space(RuntimeOrigin::root(), 300));
 
         assert_ok!(Pallet::<Test>::set_commitment(
             RuntimeOrigin::signed(who),
