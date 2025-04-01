@@ -221,12 +221,13 @@ pub mod pallet {
 
             let cur_block = <frame_system::Pallet<T>>::block_number();
 
+            let min_used_space: u64 = 100;
             let required_space: u64 = info
                 .fields
                 .iter()
                 .map(|field| field.len_for_rate_limit())
                 .sum::<u64>()
-                .max(100);
+                .max(min_used_space);
 
             let mut usage = UsedSpaceOf::<T>::get(netuid, &who).unwrap_or_default();
             let cur_block_u64 = cur_block.saturated_into::<u64>();
