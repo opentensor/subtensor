@@ -56,7 +56,7 @@ pub fn u16_proportion_to_fixed(x: u16) -> I32F32 {
 }
 
 #[allow(dead_code)]
-pub fn fixed_to_fixed_proportion(x: I32F32) -> I32F32 {
+pub fn fixed_to_fixed_u16_proportion(x: I32F32) -> I32F32 {
     x.safe_div(I32F32::saturating_from_num(u16::MAX))
 }
 

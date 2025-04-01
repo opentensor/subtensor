@@ -888,7 +888,7 @@ impl<T: Config> Pallet<T> {
         bonds.iter_mut().for_each(|bonds_row| {
             bonds_row
                 .iter_mut()
-                .for_each(|bond| *bond = fixed_to_fixed_proportion(*bond));
+                .for_each(|bond| *bond = fixed_to_fixed_u16_proportion(*bond));
         });
         bonds
     }
@@ -898,7 +898,7 @@ impl<T: Config> Pallet<T> {
         bonds.iter_mut().for_each(|bonds_row| {
             bonds_row
                 .iter_mut()
-                .for_each(|(_, bond)| *bond = fixed_to_fixed_proportion(*bond));
+                .for_each(|(_, bond)| *bond = fixed_to_fixed_u16_proportion(*bond));
         });
         bonds
     }
