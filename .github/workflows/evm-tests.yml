@@ -46,5 +46,6 @@ jobs:
           which npm
           node --version
           npm --version
+          npm install --global yarn
           pwd
           ./evm-tests/run-ci.sh

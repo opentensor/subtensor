@@ -30,13 +30,13 @@ pwd
 
 sudo apt-get install -y nodejs
 
-npm install --global yarn
-
 sh get-metadata.sh
 
 which yarn
 
 sleep 5
+
+yarn
 
 yarn run test
 
