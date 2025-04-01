@@ -225,7 +225,8 @@ pub mod pallet {
                 .fields
                 .iter()
                 .map(|field| field.len_for_rate_limit())
-                .sum();
+                .sum::<u64>()
+                .max(100);
 
             let mut usage = UsedSpaceOf::<T>::get(netuid, &who).unwrap_or_default();
             let cur_block_u64 = cur_block.saturated_into::<u64>();
