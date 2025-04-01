@@ -238,7 +238,7 @@ impl<T: Config> Pallet<T> {
         let delta_out = Self::convert_deltas(netuid, order_type, delta_in);
 
         // TODO (look inside method)
-        Self::update_reserves(netuid, order_type, delta_in, delta_out);
+        // Self::update_reserves(netuid, order_type, delta_in, delta_out);
 
         // Get current tick
         let current_tick_index = TickIndex::current_bounded::<T>(netuid);
@@ -1259,6 +1259,113 @@ mod tests {
                 Pallet::<Test>::remove_liquidity(netuid, &OK_ACCOUNT_ID, PositionId::new()),
                 Error::<Test>::LiquidityNotFound,
             );
+        });
+    }
+
+    #[test]
+    fn test_swap_basic() {
+        new_test_ext().execute_with(|| {
+            // Current price is 0.25
+            // Test case is (order_type, liquidity, limit_price, output_amount)
+            [(OrderType::Buy, 500_000_000u64, 1000.0_f64, 3990_u64)]
+                .into_iter()
+                .enumerate()
+                .map(|(n, v)| (NetUid::from(n as u16), v.0, v.1, v.2, v.3))
+                .for_each(
+                    |(netuid, order_type, liquidity, limit_price, output_amount)| {
+                        // Consumed liquidity ticks
+                        let tick_low = TickIndex::MIN;
+                        let tick_high = TickIndex::MAX;
+
+                        // Setup swap
+                        assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+
+                        // Get tick infos before the swap
+                        let tick_low_info_before =
+                            Ticks::<Test>::get(netuid, tick_low).unwrap_or_default();
+                        let tick_high_info_before =
+                            Ticks::<Test>::get(netuid, tick_high).unwrap_or_default();
+                        let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
+
+                        // Swap
+                        let sqrt_limit_price = SqrtPrice::from_num((limit_price).sqrt());
+                        let swap_result =
+                            Pallet::<Test>::swap(netuid, order_type, liquidity, sqrt_limit_price);
+                        // assert_abs_diff_eq!(
+                        //     swap_result.unwrap().amount_paid_out,
+                        //     *output_amount,
+                        //     epsilon = *output_amount/1000
+                        // );
+
+                        // Check that low and high ticks' fees were updated properly, and liquidity values were not updated
+                        let tick_low_info = Ticks::<Test>::get(netuid, tick_low).unwrap();
+                        let tick_high_info = Ticks::<Test>::get(netuid, tick_high).unwrap();
+                        let expected_liquidity_net_low = tick_low_info_before.liquidity_net;
+                        let expected_liquidity_gross_low = tick_low_info_before.liquidity_gross;
+                        let expected_liquidity_net_high = tick_high_info_before.liquidity_net;
+                        let expected_liquidity_gross_high = tick_high_info_before.liquidity_gross;
+                        assert_eq!(tick_low_info.liquidity_net, expected_liquidity_net_low,);
+                        assert_eq!(tick_low_info.liquidity_gross, expected_liquidity_gross_low,);
+                        assert_eq!(tick_high_info.liquidity_net, expected_liquidity_net_high,);
+                        assert_eq!(
+                            tick_high_info.liquidity_gross,
+                            expected_liquidity_gross_high,
+                        );
+
+                        // Expected fee amount
+                        let fee_rate = FeeRate::<Test>::get(netuid) as f64 / u16::MAX as f64;
+                        let expected_fee = output_amount * fee_rate as u64;
+
+                        // Global fees should be updated
+                        let actual_global_fee = match order_type {
+                            OrderType::Buy => FeeGlobalAlpha::<Test>::get(netuid),
+                            OrderType::Sell => FeeGlobalTao::<Test>::get(netuid),
+                        };
+                        println!("actual_global_fee {:?}", actual_global_fee);
+                        assert_eq!(actual_global_fee, expected_fee);
+
+                        // Tick fees should be updated
+
+                        // Liquidity position should not be updated
+                        let protocol_id = Pallet::<Test>::protocol_account_id();
+                        let positions =
+                            Positions::<Test>::iter_prefix_values((netuid, protocol_id))
+                                .collect::<Vec<_>>();
+                        let position = positions.first().unwrap();
+
+                        assert_eq!(
+                            position.liquidity,
+                            helpers_128bit::sqrt(
+                                MockLiquidityProvider::tao_reserve(netuid.into()) as u128
+                                    * MockLiquidityProvider::alpha_reserve(netuid.into()) as u128
+                            ) as u64
+                        );
+                        assert_eq!(position.tick_low, tick_low);
+                        assert_eq!(position.tick_high, tick_high);
+                        assert_eq!(position.fees_alpha, 0);
+                        assert_eq!(position.fees_tao, 0);
+
+                        // // Current liquidity is updated only when price range includes the current price
+                        // if (*price_high >= current_price) && (*price_low <= current_price) {
+                        //     assert_eq!(
+                        //         swap.state_ops.get_current_liquidity(),
+                        //         liquidity_before + *liquidity
+                        //     );
+                        // } else {
+                        //     assert_eq!(swap.state_ops.get_current_liquidity(), liquidity_before);
+                        // }
+
+                        // // Reserves are updated
+                        // assert_eq!(
+                        //     swap.state_ops.get_tao_reserve(),
+                        //     tao_withdrawn + protocol_tao,
+                        // );
+                        // assert_eq!(
+                        //     swap.state_ops.get_alpha_reserve(),
+                        //     alpha_withdrawn + protocol_alpha,
+                        // );
+                    },
+                );
         });
     }
 }
