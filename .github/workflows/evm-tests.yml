@@ -41,11 +41,5 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           echo "++++++++++++++++"
-          echo $SHELL
-          which node
-          which npm
-          node --version
-          npm --version
           npm install --global yarn
-          pwd
           ./evm-tests/run-ci.sh
