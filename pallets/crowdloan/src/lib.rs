@@ -257,6 +257,7 @@ pub mod pallet {
                 amount >= T::MinimumContribution::get(),
                 Error::<T>::ContributionTooLow
             );
+
             // Ensure contribution does not overflow the actual raised amount
             // and it does not exceed the cap
             crowdloan.raised = crowdloan
@@ -264,11 +265,13 @@ pub mod pallet {
                 .checked_add(&amount)
                 .ok_or(Error::<T>::Overflow)?;
             ensure!(crowdloan.raised <= crowdloan.cap, Error::<T>::CapExceeded);
+
             // Ensure contribution does not overflow the contributor's total contributions
             let contribution = Contributions::<T>::get(&crowdloan_id, &contributor)
                 .unwrap_or(Zero::zero())
                 .checked_add(&amount)
                 .ok_or(Error::<T>::Overflow)?;
+
             // Ensure contributor has enough balance to pay
             ensure!(
                 CurrencyOf::<T>::free_balance(&contributor) >= amount,
