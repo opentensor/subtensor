@@ -7,8 +7,7 @@ use substrate_fixed::types::U64F64;
 
 use super::pallet::*;
 use crate::{
-    NetUid, OrderType, RemoveLiquidityResult, SqrtPrice, SwapResult, SwapStepAction,
-    SwapStepResult,
+    NetUid, OrderType, RemoveLiquidityResult, SqrtPrice,
     position::{Position, PositionId},
     tick::{ActiveTickIndexManager, Tick, TickIndex},
 };
@@ -491,30 +490,6 @@ impl<T: Config> Pallet<T> {
         .saturating_to_num::<u64>()
     }
 
-    /// Update token reserves after a swap
-    fn update_reserves(netuid: NetUid, order_type: OrderType, amount_in: u64, amount_out: u64) {
-        // TODO can we return the values from Self::swap, so the depender updated their state
-        // (instead of us mutating it)
-        todo!("update_reserves needs consideration")
-        // let (new_tao_reserve, new_alpha_reserve) = match order_type {
-        //     OrderType::Sell => (
-        //         self.state_ops.get_tao_reserve().saturating_add(amount_in),
-        //         self.state_ops
-        //             .get_alpha_reserve()
-        //             .saturating_sub(amount_out),
-        //     ),
-        //     OrderType::Buy => (
-        //         self.state_ops.get_tao_reserve().saturating_sub(amount_in),
-        //         self.state_ops
-        //             .get_alpha_reserve()
-        //             .saturating_add(amount_out),
-        //     ),
-        // };
-
-        // self.state_ops.set_tao_reserve(new_tao_reserve);
-        // self.state_ops.set_alpha_reserve(new_alpha_reserve);
-    }
-
     /// Update liquidity when crossing a tick
     fn update_liquidity_at_crossing(netuid: NetUid, order_type: OrderType) -> Result<(), Error<T>> {
         let mut liquidity_curr = CurrentLiquidity::<T>::get(netuid);
@@ -849,6 +824,24 @@ impl<T: Config> Pallet<T> {
     pub fn protocol_account_id() -> T::AccountId {
         T::ProtocolId::get().into_account_truncating()
     }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct SwapResult {
+    amount_paid_out: u64,
+    refund: u64,
+}
+
+#[derive(Debug, PartialEq)]
+struct SwapStepResult {
+    amount_to_take: u64,
+    delta_out: u64,
+}
+
+pub enum SwapStepAction {
+    Crossing,
+    StopOn,
+    StopIn,
 }
 
 #[cfg(test)]
