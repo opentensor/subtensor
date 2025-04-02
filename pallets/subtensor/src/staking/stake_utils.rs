@@ -58,9 +58,15 @@ impl<T: Config> Pallet<T> {
         }
     }
     pub fn update_moving_price(netuid: u16) {
-        let blocks_since_registration = U96F32::saturating_from_num(
-            Self::get_current_block_as_u64().saturating_sub(NetworkRegisteredAt::<T>::get(netuid)),
-        );
+        let blocks_since_start_call = U96F32::saturating_from_num({
+            // We expect FirstEmissionBlockNumber to be set earlier, and we take the block when
+            // `start_call` was called (first block before FirstEmissionBlockNumber).
+            let start_call_block = FirstEmissionBlockNumber::<T>::get(netuid)
+                .unwrap_or_default()
+                .saturating_sub(1);
+
+            Self::get_current_block_as_u64().saturating_sub(start_call_block)
+        });
 
         // Use halving time hyperparameter. The meaning of this parameter can be best explained under
         // the assumption of a constant price and SubnetMovingAlpha == 0.5: It is how many blocks it
@@ -68,8 +74,8 @@ impl<T: Config> Pallet<T> {
         // by half.
         let halving_time = EMAPriceHalvingBlocks::<T>::get(netuid);
         let current_ma_unsigned = U96F32::saturating_from_num(SubnetMovingAlpha::<T>::get());
-        let alpha: U96F32 = current_ma_unsigned.saturating_mul(blocks_since_registration.safe_div(
-            blocks_since_registration.saturating_add(U96F32::saturating_from_num(halving_time)),
+        let alpha: U96F32 = current_ma_unsigned.saturating_mul(blocks_since_start_call.safe_div(
+            blocks_since_start_call.saturating_add(U96F32::saturating_from_num(halving_time)),
         ));
         // Because alpha = b / (b + h), where b and h > 0, alpha < 1, so 1 - alpha > 0.
         // We can use unsigned type here: U96F32
