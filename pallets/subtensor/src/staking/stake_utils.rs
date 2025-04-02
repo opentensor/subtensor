@@ -56,19 +56,22 @@ impl<T: Config> Pallet<T> {
             SubnetMovingPrice::<T>::get(netuid)
         }
     }
-    pub fn update_moving_price(netuid: u16) {
-        let blocks_since_registration = I96F32::saturating_from_num(
-            Self::get_current_block_as_u64().saturating_sub(NetworkRegisteredAt::<T>::get(netuid)),
-        );
 
-        // Use halving time hyperparameter. The meaning of this parameter can be best explained under
-        // the assumption of a constant price and SubnetMovingAlpha == 0.5: It is how many blocks it
-        // will take in order for the distance between current EMA of price and current price to shorten
-        // by half.
+    pub fn update_moving_price(netuid: u16) {
+        let blocks_since_start_call = I96F32::saturating_from_num({
+            // We expect FirstEmissionBlockNumber to be set earlier, and we take the block when
+            // `start_call` was called (first block before FirstEmissionBlockNumber).
+            let start_call_block = FirstEmissionBlockNumber::<T>::get(netuid)
+                .unwrap_or_default()
+                .saturating_sub(1);
+
+            Self::get_current_block_as_u64().saturating_sub(start_call_block)
+        });
+
         let halving_time = EMAPriceHalvingBlocks::<T>::get(netuid);
         let alpha: I96F32 =
-            SubnetMovingAlpha::<T>::get().saturating_mul(blocks_since_registration.safe_div(
-                blocks_since_registration.saturating_add(I96F32::saturating_from_num(halving_time)),
+            SubnetMovingAlpha::<T>::get().saturating_mul(blocks_since_start_call.safe_div(
+                blocks_since_start_call.saturating_add(I96F32::saturating_from_num(halving_time)),
             ));
         let minus_alpha: I96F32 = I96F32::saturating_from_num(1.0).saturating_sub(alpha);
         let current_price: I96F32 = alpha
@@ -76,6 +79,7 @@ impl<T: Config> Pallet<T> {
         let current_moving: I96F32 =
             minus_alpha.saturating_mul(Self::get_moving_alpha_price(netuid));
         let new_moving: I96F32 = current_price.saturating_add(current_moving);
+
         SubnetMovingPrice::<T>::insert(netuid, new_moving);
     }
 
