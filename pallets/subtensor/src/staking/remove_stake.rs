@@ -134,6 +134,21 @@ impl<T: Config> Pallet<T> {
             // Ensure that the hotkey has enough stake to withdraw.
             let alpha_unstaked =
                 Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+
+            if Self::validate_remove_stake(
+                &coldkey,
+                &hotkey,
+                netuid,
+                alpha_unstaked,
+                alpha_unstaked,
+                false,
+            )
+            .is_err()
+            {
+                // Don't unstake from this netuid
+                continue;
+            }
+
             let fee = Self::calculate_staking_fee(
                 Some((&hotkey, netuid)),
                 &coldkey,
@@ -211,6 +226,21 @@ impl<T: Config> Pallet<T> {
                 // Ensure that the hotkey has enough stake to withdraw.
                 let alpha_unstaked =
                     Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+
+                if Self::validate_remove_stake(
+                    &coldkey,
+                    &hotkey,
+                    netuid,
+                    alpha_unstaked,
+                    alpha_unstaked,
+                    false,
+                )
+                .is_err()
+                {
+                    // Don't unstake from this netuid
+                    continue;
+                }
+
                 let fee = Self::calculate_staking_fee(
                     Some((&hotkey, netuid)),
                     &coldkey,
