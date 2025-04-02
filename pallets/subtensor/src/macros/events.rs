@@ -305,5 +305,23 @@ mod events {
             /// The block where the association happened.
             block_associated: u64,
         },
+
+        /// CRV3 Weights have been successfully revealed.
+        ///
+        /// - **netuid**: The network identifier.
+        /// - **who**: The account ID of the user revealing the weights.
+        CRV3WeightsRevealed(u16, T::AccountId),
+
+        /// Commit-Reveal periods has been successfully set.
+        ///
+        /// - **netuid**: The network identifier.
+        /// - **periods**: The number of epochs before the reveal.
+        CommitRevealPeriodsSet(u16, u64),
+
+        /// Commit-Reveal has been successfully toggled.
+        ///
+        /// - **netuid**: The network identifier.
+        /// - **Enabled**: Is Commit-Reveal enabled.
+        CommitRevealEnabled(u16, bool),
     }
 }

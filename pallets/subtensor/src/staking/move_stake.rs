@@ -1,7 +1,7 @@
 use super::*;
 use safe_math::*;
 use sp_core::Get;
-use substrate_fixed::types::{I96F32, U64F64};
+use substrate_fixed::types::{U64F64, U96F32};
 
 impl<T: Config> Pallet<T> {
     /// Moves stake from one hotkey to another across subnets.
@@ -343,7 +343,7 @@ impl<T: Config> Pallet<T> {
             origin_coldkey,
             Some((destination_hotkey, destination_netuid)),
             destination_coldkey,
-            I96F32::saturating_from_num(alpha_amount),
+            U96F32::saturating_from_num(alpha_amount),
         )
         .safe_div(2);
 

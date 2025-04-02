@@ -1024,6 +1024,17 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroU64<T>,
     >;
+    #[pallet::storage] // --- DMAP ( hot, netuid ) --> alpha | Returns the total amount of alpha a hotkey owned in the last epoch.
+    pub type TotalHotkeyAlphaLastEpoch<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        u16,
+        u64,
+        ValueQuery,
+        DefaultZeroU64<T>,
+    >;
     #[pallet::storage]
     /// DMAP ( hot, netuid ) --> total_alpha_shares | Returns the number of alpha shares for a hotkey on a subnet.
     pub type TotalHotkeyShares<T: Config> = StorageDoubleMap<

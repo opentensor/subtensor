@@ -200,19 +200,12 @@ where
     #[precompile::public("setWeightsSetRateLimit(uint16,uint64)")]
     #[precompile::payable]
     fn set_weights_set_rate_limit(
-        handle: &mut impl PrecompileHandle,
-        netuid: u16,
-        weights_set_rate_limit: u64,
+        _handle: &mut impl PrecompileHandle,
+        _netuid: u16,
+        _weights_set_rate_limit: u64,
     ) -> EvmResult<()> {
-        let call = pallet_admin_utils::Call::<R>::sudo_set_weights_set_rate_limit {
-            netuid,
-            weights_set_rate_limit,
-        };
-
-        handle.try_dispatch_runtime_call::<R, _>(
-            call,
-            RawOrigin::Signed(handle.caller_account_id::<R>()),
-        )
+        // DEPRECATED. Subnet owner cannot set weight setting rate limits
+        Ok(())
     }
 
     #[precompile::public("getAdjustmentAlpha(uint16)")]
@@ -436,16 +429,12 @@ where
     #[precompile::public("setMinBurn(uint16,uint64)")]
     #[precompile::payable]
     fn set_min_burn(
-        handle: &mut impl PrecompileHandle,
-        netuid: u16,
-        min_burn: u64,
+        _handle: &mut impl PrecompileHandle,
+        _netuid: u16,
+        _min_burn: u64,
     ) -> EvmResult<()> {
-        let call = pallet_admin_utils::Call::<R>::sudo_set_min_burn { netuid, min_burn };
-
-        handle.try_dispatch_runtime_call::<R, _>(
-            call,
-            RawOrigin::Signed(handle.caller_account_id::<R>()),
-        )
+        // DEPRECATED. The subnet owner cannot set the min burn anymore.
+        Ok(())
     }
 
     #[precompile::public("getMaxBurn(uint16)")]
@@ -610,6 +599,21 @@ where
             netuid,
             interval,
         };
+
+        handle.try_dispatch_runtime_call::<R, _>(
+            call,
+            RawOrigin::Signed(handle.caller_account_id::<R>()),
+        )
+    }
+
+    #[precompile::public("toggleTransfers(uint16,bool)")]
+    #[precompile::payable]
+    fn toggle_transfers(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+        toggle: bool,
+    ) -> EvmResult<()> {
+        let call = pallet_admin_utils::Call::<R>::sudo_set_toggle_transfer { netuid, toggle };
 
         handle.try_dispatch_runtime_call::<R, _>(
             call,

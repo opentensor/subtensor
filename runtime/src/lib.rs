@@ -33,7 +33,7 @@ use pallet_registry::CanRegisterIdentity;
 use pallet_subtensor::rpc_info::{
     delegate_info::DelegateInfo,
     dynamic_info::DynamicInfo,
-    metagraph::Metagraph,
+    metagraph::{Metagraph, SelectiveMetagraph},
     neuron_info::{NeuronInfo, NeuronInfoLite},
     show_subnet::SubnetState,
     stake_info::StakeInfo,
@@ -207,7 +207,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 258,
+    spec_version: 259,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -2084,6 +2084,11 @@ impl_runtime_apis! {
         fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<AccountId32>>> {
             SubtensorModule::get_all_dynamic_info()
         }
+
+        fn get_selective_metagraph(netuid: u16, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
+            SubtensorModule::get_selective_metagraph(netuid, metagraph_indexes)
+        }
+
     }
 
     impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {
