@@ -141,26 +141,27 @@ describe("Test the Subnet precompile contract", () => {
         assert.equal(valueFromContract, onchainValue);
     })
 
-    it("Can set weightsSetRateLimit parameter", async () => {
+    // need sudo as origin now
+    // it("Can set weightsSetRateLimit parameter", async () => {
 
-        const totalNetwork = await api.query.SubtensorModule.TotalNetworks.getValue()
-        const contract = new ethers.Contract(ISUBNET_ADDRESS, ISubnetABI, wallet);
-        const netuid = totalNetwork - 1;
+    //     const totalNetwork = await api.query.SubtensorModule.TotalNetworks.getValue()
+    //     const contract = new ethers.Contract(ISUBNET_ADDRESS, ISubnetABI, wallet);
+    //     const netuid = totalNetwork - 1;
 
-        const newValue = 104;
-        const tx = await contract.setWeightsSetRateLimit(netuid, newValue);
-        await tx.wait();
+    //     const newValue = 104;
+    //     const tx = await contract.setWeightsSetRateLimit(netuid, newValue);
+    //     await tx.wait();
 
-        let onchainValue = await api.query.SubtensorModule.WeightsSetRateLimit.getValue(netuid)
+    //     let onchainValue = await api.query.SubtensorModule.WeightsSetRateLimit.getValue(netuid)
 
 
-        let valueFromContract = Number(
-            await contract.getWeightsSetRateLimit(netuid)
-        );
+    //     let valueFromContract = Number(
+    //         await contract.getWeightsSetRateLimit(netuid)
+    //     );
 
-        assert.equal(valueFromContract, newValue)
-        assert.equal(valueFromContract, onchainValue);
-    })
+    //     assert.equal(valueFromContract, newValue)
+    //     assert.equal(valueFromContract, onchainValue);
+    // })
 
     it("Can set adjustmentAlpha parameter", async () => {
 
@@ -293,8 +294,7 @@ describe("Test the Subnet precompile contract", () => {
         const totalNetwork = await api.query.SubtensorModule.TotalNetworks.getValue()
         const contract = new ethers.Contract(ISUBNET_ADDRESS, ISubnetABI, wallet);
         const netuid = totalNetwork - 1;
-
-        const newValue = 111;
+        const newValue = await api.query.SubtensorModule.MinActivityCutoff.getValue() + 1;
         const tx = await contract.setActivityCutoff(netuid, newValue);
         await tx.wait();
 
