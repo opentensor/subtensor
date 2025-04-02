@@ -1345,7 +1345,7 @@ mod tests {
 
                         // Expected fee amount
                         let fee_rate = FeeRate::<Test>::get(netuid) as f64 / u16::MAX as f64;
-                        let expected_fee = output_amount * fee_rate as u64;
+                        let expected_fee = (output_amount as f64 * fee_rate) as u64;
 
                         // Global fees should be updated
                         let actual_global_fee = match order_type {

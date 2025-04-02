@@ -59,11 +59,15 @@ mod pallet {
         type MaxSqrtPrice: Get<SqrtPrice>;
     }
 
+    /// Default fee rate if not set
+    #[pallet::type_value]
+    pub fn DefaultFeeRate() -> u16 {
+        196 // 0.3 %
+    }
+
     /// The fee rate applied to swaps per subnet, normalized value between 0 and u16::MAX
-    ///
-    /// For example, 0.3% is approximately 196
     #[pallet::storage]
-    pub type FeeRate<T> = StorageMap<_, Twox64Concat, NetUid, u16, ValueQuery>;
+    pub type FeeRate<T> = StorageMap<_, Twox64Concat, NetUid, u16, ValueQuery, DefaultFeeRate>;
 
     // Global accrued fees in tao per subnet
     #[pallet::storage]
