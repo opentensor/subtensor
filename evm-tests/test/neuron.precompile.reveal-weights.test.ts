@@ -97,7 +97,7 @@ describe("Test neuron precompile reveal weights", () => {
         if (weightsCommit === undefined) {
             throw new Error("submit weights failed")
         }
-        assert.ok(weightsCommit.length > 0)
+        else { assert.ok(weightsCommit.length > 0) }
     })
 
     // Temporarily disable it, there is a type error in CI.
