@@ -203,5 +203,9 @@ mod errors {
         NotEnoughAlphaOutToRecycle,
         /// Cannot burn or recycle TAO from root subnet
         CannotBurnOrRecycleOnRootSubnet,
+        /// Public key cannot be recovered.
+        UnableToRecoverPublicKey,
+        /// Recovered public key is invalid.
+        InvalidRecoveredPublicKey,
     }
 }

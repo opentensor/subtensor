@@ -294,6 +294,18 @@ mod events {
         /// (coldkey, hotkey, amount, subnet_id)
         AlphaBurned(T::AccountId, T::AccountId, u64, u16),
 
+        /// An EVM key has been associated with a hotkey.
+        EvmKeyAssociated {
+            /// The subnet that the hotkey belongs to.
+            netuid: u16,
+            /// The hotkey associated with the EVM key.
+            hotkey: T::AccountId,
+            /// The EVM key being associated with the hotkey.
+            evm_key: H160,
+            /// The block where the association happened.
+            block_associated: u64,
+        },
+
         /// CRV3 Weights have been successfully revealed.
         ///
         /// - **netuid**: The network identifier.
