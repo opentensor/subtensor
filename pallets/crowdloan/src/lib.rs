@@ -129,6 +129,9 @@ pub mod pallet {
         Refunded {
             crowdloan_id: CrowdloanId,
         },
+        Finalized {
+            crowdloan_id: CrowdloanId,
+        },
     }
 
     #[pallet::error]
@@ -418,6 +421,8 @@ pub mod pallet {
             // Mark the crowdloan as finalized
             crowdloan.finalized = true;
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
+
+            Self::deposit_event(Event::<T>::Finalized { crowdloan_id });
 
             Ok(())
         }
