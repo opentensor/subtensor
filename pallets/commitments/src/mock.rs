@@ -207,6 +207,7 @@ use tle::{ibe::fullident::Identity, stream_ciphers::AESGCMStreamCipherProvider, 
 pub const DRAND_QUICKNET_PUBKEY_HEX: &str = "83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c8c4b450b6\
      a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809b\
      d274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a";
+pub const DRAND_QUICKNET_SIG_2000_HEX: &str = "b6cb8f482a0b15d45936a4c4ea08e98a087e71787caee3f4d07a8a9843b1bc5423c6b3c22f446488b3137eaca799c77e"; // round 20000
 pub const DRAND_QUICKNET_SIG_HEX: &str = "b44679b9a59af2ec876b1a6b1ad52ea9b1615fc3982b19576350f93447cb1125e342b73a8dd2bacbe47e4b6b63ed5e39";
 
 /// Inserts a Drand pulse for `round` with the given `signature_bytes`.

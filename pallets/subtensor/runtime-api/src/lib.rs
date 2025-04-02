@@ -5,7 +5,7 @@ use codec::Compact;
 use pallet_subtensor::rpc_info::{
     delegate_info::DelegateInfo,
     dynamic_info::DynamicInfo,
-    metagraph::Metagraph,
+    metagraph::{Metagraph, SelectiveMetagraph},
     neuron_info::{NeuronInfo, NeuronInfoLite},
     show_subnet::SubnetState,
     stake_info::StakeInfo,
@@ -40,6 +40,7 @@ sp_api::decl_runtime_apis! {
         fn get_metagraph(netuid: u16) -> Option<Metagraph<AccountId32>>;
         fn get_dynamic_info(netuid: u16) -> Option<DynamicInfo<AccountId32>>;
         fn get_subnet_state(netuid: u16) -> Option<SubnetState<AccountId32>>;
+        fn get_selective_metagraph(netuid: u16, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>>;
     }
 
     pub trait StakeInfoRuntimeApi {
