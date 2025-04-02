@@ -90,7 +90,7 @@ fn test_associate_evm_key_different_block_number_success() {
         let pair = ecdsa::Pair::generate().0;
         let public = pair.public();
         let evm_key = public_to_evm_key(&public);
-        let block_number = 1u64;
+        let block_number = 99u64;
         let hashed_block_number = keccak_256(block_number.encode().as_ref());
         let hotkey_bytes = hotkey.encode();
 
