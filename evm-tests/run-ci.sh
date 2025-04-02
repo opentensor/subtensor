@@ -22,8 +22,6 @@ fi
 
 cd evm-tests
 
-sudo apt-get install -y nodejs
-
 yarn
 
 npm install polkadot-api
