@@ -204,6 +204,18 @@ fn test_create_fails_if_bad_origin() {
             ),
             DispatchError::BadOrigin
         );
+
+        assert_err!(
+            Crowdloan::create(
+                RuntimeOrigin::root(),
+                deposit,
+                cap,
+                end,
+                target_address,
+                noop_call()
+            ),
+            DispatchError::BadOrigin
+        );
     });
 }
 
@@ -465,6 +477,24 @@ fn test_contribute_succeeds() {
                     .is_some_and(|c| c.raised == 250)
             );
         });
+}
+
+#[test]
+fn test_contribute_fails_if_bad_origin() {
+    TestState::default().build_and_execute(|| {
+        let crowdloan_id: CrowdloanId = 0;
+        let amount: BalanceOf<Test> = 100;
+
+        assert_err!(
+            Crowdloan::contribute(RuntimeOrigin::none(), crowdloan_id, amount),
+            DispatchError::BadOrigin
+        );
+
+        assert_err!(
+            Crowdloan::contribute(RuntimeOrigin::root(), crowdloan_id, amount),
+            DispatchError::BadOrigin
+        );
+    });
 }
 
 #[test]
@@ -741,6 +771,23 @@ fn test_withdraw_succeeds() {
                     .is_some_and(|c| c.raised == 0)
             );
         });
+}
+
+#[test]
+fn test_withdraw_fails_if_bad_origin() {
+    TestState::default().build_and_execute(|| {
+        let crowdloan_id: CrowdloanId = 0;
+
+        assert_err!(
+            Crowdloan::withdraw(RuntimeOrigin::none(), U256::from(1), crowdloan_id),
+            DispatchError::BadOrigin
+        );
+
+        assert_err!(
+            Crowdloan::withdraw(RuntimeOrigin::root(), U256::from(1), crowdloan_id),
+            DispatchError::BadOrigin
+        );
+    });
 }
 
 #[test]
@@ -1156,6 +1203,23 @@ fn test_refund_succeeds() {
 }
 
 #[test]
+fn test_refund_fails_if_bad_origin() {
+    TestState::default().build_and_execute(|| {
+        let crowdloan_id: CrowdloanId = 0;
+
+        assert_err!(
+            Crowdloan::refund(RuntimeOrigin::none(), crowdloan_id),
+            DispatchError::BadOrigin
+        );
+
+        assert_err!(
+            Crowdloan::refund(RuntimeOrigin::root(), crowdloan_id),
+            DispatchError::BadOrigin
+        );
+    });
+}
+
+#[test]
 fn test_refund_fails_if_crowdloan_does_not_exist() {
     TestState::default()
         .with_balance(U256::from(1), 100)
@@ -1324,9 +1388,13 @@ fn test_finalize_fails_if_bad_origin() {
         .build_and_execute(|| {
             let crowdloan_id: CrowdloanId = 0;
 
-            // try to finalize
             assert_err!(
                 Crowdloan::finalize(RuntimeOrigin::none(), crowdloan_id),
+                DispatchError::BadOrigin
+            );
+
+            assert_err!(
+                Crowdloan::finalize(RuntimeOrigin::root(), crowdloan_id),
                 DispatchError::BadOrigin
             );
         });
