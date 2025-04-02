@@ -129,14 +129,14 @@ fn test_create_succeeds() {
     TestState::default()
         .with_balance(U256::from(1), 100)
         .build_and_execute(|| {
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 300;
             let end: BlockNumberFor<Test> = 50;
             let target_address: AccountOf<Test> = U256::from(42);
 
             assert_ok!(Crowdloan::create(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 deposit,
                 cap,
                 end,
@@ -149,7 +149,7 @@ fn test_create_succeeds() {
             assert_eq!(
                 pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id),
                 Some(CrowdloanInfo {
-                    depositor,
+                    creator,
                     deposit,
                     cap,
                     end,
@@ -168,7 +168,7 @@ fn test_create_succeeds() {
             );
             // ensure the contributions  has been updated
             assert_eq!(
-                pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, depositor),
+                pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, creator),
                 Some(deposit)
             );
             // ensure the event is emitted
@@ -176,7 +176,7 @@ fn test_create_succeeds() {
                 last_event(),
                 pallet_crowdloan::Event::<Test>::Created {
                     crowdloan_id,
-                    depositor,
+                    creator,
                     end,
                     cap,
                 }
@@ -212,7 +212,7 @@ fn test_create_fails_if_deposit_is_too_low() {
     TestState::default()
         .with_balance(U256::from(1), 100)
         .build_and_execute(|| {
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let deposit: BalanceOf<Test> = 20;
             let cap: BalanceOf<Test> = 300;
             let end: BlockNumberFor<Test> = 50;
@@ -220,7 +220,7 @@ fn test_create_fails_if_deposit_is_too_low() {
 
             assert_err!(
                 Crowdloan::create(
-                    RuntimeOrigin::signed(depositor),
+                    RuntimeOrigin::signed(creator),
                     deposit,
                     cap,
                     end,
@@ -237,7 +237,7 @@ fn test_create_fails_if_cap_is_not_greater_than_deposit() {
     TestState::default()
         .with_balance(U256::from(1), 100)
         .build_and_execute(|| {
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 40;
             let end: BlockNumberFor<Test> = 50;
@@ -245,7 +245,7 @@ fn test_create_fails_if_cap_is_not_greater_than_deposit() {
 
             assert_err!(
                 Crowdloan::create(
-                    RuntimeOrigin::signed(depositor),
+                    RuntimeOrigin::signed(creator),
                     deposit,
                     cap,
                     end,
@@ -265,7 +265,7 @@ fn test_create_fails_if_end_is_in_the_past() {
         .with_block_number(current_block_number)
         .with_balance(U256::from(1), 100)
         .build_and_execute(|| {
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 300;
             let end: BlockNumberFor<Test> = current_block_number - 5;
@@ -273,7 +273,7 @@ fn test_create_fails_if_end_is_in_the_past() {
 
             assert_err!(
                 Crowdloan::create(
-                    RuntimeOrigin::signed(depositor),
+                    RuntimeOrigin::signed(creator),
                     deposit,
                     cap,
                     end,
@@ -290,7 +290,7 @@ fn test_create_fails_if_block_duration_is_too_short() {
     TestState::default()
         .with_balance(U256::from(1), 100)
         .build_and_execute(|| {
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 300;
             let end: BlockNumberFor<Test> = 11;
@@ -298,7 +298,7 @@ fn test_create_fails_if_block_duration_is_too_short() {
 
             assert_err!(
                 Crowdloan::create(
-                    RuntimeOrigin::signed(depositor),
+                    RuntimeOrigin::signed(creator),
                     deposit,
                     cap,
                     end,
@@ -315,7 +315,7 @@ fn test_create_fails_if_block_duration_is_too_long() {
     TestState::default()
         .with_balance(U256::from(1), 100)
         .build_and_execute(|| {
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 300;
             let end: BlockNumberFor<Test> = 1000;
@@ -323,7 +323,7 @@ fn test_create_fails_if_block_duration_is_too_long() {
 
             assert_err!(
                 Crowdloan::create(
-                    RuntimeOrigin::signed(depositor),
+                    RuntimeOrigin::signed(creator),
                     deposit,
                     cap,
                     end,
@@ -336,11 +336,11 @@ fn test_create_fails_if_block_duration_is_too_long() {
 }
 
 #[test]
-fn test_create_fails_if_depositor_has_insufficient_balance() {
+fn test_create_fails_if_creator_has_insufficient_balance() {
     TestState::default()
         .with_balance(U256::from(1), 100)
         .build_and_execute(|| {
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let deposit: BalanceOf<Test> = 200;
             let cap: BalanceOf<Test> = 300;
             let end: BlockNumberFor<Test> = 50;
@@ -348,7 +348,7 @@ fn test_create_fails_if_depositor_has_insufficient_balance() {
 
             assert_err!(
                 Crowdloan::create(
-                    RuntimeOrigin::signed(depositor),
+                    RuntimeOrigin::signed(creator),
                     deposit,
                     cap,
                     end,
@@ -368,13 +368,13 @@ fn test_contribute_succeeds() {
         .with_balance(U256::from(3), 200)
         .build_and_execute(|| {
             // create a crowdloan
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let initial_deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 300;
             let end: BlockNumberFor<Test> = 50;
             let target_address: AccountOf<Test> = U256::from(42);
             assert_ok!(Crowdloan::create(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 initial_deposit,
                 cap,
                 end,
@@ -385,11 +385,11 @@ fn test_contribute_succeeds() {
             // run some blocks
             run_to_block(10);
 
-            // first contribution to the crowdloan from depositor
+            // first contribution to the crowdloan from creator
             let crowdloan_id: CrowdloanId = 0;
             let amount: BalanceOf<Test> = 50;
             assert_ok!(Crowdloan::contribute(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 crowdloan_id,
                 amount
             ));
@@ -397,13 +397,13 @@ fn test_contribute_succeeds() {
                 last_event(),
                 pallet_crowdloan::Event::<Test>::Contributed {
                     crowdloan_id,
-                    contributor: depositor,
+                    contributor: creator,
                     amount,
                 }
                 .into()
             );
             assert_eq!(
-                pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, depositor),
+                pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, creator),
                 Some(100)
             );
 
@@ -490,14 +490,14 @@ fn test_contribute_fails_if_crowdloan_has_ended() {
         .with_balance(U256::from(2), 100)
         .build_and_execute(|| {
             // create a crowdloan
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let initial_deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 300;
             let end: BlockNumberFor<Test> = 50;
             let target_address: AccountOf<Test> = U256::from(42);
 
             assert_ok!(Crowdloan::create(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 initial_deposit,
                 cap,
                 end,
@@ -527,13 +527,13 @@ fn test_contribute_fails_if_cap_has_been_raised() {
         .with_balance(U256::from(3), 100)
         .build_and_execute(|| {
             // create a crowdloan
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let initial_deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 300;
             let end: BlockNumberFor<Test> = 50;
             let target_address: AccountOf<Test> = U256::from(42);
             assert_ok!(Crowdloan::create(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 initial_deposit,
                 cap,
                 end,
@@ -571,13 +571,13 @@ fn test_contribute_fails_if_contribution_is_below_minimum_contribution() {
         .with_balance(U256::from(2), 100)
         .build_and_execute(|| {
             // create a crowdloan
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let initial_deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 300;
             let end: BlockNumberFor<Test> = 50;
             let target_address: AccountOf<Test> = U256::from(42);
             assert_ok!(Crowdloan::create(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 initial_deposit,
                 cap,
                 end,
@@ -606,13 +606,13 @@ fn test_contribute_fails_if_contribution_will_make_the_raised_amount_exceed_the_
         .with_balance(U256::from(2), 1000)
         .build_and_execute(|| {
             // create a crowdloan
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let initial_deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 300;
             let end: BlockNumberFor<Test> = 50;
             let target_address: AccountOf<Test> = U256::from(42);
             assert_ok!(Crowdloan::create(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 initial_deposit,
                 cap,
                 end,
@@ -642,13 +642,13 @@ fn test_withdraw_succeeds() {
         .with_balance(U256::from(3), 100)
         .build_and_execute(|| {
             // create a crowdloan
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let initial_deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 300;
             let end: BlockNumberFor<Test> = 50;
             let target_address: AccountOf<Test> = U256::from(42);
             assert_ok!(Crowdloan::create(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 initial_deposit,
                 cap,
                 end,
@@ -672,15 +672,15 @@ fn test_withdraw_succeeds() {
             // run some more blocks past the end of the contribution period
             run_to_block(60);
 
-            // withdraw from depositor
+            // withdraw from creator
             assert_ok!(Crowdloan::withdraw(
-                RuntimeOrigin::signed(depositor),
-                depositor,
+                RuntimeOrigin::signed(creator),
+                creator,
                 crowdloan_id
             ));
-            // ensure the depositor has the correct amount
+            // ensure the creator has the correct amount
             assert_eq!(
-                pallet_balances::Pallet::<Test>::free_balance(&depositor),
+                pallet_balances::Pallet::<Test>::free_balance(&creator),
                 100
             );
 
@@ -718,13 +718,13 @@ fn test_withdraw_succeeds_for_another_contributor() {
         .with_balance(U256::from(2), 100)
         .build_and_execute(|| {
             // create a crowdloan
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let initial_deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 300;
             let end: BlockNumberFor<Test> = 50;
             let target_address: AccountOf<Test> = U256::from(42);
             assert_ok!(Crowdloan::create(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 initial_deposit,
                 cap,
                 end,
@@ -748,16 +748,16 @@ fn test_withdraw_succeeds_for_another_contributor() {
             // run some more blocks past the end of the contribution period
             run_to_block(60);
 
-            // withdraw for depositor as a contributor
+            // withdraw for creator as a contributor
             assert_ok!(Crowdloan::withdraw(
                 RuntimeOrigin::signed(contributor),
-                depositor,
+                creator,
                 crowdloan_id
             ));
 
-            // ensure the depositor has the correct amount
+            // ensure the creator has the correct amount
             assert_eq!(
-                pallet_balances::Pallet::<Test>::free_balance(&depositor),
+                pallet_balances::Pallet::<Test>::free_balance(&creator),
                 100
             );
 
@@ -807,13 +807,13 @@ fn test_withdraw_fails_if_contribution_period_has_not_ended() {
         .with_balance(U256::from(2), 100)
         .build_and_execute(|| {
             // create a crowdloan
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let initial_deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 300;
             let end: BlockNumberFor<Test> = 50;
             let target_address: AccountOf<Test> = U256::from(42);
             assert_ok!(Crowdloan::create(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 initial_deposit,
                 cap,
                 end,
@@ -857,13 +857,13 @@ fn test_withdraw_fails_if_cap_was_fully_raised() {
         .with_balance(U256::from(3), 200)
         .build_and_execute(|| {
             // create a crowdloan
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let initial_deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 300;
             let end: BlockNumberFor<Test> = 50;
             let target_address: AccountOf<Test> = U256::from(42);
             assert_ok!(Crowdloan::create(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 initial_deposit,
                 cap,
                 end,
@@ -919,13 +919,13 @@ fn test_withdraw_fails_if_contribution_is_not_found() {
         .with_balance(U256::from(3), 100)
         .build_and_execute(|| {
             // create a crowdloan
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let initial_deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 300;
             let end: BlockNumberFor<Test> = 50;
             let target_address: AccountOf<Test> = U256::from(42);
             assert_ok!(Crowdloan::create(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 initial_deposit,
                 cap,
                 end,
@@ -972,13 +972,13 @@ fn test_refund_succeeds() {
         .with_balance(U256::from(5), 100)
         .build_and_execute(|| {
             // create a crowdloan
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let initial_deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 300;
             let end: BlockNumberFor<Test> = 50;
             let target_address: AccountOf<Test> = U256::from(42);
             assert_ok!(Crowdloan::create(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 initial_deposit,
                 cap,
                 end,
@@ -1031,7 +1031,7 @@ fn test_refund_succeeds() {
 
             //  first round of refund
             assert_ok!(Crowdloan::refund(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 crowdloan_id
             ));
 
@@ -1058,7 +1058,7 @@ fn test_refund_succeeds() {
 
             //  second round of refund
             assert_ok!(Crowdloan::refund(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 crowdloan_id
             ));
 
@@ -1083,7 +1083,7 @@ fn test_refund_succeeds() {
 
             //  third round of refund
             assert_ok!(Crowdloan::refund(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 crowdloan_id
             ));
 
@@ -1103,9 +1103,9 @@ fn test_refund_succeeds() {
                 pallet_crowdloan::Event::<Test>::Refunded { crowdloan_id }.into()
             );
 
-            // ensure depositor has the correct amount
+            // ensure creator has the correct amount
             assert_eq!(
-                pallet_balances::Pallet::<Test>::free_balance(&depositor),
+                pallet_balances::Pallet::<Test>::free_balance(&creator),
                 100
             );
 
@@ -1134,11 +1134,11 @@ fn test_refund_fails_if_crowdloan_does_not_exist() {
     TestState::default()
         .with_balance(U256::from(1), 100)
         .build_and_execute(|| {
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let crowdloan_id: CrowdloanId = 0;
 
             assert_err!(
-                Crowdloan::refund(RuntimeOrigin::signed(depositor), crowdloan_id),
+                Crowdloan::refund(RuntimeOrigin::signed(creator), crowdloan_id),
                 pallet_crowdloan::Error::<Test>::InvalidCrowdloanId
             );
         });
@@ -1150,13 +1150,13 @@ fn test_refund_fails_if_crowdloan_has_not_ended() {
         .with_balance(U256::from(1), 100)
         .build_and_execute(|| {
             // create a crowdloan
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let initial_deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 300;
             let end: BlockNumberFor<Test> = 50;
             let target_address: AccountOf<Test> = U256::from(42);
             assert_ok!(Crowdloan::create(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 initial_deposit,
                 cap,
                 end,
@@ -1170,7 +1170,7 @@ fn test_refund_fails_if_crowdloan_has_not_ended() {
             // try to refund
             let crowdloan_id: CrowdloanId = 0;
             assert_err!(
-                Crowdloan::refund(RuntimeOrigin::signed(depositor), crowdloan_id),
+                Crowdloan::refund(RuntimeOrigin::signed(creator), crowdloan_id),
                 pallet_crowdloan::Error::<Test>::ContributionPeriodNotEnded
             );
         });
@@ -1184,13 +1184,13 @@ fn test_refund_fails_if_crowdloan_has_fully_raised() {
         .with_balance(U256::from(3), 200)
         .build_and_execute(|| {
             // create a crowdloan
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let initial_deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 300;
             let end: BlockNumberFor<Test> = 50;
             let target_address: AccountOf<Test> = U256::from(42);
             assert_ok!(Crowdloan::create(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 initial_deposit,
                 cap,
                 end,
@@ -1228,7 +1228,7 @@ fn test_refund_fails_if_crowdloan_has_fully_raised() {
 
             // try to refund
             assert_err!(
-                Crowdloan::refund(RuntimeOrigin::signed(depositor), crowdloan_id),
+                Crowdloan::refund(RuntimeOrigin::signed(creator), crowdloan_id),
                 pallet_crowdloan::Error::<Test>::CapRaised
             );
         });
@@ -1241,13 +1241,13 @@ fn test_finalize_succeeds() {
         .with_balance(U256::from(2), 100)
         .build_and_execute(|| {
             // create a crowdloan
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 100;
             let end: BlockNumberFor<Test> = 50;
             let target_address: AccountOf<Test> = U256::from(42);
             assert_ok!(Crowdloan::create(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 deposit,
                 cap,
                 end,
@@ -1273,7 +1273,7 @@ fn test_finalize_succeeds() {
 
             // finalize the crowdloan
             assert_ok!(Crowdloan::finalize(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 crowdloan_id
             ));
 
@@ -1311,12 +1311,12 @@ fn test_finalize_fails_if_crowdloan_does_not_exist() {
     TestState::default()
         .with_balance(U256::from(1), 100)
         .build_and_execute(|| {
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let crowdloan_id: CrowdloanId = 0;
 
             // try to finalize
             assert_err!(
-                Crowdloan::finalize(RuntimeOrigin::signed(depositor), crowdloan_id),
+                Crowdloan::finalize(RuntimeOrigin::signed(creator), crowdloan_id),
                 pallet_crowdloan::Error::<Test>::InvalidCrowdloanId
             );
         });
@@ -1329,13 +1329,13 @@ fn test_finalize_fails_if_crowdloan_has_not_ended() {
         .with_balance(U256::from(2), 100)
         .build_and_execute(|| {
             // create a crowdloan
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 100;
             let end: BlockNumberFor<Test> = 50;
             let target_address: AccountOf<Test> = U256::from(42);
             assert_ok!(Crowdloan::create(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 deposit,
                 cap,
                 end,
@@ -1361,7 +1361,7 @@ fn test_finalize_fails_if_crowdloan_has_not_ended() {
 
             // try to finalize
             assert_err!(
-                Crowdloan::finalize(RuntimeOrigin::signed(depositor), crowdloan_id),
+                Crowdloan::finalize(RuntimeOrigin::signed(creator), crowdloan_id),
                 pallet_crowdloan::Error::<Test>::ContributionPeriodNotEnded
             );
         });
@@ -1374,13 +1374,13 @@ fn test_finalize_fails_if_crowdloan_cap_is_not_raised() {
         .with_balance(U256::from(2), 100)
         .build_and_execute(|| {
             // create a crowdloan
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 100;
             let end: BlockNumberFor<Test> = 50;
             let target_address: AccountOf<Test> = U256::from(42);
             assert_ok!(Crowdloan::create(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 deposit,
                 cap,
                 end,
@@ -1406,7 +1406,7 @@ fn test_finalize_fails_if_crowdloan_cap_is_not_raised() {
 
             // try finalize the crowdloan
             assert_err!(
-                Crowdloan::finalize(RuntimeOrigin::signed(depositor), crowdloan_id),
+                Crowdloan::finalize(RuntimeOrigin::signed(creator), crowdloan_id),
                 pallet_crowdloan::Error::<Test>::CapNotRaised
             );
         });
@@ -1419,13 +1419,13 @@ fn test_finalize_fails_if_crowdloan_has_already_been_finalized() {
         .with_balance(U256::from(2), 100)
         .build_and_execute(|| {
             // create a crowdloan
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 100;
             let end: BlockNumberFor<Test> = 50;
             let target_address: AccountOf<Test> = U256::from(42);
             assert_ok!(Crowdloan::create(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 deposit,
                 cap,
                 end,
@@ -1448,32 +1448,32 @@ fn test_finalize_fails_if_crowdloan_has_already_been_finalized() {
 
             // finalize the crowdloan
             assert_ok!(Crowdloan::finalize(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 crowdloan_id
             ));
 
             // try finalize the crowdloan a second time
             assert_err!(
-                Crowdloan::finalize(RuntimeOrigin::signed(depositor), crowdloan_id),
+                Crowdloan::finalize(RuntimeOrigin::signed(creator), crowdloan_id),
                 pallet_crowdloan::Error::<Test>::AlreadyFinalized
             );
         });
 }
 
 #[test]
-fn test_finalize_fails_if_not_depositor_origin() {
+fn test_finalize_fails_if_not_creator_origin() {
     TestState::default()
         .with_balance(U256::from(1), 100)
         .with_balance(U256::from(2), 100)
         .build_and_execute(|| {
             // create a crowdloan
-            let depositor: AccountOf<Test> = U256::from(1);
+            let creator: AccountOf<Test> = U256::from(1);
             let deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 100;
             let end: BlockNumberFor<Test> = 50;
             let target_address: AccountOf<Test> = U256::from(42);
             assert_ok!(Crowdloan::create(
-                RuntimeOrigin::signed(depositor),
+                RuntimeOrigin::signed(creator),
                 deposit,
                 cap,
                 end,
@@ -1500,7 +1500,7 @@ fn test_finalize_fails_if_not_depositor_origin() {
             // try finalize the crowdloan
             assert_err!(
                 Crowdloan::finalize(RuntimeOrigin::signed(contributor), crowdloan_id),
-                pallet_crowdloan::Error::<Test>::ExpectedDepositorOrigin
+                pallet_crowdloan::Error::<Test>::ExpectedCreatorOrigin
             );
         });
 }

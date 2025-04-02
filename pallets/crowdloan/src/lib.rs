@@ -25,7 +25,7 @@ type BalanceOf<T> = <CurrencyOf<T> as Currency<<T as frame_system::Config>::Acco
 
 #[derive(Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct CrowdloanInfo<AccountId, Balance, BlockNumber, RuntimeCall> {
-    pub depositor: AccountId,
+    pub creator: AccountId,
     pub deposit: Balance,
     pub end: BlockNumber,
     pub cap: Balance,
@@ -109,7 +109,7 @@ pub mod pallet {
     pub enum Event<T: Config> {
         Created {
             crowdloan_id: CrowdloanId,
-            depositor: T::AccountId,
+            creator: T::AccountId,
             end: BlockNumberFor<T>,
             cap: BalanceOf<T>,
         },
@@ -148,7 +148,7 @@ pub mod pallet {
         CapExceeded,
         ContributionPeriodEnded,
         ContributionTooLow,
-        ExpectedDepositorOrigin,
+        ExpectedCreatorOrigin,
         AlreadyFinalized,
         ContributionPeriodNotEnded,
         NoContribution,
@@ -167,7 +167,7 @@ pub mod pallet {
             target_address: T::AccountId,
             call: Box<<T as Config>::RuntimeCall>,
         ) -> DispatchResult {
-            let depositor = ensure_signed(origin)?;
+            let creator = ensure_signed(origin)?;
             let now = frame_system::Pallet::<T>::block_number();
 
             // Ensure the deposit is at least the minimum deposit and cap is greater
@@ -190,9 +190,9 @@ pub mod pallet {
                 Error::<T>::BlockDurationTooLong
             );
 
-            // Ensure the depositor has enough balance to pay the initial deposit
+            // Ensure the creator has enough balance to pay the initial deposit
             ensure!(
-                CurrencyOf::<T>::free_balance(&depositor) >= deposit,
+                CurrencyOf::<T>::free_balance(&creator) >= deposit,
                 Error::<T>::InsufficientBalance
             );
 
@@ -202,7 +202,7 @@ pub mod pallet {
             Crowdloans::<T>::insert(
                 &crowdloan_id,
                 CrowdloanInfo {
-                    depositor: depositor.clone(),
+                    creator: creator.clone(),
                     deposit,
                     end,
                     cap,
@@ -218,17 +218,17 @@ pub mod pallet {
             // Track the crowdloan account and transfer the deposit to the crowdloan account
             frame_system::Pallet::<T>::inc_providers(&Self::crowdloan_account_id(crowdloan_id));
             CurrencyOf::<T>::transfer(
-                &depositor,
+                &creator,
                 &Self::crowdloan_account_id(crowdloan_id),
                 deposit,
                 ExistenceRequirement::AllowDeath,
             )?;
 
-            Contributions::<T>::insert(&crowdloan_id, &depositor, deposit);
+            Contributions::<T>::insert(&crowdloan_id, &creator, deposit);
 
             Self::deposit_event(Event::<T>::Created {
                 crowdloan_id,
-                depositor,
+                creator,
                 end,
                 cap,
             });
@@ -391,14 +391,14 @@ pub mod pallet {
             origin: OriginFor<T>,
             #[pallet::compact] crowdloan_id: CrowdloanId,
         ) -> DispatchResult {
-            let depositor = ensure_signed(origin)?;
+            let creator = ensure_signed(origin)?;
 
             let mut crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
             Self::ensure_crowdloan_succeeded(&crowdloan)?;
 
             ensure!(
-                depositor == crowdloan.depositor,
-                Error::<T>::ExpectedDepositorOrigin
+                creator == crowdloan.creator,
+                Error::<T>::ExpectedCreatorOrigin
             );
 
             // Transfer the raised amount to the target address
@@ -415,7 +415,7 @@ pub mod pallet {
 
             // Dispatch the call
             let call = crowdloan.call.clone();
-            call.dispatch(frame_system::RawOrigin::Signed(depositor).into())
+            call.dispatch(frame_system::RawOrigin::Signed(creator).into())
                 .map(|_| ())
                 .map_err(|e| e.error)?;
 
