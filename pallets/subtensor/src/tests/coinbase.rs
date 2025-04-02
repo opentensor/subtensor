@@ -192,6 +192,7 @@ fn test_coinbase_moving_prices() {
         SubnetMechanism::<Test>::insert(netuid, 1);
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(1));
         NetworkRegisteredAt::<Test>::insert(netuid, 1);
+        FirstEmissionBlockNumber::<Test>::insert(netuid, 1); // start block is also 1
 
         // Updating the moving price keeps it the same.
         assert_eq!(
@@ -251,6 +252,7 @@ fn test_update_moving_price_initial() {
         // Registered recently
         System::set_block_number(510);
         NetworkRegisteredAt::<Test>::insert(netuid, 500);
+        FirstEmissionBlockNumber::<Test>::insert(netuid, 500); // start block is the same
 
         SubtensorModule::update_moving_price(netuid);
 
@@ -276,6 +278,7 @@ fn test_update_moving_price_after_time() {
         // Registered long time ago
         System::set_block_number(144_000_500);
         NetworkRegisteredAt::<Test>::insert(netuid, 500);
+        FirstEmissionBlockNumber::<Test>::insert(netuid, 500); // Start block is the same
 
         SubtensorModule::update_moving_price(netuid);
 

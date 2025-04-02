@@ -57,8 +57,9 @@ impl<T: Config> Pallet<T> {
         }
     }
     pub fn update_moving_price(netuid: u16) {
-        let blocks_since_registration = I96F32::saturating_from_num(
-            Self::get_current_block_as_u64().saturating_sub(NetworkRegisteredAt::<T>::get(netuid)),
+        let blocks_since_subnet_start = I96F32::saturating_from_num(
+            Self::get_current_block_as_u64()
+                .saturating_sub(FirstEmissionBlockNumber::<T>::get(netuid).unwrap_or(u64::MAX)),
         );
 
         // Use halving time hyperparameter. The meaning of this parameter can be best explained under
@@ -67,8 +68,8 @@ impl<T: Config> Pallet<T> {
         // by half.
         let halving_time = EMAPriceHalvingBlocks::<T>::get(netuid);
         let alpha: I96F32 =
-            SubnetMovingAlpha::<T>::get().saturating_mul(blocks_since_registration.safe_div(
-                blocks_since_registration.saturating_add(I96F32::saturating_from_num(halving_time)),
+            SubnetMovingAlpha::<T>::get().saturating_mul(blocks_since_subnet_start.safe_div(
+                blocks_since_subnet_start.saturating_add(I96F32::saturating_from_num(halving_time)),
             ));
         let minus_alpha: I96F32 = I96F32::saturating_from_num(1.0).saturating_sub(alpha);
         let current_price: I96F32 = alpha
