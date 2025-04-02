@@ -1061,9 +1061,6 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> token_symbol | Returns the token symbol for a subnet.
     pub type TokenSymbol<T: Config> =
         StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> subnet_name | Returns the name of the subnet.
-    pub type SubnetName<T: Config> =
-        StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
 
     /// ============================
     /// ==== Global Parameters =====

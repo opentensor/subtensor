@@ -87,7 +87,9 @@ mod hooks {
                 // Remove all zero value entries in TotalHotkeyAlpha
                 .saturating_add(migrations::migrate_remove_zero_total_hotkey_alpha::migrate_remove_zero_total_hotkey_alpha::<T>())
                 // Wipe existing items to prevent bad decoding for new type
-                .saturating_add(migrations::migrate_upgrade_revealed_commitments::migrate_upgrade_revealed_commitments::<T>());
+                .saturating_add(migrations::migrate_upgrade_revealed_commitments::migrate_upgrade_revealed_commitments::<T>())
+				// Wipe unused SubnetName map
+				.saturating_add(migrations::migrate_remove_subnet_name_map::migrate_remove_subnet_name_map::<T>());
             weight
         }
 
