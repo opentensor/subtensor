@@ -386,15 +386,15 @@ pub mod pallet {
         pub fn finalize(
             origin: OriginFor<T>,
             #[pallet::compact] crowdloan_id: CrowdloanId,
-        ) -> DispatchResultWithPostInfo {
+        ) -> DispatchResult {
             let who = ensure_signed(origin)?;
 
-            let crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
+            let mut crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
             Self::ensure_crowdloan_succeeded(&crowdloan)?;
 
             ensure!(who == crowdloan.depositor, Error::<T>::InvalidOrigin);
-            ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
 
+            // Transfer the raised amount to the target address
             CurrencyOf::<T>::transfer(
                 &Self::crowdloan_account_id(crowdloan_id),
                 &crowdloan.target_address,
@@ -402,13 +402,24 @@ pub mod pallet {
                 ExistenceRequirement::AllowDeath,
             )?;
 
+            // Set the current crowdloan id so the dispatched call
+            // can access it temporarily
             CurrentCrowdloanId::<T>::put(crowdloan_id);
 
-            // crowdloan.call.dispatch(origin)?;
+            // Dispatch the call
+            let call = crowdloan.call.clone();
+            call.dispatch(frame_system::RawOrigin::Signed(who).into())
+                .map(|_| ())
+                .map_err(|e| e.error)?;
 
+            // Clear the current crowdloan id
             CurrentCrowdloanId::<T>::kill();
 
-            Ok(().into())
+            // Mark the crowdloan as finalized
+            crowdloan.finalized = true;
+            Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
+
+            Ok(())
         }
     }
 }
