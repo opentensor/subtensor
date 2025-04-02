@@ -182,7 +182,7 @@ impl<T: Config> Pallet<T> {
         let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey)?;
 
         let mut message = [0u8; 64];
-        let block_hash = keccak_256(block_number.to_be_bytes().as_ref());
+        let block_hash = keccak_256(block_number.encode().as_ref());
         message[..32].copy_from_slice(&hotkey.encode()[..]);
         message[32..].copy_from_slice(block_hash.as_ref());
         let public = signature
@@ -198,13 +198,15 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidRecoveredPublicKey
         );
 
-        AssociatedEvmAddress::<T>::insert(netuid, uid, (evm_key, block_number));
+        let current_block_number = Self::get_current_block_as_u64();
+
+        AssociatedEvmAddress::<T>::insert(netuid, uid, (evm_key, current_block_number));
 
         Self::deposit_event(Event::EvmKeyAssociated {
             netuid,
             hotkey,
             evm_key,
-            block_associated: block_number,
+            block_associated: current_block_number,
         });
 
         Ok(())
