@@ -1149,6 +1149,7 @@ fn test_refund_fails_if_crowdloan_has_not_ended() {
     TestState::default()
         .with_balance(U256::from(1), 100)
         .build_and_execute(|| {
+            // create a crowdloan
             let depositor: AccountOf<Test> = U256::from(1);
             let initial_deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 300;
@@ -1182,6 +1183,7 @@ fn test_refund_fails_if_crowdloan_has_fully_raised() {
         .with_balance(U256::from(2), 200)
         .with_balance(U256::from(3), 200)
         .build_and_execute(|| {
+            // create a crowdloan
             let depositor: AccountOf<Test> = U256::from(1);
             let initial_deposit: BalanceOf<Test> = 50;
             let cap: BalanceOf<Test> = 300;
@@ -1228,6 +1230,277 @@ fn test_refund_fails_if_crowdloan_has_fully_raised() {
             assert_err!(
                 Crowdloan::refund(RuntimeOrigin::signed(depositor), crowdloan_id),
                 pallet_crowdloan::Error::<Test>::CapRaised
+            );
+        });
+}
+
+#[test]
+fn test_finalize_succeeds() {
+    TestState::default()
+        .with_balance(U256::from(1), 100)
+        .with_balance(U256::from(2), 100)
+        .build_and_execute(|| {
+            // create a crowdloan
+            let depositor: AccountOf<Test> = U256::from(1);
+            let deposit: BalanceOf<Test> = 50;
+            let cap: BalanceOf<Test> = 100;
+            let end: BlockNumberFor<Test> = 50;
+            let target_address: AccountOf<Test> = U256::from(42);
+            assert_ok!(Crowdloan::create(
+                RuntimeOrigin::signed(depositor),
+                deposit,
+                cap,
+                end,
+                target_address,
+                noop_call()
+            ));
+
+            // run some blocks
+            run_to_block(10);
+
+            // some contribution
+            let crowdloan_id: CrowdloanId = 0;
+            let contributor: AccountOf<Test> = U256::from(2);
+            let amount: BalanceOf<Test> = 50;
+            assert_ok!(Crowdloan::contribute(
+                RuntimeOrigin::signed(contributor),
+                crowdloan_id,
+                amount
+            ));
+
+            // run some more blocks past the end of the contribution period
+            run_to_block(60);
+
+            // finalize the crowdloan
+            assert_ok!(Crowdloan::finalize(
+                RuntimeOrigin::signed(depositor),
+                crowdloan_id
+            ));
+
+            // ensure the crowdloan account has the correct amount
+            assert_eq!(
+                pallet_balances::Pallet::<Test>::free_balance(&target_address),
+                100
+            );
+
+            // ensure the event is emitted
+            assert_eq!(
+                last_event(),
+                pallet_crowdloan::Event::<Test>::Finalized { crowdloan_id }.into()
+            );
+        })
+}
+
+#[test]
+fn test_finalize_fails_if_bad_origin() {
+    TestState::default()
+        .with_balance(U256::from(1), 100)
+        .build_and_execute(|| {
+            let crowdloan_id: CrowdloanId = 0;
+
+            // try to finalize
+            assert_err!(
+                Crowdloan::finalize(RuntimeOrigin::none(), crowdloan_id),
+                DispatchError::BadOrigin
+            );
+        });
+}
+
+#[test]
+fn test_finalize_fails_if_crowdloan_does_not_exist() {
+    TestState::default()
+        .with_balance(U256::from(1), 100)
+        .build_and_execute(|| {
+            let depositor: AccountOf<Test> = U256::from(1);
+            let crowdloan_id: CrowdloanId = 0;
+
+            // try to finalize
+            assert_err!(
+                Crowdloan::finalize(RuntimeOrigin::signed(depositor), crowdloan_id),
+                pallet_crowdloan::Error::<Test>::InvalidCrowdloanId
+            );
+        });
+}
+
+#[test]
+fn test_finalize_fails_if_crowdloan_has_not_ended() {
+    TestState::default()
+        .with_balance(U256::from(1), 100)
+        .with_balance(U256::from(2), 100)
+        .build_and_execute(|| {
+            // create a crowdloan
+            let depositor: AccountOf<Test> = U256::from(1);
+            let deposit: BalanceOf<Test> = 50;
+            let cap: BalanceOf<Test> = 100;
+            let end: BlockNumberFor<Test> = 50;
+            let target_address: AccountOf<Test> = U256::from(42);
+            assert_ok!(Crowdloan::create(
+                RuntimeOrigin::signed(depositor),
+                deposit,
+                cap,
+                end,
+                target_address,
+                noop_call()
+            ));
+
+            // run some blocks
+            run_to_block(10);
+
+            // some contribution
+            let crowdloan_id: CrowdloanId = 0;
+            let contributor: AccountOf<Test> = U256::from(2);
+            let amount: BalanceOf<Test> = 50;
+            assert_ok!(Crowdloan::contribute(
+                RuntimeOrigin::signed(contributor),
+                crowdloan_id,
+                amount
+            ));
+
+            // run some more blocks before end of contribution period
+            run_to_block(10);
+
+            // try to finalize
+            assert_err!(
+                Crowdloan::finalize(RuntimeOrigin::signed(depositor), crowdloan_id),
+                pallet_crowdloan::Error::<Test>::ContributionPeriodNotEnded
+            );
+        });
+}
+
+#[test]
+fn test_finalize_fails_if_crowdloan_cap_is_not_raised() {
+    TestState::default()
+        .with_balance(U256::from(1), 100)
+        .with_balance(U256::from(2), 100)
+        .build_and_execute(|| {
+            // create a crowdloan
+            let depositor: AccountOf<Test> = U256::from(1);
+            let deposit: BalanceOf<Test> = 50;
+            let cap: BalanceOf<Test> = 100;
+            let end: BlockNumberFor<Test> = 50;
+            let target_address: AccountOf<Test> = U256::from(42);
+            assert_ok!(Crowdloan::create(
+                RuntimeOrigin::signed(depositor),
+                deposit,
+                cap,
+                end,
+                target_address,
+                noop_call()
+            ));
+
+            // run some blocks
+            run_to_block(10);
+
+            // some contribution
+            let crowdloan_id: CrowdloanId = 0;
+            let contributor: AccountOf<Test> = U256::from(2);
+            let amount: BalanceOf<Test> = 49; // below cap
+            assert_ok!(Crowdloan::contribute(
+                RuntimeOrigin::signed(contributor),
+                crowdloan_id,
+                amount
+            ));
+
+            // run some more blocks past the end of the contribution period
+            run_to_block(60);
+
+            // try finalize the crowdloan
+            assert_err!(
+                Crowdloan::finalize(RuntimeOrigin::signed(depositor), crowdloan_id),
+                pallet_crowdloan::Error::<Test>::CapNotRaised
+            );
+        });
+}
+
+#[test]
+fn test_finalize_fails_if_crowdloan_has_already_been_finalized() {
+    TestState::default()
+        .with_balance(U256::from(1), 100)
+        .with_balance(U256::from(2), 100)
+        .build_and_execute(|| {
+            // create a crowdloan
+            let depositor: AccountOf<Test> = U256::from(1);
+            let deposit: BalanceOf<Test> = 50;
+            let cap: BalanceOf<Test> = 100;
+            let end: BlockNumberFor<Test> = 50;
+            let target_address: AccountOf<Test> = U256::from(42);
+            assert_ok!(Crowdloan::create(
+                RuntimeOrigin::signed(depositor),
+                deposit,
+                cap,
+                end,
+                target_address,
+                noop_call()
+            ));
+
+            // some contribution
+            let crowdloan_id: CrowdloanId = 0;
+            let contributor: AccountOf<Test> = U256::from(2);
+            let amount: BalanceOf<Test> = 50;
+            assert_ok!(Crowdloan::contribute(
+                RuntimeOrigin::signed(contributor),
+                crowdloan_id,
+                amount
+            ));
+
+            // run some more blocks past the end of the contribution period
+            run_to_block(60);
+
+            // finalize the crowdloan
+            assert_ok!(Crowdloan::finalize(
+                RuntimeOrigin::signed(depositor),
+                crowdloan_id
+            ));
+
+            // try finalize the crowdloan a second time
+            assert_err!(
+                Crowdloan::finalize(RuntimeOrigin::signed(depositor), crowdloan_id),
+                pallet_crowdloan::Error::<Test>::AlreadyFinalized
+            );
+        });
+}
+
+#[test]
+fn test_finalize_fails_if_not_depositor_origin() {
+    TestState::default()
+        .with_balance(U256::from(1), 100)
+        .with_balance(U256::from(2), 100)
+        .build_and_execute(|| {
+            // create a crowdloan
+            let depositor: AccountOf<Test> = U256::from(1);
+            let deposit: BalanceOf<Test> = 50;
+            let cap: BalanceOf<Test> = 100;
+            let end: BlockNumberFor<Test> = 50;
+            let target_address: AccountOf<Test> = U256::from(42);
+            assert_ok!(Crowdloan::create(
+                RuntimeOrigin::signed(depositor),
+                deposit,
+                cap,
+                end,
+                target_address,
+                noop_call()
+            ));
+
+            // run some blocks
+            run_to_block(10);
+
+            // some contribution
+            let crowdloan_id: CrowdloanId = 0;
+            let contributor: AccountOf<Test> = U256::from(2);
+            let amount: BalanceOf<Test> = 50;
+            assert_ok!(Crowdloan::contribute(
+                RuntimeOrigin::signed(contributor),
+                crowdloan_id,
+                amount
+            ));
+
+            // run some more blocks past the end of the contribution period
+            run_to_block(60);
+
+            // try finalize the crowdloan
+            assert_err!(
+                Crowdloan::finalize(RuntimeOrigin::signed(contributor), crowdloan_id),
+                pallet_crowdloan::Error::<Test>::ExpectedDepositorOrigin
             );
         });
 }

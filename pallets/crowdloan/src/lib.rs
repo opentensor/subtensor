@@ -148,10 +148,11 @@ pub mod pallet {
         CapExceeded,
         ContributionPeriodEnded,
         ContributionTooLow,
-        InvalidOrigin,
+        ExpectedDepositorOrigin,
         AlreadyFinalized,
         ContributionPeriodNotEnded,
         NoContribution,
+        CapNotRaised,
     }
 
     #[pallet::call]
@@ -390,12 +391,15 @@ pub mod pallet {
             origin: OriginFor<T>,
             #[pallet::compact] crowdloan_id: CrowdloanId,
         ) -> DispatchResult {
-            let who = ensure_signed(origin)?;
+            let depositor = ensure_signed(origin)?;
 
             let mut crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
             Self::ensure_crowdloan_succeeded(&crowdloan)?;
 
-            ensure!(who == crowdloan.depositor, Error::<T>::InvalidOrigin);
+            ensure!(
+                depositor == crowdloan.depositor,
+                Error::<T>::ExpectedDepositorOrigin
+            );
 
             // Transfer the raised amount to the target address
             CurrencyOf::<T>::transfer(
@@ -411,7 +415,7 @@ pub mod pallet {
 
             // Dispatch the call
             let call = crowdloan.call.clone();
-            call.dispatch(frame_system::RawOrigin::Signed(who).into())
+            call.dispatch(frame_system::RawOrigin::Signed(depositor).into())
                 .map(|_| ())
                 .map_err(|e| e.error)?;
 
@@ -458,7 +462,7 @@ impl<T: Config> Pallet<T> {
         ensure!(now >= crowdloan.end, Error::<T>::ContributionPeriodNotEnded);
 
         // Has raised cap
-        ensure!(crowdloan.raised == crowdloan.cap, Error::<T>::CapRaised);
+        ensure!(crowdloan.raised == crowdloan.cap, Error::<T>::CapNotRaised);
 
         // Has not finalized
         ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
