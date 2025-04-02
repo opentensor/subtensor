@@ -5,9 +5,11 @@ use crate::*;
 use alloc::collections::BTreeMap;
 use approx::assert_abs_diff_eq;
 use frame_support::assert_ok;
+use safe_math::SafeDiv;
 use sp_core::U256;
 use substrate_fixed::types::I64F64;
 use substrate_fixed::types::I96F32;
+use substrate_fixed::types::U96F32;
 
 #[allow(clippy::arithmetic_side_effects)]
 fn close(value: u64, target: u64, eps: u64) {
@@ -284,6 +286,231 @@ fn test_update_moving_price_after_time() {
 
         let new_price = SubnetMovingPrice::<Test>::get(netuid);
         assert!((new_price.to_num::<f64>() - 0.5).abs() < 0.001);
+    });
+}
+
+#[test]
+fn test_update_moving_price_large_initial_price() {
+    new_test_ext(1).execute_with(|| {
+        let root = 0;
+        let netuid: u16 = 2;
+        let sn_owner_ck: U256 = U256::from(3);
+        let sn_owner_hk: U256 = U256::from(4);
+        // Add fake subnet with competing price
+        add_dynamic_network(&sn_owner_hk, &sn_owner_ck);
+        let netuid_i = 1;
+        SubnetMovingPrice::<Test>::insert(netuid_i, I96F32::from_bits(7009006464));
+        SubnetTAO::<Test>::insert(netuid_i, 354265604633292);
+        SubnetAlphaIn::<Test>::insert(netuid_i, 21645697229286377);
+        SubnetAlphaOut::<Test>::insert(netuid_i, 2);
+        SubnetMechanism::<Test>::insert(netuid_i, 1);
+
+        add_dynamic_network_without_emission_block(&sn_owner_hk, &sn_owner_ck);
+        let tempo = Tempo::<Test>::get(netuid);
+        // Set current price to 1.0
+        let alpha_in = 172_637_386;
+        let alpha_out = 1_000_000_000 - alpha_in;
+        SubnetTAO::<Test>::insert(netuid, 5_833_411_288);
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
+        SubnetAlphaOut::<Test>::insert(netuid, alpha_out);
+        SubnetMechanism::<Test>::insert(netuid, 1);
+        // Set max and target registrations for setup to be easy
+        SubtensorModule::set_max_registrations_per_block(netuid, u16::MAX);
+        SubtensorModule::set_target_registrations_per_interval(netuid, u16::MAX);
+
+        // Set tao weight
+        SubtensorModule::set_tao_weight(3_320_413_933_267_719_290);
+
+        // Give subnet owner all the alpha_out
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &sn_owner_hk,
+            &sn_owner_ck,
+            netuid,
+            alpha_out,
+        );
+
+        // Set up some root stakers
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
+        let ck = U256::from(0);
+        let root_staker_0 = U256::from(1);
+        let root_stake_0: u64 = 789_005_165_715_606;
+        let root_staker_1 = U256::from(2);
+        let root_stake_1: u64 = 674_669_377_543_878;
+        register_ok_neuron(netuid, root_staker_0, ck, 0);
+        register_ok_neuron(netuid, root_staker_1, ck, 200);
+        // Give enough free balance for stuff
+        SubtensorModule::add_balance_to_coldkey_account(&ck, 100_000_000_000);
+
+        // Give root stake to both root stakers
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &root_staker_0,
+            &ck,
+            root,
+            root_stake_0,
+        );
+
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &root_staker_1,
+            &ck,
+            root,
+            root_stake_1,
+        );
+
+        // Make sure to register on root
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(ck).clone(),
+            root_staker_0,
+        ));
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(ck).clone(),
+            root_staker_1,
+        ));
+
+        // Add a miner
+        let miner_hk = U256::from(6);
+        register_ok_neuron(netuid, miner_hk, ck, 500);
+
+        // Add other miner (sn owner miner)
+        let miner_2_hk = U256::from(7);
+        register_ok_neuron(netuid, miner_2_hk, sn_owner_ck, 800);
+
+        // Registered short time ago
+        System::set_block_number(500);
+        NetworkRegisteredAt::<Test>::insert(netuid, 500);
+        FirstEmissionBlockNumber::<Test>::insert(netuid, 500); // Start block is the same
+
+        // Set weights on the good miner by root
+        let uids: Vec<u16> = vec![3];
+        let values: Vec<u16> = vec![u16::MAX]; // Use maximum value for u16
+        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        ValidatorPermit::<Test>::insert(netuid, vec![true, true, true, false, false]);
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(root_staker_0),
+            netuid,
+            uids.clone(),
+            values.clone(),
+            version_key
+        ));
+
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(root_staker_1),
+            netuid,
+            uids.clone(),
+            values.clone(),
+            version_key
+        ));
+
+        // Set weights by sn_owner hk on its miner
+        let uids: Vec<u16> = vec![4];
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(sn_owner_hk),
+            netuid,
+            uids.clone(),
+            values.clone(),
+            version_key
+        ));
+
+        // Log tao-in
+        log::info!(
+            "TAO-in: {:?}",
+            U96F32::from(SubnetTAO::<Test>::get(netuid)).safe_div(U96F32::from(1_000_000_000_u64))
+        );
+        // Log price
+        log::info!("SN Price: {:?}", SubtensorModule::get_alpha_price(netuid));
+
+        // Epoch run
+        log::info!("Running Epoch:");
+        run_to_block(500 + 361); // Run so the tempo runs
+
+        // Log tao-in
+        log::info!(
+            "TAO-in: {:?}",
+            U96F32::from(SubnetTAO::<Test>::get(netuid)).safe_div(U96F32::from(1_000_000_000_u64))
+        );
+        // Log price
+        log::info!("SN Price: {:?}", SubtensorModule::get_alpha_price(netuid));
+
+        // Log all positions
+        log::info!(
+            "SN Owner vali: {:?}",
+            U96F32::from(SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &sn_owner_hk,
+                &sn_owner_ck,
+                netuid
+            ))
+            .safe_div(U96F32::from(1_000_000_000_u64))
+        );
+        log::info!(
+            "SN Owner miner: {:?}",
+            U96F32::from(SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &miner_2_hk,
+                &sn_owner_ck,
+                netuid
+            ))
+            .safe_div(U96F32::from(1_000_000_000_u64))
+        );
+
+        log::info!(
+            "Root vali 0: {:?}",
+            U96F32::from(SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &root_staker_0,
+                &ck,
+                root
+            ))
+            .safe_div(U96F32::from(1_000_000_000_u64))
+        );
+        log::info!(
+            "Root vali 1: {:?}",
+            U96F32::from(SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &root_staker_1,
+                &ck,
+                root
+            ))
+            .safe_div(U96F32::from(1_000_000_000_u64))
+        );
+        let miner_stake =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&miner_hk, &ck, netuid);
+        log::info!(
+            "Other miner: {:?}",
+            U96F32::from(miner_stake).safe_div(U96F32::from(1_000_000_000_u64))
+        );
+        log::info!(
+            "Sim swap: {:?}",
+            SubtensorModule::sim_swap_alpha_for_tao(netuid, miner_stake)
+        );
+
+        // Sell all miner alpha
+        assert_ok!(SubtensorModule::remove_stake(
+            RuntimeOrigin::signed(ck),
+            miner_hk,
+            netuid,
+            SubnetAlphaIn::<Test>::get(netuid)
+                .saturating_sub(DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>())
+        ));
+
+        log::info!(
+            "Other miner: {:?}",
+            U96F32::from(SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &miner_hk, &ck, netuid
+            ))
+            .safe_div(U96F32::from(1_000_000_000_u64))
+        );
+
+        log::info!(
+            "Other miner ROOT: {:?}",
+            U96F32::from(SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &miner_hk, &ck, root
+            ))
+            .safe_div(U96F32::from(1_000_000_000_u64))
+        );
+
+        // Log tao-in
+        log::info!(
+            "TAO-in: {:?}",
+            U96F32::from(SubnetTAO::<Test>::get(netuid)).safe_div(U96F32::from(1_000_000_000_u64))
+        );
+        // Log price
+        log::info!("SN Price: {:?}", SubtensorModule::get_alpha_price(netuid));
     });
 }
 
