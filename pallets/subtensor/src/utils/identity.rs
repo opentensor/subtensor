@@ -1,7 +1,6 @@
 use super::*;
 use frame_support::ensure;
 use frame_system::ensure_signed;
-use sp_core::{H160, ecdsa::Signature, hashing::keccak_256};
 use sp_std::vec::Vec;
 
 impl<T: Config> Pallet<T> {
@@ -142,73 +141,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::SubnetIdentitySet(netuid));
 
         // Return Ok to indicate successful execution
-        Ok(())
-    }
-
-    /// Associate an EVM key with a hotkey.
-    ///
-    /// This function accepts a Signature, which is a signed message containing the hotkey concatenated with
-    /// the hashed block number. It will then attempt to recover the EVM key from the signature and compare it
-    /// with the `evm_key` parameter, and ensures that they match.
-    ///
-    /// The EVM key is expected to sign the message according to this formula to produce the signature:
-    /// ```text
-    /// keccak_256(hotkey ++ keccak_256(block_number))
-    /// ```
-    ///
-    /// # Arguments
-    ///
-    /// * `origin` - The origin of the call, which should be the coldkey that owns the hotkey.
-    /// * `netuid` - The unique identifier for the subnet that the hotkey belongs to.
-    /// * `hotkey` - The hotkey associated with the `origin` coldkey.
-    /// * `evm_key` - The EVM address to associate with the `hotkey`.
-    /// * `block_number` - The block number used in the `signature`.
-    /// * `signature` - A signed message by the `evm_key` containing the `hotkey` and the hashed `block_number`.
-    pub fn do_associate_evm_key(
-        origin: T::RuntimeOrigin,
-        netuid: u16,
-        hotkey: T::AccountId,
-        evm_key: H160,
-        block_number: u64,
-        signature: Signature,
-    ) -> dispatch::DispatchResult {
-        let coldkey = ensure_signed(origin)?;
-
-        ensure!(
-            Self::get_owning_coldkey_for_hotkey(&hotkey) == coldkey,
-            Error::<T>::NonAssociatedColdKey
-        );
-
-        let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey)?;
-
-        let mut message = [0u8; 64];
-        let block_hash = keccak_256(block_number.encode().as_ref());
-        message[..32].copy_from_slice(&hotkey.encode()[..]);
-        message[32..].copy_from_slice(block_hash.as_ref());
-        let public = signature
-            .recover_prehashed(&keccak_256(message.as_ref()))
-            .ok_or(Error::<T>::UnableToRecoverPublicKey)?;
-        let secp_pubkey = libsecp256k1::PublicKey::parse_compressed(&public.0)
-            .map_err(|_| Error::<T>::UnableToRecoverPublicKey)?;
-        let uncompressed = secp_pubkey.serialize();
-        let hashed_evm_key = H160::from_slice(&keccak_256(&uncompressed[1..])[12..]);
-
-        ensure!(
-            evm_key == hashed_evm_key,
-            Error::<T>::InvalidRecoveredPublicKey
-        );
-
-        let current_block_number = Self::get_current_block_as_u64();
-
-        AssociatedEvmAddress::<T>::insert(netuid, uid, (evm_key, current_block_number));
-
-        Self::deposit_event(Event::EvmKeyAssociated {
-            netuid,
-            hotkey,
-            evm_key,
-            block_associated: current_block_number,
-        });
-
         Ok(())
     }
 

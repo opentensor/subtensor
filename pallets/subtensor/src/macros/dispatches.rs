@@ -1958,7 +1958,11 @@ mod dispatches {
         /// # Events
         /// May emit a `EvmKeyAssociated` event on success
         #[pallet::call_index(93)]
-        #[pallet::weight(T::DbWeight::get().reads_writes(2, 2))]
+        #[pallet::weight((
+            Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().reads_writes(2, 1)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
         pub fn associate_evm_key(
             origin: T::RuntimeOrigin,
             netuid: u16,
