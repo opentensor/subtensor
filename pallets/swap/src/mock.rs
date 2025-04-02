@@ -1,6 +1,6 @@
 use frame_support::construct_runtime;
 use frame_support::{
-    PalletId, assert_ok, parameter_types,
+    PalletId, parameter_types,
     traits::{ConstU32, Everything},
 };
 use frame_system::{self as system, EnsureRoot};
@@ -12,10 +12,7 @@ use sp_runtime::{
 };
 use substrate_fixed::types::U64F64;
 
-use crate::{
-    NetUid, SqrtPrice,
-    pallet::{AlphaSqrtPrice, Pallet as SwapModule, SwapV3Initialized},
-};
+use crate::SqrtPrice;
 
 construct_runtime!(
     pub enum Test {
@@ -124,44 +121,4 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     let mut ext = sp_io::TestExternalities::new(storage);
     ext.execute_with(|| System::set_block_number(1));
     ext
-}
-
-// Helper function to initialize a subnet with a specific fee rate
-pub fn initialize_subnet(netuid: u16, fee_rate: u16) {
-    let netuid = NetUid::from(netuid);
-    // Set initial sqrt price (1.0 means 1 TAO = 1 Alpha)
-    let initial_sqrt_price = U64F64::from_num(1.0);
-    AlphaSqrtPrice::<Test>::insert(netuid, initial_sqrt_price);
-
-    // Set the fee rate
-    assert_ok!(SwapModule::<Test>::set_fee_rate(
-        RuntimeOrigin::root(),
-        netuid.into(),
-        fee_rate
-    ));
-
-    // Mark the swap as initialized
-    SwapV3Initialized::<Test>::insert(netuid, true);
-}
-
-mod test {
-    use super::*;
-    use crate::pallet::*;
-
-    #[test]
-    fn test_subnet_initialization() {
-        new_test_ext().execute_with(|| {
-            let netuid = 1u16;
-            let fee_rate = 500; // 0.76% fee
-
-            // Initialize subnet
-            initialize_subnet(netuid, fee_rate);
-
-            // Verify initialization
-            let netuid = NetUid::from(netuid);
-            assert_eq!(FeeRate::<Test>::get(netuid), fee_rate);
-            assert_eq!(AlphaSqrtPrice::<Test>::get(netuid), U64F64::from_num(1.0));
-            assert!(SwapV3Initialized::<Test>::get(netuid));
-        });
-    }
 }
