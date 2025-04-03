@@ -557,32 +557,20 @@ impl<T: Config> Pallet<T> {
     // A crowdloan is considered to have failed if it has ended, has not raised the cap and
     // has not been finalized.
     fn ensure_crowdloan_failed(crowdloan: &CrowdloanInfoOf<T>) -> Result<(), Error<T>> {
-        // Has ended
         let now = frame_system::Pallet::<T>::block_number();
         ensure!(now >= crowdloan.end, Error::<T>::ContributionPeriodNotEnded);
-
-        // Has not raised cap
         ensure!(crowdloan.raised < crowdloan.cap, Error::<T>::CapRaised);
-
-        // Has not finalized
         ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
-
         Ok(())
     }
 
     // A crowdloan is considered to have succeeded if it has ended, has raised the cap and
     // has not been finalized.
     fn ensure_crowdloan_succeeded(crowdloan: &CrowdloanInfoOf<T>) -> Result<(), Error<T>> {
-        // Has ended
         let now = frame_system::Pallet::<T>::block_number();
         ensure!(now >= crowdloan.end, Error::<T>::ContributionPeriodNotEnded);
-
-        // Has raised cap
         ensure!(crowdloan.raised == crowdloan.cap, Error::<T>::CapNotRaised);
-
-        // Has not finalized
         ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
-
         Ok(())
     }
 }
