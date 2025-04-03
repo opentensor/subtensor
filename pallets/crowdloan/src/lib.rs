@@ -153,6 +153,7 @@ pub mod pallet {
         ContributionPeriodNotEnded,
         NoContribution,
         CapNotRaised,
+        Underflow,
     }
 
     #[pallet::call]
@@ -180,7 +181,7 @@ pub mod pallet {
             // Ensure the end block is after the current block and the duration is
             // between the minimum and maximum block duration
             ensure!(now < end, Error::<T>::CannotEndInPast);
-            let block_duration = end.checked_sub(&now).expect("checked end after now; qed");
+            let block_duration = end.checked_sub(&now).ok_or(Error::<T>::Underflow)?;
             ensure!(
                 block_duration >= T::MinimumBlockDuration::get(),
                 Error::<T>::BlockDurationTooShort
@@ -258,13 +259,24 @@ pub mod pallet {
                 Error::<T>::ContributionTooLow
             );
 
+            ensure!(crowdloan.raised <= crowdloan.cap, Error::<T>::CapExceeded);
+
             // Ensure contribution does not overflow the actual raised amount
             // and it does not exceed the cap
+            let left_to_raise = crowdloan
+                .cap
+                .checked_sub(&crowdloan.raised)
+                .ok_or(Error::<T>::Underflow)?;
+
+            // If the contribution would raise the amount above the cap,
+            // set the contribution to the amount that is left to be raised
+            let amount = amount.min(left_to_raise);
+
+            // Ensure contribution does not overflow the actual raised amount
             crowdloan.raised = crowdloan
                 .raised
                 .checked_add(&amount)
                 .ok_or(Error::<T>::Overflow)?;
-            ensure!(crowdloan.raised <= crowdloan.cap, Error::<T>::CapExceeded);
 
             // Ensure contribution does not overflow the contributor's total contributions
             let contribution = Contributions::<T>::get(&crowdloan_id, &contributor)
@@ -286,7 +298,6 @@ pub mod pallet {
             )?;
 
             Contributions::<T>::insert(&crowdloan_id, &contributor, contribution);
-
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
 
             Self::deposit_event(Event::<T>::Contributed {

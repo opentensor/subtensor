@@ -480,6 +480,91 @@ fn test_contribute_succeeds() {
 }
 
 #[test]
+fn test_contribute_succeeds_if_contribution_will_make_the_raised_amount_exceed_the_cap() {
+    TestState::default()
+        .with_balance(U256::from(1), 200)
+        .with_balance(U256::from(2), 500)
+        .with_balance(U256::from(3), 200)
+        .build_and_execute(|| {
+            // create a crowdloan
+            let creator: AccountOf<Test> = U256::from(1);
+            let initial_deposit: BalanceOf<Test> = 50;
+            let cap: BalanceOf<Test> = 300;
+            let end: BlockNumberFor<Test> = 50;
+            let target_address: AccountOf<Test> = U256::from(42);
+            assert_ok!(Crowdloan::create(
+                RuntimeOrigin::signed(creator),
+                initial_deposit,
+                cap,
+                end,
+                target_address,
+                noop_call()
+            ));
+
+            // run some blocks
+            run_to_block(10);
+
+            // first contribution to the crowdloan from creator
+            let crowdloan_id: CrowdloanId = 0;
+            let amount: BalanceOf<Test> = 50;
+            assert_ok!(Crowdloan::contribute(
+                RuntimeOrigin::signed(creator),
+                crowdloan_id,
+                amount
+            ));
+            assert_eq!(
+                last_event(),
+                pallet_crowdloan::Event::<Test>::Contributed {
+                    crowdloan_id,
+                    contributor: creator,
+                    amount,
+                }
+                .into()
+            );
+            assert_eq!(
+                pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, creator),
+                Some(100)
+            );
+
+            // second contribution to the crowdloan above the cap
+            let contributor1: AccountOf<Test> = U256::from(2);
+            let amount: BalanceOf<Test> = 300;
+            assert_ok!(Crowdloan::contribute(
+                RuntimeOrigin::signed(contributor1),
+                crowdloan_id,
+                amount
+            ));
+            assert_eq!(
+                last_event(),
+                pallet_crowdloan::Event::<Test>::Contributed {
+                    crowdloan_id,
+                    contributor: contributor1,
+                    amount: 200, // the amount is capped at the cap
+                }
+                .into()
+            );
+            assert_eq!(
+                pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, contributor1),
+                Some(200)
+            );
+
+            // ensure the contributions are present in the crowdloan account up to the cap
+            let crowdloan_account_id: AccountOf<Test> =
+                pallet_crowdloan::Pallet::<Test>::crowdloan_account_id(crowdloan_id);
+            assert_eq!(
+                pallet_balances::Pallet::<Test>::free_balance(&crowdloan_account_id),
+                300
+            );
+
+            // ensure the crowdloan raised amount is updated correctly
+            assert!(
+                pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id)
+                    .is_some_and(|c| c.raised == 300)
+            );
+        });
+}
+
+#[test]
 fn test_contribute_fails_if_bad_origin() {
     TestState::default().build_and_execute(|| {
         let crowdloan_id: CrowdloanId = 0;
@@ -626,41 +711,6 @@ fn test_contribute_fails_if_contribution_is_below_minimum_contribution() {
                 Crowdloan::contribute(RuntimeOrigin::signed(contributor), crowdloan_id, amount),
                 pallet_crowdloan::Error::<Test>::ContributionTooLow
             )
-        });
-}
-
-#[test]
-fn test_contribute_fails_if_contribution_will_make_the_raised_amount_exceed_the_cap() {
-    TestState::default()
-        .with_balance(U256::from(1), 100)
-        .with_balance(U256::from(2), 1000)
-        .build_and_execute(|| {
-            // create a crowdloan
-            let creator: AccountOf<Test> = U256::from(1);
-            let initial_deposit: BalanceOf<Test> = 50;
-            let cap: BalanceOf<Test> = 300;
-            let end: BlockNumberFor<Test> = 50;
-            let target_address: AccountOf<Test> = U256::from(42);
-            assert_ok!(Crowdloan::create(
-                RuntimeOrigin::signed(creator),
-                initial_deposit,
-                cap,
-                end,
-                target_address,
-                noop_call()
-            ));
-
-            // run some blocks
-            run_to_block(10);
-
-            // contribute to the crowdloan
-            let contributor: AccountOf<Test> = U256::from(2);
-            let crowdloan_id: CrowdloanId = 0;
-            let amount: BalanceOf<Test> = 300;
-            assert_err!(
-                Crowdloan::contribute(RuntimeOrigin::signed(contributor), crowdloan_id, amount),
-                pallet_crowdloan::Error::<Test>::CapExceeded
-            );
         });
 }
 
