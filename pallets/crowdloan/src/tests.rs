@@ -1,4 +1,5 @@
 #![cfg(test)]
+#![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 
 use frame_support::{
     PalletId, assert_err, assert_ok, derive_impl, parameter_types,
@@ -81,7 +82,7 @@ impl TestState {
         self
     }
 
-    fn build_and_execute(self, test: impl FnOnce() -> ()) {
+    fn build_and_execute(self, test: impl FnOnce()) {
         let mut t = frame_system::GenesisConfig::<Test>::default()
             .build_storage()
             .unwrap();
@@ -92,7 +93,6 @@ impl TestState {
                 .iter()
                 .map(|(who, balance)| (*who, *balance))
                 .collect::<Vec<_>>(),
-            ..Default::default()
         }
         .assimilate_storage(&mut t)
         .unwrap();
@@ -161,7 +161,7 @@ fn test_create_succeeds() {
             );
             // ensure the crowdloan account has the deposit
             assert_eq!(
-                Balances::free_balance(&pallet_crowdloan::Pallet::<Test>::crowdloan_account_id(
+                Balances::free_balance(pallet_crowdloan::Pallet::<Test>::crowdloan_account_id(
                     crowdloan_id
                 )),
                 deposit
@@ -467,7 +467,7 @@ fn test_contribute_succeeds() {
             let crowdloan_account_id: AccountOf<Test> =
                 pallet_crowdloan::Pallet::<Test>::crowdloan_account_id(crowdloan_id);
             assert_eq!(
-                pallet_balances::Pallet::<Test>::free_balance(&crowdloan_account_id),
+                pallet_balances::Pallet::<Test>::free_balance(crowdloan_account_id),
                 250
             );
 
@@ -552,7 +552,7 @@ fn test_contribute_succeeds_if_contribution_will_make_the_raised_amount_exceed_t
             let crowdloan_account_id: AccountOf<Test> =
                 pallet_crowdloan::Pallet::<Test>::crowdloan_account_id(crowdloan_id);
             assert_eq!(
-                pallet_balances::Pallet::<Test>::free_balance(&crowdloan_account_id),
+                pallet_balances::Pallet::<Test>::free_balance(crowdloan_account_id),
                 300
             );
 
@@ -794,7 +794,7 @@ fn test_withdraw_succeeds() {
                 crowdloan_id
             ));
             // ensure the creator has the correct amount
-            assert_eq!(pallet_balances::Pallet::<Test>::free_balance(&creator), 100);
+            assert_eq!(pallet_balances::Pallet::<Test>::free_balance(creator), 100);
 
             // withdraw from contributor
             assert_ok!(Crowdloan::withdraw(
@@ -804,7 +804,7 @@ fn test_withdraw_succeeds() {
             ));
             // ensure the contributor has the correct amount
             assert_eq!(
-                pallet_balances::Pallet::<Test>::free_balance(&contributor),
+                pallet_balances::Pallet::<Test>::free_balance(contributor),
                 100
             );
 
@@ -812,7 +812,7 @@ fn test_withdraw_succeeds() {
             let crowdloan_account_id: AccountOf<Test> =
                 pallet_crowdloan::Pallet::<Test>::crowdloan_account_id(crowdloan_id);
             assert_eq!(
-                pallet_balances::Pallet::<Test>::free_balance(&crowdloan_account_id),
+                pallet_balances::Pallet::<Test>::free_balance(crowdloan_account_id),
                 0
             );
             // ensure the crowdloan raised amount is updated correctly
@@ -885,11 +885,11 @@ fn test_withdraw_succeeds_for_another_contributor() {
             ));
 
             // ensure the creator has the correct amount
-            assert_eq!(pallet_balances::Pallet::<Test>::free_balance(&creator), 100);
+            assert_eq!(pallet_balances::Pallet::<Test>::free_balance(creator), 100);
 
             // ensure the contributor has the correct amount
             assert_eq!(
-                pallet_balances::Pallet::<Test>::free_balance(&contributor),
+                pallet_balances::Pallet::<Test>::free_balance(contributor),
                 0
             );
 
@@ -897,7 +897,7 @@ fn test_withdraw_succeeds_for_another_contributor() {
             let crowdloan_account_id: AccountOf<Test> =
                 pallet_crowdloan::Pallet::<Test>::crowdloan_account_id(crowdloan_id);
             assert_eq!(
-                pallet_balances::Pallet::<Test>::free_balance(&crowdloan_account_id),
+                pallet_balances::Pallet::<Test>::free_balance(crowdloan_account_id),
                 100
             );
 
@@ -1165,7 +1165,7 @@ fn test_refund_succeeds() {
             let crowdloan_account_id: AccountOf<Test> =
                 pallet_crowdloan::Pallet::<Test>::crowdloan_account_id(crowdloan_id);
             assert_eq!(
-                pallet_balances::Pallet::<Test>::free_balance(&crowdloan_account_id),
+                pallet_balances::Pallet::<Test>::free_balance(crowdloan_account_id),
                 150 // 2 contributors have been refunded so far
             );
             // ensure raised amount is updated correctly
@@ -1190,7 +1190,7 @@ fn test_refund_succeeds() {
 
             // ensure the crowdloan account has the correct amount
             assert_eq!(
-                pallet_balances::Pallet::<Test>::free_balance(&crowdloan_account_id),
+                pallet_balances::Pallet::<Test>::free_balance(crowdloan_account_id),
                 50
             );
             // ensure raised amount is updated correctly
@@ -1215,7 +1215,7 @@ fn test_refund_succeeds() {
 
             // ensure the crowdloan account has the correct amount
             assert_eq!(
-                pallet_balances::Pallet::<Test>::free_balance(&crowdloan_account_id),
+                pallet_balances::Pallet::<Test>::free_balance(crowdloan_account_id),
                 0
             );
             // ensure the raised amount is updated correctly
@@ -1230,23 +1230,23 @@ fn test_refund_succeeds() {
             );
 
             // ensure creator has the correct amount
-            assert_eq!(pallet_balances::Pallet::<Test>::free_balance(&creator), 100);
+            assert_eq!(pallet_balances::Pallet::<Test>::free_balance(creator), 100);
 
             // ensure each contributor has been refunded
             assert_eq!(
-                pallet_balances::Pallet::<Test>::free_balance(&contributor),
+                pallet_balances::Pallet::<Test>::free_balance(contributor),
                 100
             );
             assert_eq!(
-                pallet_balances::Pallet::<Test>::free_balance(&contributor2),
+                pallet_balances::Pallet::<Test>::free_balance(contributor2),
                 100
             );
             assert_eq!(
-                pallet_balances::Pallet::<Test>::free_balance(&contributor3),
+                pallet_balances::Pallet::<Test>::free_balance(contributor3),
                 100
             );
             assert_eq!(
-                pallet_balances::Pallet::<Test>::free_balance(&contributor4),
+                pallet_balances::Pallet::<Test>::free_balance(contributor4),
                 100
             );
         })
@@ -1419,7 +1419,7 @@ fn test_finalize_succeeds() {
 
             // ensure the crowdloan account has the correct amount
             assert_eq!(
-                pallet_balances::Pallet::<Test>::free_balance(&target_address),
+                pallet_balances::Pallet::<Test>::free_balance(target_address),
                 100
             );
 

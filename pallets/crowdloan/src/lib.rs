@@ -15,6 +15,7 @@ use frame_system::pallet_prelude::*;
 use scale_info::TypeInfo;
 
 pub use pallet::*;
+use subtensor_macros::freeze_struct;
 
 type CrowdloanId = u32;
 
@@ -23,6 +24,7 @@ mod tests;
 type CurrencyOf<T> = <T as Config>::Currency;
 type BalanceOf<T> = <CurrencyOf<T> as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
+#[freeze_struct("f7387ea6541ffbae")]
 #[derive(Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct CrowdloanInfo<AccountId, Balance, BlockNumber, RuntimeCall> {
     pub creator: AccountId,
@@ -201,7 +203,7 @@ pub mod pallet {
             let next_crowdloan_id = crowdloan_id.checked_add(1).ok_or(Error::<T>::Overflow)?;
 
             Crowdloans::<T>::insert(
-                &crowdloan_id,
+                crowdloan_id,
                 CrowdloanInfo {
                     creator: creator.clone(),
                     deposit,
@@ -225,7 +227,7 @@ pub mod pallet {
                 ExistenceRequirement::AllowDeath,
             )?;
 
-            Contributions::<T>::insert(&crowdloan_id, &creator, deposit);
+            Contributions::<T>::insert(crowdloan_id, &creator, deposit);
 
             Self::deposit_event(Event::<T>::Created {
                 crowdloan_id,
@@ -279,7 +281,7 @@ pub mod pallet {
                 .ok_or(Error::<T>::Overflow)?;
 
             // Ensure contribution does not overflow the contributor's total contributions
-            let contribution = Contributions::<T>::get(&crowdloan_id, &contributor)
+            let contribution = Contributions::<T>::get(crowdloan_id, &contributor)
                 .unwrap_or(Zero::zero())
                 .checked_add(&amount)
                 .ok_or(Error::<T>::Overflow)?;
@@ -297,7 +299,7 @@ pub mod pallet {
                 ExistenceRequirement::AllowDeath,
             )?;
 
-            Contributions::<T>::insert(&crowdloan_id, &contributor, contribution);
+            Contributions::<T>::insert(crowdloan_id, &contributor, contribution);
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
 
             Self::deposit_event(Event::<T>::Contributed {
@@ -321,8 +323,8 @@ pub mod pallet {
             Self::ensure_crowdloan_failed(&crowdloan)?;
 
             // Ensure contributor has balance left in the crowdloan account
-            let amount = Contributions::<T>::get(&crowdloan_id, &contributor)
-                .unwrap_or_else(|| Zero::zero());
+            let amount =
+                Contributions::<T>::get(crowdloan_id, &contributor).unwrap_or_else(Zero::zero);
             ensure!(amount > Zero::zero(), Error::<T>::NoContribution);
 
             CurrencyOf::<T>::transfer(
@@ -334,7 +336,7 @@ pub mod pallet {
 
             // Remove the contribution from the contributions map and update
             // refunds so far
-            Contributions::<T>::remove(&crowdloan_id, &contributor);
+            Contributions::<T>::remove(crowdloan_id, &contributor);
             crowdloan.raised = crowdloan.raised.saturating_sub(amount);
 
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
@@ -380,14 +382,14 @@ pub mod pallet {
 
                 refunded_contributors.push(contributor);
                 crowdloan.raised = crowdloan.raised.saturating_sub(amount);
-                refund_count += 1;
+                refund_count = refund_count.checked_add(1).ok_or(Error::<T>::Overflow)?;
             }
 
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
 
             // Clear refunded contributors
             for contributor in refunded_contributors {
-                Contributions::<T>::remove(&crowdloan_id, &contributor);
+                Contributions::<T>::remove(crowdloan_id, &contributor);
             }
 
             if all_refunded {
