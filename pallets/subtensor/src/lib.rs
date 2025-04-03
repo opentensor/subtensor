@@ -268,7 +268,6 @@ pub mod pallet {
         /// Additional information about the subnet
         pub additional: Vec<u8>,
     }
-
     /// ============================
     /// ==== Staking + Accounts ====
     /// ============================
