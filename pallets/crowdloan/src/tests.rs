@@ -77,7 +77,7 @@ mod pallet_test {
 
     #[pallet::error]
     pub enum Error<T> {
-        SomeError,
+        ShouldFail,
         MissingCurrentCrowdloanId,
     }
 
@@ -101,7 +101,7 @@ mod pallet_test {
 
         #[pallet::call_index(2)]
         pub fn failing_extrinsic(origin: OriginFor<T>) -> DispatchResult {
-            Err(Error::<T>::SomeError.into())
+            Err(Error::<T>::ShouldFail.into())
         }
     }
 }
@@ -1748,7 +1748,7 @@ fn test_finalize_fails_if_call_fails() {
             // try finalize the crowdloan
             assert_err!(
                 Crowdloan::finalize(RuntimeOrigin::signed(creator), crowdloan_id),
-                pallet_test::Error::<Test>::SomeError
+                pallet_test::Error::<Test>::ShouldFail
             );
         });
 }

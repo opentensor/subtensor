@@ -1,11 +1,13 @@
-#![cfg_attr(not(feature = "std"), no_std)]
-
 //! # Crowdloan Pallet
 //!
 //! A pallet allowing users to create generic crowdloans and contribute to them,
 //! the raised funds are then transferred to a target address and an extrinsic
 //! is dispatched, making it reusable for any crowdloan type.
+#![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec};
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::*;
 use frame_support::{
@@ -31,8 +33,8 @@ type CurrencyOf<T> = <T as Config>::Currency;
 type BalanceOf<T> = <CurrencyOf<T> as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// A struct containing the information about a crowdloan.
-#[freeze_struct("175f314cf5c0cebc")]
-#[derive(Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[freeze_struct("64e250b23f674ef5")]
+#[derive(Encode, Decode, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo)]
 pub struct CrowdloanInfo<AccountId, Balance, BlockNumber, RuntimeCall> {
     /// The creator of the crowdloan.
     pub creator: AccountId,
