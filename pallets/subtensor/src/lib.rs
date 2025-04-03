@@ -77,7 +77,7 @@ pub mod pallet {
     };
     use frame_system::pallet_prelude::*;
     use pallet_drand::types::RoundNumber;
-    use sp_core::{ConstU32, H256};
+    use sp_core::{ConstU32, H160, H256};
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::collections::vec_deque::VecDeque;
     use sp_std::vec;
@@ -1560,6 +1560,14 @@ pub mod pallet {
         u64,
         OptionQuery,
     >;
+
+    /// =============================
+    /// ==== EVM related storage ====
+    /// =============================
+    #[pallet::storage]
+    /// --- DMAP (netuid, uid) --> (H160, last_block_where_ownership_was_proven)
+    pub type AssociatedEvmAddress<T: Config> =
+        StorageDoubleMap<_, Twox64Concat, u16, Twox64Concat, u16, (H160, u64), OptionQuery>;
 
     /// ==================
     /// ==== Genesis =====

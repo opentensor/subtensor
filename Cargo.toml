@@ -67,6 +67,7 @@ futures = "0.3.30"
 hex = { version = "0.4", default-features = false }
 hex-literal = "0.4.1"
 jsonrpsee = { version = "0.24.4", default-features = false }
+libsecp256k1 = { version = "0.7.2", default-features = false }
 log = { version = "0.4.21", default-features = false }
 memmap2 = "0.9.4"
 ndarray = { version = "0.15.6", default-features = false }
