@@ -14,7 +14,6 @@ while [ $i -le 1000 ]; do
   i=$((i + 1))
 done
 
-
 # port not available exit with error
 if [ "$i" -eq 1000 ]; then
     exit 1
@@ -41,4 +40,4 @@ fi
 
 pkill node-subtensor
 
-exit 1
+exit 0

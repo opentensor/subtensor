@@ -40,6 +40,5 @@ jobs:
       - name: Run tests
         working-directory: ${{ github.workspace }}
         run: |
-          echo "++++++++++++++++"
           npm install --global yarn
           ./evm-tests/run-ci.sh
