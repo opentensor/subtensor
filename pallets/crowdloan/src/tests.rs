@@ -20,6 +20,7 @@ frame_support::construct_runtime!(
       System: frame_system = 1,
       Balances: pallet_balances = 2,
       Crowdloan: pallet_crowdloan = 3,
+      TestPallet: pallet_test = 4,
     }
 );
 
@@ -56,6 +57,56 @@ impl pallet_crowdloan::Config for Test {
     type MaximumBlockDuration = MaximumBlockDuration;
     type RefundContributorsLimit = RefundContributorsLimit;
 }
+
+// A test pallet used to test some behavior of the crowdloan pallet
+#[allow(unused)]
+#[frame_support::pallet(dev_mode)]
+mod pallet_test {
+    use super::*;
+    use frame_support::{
+        dispatch::DispatchResult,
+        pallet_prelude::{OptionQuery, StorageValue},
+    };
+    use frame_system::pallet_prelude::OriginFor;
+
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
+
+    #[pallet::config]
+    pub trait Config: frame_system::Config + pallet_crowdloan::Config {}
+
+    #[pallet::error]
+    pub enum Error<T> {
+        SomeError,
+        MissingCurrentCrowdloanId,
+    }
+
+    #[pallet::storage]
+    pub type PassedCrowdloanId<T: Config> = StorageValue<_, CrowdloanId, OptionQuery>;
+
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
+        #[pallet::call_index(0)]
+        pub fn noop(origin: OriginFor<T>) -> DispatchResult {
+            Ok(())
+        }
+
+        #[pallet::call_index(1)]
+        pub fn set_passed_crowdloan_id(origin: OriginFor<T>) -> DispatchResult {
+            let crowdloan_id = pallet_crowdloan::CurrentCrowdloanId::<T>::get()
+                .ok_or(Error::<T>::MissingCurrentCrowdloanId)?;
+            PassedCrowdloanId::<T>::put(crowdloan_id);
+            Ok(())
+        }
+
+        #[pallet::call_index(2)]
+        pub fn failing_extrinsic(origin: OriginFor<T>) -> DispatchResult {
+            Err(Error::<T>::SomeError.into())
+        }
+    }
+}
+
+impl pallet_test::Config for Test {}
 
 pub(crate) struct TestState {
     block_number: BlockNumberFor<Test>,
@@ -119,9 +170,7 @@ pub(crate) fn run_to_block(n: u64) {
 }
 
 fn noop_call() -> Box<RuntimeCall> {
-    Box::new(RuntimeCall::System(frame_system::Call::<Test>::remark {
-        remark: vec![],
-    }))
+    Box::new(RuntimeCall::TestPallet(pallet_test::Call::<Test>::noop {}))
 }
 
 #[test]
@@ -1392,7 +1441,9 @@ fn test_finalize_succeeds() {
                 cap,
                 end,
                 target_address,
-                noop_call()
+                Box::new(RuntimeCall::TestPallet(
+                    pallet_test::Call::<Test>::set_passed_crowdloan_id {}
+                ))
             ));
 
             // run some blocks
@@ -1417,7 +1468,7 @@ fn test_finalize_succeeds() {
                 crowdloan_id
             ));
 
-            // ensure the crowdloan account has the correct amount
+            // ensure the target address has received the funds
             assert_eq!(
                 pallet_balances::Pallet::<Test>::free_balance(target_address),
                 100
@@ -1427,6 +1478,12 @@ fn test_finalize_succeeds() {
             assert_eq!(
                 last_event(),
                 pallet_crowdloan::Event::<Test>::Finalized { crowdloan_id }.into()
+            );
+
+            // ensure the current crowdloan id was accessible from the dispatched call
+            assert_eq!(
+                pallet_test::PassedCrowdloanId::<Test>::get(),
+                Some(crowdloan_id)
             );
         })
 }
@@ -1645,6 +1702,53 @@ fn test_finalize_fails_if_not_creator_origin() {
             assert_err!(
                 Crowdloan::finalize(RuntimeOrigin::signed(contributor), crowdloan_id),
                 pallet_crowdloan::Error::<Test>::ExpectedCreatorOrigin
+            );
+        });
+}
+
+#[test]
+fn test_finalize_fails_if_call_fails() {
+    TestState::default()
+        .with_balance(U256::from(1), 100)
+        .with_balance(U256::from(2), 100)
+        .build_and_execute(|| {
+            // create a crowdloan
+            let creator: AccountOf<Test> = U256::from(1);
+            let deposit: BalanceOf<Test> = 50;
+            let cap: BalanceOf<Test> = 100;
+            let end: BlockNumberFor<Test> = 50;
+            let target_address: AccountOf<Test> = U256::from(42);
+            assert_ok!(Crowdloan::create(
+                RuntimeOrigin::signed(creator),
+                deposit,
+                cap,
+                end,
+                target_address,
+                Box::new(RuntimeCall::TestPallet(
+                    pallet_test::Call::<Test>::failing_extrinsic {}
+                ))
+            ));
+
+            // run some blocks
+            run_to_block(10);
+
+            // some contribution
+            let crowdloan_id: CrowdloanId = 0;
+            let contributor: AccountOf<Test> = U256::from(2);
+            let amount: BalanceOf<Test> = 50;
+            assert_ok!(Crowdloan::contribute(
+                RuntimeOrigin::signed(contributor),
+                crowdloan_id,
+                amount
+            ));
+
+            // run some more blocks past the end of the contribution period
+            run_to_block(60);
+
+            // try finalize the crowdloan
+            assert_err!(
+                Crowdloan::finalize(RuntimeOrigin::signed(creator), crowdloan_id),
+                pallet_test::Error::<Test>::SomeError
             );
         });
 }
