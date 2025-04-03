@@ -31,5 +31,14 @@ sh get-metadata.sh
 sleep 5
 
 yarn run test
+TEST_EXIT_CODE=$?
+
+if [ $TEST_EXIT_CODE -ne 0 ]; then
+    echo "Tests failed with exit code $TEST_EXIT_CODE"
+    pkill node-subtensor
+    exit $TEST_EXIT_CODE
+fi
 
 pkill node-subtensor
+
+exit 1
