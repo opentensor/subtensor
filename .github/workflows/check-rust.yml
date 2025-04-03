@@ -1,0 +1,185 @@
+name: Check Rust
+
+concurrency:
+  group: check-rust-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+
+  ## Allow running workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      verbose:
+        description: "Output more information when triggered manually"
+        required: false
+        default: ""
+
+env:
+  CARGO_TERM_COLOR: always
+  VERBOSE: ${{ github.events.input.verbose }}
+
+jobs:
+  # runs cargo fmt
+  cargo-fmt:
+    name: cargo fmt
+    runs-on: SubtensorCI
+    env:
+      RUST_BACKTRACE: full
+    steps:
+      - name: Check-out repository under $GITHUB_WORKSPACE
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential
+
+      - name: Install Rust Nightly
+        run: |
+          rustup install nightly
+          rustup component add --toolchain nightly-x86_64-unknown-linux-gnu rustfmt
+
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: cargo fmt
+        run: cargo +nightly fmt --check --all
+
+  cargo-clippy-default-features:
+    name: cargo clippy
+    runs-on: SubtensorCI
+    env:
+      RUST_BACKTRACE: full
+      SKIP_WASM_BUILD: 1
+    steps:
+      - name: Check-out repository under $GITHUB_WORKSPACE
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update &&
+          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
+
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+  cargo-check-lints:
+    name: check custom lints
+    runs-on: SubtensorCI
+    env:
+      RUSTFLAGS: -D warnings
+      RUST_BACKTRACE: full
+      SKIP_WASM_BUILD: 1
+    steps:
+      - name: Check-out repository under $GITHUB_WORKSPACE
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update &&
+          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
+
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: check lints
+        run: |
+          set -o pipefail
+          cargo check 2>&1 | sed -r "s/\x1B\[[0-9;]*[mK]//g" | grep "warning:" && exit 1
+          echo "No warnings found."
+
+  cargo-clippy-all-features:
+    name: cargo clippy --all-features
+    runs-on: SubtensorCI
+    env:
+      RUST_BACKTRACE: full
+      SKIP_WASM_BUILD: 1
+    steps:
+      - name: Check-out repository under $GITHUB_WORKSPACE
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update &&
+          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
+
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: cargo clippy --workspace --all-targets --all-features -- -D warnings
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  # runs cargo test --workspace --all-features
+  cargo-test:
+    name: cargo test
+    runs-on: SubtensorCI
+    env:
+      RUST_BACKTRACE: full
+      SKIP_WASM_BUILD: 1
+    steps:
+      - name: Check-out repository under $GITHUB_WORKSPACE
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update &&
+          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
+
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: cargo test --workspace --all-features
+        run: cargo test --workspace --all-features
+
+  # ensures cargo fix has no trivial changes that can be applied
+  cargo-fix:
+    name: cargo fix
+    runs-on: SubtensorCI
+    env:
+      RUST_BACKTRACE: full
+      SKIP_WASM_BUILD: 1
+    steps:
+      - name: Check-out repository under $GITHUB_WORKSPACE
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update &&
+          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
+
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: cargo fix --workspace
+        run: |
+          # Run cargo fix on the project
+          cargo fix --workspace
+
+          # Check for local git changes
+          if ! git diff --exit-code; then
+              echo "There are local changes after running 'cargo fix --workspace' ❌"
+              exit 1
+          else
+              echo "No changes detected after running 'cargo fix --workspace' ✅"
+          fi
+
+  check-feature-propagation:
+    name: zepter run check
+    runs-on: SubtensorCI
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Dont clone historic commits.
+
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Zepter
+        run: cargo install --locked -q zepter && zepter --version
+
+      - name: Check features
+        run: zepter run check
