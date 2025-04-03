@@ -3,7 +3,7 @@
 //! # Crowdloan Pallet
 //!
 //! A pallet allowing users to create generic crowdloans and contribute to them,
-//! the raised funds are then dispatched to a target address and an extrinsic
+//! the raised funds are then transferred to a target address and an extrinsic
 //! is dispatched, making it reusable for any crowdloan type.
 
 use codec::{Decode, Encode};
