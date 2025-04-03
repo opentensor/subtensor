@@ -54,7 +54,7 @@ impl<T: Config> SwapStep<T> {
         let one = U64F64::from_num(1);
         let current_price = AlphaSqrtPrice::<T>::get(netuid);
         let current_liquidity = Pallet::<T>::current_liquidity_safe(netuid);
-        let sqrt_price_edge = Pallet::<T>::sqrt_price_edge(current_price, order_type);
+        let sqrt_price_edge = Pallet::<T>::sqrt_price_edge(netuid, current_price, order_type);
 
         let possible_delta_in = amount_remaining
             .saturating_sub(Pallet::<T>::calculate_fee_amount(netuid, amount_remaining));
@@ -74,10 +74,22 @@ impl<T: Config> SwapStep<T> {
         );
 
         // Quantities for comparison
-        let edge_quantity = one.safe_div(sqrt_price_edge.into());
-        let lim_quantity = one
-            .safe_div(T::MinSqrtPrice::get())
-            .saturating_add(one.safe_div(sqrt_price_limit.into()));
+        let edge_quantity = match order_type {
+            OrderType::Buy => sqrt_price_edge.into(),
+            OrderType::Sell => one.safe_div(sqrt_price_edge.into()),
+        };
+        let mut lim_quantity = match order_type {
+            OrderType::Buy => one
+                .safe_div(T::MinSqrtPrice::get())
+                .min(one.safe_div(sqrt_price_limit.into())),
+            OrderType::Sell => T::MaxSqrtPrice::get().min(sqrt_price_limit.into()),
+        };
+        if lim_quantity < one.safe_div(current_price) {
+            lim_quantity = match order_type {
+                OrderType::Buy => one.safe_div(T::MinSqrtPrice::get()),
+                OrderType::Sell => T::MaxSqrtPrice::get(),
+            };
+        }
 
         Self {
             netuid,
@@ -368,24 +380,45 @@ impl<T: Config> Pallet<T> {
     ///
     /// If anything is wrong with tick math and it returns Err, we just abort the deal, i.e. return
     /// the edge that is impossible to execute
-    fn sqrt_price_edge(current_price: U64F64, order_type: OrderType) -> SqrtPrice {
-        let fallback_price_edge_value = (match order_type {
-            OrderType::Buy => TickIndex::MIN.try_to_sqrt_price(),
-            OrderType::Sell => TickIndex::MAX.try_to_sqrt_price(),
-        })
-        .unwrap_or(SqrtPrice::from_num(0));
+    fn sqrt_price_edge(netuid: NetUid, current_price: U64F64, order_type: OrderType) -> SqrtPrice {
+        // Current price falls into a tick that may or may not be active. This tick represents
+        // the set of prices [tick_min_price, tick_max_price) (excluding the tick_max_price point).
+        //
+        // If this tick is active:
+        //    the lower edge (for sell order) is the tick_min_price,
+        //    the higher edge (for buy order) is the tick_max_price
+        //
+        // If this tick is not active:
+        //    the lower edge (for sell order) is the lower active tick low price
+        //    the higher edge (for buy order) is the higher active tick low price
+        //
 
-        TickIndex::try_from_sqrt_price(current_price)
-            .and_then(|current_tick_index| {
-                match order_type {
-                    OrderType::Buy => {
-                        TickIndex::new_unchecked(current_tick_index.get().saturating_add(1))
-                    }
-                    OrderType::Sell => current_tick_index,
+        let fallback_tick = match order_type {
+            OrderType::Buy => TickIndex::MIN,
+            OrderType::Sell => TickIndex::MAX,
+        };
+
+        let current_price_tick =
+            TickIndex::try_from_sqrt_price(current_price).unwrap_or(fallback_tick);
+
+        (match order_type {
+            OrderType::Buy => {
+                let higher_tick =
+                    Pallet::<T>::find_closest_higher_active_tick_index(netuid, current_price_tick)
+                        .unwrap_or(TickIndex::MAX);
+                if higher_tick < TickIndex::MAX {
+                    higher_tick.saturating_add(1)
+                } else {
+                    higher_tick
                 }
-                .try_to_sqrt_price()
-            })
-            .unwrap_or(fallback_price_edge_value)
+            }
+            OrderType::Sell => {
+                Pallet::<T>::find_closest_lower_active_tick_index(netuid, current_price_tick)
+                    .unwrap_or(TickIndex::MIN)
+            }
+        })
+        .try_to_sqrt_price()
+        .unwrap_or(SqrtPrice::from_num(0))
     }
 
     /// Calculate fee amount
@@ -574,6 +607,20 @@ impl<T: Config> Pallet<T> {
     pub fn find_closest_higher_active_tick(netuid: NetUid, index: TickIndex) -> Option<Tick> {
         ActiveTickIndexManager::find_closest_higher::<T>(netuid, index)
             .and_then(|ti| Ticks::<T>::get(netuid, ti))
+    }
+
+    pub fn find_closest_lower_active_tick_index(
+        netuid: NetUid,
+        index: TickIndex,
+    ) -> Option<TickIndex> {
+        ActiveTickIndexManager::find_closest_lower::<T>(netuid, index)
+    }
+
+    pub fn find_closest_higher_active_tick_index(
+        netuid: NetUid,
+        index: TickIndex,
+    ) -> Option<TickIndex> {
+        ActiveTickIndexManager::find_closest_higher::<T>(netuid, index)
     }
 
     /// Here we subtract minimum safe liquidity from current liquidity to stay in the safe range
@@ -1293,110 +1340,110 @@ mod tests {
         });
     }
 
+    // cargo test --package pallet-subtensor-swap --lib -- pallet::impls::tests::test_swap_basic --exact --show-output
     #[test]
     fn test_swap_basic() {
         new_test_ext().execute_with(|| {
             // Current price is 0.25
             // Test case is (order_type, liquidity, limit_price, output_amount)
-            [(OrderType::Buy, 500_000_000u64, 1000.0_f64, 3990_u64)]
-                .into_iter()
-                .enumerate()
-                .map(|(n, v)| (NetUid::from(n as u16), v.0, v.1, v.2, v.3))
-                .for_each(
-                    |(netuid, order_type, liquidity, limit_price, output_amount)| {
-                        // Consumed liquidity ticks
-                        let tick_low = TickIndex::MIN;
-                        let tick_high = TickIndex::MAX;
+            [
+                (OrderType::Buy, 1_000u64, 1000.0_f64, 3990_u64),
+                (OrderType::Sell, 1_000u64, 0.0001_f64, 250_u64),
+                (OrderType::Buy, 500_000_000, 1000.0, 1_330_000_000),
+            ]
+            .into_iter()
+            .enumerate()
+            .map(|(n, v)| (NetUid::from(n as u16), v.0, v.1, v.2, v.3))
+            .for_each(
+                |(netuid, order_type, liquidity, limit_price, output_amount)| {
+                    // Consumed liquidity ticks
+                    let tick_low = TickIndex::MIN;
+                    let tick_high = TickIndex::MAX;
 
-                        // Setup swap
-                        assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+                    // Setup swap
+                    assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
 
-                        // Get tick infos before the swap
-                        let tick_low_info_before =
-                            Ticks::<Test>::get(netuid, tick_low).unwrap_or_default();
-                        let tick_high_info_before =
-                            Ticks::<Test>::get(netuid, tick_high).unwrap_or_default();
-                        let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
+                    // Get tick infos before the swap
+                    let tick_low_info_before =
+                        Ticks::<Test>::get(netuid, tick_low).unwrap_or_default();
+                    let tick_high_info_before =
+                        Ticks::<Test>::get(netuid, tick_high).unwrap_or_default();
+                    let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
 
-                        // Swap
-                        let sqrt_limit_price = SqrtPrice::from_num((limit_price).sqrt());
-                        let swap_result =
-                            Pallet::<Test>::swap(netuid, order_type, liquidity, sqrt_limit_price);
-                        // assert_abs_diff_eq!(
-                        //     swap_result.unwrap().amount_paid_out,
-                        //     *output_amount,
-                        //     epsilon = *output_amount/1000
-                        // );
+                    // Swap
+                    let sqrt_limit_price = SqrtPrice::from_num((limit_price).sqrt());
+                    let swap_result =
+                        Pallet::<Test>::swap(netuid, order_type, liquidity, sqrt_limit_price);
+                    assert_abs_diff_eq!(
+                        swap_result.unwrap().amount_paid_out,
+                        output_amount,
+                        epsilon = output_amount / 100
+                    );
 
-                        // Check that low and high ticks' fees were updated properly, and liquidity values were not updated
-                        let tick_low_info = Ticks::<Test>::get(netuid, tick_low).unwrap();
-                        let tick_high_info = Ticks::<Test>::get(netuid, tick_high).unwrap();
-                        let expected_liquidity_net_low = tick_low_info_before.liquidity_net;
-                        let expected_liquidity_gross_low = tick_low_info_before.liquidity_gross;
-                        let expected_liquidity_net_high = tick_high_info_before.liquidity_net;
-                        let expected_liquidity_gross_high = tick_high_info_before.liquidity_gross;
-                        assert_eq!(tick_low_info.liquidity_net, expected_liquidity_net_low,);
-                        assert_eq!(tick_low_info.liquidity_gross, expected_liquidity_gross_low,);
-                        assert_eq!(tick_high_info.liquidity_net, expected_liquidity_net_high,);
-                        assert_eq!(
-                            tick_high_info.liquidity_gross,
-                            expected_liquidity_gross_high,
-                        );
+                    // Check that low and high ticks' fees were updated properly, and liquidity values were not updated
+                    let tick_low_info = Ticks::<Test>::get(netuid, tick_low).unwrap();
+                    let tick_high_info = Ticks::<Test>::get(netuid, tick_high).unwrap();
+                    let expected_liquidity_net_low = tick_low_info_before.liquidity_net;
+                    let expected_liquidity_gross_low = tick_low_info_before.liquidity_gross;
+                    let expected_liquidity_net_high = tick_high_info_before.liquidity_net;
+                    let expected_liquidity_gross_high = tick_high_info_before.liquidity_gross;
+                    assert_eq!(tick_low_info.liquidity_net, expected_liquidity_net_low,);
+                    assert_eq!(tick_low_info.liquidity_gross, expected_liquidity_gross_low,);
+                    assert_eq!(tick_high_info.liquidity_net, expected_liquidity_net_high,);
+                    assert_eq!(
+                        tick_high_info.liquidity_gross,
+                        expected_liquidity_gross_high,
+                    );
 
-                        // Expected fee amount
-                        let fee_rate = FeeRate::<Test>::get(netuid) as f64 / u16::MAX as f64;
-                        let expected_fee = (output_amount as f64 * fee_rate) as u64;
+                    // Expected fee amount
+                    let fee_rate = FeeRate::<Test>::get(netuid) as f64 / u16::MAX as f64;
+                    let expected_fee = (liquidity as f64 * fee_rate) as u64;
 
-                        // Global fees should be updated
-                        let actual_global_fee = match order_type {
-                            OrderType::Buy => FeeGlobalAlpha::<Test>::get(netuid),
-                            OrderType::Sell => FeeGlobalTao::<Test>::get(netuid),
-                        };
-                        println!("actual_global_fee {:?}", actual_global_fee);
-                        assert_eq!(actual_global_fee, expected_fee);
+                    // Global fees should be updated
+                    let actual_global_fee = ((match order_type {
+                        OrderType::Buy => FeeGlobalAlpha::<Test>::get(netuid),
+                        OrderType::Sell => FeeGlobalTao::<Test>::get(netuid),
+                    })
+                    .to_num::<f64>()
+                        * (liquidity_before as f64))
+                        as u64;
+                    assert_eq!(actual_global_fee, expected_fee);
 
-                        // Tick fees should be updated
+                    // Tick fees should be updated
 
-                        // Liquidity position should not be updated
-                        let protocol_id = Pallet::<Test>::protocol_account_id();
-                        let positions =
-                            Positions::<Test>::iter_prefix_values((netuid, protocol_id))
-                                .collect::<Vec<_>>();
-                        let position = positions.first().unwrap();
+                    // Liquidity position should not be updated
+                    let protocol_id = Pallet::<Test>::protocol_account_id();
+                    let positions = Positions::<Test>::iter_prefix_values((netuid, protocol_id))
+                        .collect::<Vec<_>>();
+                    let position = positions.first().unwrap();
 
-                        assert_eq!(
-                            position.liquidity,
-                            helpers_128bit::sqrt(
-                                MockLiquidityProvider::tao_reserve(netuid.into()) as u128
-                                    * MockLiquidityProvider::alpha_reserve(netuid.into()) as u128
-                            ) as u64
-                        );
-                        assert_eq!(position.tick_low, tick_low);
-                        assert_eq!(position.tick_high, tick_high);
-                        assert_eq!(position.fees_alpha, 0);
-                        assert_eq!(position.fees_tao, 0);
+                    assert_eq!(
+                        position.liquidity,
+                        helpers_128bit::sqrt(
+                            MockLiquidityProvider::tao_reserve(netuid.into()) as u128
+                                * MockLiquidityProvider::alpha_reserve(netuid.into()) as u128
+                        ) as u64
+                    );
+                    assert_eq!(position.tick_low, tick_low);
+                    assert_eq!(position.tick_high, tick_high);
+                    assert_eq!(position.fees_alpha, 0);
+                    assert_eq!(position.fees_tao, 0);
 
-                        // // Current liquidity is updated only when price range includes the current price
-                        // if (*price_high >= current_price) && (*price_low <= current_price) {
-                        //     assert_eq!(
-                        //         swap.state_ops.get_current_liquidity(),
-                        //         liquidity_before + *liquidity
-                        //     );
-                        // } else {
-                        //     assert_eq!(swap.state_ops.get_current_liquidity(), liquidity_before);
-                        // }
+                    // Current liquidity is not updated
+                    assert_eq!(CurrentLiquidity::<Test>::get(netuid), liquidity_before);
 
-                        // // Reserves are updated
-                        // assert_eq!(
-                        //     swap.state_ops.get_tao_reserve(),
-                        //     tao_withdrawn + protocol_tao,
-                        // );
-                        // assert_eq!(
-                        //     swap.state_ops.get_alpha_reserve(),
-                        //     alpha_withdrawn + protocol_alpha,
-                        // );
-                    },
-                );
+                    // Reserves are updated
+                    // TODO: Add the test
+                    // assert_eq!(
+                    //     swap.state_ops.get_tao_reserve(),
+                    //     tao_withdrawn + protocol_tao,
+                    // );
+                    // assert_eq!(
+                    //     swap.state_ops.get_alpha_reserve(),
+                    //     alpha_withdrawn + protocol_alpha,
+                    // );
+                },
+            );
         });
     }
 }
