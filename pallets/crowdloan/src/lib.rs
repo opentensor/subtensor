@@ -1,5 +1,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+//! # Crowdloan Pallet
+//!
+//! A pallet allowing users to create generic crowdloans and contribute to them,
+//! the raised funds are then dispatched to a target address and an extrinsic
+//! is dispatched, making it reusable for any crowdloan type.
+
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::*;
 use frame_support::{
@@ -24,16 +30,25 @@ mod tests;
 type CurrencyOf<T> = <T as Config>::Currency;
 type BalanceOf<T> = <CurrencyOf<T> as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-#[freeze_struct("f7387ea6541ffbae")]
+/// A struct containing the information about a crowdloan.
+#[freeze_struct("175f314cf5c0cebc")]
 #[derive(Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct CrowdloanInfo<AccountId, Balance, BlockNumber, RuntimeCall> {
+    /// The creator of the crowdloan.
     pub creator: AccountId,
+    /// The initial deposit of the crowdloan from the creator.
     pub deposit: Balance,
+    /// The end block of the crowdloan.
     pub end: BlockNumber,
+    /// The cap to raise.
     pub cap: Balance,
+    /// The amount raised so far.
     pub raised: Balance,
+    /// The target address to transfer the raised funds to.
     pub target_address: AccountId,
+    /// The call to dispatch when the crowdloan is finalized.
     pub call: Box<RuntimeCall>,
+    /// Whether the crowdloan has been finalized.
     pub finalized: bool,
 }
 
@@ -53,10 +68,13 @@ pub mod pallet {
     #[pallet::pallet]
     pub struct Pallet<T>(_);
 
+    /// Configuration trait.
     #[pallet::config]
     pub trait Config: frame_system::Config {
+        /// The overarching event type.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
+        /// The overarching call type.
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
             + GetDispatchInfo
@@ -64,34 +82,44 @@ pub mod pallet {
             + IsSubType<Call<Self>>
             + IsType<<Self as frame_system::Config>::RuntimeCall>;
 
+        /// The currency mechanism.
         type Currency: ReservableCurrency<Self::AccountId>;
 
+        /// The pallet id that will be used to derive crowdloan account ids.
         #[pallet::constant]
         type PalletId: Get<PalletId>;
 
+        /// The minimum deposit required to create a crowdloan.
         #[pallet::constant]
         type MinimumDeposit: Get<BalanceOf<Self>>;
 
+        /// The minimum contribution required to contribute to a crowdloan.
         #[pallet::constant]
         type MinimumContribution: Get<BalanceOf<Self>>;
 
+        /// The minimum block duration for a crowdloan.
         #[pallet::constant]
         type MinimumBlockDuration: Get<BlockNumberFor<Self>>;
 
+        /// The maximum block duration for a crowdloan.
         #[pallet::constant]
         type MaximumBlockDuration: Get<BlockNumberFor<Self>>;
 
+        /// The maximum number of contributors that can be refunded in a single refund.
         #[pallet::constant]
         type RefundContributorsLimit: Get<u32>;
     }
 
+    /// A map of crowdloan ids to their information.
     #[pallet::storage]
     pub type Crowdloans<T: Config> =
         StorageMap<_, Identity, CrowdloanId, CrowdloanInfoOf<T>, OptionQuery>;
 
+    /// The next incrementing crowdloan id.
     #[pallet::storage]
     pub type NextCrowdloanId<T> = StorageValue<_, CrowdloanId, ValueQuery, ConstU32<0>>;
 
+    /// A map of crowdloan ids to their contributors and their contributions.
     #[pallet::storage]
     pub type Contributions<T: Config> = StorageDoubleMap<
         _,
@@ -103,64 +131,95 @@ pub mod pallet {
         OptionQuery,
     >;
 
+    /// The current crowdloan id that will be set during the finalize call, making it
+    /// temporarily accessible to the dispatched call.
     #[pallet::storage]
     pub type CurrentCrowdloanId<T: Config> = StorageValue<_, CrowdloanId, OptionQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
+        /// A crowdloan was created.
         Created {
             crowdloan_id: CrowdloanId,
             creator: T::AccountId,
             end: BlockNumberFor<T>,
             cap: BalanceOf<T>,
         },
+        /// A contribution was made to an active crowdloan.
         Contributed {
             crowdloan_id: CrowdloanId,
             contributor: T::AccountId,
             amount: BalanceOf<T>,
         },
+        /// A contribution was withdrawn from a failed crowdloan.
         Withdrew {
             crowdloan_id: CrowdloanId,
             contributor: T::AccountId,
             amount: BalanceOf<T>,
         },
-        PartiallyRefunded {
-            crowdloan_id: CrowdloanId,
-        },
-        Refunded {
-            crowdloan_id: CrowdloanId,
-        },
-        Finalized {
-            crowdloan_id: CrowdloanId,
-        },
+        /// A refund was partially processed for a failed crowdloan.
+        PartiallyRefunded { crowdloan_id: CrowdloanId },
+        /// A refund was fully processed for a failed crowdloan.
+        Refunded { crowdloan_id: CrowdloanId },
+        /// A crowdloan was finalized, funds were transferred and the call was dispatched.
+        Finalized { crowdloan_id: CrowdloanId },
     }
 
     #[pallet::error]
     pub enum Error<T> {
+        /// The crowdloan initial deposit is too low.
         DepositTooLow,
+        /// The crowdloan cap is too low.
         CapTooLow,
+        /// The crowdloan cannot end in the past.
         CannotEndInPast,
+        /// The crowdloan block duration is too short.
         BlockDurationTooShort,
+        /// The block duration is too long.
         BlockDurationTooLong,
+        /// The account does not have enough balance to pay for the initial deposit/contribution.
         InsufficientBalance,
+        /// An overflow occurred.
         Overflow,
+        /// The crowdloan id is invalid.
         InvalidCrowdloanId,
+        /// The crowdloan cap has been fully raised.
         CapRaised,
-        CapExceeded,
+        /// The contribution period has ended.
         ContributionPeriodEnded,
+        /// The contribution is too low.
         ContributionTooLow,
+        /// The origin is not from the creator of the crowdloan.
         ExpectedCreatorOrigin,
+        /// The crowdloan has already been finalized.
         AlreadyFinalized,
+        /// The crowdloan contribution period has not ended yet.
         ContributionPeriodNotEnded,
+        /// The contributor has no contribution for this crowdloan.
         NoContribution,
+        /// The crowdloan cap has not been raised.
         CapNotRaised,
+        /// An underflow occurred.
         Underflow,
     }
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Create a crowdloan
+        /// Create a crowdloan that will raise funds up to a maximum cap and if successful,
+        /// will transfer funds to the target address and dispatch a call.
+        ///
+        /// The initial deposit will be transfered to the crowdloan account and will be refunded
+        /// in case the crowdloan fails to raise the cap.
+        ///
+        /// The dispatch origin for this call must be _Signed_.
+        ///
+        /// Parameters:
+        /// - `deposit`: The initial deposit from the creator.
+        /// - `cap`: The maximum amount of funds that can be raised.
+        /// - `end`: The block number at which the crowdloan will end.
+        /// - `target_address`: The address to transfer the raised funds to.
+        /// - `call`: The call to dispatch when the crowdloan is finalized.
         #[pallet::call_index(0)]
         pub fn create(
             origin: OriginFor<T>,
@@ -239,7 +298,17 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Contribute to a crowdloan
+        /// Contribute to an active crowdloan.
+        ///
+        /// The contribution will be transfered to the crowdloan account and will be refunded
+        /// if the crowdloan fails to raise the cap. If the contribution would raise the amount above the cap,
+        /// the contribution will be set to the amount that is left to be raised.
+        ///
+        /// The dispatch origin for this call must be _Signed_.
+        ///
+        /// Parameters:
+        /// - `crowdloan_id`: The id of the crowdloan to contribute to.
+        /// - `amount`: The amount to contribute.
         #[pallet::call_index(1)]
         pub fn contribute(
             origin: OriginFor<T>,
@@ -260,8 +329,6 @@ pub mod pallet {
                 amount >= T::MinimumContribution::get(),
                 Error::<T>::ContributionTooLow
             );
-
-            ensure!(crowdloan.raised <= crowdloan.cap, Error::<T>::CapExceeded);
 
             // Ensure contribution does not overflow the actual raised amount
             // and it does not exceed the cap
@@ -311,6 +378,16 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Withdraw a contribution from a failed crowdloan.
+        ///
+        /// The origin doesn't needs to be the contributor, it can be any account,
+        /// making it possible for someone to trigger a refund for a contributor.
+        ///
+        /// The dispatch origin for this call must be _Signed_.
+        ///
+        /// Parameters:
+        /// - `contributor`: The contributor to withdraw from.
+        /// - `crowdloan_id`: The id of the crowdloan to withdraw from.
         #[pallet::call_index(3)]
         pub fn withdraw(
             origin: OriginFor<T>,
@@ -350,6 +427,15 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Refund a failed crowdloan.
+        ///
+        /// The call will try to refund all contributors up to the limit defined by the `RefundContributorsLimit`.
+        /// If the limit is reached, the call will stop and the crowdloan will be marked as partially refunded.
+        ///
+        /// The dispatch origin for this call must be _Signed_ and doesn't need to be the creator of the crowdloan.
+        ///
+        /// Parameters:
+        /// - `crowdloan_id`: The id of the crowdloan to refund.
         #[pallet::call_index(4)]
         pub fn refund(
             origin: OriginFor<T>,
@@ -401,7 +487,17 @@ pub mod pallet {
             Ok(())
         }
 
-        // Finish
+        /// Finalize a successful crowdloan.
+        ///
+        /// The call will transfer the raised amount to the target address and dispatch the call that
+        /// was provided when the crowdloan was created. The CurrentCrowdloanId will be set to the
+        /// crowdloan id being finalized so the dispatched call can access it temporarily by accessing
+        /// the `CurrentCrowdloanId` storage item.
+        ///
+        /// The dispatch origin for this call must be _Signed_ and must be the creator of the crowdloan.
+        ///
+        /// Parameters:
+        /// - `crowdloan_id`: The id of the crowdloan to finalize.
         #[pallet::call_index(5)]
         pub fn finalize(
             origin: OriginFor<T>,
@@ -458,6 +554,8 @@ impl<T: Config> Pallet<T> {
         Crowdloans::<T>::get(crowdloan_id).ok_or(Error::<T>::InvalidCrowdloanId)
     }
 
+    // A crowdloan is considered to have failed if it has ended, has not raised the cap and
+    // has not been finalized.
     fn ensure_crowdloan_failed(crowdloan: &CrowdloanInfoOf<T>) -> Result<(), Error<T>> {
         // Has ended
         let now = frame_system::Pallet::<T>::block_number();
@@ -472,6 +570,8 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    // A crowdloan is considered to have succeeded if it has ended, has raised the cap and
+    // has not been finalized.
     fn ensure_crowdloan_succeeded(crowdloan: &CrowdloanInfoOf<T>) -> Result<(), Error<T>> {
         // Has ended
         let now = frame_system::Pallet::<T>::block_number();
