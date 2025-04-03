@@ -25,8 +25,8 @@
 //   - Precompile checks the result of do_remove_stake and, in case of a failure, reverts the transaction.
 //
 
+use alloc::vec::Vec;
 use core::marker::PhantomData;
-
 use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 use frame_system::RawOrigin;
 use pallet_evm::{
@@ -35,6 +35,7 @@ use pallet_evm::{
 use precompile_utils::EvmResult;
 use sp_core::{H256, U256};
 use sp_runtime::traits::{Dispatchable, StaticLookup, UniqueSaturatedInto};
+use sp_std::vec;
 use subtensor_runtime_common::ProxyType;
 
 use crate::{PrecompileExt, PrecompileHandleExt};
@@ -52,7 +53,7 @@ where
         + pallet_evm::Config
         + pallet_subtensor::Config
         + pallet_proxy::Config<ProxyType = ProxyType>,
-    R::AccountId: From<[u8; 32]>,
+    R::AccountId: From<[u8; 32]> + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_proxy::Call<R>>
         + GetDispatchInfo
@@ -70,7 +71,7 @@ where
         + pallet_evm::Config
         + pallet_subtensor::Config
         + pallet_proxy::Config<ProxyType = ProxyType>,
-    R::AccountId: From<[u8; 32]>,
+    R::AccountId: From<[u8; 32]> + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_proxy::Call<R>>
         + GetDispatchInfo
@@ -119,6 +120,58 @@ where
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
     }
 
+    #[precompile::public("moveStake(bytes32,bytes32,uint256,uint256,uint256)")]
+    fn move_stake(
+        handle: &mut impl PrecompileHandle,
+        origin_hotkey: H256,
+        destination_hotkey: H256,
+        origin_netuid: U256,
+        destination_netuid: U256,
+        amount_alpha: U256,
+    ) -> EvmResult<()> {
+        let account_id = handle.caller_account_id::<R>();
+        let origin_hotkey = R::AccountId::from(origin_hotkey.0);
+        let destination_hotkey = R::AccountId::from(destination_hotkey.0);
+        let origin_netuid = try_u16_from_u256(origin_netuid)?;
+        let destination_netuid = try_u16_from_u256(destination_netuid)?;
+        let alpha_amount = amount_alpha.unique_saturated_into();
+        let call = pallet_subtensor::Call::<R>::move_stake {
+            origin_hotkey,
+            destination_hotkey,
+            origin_netuid,
+            destination_netuid,
+            alpha_amount,
+        };
+
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+    }
+
+    #[precompile::public("transferStake(bytes32,bytes32,uint256,uint256,uint256)")]
+    fn transfer_stake(
+        handle: &mut impl PrecompileHandle,
+        destination_coldkey: H256,
+        hotkey: H256,
+        origin_netuid: U256,
+        destination_netuid: U256,
+        amount_alpha: U256,
+    ) -> EvmResult<()> {
+        let account_id = handle.caller_account_id::<R>();
+        let destination_coldkey = R::AccountId::from(destination_coldkey.0);
+        let hotkey = R::AccountId::from(hotkey.0);
+        let origin_netuid = try_u16_from_u256(origin_netuid)?;
+        let destination_netuid = try_u16_from_u256(destination_netuid)?;
+        let alpha_amount = amount_alpha.unique_saturated_into();
+        let call = pallet_subtensor::Call::<R>::transfer_stake {
+            destination_coldkey,
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            alpha_amount,
+        };
+
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+    }
+
     #[precompile::public("getTotalColdkeyStake(bytes32)")]
     #[precompile::view]
     fn get_total_coldkey_stake(
@@ -157,6 +210,41 @@ where
         let stake = pallet_subtensor::Pallet::<R>::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey, &coldkey, netuid,
         );
+
+        Ok(stake.into())
+    }
+
+    #[precompile::public("getAlphaStakedValidators(bytes32,uint256)")]
+    #[precompile::view]
+    fn get_alpha_staked_validators(
+        _handle: &mut impl PrecompileHandle,
+        hotkey: H256,
+        netuid: U256,
+    ) -> EvmResult<Vec<H256>> {
+        let hotkey = R::AccountId::from(hotkey.0);
+        let mut coldkeys: Vec<H256> = vec![];
+        let netuid = try_u16_from_u256(netuid)?;
+        for ((coldkey, netuid_in_alpha), _) in pallet_subtensor::Alpha::<R>::iter_prefix((hotkey,))
+        {
+            if netuid == netuid_in_alpha {
+                let key: [u8; 32] = coldkey.into();
+                coldkeys.push(key.into());
+            }
+        }
+
+        Ok(coldkeys)
+    }
+
+    #[precompile::public("getTotalAlphaStaked(bytes32,uint256)")]
+    #[precompile::view]
+    fn get_total_alpha_staked(
+        _handle: &mut impl PrecompileHandle,
+        hotkey: H256,
+        netuid: U256,
+    ) -> EvmResult<U256> {
+        let hotkey = R::AccountId::from(hotkey.0);
+        let netuid = try_u16_from_u256(netuid)?;
+        let stake = pallet_subtensor::Pallet::<R>::get_stake_for_hotkey_on_subnet(&hotkey, netuid);
 
         Ok(stake.into())
     }

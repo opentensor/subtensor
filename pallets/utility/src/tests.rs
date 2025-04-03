@@ -18,6 +18,7 @@
 // Tests for Utility Pallet
 
 #![cfg(test)]
+#![allow(clippy::arithmetic_side_effects)]
 
 use super::*;
 
@@ -689,7 +690,7 @@ fn batch_all_handles_weight_refund() {
         assert_err_ignore_postinfo!(result, "The cake is a lie.");
         assert_eq!(
             extract_actual_weight(&result, &info),
-            info.weight.saturating_sub(diff.saturating_mul(batch_len))
+            info.weight - diff * batch_len
         );
 
         // Partial batch completion
