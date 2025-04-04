@@ -207,5 +207,11 @@ mod config {
         /// Initial TAO weight.
         #[pallet::constant]
         type InitialTaoWeight: Get<u64>;
+        /// Initial EMA price halving period
+        #[pallet::constant]
+        type InitialEmaPriceHalvingPeriod: Get<u64>;
+        /// Block number after a new subnet accept the start call extrinsic.
+        #[pallet::constant]
+        type DurationOfStartCall: Get<u64>;
     }
 }

@@ -2,6 +2,8 @@
 
 use super::mock::*;
 use crate::*;
+use alloc::collections::BTreeMap;
+use approx::assert_abs_diff_eq;
 use codec::{Decode, Encode};
 use frame_support::{
     StorageHasher, Twox64Concat, assert_ok,
@@ -9,6 +11,7 @@ use frame_support::{
     traits::{StorageInstance, StoredMap},
     weights::Weight,
 };
+
 use frame_system::Config;
 use sp_core::{H256, U256, crypto::Ss58Codec};
 use sp_io::hashing::twox_128;
@@ -32,20 +35,21 @@ fn test_initialise_ti() {
     use frame_support::traits::OnRuntimeUpgrade;
 
     new_test_ext(1).execute_with(|| {
-        crate::SubnetLocked::<Test>::insert(1, 100);
-        crate::SubnetLocked::<Test>::insert(2, 5);
         pallet_balances::TotalIssuance::<Test>::put(1000);
-        crate::TotalStake::<Test>::put(25);
+        crate::SubnetTAO::<Test>::insert(1, 100);
+        crate::SubnetTAO::<Test>::insert(2, 5);
 
         // Ensure values are NOT initialized prior to running migration
         assert!(crate::TotalIssuance::<Test>::get() == 0);
+		assert!(crate::TotalStake::<Test>::get() == 0);
 
         crate::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration::<Test>::on_runtime_upgrade();
 
         // Ensure values were initialized correctly
+		assert!(crate::TotalStake::<Test>::get() == 105);
         assert!(
             crate::TotalIssuance::<Test>::get()
-                == 105u64.saturating_add(1000).saturating_add(25)
+                == 105u64.saturating_add(1000)
         );
     });
 }
@@ -411,5 +415,143 @@ fn test_migrate_subnet_volume() {
         // Verify the value is still stored as `u128`
         let new_value: Option<u128> = get(&old_key);
         assert_eq!(new_value, Some(old_value as u128));
+    });
+}
+
+#[test]
+fn test_migrate_set_first_emission_block_number() {
+    new_test_ext(1).execute_with(|| {
+    let netuids: [u16; 3] = [1, 2, 3];
+    let block_number = 100;
+    for netuid in netuids.iter() {
+        add_network(*netuid, 1, 0);
+    }
+    run_to_block(block_number);
+    let weight = crate::migrations::migrate_set_first_emission_block_number::migrate_set_first_emission_block_number::<Test>();
+
+    let expected_weight: Weight = <Test as Config>::DbWeight::get().reads(3) + <Test as Config>::DbWeight::get().writes(netuids.len() as u64);
+    assert_eq!(weight, expected_weight);
+
+    assert_eq!(FirstEmissionBlockNumber::<Test>::get(0), None);
+    for netuid in netuids.iter() {
+        assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), Some(block_number));
+    }
+});
+}
+
+#[test]
+fn test_migrate_remove_zero_total_hotkey_alpha() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_remove_zero_total_hotkey_alpha";
+        let netuid = 1u16;
+
+        let hotkey_zero = U256::from(100u64);
+        let hotkey_nonzero = U256::from(101u64);
+
+        // Insert one zero-alpha entry and one non-zero entry
+        TotalHotkeyAlpha::<Test>::insert(hotkey_zero, netuid, 0u64);
+        TotalHotkeyAlpha::<Test>::insert(hotkey_nonzero, netuid, 123u64);
+
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_zero, netuid), 0u64);
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_nonzero, netuid), 123u64);
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet."
+        );
+
+        let weight = crate::migrations::migrate_remove_zero_total_hotkey_alpha::migrate_remove_zero_total_hotkey_alpha::<Test>();
+
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as run."
+        );
+
+        assert!(
+            !TotalHotkeyAlpha::<Test>::contains_key(hotkey_zero, netuid),
+            "Zero-alpha entry should have been removed."
+        );
+
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_nonzero, netuid), 123u64);
+
+        assert!(
+            !weight.is_zero(),
+            "Migration weight should be non-zero."
+        );
+    });
+}
+
+#[test]
+fn test_migrate_revealed_commitments() {
+    new_test_ext(1).execute_with(|| {
+        // --------------------------------
+        // Step 1: Simulate Old Storage Entries
+        // --------------------------------
+        const MIGRATION_NAME: &str = "migrate_revealed_commitments_v2";
+
+        // Pallet prefix == twox_128("Commitments")
+        let pallet_prefix = twox_128("Commitments".as_bytes());
+        // Storage item prefix == twox_128("RevealedCommitments")
+        let storage_prefix = twox_128("RevealedCommitments".as_bytes());
+
+        // Example keys for the DoubleMap:
+        //   Key1 (netuid) uses Identity (no hash)
+        //   Key2 (account) uses Twox64Concat
+        let netuid: u16 = 123;
+        let account_id: u64 = 999; // Or however your test `AccountId` is represented
+
+        // Construct the full storage key for `RevealedCommitments(netuid, account_id)`
+        let mut storage_key = Vec::new();
+        storage_key.extend_from_slice(&pallet_prefix);
+        storage_key.extend_from_slice(&storage_prefix);
+
+        // Identity for netuid => no hashing, just raw encode
+        storage_key.extend_from_slice(&netuid.encode());
+
+        // Twox64Concat for account
+        let account_hashed = Twox64Concat::hash(&account_id.encode());
+        storage_key.extend_from_slice(&account_hashed);
+
+        // Simulate an old value we might have stored:
+        // For example, the old type was `RevealedData<Balance, ...>`
+        // We'll just store a random encoded value for demonstration
+        let old_value = (vec![1, 2, 3, 4], 42u64);
+        put_raw(&storage_key, &old_value.encode());
+
+        // Confirm the storage value is set
+        let stored_value = get_raw(&storage_key).expect("Expected to get a value");
+        let decoded_value = <(Vec<u8>, u64)>::decode(&mut &stored_value[..])
+            .expect("Failed to decode the old revealed commitments");
+        assert_eq!(decoded_value, old_value);
+
+        // Also confirm that the migration has NOT run yet
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // --------------------------------
+        // Step 2: Run the Migration
+        // --------------------------------
+        let weight = crate::migrations::migrate_upgrade_revealed_commitments::migrate_upgrade_revealed_commitments::<Test>();
+
+        // Migration should be marked as run
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should now be marked as run"
+        );
+
+        // --------------------------------
+        // Step 3: Verify Migration Effects
+        // --------------------------------
+        // The old key/value should be removed
+        let stored_value_after = get_raw(&storage_key);
+        assert!(
+            stored_value_after.is_none(),
+            "Old storage entry should be cleared"
+        );
+
+        // Weight returned should be > 0 (some cost was incurred clearing storage)
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
     });
 }

@@ -1,0 +1,67 @@
+ARG BASE_IMAGE=ubuntu:latest
+
+FROM $BASE_IMAGE AS builder
+SHELL ["/bin/bash", "-c"]
+
+# Set noninteractive mode for apt-get
+ARG DEBIAN_FRONTEND=noninteractive
+
+LABEL ai.opentensor.image.authors="operations@opentensor.ai" \
+  ai.opentensor.image.vendor="Opentensor Foundation" \
+  ai.opentensor.image.title="opentensor/subtensor-localnet" \
+  ai.opentensor.image.description="Opentensor Subtensor Blockchain" \
+  ai.opentensor.image.documentation="https://docs.bittensor.com"
+
+# Set up Rust environment
+ENV RUST_BACKTRACE=1
+
+RUN apt-get update
+RUN apt-get install -y curl build-essential protobuf-compiler clang git pkg-config libssl-dev llvm libudev-dev
+
+# Copy entire repository
+COPY . /build
+WORKDIR /build
+
+# Install Rust
+RUN set -o pipefail && curl https://sh.rustup.rs -sSf | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN rustup toolchain install
+RUN rustup target add wasm32-unknown-unknown
+
+## Build fast-blocks node
+RUN ./scripts/localnet.sh --build-only
+# Build non-fast-blocks
+RUN ./scripts/localnet.sh False --build-only
+
+# Verify the binaries was produced
+RUN test -e /build/target/fast-blocks/release/node-subtensor
+RUN test -e /build/target/non-fast-blocks/release/node-subtensor
+
+FROM $BASE_IMAGE AS subtensor-localnet
+
+# Copy binaries
+COPY --from=builder /build/target/fast-blocks/release/node-subtensor target/fast-blocks/release/node-subtensor
+RUN chmod +x target/fast-blocks/release/node-subtensor
+
+COPY --from=builder /build/target/non-fast-blocks/release/node-subtensor target/non-fast-blocks/release/node-subtensor
+RUN chmod +x target/non-fast-blocks/release/node-subtensor
+
+COPY --from=builder /build/snapshot.json /snapshot.json
+
+COPY --from=builder /build/scripts/localnet.sh scripts/localnet.sh
+RUN chmod +x /scripts/localnet.sh
+
+## Ubdate certificates
+RUN apt-get update && apt-get install -y ca-certificates
+
+# Do not build (just run)
+ENV BUILD_BINARY=0
+# Switch to local run with IP 0.0.0.0 within docker image
+ENV RUN_IN_DOCKER=1
+# Expose ports
+EXPOSE 30334 30335 9944 9945
+
+ENTRYPOINT ["/scripts/localnet.sh"]
+# Fast blocks defaults to True, you can disable it by passing False to the docker command, e.g.:
+# docker run ghcr.io/opentensor/subtensor-localnet False
+CMD ["True"]

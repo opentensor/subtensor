@@ -1,5 +1,6 @@
 use super::*;
-use substrate_fixed::types::I96F32;
+use safe_math::*;
+use substrate_fixed::types::U96F32;
 
 use frame_support::traits::{
     Imbalance,
@@ -46,10 +47,10 @@ impl<T: Config> Pallet<T> {
         Self::get_all_subnet_netuids()
             .iter()
             .map(|netuid| {
-                let alpha: I96F32 = I96F32::saturating_from_num(
+                let alpha: U96F32 = U96F32::saturating_from_num(
                     Self::get_stake_for_hotkey_on_subnet(hotkey, *netuid),
                 );
-                let tao_price: I96F32 = Self::get_alpha_price(*netuid);
+                let tao_price: U96F32 = Self::get_alpha_price(*netuid);
                 alpha.saturating_mul(tao_price).saturating_to_num::<u64>()
             })
             .sum()
@@ -66,9 +67,9 @@ impl<T: Config> Pallet<T> {
                 for (netuid, _) in Alpha::<T>::iter_prefix((hotkey, coldkey)) {
                     let alpha_stake =
                         Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
-                    let tao_price: I96F32 = Self::get_alpha_price(netuid);
+                    let tao_price: U96F32 = Self::get_alpha_price(netuid);
                     total_stake = total_stake.saturating_add(
-                        I96F32::saturating_from_num(alpha_stake)
+                        U96F32::saturating_from_num(alpha_stake)
                             .saturating_mul(tao_price)
                             .saturating_to_num::<u64>(),
                     );
@@ -128,10 +129,9 @@ impl<T: Config> Pallet<T> {
     pub fn get_hotkey_take(hotkey: &T::AccountId) -> u16 {
         Delegates::<T>::get(hotkey)
     }
-    pub fn get_hotkey_take_float(hotkey: &T::AccountId) -> I96F32 {
-        I96F32::saturating_from_num(Self::get_hotkey_take(hotkey))
-            .checked_div(I96F32::saturating_from_num(u16::MAX))
-            .unwrap_or(I96F32::saturating_from_num(0.0))
+    pub fn get_hotkey_take_float(hotkey: &T::AccountId) -> U96F32 {
+        U96F32::saturating_from_num(Self::get_hotkey_take(hotkey))
+            .safe_div(U96F32::saturating_from_num(u16::MAX))
     }
 
     /// Returns true if the hotkey account has been created.

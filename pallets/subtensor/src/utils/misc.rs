@@ -7,7 +7,7 @@ use safe_math::*;
 use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::Saturating;
-use substrate_fixed::types::{I32F32, I96F32};
+use substrate_fixed::types::{I32F32, U96F32};
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
@@ -475,6 +475,7 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
         CommitRevealWeightsEnabled::<T>::set(netuid, enabled);
+        Self::deposit_event(Event::CommitRevealEnabled(netuid, enabled));
     }
 
     pub fn get_rho(netuid: u16) -> u16 {
@@ -598,9 +599,9 @@ impl<T: Config> Pallet<T> {
     pub fn get_subnet_owner_cut() -> u16 {
         SubnetOwnerCut::<T>::get()
     }
-    pub fn get_float_subnet_owner_cut() -> I96F32 {
-        I96F32::saturating_from_num(SubnetOwnerCut::<T>::get())
-            .safe_div(I96F32::saturating_from_num(u16::MAX))
+    pub fn get_float_subnet_owner_cut() -> U96F32 {
+        U96F32::saturating_from_num(SubnetOwnerCut::<T>::get())
+            .safe_div(U96F32::saturating_from_num(u16::MAX))
     }
     pub fn set_subnet_owner_cut(subnet_owner_cut: u16) {
         SubnetOwnerCut::<T>::set(subnet_owner_cut);
@@ -732,5 +733,13 @@ impl<T: Config> Pallet<T> {
     pub fn set_subnet_owner_hotkey(netuid: u16, hotkey: &T::AccountId) {
         SubnetOwnerHotkey::<T>::insert(netuid, hotkey.clone());
         Self::deposit_event(Event::SubnetOwnerHotkeySet(netuid, hotkey.clone()));
+    }
+
+    // Get the uid of the Owner Hotkey for a subnet.
+    pub fn get_owner_uid(netuid: u16) -> Option<u16> {
+        match SubnetOwnerHotkey::<T>::try_get(netuid) {
+            Ok(owner_hotkey) => Uids::<T>::get(netuid, &owner_hotkey),
+            Err(_) => None,
+        }
     }
 }
