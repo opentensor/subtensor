@@ -952,7 +952,7 @@ impl pallet_registry::Config for Runtime {
 }
 
 parameter_types! {
-    pub const MaxCommitFieldsInner: u32 = 1;
+    pub const MaxCommitFieldsInner: u32 = 2;
     pub const CommitmentInitialDeposit: Balance = 0; // Free
     pub const CommitmentFieldDeposit: Balance = 0; // Free
 }
