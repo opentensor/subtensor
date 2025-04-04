@@ -4,7 +4,7 @@ use pallet_subtensor_swap_interface::LiquidityDataProvider;
 use substrate_fixed::types::U64F64;
 
 use crate::{
-    NetUid, SqrtPrice,
+    NetUid, SqrtPrice, weights::WeightInfo,
     position::{Position, PositionId},
     tick::{LayerLevel, Tick, TickIndex},
 };
@@ -57,6 +57,9 @@ mod pallet {
         /// Maximum sqrt price across all active ticks
         #[pallet::constant]
         type MaxSqrtPrice: Get<SqrtPrice>;
+
+        /// Weight information for extrinsics in this pallet.
+        type WeightInfo: WeightInfo;
     }
 
     /// Default fee rate if not set
@@ -165,7 +168,7 @@ mod pallet {
         ///
         /// Only callable by the admin origin
         #[pallet::call_index(0)]
-        #[pallet::weight(10_000)]
+        #[pallet::weight(T::WeightInfo::set_fee_rate())]
         pub fn set_fee_rate(origin: OriginFor<T>, netuid: u16, rate: u16) -> DispatchResult {
             T::AdminOrigin::ensure_origin(origin)?;
 

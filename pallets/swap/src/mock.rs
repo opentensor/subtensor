@@ -100,7 +100,6 @@ impl LiquidityDataProvider<AccountId> for MockLiquidityProvider {
     }
 }
 
-// Implementations of traits don't support visibility qualifiers
 impl crate::pallet::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type AdminOrigin = EnsureRoot<AccountId>;
@@ -111,6 +110,7 @@ impl crate::pallet::Config for Test {
     type MinimumLiquidity = MinimumLiquidity;
     type MinSqrtPrice = MinSqrtPrice;
     type MaxSqrtPrice = MaxSqrtPrice;
+    type WeightInfo = ();
 }
 
 // Build genesis storage according to the mock runtime.

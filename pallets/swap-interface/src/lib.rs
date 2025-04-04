@@ -14,7 +14,7 @@ pub enum OrderType {
 pub trait SwapHandler<AccountId> {
     fn swap(order_t: OrderType, amount: u64) -> Result<(), Box<dyn Error>>;
     fn add_liquidity(account_id: AccountId, liquidity: u64) -> Result<(u64, u64), Box<dyn Error>>;
-    fn remove_liquidity(account_id: AccountId) -> Result<(), Box<dyn Error>>;
+    fn remove_liquidity(account_id: AccountId) -> Result<(u64, u64), Box<dyn Error>>;
 }
 
 pub trait LiquidityDataProvider<AccountId> {

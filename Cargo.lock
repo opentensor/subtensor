@@ -6840,6 +6840,7 @@ version = "0.1.0"
 dependencies = [
  "alloy-primitives",
  "approx",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-subtensor-swap-interface",

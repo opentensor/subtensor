@@ -8,6 +8,10 @@ use substrate_fixed::types::U64F64;
 pub mod pallet;
 mod position;
 mod tick;
+pub mod weights;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 
 #[cfg(test)]
 pub(crate) mod mock;

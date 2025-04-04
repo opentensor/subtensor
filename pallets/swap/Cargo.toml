@@ -7,6 +7,7 @@ edition = { workspace = true }
 alloy-primitives = { workspace = true }
 approx = { workspace = true }
 codec = { workspace = true }
+frame-benchmarking = { workspace = true, optional = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 safe-math = { workspace = true }
@@ -22,25 +23,32 @@ uuid = { workspace = true, features = ["v4"] }
 
 pallet-subtensor-swap-interface = { workspace = true }
 
+
 [lints]
 workspace = true
 
 [features]
 default = ["std"]
 std = [
-	"alloy-primitives/std",
-	"codec/std",
-	"frame-support/std",
-	"frame-system/std",
-	"pallet-subtensor-swap-interface/std",
-	"safe-math/std",
-	"scale-info/std",
-	"serde/std",
-	"sp-arithmetic/std",
-	"sp-core/std",
-	"sp-io/std",
-	"sp-runtime/std",
-	"sp-std/std",
-	"substrate-fixed/std",
-	"uuid/std",
+    "alloy-primitives/std",
+    "codec/std",
+    "frame-benchmarking/std",
+    "frame-support/std",
+    "frame-system/std",
+    "pallet-subtensor-swap-interface/std",
+    "safe-math/std",
+    "scale-info/std",
+    "serde/std",
+    "sp-arithmetic/std",
+    "sp-core/std",
+    "sp-io/std",
+    "sp-runtime/std",
+    "sp-std/std",
+    "substrate-fixed/std",
+    "uuid/std",
+]
+runtime-benchmarks = [
+    "frame-benchmarking/runtime-benchmarks",
+    "frame-support/runtime-benchmarks",
+    "frame-system/runtime-benchmarks",
 ]
