@@ -3,7 +3,7 @@
 
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
 use frame_system::RawOrigin;
-use safe_math::SafeDiv;
+use safe_math::FixedExt;
 use substrate_fixed::traits::FromFixed;
 
 use super::mock::*;
