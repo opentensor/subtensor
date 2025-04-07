@@ -1711,3 +1711,45 @@ fn test_sudo_set_ema_halving() {
         assert_eq!(value_after_2, to_be_set);
     });
 }
+
+// cargo test --package pallet-admin-utils --lib -- tests::test_set_sn_owner_hotkey --exact --show-output
+#[test]
+fn test_set_sn_owner_hotkey() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let hotkey: U256 = U256::from(3);
+        let bad_origin_coldkey: U256 = U256::from(4);
+        add_network(netuid, 10);
+
+        let owner = U256::from(10);
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, owner);
+
+        // Non-owner and non-root cannot set the sn owner hotkey
+        assert_eq!(
+            AdminUtils::sudo_set_sn_owner_hotkey(
+                <<Test as Config>::RuntimeOrigin>::signed(bad_origin_coldkey),
+                netuid,
+                hotkey
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+
+        // SN owner can set the hotkey
+        assert_ok!(AdminUtils::sudo_set_sn_owner_hotkey(
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            netuid,
+            hotkey
+        ));
+
+        // Check the value
+        let actual_hotkey = pallet_subtensor::SubnetOwnerHotkey::<Test>::get(netuid);
+        assert_eq!(actual_hotkey, hotkey);
+
+        // Root can set the hotkey
+        assert_ok!(AdminUtils::sudo_set_sn_owner_hotkey(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            hotkey
+        ));
+    });
+}

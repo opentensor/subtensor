@@ -370,6 +370,56 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Sets or updates the hotkey account associated with the owner of a specific subnet.
+    ///
+    /// This function allows either the root origin or the current subnet owner to set or update
+    /// the hotkey for a given subnet. The hotkey must either not be registered yet or must be
+    /// associated with the caller's coldkey. The subnet must already exist.
+    ///
+    /// # Parameters
+    /// - `origin`: The dispatch origin of the call. Must be either root or the current owner of the subnet.
+    /// - `netuid`: The unique identifier of the subnet whose owner hotkey is being set.
+    /// - `hotkey`: The new hotkey account to be associated with the subnet owner.
+    ///
+    /// # Returns
+    /// - `DispatchResult`: Returns `Ok(())` if the hotkey was successfully set, or an appropriate error otherwise.
+    ///
+    /// # Errors
+    /// - `Error::NonAssociatedColdKey`: If the provided hotkey is already associated with a different coldkey.
+    /// - `Error::SubnetNotExists`: If the specified subnet does not exist.
+    ///
+    /// # Access Control
+    /// Only callable by:
+    /// - Root origin, or
+    /// - The coldkey account that owns the subnet.
+    ///
+    /// # Storage
+    /// - Updates [`SubnetOwnerHotkey`] for the given `netuid`.
+    pub fn do_set_sn_owner_hotkey(
+        origin: T::RuntimeOrigin,
+        netuid: u16,
+        hotkey: &T::AccountId,
+    ) -> DispatchResult {
+        // Ensure the caller is either root or subnet owner.
+        Self::ensure_subnet_owner_or_root(origin, netuid)?;
+
+        // Ensure that the subnet exists and get owner.
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+        let owner = SubnetOwner::<T>::get(netuid);
+
+        // Ensure the hotkey does not exist or is owned by the coldkey.
+        ensure!(
+            !Self::hotkey_account_exists(hotkey) || Self::coldkey_owns_hotkey(&owner, hotkey),
+            Error::<T>::NonAssociatedColdKey
+        );
+
+        // Insert/update the hotkey
+        SubnetOwnerHotkey::<T>::insert(netuid, hotkey);
+
+        // Return success.
+        Ok(())
+    }
+
     pub fn is_valid_subnet_for_emission(netuid: u16) -> bool {
         FirstEmissionBlockNumber::<T>::get(netuid).is_some()
     }

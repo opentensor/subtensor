@@ -1476,6 +1476,41 @@ pub mod pallet {
             );
             Ok(())
         }
+
+        /// Sets or updates the hotkey account associated with the owner of a specific subnet.
+        ///
+        /// This function allows either the root origin or the current subnet owner to set or update
+        /// the hotkey for a given subnet. The hotkey must either not be registered yet or must be
+        /// associated with the caller's coldkey. The subnet must already exist.
+        ///
+        /// # Parameters
+        /// - `origin`: The dispatch origin of the call. Must be either root or the current owner of the subnet.
+        /// - `netuid`: The unique identifier of the subnet whose owner hotkey is being set.
+        /// - `hotkey`: The new hotkey account to be associated with the subnet owner.
+        ///
+        /// # Returns
+        /// - `DispatchResult`: Returns `Ok(())` if the hotkey was successfully set, or an appropriate error otherwise.
+        ///
+        /// # Errors
+        /// - `Error::NonAssociatedColdKey`: If the provided hotkey is already associated with a different coldkey.
+        /// - `Error::SubnetNotExists`: If the specified subnet does not exist.
+        ///
+        /// # Access Control
+        /// Only callable by:
+        /// - Root origin, or
+        /// - The coldkey account that owns the subnet.
+        ///
+        /// # Storage
+        /// - Updates [`SubnetOwnerHotkey`] for the given `netuid`.
+        #[pallet::call_index(66)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_sn_owner_hotkey(
+            origin: OriginFor<T>,
+            netuid: u16,
+            hotkey: T::AccountId,
+        ) -> DispatchResult {
+            pallet_subtensor::Pallet::<T>::do_set_sn_owner_hotkey(origin, netuid, &hotkey)
+        }
     }
 }
 
