@@ -50,10 +50,17 @@ fn test_create_succeeds() {
                 )),
                 deposit
             );
+            // ensure the creator has been deducted the deposit
+            assert_eq!(Balances::free_balance(creator), 100 - deposit);
             // ensure the contributions has been updated
             assert_eq!(
                 pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, creator),
                 Some(deposit)
+            );
+            // ensure the raised amount is updated correctly
+            assert!(
+                pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id)
+                    .is_some_and(|c| c.raised == deposit)
             );
             // ensure the event is emitted
             assert_eq!(
@@ -307,6 +314,10 @@ fn test_contribute_succeeds() {
                 pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, creator),
                 Some(100)
             );
+            assert_eq!(
+                Balances::free_balance(creator),
+                200 - amount - initial_deposit
+            );
 
             // second contribution to the crowdloan
             let contributor1: AccountOf<Test> = U256::from(2);
@@ -329,6 +340,7 @@ fn test_contribute_succeeds() {
                 pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, contributor1),
                 Some(100)
             );
+            assert_eq!(Balances::free_balance(contributor1), 500 - amount);
 
             // third contribution to the crowdloan
             let contributor2: AccountOf<Test> = U256::from(3);
@@ -351,6 +363,7 @@ fn test_contribute_succeeds() {
                 pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, contributor2),
                 Some(50)
             );
+            assert_eq!(Balances::free_balance(contributor2), 200 - amount);
 
             // ensure the contributions are present in the crowdloan account
             let crowdloan_account_id: AccountOf<Test> =
@@ -373,7 +386,6 @@ fn test_contribute_succeeds_if_contribution_will_make_the_raised_amount_exceed_t
     TestState::default()
         .with_balance(U256::from(1), 200)
         .with_balance(U256::from(2), 500)
-        .with_balance(U256::from(3), 200)
         .build_and_execute(|| {
             // create a crowdloan
             let creator: AccountOf<Test> = U256::from(1);
@@ -414,6 +426,10 @@ fn test_contribute_succeeds_if_contribution_will_make_the_raised_amount_exceed_t
                 pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, creator),
                 Some(100)
             );
+            assert_eq!(
+                Balances::free_balance(creator),
+                200 - amount - initial_deposit
+            );
 
             // second contribution to the crowdloan above the cap
             let contributor1: AccountOf<Test> = U256::from(2);
@@ -436,6 +452,7 @@ fn test_contribute_succeeds_if_contribution_will_make_the_raised_amount_exceed_t
                 pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, contributor1),
                 Some(200)
             );
+            assert_eq!(Balances::free_balance(contributor1), 500 - 200);
 
             // ensure the contributions are present in the crowdloan account up to the cap
             let crowdloan_account_id: AccountOf<Test> =
