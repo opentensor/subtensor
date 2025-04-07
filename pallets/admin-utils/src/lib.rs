@@ -1480,20 +1480,20 @@ pub mod pallet {
         /// Sets or updates the hotkey account associated with the owner of a specific subnet.
         ///
         /// This function allows either the root origin or the current subnet owner to set or update
-        /// the hotkey for a given subnet. The hotkey must either not be registered yet or must be
-        /// associated with the caller's coldkey. The subnet must already exist.
+        /// the hotkey for a given subnet. The subnet must already exist. To prevent abuse, the call is
+        /// rate-limited to once per configured interval (default: one week) per subnet.
         ///
         /// # Parameters
         /// - `origin`: The dispatch origin of the call. Must be either root or the current owner of the subnet.
         /// - `netuid`: The unique identifier of the subnet whose owner hotkey is being set.
-        /// - `hotkey`: The new hotkey account to be associated with the subnet owner.
+        /// - `hotkey`: The new hotkey account to associate with the subnet owner.
         ///
         /// # Returns
         /// - `DispatchResult`: Returns `Ok(())` if the hotkey was successfully set, or an appropriate error otherwise.
         ///
         /// # Errors
-        /// - `Error::NonAssociatedColdKey`: If the provided hotkey is already associated with a different coldkey.
         /// - `Error::SubnetNotExists`: If the specified subnet does not exist.
+        /// - `Error::TxRateLimitExceeded`: If the function is called more frequently than the allowed rate limit.
         ///
         /// # Access Control
         /// Only callable by:
@@ -1502,6 +1502,11 @@ pub mod pallet {
         ///
         /// # Storage
         /// - Updates [`SubnetOwnerHotkey`] for the given `netuid`.
+        /// - Reads and updates [`LastRateLimitedBlock`] for rate-limiting.
+        /// - Reads [`DefaultSetSNOwnerHotkeyRateLimit`] to determine the interval between allowed updates.
+        ///
+        /// # Rate Limiting
+        /// This function is rate-limited to one call per subnet per interval (e.g., one week).
         #[pallet::call_index(66)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_sn_owner_hotkey(
