@@ -434,6 +434,45 @@ impl<T: Config> Pallet<T> {
             }
         }
 
+        // 16. Swap dividend records
+        TotalHotkeyAlphaLastEpoch::<T>::iter_prefix(old_hotkey)
+            .drain()
+            .for_each(|(netuid, old_alpha)| {
+                // 16.1 Swap TotalHotkeyAlphaLastEpoch
+                let new_total_hotkey_alpha =
+                    TotalHotkeyAlphaLastEpoch::<T>::get(new_hotkey, netuid);
+                TotalHotkeyAlphaLastEpoch::<T>::insert(
+                    new_hotkey,
+                    netuid,
+                    old_alpha.saturating_add(new_total_hotkey_alpha),
+                );
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+
+                // 16.2 Swap AlphaDividendsPerSubnet
+                let old_hotkey_alpha_dividends =
+                    AlphaDividendsPerSubnet::<T>::get(netuid, old_hotkey);
+                let new_hotkey_alpha_dividends =
+                    AlphaDividendsPerSubnet::<T>::get(netuid, new_hotkey);
+                AlphaDividendsPerSubnet::<T>::remove(netuid, old_hotkey);
+                AlphaDividendsPerSubnet::<T>::insert(
+                    netuid,
+                    new_hotkey,
+                    old_hotkey_alpha_dividends.saturating_add(new_hotkey_alpha_dividends),
+                );
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+
+                // 16.3 Swap TaoDividendsPerSubnet
+                let old_hotkey_tao_dividends = TaoDividendsPerSubnet::<T>::get(netuid, old_hotkey);
+                let new_hotkey_tao_dividends = TaoDividendsPerSubnet::<T>::get(netuid, new_hotkey);
+                TaoDividendsPerSubnet::<T>::remove(netuid, old_hotkey);
+                TaoDividendsPerSubnet::<T>::insert(
+                    netuid,
+                    new_hotkey,
+                    old_hotkey_tao_dividends.saturating_add(new_hotkey_tao_dividends),
+                );
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+            });
+
         // Return successful after swapping all the relevant terms.
         Ok(())
     }

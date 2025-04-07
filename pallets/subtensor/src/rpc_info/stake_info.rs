@@ -2,7 +2,7 @@ use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
 use codec::Compact;
-use substrate_fixed::types::I96F32;
+use substrate_fixed::types::U96F32;
 
 #[freeze_struct("5cfb3c84c3af3116")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
@@ -139,7 +139,7 @@ impl<T: Config> Pallet<T> {
             &origin_coldkey_account,
             destination_,
             &destination_coldkey_account,
-            I96F32::saturating_from_num(amount),
+            U96F32::saturating_from_num(amount),
         )
     }
 }

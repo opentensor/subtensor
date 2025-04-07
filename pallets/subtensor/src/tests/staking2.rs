@@ -6,7 +6,7 @@ use frame_support::{
     weights::Weight,
 };
 use sp_core::U256;
-use substrate_fixed::types::I96F32;
+use substrate_fixed::types::{I96F32, U96F32};
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --workspace --test staking2 -- test_swap_tao_for_alpha_dynamic_mechanism --exact --nocapture
 #[test]
@@ -673,7 +673,7 @@ fn test_stake_fee_api() {
             &coldkey1,
             Some((&hotkey1, netuid0)),
             &coldkey1,
-            I96F32::saturating_from_num(stake_amount),
+            U96F32::saturating_from_num(stake_amount),
         );
         assert_eq!(stake_fee_0, dynamic_fee_0);
 
@@ -690,7 +690,7 @@ fn test_stake_fee_api() {
             &coldkey1,
             None,
             &coldkey1,
-            I96F32::saturating_from_num(stake_amount),
+            U96F32::saturating_from_num(stake_amount),
         );
         assert_eq!(stake_fee_1, dynamic_fee_1);
 
@@ -707,7 +707,7 @@ fn test_stake_fee_api() {
             &coldkey1,
             Some((&hotkey1, netuid0)),
             &coldkey1,
-            I96F32::saturating_from_num(stake_amount),
+            U96F32::saturating_from_num(stake_amount),
         );
         assert_eq!(stake_fee_2, dynamic_fee_2);
 
@@ -724,7 +724,7 @@ fn test_stake_fee_api() {
             &coldkey1,
             Some((&hotkey2, root_netuid)),
             &coldkey1,
-            I96F32::saturating_from_num(stake_amount),
+            U96F32::saturating_from_num(stake_amount),
         );
         assert_eq!(stake_fee_3, dynamic_fee_3);
 
@@ -741,7 +741,7 @@ fn test_stake_fee_api() {
             &coldkey1,
             Some((&hotkey1, root_netuid)),
             &coldkey2,
-            I96F32::saturating_from_num(stake_amount),
+            U96F32::saturating_from_num(stake_amount),
         );
         assert_eq!(stake_fee_4, dynamic_fee_4);
 
@@ -758,7 +758,7 @@ fn test_stake_fee_api() {
             &coldkey1,
             Some((&hotkey1, root_netuid)),
             &coldkey1,
-            I96F32::saturating_from_num(stake_amount),
+            U96F32::saturating_from_num(stake_amount),
         );
         assert_eq!(stake_fee_5, dynamic_fee_5);
 
@@ -775,7 +775,7 @@ fn test_stake_fee_api() {
             &coldkey1,
             Some((&hotkey2, netuid0)),
             &coldkey1,
-            I96F32::saturating_from_num(stake_amount),
+            U96F32::saturating_from_num(stake_amount),
         );
         assert_eq!(stake_fee_6, dynamic_fee_6);
 
@@ -792,7 +792,7 @@ fn test_stake_fee_api() {
             &coldkey1,
             Some((&hotkey1, netuid0)),
             &coldkey2,
-            I96F32::saturating_from_num(stake_amount),
+            U96F32::saturating_from_num(stake_amount),
         );
         assert_eq!(stake_fee_7, dynamic_fee_7);
 
@@ -809,7 +809,7 @@ fn test_stake_fee_api() {
             &coldkey1,
             Some((&hotkey1, netuid1)),
             &coldkey1,
-            I96F32::saturating_from_num(stake_amount),
+            U96F32::saturating_from_num(stake_amount),
         );
         assert_eq!(stake_fee_8, dynamic_fee_8);
     });
@@ -861,7 +861,7 @@ fn test_stake_fee_calculation() {
             &coldkey1,
             Some((&hotkey1, netuid0)),
             &coldkey1,
-            I96F32::from_num(stake_amount),
+            U96F32::from_num(stake_amount),
         ); // Default for adding stake
         assert_eq!(stake_fee_0, default_fee);
 
@@ -871,7 +871,7 @@ fn test_stake_fee_calculation() {
             &coldkey1,
             None,
             &coldkey1,
-            I96F32::from_num(stake_amount),
+            U96F32::from_num(stake_amount),
         ); // Default for removing stake from root
         assert_eq!(stake_fee_1, default_fee);
 
@@ -881,7 +881,7 @@ fn test_stake_fee_calculation() {
             &coldkey1,
             Some((&hotkey1, netuid0)),
             &coldkey1,
-            I96F32::from_num(stake_amount),
+            U96F32::from_num(stake_amount),
         ); // Default for moving stake from root to non-root
         assert_eq!(stake_fee_2, default_fee);
 
@@ -891,7 +891,7 @@ fn test_stake_fee_calculation() {
             &coldkey1,
             Some((&hotkey2, root_netuid)),
             &coldkey1,
-            I96F32::from_num(stake_amount),
+            U96F32::from_num(stake_amount),
         ); // Default for moving stake between hotkeys on root
         assert_eq!(stake_fee_3, default_fee);
 
@@ -901,7 +901,7 @@ fn test_stake_fee_calculation() {
             &coldkey1,
             Some((&hotkey1, root_netuid)),
             &coldkey2,
-            I96F32::from_num(stake_amount),
+            U96F32::from_num(stake_amount),
         ); // Default for moving stake between coldkeys on root
         assert_eq!(stake_fee_4, default_fee);
 
@@ -911,7 +911,7 @@ fn test_stake_fee_calculation() {
             &coldkey1,
             Some((&hotkey1, root_netuid)),
             &coldkey1,
-            I96F32::from_num(stake_amount),
+            U96F32::from_num(stake_amount),
         ); // Charged a dynamic fee
         assert_ne!(stake_fee_5, default_fee);
 
@@ -921,7 +921,7 @@ fn test_stake_fee_calculation() {
             &coldkey1,
             Some((&hotkey2, netuid0)),
             &coldkey1,
-            I96F32::from_num(stake_amount),
+            U96F32::from_num(stake_amount),
         ); // Charge the default fee
         assert_eq!(stake_fee_6, default_fee);
 
@@ -931,7 +931,7 @@ fn test_stake_fee_calculation() {
             &coldkey1,
             Some((&hotkey1, netuid0)),
             &coldkey2,
-            I96F32::from_num(stake_amount),
+            U96F32::from_num(stake_amount),
         ); // Charge the default fee; stake did not leave the subnet.
         assert_eq!(stake_fee_7, default_fee);
 
@@ -941,7 +941,7 @@ fn test_stake_fee_calculation() {
             &coldkey1,
             Some((&hotkey1, netuid1)),
             &coldkey1,
-            I96F32::from_num(stake_amount),
+            U96F32::from_num(stake_amount),
         ); // Charged a dynamic fee
         assert_ne!(stake_fee_8, default_fee);
     });
