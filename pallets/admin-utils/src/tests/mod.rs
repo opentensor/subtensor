@@ -1714,7 +1714,7 @@ fn test_sudo_set_ema_halving() {
 
 // cargo test --package pallet-admin-utils --lib -- tests::test_set_sn_owner_hotkey --exact --show-output
 #[test]
-fn test_set_sn_owner_hotkey() {
+fn test_set_sn_owner_hotkey_owner() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let hotkey: U256 = U256::from(3);
@@ -1745,11 +1745,45 @@ fn test_set_sn_owner_hotkey() {
         let actual_hotkey = pallet_subtensor::SubnetOwnerHotkey::<Test>::get(netuid);
         assert_eq!(actual_hotkey, hotkey);
 
+        // Cannot set again (rate limited)
+        assert_err!(
+            AdminUtils::sudo_set_sn_owner_hotkey(
+                <<Test as Config>::RuntimeOrigin>::signed(owner),
+                netuid,
+                hotkey
+            ),
+            pallet_subtensor::Error::<Test>::TxRateLimitExceeded
+        );
+
+        // Root can set the hotkey
+        // assert_ok!(AdminUtils::sudo_set_sn_owner_hotkey(
+        //     <<Test as Config>::RuntimeOrigin>::root(),
+        //     netuid,
+        //     hotkey
+        // ));
+    });
+}
+
+// cargo test --package pallet-admin-utils --lib -- tests::test_set_sn_owner_hotkey_root --exact --show-output
+#[test]
+fn test_set_sn_owner_hotkey_root() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let hotkey: U256 = U256::from(3);
+        add_network(netuid, 10);
+
+        let owner = U256::from(10);
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, owner);
+
         // Root can set the hotkey
         assert_ok!(AdminUtils::sudo_set_sn_owner_hotkey(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             hotkey
         ));
+
+        // Check the value
+        let actual_hotkey = pallet_subtensor::SubnetOwnerHotkey::<Test>::get(netuid);
+        assert_eq!(actual_hotkey, hotkey);
     });
 }

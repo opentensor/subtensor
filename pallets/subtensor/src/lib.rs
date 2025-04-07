@@ -66,6 +66,7 @@ pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 #[import_section(config::config)]
 #[frame_support::pallet]
 pub mod pallet {
+    use crate::RateLimitKey;
     use crate::migrations;
     use frame_support::{
         BoundedVec,
@@ -800,6 +801,12 @@ pub mod pallet {
         360
     }
 
+    #[pallet::type_value]
+    /// Default value for setting subnet owner hotkey rate limit
+    pub fn DefaultSetSNOwnerHotkeyRateLimit<T: Config>() -> u64 {
+        50400
+    }
+
     #[pallet::storage]
     pub type MinActivityCutoff<T: Config> =
         StorageValue<_, u16, ValueQuery, DefaultMinActivityCutoff<T>>;
@@ -1113,6 +1120,15 @@ pub mod pallet {
     /// ITEM( weights_version_key_rate_limit ) --- Rate limit in tempos.
     pub type WeightsVersionKeyRateLimit<T> =
         StorageValue<_, u64, ValueQuery, DefaultWeightsVersionKeyRateLimit<T>>;
+
+    /// ============================
+    /// ==== Rate Limiting =====
+    /// ============================
+
+    #[pallet::storage]
+    /// --- MAP ( RateLimitKey ) --> Block number in which the last rate limited operation occured
+    pub type LastRateLimitedBlock<T: Config> =
+        StorageMap<_, Identity, RateLimitKey, u64, ValueQuery, DefaultZeroU64<T>>;
 
     /// ============================
     /// ==== Subnet Locks =====
@@ -2431,4 +2447,12 @@ impl<T, H, P> CollectiveInterface<T, H, P> for () {
     fn add_vote(_: &T, _: H, _: P, _: bool) -> Result<bool, DispatchError> {
         Ok(true)
     }
+}
+
+/// Enum that defines types of rate limited operations for
+/// storing last block when this operation occured
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
+pub enum RateLimitKey {
+    // The setting sn owner hotkey operation is rate limited per netuid
+    SetSNOwnerHotkey(u16),
 }

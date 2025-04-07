@@ -403,15 +403,21 @@ impl<T: Config> Pallet<T> {
         // Ensure the caller is either root or subnet owner.
         Self::ensure_subnet_owner_or_root(origin, netuid)?;
 
-        // Ensure that the subnet exists and get owner.
+        // Ensure that the subnet exists.
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
-        let owner = SubnetOwner::<T>::get(netuid);
 
-        // Ensure the hotkey does not exist or is owned by the coldkey.
-        ensure!(
-            !Self::hotkey_account_exists(hotkey) || Self::coldkey_owns_hotkey(&owner, hotkey),
-            Error::<T>::NonAssociatedColdKey
-        );
+        // Rate limit: 1 call per week
+        let maybe_last_block =
+            LastRateLimitedBlock::<T>::try_get(RateLimitKey::SetSNOwnerHotkey(netuid));
+        let current_block = Self::get_current_block_as_u64();
+        if let Ok(last_block) = maybe_last_block {
+            ensure!(
+                current_block.saturating_sub(last_block)
+                    > DefaultSetSNOwnerHotkeyRateLimit::<T>::get(),
+                Error::<T>::TxRateLimitExceeded
+            );
+        }
+        LastRateLimitedBlock::<T>::insert(RateLimitKey::SetSNOwnerHotkey(netuid), current_block);
 
         // Insert/update the hotkey
         SubnetOwnerHotkey::<T>::insert(netuid, hotkey);
