@@ -1,177 +1,12 @@
 #![cfg(test)]
 #![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 
-use frame_support::{
-    PalletId, assert_err, assert_ok, derive_impl, parameter_types,
-    traits::{OnFinalize, OnInitialize},
-};
+use frame_support::{assert_err, assert_ok};
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_core::U256;
-use sp_runtime::{BuildStorage, DispatchError, traits::IdentityLookup};
+use sp_runtime::DispatchError;
 
-use crate::{BalanceOf, CrowdloanId, CrowdloanInfo, pallet as pallet_crowdloan};
-
-type Block = frame_system::mocking::MockBlock<Test>;
-type AccountOf<T> = <T as frame_system::Config>::AccountId;
-
-frame_support::construct_runtime!(
-    pub enum Test
-    {
-      System: frame_system = 1,
-      Balances: pallet_balances = 2,
-      Crowdloan: pallet_crowdloan = 3,
-      TestPallet: pallet_test = 4,
-    }
-);
-
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
-impl frame_system::Config for Test {
-    type Block = Block;
-    type AccountId = U256;
-    type AccountData = pallet_balances::AccountData<u64>;
-    type Lookup = IdentityLookup<Self::AccountId>;
-}
-
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
-impl pallet_balances::Config for Test {
-    type AccountStore = System;
-}
-
-parameter_types! {
-    pub const CrowdloanPalletId: PalletId = PalletId(*b"bt/cloan");
-    pub const MinimumDeposit: u64 = 50;
-    pub const MinimumContribution: u64 = 10;
-    pub const MinimumBlockDuration: u64 = 20;
-    pub const MaximumBlockDuration: u64 = 100;
-    pub const RefundContributorsLimit: u32 = 2;
-}
-
-impl pallet_crowdloan::Config for Test {
-    type PalletId = CrowdloanPalletId;
-    type Currency = Balances;
-    type RuntimeCall = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
-    type MinimumDeposit = MinimumDeposit;
-    type MinimumContribution = MinimumContribution;
-    type MinimumBlockDuration = MinimumBlockDuration;
-    type MaximumBlockDuration = MaximumBlockDuration;
-    type RefundContributorsLimit = RefundContributorsLimit;
-}
-
-// A test pallet used to test some behavior of the crowdloan pallet
-#[allow(unused)]
-#[frame_support::pallet(dev_mode)]
-mod pallet_test {
-    use super::*;
-    use frame_support::{
-        dispatch::DispatchResult,
-        pallet_prelude::{OptionQuery, StorageValue},
-    };
-    use frame_system::pallet_prelude::OriginFor;
-
-    #[pallet::pallet]
-    pub struct Pallet<T>(_);
-
-    #[pallet::config]
-    pub trait Config: frame_system::Config + pallet_crowdloan::Config {}
-
-    #[pallet::error]
-    pub enum Error<T> {
-        ShouldFail,
-        MissingCurrentCrowdloanId,
-    }
-
-    #[pallet::storage]
-    pub type PassedCrowdloanId<T: Config> = StorageValue<_, CrowdloanId, OptionQuery>;
-
-    #[pallet::call]
-    impl<T: Config> Pallet<T> {
-        #[pallet::call_index(0)]
-        pub fn noop(origin: OriginFor<T>) -> DispatchResult {
-            Ok(())
-        }
-
-        #[pallet::call_index(1)]
-        pub fn set_passed_crowdloan_id(origin: OriginFor<T>) -> DispatchResult {
-            let crowdloan_id = pallet_crowdloan::CurrentCrowdloanId::<T>::get()
-                .ok_or(Error::<T>::MissingCurrentCrowdloanId)?;
-            PassedCrowdloanId::<T>::put(crowdloan_id);
-            Ok(())
-        }
-
-        #[pallet::call_index(2)]
-        pub fn failing_extrinsic(origin: OriginFor<T>) -> DispatchResult {
-            Err(Error::<T>::ShouldFail.into())
-        }
-    }
-}
-
-impl pallet_test::Config for Test {}
-
-pub(crate) struct TestState {
-    block_number: BlockNumberFor<Test>,
-    balances: Vec<(AccountOf<Test>, BalanceOf<Test>)>,
-}
-
-impl Default for TestState {
-    fn default() -> Self {
-        Self {
-            block_number: 1,
-            balances: vec![],
-        }
-    }
-}
-
-impl TestState {
-    fn with_block_number(mut self, block_number: BlockNumberFor<Test>) -> Self {
-        self.block_number = block_number;
-        self
-    }
-
-    fn with_balance(mut self, who: AccountOf<Test>, balance: BalanceOf<Test>) -> Self {
-        self.balances.push((who, balance));
-        self
-    }
-
-    fn build_and_execute(self, test: impl FnOnce()) {
-        let mut t = frame_system::GenesisConfig::<Test>::default()
-            .build_storage()
-            .unwrap();
-
-        pallet_balances::GenesisConfig::<Test> {
-            balances: self
-                .balances
-                .iter()
-                .map(|(who, balance)| (*who, *balance))
-                .collect::<Vec<_>>(),
-        }
-        .assimilate_storage(&mut t)
-        .unwrap();
-
-        let mut ext = sp_io::TestExternalities::new(t);
-        ext.execute_with(|| System::set_block_number(self.block_number));
-        ext.execute_with(test);
-    }
-}
-
-pub(crate) fn last_event() -> RuntimeEvent {
-    System::events().pop().expect("RuntimeEvent expected").event
-}
-
-pub(crate) fn run_to_block(n: u64) {
-    while System::block_number() < n {
-        System::on_finalize(System::block_number());
-        Balances::on_finalize(System::block_number());
-        System::reset_events();
-        System::set_block_number(System::block_number() + 1);
-        Balances::on_initialize(System::block_number());
-        System::on_initialize(System::block_number());
-    }
-}
-
-fn noop_call() -> Box<RuntimeCall> {
-    Box::new(RuntimeCall::TestPallet(pallet_test::Call::<Test>::noop {}))
-}
+use crate::{BalanceOf, CrowdloanId, CrowdloanInfo, mock::*, pallet as pallet_crowdloan};
 
 #[test]
 fn test_create_succeeds() {
@@ -215,7 +50,7 @@ fn test_create_succeeds() {
                 )),
                 deposit
             );
-            // ensure the contributions  has been updated
+            // ensure the contributions has been updated
             assert_eq!(
                 pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, creator),
                 Some(deposit)
@@ -230,6 +65,11 @@ fn test_create_succeeds() {
                     cap,
                 }
                 .into()
+            );
+            // ensure next crowdloan id is incremented
+            assert_eq!(
+                pallet_crowdloan::NextCrowdloanId::<Test>::get(),
+                crowdloan_id + 1
             );
         });
 }
