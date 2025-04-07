@@ -101,44 +101,44 @@ describe("Test neuron precompile reveal weights", () => {
     })
 
     // Temporarily disable it, there is a type error in CI.
-    // it("EVM neuron reveal weights via call precompile", async () => {
-    //     let totalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue()
-    //     const netuid = totalNetworks - 1
-    //     const contract = new ethers.Contract(INEURON_ADDRESS, INeuronABI, wallet);
-    //     // set tempo or epoch large, then enough time to reveal weight
-    //     await setTempo(api, netuid, 60000)
-    //     // set interval epoch as 0, we can reveal at the same epoch
-    //     await setCommitRevealWeightsInterval(api, netuid, BigInt(0))
+    it("EVM neuron reveal weights via call precompile", async () => {
+        let totalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue()
+        const netuid = totalNetworks - 1
+        const contract = new ethers.Contract(INEURON_ADDRESS, INeuronABI, wallet);
+        // set tempo or epoch large, then enough time to reveal weight
+        await setTempo(api, netuid, 60000)
+        // set interval epoch as 0, we can reveal at the same epoch
+        await setCommitRevealWeightsInterval(api, netuid, BigInt(0))
 
-    //     const tx = await contract.revealWeights(
-    //         netuid,
-    //         uids,
-    //         values,
-    //         salt,
-    //         version_key
-    //     );
-    //     await tx.wait()
-    //     const ss58Address = convertH160ToSS58(wallet.address)
+        const tx = await contract.revealWeights(
+            netuid,
+            uids,
+            values,
+            salt,
+            version_key
+        );
+        await tx.wait()
+        const ss58Address = convertH160ToSS58(wallet.address)
 
-    //     // check the weight commit is removed after reveal successfully
-    //     const weightsCommit = await api.query.SubtensorModule.WeightCommits.getValue(netuid, ss58Address)
-    //     assert.equal(weightsCommit, undefined)
+        // check the weight commit is removed after reveal successfully
+        const weightsCommit = await api.query.SubtensorModule.WeightCommits.getValue(netuid, ss58Address)
+        assert.equal(weightsCommit, undefined)
 
-    //     // check the weight is set after reveal with correct uid
-    //     const neuron_uid = await api.query.SubtensorModule.Uids.getValue(
-    //         netuid,
-    //         ss58Address
-    //     )
+        // check the weight is set after reveal with correct uid
+        const neuron_uid = await api.query.SubtensorModule.Uids.getValue(
+            netuid,
+            ss58Address
+        )
 
-    //     const weights = await api.query.SubtensorModule.Weights.getValue(netuid, neuron_uid)
+        const weights = await api.query.SubtensorModule.Weights.getValue(netuid, neuron_uid)
 
-    //     if (weights === undefined || !Array.isArray(weights)) {
-    //         throw new Error("weights not available onchain or invalid type")
-    //     }
+        if (weights === undefined || !Array.isArray(weights)) {
+            throw new Error("weights not available onchain or invalid type")
+        }
 
-    //     for (const weight of weights) {
-    //         assert.equal(weight[0], neuron_uid)
-    //         assert.ok(weight[1] !== undefined)
-    //     }
-    // })
+        for (const weight of weights) {
+            assert.equal(weight[0], neuron_uid)
+            assert.ok(weight[1] !== undefined)
+        }
+    })
 });

@@ -23,9 +23,7 @@ cd evm-tests
 
 yarn
 
-npm install polkadot-api
-
-sh get-metadata.sh
+bash get-metadata.sh
 
 sleep 5
 

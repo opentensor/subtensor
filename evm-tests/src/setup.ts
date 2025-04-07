@@ -13,10 +13,6 @@ export async function getClient() {
     return client;
 }
 
-before(async () => {
-
-});
-
 after(() => {
     client?.destroy()
 });
