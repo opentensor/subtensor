@@ -13,5 +13,4 @@ export async function estimateTransactionCost(provider: Provider, tx: Transactio
 export function getContract(contractAddress: string, abi: {}[], wallet: Wallet) {
     const contract = new ethers.Contract(contractAddress, abi, wallet);
     return contract
-
 }

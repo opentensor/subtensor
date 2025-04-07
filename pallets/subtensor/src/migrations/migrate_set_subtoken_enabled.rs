@@ -21,7 +21,7 @@ pub fn migrate_set_subtoken_enabled<T: Config>() -> Weight {
     );
 
     // ------------------------------
-    // Step 1: Set the subnet token enabled for all subnets except root
+    // Step 1: Set the subnet token enabled for all subnets except new subnet
     // ------------------------------
     let netuids = Pallet::<T>::get_all_subnet_netuids();
     for netuid in netuids.iter() {
