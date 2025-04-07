@@ -85,7 +85,7 @@ impl LiquidityDataProvider<AccountId> for MockLiquidityProvider {
 
     fn tao_balance(_: u16, account_id: &AccountId) -> u64 {
         if *account_id == OK_ACCOUNT_ID {
-            100_000_000_000
+            100_000_000_000_000
         } else {
             1_000_000_000
         }
@@ -93,7 +93,7 @@ impl LiquidityDataProvider<AccountId> for MockLiquidityProvider {
 
     fn alpha_balance(_: u16, account_id: &AccountId) -> u64 {
         if *account_id == OK_ACCOUNT_ID {
-            100_000_000_000
+            100_000_000_000_000
         } else {
             1_000_000_000
         }
