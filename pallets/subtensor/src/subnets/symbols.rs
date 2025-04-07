@@ -94,7 +94,7 @@ impl<T: Config> Pallet<T> {
                 84 => b"ansuz".to_vec(),
                 85 => b"raidho".to_vec(),
                 86 => b"kaunan".to_vec(),
-                87 => b"eihwaz".to_vec(),
+                87 => b"cyr_yeru".to_vec(),
                 88 => b"algiz".to_vec(),
                 89 => b"berkanan".to_vec(),
                 90 => b"ogham".to_vec(),
@@ -616,7 +616,7 @@ impl<T: Config> Pallet<T> {
             84 => b"\xE1\x9A\xA8".to_vec(), // ᚨ (Ansuz, god, 84)
             85 => b"\xE1\x9A\xB1".to_vec(), // ᚱ (Raidho, ride, 85)
             86 => b"\xE1\x9A\xB3".to_vec(), // ᚲ (Kaunan, ulcer, 86)
-            87 => b"\xE1\x9B\x87".to_vec(), // ᛇ (Eihwaz, yew, 87)
+            87 => b"\xD0\xAB".to_vec(),     // Ы (Cyrillic Yeru, 87)
             88 => b"\xE1\x9B\x89".to_vec(), // ᛉ (Algiz, protection, 88)
             89 => b"\xE1\x9B\x92".to_vec(), // ᛒ (Berkanan, birch, 89)
 
