@@ -1754,13 +1754,6 @@ fn test_set_sn_owner_hotkey_owner() {
             ),
             pallet_subtensor::Error::<Test>::TxRateLimitExceeded
         );
-
-        // Root can set the hotkey
-        // assert_ok!(AdminUtils::sudo_set_sn_owner_hotkey(
-        //     <<Test as Config>::RuntimeOrigin>::root(),
-        //     netuid,
-        //     hotkey
-        // ));
     });
 }
 
