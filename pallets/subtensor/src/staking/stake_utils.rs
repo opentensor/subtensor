@@ -57,6 +57,7 @@ impl<T: Config> Pallet<T> {
             U96F32::saturating_from_num(SubnetMovingPrice::<T>::get(netuid))
         }
     }
+
     pub fn update_moving_price(netuid: u16) {
         let blocks_since_start_call = U96F32::saturating_from_num({
             // We expect FirstEmissionBlockNumber to be set earlier, and we take the block when
