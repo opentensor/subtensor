@@ -480,3 +480,78 @@ fn test_migrate_remove_zero_total_hotkey_alpha() {
         );
     });
 }
+
+#[test]
+fn test_migrate_revealed_commitments() {
+    new_test_ext(1).execute_with(|| {
+        // --------------------------------
+        // Step 1: Simulate Old Storage Entries
+        // --------------------------------
+        const MIGRATION_NAME: &str = "migrate_revealed_commitments_v2";
+
+        // Pallet prefix == twox_128("Commitments")
+        let pallet_prefix = twox_128("Commitments".as_bytes());
+        // Storage item prefix == twox_128("RevealedCommitments")
+        let storage_prefix = twox_128("RevealedCommitments".as_bytes());
+
+        // Example keys for the DoubleMap:
+        //   Key1 (netuid) uses Identity (no hash)
+        //   Key2 (account) uses Twox64Concat
+        let netuid: u16 = 123;
+        let account_id: u64 = 999; // Or however your test `AccountId` is represented
+
+        // Construct the full storage key for `RevealedCommitments(netuid, account_id)`
+        let mut storage_key = Vec::new();
+        storage_key.extend_from_slice(&pallet_prefix);
+        storage_key.extend_from_slice(&storage_prefix);
+
+        // Identity for netuid => no hashing, just raw encode
+        storage_key.extend_from_slice(&netuid.encode());
+
+        // Twox64Concat for account
+        let account_hashed = Twox64Concat::hash(&account_id.encode());
+        storage_key.extend_from_slice(&account_hashed);
+
+        // Simulate an old value we might have stored:
+        // For example, the old type was `RevealedData<Balance, ...>`
+        // We'll just store a random encoded value for demonstration
+        let old_value = (vec![1, 2, 3, 4], 42u64);
+        put_raw(&storage_key, &old_value.encode());
+
+        // Confirm the storage value is set
+        let stored_value = get_raw(&storage_key).expect("Expected to get a value");
+        let decoded_value = <(Vec<u8>, u64)>::decode(&mut &stored_value[..])
+            .expect("Failed to decode the old revealed commitments");
+        assert_eq!(decoded_value, old_value);
+
+        // Also confirm that the migration has NOT run yet
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // --------------------------------
+        // Step 2: Run the Migration
+        // --------------------------------
+        let weight = crate::migrations::migrate_upgrade_revealed_commitments::migrate_upgrade_revealed_commitments::<Test>();
+
+        // Migration should be marked as run
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should now be marked as run"
+        );
+
+        // --------------------------------
+        // Step 3: Verify Migration Effects
+        // --------------------------------
+        // The old key/value should be removed
+        let stored_value_after = get_raw(&storage_key);
+        assert!(
+            stored_value_after.is_none(),
+            "Old storage entry should be cleared"
+        );
+
+        // Weight returned should be > 0 (some cost was incurred clearing storage)
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+    });
+}

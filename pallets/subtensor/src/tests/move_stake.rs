@@ -3,7 +3,7 @@ use crate::*;
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_core::{Get, U256};
-use substrate_fixed::types::{I96F32, U64F64};
+use substrate_fixed::types::{U64F64, U96F32};
 
 // 1. test_do_move_success
 // Description: Test a successful move of stake between two hotkeys in the same subnet
@@ -112,9 +112,9 @@ fn test_do_move_different_subnets() {
             ),
             0
         );
-        let alpha_fee: I96F32 =
-            I96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
-        let expected_value = I96F32::from_num(alpha)
+        let alpha_fee: U96F32 =
+            U96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
+        let expected_value = U96F32::from_num(alpha)
             * SubtensorModule::get_alpha_price(origin_netuid)
             / SubtensorModule::get_alpha_price(destination_netuid);
         assert_abs_diff_eq!(
@@ -709,8 +709,8 @@ fn test_do_move_storage_updates() {
             0
         );
         let alpha_fee =
-            I96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
-        let alpha2 = I96F32::from_num(alpha) * SubtensorModule::get_alpha_price(origin_netuid)
+            U96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
+        let alpha2 = U96F32::from_num(alpha) * SubtensorModule::get_alpha_price(origin_netuid)
             / SubtensorModule::get_alpha_price(destination_netuid);
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -1080,7 +1080,7 @@ fn test_do_transfer_different_subnets() {
             &destination_coldkey,
             destination_netuid,
         );
-        let expected_value = I96F32::from_num(stake_amount - fee)
+        let expected_value = U96F32::from_num(stake_amount - fee)
             / SubtensorModule::get_alpha_price(destination_netuid);
         assert_abs_diff_eq!(
             dest_stake,
@@ -1134,8 +1134,8 @@ fn test_do_swap_success() {
             destination_netuid,
         );
         let alpha_fee =
-            I96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
-        let expected_value = I96F32::from_num(alpha_before)
+            U96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
+        let expected_value = U96F32::from_num(alpha_before)
             * SubtensorModule::get_alpha_price(origin_netuid)
             / SubtensorModule::get_alpha_price(destination_netuid);
         assert_abs_diff_eq!(
@@ -1353,8 +1353,8 @@ fn test_do_swap_partial_stake() {
         );
 
         let alpha_fee =
-            I96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
-        let expected_value = I96F32::from_num(swap_amount)
+            U96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
+        let expected_value = U96F32::from_num(swap_amount)
             * SubtensorModule::get_alpha_price(origin_netuid)
             / SubtensorModule::get_alpha_price(destination_netuid);
         assert_abs_diff_eq!(
@@ -1408,8 +1408,8 @@ fn test_do_swap_storage_updates() {
         );
 
         let alpha_fee =
-            I96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
-        let expected_value = I96F32::from_num(alpha)
+            U96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
+        let expected_value = U96F32::from_num(alpha)
             * SubtensorModule::get_alpha_price(origin_netuid)
             / SubtensorModule::get_alpha_price(destination_netuid);
         assert_abs_diff_eq!(
@@ -1543,7 +1543,7 @@ fn test_swap_stake_limit_validate() {
         // Setup limit price so that it doesn't allow much slippage at all
         let limit_price = ((SubtensorModule::get_alpha_price(origin_netuid)
             / SubtensorModule::get_alpha_price(destination_netuid))
-            * I96F32::from_num(1_000_000_000))
+            * U96F32::from_num(1_000_000_000))
         .to_num::<u64>()
             - 1_u64;
 
@@ -1737,8 +1737,8 @@ fn test_move_stake_specific_stake_into_subnet_fail() {
             0
         );
         let fee = DefaultStakingFee::<Test>::get();
-        let alpha_fee: I96F32 = I96F32::from_num(fee) / SubtensorModule::get_alpha_price(netuid);
-        let expected_value = I96F32::from_num(alpha_to_move)
+        let alpha_fee: U96F32 = U96F32::from_num(fee) / SubtensorModule::get_alpha_price(netuid);
+        let expected_value = U96F32::from_num(alpha_to_move)
             * SubtensorModule::get_alpha_price(origin_netuid)
             / SubtensorModule::get_alpha_price(netuid);
         assert_abs_diff_eq!(

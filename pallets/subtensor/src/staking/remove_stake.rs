@@ -1,5 +1,5 @@
 use super::*;
-use substrate_fixed::types::I96F32;
+use substrate_fixed::types::U96F32;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
@@ -63,7 +63,7 @@ impl<T: Config> Pallet<T> {
             &coldkey,
             None,
             &coldkey,
-            I96F32::saturating_from_num(alpha_unstaked),
+            U96F32::saturating_from_num(alpha_unstaked),
         );
         let tao_unstaked: u64 =
             Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha_unstaked, fee);
@@ -134,12 +134,27 @@ impl<T: Config> Pallet<T> {
             // Ensure that the hotkey has enough stake to withdraw.
             let alpha_unstaked =
                 Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+
+            if Self::validate_remove_stake(
+                &coldkey,
+                &hotkey,
+                netuid,
+                alpha_unstaked,
+                alpha_unstaked,
+                false,
+            )
+            .is_err()
+            {
+                // Don't unstake from this netuid
+                continue;
+            }
+
             let fee = Self::calculate_staking_fee(
                 Some((&hotkey, netuid)),
                 &coldkey,
                 None,
                 &coldkey,
-                I96F32::saturating_from_num(alpha_unstaked),
+                U96F32::saturating_from_num(alpha_unstaked),
             );
 
             if alpha_unstaked > 0 {
@@ -211,12 +226,27 @@ impl<T: Config> Pallet<T> {
                 // Ensure that the hotkey has enough stake to withdraw.
                 let alpha_unstaked =
                     Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+
+                if Self::validate_remove_stake(
+                    &coldkey,
+                    &hotkey,
+                    netuid,
+                    alpha_unstaked,
+                    alpha_unstaked,
+                    false,
+                )
+                .is_err()
+                {
+                    // Don't unstake from this netuid
+                    continue;
+                }
+
                 let fee = Self::calculate_staking_fee(
                     Some((&hotkey, netuid)),
                     &coldkey,
                     None,
                     &coldkey,
-                    I96F32::saturating_from_num(alpha_unstaked),
+                    U96F32::saturating_from_num(alpha_unstaked),
                 );
 
                 if alpha_unstaked > 0 {
@@ -325,7 +355,7 @@ impl<T: Config> Pallet<T> {
             &coldkey,
             None,
             &coldkey,
-            I96F32::saturating_from_num(alpha_unstaked),
+            U96F32::saturating_from_num(alpha_unstaked),
         );
         let tao_unstaked =
             Self::unstake_from_subnet(&hotkey, &coldkey, netuid, possible_alpha, fee);
