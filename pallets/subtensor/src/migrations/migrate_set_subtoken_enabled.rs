@@ -45,7 +45,8 @@ pub fn migrate_set_subtoken_enabled<T: Config>() -> Weight {
     if netuids.is_empty() {
         weight = weight.saturating_add(T::DbWeight::get().writes(1_u64));
     } else {
-        weight = weight.saturating_add(T::DbWeight::get().writes(netuids.len() as u64 + 1));
+        weight = weight
+            .saturating_add(T::DbWeight::get().writes((netuids.len() as u64).saturating_add(1)));
     }
 
     log::info!(
