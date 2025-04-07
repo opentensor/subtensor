@@ -424,7 +424,7 @@ impl<T: Config> Pallet<T> {
         // Set last transaction block
         let current_block = Self::get_current_block_as_u64();
         Self::set_last_transaction_block_on_subnet(
-            &hotkey,
+            hotkey,
             netuid,
             &TransactionType::SetSNOwnerHotkey,
             current_block,
