@@ -259,3 +259,14 @@ fn test_register_network_min_burn_at_default() {
         assert_eq!(MinBurn::<Test>::get(netuid), InitialMinBurn::get());
     });
 }
+
+#[test]
+fn test_subtoken_enable() {
+    // ensure_subtoken_enabled
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        // let to_be_set: u64 = 10
+        add_network(netuid, 10, 0);
+        assert_eq!(SubtokenEnabled::<Test>::get(netuid), false);
+    });
+}
