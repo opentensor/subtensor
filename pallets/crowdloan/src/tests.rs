@@ -1362,6 +1362,12 @@ fn test_finalize_succeeds() {
                 100
             );
 
+            // ensure the crowdloan is marked as finalized
+            assert!(
+                pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id)
+                    .is_some_and(|c| c.finalized)
+            );
+
             // ensure the event is emitted
             assert_eq!(
                 last_event(),
