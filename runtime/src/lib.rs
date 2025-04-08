@@ -1372,8 +1372,8 @@ parameter_types! {
     pub const CrowdloanPalletId: PalletId = PalletId(*b"bt/cloan");
     pub const MinimumDeposit: Balance = 10_000_000_000; // 10 TAO
     pub const MinimumContribution: Balance = 100_000_000; // 0.1 TAO
-    pub const MinimumBlockDuration: BlockNumber = 1000;
-    pub const MaximumBlockDuration: BlockNumber = 5000;
+    pub const MinimumBlockDuration: BlockNumber = 50400; // 7 days minimum (7 * 24 * 60 * 60 / 12)
+    pub const MaximumBlockDuration: BlockNumber = 216000; // 30 days maximum (30 * 24 * 60 * 60 / 12)
     pub const RefundContributorsLimit: u32 = 5;
 }
 
