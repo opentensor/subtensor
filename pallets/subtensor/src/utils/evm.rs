@@ -71,4 +71,19 @@ impl<T: Config> Pallet<T> {
 
         Ok(())
     }
+
+    pub fn uid_lookup(netuid: u16, evm_key: H160, limit: u16) -> Vec<(u16, u64)> {
+        let mut ret_val = AssociatedEvmAddress::<T>::iter_prefix(netuid)
+            .take(limit as usize)
+            .filter_map(|(uid, (stored_evm_key, block_associated))| {
+                if stored_evm_key != evm_key {
+                    return None;
+                }
+
+                Some((uid, block_associated))
+            })
+            .collect::<Vec<(u16, u64)>>();
+        ret_val.sort_by(|(_, block1), (_, block2)| block1.cmp(block2));
+        ret_val
+    }
 }
