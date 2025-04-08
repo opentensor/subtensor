@@ -101,6 +101,14 @@ mod benchmarks {
     }
 
     #[benchmark]
+    fn sudo_set_bonds_penalty() {
+        pallet_subtensor::Pallet::<T>::init_new_network(1u16 /*netuid*/, 1u16 /*tempo*/);
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, 1u16/*netuid*/, 100u16/*bonds_penalty*/)/*sudo_set_bonds_penalty*/;
+    }
+
+    #[benchmark]
     fn sudo_set_max_allowed_validators() {
         pallet_subtensor::Pallet::<T>::init_new_network(1u16 /*netuid*/, 1u16 /*tempo*/);
 
@@ -262,25 +270,6 @@ mod benchmarks {
 
         #[extrinsic_call]
 		_(RawOrigin::Root, 1u16/*netuid*/, true/*enabled*/)/*set_commit_reveal_weights_enabled*/;
-    }
-
-    #[benchmark]
-    fn sudo_set_hotkey_emission_tempo() {
-        pallet_subtensor::Pallet::<T>::init_new_network(
-            1u16, /*netuid*/
-            1u16, /*sudo_tempo*/
-        );
-
-        #[extrinsic_call]
-        _(RawOrigin::Root, 1u64/*emission_tempo*/)/*set_hotkey_emission_tempo*/;
-    }
-
-    #[benchmark]
-    fn sudo_set_network_max_stake() {
-        pallet_subtensor::Pallet::<T>::init_new_network(1u16 /*netuid*/, 1u16 /*tempo*/);
-
-        #[extrinsic_call]
-        _(RawOrigin::Root, 1u16/*netuid*/, 1_000_000_000_000_000u64/*max_stake*/)/*sudo_set_network_max_stake*/;
     }
 
     //impl_benchmark_test_suite!(AdminUtils, crate::mock::new_test_ext(), crate::mock::Test);

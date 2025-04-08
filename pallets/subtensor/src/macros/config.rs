@@ -38,11 +38,11 @@ mod config {
 
         /// The scheduler type used for scheduling delayed calls.
         type Scheduler: ScheduleAnon<
-            BlockNumberFor<Self>,
-            LocalCallOf<Self>,
-            PalletsOriginOf<Self>,
-            Hasher = Self::Hashing,
-        >;
+                BlockNumberFor<Self>,
+                LocalCallOf<Self>,
+                PalletsOriginOf<Self>,
+                Hasher = Self::Hashing,
+            >;
 
         /// the preimage to store the call data.
         type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
@@ -93,6 +93,9 @@ mod config {
         /// Initial bonds moving average.
         #[pallet::constant]
         type InitialBondsMovingAverage: Get<u64>;
+        /// Initial bonds penalty.
+        #[pallet::constant]
+        type InitialBondsPenalty: Get<u16>;
         /// Initial target registrations per interval.
         #[pallet::constant]
         type InitialTargetRegistrationsPerInterval: Get<u16>;
@@ -177,15 +180,9 @@ mod config {
         /// Initial lock reduction interval.
         #[pallet::constant]
         type InitialNetworkLockReductionInterval: Get<u64>;
-        /// Initial max allowed subnets
-        #[pallet::constant]
-        type InitialSubnetLimit: Get<u16>;
         /// Initial network creation rate limit
         #[pallet::constant]
         type InitialNetworkRateLimit: Get<u64>;
-        /// Initial target stakes per interval issuance.
-        #[pallet::constant]
-        type InitialTargetStakesPerInterval: Get<u64>;
         /// Cost of swapping a hotkey.
         #[pallet::constant]
         type KeySwapCost: Get<u64>;
@@ -198,17 +195,23 @@ mod config {
         /// A flag to indicate if Liquid Alpha is enabled.
         #[pallet::constant]
         type LiquidAlphaOn: Get<bool>;
-        /// Initial network max stake.
-        #[pallet::constant]
-        type InitialNetworkMaxStake: Get<u64>;
-        /// Initial hotkey emission tempo.
-        #[pallet::constant]
-        type InitialHotkeyEmissionTempo: Get<u64>;
+        // /// Initial hotkey emission tempo.
+        // #[pallet::constant]
+        // type InitialHotkeyEmissionTempo: Get<u64>;
         /// Coldkey swap schedule duartion.
         #[pallet::constant]
         type InitialColdkeySwapScheduleDuration: Get<BlockNumberFor<Self>>;
         /// Dissolve network schedule duration
         #[pallet::constant]
         type InitialDissolveNetworkScheduleDuration: Get<BlockNumberFor<Self>>;
+        /// Initial TAO weight.
+        #[pallet::constant]
+        type InitialTaoWeight: Get<u64>;
+        /// Initial EMA price halving period
+        #[pallet::constant]
+        type InitialEmaPriceHalvingPeriod: Get<u64>;
+        /// Block number after a new subnet accept the start call extrinsic.
+        #[pallet::constant]
+        type DurationOfStartCall: Get<u64>;
     }
 }

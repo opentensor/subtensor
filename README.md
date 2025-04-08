@@ -22,8 +22,11 @@ This repository contains Bittensor's substrate-chain. Subtensor contains the tru
 
 * The binaries in ./bin/release are x86_64 binaries to be used with the Linux kernel.
 * Subtensor needs ~286 MiB to run.
-* Architectures other than x86_64 are currently not supported.
+*	Supported Architectures:
+	-	Linux: x86_64
+	-	MacOS: x86_64 and ARM64 (M series Macs)
 * OSs other than Linux and MacOS are currently not supported.
+
 
 ## Architectures
 Subtensor support the following architectures:
@@ -34,9 +37,10 @@ Requirements:
 * glibc 2.11+
 A fresh FRAME-based [Substrate](https://www.substrate.io/) node, ready for hacking :rocket:
 
-## MacOS x86_64
+## MacOS x86_64 & arm64 (Apple Silicon)
 Requirements:
-* MacOS 10.7+ (Lion+)
+*	macOS 10.7+ (Lion+) for x86_64
+*	macOS 11+ (Big Sur+) for Apple Silicon (M1, M2, and later) with arm64 architecture support.
 
 ## Network requirements
 * Subtensor needs access to the public internet

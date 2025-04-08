@@ -1,5 +1,4 @@
 ARG BASE_IMAGE=rust:1.83
-
 FROM $BASE_IMAGE AS base_builder
 
 LABEL ai.opentensor.image.authors="operations@opentensor.ai" \
@@ -14,13 +13,12 @@ RUN rustup target add wasm32-unknown-unknown --toolchain stable
 
 # Set up Rust environment
 ENV RUST_BACKTRACE=1
-RUN apt-get update && apt-get install -y protobuf-compiler curl clang git
+RUN apt-get update && apt-get install -y curl build-essential protobuf-compiler clang git pkg-config libssl-dev
 RUN rm -rf /var/lib/apt/lists/*
 
 # Copy entire repository
 COPY . /build
 WORKDIR /build
-
 
 #
 # Image for building prod

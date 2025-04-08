@@ -2,22 +2,24 @@
 use crate::utils::rate_limiting::TransactionType;
 use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
-use frame_support::weights::constants::RocksDbWeight;
 use frame_support::weights::Weight;
+use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{
     assert_ok, parameter_types,
     traits::{Everything, Hooks, PrivilegeCmp},
 };
 use frame_system as system;
-use frame_system::{limits, EnsureNever, EnsureRoot, RawOrigin};
+use frame_system::{EnsureNever, EnsureRoot, RawOrigin, limits};
 use pallet_collective::MemberCount;
-use sp_core::{offchain::KeyTypeId, ConstU64, Get, H256, U256};
+use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
-    traits::{BlakeTwo256, IdentityLookup},
     BuildStorage,
+    traits::{BlakeTwo256, IdentityLookup},
 };
 use sp_std::cmp::Ordering;
+
+use crate::*;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -131,11 +133,12 @@ parameter_types! {
     pub const SDebug:u64 = 1;
     pub const InitialRho: u16 = 30;
     pub const InitialKappa: u16 = 32_767;
-    pub const InitialTempo: u16 = 0;
+    pub const InitialTempo: u16 = 360;
     pub const SelfOwnership: u64 = 2;
     pub const InitialImmunityPeriod: u16 = 2;
     pub const InitialMaxAllowedUids: u16 = 2;
     pub const InitialBondsMovingAverage: u64 = 900_000;
+    pub const InitialBondsPenalty:u16 = u16::MAX;
     pub const InitialStakePruningMin: u16 = 0;
     pub const InitialFoundationDistribution: u64 = 0;
     pub const InitialDefaultDelegateTake: u16 = 11_796; // 18%, same as in production
@@ -149,7 +152,7 @@ parameter_types! {
     pub const InitialTxDelegateTakeRateLimit: u64 = 1; // 1 block take rate limit for testing
     pub const InitialTxChildKeyTakeRateLimit: u64 = 1; // 1 block take rate limit for testing
     pub const InitialBurn: u64 = 0;
-    pub const InitialMinBurn: u64 = 0;
+    pub const InitialMinBurn: u64 = 500_000;
     pub const InitialMaxBurn: u64 = 1_000_000_000;
     pub const InitialValidatorPruneLen: u64 = 0;
     pub const InitialScalingLawPower: u16 = 50;
@@ -172,17 +175,17 @@ parameter_types! {
     pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
     pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
-    pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
-    pub const InitialTargetStakesPerInterval: u16 = 2;
     pub const InitialKeySwapCost: u64 = 1_000_000_000;
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
-    pub const InitialHotkeyEmissionTempo: u64 = 0; // Defaults to draining every block.
-    pub const InitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64
+    // pub const InitialNetworkMaxStake: u64 = u64::MAX; // (DEPRECATED)
     pub const InitialColdkeySwapScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
     pub const InitialDissolveNetworkScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
+    pub const InitialTaoWeight: u64 = 0; // 100% global weight.
+    pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
+    pub const DurationOfStartCall: u64 =  7 * 24 * 60 * 60 / 12; // Default as 7 days
 }
 
 // Configure collective pallet for council
@@ -213,7 +216,7 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
     }
 }
 
-use crate::{CollectiveInterface, MemberManagement, StakeThreshold, TotalHotkeyStake};
+use crate::{CollectiveInterface, MemberManagement, StakeThreshold};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
@@ -372,6 +375,7 @@ impl crate::Config for Test {
     type InitialMaxRegistrationsPerBlock = InitialMaxRegistrationsPerBlock;
     type InitialPruningScore = InitialPruningScore;
     type InitialBondsMovingAverage = InitialBondsMovingAverage;
+    type InitialBondsPenalty = InitialBondsPenalty;
     type InitialMaxAllowedValidators = InitialMaxAllowedValidators;
     type InitialDefaultDelegateTake = InitialDefaultDelegateTake;
     type InitialMinDelegateTake = InitialMinDelegateTake;
@@ -395,18 +399,17 @@ impl crate::Config for Test {
     type InitialNetworkMinLockCost = InitialNetworkMinLockCost;
     type InitialSubnetOwnerCut = InitialSubnetOwnerCut;
     type InitialNetworkLockReductionInterval = InitialNetworkLockReductionInterval;
-    type InitialSubnetLimit = InitialSubnetLimit;
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
-    type InitialTargetStakesPerInterval = InitialTargetStakesPerInterval;
     type KeySwapCost = InitialKeySwapCost;
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;
-    type InitialHotkeyEmissionTempo = InitialHotkeyEmissionTempo;
-    type InitialNetworkMaxStake = InitialNetworkMaxStake;
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
+    type InitialTaoWeight = InitialTaoWeight;
+    type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
+    type DurationOfStartCall = DurationOfStartCall;
 }
 
 pub struct OriginPrivilegeCmp;
@@ -461,8 +464,8 @@ impl pallet_preimage::Config for Test {
 mod test_crypto {
     use super::KEY_TYPE;
     use sp_core::{
-        sr25519::{Public as Sr25519Public, Signature as Sr25519Signature},
         U256,
+        sr25519::{Public as Sr25519Public, Signature as Sr25519Signature},
     };
     use sp_runtime::{
         app_crypto::{app_crypto, sr25519},
@@ -592,6 +595,30 @@ pub(crate) fn run_to_block(n: u64) {
 }
 
 #[allow(dead_code)]
+pub(crate) fn next_block_no_epoch(netuid: u16) -> u64 {
+    // high tempo to skip automatic epochs in on_initialize
+    let high_tempo: u16 = u16::MAX - 1;
+    let old_tempo: u16 = SubtensorModule::get_tempo(netuid);
+
+    SubtensorModule::set_tempo(netuid, high_tempo);
+    let new_block = next_block();
+    SubtensorModule::set_tempo(netuid, old_tempo);
+
+    new_block
+}
+
+#[allow(dead_code)]
+pub(crate) fn run_to_block_no_epoch(netuid: u16, n: u64) {
+    // high tempo to skip automatic epochs in on_initialize
+    let high_tempo: u16 = u16::MAX - 1;
+    let old_tempo: u16 = SubtensorModule::get_tempo(netuid);
+
+    SubtensorModule::set_tempo(netuid, high_tempo);
+    run_to_block(n);
+    SubtensorModule::set_tempo(netuid, old_tempo);
+}
+
+#[allow(dead_code)]
 pub(crate) fn step_epochs(count: u16, netuid: u16) {
     for _ in 0..count {
         let blocks_to_next_epoch = SubtensorModule::blocks_until_next_epoch(
@@ -599,6 +626,7 @@ pub(crate) fn step_epochs(count: u16, netuid: u16) {
             SubtensorModule::get_tempo(netuid),
             SubtensorModule::get_current_block_as_u64(),
         );
+        log::info!("Blocks to next epoch: {:?}", blocks_to_next_epoch);
         step_block(blocks_to_next_epoch as u16);
 
         assert!(SubtensorModule::should_run_epoch(
@@ -660,39 +688,78 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+    FirstEmissionBlockNumber::<Test>::insert(netuid, 1);
+}
+
+#[allow(dead_code)]
+pub fn add_network_without_emission_block(netuid: u16, tempo: u16, _modality: u16) {
+    SubtensorModule::init_new_network(netuid, tempo);
+    SubtensorModule::set_network_registration_allowed(netuid, true);
+    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+}
+
+#[allow(dead_code)]
+pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> u16 {
+    let netuid = SubtensorModule::get_next_netuid();
+    let lock_cost = SubtensorModule::get_network_lock_cost();
+    SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost);
+
+    assert_ok!(SubtensorModule::register_network(
+        RawOrigin::Signed(*coldkey).into(),
+        *hotkey
+    ));
+    NetworkRegistrationAllowed::<Test>::insert(netuid, true);
+    NetworkPowRegistrationAllowed::<Test>::insert(netuid, true);
+    FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
+    netuid
+}
+
+#[allow(dead_code)]
+pub fn add_dynamic_network_without_emission_block(hotkey: &U256, coldkey: &U256) -> u16 {
+    let netuid = SubtensorModule::get_next_netuid();
+    let lock_cost = SubtensorModule::get_network_lock_cost();
+    SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost);
+
+    assert_ok!(SubtensorModule::register_network(
+        RawOrigin::Signed(*coldkey).into(),
+        *hotkey
+    ));
+    NetworkRegistrationAllowed::<Test>::insert(netuid, true);
+    NetworkPowRegistrationAllowed::<Test>::insert(netuid, true);
+    netuid
 }
 
 // Helper function to set up a neuron with stake
 #[allow(dead_code)]
 pub fn setup_neuron_with_stake(netuid: u16, hotkey: U256, coldkey: U256, stake: u64) {
     register_ok_neuron(netuid, hotkey, coldkey, stake);
-    SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake);
+    increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake, netuid);
 }
 
-// Helper function to check if a value is within tolerance of an expected value
 #[allow(dead_code)]
-pub fn is_within_tolerance(actual: u64, expected: u64, tolerance: u64) -> bool {
-    let difference = if actual > expected {
-        actual - expected
-    } else {
-        expected - actual
-    };
-    difference <= tolerance
+pub fn wait_set_pending_children_cooldown(netuid: u16) {
+    let cooldown = DefaultPendingCooldown::<Test>::get();
+    step_block(cooldown as u16); // Wait for cooldown to pass
+    step_epochs(1, netuid); // Run next epoch
 }
 
 #[allow(dead_code)]
 pub fn wait_and_set_pending_children(netuid: u16) {
     let original_block = System::block_number();
-    System::set_block_number(System::block_number() + 7300);
+    wait_set_pending_children_cooldown(netuid);
     SubtensorModule::do_set_pending_children(netuid);
     System::set_block_number(original_block);
 }
 
 #[allow(dead_code)]
-pub fn mock_set_children(coldkey: &U256, parent: &U256, netuid: u16, child_vec: &[(u64, U256)]) {
+pub fn mock_schedule_children(
+    coldkey: &U256,
+    parent: &U256,
+    netuid: u16,
+    child_vec: &[(u64, U256)],
+) {
     // Set minimum stake for setting children
-    let parent_total_stake_original = TotalHotkeyStake::<Test>::get(parent);
-    TotalHotkeyStake::<Test>::insert(parent, StakeThreshold::<Test>::get());
+    StakeThreshold::<Test>::put(0);
 
     // Set initial parent-child relationship
     assert_ok!(SubtensorModule::do_schedule_children(
@@ -701,8 +768,21 @@ pub fn mock_set_children(coldkey: &U256, parent: &U256, netuid: u16, child_vec: 
         netuid,
         child_vec.to_vec()
     ));
+}
+
+#[allow(dead_code)]
+pub fn mock_set_children(coldkey: &U256, parent: &U256, netuid: u16, child_vec: &[(u64, U256)]) {
+    mock_schedule_children(coldkey, parent, netuid, child_vec);
     wait_and_set_pending_children(netuid);
-    TotalHotkeyStake::<Test>::insert(parent, parent_total_stake_original);
+}
+
+#[allow(dead_code)]
+pub fn mock_set_children_no_epochs(netuid: u16, parent: &U256, child_vec: &[(u64, U256)]) {
+    let backup_block = SubtensorModule::get_current_block_as_u64();
+    PendingChildKeys::<Test>::insert(netuid, parent, (child_vec, 0));
+    System::set_block_number(1);
+    SubtensorModule::do_set_pending_children(netuid);
+    System::set_block_number(backup_block);
 }
 
 // Helper function to wait for the rate limit
@@ -713,4 +793,32 @@ pub fn step_rate_limit(transaction_type: &TransactionType, netuid: u16) {
 
     // Step that many blocks
     step_block(limit as u16);
+}
+
+/// Helper function to mock now missing increase_stake_on_coldkey_hotkey_account with
+/// minimal changes
+#[allow(dead_code)]
+pub fn increase_stake_on_coldkey_hotkey_account(
+    coldkey: &U256,
+    hotkey: &U256,
+    tao_staked: u64,
+    netuid: u16,
+) {
+    let fee = 0;
+    SubtensorModule::stake_into_subnet(hotkey, coldkey, netuid, tao_staked, fee);
+}
+
+/// Increases the stake on the hotkey account under its owning coldkey.
+///
+/// # Arguments
+/// * `hotkey` - The hotkey account ID.
+/// * `increment` - The amount to be incremented.
+#[allow(dead_code)]
+pub fn increase_stake_on_hotkey_account(hotkey: &U256, increment: u64, netuid: u16) {
+    increase_stake_on_coldkey_hotkey_account(
+        &SubtensorModule::get_owning_coldkey_for_hotkey(hotkey),
+        hotkey,
+        increment,
+        netuid,
+    );
 }

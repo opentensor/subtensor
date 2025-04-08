@@ -2,7 +2,7 @@
 name = "pallet-collective"
 version = "4.0.0-dev"
 authors = ["Parity Technologies <admin@parity.io>, Opentensor Technologies"]
-edition = "2021"
+edition = "2024"
 license = "Apache-2.0"
 homepage = "https://bittensor.com"
 repository = "https://github.com/opentensor/subtensor"

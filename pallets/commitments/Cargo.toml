@@ -4,7 +4,7 @@ version = "4.0.0-dev"
 description = "Add the ability to commit generic hashed data for network participants."
 authors = ["Bittensor Nucleus Team"]
 homepage = "https://bittensor.com"
-edition = "2021"
+edition = "2024"
 license = "Unlicense"
 publish = false
 repository = "https://github.com/opentensor/subtensor"
@@ -29,6 +29,18 @@ sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 enumflags2 = { workspace = true }
 
+pallet-drand = { path = "../drand", default-features = false }
+tle = { workspace = true, default-features = false }
+ark-serialize = { workspace = true, default-features = false }
+w3f-bls = { workspace = true, default-features = false }
+rand_chacha = { workspace = true }
+hex = { workspace = true }
+sha2 = { workspace = true }
+
+log = { workspace = true }
+
+pallet-subtensor = { path = "../subtensor", default-features = false }
+
 [dev-dependencies]
 sp-core = { workspace = true }
 sp-io = { workspace = true }
@@ -47,18 +59,31 @@ std = [
 	"enumflags2/std",
 	"pallet-balances/std",
 	"sp-core/std",
-	"sp-io/std"
+	"sp-io/std",
+	"ark-serialize/std",
+	"log/std",
+	"pallet-drand/std",
+	"tle/std",
+	"w3f-bls/std",
+	"hex/std",
+	"rand_chacha/std",
+	"sha2/std",
+	"pallet-subtensor/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks"
+	"pallet-balances/runtime-benchmarks",
+	"pallet-drand/runtime-benchmarks",
+	"pallet-subtensor/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
-	"sp-runtime/try-runtime"
+	"sp-runtime/try-runtime",
+	"pallet-drand/try-runtime",
+	"pallet-subtensor/try-runtime"
 ]

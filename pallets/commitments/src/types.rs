@@ -17,16 +17,16 @@
 
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
 use frame_support::{
-    traits::{ConstU32, Get},
     BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+    traits::{ConstU32, Get},
 };
 use scale_info::{
-    build::{Fields, Variants},
     Path, Type, TypeInfo,
+    build::{Fields, Variants},
 };
 use sp_runtime::{
-    traits::{AppendZerosInput, AtLeast32BitUnsigned},
     RuntimeDebug,
+    traits::{AppendZerosInput, AtLeast32BitUnsigned},
 };
 use sp_std::{fmt::Debug, iter::once, prelude::*};
 use subtensor_macros::freeze_struct;
@@ -53,11 +53,33 @@ pub enum Data {
     /// Only the SHA3-256 hash of the data is stored. The preimage of the hash may be retrieved
     /// through some hash-lookup service.
     ShaThree256([u8; 32]),
+    /// A timelock-encrypted commitment with a reveal round.
+    TimelockEncrypted {
+        encrypted: BoundedVec<u8, ConstU32<MAX_TIMELOCK_COMMITMENT_SIZE_BYTES>>,
+        reveal_round: u64,
+    },
 }
 
 impl Data {
     pub fn is_none(&self) -> bool {
         self == &Data::None
+    }
+
+    /// Check if this is a timelock-encrypted commitment.
+    pub fn is_timelock_encrypted(&self) -> bool {
+        matches!(self, Data::TimelockEncrypted { .. })
+    }
+
+    pub fn len_for_rate_limit(&self) -> u64 {
+        match self {
+            Data::None => 0,
+            Data::Raw(bytes) => bytes.len() as u64,
+            Data::BlakeTwo256(arr)
+            | Data::Sha256(arr)
+            | Data::Keccak256(arr)
+            | Data::ShaThree256(arr) => arr.len() as u64,
+            Data::TimelockEncrypted { encrypted, .. } => encrypted.len() as u64,
+        }
     }
 }
 
@@ -77,6 +99,15 @@ impl Decode for Data {
             131 => Data::Sha256(<[u8; 32]>::decode(input)?),
             132 => Data::Keccak256(<[u8; 32]>::decode(input)?),
             133 => Data::ShaThree256(<[u8; 32]>::decode(input)?),
+            134 => {
+                let encrypted =
+                    BoundedVec::<u8, ConstU32<MAX_TIMELOCK_COMMITMENT_SIZE_BYTES>>::decode(input)?;
+                let reveal_round = u64::decode(input)?;
+                Data::TimelockEncrypted {
+                    encrypted,
+                    reveal_round,
+                }
+            }
             _ => return Err(codec::Error::from("invalid leading byte")),
         })
     }
@@ -86,16 +117,25 @@ impl Encode for Data {
     fn encode(&self) -> Vec<u8> {
         match self {
             Data::None => vec![0u8; 1],
-            Data::Raw(ref x) => {
+            Data::Raw(x) => {
                 let l = x.len().min(128) as u8;
                 let mut r = vec![l.saturating_add(1)];
                 r.extend_from_slice(&x[..]);
                 r
             }
-            Data::BlakeTwo256(ref h) => once(130).chain(h.iter().cloned()).collect(),
-            Data::Sha256(ref h) => once(131).chain(h.iter().cloned()).collect(),
-            Data::Keccak256(ref h) => once(132).chain(h.iter().cloned()).collect(),
-            Data::ShaThree256(ref h) => once(133).chain(h.iter().cloned()).collect(),
+            Data::BlakeTwo256(h) => once(130).chain(h.iter().cloned()).collect(),
+            Data::Sha256(h) => once(131).chain(h.iter().cloned()).collect(),
+            Data::Keccak256(h) => once(132).chain(h.iter().cloned()).collect(),
+            Data::ShaThree256(h) => once(133).chain(h.iter().cloned()).collect(),
+            Data::TimelockEncrypted {
+                encrypted,
+                reveal_round,
+            } => {
+                let mut r = vec![134];
+                r.extend_from_slice(&encrypted.encode());
+                r.extend_from_slice(&reveal_round.encode());
+                r
+            }
         }
     }
 }
@@ -270,6 +310,17 @@ impl TypeInfo for Data {
             .variant("ShaThree256", |v| {
                 v.index(133)
                     .fields(Fields::unnamed().field(|f| f.ty::<[u8; 32]>()))
+            })
+            .variant("TimelockEncrypted", |v| {
+                v.index(134).fields(
+                    Fields::named()
+                        .field(|f| {
+                            f.name("encrypted")
+                                .ty::<BoundedVec<u8, ConstU32<MAX_TIMELOCK_COMMITMENT_SIZE_BYTES>>>(
+                                )
+                        })
+                        .field(|f| f.name("reveal_round").ty::<u64>()),
+                )
             });
 
         Type::builder()
@@ -293,6 +344,28 @@ impl Default for Data {
 #[scale_info(skip_type_params(FieldLimit))]
 pub struct CommitmentInfo<FieldLimit: Get<u32>> {
     pub fields: BoundedVec<Data, FieldLimit>,
+}
+
+/// Maximum size of the serialized timelock commitment in bytes
+pub const MAX_TIMELOCK_COMMITMENT_SIZE_BYTES: u32 = 1024;
+
+/// Contains the decrypted data of a revealed commitment.
+#[freeze_struct("bf575857b57f9bef")]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, Debug)]
+pub struct RevealedData<Balance, MaxFields: Get<u32>, BlockNumber> {
+    pub info: CommitmentInfo<MaxFields>,
+    pub revealed_block: BlockNumber,
+    pub deposit: Balance,
+}
+
+/// Tracks how much “space” each (netuid, who) has used within the current RateLimit block-window.
+#[freeze_struct("1f23fb50f96326e4")]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, TypeInfo)]
+pub struct UsageTracker {
+    /// Last epoch block
+    pub last_epoch: u64,
+    /// Space used
+    pub used_space: u64,
 }
 
 /// Information concerning the identity of the controller of an account.
@@ -331,10 +404,10 @@ pub struct Registration<
 // }
 
 impl<
-        Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq,
-        MaxFields: Get<u32>,
-        Block: Codec + Clone + Ord + Eq + AtLeast32BitUnsigned + MaxEncodedLen + Debug,
-    > Decode for Registration<Balance, MaxFields, Block>
+    Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq,
+    MaxFields: Get<u32>,
+    Block: Codec + Clone + Ord + Eq + AtLeast32BitUnsigned + MaxEncodedLen + Debug,
+> Decode for Registration<Balance, MaxFields, Block>
 {
     fn decode<I: codec::Input>(input: &mut I) -> sp_std::result::Result<Self, codec::Error> {
         let (deposit, block, info) = Decode::decode(&mut AppendZerosInput::new(input))?;
@@ -343,73 +416,5 @@ impl<
             block,
             info,
         })
-    }
-}
-
-#[cfg(test)]
-#[allow(clippy::indexing_slicing, clippy::unwrap_used)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn manual_data_type_info() {
-        let mut registry = scale_info::Registry::new();
-        let type_id = registry.register_type(&scale_info::meta_type::<Data>());
-        let registry: scale_info::PortableRegistry = registry.into();
-        let type_info = registry.resolve(type_id.id).unwrap();
-
-        let check_type_info = |data: &Data| {
-            let variant_name = match data {
-                Data::None => "None".to_string(),
-                Data::BlakeTwo256(_) => "BlakeTwo256".to_string(),
-                Data::Sha256(_) => "Sha256".to_string(),
-                Data::Keccak256(_) => "Keccak256".to_string(),
-                Data::ShaThree256(_) => "ShaThree256".to_string(),
-                Data::Raw(bytes) => format!("Raw{}", bytes.len()),
-            };
-            if let scale_info::TypeDef::Variant(variant) = &type_info.type_def {
-                let variant = variant
-                    .variants
-                    .iter()
-                    .find(|v| v.name == variant_name)
-                    .unwrap_or_else(|| panic!("Expected to find variant {}", variant_name));
-
-                let field_arr_len = variant
-                    .fields
-                    .first()
-                    .and_then(|f| registry.resolve(f.ty.id))
-                    .map(|ty| {
-                        if let scale_info::TypeDef::Array(arr) = &ty.type_def {
-                            arr.len
-                        } else {
-                            panic!("Should be an array type")
-                        }
-                    })
-                    .unwrap_or(0);
-
-                let encoded = data.encode();
-                assert_eq!(encoded[0], variant.index);
-                assert_eq!(encoded.len() as u32 - 1, field_arr_len);
-            } else {
-                panic!("Should be a variant type")
-            };
-        };
-
-        let mut data = vec![
-            Data::None,
-            Data::BlakeTwo256(Default::default()),
-            Data::Sha256(Default::default()),
-            Data::Keccak256(Default::default()),
-            Data::ShaThree256(Default::default()),
-        ];
-
-        // A Raw instance for all possible sizes of the Raw data
-        for n in 0..128 {
-            data.push(Data::Raw(vec![0u8; n as usize].try_into().unwrap()))
-        }
-
-        for d in data.iter() {
-            check_type_info(d);
-        }
     }
 }

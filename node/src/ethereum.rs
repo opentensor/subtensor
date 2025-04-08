@@ -1,21 +1,21 @@
 pub use fc_consensus::FrontierBlockImport;
 use fc_rpc::{
-    pending::AuraConsensusDataProvider, Debug, DebugApiServer, Eth, EthApiServer, EthConfig,
-    EthDevSigner, EthFilter, EthFilterApiServer, EthPubSub, EthPubSubApiServer, EthSigner, EthTask,
-    Net, NetApiServer, Web3, Web3ApiServer,
+    Debug, DebugApiServer, Eth, EthApiServer, EthConfig, EthDevSigner, EthFilter,
+    EthFilterApiServer, EthPubSub, EthPubSubApiServer, EthSigner, EthTask, Net, NetApiServer, Web3,
+    Web3ApiServer, pending::AuraConsensusDataProvider,
 };
 pub use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
 /// Frontier DB backend type.
 pub use fc_storage::{StorageOverride, StorageOverrideHandler};
 use fp_rpc::ConvertTransaction;
-use futures::future;
 use futures::StreamExt;
+use futures::future;
 use jsonrpsee::RpcModule;
 use node_subtensor_runtime::opaque::Block;
 use sc_client_api::client::BlockchainEvents;
 use sc_network_sync::SyncingService;
 use sc_rpc::SubscriptionTaskExecutor;
-use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
+use sc_service::{Configuration, TaskManager, error::Error as ServiceError};
 use sc_transaction_pool::ChainApi;
 use sc_transaction_pool_api::TransactionPool;
 use sp_inherents::CreateInherentDataProviders;
@@ -55,10 +55,6 @@ pub struct EthConfiguration {
 
     #[arg(long)]
     pub enable_dev_signer: bool,
-
-    /// The dynamic-fee pallet target gas price set by block author
-    #[arg(long, default_value = "1")]
-    pub target_gas_price: u64,
 
     /// Maximum allowed gas limit will be `block.gas_limit * execute_gas_limit_multiplier`
     /// when using eth_call/eth_estimateGas.

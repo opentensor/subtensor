@@ -1,91 +1,11 @@
 use super::*;
 use crate::epoch::math::*;
 use frame_support::IterableStorageDoubleMap;
+use safe_math::*;
 use sp_std::vec;
 use substrate_fixed::types::{I32F32, I64F64, I96F32};
 
 impl<T: Config> Pallet<T> {
-    /// Calculates the total stake held by a hotkey on the network, considering child/parent relationships.
-    ///
-    /// This function performs the following steps:
-    /// 1. Checks for self-loops in the delegation graph.
-    /// 2. Retrieves the initial stake of the hotkey.
-    /// 3. Calculates the stake allocated to children.
-    /// 4. Calculates the stake received from parents.
-    /// 5. Computes the final stake by adjusting the initial stake with child and parent contributions.
-    ///
-    /// # Arguments
-    /// * `hotkey` - AccountId of the hotkey whose total network stake is to be calculated.
-    /// * `netuid` - Network unique identifier specifying the network context.
-    ///
-    /// # Returns
-    /// * `u64` - The total stake for the hotkey on the network after considering the stakes
-    ///           from children and parents.
-    ///
-    /// # Note
-    /// This function now includes a check for self-loops in the delegation graph using the
-    /// `dfs_check_self_loops` method. However, it currently only logs warnings for detected loops
-    /// and does not alter the stake calculation based on these findings.
-    ///
-    /// # Panics
-    /// This function does not explicitly panic, but underlying arithmetic operations
-    /// use saturating arithmetic to prevent overflows.
-    ///
-    pub fn get_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
-        // Retrieve the initial total stake for the hotkey without any child/parent adjustments.
-        let initial_stake: u64 = Self::get_total_stake_for_hotkey(hotkey);
-        log::debug!("Initial stake: {:?}", initial_stake);
-        let mut stake_to_children: u64 = 0;
-        let mut stake_from_parents: u64 = 0;
-
-        // Retrieve lists of parents and children from storage, based on the hotkey and network ID.
-        let parents: Vec<(u64, T::AccountId)> = Self::get_parents(hotkey, netuid);
-        let children: Vec<(u64, T::AccountId)> = Self::get_children(hotkey, netuid);
-
-        // Iterate over children to calculate the total stake allocated to them.
-        for (proportion, _) in children {
-            // Calculate the stake proportion allocated to the child based on the initial stake.
-            let normalized_proportion: I96F32 =
-                I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
-            let stake_proportion_to_child: I96F32 =
-                I96F32::from_num(initial_stake).saturating_mul(normalized_proportion);
-
-            // Accumulate the total stake given to children.
-            stake_to_children =
-                stake_to_children.saturating_add(stake_proportion_to_child.to_num::<u64>());
-        }
-
-        // Iterate over parents to calculate the total stake received from them.
-        for (proportion, parent) in parents {
-            // Retrieve the parent's total stake.
-            let parent_stake: u64 = Self::get_total_stake_for_hotkey(&parent);
-            // Calculate the stake proportion received from the parent.
-            let normalized_proportion: I96F32 =
-                I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
-            let stake_proportion_from_parent: I96F32 =
-                I96F32::from_num(parent_stake).saturating_mul(normalized_proportion);
-
-            // Accumulate the total stake received from parents.
-            stake_from_parents =
-                stake_from_parents.saturating_add(stake_proportion_from_parent.to_num::<u64>());
-        }
-
-        // Calculate the final stake for the hotkey by adjusting the initial stake with the stakes
-        // to/from children and parents.
-        let mut finalized_stake: u64 = initial_stake
-            .saturating_sub(stake_to_children)
-            .saturating_add(stake_from_parents);
-
-        // get the max stake for the network
-        let max_stake = Self::get_network_max_stake(netuid);
-
-        // Return the finalized stake value for the hotkey, but capped at the max stake.
-        finalized_stake = finalized_stake.min(max_stake);
-
-        // Return the finalized stake value for the hotkey.
-        finalized_stake
-    }
-
     /// Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.
     /// (Dense version used only for testing purposes.)
     #[allow(clippy::indexing_slicing)]
@@ -101,6 +21,10 @@ impl<T: Config> Pallet<T> {
         // Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
         log::trace!("current_block:\n{:?}\n", current_block);
+
+        // Get tempo.
+        let tempo: u64 = Self::get_tempo(netuid).into();
+        log::trace!("tempo: {:?}", tempo);
 
         // Get activity cutoff.
         let activity_cutoff: u64 = Self::get_activity_cutoff(netuid) as u64;
@@ -124,7 +48,7 @@ impl<T: Config> Pallet<T> {
         let block_at_registration: Vec<u64> = Self::get_block_at_registration(netuid);
         log::trace!("Block at registration:\n{:?}\n", &block_at_registration);
 
-        // Outdated matrix, updated_ij=True if i has last updated (weights) after j has last registered.
+        // Outdated matrix, outdated_ij=True if i has last updated (weights) after j has last registered.
         let outdated: Vec<Vec<bool>> = last_update
             .iter()
             .map(|updated| {
@@ -136,6 +60,16 @@ impl<T: Config> Pallet<T> {
             .collect();
         log::trace!("Outdated:\n{:?}\n", &outdated);
 
+        // Recently registered matrix, recently_ij=True if last_tempo was *before* j was last registered.
+        // Mask if: the last tempo block happened *before* the registration block
+        // ==> last_tempo <= registered
+        let last_tempo: u64 = current_block.saturating_sub(tempo);
+        let recently_registered: Vec<bool> = block_at_registration
+            .iter()
+            .map(|registered| last_tempo <= *registered)
+            .collect();
+        log::trace!("Recently registered:\n{:?}\n", &recently_registered);
+
         // ===========
         // == Stake ==
         // ===========
@@ -146,13 +80,10 @@ impl<T: Config> Pallet<T> {
         log::trace!("hotkeys: {:?}", &hotkeys);
 
         // Access network stake as normalized vector.
-        let mut stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
-        for (uid_i, hotkey) in &hotkeys {
-            stake_64[*uid_i as usize] =
-                I64F64::from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
-        }
-        inplace_normalize_64(&mut stake_64);
-        let stake: Vec<I32F32> = vec_fixed64_to_fixed32(stake_64);
+        let (mut total_stake, _alpha_stake, _tao_stake): (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) =
+            Self::get_stake_weights_for_network(netuid);
+        inplace_normalize_64(&mut total_stake);
+        let stake: Vec<I32F32> = vec_fixed64_to_fixed32(total_stake);
         log::trace!("S:\n{:?}\n", &stake);
 
         // =======================
@@ -194,6 +125,9 @@ impl<T: Config> Pallet<T> {
         // == Weights ==
         // =============
 
+        // Get owner uid.
+        let owner_uid: Option<u16> = Self::get_owner_uid(netuid);
+
         // Access network weights row unnormalized.
         let mut weights: Vec<Vec<I32F32>> = Self::get_weights(netuid);
         log::trace!("W:\n{:?}\n", &weights);
@@ -202,7 +136,13 @@ impl<T: Config> Pallet<T> {
         inplace_mask_rows(&validator_forbids, &mut weights);
         log::trace!("W (permit): {:?}", &weights);
 
-        // Remove self-weight by masking diagonal.
+        // Remove self-weight by masking diagonal; keep owner_uid self-weight.
+        if let Some(owner_uid) = owner_uid {
+            inplace_mask_diag_except_index(&mut weights, owner_uid);
+        } else {
+            inplace_mask_diag(&mut weights);
+        }
+
         inplace_mask_diag(&mut weights);
         log::trace!("W (permit+diag):\n{:?}\n", &weights);
 
@@ -221,18 +161,22 @@ impl<T: Config> Pallet<T> {
         // Compute preranks: r_j = SUM(i) w_ij * s_i
         let preranks: Vec<I32F32> = matmul(&weights, &active_stake);
 
-        // Clip weights at majority consensus
-        let kappa: I32F32 = Self::get_float_kappa(netuid); // consensus majority ratio, e.g. 51%.
+        // Consensus majority ratio, e.g. 51%.
+        let kappa: I32F32 = Self::get_float_kappa(netuid);
+        // Calculate consensus as stake-weighted median of weights.
         let consensus: Vec<I32F32> = weighted_median_col(&active_stake, &weights, kappa);
-        inplace_col_clip(&mut weights, &consensus);
-        let validator_trust: Vec<I32F32> = row_sum(&weights);
+        // Clip weights at majority consensus.
+        let mut clipped_weights: Vec<Vec<I32F32>> = weights.clone();
+        inplace_col_clip(&mut clipped_weights, &consensus);
+        // Calculate validator trust as sum of clipped weights set by validator.
+        let validator_trust: Vec<I32F32> = row_sum(&clipped_weights);
 
         // ====================================
         // == Ranks, Server Trust, Incentive ==
         // ====================================
 
         // Compute ranks: r_j = SUM(i) w_ij * s_i
-        let mut ranks: Vec<I32F32> = matmul(&weights, &active_stake);
+        let mut ranks: Vec<I32F32> = matmul(&clipped_weights, &active_stake);
 
         // Compute server trust: ratio of rank after vs. rank before.
         let trust: Vec<I32F32> = vecdiv(&ranks, &preranks);
@@ -245,14 +189,23 @@ impl<T: Config> Pallet<T> {
         // == Bonds and Dividends ==
         // =========================
 
+        // Get validator bonds penalty in [0, 1].
+        let bonds_penalty: I32F32 = Self::get_float_bonds_penalty(netuid);
+        // Calculate weights for bonds, apply bonds penalty to weights.
+        // bonds_penalty = 0: weights_for_bonds = weights.clone()
+        // bonds_penalty = 1: weights_for_bonds = clipped_weights.clone()
+        let weights_for_bonds: Vec<Vec<I32F32>> =
+            interpolate(&weights, &clipped_weights, bonds_penalty);
+
         // Access network bonds.
         let mut bonds: Vec<Vec<I32F32>> = Self::get_bonds(netuid);
-        inplace_mask_matrix(&outdated, &mut bonds); // mask outdated bonds
+        // Remove bonds referring to neurons that have registered since last tempo.
+        inplace_mask_cols(&recently_registered, &mut bonds); // mask recently registered bonds
         inplace_col_normalize(&mut bonds); // sum_i b_ij = 1
         log::trace!("B:\n{:?}\n", &bonds);
 
         // Compute bonds delta column normalized.
-        let mut bonds_delta: Vec<Vec<I32F32>> = row_hadamard(&weights, &active_stake); // ΔB = W◦S
+        let mut bonds_delta: Vec<Vec<I32F32>> = row_hadamard(&weights_for_bonds, &active_stake); // ΔB = W◦S
         inplace_col_normalize(&mut bonds_delta); // sum_i b_ij = 1
         log::trace!("ΔB:\n{:?}\n", &bonds_delta);
         // Compute the Exponential Moving Average (EMA) of bonds.
@@ -302,34 +255,34 @@ impl<T: Config> Pallet<T> {
         }
 
         // Compute rao based emission scores. range: I96F32(0, rao_emission)
-        let float_rao_emission: I96F32 = I96F32::from_num(rao_emission);
+        let float_rao_emission: I96F32 = I96F32::saturating_from_num(rao_emission);
 
         let server_emission: Vec<I96F32> = normalized_server_emission
             .iter()
-            .map(|se: &I32F32| I96F32::from_num(*se).saturating_mul(float_rao_emission))
+            .map(|se: &I32F32| I96F32::saturating_from_num(*se).saturating_mul(float_rao_emission))
             .collect();
         let server_emission: Vec<u64> = server_emission
             .iter()
-            .map(|e: &I96F32| e.to_num::<u64>())
+            .map(|e: &I96F32| e.saturating_to_num::<u64>())
             .collect();
 
         let validator_emission: Vec<I96F32> = normalized_validator_emission
             .iter()
-            .map(|ve: &I32F32| I96F32::from_num(*ve).saturating_mul(float_rao_emission))
+            .map(|ve: &I32F32| I96F32::saturating_from_num(*ve).saturating_mul(float_rao_emission))
             .collect();
         let validator_emission: Vec<u64> = validator_emission
             .iter()
-            .map(|e: &I96F32| e.to_num::<u64>())
+            .map(|e: &I96F32| e.saturating_to_num::<u64>())
             .collect();
 
         // Used only to track combined emission in the storage.
         let combined_emission: Vec<I96F32> = normalized_combined_emission
             .iter()
-            .map(|ce: &I32F32| I96F32::from_num(*ce).saturating_mul(float_rao_emission))
+            .map(|ce: &I32F32| I96F32::saturating_from_num(*ce).saturating_mul(float_rao_emission))
             .collect();
         let combined_emission: Vec<u64> = combined_emission
             .iter()
-            .map(|e: &I96F32| e.to_num::<u64>())
+            .map(|e: &I96F32| e.saturating_to_num::<u64>())
             .collect();
 
         log::trace!("nSE: {:?}", &normalized_server_emission);
@@ -448,6 +401,10 @@ impl<T: Config> Pallet<T> {
         let current_block: u64 = Self::get_current_block_as_u64();
         log::trace!("current_block: {:?}", current_block);
 
+        // Get tempo.
+        let tempo: u64 = Self::get_tempo(netuid).into();
+        log::trace!("tempo:\n{:?}\n", tempo);
+
         // Get activity cutoff.
         let activity_cutoff: u64 = Self::get_activity_cutoff(netuid) as u64;
         log::trace!("activity_cutoff: {:?}", activity_cutoff);
@@ -461,7 +418,7 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|updated| updated.saturating_add(activity_cutoff) < current_block)
             .collect();
-        log::trace!("Inactive: {:?}", inactive.clone());
+        log::debug!("Inactive: {:?}", inactive.clone());
 
         // Logical negation of inactive.
         let active: Vec<bool> = inactive.iter().map(|&b| !b).collect();
@@ -477,19 +434,14 @@ impl<T: Config> Pallet<T> {
         let hotkeys: Vec<(u16, T::AccountId)> =
             <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(netuid)
                 .collect();
-        log::trace!("hotkeys: {:?}", &hotkeys);
+        log::debug!("hotkeys: {:?}", &hotkeys);
 
         // Access network stake as normalized vector.
-        let mut stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
-        for (uid_i, hotkey) in &hotkeys {
-            stake_64[*uid_i as usize] =
-                I64F64::from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
-        }
-        log::trace!("Stake : {:?}", &stake_64);
-        inplace_normalize_64(&mut stake_64);
-        let stake: Vec<I32F32> = vec_fixed64_to_fixed32(stake_64);
-        // range: I32F32(0, 1)
-        log::trace!("Normalised Stake: {:?}", &stake);
+        let (mut total_stake, _alpha_stake, _tao_stake): (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) =
+            Self::get_stake_weights_for_network(netuid);
+        inplace_normalize_64(&mut total_stake);
+        let stake: Vec<I32F32> = vec_fixed64_to_fixed32(total_stake);
+        log::debug!("Normalised Stake: {:?}", &stake);
 
         // =======================
         // == Validator permits ==
@@ -524,11 +476,13 @@ impl<T: Config> Pallet<T> {
 
         // Normalize active stake.
         inplace_normalize(&mut active_stake);
-        log::trace!("Active Stake:\n{:?}\n", &active_stake);
+        log::debug!("Active Stake:\n{:?}\n", &active_stake);
 
         // =============
         // == Weights ==
         // =============
+
+        let owner_uid: Option<u16> = Self::get_owner_uid(netuid);
 
         // Access network weights row unnormalized.
         let mut weights: Vec<Vec<(u16, I32F32)>> = Self::get_weights_sparse(netuid);
@@ -538,8 +492,12 @@ impl<T: Config> Pallet<T> {
         weights = mask_rows_sparse(&validator_forbids, &weights);
         log::trace!("Weights (permit): {:?}", &weights);
 
-        // Remove self-weight by masking diagonal.
-        weights = mask_diag_sparse(&weights);
+        // Remove self-weight by masking diagonal; keep owner_uid self-weight.
+        if let Some(owner_uid) = owner_uid {
+            weights = mask_diag_sparse_except_index(&weights, owner_uid);
+        } else {
+            weights = mask_diag_sparse(&weights);
+        }
         log::trace!("Weights (permit+diag): {:?}", &weights);
 
         // Remove weights referring to deregistered neurons.
@@ -563,15 +521,18 @@ impl<T: Config> Pallet<T> {
         let preranks: Vec<I32F32> = matmul_sparse(&weights, &active_stake, n);
         log::trace!("Ranks (before): {:?}", &preranks);
 
-        // Clip weights at majority consensus
-        let kappa: I32F32 = Self::get_float_kappa(netuid); // consensus majority ratio, e.g. 51%.
+        // Consensus majority ratio, e.g. 51%.
+        let kappa: I32F32 = Self::get_float_kappa(netuid);
+        // Calculate consensus as stake-weighted median of weights.
         let consensus: Vec<I32F32> = weighted_median_col_sparse(&active_stake, &weights, n, kappa);
         log::trace!("Consensus: {:?}", &consensus);
 
-        weights = col_clip_sparse(&weights, &consensus);
-        log::trace!("Weights: {:?}", &weights);
+        // Clip weights at majority consensus.
+        let clipped_weights: Vec<Vec<(u16, I32F32)>> = col_clip_sparse(&weights, &consensus);
+        log::trace!("Clipped Weights: {:?}", &clipped_weights);
 
-        let validator_trust: Vec<I32F32> = row_sum_sparse(&weights);
+        // Calculate validator trust as sum of clipped weights set by validator.
+        let validator_trust: Vec<I32F32> = row_sum_sparse(&clipped_weights);
         log::trace!("Validator Trust: {:?}", &validator_trust);
 
         // =============================
@@ -579,7 +540,7 @@ impl<T: Config> Pallet<T> {
         // =============================
 
         // Compute ranks: r_j = SUM(i) w_ij * s_i.
-        let mut ranks: Vec<I32F32> = matmul_sparse(&weights, &active_stake, n);
+        let mut ranks: Vec<I32F32> = matmul_sparse(&clipped_weights, &active_stake, n);
         log::trace!("Ranks (after): {:?}", &ranks);
 
         // Compute server trust: ratio of rank after vs. rank before.
@@ -594,16 +555,27 @@ impl<T: Config> Pallet<T> {
         // == Bonds and Dividends ==
         // =========================
 
+        // Get validator bonds penalty in [0, 1].
+        let bonds_penalty: I32F32 = Self::get_float_bonds_penalty(netuid);
+        // Calculate weights for bonds, apply bonds penalty to weights.
+        // bonds_penalty = 0: weights_for_bonds = weights.clone()
+        // bonds_penalty = 1: weights_for_bonds = clipped_weights.clone()
+        let weights_for_bonds: Vec<Vec<(u16, I32F32)>> =
+            interpolate_sparse(&weights, &clipped_weights, n, bonds_penalty);
+
         // Access network bonds.
         let mut bonds: Vec<Vec<(u16, I32F32)>> = Self::get_bonds_sparse(netuid);
         log::trace!("B: {:?}", &bonds);
 
-        // Remove bonds referring to deregistered neurons.
-        bonds = vec_mask_sparse_matrix(
+        // Remove bonds referring to neurons that have registered since last tempo.
+        // Mask if: the last tempo block happened *before* the registration block
+        // ==> last_tempo <= registered
+        let last_tempo: u64 = current_block.saturating_sub(tempo);
+        bonds = scalar_vec_mask_sparse_matrix(
             &bonds,
-            &last_update,
+            last_tempo,
             &block_at_registration,
-            &|updated, registered| updated <= registered,
+            &|last_tempo, registered| last_tempo <= registered,
         );
         log::trace!("B (outdatedmask): {:?}", &bonds);
 
@@ -612,7 +584,8 @@ impl<T: Config> Pallet<T> {
         log::trace!("B (mask+norm): {:?}", &bonds);
 
         // Compute bonds delta column normalized.
-        let mut bonds_delta: Vec<Vec<(u16, I32F32)>> = row_hadamard_sparse(&weights, &active_stake); // ΔB = W◦S (outdated W masked)
+        let mut bonds_delta: Vec<Vec<(u16, I32F32)>> =
+            row_hadamard_sparse(&weights_for_bonds, &active_stake); // ΔB = W◦S (outdated W masked)
         log::trace!("ΔB: {:?}", &bonds_delta);
 
         // Normalize bonds delta.
@@ -666,34 +639,34 @@ impl<T: Config> Pallet<T> {
         }
 
         // Compute rao based emission scores. range: I96F32(0, rao_emission)
-        let float_rao_emission: I96F32 = I96F32::from_num(rao_emission);
+        let float_rao_emission: I96F32 = I96F32::saturating_from_num(rao_emission);
 
         let server_emission: Vec<I96F32> = normalized_server_emission
             .iter()
-            .map(|se: &I32F32| I96F32::from_num(*se).saturating_mul(float_rao_emission))
+            .map(|se: &I32F32| I96F32::saturating_from_num(*se).saturating_mul(float_rao_emission))
             .collect();
         let server_emission: Vec<u64> = server_emission
             .iter()
-            .map(|e: &I96F32| e.to_num::<u64>())
+            .map(|e: &I96F32| e.saturating_to_num::<u64>())
             .collect();
 
         let validator_emission: Vec<I96F32> = normalized_validator_emission
             .iter()
-            .map(|ve: &I32F32| I96F32::from_num(*ve).saturating_mul(float_rao_emission))
+            .map(|ve: &I32F32| I96F32::saturating_from_num(*ve).saturating_mul(float_rao_emission))
             .collect();
         let validator_emission: Vec<u64> = validator_emission
             .iter()
-            .map(|e: &I96F32| e.to_num::<u64>())
+            .map(|e: &I96F32| e.saturating_to_num::<u64>())
             .collect();
 
         // Only used to track emission in storage.
         let combined_emission: Vec<I96F32> = normalized_combined_emission
             .iter()
-            .map(|ce: &I32F32| I96F32::from_num(*ce).saturating_mul(float_rao_emission))
+            .map(|ce: &I32F32| I96F32::saturating_from_num(*ce).saturating_mul(float_rao_emission))
             .collect();
         let combined_emission: Vec<u64> = combined_emission
             .iter()
-            .map(|e: &I96F32| e.to_num::<u64>())
+            .map(|e: &I96F32| e.saturating_to_num::<u64>())
             .collect();
 
         log::trace!(
@@ -797,10 +770,15 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_float_rho(netuid: u16) -> I32F32 {
-        I32F32::from_num(Self::get_rho(netuid))
+        I32F32::saturating_from_num(Self::get_rho(netuid))
     }
     pub fn get_float_kappa(netuid: u16) -> I32F32 {
-        I32F32::from_num(Self::get_kappa(netuid)).saturating_div(I32F32::from_num(u16::MAX))
+        I32F32::saturating_from_num(Self::get_kappa(netuid))
+            .safe_div(I32F32::saturating_from_num(u16::MAX))
+    }
+    pub fn get_float_bonds_penalty(netuid: u16) -> I32F32 {
+        I32F32::saturating_from_num(Self::get_bonds_penalty(netuid))
+            .safe_div(I32F32::saturating_from_num(u16::MAX))
     }
 
     pub fn get_block_at_registration(netuid: u16) -> Vec<u64> {
@@ -829,7 +807,7 @@ impl<T: Config> Pallet<T> {
                 weights
                     .get_mut(uid_i as usize)
                     .expect("uid_i is filtered to be less than n; qed")
-                    .push((*uid_j, I32F32::from_num(*weight_ij)));
+                    .push((*uid_j, I32F32::saturating_from_num(*weight_ij)));
             }
         }
         weights
@@ -838,7 +816,7 @@ impl<T: Config> Pallet<T> {
     /// Output unnormalized weights in [n, n] matrix, input weights are assumed to be row max-upscaled in u16.
     pub fn get_weights(netuid: u16) -> Vec<Vec<I32F32>> {
         let n: usize = Self::get_subnetwork_n(netuid) as usize;
-        let mut weights: Vec<Vec<I32F32>> = vec![vec![I32F32::from_num(0.0); n]; n];
+        let mut weights: Vec<Vec<I32F32>> = vec![vec![I32F32::saturating_from_num(0.0); n]; n];
         for (uid_i, weights_vec) in
             <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid)
                 .filter(|(uid_i, _)| *uid_i < n as u16)
@@ -852,7 +830,7 @@ impl<T: Config> Pallet<T> {
                     .expect("uid_i is filtered to be less than n; qed")
                     .get_mut(uid_j as usize)
                     .expect("uid_j is filtered to be less than n; qed") =
-                    I32F32::from_num(weight_ij);
+                    I32F32::saturating_from_num(weight_ij);
             }
         }
         weights
@@ -870,7 +848,7 @@ impl<T: Config> Pallet<T> {
                 bonds
                     .get_mut(uid_i as usize)
                     .expect("uid_i is filtered to be less than n; qed")
-                    .push((uid_j, I32F32::from_num(bonds_ij)));
+                    .push((uid_j, I32F32::saturating_from_num(bonds_ij)));
             }
         }
         bonds
@@ -879,7 +857,7 @@ impl<T: Config> Pallet<T> {
     /// Output unnormalized bonds in [n, n] matrix, input bonds are assumed to be column max-upscaled in u16.
     pub fn get_bonds(netuid: u16) -> Vec<Vec<I32F32>> {
         let n: usize = Self::get_subnetwork_n(netuid) as usize;
-        let mut bonds: Vec<Vec<I32F32>> = vec![vec![I32F32::from_num(0.0); n]; n];
+        let mut bonds: Vec<Vec<I32F32>> = vec![vec![I32F32::saturating_from_num(0.0); n]; n];
         for (uid_i, bonds_vec) in
             <Bonds<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid)
                 .filter(|(uid_i, _)| *uid_i < n as u16)
@@ -890,7 +868,7 @@ impl<T: Config> Pallet<T> {
                     .expect("uid_i has been filtered to be less than n; qed")
                     .get_mut(uid_j as usize)
                     .expect("uid_j has been filtered to be less than n; qed") =
-                    I32F32::from_num(bonds_ij);
+                    I32F32::saturating_from_num(bonds_ij);
             }
         }
         bonds
@@ -920,25 +898,30 @@ impl<T: Config> Pallet<T> {
         // extra caution to ensure we never divide by zero
         if consensus_high <= consensus_low || alpha_low == 0 || alpha_high == 0 {
             // Return 0 for both 'a' and 'b' when consensus values are equal
-            return (I32F32::from_num(0.0), I32F32::from_num(0.0));
+            return (
+                I32F32::saturating_from_num(0.0),
+                I32F32::saturating_from_num(0.0),
+            );
         }
 
         // Calculate the slope 'a' of the logistic function.
         // a = (ln((1 / alpha_high - 1)) - ln((1 / alpha_low - 1))) / (consensus_low - consensus_high)
         let a = (safe_ln(
-            (I32F32::from_num(1.0).saturating_div(alpha_high))
-                .saturating_sub(I32F32::from_num(1.0)),
+            (I32F32::saturating_from_num(1.0).safe_div(alpha_high))
+                .saturating_sub(I32F32::saturating_from_num(1.0)),
         )
         .saturating_sub(safe_ln(
-            (I32F32::from_num(1.0).saturating_div(alpha_low)).saturating_sub(I32F32::from_num(1.0)),
+            (I32F32::saturating_from_num(1.0).safe_div(alpha_low))
+                .saturating_sub(I32F32::saturating_from_num(1.0)),
         )))
-        .saturating_div(consensus_low.saturating_sub(consensus_high));
+        .safe_div(consensus_low.saturating_sub(consensus_high));
         log::trace!("a: {:?}", a);
 
         // Calculate the intercept 'b' of the logistic function.
         // b = ln((1 / alpha_low - 1)) + a * consensus_low
         let b = safe_ln(
-            (I32F32::from_num(1.0).saturating_div(alpha_low)).saturating_sub(I32F32::from_num(1.0)),
+            (I32F32::saturating_from_num(1.0).safe_div(alpha_low))
+                .saturating_sub(I32F32::saturating_from_num(1.0)),
         )
         .saturating_add(a.saturating_mul(consensus_low));
         log::trace!("b: {:?}", b);
@@ -967,7 +950,8 @@ impl<T: Config> Pallet<T> {
 
                 // Compute the alpha value using the logistic function formula.
                 // alpha = 1 / (1 + exp_val)
-                I32F32::from_num(1.0).saturating_div(I32F32::from_num(1.0).saturating_add(exp_val))
+                I32F32::saturating_from_num(1.0)
+                    .safe_div(I32F32::saturating_from_num(1.0).saturating_add(exp_val))
             })
             .collect();
 
@@ -1081,13 +1065,14 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
     ) -> Vec<Vec<(u16, I32F32)>> {
         // Retrieve the bonds moving average for the given network ID and scale it down.
-        let bonds_moving_average: I64F64 = I64F64::from_num(Self::get_bonds_moving_average(netuid))
-            .saturating_div(I64F64::from_num(1_000_000));
+        let bonds_moving_average: I64F64 =
+            I64F64::saturating_from_num(Self::get_bonds_moving_average(netuid))
+                .safe_div(I64F64::saturating_from_num(1_000_000));
 
         // Calculate the alpha value for the EMA calculation.
         // Alpha is derived by subtracting the scaled bonds moving average from 1.
-        let alpha: I32F32 =
-            I32F32::from_num(1).saturating_sub(I32F32::from_num(bonds_moving_average));
+        let alpha: I32F32 = I32F32::saturating_from_num(1)
+            .saturating_sub(I32F32::saturating_from_num(bonds_moving_average));
 
         // Compute the Exponential Moving Average (EMA) of bonds using the calculated alpha value.
         let ema_bonds = mat_ema_sparse(bonds_delta, bonds, alpha);
@@ -1114,13 +1099,14 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
     ) -> Vec<Vec<I32F32>> {
         // Retrieve the bonds moving average for the given network ID and scale it down.
-        let bonds_moving_average: I64F64 = I64F64::from_num(Self::get_bonds_moving_average(netuid))
-            .saturating_div(I64F64::from_num(1_000_000));
+        let bonds_moving_average: I64F64 =
+            I64F64::saturating_from_num(Self::get_bonds_moving_average(netuid))
+                .safe_div(I64F64::saturating_from_num(1_000_000));
 
         // Calculate the alpha value for the EMA calculation.
         // Alpha is derived by subtracting the scaled bonds moving average from 1.
-        let alpha: I32F32 =
-            I32F32::from_num(1).saturating_sub(I32F32::from_num(bonds_moving_average));
+        let alpha: I32F32 = I32F32::saturating_from_num(1)
+            .saturating_sub(I32F32::saturating_from_num(bonds_moving_average));
 
         // Compute the Exponential Moving Average (EMA) of bonds using the calculated alpha value.
         let ema_bonds = mat_ema(bonds_delta, bonds, alpha);
@@ -1152,7 +1138,9 @@ impl<T: Config> Pallet<T> {
         // This way we avoid the quantil function panic.
         if LiquidAlphaOn::<T>::get(netuid)
             && !consensus.is_empty()
-            && consensus.iter().any(|&c| c != I32F32::from_num(0))
+            && consensus
+                .iter()
+                .any(|&c| c != I32F32::saturating_from_num(0))
         {
             // Calculate the 75th percentile (high) and 25th percentile (low) of the consensus values.
             let consensus_high = quantile(&consensus, 0.75);
@@ -1220,7 +1208,9 @@ impl<T: Config> Pallet<T> {
         // Check if Liquid Alpha is enabled, consensus is not empty, and contains non-zero values.
         if LiquidAlphaOn::<T>::get(netuid)
             && !consensus.is_empty()
-            && consensus.iter().any(|&c| c != I32F32::from_num(0))
+            && consensus
+                .iter()
+                .any(|&c| c != I32F32::saturating_from_num(0))
         {
             // Calculate the 75th percentile (high) and 25th percentile (low) of the consensus values.
             let consensus_high = quantile(&consensus, 0.75);
@@ -1283,7 +1273,7 @@ impl<T: Config> Pallet<T> {
         );
 
         let max_u16: u32 = u16::MAX as u32; // 65535
-        let min_alpha_high: u16 = (max_u16.saturating_mul(4).saturating_div(5)) as u16; // 52428
+        let min_alpha_high: u16 = (max_u16.saturating_mul(4).safe_div(5)) as u16; // 52428
 
         // --- 4. Ensure alpha high is greater than the minimum
         ensure!(alpha_high >= min_alpha_high, Error::<T>::AlphaHighTooLow);

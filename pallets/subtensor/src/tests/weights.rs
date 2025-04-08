@@ -1,23 +1,20 @@
 #![allow(clippy::indexing_slicing)]
 
 use super::mock::*;
-use crate::{
-    coinbase::run_coinbase::WeightsTlockPayload, CRV3WeightCommits, Error, Owner,
-    MAX_CRV3_COMMIT_SIZE_BYTES,
-};
+use crate::coinbase::run_coinbase::WeightsTlockPayload;
+use crate::*;
 use ark_serialize::CanonicalDeserialize;
 use frame_support::{
     assert_err, assert_ok,
-    dispatch::{DispatchClass, DispatchInfo, DispatchResult, GetDispatchInfo, Pays},
-    pallet_prelude::{InvalidTransaction, TransactionValidityError},
+    dispatch::{DispatchClass, DispatchResult, GetDispatchInfo, Pays},
 };
-use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
+use rand_chacha::{ChaCha20Rng, rand_core::SeedableRng};
 use scale_info::prelude::collections::HashMap;
 use sha2::Digest;
-use sp_core::{H256, U256};
+use sp_core::{Get, H256, U256};
 use sp_runtime::{
-    traits::{BlakeTwo256, ConstU32, DispatchInfoOf, Hash, SignedExtension},
     BoundedVec, DispatchError,
+    traits::{BlakeTwo256, ConstU32, Hash, SignedExtension},
 };
 use sp_std::collections::vec_deque::VecDeque;
 use substrate_fixed::types::I32F32;
@@ -37,6 +34,7 @@ use sp_core::Encode;
 *****************************/
 
 // Test the call passes through the subtensor module.
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_set_weights_dispatch_info_ok --exact --show-output --nocapture
 #[test]
 fn test_set_weights_dispatch_info_ok() {
     new_test_ext(0).execute_with(|| {
@@ -56,28 +54,8 @@ fn test_set_weights_dispatch_info_ok() {
         assert_eq!(dispatch_info.pays_fee, Pays::No);
     });
 }
-#[test]
-fn test_set_rootweights_dispatch_info_ok() {
-    new_test_ext(0).execute_with(|| {
-        let dests = vec![1, 1];
-        let weights = vec![1, 1];
-        let netuid: u16 = 1;
-        let version_key: u64 = 0;
-        let hotkey: U256 = U256::from(1); // Add the hotkey field
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::set_root_weights {
-            netuid,
-            dests,
-            weights,
-            version_key,
-            hotkey, // Include the hotkey field
-        });
-        let dispatch_info = call.get_dispatch_info();
 
-        assert_eq!(dispatch_info.class, DispatchClass::Normal);
-        assert_eq!(dispatch_info.pays_fee, Pays::No);
-    });
-}
-
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_set_rootweights_validate --exact --show-output --nocapture
 #[test]
 fn test_set_rootweights_validate() {
     // Testing the signed extension validate function
@@ -91,10 +69,11 @@ fn test_set_rootweights_validate() {
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1); // Add the hotkey field
         assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
+        let fee = DefaultStakingFee::<Test>::get();
 
         let who = coldkey; // The coldkey signs this transaction
 
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::set_root_weights {
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::set_tao_weights {
             netuid,
             dests,
             weights,
@@ -103,10 +82,12 @@ fn test_set_rootweights_validate() {
         });
 
         // Create netuid
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         // Register the hotkey
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
-        Owner::<Test>::insert(hotkey, coldkey);
+        crate::Owner::<Test>::insert(hotkey, coldkey);
+
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
 
         let min_stake = 500_000_000_000;
         // Set the minimum stake
@@ -114,8 +95,8 @@ fn test_set_rootweights_validate() {
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-        let info: DispatchInfo =
-            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let info: crate::DispatchInfo =
+            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
         let extension = crate::SubtensorSignedExtension::<Test>::new();
         // Submit to the signed extension validate function
@@ -124,11 +105,18 @@ fn test_set_rootweights_validate() {
         assert_err!(
             // Should get an invalid transaction error
             result_no_stake,
-            TransactionValidityError::Invalid(InvalidTransaction::Custom(4))
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::StakeAmountTooLow.into()
+            ))
         );
 
         // Increase the stake to be equal to the minimum
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(hotkey),
+            hotkey,
+            netuid,
+            min_stake + fee
+        ));
 
         // Verify stake is equal to minimum
         assert_eq!(
@@ -142,7 +130,12 @@ fn test_set_rootweights_validate() {
         assert_ok!(result_min_stake);
 
         // Try with more stake than minimum
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 1);
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(hotkey),
+            hotkey,
+            netuid,
+            DefaultMinStake::<Test>::get() * 10
+        ));
 
         // Verify stake is more than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
@@ -153,6 +146,7 @@ fn test_set_rootweights_validate() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_commit_weights_dispatch_info_ok --exact --show-output --nocapture
 #[test]
 fn test_commit_weights_dispatch_info_ok() {
     new_test_ext(0).execute_with(|| {
@@ -177,6 +171,7 @@ fn test_commit_weights_dispatch_info_ok() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_commit_weights_validate --exact --show-output --nocapture
 #[test]
 fn test_commit_weights_validate() {
     // Testing the signed extension validate function
@@ -191,6 +186,7 @@ fn test_commit_weights_validate() {
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1); // Add the hotkey field
         assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
+        let fee = DefaultStakingFee::<Test>::get();
 
         let who = hotkey; // The hotkey signs this transaction
 
@@ -203,10 +199,12 @@ fn test_commit_weights_validate() {
         });
 
         // Create netuid
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         // Register the hotkey
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
-        Owner::<Test>::insert(hotkey, coldkey);
+        crate::Owner::<Test>::insert(hotkey, coldkey);
+
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
 
         let min_stake = 500_000_000_000;
         // Set the minimum stake
@@ -214,8 +212,8 @@ fn test_commit_weights_validate() {
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-        let info: DispatchInfo =
-            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let info: crate::DispatchInfo =
+            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
         let extension = crate::SubtensorSignedExtension::<Test>::new();
         // Submit to the signed extension validate function
@@ -224,11 +222,16 @@ fn test_commit_weights_validate() {
         assert_err!(
             // Should get an invalid transaction error
             result_no_stake,
-            TransactionValidityError::Invalid(InvalidTransaction::Custom(1))
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(1))
         );
 
         // Increase the stake to be equal to the minimum
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(hotkey),
+            hotkey,
+            netuid,
+            min_stake + fee
+        ));
 
         // Verify stake is equal to minimum
         assert_eq!(
@@ -242,7 +245,12 @@ fn test_commit_weights_validate() {
         assert_ok!(result_min_stake);
 
         // Try with more stake than minimum
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 1);
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(hotkey),
+            hotkey,
+            netuid,
+            DefaultMinStake::<Test>::get() * 10
+        ));
 
         // Verify stake is more than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
@@ -253,6 +261,7 @@ fn test_commit_weights_validate() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_reveal_weights_dispatch_info_ok --exact --show-output --nocapture
 #[test]
 fn test_reveal_weights_dispatch_info_ok() {
     new_test_ext(0).execute_with(|| {
@@ -276,6 +285,7 @@ fn test_reveal_weights_dispatch_info_ok() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_set_weights_validate --exact --show-output --nocapture
 #[test]
 fn test_set_weights_validate() {
     // Testing the signed extension validate function
@@ -286,6 +296,7 @@ fn test_set_weights_validate() {
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1);
         assert_ne!(hotkey, coldkey);
+        let fee = DefaultStakingFee::<Test>::get();
 
         let who = hotkey; // The hotkey signs this transaction
 
@@ -297,10 +308,12 @@ fn test_set_weights_validate() {
         });
 
         // Create netuid
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         // Register the hotkey
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
-        Owner::<Test>::insert(hotkey, coldkey);
+        crate::Owner::<Test>::insert(hotkey, coldkey);
+
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
 
         let min_stake = 500_000_000_000;
         // Set the minimum stake
@@ -308,8 +321,8 @@ fn test_set_weights_validate() {
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-        let info: DispatchInfo =
-            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let info: crate::DispatchInfo =
+            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
         let extension = crate::SubtensorSignedExtension::<Test>::new();
         // Submit to the signed extension validate function
@@ -317,11 +330,18 @@ fn test_set_weights_validate() {
         // Should fail due to insufficient stake
         assert_err!(
             result_no_stake,
-            TransactionValidityError::Invalid(InvalidTransaction::Custom(3))
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::StakeAmountTooLow.into()
+            ))
         );
 
         // Increase the stake to be equal to the minimum
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(hotkey),
+            hotkey,
+            netuid,
+            min_stake + fee
+        ));
 
         // Verify stake is equal to minimum
         assert_eq!(
@@ -336,6 +356,7 @@ fn test_set_weights_validate() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_reveal_weights_validate --exact --show-output --nocapture
 #[test]
 fn test_reveal_weights_validate() {
     // Testing the signed extension validate function
@@ -350,6 +371,7 @@ fn test_reveal_weights_validate() {
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1); // Add the hotkey field
         assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
+        let fee = DefaultStakingFee::<Test>::get();
 
         let who = hotkey; // The hotkey signs this transaction
 
@@ -362,10 +384,11 @@ fn test_reveal_weights_validate() {
         });
 
         // Create netuid
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         // Register the hotkey
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
-        Owner::<Test>::insert(hotkey, coldkey);
+        crate::Owner::<Test>::insert(hotkey, coldkey);
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
 
         let min_stake = 500_000_000_000;
         // Set the minimum stake
@@ -373,8 +396,8 @@ fn test_reveal_weights_validate() {
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-        let info: DispatchInfo =
-            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let info: crate::DispatchInfo =
+            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
         let extension = crate::SubtensorSignedExtension::<Test>::new();
         // Submit to the signed extension validate function
@@ -383,11 +406,18 @@ fn test_reveal_weights_validate() {
         assert_err!(
             // Should get an invalid transaction error
             result_no_stake,
-            TransactionValidityError::Invalid(InvalidTransaction::Custom(2))
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::StakeAmountTooLow.into()
+            ))
         );
 
         // Increase the stake to be equal to the minimum
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(hotkey),
+            hotkey,
+            netuid,
+            min_stake + fee
+        ));
 
         // Verify stake is equal to minimum
         assert_eq!(
@@ -401,7 +431,12 @@ fn test_reveal_weights_validate() {
         assert_ok!(result_min_stake);
 
         // Try with more stake than minimum
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 1);
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(hotkey),
+            hotkey,
+            netuid,
+            DefaultMinStake::<Test>::get() * 10
+        ));
 
         // Verify stake is more than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
@@ -412,6 +447,7 @@ fn test_reveal_weights_validate() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_set_weights_is_root_error --exact --show-output --nocapture
 #[test]
 fn test_set_weights_is_root_error() {
     new_test_ext(0).execute_with(|| {
@@ -435,6 +471,7 @@ fn test_set_weights_is_root_error() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_weights_err_no_validator_permit --exact --show-output --nocapture
 // Test ensures that uid has validator permit to set non-self weights.
 #[test]
 fn test_weights_err_no_validator_permit() {
@@ -479,7 +516,7 @@ fn test_weights_err_no_validator_permit() {
     });
 }
 
-// To execute this test: cargo test --package pallet-subtensor --test weights test_set_stake_threshold_failed -- --nocapture`
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_set_stake_threshold_failed --exact --show-output --nocapture
 #[test]
 fn test_set_stake_threshold_failed() {
     new_test_ext(0).execute_with(|| {
@@ -490,16 +527,27 @@ fn test_set_stake_threshold_failed() {
         let hotkey = U256::from(0);
         let coldkey = U256::from(0);
 
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 2143124);
         SubtensorModule::set_stake_threshold(20_000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
 
         // Check the signed extension function.
         assert_eq!(SubtensorModule::get_stake_threshold(), 20_000_000_000_000);
         assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 19_000_000_000_000);
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(hotkey),
+            hotkey,
+            netuid,
+            19_000_000_000_000
+        ));
         assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 20_000_000_000_000);
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(hotkey),
+            hotkey,
+            netuid,
+            20_000_000_000_000
+        ));
         assert!(SubtensorModule::check_weights_min_stake(&hotkey, netuid));
 
         // Check that it fails at the pallet level.
@@ -515,7 +563,12 @@ fn test_set_stake_threshold_failed() {
             Err(Error::<Test>::NotEnoughStakeToSetWeights.into())
         );
         // Now passes
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 100_000_000_000_000);
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(hotkey),
+            hotkey,
+            netuid,
+            100_000_000_000_000
+        ));
         assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
@@ -526,6 +579,7 @@ fn test_set_stake_threshold_failed() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_weights_version_key --exact --show-output --nocapture
 // Test ensures that a uid can only set weights if it has the valid weights set version key.
 #[test]
 fn test_weights_version_key() {
@@ -535,8 +589,8 @@ fn test_weights_version_key() {
         let netuid0: u16 = 1;
         let netuid1: u16 = 2;
 
-        add_network(netuid0, 0, 0);
-        add_network(netuid1, 0, 0);
+        add_network(netuid0, 1, 0);
+        add_network(netuid1, 1, 0);
         register_ok_neuron(netuid0, hotkey, coldkey, 2143124);
         register_ok_neuron(netuid1, hotkey, coldkey, 3124124);
 
@@ -603,6 +657,7 @@ fn test_weights_version_key() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_weights_err_setting_weights_too_fast --exact --show-output --nocapture
 // Test ensures that uid has validator permit to set non-self weights.
 #[test]
 fn test_weights_err_setting_weights_too_fast() {
@@ -658,6 +713,7 @@ fn test_weights_err_setting_weights_too_fast() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_weights_err_weights_vec_not_equal_size --exact --show-output --nocapture
 // Test ensures that uids -- weights must have the same size.
 #[test]
 fn test_weights_err_weights_vec_not_equal_size() {
@@ -686,6 +742,7 @@ fn test_weights_err_weights_vec_not_equal_size() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_weights_err_has_duplicate_ids --exact --show-output --nocapture
 // Test ensures that uids can have not duplicates
 #[test]
 fn test_weights_err_has_duplicate_ids() {
@@ -699,7 +756,7 @@ fn test_weights_err_has_duplicate_ids() {
         SubtensorModule::set_max_allowed_uids(netuid, 100); // Allow many registrations per block.
         SubtensorModule::set_max_registrations_per_block(netuid, 100); // Allow many registrations per block.
         SubtensorModule::set_target_registrations_per_interval(netuid, 100); // Allow many registrations per block.
-                                                                             // uid 0
+        // uid 0
         register_ok_neuron(netuid, hotkey_account_id, U256::from(77), 0);
         let neuron_uid: u16 =
             SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id)
@@ -737,6 +794,7 @@ fn test_weights_err_has_duplicate_ids() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_weights_err_max_weight_limit --exact --show-output --nocapture
 // Test ensures weights cannot exceed max weight limit.
 #[test]
 fn test_weights_err_max_weight_limit() {
@@ -822,6 +880,7 @@ fn test_weights_err_max_weight_limit() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_no_signature --exact --show-output --nocapture
 // Tests the call requires a valid origin.
 #[test]
 fn test_no_signature() {
@@ -833,6 +892,7 @@ fn test_no_signature() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_set_weights_err_not_active --exact --show-output --nocapture
 // Tests that weights cannot be set BY non-registered hotkeys.
 #[test]
 fn test_set_weights_err_not_active() {
@@ -859,6 +919,7 @@ fn test_set_weights_err_not_active() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_set_weights_err_invalid_uid --exact --show-output --nocapture
 // Tests that set weights fails if you pass invalid uids.
 #[test]
 fn test_set_weights_err_invalid_uid() {
@@ -881,6 +942,7 @@ fn test_set_weights_err_invalid_uid() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_set_weight_not_enough_values --exact --show-output --nocapture
 // Tests that set weights fails if you don't pass enough values.
 #[test]
 fn test_set_weight_not_enough_values() {
@@ -938,6 +1000,7 @@ fn test_set_weight_not_enough_values() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_set_weight_too_many_uids --exact --show-output --nocapture
 // Tests that the weights set fails if you pass too many uids for the subnet
 #[test]
 fn test_set_weight_too_many_uids() {
@@ -983,6 +1046,7 @@ fn test_set_weight_too_many_uids() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_set_weights_sum_larger_than_u16_max --exact --show-output --nocapture
 // Tests that the weights set doesn't panic if you pass weights that sum to larger than u16 max.
 #[test]
 fn test_set_weights_sum_larger_than_u16_max() {
@@ -1019,6 +1083,7 @@ fn test_set_weights_sum_larger_than_u16_max() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_do_commit_crv3_weights_disabled --exact --show-output --nocapture
 /// Check _truthy_ path for self weight
 #[test]
 fn test_check_length_allows_singleton() {
@@ -1041,6 +1106,7 @@ fn test_check_length_allows_singleton() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_check_length_weights_length_exceeds_min_allowed --exact --show-output --nocapture
 /// Check _truthy_ path for weights within allowed range
 #[test]
 fn test_check_length_weights_length_exceeds_min_allowed() {
@@ -1063,6 +1129,7 @@ fn test_check_length_weights_length_exceeds_min_allowed() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_check_length_to_few_weights --exact --show-output --nocapture
 /// Check _falsey_ path for weights outside allowed range
 #[test]
 fn test_check_length_to_few_weights() {
@@ -1095,6 +1162,7 @@ fn test_check_length_to_few_weights() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_normalize_weights_does_not_mutate_when_sum_is_zero --exact --show-output --nocapture
 /// Check do nothing path
 #[test]
 fn test_normalize_weights_does_not_mutate_when_sum_is_zero() {
@@ -1113,6 +1181,7 @@ fn test_normalize_weights_does_not_mutate_when_sum_is_zero() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_normalize_weights_does_not_mutate_when_sum_not_zero --exact --show-output --nocapture
 /// Check do something path
 #[test]
 fn test_normalize_weights_does_not_mutate_when_sum_not_zero() {
@@ -1128,6 +1197,7 @@ fn test_normalize_weights_does_not_mutate_when_sum_not_zero() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_max_weight_limited_allow_self_weights_to_exceed_max_weight_limit --exact --show-output --nocapture
 /// Check _truthy_ path for weights length
 #[test]
 fn test_max_weight_limited_allow_self_weights_to_exceed_max_weight_limit() {
@@ -1149,6 +1219,7 @@ fn test_max_weight_limited_allow_self_weights_to_exceed_max_weight_limit() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_max_weight_limited_when_weight_limit_is_u16_max --exact --show-output --nocapture
 /// Check _truthy_ path for max weight limit
 #[test]
 fn test_max_weight_limited_when_weight_limit_is_u16_max() {
@@ -1170,6 +1241,7 @@ fn test_max_weight_limited_when_weight_limit_is_u16_max() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_max_weight_limited_when_max_weight_is_within_limit --exact --show-output --nocapture
 /// Check _truthy_ path for max weight limit
 #[test]
 fn test_max_weight_limited_when_max_weight_is_within_limit() {
@@ -1194,6 +1266,7 @@ fn test_max_weight_limited_when_max_weight_is_within_limit() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_max_weight_limited_when_guard_checks_are_not_triggered --exact --show-output --nocapture
 /// Check _falsey_ path
 #[test]
 fn test_max_weight_limited_when_guard_checks_are_not_triggered() {
@@ -1218,6 +1291,7 @@ fn test_max_weight_limited_when_guard_checks_are_not_triggered() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_is_self_weight_weights_length_not_one --exact --show-output --nocapture
 /// Check _falsey_ path for weights length
 #[test]
 fn test_is_self_weight_weights_length_not_one() {
@@ -1238,6 +1312,7 @@ fn test_is_self_weight_weights_length_not_one() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_is_self_weight_uid_not_in_uids --exact --show-output --nocapture
 /// Check _falsey_ path for uid vs uids[0]
 #[test]
 fn test_is_self_weight_uid_not_in_uids() {
@@ -1258,6 +1333,7 @@ fn test_is_self_weight_uid_not_in_uids() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_is_self_weight_uid_in_uids --exact --show-output --nocapture
 /// Check _truthy_ path
 /// @TODO: double-check if this really be desired behavior
 #[test]
@@ -1279,6 +1355,7 @@ fn test_is_self_weight_uid_in_uids() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_check_len_uids_within_allowed_within_network_pool --exact --show-output --nocapture
 /// Check _truthy_ path
 #[test]
 fn test_check_len_uids_within_allowed_within_network_pool() {
@@ -1312,7 +1389,7 @@ fn test_check_len_uids_within_allowed_within_network_pool() {
     });
 }
 
-/// Check _falsey_ path
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_check_len_uids_within_allowed_not_within_network_pool --exact --show-output --nocapture
 #[test]
 fn test_check_len_uids_within_allowed_not_within_network_pool() {
     new_test_ext(0).execute_with(|| {
@@ -1345,11 +1422,12 @@ fn test_check_len_uids_within_allowed_not_within_network_pool() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_set_weights_commit_reveal_enabled_error --exact --show-output --nocapture
 #[test]
 fn test_set_weights_commit_reveal_enabled_error() {
     new_test_ext(0).execute_with(|| {
         let netuid: u16 = 1;
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, U256::from(1), U256::from(2), 10);
 
         let uids = vec![0];
@@ -1382,6 +1460,7 @@ fn test_set_weights_commit_reveal_enabled_error() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_reveal_weights_when_commit_reveal_disabled --exact --show-output --nocapture
 #[test]
 fn test_reveal_weights_when_commit_reveal_disabled() {
     new_test_ext(1).execute_with(|| {
@@ -1441,6 +1520,7 @@ fn test_reveal_weights_when_commit_reveal_disabled() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_commit_reveal_weights_ok --exact --show-output --nocapture
 #[test]
 fn test_commit_reveal_weights_ok() {
     new_test_ext(1).execute_with(|| {
@@ -1494,6 +1574,7 @@ fn test_commit_reveal_weights_ok() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_commit_reveal_tempo_interval --exact --show-output --nocapture
 #[test]
 fn test_commit_reveal_tempo_interval() {
     new_test_ext(1).execute_with(|| {
@@ -1624,6 +1705,7 @@ fn test_commit_reveal_tempo_interval() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_commit_reveal_hash --exact --show-output --nocapture
 #[test]
 fn test_commit_reveal_hash() {
     new_test_ext(1).execute_with(|| {
@@ -1700,6 +1782,7 @@ fn test_commit_reveal_hash() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_commit_reveal_disabled_or_enabled --exact --show-output --nocapture
 #[test]
 fn test_commit_reveal_disabled_or_enabled() {
     new_test_ext(1).execute_with(|| {
@@ -1761,6 +1844,7 @@ fn test_commit_reveal_disabled_or_enabled() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_toggle_commit_reveal_weights_and_set_weights --exact --show-output --nocapture
 #[test]
 fn test_toggle_commit_reveal_weights_and_set_weights() {
     new_test_ext(1).execute_with(|| {
@@ -1828,6 +1912,7 @@ fn test_toggle_commit_reveal_weights_and_set_weights() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_tempo_change_during_commit_reveal_process --exact --show-output --nocapture
 #[test]
 fn test_tempo_change_during_commit_reveal_process() {
     new_test_ext(0).execute_with(|| {
@@ -1970,6 +2055,7 @@ fn test_tempo_change_during_commit_reveal_process() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_commit_reveal_multiple_commits --exact --show-output --nocapture
 #[test]
 fn test_commit_reveal_multiple_commits() {
     new_test_ext(1).execute_with(|| {
@@ -2357,6 +2443,7 @@ fn commit_reveal_set_weights(
     Ok(())
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_expired_commits_handling_in_commit_and_reveal --exact --show-output --nocapture
 #[test]
 fn test_expired_commits_handling_in_commit_and_reveal() {
     new_test_ext(1).execute_with(|| {
@@ -2540,6 +2627,7 @@ fn test_expired_commits_handling_in_commit_and_reveal() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_reveal_at_exact_epoch --exact --show-output --nocapture
 #[test]
 fn test_reveal_at_exact_epoch() {
     new_test_ext(1).execute_with(|| {
@@ -2674,6 +2762,7 @@ fn test_reveal_at_exact_epoch() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_tempo_and_reveal_period_change_during_commit_reveal_process --exact --show-output --nocapture
 #[test]
 fn test_tempo_and_reveal_period_change_during_commit_reveal_process() {
     new_test_ext(1).execute_with(|| {
@@ -2862,6 +2951,7 @@ fn test_tempo_and_reveal_period_change_during_commit_reveal_process() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_commit_reveal_order_enforcement --exact --show-output --nocapture
 #[test]
 fn test_commit_reveal_order_enforcement() {
     new_test_ext(1).execute_with(|| {
@@ -2948,6 +3038,7 @@ fn test_commit_reveal_order_enforcement() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_reveal_at_exact_block --exact --show-output --nocapture
 #[test]
 fn test_reveal_at_exact_block() {
     new_test_ext(1).execute_with(|| {
@@ -3019,7 +3110,7 @@ fn test_reveal_at_exact_block() {
             let current_block = SubtensorModule::get_current_block_as_u64();
             if current_block < reveal_epoch_start_block {
                 // Advance to one block before the reveal epoch starts
-                let blocks_to_advance = reveal_epoch_start_block.saturating_sub(current_block);
+                let blocks_to_advance = reveal_epoch_start_block - current_block;
                 if blocks_to_advance > 1 {
                     // Advance to one block before the reveal epoch
                     let new_block_number = current_block + blocks_to_advance - 1;
@@ -3090,9 +3181,7 @@ fn test_reveal_at_exact_block() {
             let commit_epoch = SubtensorModule::get_epoch_index(netuid, commit_block);
             let reveal_epoch = commit_epoch.saturating_add(reveal_period);
             let expiration_epoch = reveal_epoch.saturating_add(1);
-            let expiration_epoch_start_block = expiration_epoch
-                .saturating_mul(tempo_plus_one)
-                .saturating_sub(netuid_plus_one);
+            let expiration_epoch_start_block = expiration_epoch * tempo_plus_one - netuid_plus_one;
 
             let current_block = SubtensorModule::get_current_block_as_u64();
             if current_block < expiration_epoch_start_block {
@@ -3119,6 +3208,7 @@ fn test_reveal_at_exact_block() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_successful_batch_reveal --exact --show-output --nocapture
 #[test]
 fn test_successful_batch_reveal() {
     new_test_ext(1).execute_with(|| {
@@ -3181,6 +3271,7 @@ fn test_successful_batch_reveal() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_batch_reveal_with_expired_commits --exact --show-output --nocapture
 #[test]
 fn test_batch_reveal_with_expired_commits() {
     new_test_ext(1).execute_with(|| {
@@ -3286,6 +3377,7 @@ fn test_batch_reveal_with_expired_commits() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_batch_reveal_with_invalid_input_lengths --exact --show-output --nocapture
 #[test]
 fn test_batch_reveal_with_invalid_input_lengths() {
     new_test_ext(1).execute_with(|| {
@@ -3383,6 +3475,7 @@ fn test_batch_reveal_with_invalid_input_lengths() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_batch_reveal_with_no_commits --exact --show-output --nocapture
 #[test]
 fn test_batch_reveal_with_no_commits() {
     new_test_ext(1).execute_with(|| {
@@ -3412,6 +3505,7 @@ fn test_batch_reveal_with_no_commits() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_batch_reveal_before_reveal_period --exact --show-output --nocapture
 #[test]
 fn test_batch_reveal_before_reveal_period() {
     new_test_ext(1).execute_with(|| {
@@ -3469,6 +3563,7 @@ fn test_batch_reveal_before_reveal_period() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_batch_reveal_after_commits_expired --exact --show-output --nocapture
 #[test]
 fn test_batch_reveal_after_commits_expired() {
     new_test_ext(1).execute_with(|| {
@@ -3548,6 +3643,7 @@ fn test_batch_reveal_after_commits_expired() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_batch_reveal_when_commit_reveal_disabled --exact --show-output --nocapture
 #[test]
 fn test_batch_reveal_when_commit_reveal_disabled() {
     new_test_ext(1).execute_with(|| {
@@ -3577,6 +3673,7 @@ fn test_batch_reveal_when_commit_reveal_disabled() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_batch_reveal_with_out_of_order_commits --exact --show-output --nocapture
 #[test]
 fn test_batch_reveal_with_out_of_order_commits() {
     new_test_ext(1).execute_with(|| {
@@ -3672,6 +3769,7 @@ fn test_batch_reveal_with_out_of_order_commits() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys --exact --show-output --nocapture
 #[test]
 fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
     new_test_ext(1).execute_with(|| {
@@ -3950,6 +4048,7 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
     })
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_get_reveal_blocks --exact --show-output --nocapture
 #[test]
 fn test_get_reveal_blocks() {
     new_test_ext(1).execute_with(|| {
@@ -4074,6 +4173,7 @@ fn test_get_reveal_blocks() {
     })
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_commit_weights_rate_limit --exact --show-output --nocapture
 #[test]
 fn test_commit_weights_rate_limit() {
     new_test_ext(1).execute_with(|| {
@@ -4203,6 +4303,7 @@ fn test_commit_weights_rate_limit() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::tlock_encrypt_decrypt_drand_quicknet_works --exact --show-output --nocapture
 #[test]
 pub fn tlock_encrypt_decrypt_drand_quicknet_works() {
     // using a pulse from drand's QuickNet
@@ -4250,6 +4351,8 @@ pub fn tlock_encrypt_decrypt_drand_quicknet_works() {
     let result = tld::<TinyBLS381, AESGCMStreamCipherProvider>(ct, sig).expect("Decryption failed");
     assert!(result == plaintext);
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_reveal_crv3_commits_success --exact --show-output --nocapture
 
 #[test]
 fn test_reveal_crv3_commits_success() {
@@ -4391,6 +4494,7 @@ fn test_reveal_crv3_commits_success() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_reveal_crv3_commits_cannot_reveal_after_reveal_epoch --exact --show-output --nocapture
 #[test]
 fn test_reveal_crv3_commits_cannot_reveal_after_reveal_epoch() {
     new_test_ext(100).execute_with(|| {
@@ -4517,6 +4621,7 @@ fn test_reveal_crv3_commits_cannot_reveal_after_reveal_epoch() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_do_commit_crv3_weights_success --exact --show-output --nocapture
 #[test]
 fn test_do_commit_crv3_weights_success() {
     new_test_ext(1).execute_with(|| {
@@ -4550,6 +4655,7 @@ fn test_do_commit_crv3_weights_success() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_do_commit_crv3_weights_disabled --exact --show-output --nocapture
 #[test]
 fn test_do_commit_crv3_weights_disabled() {
     new_test_ext(1).execute_with(|| {
@@ -4577,6 +4683,7 @@ fn test_do_commit_crv3_weights_disabled() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_do_commit_crv3_weights_hotkey_not_registered --exact --show-output --nocapture
 #[test]
 fn test_do_commit_crv3_weights_hotkey_not_registered() {
     new_test_ext(1).execute_with(|| {
@@ -4605,6 +4712,7 @@ fn test_do_commit_crv3_weights_hotkey_not_registered() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_do_commit_crv3_weights_committing_too_fast --exact --show-output --nocapture
 #[test]
 fn test_do_commit_crv3_weights_committing_too_fast() {
     new_test_ext(1).execute_with(|| {
@@ -4673,6 +4781,7 @@ fn test_do_commit_crv3_weights_committing_too_fast() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_do_commit_crv3_weights_too_many_unrevealed_commits --exact --show-output --nocapture
 #[test]
 fn test_do_commit_crv3_weights_too_many_unrevealed_commits() {
     new_test_ext(1).execute_with(|| {
@@ -4777,6 +4886,7 @@ fn test_do_commit_crv3_weights_too_many_unrevealed_commits() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_reveal_crv3_commits_decryption_failure --exact --show-output --nocapture
 #[test]
 fn test_reveal_crv3_commits_decryption_failure() {
     new_test_ext(1).execute_with(|| {
@@ -4827,6 +4937,7 @@ fn test_reveal_crv3_commits_decryption_failure() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_reveal_crv3_commits_multiple_commits_some_fail_some_succeed --exact --show-output --nocapture
 #[test]
 fn test_reveal_crv3_commits_multiple_commits_some_fail_some_succeed() {
     new_test_ext(100).execute_with(|| {
@@ -4950,6 +5061,7 @@ fn test_reveal_crv3_commits_multiple_commits_some_fail_some_succeed() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_reveal_crv3_commits_do_set_weights_failure --exact --show-output --nocapture
 #[test]
 fn test_reveal_crv3_commits_do_set_weights_failure() {
     new_test_ext(1).execute_with(|| {
@@ -5035,6 +5147,7 @@ fn test_reveal_crv3_commits_do_set_weights_failure() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_reveal_crv3_commits_payload_decoding_failure --exact --show-output --nocapture
 #[test]
 fn test_reveal_crv3_commits_payload_decoding_failure() {
     new_test_ext(1).execute_with(|| {
@@ -5113,6 +5226,7 @@ fn test_reveal_crv3_commits_payload_decoding_failure() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_reveal_crv3_commits_signature_deserialization_failure --exact --show-output --nocapture
 #[test]
 fn test_reveal_crv3_commits_signature_deserialization_failure() {
     new_test_ext(1).execute_with(|| {
@@ -5194,6 +5308,7 @@ fn test_reveal_crv3_commits_signature_deserialization_failure() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_do_commit_crv3_weights_commit_size_exceeds_limit --exact --show-output --nocapture
 #[test]
 fn test_do_commit_crv3_weights_commit_size_exceeds_limit() {
     new_test_ext(1).execute_with(|| {
@@ -5236,6 +5351,7 @@ fn test_do_commit_crv3_weights_commit_size_exceeds_limit() {
     });
 }
 
+//  SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_reveal_crv3_commits_with_empty_commit_queue --exact --show-output --nocapture
 #[test]
 fn test_reveal_crv3_commits_with_empty_commit_queue() {
     new_test_ext(1).execute_with(|| {
@@ -5255,6 +5371,7 @@ fn test_reveal_crv3_commits_with_empty_commit_queue() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_reveal_crv3_commits_with_incorrect_identity_message --exact --show-output --nocapture
 #[test]
 fn test_reveal_crv3_commits_with_incorrect_identity_message() {
     new_test_ext(1).execute_with(|| {
@@ -5342,6 +5459,7 @@ fn test_reveal_crv3_commits_with_incorrect_identity_message() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_multiple_commits_by_same_hotkey_within_limit --exact --show-output --nocapture
 #[test]
 fn test_multiple_commits_by_same_hotkey_within_limit() {
     new_test_ext(1).execute_with(|| {
@@ -5378,6 +5496,7 @@ fn test_multiple_commits_by_same_hotkey_within_limit() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_reveal_crv3_commits_removes_past_epoch_commits --exact --show-output --nocapture
 #[test]
 fn test_reveal_crv3_commits_removes_past_epoch_commits() {
     new_test_ext(100).execute_with(|| {
@@ -5442,6 +5561,7 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_reveal_crv3_commits_multiple_valid_commits_all_processed --exact --show-output --nocapture
 #[test]
 fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
     new_test_ext(100).execute_with(|| {
@@ -5630,6 +5750,7 @@ fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_reveal_crv3_commits_max_neurons --exact --show-output --nocapture
 #[test]
 fn test_reveal_crv3_commits_max_neurons() {
     new_test_ext(100).execute_with(|| {

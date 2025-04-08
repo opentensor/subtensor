@@ -5,12 +5,15 @@ use frame_support::{
     traits::Hooks,
 };
 use frame_system::Config;
-use pallet_subtensor::Error as SubtensorError;
-use pallet_subtensor::{migrations, Event};
+use pallet_subtensor::{Error as SubtensorError, SubnetOwner, Tempo, WeightsVersionKeyRateLimit};
+// use pallet_subtensor::{migrations, Event};
+use pallet_subtensor::Event;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{ed25519, Pair, U256};
+use sp_core::{Pair, U256, ed25519};
+use substrate_fixed::types::I96F32;
 
 use crate::Error;
+use crate::pallet::PrecompileEnable;
 use mock::*;
 
 mod mock;
@@ -156,6 +159,107 @@ fn test_sudo_set_weights_version_key() {
             to_be_set
         ));
         assert_eq!(SubtensorModule::get_weights_version_key(netuid), to_be_set);
+    });
+}
+
+#[test]
+fn test_sudo_set_weights_version_key_rate_limit() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u64 = 10;
+
+        let sn_owner = U256::from(1);
+        add_network(netuid, 10);
+        // Set the Subnet Owner
+        SubnetOwner::<Test>::insert(netuid, sn_owner);
+
+        let rate_limit = WeightsVersionKeyRateLimit::<Test>::get();
+        let tempo: u16 = Tempo::<Test>::get(netuid);
+
+        let rate_limit_period = rate_limit * (tempo as u64);
+
+        assert_ok!(AdminUtils::sudo_set_weights_version_key(
+            <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+            netuid,
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_weights_version_key(netuid), to_be_set);
+
+        // Try to set again with
+        // Assert rate limit not passed
+        assert!(!SubtensorModule::passes_rate_limit_on_subnet(
+            &pallet_subtensor::utils::rate_limiting::TransactionType::SetWeightsVersionKey,
+            &sn_owner,
+            netuid
+        ));
+
+        // Try transaction
+        assert_noop!(
+            AdminUtils::sudo_set_weights_version_key(
+                <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+                netuid,
+                to_be_set + 1
+            ),
+            pallet_subtensor::Error::<Test>::TxRateLimitExceeded
+        );
+
+        // Wait for rate limit to pass
+        run_to_block(rate_limit_period + 2);
+        assert!(SubtensorModule::passes_rate_limit_on_subnet(
+            &pallet_subtensor::utils::rate_limiting::TransactionType::SetWeightsVersionKey,
+            &sn_owner,
+            netuid
+        ));
+
+        // Try transaction
+        assert_ok!(AdminUtils::sudo_set_weights_version_key(
+            <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+            netuid,
+            to_be_set + 1
+        ));
+        assert_eq!(
+            SubtensorModule::get_weights_version_key(netuid),
+            to_be_set + 1
+        );
+    });
+}
+
+#[test]
+fn test_sudo_set_weights_version_key_rate_limit_root() {
+    // root should not be effected by rate limit
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u64 = 10;
+
+        let sn_owner = U256::from(1);
+        add_network(netuid, 10);
+        // Set the Subnet Owner
+        SubnetOwner::<Test>::insert(netuid, sn_owner);
+
+        let rate_limit = WeightsVersionKeyRateLimit::<Test>::get();
+        let tempo: u16 = Tempo::<Test>::get(netuid);
+
+        let rate_limit_period = rate_limit * (tempo as u64);
+        // Verify the rate limit is more than 0 blocks
+        assert!(rate_limit_period > 0);
+
+        assert_ok!(AdminUtils::sudo_set_weights_version_key(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_weights_version_key(netuid), to_be_set);
+
+        // Try transaction
+        assert_ok!(AdminUtils::sudo_set_weights_version_key(
+            <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+            netuid,
+            to_be_set + 1
+        ));
+        assert_eq!(
+            SubtensorModule::get_weights_version_key(netuid),
+            to_be_set + 1
+        );
     });
 }
 
@@ -543,7 +647,7 @@ fn test_sudo_set_rho() {
 fn test_sudo_set_activity_cutoff() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
-        let to_be_set: u16 = 10;
+        let to_be_set: u16 = pallet_subtensor::MinActivityCutoff::<Test>::get();
         add_network(netuid, 10);
         let init_value: u16 = SubtensorModule::get_activity_cutoff(netuid);
         assert_eq!(
@@ -641,6 +745,18 @@ fn test_sudo_set_difficulty() {
             to_be_set
         ));
         assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), to_be_set);
+
+        // Test that SN owner can't set difficulty
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, U256::from(1));
+        assert_eq!(
+            AdminUtils::sudo_set_difficulty(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                netuid,
+                init_value
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), to_be_set); // no change
     });
 }
 
@@ -741,6 +857,39 @@ fn test_sudo_set_bonds_moving_average() {
 }
 
 #[test]
+fn test_sudo_set_bonds_penalty() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u16 = 10;
+        add_network(netuid, 10);
+        let init_value: u16 = SubtensorModule::get_bonds_penalty(netuid);
+        assert_eq!(
+            AdminUtils::sudo_set_bonds_penalty(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        assert_eq!(
+            AdminUtils::sudo_set_bonds_penalty(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid + 1,
+                to_be_set
+            ),
+            Err(Error::<Test>::SubnetDoesNotExist.into())
+        );
+        assert_eq!(SubtensorModule::get_bonds_penalty(netuid), init_value);
+        assert_ok!(AdminUtils::sudo_set_bonds_penalty(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_bonds_penalty(netuid), to_be_set);
+    });
+}
+
+#[test]
 fn test_sudo_set_rao_recycled() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
@@ -799,30 +948,6 @@ fn test_sudo_set_rao_recycled() {
                 .event,
             RuntimeEvent::SubtensorModule(Event::RAORecycledForRegistrationSet(netuid, to_be_set))
         );
-    });
-}
-
-#[test]
-fn test_sudo_set_subnet_limit() {
-    new_test_ext().execute_with(|| {
-        let netuid: u16 = 1;
-        let to_be_set: u16 = 10;
-        add_network(netuid, 10);
-
-        let init_value: u16 = SubtensorModule::get_max_subnets();
-        assert_eq!(
-            AdminUtils::sudo_set_subnet_limit(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
-                to_be_set
-            ),
-            Err(DispatchError::BadOrigin)
-        );
-        assert_eq!(SubtensorModule::get_max_subnets(), init_value);
-        assert_ok!(AdminUtils::sudo_set_subnet_limit(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            to_be_set
-        ));
-        assert_eq!(SubtensorModule::get_max_subnets(), to_be_set);
     });
 }
 
@@ -930,142 +1055,6 @@ mod sudo_set_nominator_min_required_stake {
             );
         });
     }
-
-    #[test]
-    fn clears_staker_nominations_below_min() {
-        new_test_ext().execute_with(|| {
-            System::set_block_number(1);
-
-            // Create accounts.
-            let netuid = 1;
-            let hot1 = U256::from(1);
-            let hot2 = U256::from(2);
-            let cold1 = U256::from(3);
-            let cold2 = U256::from(4);
-
-            SubtensorModule::set_target_stakes_per_interval(10);
-            // Register network.
-            add_network(netuid, 0);
-
-            // Register hot1.
-            register_ok_neuron(netuid, hot1, cold1, 0);
-            assert_ok!(SubtensorModule::do_become_delegate(
-                <<Test as Config>::RuntimeOrigin>::signed(cold1),
-                hot1,
-                u16::MAX / 10
-            ));
-            assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot1), cold1);
-
-            // Register hot2.
-            register_ok_neuron(netuid, hot2, cold2, 0);
-            assert_ok!(SubtensorModule::do_become_delegate(
-                <<Test as Config>::RuntimeOrigin>::signed(cold2),
-                hot2,
-                u16::MAX / 10
-            ));
-            assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot2), cold2);
-
-            // Add stake cold1 --> hot1 (non delegation.)
-            SubtensorModule::add_balance_to_coldkey_account(&cold1, 5);
-            assert_ok!(SubtensorModule::add_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(cold1),
-                hot1,
-                1
-            ));
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
-                1
-            );
-            assert_eq!(Balances::free_balance(cold1), 4);
-
-            // Add stake cold2 --> hot1 (is delegation.)
-            SubtensorModule::add_balance_to_coldkey_account(&cold2, 5);
-            assert_ok!(SubtensorModule::add_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(cold2),
-                hot1,
-                1
-            ));
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
-                1
-            );
-            assert_eq!(Balances::free_balance(cold2), 4);
-
-            // Add stake cold1 --> hot2 (non delegation.)
-            SubtensorModule::add_balance_to_coldkey_account(&cold1, 5);
-            assert_ok!(SubtensorModule::add_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(cold1),
-                hot2,
-                1
-            ));
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
-                1
-            );
-            assert_eq!(Balances::free_balance(cold1), 8);
-
-            // Add stake cold2 --> hot2 (is delegation.)
-            SubtensorModule::add_balance_to_coldkey_account(&cold2, 5);
-            assert_ok!(SubtensorModule::add_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(cold2),
-                hot2,
-                1
-            ));
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
-                1
-            );
-            assert_eq!(Balances::free_balance(cold2), 8);
-
-            // Set min stake to 0 (noop)
-            assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                0u64
-            ));
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
-                1
-            );
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
-                1
-            );
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
-                1
-            );
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
-                1
-            );
-
-            // Set min nomination to 10: should clear (cold2, hot1) and (cold1, hot2).
-            assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                10u64
-            ));
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
-                1
-            );
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
-                0
-            );
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
-                0
-            );
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
-                1
-            );
-
-            // Balances have been added back into accounts.
-            assert_eq!(Balances::free_balance(cold1), 9);
-            assert_eq!(Balances::free_balance(cold2), 9);
-        });
-    }
 }
 
 #[test]
@@ -1140,30 +1129,6 @@ fn test_sudo_set_commit_reveal_weights_enabled() {
 }
 
 #[test]
-fn test_sudo_set_target_stakes_per_interval() {
-    new_test_ext().execute_with(|| {
-        let to_be_set = 100;
-        let init_value = SubtensorModule::get_target_stakes_per_interval();
-        assert_eq!(
-            AdminUtils::sudo_set_target_stakes_per_interval(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
-                to_be_set
-            ),
-            Err(DispatchError::BadOrigin)
-        );
-        assert_eq!(
-            SubtensorModule::get_target_stakes_per_interval(),
-            init_value
-        );
-        assert_ok!(AdminUtils::sudo_set_target_stakes_per_interval(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            to_be_set
-        ));
-        assert_eq!(SubtensorModule::get_target_stakes_per_interval(), to_be_set);
-    });
-}
-
-#[test]
 fn test_sudo_set_liquid_alpha_enabled() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
@@ -1212,10 +1177,11 @@ fn test_sudo_get_set_alpha() {
 
         // Enable Liquid Alpha and setup
         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
+        pallet_subtensor::migrations::migrate_create_root_network::migrate_create_root_network::<
+            Test,
+        >();
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
-        assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, 1000));
 
         // Should fail as signer does not own the subnet
         assert_err!(
@@ -1223,7 +1189,7 @@ fn test_sudo_get_set_alpha() {
             DispatchError::BadOrigin
         );
 
-        assert_ok!(SubtensorModule::register_network(signer.clone()));
+        assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey));
 
         assert_ok!(AdminUtils::sudo_set_alpha_values(
             signer.clone(),
@@ -1488,5 +1454,260 @@ fn test_schedule_grandpa_change() {
         Grandpa::on_finalize(42);
 
         assert_eq!(Grandpa::grandpa_authorities(), vec![(bob, 1)]);
+    });
+}
+
+#[test]
+fn test_sudo_toggle_evm_precompile() {
+    new_test_ext().execute_with(|| {
+        let precompile_id = crate::PrecompileEnum::BalanceTransfer;
+        let initial_enabled = PrecompileEnable::<Test>::get(precompile_id);
+        assert!(initial_enabled); // Assuming the default is true
+
+        run_to_block(1);
+
+        assert_eq!(
+            AdminUtils::sudo_toggle_evm_precompile(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                precompile_id,
+                false
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+
+        assert_ok!(AdminUtils::sudo_toggle_evm_precompile(
+            RuntimeOrigin::root(),
+            precompile_id,
+            false
+        ));
+
+        assert_eq!(
+            System::events()
+                .iter()
+                .filter(|r| r.event
+                    == RuntimeEvent::AdminUtils(crate::Event::PrecompileUpdated {
+                        precompile_id,
+                        enabled: false
+                    }))
+                .count(),
+            1
+        );
+
+        let updated_enabled = PrecompileEnable::<Test>::get(precompile_id);
+        assert!(!updated_enabled);
+
+        run_to_block(2);
+
+        assert_ok!(AdminUtils::sudo_toggle_evm_precompile(
+            RuntimeOrigin::root(),
+            precompile_id,
+            false
+        ));
+
+        // no event without status change
+        assert_eq!(
+            System::events()
+                .iter()
+                .filter(|r| r.event
+                    == RuntimeEvent::AdminUtils(crate::Event::PrecompileUpdated {
+                        precompile_id,
+                        enabled: false
+                    }))
+                .count(),
+            0
+        );
+
+        assert_ok!(AdminUtils::sudo_toggle_evm_precompile(
+            RuntimeOrigin::root(),
+            precompile_id,
+            true
+        ));
+
+        let final_enabled = PrecompileEnable::<Test>::get(precompile_id);
+        assert!(final_enabled);
+    });
+}
+
+#[test]
+fn test_sudo_root_sets_subnet_moving_alpha() {
+    new_test_ext().execute_with(|| {
+        let alpha: I96F32 = I96F32::saturating_from_num(0.5);
+        let initial = pallet_subtensor::SubnetMovingAlpha::<Test>::get();
+        assert!(initial != alpha);
+
+        assert_ok!(AdminUtils::sudo_set_subnet_moving_alpha(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            alpha
+        ));
+
+        assert_eq!(pallet_subtensor::SubnetMovingAlpha::<Test>::get(), alpha);
+    });
+}
+
+#[test]
+fn test_sets_a_lower_value_clears_small_nominations() {
+    new_test_ext().execute_with(|| {
+        let hotkey: U256 = U256::from(3);
+        let owner_coldkey: U256 = U256::from(1);
+        let staker_coldkey: U256 = U256::from(2);
+
+        let initial_nominator_min_required_stake = 10u64;
+        let nominator_min_required_stake_0 = 5u64;
+        let nominator_min_required_stake_1 = 20u64;
+
+        assert!(nominator_min_required_stake_0 < nominator_min_required_stake_1);
+        assert!(nominator_min_required_stake_0 < initial_nominator_min_required_stake);
+
+        let to_stake = initial_nominator_min_required_stake + 1;
+
+        assert!(to_stake > initial_nominator_min_required_stake);
+        assert!(to_stake > nominator_min_required_stake_0); // Should stay when set
+        assert!(to_stake < nominator_min_required_stake_1); // Should be removed when set
+
+        // Create network
+        let netuid = 2;
+        add_network(netuid, 10);
+
+        // Register a neuron
+        register_ok_neuron(netuid, hotkey, owner_coldkey, 0);
+
+        assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
+            RuntimeOrigin::root(),
+            initial_nominator_min_required_stake
+        ));
+        assert_eq!(
+            SubtensorModule::get_nominator_min_required_stake(),
+            initial_nominator_min_required_stake
+        );
+
+        // Stake to the hotkey as staker_coldkey
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &staker_coldkey,
+            netuid,
+            to_stake,
+        );
+
+        assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
+            RuntimeOrigin::root(),
+            nominator_min_required_stake_0
+        ));
+        assert_eq!(
+            SubtensorModule::get_nominator_min_required_stake(),
+            nominator_min_required_stake_0
+        );
+
+        // Check this nomination is not cleared
+        assert!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &staker_coldkey,
+                netuid
+            ) > 0
+        );
+
+        assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
+            RuntimeOrigin::root(),
+            nominator_min_required_stake_1
+        ));
+        assert_eq!(
+            SubtensorModule::get_nominator_min_required_stake(),
+            nominator_min_required_stake_1
+        );
+
+        // Check this nomination is cleared
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &staker_coldkey,
+                netuid
+            ),
+            0
+        );
+    });
+}
+
+#[test]
+fn test_sudo_set_subnet_owner_hotkey() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+
+        let coldkey: U256 = U256::from(1);
+        let hotkey: U256 = U256::from(2);
+        let new_hotkey: U256 = U256::from(3);
+
+        let coldkey_origin = <<Test as Config>::RuntimeOrigin>::signed(coldkey);
+        let root = RuntimeOrigin::root();
+        let random_account = RuntimeOrigin::signed(U256::from(123456));
+
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, coldkey);
+        pallet_subtensor::SubnetOwnerHotkey::<Test>::insert(netuid, hotkey);
+        assert_eq!(
+            pallet_subtensor::SubnetOwnerHotkey::<Test>::get(netuid),
+            hotkey
+        );
+
+        assert_ok!(AdminUtils::sudo_set_subnet_owner_hotkey(
+            coldkey_origin,
+            netuid,
+            new_hotkey
+        ));
+
+        assert_eq!(
+            pallet_subtensor::SubnetOwnerHotkey::<Test>::get(netuid),
+            new_hotkey
+        );
+
+        assert_noop!(
+            AdminUtils::sudo_set_subnet_owner_hotkey(random_account, netuid, new_hotkey),
+            DispatchError::BadOrigin
+        );
+
+        assert_noop!(
+            AdminUtils::sudo_set_subnet_owner_hotkey(root, netuid, new_hotkey),
+            DispatchError::BadOrigin
+        );
+    });
+}
+
+// cargo test --package pallet-admin-utils --lib -- tests::test_sudo_set_ema_halving --exact --show-output
+#[test]
+fn test_sudo_set_ema_halving() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u64 = 10;
+        add_network(netuid, 10);
+
+        let value_before: u64 = pallet_subtensor::EMAPriceHalvingBlocks::<Test>::get(netuid);
+        assert_eq!(
+            AdminUtils::sudo_set_ema_price_halving_period(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        let value_after_0: u64 = pallet_subtensor::EMAPriceHalvingBlocks::<Test>::get(netuid);
+        assert_eq!(value_after_0, value_before);
+
+        let owner = U256::from(10);
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, owner);
+        assert_eq!(
+            AdminUtils::sudo_set_ema_price_halving_period(
+                <<Test as Config>::RuntimeOrigin>::signed(owner),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        let value_after_1: u64 = pallet_subtensor::EMAPriceHalvingBlocks::<Test>::get(netuid);
+        assert_eq!(value_after_1, value_before);
+        assert_ok!(AdminUtils::sudo_set_ema_price_halving_period(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+        let value_after_2: u64 = pallet_subtensor::EMAPriceHalvingBlocks::<Test>::get(netuid);
+        assert_eq!(value_after_2, to_be_set);
     });
 }

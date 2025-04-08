@@ -2,259 +2,56 @@
 
 use super::mock::*;
 use crate::*;
+use alloc::collections::BTreeMap;
+use approx::assert_abs_diff_eq;
 use codec::{Decode, Encode};
 use frame_support::{
-    assert_ok,
-    storage::unhashed::{get_raw, put_raw},
+    StorageHasher, Twox64Concat, assert_ok,
+    storage::unhashed::{get, get_raw, put, put_raw},
     traits::{StorageInstance, StoredMap},
     weights::Weight,
-    StorageHasher, Twox64Concat,
 };
+
 use frame_system::Config;
-use sp_core::{crypto::Ss58Codec, H256, U256};
+use sp_core::{H256, U256, crypto::Ss58Codec};
 use sp_io::hashing::twox_128;
 use sp_runtime::traits::Zero;
+use substrate_fixed::types::I96F32;
 use substrate_fixed::types::extra::U2;
+
+#[allow(clippy::arithmetic_side_effects)]
+fn close(value: u64, target: u64, eps: u64) {
+    assert!(
+        (value as i64 - target as i64).abs() < eps as i64,
+        "Assertion failed: value = {}, target = {}, eps = {}",
+        value,
+        target,
+        eps
+    )
+}
 
 #[test]
 fn test_initialise_ti() {
     use frame_support::traits::OnRuntimeUpgrade;
 
     new_test_ext(1).execute_with(|| {
-        crate::SubnetLocked::<Test>::insert(1, 100);
-        crate::SubnetLocked::<Test>::insert(2, 5);
         pallet_balances::TotalIssuance::<Test>::put(1000);
-        crate::TotalStake::<Test>::put(25);
+        crate::SubnetTAO::<Test>::insert(1, 100);
+        crate::SubnetTAO::<Test>::insert(2, 5);
 
         // Ensure values are NOT initialized prior to running migration
         assert!(crate::TotalIssuance::<Test>::get() == 0);
+		assert!(crate::TotalStake::<Test>::get() == 0);
 
         crate::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration::<Test>::on_runtime_upgrade();
 
         // Ensure values were initialized correctly
+		assert!(crate::TotalStake::<Test>::get() == 105);
         assert!(
             crate::TotalIssuance::<Test>::get()
-                == 105u64.saturating_add(1000).saturating_add(25)
+                == 105u64.saturating_add(1000)
         );
     });
-}
-
-#[test]
-fn test_migration_fix_total_stake_maps() {
-    new_test_ext(1).execute_with(|| {
-        let ck1 = U256::from(1);
-        let ck2 = U256::from(2);
-        let ck3 = U256::from(3);
-
-        let hk1 = U256::from(1 + 100);
-        let hk2 = U256::from(2 + 100);
-
-        let mut total_stake_amount = 0;
-
-        // Give each coldkey some stake in the maps
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&ck1, &hk1, 100);
-        total_stake_amount += 100;
-
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&ck2, &hk1, 10_101);
-        total_stake_amount += 10_101;
-
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&ck3, &hk2, 100_000_000);
-        total_stake_amount += 100_000_000;
-
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&ck1, &hk2, 1_123_000_000);
-        total_stake_amount += 1_123_000_000;
-
-        // Check that the total stake is correct
-        assert_eq!(SubtensorModule::get_total_stake(), total_stake_amount);
-
-        // Check that the total coldkey stake is correct
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&ck1),
-            100 + 1_123_000_000
-        );
-        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&ck2), 10_101);
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&ck3),
-            100_000_000
-        );
-
-        // Check that the total hotkey stake is correct
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hk1),
-            100 + 10_101
-        );
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hk2),
-            100_000_000 + 1_123_000_000
-        );
-
-        // Mess up the total coldkey stake
-        crate::TotalColdkeyStake::<Test>::insert(ck1, 0);
-        // Verify that the total coldkey stake is now 0 for ck1
-        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&ck1), 0);
-
-        // Mess up the total stake
-        crate::TotalStake::<Test>::put(123_456_789);
-        // Verify that the total stake is now wrong
-        assert_ne!(SubtensorModule::get_total_stake(), total_stake_amount);
-
-        // Run the migration to fix the total stake maps
-        crate::migrations::migrate_to_v2_fixed_total_stake::migrate_to_v2_fixed_total_stake::<Test>(
-        );
-
-        // Verify that the total stake is now correct
-        assert_eq!(SubtensorModule::get_total_stake(), total_stake_amount);
-        // Verify that the total coldkey stake is now correct for each coldkey
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&ck1),
-            100 + 1_123_000_000
-        );
-        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&ck2), 10_101);
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&ck3),
-            100_000_000
-        );
-
-        // Verify that the total hotkey stake is STILL correct for each hotkey
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hk1),
-            100 + 10_101
-        );
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hk2),
-            100_000_000 + 1_123_000_000
-        );
-
-        // Verify that the Stake map has no extra entries
-        assert_eq!(crate::Stake::<Test>::iter().count(), 4); // 4 entries total
-        assert_eq!(crate::Stake::<Test>::iter_key_prefix(hk1).count(), 2); // 2 stake entries for hk1
-        assert_eq!(crate::Stake::<Test>::iter_key_prefix(hk2).count(), 2); // 2 stake entries for hk2
-    })
-}
-
-#[test]
-// To run this test with cargo, use the following command:
-// cargo test --package pallet-subtensor --test migration test_migrate_total_issuance
-fn test_migrate_total_issuance() {
-    new_test_ext(1).execute_with(|| {
-        // Run the migration to check total issuance.
-        let test: bool = true;
-
-        assert_eq!(SubtensorModule::get_total_issuance(), 0);
-        crate::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(test);
-        assert_eq!(SubtensorModule::get_total_issuance(), 0);
-
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 10000);
-        assert_eq!(SubtensorModule::get_total_issuance(), 0);
-        crate::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(test);
-        assert_eq!(SubtensorModule::get_total_issuance(), 10000);
-
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-            &U256::from(1),
-            &U256::from(1),
-            30000,
-        );
-        assert_eq!(SubtensorModule::get_total_issuance(), 10000);
-        crate::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(test);
-        assert_eq!(SubtensorModule::get_total_issuance(), 10000 + 30000);
-    })
-}
-
-#[test]
-// To run this test with cargo, use the following command:
-// cargo test --package pallet-subtensor --test migration test_total_issuance_global
-fn test_total_issuance_global() {
-    new_test_ext(0).execute_with(|| {
-        // Initialize network unique identifier and keys for testing.
-        let netuid: u16 = 1; // Network unique identifier set to 1 for testing.
-        let coldkey = U256::from(0); // Coldkey initialized to 0, representing an account's public key for non-transactional operations.
-        let hotkey = U256::from(0); // Hotkey initialized to 0, representing an account's public key for transactional operations.
-        let owner: U256 = U256::from(0);
-
-        let lockcost: u64 = SubtensorModule::get_network_lock_cost();
-        SubtensorModule::add_balance_to_coldkey_account(&owner, lockcost); // Add a balance of 20000 to the coldkey account.
-        assert_eq!(SubtensorModule::get_total_issuance(), 0); // initial is zero.
-        assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(owner),
-        ));
-        SubtensorModule::set_max_allowed_uids(netuid, 1); // Set the maximum allowed unique identifiers for the network to 1.
-        assert_eq!(SubtensorModule::get_total_issuance(), 0); // initial is zero.
-        crate::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(true); // Pick up lock.
-        assert_eq!(SubtensorModule::get_total_issuance(), lockcost); // Verify the total issuance is updated to 20000 after migration.
-        assert!(SubtensorModule::if_subnet_exist(netuid));
-
-        // Test the migration's effect on total issuance after adding balance to a coldkey account.
-        let account_balance: u64 = 20000;
-        let _hotkey_account_id_1 = U256::from(1); // Define a hotkey account ID for further operations.
-        let _coldkey_account_id_1 = U256::from(1); // Define a coldkey account ID for further operations.
-        assert_eq!(SubtensorModule::get_total_issuance(), lockcost); // Ensure the total issuance starts at 0 before the migration.
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, account_balance); // Add a balance of 20000 to the coldkey account.
-        crate::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(true); // Execute the migration to update total issuance.
-        assert_eq!(
-            SubtensorModule::get_total_issuance(),
-            account_balance + lockcost
-        ); // Verify the total issuance is updated to 20000 after migration.
-
-        // Test the effect of burning on total issuance.
-        let burn_cost: u64 = 10000;
-        SubtensorModule::set_burn(netuid, burn_cost); // Set the burn amount to 10000 for the network.
-        assert_eq!(
-            SubtensorModule::get_total_issuance(),
-            account_balance + lockcost
-        ); // Confirm the total issuance remains 20000 before burning.
-        assert_ok!(SubtensorModule::burned_register(
-            <<Test as Config>::RuntimeOrigin>::signed(hotkey),
-            netuid,
-            hotkey
-        )); // Execute the burn operation, reducing the total issuance.
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1); // Ensure the subnetwork count increases to 1 after burning
-        assert_eq!(
-            SubtensorModule::get_total_issuance(),
-            account_balance + lockcost - burn_cost
-        ); // Verify the total issuance is reduced to 10000 after burning.
-        crate::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(true); // Execute the migration to update total issuance.
-        assert_eq!(
-            SubtensorModule::get_total_issuance(),
-            account_balance + lockcost - burn_cost
-        ); // Verify the total issuance is updated to 10000 nothing changes
-
-        // Test staking functionality and its effect on total issuance.
-        let new_stake: u64 = 10000;
-        assert_eq!(
-            SubtensorModule::get_total_issuance(),
-            account_balance + lockcost - burn_cost
-        ); // Same
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, new_stake); // Stake an additional 10000 to the coldkey-hotkey account. This is i
-        assert_eq!(
-            SubtensorModule::get_total_issuance(),
-            account_balance + lockcost - burn_cost
-        ); // Same
-        crate::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(true); // Fix issuance
-        assert_eq!(
-            SubtensorModule::get_total_issuance(),
-            account_balance + lockcost - burn_cost + new_stake
-        ); // New
-
-        // Set emission values for the network and verify.
-        let emission: u64 = 1_000_000_000;
-        SubtensorModule::set_tempo(netuid, 1);
-        SubtensorModule::set_emission_values(&[netuid], vec![emission]).unwrap(); // Set the emission value for the network to 1_000_000_000.
-        assert_eq!(SubtensorModule::get_subnet_emission_value(netuid), emission); // Verify the emission value is set correctly for the network.
-        assert_eq!(
-            SubtensorModule::get_total_issuance(),
-            account_balance + lockcost - burn_cost + new_stake
-        );
-        run_to_block(2); // Advance to block number 2 to trigger the emission through the subnet.
-        assert_eq!(
-            SubtensorModule::get_total_issuance(),
-            account_balance + lockcost - burn_cost + new_stake + emission
-        ); // Verify the total issuance reflects the staked amount and emission value that has been put through the epoch.
-        crate::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(true); // Test migration does not change amount.
-        assert_eq!(
-            SubtensorModule::get_total_issuance(),
-            account_balance + lockcost - burn_cost + new_stake + emission
-        ); // Verify the total issuance reflects the staked amount and emission value that has been put through the epoch.
-    })
 }
 
 #[test]
@@ -303,149 +100,6 @@ fn test_migration_delete_subnet_21() {
 
         assert!(!SubtensorModule::if_subnet_exist(21));
     })
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake --exact --nocapture
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake --exact --nocapture
-#[test]
-fn test_migrate_fix_total_coldkey_stake() {
-    new_test_ext(1).execute_with(|| {
-        let _migration_name = "fix_total_coldkey_stake_v7";
-        let coldkey = U256::from(0);
-        TotalColdkeyStake::<Test>::insert(coldkey, 0);
-        StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
-        Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
-        Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
-        Stake::<Test>::insert(U256::from(3), U256::from(0), 10000);
-        crate::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<
-            Test,
-        >();
-        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
-    })
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake_value_already_in_total --exact --nocapture
-#[test]
-fn test_migrate_fix_total_coldkey_stake_value_already_in_total() {
-    new_test_ext(1).execute_with(|| {
-        let _migration_name = "fix_total_coldkey_stake_v7";
-        let coldkey = U256::from(0);
-        TotalColdkeyStake::<Test>::insert(coldkey, 100000000);
-        StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
-        Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
-        Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
-        Stake::<Test>::insert(U256::from(3), U256::from(0), 10000);
-        crate::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<
-            Test,
-        >();
-        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
-    })
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake_no_entry --exact --nocapture
-#[test]
-fn test_migrate_fix_total_coldkey_stake_no_entry() {
-    new_test_ext(1).execute_with(|| {
-        let _migration_name = "fix_total_coldkey_stake_v7";
-        let coldkey = U256::from(0);
-        StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
-        Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
-        Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
-        Stake::<Test>::insert(U256::from(3), U256::from(0), 10000);
-        crate::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<
-            Test,
-        >();
-        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
-    })
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake_no_entry_in_hotkeys --exact --nocapture
-#[test]
-fn test_migrate_fix_total_coldkey_stake_no_entry_in_hotkeys() {
-    new_test_ext(1).execute_with(|| {
-        let _migration_name = "fix_total_coldkey_stake_v7";
-        let coldkey = U256::from(0);
-        TotalColdkeyStake::<Test>::insert(coldkey, 100000000);
-        StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
-        crate::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<
-            Test,
-        >();
-        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 0);
-    })
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake_one_hotkey_stake_missing --exact --nocapture
-#[test]
-fn test_migrate_fix_total_coldkey_stake_one_hotkey_stake_missing() {
-    new_test_ext(1).execute_with(|| {
-        let _migration_name = "fix_total_coldkey_stake_v7";
-        let coldkey = U256::from(0);
-        TotalColdkeyStake::<Test>::insert(coldkey, 100000000);
-        StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
-        Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
-        Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
-        crate::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<
-            Test,
-        >();
-        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 20000);
-    })
-}
-
-// New test to check if migration runs only once
-//  SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake_runs_once --exact --nocapture
-#[test]
-fn test_migrate_fix_total_coldkey_stake_runs_once() {
-    new_test_ext(1).execute_with(|| {
-        let migration_name = "fix_total_coldkey_stake_v7";
-        let coldkey = U256::from(0);
-        TotalColdkeyStake::<Test>::insert(coldkey, 0);
-        StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
-        Stake::<Test>::insert(U256::from(1), coldkey, 10000);
-        Stake::<Test>::insert(U256::from(2), coldkey, 10000);
-        Stake::<Test>::insert(U256::from(3), coldkey, 10000);
-
-        // First run
-        let first_weight = run_migration_and_check(migration_name);
-        assert!(first_weight != Weight::zero());
-        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
-
-        // Second run
-        let second_weight = run_migration_and_check(migration_name);
-        assert_eq!(second_weight, Weight::zero());
-        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
-    })
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake_starts_with_value_no_stake_map_entries --exact --nocapture
-#[test]
-fn test_migrate_fix_total_coldkey_stake_starts_with_value_no_stake_map_entries() {
-    new_test_ext(1).execute_with(|| {
-        let migration_name = "fix_total_coldkey_stake_v7";
-        let coldkey = U256::from(0);
-        TotalColdkeyStake::<Test>::insert(coldkey, 123_456_789);
-
-        // Notably, coldkey has no stake map or staking_hotkeys map entries
-
-        let weight = run_migration_and_check(migration_name);
-        assert!(weight != Weight::zero());
-        // Therefore 0
-        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 123_456_789);
-    })
-}
-
-fn run_migration_and_check(migration_name: &'static str) -> frame_support::weights::Weight {
-    // Execute the migration and store its weight
-    let weight: frame_support::weights::Weight =
-        crate::migrations::migrate_fix_total_coldkey_stake::migrate_fix_total_coldkey_stake::<Test>(
-        );
-
-    // Check if the migration has been marked as completed
-    assert!(HasMigrationRun::<Test>::get(
-        migration_name.as_bytes().to_vec()
-    ));
-
-    // Return the weight of the executed migration
-    weight
 }
 
 #[test]
@@ -535,157 +189,369 @@ fn test_migrate_commit_reveal_2() {
     });
 }
 
-fn run_pending_emissions_migration_and_check(
-    migration_name: &'static str,
-) -> frame_support::weights::Weight {
-    use frame_support::traits::OnRuntimeUpgrade;
+// Leaving in for reference. Will remove later.
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::migration::test_migrate_rao --exact --show-output --nocapture
+// #[test]
+// fn test_migrate_rao() {
+//     new_test_ext(1).execute_with(|| {
+//         // Setup initial state
+//         let netuid_0: u16 = 0;
+//         let netuid_1: u16 = 1;
+//         let netuid_2: u16 = 2;
+//         let netuid_3: u16 = 3;
+//         let hotkey1 = U256::from(1);
+//         let hotkey2 = U256::from(2);
+//         let coldkey1 = U256::from(3);
+//         let coldkey2 = U256::from(4);
+//         let coldkey3 = U256::from(5);
+//         let stake_amount: u64 = 1_000_000_000;
+//         let lock_amount: u64 = 500;
+//         NetworkMinLockCost::<Test>::set(500);
 
-    // Execute the migration and store its weight
-    let weight: frame_support::weights::Weight =
-		crate::migrations::migrate_fix_pending_emission::migration::Migration::<Test>::on_runtime_upgrade();
+//         // Add networks root and alpha
+//         add_network(netuid_0, 1, 0);
+//         add_network(netuid_1, 1, 0);
+//         add_network(netuid_2, 1, 0);
+//         add_network(netuid_3, 1, 0);
 
-    // Check if the migration has been marked as completed
-    assert!(HasMigrationRun::<Test>::get(
-        migration_name.as_bytes().to_vec()
-    ));
+//         // Set subnet lock
+//         SubnetLocked::<Test>::insert(netuid_1, lock_amount);
 
-    // Return the weight of the executed migration
-    weight
-}
+//         // Add some initial stake
+//         EmissionValues::<Test>::insert(netuid_1, 1_000_000_000);
+//         EmissionValues::<Test>::insert(netuid_2, 2_000_000_000);
+//         EmissionValues::<Test>::insert(netuid_3, 3_000_000_000);
 
-fn get_account_id_from_ss58(ss58_str: &str) -> U256 {
-    let account_id = sp_core::crypto::AccountId32::from_ss58check(ss58_str).unwrap();
-    let account_id = AccountId::decode(&mut account_id.as_ref()).unwrap();
-    account_id
-}
+//         Owner::<Test>::insert(hotkey1, coldkey1);
+//         Owner::<Test>::insert(hotkey2, coldkey2);
+//         Stake::<Test>::insert(hotkey1, coldkey1, stake_amount);
+//         Stake::<Test>::insert(hotkey1, coldkey2, stake_amount);
+//         Stake::<Test>::insert(hotkey2, coldkey2, stake_amount);
+//         Stake::<Test>::insert(hotkey2, coldkey3, stake_amount);
 
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --package pallet-subtensor --test migration -- test_migrate_fix_pending_emissions --exact --nocapture
+//         // Verify initial conditions
+//         assert_eq!(SubnetTAO::<Test>::get(netuid_0), 0);
+//         assert_eq!(SubnetTAO::<Test>::get(netuid_1), 0);
+//         assert_eq!(SubnetAlphaOut::<Test>::get(netuid_0), 0);
+//         assert_eq!(SubnetAlphaOut::<Test>::get(netuid_1), 0);
+//         assert_eq!(SubnetAlphaIn::<Test>::get(netuid_0), 0);
+//         assert_eq!(SubnetAlphaIn::<Test>::get(netuid_1), 0);
+//         assert_eq!(TotalHotkeyShares::<Test>::get(hotkey1, netuid_0), 0);
+//         assert_eq!(TotalHotkeyShares::<Test>::get(hotkey1, netuid_1), 0);
+//         assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey1, netuid_0), 0);
+//         assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey2, netuid_1), 0);
+
+//         // Run migration
+//         crate::migrations::migrate_rao::migrate_rao::<Test>();
+
+//         // Verify root subnet (netuid 0) state after migration
+//         assert_eq!(SubnetTAO::<Test>::get(netuid_0), 4 * stake_amount); // Root has everything
+//         assert_eq!(SubnetTAO::<Test>::get(netuid_1), 1_000_000_000); // Always 1000000000
+//         assert_eq!(SubnetAlphaIn::<Test>::get(netuid_0), 1_000_000_000); // Always 1_000_000_000
+//         assert_eq!(SubnetAlphaIn::<Test>::get(netuid_1), 1_000_000_000); // Always 1_000_000_000
+//         assert_eq!(SubnetAlphaOut::<Test>::get(netuid_0), 4 * stake_amount); // Root has everything.
+//         assert_eq!(SubnetAlphaOut::<Test>::get(netuid_1), 0); // No stake outstanding.
+
+//         // Assert share information for hotkey1 on netuid_0
+//         assert_eq!(
+//             TotalHotkeyShares::<Test>::get(hotkey1, netuid_0),
+//             2 * stake_amount
+//         ); // Shares
+//         // Assert no shares for hotkey1 on netuid_1
+//         assert_eq!(TotalHotkeyShares::<Test>::get(hotkey1, netuid_1), 0); // No shares
+//         // Assert alpha for hotkey1 on netuid_0
+//         assert_eq!(
+//             TotalHotkeyAlpha::<Test>::get(hotkey1, netuid_0),
+//             2 * stake_amount
+//         ); // Alpha
+//         // Assert no alpha for hotkey1 on netuid_1
+//         assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey1, netuid_1), 0); // No alpha.
+//         // Assert share information for hotkey2 on netuid_0
+//         assert_eq!(
+//             TotalHotkeyShares::<Test>::get(hotkey2, netuid_0),
+//             2 * stake_amount
+//         ); // Shares
+//         // Assert no shares for hotkey2 on netuid_1
+//         assert_eq!(TotalHotkeyShares::<Test>::get(hotkey2, netuid_1), 0); // No shares
+//         // Assert alpha for hotkey2 on netuid_0
+//         assert_eq!(
+//             TotalHotkeyAlpha::<Test>::get(hotkey2, netuid_0),
+//             2 * stake_amount
+//         ); // Alpha
+//         // Assert no alpha for hotkey2 on netuid_1
+//         assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey2, netuid_1), 0); // No alpha.
+
+//         // Assert stake balances for hotkey1 and coldkey1 on netuid_0
+//         assert_eq!(
+//             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+//                 &hotkey1, &coldkey1, netuid_0
+//             ),
+//             stake_amount
+//         );
+//         // Assert stake balances for hotkey1 and coldkey2 on netuid_0
+//         assert_eq!(
+//             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+//                 &hotkey1, &coldkey2, netuid_0
+//             ),
+//             stake_amount
+//         );
+//         // Assert stake balances for hotkey2 and coldkey2 on netuid_0
+//         assert_eq!(
+//             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+//                 &hotkey2, &coldkey2, netuid_0
+//             ),
+//             stake_amount
+//         );
+//         // Assert stake balances for hotkey2 and coldkey3 on netuid_0
+//         assert_eq!(
+//             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+//                 &hotkey2, &coldkey3, netuid_0
+//             ),
+//             stake_amount
+//         );
+//         // Assert total stake for hotkey1 on netuid_0
+//         assert_eq!(
+//             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey1, netuid_0),
+//             2 * stake_amount
+//         );
+//         // Assert total stake for hotkey2 on netuid_0
+//         assert_eq!(
+//             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey2, netuid_0),
+//             2 * stake_amount
+//         );
+//         // Increase stake for hotkey1 and coldkey1 on netuid_0
+//         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+//             &hotkey1,
+//             &coldkey1,
+//             netuid_0,
+//             stake_amount,
+//         );
+//         // Assert updated stake for hotkey1 and coldkey1 on netuid_0
+//         assert_eq!(
+//             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+//                 &hotkey1, &coldkey1, netuid_0
+//             ),
+//             2 * stake_amount
+//         );
+//         // Assert updated total stake for hotkey1 on netuid_0
+//         assert_eq!(
+//             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey1, netuid_0),
+//             3 * stake_amount
+//         );
+//         // Increase stake for hotkey1 and coldkey1 on netuid_1
+//         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+//             &hotkey1,
+//             &coldkey1,
+//             netuid_1,
+//             stake_amount,
+//         );
+//         // Assert updated stake for hotkey1 and coldkey1 on netuid_1
+//         assert_eq!(
+//             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+//                 &hotkey1, &coldkey1, netuid_1
+//             ),
+//             stake_amount
+//         );
+//         // Assert updated total stake for hotkey1 on netuid_1
+//         assert_eq!(
+//             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey1, netuid_1),
+//             stake_amount
+//         );
+
+//         // Run the coinbase
+//         let emission: u64 = 1_000_000_000;
+//         SubtensorModule::run_coinbase(I96F32::from_num(emission));
+//         close(
+//             SubnetTaoInEmission::<Test>::get(netuid_1),
+//             emission / 6,
+//             100,
+//         );
+//         close(
+//             SubnetTaoInEmission::<Test>::get(netuid_2),
+//             2 * (emission / 6),
+//             100,
+//         );
+//         close(
+//             SubnetTaoInEmission::<Test>::get(netuid_3),
+//             3 * (emission / 6),
+//             100,
+//         );
+//     });
+// }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::migration::test_migrate_subnet_volume --exact --show-output
 #[test]
-fn test_migrate_fix_pending_emissions() {
+fn test_migrate_subnet_volume() {
     new_test_ext(1).execute_with(|| {
-        let migration_name = "fix_pending_emission";
+        // Setup initial state
+        let netuid_1: u16 = 1;
+        add_network(netuid_1, 1, 0);
 
-        let null_account = &U256::from(0); // The null account
+        // SubnetValue for netuid 1 key
+        let old_key: [u8; 34] = hex_literal::hex!(
+            "658faa385070e074c85bf6b568cf05553c3226e141696000b4b239c65bc2b2b40100"
+        );
 
-        let taostats_old_hotkey = "5Hddm3iBFD2GLT5ik7LZnT3XJUnRnN8PoeCFgGQgawUVKNm8";
-        let taostats_new_hotkey = "5GKH9FPPnWSUoeeTJp19wVtd84XqFW4pyK2ijV2GsFbhTrP1";
+        // Old value in u64 format
+        let old_value: u64 = 123_456_789_000_u64;
+        put::<u64>(&old_key, &old_value); // Store as u64
 
-        let taostats_old_hk_account: &AccountId = &get_account_id_from_ss58(taostats_old_hotkey);
-        let taostats_new_hk_account: &AccountId = &get_account_id_from_ss58(taostats_new_hotkey);
-
-        let datura_old_hotkey = "5FKstHjZkh4v3qAMSBa1oJcHCLjxYZ8SNTSz1opTv4hR7gVB";
-        let datura_new_hotkey = "5GP7c3fFazW9GXK8Up3qgu2DJBk8inu4aK9TZy3RuoSWVCMi";
-
-        let datura_old_hk_account: &AccountId = &get_account_id_from_ss58(datura_old_hotkey);
-        let datura_new_hk_account: &AccountId = &get_account_id_from_ss58(datura_new_hotkey);
-
-        let migration_coldkey = "5GeRjQYsobRWFnrbBmGe5ugme3rfnDVF69N45YtdBpUFsJG8";
-        let migration_account: &AccountId = &get_account_id_from_ss58(migration_coldkey);
-
-        // "Issue" the TAO we're going to insert to stake
-        let null_stake_datura = 123_456_789;
-        let null_stake_tao_stats = 123_456_789;
-        let null_stake_total = null_stake_datura + null_stake_tao_stats;
-        SubtensorModule::set_total_issuance(null_stake_total);
-        TotalStake::<Test>::put(null_stake_total);
-        TotalColdkeyStake::<Test>::insert(null_account, null_stake_total);
-        TotalHotkeyStake::<Test>::insert(datura_old_hk_account, null_stake_datura);
-        TotalHotkeyStake::<Test>::insert(taostats_old_hk_account, null_stake_tao_stats);
-
-        // Setup the old Datura hotkey with a pending emission
-        PendingdHotkeyEmission::<Test>::insert(datura_old_hk_account, 10_000);
-        // Setup the NEW Datura hotkey with a pending emission
-        PendingdHotkeyEmission::<Test>::insert(datura_new_hk_account, 123_456_789);
-        Stake::<Test>::insert(datura_old_hk_account, null_account, null_stake_datura);
-        let expected_datura_new_hk_pending_emission: u64 = 123_456_789 + 10_000;
-
-        // Setup the old TaoStats hotkey with a pending emission
-        PendingdHotkeyEmission::<Test>::insert(taostats_old_hk_account, 987_654);
-        // Setup the new TaoStats hotkey with a pending emission
-        PendingdHotkeyEmission::<Test>::insert(taostats_new_hk_account, 100_000);
-        // Setup the old TaoStats hotkey with a null-key stake entry
-        Stake::<Test>::insert(taostats_old_hk_account, null_account, null_stake_tao_stats);
-        let expected_taostats_new_hk_pending_emission: u64 = 987_654 + 100_000;
-
-        let total_issuance_before = SubtensorModule::get_total_issuance();
+        // Ensure it is stored as `u64`
+        assert_eq!(get::<u64>(&old_key), Some(old_value));
 
         // Run migration
-        let first_weight = run_pending_emissions_migration_and_check(migration_name);
-        assert!(first_weight != Weight::zero());
+        crate::migrations::migrate_subnet_volume::migrate_subnet_volume::<Test>();
 
-        // Check the pending emission is added to new Datura hotkey
-        assert_eq!(
-            PendingdHotkeyEmission::<Test>::get(datura_new_hk_account),
-            expected_datura_new_hk_pending_emission
+        // Verify the value is now stored as `u128`
+        let new_value: Option<u128> = get(&old_key);
+        let new_value_as_subnet_volume = SubnetVolume::<Test>::get(netuid_1);
+        assert_eq!(new_value, Some(old_value as u128));
+        assert_eq!(new_value_as_subnet_volume, old_value as u128);
+
+        // Ensure migration does not break when running twice
+        let weight_second_run =
+            crate::migrations::migrate_subnet_volume::migrate_subnet_volume::<Test>();
+
+        // Verify the value is still stored as `u128`
+        let new_value: Option<u128> = get(&old_key);
+        assert_eq!(new_value, Some(old_value as u128));
+    });
+}
+
+#[test]
+fn test_migrate_set_first_emission_block_number() {
+    new_test_ext(1).execute_with(|| {
+    let netuids: [u16; 3] = [1, 2, 3];
+    let block_number = 100;
+    for netuid in netuids.iter() {
+        add_network(*netuid, 1, 0);
+    }
+    run_to_block(block_number);
+    let weight = crate::migrations::migrate_set_first_emission_block_number::migrate_set_first_emission_block_number::<Test>();
+
+    let expected_weight: Weight = <Test as Config>::DbWeight::get().reads(3) + <Test as Config>::DbWeight::get().writes(netuids.len() as u64);
+    assert_eq!(weight, expected_weight);
+
+    assert_eq!(FirstEmissionBlockNumber::<Test>::get(0), None);
+    for netuid in netuids.iter() {
+        assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), Some(block_number));
+    }
+});
+}
+
+#[test]
+fn test_migrate_remove_zero_total_hotkey_alpha() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_remove_zero_total_hotkey_alpha";
+        let netuid = 1u16;
+
+        let hotkey_zero = U256::from(100u64);
+        let hotkey_nonzero = U256::from(101u64);
+
+        // Insert one zero-alpha entry and one non-zero entry
+        TotalHotkeyAlpha::<Test>::insert(hotkey_zero, netuid, 0u64);
+        TotalHotkeyAlpha::<Test>::insert(hotkey_nonzero, netuid, 123u64);
+
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_zero, netuid), 0u64);
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_nonzero, netuid), 123u64);
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet."
         );
 
-        // Check the pending emission is added to new the TaoStats hotkey
-        assert_eq!(
-            PendingdHotkeyEmission::<Test>::get(taostats_new_hk_account),
-            expected_taostats_new_hk_pending_emission
+        let weight = crate::migrations::migrate_remove_zero_total_hotkey_alpha::migrate_remove_zero_total_hotkey_alpha::<Test>();
+
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as run."
         );
 
-        // Check the pending emission is removed from old ones
-        assert_eq!(
-            PendingdHotkeyEmission::<Test>::get(datura_old_hk_account),
-            0
+        assert!(
+            !TotalHotkeyAlpha::<Test>::contains_key(hotkey_zero, netuid),
+            "Zero-alpha entry should have been removed."
         );
 
-        assert_eq!(
-            PendingdHotkeyEmission::<Test>::get(taostats_old_hk_account),
-            0
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_nonzero, netuid), 123u64);
+
+        assert!(
+            !weight.is_zero(),
+            "Migration weight should be non-zero."
+        );
+    });
+}
+
+#[test]
+fn test_migrate_revealed_commitments() {
+    new_test_ext(1).execute_with(|| {
+        // --------------------------------
+        // Step 1: Simulate Old Storage Entries
+        // --------------------------------
+        const MIGRATION_NAME: &str = "migrate_revealed_commitments_v2";
+
+        // Pallet prefix == twox_128("Commitments")
+        let pallet_prefix = twox_128("Commitments".as_bytes());
+        // Storage item prefix == twox_128("RevealedCommitments")
+        let storage_prefix = twox_128("RevealedCommitments".as_bytes());
+
+        // Example keys for the DoubleMap:
+        //   Key1 (netuid) uses Identity (no hash)
+        //   Key2 (account) uses Twox64Concat
+        let netuid: u16 = 123;
+        let account_id: u64 = 999; // Or however your test `AccountId` is represented
+
+        // Construct the full storage key for `RevealedCommitments(netuid, account_id)`
+        let mut storage_key = Vec::new();
+        storage_key.extend_from_slice(&pallet_prefix);
+        storage_key.extend_from_slice(&storage_prefix);
+
+        // Identity for netuid => no hashing, just raw encode
+        storage_key.extend_from_slice(&netuid.encode());
+
+        // Twox64Concat for account
+        let account_hashed = Twox64Concat::hash(&account_id.encode());
+        storage_key.extend_from_slice(&account_hashed);
+
+        // Simulate an old value we might have stored:
+        // For example, the old type was `RevealedData<Balance, ...>`
+        // We'll just store a random encoded value for demonstration
+        let old_value = (vec![1, 2, 3, 4], 42u64);
+        put_raw(&storage_key, &old_value.encode());
+
+        // Confirm the storage value is set
+        let stored_value = get_raw(&storage_key).expect("Expected to get a value");
+        let decoded_value = <(Vec<u8>, u64)>::decode(&mut &stored_value[..])
+            .expect("Failed to decode the old revealed commitments");
+        assert_eq!(decoded_value, old_value);
+
+        // Also confirm that the migration has NOT run yet
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
         );
 
-        // Check the stake entry is removed
-        assert_eq!(Stake::<Test>::get(datura_old_hk_account, null_account), 0);
-        assert_eq!(Stake::<Test>::get(taostats_old_hk_account, null_account), 0);
+        // --------------------------------
+        // Step 2: Run the Migration
+        // --------------------------------
+        let weight = crate::migrations::migrate_upgrade_revealed_commitments::migrate_upgrade_revealed_commitments::<Test>();
 
-        // Check the total issuance is the SAME following migration (no TAO issued)
-        let expected_total_issuance = total_issuance_before;
-        assert_eq!(
-            SubtensorModule::get_total_issuance(),
-            expected_total_issuance
-        );
-
-        // Check total stake is the SAME following the migration (no new TAO staked)
-        assert_eq!(TotalStake::<Test>::get(), expected_total_issuance);
-        // Check the total stake maps are updated following the migration (removal of old null_account stake entries)
-        assert_eq!(TotalColdkeyStake::<Test>::get(null_account), 0);
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(null_account, datura_old_hk_account),
-            0
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
-                null_account,
-                taostats_old_hk_account
-            ),
-            0
+        // Migration should be marked as run
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should now be marked as run"
         );
 
-        // Check staking hotkeys is updated
-        assert_eq!(StakingHotkeys::<Test>::get(null_account), vec![]);
+        // --------------------------------
+        // Step 3: Verify Migration Effects
+        // --------------------------------
+        // The old key/value should be removed
+        let stored_value_after = get_raw(&storage_key);
+        assert!(
+            stored_value_after.is_none(),
+            "Old storage entry should be cleared"
+        );
 
-        // Check the migration key has stake with both *old* hotkeys
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
-                migration_account,
-                datura_old_hk_account
-            ),
-            null_stake_datura
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
-                migration_account,
-                taostats_old_hk_account
-            ),
-            null_stake_tao_stats
-        );
-        assert_eq!(
-            TotalColdkeyStake::<Test>::get(migration_account),
-            null_stake_total
-        );
-        assert!(StakingHotkeys::<Test>::get(migration_account).contains(datura_old_hk_account));
-        assert!(StakingHotkeys::<Test>::get(migration_account).contains(taostats_old_hk_account));
-    })
+        // Weight returned should be > 0 (some cost was incurred clearing storage)
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+    });
 }

@@ -315,7 +315,7 @@ benchmarks_instance_pallet! {
         // Whitelist voter account from further DB operations.
         let voter_key = frame_system::Account::<T>::hashed_key_for(&voter);
         frame_benchmarking::benchmarking::add_to_whitelist(voter_key.into());
-    }: close(SystemOrigin::Signed(voter), last_hash, index, Weight::MAX, bytes_in_storage)
+    }: close(SystemOrigin::Root, last_hash, index, Weight::MAX, bytes_in_storage)
     verify {
         // The last proposal is removed.
         assert_eq!(Collective::<T, I>::proposals().len(), (p - 1) as usize);
@@ -393,7 +393,7 @@ benchmarks_instance_pallet! {
             index, approve,
         )?;
 
-    }: close(SystemOrigin::Signed(caller), last_hash, index, Weight::MAX, bytes_in_storage)
+    }: close(SystemOrigin::Root, last_hash, index, Weight::MAX, bytes_in_storage)
     verify {
         // The last proposal is removed.
         assert_eq!(Collective::<T, I>::proposals().len(), (p - 1) as usize);
@@ -473,7 +473,7 @@ benchmarks_instance_pallet! {
         assert_eq!(Collective::<T, I>::proposals().len(), p as usize);
 
         // Prime nay will close it as disapproved
-    }: close(SystemOrigin::Signed(caller), last_hash, index, Weight::MAX, bytes_in_storage)
+    }: close(SystemOrigin::Root, last_hash, index, Weight::MAX, bytes_in_storage)
     verify {
         assert_eq!(Collective::<T, I>::proposals().len(), (p - 1) as usize);
         assert_last_event::<T, I>(Event::Disapproved { proposal_hash: last_hash }.into());
@@ -542,7 +542,7 @@ benchmarks_instance_pallet! {
         assert_eq!(Collective::<T, I>::proposals().len(), p as usize);
 
         // Prime aye will close it as approved
-    }: close(SystemOrigin::Signed(caller), last_hash, p - 1, Weight::MAX, bytes_in_storage)
+    }: close(SystemOrigin::Root, last_hash, p - 1, Weight::MAX, bytes_in_storage)
     verify {
         assert_eq!(Collective::<T, I>::proposals().len(), (p - 1) as usize);
         assert_last_event::<T, I>(Event::Executed { proposal_hash: last_hash, result: Ok(()) }.into());

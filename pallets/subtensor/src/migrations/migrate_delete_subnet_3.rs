@@ -106,7 +106,6 @@ pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
         MaxAllowedUids::<T>::remove(netuid);
         ImmunityPeriod::<T>::remove(netuid);
         ActivityCutoff::<T>::remove(netuid);
-        EmissionValues::<T>::remove(netuid);
         MaxWeightsLimit::<T>::remove(netuid);
         MinAllowedWeights::<T>::remove(netuid);
         RegistrationsThisInterval::<T>::remove(netuid);

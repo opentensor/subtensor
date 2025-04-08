@@ -1,12 +1,13 @@
 use super::*;
 use crate::{
-    system::{ensure_root, ensure_signed_or_root, pallet_prelude::BlockNumberFor},
     Error,
+    system::{ensure_root, ensure_signed, ensure_signed_or_root, pallet_prelude::BlockNumberFor},
 };
+use safe_math::*;
 use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::Saturating;
-use substrate_fixed::types::I32F32;
+use substrate_fixed::types::{I32F32, U96F32};
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
@@ -18,6 +19,15 @@ impl<T: Config> Pallet<T> {
             Ok(Some(who)) if SubnetOwner::<T>::get(netuid) == who => Ok(()),
             Ok(Some(_)) => Err(DispatchError::BadOrigin),
             Ok(None) => Ok(()),
+            Err(x) => Err(x.into()),
+        }
+    }
+
+    pub fn ensure_subnet_owner(o: T::RuntimeOrigin, netuid: u16) -> Result<(), DispatchError> {
+        let coldkey = ensure_signed(o);
+        match coldkey {
+            Ok(who) if SubnetOwner::<T>::get(netuid) == who => Ok(()),
+            Ok(_) => Err(DispatchError::BadOrigin),
             Err(x) => Err(x.into()),
         }
     }
@@ -148,46 +158,7 @@ impl<T: Config> Pallet<T> {
         StakeThreshold::<T>::put(min_stake);
         Self::deposit_event(Event::StakeThresholdSet(min_stake));
     }
-    pub fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
-        TargetStakesPerInterval::<T>::set(target_stakes_per_interval);
-        Self::deposit_event(Event::TargetStakesPerIntervalSet(
-            target_stakes_per_interval,
-        ));
-    }
 
-    // Counts staking events within the [`StakeInterval`]. It increases the counter by 1 in case no
-    // limit exceeded, otherwise returns an error.
-    pub(crate) fn try_increase_staking_counter(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-    ) -> DispatchResult {
-        let current_block = Self::get_current_block_as_u64();
-        let stake_interval = StakeInterval::<T>::get();
-        let stakes_limit = TargetStakesPerInterval::<T>::get();
-        let (stakes_count, last_staked_at) =
-            TotalHotkeyColdkeyStakesThisInterval::<T>::get(coldkey, hotkey);
-
-        // Reset staking counter if it's been stake_interval blocks since the first staking action of the series.
-        if stakes_count == 0 || last_staked_at.saturating_add(stake_interval) <= current_block {
-            TotalHotkeyColdkeyStakesThisInterval::<T>::insert(coldkey, hotkey, (1, current_block));
-            return Ok(());
-        }
-
-        ensure!(
-            stakes_count < stakes_limit,
-            Error::<T>::StakingRateLimitExceeded
-        );
-
-        TotalHotkeyColdkeyStakesThisInterval::<T>::mutate(coldkey, hotkey, |(count, _)| {
-            *count = count.saturating_add(1);
-        });
-
-        Ok(())
-    }
-
-    pub fn set_stake_interval(block: u64) {
-        StakeInterval::<T>::set(block);
-    }
     pub fn get_rank_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Rank::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
@@ -241,9 +212,6 @@ impl<T: Config> Pallet<T> {
     // ============================
     pub fn get_tempo(netuid: u16) -> u16 {
         Tempo::<T>::get(netuid)
-    }
-    pub fn get_emission_value(netuid: u16) -> u64 {
-        EmissionValues::<T>::get(netuid)
     }
     pub fn get_pending_emission(netuid: u16) -> u64 {
         PendingEmission::<T>::get(netuid)
@@ -507,6 +475,7 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
         CommitRevealWeightsEnabled::<T>::set(netuid, enabled);
+        Self::deposit_event(Event::CommitRevealEnabled(netuid, enabled));
     }
 
     pub fn get_rho(netuid: u16) -> u16 {
@@ -605,6 +574,14 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::BondsMovingAverageSet(netuid, bonds_moving_average));
     }
 
+    pub fn get_bonds_penalty(netuid: u16) -> u16 {
+        BondsPenalty::<T>::get(netuid)
+    }
+    pub fn set_bonds_penalty(netuid: u16, bonds_penalty: u16) {
+        BondsPenalty::<T>::insert(netuid, bonds_penalty);
+        Self::deposit_event(Event::BondsPenaltySet(netuid, bonds_penalty));
+    }
+
     pub fn get_max_registrations_per_block(netuid: u16) -> u16 {
         MaxRegistrationsPerBlock::<T>::get(netuid)
     }
@@ -621,6 +598,10 @@ impl<T: Config> Pallet<T> {
     }
     pub fn get_subnet_owner_cut() -> u16 {
         SubnetOwnerCut::<T>::get()
+    }
+    pub fn get_float_subnet_owner_cut() -> U96F32 {
+        U96F32::saturating_from_num(SubnetOwnerCut::<T>::get())
+            .safe_div(U96F32::saturating_from_num(u16::MAX))
     }
     pub fn set_subnet_owner_cut(subnet_owner_cut: u16) {
         SubnetOwnerCut::<T>::set(subnet_owner_cut);
@@ -692,9 +673,10 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_alpha_values_32(netuid: u16) -> (I32F32, I32F32) {
         let (alpha_low, alpha_high): (u16, u16) = AlphaValues::<T>::get(netuid);
-        let converted_low = I32F32::from_num(alpha_low).saturating_div(I32F32::from_num(u16::MAX));
+        let converted_low =
+            I32F32::saturating_from_num(alpha_low).safe_div(I32F32::saturating_from_num(u16::MAX));
         let converted_high =
-            I32F32::from_num(alpha_high).saturating_div(I32F32::from_num(u16::MAX));
+            I32F32::saturating_from_num(alpha_high).safe_div(I32F32::saturating_from_num(u16::MAX));
 
         (converted_low, converted_high)
     }
@@ -705,59 +687,6 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_liquid_alpha_enabled(netuid: u16) -> bool {
         LiquidAlphaOn::<T>::get(netuid)
-    }
-
-    /// Gets the current hotkey emission tempo.
-    ///
-    /// # Returns
-    /// * `u64` - The current emission tempo value.
-    pub fn get_hotkey_emission_tempo() -> u64 {
-        HotkeyEmissionTempo::<T>::get()
-    }
-
-    /// Sets the hotkey emission tempo.
-    ///
-    /// # Arguments
-    /// * `emission_tempo` - The new emission tempo value to set.
-    pub fn set_hotkey_emission_tempo(emission_tempo: u64) {
-        HotkeyEmissionTempo::<T>::set(emission_tempo);
-        Self::deposit_event(Event::HotkeyEmissionTempoSet(emission_tempo));
-    }
-
-    pub fn get_pending_hotkey_emission(hotkey: &T::AccountId) -> u64 {
-        PendingdHotkeyEmission::<T>::get(hotkey)
-    }
-
-    /// Retrieves the maximum stake allowed for a given network.
-    ///
-    /// # Arguments
-    ///
-    /// * `netuid` - The unique identifier of the network.
-    ///
-    /// # Returns
-    ///
-    /// * `u64` - The maximum stake allowed for the specified network.
-    pub fn get_network_max_stake(netuid: u16) -> u64 {
-        NetworkMaxStake::<T>::get(netuid)
-    }
-
-    /// Sets the maximum stake allowed for a given network.
-    ///
-    /// # Arguments
-    ///
-    /// * `netuid` - The unique identifier of the network.
-    /// * `max_stake` - The new maximum stake value to set.
-    ///
-    /// # Effects
-    ///
-    /// * Updates the NetworkMaxStake storage.
-    /// * Emits a NetworkMaxStakeSet event.
-    pub fn set_network_max_stake(netuid: u16, max_stake: u64) {
-        // Update the NetworkMaxStake storage with the new max_stake value
-        NetworkMaxStake::<T>::insert(netuid, max_stake);
-
-        // Emit an event to notify listeners about the change
-        Self::deposit_event(Event::NetworkMaxStakeSet(netuid, max_stake));
     }
 
     /// Set the duration for coldkey swap
@@ -788,5 +717,29 @@ impl<T: Config> Pallet<T> {
     pub fn set_dissolve_network_schedule_duration(duration: BlockNumberFor<T>) {
         DissolveNetworkScheduleDuration::<T>::set(duration);
         Self::deposit_event(Event::DissolveNetworkScheduleDurationSet(duration));
+    }
+
+    /// Set the owner hotkey for a subnet.
+    ///
+    /// # Arguments
+    ///
+    /// * `netuid` - The unique identifier for the subnet.
+    /// * `hotkey` - The new hotkey for the subnet owner.
+    ///
+    /// # Effects
+    ///
+    /// * Update the SubnetOwnerHotkey storage.
+    /// * Emits a SubnetOwnerHotkeySet event.
+    pub fn set_subnet_owner_hotkey(netuid: u16, hotkey: &T::AccountId) {
+        SubnetOwnerHotkey::<T>::insert(netuid, hotkey.clone());
+        Self::deposit_event(Event::SubnetOwnerHotkeySet(netuid, hotkey.clone()));
+    }
+
+    // Get the uid of the Owner Hotkey for a subnet.
+    pub fn get_owner_uid(netuid: u16) -> Option<u16> {
+        match SubnetOwnerHotkey::<T>::try_get(netuid) {
+            Ok(owner_hotkey) => Uids::<T>::get(netuid, &owner_hotkey),
+            Err(_) => None,
+        }
     }
 }

@@ -11,64 +11,73 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 pub mod check_nonce;
 mod migrations;
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Compact, Decode, Encode};
 use frame_support::traits::Imbalance;
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     genesis_builder_helper::{build_state, get_preset},
     pallet_prelude::Get,
     traits::{
+        Contains, LinearStoragePrice, OnUnbalanced,
         fungible::{
             DecreaseIssuance, HoldConsideration, Imbalance as FungibleImbalance, IncreaseIssuance,
         },
-        Contains, LinearStoragePrice, OnUnbalanced,
     },
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
 use pallet_commitments::CanCommit;
 use pallet_grandpa::{
-    fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
+    AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList, fg_primitives,
 };
 use pallet_registry::CanRegisterIdentity;
-use scale_info::TypeInfo;
+use pallet_subtensor::rpc_info::{
+    delegate_info::DelegateInfo,
+    dynamic_info::DynamicInfo,
+    metagraph::{Metagraph, SelectiveMetagraph},
+    neuron_info::{NeuronInfo, NeuronInfoLite},
+    show_subnet::SubnetState,
+    stake_info::StakeInfo,
+    subnet_info::{SubnetHyperparams, SubnetInfo, SubnetInfov2},
+};
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{
+    H160, H256, OpaqueMetadata, U256,
     crypto::{ByteArray, KeyTypeId},
-    OpaqueMetadata, H160, H256, U256,
 };
 use sp_runtime::generic::Era;
 use sp_runtime::{
-    create_runtime_str, generic, impl_opaque_keys,
+    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, create_runtime_str, generic,
+    impl_opaque_keys,
     traits::{
-        AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable,
-        IdentifyAccount, NumberFor, One, PostDispatchInfoOf, UniqueSaturatedInto, Verify,
+        AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, NumberFor,
+        One, PostDispatchInfoOf, UniqueSaturatedInto, Verify,
     },
     transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
-    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, MultiSignature,
 };
 use sp_std::cmp::Ordering;
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
+use subtensor_precompiles::Precompiles;
+use subtensor_runtime_common::{time::*, *};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
-    construct_runtime, parameter_types,
+    StorageValue, construct_runtime, parameter_types,
     traits::{
-        ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, FindAuthor, InstanceFilter,
+        ConstBool, ConstU8, ConstU32, ConstU64, ConstU128, FindAuthor, InstanceFilter,
         KeyOwnerProofSystem, OnFinalize, OnTimestampSet, PrivilegeCmp, Randomness, StorageInfo,
     },
     weights::{
+        IdentityFee, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
+        WeightToFeePolynomial,
         constants::{
             BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND,
         },
-        IdentityFee, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
-        WeightToFeePolynomial,
     },
-    StorageValue,
 };
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
@@ -80,8 +89,7 @@ pub use sp_runtime::{Perbill, Permill};
 
 use core::marker::PhantomData;
 
-mod precompiles;
-use precompiles::FrontierPrecompiles;
+use scale_info::TypeInfo;
 
 // Frontier
 use fp_rpc::TransactionStatus;
@@ -151,29 +159,8 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
 pub use pallet_scheduler;
 pub use pallet_subtensor;
 
-// An index to a block.
-pub type BlockNumber = u32;
-
-// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
-pub type Signature = MultiSignature;
-
-// Some way of identifying an account on the chain. We intentionally make it equivalent
-// to the public key of our transaction signing scheme.
-pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
-
-// Balance of an account.
-pub type Balance = u64;
-
-// Index of a transaction in the chain.
-pub type Index = u32;
-
-// A hash of some data used by the chain.
-pub type Hash = sp_core::H256;
-
 // Member type for membership
 type MemberCount = u32;
-
-pub type Nonce = u32;
 
 // Method used to calculate the fee of an extrinsic
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
@@ -220,34 +207,12 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 217,
+    spec_version: 261,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
     state_version: 1,
 };
-
-/// This determines the average expected block time that we are targeting.
-/// Blocks will be produced at a minimum duration defined by `SLOT_DURATION`.
-/// `SLOT_DURATION` is picked up by `pallet_timestamp` which is in turn picked
-/// up by `pallet_aura` to implement `fn slot_duration()`.
-///
-/// Change this to adjust the block time.
-#[cfg(not(feature = "fast-blocks"))]
-pub const MILLISECS_PER_BLOCK: u64 = 12000;
-
-/// Fast blocks for development
-#[cfg(feature = "fast-blocks")]
-pub const MILLISECS_PER_BLOCK: u64 = 250;
-
-// NOTE: Currently it is not possible to change the slot duration after the chain has started.
-//       Attempting to do so will brick block production.
-pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
-
-// Time is measured by number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-pub const HOURS: BlockNumber = MINUTES * 60;
-pub const DAYS: BlockNumber = HOURS * 24;
 
 pub const MAXIMUM_BLOCK_WEIGHT: Weight =
     Weight::from_parts(4u64 * WEIGHT_REF_TIME_PER_SECOND, u64::MAX);
@@ -397,7 +362,7 @@ impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
                 | RuntimeCall::Timestamp(_)
                 | RuntimeCall::SubtensorModule(
                     pallet_subtensor::Call::set_weights { .. }
-                        | pallet_subtensor::Call::set_root_weights { .. }
+                        | pallet_subtensor::Call::set_tao_weights { .. }
                         | pallet_subtensor::Call::serve_axon { .. }
                 )
                 | RuntimeCall::Commitments(pallet_commitments::Call::set_commitment { .. })
@@ -686,48 +651,42 @@ parameter_types! {
     pub const AnnouncementDepositFactor: Balance = deposit(0, 68);
 }
 
-#[derive(
-    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, MaxEncodedLen, TypeInfo,
-)]
-pub enum ProxyType {
-    Any,
-    Owner, // Subnet owner Calls
-    NonCritical,
-    NonTransfer,
-    Senate,
-    NonFungibile, // Nothing involving moving TAO
-    Triumvirate,
-    Governance, // Both above governance
-    Staking,
-    Registration,
-    Transfer,
-    SmallTransfer,
-    RootWeights,
-    ChildKeys,
-    SudoUncheckedSetCode,
-}
-// Transfers below SMALL_TRANSFER_LIMIT are considered small transfers
-pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
-impl Default for ProxyType {
-    fn default() -> Self {
-        Self::Any
-    }
-} // allow all Calls; required to be most permissive
 impl InstanceFilter<RuntimeCall> for ProxyType {
     fn filter(&self, c: &RuntimeCall) -> bool {
         match self {
             ProxyType::Any => true,
-            ProxyType::NonTransfer => !matches!(c, RuntimeCall::Balances(..)),
+            ProxyType::NonTransfer => !matches!(
+                c,
+                RuntimeCall::Balances(..)
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::schedule_swap_coldkey { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_coldkey { .. })
+            ),
             ProxyType::NonFungibile => !matches!(
                 c,
                 RuntimeCall::Balances(..)
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake_limit { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::remove_stake_limit { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::unstake_all { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::unstake_all_alpha { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake_limit { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::move_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
                     | RuntimeCall::SubtensorModule(
                         pallet_subtensor::Call::schedule_swap_coldkey { .. }
                     )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_coldkey { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey { .. })
             ),
             ProxyType::Transfer => matches!(
@@ -735,6 +694,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive { .. })
                     | RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death { .. })
                     | RuntimeCall::Balances(pallet_balances::Call::transfer_all { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake { .. })
             ),
             ProxyType::SmallTransfer => match c {
                 RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
@@ -744,6 +704,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     value,
                     ..
                 }) => *value < SMALL_TRANSFER_LIMIT,
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake {
+                    alpha_amount,
+                    ..
+                }) => *alpha_amount < SMALL_TRANSFER_LIMIT,
                 _ => false,
             },
             ProxyType::Owner => matches!(c, RuntimeCall::AdminUtils(..)),
@@ -753,7 +717,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::Triumvirate(..)
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_root_weights { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_tao_weights { .. })
                     | RuntimeCall::Sudo(..)
             ),
             ProxyType::Triumvirate => matches!(
@@ -771,6 +735,17 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::unstake_all { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::unstake_all_alpha { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake_limit { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::move_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake_limit { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::remove_stake_limit { .. }
+                    )
             ),
             ProxyType::Registration => matches!(
                 c,
@@ -779,7 +754,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
             ),
             ProxyType::RootWeights => matches!(
                 c,
-                RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_root_weights { .. })
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_tao_weights { .. })
             ),
             ProxyType::ChildKeys => matches!(
                 c,
@@ -945,12 +920,22 @@ impl pallet_registry::Config for Runtime {
 }
 
 parameter_types! {
-    pub const MaxCommitFields: u32 = 1;
+    pub const MaxCommitFieldsInner: u32 = 1;
     pub const CommitmentInitialDeposit: Balance = 0; // Free
     pub const CommitmentFieldDeposit: Balance = 0; // Free
     pub const CommitmentRateLimit: BlockNumber = 100; // Allow commitment every 100 blocks
 }
 
+#[subtensor_macros::freeze_struct("7c76bd954afbb54e")]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
+pub struct MaxCommitFields;
+impl Get<u32> for MaxCommitFields {
+    fn get() -> u32 {
+        MaxCommitFieldsInner::get()
+    }
+}
+
+#[subtensor_macros::freeze_struct("c39297f5eb97ee82")]
 pub struct AllowCommitments;
 impl CanCommit<AccountId> for AllowCommitments {
     #[cfg(not(feature = "runtime-benchmarks"))]
@@ -974,11 +959,25 @@ impl pallet_commitments::Config for Runtime {
     type MaxFields = MaxCommitFields;
     type InitialDeposit = CommitmentInitialDeposit;
     type FieldDeposit = CommitmentFieldDeposit;
-    type RateLimit = CommitmentRateLimit;
+    type DefaultRateLimit = CommitmentRateLimit;
+    type TempoInterface = TempoInterface;
+}
+
+pub struct TempoInterface;
+impl pallet_commitments::GetTempoInterface for TempoInterface {
+    fn get_epoch_index(netuid: u16, cur_block: u64) -> u64 {
+        SubtensorModule::get_epoch_index(netuid, cur_block)
+    }
+}
+
+impl pallet_commitments::GetTempoInterface for Runtime {
+    fn get_epoch_index(netuid: u16, cur_block: u64) -> u64 {
+        SubtensorModule::get_epoch_index(netuid, cur_block)
+    }
 }
 
 #[cfg(not(feature = "fast-blocks"))]
-pub const INITIAL_SUBNET_TEMPO: u16 = 99;
+pub const INITIAL_SUBNET_TEMPO: u16 = 360;
 
 #[cfg(feature = "fast-blocks")]
 pub const INITIAL_SUBNET_TEMPO: u16 = 10;
@@ -1011,6 +1010,7 @@ parameter_types! {
     pub const SubtensorInitialMaxRegistrationsPerBlock: u16 = 1;
     pub const SubtensorInitialPruningScore : u16 = u16::MAX;
     pub const SubtensorInitialBondsMovingAverage: u64 = 900_000;
+    pub const SubtensorInitialBondsPenalty: u16 = u16::MAX;
     pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
     pub const SubtensorInitialMinDelegateTake: u16 = 0; // Allow 0% delegate take
     pub const SubtensorInitialDefaultChildKeyTake: u16 = 0; // Allow 0% childkey take
@@ -1021,7 +1021,7 @@ parameter_types! {
     pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX / 4;
     pub const SubtensorInitialServingRateLimit: u64 = 50;
     pub const SubtensorInitialBurn: u64 = 1_000_000_000; // 1 tao
-    pub const SubtensorInitialMinBurn: u64 = 1_000_000_000; // 1 tao
+    pub const SubtensorInitialMinBurn: u64 = 500_000; // 500k RAO
     pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
     pub const SubtensorInitialTxDelegateTakeRateLimit: u64 = 216000; // 30 days at 12 seconds per block
@@ -1032,19 +1032,23 @@ parameter_types! {
     pub const SubtensorInitialMinAllowedUids: u16 = 128;
     pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
-    pub const SubtensorInitialSubnetLimit: u16 = 12;
+    // pub const SubtensorInitialSubnetLimit: u16 = 12; // (DEPRECATED)
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
     pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
-    pub const SubtensorInitialTargetStakesPerInterval: u16 = 1;
     pub const SubtensorInitialKeySwapCost: u64 = 100_000_000; // 0.1 TAO
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
-    pub const SubtensorInitialHotkeyEmissionTempo: u64 = 7200; // Drain every day.
-    pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64, this make the make stake infinity
-    pub const  InitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
-    pub const  InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
-
+    // pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // (DEPRECATED)
+    pub const InitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
+    pub const InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
+    pub const SubtensorInitialTaoWeight: u64 = 971_718_665_099_567_868; // 0.05267697438728329% tao weight.
+    pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
+    pub const DurationOfStartCall: u64 = if cfg!(feature = "fast-blocks") {
+        10 // Only 10 blocks for fast blocks
+    } else {
+        7 * 24 * 60 * 60 / 12 // 7 days
+    };
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1060,6 +1064,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialKappa = SubtensorInitialKappa;
     type InitialMaxAllowedUids = SubtensorInitialMaxAllowedUids;
     type InitialBondsMovingAverage = SubtensorInitialBondsMovingAverage;
+    type InitialBondsPenalty = SubtensorInitialBondsPenalty;
     type InitialIssuance = SubtensorInitialIssuance;
     type InitialMinAllowedWeights = SubtensorInitialMinAllowedWeights;
     type InitialEmissionValue = SubtensorInitialEmissionValue;
@@ -1098,18 +1103,17 @@ impl pallet_subtensor::Config for Runtime {
     type InitialNetworkMinLockCost = SubtensorInitialMinLockCost;
     type InitialNetworkLockReductionInterval = SubtensorInitialNetworkLockReductionInterval;
     type InitialSubnetOwnerCut = SubtensorInitialSubnetOwnerCut;
-    type InitialSubnetLimit = SubtensorInitialSubnetLimit;
     type InitialNetworkRateLimit = SubtensorInitialNetworkRateLimit;
-    type InitialTargetStakesPerInterval = SubtensorInitialTargetStakesPerInterval;
     type KeySwapCost = SubtensorInitialKeySwapCost;
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;
-    type InitialHotkeyEmissionTempo = SubtensorInitialHotkeyEmissionTempo;
-    type InitialNetworkMaxStake = SubtensorInitialNetworkMaxStake;
+    type InitialTaoWeight = SubtensorInitialTaoWeight;
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
+    type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
+    type DurationOfStartCall = DurationOfStartCall;
 }
 
 use sp_runtime::BoundedVec;
@@ -1180,13 +1184,15 @@ const BLOCK_GAS_LIMIT: u64 = 75_000_000;
 /// `WeightPerGas` is an approximate ratio of the amount of Weight per Gas.
 ///
 fn weight_per_gas() -> Weight {
-    (NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT).saturating_div(BLOCK_GAS_LIMIT)
+    (NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT)
+        .checked_div(BLOCK_GAS_LIMIT)
+        .unwrap_or_default()
 }
 
 parameter_types! {
     pub BlockGasLimit: U256 = U256::from(BLOCK_GAS_LIMIT);
     pub const GasLimitPovSizeRatio: u64 = 0;
-    pub PrecompilesValue: FrontierPrecompiles<Runtime> = FrontierPrecompiles::<_>::new();
+    pub PrecompilesValue: Precompiles<Runtime> = Precompiles::<_>::new();
     pub WeightPerGas: Weight = weight_per_gas();
     pub SuicideQuickClearLimit: u32 = 0;
 }
@@ -1194,37 +1200,57 @@ parameter_types! {
 /// The difference between EVM decimals and Substrate decimals.
 /// Substrate balances has 9 decimals, while EVM has 18, so the
 /// difference factor is 9 decimals, or 10^9
-const EVM_DECIMALS_FACTOR: u64 = 1_000_000_000_u64;
+const EVM_TO_SUBSTRATE_DECIMALS: u64 = 1_000_000_000_u64;
 
 pub struct SubtensorEvmBalanceConverter;
 
 impl BalanceConverter for SubtensorEvmBalanceConverter {
     /// Convert from Substrate balance (u64) to EVM balance (U256)
     fn into_evm_balance(value: U256) -> Option<U256> {
-        value
-            .checked_mul(U256::from(EVM_DECIMALS_FACTOR))
-            .and_then(|evm_value| {
-                // Ensure the result fits within the maximum U256 value
-                if evm_value <= U256::MAX {
-                    Some(evm_value)
-                } else {
-                    None
-                }
-            })
+        if let Some(evm_value) = value.checked_mul(U256::from(EVM_TO_SUBSTRATE_DECIMALS)) {
+            // Ensure the result fits within the maximum U256 value
+            if evm_value <= U256::MAX {
+                Some(evm_value)
+            } else {
+                // Log value too large
+                log::debug!(
+                    "SubtensorEvmBalanceConverter::into_evm_balance( {:?} ) larger than U256::MAX",
+                    value
+                );
+                None
+            }
+        } else {
+            // Log overflow
+            log::debug!(
+                "SubtensorEvmBalanceConverter::into_evm_balance( {:?} ) overflow",
+                value
+            );
+            None
+        }
     }
 
     /// Convert from EVM balance (U256) to Substrate balance (u64)
     fn into_substrate_balance(value: U256) -> Option<U256> {
-        value
-            .checked_div(U256::from(EVM_DECIMALS_FACTOR))
-            .and_then(|substrate_value| {
-                // Ensure the result fits within the TAO balance type (u64)
-                if substrate_value <= U256::from(u64::MAX) {
-                    Some(substrate_value)
-                } else {
-                    None
-                }
-            })
+        if let Some(substrate_value) = value.checked_div(U256::from(EVM_TO_SUBSTRATE_DECIMALS)) {
+            // Ensure the result fits within the TAO balance type (u64)
+            if substrate_value <= U256::from(u64::MAX) {
+                Some(substrate_value)
+            } else {
+                // Log value too large
+                log::debug!(
+                    "SubtensorEvmBalanceConverter::into_substrate_balance( {:?} ) larger than u64::MAX",
+                    value
+                );
+                None
+            }
+        } else {
+            // Log overflow
+            log::debug!(
+                "SubtensorEvmBalanceConverter::into_substrate_balance( {:?} ) overflow",
+                value
+            );
+            None
+        }
     }
 }
 
@@ -1238,7 +1264,7 @@ impl pallet_evm::Config for Runtime {
     type AddressMapping = pallet_evm::HashedAddressMapping<BlakeTwo256>;
     type Currency = Balances;
     type RuntimeEvent = RuntimeEvent;
-    type PrecompilesType = FrontierPrecompiles<Self>;
+    type PrecompilesType = Precompiles<Self>;
     type PrecompilesValue = PrecompilesValue;
     type ChainId = ConfigurableChainId;
     type BlockGasLimit = BlockGasLimit;
@@ -1266,10 +1292,6 @@ impl pallet_ethereum::Config for Runtime {
 
 parameter_types! {
     pub BoundDivision: U256 = U256::from(1024);
-}
-
-impl pallet_dynamic_fee::Config for Runtime {
-    type MinGasPriceBoundDivisor = BoundDivision;
 }
 
 parameter_types! {
@@ -1406,7 +1428,7 @@ construct_runtime!(
         Ethereum: pallet_ethereum = 21,
         EVM: pallet_evm = 22,
         EVMChainId: pallet_evm_chain_id = 23,
-        DynamicFee: pallet_dynamic_fee = 24,
+        // pallet_dynamic_fee was 24
         BaseFee: pallet_base_fee = 25,
 
         Drand: pallet_drand = 26,
@@ -1991,110 +2013,99 @@ impl_runtime_apis! {
     }
 
     impl subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi<Block> for Runtime {
-        fn get_delegates() -> Vec<u8> {
-            let result = SubtensorModule::get_delegates();
-            result.encode()
+        fn get_delegates() -> Vec<DelegateInfo<AccountId32>> {
+            SubtensorModule::get_delegates()
         }
 
-        fn get_delegate(delegate_account_vec: Vec<u8>) -> Vec<u8> {
-            let _result = SubtensorModule::get_delegate(delegate_account_vec);
-            if _result.is_some() {
-                let result = _result.expect("Could not get DelegateInfo");
-                result.encode()
-            } else {
-                vec![]
-            }
+        fn get_delegate(delegate_account: AccountId32) -> Option<DelegateInfo<AccountId32>> {
+            SubtensorModule::get_delegate(delegate_account)
         }
 
-        fn get_delegated(delegatee_account_vec: Vec<u8>) -> Vec<u8> {
-            let result = SubtensorModule::get_delegated(delegatee_account_vec);
-            result.encode()
+        fn get_delegated(delegatee_account: AccountId32) -> Vec<(DelegateInfo<AccountId32>, (Compact<u16>, Compact<u64>))> {
+            SubtensorModule::get_delegated(delegatee_account)
         }
     }
 
     impl subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<Block> for Runtime {
-        fn get_neurons_lite(netuid: u16) -> Vec<u8> {
-            let result = SubtensorModule::get_neurons_lite(netuid);
-            result.encode()
+        fn get_neurons_lite(netuid: u16) -> Vec<NeuronInfoLite<AccountId32>> {
+            SubtensorModule::get_neurons_lite(netuid)
         }
 
-        fn get_neuron_lite(netuid: u16, uid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_neuron_lite(netuid, uid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get NeuronInfoLite");
-                result.encode()
-            } else {
-                vec![]
-            }
+        fn get_neuron_lite(netuid: u16, uid: u16) -> Option<NeuronInfoLite<AccountId32>> {
+            SubtensorModule::get_neuron_lite(netuid, uid)
         }
 
-        fn get_neurons(netuid: u16) -> Vec<u8> {
-            let result = SubtensorModule::get_neurons(netuid);
-            result.encode()
+        fn get_neurons(netuid: u16) -> Vec<NeuronInfo<AccountId32>> {
+            SubtensorModule::get_neurons(netuid)
         }
 
-        fn get_neuron(netuid: u16, uid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_neuron(netuid, uid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get NeuronInfo");
-                result.encode()
-            } else {
-                vec![]
-            }
+        fn get_neuron(netuid: u16, uid: u16) -> Option<NeuronInfo<AccountId32>> {
+            SubtensorModule::get_neuron(netuid, uid)
         }
     }
 
     impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
-        fn get_subnet_info(netuid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_subnet_info(netuid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get SubnetInfo");
-                result.encode()
-            } else {
-                vec![]
-            }
+        fn get_subnet_info(netuid: u16) -> Option<SubnetInfo<AccountId32>> {
+            SubtensorModule::get_subnet_info(netuid)
         }
 
-        fn get_subnets_info() -> Vec<u8> {
-            let result = SubtensorModule::get_subnets_info();
-            result.encode()
+        fn get_subnets_info() -> Vec<Option<SubnetInfo<AccountId32>>> {
+            SubtensorModule::get_subnets_info()
         }
 
-        fn get_subnet_info_v2(netuid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_subnet_info_v2(netuid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get SubnetInfo");
-                result.encode()
-            } else {
-                vec![]
-            }
+        fn get_subnet_info_v2(netuid: u16) -> Option<SubnetInfov2<AccountId32>> {
+            SubtensorModule::get_subnet_info_v2(netuid)
         }
 
-        fn get_subnets_info_v2() -> Vec<u8> {
-            let result = SubtensorModule::get_subnets_info_v2();
-            result.encode()
+        fn get_subnets_info_v2() -> Vec<Option<SubnetInfov2<AccountId32>>> {
+            SubtensorModule::get_subnets_info_v2()
         }
 
-        fn get_subnet_hyperparams(netuid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_subnet_hyperparams(netuid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get SubnetHyperparams");
-                result.encode()
-            } else {
-                vec![]
-            }
+        fn get_subnet_hyperparams(netuid: u16) -> Option<SubnetHyperparams> {
+            SubtensorModule::get_subnet_hyperparams(netuid)
         }
+
+        fn get_dynamic_info(netuid: u16) -> Option<DynamicInfo<AccountId32>> {
+            SubtensorModule::get_dynamic_info(netuid)
+        }
+
+        fn get_metagraph(netuid: u16) -> Option<Metagraph<AccountId32>> {
+            SubtensorModule::get_metagraph(netuid)
+        }
+
+        fn get_subnet_state(netuid: u16) -> Option<SubnetState<AccountId32>> {
+            SubtensorModule::get_subnet_state(netuid)
+        }
+
+        fn get_all_metagraphs() -> Vec<Option<Metagraph<AccountId32>>> {
+            SubtensorModule::get_all_metagraphs()
+        }
+
+        fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<AccountId32>>> {
+            SubtensorModule::get_all_dynamic_info()
+        }
+
+        fn get_selective_metagraph(netuid: u16, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
+            SubtensorModule::get_selective_metagraph(netuid, metagraph_indexes)
+        }
+
     }
 
     impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {
-        fn get_stake_info_for_coldkey( coldkey_account_vec: Vec<u8> ) -> Vec<u8> {
-            let result = SubtensorModule::get_stake_info_for_coldkey( coldkey_account_vec );
-            result.encode()
+        fn get_stake_info_for_coldkey( coldkey_account: AccountId32 ) -> Vec<StakeInfo<AccountId32>> {
+            SubtensorModule::get_stake_info_for_coldkey( coldkey_account )
         }
 
-        fn get_stake_info_for_coldkeys( coldkey_account_vecs: Vec<Vec<u8>> ) -> Vec<u8> {
-            let result = SubtensorModule::get_stake_info_for_coldkeys( coldkey_account_vecs );
-            result.encode()
+        fn get_stake_info_for_coldkeys( coldkey_accounts: Vec<AccountId32> ) -> Vec<(AccountId32, Vec<StakeInfo<AccountId32>>)> {
+            SubtensorModule::get_stake_info_for_coldkeys( coldkey_accounts )
+        }
+
+        fn get_stake_info_for_hotkey_coldkey_netuid( hotkey_account: AccountId32, coldkey_account: AccountId32, netuid: u16 ) -> Option<StakeInfo<AccountId32>> {
+            SubtensorModule::get_stake_info_for_hotkey_coldkey_netuid( hotkey_account, coldkey_account, netuid )
+        }
+
+        fn get_stake_fee( origin: Option<(AccountId32, u16)>, origin_coldkey_account: AccountId32, destination: Option<(AccountId32, u16)>, destination_coldkey_account: AccountId32, amount: u64 ) -> u64 {
+            SubtensorModule::get_stake_fee( origin, origin_coldkey_account, destination, destination_coldkey_account, amount )
         }
     }
 
@@ -2141,7 +2152,7 @@ fn test_into_substrate_balance_valid() {
 #[test]
 fn test_into_substrate_balance_large_value() {
     // Maximum valid balance for u64
-    let evm_balance = U256::from(u64::MAX) * U256::from(EVM_DECIMALS_FACTOR); // Max u64 TAO in EVM
+    let evm_balance = U256::from(u64::MAX) * U256::from(EVM_TO_SUBSTRATE_DECIMALS); // Max u64 TAO in EVM
     let expected_substrate_balance = U256::from(u64::MAX);
 
     let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
@@ -2151,7 +2162,8 @@ fn test_into_substrate_balance_large_value() {
 #[test]
 fn test_into_substrate_balance_exceeds_u64() {
     // EVM balance that exceeds u64 after conversion
-    let evm_balance = (U256::from(u64::MAX) + U256::from(1)) * U256::from(EVM_DECIMALS_FACTOR);
+    let evm_balance =
+        (U256::from(u64::MAX) + U256::from(1)) * U256::from(EVM_TO_SUBSTRATE_DECIMALS);
 
     let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
     assert_eq!(result, None); // Exceeds u64, should return None
@@ -2191,7 +2203,7 @@ fn test_into_evm_balance_valid() {
 fn test_into_evm_balance_overflow() {
     // Substrate balance larger than u64::MAX but valid within U256
     let substrate_balance = U256::from(u64::MAX) + U256::from(1); // Large balance
-    let expected_evm_balance = substrate_balance * U256::from(EVM_DECIMALS_FACTOR);
+    let expected_evm_balance = substrate_balance * U256::from(EVM_TO_SUBSTRATE_DECIMALS);
 
     let result = SubtensorEvmBalanceConverter::into_evm_balance(substrate_balance);
     assert_eq!(result, Some(expected_evm_balance)); // Should return the scaled value

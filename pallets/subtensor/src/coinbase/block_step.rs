@@ -1,6 +1,7 @@
 use super::*;
 use frame_support::storage::IterableStorageMap;
-use substrate_fixed::types::I110F18;
+use safe_math::*;
+use substrate_fixed::types::{U96F32, U110F18};
 
 impl<T: Config + pallet_drand::Config> Pallet<T> {
     /// Executes the necessary operations for each block.
@@ -9,10 +10,26 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         log::debug!("block_step for block: {:?} ", block_number);
         // --- 1. Adjust difficulties.
         Self::adjust_registration_terms_for_networks();
-        // --- 2. Run emission through network.
-        Self::run_coinbase();
+        // --- 2. Get the current coinbase emission.
+        let block_emission: U96F32 =
+            U96F32::saturating_from_num(Self::get_block_emission().unwrap_or(0));
+        log::debug!("Block emission: {:?}", block_emission);
+        // --- 3. Run emission through network.
+        Self::run_coinbase(block_emission);
+        // --- 4. Set pending children on the epoch; but only after the coinbase has been run.
+        Self::try_set_pending_children(block_number);
         // Return ok.
         Ok(())
+    }
+
+    fn try_set_pending_children(block_number: u64) {
+        let subnets: Vec<u16> = Self::get_all_subnet_netuids();
+        for &netuid in subnets.iter() {
+            if Self::should_run_epoch(netuid, block_number) {
+                // Set pending children on the epoch.
+                Self::do_set_pending_children(netuid);
+            }
+        }
     }
 
     /// Adjusts the network difficulties/burns of every active network. Resetting state parameters.
@@ -26,7 +43,8 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
             let last_adjustment_block: u64 = Self::get_last_adjustment_block(netuid);
             let adjustment_interval: u16 = Self::get_adjustment_interval(netuid);
             let current_block: u64 = Self::get_current_block_as_u64();
-            log::debug!("netuid: {:?} last_adjustment_block: {:?} adjustment_interval: {:?} current_block: {:?}",
+            log::debug!(
+                "netuid: {:?} last_adjustment_block: {:?} adjustment_interval: {:?} current_block: {:?}",
                 netuid,
                 last_adjustment_block,
                 adjustment_interval,
@@ -173,7 +191,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
     }
 
     /// Calculates the upgraded difficulty by multiplying the current difficulty by the ratio ( reg_actual + reg_target / reg_target + reg_target )
-    /// We use I110F18 to avoid any overflows on u64. Also min_difficulty and max_difficulty bound the range.
+    /// We use U110F18 to avoid any overflows on u64. Also min_difficulty and max_difficulty bound the range.
     ///
     pub fn upgraded_difficulty(
         netuid: u16,
@@ -181,33 +199,33 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         registrations_this_interval: u16,
         target_registrations_per_interval: u16,
     ) -> u64 {
-        let updated_difficulty: I110F18 = I110F18::from_num(current_difficulty)
-            .saturating_mul(I110F18::from_num(
+        let updated_difficulty: U110F18 = U110F18::saturating_from_num(current_difficulty)
+            .saturating_mul(U110F18::saturating_from_num(
                 registrations_this_interval.saturating_add(target_registrations_per_interval),
             ))
-            .saturating_div(I110F18::from_num(
+            .safe_div(U110F18::saturating_from_num(
                 target_registrations_per_interval.saturating_add(target_registrations_per_interval),
             ));
-        let alpha: I110F18 = I110F18::from_num(Self::get_adjustment_alpha(netuid))
-            .saturating_div(I110F18::from_num(u64::MAX));
-        let next_value: I110F18 = alpha
-            .saturating_mul(I110F18::from_num(current_difficulty))
+        let alpha: U110F18 = U110F18::saturating_from_num(Self::get_adjustment_alpha(netuid))
+            .safe_div(U110F18::saturating_from_num(u64::MAX));
+        let next_value: U110F18 = alpha
+            .saturating_mul(U110F18::saturating_from_num(current_difficulty))
             .saturating_add(
-                I110F18::from_num(1.0)
+                U110F18::saturating_from_num(1.0)
                     .saturating_sub(alpha)
                     .saturating_mul(updated_difficulty),
             );
-        if next_value >= I110F18::from_num(Self::get_max_difficulty(netuid)) {
+        if next_value >= U110F18::saturating_from_num(Self::get_max_difficulty(netuid)) {
             Self::get_max_difficulty(netuid)
-        } else if next_value <= I110F18::from_num(Self::get_min_difficulty(netuid)) {
+        } else if next_value <= U110F18::saturating_from_num(Self::get_min_difficulty(netuid)) {
             return Self::get_min_difficulty(netuid);
         } else {
-            return next_value.to_num::<u64>();
+            return next_value.saturating_to_num::<u64>();
         }
     }
 
     /// Calculates the upgraded burn by multiplying the current burn by the ratio ( reg_actual + reg_target / reg_target + reg_target )
-    /// We use I110F18 to avoid any overflows on u64. Also min_burn and max_burn bound the range.
+    /// We use U110F18 to avoid any overflows on u64. Also min_burn and max_burn bound the range.
     ///
     pub fn upgraded_burn(
         netuid: u16,
@@ -215,28 +233,28 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         registrations_this_interval: u16,
         target_registrations_per_interval: u16,
     ) -> u64 {
-        let updated_burn: I110F18 = I110F18::from_num(current_burn)
-            .saturating_mul(I110F18::from_num(
+        let updated_burn: U110F18 = U110F18::saturating_from_num(current_burn)
+            .saturating_mul(U110F18::saturating_from_num(
                 registrations_this_interval.saturating_add(target_registrations_per_interval),
             ))
-            .saturating_div(I110F18::from_num(
+            .safe_div(U110F18::saturating_from_num(
                 target_registrations_per_interval.saturating_add(target_registrations_per_interval),
             ));
-        let alpha: I110F18 = I110F18::from_num(Self::get_adjustment_alpha(netuid))
-            .saturating_div(I110F18::from_num(u64::MAX));
-        let next_value: I110F18 = alpha
-            .saturating_mul(I110F18::from_num(current_burn))
+        let alpha: U110F18 = U110F18::saturating_from_num(Self::get_adjustment_alpha(netuid))
+            .safe_div(U110F18::saturating_from_num(u64::MAX));
+        let next_value: U110F18 = alpha
+            .saturating_mul(U110F18::saturating_from_num(current_burn))
             .saturating_add(
-                I110F18::from_num(1.0)
+                U110F18::saturating_from_num(1.0)
                     .saturating_sub(alpha)
                     .saturating_mul(updated_burn),
             );
-        if next_value >= I110F18::from_num(Self::get_max_burn_as_u64(netuid)) {
+        if next_value >= U110F18::saturating_from_num(Self::get_max_burn_as_u64(netuid)) {
             Self::get_max_burn_as_u64(netuid)
-        } else if next_value <= I110F18::from_num(Self::get_min_burn_as_u64(netuid)) {
+        } else if next_value <= U110F18::saturating_from_num(Self::get_min_burn_as_u64(netuid)) {
             return Self::get_min_burn_as_u64(netuid);
         } else {
-            return next_value.to_num::<u64>();
+            return next_value.saturating_to_num::<u64>();
         }
     }
 }

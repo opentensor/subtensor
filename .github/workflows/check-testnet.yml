@@ -3,7 +3,7 @@ name: Testnet Deploy Check
 on:
   pull_request:
     branches: [testnet, testnet-ready]
-    types: [labeled, unlabeled, synchronize]
+    types: [labeled, unlabeled, synchronize, opened]
 
 env:
   CARGO_TERM_COLOR: always
@@ -20,11 +20,16 @@ jobs:
           sudo apt-get install -y curl clang curl libssl-dev llvm \
                                   libudev-dev protobuf-compiler
 
-      - name: Install substrate-spec-version
-        run: cargo install substrate-spec-version
-
       - name: Check-out repository under $GITHUB_WORKSPACE
         uses: actions/checkout@v4
+
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: "spec-version"
+
+      - name: Install substrate-spec-version
+        run: cargo install substrate-spec-version
 
       - name: Check that spec_version has been bumped
         run: |
