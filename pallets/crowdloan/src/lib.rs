@@ -7,7 +7,7 @@
 
 extern crate alloc;
 
-use alloc::{boxed::Box, vec};
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::*;
 use frame_support::{
@@ -27,10 +27,13 @@ use subtensor_macros::freeze_struct;
 
 type CrowdloanId = u32;
 
+mod benchmarking;
+mod mock;
 mod tests;
 
-type CurrencyOf<T> = <T as Config>::Currency;
-type BalanceOf<T> = <CurrencyOf<T> as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type CurrencyOf<T> = <T as Config>::Currency;
+pub(crate) type BalanceOf<T> =
+    <CurrencyOf<T> as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// A struct containing the information about a crowdloan.
 #[freeze_struct("64e250b23f674ef5")]
@@ -163,7 +166,7 @@ pub mod pallet {
         /// A refund was partially processed for a failed crowdloan.
         PartiallyRefunded { crowdloan_id: CrowdloanId },
         /// A refund was fully processed for a failed crowdloan.
-        Refunded { crowdloan_id: CrowdloanId },
+        AllRefunded { crowdloan_id: CrowdloanId },
         /// A crowdloan was finalized, funds were transferred and the call was dispatched.
         Finalized { crowdloan_id: CrowdloanId },
     }
@@ -481,7 +484,7 @@ pub mod pallet {
             }
 
             if all_refunded {
-                Self::deposit_event(Event::<T>::Refunded { crowdloan_id });
+                Self::deposit_event(Event::<T>::AllRefunded { crowdloan_id });
             } else {
                 Self::deposit_event(Event::<T>::PartiallyRefunded { crowdloan_id });
             }

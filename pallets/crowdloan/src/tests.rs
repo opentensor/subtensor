@@ -699,6 +699,13 @@ fn test_withdraw_succeeds() {
                 creator,
                 crowdloan_id
             ));
+
+            // ensure the creator contribution has been removed
+            assert_eq!(
+                pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, creator),
+                None
+            );
+
             // ensure the creator has the correct amount
             assert_eq!(pallet_balances::Pallet::<Test>::free_balance(creator), 100);
 
@@ -708,6 +715,13 @@ fn test_withdraw_succeeds() {
                 contributor,
                 crowdloan_id
             ));
+
+            // ensure the creator contribution has been removed
+            assert_eq!(
+                pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, contributor),
+                None
+            );
+
             // ensure the contributor has the correct amount
             assert_eq!(
                 pallet_balances::Pallet::<Test>::free_balance(contributor),
@@ -727,23 +741,6 @@ fn test_withdraw_succeeds() {
                     .is_some_and(|c| c.raised == 0)
             );
         });
-}
-
-#[test]
-fn test_withdraw_fails_if_bad_origin() {
-    TestState::default().build_and_execute(|| {
-        let crowdloan_id: CrowdloanId = 0;
-
-        assert_err!(
-            Crowdloan::withdraw(RuntimeOrigin::none(), U256::from(1), crowdloan_id),
-            DispatchError::BadOrigin
-        );
-
-        assert_err!(
-            Crowdloan::withdraw(RuntimeOrigin::root(), U256::from(1), crowdloan_id),
-            DispatchError::BadOrigin
-        );
-    });
 }
 
 #[test]
@@ -813,6 +810,23 @@ fn test_withdraw_succeeds_for_another_contributor() {
                     .is_some_and(|c| c.raised == 100)
             );
         });
+}
+
+#[test]
+fn test_withdraw_fails_if_bad_origin() {
+    TestState::default().build_and_execute(|| {
+        let crowdloan_id: CrowdloanId = 0;
+
+        assert_err!(
+            Crowdloan::withdraw(RuntimeOrigin::none(), U256::from(1), crowdloan_id),
+            DispatchError::BadOrigin
+        );
+
+        assert_err!(
+            Crowdloan::withdraw(RuntimeOrigin::root(), U256::from(1), crowdloan_id),
+            DispatchError::BadOrigin
+        );
+    });
 }
 
 #[test]
@@ -1132,7 +1146,7 @@ fn test_refund_succeeds() {
             // ensure the event is emitted
             assert_eq!(
                 last_event(),
-                pallet_crowdloan::Event::<Test>::Refunded { crowdloan_id }.into()
+                pallet_crowdloan::Event::<Test>::AllRefunded { crowdloan_id }.into()
             );
 
             // ensure creator has the correct amount
@@ -1154,6 +1168,23 @@ fn test_refund_succeeds() {
             assert_eq!(
                 pallet_balances::Pallet::<Test>::free_balance(contributor4),
                 100
+            );
+            // ensure each contributor has been removed from the crowdloan
+            assert_eq!(
+                pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, &contributor),
+                None
+            );
+            assert_eq!(
+                pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, &contributor2),
+                None
+            );
+            assert_eq!(
+                pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, &contributor3),
+                None
+            );
+            assert_eq!(
+                pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, &contributor4),
+                None
             );
         })
 }
