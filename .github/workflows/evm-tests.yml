@@ -2,6 +2,13 @@ name: EVM E2E Tests
 
 on:
   pull_request:
+    branches:
+      - devnet
+      - devnet-ready
+      - testnet
+      - testnet-ready
+      - main
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
   ## Allow running workflow manually from the Actions tab
   workflow_dispatch:
