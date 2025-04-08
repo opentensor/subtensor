@@ -23,7 +23,7 @@ WORKDIR /build
 #
 # Image for building prod
 #
-FROM base_builder as prod_builder
+FROM base_builder AS prod_builder
 # Build the project
 RUN cargo build -p node-subtensor --profile production  --features="metadata-hash" --locked
 # Verify the binary was produced
@@ -43,7 +43,7 @@ COPY --from=prod_builder /build/target/production/node-subtensor /usr/local/bin
 #
 # Image for building local
 #
-FROM base_builder as local_builder
+FROM base_builder AS local_builder
 # Build the project
 RUN cargo build --workspace --profile release --features="pow-faucet"
 # Verify the binary was produced
