@@ -471,8 +471,6 @@ impl<T: Config> Pallet<T> {
             return 0;
         }
 
-        println!("delta_in = {:?}", delta_in);
-
         let liquidity_curr = SqrtPrice::saturating_from_num(CurrentLiquidity::<T>::get(netuid));
         let sqrt_price_curr = AlphaSqrtPrice::<T>::get(netuid);
         let delta_fixed = SqrtPrice::saturating_from_num(delta_in);
@@ -485,16 +483,12 @@ impl<T: Config> Pallet<T> {
                 let a = liquidity_curr / (liquidity_curr / sqrt_price_curr + delta_fixed);
                 let b = a * sqrt_price_curr;
                 let c = delta_fixed * b;
-                println!("sell c = {:?}", c);
                 c
             }
             OrderType::Buy => {
                 let a = (liquidity_curr * sqrt_price_curr + delta_fixed) * sqrt_price_curr;
-                println!("a = {:?}", a);
                 let b = liquidity_curr / a;
-                println!("b = {:?}", b);
                 let c = b * delta_fixed;
-                println!("buy c = {:?}", c);
                 c
             }
         };
@@ -1472,9 +1466,9 @@ mod tests {
     }
 
     // In this test the swap starts and ends within one (large liquidity) position
-    // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor-swap --lib -- pallet::impls::tests::test_swap_single_position_step_in --exact --show-output --nocapture
+    // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor-swap --lib -- pallet::impls::tests::test_swap_single_position --exact --show-output --nocapture
     #[test]
-    fn test_swap_single_position_step_in() {
+    fn test_swap_single_position() {
         let min_price = tick_to_price(TickIndex::MIN);
         let max_price = tick_to_price(TickIndex::MAX);
         let max_tick = price_to_tick(max_price);
@@ -1488,7 +1482,7 @@ mod tests {
         // Outer part of test case is Position: (price_low_offset, price_high_offset, liquidity)
         [
             // Very localized position at the current price
-            (0.0, 0.0, 2_000_000_000_u64),
+            (-0.1, 0.1, 500_000_000_000_u64),
             // Repeat the protocol liquidity at maximum range
             (
                 min_price - current_price,
@@ -1514,13 +1508,15 @@ mod tests {
                 // Inner part of test case is Order: (order_type, order_liquidity, limit_price, output_amount)
                 // order_liquidity is represented as a fraction of position_liquidity
                 [
+                    (OrderType::Buy, 0.0001, 1000.0_f64),
+                    (OrderType::Sell, 0.0001, 0.0001_f64),
                     (OrderType::Buy, 0.001, 1000.0_f64),
                     (OrderType::Sell, 0.001, 0.0001_f64),
                     (OrderType::Buy, 0.01, 1000.0_f64),
                     (OrderType::Sell, 0.01, 0.0001_f64),
                     (OrderType::Buy, 0.1, 1000.0),
                     (OrderType::Sell, 0.1, 0.0001),
-                    (OrderType::Buy, 0.2, 1000.0),
+                    (OrderType::Buy, 0.2, 1000.0_f64),
                     (OrderType::Sell, 0.2, 0.0001),
                     (OrderType::Buy, 0.5, 1000.0),
                     (OrderType::Sell, 0.5, 0.0001),
@@ -1578,9 +1574,11 @@ mod tests {
                         // Calculate the expected output amount for the cornercase of one step
                         let order_liquidity =
                             *order_liquidity_fraction * *position_liquidity as f64;
-                        println!("Swap liquidity amount: {:?}", order_liquidity);
-                        let fee_rate = FeeRate::<Test>::get(netuid) as f64 / u16::MAX as f64;
-                        let expected_fee = order_liquidity as f64 * fee_rate;
+
+                        let input_amount = match order_type {
+                            OrderType::Buy => order_liquidity * sqrt_current_price.to_num::<f64>(),
+                            OrderType::Sell => order_liquidity / sqrt_current_price.to_num::<f64>(),
+                        };
                         let output_amount = match order_type {
                             OrderType::Buy => {
                                 let denom = sqrt_current_price.to_num::<f64>()
@@ -1624,7 +1622,14 @@ mod tests {
                             OrderType::Sell => assert!(current_price_after < current_price),
                         }
 
-                        println!("current_price_after = {:?}", current_price_after);
+                        // Assert that for small amounts price stays within the user position
+                        if (*order_liquidity_fraction <= 0.001)
+                            && (*price_low_offset != 0.0)
+                            && (*price_high_offset != 0.0)
+                        {
+                            assert!(current_price_after <= price_high);
+                            assert!(current_price_after >= price_low);
+                        }
 
                         // Check that low and high ticks' fees were updated properly, and liquidity values were not updated
                         let tick_low_info = Ticks::<Test>::get(netuid, tick_low).unwrap();
@@ -1690,5 +1695,167 @@ mod tests {
                 });
             },
         );
+    }
+
+    // This test is a sanity check for swap and multiple positions
+    // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor-swap --lib -- pallet::impls::tests::test_swap_multiple_positions --exact --show-output --nocapture
+    #[test]
+    fn test_swap_multiple_positions() {
+        new_test_ext().execute_with(|| {
+            let min_price = tick_to_price(TickIndex::MIN);
+            let max_price = tick_to_price(TickIndex::MAX);
+            let max_tick = price_to_tick(max_price);
+            let current_price = 0.25;
+            let netuid = NetUid(1);
+            assert_eq!(max_tick, TickIndex::MAX);
+
+            //////////////////////////////////////////////
+            // Initialize pool and add the user position
+            assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+
+            // Add liquidity
+            let sqrt_current_price = AlphaSqrtPrice::<Test>::get(netuid);
+            let current_price = (sqrt_current_price * sqrt_current_price).to_num::<f64>();
+
+            // Current price is 0.25
+            // All positions below are placed at once
+            [
+                // Very localized position at the current price
+                (-0.1, 0.1, 500_000_000_000_u64),
+                // Repeat the protocol liquidity at maximum range
+                (
+                    min_price - current_price,
+                    max_price - current_price,
+                    2_000_000_000_u64,
+                ),
+                // Repeat the protocol liquidity at current to max range
+                (0.0, max_price - current_price, 2_000_000_000_u64),
+                // Repeat the protocol liquidity at min to current range
+                (min_price - current_price, 0.0, 2_000_000_000_u64),
+                // Half to double price
+                (-0.125, 0.25, 2_000_000_000_u64),
+                // A few other price ranges and liquidity volumes
+                (-0.1, 0.1, 2_000_000_000_u64),
+                (-0.1, 0.1, 10_000_000_000_u64),
+                (-0.1, 0.1, 100_000_000_000_u64),
+                (-0.01, 0.01, 100_000_000_000_u64),
+                (-0.001, 0.001, 100_000_000_000_u64),
+                // A few (overlapping) positions up the range
+                (0.01, 0.02, 100_000_000_000_u64),
+                (0.02, 0.03, 100_000_000_000_u64),
+                (0.03, 0.04, 100_000_000_000_u64),
+                (0.03, 0.05, 100_000_000_000_u64),
+                // A few (overlapping) positions down the range
+                (-0.02, -0.01, 100_000_000_000_u64),
+                (-0.03, -0.02, 100_000_000_000_u64),
+                (-0.04, -0.03, 100_000_000_000_u64),
+                (-0.05, -0.03, 100_000_000_000_u64),
+            ]
+            .iter()
+            .for_each(
+                |(price_low_offset, price_high_offset, position_liquidity)| {
+                    let price_low = *price_low_offset + current_price;
+                    let price_high = *price_high_offset + current_price;
+                    let tick_low = price_to_tick(price_low);
+                    let tick_high = price_to_tick(price_high);
+                    let (_position_id, _tao, _alpha) = Pallet::<Test>::add_liquidity(
+                        netuid,
+                        &OK_ACCOUNT_ID,
+                        tick_low,
+                        tick_high,
+                        *position_liquidity,
+                    )
+                    .unwrap();
+                },
+            );
+
+            // All these orders are executed without swap reset
+            [
+                (OrderType::Buy, 100_000_u64, 1000.0_f64),
+                (OrderType::Sell, 100_000, 0.0001_f64),
+                (OrderType::Buy, 1_000_000, 1000.0_f64),
+                (OrderType::Sell, 1_000_000, 0.0001_f64),
+                (OrderType::Buy, 10_000_000, 1000.0_f64),
+                (OrderType::Sell, 10_000_000, 0.0001_f64),
+                (OrderType::Buy, 100_000_000, 1000.0),
+                (OrderType::Sell, 100_000_000, 0.0001),
+                (OrderType::Buy, 200_000_000, 1000.0_f64),
+                (OrderType::Sell, 200_000_000, 0.0001),
+                (OrderType::Buy, 500_000_000, 1000.0),
+                (OrderType::Sell, 500_000_000, 0.0001),
+                (OrderType::Buy, 1_000_000_000, 1000.0),
+                (OrderType::Sell, 1_000_000_000, 0.0001),
+                (OrderType::Buy, 10_000_000_000, 1000.0),
+                (OrderType::Sell, 10_000_000_000, 0.0001),
+            ]
+            .iter()
+            .for_each(|(order_type, order_liquidity, limit_price)| {
+                //////////////////////////////////////////////
+                // Swap
+                let sqrt_current_price = AlphaSqrtPrice::<Test>::get(netuid);
+                let current_price = (sqrt_current_price * sqrt_current_price).to_num::<f64>();
+                let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
+
+                let output_amount = match order_type {
+                    OrderType::Buy => {
+                        let denom = sqrt_current_price.to_num::<f64>()
+                            * (sqrt_current_price.to_num::<f64>() * liquidity_before as f64
+                                + *order_liquidity as f64);
+                        let per_order_liq = liquidity_before as f64 / denom;
+                        per_order_liq * *order_liquidity as f64
+                    }
+                    OrderType::Sell => {
+                        let denom = liquidity_before as f64 / sqrt_current_price.to_num::<f64>()
+                            + *order_liquidity as f64;
+                        let per_order_liq =
+                            sqrt_current_price.to_num::<f64>() * liquidity_before as f64 / denom;
+                        per_order_liq * *order_liquidity as f64
+                    }
+                };
+
+                // Do the swap
+                let sqrt_limit_price = SqrtPrice::from_num((limit_price).sqrt());
+                let swap_result =
+                    Pallet::<Test>::swap(netuid, *order_type, *order_liquidity, sqrt_limit_price);
+                assert_abs_diff_eq!(
+                    swap_result.unwrap().amount_paid_out as f64,
+                    output_amount,
+                    epsilon = output_amount / 10.
+                );
+
+                // Assert that price movement is in correct direction
+                let sqrt_current_price_after = AlphaSqrtPrice::<Test>::get(netuid);
+                let current_price_after =
+                    (sqrt_current_price_after * sqrt_current_price_after).to_num::<f64>();
+                match order_type {
+                    OrderType::Buy => assert!(current_price_after > current_price),
+                    OrderType::Sell => assert!(current_price_after < current_price),
+                }
+
+                // Current liquidity is not updated
+                assert_eq!(CurrentLiquidity::<Test>::get(netuid), liquidity_before);
+
+                // Reserves are updated
+                // TODO: Add the test
+                // assert_eq!(
+                //     swap.state_ops.get_tao_reserve(),
+                //     tao_withdrawn + protocol_tao,
+                // );
+                // assert_eq!(
+                //     swap.state_ops.get_alpha_reserve(),
+                //     alpha_withdrawn + protocol_alpha,
+                // );
+            });
+
+            // Current price shouldn't be much different from the original
+            let sqrt_current_price_after = AlphaSqrtPrice::<Test>::get(netuid);
+            let current_price_after =
+                (sqrt_current_price_after * sqrt_current_price_after).to_num::<f64>();
+            assert_abs_diff_eq!(
+                current_price,
+                current_price_after,
+                epsilon = current_price / 10.
+            )
+        });
     }
 }
