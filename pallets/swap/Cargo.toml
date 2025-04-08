@@ -19,10 +19,8 @@ sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 substrate-fixed = { workspace = true }
-uuid = { workspace = true, features = ["v4"] }
 
-pallet-subtensor-swap-interface = { workspace = true }
-
+subtensor-swap-interface = { workspace = true }
 
 [lints]
 workspace = true
@@ -35,7 +33,7 @@ std = [
     "frame-benchmarking/std",
     "frame-support/std",
     "frame-system/std",
-    "pallet-subtensor-swap-interface/std",
+    "subtensor-swap-interface/std",
     "safe-math/std",
     "scale-info/std",
     "serde/std",
@@ -45,7 +43,6 @@ std = [
     "sp-runtime/std",
     "sp-std/std",
     "substrate-fixed/std",
-    "uuid/std",
 ]
 runtime-benchmarks = [
     "frame-benchmarking/runtime-benchmarks",

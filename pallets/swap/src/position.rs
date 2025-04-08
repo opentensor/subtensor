@@ -2,7 +2,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
 use safe_math::*;
 use substrate_fixed::types::U64F64;
-use uuid::Uuid;
+use subtensor_swap_interface::PositionId;
 
 use crate::pallet::{Config, Error, FeeGlobalAlpha, FeeGlobalTao};
 use crate::tick::TickIndex;
@@ -120,35 +120,5 @@ impl Position {
         .saturating_sub(self.tick_low.fees_below::<T>(self.netuid, quote))
         .saturating_sub(self.tick_high.fees_above::<T>(self.netuid, quote))
         .saturating_to_num::<u64>()
-    }
-}
-
-#[derive(
-    Clone, Copy, Decode, Default, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo,
-)]
-pub struct PositionId([u8; 16]);
-
-impl PositionId {
-    /// Create a new position ID using UUID v4
-    pub fn new() -> Self {
-        Self(Uuid::new_v4().into_bytes())
-    }
-}
-
-impl From<Uuid> for PositionId {
-    fn from(value: Uuid) -> Self {
-        Self(value.into_bytes())
-    }
-}
-
-impl From<PositionId> for Uuid {
-    fn from(value: PositionId) -> Self {
-        Uuid::from_bytes(value.0)
-    }
-}
-
-impl From<[u8; 16]> for PositionId {
-    fn from(value: [u8; 16]) -> Self {
-        Self(value)
     }
 }

@@ -44,6 +44,7 @@ hex = { workspace = true }
 share-pool = { default-features = false, path = "../../primitives/share-pool" }
 safe-math = { default-features = false, path = "../../primitives/safe-math" }
 approx = { workspace = true }
+subtensor-swap-interface = { workspace = true }
 
 pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../collective" }
 pallet-drand = { path = "../drand", default-features = false }
@@ -109,7 +110,8 @@ std = [
 	"rand_chacha/std",
 	"safe-math/std",
 	"sha2/std",
-	"share-pool/std"
+	"share-pool/std",
+	"subtensor-swap-interface/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

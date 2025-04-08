@@ -4,7 +4,7 @@ use frame_support::{
     traits::{ConstU32, Everything},
 };
 use frame_system::{self as system, EnsureRoot};
-use pallet_subtensor_swap_interface::LiquidityDataProvider;
+use subtensor_swap_interface::LiquidityDataProvider;
 use sp_core::H256;
 use sp_runtime::{
     BuildStorage,

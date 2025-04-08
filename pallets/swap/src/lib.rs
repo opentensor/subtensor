@@ -2,7 +2,7 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
-use pallet_subtensor_swap_interface::OrderType;
+use subtensor_swap_interface::OrderType;
 use substrate_fixed::types::U64F64;
 
 pub mod pallet;
