@@ -252,7 +252,7 @@ impl<T: Config> Pallet<T> {
 
             // Compute dividends: d_i = SUM(j) b_ij * inc_j
             dividends = matmul_transpose(&ema_bonds, &incentive);
-			inplace_normalize(&mut dividends);
+            inplace_normalize(&mut dividends);
             log::trace!("Dividends: {:?}", &dividends);
 
             // Column max-upscale EMA bonds for storage: max_i w_ij = 1.
