@@ -197,37 +197,67 @@ impl<T: Config> Pallet<T> {
         let weights_for_bonds: Vec<Vec<I32F32>> =
             interpolate(&weights, &clipped_weights, bonds_penalty);
 
-        // Access network bonds.
-        let mut bonds: Vec<Vec<I32F32>> = Self::get_bonds_fixed_proportion(netuid);
-        inplace_mask_cols(&recently_registered, &mut bonds); // mask outdated bonds
-        log::trace!("B: {:?}", &bonds);
+        let mut dividends: Vec<I32F32>;
+        let mut ema_bonds: Vec<Vec<I32F32>>;
+        if Yuma3On::<T>::get(netuid) {
+            // Access network bonds.
+            let mut bonds: Vec<Vec<I32F32>> = Self::get_bonds_fixed_proportion(netuid);
+            inplace_mask_cols(&recently_registered, &mut bonds); // mask outdated bonds
+            log::trace!("B: {:?}", &bonds);
 
-        // Compute the Exponential Moving Average (EMA) of bonds.
-        let ema_bonds = Self::compute_ema_bonds(
-            netuid,
-            &weights_for_bonds,
-            &bonds,
-            &consensus,
-            &active_stake,
-        );
-        log::trace!("emaB: {:?}", &ema_bonds);
+            // Compute the Exponential Moving Average (EMA) of bonds.
+            ema_bonds = Self::compute_bonds(
+                netuid,
+                &weights_for_bonds,
+                &bonds,
+                &consensus,
+                &active_stake,
+            );
+            log::trace!("emaB: {:?}", &ema_bonds);
 
-        // Normalize EMA bonds.
-        let mut ema_bonds_norm = ema_bonds.clone();
-        inplace_col_normalize(&mut ema_bonds_norm);
-        log::trace!("emaB norm: {:?}", &ema_bonds_norm);
+            // Normalize EMA bonds.
+            let mut ema_bonds_norm = ema_bonds.clone();
+            inplace_col_normalize(&mut ema_bonds_norm);
+            log::trace!("emaB norm: {:?}", &ema_bonds_norm);
 
-        // # === Dividend Calculation===
-        let total_bonds_per_validator: Vec<I32F32> =
-            row_sum(&mat_vec_mul(&ema_bonds_norm, &incentive));
-        log::trace!(
-            "total_bonds_per_validator: {:?}",
-            &total_bonds_per_validator
-        );
+            // # === Dividend Calculation===
+            let total_bonds_per_validator: Vec<I32F32> =
+                row_sum(&mat_vec_mul(&ema_bonds_norm, &incentive));
+            log::trace!(
+                "total_bonds_per_validator: {:?}",
+                &total_bonds_per_validator
+            );
 
-        let mut dividends: Vec<I32F32> = vec_mul(&total_bonds_per_validator, &active_stake);
-        inplace_normalize(&mut dividends);
-        log::trace!("D: {:?}", &dividends);
+            dividends = vec_mul(&total_bonds_per_validator, &active_stake);
+            inplace_normalize(&mut dividends);
+            log::trace!("D: {:?}", &dividends);
+        } else {
+            // original Yuma - liquid alpha disabled
+            // Access network bonds.
+            let mut bonds: Vec<Vec<I32F32>> = Self::get_bonds(netuid);
+            // Remove bonds referring to neurons that have registered since last tempo.
+            inplace_mask_cols(&recently_registered, &mut bonds); // mask recently registered bonds
+            inplace_col_normalize(&mut bonds); // sum_i b_ij = 1
+            log::trace!("B: {:?}", &bonds);
+
+            // Compute bonds delta column normalized.
+            let mut bonds_delta: Vec<Vec<I32F32>> = row_hadamard(&weights_for_bonds, &active_stake); // ΔB = W◦S
+            inplace_col_normalize(&mut bonds_delta); // sum_i b_ij = 1
+            log::trace!("ΔB: {:?}", &bonds_delta);
+
+            // Compute the Exponential Moving Average (EMA) of bonds.
+            ema_bonds = Self::compute_ema_bonds_normal(&bonds_delta, &bonds, netuid);
+            inplace_col_normalize(&mut ema_bonds); // sum_i b_ij = 1
+            log::trace!("emaB: {:?}", &ema_bonds);
+
+            // Compute dividends: d_i = SUM(j) b_ij * inc_j
+            dividends = matmul_transpose(&ema_bonds, &incentive);
+			inplace_normalize(&mut dividends);
+            log::trace!("Dividends: {:?}", &dividends);
+
+            // Column max-upscale EMA bonds for storage: max_i w_ij = 1.
+            inplace_col_max_upscale(&mut ema_bonds);
+        }
 
         // =================================
         // == Emission and Pruning scores ==
@@ -572,49 +602,98 @@ impl<T: Config> Pallet<T> {
         let weights_for_bonds: Vec<Vec<(u16, I32F32)>> =
             interpolate_sparse(&weights, &clipped_weights, n, bonds_penalty);
 
-        // Access network bonds.
-        let mut bonds: Vec<Vec<(u16, I32F32)>> = Self::get_bonds_sparse_fixed_proportion(netuid);
-        log::trace!("Bonds: {:?}", &bonds);
+        let mut dividends: Vec<I32F32>;
+        let mut ema_bonds: Vec<Vec<(u16, I32F32)>>;
+        if Yuma3On::<T>::get(netuid) {
+            // Access network bonds.
+            let mut bonds = Self::get_bonds_sparse_fixed_proportion(netuid);
+            log::trace!("Bonds: {:?}", &bonds);
 
-        // Remove bonds referring to neurons that have registered since last tempo.
-        // Mask if: the last tempo block happened *before* the registration block
-        // ==> last_tempo <= registered
-        let last_tempo: u64 = current_block.saturating_sub(tempo);
-        bonds = scalar_vec_mask_sparse_matrix(
-            &bonds,
-            last_tempo,
-            &block_at_registration,
-            &|last_tempo, registered| last_tempo <= registered,
-        );
-        log::trace!("Bonds: (mask) {:?}", &bonds);
+            // Remove bonds referring to neurons that have registered since last tempo.
+            // Mask if: the last tempo block happened *before* the registration block
+            // ==> last_tempo <= registered
+            let last_tempo: u64 = current_block.saturating_sub(tempo);
+            bonds = scalar_vec_mask_sparse_matrix(
+                &bonds,
+                last_tempo,
+                &block_at_registration,
+                &|last_tempo, registered| last_tempo <= registered,
+            );
+            log::trace!("Bonds: (mask) {:?}", &bonds);
 
-        // Compute the Exponential Moving Average (EMA) of bonds.
-        log::trace!("weights_for_bonds: {:?}", &weights_for_bonds);
-        let ema_bonds = Self::compute_ema_bonds_sparse(
-            netuid,
-            &weights_for_bonds,
-            &bonds,
-            &consensus,
-            &active_stake,
-        );
-        log::trace!("emaB: {:?}", &ema_bonds);
+            // Compute the Exponential Moving Average (EMA) of bonds.
+            log::trace!("weights_for_bonds: {:?}", &weights_for_bonds);
+            ema_bonds = Self::compute_bonds_sparse(
+                netuid,
+                &weights_for_bonds,
+                &bonds,
+                &consensus,
+                &active_stake,
+            );
+            log::trace!("emaB: {:?}", &ema_bonds);
 
-        // Normalize EMA bonds.
-        let mut ema_bonds_norm = ema_bonds.clone();
-        inplace_col_normalize_sparse(&mut ema_bonds_norm, n); // sum_i b_ij = 1
-        log::trace!("emaB norm: {:?}", &ema_bonds_norm);
+            // Normalize EMA bonds.
+            let mut ema_bonds_norm = ema_bonds.clone();
+            inplace_col_normalize_sparse(&mut ema_bonds_norm, n); // sum_i b_ij = 1
+            log::trace!("emaB norm: {:?}", &ema_bonds_norm);
 
-        // # === Dividend Calculation===
-        let total_bonds_per_validator: Vec<I32F32> =
-            row_sum_sparse(&mat_vec_mul_sparse(&ema_bonds_norm, &incentive));
-        log::trace!(
-            "total_bonds_per_validator: {:?}",
-            &total_bonds_per_validator
-        );
+            // # === Dividend Calculation===
+            let total_bonds_per_validator: Vec<I32F32> =
+                row_sum_sparse(&mat_vec_mul_sparse(&ema_bonds_norm, &incentive));
+            log::trace!(
+                "total_bonds_per_validator: {:?}",
+                &total_bonds_per_validator
+            );
 
-        let mut dividends: Vec<I32F32> = vec_mul(&total_bonds_per_validator, &active_stake);
-        inplace_normalize(&mut dividends);
-        log::trace!("Dividends: {:?}", &dividends);
+            dividends = vec_mul(&total_bonds_per_validator, &active_stake);
+            inplace_normalize(&mut dividends);
+            log::trace!("Dividends: {:?}", &dividends);
+        } else {
+            // original Yuma - liquid alpha disabled
+            // Access network bonds.
+            let mut bonds: Vec<Vec<(u16, I32F32)>> = Self::get_bonds_sparse(netuid);
+            log::trace!("B: {:?}", &bonds);
+
+            // Remove bonds referring to neurons that have registered since last tempo.
+            // Mask if: the last tempo block happened *before* the registration block
+            // ==> last_tempo <= registered
+            let last_tempo: u64 = current_block.saturating_sub(tempo);
+            bonds = scalar_vec_mask_sparse_matrix(
+                &bonds,
+                last_tempo,
+                &block_at_registration,
+                &|last_tempo, registered| last_tempo <= registered,
+            );
+            log::trace!("B (outdatedmask): {:?}", &bonds);
+
+            // Normalize remaining bonds: sum_i b_ij = 1.
+            inplace_col_normalize_sparse(&mut bonds, n);
+            log::trace!("B (mask+norm): {:?}", &bonds);
+
+            // Compute bonds delta column normalized.
+            let mut bonds_delta: Vec<Vec<(u16, I32F32)>> =
+                row_hadamard_sparse(&weights_for_bonds, &active_stake); // ΔB = W◦S (outdated W masked)
+            log::trace!("ΔB: {:?}", &bonds_delta);
+
+            // Normalize bonds delta.
+            inplace_col_normalize_sparse(&mut bonds_delta, n); // sum_i b_ij = 1
+            log::trace!("ΔB (norm): {:?}", &bonds_delta);
+
+            // Compute the Exponential Moving Average (EMA) of bonds.
+            ema_bonds = Self::compute_ema_bonds_normal_sparse(&bonds_delta, &bonds, netuid);
+            // Normalize EMA bonds.
+            inplace_col_normalize_sparse(&mut ema_bonds, n); // sum_i b_ij = 1
+            log::trace!("Exponential Moving Average Bonds: {:?}", &ema_bonds);
+
+            // Compute dividends: d_i = SUM(j) b_ij * inc_j.
+            // range: I32F32(0, 1)
+            dividends = matmul_transpose_sparse(&ema_bonds, &incentive);
+            inplace_normalize(&mut dividends);
+            log::trace!("Dividends: {:?}", &dividends);
+
+            // Column max-upscale EMA bonds for storage: max_i w_ij = 1.
+            inplace_col_max_upscale_sparse(&mut ema_bonds, n);
+        }
 
         // =================================
         // == Emission and Pruning scores ==
@@ -903,6 +982,74 @@ impl<T: Config> Pallet<T> {
         bonds
     }
 
+    /// Compute the Exponential Moving Average (EMA) of bonds using a normal alpha value for a sparse matrix.
+    ///
+    /// # Args:
+    /// * `bonds_delta` - A vector of bond deltas.
+    /// * `bonds` - A vector of bonds.
+    /// * `netuid` - The network ID.
+    ///
+    /// # Returns:
+    /// A vector of EMA bonds.
+    pub fn compute_ema_bonds_normal_sparse(
+        bonds_delta: &[Vec<(u16, I32F32)>],
+        bonds: &[Vec<(u16, I32F32)>],
+        netuid: u16,
+    ) -> Vec<Vec<(u16, I32F32)>> {
+        // Retrieve the bonds moving average for the given network ID and scale it down.
+        let bonds_moving_average: I64F64 =
+            I64F64::saturating_from_num(Self::get_bonds_moving_average(netuid))
+                .safe_div(I64F64::saturating_from_num(1_000_000));
+
+        // Calculate the alpha value for the EMA calculation.
+        // Alpha is derived by subtracting the scaled bonds moving average from 1.
+        let alpha: I32F32 = I32F32::saturating_from_num(1)
+            .saturating_sub(I32F32::saturating_from_num(bonds_moving_average));
+
+        // Compute the Exponential Moving Average (EMA) of bonds using the calculated alpha value.
+        let ema_bonds = mat_ema_sparse(bonds_delta, bonds, alpha);
+
+        // Log the computed EMA bonds for debugging purposes.
+        log::trace!("Exponential Moving Average Bonds Normal: {:?}", ema_bonds);
+
+        // Return the computed EMA bonds.
+        ema_bonds
+    }
+
+    /// Compute the Exponential Moving Average (EMA) of bonds using a normal alpha value.
+    ///
+    /// # Args:
+    /// * `bonds_delta` - A vector of bond deltas.
+    /// * `bonds` - A vector of bonds.
+    /// * `netuid` - The network ID.
+    ///
+    /// # Returns:
+    /// A vector of EMA bonds.
+    pub fn compute_ema_bonds_normal(
+        bonds_delta: &[Vec<I32F32>],
+        bonds: &[Vec<I32F32>],
+        netuid: u16,
+    ) -> Vec<Vec<I32F32>> {
+        // Retrieve the bonds moving average for the given network ID and scale it down.
+        let bonds_moving_average: I64F64 =
+            I64F64::saturating_from_num(Self::get_bonds_moving_average(netuid))
+                .safe_div(I64F64::saturating_from_num(1_000_000));
+
+        // Calculate the alpha value for the EMA calculation.
+        // Alpha is derived by subtracting the scaled bonds moving average from 1.
+        let alpha: I32F32 = I32F32::saturating_from_num(1)
+            .saturating_sub(I32F32::saturating_from_num(bonds_moving_average));
+
+        // Compute the Exponential Moving Average (EMA) of bonds using the calculated alpha value.
+        let ema_bonds = mat_ema(bonds_delta, bonds, alpha);
+
+        // Log the computed EMA bonds for debugging purposes.
+        log::trace!("Exponential Moving Average Bonds Normal: {:?}", ema_bonds);
+
+        // Return the computed EMA bonds.
+        ema_bonds
+    }
+
     /// Compute the Exponential Moving Average (EMA) of bonds based on the Liquid Alpha setting
     ///
     /// # Args:
@@ -914,7 +1061,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns:
     /// A vector of EMA bonds.
-    pub fn compute_ema_bonds(
+    pub fn compute_bonds(
         netuid: u16,
         weights: &[Vec<I32F32>], // weights_for_bonds
         bonds: &[Vec<I32F32>],
@@ -960,7 +1107,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns:
     /// A vector of EMA bonds.
-    pub fn compute_ema_bonds_sparse(
+    pub fn compute_bonds_sparse(
         netuid: u16,
         weights: &[Vec<(u16, I32F32)>],
         bonds: &[Vec<(u16, I32F32)>],
