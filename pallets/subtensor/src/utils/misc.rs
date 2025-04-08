@@ -703,6 +703,14 @@ impl<T: Config> Pallet<T> {
         LiquidAlphaOn::<T>::get(netuid)
     }
 
+    pub fn set_yuma3_enabled(netuid: u16, enabled: bool) {
+        Yuma3On::<T>::set(netuid, enabled);
+    }
+
+    pub fn get_yuma3_enabled(netuid: u16) -> bool {
+        Yuma3On::<T>::get(netuid)
+    }
+
     /// Set the duration for coldkey swap
     ///
     /// # Arguments

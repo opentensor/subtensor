@@ -80,7 +80,7 @@ describe("Test the Subnet precompile contract", () => {
             assert.equal(valueFromContract, onchainValue);
         }
 
-        // minDifficulty hyperparameter 
+        // minDifficulty hyperparameter
         //
         // disabled: only by sudo
         //
@@ -404,6 +404,21 @@ describe("Test the Subnet precompile contract", () => {
 
             assert.equal(valueFromContract, newValue)
             assert.equal(valueFromContract, onchainValue);
+        }
+
+        // yuma3Enabled hyperparameter
+        {
+          const newValue = true;
+          const tx = await contract.setYuma3Enabled(netuid, newValue);
+          await tx.wait();
+
+          let onchainValue = await api.query.SubtensorModule.Yuma3Enabled.getValue(netuid)
+
+          let valueFromContract = Boolean(
+            await contract.getYuma3Enabled(netuid)
+          );
+          assert.equal(valueFromContract, newValue)
+          assert.equal(valueFromContract, onchainValue);
         }
 
         // alphaValues hyperparameter

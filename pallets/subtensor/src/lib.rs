@@ -730,6 +730,11 @@ pub mod pallet {
         false
     }
     #[pallet::type_value]
+    /// -- ITEM (switches liquid alpha on)
+    pub fn DefaultYuma3<T: Config>() -> bool {
+        false
+    }
+    #[pallet::type_value]
     /// (alpha_low: 0.7, alpha_high: 0.9)
     pub fn DefaultAlphaValues<T: Config>() -> (u16, u16) {
         (45875, 58982)
@@ -1355,6 +1360,9 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> Whether or not Liquid Alpha is enabled
     pub type LiquidAlphaOn<T> =
         StorageMap<_, Blake2_128Concat, u16, bool, ValueQuery, DefaultLiquidAlpha<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> Whether or not Yuma3 is enabled
+    pub type Yuma3On<T> = StorageMap<_, Blake2_128Concat, u16, bool, ValueQuery, DefaultYuma3<T>>;
     #[pallet::storage]
     ///  MAP ( netuid ) --> (alpha_low, alpha_high)
     pub type AlphaValues<T> =
