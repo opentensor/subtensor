@@ -1387,6 +1387,7 @@ impl pallet_crowdloan::Config for Runtime {
     type MinimumBlockDuration = MinimumBlockDuration;
     type MaximumBlockDuration = MaximumBlockDuration;
     type RefundContributorsLimit = RefundContributorsLimit;
+    type WeightInfo = pallet_crowdloan::weights::SubstrateWeight<Runtime>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -1423,7 +1424,7 @@ construct_runtime!(
         BaseFee: pallet_base_fee = 25,
 
         Drand: pallet_drand = 26,
-    
+
         Crowdloan: pallet_crowdloan = 27,
     }
 );

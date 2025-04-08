@@ -2,12 +2,13 @@
 use frame_support::{
     PalletId, derive_impl, parameter_types,
     traits::{OnFinalize, OnInitialize},
+    weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_core::U256;
 use sp_runtime::{BuildStorage, traits::IdentityLookup};
 
-use crate::{BalanceOf, CrowdloanId, pallet as pallet_crowdloan};
+use crate::{BalanceOf, CrowdloanId, pallet as pallet_crowdloan, weights::WeightInfo};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 pub(crate) type AccountOf<T> = <T as frame_system::Config>::AccountId;
@@ -65,6 +66,25 @@ parameter_types! {
     pub const RefundContributorsLimit: u32 = 2;
 }
 
+pub struct TestWeightInfo;
+impl WeightInfo for TestWeightInfo {
+    fn create() -> Weight {
+        Weight::zero()
+    }
+    fn contribute() -> Weight {
+        Weight::zero()
+    }
+    fn withdraw() -> Weight {
+        Weight::zero()
+    }
+    fn refund(_k: u32) -> Weight {
+        Weight::zero()
+    }
+    fn finalize() -> Weight {
+        Weight::zero()
+    }
+}
+
 impl pallet_crowdloan::Config for Test {
     type PalletId = CrowdloanPalletId;
     type Currency = Balances;
@@ -75,6 +95,7 @@ impl pallet_crowdloan::Config for Test {
     type MinimumBlockDuration = MinimumBlockDuration;
     type MaximumBlockDuration = MaximumBlockDuration;
     type RefundContributorsLimit = RefundContributorsLimit;
+    type WeightInfo = TestWeightInfo;
 }
 
 // A test pallet used to test some behavior of the crowdloan pallet

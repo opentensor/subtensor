@@ -21,6 +21,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use scale_info::TypeInfo;
+use weights::WeightInfo;
 
 pub use pallet::*;
 use subtensor_macros::freeze_struct;
@@ -30,6 +31,7 @@ type CrowdloanId = u32;
 mod benchmarking;
 mod mock;
 mod tests;
+pub mod weights;
 
 pub(crate) type CurrencyOf<T> = <T as Config>::Currency;
 pub(crate) type BalanceOf<T> =
@@ -64,7 +66,7 @@ type CrowdloanInfoOf<T> = CrowdloanInfo<
     <T as Config>::RuntimeCall,
 >;
 
-#[frame_support::pallet(dev_mode)]
+#[frame_support::pallet]
 pub mod pallet {
     use super::*;
     use frame_support::sp_runtime::traits::Dispatchable;
@@ -89,6 +91,9 @@ pub mod pallet {
 
         /// The currency mechanism.
         type Currency: ReservableCurrency<Self::AccountId>;
+
+        /// The weight information for the pallet.
+        type WeightInfo: WeightInfo;
 
         /// The pallet id that will be used to derive crowdloan account ids.
         #[pallet::constant]
@@ -212,10 +217,11 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Create a crowdloan that will raise funds up to a maximum cap and if successful,
-        /// will transfer funds to the target address and dispatch a call.
+        /// will transfer funds to the target address and dispatch a call (using creator origin).
         ///
         /// The initial deposit will be transfered to the crowdloan account and will be refunded
-        /// in case the crowdloan fails to raise the cap.
+        /// in case the crowdloan fails to raise the cap. Additionally, the creator will pay for
+        /// the execution of the call
         ///
         /// The dispatch origin for this call must be _Signed_.
         ///
@@ -226,6 +232,15 @@ pub mod pallet {
         /// - `target_address`: The address to transfer the raised funds to.
         /// - `call`: The call to dispatch when the crowdloan is finalized.
         #[pallet::call_index(0)]
+        #[pallet::weight({
+			let di = call.get_dispatch_info();
+			let inner_call_weight = match di.pays_fee {
+				Pays::Yes => di.weight,
+				Pays::No => Weight::zero(),
+			};
+			let base_weight = T::WeightInfo::create();
+			(base_weight.saturating_add(inner_call_weight), Pays::Yes)
+		})]
         pub fn create(
             origin: OriginFor<T>,
             #[pallet::compact] deposit: BalanceOf<T>,
@@ -315,6 +330,7 @@ pub mod pallet {
         /// - `crowdloan_id`: The id of the crowdloan to contribute to.
         /// - `amount`: The amount to contribute.
         #[pallet::call_index(1)]
+        #[pallet::weight(T::WeightInfo::contribute())]
         pub fn contribute(
             origin: OriginFor<T>,
             #[pallet::compact] crowdloan_id: CrowdloanId,
@@ -394,6 +410,7 @@ pub mod pallet {
         /// - `contributor`: The contributor to withdraw from.
         /// - `crowdloan_id`: The id of the crowdloan to withdraw from.
         #[pallet::call_index(3)]
+        #[pallet::weight(T::WeightInfo::withdraw())]
         pub fn withdraw(
             origin: OriginFor<T>,
             contributor: T::AccountId,
@@ -442,10 +459,11 @@ pub mod pallet {
         /// Parameters:
         /// - `crowdloan_id`: The id of the crowdloan to refund.
         #[pallet::call_index(4)]
+        #[pallet::weight(T::WeightInfo::refund(T::RefundContributorsLimit::get()))]
         pub fn refund(
             origin: OriginFor<T>,
             #[pallet::compact] crowdloan_id: CrowdloanId,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
 
             let mut crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
@@ -485,11 +503,13 @@ pub mod pallet {
 
             if all_refunded {
                 Self::deposit_event(Event::<T>::AllRefunded { crowdloan_id });
+                // The loop didn't run fully, we refund the unused weights.
+                Ok(Some(T::WeightInfo::refund(refund_count)).into())
             } else {
                 Self::deposit_event(Event::<T>::PartiallyRefunded { crowdloan_id });
+                // The loop ran fully, we don't refund anything.
+                Ok(().into())
             }
-
-            Ok(())
         }
 
         /// Finalize a successful crowdloan.
@@ -504,6 +524,7 @@ pub mod pallet {
         /// Parameters:
         /// - `crowdloan_id`: The id of the crowdloan to finalize.
         #[pallet::call_index(5)]
+        #[pallet::weight(T::WeightInfo::finalize())]
         pub fn finalize(
             origin: OriginFor<T>,
             #[pallet::compact] crowdloan_id: CrowdloanId,
@@ -530,7 +551,7 @@ pub mod pallet {
             // can access it temporarily
             CurrentCrowdloanId::<T>::put(crowdloan_id);
 
-            // Dispatch the call
+            // Dispatch the call with creator origin
             let call = crowdloan.call.clone();
             call.dispatch(frame_system::RawOrigin::Signed(creator).into())
                 .map(|_| ())
