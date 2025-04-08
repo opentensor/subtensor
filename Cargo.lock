@@ -5628,6 +5628,7 @@ dependencies = [
  "pallet-base-fee",
  "pallet-collective",
  "pallet-commitments",
+ "pallet-crowdloan",
  "pallet-drand",
  "pallet-ethereum",
  "pallet-evm",

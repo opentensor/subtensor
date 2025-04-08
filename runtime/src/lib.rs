@@ -14,6 +14,7 @@ mod migrations;
 use codec::{Compact, Decode, Encode};
 use frame_support::traits::Imbalance;
 use frame_support::{
+    PalletId,
     dispatch::DispatchResultWithPostInfo,
     genesis_builder_helper::{build_state, get_preset},
     pallet_prelude::Get,
@@ -1366,6 +1367,28 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
     }
 }
 
+// Crowdloan
+parameter_types! {
+    pub const CrowdloanPalletId: PalletId = PalletId(*b"bt/cloan");
+    pub const MinimumDeposit: Balance = 10_000_000_000; // 10 TAO
+    pub const MinimumContribution: Balance = 100_000_000; // 0.1 TAO
+    pub const MinimumBlockDuration: BlockNumber = 1000;
+    pub const MaximumBlockDuration: BlockNumber = 5000;
+    pub const RefundContributorsLimit: u32 = 5;
+}
+
+impl pallet_crowdloan::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type Currency = Balances;
+    type PalletId = CrowdloanPalletId;
+    type MinimumDeposit = MinimumDeposit;
+    type MinimumContribution = MinimumContribution;
+    type MinimumBlockDuration = MinimumBlockDuration;
+    type MaximumBlockDuration = MaximumBlockDuration;
+    type RefundContributorsLimit = RefundContributorsLimit;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
     pub struct Runtime
@@ -1400,6 +1423,8 @@ construct_runtime!(
         BaseFee: pallet_base_fee = 25,
 
         Drand: pallet_drand = 26,
+    
+        Crowdloan: pallet_crowdloan = 27,
     }
 );
 
@@ -1469,6 +1494,7 @@ mod benches {
         [pallet_admin_utils, AdminUtils]
         [pallet_subtensor, SubtensorModule]
         [pallet_drand, Drand]
+        [pallet_crowdloan, Crowdloan]
     );
 }
 
