@@ -689,6 +689,7 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
     FirstEmissionBlockNumber::<Test>::insert(netuid, 1);
+    SubtokenEnabled::<Test>::insert(netuid, true);
 }
 
 #[allow(dead_code)]
