@@ -9,18 +9,22 @@ extern crate alloc;
 
 use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode};
-use frame_support::pallet_prelude::*;
 use frame_support::{
     PalletId,
     dispatch::GetDispatchInfo,
+    pallet_prelude::*,
     sp_runtime::{
         RuntimeDebug,
-        traits::{AccountIdConversion, CheckedAdd, Zero},
+        traits::{AccountIdConversion, CheckedAdd, Dispatchable, Zero},
     },
-    traits::{Currency, Get, IsSubType, ReservableCurrency, tokens::ExistenceRequirement},
+    traits::{
+        Bounded, Currency, Get, IsSubType, QueryPreimage, ReservableCurrency, StorePreimage,
+        tokens::ExistenceRequirement,
+    },
 };
 use frame_system::pallet_prelude::*;
 use scale_info::TypeInfo;
+use sp_runtime::traits::{CheckedSub, Saturating};
 use weights::WeightInfo;
 
 pub use pallet::*;
@@ -34,13 +38,17 @@ mod tests;
 pub mod weights;
 
 pub(crate) type CurrencyOf<T> = <T as Config>::Currency;
+
 pub(crate) type BalanceOf<T> =
     <CurrencyOf<T> as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
+pub type BoundedCallOf<T> =
+    Bounded<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hashing>;
+
 /// A struct containing the information about a crowdloan.
-#[freeze_struct("64e250b23f674ef5")]
-#[derive(Encode, Decode, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo)]
-pub struct CrowdloanInfo<AccountId, Balance, BlockNumber, RuntimeCall> {
+#[freeze_struct("de8793ad88ba2969")]
+#[derive(Encode, Decode, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub struct CrowdloanInfo<AccountId, Balance, BlockNumber, Call> {
     /// The creator of the crowdloan.
     pub creator: AccountId,
     /// The initial deposit of the crowdloan from the creator.
@@ -54,7 +62,7 @@ pub struct CrowdloanInfo<AccountId, Balance, BlockNumber, RuntimeCall> {
     /// The target address to transfer the raised funds to.
     pub target_address: AccountId,
     /// The call to dispatch when the crowdloan is finalized.
-    pub call: Box<RuntimeCall>,
+    pub call: Call,
     /// Whether the crowdloan has been finalized.
     pub finalized: bool,
 }
@@ -63,14 +71,12 @@ type CrowdloanInfoOf<T> = CrowdloanInfo<
     <T as frame_system::Config>::AccountId,
     BalanceOf<T>,
     BlockNumberFor<T>,
-    <T as Config>::RuntimeCall,
+    BoundedCallOf<T>,
 >;
 
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::sp_runtime::traits::Dispatchable;
-    use sp_runtime::traits::{CheckedSub, Saturating};
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
@@ -94,6 +100,9 @@ pub mod pallet {
 
         /// The weight information for the pallet.
         type WeightInfo: WeightInfo;
+
+        /// The preimage provider which will be used to store the call to dispatch.
+        type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 
         /// The pallet id that will be used to derive crowdloan account ids.
         #[pallet::constant]
@@ -212,6 +221,8 @@ pub mod pallet {
         CapNotRaised,
         /// An underflow occurred.
         Underflow,
+        /// Call to dispatch was not found in the preimage storage.
+        CallUnavailable,
     }
 
     #[pallet::call]
@@ -290,7 +301,7 @@ pub mod pallet {
                     cap,
                     raised: deposit,
                     target_address,
-                    call,
+                    call: T::Preimages::bound(*call)?,
                     finalized: false,
                 },
             );
@@ -551,8 +562,18 @@ pub mod pallet {
             // can access it temporarily
             CurrentCrowdloanId::<T>::put(crowdloan_id);
 
+            // Retrieve the call from the preimage storage
+            let call = match T::Preimages::peek(&crowdloan.call) {
+                Ok((call, _)) => call,
+                Err(_) => {
+                    // If the call is not found, we drop it from the preimage storage
+                    // because it's not needed anymore
+                    T::Preimages::drop(&crowdloan.call);
+                    return Err(Error::<T>::CallUnavailable)?;
+                }
+            };
+
             // Dispatch the call with creator origin
-            let call = crowdloan.call.clone();
             call.dispatch(frame_system::RawOrigin::Signed(creator).into())
                 .map(|_| ())
                 .map_err(|e| e.error)?;

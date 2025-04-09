@@ -1,7 +1,7 @@
 #![cfg(test)]
 #![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_err, assert_ok, traits::StorePreimage};
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_core::U256;
 use sp_runtime::DispatchError;
@@ -30,6 +30,7 @@ fn test_create_succeeds() {
 
             let crowdloan_id = 0;
             // ensure the crowdloan is stored correctly
+            let call = pallet_preimage::Pallet::<Test>::bound(*noop_call()).unwrap();
             assert_eq!(
                 pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id),
                 Some(CrowdloanInfo {
@@ -39,7 +40,7 @@ fn test_create_succeeds() {
                     end,
                     raised: deposit,
                     target_address,
-                    call: noop_call(),
+                    call,
                     finalized: false,
                 })
             );

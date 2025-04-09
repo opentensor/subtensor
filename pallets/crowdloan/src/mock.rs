@@ -4,7 +4,7 @@ use frame_support::{
     traits::{OnFinalize, OnInitialize},
     weights::Weight,
 };
-use frame_system::pallet_prelude::BlockNumberFor;
+use frame_system::{pallet_prelude::BlockNumberFor, EnsureRoot};
 use sp_core::U256;
 use sp_runtime::{BuildStorage, traits::IdentityLookup};
 
@@ -19,7 +19,8 @@ frame_support::construct_runtime!(
       System: frame_system = 1,
       Balances: pallet_balances = 2,
       Crowdloan: pallet_crowdloan = 3,
-      TestPallet: pallet_test = 4,
+      Preimage: pallet_preimage = 4,
+      TestPallet: pallet_test = 5,
     }
 );
 
@@ -85,17 +86,32 @@ impl WeightInfo for TestWeightInfo {
     }
 }
 
+parameter_types! {
+    pub const PreimageMaxSize: u32 = 4096 * 1024;
+    pub const PreimageBaseDeposit: u64 = 1;
+    pub const PreimageByteDeposit: u64 = 1;
+}
+
+impl pallet_preimage::Config for Test {
+    type WeightInfo = pallet_preimage::weights::SubstrateWeight<Test>;
+    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
+    type ManagerOrigin = EnsureRoot<AccountOf<Test>>;
+    type Consideration = ();
+}
+
 impl pallet_crowdloan::Config for Test {
     type PalletId = CrowdloanPalletId;
     type Currency = Balances;
     type RuntimeCall = RuntimeCall;
     type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = TestWeightInfo;
+    type Preimages = Preimage;
     type MinimumDeposit = MinimumDeposit;
     type MinimumContribution = MinimumContribution;
     type MinimumBlockDuration = MinimumBlockDuration;
     type MaximumBlockDuration = MaximumBlockDuration;
     type RefundContributorsLimit = RefundContributorsLimit;
-    type WeightInfo = TestWeightInfo;
 }
 
 // A test pallet used to test some behavior of the crowdloan pallet
