@@ -120,9 +120,6 @@ impl<T: Config> Pallet<T> {
         // Ensure the extrinsic is signed by the origin_coldkey.
         let coldkey = ensure_signed(origin)?;
 
-        Self::ensure_subtoken_enabled(origin_netuid)?;
-        Self::ensure_subtoken_enabled(destination_netuid)?;
-
         // Validate input and move stake
         let tao_moved = Self::transition_stake_internal(
             &coldkey,
@@ -192,10 +189,6 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // Ensure the extrinsic is signed by the coldkey.
         let coldkey = ensure_signed(origin)?;
-
-        Self::ensure_subtoken_enabled(origin_netuid)?;
-
-        Self::ensure_subtoken_enabled(destination_netuid)?;
 
         // Validate input and move stake
         let tao_moved = Self::transition_stake_internal(
