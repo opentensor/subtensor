@@ -286,6 +286,6 @@ fn test_subtoken_enable() {
         let netuid: u16 = 1;
         // let to_be_set: u64 = 10
         add_network(netuid, 10, 0);
-        assert_eq!(SubtokenEnabled::<Test>::get(netuid), false);
+        assert!(!SubtokenEnabled::<Test>::get(netuid));
     });
 }
