@@ -206,13 +206,7 @@ impl<T: Config> Pallet<T> {
             log::trace!("B: {:?}", &bonds);
 
             // Compute the Exponential Moving Average (EMA) of bonds.
-            ema_bonds = Self::compute_bonds(
-                netuid,
-                &weights_for_bonds,
-                &bonds,
-                &consensus,
-                &active_stake,
-            );
+            ema_bonds = Self::compute_bonds(netuid, &weights_for_bonds, &bonds, &consensus);
             log::trace!("emaB: {:?}", &ema_bonds);
 
             // Normalize EMA bonds.
@@ -623,13 +617,7 @@ impl<T: Config> Pallet<T> {
 
             // Compute the Exponential Moving Average (EMA) of bonds.
             log::trace!("weights_for_bonds: {:?}", &weights_for_bonds);
-            ema_bonds = Self::compute_bonds_sparse(
-                netuid,
-                &weights_for_bonds,
-                &bonds,
-                &consensus,
-                &active_stake,
-            );
+            ema_bonds = Self::compute_bonds_sparse(netuid, &weights_for_bonds, &bonds, &consensus);
             log::trace!("emaB: {:?}", &ema_bonds);
 
             // Normalize EMA bonds.
@@ -1066,7 +1054,6 @@ impl<T: Config> Pallet<T> {
         weights: &[Vec<I32F32>], // weights_for_bonds
         bonds: &[Vec<I32F32>],
         consensus: &[I32F32],
-        active_stake: &[I32F32],
     ) -> Vec<Vec<I32F32>> {
         // Check if Liquid Alpha is enabled, consensus is not empty, and contains non-zero values.
         if LiquidAlphaOn::<T>::get(netuid)
@@ -1086,13 +1073,8 @@ impl<T: Config> Pallet<T> {
             // Liquid Alpha is disabled, compute the liquid alpha value.
             let alpha: I32F32 = Self::compute_disabled_liquid_alpha(netuid);
 
-            // Compute bonds delta column normalized.
-            let mut bonds_delta: Vec<Vec<I32F32>> = row_hadamard(weights, active_stake); // ΔB = W◦S
-            inplace_col_normalize(&mut bonds_delta); // sum_i b_ij = 1
-            log::trace!("ΔB: {:?}", &bonds_delta);
-
             // Compute the Exponential Moving Average (EMA) of bonds using the calculated alpha value.
-            mat_ema(&bonds_delta, bonds, alpha)
+            mat_ema(weights, bonds, alpha)
         }
     }
 
@@ -1112,7 +1094,6 @@ impl<T: Config> Pallet<T> {
         weights: &[Vec<(u16, I32F32)>],
         bonds: &[Vec<(u16, I32F32)>],
         consensus: &[I32F32],
-        active_stake: &[I32F32],
     ) -> Vec<Vec<(u16, I32F32)>> {
         // Check if Liquid Alpha is enabled, consensus is not empty, and contains non-zero values.
         if LiquidAlphaOn::<T>::get(netuid)
@@ -1129,19 +1110,11 @@ impl<T: Config> Pallet<T> {
             // Compute the Exponential Moving Average (EMA) of bonds using the provided clamped alpha values.
             mat_ema_alpha_sparse(weights, bonds, &alphas)
         } else {
-            let n: u16 = Self::get_subnetwork_n(netuid);
-
             // Liquid Alpha is disabled, compute the liquid alpha value.
             let alpha: I32F32 = Self::compute_disabled_liquid_alpha(netuid);
 
-            // Compute bonds delta column normalized.
-            let mut bonds_delta: Vec<Vec<(u16, I32F32)>> =
-                row_hadamard_sparse(weights, active_stake); // ΔB = W◦S
-            inplace_col_normalize_sparse(&mut bonds_delta, n); // sum_i b_ij = 1
-            log::trace!("ΔB: {:?}", &bonds_delta);
-
             // Compute the Exponential Moving Average (EMA) of bonds using the calculated alpha value.
-            mat_ema_sparse(&bonds_delta, bonds, alpha)
+            mat_ema_sparse(weights, bonds, alpha)
         }
     }
 
@@ -1303,7 +1276,6 @@ impl<T: Config> Pallet<T> {
         // Alpha is derived by subtracting the scaled bonds moving average from 1.
         let alpha: I32F32 =
             I32F32::from_num(1).saturating_sub(I32F32::from_num(bonds_moving_average));
-
         alpha
     }
 

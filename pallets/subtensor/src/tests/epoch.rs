@@ -2641,6 +2641,7 @@ fn setup_yuma_3_scenario(netuid: u16, n: u16, sparse: bool, max_stake: u64, stak
     SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
     SubtensorModule::set_bonds_penalty(netuid, 0);
     SubtensorModule::set_alpha_sigmoid_steepness(netuid, 10);
+    SubtensorModule::set_bonds_moving_average(netuid, 975_000);
 
     // === Register
     for key in 0..n as u64 {
@@ -3094,6 +3095,95 @@ fn test_yuma_3_one_epoch_switch() {
                 vec![0.3628, 0.3628, 0.2745, 0.0000, 0.0000],
                 vec![0.3541, 0.3541, 0.2917, 0.0000, 0.0000],
                 vec![0.3487, 0.3487, 0.3026, 0.0000, 0.0000],
+            ];
+
+            for (epoch, (target_bonds, target_dividends)) in targets_bonds
+                .iter()
+                .zip(targets_dividends.iter())
+                .enumerate()
+            {
+                match epoch {
+                    2 => {
+                        // Validator A -> Server 1
+                        // Validator B -> Server 1
+                        // Validator C -> Server 2
+                        set_yuma_3_weights(
+                            netuid,
+                            vec![vec![u16::MAX, 0], vec![u16::MAX, 0], vec![0, u16::MAX]],
+                            vec![3, 4],
+                        );
+                    }
+                    _ => {
+                        // All validators -> Server 1
+                        set_yuma_3_weights(netuid, vec![vec![u16::MAX, 0]; 3], vec![3, 4]);
+                    }
+                };
+                run_epoch_and_check_bonds_dividends(
+                    netuid,
+                    *sparse,
+                    target_bonds,
+                    target_dividends,
+                );
+            }
+        })
+    }
+}
+
+#[test]
+fn test_yuma_3_liquid_alpha_disabled() {
+    for sparse in [true, false].iter() {
+        new_test_ext(1).execute_with(|| {
+            let netuid: u16 = 1;
+            let n: u16 = 5; // 3 validators, 2 servers
+            let max_stake: u64 = 8;
+
+            // Equal stake validators
+            let stakes: Vec<u64> = vec![33, 33, 34, 0, 0];
+
+            setup_yuma_3_scenario(netuid, n, *sparse, max_stake, stakes);
+
+            // disable liquid alpha
+            SubtensorModule::set_liquid_alpha_enabled(netuid, false);
+
+            let targets_bonds = [
+                vec![
+                    vec![0.0000, 0.0250, 0.0000],
+                    vec![0.0000, 0.0250, 0.0000],
+                    vec![0.0000, 0.0250, 0.0000],
+                ],
+                vec![
+                    vec![0.0000, 0.0494, 0.0000],
+                    vec![0.0000, 0.0494, 0.0000],
+                    vec![0.0000, 0.0494, 0.0000],
+                ],
+                vec![
+                    vec![0.0000, 0.0731, 0.0000],
+                    vec![0.0000, 0.0731, 0.0000],
+                    vec![0.0000, 0.0481, 0.0250],
+                ],
+                vec![
+                    vec![0.0000, 0.0963, 0.0000],
+                    vec![0.0000, 0.0963, 0.0000],
+                    vec![0.0000, 0.0719, 0.0244],
+                ],
+                vec![
+                    vec![0.0000, 0.1189, 0.0000],
+                    vec![0.0000, 0.1189, 0.0000],
+                    vec![0.0000, 0.0951, 0.0238],
+                ],
+                vec![
+                    vec![0.0000, 0.1409, 0.0000],
+                    vec![0.0000, 0.1409, 0.0000],
+                    vec![0.0000, 0.1178, 0.0232],
+                ],
+            ];
+            let targets_dividends = [
+                vec![0.3300, 0.3300, 0.3400, 0.0000, 0.0000],
+                vec![0.3300, 0.3300, 0.3400, 0.0000, 0.0000],
+                vec![0.3734, 0.3734, 0.2532, 0.0000, 0.0000],
+                vec![0.3611, 0.3611, 0.2779, 0.0000, 0.0000],
+                vec![0.3541, 0.3541, 0.2919, 0.0000, 0.0000],
+                vec![0.3495, 0.3495, 0.3009, 0.0000, 0.0000],
             ];
 
             for (epoch, (target_bonds, target_dividends)) in targets_bonds
