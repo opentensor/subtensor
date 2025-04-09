@@ -1,4 +1,5 @@
 use super::*;
+pub mod evm;
 pub mod identity;
 pub mod misc;
 pub mod rate_limiting;

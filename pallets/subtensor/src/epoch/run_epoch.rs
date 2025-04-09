@@ -22,6 +22,10 @@ impl<T: Config> Pallet<T> {
         let current_block: u64 = Self::get_current_block_as_u64();
         log::trace!("current_block:\n{:?}\n", current_block);
 
+        // Get tempo.
+        let tempo: u64 = Self::get_tempo(netuid).into();
+        log::trace!("tempo: {:?}", tempo);
+
         // Get activity cutoff.
         let activity_cutoff: u64 = Self::get_activity_cutoff(netuid) as u64;
         log::trace!("activity_cutoff:\n{:?}\n", activity_cutoff);
@@ -44,7 +48,7 @@ impl<T: Config> Pallet<T> {
         let block_at_registration: Vec<u64> = Self::get_block_at_registration(netuid);
         log::trace!("Block at registration:\n{:?}\n", &block_at_registration);
 
-        // Outdated matrix, updated_ij=True if i has last updated (weights) after j has last registered.
+        // Outdated matrix, outdated_ij=True if i has last updated (weights) after j has last registered.
         let outdated: Vec<Vec<bool>> = last_update
             .iter()
             .map(|updated| {
@@ -55,6 +59,16 @@ impl<T: Config> Pallet<T> {
             })
             .collect();
         log::trace!("Outdated:\n{:?}\n", &outdated);
+
+        // Recently registered matrix, recently_ij=True if last_tempo was *before* j was last registered.
+        // Mask if: the last tempo block happened *before* the registration block
+        // ==> last_tempo <= registered
+        let last_tempo: u64 = current_block.saturating_sub(tempo);
+        let recently_registered: Vec<bool> = block_at_registration
+            .iter()
+            .map(|registered| last_tempo <= *registered)
+            .collect();
+        log::trace!("Recently registered:\n{:?}\n", &recently_registered);
 
         // ===========
         // == Stake ==
@@ -111,6 +125,9 @@ impl<T: Config> Pallet<T> {
         // == Weights ==
         // =============
 
+        // Get owner uid.
+        let owner_uid: Option<u16> = Self::get_owner_uid(netuid);
+
         // Access network weights row unnormalized.
         let mut weights: Vec<Vec<I32F32>> = Self::get_weights(netuid);
         log::trace!("W:\n{:?}\n", &weights);
@@ -119,7 +136,13 @@ impl<T: Config> Pallet<T> {
         inplace_mask_rows(&validator_forbids, &mut weights);
         log::trace!("W (permit): {:?}", &weights);
 
-        // Remove self-weight by masking diagonal.
+        // Remove self-weight by masking diagonal; keep owner_uid self-weight.
+        if let Some(owner_uid) = owner_uid {
+            inplace_mask_diag_except_index(&mut weights, owner_uid);
+        } else {
+            inplace_mask_diag(&mut weights);
+        }
+
         inplace_mask_diag(&mut weights);
         log::trace!("W (permit+diag):\n{:?}\n", &weights);
 
@@ -176,7 +199,8 @@ impl<T: Config> Pallet<T> {
 
         // Access network bonds.
         let mut bonds: Vec<Vec<I32F32>> = Self::get_bonds(netuid);
-        inplace_mask_matrix(&outdated, &mut bonds); // mask outdated bonds
+        // Remove bonds referring to neurons that have registered since last tempo.
+        inplace_mask_cols(&recently_registered, &mut bonds); // mask recently registered bonds
         inplace_col_normalize(&mut bonds); // sum_i b_ij = 1
         log::trace!("B:\n{:?}\n", &bonds);
 
@@ -377,6 +401,10 @@ impl<T: Config> Pallet<T> {
         let current_block: u64 = Self::get_current_block_as_u64();
         log::trace!("current_block: {:?}", current_block);
 
+        // Get tempo.
+        let tempo: u64 = Self::get_tempo(netuid).into();
+        log::trace!("tempo:\n{:?}\n", tempo);
+
         // Get activity cutoff.
         let activity_cutoff: u64 = Self::get_activity_cutoff(netuid) as u64;
         log::trace!("activity_cutoff: {:?}", activity_cutoff);
@@ -454,6 +482,8 @@ impl<T: Config> Pallet<T> {
         // == Weights ==
         // =============
 
+        let owner_uid: Option<u16> = Self::get_owner_uid(netuid);
+
         // Access network weights row unnormalized.
         let mut weights: Vec<Vec<(u16, I32F32)>> = Self::get_weights_sparse(netuid);
         log::trace!("Weights: {:?}", &weights);
@@ -462,8 +492,12 @@ impl<T: Config> Pallet<T> {
         weights = mask_rows_sparse(&validator_forbids, &weights);
         log::trace!("Weights (permit): {:?}", &weights);
 
-        // Remove self-weight by masking diagonal.
-        weights = mask_diag_sparse(&weights);
+        // Remove self-weight by masking diagonal; keep owner_uid self-weight.
+        if let Some(owner_uid) = owner_uid {
+            weights = mask_diag_sparse_except_index(&weights, owner_uid);
+        } else {
+            weights = mask_diag_sparse(&weights);
+        }
         log::trace!("Weights (permit+diag): {:?}", &weights);
 
         // Remove weights referring to deregistered neurons.
@@ -533,12 +567,15 @@ impl<T: Config> Pallet<T> {
         let mut bonds: Vec<Vec<(u16, I32F32)>> = Self::get_bonds_sparse(netuid);
         log::trace!("B: {:?}", &bonds);
 
-        // Remove bonds referring to deregistered neurons.
-        bonds = vec_mask_sparse_matrix(
+        // Remove bonds referring to neurons that have registered since last tempo.
+        // Mask if: the last tempo block happened *before* the registration block
+        // ==> last_tempo <= registered
+        let last_tempo: u64 = current_block.saturating_sub(tempo);
+        bonds = scalar_vec_mask_sparse_matrix(
             &bonds,
-            &last_update,
+            last_tempo,
             &block_at_registration,
-            &|updated, registered| updated <= registered,
+            &|last_tempo, registered| last_tempo <= registered,
         );
         log::trace!("B (outdatedmask): {:?}", &bonds);
 

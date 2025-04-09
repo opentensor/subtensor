@@ -549,6 +549,24 @@ pub fn inplace_mask_rows(mask: &[bool], matrix: &mut [Vec<I32F32>]) {
         });
 }
 
+// Apply column mask to matrix, mask=true will mask out, i.e. set to 0.
+// Assumes each column has the same length.
+#[allow(dead_code)]
+pub fn inplace_mask_cols(mask: &[bool], matrix: &mut [Vec<I32F32>]) {
+    let Some(first_row) = matrix.first() else {
+        return;
+    };
+    assert_eq!(mask.len(), first_row.len());
+    let zero: I32F32 = I32F32::saturating_from_num(0);
+    matrix.iter_mut().for_each(|row_elem| {
+        row_elem.iter_mut().zip(mask).for_each(|(elem, mask_col)| {
+            if *mask_col {
+                *elem = zero;
+            }
+        });
+    });
+}
+
 // Mask out the diagonal of the input matrix in-place.
 #[allow(dead_code)]
 pub fn inplace_mask_diag(matrix: &mut [Vec<I32F32>]) {
@@ -566,6 +584,53 @@ pub fn inplace_mask_diag(matrix: &mut [Vec<I32F32>]) {
             return;
         };
         *elem = zero;
+    });
+}
+
+// Remove cells from sparse matrix where the mask function of a scalar and a vector is true.
+#[allow(dead_code, clippy::indexing_slicing)]
+pub fn scalar_vec_mask_sparse_matrix(
+    sparse_matrix: &[Vec<(u16, I32F32)>],
+    scalar: u64,
+    vector: &[u64],
+    mask_fn: &dyn Fn(u64, u64) -> bool,
+) -> Vec<Vec<(u16, I32F32)>> {
+    let n: usize = sparse_matrix.len();
+    let mut result: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
+    for (i, sparse_row) in sparse_matrix.iter().enumerate() {
+        for (j, value) in sparse_row {
+            if !mask_fn(scalar, vector[*j as usize]) {
+                result[i].push((*j, *value));
+            }
+        }
+    }
+    result
+}
+
+// Mask out the diagonal of the input matrix in-place, except for the diagonal entry at except_index.
+#[allow(dead_code)]
+pub fn inplace_mask_diag_except_index(matrix: &mut [Vec<I32F32>], except_index: u16) {
+    let Some(first_row) = matrix.first() else {
+        return;
+    };
+    if first_row.is_empty() {
+        return;
+    }
+    assert_eq!(matrix.len(), first_row.len());
+
+    let diag_at_index = matrix
+        .get(except_index as usize)
+        .and_then(|row| row.get(except_index as usize))
+        .cloned();
+
+    inplace_mask_diag(matrix);
+
+    matrix.get_mut(except_index as usize).map(|row| {
+        row.get_mut(except_index as usize).map(|value| {
+            if let Some(diag_at_index) = diag_at_index {
+                *value = diag_at_index;
+            }
+        })
     });
 }
 
@@ -598,6 +663,29 @@ pub fn mask_diag_sparse(sparse_matrix: &[Vec<(u16, I32F32)>]) -> Vec<Vec<(u16, I
             sparse_row
                 .iter()
                 .filter(|(j, _)| i != (*j as usize))
+                .copied()
+                .collect()
+        })
+        .collect()
+}
+
+// Return a new sparse matrix with a masked out diagonal of input sparse matrix,
+// except for the diagonal entry at except_index.
+#[allow(dead_code)]
+pub fn mask_diag_sparse_except_index(
+    sparse_matrix: &[Vec<(u16, I32F32)>],
+    except_index: u16,
+) -> Vec<Vec<(u16, I32F32)>> {
+    sparse_matrix
+        .iter()
+        .enumerate()
+        .map(|(i, sparse_row)| {
+            sparse_row
+                .iter()
+                .filter(|(j, _)| {
+                    // Is not a diagonal OR is the diagonal at except_index
+                    i != (*j as usize) || (i == except_index as usize && *j == except_index)
+                })
                 .copied()
                 .collect()
         })

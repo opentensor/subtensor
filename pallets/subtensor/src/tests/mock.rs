@@ -1,5 +1,6 @@
 #![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 use crate::utils::rate_limiting::TransactionType;
+use frame_support::PalletId;
 use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
 use frame_support::weights::Weight;
@@ -18,6 +19,8 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
 };
 use sp_std::cmp::Ordering;
+use substrate_fixed::types::U64F64;
+use subtensor_swap_interface::LiquidityDataProvider;
 
 use crate::*;
 
@@ -38,6 +41,7 @@ frame_support::construct_runtime!(
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 9,
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 10,
         Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 11,
+        Swap: pallet_subtensor_swap::{Pallet, Call, Storage, Event<T>} = 12,
     }
 );
 
@@ -138,7 +142,7 @@ parameter_types! {
     pub const InitialImmunityPeriod: u16 = 2;
     pub const InitialMaxAllowedUids: u16 = 2;
     pub const InitialBondsMovingAverage: u64 = 900_000;
-    pub const InitialBondsPenalty:u16 = 0;
+    pub const InitialBondsPenalty:u16 = u16::MAX;
     pub const InitialStakePruningMin: u16 = 0;
     pub const InitialFoundationDistribution: u64 = 0;
     pub const InitialDefaultDelegateTake: u16 = 11_796; // 18%, same as in production
@@ -152,7 +156,7 @@ parameter_types! {
     pub const InitialTxDelegateTakeRateLimit: u64 = 1; // 1 block take rate limit for testing
     pub const InitialTxChildKeyTakeRateLimit: u64 = 1; // 1 block take rate limit for testing
     pub const InitialBurn: u64 = 0;
-    pub const InitialMinBurn: u64 = 0;
+    pub const InitialMinBurn: u64 = 500_000;
     pub const InitialMaxBurn: u64 = 1_000_000_000;
     pub const InitialValidatorPruneLen: u64 = 0;
     pub const InitialScalingLawPower: u16 = 50;
@@ -184,6 +188,8 @@ parameter_types! {
     pub const InitialColdkeySwapScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
     pub const InitialDissolveNetworkScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
     pub const InitialTaoWeight: u64 = 0; // 100% global weight.
+    pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
+    pub const DurationOfStartCall: u64 =  7 * 24 * 60 * 60 / 12; // Default as 7 days
 }
 
 // Configure collective pallet for council
@@ -406,6 +412,46 @@ impl crate::Config for Test {
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialTaoWeight = InitialTaoWeight;
+    type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
+    type DurationOfStartCall = DurationOfStartCall;
+    type SwapInterface = Swap;
+}
+
+impl LiquidityDataProvider<AccountId> for SubtensorModule {
+    fn tao_reserve(netuid: u16) -> u64 {
+        SubnetTAO::<Test>::get(netuid)
+    }
+
+    fn alpha_reserve(netuid: u16) -> u64 {
+        SubnetAlphaIn::<Test>::get(netuid)
+    }
+
+    fn tao_balance(account_id: &AccountId) -> u64 {
+        Balances::free_balance(account_id)
+    }
+
+    fn alpha_balance(netuid: u16, account_id: &AccountId) -> u64 {
+        TotalHotkeyAlpha::<Test>::get(account_id, netuid)
+    }
+}
+
+// Swap-related parameter types
+parameter_types! {
+    pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
+    pub const SwapMaxFeeRate: u16 = 10000; // 15.26%
+    pub const SwapMaxPositions: u32 = 100;
+    pub const SwapMinimumLiquidity: u64 = 1_000;
+}
+
+impl pallet_subtensor_swap::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type AdminOrigin = EnsureRoot<AccountId>;
+    type LiquidityDataProvider = SubtensorModule;
+    type ProtocolId = SwapProtocolId;
+    type MaxFeeRate = SwapMaxFeeRate;
+    type MaxPositions = SwapMaxPositions;
+    type MinimumLiquidity = SwapMinimumLiquidity;
+    type WeightInfo = ();
 }
 
 pub struct OriginPrivilegeCmp;
@@ -591,6 +637,30 @@ pub(crate) fn run_to_block(n: u64) {
 }
 
 #[allow(dead_code)]
+pub(crate) fn next_block_no_epoch(netuid: u16) -> u64 {
+    // high tempo to skip automatic epochs in on_initialize
+    let high_tempo: u16 = u16::MAX - 1;
+    let old_tempo: u16 = SubtensorModule::get_tempo(netuid);
+
+    SubtensorModule::set_tempo(netuid, high_tempo);
+    let new_block = next_block();
+    SubtensorModule::set_tempo(netuid, old_tempo);
+
+    new_block
+}
+
+#[allow(dead_code)]
+pub(crate) fn run_to_block_no_epoch(netuid: u16, n: u64) {
+    // high tempo to skip automatic epochs in on_initialize
+    let high_tempo: u16 = u16::MAX - 1;
+    let old_tempo: u16 = SubtensorModule::get_tempo(netuid);
+
+    SubtensorModule::set_tempo(netuid, high_tempo);
+    run_to_block(n);
+    SubtensorModule::set_tempo(netuid, old_tempo);
+}
+
+#[allow(dead_code)]
 pub(crate) fn step_epochs(count: u16, netuid: u16) {
     for _ in 0..count {
         let blocks_to_next_epoch = SubtensorModule::blocks_until_next_epoch(
@@ -660,10 +730,34 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+    FirstEmissionBlockNumber::<Test>::insert(netuid, 1);
+}
+
+#[allow(dead_code)]
+pub fn add_network_without_emission_block(netuid: u16, tempo: u16, _modality: u16) {
+    SubtensorModule::init_new_network(netuid, tempo);
+    SubtensorModule::set_network_registration_allowed(netuid, true);
+    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
 }
 
 #[allow(dead_code)]
 pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> u16 {
+    let netuid = SubtensorModule::get_next_netuid();
+    let lock_cost = SubtensorModule::get_network_lock_cost();
+    SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost);
+
+    assert_ok!(SubtensorModule::register_network(
+        RawOrigin::Signed(*coldkey).into(),
+        *hotkey
+    ));
+    NetworkRegistrationAllowed::<Test>::insert(netuid, true);
+    NetworkPowRegistrationAllowed::<Test>::insert(netuid, true);
+    FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
+    netuid
+}
+
+#[allow(dead_code)]
+pub fn add_dynamic_network_without_emission_block(hotkey: &U256, coldkey: &U256) -> u16 {
     let netuid = SubtensorModule::get_next_netuid();
     let lock_cost = SubtensorModule::get_network_lock_cost();
     SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost);

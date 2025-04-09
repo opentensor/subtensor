@@ -1,5 +1,6 @@
 use super::*;
-use sp_core::Get;
+use substrate_fixed::types::U96F32;
+use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
@@ -39,7 +40,7 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
-        log::info!(
+        log::debug!(
             "do_remove_stake( origin:{:?} hotkey:{:?}, netuid: {:?}, alpha_unstaked:{:?} )",
             coldkey,
             hotkey,
@@ -58,7 +59,13 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // 3. Swap the alpba to tao and update counters for this subnet.
-        let fee = DefaultStakingFee::<T>::get();
+        let fee = Self::calculate_staking_fee(
+            Some((&hotkey, netuid)),
+            &coldkey,
+            None,
+            &coldkey,
+            U96F32::saturating_from_num(alpha_unstaked),
+        );
         let tao_unstaked: u64 =
             Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha_unstaked, fee);
 
@@ -109,11 +116,9 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
     ) -> dispatch::DispatchResult {
-        let fee = DefaultStakingFee::<T>::get();
-
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
-        log::info!("do_unstake_all( origin:{:?} hotkey:{:?} )", coldkey, hotkey);
+        log::debug!("do_unstake_all( origin:{:?} hotkey:{:?} )", coldkey, hotkey);
 
         // 2. Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
@@ -126,20 +131,43 @@ impl<T: Config> Pallet<T> {
         log::debug!("All subnet netuids: {:?}", netuids);
 
         // 4. Iterate through all subnets and remove stake.
-        for netuid in netuids.iter() {
+        for netuid in netuids.into_iter() {
             // Ensure that the hotkey has enough stake to withdraw.
             let alpha_unstaked =
-                Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, *netuid);
+                Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+
+            if Self::validate_remove_stake(
+                &coldkey,
+                &hotkey,
+                netuid,
+                alpha_unstaked,
+                alpha_unstaked,
+                false,
+            )
+            .is_err()
+            {
+                // Don't unstake from this netuid
+                continue;
+            }
+
+            let fee = Self::calculate_staking_fee(
+                Some((&hotkey, netuid)),
+                &coldkey,
+                None,
+                &coldkey,
+                U96F32::saturating_from_num(alpha_unstaked),
+            );
+
             if alpha_unstaked > 0 {
                 // Swap the alpha to tao and update counters for this subnet.
                 let tao_unstaked: u64 =
-                    Self::unstake_from_subnet(&hotkey, &coldkey, *netuid, alpha_unstaked, fee);
+                    Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha_unstaked, fee);
 
                 // Add the balance to the coldkey. If the above fails we will not credit this coldkey.
                 Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 
                 // If the stake is below the minimum, we clear the nomination from storage.
-                Self::clear_small_nomination_if_required(&hotkey, &coldkey, *netuid);
+                Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
             }
         }
 
@@ -177,11 +205,9 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
     ) -> dispatch::DispatchResult {
-        let fee = DefaultStakingFee::<T>::get();
-
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
-        log::info!("do_unstake_all( origin:{:?} hotkey:{:?} )", coldkey, hotkey);
+        log::debug!("do_unstake_all( origin:{:?} hotkey:{:?} )", coldkey, hotkey);
 
         // 2. Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
@@ -195,22 +221,45 @@ impl<T: Config> Pallet<T> {
 
         // 4. Iterate through all subnets and remove stake.
         let mut total_tao_unstaked: u64 = 0;
-        for netuid in netuids.iter() {
+        for netuid in netuids.into_iter() {
             // If not Root network.
-            if *netuid != Self::get_root_netuid() {
+            if netuid != Self::get_root_netuid() {
                 // Ensure that the hotkey has enough stake to withdraw.
                 let alpha_unstaked =
-                    Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, *netuid);
+                    Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+
+                if Self::validate_remove_stake(
+                    &coldkey,
+                    &hotkey,
+                    netuid,
+                    alpha_unstaked,
+                    alpha_unstaked,
+                    false,
+                )
+                .is_err()
+                {
+                    // Don't unstake from this netuid
+                    continue;
+                }
+
+                let fee = Self::calculate_staking_fee(
+                    Some((&hotkey, netuid)),
+                    &coldkey,
+                    None,
+                    &coldkey,
+                    U96F32::saturating_from_num(alpha_unstaked),
+                );
+
                 if alpha_unstaked > 0 {
                     // Swap the alpha to tao and update counters for this subnet.
-                    let tao_unstaked: u64 =
-                        Self::unstake_from_subnet(&hotkey, &coldkey, *netuid, alpha_unstaked, fee);
+                    let tao_unstaked =
+                        Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha_unstaked, fee);
 
                     // Increment total
                     total_tao_unstaked = total_tao_unstaked.saturating_add(tao_unstaked);
 
                     // If the stake is below the minimum, we clear the nomination from storage.
-                    Self::clear_small_nomination_if_required(&hotkey, &coldkey, *netuid);
+                    Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
                 }
             }
         }
@@ -221,7 +270,7 @@ impl<T: Config> Pallet<T> {
             &coldkey,
             Self::get_root_netuid(),
             total_tao_unstaked,
-            0, // no fee for restaking
+            T::SwapInterface::max_price(),
         );
 
         // 5. Done and ok.
@@ -276,7 +325,7 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
-        log::info!(
+        log::debug!(
             "do_remove_stake( origin:{:?} hotkey:{:?}, netuid: {:?}, alpha_unstaked:{:?} )",
             coldkey,
             hotkey,
@@ -302,8 +351,14 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // 4. Swap the alpha to tao and update counters for this subnet.
-        let fee = DefaultStakingFee::<T>::get();
-        let tao_unstaked: u64 =
+        let fee = Self::calculate_staking_fee(
+            Some((&hotkey, netuid)),
+            &coldkey,
+            None,
+            &coldkey,
+            U96F32::saturating_from_num(alpha_unstaked),
+        );
+        let tao_unstaked =
             Self::unstake_from_subnet(&hotkey, &coldkey, netuid, possible_alpha, fee);
 
         // 5. We add the balance to the coldkey. If the above fails we will not credit this coldkey.

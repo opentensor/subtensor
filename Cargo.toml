@@ -51,12 +51,13 @@ pallet-collective = { default-features = false, path = "pallets/collective" }
 pallet-commitments = { default-features = false, path = "pallets/commitments" }
 pallet-registry = { default-features = false, path = "pallets/registry" }
 pallet-subtensor = { default-features = false, path = "pallets/subtensor" }
+pallet-subtensor-swap = { default-features = false, path = "pallets/swap" }
 safe-math = { default-features = false, path = "primitives/safe-math" }
 subtensor-custom-rpc = { default-features = false, path = "pallets/subtensor/rpc" }
 subtensor-custom-rpc-runtime-api = { default-features = false, path = "pallets/subtensor/runtime-api" }
 subtensor-precompiles = { default-features = false, path = "precompiles" }
 subtensor-runtime-common = { default-features = false, path = "common" }
-pallet-subtensor-swap-interface = { default-features = false, path = "pallets/swap-interface" }
+subtensor-swap-interface = { default-features = false, path = "pallets/swap-interface" }
 
 async-trait = "0.1"
 cargo-husky = { version = "1", default-features = false }
@@ -72,6 +73,7 @@ futures = "0.3.30"
 hex = { version = "0.4", default-features = false }
 hex-literal = "0.4.1"
 jsonrpsee = { version = "0.24.4", default-features = false }
+libsecp256k1 = { version = "0.7.2", default-features = false }
 log = { version = "0.4.21", default-features = false }
 memmap2 = "0.9.4"
 ndarray = { version = "0.15.6", default-features = false }
@@ -122,7 +124,7 @@ pallet-insecure-randomness-collective-flip = { git = "https://github.com/parityt
 pallet-membership = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
 pallet-multisig = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
 pallet-preimage = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
-pallet-proxy = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
+pallet-proxy = { path = "pallets/proxy", default-features = false }
 pallet-safe-mode = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
 pallet-scheduler = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
 pallet-sudo = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
@@ -130,7 +132,8 @@ pallet-timestamp = { git = "https://github.com/paritytech/polkadot-sdk.git", tag
 pallet-transaction-payment = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
 pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409" }
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
-pallet-utility = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
+pallet-utility = { path = "pallets/utility", default-features = false }
+pallet-root-testing = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
 
 sc-basic-authorship = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409" }
 sc-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409" }

@@ -4,13 +4,13 @@ use frame_support::{
     traits::{ConstU32, Everything},
 };
 use frame_system::{self as system, EnsureRoot};
-use pallet_subtensor_swap_interface::LiquidityDataProvider;
 use sp_core::H256;
 use sp_runtime::{
     BuildStorage,
     traits::{BlakeTwo256, IdentityLookup},
 };
 use substrate_fixed::types::U64F64;
+use subtensor_swap_interface::LiquidityDataProvider;
 
 use crate::SqrtPrice;
 
@@ -67,8 +67,6 @@ parameter_types! {
     pub const MaxFeeRate: u16 = 10000; // 15.26%
     pub const MaxPositions: u32 = 100;
     pub const MinimumLiquidity: u64 = 1_000;
-    pub MinSqrtPrice: SqrtPrice = U64F64::from_num(0.001);
-    pub MaxSqrtPrice: SqrtPrice = U64F64::from_num(10.0);
 }
 
 // Mock implementor of LiquidityDataProvider trait
@@ -83,7 +81,7 @@ impl LiquidityDataProvider<AccountId> for MockLiquidityProvider {
         4_000_000_000
     }
 
-    fn tao_balance(_: u16, account_id: &AccountId) -> u64 {
+    fn tao_balance(account_id: &AccountId) -> u64 {
         if *account_id == OK_ACCOUNT_ID {
             100_000_000_000_000
         } else {
@@ -100,7 +98,6 @@ impl LiquidityDataProvider<AccountId> for MockLiquidityProvider {
     }
 }
 
-// Implementations of traits don't support visibility qualifiers
 impl crate::pallet::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type AdminOrigin = EnsureRoot<AccountId>;
@@ -109,8 +106,7 @@ impl crate::pallet::Config for Test {
     type MaxFeeRate = MaxFeeRate;
     type MaxPositions = MaxPositions;
     type MinimumLiquidity = MinimumLiquidity;
-    type MinSqrtPrice = MinSqrtPrice;
-    type MaxSqrtPrice = MaxSqrtPrice;
+    type WeightInfo = ();
 }
 
 // Build genesis storage according to the mock runtime.

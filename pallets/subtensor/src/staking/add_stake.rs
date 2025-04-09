@@ -1,5 +1,6 @@
 use super::*;
-use sp_core::Get;
+use substrate_fixed::types::I96F32;
+use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic add_stake: Adds stake to a hotkey account.
@@ -58,13 +59,18 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // 3. Ensure the remove operation from the coldkey is a success.
-        let tao_staked: u64 =
-            Self::remove_balance_from_coldkey_account(&coldkey, stake_to_be_added)?;
+        let tao_staked: I96F32 =
+            Self::remove_balance_from_coldkey_account(&coldkey, stake_to_be_added)?.into();
 
         // 4. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
-        let fee = DefaultStakingFee::<T>::get();
-        Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked, fee);
+        Self::stake_into_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            tao_staked.saturating_to_num::<u64>(),
+            T::SwapInterface::max_price(),
+        );
 
         // Ok and return.
         Ok(())
@@ -148,12 +154,20 @@ impl<T: Config> Pallet<T> {
         }
 
         // 5. Ensure the remove operation from the coldkey is a success.
-        let tao_staked: u64 = Self::remove_balance_from_coldkey_account(&coldkey, possible_stake)?;
+        let tao_staked: I96F32 =
+            Self::remove_balance_from_coldkey_account(&coldkey, possible_stake)?.into();
 
         // 6. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
         let fee = DefaultStakingFee::<T>::get();
-        Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked, fee);
+        Self::stake_into_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            tao_staked.saturating_to_num::<u64>(),
+            limit_price,
+            fee,
+        );
 
         // Ok and return.
         Ok(())

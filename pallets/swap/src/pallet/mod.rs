@@ -1,12 +1,13 @@
 use frame_support::{PalletId, pallet_prelude::*, traits::Get};
 use frame_system::pallet_prelude::*;
-use pallet_subtensor_swap_interface::LiquidityDataProvider;
 use substrate_fixed::types::U64F64;
+use subtensor_swap_interface::{LiquidityDataProvider, PositionId};
 
 use crate::{
     NetUid, SqrtPrice,
-    position::{Position, PositionId},
+    position::Position,
     tick::{LayerLevel, Tick, TickIndex},
+    weights::WeightInfo,
 };
 
 pub use pallet::*;
@@ -31,7 +32,7 @@ mod pallet {
         type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
         /// Implementor of
-        /// [`LiquidityDataProvider`](pallet_subtensor_swap_interface::LiquidityDataProvider).
+        /// [`LiquidityDataProvider`](subtensor_swap_interface::LiquidityDataProvider).
         type LiquidityDataProvider: LiquidityDataProvider<Self::AccountId>;
 
         /// This type is used to derive protocol accoun ID.
@@ -50,13 +51,8 @@ mod pallet {
         #[pallet::constant]
         type MinimumLiquidity: Get<u64>;
 
-        /// Minimum sqrt price across all active ticks
-        #[pallet::constant]
-        type MinSqrtPrice: Get<SqrtPrice>;
-
-        /// Maximum sqrt price across all active ticks
-        #[pallet::constant]
-        type MaxSqrtPrice: Get<SqrtPrice>;
+        /// Weight information for extrinsics in this pallet.
+        type WeightInfo: WeightInfo;
     }
 
     /// Default fee rate if not set
@@ -165,7 +161,7 @@ mod pallet {
         ///
         /// Only callable by the admin origin
         #[pallet::call_index(0)]
-        #[pallet::weight(10_000)]
+        #[pallet::weight(T::WeightInfo::set_fee_rate())]
         pub fn set_fee_rate(origin: OriginFor<T>, netuid: u16, rate: u16) -> DispatchResult {
             T::AdminOrigin::ensure_origin(origin)?;
 

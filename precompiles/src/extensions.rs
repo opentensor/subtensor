@@ -4,9 +4,10 @@ use alloc::format;
 
 use frame_support::dispatch::{GetDispatchInfo, Pays, PostDispatchInfo};
 use frame_system::RawOrigin;
+use pallet_admin_utils::{PrecompileEnable, PrecompileEnum};
 use pallet_evm::{
-    AddressMapping, BalanceConverter, ExitError, GasWeightMapping, PrecompileFailure,
-    PrecompileHandle,
+    AddressMapping, BalanceConverter, ExitError, GasWeightMapping, Precompile, PrecompileFailure,
+    PrecompileHandle, PrecompileResult,
 };
 use precompile_utils::EvmResult;
 use sp_core::{H160, U256, blake2_256};
@@ -90,7 +91,7 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
                     );
                 }
 
-                log::info!("Dispatch succeeded. Post info: {:?}", post_info);
+                log::debug!("Dispatch succeeded. Post info: {:?}", post_info);
 
                 Ok(())
             }
@@ -109,7 +110,7 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
 
 impl<T> PrecompileHandleExt for T where T: PrecompileHandle {}
 
-pub(crate) trait PrecompileExt<AccountId: From<[u8; 32]>> {
+pub(crate) trait PrecompileExt<AccountId: From<[u8; 32]>>: Precompile {
     const INDEX: u64;
 
     // ss58 public key i.e., the contract sends funds it received to the destination address from
@@ -127,8 +128,29 @@ pub(crate) trait PrecompileExt<AccountId: From<[u8; 32]>> {
 
         hash.into()
     }
+
+    fn try_execute<R>(
+        handle: &mut impl PrecompileHandle,
+        precompile_enum: PrecompileEnum,
+    ) -> Option<PrecompileResult>
+    where
+        R: frame_system::Config + pallet_admin_utils::Config,
+    {
+        if PrecompileEnable::<R>::get(&precompile_enum) {
+            Some(Self::execute(handle))
+        } else {
+            Some(Err(PrecompileFailure::Error {
+                exit_status: ExitError::Other(
+                    format!("Precompile {:?} is disabled", precompile_enum).into(),
+                ),
+            }))
+        }
+    }
 }
 
+// allowing unreachable for the whole module fixes clippy reports about precompile macro
+// implementation for `TestPrecompile`, that couldn't be fixed granularly
+#[allow(unreachable_code)]
 #[cfg(test)]
 mod test {
     use super::*;
@@ -152,4 +174,7 @@ mod test {
     impl PrecompileExt<AccountId32> for TestPrecompile {
         const INDEX: u64 = 2051;
     }
+
+    #[precompile_utils::precompile]
+    impl TestPrecompile {}
 }

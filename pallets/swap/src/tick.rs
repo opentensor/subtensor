@@ -184,6 +184,16 @@ impl TickIndex {
     /// so that tick indexes are positive, which simplifies bit logic
     const OFFSET: Self = Self(MAX_TICK);
 
+    /// The MIN sqrt price, which is caclculated at Self::MIN
+    pub fn min_sqrt_price() -> SqrtPrice {
+        SqrtPrice::saturating_from_num(0.0000000002328350195)
+    }
+
+    /// The MAX sqrt price, which is calculated at Self::MAX
+    pub fn max_sqrt_price() -> SqrtPrice {
+        SqrtPrice::saturating_from_num(4294886577.20989222513899790805)
+    }
+
     /// Get fees above a tick
     pub fn fees_above<T: Config>(&self, netuid: NetUid, quote: bool) -> U64F64 {
         let current_tick = Self::current_bounded::<T>(netuid);
@@ -251,9 +261,7 @@ impl TickIndex {
         match Self::try_from_sqrt_price(sqrt_price) {
             Ok(index) => index,
             Err(_) => {
-                let max_price = Self::MAX
-                    .try_to_sqrt_price()
-                    .unwrap_or(SqrtPrice::saturating_from_num(1000));
+                let max_price = Self::MAX.to_sqrt_price_bounded();
 
                 if sqrt_price > max_price {
                     Self::MAX
@@ -274,9 +282,9 @@ impl TickIndex {
     pub fn to_sqrt_price_bounded(&self) -> SqrtPrice {
         self.try_to_sqrt_price().unwrap_or_else(|_| {
             if *self >= Self::MAX {
-                SqrtPrice::saturating_from_num(1000)
+                Self::max_sqrt_price()
             } else {
-                SqrtPrice::saturating_from_num(0.000001)
+                Self::min_sqrt_price()
             }
         })
     }
@@ -687,7 +695,7 @@ impl BitmapLayer {
 
 /// A bitmap representation of a tick index position across the three-layer structure
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TickIndexBitmap {
+pub(crate) struct TickIndexBitmap {
     /// The position in layer 0 (top layer)
     layer0: BitmapLayer,
     /// The position in layer 1 (middle layer)
@@ -710,12 +718,12 @@ impl TickIndexBitmap {
 
     /// Converts a position (word, bit) within a layer to a word index in the next layer down
     /// Note: This returns a bitmap navigation index, NOT a tick index
-    pub fn layer_to_index(layer: BitmapLayer) -> u32 {
+    pub(crate) fn layer_to_index(layer: BitmapLayer) -> u32 {
         layer.word.saturating_mul(128).saturating_add(layer.bit)
     }
 
     /// Get the mask for a bit in the specified layer
-    pub fn bit_mask(&self, layer: LayerLevel) -> u128 {
+    pub(crate) fn bit_mask(&self, layer: LayerLevel) -> u128 {
         match layer {
             LayerLevel::Top => 1u128 << self.layer0.bit,
             LayerLevel::Middle => 1u128 << self.layer1.bit,
@@ -724,7 +732,7 @@ impl TickIndexBitmap {
     }
 
     /// Get the word for the specified layer
-    pub fn word_at(&self, layer: LayerLevel) -> u32 {
+    pub(crate) fn word_at(&self, layer: LayerLevel) -> u32 {
         match layer {
             LayerLevel::Top => self.layer0.word,
             LayerLevel::Middle => self.layer1.word,
@@ -733,7 +741,7 @@ impl TickIndexBitmap {
     }
 
     /// Get the bit for the specified layer
-    pub fn bit_at(&self, layer: LayerLevel) -> u32 {
+    pub(crate) fn bit_at(&self, layer: LayerLevel) -> u32 {
         match layer {
             LayerLevel::Top => self.layer0.bit,
             LayerLevel::Middle => self.layer1.bit,
@@ -754,7 +762,11 @@ impl TickIndexBitmap {
     /// * Exact match: Vec with [next_bit, bit]
     /// * Non-exact match: Vec with [closest_bit]
     /// * No match: Empty Vec
-    pub fn find_closest_active_bit_candidates(word: u128, bit: u32, lower: bool) -> Vec<u32> {
+    pub(crate) fn find_closest_active_bit_candidates(
+        word: u128,
+        bit: u32,
+        lower: bool,
+    ) -> Vec<u32> {
         let mut result = vec![];
         let mut mask: u128 = 1_u128.wrapping_shl(bit);
         let mut active_bit: u32 = bit;
@@ -1293,6 +1305,18 @@ mod tests {
         assert_eq!(
             TickIndex(MAX_TICK).try_to_sqrt_price(),
             Err(TickMathError::TickOutOfBounds),
+        );
+
+        assert!(
+            TickIndex::MAX.try_to_sqrt_price().unwrap().abs_diff(
+                TickIndex::new_unchecked(TickIndex::MAX.get() + 1).to_sqrt_price_bounded()
+            ) < SqrtPrice::from_num(1e-6)
+        );
+
+        assert!(
+            TickIndex::MIN.try_to_sqrt_price().unwrap().abs_diff(
+                TickIndex::new_unchecked(TickIndex::MIN.get() - 1).to_sqrt_price_bounded()
+            ) < SqrtPrice::from_num(1e-6)
         );
 
         // At tick index 0, the sqrt price should be 1.0

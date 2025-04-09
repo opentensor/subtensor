@@ -3,6 +3,8 @@
 
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
 use frame_system::RawOrigin;
+use safe_math::FixedExt;
+use substrate_fixed::traits::FromFixed;
 
 use super::mock::*;
 use crate::*;
@@ -10,7 +12,7 @@ use approx::assert_abs_diff_eq;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
 use frame_support::sp_runtime::DispatchError;
 use sp_core::{Get, H256, U256};
-use substrate_fixed::types::{I96F32, U64F64, U96F32};
+use substrate_fixed::types::{I96F32, I110F18, U64F64, U96F32};
 
 /***********************************************************
     staking::add_stake() tests
@@ -57,8 +59,11 @@ fn test_add_stake_ok_no_emission() {
             0
         );
 
-        // Also total stake should be zero
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        // Also total stake should be equal to the network initial lock
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            SubtensorModule::get_network_min_lock()
+        );
 
         // Transfer to hotkey account, and check if the result is ok
         assert_ok!(SubtensorModule::add_stake(
@@ -79,7 +84,10 @@ fn test_add_stake_ok_no_emission() {
         assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 1);
 
         // Check if total stake has increased accordingly.
-        assert_eq!(SubtensorModule::get_total_stake(), amount);
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            amount + SubtensorModule::get_network_min_lock()
+        );
     });
 }
 
@@ -353,12 +361,14 @@ fn test_remove_stake_ok_no_emission() {
         let coldkey_account_id = U256::from(4343);
         let hotkey_account_id = U256::from(4968585);
         let amount = DefaultMinStake::<Test>::get() * 10;
-        let fee = DefaultStakingFee::<Test>::get();
         let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
         // Some basic assertions
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            SubtensorModule::get_network_min_lock()
+        );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
@@ -372,6 +382,16 @@ fn test_remove_stake_ok_no_emission() {
             netuid,
             amount,
         );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            amount
+        );
+
+        // Add subnet TAO for the equivalent amount added at price
+        let amount_tao =
+            U96F32::saturating_from_num(amount) * SubtensorModule::get_alpha_price(netuid);
+        SubnetTAO::<Test>::mutate(netuid, |v| *v += amount_tao.saturating_to_num::<u64>());
+        TotalStake::<Test>::mutate(|v| *v += amount_tao.saturating_to_num::<u64>());
 
         // Do the magic
         assert_ok!(SubtensorModule::remove_stake(
@@ -381,13 +401,24 @@ fn test_remove_stake_ok_no_emission() {
             amount
         ));
 
+        let fee = SubtensorModule::calculate_staking_fee(
+            Some((&hotkey_account_id, netuid)),
+            &coldkey_account_id,
+            None,
+            &coldkey_account_id,
+            U96F32::saturating_from_num(amount),
+        );
+
         // we do not expect the exact amount due to slippage
         assert!(SubtensorModule::get_coldkey_balance(&coldkey_account_id) > amount / 10 * 9 - fee);
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
         );
-        assert_eq!(SubtensorModule::get_total_stake(), fee);
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            SubtensorModule::get_network_min_lock() + fee
+        );
     });
 }
 
@@ -403,7 +434,10 @@ fn test_remove_stake_amount_too_low() {
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
         // Some basic assertions
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            SubtensorModule::get_network_min_lock()
+        );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
@@ -510,12 +544,14 @@ fn test_remove_stake_total_balance_no_change() {
         let hotkey_account_id = U256::from(571337);
         let coldkey_account_id = U256::from(71337);
         let amount = DefaultMinStake::<Test>::get() * 10;
-        let fee = DefaultStakingFee::<Test>::get();
         let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
         // Some basic assertions
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            SubtensorModule::get_network_min_lock()
+        );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
@@ -532,6 +568,12 @@ fn test_remove_stake_total_balance_no_change() {
             amount,
         );
 
+        // Add subnet TAO for the equivalent amount added at price
+        let amount_tao =
+            U96F32::saturating_from_num(amount) * SubtensorModule::get_alpha_price(netuid);
+        SubnetTAO::<Test>::mutate(netuid, |v| *v += amount_tao.saturating_to_num::<u64>());
+        TotalStake::<Test>::mutate(|v| *v += amount_tao.saturating_to_num::<u64>());
+
         // Do the magic
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(coldkey_account_id),
@@ -540,6 +582,13 @@ fn test_remove_stake_total_balance_no_change() {
             amount
         ));
 
+        let fee = SubtensorModule::calculate_staking_fee(
+            Some((&hotkey_account_id, netuid)),
+            &coldkey_account_id,
+            None,
+            &coldkey_account_id,
+            U96F32::saturating_from_num(amount),
+        );
         assert_abs_diff_eq!(
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             amount - fee,
@@ -549,7 +598,10 @@ fn test_remove_stake_total_balance_no_change() {
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
         );
-        assert_eq!(SubtensorModule::get_total_stake(), fee);
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            SubtensorModule::get_network_min_lock() + fee
+        );
 
         // Check total balance is equal to the added stake. Even after remove stake (no fee, includes reserved/locked balance)
         let total_balance = Balances::total_balance(&coldkey_account_id);
@@ -648,7 +700,10 @@ fn test_remove_stake_total_issuance_no_change() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
 
         // Some basic assertions
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            SubtensorModule::get_network_min_lock()
+        );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
@@ -697,7 +752,7 @@ fn test_remove_stake_total_issuance_no_change() {
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake(),
-            fee * 2,
+            fee * 2 + SubtensorModule::get_network_min_lock(),
             epsilon = fee / 1000
         );
 
@@ -714,6 +769,170 @@ fn test_remove_stake_total_issuance_no_change() {
             inital_total_issuance,
             total_issuance_after_unstake + 2 * fee,
             epsilon = inital_total_issuance / 10000,
+        );
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_remove_prev_epoch_stake --exact --show-output --nocapture
+#[test]
+fn test_remove_prev_epoch_stake() {
+    new_test_ext(1).execute_with(|| {
+        let def_fee = DefaultStakingFee::<Test>::get();
+
+        // Test case: (amount_to_stake, AlphaDividendsPerSubnet, TotalHotkeyAlphaLastEpoch, expected_fee)
+        [
+            // No previous epoch stake and low hotkey stake
+            (
+                DefaultMinStake::<Test>::get() * 10,
+                0_u64,
+                1000_u64,
+                def_fee * 2,
+            ),
+            // Same, but larger amount to stake - we get 0.005% for unstake
+            (
+                1_000_000_000,
+                0_u64,
+                1000_u64,
+                (1_000_000_000_f64 * 0.00005) as u64 + def_fee,
+            ),
+            (
+                100_000_000_000,
+                0_u64,
+                1000_u64,
+                (100_000_000_000_f64 * 0.00005) as u64 + def_fee,
+            ),
+            // Lower previous epoch stake than current stake
+            // Staking/unstaking 100 TAO, divs / total = 0.1 => fee is 1 TAO
+            (
+                100_000_000_000,
+                1_000_000_000_u64,
+                10_000_000_000_u64,
+                (100_000_000_000_f64 * 0.1) as u64 + def_fee,
+            ),
+            // Staking/unstaking 100 TAO, divs / total = 0.001 => fee is 0.01 TAO
+            (
+                100_000_000_000,
+                10_000_000_u64,
+                10_000_000_000_u64,
+                (100_000_000_000_f64 * 0.001) as u64 + def_fee,
+            ),
+            // Higher previous epoch stake than current stake
+            (
+                1_000_000_000,
+                100_000_000_000_u64,
+                100_000_000_000_000_u64,
+                (1_000_000_000_f64 * 0.001) as u64 + def_fee,
+            ),
+        ]
+        .iter()
+        .for_each(
+            |(amount_to_stake, alpha_divs, hotkey_alpha, expected_fee)| {
+                let subnet_owner_coldkey = U256::from(1);
+                let subnet_owner_hotkey = U256::from(2);
+                let hotkey_account_id = U256::from(581337);
+                let coldkey_account_id = U256::from(81337);
+                let amount = *amount_to_stake;
+                let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+                register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
+
+                // Give it some $$$ in his coldkey balance
+                SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
+                AlphaDividendsPerSubnet::<Test>::insert(netuid, hotkey_account_id, *alpha_divs);
+                TotalHotkeyAlphaLastEpoch::<Test>::insert(hotkey_account_id, netuid, *hotkey_alpha);
+                let balance_before = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
+
+                // Stake to hotkey account, and check if the result is ok
+                assert_ok!(SubtensorModule::add_stake(
+                    RuntimeOrigin::signed(coldkey_account_id),
+                    hotkey_account_id,
+                    netuid,
+                    amount
+                ));
+
+                // Remove all stake
+                let stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey_account_id,
+                    &coldkey_account_id,
+                    netuid,
+                );
+
+                assert_ok!(SubtensorModule::remove_stake(
+                    RuntimeOrigin::signed(coldkey_account_id),
+                    hotkey_account_id,
+                    netuid,
+                    stake
+                ));
+
+                // Measure actual fee
+                let balance_after = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
+                let actual_fee = balance_before - balance_after;
+
+                assert_abs_diff_eq!(actual_fee, *expected_fee, epsilon = *expected_fee / 100,);
+            },
+        );
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_staking_sets_div_variables --exact --show-output --nocapture
+#[test]
+fn test_staking_sets_div_variables() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1);
+        let subnet_owner_hotkey = U256::from(2);
+        let hotkey_account_id = U256::from(581337);
+        let coldkey_account_id = U256::from(81337);
+        let amount = 100_000_000_000;
+        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let tempo = 10;
+        Tempo::<Test>::insert(netuid, tempo);
+        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
+
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
+
+        // Verify that divident variables are clear in the beginning
+        assert_eq!(
+            AlphaDividendsPerSubnet::<Test>::get(netuid, hotkey_account_id),
+            0
+        );
+        assert_eq!(
+            TotalHotkeyAlphaLastEpoch::<Test>::get(hotkey_account_id, netuid),
+            0
+        );
+
+        // Stake to hotkey account, and check if the result is ok
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            amount
+        ));
+
+        // Verify that divident variables are still clear in the beginning
+        assert_eq!(
+            AlphaDividendsPerSubnet::<Test>::get(netuid, hotkey_account_id),
+            0
+        );
+        assert_eq!(
+            TotalHotkeyAlphaLastEpoch::<Test>::get(hotkey_account_id, netuid),
+            0
+        );
+
+        // Wait for 1 epoch
+        step_block(tempo + 1);
+
+        // Verify that divident variables have been set
+        let stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+        );
+
+        assert!(AlphaDividendsPerSubnet::<Test>::get(netuid, hotkey_account_id) > 0);
+        assert_abs_diff_eq!(
+            TotalHotkeyAlphaLastEpoch::<Test>::get(hotkey_account_id, netuid),
+            stake,
+            epsilon = stake / 100_000
         );
     });
 }
@@ -762,8 +981,11 @@ fn test_add_stake_to_hotkey_account_ok() {
         let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, hotkey_id, coldkey_id, 192213123);
 
-        // There is not stake in the system at first, so result should be 0;
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        // There is no stake in the system at first, other than the network initial lock so result;
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            SubtensorModule::get_network_min_lock()
+        );
 
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_id,
@@ -2219,11 +2441,75 @@ fn test_remove_stake_fee_goes_to_subnet_tao() {
     });
 }
 
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_remove_stake_fee_realistic_values --exact --show-output --nocapture
+#[test]
+fn test_remove_stake_fee_realistic_values() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let alpha_to_unstake = 111_180_000_000;
+        let alpha_divs = 2_816_190;
+
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+
+        // Mock a realistic scenario:
+        //   Subnet 1 has 3896 TAO and 128_011 Alpha in reserves, which
+        //   makes its price ~0.03.
+        //   A hotkey has 111 Alpha stake and is unstaking all Alpha.
+        //   Alpha dividends of this hotkey are ~0.0028
+        //   This makes fee be equal ~0.0028 Alpha ~= 84000 rao
+        let tao_reserve: U96F32 = U96F32::from_num(3_896_056_559_708_u64);
+        let alpha_in: U96F32 = U96F32::from_num(128_011_331_299_964_u64);
+        SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
+        AlphaDividendsPerSubnet::<Test>::insert(netuid, hotkey, alpha_divs);
+        TotalHotkeyAlphaLastEpoch::<Test>::insert(hotkey, netuid, alpha_to_unstake);
+
+        // Add stake first time to init TotalHotkeyAlpha
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            alpha_to_unstake,
+        );
+
+        // Remove stake to measure fee
+        let balance_before = SubtensorModule::get_coldkey_balance(&coldkey);
+        let expected_tao_no_fee =
+            SubtensorModule::sim_swap_alpha_for_tao(netuid, alpha_to_unstake).unwrap();
+
+        // Estimate fees
+        let mut expected_fee =
+            expected_tao_no_fee as f64 * alpha_divs as f64 / alpha_to_unstake as f64;
+        if expected_fee < expected_tao_no_fee as f64 * 0.00005 {
+            expected_fee = expected_tao_no_fee as f64 * 0.00005;
+        }
+
+        assert_ok!(SubtensorModule::remove_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            alpha_to_unstake
+        ));
+
+        // Calculate expected fee
+        let balance_after = SubtensorModule::get_coldkey_balance(&coldkey);
+        let actual_fee = expected_tao_no_fee as f64 - (balance_after - balance_before) as f64;
+        log::info!("Actual fee: {:?}", actual_fee);
+
+        assert_abs_diff_eq!(
+            actual_fee as u64,
+            expected_fee as u64,
+            epsilon = expected_fee as u64 / 1000
+        );
+    });
+}
+
 #[test]
 fn test_stake_below_min_validate() {
-    // Testing the signed extension validate function
-    // correctly filters the `add_stake` transaction.
-
     new_test_ext(0).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
@@ -2437,7 +2723,11 @@ fn test_stake_overflow() {
         );
 
         // Check if total stake has increased accordingly.
-        assert_abs_diff_eq!(SubtensorModule::get_total_stake(), amount, epsilon = 10);
+        assert_abs_diff_eq!(
+            SubtensorModule::get_total_stake(),
+            amount + SubtensorModule::get_network_min_lock(),
+            epsilon = 10
+        );
     });
 }
 
@@ -3403,8 +3693,11 @@ fn test_add_stake_limit_ok() {
         // Check that price has updated to ~24 = (150+450) / (100 - 75)
         let exp_price = U96F32::from_num(24.0);
         let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
-        assert!(exp_price.saturating_sub(current_price) < 0.0001);
-        assert!(current_price.saturating_sub(exp_price) < 0.0001);
+        assert_abs_diff_eq!(
+            exp_price.to_num::<f64>(),
+            current_price.to_num::<f64>(),
+            epsilon = 0.0001,
+        );
     });
 }
 
@@ -3783,7 +4076,7 @@ fn test_remove_99_9991_per_cent_stake_removes_all() {
         let coldkey_account_id = U256::from(81337);
         let amount = 10_000_000_000;
         let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        let fee = DefaultStakingFee::<Test>::get();
+        let mut fee = DefaultStakingFee::<Test>::get();
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
         // Give it some $$$ in his coldkey balance
@@ -3803,18 +4096,20 @@ fn test_remove_99_9991_per_cent_stake_removes_all() {
             &coldkey_account_id,
             netuid,
         );
+        let remove_amount = (U64F64::from_num(alpha) * U64F64::from_num(0.999991)).to_num::<u64>();
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
             netuid,
-            (U64F64::from_num(alpha) * U64F64::from_num(0.999991)).to_num::<u64>()
+            remove_amount,
         ));
 
         // Check that all alpha was unstaked and all TAO balance was returned (less fees)
+        fee = fee + fee.max((remove_amount as f64 * 0.00005) as u64);
         assert_abs_diff_eq!(
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
-            amount - fee * 2,
-            epsilon = 10000,
+            amount - fee,
+            epsilon = 100000,
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
@@ -3883,5 +4178,256 @@ fn test_remove_99_9989_per_cent_stake_leaves_a_little() {
             netuid,
         );
         assert_abs_diff_eq!(new_alpha, (alpha as f64 * 0.01) as u64, epsilon = 10);
+    });
+}
+
+#[test]
+fn test_move_stake_limit_partial() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let stake_amount = 150_000_000_000;
+        let move_amount = 150_000_000_000;
+
+        // add network
+        let origin_netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let destination_netuid: u16 =
+            add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(origin_netuid, hotkey, coldkey, 192213123);
+        register_ok_neuron(destination_netuid, hotkey, coldkey, 192213123);
+
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            origin_netuid,
+            stake_amount,
+        );
+
+        // Forse-set alpha in and tao reserve to make price equal 1.5 on both origin and destination,
+        // but there's much more liquidity on destination, so its price wouldn't go up when restaked
+        let tao_reserve: U96F32 = U96F32::from_num(150_000_000_000_u64);
+        let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(origin_netuid, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(origin_netuid, alpha_in.to_num::<u64>());
+        SubnetTAO::<Test>::insert(destination_netuid, (tao_reserve * 100_000).to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(destination_netuid, (alpha_in * 100_000).to_num::<u64>());
+        let current_price: U96F32 =
+            U96F32::from_num(SubtensorModule::get_alpha_price(origin_netuid));
+        assert_eq!(current_price, U96F32::from_num(1.5));
+
+        // The relative price between origin and destination subnets is 1.
+        // Setup limit relative price so that it doesn't drop by more than 1% from current price
+        let limit_price = 990_000_000;
+
+        // Move stake with slippage safety - executes partially
+        assert_ok!(SubtensorModule::swap_stake_limit(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            move_amount,
+            limit_price,
+            true,
+        ));
+
+        let new_alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            origin_netuid,
+        );
+
+        assert_abs_diff_eq!(new_alpha, 149_000_000_000, epsilon = 100_000_000,);
+    });
+}
+
+#[test]
+fn test_unstake_all_hits_liquidity_min() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+
+        let stake_amount = 190_000_000_000; // 190 Alpha
+
+        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(netuid, hotkey, coldkey, 192213123);
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            stake_amount,
+        );
+
+        // Setup the Alpha pool so that removing all the Alpha will bring liqudity below the minimum
+        let remaining_tao: I96F32 =
+            DefaultMinimumPoolLiquidity::<Test>::get().saturating_sub(I96F32::from(1));
+        let alpha_reserves: I110F18 = I110F18::from(stake_amount + 10_000_000);
+        let alpha = stake_amount;
+
+        let k: I110F18 = I110F18::from_fixed(remaining_tao)
+            .saturating_mul(alpha_reserves.saturating_add(I110F18::from(alpha)));
+        let tao_reserves: I110F18 = k.safe_div(alpha_reserves);
+
+        SubnetTAO::<Test>::insert(netuid, tao_reserves.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_reserves.to_num::<u64>());
+
+        // Try to unstake, but we reduce liquidity too far
+
+        assert_ok!(SubtensorModule::unstake_all(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+        ));
+
+        // Expect nothing to be unstaked
+        let new_alpha =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        assert_abs_diff_eq!(new_alpha, stake_amount, epsilon = 0,);
+    });
+}
+
+#[test]
+fn test_unstake_all_alpha_hits_liquidity_min() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+
+        let stake_amount = 190_000_000_000; // 190 Alpha
+
+        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(netuid, hotkey, coldkey, 192213123);
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            stake_amount,
+        );
+
+        // Setup the Alpha pool so that removing all the Alpha will bring liqudity below the minimum
+        let remaining_tao: I96F32 =
+            DefaultMinimumPoolLiquidity::<Test>::get().saturating_sub(I96F32::from(1));
+        let alpha_reserves: I110F18 = I110F18::from(stake_amount + 10_000_000);
+        let alpha = stake_amount;
+
+        let k: I110F18 = I110F18::from_fixed(remaining_tao)
+            .saturating_mul(alpha_reserves.saturating_add(I110F18::from(alpha)));
+        let tao_reserves: I110F18 = k.safe_div(alpha_reserves);
+
+        SubnetTAO::<Test>::insert(netuid, tao_reserves.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_reserves.to_num::<u64>());
+
+        // Try to unstake, but we reduce liquidity too far
+
+        assert_ok!(SubtensorModule::unstake_all_alpha(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+        ));
+
+        // Expect nothing to be unstaked
+        let new_alpha =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        assert_abs_diff_eq!(new_alpha, stake_amount, epsilon = 0,);
+    });
+}
+
+#[test]
+fn test_unstake_all_alpha_works() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+
+        let stake_amount = 190_000_000_000; // 190 Alpha
+
+        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(netuid, hotkey, coldkey, 192213123);
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            stake_amount,
+        );
+
+        // Setup the Alpha pool so that removing all the Alpha will keep liq above min
+        let remaining_tao: I96F32 =
+            DefaultMinimumPoolLiquidity::<Test>::get().saturating_add(I96F32::from(10_000_000));
+        let alpha_reserves: I110F18 = I110F18::from(stake_amount + 10_000_000);
+        let alpha = stake_amount;
+
+        let k: I110F18 = I110F18::from_fixed(remaining_tao)
+            .saturating_mul(alpha_reserves.saturating_add(I110F18::from(alpha)));
+        let tao_reserves: I110F18 = k.safe_div(alpha_reserves);
+
+        SubnetTAO::<Test>::insert(netuid, tao_reserves.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_reserves.to_num::<u64>());
+
+        // Unstake all alpha to root
+        assert_ok!(SubtensorModule::unstake_all_alpha(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+        ));
+
+        let new_alpha =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        assert_abs_diff_eq!(new_alpha, 0, epsilon = 1_000,);
+        let new_root =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, 0);
+        assert!(new_root > 100_000);
+    });
+}
+
+#[test]
+fn test_unstake_all_works() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+
+        let stake_amount = 190_000_000_000; // 190 Alpha
+
+        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(netuid, hotkey, coldkey, 192213123);
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            stake_amount,
+        );
+
+        // Setup the Alpha pool so that removing all the Alpha will keep liq above min
+        let remaining_tao: I96F32 =
+            DefaultMinimumPoolLiquidity::<Test>::get().saturating_add(I96F32::from(10_000_000));
+        let alpha_reserves: I110F18 = I110F18::from(stake_amount + 10_000_000);
+        let alpha = stake_amount;
+
+        let k: I110F18 = I110F18::from_fixed(remaining_tao)
+            .saturating_mul(alpha_reserves.saturating_add(I110F18::from(alpha)));
+        let tao_reserves: I110F18 = k.safe_div(alpha_reserves);
+
+        SubnetTAO::<Test>::insert(netuid, tao_reserves.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_reserves.to_num::<u64>());
+
+        // Unstake all alpha to root
+        assert_ok!(SubtensorModule::unstake_all(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+        ));
+
+        let new_alpha =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        assert_abs_diff_eq!(new_alpha, 0, epsilon = 1_000,);
+        let new_balance = SubtensorModule::get_coldkey_balance(&coldkey);
+        assert!(new_balance > 100_000);
     });
 }

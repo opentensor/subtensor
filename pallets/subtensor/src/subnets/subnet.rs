@@ -217,6 +217,11 @@ impl<T: Config> Pallet<T> {
             Self::burn_tokens(actual_tao_lock_amount_less_pool_tao);
         }
 
+        if actual_tao_lock_amount > 0 && pool_initial_tao > 0 {
+            // Record in TotalStake the initial TAO in the pool.
+            Self::increase_total_stake(pool_initial_tao);
+        }
+
         // --- 15. Add the identity if it exists
         if let Some(identity_value) = identity {
             ensure!(
@@ -234,7 +239,7 @@ impl<T: Config> Pallet<T> {
             netuid_to_register,
             mechid
         );
-        Self::deposit_event(Event::NetworkAdded(netuid_to_register, 0));
+        Self::deposit_event(Event::NetworkAdded(netuid_to_register, mechid));
 
         // --- 17. Return success.
         Ok(())
@@ -267,7 +272,6 @@ impl<T: Config> Pallet<T> {
         Self::set_target_registrations_per_interval(netuid, 1);
         Self::set_adjustment_alpha(netuid, 17_893_341_751_498_265_066); // 18_446_744_073_709_551_615 * 0.97 = 17_893_341_751_498_265_066
         Self::set_immunity_period(netuid, 5000);
-        Self::set_min_burn(netuid, 1);
         Self::set_min_difficulty(netuid, u64::MAX);
         Self::set_max_difficulty(netuid, u64::MAX);
 
@@ -314,5 +318,59 @@ impl<T: Config> Pallet<T> {
                 BurnRegistrationsThisInterval::<T>::get(netuid),
             );
         }
+    }
+
+    /// Execute the start call for a subnet.
+    ///
+    /// This function is used to trigger the start call process for a subnet identified by `netuid`.
+    /// It ensures that the subnet exists, the caller is the subnet owner,
+    /// and the last emission block number has not been set yet.
+    /// It then sets the last emission block number to the current block number.
+    ///
+    /// # Parameters
+    ///
+    /// * `origin`: The origin of the call, which is used to ensure the caller is the subnet owner.
+    /// * `netuid`: The unique identifier of the subnet for which the start call process is being initiated.
+    ///
+    /// # Raises
+    ///
+    /// * `Error::<T>::SubNetworkDoesNotExist`: If the subnet does not exist.
+    /// * `DispatchError::BadOrigin`: If the caller is not the subnet owner.
+    /// * `Error::<T>::FirstEmissionBlockNumberAlreadySet`: If the last emission block number has already been set.
+    ///
+    /// # Returns
+    ///
+    /// * `DispatchResult`: A result indicating the success or failure of the operation.
+    pub fn do_start_call(origin: T::RuntimeOrigin, netuid: u16) -> DispatchResult {
+        ensure!(
+            Self::if_subnet_exist(netuid),
+            Error::<T>::SubNetworkDoesNotExist
+        );
+        Self::ensure_subnet_owner(origin, netuid)?;
+        ensure!(
+            FirstEmissionBlockNumber::<T>::get(netuid).is_none(),
+            Error::<T>::FirstEmissionBlockNumberAlreadySet
+        );
+
+        let registration_block_number = NetworkRegisteredAt::<T>::get(netuid);
+        let current_block_number = Self::get_current_block_as_u64();
+
+        ensure!(
+            current_block_number
+                >= registration_block_number.saturating_add(T::DurationOfStartCall::get()),
+            Error::<T>::NeedWaitingMoreBlocksToStarCall
+        );
+        let next_block_number = current_block_number.saturating_add(1);
+
+        FirstEmissionBlockNumber::<T>::insert(netuid, next_block_number);
+        Self::deposit_event(Event::FirstEmissionBlockNumberSet(
+            netuid,
+            next_block_number,
+        ));
+        Ok(())
+    }
+
+    pub fn is_valid_subnet_for_emission(netuid: u16) -> bool {
+        FirstEmissionBlockNumber::<T>::get(netuid).is_some()
     }
 }
