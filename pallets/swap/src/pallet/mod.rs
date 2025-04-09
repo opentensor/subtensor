@@ -51,14 +51,6 @@ mod pallet {
         #[pallet::constant]
         type MinimumLiquidity: Get<u64>;
 
-        /// Minimum sqrt price across all active ticks
-        #[pallet::constant]
-        type MinSqrtPrice: Get<SqrtPrice>;
-
-        /// Maximum sqrt price across all active ticks
-        #[pallet::constant]
-        type MaxSqrtPrice: Get<SqrtPrice>;
-
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
     }

@@ -1,5 +1,6 @@
 use super::*;
 use substrate_fixed::types::U96F32;
+use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
@@ -269,7 +270,7 @@ impl<T: Config> Pallet<T> {
             &coldkey,
             Self::get_root_netuid(),
             total_tao_unstaked,
-            0, // no fee for restaking
+            T::SwapInterface::max_price(),
         );
 
         // 5. Done and ok.

@@ -67,8 +67,6 @@ parameter_types! {
     pub const MaxFeeRate: u16 = 10000; // 15.26%
     pub const MaxPositions: u32 = 100;
     pub const MinimumLiquidity: u64 = 1_000;
-    pub MinSqrtPrice: SqrtPrice = U64F64::from_num(0.001);
-    pub MaxSqrtPrice: SqrtPrice = U64F64::from_num(10.0);
 }
 
 // Mock implementor of LiquidityDataProvider trait
@@ -108,8 +106,6 @@ impl crate::pallet::Config for Test {
     type MaxFeeRate = MaxFeeRate;
     type MaxPositions = MaxPositions;
     type MinimumLiquidity = MinimumLiquidity;
-    type MinSqrtPrice = MinSqrtPrice;
-    type MaxSqrtPrice = MaxSqrtPrice;
     type WeightInfo = ();
 }
 

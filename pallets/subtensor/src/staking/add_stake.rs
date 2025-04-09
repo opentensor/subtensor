@@ -1,5 +1,6 @@
 use super::*;
 use substrate_fixed::types::I96F32;
+use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic add_stake: Adds stake to a hotkey account.
@@ -63,13 +64,12 @@ impl<T: Config> Pallet<T> {
 
         // 4. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
-        let fee = DefaultStakingFee::<T>::get();
         Self::stake_into_subnet(
             &hotkey,
             &coldkey,
             netuid,
             tao_staked.saturating_to_num::<u64>(),
-            fee,
+            T::SwapInterface::max_price(),
         );
 
         // Ok and return.
@@ -165,6 +165,7 @@ impl<T: Config> Pallet<T> {
             &coldkey,
             netuid,
             tao_staked.saturating_to_num::<u64>(),
+            limit_price,
             fee,
         );
 

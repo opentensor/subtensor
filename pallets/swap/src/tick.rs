@@ -762,7 +762,11 @@ impl TickIndexBitmap {
     /// * Exact match: Vec with [next_bit, bit]
     /// * Non-exact match: Vec with [closest_bit]
     /// * No match: Empty Vec
-    pub(crate) fn find_closest_active_bit_candidates(word: u128, bit: u32, lower: bool) -> Vec<u32> {
+    pub(crate) fn find_closest_active_bit_candidates(
+        word: u128,
+        bit: u32,
+        lower: bool,
+    ) -> Vec<u32> {
         let mut result = vec![];
         let mut mask: u128 = 1_u128.wrapping_shl(bit);
         let mut active_bit: u32 = bit;

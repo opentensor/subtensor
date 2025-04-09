@@ -1,5 +1,6 @@
 #![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 use crate::utils::rate_limiting::TransactionType;
+use frame_support::PalletId;
 use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
 use frame_support::weights::Weight;
@@ -18,9 +19,8 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
 };
 use sp_std::cmp::Ordering;
-use subtensor_swap_interface::LiquidityDataProvider;
 use substrate_fixed::types::U64F64;
-use frame_support::PalletId;
+use subtensor_swap_interface::LiquidityDataProvider;
 
 use crate::*;
 
@@ -414,7 +414,7 @@ impl crate::Config for Test {
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
-	type SwapInterface = Swap;
+    type SwapInterface = Swap;
 }
 
 impl LiquidityDataProvider<AccountId> for SubtensorModule {
@@ -437,25 +437,21 @@ impl LiquidityDataProvider<AccountId> for SubtensorModule {
 
 // Swap-related parameter types
 parameter_types! {
-	pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
-	pub const SwapMaxFeeRate: u16 = 10000; // 15.26%
-	pub const SwapMaxPositions: u32 = 100;
-	pub const SwapMinimumLiquidity: u64 = 1_000;
-	pub SwapMinSqrtPrice: U64F64 = U64F64::from_num(0.001);
-	pub SwapMaxSqrtPrice: U64F64 = U64F64::from_num(10.0);
+    pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
+    pub const SwapMaxFeeRate: u16 = 10000; // 15.26%
+    pub const SwapMaxPositions: u32 = 100;
+    pub const SwapMinimumLiquidity: u64 = 1_000;
 }
 
 impl pallet_subtensor_swap::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type AdminOrigin = EnsureRoot<AccountId>;
-	type LiquidityDataProvider = SubtensorModule;
-	type ProtocolId = SwapProtocolId;
-	type MaxFeeRate = SwapMaxFeeRate;
-	type MaxPositions = SwapMaxPositions;
-	type MinimumLiquidity = SwapMinimumLiquidity;
-	type MinSqrtPrice = SwapMinSqrtPrice;
-	type MaxSqrtPrice = SwapMaxSqrtPrice;
-	type WeightInfo = ();
+    type RuntimeEvent = RuntimeEvent;
+    type AdminOrigin = EnsureRoot<AccountId>;
+    type LiquidityDataProvider = SubtensorModule;
+    type ProtocolId = SwapProtocolId;
+    type MaxFeeRate = SwapMaxFeeRate;
+    type MaxPositions = SwapMaxPositions;
+    type MinimumLiquidity = SwapMinimumLiquidity;
+    type WeightInfo = ();
 }
 
 pub struct OriginPrivilegeCmp;

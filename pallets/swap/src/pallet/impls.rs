@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 
-use frame_support::{ensure, traits::Get, pallet_prelude::DispatchError};
+use frame_support::{ensure, pallet_prelude::DispatchError, traits::Get};
 use safe_math::*;
 use sp_arithmetic::helpers_128bit;
 use sp_runtime::traits::AccountIdConversion;
@@ -80,14 +80,14 @@ impl<T: Config> SwapStep<T> {
         };
         let mut lim_quantity = match order_type {
             OrderType::Buy => one
-                .safe_div(T::MinSqrtPrice::get())
+                .safe_div(TickIndex::min_sqrt_price())
                 .min(one.safe_div(sqrt_price_limit.into())),
-            OrderType::Sell => T::MaxSqrtPrice::get().min(sqrt_price_limit.into()),
+            OrderType::Sell => TickIndex::max_sqrt_price().min(sqrt_price_limit.into()),
         };
         if lim_quantity < one.safe_div(current_price) {
             lim_quantity = match order_type {
-                OrderType::Buy => one.safe_div(T::MinSqrtPrice::get()),
-                OrderType::Sell => T::MaxSqrtPrice::get(),
+                OrderType::Buy => one.safe_div(TickIndex::min_sqrt_price()),
+                OrderType::Sell => TickIndex::max_sqrt_price(),
             };
         }
 
@@ -423,7 +423,7 @@ impl<T: Config> Pallet<T> {
         (match order_type {
             OrderType::Buy => {
                 let higher_tick =
-                    Pallet::<T>::find_closest_higher_active_tick_index(netuid, current_price_tick)
+                    ActiveTickIndexManager::find_closest_higher::<T>(netuid, current_price_tick)
                         .unwrap_or(TickIndex::MAX);
                 if higher_tick < TickIndex::MAX {
                     higher_tick.saturating_add(1)
@@ -432,7 +432,7 @@ impl<T: Config> Pallet<T> {
                 }
             }
             OrderType::Sell => {
-                Pallet::<T>::find_closest_lower_active_tick_index(netuid, current_price_tick)
+                ActiveTickIndexManager::find_closest_lower::<T>(netuid, current_price_tick)
                     .unwrap_or(TickIndex::MIN)
             }
         })
@@ -631,20 +631,6 @@ impl<T: Config> Pallet<T> {
     pub fn find_closest_higher_active_tick(netuid: NetUid, index: TickIndex) -> Option<Tick> {
         ActiveTickIndexManager::find_closest_higher::<T>(netuid, index)
             .and_then(|ti| Ticks::<T>::get(netuid, ti))
-    }
-
-    pub fn find_closest_lower_active_tick_index(
-        netuid: NetUid,
-        index: TickIndex,
-    ) -> Option<TickIndex> {
-        ActiveTickIndexManager::find_closest_lower::<T>(netuid, index)
-    }
-
-    pub fn find_closest_higher_active_tick_index(
-        netuid: NetUid,
-        index: TickIndex,
-    ) -> Option<TickIndex> {
-        ActiveTickIndexManager::find_closest_higher::<T>(netuid, index)
     }
 
     /// Here we subtract minimum safe liquidity from current liquidity to stay in the safe range
@@ -945,8 +931,7 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
             .checked_sqrt(SqrtPrice::saturating_from_num(2))
             .ok_or(Error::<T>::PriceLimitExceeded)?;
 
-        Self::swap(NetUid::from(netuid), order_t, amount, sqrt_price_limit)
-            .map_err(Into::into)
+        Self::swap(NetUid::from(netuid), order_t, amount, sqrt_price_limit).map_err(Into::into)
     }
 
     fn add_liquidity(
@@ -975,14 +960,14 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
     }
 
     fn min_price() -> u64 {
-        T::MinSqrtPrice::get()
-            .saturating_mul(T::MinSqrtPrice::get())
+        TickIndex::min_sqrt_price()
+            .saturating_mul(TickIndex::min_sqrt_price())
             .saturating_to_num()
     }
 
     fn max_price() -> u64 {
-        T::MaxSqrtPrice::get()
-            .saturating_mul(T::MaxSqrtPrice::get())
+        TickIndex::max_sqrt_price()
+            .saturating_mul(TickIndex::max_sqrt_price())
             .saturating_to_num()
     }
 }

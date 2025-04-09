@@ -829,16 +829,10 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         netuid: u16,
         tao: u64,
-        fee: u64,
+		price_limit: u64,
     ) -> u64 {
-        // Step 1. Reduce tao amount by staking fee and credit this fee to SubnetTAO
-        // At this point tao was already withdrawn from the user balance and is considered
-        // available
-        let tao_staked = tao.saturating_sub(fee);
-        let actual_fee = tao.saturating_sub(tao_staked);
-
         // Step 2. Swap the tao to alpha.
-        let alpha: u64 = Self::swap_tao_for_alpha(netuid, tao_staked);
+        let alpha = Self::swap_tao_for_alpha(netuid, tao_staked);
         let mut actual_alpha = 0;
         if (tao_staked > 0) && (alpha > 0) {
             // Step 3: Increase the alpha on the hotkey account.
