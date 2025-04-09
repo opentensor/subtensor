@@ -1,6 +1,10 @@
 //! Benchmarks for Crowdloan Pallet
 #![cfg(feature = "runtime-benchmarks")]
-#![allow(clippy::arithmetic_side_effects, clippy::indexing_slicing)]
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::indexing_slicing,
+    clippy::unwrap_used
+)]
 use crate::{BalanceOf, CrowdloanId, CrowdloanInfo, CurrencyOf, pallet::*};
 use frame_benchmarking::{account, v2::*};
 use frame_support::traits::{Currency, Get, StorePreimage};

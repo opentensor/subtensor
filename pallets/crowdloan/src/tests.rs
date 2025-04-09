@@ -1108,7 +1108,7 @@ fn test_refund_succeeds() {
                     100
                 );
                 assert_eq!(
-                    pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, &contributor),
+                    pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, contributor),
                     None
                 );
             }

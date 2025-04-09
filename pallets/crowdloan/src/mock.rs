@@ -1,10 +1,11 @@
 #![cfg(test)]
+#![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 use frame_support::{
     PalletId, derive_impl, parameter_types,
     traits::{OnFinalize, OnInitialize},
     weights::Weight,
 };
-use frame_system::{pallet_prelude::BlockNumberFor, EnsureRoot};
+use frame_system::{EnsureRoot, pallet_prelude::BlockNumberFor};
 use sp_core::U256;
 use sp_runtime::{BuildStorage, traits::IdentityLookup};
 
