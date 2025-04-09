@@ -14,23 +14,11 @@ fn test_do_start_call_ok() {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let coldkey_account_id = U256::from(0);
-        let hotkey_account_id = U256::from(1);
-        let burn_cost = 1000;
-        //add network
-        SubtensorModule::set_burn(netuid, burn_cost);
+
         add_network_without_emission_block(netuid, tempo, 0);
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
 
-        // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
-
-        // Subscribe and check extrinsic output
-        assert_ok!(SubtensorModule::burned_register(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            netuid,
-            hotkey_account_id
-        ));
-
+        // account 0 is the default owner for any subnet
         assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey_account_id);
 
         let block_number = System::block_number() + DurationOfStartCall::get();
@@ -69,21 +57,9 @@ fn test_do_start_call_fail_not_owner() {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let coldkey_account_id = U256::from(0);
-        let hotkey_account_id = U256::from(1);
-        let wrong_owner_account_id = U256::from(2);
-        let burn_cost = 1000;
-        //add network
-        SubtensorModule::set_burn(netuid, burn_cost);
-        add_network_without_emission_block(netuid, tempo, 0);
-        // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+        let wrong_owner_account_id = U256::from(1);
 
-        // Subscribe and check extrinsic output
-        assert_ok!(SubtensorModule::burned_register(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            netuid,
-            hotkey_account_id
-        ));
+        add_network_without_emission_block(netuid, tempo, 0);
 
         assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey_account_id);
 
@@ -105,20 +81,8 @@ fn test_do_start_call_fail_with_cannot_start_call_now() {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let coldkey_account_id = U256::from(0);
-        let hotkey_account_id = U256::from(1);
-        let burn_cost = 1000;
-        //add network
-        SubtensorModule::set_burn(netuid, burn_cost);
-        add_network_without_emission_block(netuid, tempo, 0);
-        // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
 
-        // Subscribe and check extrinsic output
-        assert_ok!(SubtensorModule::burned_register(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            netuid,
-            hotkey_account_id
-        ));
+        add_network_without_emission_block(netuid, tempo, 0);
 
         assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey_account_id);
 
@@ -139,21 +103,9 @@ fn test_do_start_call_fail_for_set_again() {
         let tempo: u16 = 13;
         let coldkey_account_id = U256::from(0);
         let hotkey_account_id = U256::from(1);
-        let burn_cost = 1000;
-        //add network
-        SubtensorModule::set_burn(netuid, burn_cost);
+
         add_network_without_emission_block(netuid, tempo, 0);
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
-
-        // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
-
-        // Subscribe and check extrinsic output
-        assert_ok!(SubtensorModule::burned_register(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            netuid,
-            hotkey_account_id
-        ));
 
         assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey_account_id);
 
@@ -182,21 +134,9 @@ fn test_do_start_call_ok_with_same_block_number_after_coinbase() {
         let tempo: u16 = 13;
         let coldkey_account_id = U256::from(0);
         let hotkey_account_id = U256::from(1);
-        let burn_cost = 1000;
-        //add network
-        SubtensorModule::set_burn(netuid, burn_cost);
+
         add_network_without_emission_block(netuid, tempo, 0);
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
-
-        // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
-
-        // Subscribe and check extrinsic output
-        assert_ok!(SubtensorModule::burned_register(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            netuid,
-            hotkey_account_id
-        ));
 
         assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey_account_id);
 

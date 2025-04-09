@@ -85,6 +85,7 @@ impl<T: Config> Pallet<T> {
             Self::if_subnet_exist(netuid),
             Error::<T>::SubNetworkDoesNotExist
         );
+
         Self::ensure_subtoken_enabled(netuid)?;
 
         // --- 3. Ensure the passed network allows registrations.

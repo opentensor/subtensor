@@ -35,8 +35,6 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // Check that the origin is signed by the origin_hotkey.
         let coldkey = ensure_signed(origin)?;
-        Self::ensure_subtoken_enabled(origin_netuid)?;
-        Self::ensure_subtoken_enabled(destination_netuid)?;
 
         // Validate input and move stake
         let tao_moved = Self::transition_stake_internal(
