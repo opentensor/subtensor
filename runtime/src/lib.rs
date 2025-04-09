@@ -1378,16 +1378,17 @@ parameter_types! {
 }
 
 impl pallet_crowdloan::Config for Runtime {
+    type PalletId = CrowdloanPalletId;
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
-    type PalletId = CrowdloanPalletId;
+    type WeightInfo = pallet_crowdloan::weights::SubstrateWeight<Runtime>;
+    type Preimages = Preimage;
     type MinimumDeposit = MinimumDeposit;
     type MinimumContribution = MinimumContribution;
     type MinimumBlockDuration = MinimumBlockDuration;
     type MaximumBlockDuration = MaximumBlockDuration;
     type RefundContributorsLimit = RefundContributorsLimit;
-    type WeightInfo = pallet_crowdloan::weights::SubstrateWeight<Runtime>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
