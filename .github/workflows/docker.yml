@@ -66,8 +66,8 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: |
-            ghcr.io/${{ github.repository }}:${{ env.tag }}
-            ${{ env.latest_tag == 'true' && format('ghcr.io/{0}:latest', github.repository) || '' }}
+            ghcr.io/${{ github.repository }}:${{ env.tag }}-amd64
+            ${{ env.latest_tag == 'true' && format('ghcr.io/{0}:latest-amd64', github.repository) || '' }}
   publish-arm:
     runs-on: SubtensorCI
 
@@ -112,5 +112,5 @@ jobs:
           push: true
           platforms: linux/arm64
           tags: |
-            ghcr.io/${{ github.repository }}:${{ env.tag }}
-            ${{ env.latest_tag == 'true' && format('ghcr.io/{0}:latest', github.repository) || '' }}
+            ghcr.io/${{ github.repository }}:${{ env.tag }}-arm64
+            ${{ env.latest_tag == 'true' && format('ghcr.io/{0}:latest-arm64', github.repository) || '' }}
