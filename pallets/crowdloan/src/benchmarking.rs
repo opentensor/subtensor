@@ -2,7 +2,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{BalanceOf, CrowdloanId, CrowdloanInfo, CurrencyOf, pallet::*};
 use frame_benchmarking::{account, v2::*};
-use frame_support::traits::{Currency, Get};
+use frame_support::traits::{Currency, Get, StorePreimage};
 use frame_system::RawOrigin;
 use sp_runtime::traits::Zero;
 
@@ -57,7 +57,7 @@ mod benchmarks {
                 end,
                 raised: deposit,
                 target_address,
-                call,
+                call: T::Preimages::bound(*call).unwrap(),
                 finalized: false,
             })
         );
