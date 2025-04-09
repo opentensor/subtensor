@@ -64,7 +64,7 @@ parameter_types! {
     pub const MinimumContribution: u64 = 10;
     pub const MinimumBlockDuration: u64 = 20;
     pub const MaximumBlockDuration: u64 = 100;
-    pub const RefundContributorsLimit: u32 = 2;
+    pub const RefundContributorsLimit: u32 = 5;
 }
 
 pub struct TestWeightInfo;
