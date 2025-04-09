@@ -5,6 +5,9 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod config {
+    use frame_support::pallet_prelude::*;
+    use subtensor_swap_interface::SwapHandler;
+
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
     pub trait Config: frame_system::Config + pallet_drand::Config {
@@ -46,6 +49,9 @@ mod config {
 
         /// the preimage to store the call data.
         type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
+
+        /// Swap interface.
+        type SwapInterface: SwapHandler<Self::AccountId>;
 
         /// =================================
         /// ==== Initial Value Constants ====

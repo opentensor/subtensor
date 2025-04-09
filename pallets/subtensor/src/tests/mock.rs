@@ -18,6 +18,9 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
 };
 use sp_std::cmp::Ordering;
+use subtensor_swap_interface::LiquidityDataProvider;
+use substrate_fixed::types::U64F64;
+use frame_support::PalletId;
 
 use crate::*;
 
@@ -38,6 +41,7 @@ frame_support::construct_runtime!(
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 9,
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 10,
         Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 11,
+        Swap: pallet_subtensor_swap::{Pallet, Call, Storage, Event<T>} = 12,
     }
 );
 
@@ -410,6 +414,48 @@ impl crate::Config for Test {
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
+	type SwapInterface = Swap;
+}
+
+impl LiquidityDataProvider<AccountId> for SubtensorModule {
+    fn tao_reserve(netuid: u16) -> u64 {
+        SubnetTAO::<Test>::get(netuid)
+    }
+
+    fn alpha_reserve(netuid: u16) -> u64 {
+        SubnetAlphaIn::<Test>::get(netuid)
+    }
+
+    fn tao_balance(account_id: &AccountId) -> u64 {
+        Balances::free_balance(account_id)
+    }
+
+    fn alpha_balance(netuid: u16, account_id: &AccountId) -> u64 {
+        TotalHotkeyAlpha::<Test>::get(account_id, netuid)
+    }
+}
+
+// Swap-related parameter types
+parameter_types! {
+	pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
+	pub const SwapMaxFeeRate: u16 = 10000; // 15.26%
+	pub const SwapMaxPositions: u32 = 100;
+	pub const SwapMinimumLiquidity: u64 = 1_000;
+	pub SwapMinSqrtPrice: U64F64 = U64F64::from_num(0.001);
+	pub SwapMaxSqrtPrice: U64F64 = U64F64::from_num(10.0);
+}
+
+impl pallet_subtensor_swap::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = EnsureRoot<AccountId>;
+	type LiquidityDataProvider = SubtensorModule;
+	type ProtocolId = SwapProtocolId;
+	type MaxFeeRate = SwapMaxFeeRate;
+	type MaxPositions = SwapMaxPositions;
+	type MinimumLiquidity = SwapMinimumLiquidity;
+	type MinSqrtPrice = SwapMinSqrtPrice;
+	type MaxSqrtPrice = SwapMaxSqrtPrice;
+	type WeightInfo = ();
 }
 
 pub struct OriginPrivilegeCmp;

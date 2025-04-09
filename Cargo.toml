@@ -51,6 +51,7 @@ pallet-collective = { default-features = false, path = "pallets/collective" }
 pallet-commitments = { default-features = false, path = "pallets/commitments" }
 pallet-registry = { default-features = false, path = "pallets/registry" }
 pallet-subtensor = { default-features = false, path = "pallets/subtensor" }
+pallet-subtensor-swap = { default-features = false, path = "pallets/swap" }
 safe-math = { default-features = false, path = "primitives/safe-math" }
 subtensor-custom-rpc = { default-features = false, path = "pallets/subtensor/rpc" }
 subtensor-custom-rpc-runtime-api = { default-features = false, path = "pallets/subtensor/runtime-api" }

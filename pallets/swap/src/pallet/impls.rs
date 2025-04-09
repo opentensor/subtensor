@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 
-use frame_support::{ensure, traits::Get};
+use frame_support::{ensure, traits::Get, pallet_prelude::DispatchError};
 use safe_math::*;
 use sp_arithmetic::helpers_128bit;
 use sp_runtime::traits::AccountIdConversion;
@@ -694,7 +694,7 @@ impl<T: Config> Pallet<T> {
         let position_id = position.id;
 
         ensure!(
-            T::LiquidityDataProvider::tao_balance(netuid.into(), account_id) >= tao
+            T::LiquidityDataProvider::tao_balance(account_id) >= tao
                 && T::LiquidityDataProvider::alpha_balance(netuid.into(), account_id) >= alpha,
             Error::<T>::InsufficientBalance
         );
@@ -934,18 +934,19 @@ impl<T: Config> Pallet<T> {
     }
 }
 
-impl<T: Config> SwapHandler<T::AccountId, Error<T>> for Pallet<T> {
+impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
     fn swap(
         netuid: u16,
         order_t: OrderType,
         amount: u64,
         price_limit: u64,
-    ) -> Result<SwapResult, Error<T>> {
+    ) -> Result<SwapResult, DispatchError> {
         let sqrt_price_limit = SqrtPrice::saturating_from_num(price_limit)
             .checked_sqrt(SqrtPrice::saturating_from_num(2))
             .ok_or(Error::<T>::PriceLimitExceeded)?;
 
         Self::swap(NetUid::from(netuid), order_t, amount, sqrt_price_limit)
+            .map_err(Into::into)
     }
 
     fn add_liquidity(
@@ -954,21 +955,23 @@ impl<T: Config> SwapHandler<T::AccountId, Error<T>> for Pallet<T> {
         tick_low: i32,
         tick_high: i32,
         liquidity: u64,
-    ) -> Result<(u64, u64), Error<T>> {
+    ) -> Result<(u64, u64), DispatchError> {
         let tick_low = TickIndex::new(tick_low).map_err(|_| Error::<T>::InvalidTickRange)?;
         let tick_high = TickIndex::new(tick_high).map_err(|_| Error::<T>::InvalidTickRange)?;
 
         Self::add_liquidity(netuid.into(), account_id, tick_low, tick_high, liquidity)
             .map(|(_, tao, alpha)| (tao, alpha))
+            .map_err(Into::into)
     }
 
     fn remove_liquidity(
         netuid: u16,
         account_id: &T::AccountId,
         position_id: PositionId,
-    ) -> Result<(u64, u64), Error<T>> {
+    ) -> Result<(u64, u64), DispatchError> {
         Self::remove_liquidity(netuid.into(), account_id, position_id)
             .map(|result| (result.tao, result.alpha))
+            .map_err(Into::into)
     }
 
     fn min_price() -> u64 {

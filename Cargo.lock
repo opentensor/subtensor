@@ -6655,6 +6655,7 @@ dependencies = [
  "pallet-membership",
  "pallet-preimage",
  "pallet-scheduler",
+ "pallet-subtensor-swap",
  "pallet-transaction-payment",
  "pallet-utility 38.0.0",
  "parity-scale-codec",

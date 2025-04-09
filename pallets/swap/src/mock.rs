@@ -4,13 +4,13 @@ use frame_support::{
     traits::{ConstU32, Everything},
 };
 use frame_system::{self as system, EnsureRoot};
-use subtensor_swap_interface::LiquidityDataProvider;
 use sp_core::H256;
 use sp_runtime::{
     BuildStorage,
     traits::{BlakeTwo256, IdentityLookup},
 };
 use substrate_fixed::types::U64F64;
+use subtensor_swap_interface::LiquidityDataProvider;
 
 use crate::SqrtPrice;
 
@@ -83,7 +83,7 @@ impl LiquidityDataProvider<AccountId> for MockLiquidityProvider {
         4_000_000_000
     }
 
-    fn tao_balance(_: u16, account_id: &AccountId) -> u64 {
+    fn tao_balance(account_id: &AccountId) -> u64 {
         if *account_id == OK_ACCOUNT_ID {
             100_000_000_000_000
         } else {

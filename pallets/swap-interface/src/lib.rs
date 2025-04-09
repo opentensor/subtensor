@@ -10,28 +10,25 @@ pub enum OrderType {
     Buy,
 }
 
-pub trait SwapHandler<AccountId, Error>
-where
-    Error: Into<DispatchError>,
-{
+pub trait SwapHandler<AccountId> {
     fn swap(
         netuid: u16,
         order_t: OrderType,
         amount: u64,
         price_limit: u64,
-    ) -> Result<SwapResult, Error>;
+    ) -> Result<SwapResult, DispatchError>;
     fn add_liquidity(
         netuid: u16,
         account_id: &AccountId,
         tick_low: i32,
         tick_high: i32,
         liquidity: u64,
-    ) -> Result<(u64, u64), Error>;
+    ) -> Result<(u64, u64), DispatchError>;
     fn remove_liquidity(
         netuid: u16,
         account_id: &AccountId,
         position_id: PositionId,
-    ) -> Result<(u64, u64), Error>;
+    ) -> Result<(u64, u64), DispatchError>;
     fn max_price() -> u64;
     fn min_price() -> u64;
 }
@@ -48,7 +45,7 @@ pub struct SwapResult {
 pub trait LiquidityDataProvider<AccountId> {
     fn tao_reserve(netuid: u16) -> u64;
     fn alpha_reserve(netuid: u16) -> u64;
-    fn tao_balance(netuid: u16, account_id: &AccountId) -> u64;
+    fn tao_balance(account_id: &AccountId) -> u64;
     fn alpha_balance(netuid: u16, account_id: &AccountId) -> u64;
 }
 

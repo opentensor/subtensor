@@ -10,6 +10,8 @@ mod position;
 mod tick;
 pub mod weights;
 
+pub use pallet::*;
+
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
