@@ -712,6 +712,7 @@ pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> u16 {
     NetworkRegistrationAllowed::<Test>::insert(netuid, true);
     NetworkPowRegistrationAllowed::<Test>::insert(netuid, true);
     FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
+    SubtokenEnabled::<Test>::insert(netuid, true);
     netuid
 }
 
