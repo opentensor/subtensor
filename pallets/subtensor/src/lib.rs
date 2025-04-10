@@ -268,6 +268,25 @@ pub mod pallet {
         /// Additional information about the subnet
         pub additional: Vec<u8>,
     }
+
+    /// Data structure for stake related jobs.
+    #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    pub enum StakeJob<AccountId> {
+        ///  Represents job for "add_stake" operation
+        AddStake {
+            /// Hotkey account
+            hotkey: AccountId,
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Subnet ID
+            netuid: u16,
+            /// Tao to be staked
+            tao_staked: u64,
+            /// Operation fee
+            fee: u64,
+        },
+    }
+
     /// ============================
     /// ==== Staking + Accounts ====
     /// ============================
@@ -815,6 +834,14 @@ pub mod pallet {
     #[pallet::storage]
     pub type SenateRequiredStakePercentage<T> =
         StorageValue<_, u64, ValueQuery, DefaultSenateRequiredStakePercentage<T>>;
+
+    #[pallet::storage]
+    pub type StakeJobs<T: Config> =
+        StorageMap<_, Blake2_128Concat, u64, StakeJob<T::AccountId>, OptionQuery>;
+
+    #[pallet::storage]
+    /// Ensures unique IDs for StakeJobs storage map
+    pub type NextStakeJobId<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
 
     /// ============================
     /// ==== Staking Variables ====

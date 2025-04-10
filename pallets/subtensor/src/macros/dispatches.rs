@@ -2023,5 +2023,18 @@ mod dispatches {
         ) -> DispatchResult {
             Self::do_burn_alpha(origin, hotkey, amount, netuid)
         }
+
+        /// TODO: add comments
+        #[pallet::call_index(103)]
+        // TODO: add proper weights
+        #[pallet::weight((Weight::from_parts(0, 0), DispatchClass::Normal, Pays::No))]
+        pub fn add_stake_aggregate(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: u16,
+            amount_staked: u64,
+        ) -> DispatchResult {
+            Self::do_add_stake_aggregate(origin, hotkey, netuid, amount_staked)
+        }
     }
 }
