@@ -152,6 +152,9 @@ mod pallet {
 
         /// Too many swap steps
         TooManySwapSteps,
+
+        /// Provided liquidity parameter is invalid (likely too small)
+        InvalidLiquidityValue,
     }
 
     #[pallet::call]
