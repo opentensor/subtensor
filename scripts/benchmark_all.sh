@@ -1,24 +1,45 @@
-#!/bin/sh
-set -ex
+#!/usr/bin/env bash
+set -e
 
-# List of pallets you want to benchmark
-pallets=("pallet_subtensor" "pallet_collective" "pallet_commitments" "pallet_registry" "pallet_admin_utils")
+pallets=(
+  "pallet_subtensor"
+  "pallet_collective"
+  "pallet_commitments"
+  "pallet_drand"
+  "pallet_admin_utils"
+)
 
-# Chain spec and output directory
-chain_spec="finney"  # or your specific chain spec
+# 1) Build/Refresh the Chain Specs
+echo "*** Building all chain specs with your existing script ***"
+./scripts/build_all_chainspecs.sh
 
-for pallet in "${pallets[@]}"
-do
+# 2) Build the Node in Production Mode with Benchmarking Features
+echo "*** Building node-subtensor with 'runtime-benchmarks' ***"
+cargo build \
+  --profile production \
+  --package node-subtensor \
+  --bin node-subtensor \
+  --features "runtime-benchmarks,try-runtime,pow-faucet"
+
+CHAIN_SPEC="chainspecs/raw_spec_finney.json"
+
+# 3) Benchmark the Desired Pallets Using the Updated Chain Spec
+echo "*** Starting benchmarks using $CHAIN_SPEC ***"
+for pallet in "${pallets[@]}"; do
+  echo "======================================================"
   echo "Benchmarking $pallet..."
-  cargo run --profile=production --features=runtime-benchmarks,try-runtime --bin node-subtensor -- benchmark pallet \
-    --chain $chain_spec \
+  echo "======================================================"
+
+  ./target/production/node-subtensor \
+    benchmark pallet \
+    --chain "$CHAIN_SPEC" \
     --wasm-execution=compiled \
-    --pallet $pallet \
+    --pallet "$pallet" \
     --extrinsic '*' \
     --steps 50 \
     --repeat 5 \
     --output "pallets/$pallet/src/weights.rs" \
-    --template ./.maintain/frame-weight-template.hbs  # Adjust this path to your template file
+    --template ./.maintain/frame-weight-template.hbs
 done
 
-echo "All pallets have been benchmarked and weights updated."
+echo "*** All benchmarks completed successfully ***"
