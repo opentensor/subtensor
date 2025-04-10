@@ -700,6 +700,14 @@ pub fn add_network_without_emission_block(netuid: u16, tempo: u16, _modality: u1
 }
 
 #[allow(dead_code)]
+pub fn add_network_disable_subtoken(netuid: u16, tempo: u16, _modality: u16) {
+    SubtensorModule::init_new_network(netuid, tempo);
+    SubtensorModule::set_network_registration_allowed(netuid, true);
+    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+    SubtokenEnabled::<Test>::insert(netuid, false);
+}
+
+#[allow(dead_code)]
 pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> u16 {
     let netuid = SubtensorModule::get_next_netuid();
     let lock_cost = SubtensorModule::get_network_lock_cost();
