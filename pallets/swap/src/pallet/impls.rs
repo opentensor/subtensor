@@ -130,7 +130,7 @@ impl<T: Config> SwapStep<T> {
             } else {
                 // Stop at limit price (refund needed)
                 self.action = SwapStepAction::StopIn;
-                self.delta_in = Pallet::<T>::delta_in(
+                self.delta_in = Self::delta_in(
                     self.order_type,
                     self.current_liquidity,
                     self.current_price,
@@ -145,7 +145,7 @@ impl<T: Config> SwapStep<T> {
             if self.edge_quantity < self.lim_quantity {
                 // Cross at edge price
                 self.action = SwapStepAction::Crossing;
-                self.delta_in = Pallet::<T>::delta_in(
+                self.delta_in = Self::delta_in(
                     self.order_type,
                     self.current_liquidity,
                     self.current_price,
@@ -156,7 +156,7 @@ impl<T: Config> SwapStep<T> {
             } else if self.edge_quantity > self.lim_quantity {
                 // Stop at limit price (refund needed)
                 self.action = SwapStepAction::StopIn;
-                self.delta_in = Pallet::<T>::delta_in(
+                self.delta_in = Self::delta_in(
                     self.order_type,
                     self.current_liquidity,
                     self.current_price,
@@ -167,7 +167,7 @@ impl<T: Config> SwapStep<T> {
             } else {
                 // Stop on edge (refund needed)
                 self.action = SwapStepAction::StopOn;
-                self.delta_in = Pallet::<T>::delta_in(
+                self.delta_in = Self::delta_in(
                     self.order_type,
                     self.current_liquidity,
                     self.current_price,
@@ -181,7 +181,7 @@ impl<T: Config> SwapStep<T> {
         else {
             if self.target_quantity <= self.lim_quantity {
                 // Stop on edge price
-                self.delta_in = Pallet::<T>::delta_in(
+                self.delta_in = Self::delta_in(
                     self.order_type,
                     self.current_liquidity,
                     self.current_price,
@@ -197,7 +197,7 @@ impl<T: Config> SwapStep<T> {
             } else {
                 // Stop at limit price (refund needed)
                 self.action = SwapStepAction::StopIn;
-                self.delta_in = Pallet::<T>::delta_in(
+                self.delta_in = Self::delta_in(
                     self.order_type,
                     self.current_liquidity,
                     self.current_price,
@@ -225,9 +225,6 @@ impl<T: Config> SwapStep<T> {
         );
         Pallet::<T>::add_fees(self.netuid, self.order_type, fee);
         let delta_out = Pallet::<T>::convert_deltas(self.netuid, self.order_type, self.delta_in);
-
-        // TODO (look inside method)
-        // Self::update_reserves(netuid, order_type, self.delta_in, delta_out);
 
         // Get current tick
         let current_tick_index = TickIndex::current_bounded::<T>(self.netuid);
@@ -283,6 +280,27 @@ impl<T: Config> SwapStep<T> {
             delat_in: self.delta_in,
             delta_out,
         })
+    }
+
+    /// Get the input amount needed to reach the target price
+    fn delta_in(
+        order_type: OrderType,
+        liquidity_curr: U64F64,
+        sqrt_price_curr: U64F64,
+        sqrt_price_target: SqrtPrice,
+    ) -> u64 {
+        let one = U64F64::saturating_from_num(1);
+
+        (match order_type {
+            OrderType::Sell => liquidity_curr.saturating_mul(
+                one.safe_div(sqrt_price_target.into())
+                    .saturating_sub(one.safe_div(sqrt_price_curr)),
+            ),
+            OrderType::Buy => {
+                liquidity_curr.saturating_mul(sqrt_price_target.saturating_sub(sqrt_price_curr))
+            }
+        })
+        .saturating_to_num::<u64>()
     }
 }
 
@@ -571,27 +589,6 @@ impl<T: Config> Pallet<T> {
                 .saturating_add(one.safe_div(sqrt_price_curr))
                 .into(),
         }
-    }
-
-    /// Get the input amount needed to reach the target price
-    fn delta_in(
-        order_type: OrderType,
-        liquidity_curr: U64F64,
-        sqrt_price_curr: U64F64,
-        sqrt_price_target: SqrtPrice,
-    ) -> u64 {
-        let one = U64F64::saturating_from_num(1);
-
-        (match order_type {
-            OrderType::Sell => liquidity_curr.saturating_mul(
-                one.safe_div(sqrt_price_target.into())
-                    .saturating_sub(one.safe_div(sqrt_price_curr)),
-            ),
-            OrderType::Buy => {
-                liquidity_curr.saturating_mul(sqrt_price_target.saturating_sub(sqrt_price_curr))
-            }
-        })
-        .saturating_to_num::<u64>()
     }
 
     /// Update liquidity when crossing a tick

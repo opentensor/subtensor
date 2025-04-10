@@ -3,6 +3,7 @@ use safe_math::*;
 use share_pool::{SharePool, SharePoolDataOperations};
 use sp_std::ops::Neg;
 use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32, U110F18};
+use subtensor_swap_interface::{OrderType, SwapHandler};
 
 impl<T: Config> Pallet<T> {
     /// Retrieves the total alpha issuance for a given subnet.
@@ -829,55 +830,58 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         netuid: u16,
         tao: u64,
-		price_limit: u64,
-    ) -> u64 {
-        // Step 2. Swap the tao to alpha.
-        let alpha = Self::swap_tao_for_alpha(netuid, tao_staked);
-        let mut actual_alpha = 0;
-        if (tao_staked > 0) && (alpha > 0) {
-            // Step 3: Increase the alpha on the hotkey account.
-            actual_alpha = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                hotkey, coldkey, netuid, alpha,
-            );
+        price_limit: u64,
+    ) -> Result<u64, DispatchError> {
+        // Swap the tao to alpha.
+        let swap_result = T::SwapInterface::swap(netuid, OrderType::Buy, tao, price_limit)?;
 
-            // Step 4: Update the list of hotkeys staking for this coldkey
-            let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
-            if !staking_hotkeys.contains(hotkey) {
-                staking_hotkeys.push(hotkey.clone());
-                StakingHotkeys::<T>::insert(coldkey, staking_hotkeys.clone());
-            }
+        // Increase the alpha on the hotkey account.
+        if Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            hotkey,
+            coldkey,
+            netuid,
+            swap_result.amount_paid_out,
+        ) == 0
+            || swap_result.amount_paid_out == 0
+        {
+            return Ok(0);
         }
 
-        // Step 5. Increase Tao reserves by the fee amount.
+        // Step 4: Update the list of hotkeys staking for this coldkey
+        let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
+        if !staking_hotkeys.contains(hotkey) {
+            staking_hotkeys.push(hotkey.clone());
+            StakingHotkeys::<T>::insert(coldkey, staking_hotkeys.clone());
+        }
+
+        // Update TAO reserves
         SubnetTAO::<T>::mutate(netuid, |total| {
-            *total = total.saturating_add(actual_fee);
+            *total = swap_result.new_tao_reserve;
         });
-        TotalStake::<T>::mutate(|total| {
-            *total = total.saturating_add(actual_fee);
+        SubnetAlphaIn::<T>::mutate(netuid, |total| {
+            *total = swap_result.new_alpha_reserve;
         });
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
-        // Step 6. Deposit and log the staking event.
+        // Deposit and log the staking event.
         Self::deposit_event(Event::StakeAdded(
             coldkey.clone(),
             hotkey.clone(),
-            tao_staked,
-            actual_alpha,
+            tao,
+            swap_result.amount_paid_out,
             netuid,
-            actual_fee,
         ));
+
         log::debug!(
-            "StakeAdded( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?}, fee: {:?} )",
+            "StakeAdded( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?} )",
             coldkey.clone(),
             hotkey.clone(),
-            tao_staked,
-            actual_alpha,
+            tao,
+            swap_result.amount_paid_out,
             netuid,
-            actual_fee
         );
 
-        // Step 7: Return the amount of alpha staked
-        actual_alpha
+        Ok(swap_result.amount_paid_out)
     }
 
     pub fn get_alpha_share_pool(
