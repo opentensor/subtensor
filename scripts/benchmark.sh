@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 
 DEFAULT_BIN_PATH='./target/production/node-subtensor'
-BIN_PATH=$DEFAULT_BIN_PATH
-TMP_SPEC='temp.json'
+BIN_PATH="$DEFAULT_BIN_PATH"
 OUTPUT_FILE='benchmarking.txt'
 
 # Getting arguments from user
@@ -24,23 +23,28 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Ensure binary exists before node-subtensor executions
-if [ ! -f $BIN_PATH ]; then
-    if [[ "$DEFAULT_BIN_PATH" == "$BIN_PATH" ]]; then
-        cargo build --profile production --features runtime-benchmarks
-    else
-        echo "Binary '$BIN_PATH' does not exist. You can use -p or --bin-path to specify a different location."
-        exit 1
-    fi
+echo "*** Building all chain specs using 'build_all_chainspecs.sh' ***"
+./scripts/build_all_chainspecs.sh
+CHAIN_SPEC='chainspecs/raw_spec_finney.json'
+
+echo "*** Building node-subtensor with 'runtime-benchmarks' ***"
+cargo build \
+    --profile production \
+    --package node-subtensor \
+    --bin node-subtensor \
+    --features "runtime-benchmarks,try-runtime,pow-faucet"
+
+if [ ! -f "$BIN_PATH" ]; then
+    echo "ERROR: Node binary '$BIN_PATH' not found after build."
+    exit 1
 fi
 
-# Build Temporary Spec
-$BIN_PATH build-spec --disable-default-bootnode --raw --chain local >$TMP_SPEC
+echo "*** Running benchmark ***"
+"$BIN_PATH" benchmark pallet \
+    --chain "$CHAIN_SPEC" \
+    --wasm-execution=compiled \
+    --pallet pallet-subtensor \
+    --extrinsic 'benchmark_register' \
+    --output "$OUTPUT_FILE"
 
-# Run benchmark
-$BIN_PATH benchmark pallet \
---chain=$TMP_SPEC \
---pallet pallet-subtensor --extrinsic 'schedule_coldkey_swap' \
---output $OUTPUT_FILE
-
-rm $TMP_SPEC
+echo "*** Benchmark completed. Results saved to '$OUTPUT_FILE' ***"
