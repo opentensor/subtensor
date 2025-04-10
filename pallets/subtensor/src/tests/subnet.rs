@@ -259,3 +259,20 @@ fn test_register_network_min_burn_at_default() {
         assert_eq!(MinBurn::<Test>::get(netuid), InitialMinBurn::get());
     });
 }
+
+// cargo test --package pallet-subtensor --lib -- tests::subnet::test_no_duplicates_in_get_symbol_for_subnet --exact --show-output
+#[test]
+fn test_no_duplicates_in_get_symbol_for_subnet() {
+    use std::collections::HashSet;
+
+    let mut seen = HashSet::new();
+    for netuid in 0u16..=438 {
+        let symbol = Pallet::<Test>::get_symbol_for_subnet(netuid);
+        assert!(
+            seen.insert(symbol.clone()),
+            "Duplicate symbol found for netuid {}: {:?}",
+            netuid,
+            symbol
+        );
+    }
+}
