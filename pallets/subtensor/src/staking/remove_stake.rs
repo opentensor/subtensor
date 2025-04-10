@@ -271,7 +271,7 @@ impl<T: Config> Pallet<T> {
             Self::get_root_netuid(),
             total_tao_unstaked,
             T::SwapInterface::max_price(),
-        );
+        )?;
 
         // 5. Done and ok.
         Ok(())

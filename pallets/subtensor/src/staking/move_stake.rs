@@ -309,7 +309,7 @@ impl<T: Config> Pallet<T> {
         maybe_limit_price: Option<u64>,
         maybe_allow_partial: Option<bool>,
         check_transfer_toggle: bool,
-    ) -> Result<u64, Error<T>> {
+    ) -> Result<u64, DispatchError> {
         // Calculate the maximum amount that can be executed
         let max_amount = if let Some(limit_price) = maybe_limit_price {
             Self::get_max_amount_move(origin_netuid, destination_netuid, limit_price)
@@ -370,9 +370,8 @@ impl<T: Config> Pallet<T> {
                 destination_coldkey,
                 destination_netuid,
                 tao_unstaked,
-				T::SwapInterface::max_price(),
-                fee,
-            );
+                T::SwapInterface::max_price(),
+            )?;
         }
 
         Ok(tao_unstaked.saturating_sub(fee))
