@@ -40,9 +40,14 @@ mod hooks {
         // 	* 'n': (BlockNumberFor<T>):
         // 		- The number of the block we are finalizing.
         fn on_finalize(_block_number: BlockNumberFor<T>) {
-            let stake_jobs = StakeJobs::<T>::drain().collect::<Vec<_>>();
+            let mut stake_jobs = StakeJobs::<T>::drain().collect::<Vec<_>>();
 
-            // TODO: sort jobs by job type
+            // Sort jobs by job type
+            stake_jobs.sort_by_key(|(_, job)| match job {
+                StakeJob::AddStake { .. } => 0,
+                StakeJob::RemoveStake { .. } => 1,
+            });
+
             for (_, job) in stake_jobs.into_iter() {
                 match job {
                     StakeJob::AddStake {
@@ -53,6 +58,21 @@ mod hooks {
                         fee,
                     } => {
                         Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked, fee);
+                    }
+                    StakeJob::RemoveStake {
+                        coldkey,
+                        hotkey,
+                        tao_unstaked,
+                        netuid,
+                    } => {
+                        Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
+                        Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
+
+                        if Self::get_total_stake_for_hotkey(&hotkey) < StakeThreshold::<T>::get() {
+                            Self::get_all_subnet_netuids().iter().for_each(|netuid| {
+                                PendingChildKeys::<T>::remove(netuid, &hotkey);
+                            })
+                        }
                     }
                 }
             }

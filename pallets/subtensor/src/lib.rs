@@ -285,6 +285,17 @@ pub mod pallet {
             /// Operation fee
             fee: u64,
         },
+        ///  Represents job for "remove_stake" operation
+        RemoveStake {
+            /// Hotkey account
+            hotkey: AccountId,
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Subnet ID
+            netuid: u16,
+            /// Tao to be unstaked
+            tao_unstaked: u64,
+        },
     }
 
     /// ============================

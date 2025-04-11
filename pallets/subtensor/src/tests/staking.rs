@@ -491,6 +491,86 @@ fn test_remove_stake_ok_no_emission() {
 }
 
 #[test]
+fn test_remove_stake_aggregate_ok_no_emission() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1);
+        let subnet_owner_hotkey = U256::from(2);
+        let coldkey_account_id = U256::from(4343);
+        let hotkey_account_id = U256::from(4968585);
+        let amount = DefaultMinStake::<Test>::get() * 10;
+        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
+
+        // Some basic assertions
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            SubtensorModule::get_network_min_lock()
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            0
+        );
+        assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
+
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+            amount,
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            amount
+        );
+
+        // Add subnet TAO for the equivalent amount added at price
+        let amount_tao =
+            U96F32::saturating_from_num(amount) * SubtensorModule::get_alpha_price(netuid);
+        SubnetTAO::<Test>::mutate(netuid, |v| *v += amount_tao.saturating_to_num::<u64>());
+        TotalStake::<Test>::mutate(|v| *v += amount_tao.saturating_to_num::<u64>());
+
+        // Do the magic
+        assert_ok!(SubtensorModule::remove_stake_aggregate(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            amount
+        ));
+
+        // Enable on_finalize code to run
+        run_to_block_ext(2, true);
+
+        let fee = SubtensorModule::calculate_staking_fee(
+            Some((&hotkey_account_id, netuid)),
+            &coldkey_account_id,
+            None,
+            &coldkey_account_id,
+            U96F32::saturating_from_num(amount),
+        );
+
+        // we do not expect the exact amount due to slippage
+        assert!(SubtensorModule::get_coldkey_balance(&coldkey_account_id) > amount / 10 * 9 - fee);
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            SubtensorModule::get_network_min_lock() + fee
+        );
+
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::StakeRemoved(..))
+            )
+        }));
+    });
+}
+
+#[test]
 fn test_remove_stake_amount_too_low() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1);
