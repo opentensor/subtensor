@@ -1,6 +1,5 @@
 import * as assert from "assert";
-import { getAliceSigner, getClient, getDevnetApi, getRandomSubstrateKeypair } from "../src/substrate"
-import { SUB_LOCAL_URL, } from "../src/config";
+import { getAliceSigner, getDevnetApi, getRandomSubstrateKeypair } from "../src/substrate"
 import { devnet } from "@polkadot-api/descriptors"
 import { PolkadotSigner, TypedApi } from "polkadot-api";
 import { convertPublicKeyToSs58, convertH160ToSS58 } from "../src/address-utils"
@@ -25,7 +24,6 @@ describe("Test neuron precompile Serve Axon Prometheus", () => {
     let alice: PolkadotSigner;
     before(async () => {
         // init variables got from await and async
-        const subClient = await getClient(SUB_LOCAL_URL)
         api = await getDevnetApi()
         alice = await getAliceSigner();
 
