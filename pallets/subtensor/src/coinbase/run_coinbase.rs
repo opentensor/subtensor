@@ -2,6 +2,7 @@ use super::*;
 use alloc::collections::BTreeMap;
 use safe_math::*;
 use substrate_fixed::types::U96F32;
+use subtensor_swap_interface::SwapHandler;
 use tle::stream_ciphers::AESGCMStreamCipherProvider;
 use tle::tlock::tld;
 
@@ -32,7 +33,7 @@ macro_rules! tou64 {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn run_coinbase(block_emission: U96F32) {
+    pub fn run_coinbase(block_emission: U96F32) -> DispatchResult {
         // --- 0. Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
         log::debug!("Current block: {:?}", current_block);
@@ -191,7 +192,12 @@ impl<T: Config> Pallet<T> {
             let pending_alpha: U96F32 = alpha_out_i.saturating_sub(root_alpha);
             log::debug!("pending_alpha: {:?}", pending_alpha);
             // Sell root emission through the pool.
-            let root_tao: u64 = Self::swap_alpha_for_tao(*netuid_i, tou64!(root_alpha));
+            let root_tao: u64 = Self::swap_alpha_for_tao(
+                *netuid_i,
+                tou64!(root_alpha),
+                T::SwapInterface::max_price(),
+            )?
+            .amount_paid_out;
             log::debug!("root_tao: {:?}", root_tao);
             // Accumulate alpha emission in pending.
             PendingAlphaSwapped::<T>::mutate(*netuid_i, |total| {
@@ -260,6 +266,8 @@ impl<T: Config> Pallet<T> {
                 BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));
             }
         }
+
+		Ok(())
     }
 
     pub fn calculate_dividends_and_incentives(

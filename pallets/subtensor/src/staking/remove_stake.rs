@@ -59,21 +59,19 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // 3. Swap the alpba to tao and update counters for this subnet.
-        let fee = Self::calculate_staking_fee(
-            Some((&hotkey, netuid)),
+        let tao_unstaked: u64 = Self::unstake_from_subnet(
+            &hotkey,
             &coldkey,
-            None,
-            &coldkey,
-            U96F32::saturating_from_num(alpha_unstaked),
-        );
-        let tao_unstaked: u64 =
-            Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha_unstaked, fee);
+            netuid,
+            alpha_unstaked,
+            T::SwapInterface::max_price(),
+        )?;
 
         // 4. We add the balance to the coldkey. If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 
         // 5. If the stake is below the minimum, we clear the nomination from storage.
-        Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
+        Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid)?;
 
         // 6. Check if stake lowered below MinStake and remove Pending children if it did
         if Self::get_total_stake_for_hotkey(&hotkey) < StakeThreshold::<T>::get() {
@@ -150,24 +148,21 @@ impl<T: Config> Pallet<T> {
                 continue;
             }
 
-            let fee = Self::calculate_staking_fee(
-                Some((&hotkey, netuid)),
-                &coldkey,
-                None,
-                &coldkey,
-                U96F32::saturating_from_num(alpha_unstaked),
-            );
-
             if alpha_unstaked > 0 {
                 // Swap the alpha to tao and update counters for this subnet.
-                let tao_unstaked: u64 =
-                    Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha_unstaked, fee);
+                let tao_unstaked: u64 = Self::unstake_from_subnet(
+                    &hotkey,
+                    &coldkey,
+                    netuid,
+                    alpha_unstaked,
+                    T::SwapInterface::max_price(),
+                )?;
 
                 // Add the balance to the coldkey. If the above fails we will not credit this coldkey.
                 Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 
                 // If the stake is below the minimum, we clear the nomination from storage.
-                Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
+                Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid)?;
             }
         }
 
@@ -242,24 +237,21 @@ impl<T: Config> Pallet<T> {
                     continue;
                 }
 
-                let fee = Self::calculate_staking_fee(
-                    Some((&hotkey, netuid)),
-                    &coldkey,
-                    None,
-                    &coldkey,
-                    U96F32::saturating_from_num(alpha_unstaked),
-                );
-
                 if alpha_unstaked > 0 {
                     // Swap the alpha to tao and update counters for this subnet.
-                    let tao_unstaked =
-                        Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha_unstaked, fee);
+                    let tao_unstaked = Self::unstake_from_subnet(
+                        &hotkey,
+                        &coldkey,
+                        netuid,
+                        alpha_unstaked,
+                        T::SwapInterface::max_price(),
+                    )?;
 
                     // Increment total
                     total_tao_unstaked = total_tao_unstaked.saturating_add(tao_unstaked);
 
                     // If the stake is below the minimum, we clear the nomination from storage.
-                    Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
+                    Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid)?;
                 }
             }
         }
@@ -351,21 +343,19 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // 4. Swap the alpha to tao and update counters for this subnet.
-        let fee = Self::calculate_staking_fee(
-            Some((&hotkey, netuid)),
+        let tao_unstaked = Self::unstake_from_subnet(
+            &hotkey,
             &coldkey,
-            None,
-            &coldkey,
-            U96F32::saturating_from_num(alpha_unstaked),
-        );
-        let tao_unstaked =
-            Self::unstake_from_subnet(&hotkey, &coldkey, netuid, possible_alpha, fee);
+            netuid,
+            possible_alpha,
+            T::SwapInterface::max_price(),
+        )?;
 
         // 5. We add the balance to the coldkey. If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 
         // 6. If the stake is below the minimum, we clear the nomination from storage.
-        Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
+        Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid)?;
 
         // 7. Check if stake lowered below MinStake and remove Pending children if it did
         if Self::get_total_stake_for_hotkey(&hotkey) < StakeThreshold::<T>::get() {
