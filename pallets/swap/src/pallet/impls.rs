@@ -682,6 +682,12 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InsufficientBalance
         );
 
+        // Small delta is not allowed
+        ensure!(
+            liquidity >= T::MinimumLiquidity::get(),
+            Error::<T>::InvalidLiquidityValue
+        );
+
         Positions::<T>::insert(&(netuid, account_id, position.id), position);
 
         Ok((position_id, tao, alpha))
@@ -800,6 +806,110 @@ impl<T: Config> Pallet<T> {
         Ok(RemoveLiquidityResult {
             tao,
             alpha,
+            fee_tao,
+            fee_alpha,
+        })
+    }
+
+    fn modify_position(
+        netuid: NetUid,
+        account_id: &T::AccountId,
+        position_id: PositionId,
+        liquidity_delta: i64,
+    ) -> Result<RemoveLiquidityResult, Error<T>> {
+        // Find the position
+        let Some(mut position) = Positions::<T>::get((netuid, account_id, position_id)) else {
+            return Err(Error::<T>::LiquidityNotFound);
+        };
+
+        // Small delta is not allowed
+        ensure!(
+            liquidity_delta.abs() >= T::MinimumLiquidity::get() as i64,
+            Error::<T>::InvalidLiquidityValue
+        );
+        let mut delta_liquidity_abs = liquidity_delta.abs() as u64;
+
+        // Determine the effective price for token calculations
+        let current_price = AlphaSqrtPrice::<T>::get(netuid);
+        let sqrt_pa: SqrtPrice = position
+            .tick_low
+            .try_to_sqrt_price()
+            .map_err(|_| Error::<T>::InvalidTickRange)?;
+        let sqrt_pb: SqrtPrice = position
+            .tick_high
+            .try_to_sqrt_price()
+            .map_err(|_| Error::<T>::InvalidTickRange)?;
+        let sqrt_price_box = if current_price < sqrt_pa {
+            sqrt_pa
+        } else if current_price > sqrt_pb {
+            sqrt_pb
+        } else {
+            // Update current liquidity if price is in range
+            let new_liquidity_curr = if liquidity_delta > 0 {
+                CurrentLiquidity::<T>::get(netuid).saturating_add(delta_liquidity_abs)
+            } else {
+                CurrentLiquidity::<T>::get(netuid).saturating_sub(delta_liquidity_abs)
+            };
+            CurrentLiquidity::<T>::set(netuid, new_liquidity_curr);
+            current_price
+        };
+
+        // Calculate token amounts for the liquidity change
+        // TODO: Rewrite in non-overflowing math
+        let alpha = SqrtPrice::from_num(delta_liquidity_abs)
+            * (SqrtPrice::from_num(1) / sqrt_price_box - SqrtPrice::from_num(1) / sqrt_pb);
+        let tao = SqrtPrice::from_num(delta_liquidity_abs) * (sqrt_price_box - sqrt_pa);
+
+        // Validate delta
+        if liquidity_delta > 0 {
+            // Check that user has enough balances
+            ensure!(
+                T::LiquidityDataProvider::tao_balance(account_id) >= tao
+                    && T::LiquidityDataProvider::alpha_balance(netuid.into(), account_id) >= alpha,
+                Error::<T>::InsufficientBalance
+            );
+        } else {
+            // Check that position has enough liquidity
+            ensure!(
+                position.liquidity >= delta_liquidity_abs,
+                Error::<T>::InsufficientLiquidity
+            );
+        }
+
+        // Collect fees
+        let (fee_tao, fee_alpha) = position.collect_fees::<T>();
+
+        // If delta brings the position liquidity below MinimumLiquidity, eliminate position and withdraw full amounts
+        if (liquidity_delta < 0)
+            && (position.liquidity.saturating_sub(delta_liquidity_abs)
+                < T::MinimumLiquidity::get())
+        {
+            delta_liquidity_abs = position.liquidity;
+        }
+
+        // Adjust liquidity at the ticks based on the delta sign
+        if liquidity_delta > 0 {
+            // Add liquidity at tick
+            Self::add_liquidity_at_index(netuid, position.tick_low, delta_liquidity_abs, false);
+            Self::add_liquidity_at_index(netuid, position.tick_high, delta_liquidity_abs, true);
+
+            // Add liquidity to user position
+            position.liquidity = position.liquidity.saturating_add(delta_liquidity_abs);
+        } else {
+            // Remove liquidity at tick
+            Self::remove_liquidity_at_index(netuid, position.tick_low, position.liquidity, false);
+            Self::remove_liquidity_at_index(netuid, position.tick_high, position.liquidity, true);
+
+            // Remove liquidity from user position
+            position.liquidity = position.liquidity.saturating_sub(delta_liquidity_abs);
+        }
+        Positions::<T>::insert(&(netuid, account_id, position.id), position);
+
+        // TODO: Withdraw balances and update pool reserves
+
+        Ok(RemoveLiquidityResult {
+            tao: tao.saturating_to_num::<u64>(),
+            alpha: alpha.saturating_to_num::<u64>(),
             fee_tao,
             fee_alpha,
         })
