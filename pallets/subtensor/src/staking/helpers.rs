@@ -1,6 +1,7 @@
 use super::*;
 use safe_math::*;
 use substrate_fixed::types::U96F32;
+use subtensor_swap_interface::SwapHandler;
 
 use frame_support::traits::{
     Imbalance,
@@ -166,7 +167,7 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: u16,
-    ) {
+    ) -> DispatchResult {
         // Verify if the account is a nominator account by checking ownership of the hotkey by the coldkey.
         if !Self::coldkey_owns_hotkey(coldkey, hotkey) {
             // If the stake is below the minimum required, it's considered a small nomination and needs to be cleared.
@@ -178,22 +179,32 @@ impl<T: Config> Pallet<T> {
                 // Remove the stake from the nominator account. (this is a more forceful unstake operation which )
                 // Actually deletes the staking account.
                 // Do not apply any fees
-                let cleared_stake = Self::unstake_from_subnet(hotkey, coldkey, netuid, stake, 0);
+                let cleared_stake = Self::unstake_from_subnet(
+                    hotkey,
+                    coldkey,
+                    netuid,
+                    stake,
+                    T::SwapInterface::max_price(),
+                )?;
                 // Add the stake to the coldkey account.
                 Self::add_balance_to_coldkey_account(coldkey, cleared_stake);
             }
         }
+
+        Ok(())
     }
 
     /// Clears small nominations for all accounts.
     ///
     /// WARN: This is an O(N) operation, where N is the number of staking accounts. It should be
     /// used with caution.
-    pub fn clear_small_nominations() {
+    pub fn clear_small_nominations() -> DispatchResult {
         // Loop through all staking accounts to identify and clear nominations below the minimum stake.
         for ((hotkey, coldkey, netuid), _) in Alpha::<T>::iter() {
-            Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
+            Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid)?;
         }
+
+		Ok(())
     }
 
     pub fn add_balance_to_coldkey_account(

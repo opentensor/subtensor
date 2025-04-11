@@ -338,28 +338,18 @@ impl<T: Config> Pallet<T> {
             max_amount
         };
 
-        // Unstake from the origin subnet, returning TAO (or a 1:1 equivalent).
-        let fee = Self::calculate_staking_fee(
-            Some((origin_hotkey, origin_netuid)),
-            origin_coldkey,
-            Some((destination_hotkey, destination_netuid)),
-            destination_coldkey,
-            U96F32::saturating_from_num(alpha_amount),
-        )
-        .safe_div(2);
-
         let tao_unstaked = Self::unstake_from_subnet(
             origin_hotkey,
             origin_coldkey,
             origin_netuid,
             move_amount,
-            fee,
-        );
+			T::SwapInterface::max_price(),
+        )?;
 
         // Stake the unstaked amount into the destination.
         // Because of the fee, the tao_unstaked may be too low if initial stake is low. In that case,
         // do not restake.
-        if tao_unstaked >= DefaultMinStake::<T>::get().saturating_add(fee) {
+        if tao_unstaked >= DefaultMinStake::<T>::get() {
             // If the coldkey is not the owner, make the hotkey a delegate.
             if Self::get_owning_coldkey_for_hotkey(destination_hotkey) != *destination_coldkey {
                 Self::maybe_become_delegate(destination_hotkey);
@@ -374,7 +364,7 @@ impl<T: Config> Pallet<T> {
             )?;
         }
 
-        Ok(tao_unstaked.saturating_sub(fee))
+        Ok(tao_unstaked)
     }
 
     /// Returns the maximum amount of origin netuid Alpha that can be executed before we cross

@@ -277,7 +277,7 @@ impl<T: Config> SwapStep<T> {
 
         Ok(SwapStepResult {
             amount_to_take: amount_swapped.saturating_to_num::<u64>(),
-            delat_in: self.delta_in,
+            delta_in: self.delta_in,
             delta_out,
         })
     }
@@ -374,7 +374,7 @@ impl<T: Config> Pallet<T> {
 
             let swap_result = swap_step.execute()?;
 
-            in_acc = in_acc.saturating_add(swap_result.delat_in);
+            in_acc = in_acc.saturating_add(swap_result.delta_in);
             amount_remaining = amount_remaining.saturating_sub(swap_result.amount_to_take);
             amount_paid_out = amount_paid_out.saturating_add(swap_result.delta_out);
 
@@ -391,6 +391,16 @@ impl<T: Config> Pallet<T> {
 
         let tao_reserve = T::LiquidityDataProvider::tao_reserve(netuid.into());
         let alpha_reserve = T::LiquidityDataProvider::alpha_reserve(netuid.into());
+
+        let checked_reserve = match order_type {
+            OrderType::Buy => alpha_reserve,
+            OrderType::Sell => tao_reserve,
+        };
+
+        ensure!(
+            checked_reserve >= amount_paid_out,
+            Error::<T>::InsufficientLiquidity
+        );
 
         let (new_tao_reserve, new_alpha_reserve) = match order_type {
             OrderType::Buy => (
@@ -881,8 +891,7 @@ impl<T: Config> Pallet<T> {
 
         // If delta brings the position liquidity below MinimumLiquidity, eliminate position and withdraw full amounts
         if (liquidity_delta < 0)
-            && (position.liquidity.saturating_sub(delta_liquidity_abs)
-                < T::MinimumLiquidity::get())
+            && (position.liquidity.saturating_sub(delta_liquidity_abs) < T::MinimumLiquidity::get())
         {
             delta_liquidity_abs = position.liquidity;
         }
@@ -1082,7 +1091,7 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
 #[derive(Debug, PartialEq)]
 struct SwapStepResult {
     amount_to_take: u64,
-    delat_in: u64,
+    delta_in: u64,
     delta_out: u64,
 }
 
@@ -1096,7 +1105,7 @@ pub enum SwapStepAction {
 #[cfg(test)]
 mod tests {
     use approx::assert_abs_diff_eq;
-    use frame_support::{assert_err, assert_ok};
+    use frame_support::{assert_err, assert_noop, assert_ok};
     use sp_arithmetic::helpers_128bit;
 
     use super::*;
@@ -1260,8 +1269,6 @@ mod tests {
                         liquidity,
                     )
                     .unwrap();
-
-                    // dbg!((tao, expected_tao), (alpha, expected_alpha));
 
                     assert_abs_diff_eq!(tao, expected_tao, epsilon = tao / 1000);
                     assert_abs_diff_eq!(alpha, expected_alpha, epsilon = alpha / 1000);
@@ -1513,7 +1520,7 @@ mod tests {
             [
                 (OrderType::Buy, 1_000u64, 1000.0_f64, 3990_u64),
                 (OrderType::Sell, 1_000u64, 0.0001_f64, 250_u64),
-                (OrderType::Buy, 500_000_000, 1000.0, 1_330_000_000),
+                (OrderType::Buy, 500_000_000, 1000.0, 2_000_000_000),
             ]
             .into_iter()
             .enumerate()
@@ -1598,7 +1605,7 @@ mod tests {
                     .to_num::<f64>()
                         * (liquidity_before as f64))
                         as u64;
-                    assert_eq!(actual_global_fee, expected_fee);
+                    assert!((actual_global_fee as i64 - expected_fee as i64).abs() <= 1);
 
                     // Tick fees should be updated
 

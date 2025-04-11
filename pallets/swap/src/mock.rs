@@ -9,10 +9,7 @@ use sp_runtime::{
     BuildStorage,
     traits::{BlakeTwo256, IdentityLookup},
 };
-use substrate_fixed::types::U64F64;
 use subtensor_swap_interface::LiquidityDataProvider;
-
-use crate::SqrtPrice;
 
 construct_runtime!(
     pub enum Test {
@@ -74,11 +71,11 @@ pub struct MockLiquidityProvider;
 
 impl LiquidityDataProvider<AccountId> for MockLiquidityProvider {
     fn tao_reserve(_: u16) -> u64 {
-        1_000_000_000
+        1_000_000_000_000
     }
 
     fn alpha_reserve(_: u16) -> u64 {
-        4_000_000_000
+        4_000_000_000_000
     }
 
     fn tao_balance(account_id: &AccountId) -> u64 {
