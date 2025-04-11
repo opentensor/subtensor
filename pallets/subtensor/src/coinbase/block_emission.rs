@@ -1,7 +1,10 @@
 use super::*;
 use frame_support::traits::Get;
 use safe_math::*;
-use substrate_fixed::{transcendental::log2, types::I96F32};
+use substrate_fixed::{
+    transcendental::log2,
+    types::{I96F32, U96F32},
+};
 
 impl<T: Config> Pallet<T> {
     /// Calculates the dynamic TAO emission for a given subnet.
@@ -31,15 +34,15 @@ impl<T: Config> Pallet<T> {
         alpha_block_emission: u64,
     ) -> (u64, u64, u64) {
         // Init terms.
-        let mut tao_in_emission: I96F32 = I96F32::saturating_from_num(tao_emission);
-        let float_alpha_block_emission: I96F32 = I96F32::saturating_from_num(alpha_block_emission);
+        let mut tao_in_emission: U96F32 = U96F32::saturating_from_num(tao_emission);
+        let float_alpha_block_emission: U96F32 = U96F32::saturating_from_num(alpha_block_emission);
 
         // Get alpha price for subnet.
-        let alpha_price: I96F32 = Self::get_alpha_price(netuid);
+        let alpha_price: U96F32 = Self::get_alpha_price(netuid);
         log::debug!("{:?} - alpha_price: {:?}", netuid, alpha_price);
 
         // Get initial alpha_in
-        let mut alpha_in_emission: I96F32 = I96F32::saturating_from_num(tao_emission)
+        let mut alpha_in_emission: U96F32 = U96F32::saturating_from_num(tao_emission)
             .checked_div(alpha_price)
             .unwrap_or(float_alpha_block_emission);
 
@@ -60,11 +63,11 @@ impl<T: Config> Pallet<T> {
         }
 
         // Avoid rounding errors.
-        if tao_in_emission < I96F32::saturating_from_num(1)
-            || alpha_in_emission < I96F32::saturating_from_num(1)
+        if tao_in_emission < U96F32::saturating_from_num(1)
+            || alpha_in_emission < U96F32::saturating_from_num(1)
         {
-            alpha_in_emission = I96F32::saturating_from_num(0);
-            tao_in_emission = I96F32::saturating_from_num(0);
+            alpha_in_emission = U96F32::saturating_from_num(0);
+            tao_in_emission = U96F32::saturating_from_num(0);
         }
 
         // Set Alpha in emission.
