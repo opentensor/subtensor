@@ -13,7 +13,6 @@ use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays
 use frame_support::sp_runtime::DispatchError;
 use sp_core::{Get, H256, U256};
 use substrate_fixed::types::{I96F32, I110F18, U64F64, U96F32};
-
 /***********************************************************
     staking::add_stake() tests
 ************************************************************/
@@ -156,6 +155,140 @@ fn test_add_stake_aggregate_ok_no_emission() {
                 RuntimeEvent::SubtensorModule(Event::StakeAdded(..))
             )
         }));
+    });
+}
+
+#[test]
+fn test_verify_aggregated_stake_order() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
+        let amount = 900_000_000_000; // over the maximum
+
+        // add network
+        let netuid1: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+        let netuid2: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+        let netuid3: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+        let netuid4: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+
+        // Forse-set alpha in and tao reserve to make price equal 1.5
+        let tao_reserve: U96F32 = U96F32::from_num(150_000_000_000_u64);
+        let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid1, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid1, alpha_in.to_num::<u64>());
+
+        SubnetTAO::<Test>::insert(netuid2, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid2, alpha_in.to_num::<u64>());
+
+        SubnetTAO::<Test>::insert(netuid3, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid3, alpha_in.to_num::<u64>());
+
+        SubnetTAO::<Test>::insert(netuid4, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid4, alpha_in.to_num::<u64>());
+
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 4 * amount);
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid3,
+            amount,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid4,
+            amount,
+        );
+
+        let limit_price = 6_000_000_000u64;
+
+        // Add stake with slippage safety and check if the result is ok
+        assert_ok!(SubtensorModule::remove_stake_aggregate(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid3,
+            amount
+        ));
+
+        assert_ok!(SubtensorModule::remove_stake_limit_aggregate(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid4,
+            amount,
+            limit_price,
+            true
+        ));
+
+        assert_ok!(SubtensorModule::add_stake_aggregate(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid1,
+            amount,
+        ));
+
+        // Add stake with slippage safety and check if the result is ok
+        assert_ok!(SubtensorModule::add_stake_limit_aggregate(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid2,
+            amount,
+            limit_price,
+            true
+        ));
+
+        // Enable on_finalize code to run
+        run_to_block_ext(2, true);
+
+        let add_stake_position = System::events()
+            .iter()
+            .position(|e| {
+                if let RuntimeEvent::SubtensorModule(Event::StakeAdded(.., netuid, _)) = e.event {
+                    netuid == netuid1
+                } else {
+                    false
+                }
+            })
+            .expect("Stake event must be present in the event log.");
+
+        let add_stake_limit_position = System::events()
+            .iter()
+            .position(|e| {
+                if let RuntimeEvent::SubtensorModule(Event::StakeAdded(.., netuid, _)) = e.event {
+                    netuid == netuid2
+                } else {
+                    false
+                }
+            })
+            .expect("Stake event must be present in the event log.");
+
+        let remove_stake_position = System::events()
+            .iter()
+            .position(|e| {
+                if let RuntimeEvent::SubtensorModule(Event::StakeRemoved(.., netuid, _)) = e.event {
+                    netuid == netuid3
+                } else {
+                    false
+                }
+            })
+            .expect("Stake event must be present in the event log.");
+
+        let remove_stake_limit_position = System::events()
+            .iter()
+            .position(|e| {
+                if let RuntimeEvent::SubtensorModule(Event::StakeRemoved(.., netuid, _)) = e.event {
+                    netuid == netuid4
+                } else {
+                    false
+                }
+            })
+            .expect("Stake event must be present in the event log.");
+
+        // Check events order
+        assert!(add_stake_limit_position < add_stake_position);
+        assert!(add_stake_position < remove_stake_position);
+        assert!(remove_stake_limit_position < remove_stake_position);
     });
 }
 

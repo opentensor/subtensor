@@ -148,15 +148,14 @@ impl<T: Config> Pallet<T> {
             &coldkey,
             U96F32::saturating_from_num(alpha_unstaked),
         );
-        let tao_unstaked: u64 =
-            Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha_unstaked, fee);
 
         // 4.1 Save the staking job for the on_finalize
         let stake_job = StakeJob::RemoveStake {
             hotkey,
             coldkey,
             netuid,
-            tao_unstaked,
+            fee,
+            alpha: alpha_unstaked,
             limit: false,
         };
 
@@ -172,11 +171,15 @@ impl<T: Config> Pallet<T> {
             if let Some(StakeJob::RemoveStake {
                 coldkey,
                 hotkey,
-                tao_unstaked,
+                fee,
                 netuid,
+                alpha,
                 ..
             }) = stake_job
             {
+                let tao_unstaked: u64 =
+                    Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha, fee);
+
                 // 4.3 We add the balance to the coldkey. If the above fails we will not credit this coldkey.
                 Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 
@@ -495,7 +498,7 @@ impl<T: Config> Pallet<T> {
     /// price, the staking order may execute only partially or not execute
     /// at all.
     ///
-    ///     The operation will be delayed until the end of the block.
+    /// The operation will be delayed until the end of the block.
     ///
     /// # Args:
     /// * 'origin': (<T as frame_system::Config>Origin):
@@ -546,7 +549,7 @@ impl<T: Config> Pallet<T> {
             alpha_unstaked
         );
 
-        // 2. Calcaulate the maximum amount that can be executed with price limit
+        // 2. Calculate the maximum amount that can be executed with price limit
         let max_amount = Self::get_max_amount_remove(netuid, limit_price);
         let mut possible_alpha = alpha_unstaked;
         if possible_alpha > max_amount {
@@ -571,15 +574,14 @@ impl<T: Config> Pallet<T> {
             &coldkey,
             U96F32::saturating_from_num(alpha_unstaked),
         );
-        let tao_unstaked =
-            Self::unstake_from_subnet(&hotkey, &coldkey, netuid, possible_alpha, fee);
 
         // 4.1 Save the staking job for the on_finalize
         let stake_job = StakeJob::RemoveStake {
             hotkey,
             coldkey,
             netuid,
-            tao_unstaked,
+            fee,
+            alpha: possible_alpha,
             limit: true,
         };
 
@@ -595,11 +597,14 @@ impl<T: Config> Pallet<T> {
             if let Some(StakeJob::RemoveStake {
                 coldkey,
                 hotkey,
-                tao_unstaked,
                 netuid,
+                fee,
+                alpha,
                 ..
             }) = stake_job
             {
+                let tao_unstaked = Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha, fee);
+
                 // 4.3 We add the balance to the coldkey. If the above fails we will not credit this coldkey.
                 Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 

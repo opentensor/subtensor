@@ -295,8 +295,10 @@ pub mod pallet {
             coldkey: AccountId,
             /// Subnet ID
             netuid: u16,
-            /// Tao to be unstaked
-            tao_unstaked: u64,
+            /// Operation fee
+            fee: u64,
+            /// Alpha value
+            alpha: u64,
             /// Signals whether it's a limit stake
             limit: bool,
         },
