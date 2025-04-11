@@ -32,6 +32,7 @@ frame_support::construct_runtime!(
         Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 6,
         Grandpa: pallet_grandpa = 7,
         EVMChainId: pallet_evm_chain_id = 8,
+        Swap: pallet_subtensor_swap::{Pallet, Call, Storage, Event<T>} = 9,
     }
 );
 
@@ -201,6 +202,7 @@ impl pallet_subtensor::Config for Test {
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
+    type SwapInterface = Swap;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -257,6 +259,25 @@ impl pallet_balances::Config for Test {
     type FreezeIdentifier = ();
     type MaxFreezes = ();
     type RuntimeHoldReason = ();
+}
+
+// Swap-related parameter types
+parameter_types! {
+    pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
+    pub const SwapMaxFeeRate: u16 = 10000; // 15.26%
+    pub const SwapMaxPositions: u32 = 100;
+    pub const SwapMinimumLiquidity: u64 = 1_000;
+}
+
+impl pallet_subtensor_swap::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type AdminOrigin = EnsureRoot<AccountId>;
+    type LiquidityDataProvider = SubtensorModule;
+    type ProtocolId = SwapProtocolId;
+    type MaxFeeRate = SwapMaxFeeRate;
+    type MaxPositions = SwapMaxPositions;
+    type MinimumLiquidity = SwapMinimumLiquidity;
+    type WeightInfo = ();
 }
 
 pub struct OriginPrivilegeCmp;
