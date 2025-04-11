@@ -272,7 +272,7 @@ pub mod pallet {
     /// Data structure for stake related jobs.
     #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub enum StakeJob<AccountId> {
-        ///  Represents job for "add_stake" operation
+        /// Represents jobs for "add_stake" and "add_stake_limit" operation
         AddStake {
             /// Hotkey account
             hotkey: AccountId,
@@ -284,8 +284,10 @@ pub mod pallet {
             tao_staked: u64,
             /// Operation fee
             fee: u64,
+            /// Signals whether it's a limit stake
+            limit: bool,
         },
-        ///  Represents job for "remove_stake" operation
+        /// Represents jobs for "remove_stake" and "remove_stake_limit" operation
         RemoveStake {
             /// Hotkey account
             hotkey: AccountId,
@@ -295,19 +297,8 @@ pub mod pallet {
             netuid: u16,
             /// Tao to be unstaked
             tao_unstaked: u64,
-        },
-        ///  Represents job for "add_stake_limit" operation
-        AddStakeLimit {
-            /// Hotkey account
-            hotkey: AccountId,
-            /// Coldkey account
-            coldkey: AccountId,
-            /// Subnet ID
-            netuid: u16,
-            /// Tao to be staked
-            tao_staked: u64,
-            /// Operation fee
-            fee: u64,
+            /// Signals whether it's a limit stake
+            limit: bool,
         },
     }
 

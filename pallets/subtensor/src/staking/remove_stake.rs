@@ -85,7 +85,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
+    /// ---- The implementation for the extrinsic remove_stake_aggregate: Removes stake from a hotkey account and adds it onto a coldkey.
     ///    The operation will be delayed until the end of the block.
     /// # Args:
     /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
@@ -157,6 +157,7 @@ impl<T: Config> Pallet<T> {
             coldkey,
             netuid,
             tao_unstaked,
+            limit: false,
         };
 
         let stake_job_id = NextStakeJobId::<T>::get();
@@ -173,6 +174,7 @@ impl<T: Config> Pallet<T> {
                 hotkey,
                 tao_unstaked,
                 netuid,
+                ..
             }) = stake_job
             {
                 // 4.3 We add the balance to the coldkey. If the above fails we will not credit this coldkey.
@@ -480,6 +482,137 @@ impl<T: Config> Pallet<T> {
             Self::get_all_subnet_netuids().iter().for_each(|netuid| {
                 PendingChildKeys::<T>::remove(netuid, &hotkey);
             })
+        }
+
+        // Done and ok.
+        Ok(())
+    }
+
+    /// ---- The implementation for the extrinsic remove_stake_limit_aggregate: Removes stake from
+    /// a hotkey on a subnet with a price limit.
+    ///
+    /// In case if slippage occurs and the price shall move beyond the limit
+    /// price, the staking order may execute only partially or not execute
+    /// at all.
+    ///
+    ///     The operation will be delayed until the end of the block.
+    ///
+    /// # Args:
+    /// * 'origin': (<T as frame_system::Config>Origin):
+    ///     - The signature of the caller's coldkey.
+    ///
+    /// * 'hotkey' (T::AccountId):
+    ///     - The associated hotkey account.
+    ///
+    /// * 'amount_unstaked' (u64):
+    ///     - The amount of stake to be added to the hotkey staking account.
+    ///
+    ///  * 'limit_price' (u64):
+    ///     - The limit price expressed in units of RAO per one Alpha.
+    ///
+    ///  * 'allow_partial' (bool):
+    ///     - Allows partial execution of the amount. If set to false, this becomes
+    ///       fill or kill type or order.
+    ///
+    /// # Event:
+    /// * StakeRemoved;
+    ///     - On the successfully removing stake from the hotkey account.
+    ///
+    /// # Raises:
+    /// * 'NotRegistered':
+    ///     - Thrown if the account we are attempting to unstake from is non existent.
+    ///
+    /// * 'NonAssociatedColdKey':
+    ///     - Thrown if the coldkey does not own the hotkey we are unstaking from.
+    ///
+    /// * 'NotEnoughStakeToWithdraw':
+    ///     - Thrown if there is not enough stake on the hotkey to withdwraw this amount.
+    ///
+    pub fn do_remove_stake_limit_aggregate(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+        netuid: u16,
+        alpha_unstaked: u64,
+        limit_price: u64,
+        allow_partial: bool,
+    ) -> dispatch::DispatchResult {
+        // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
+        let coldkey = ensure_signed(origin)?;
+        log::debug!(
+            "do_remove_stake( origin:{:?} hotkey:{:?}, netuid: {:?}, alpha_unstaked:{:?} )",
+            coldkey,
+            hotkey,
+            netuid,
+            alpha_unstaked
+        );
+
+        // 2. Calcaulate the maximum amount that can be executed with price limit
+        let max_amount = Self::get_max_amount_remove(netuid, limit_price);
+        let mut possible_alpha = alpha_unstaked;
+        if possible_alpha > max_amount {
+            possible_alpha = max_amount;
+        }
+
+        // 3. Validate the user input
+        Self::validate_remove_stake(
+            &coldkey,
+            &hotkey,
+            netuid,
+            alpha_unstaked,
+            max_amount,
+            allow_partial,
+        )?;
+
+        // 4. Swap the alpha to tao and update counters for this subnet.
+        let fee = Self::calculate_staking_fee(
+            Some((&hotkey, netuid)),
+            &coldkey,
+            None,
+            &coldkey,
+            U96F32::saturating_from_num(alpha_unstaked),
+        );
+        let tao_unstaked =
+            Self::unstake_from_subnet(&hotkey, &coldkey, netuid, possible_alpha, fee);
+
+        // 4.1 Save the staking job for the on_finalize
+        let stake_job = StakeJob::RemoveStake {
+            hotkey,
+            coldkey,
+            netuid,
+            tao_unstaked,
+            limit: true,
+        };
+
+        let stake_job_id = NextStakeJobId::<T>::get();
+
+        StakeJobs::<T>::insert(stake_job_id, stake_job);
+        NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
+
+        // 4.2 Consider the weight from on_finalize
+        if cfg!(feature = "runtime-benchmarks") {
+            let stake_job = StakeJobs::<T>::take(stake_job_id);
+            // This branch is always active because we create the stake job above
+            if let Some(StakeJob::RemoveStake {
+                coldkey,
+                hotkey,
+                tao_unstaked,
+                netuid,
+                ..
+            }) = stake_job
+            {
+                // 4.3 We add the balance to the coldkey. If the above fails we will not credit this coldkey.
+                Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
+
+                // 5. If the stake is below the minimum, we clear the nomination from storage.
+                Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
+
+                // 6. Check if stake lowered below MinStake and remove Pending children if it did
+                if Self::get_total_stake_for_hotkey(&hotkey) < StakeThreshold::<T>::get() {
+                    Self::get_all_subnet_netuids().iter().for_each(|netuid| {
+                        PendingChildKeys::<T>::remove(netuid, &hotkey);
+                    })
+                }
+            }
         }
 
         // Done and ok.

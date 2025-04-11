@@ -4042,6 +4042,79 @@ fn test_remove_stake_limit_ok() {
 }
 
 #[test]
+fn test_remove_stake_limit_aggregate_ok() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
+        let stake_amount = 300_000_000_000;
+        let unstake_amount = 150_000_000_000;
+        let fee = DefaultStakingFee::<Test>::get();
+
+        // add network
+        let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+            stake_amount,
+        );
+        let alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+        );
+
+        // Forse-set alpha in and tao reserve to make price equal 1.5
+        let tao_reserve: U96F32 = U96F32::from_num(150_000_000_000_u64);
+        let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
+        let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
+        assert_eq!(current_price, U96F32::from_num(1.5));
+
+        // Setup limit price so resulting average price doesn't drop by more than 10% from current price
+        let limit_price = 1_350_000_000;
+
+        // Alpha unstaked = 150 / 1.35 - 100 ~ 11.1
+        let expected_alpha_reduction = 11_111_111_111;
+
+        // Remove stake with slippage safety
+        assert_ok!(SubtensorModule::remove_stake_limit_aggregate(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            unstake_amount,
+            limit_price,
+            true
+        ));
+
+        // Enable on_finalize code to run
+        run_to_block_ext(2, true);
+
+        // Check if stake has decreased only by
+        assert_abs_diff_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey_account_id,
+                &coldkey_account_id,
+                netuid
+            ),
+            alpha_before - expected_alpha_reduction - fee,
+            epsilon = expected_alpha_reduction / 1_000,
+        );
+
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::StakeRemoved(..))
+            )
+        }));
+    });
+}
+
+#[test]
 fn test_remove_stake_limit_fill_or_kill() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(533453);

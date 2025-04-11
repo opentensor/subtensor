@@ -76,7 +76,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// ---- The implementation for the extrinsic add_stake: Adds stake to a hotkey account.
+    /// ---- The implementation for the extrinsic add_stake_aggregate: Adds stake to a hotkey account.
     /// The operation will be delayed until the end of the block.
     /// # Args:
     /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
@@ -157,6 +157,7 @@ impl<T: Config> Pallet<T> {
             netuid,
             tao_staked: tao_staked.saturating_to_num::<u64>(),
             fee,
+            limit: false,
         };
 
         let stake_job_id = NextStakeJobId::<T>::get();
@@ -173,7 +174,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// ---- The implementation for the extrinsic add_stake_limit: Adds stake to a hotkey
+    /// ---- The implementation for the extrinsic add_stake_limit_aggregate: Adds stake to a hotkey
     /// account on a subnet with price limit. The operation will be delayed until the end of the
     /// block.
     ///
@@ -271,12 +272,13 @@ impl<T: Config> Pallet<T> {
         }
 
         // 6.2 Save the staking job for the on_finalize
-        let stake_job = StakeJob::AddStakeLimit {
+        let stake_job = StakeJob::AddStake {
             hotkey,
             coldkey,
             netuid,
             tao_staked: tao_staked.saturating_to_num::<u64>(),
             fee,
+            limit: true,
         };
 
         let stake_job_id = NextStakeJobId::<T>::get();
