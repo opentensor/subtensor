@@ -277,7 +277,7 @@ impl<T: Config> SwapStep<T> {
 
         Ok(SwapStepResult {
             amount_to_take: amount_swapped.saturating_to_num::<u64>(),
-            delat_in: self.delta_in,
+            delta_in: self.delta_in,
             delta_out,
         })
     }
@@ -374,7 +374,7 @@ impl<T: Config> Pallet<T> {
 
             let swap_result = swap_step.execute()?;
 
-            in_acc = in_acc.saturating_add(swap_result.delat_in);
+            in_acc = in_acc.saturating_add(swap_result.delta_in);
             amount_remaining = amount_remaining.saturating_sub(swap_result.amount_to_take);
             amount_paid_out = amount_paid_out.saturating_add(swap_result.delta_out);
 
@@ -972,7 +972,7 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
 #[derive(Debug, PartialEq)]
 struct SwapStepResult {
     amount_to_take: u64,
-    delat_in: u64,
+    delta_in: u64,
     delta_out: u64,
 }
 
