@@ -296,6 +296,19 @@ pub mod pallet {
             /// Tao to be unstaked
             tao_unstaked: u64,
         },
+        ///  Represents job for "add_stake_limit" operation
+        AddStakeLimit {
+            /// Hotkey account
+            hotkey: AccountId,
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Subnet ID
+            netuid: u16,
+            /// Tao to be staked
+            tao_staked: u64,
+            /// Operation fee
+            fee: u64,
+        },
     }
 
     /// ============================

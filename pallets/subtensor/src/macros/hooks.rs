@@ -44,12 +44,22 @@ mod hooks {
 
             // Sort jobs by job type
             stake_jobs.sort_by_key(|(_, job)| match job {
-                StakeJob::AddStake { .. } => 0,
-                StakeJob::RemoveStake { .. } => 1,
+                StakeJob::AddStakeLimit { .. } => 0,
+                StakeJob::AddStake { .. } => 1,
+                StakeJob::RemoveStake { .. } => 2,
             });
 
             for (_, job) in stake_jobs.into_iter() {
                 match job {
+                    StakeJob::AddStakeLimit {
+                        hotkey,
+                        coldkey,
+                        netuid,
+                        tao_staked,
+                        fee,
+                    } => {
+                        Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked, fee);
+                    }
                     StakeJob::AddStake {
                         hotkey,
                         coldkey,

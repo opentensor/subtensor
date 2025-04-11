@@ -2024,7 +2024,47 @@ mod dispatches {
             Self::do_burn_alpha(origin, hotkey, amount, netuid)
         }
 
-        /// TODO: add comments
+        /// --- Adds stake to a hotkey on a subnet with a price limit.
+        /// This extrinsic allows to specify the limit price for alpha token
+        /// at which or better (lower) the staking should execute.
+        ///
+        /// In case if slippage occurs and the price shall move beyond the limit
+        /// price, the staking order may execute only partially or not execute
+        /// at all.
+        ///
+        /// The operation will be delayed until the end of the block.
+        ///
+        /// # Args:
+        ///  * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the caller's coldkey.
+        ///
+        ///  * 'hotkey' (T::AccountId):
+        /// 	- The associated hotkey account.
+        ///
+        ///  * 'amount_staked' (u64):
+        /// 	- The amount of stake to be added to the hotkey staking account.
+        ///
+        ///  * 'limit_price' (u64):
+        /// 	- The limit price expressed in units of RAO per one Alpha.
+        ///
+        ///  * 'allow_partial' (bool):
+        /// 	- Allows partial execution of the amount. If set to false, this becomes
+        ///       fill or kill type or order.
+        ///
+        /// # Event:
+        ///  * StakeAdded;
+        /// 	- On the successfully adding stake to a global account.
+        ///
+        /// # Raises:
+        ///  * 'NotEnoughBalanceToStake':
+        /// 	- Not enough balance on the coldkey to add onto the global account.
+        ///
+        ///  * 'NonAssociatedColdKey':
+        /// 	- The calling coldkey is not associated with this hotkey.
+        ///
+        ///  * 'BalanceWithdrawalError':
+        ///  	- Errors stemming from transaction pallet.
+        ///
         #[pallet::call_index(103)]
         // TODO: add proper weights
         #[pallet::weight((Weight::from_parts(0, 0), DispatchClass::Normal, Pays::No))]
@@ -2037,7 +2077,47 @@ mod dispatches {
             Self::do_add_stake_aggregate(origin, hotkey, netuid, amount_staked)
         }
 
-        /// TODO: add comments
+        /// --- Removes stake from a hotkey on a subnet with a price limit.
+        /// This extrinsic allows to specify the limit price for alpha token
+        /// at which or better (higher) the staking should execute.
+        ///
+        /// In case if slippage occurs and the price shall move beyond the limit
+        /// price, the staking order may execute only partially or not execute
+        /// at all.
+        ///
+        /// The operation will be delayed until the end of the block.
+        ///
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the caller's coldkey.
+        ///
+        /// * 'hotkey' (T::AccountId):
+        /// 	- The associated hotkey account.
+        ///
+        /// * 'amount_unstaked' (u64):
+        /// 	- The amount of stake to be added to the hotkey staking account.
+        ///
+        ///  * 'limit_price' (u64):
+        ///     - The limit price expressed in units of RAO per one Alpha.
+        ///
+        ///  * 'allow_partial' (bool):
+        ///     - Allows partial execution of the amount. If set to false, this becomes
+        ///       fill or kill type or order.
+        ///
+        /// # Event:
+        /// * StakeRemoved;
+        /// 	- On the successfully removing stake from the hotkey account.
+        ///
+        /// # Raises:
+        /// * 'NotRegistered':
+        /// 	- Thrown if the account we are attempting to unstake from is non existent.
+        ///
+        /// * 'NonAssociatedColdKey':
+        /// 	- Thrown if the coldkey does not own the hotkey we are unstaking from.
+        ///
+        /// * 'NotEnoughStakeToWithdraw':
+        /// 	- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
+        ///
         #[pallet::call_index(104)]
         // TODO: add proper weights
         #[pallet::weight((Weight::from_parts(0, 0), DispatchClass::Normal, Pays::No))]
@@ -2048,6 +2128,68 @@ mod dispatches {
             amount_unstaked: u64,
         ) -> DispatchResult {
             Self::do_remove_stake_aggregate(origin, hotkey, netuid, amount_unstaked)
+        }
+
+        /// --- Adds stake to a hotkey on a subnet with a price limit.
+        /// This extrinsic allows to specify the limit price for alpha token
+        /// at which or better (lower) the staking should execute.
+        ///
+        /// In case if slippage occurs and the price shall move beyond the limit
+        /// price, the staking order may execute only partially or not execute
+        /// at all.
+        ///
+        /// The operation will be delayed until the end of the block.
+        ///
+        /// # Args:
+        ///  * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the caller's coldkey.
+        ///
+        ///  * 'hotkey' (T::AccountId):
+        /// 	- The associated hotkey account.
+        ///
+        ///  * 'amount_staked' (u64):
+        /// 	- The amount of stake to be added to the hotkey staking account.
+        ///
+        ///  * 'limit_price' (u64):
+        /// 	- The limit price expressed in units of RAO per one Alpha.
+        ///
+        ///  * 'allow_partial' (bool):
+        /// 	- Allows partial execution of the amount. If set to false, this becomes
+        ///       fill or kill type or order.
+        ///
+        /// # Event:
+        ///  * StakeAdded;
+        /// 	- On the successfully adding stake to a global account.
+        ///
+        /// # Raises:
+        ///  * 'NotEnoughBalanceToStake':
+        /// 	- Not enough balance on the coldkey to add onto the global account.
+        ///
+        ///  * 'NonAssociatedColdKey':
+        /// 	- The calling coldkey is not associated with this hotkey.
+        ///
+        ///  * 'BalanceWithdrawalError':
+        ///  	- Errors stemming from transaction pallet.
+        ///
+        #[pallet::call_index(105)]
+        // TODO: add proper weights
+        #[pallet::weight((Weight::from_parts(0, 0), DispatchClass::Normal, Pays::No))]
+        pub fn add_stake_limit_aggregate(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: u16,
+            amount_staked: u64,
+            limit_price: u64,
+            allow_partial: bool,
+        ) -> DispatchResult {
+            Self::do_add_stake_limit_aggregate(
+                origin,
+                hotkey,
+                netuid,
+                amount_staked,
+                limit_price,
+                allow_partial,
+            )
         }
     }
 }

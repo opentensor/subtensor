@@ -85,7 +85,35 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// TODO
+    /// ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
+    ///    The operation will be delayed until the end of the block.
+    /// # Args:
+    /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    ///     -  The signature of the caller's coldkey.
+    ///
+    /// * 'hotkey' (T::AccountId):
+    ///     -  The associated hotkey account.
+    ///
+    /// * 'stake_to_be_added' (u64):
+    ///     -  The amount of stake to be added to the hotkey staking account.
+    ///
+    /// # Event:
+    /// * StakeRemoved;
+    ///     -  On the successfully removing stake from the hotkey account.
+    ///
+    /// # Raises:
+    /// * 'NotRegistered':
+    ///     -  Thrown if the account we are attempting to unstake from is non existent.
+    ///
+    /// * 'NonAssociatedColdKey':
+    ///     -  Thrown if the coldkey does not own the hotkey we are unstaking from.
+    ///
+    /// * 'NotEnoughStakeToWithdraw':
+    ///     -  Thrown if there is not enough stake on the hotkey to withdwraw this amount.
+    ///
+    /// * 'TxRateLimitExceeded':
+    ///     -  Thrown if key has hit transaction rate limit
+    ///
     pub fn do_remove_stake_aggregate(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
