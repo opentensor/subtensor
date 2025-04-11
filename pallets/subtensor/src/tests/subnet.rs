@@ -2,7 +2,6 @@ use super::mock::*;
 use crate::*;
 use frame_support::{assert_noop, assert_ok};
 use frame_system::Config;
-use num_traits::Signed;
 use sp_core::U256;
 
 /***************************
@@ -103,7 +102,6 @@ fn test_do_start_call_fail_for_set_again() {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let coldkey_account_id = U256::from(0);
-        let hotkey_account_id = U256::from(1);
 
         add_network_without_emission_block(netuid, tempo, 0);
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
@@ -134,7 +132,6 @@ fn test_do_start_call_ok_with_same_block_number_after_coinbase() {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let coldkey_account_id = U256::from(0);
-        let hotkey_account_id = U256::from(1);
 
         add_network_without_emission_block(netuid, tempo, 0);
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
@@ -353,13 +350,123 @@ fn test_subtoken_enable_reject_trading_before_enable() {
 
 #[test]
 fn test_subtoken_enable_trading_ok_with_enable() {
-    // assert_ok!(SubtensorModule::unstake_all(
-    //     RuntimeOrigin::signed(coldkey_account_id),
-    //     hotkey_account_id,
-    // ));
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let netuid2: u16 = 2;
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id = U256::from(2);
+        let hotkey_account_2_id: U256 = U256::from(3);
+        // stake big enough
+        let stake_amount = DefaultMinStake::<Test>::get() * 10000;
+        // unstake, transfer, swap just very little
+        let unstake_amount = DefaultMinStake::<Test>::get() * 10;
 
-    // assert_ok!(SubtensorModule::unstake_all_alpha(
-    //     RuntimeOrigin::signed(coldkey_account_id),
-    //     hotkey_account_id,
-    // ));
+        let burn_cost = 1000;
+        // Set the burn cost
+        SubtensorModule::set_burn(netuid, burn_cost);
+        add_network(netuid, 10, 0);
+        add_network(netuid2, 10, 0);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey_account_id,
+            burn_cost * 2 + stake_amount * 10,
+        );
+
+        // all trading extrinsic should be rejected.
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            netuid,
+            hotkey_account_id
+        ));
+
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            netuid2,
+            hotkey_account_2_id
+        ));
+
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            stake_amount
+        ));
+
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid2,
+            stake_amount
+        ));
+
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_2_id,
+            netuid,
+            stake_amount
+        ));
+
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_2_id,
+            netuid2,
+            stake_amount
+        ));
+
+        assert_ok!(SubtensorModule::remove_stake(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            unstake_amount
+        ));
+
+        assert_ok!(SubtensorModule::recycle_alpha(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            unstake_amount,
+            netuid
+        ));
+
+        assert_ok!(SubtensorModule::burn_alpha(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            unstake_amount,
+            netuid
+        ));
+
+        assert_ok!(SubtensorModule::move_stake(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            hotkey_account_2_id,
+            netuid,
+            netuid2,
+            unstake_amount,
+        ));
+
+        assert_ok!(SubtensorModule::transfer_stake(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            hotkey_account_2_id,
+            netuid,
+            netuid2,
+            unstake_amount,
+        ));
+
+        assert_ok!(SubtensorModule::swap_stake(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            netuid2,
+            unstake_amount,
+        ));
+
+        assert_ok!(SubtensorModule::unstake_all(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+        ));
+
+        assert_ok!(SubtensorModule::unstake_all_alpha(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+        ));
+    });
 }
