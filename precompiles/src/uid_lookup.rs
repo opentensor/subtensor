@@ -4,6 +4,7 @@ use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 use pallet_evm::PrecompileHandle;
 use precompile_utils::{prelude::Address, EvmResult};
 use sp_runtime::traits::{Dispatchable, StaticLookup};
+use sp_std::vec::Vec;
 
 use crate::PrecompileExt;
 

@@ -3,6 +3,7 @@ use super::*;
 use frame_support::ensure;
 use frame_system::ensure_signed;
 use sp_core::{H160, ecdsa::Signature, hashing::keccak_256};
+use sp_std::vec::Vec;
 
 impl<T: Config> Pallet<T> {
     /// Associate an EVM key with a hotkey.
