@@ -358,3 +358,25 @@ export async function setSubtokenEnable(api: TypedApi<typeof devnet>, netuid: nu
         .catch((error) => { console.log(`transaction error ${error}`) });
 
 }
+
+export async function startCall(api: TypedApi<typeof devnet>, netuid: number, keypair: KeyPair) {
+    const registerBlock = Number(await api.query.SubtensorModule.NetworkRegisteredAt.getValue(netuid))
+    let currentBlock = await api.query.System.Number.getValue()
+    const duration = Number(await api.constants.SubtensorModule.DurationOfStartCall)
+
+    while (currentBlock - registerBlock <= duration) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        currentBlock = await api.query.System.Number.getValue()
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    const singer = getSignerFromKeypair(keypair)
+    let tx = api.tx.SubtensorModule.start_call({
+       netuid: netuid,
+    })
+
+    await waitForTransactionCompletion(api, tx, singer)
+        .then(() => { })
+        .catch((error) => { console.log(`transaction error ${error}`) });
+
+}

@@ -5,7 +5,7 @@ import { TypedApi } from "polkadot-api";
 import { convertPublicKeyToSs58 } from "../src/address-utils"
 import { tao } from "../src/balance-math"
 import {
-    forceSetBalanceToSs58Address, addNewSubnetwork, addStake,
+    forceSetBalanceToSs58Address, addNewSubnetwork, addStake,setSubtokenEnable
 } from "../src/subtensor"
 import { ethers } from "ethers";
 import { generateRandomEthersWallet } from "../src/utils"
@@ -23,7 +23,11 @@ describe("Test staking precompile get methods", () => {
         api = await getDevnetApi()
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(hotkey.publicKey))
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(coldkey.publicKey))
-        let netuid = await addNewSubnetwork(api, hotkey, coldkey)
+        
+
+        await addNewSubnetwork(api, hotkey, coldkey)
+        let netuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1
+        await setSubtokenEnable(api, netuid, true)
         console.log("will test in subnet: ", netuid)
     })
 
