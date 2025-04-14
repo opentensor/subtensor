@@ -64,6 +64,13 @@ pub trait SubtensorCustomApi<BlockHash> {
     fn get_subnet_state(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getLockCost")]
     fn get_network_lock_cost(&self, at: Option<BlockHash>) -> RpcResult<u64>;
+    #[method(name = "subnetInfo_getSelectiveMetagraph")]
+    fn get_selective_metagraph(
+        &self,
+        netuid: u16,
+        metagraph_index: Vec<u16>,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
 }
 
 pub struct SubtensorCustom<C, P> {
@@ -389,5 +396,24 @@ where
         api.get_network_registration_cost(at).map_err(|e| {
             Error::RuntimeError(format!("Unable to get subnet lock cost: {:?}", e)).into()
         })
+    }
+
+    fn get_selective_metagraph(
+        &self,
+        netuid: u16,
+        metagraph_index: Vec<u16>,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        match api.get_selective_metagraph(at, netuid, metagraph_index) {
+            Ok(result) => Ok(result.encode()),
+            Err(e) => Err(Error::RuntimeError(format!(
+                "Unable to get selective metagraph: {:?}",
+                e
+            ))
+            .into()),
+        }
     }
 }

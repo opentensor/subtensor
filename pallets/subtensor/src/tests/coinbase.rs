@@ -6,8 +6,7 @@ use alloc::collections::BTreeMap;
 use approx::assert_abs_diff_eq;
 use frame_support::assert_ok;
 use sp_core::U256;
-use substrate_fixed::types::I64F64;
-use substrate_fixed::types::I96F32;
+use substrate_fixed::types::{I64F64, I96F32, U96F32};
 
 #[allow(clippy::arithmetic_side_effects)]
 fn close(value: u64, target: u64, eps: u64) {
@@ -74,7 +73,7 @@ fn test_dynamic_function_various_values() {
 #[test]
 fn test_coinbase_basecase() {
     new_test_ext(1).execute_with(|| {
-        SubtensorModule::run_coinbase(I96F32::from_num(0.0));
+        SubtensorModule::run_coinbase(U96F32::from_num(0.0));
     });
 }
 
@@ -91,7 +90,7 @@ fn test_coinbase_tao_issuance_base() {
         let emission: u64 = 1_234_567;
         add_network(netuid, 1, 0);
         assert_eq!(SubnetTAO::<Test>::get(netuid), 0);
-        SubtensorModule::run_coinbase(I96F32::from_num(emission));
+        SubtensorModule::run_coinbase(U96F32::from_num(emission));
         assert_eq!(SubnetTAO::<Test>::get(netuid), emission);
         assert_eq!(TotalIssuance::<Test>::get(), emission);
         assert_eq!(TotalStake::<Test>::get(), emission);
@@ -106,7 +105,7 @@ fn test_coinbase_tao_issuance_base_low() {
         let emission: u64 = 1;
         add_network(netuid, 1, 0);
         assert_eq!(SubnetTAO::<Test>::get(netuid), 0);
-        SubtensorModule::run_coinbase(I96F32::from_num(emission));
+        SubtensorModule::run_coinbase(U96F32::from_num(emission));
         assert_eq!(SubnetTAO::<Test>::get(netuid), emission);
         assert_eq!(TotalIssuance::<Test>::get(), emission);
         assert_eq!(TotalStake::<Test>::get(), emission);
@@ -133,7 +132,7 @@ fn test_coinbase_tao_issuance_multiple() {
         assert_eq!(SubnetTAO::<Test>::get(netuid1), 0);
         assert_eq!(SubnetTAO::<Test>::get(netuid2), 0);
         assert_eq!(SubnetTAO::<Test>::get(netuid3), 0);
-        SubtensorModule::run_coinbase(I96F32::from_num(emission));
+        SubtensorModule::run_coinbase(U96F32::from_num(emission));
         assert_eq!(SubnetTAO::<Test>::get(netuid1), emission / 3);
         assert_eq!(SubnetTAO::<Test>::get(netuid2), emission / 3);
         assert_eq!(SubnetTAO::<Test>::get(netuid3), emission / 3);
@@ -166,7 +165,7 @@ fn test_coinbase_tao_issuance_different_prices() {
         assert_eq!(SubnetTAO::<Test>::get(netuid1), 0);
         assert_eq!(SubnetTAO::<Test>::get(netuid2), 0);
         // Run the coinbase with the emission amount.
-        SubtensorModule::run_coinbase(I96F32::from_num(emission));
+        SubtensorModule::run_coinbase(U96F32::from_num(emission));
         // Assert tao emission is split evenly.
         assert_eq!(SubnetTAO::<Test>::get(netuid1), emission / 3);
         assert_eq!(SubnetTAO::<Test>::get(netuid2), emission / 3 + emission / 3);
@@ -191,7 +190,7 @@ fn test_coinbase_moving_prices() {
         SubnetAlphaIn::<Test>::insert(netuid, 1_000_000);
         SubnetMechanism::<Test>::insert(netuid, 1);
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(1));
-        NetworkRegisteredAt::<Test>::insert(netuid, 1);
+        FirstEmissionBlockNumber::<Test>::insert(netuid, 1);
 
         // Updating the moving price keeps it the same.
         assert_eq!(
@@ -213,7 +212,7 @@ fn test_coinbase_moving_prices() {
         // Run moving 1 times.
         SubtensorModule::update_moving_price(netuid);
         // Assert price is ~ 100% of the real price.
-        assert!(I96F32::from_num(1.0) - SubtensorModule::get_moving_alpha_price(netuid) < 0.05);
+        assert!(U96F32::from_num(1.0) - SubtensorModule::get_moving_alpha_price(netuid) < 0.05);
         // Set price to zero.
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0));
         SubnetMovingAlpha::<Test>::set(I96F32::from_num(0.1));
@@ -227,9 +226,10 @@ fn test_coinbase_moving_prices() {
         }
 
         // Assert price is > 50% of the real price.
-        assert!(
-            (I96F32::from_num(0.512325) - SubtensorModule::get_moving_alpha_price(netuid)).abs()
-                < 0.001
+        assert_abs_diff_eq!(
+            0.512325,
+            SubtensorModule::get_moving_alpha_price(netuid).to_num::<f64>(),
+            epsilon = 0.001
         );
     });
 }
@@ -250,7 +250,7 @@ fn test_update_moving_price_initial() {
 
         // Registered recently
         System::set_block_number(510);
-        NetworkRegisteredAt::<Test>::insert(netuid, 500);
+        FirstEmissionBlockNumber::<Test>::insert(netuid, 500);
 
         SubtensorModule::update_moving_price(netuid);
 
@@ -275,7 +275,7 @@ fn test_update_moving_price_after_time() {
 
         // Registered long time ago
         System::set_block_number(144_000_500);
-        NetworkRegisteredAt::<Test>::insert(netuid, 500);
+        FirstEmissionBlockNumber::<Test>::insert(netuid, 500);
 
         SubtensorModule::update_moving_price(netuid);
 
@@ -305,7 +305,7 @@ fn test_coinbase_alpha_issuance_base() {
         SubnetTAO::<Test>::insert(netuid2, initial);
         SubnetAlphaIn::<Test>::insert(netuid2, initial);
         // Check initial
-        SubtensorModule::run_coinbase(I96F32::from_num(emission));
+        SubtensorModule::run_coinbase(U96F32::from_num(emission));
         // tao_in = 500_000
         // alpha_in = 500_000/price = 500_000
         assert_eq!(SubnetAlphaIn::<Test>::get(netuid1), initial + emission / 2);
@@ -340,7 +340,7 @@ fn test_coinbase_alpha_issuance_different() {
         SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
         SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
         // Run coinbase
-        SubtensorModule::run_coinbase(I96F32::from_num(emission));
+        SubtensorModule::run_coinbase(U96F32::from_num(emission));
         // tao_in = 333_333
         // alpha_in = 333_333/price = 333_333 + initial
         assert_eq!(SubnetAlphaIn::<Test>::get(netuid1), initial + emission / 3);
@@ -376,7 +376,7 @@ fn test_coinbase_alpha_issuance_with_cap_trigger() {
         SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
         SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
         // Run coinbase
-        SubtensorModule::run_coinbase(I96F32::from_num(emission));
+        SubtensorModule::run_coinbase(U96F32::from_num(emission));
         // tao_in = 333_333
         // alpha_in = 333_333/price > 1_000_000_000 --> 1_000_000_000 + initial_alpha
         assert_eq!(
@@ -420,7 +420,7 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
         SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
         // Run coinbase
-        SubtensorModule::run_coinbase(I96F32::from_num(emission));
+        SubtensorModule::run_coinbase(U96F32::from_num(emission));
         // tao_in = 333_333
         // alpha_in = 333_333/price > 1_000_000_000 --> 0 + initial_alpha
         assert_eq!(SubnetAlphaIn::<Test>::get(netuid1), initial_alpha);
@@ -441,10 +441,10 @@ fn test_owner_cut_base() {
         add_network(netuid, 1, 0);
         SubtensorModule::set_tempo(netuid, 10000); // Large number (dont drain)
         SubtensorModule::set_subnet_owner_cut(0);
-        SubtensorModule::run_coinbase(I96F32::from_num(0));
+        SubtensorModule::run_coinbase(U96F32::from_num(0));
         assert_eq!(PendingOwnerCut::<Test>::get(netuid), 0); // No cut
         SubtensorModule::set_subnet_owner_cut(u16::MAX);
-        SubtensorModule::run_coinbase(I96F32::from_num(0));
+        SubtensorModule::run_coinbase(U96F32::from_num(0));
         assert_eq!(PendingOwnerCut::<Test>::get(netuid), 1_000_000_000); // Full cut.
     });
 }
@@ -456,14 +456,14 @@ fn test_pending_swapped() {
         let netuid: u16 = 1;
         let emission: u64 = 1_000_000;
         add_network(netuid, 1, 0);
-        SubtensorModule::run_coinbase(I96F32::from_num(0));
+        SubtensorModule::run_coinbase(U96F32::from_num(0));
         assert_eq!(PendingAlphaSwapped::<Test>::get(netuid), 0); // Zero tao weight and no root.
         SubnetTAO::<Test>::insert(0, 1_000_000_000); // Add root weight.
-        SubtensorModule::run_coinbase(I96F32::from_num(0));
+        SubtensorModule::run_coinbase(U96F32::from_num(0));
         assert_eq!(PendingAlphaSwapped::<Test>::get(netuid), 0); // Zero tao weight with 1 root.
         SubtensorModule::set_tempo(netuid, 10000); // Large number (dont drain)
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
-        SubtensorModule::run_coinbase(I96F32::from_num(0));
+        SubtensorModule::run_coinbase(U96F32::from_num(0));
         assert_eq!(PendingAlphaSwapped::<Test>::get(netuid), 125000000); // 1 TAO / ( 1 + 3 ) = 0.25 * 1 / 2 = 125000000
         assert_eq!(
             PendingEmission::<Test>::get(netuid),
@@ -569,7 +569,7 @@ fn test_drain_base_with_subnet_with_single_staker_registered_root_weight() {
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
         let root_after =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, root);
-        close(stake_before + pending_alpha / 2, stake_after, 10); // Registered gets all alpha emission.
+        close(stake_before + pending_alpha, stake_after, 10); // Registered gets all alpha emission.
         close(stake_before + pending_tao, root_after, 10); // Registered gets all tao emission
     });
 }
@@ -660,8 +660,8 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root() {
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, netuid);
         let root_after2 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, root);
-        close(stake_before + pending_alpha / 4, stake_after1, 10); // Registered gets 1/2 emission
-        close(stake_before + pending_alpha / 4, stake_after2, 10); // Registered gets 1/2 emission.
+        close(stake_before + pending_alpha / 2, stake_after1, 10); // Registered gets 1/2 emission
+        close(stake_before + pending_alpha / 2, stake_after2, 10); // Registered gets 1/2 emission.
         close(stake_before + pending_tao / 2, root_after1, 10); // Registered gets 1/2 tao emission
         close(stake_before + pending_tao / 2, root_after2, 10); // Registered gets 1/2 tao emission
     });
@@ -719,21 +719,17 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         let root_after2 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, root);
         let expected_stake = I96F32::from_num(stake_before)
-            + (I96F32::from_num(pending_alpha)
-                * I96F32::from_num(3.0 / 5.0)
-                * I96F32::from_num(1.0 / 3.0));
-        close(expected_stake.to_num::<u64>(), stake_after1, 10); // Registered gets 60% of emission
+            + (I96F32::from_num(pending_alpha) * I96F32::from_num(1.0 / 2.0));
+        assert_abs_diff_eq!(expected_stake.to_num::<u64>(), stake_after1, epsilon = 10); // Registered gets 50% of alpha emission
         let expected_stake2 = I96F32::from_num(stake_before)
-            + I96F32::from_num(pending_alpha)
-                * I96F32::from_num(2.0 / 5.0)
-                * I96F32::from_num(1.0 / 2.0);
-        close(expected_stake2.to_num::<u64>(), stake_after2, 10); // Registered gets 40% emission
+            + I96F32::from_num(pending_alpha) * I96F32::from_num(1.0 / 2.0);
+        assert_abs_diff_eq!(expected_stake2.to_num::<u64>(), stake_after2, epsilon = 10); // Registered gets 50% emission
         let expected_root1 = I96F32::from_num(2 * stake_before)
             + I96F32::from_num(pending_tao) * I96F32::from_num(2.0 / 3.0);
-        close(expected_root1.to_num::<u64>(), root_after1, 10); // Registered gets 2/3 tao emission
+        assert_abs_diff_eq!(expected_root1.to_num::<u64>(), root_after1, epsilon = 10); // Registered gets 2/3 tao emission
         let expected_root2 = I96F32::from_num(stake_before)
             + I96F32::from_num(pending_tao) * I96F32::from_num(1.0 / 3.0);
-        close(expected_root2.to_num::<u64>(), root_after2, 10); // Registered gets 1/3 tao emission
+        assert_abs_diff_eq!(expected_root2.to_num::<u64>(), root_after2, epsilon = 10); // Registered gets 1/3 tao emission
     });
 }
 
@@ -789,26 +785,20 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, netuid);
         let root_after2 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, root);
-        // hotkey 1 has (1 + (2 * 0.5))/( 1 + 1*0.5 + 1 + (2 * 0.5)) = 0.5714285714 of the hotkey emission.
         let expected_stake = I96F32::from_num(stake_before)
-            + I96F32::from_num(pending_alpha)
-                * I96F32::from_num(0.5714285714)
-                * I96F32::from_num(1.0 / 2.0);
-        close(expected_stake.to_num::<u64>(), stake_after1, 10);
-        // hotkey 2 has (1 + 1*0.5)/( 1 + 1*0.5 + 1 + (2 * 0.5)) = 0.4285714286 of the hotkey emission.
+            + I96F32::from_num(pending_alpha) * I96F32::from_num(1.0 / 2.0);
+        assert_abs_diff_eq!(expected_stake.to_num::<u64>(), stake_after1, epsilon = 10);
         let expected_stake2 = I96F32::from_num(stake_before)
-            + I96F32::from_num(pending_alpha)
-                * I96F32::from_num(0.4285714286)
-                * I96F32::from_num(2.0 / 3.0);
-        close(expected_stake2.to_num::<u64>(), stake_after2, 10);
+            + I96F32::from_num(pending_alpha) * I96F32::from_num(1.0 / 2.0);
+        assert_abs_diff_eq!(expected_stake2.to_num::<u64>(), stake_after2, epsilon = 10);
         // hotkey 1 has 2 / 3 root tao
         let expected_root1 = I96F32::from_num(2 * stake_before)
             + I96F32::from_num(pending_tao) * I96F32::from_num(2.0 / 3.0);
-        close(expected_root1.to_num::<u64>(), root_after1, 10);
+        assert_abs_diff_eq!(expected_root1.to_num::<u64>(), root_after1, epsilon = 10);
         // hotkey 1 has 1 / 3 root tao
         let expected_root2 = I96F32::from_num(stake_before)
             + I96F32::from_num(pending_tao) * I96F32::from_num(1.0 / 3.0);
-        close(expected_root2.to_num::<u64>(), root_after2, 10);
+        assert_abs_diff_eq!(expected_root2.to_num::<u64>(), root_after2, epsilon = 10);
     });
 }
 
@@ -1058,11 +1048,11 @@ fn test_get_root_children_drain() {
         // Alice and Bob both made half of the dividends.
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&alice, alpha),
-            alice_alpha_stake + pending_alpha / 4
+            alice_alpha_stake + pending_alpha / 2
         );
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&bob, alpha),
-            bob_alpha_stake + pending_alpha / 4
+            bob_alpha_stake + pending_alpha / 2
         );
 
         // Lets drain
@@ -1092,9 +1082,10 @@ fn test_get_root_children_drain() {
         assert_eq!(AlphaDividendsPerSubnet::<Test>::get(alpha, alice), 0);
         assert_eq!(TaoDividendsPerSubnet::<Test>::get(alpha, alice), 0);
         // Bob makes it all.
-        assert_eq!(
+        assert_abs_diff_eq!(
             AlphaDividendsPerSubnet::<Test>::get(alpha, bob),
-            (I96F32::from_num(pending_alpha) * I96F32::from_num(1.0 - 0.495412844)).to_num::<u64>()
+            pending_alpha,
+            epsilon = 1
         );
         assert_eq!(TaoDividendsPerSubnet::<Test>::get(alpha, bob), pending_root);
     });
@@ -1172,12 +1163,12 @@ fn test_get_root_children_drain_half_proportion() {
         // Alice and Bob make the same amount.
         close(
             AlphaDividendsPerSubnet::<Test>::get(alpha, alice),
-            pending_alpha / 4,
+            pending_alpha / 2,
             10,
         );
         close(
             AlphaDividendsPerSubnet::<Test>::get(alpha, bob),
-            pending_alpha / 4,
+            pending_alpha / 2,
             10,
         );
     });
@@ -1243,7 +1234,7 @@ fn test_get_root_children_drain_with_take() {
         // Set Bob as 100% child of Alice on root.
         ChildkeyTake::<Test>::insert(bob, alpha, u16::MAX);
         mock_set_children_no_epochs(alpha, &alice, &[(u64::MAX, bob)]);
-        // Set Bob childkey take to zero.
+        // Set Bob validator take to zero.
         Delegates::<Test>::insert(alice, 0);
         Delegates::<Test>::insert(bob, 0);
 
@@ -1251,11 +1242,11 @@ fn test_get_root_children_drain_with_take() {
         let pending_alpha: u64 = 1_000_000_000;
         SubtensorModule::drain_pending_emission(alpha, pending_alpha, 0, 0, 0);
 
-        // Alice and Bob make the same amount.
+        // Bob makes it all.
         close(AlphaDividendsPerSubnet::<Test>::get(alpha, alice), 0, 10);
         close(
             AlphaDividendsPerSubnet::<Test>::get(alpha, bob),
-            pending_alpha / 2,
+            pending_alpha,
             10,
         );
     });
@@ -1332,12 +1323,12 @@ fn test_get_root_children_drain_with_half_take() {
         // Alice and Bob make the same amount.
         close(
             AlphaDividendsPerSubnet::<Test>::get(alpha, alice),
-            pending_alpha / 8,
+            pending_alpha / 4,
             10000,
         );
         close(
             AlphaDividendsPerSubnet::<Test>::get(alpha, bob),
-            3 * (pending_alpha / 8),
+            3 * (pending_alpha / 4),
             10000,
         );
     });
@@ -1454,9 +1445,9 @@ fn test_incentive_to_subnet_owner_is_burned() {
         let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
 
         let pending_tao: u64 = 1_000_000_000;
+        let pending_alpha: u64 = 0; // None to valis
         let owner_cut: u64 = 0;
         let mut incentives: BTreeMap<U256, u64> = BTreeMap::new();
-        let mut dividends: BTreeMap<U256, I96F32> = BTreeMap::new();
 
         // Give incentive to other_hk
         incentives.insert(other_hk, 10_000_000);
@@ -1474,10 +1465,10 @@ fn test_incentive_to_subnet_owner_is_burned() {
         // Distribute dividends and incentives
         SubtensorModule::distribute_dividends_and_incentives(
             netuid,
-            pending_tao,
             owner_cut,
             incentives,
-            dividends,
+            BTreeMap::new(),
+            BTreeMap::new(),
         );
 
         // Verify stake after
@@ -1486,5 +1477,657 @@ fn test_incentive_to_subnet_owner_is_burned() {
         assert_eq!(subnet_owner_stake_after, 0);
         let other_stake_after = SubtensorModule::get_stake_for_hotkey_on_subnet(&other_hk, netuid);
         assert!(other_stake_after > 0);
+    });
+}
+
+#[test]
+fn test_calculate_dividend_distribution_totals() {
+    new_test_ext(1).execute_with(|| {
+        let mut stake_map: BTreeMap<U256, (u64, u64)> = BTreeMap::new();
+        let mut dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
+
+        let pending_validator_alpha: u64 = 183_123_567_452;
+        let pending_tao: u64 = 837_120_949_872;
+        let tao_weight: U96F32 = U96F32::saturating_from_num(0.18); // 18%
+
+        let hotkeys = [U256::from(0), U256::from(1)];
+
+        // Stake map and dividends shouldn't matter for this test.
+        stake_map.insert(hotkeys[0], (4_859_302, 2_342_352));
+        stake_map.insert(hotkeys[1], (23_423, 859_273));
+        dividends.insert(hotkeys[0], 77_783_738_u64.into());
+        dividends.insert(hotkeys[1], 19_283_940_u64.into());
+
+        let (alpha_dividends, tao_dividends) = SubtensorModule::calculate_dividend_distribution(
+            pending_validator_alpha,
+            pending_tao,
+            tao_weight,
+            stake_map,
+            dividends,
+        );
+
+        // Verify the total of each dividends type is close to the inputs.
+        let total_alpha_dividends = alpha_dividends.values().sum::<U96F32>();
+        let total_tao_dividends = tao_dividends.values().sum::<U96F32>();
+
+        assert_abs_diff_eq!(
+            total_alpha_dividends.saturating_to_num::<u64>(),
+            pending_validator_alpha,
+            epsilon = 1_000
+        );
+        assert_abs_diff_eq!(
+            total_tao_dividends.saturating_to_num::<u64>(),
+            pending_tao,
+            epsilon = 1_000
+        );
+    });
+}
+
+#[test]
+fn test_calculate_dividend_distribution_total_only_tao() {
+    new_test_ext(1).execute_with(|| {
+        let mut stake_map: BTreeMap<U256, (u64, u64)> = BTreeMap::new();
+        let mut dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
+
+        let pending_validator_alpha: u64 = 0;
+        let pending_tao: u64 = 837_120_949_872;
+        let tao_weight: U96F32 = U96F32::saturating_from_num(0.18); // 18%
+
+        let hotkeys = [U256::from(0), U256::from(1)];
+
+        // Stake map and dividends shouldn't matter for this test.
+        stake_map.insert(hotkeys[0], (4_859_302, 2_342_352));
+        stake_map.insert(hotkeys[1], (23_423, 859_273));
+        dividends.insert(hotkeys[0], 77_783_738_u64.into());
+        dividends.insert(hotkeys[1], 19_283_940_u64.into());
+
+        let (alpha_dividends, tao_dividends) = SubtensorModule::calculate_dividend_distribution(
+            pending_validator_alpha,
+            pending_tao,
+            tao_weight,
+            stake_map,
+            dividends,
+        );
+
+        // Verify the total of each dividends type is close to the inputs.
+        let total_alpha_dividends = alpha_dividends.values().sum::<U96F32>();
+        let total_tao_dividends = tao_dividends.values().sum::<U96F32>();
+
+        assert_abs_diff_eq!(
+            total_alpha_dividends.saturating_to_num::<u64>(),
+            pending_validator_alpha,
+            epsilon = 1_000
+        );
+        assert_abs_diff_eq!(
+            total_tao_dividends.saturating_to_num::<u64>(),
+            pending_tao,
+            epsilon = 1_000
+        );
+    });
+}
+
+#[test]
+fn test_calculate_dividend_distribution_total_no_tao_weight() {
+    new_test_ext(1).execute_with(|| {
+        let mut stake_map: BTreeMap<U256, (u64, u64)> = BTreeMap::new();
+        let mut dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
+
+        let pending_validator_alpha: u64 = 183_123_567_452;
+        let pending_tao: u64 = 0; // If tao weight is 0, then only alpha dividends should be input.
+        let tao_weight: U96F32 = U96F32::saturating_from_num(0.0); // 0%
+
+        let hotkeys = [U256::from(0), U256::from(1)];
+
+        // Stake map and dividends shouldn't matter for this test.
+        stake_map.insert(hotkeys[0], (4_859_302, 2_342_352));
+        stake_map.insert(hotkeys[1], (23_423, 859_273));
+        dividends.insert(hotkeys[0], 77_783_738_u64.into());
+        dividends.insert(hotkeys[1], 19_283_940_u64.into());
+
+        let (alpha_dividends, tao_dividends) = SubtensorModule::calculate_dividend_distribution(
+            pending_validator_alpha,
+            pending_tao,
+            tao_weight,
+            stake_map,
+            dividends,
+        );
+
+        // Verify the total of each dividends type is close to the inputs.
+        let total_alpha_dividends = alpha_dividends.values().sum::<U96F32>();
+        let total_tao_dividends = tao_dividends.values().sum::<U96F32>();
+
+        assert_abs_diff_eq!(
+            total_alpha_dividends.saturating_to_num::<u64>(),
+            pending_validator_alpha,
+            epsilon = 1_000
+        );
+        assert_abs_diff_eq!(
+            total_tao_dividends.saturating_to_num::<u64>(),
+            pending_tao,
+            epsilon = 1_000
+        );
+    });
+}
+
+#[test]
+fn test_calculate_dividend_distribution_total_only_alpha() {
+    new_test_ext(1).execute_with(|| {
+        let mut stake_map: BTreeMap<U256, (u64, u64)> = BTreeMap::new();
+        let mut dividends: BTreeMap<U256, U96F32> = BTreeMap::new();
+
+        let pending_validator_alpha: u64 = 183_123_567_452;
+        let pending_tao: u64 = 0;
+        let tao_weight: U96F32 = U96F32::saturating_from_num(0.18); // 18%
+
+        let hotkeys = [U256::from(0), U256::from(1)];
+
+        // Stake map and dividends shouldn't matter for this test.
+        stake_map.insert(hotkeys[0], (4_859_302, 2_342_352));
+        stake_map.insert(hotkeys[1], (23_423, 859_273));
+        dividends.insert(hotkeys[0], 77_783_738_u64.into());
+        dividends.insert(hotkeys[1], 19_283_940_u64.into());
+
+        let (alpha_dividends, tao_dividends) = SubtensorModule::calculate_dividend_distribution(
+            pending_validator_alpha,
+            pending_tao,
+            tao_weight,
+            stake_map,
+            dividends,
+        );
+
+        // Verify the total of each dividends type is close to the inputs.
+        let total_alpha_dividends = alpha_dividends.values().sum::<U96F32>();
+        let total_tao_dividends = tao_dividends.values().sum::<U96F32>();
+
+        assert_abs_diff_eq!(
+            total_alpha_dividends.saturating_to_num::<u64>(),
+            pending_validator_alpha,
+            epsilon = 1_000
+        );
+        assert_abs_diff_eq!(
+            total_tao_dividends.saturating_to_num::<u64>(),
+            pending_tao,
+            epsilon = 1_000
+        );
+    });
+}
+
+#[test]
+fn test_calculate_dividend_and_incentive_distribution() {
+    new_test_ext(1).execute_with(|| {
+        let sn_owner_hk = U256::from(0);
+        let sn_owner_ck = U256::from(1);
+        let netuid = add_dynamic_network(&sn_owner_hk, &sn_owner_ck);
+
+        // Register a single neuron.
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        // Give non-zero alpha
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid, 1,
+        );
+
+        let pending_alpha = 123_456_789;
+        let pending_validator_alpha = pending_alpha / 2; // Pay half to validators.
+        let pending_tao: u64 = 0;
+        let pending_swapped = 0; // Only alpha output.
+        let tao_weight: U96F32 = U96F32::saturating_from_num(0.0); // 0%
+
+        // Hotkey, Incentive, Dividend
+        let hotkey_emission = vec![(hotkey, pending_alpha / 2, pending_alpha / 2)];
+
+        let (incentives, (alpha_dividends, tao_dividends)) =
+            SubtensorModule::calculate_dividend_and_incentive_distribution(
+                netuid,
+                pending_tao,
+                pending_validator_alpha,
+                hotkey_emission,
+                tao_weight,
+            );
+
+        let incentives_total = incentives.values().sum::<u64>();
+        let dividends_total = alpha_dividends
+            .values()
+            .sum::<U96F32>()
+            .saturating_to_num::<u64>();
+
+        assert_abs_diff_eq!(
+            dividends_total.saturating_add(incentives_total),
+            pending_alpha,
+            epsilon = 2
+        );
+    });
+}
+
+#[test]
+fn test_calculate_dividend_and_incentive_distribution_all_to_validators() {
+    new_test_ext(1).execute_with(|| {
+        let sn_owner_hk = U256::from(0);
+        let sn_owner_ck = U256::from(1);
+        let netuid = add_dynamic_network(&sn_owner_hk, &sn_owner_ck);
+
+        // Register a single neuron.
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        // Give non-zero alpha
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid, 1,
+        );
+
+        let pending_alpha = 123_456_789;
+        let pending_validator_alpha = pending_alpha; // Pay all to validators.
+        let pending_tao: u64 = 0;
+        let tao_weight: U96F32 = U96F32::saturating_from_num(0.0); // 0%
+
+        // Hotkey, Incentive, Dividend
+        let hotkey_emission = vec![(hotkey, 0, pending_alpha)];
+
+        let (incentives, (alpha_dividends, tao_dividends)) =
+            SubtensorModule::calculate_dividend_and_incentive_distribution(
+                netuid,
+                pending_tao,
+                pending_validator_alpha,
+                hotkey_emission,
+                tao_weight,
+            );
+
+        let incentives_total = incentives.values().sum::<u64>();
+        let dividends_total = alpha_dividends
+            .values()
+            .sum::<U96F32>()
+            .saturating_to_num::<u64>();
+
+        assert_eq!(
+            dividends_total.saturating_add(incentives_total),
+            pending_alpha
+        );
+    });
+}
+
+#[test]
+fn test_calculate_dividends_and_incentives() {
+    new_test_ext(1).execute_with(|| {
+        let sn_owner_hk = U256::from(0);
+        let sn_owner_ck = U256::from(1);
+        let netuid = add_dynamic_network(&sn_owner_hk, &sn_owner_ck);
+
+        // Register a single neuron.
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        // Give non-zero alpha
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid, 1,
+        );
+
+        let divdends: u64 = 123_456_789;
+        let incentive: u64 = 683_051_923;
+        let total_emission: u64 = divdends.saturating_add(incentive);
+
+        // Hotkey, Incentive, Dividend
+        let hotkey_emission = vec![(hotkey, incentive, divdends)];
+
+        let (incentives, dividends) =
+            SubtensorModule::calculate_dividends_and_incentives(netuid, hotkey_emission);
+
+        let incentives_total = incentives.values().sum::<u64>();
+        let dividends_total = dividends
+            .values()
+            .sum::<U96F32>()
+            .saturating_to_num::<u64>();
+
+        assert_eq!(
+            dividends_total.saturating_add(incentives_total),
+            total_emission
+        );
+    });
+}
+
+#[test]
+fn test_calculate_dividends_and_incentives_only_validators() {
+    new_test_ext(1).execute_with(|| {
+        let sn_owner_hk = U256::from(0);
+        let sn_owner_ck = U256::from(1);
+        let netuid = add_dynamic_network(&sn_owner_hk, &sn_owner_ck);
+
+        // Register a single neuron.
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        // Give non-zero alpha
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid, 1,
+        );
+
+        let divdends: u64 = 123_456_789;
+        let incentive: u64 = 0;
+
+        // Hotkey, Incentive, Dividend
+        let hotkey_emission = vec![(hotkey, incentive, divdends)];
+
+        let (incentives, dividends) =
+            SubtensorModule::calculate_dividends_and_incentives(netuid, hotkey_emission);
+
+        let incentives_total = incentives.values().sum::<u64>();
+        let dividends_total = dividends
+            .values()
+            .sum::<U96F32>()
+            .saturating_to_num::<u64>();
+
+        assert_eq!(dividends_total, divdends);
+        assert_eq!(incentives_total, 0);
+    });
+}
+
+#[test]
+fn test_calculate_dividends_and_incentives_only_miners() {
+    new_test_ext(1).execute_with(|| {
+        let sn_owner_hk = U256::from(0);
+        let sn_owner_ck = U256::from(1);
+        let netuid = add_dynamic_network(&sn_owner_hk, &sn_owner_ck);
+
+        // Register a single neuron.
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        // Give non-zero alpha
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid, 1,
+        );
+
+        let divdends: u64 = 0;
+        let incentive: u64 = 123_456_789;
+
+        // Hotkey, Incentive, Dividend
+        let hotkey_emission = vec![(hotkey, incentive, divdends)];
+
+        let (incentives, dividends) =
+            SubtensorModule::calculate_dividends_and_incentives(netuid, hotkey_emission);
+
+        let incentives_total = incentives.values().sum::<u64>();
+        let dividends_total = dividends
+            .values()
+            .sum::<U96F32>()
+            .saturating_to_num::<u64>();
+
+        assert_eq!(incentives_total, incentive);
+        assert_eq!(dividends_total, divdends);
+    });
+}
+
+#[test]
+fn test_drain_pending_emission_no_miners_all_drained() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = add_dynamic_network(&U256::from(1), &U256::from(2));
+        let hotkey = U256::from(3);
+        let coldkey = U256::from(4);
+        let init_stake: u64 = 1;
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        // Give non-zero stake
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid, init_stake,
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+            init_stake
+        );
+
+        // Set the weight of root TAO to be 0%, so only alpha is effective.
+        SubtensorModule::set_tao_weight(0);
+
+        // Set the emission to be 1 million.
+        let emission: u64 = 1_000_000;
+        // Run drain pending without any miners.
+        SubtensorModule::drain_pending_emission(netuid, emission, 0, 0, 0);
+
+        // Get the new stake of the hotkey.
+        let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
+        // We expect this neuron to get *all* the emission.
+        // Slight epsilon due to rounding (hotkey_take).
+        assert_abs_diff_eq!(new_stake, emission.saturating_add(init_stake), epsilon = 1);
+    });
+}
+
+#[test]
+fn test_drain_pending_emission_zero_emission() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = add_dynamic_network(&U256::from(1), &U256::from(2));
+        let hotkey = U256::from(3);
+        let coldkey = U256::from(4);
+        let miner_hk = U256::from(5);
+        let miner_ck = U256::from(6);
+        let init_stake: u64 = 100_000_000_000_000;
+        let tempo = 2;
+        SubtensorModule::set_tempo(netuid, tempo);
+        // Set weight-set limit to 0.
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        register_ok_neuron(netuid, miner_hk, miner_ck, 0);
+        // Give non-zero stake
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid, init_stake,
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+            init_stake
+        );
+
+        // Set the weight of root TAO to be 0%, so only alpha is effective.
+        SubtensorModule::set_tao_weight(0);
+
+        run_to_block_no_epoch(netuid, 50);
+
+        // Run epoch for initial setup.
+        SubtensorModule::epoch(netuid, 0);
+
+        // Set weights on miner
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            vec![0, 1, 2],
+            vec![0, 0, 1],
+            0,
+        ));
+
+        run_to_block_no_epoch(netuid, 50);
+
+        // Clear incentive and dividends.
+        Incentive::<Test>::remove(netuid);
+        Dividends::<Test>::remove(netuid);
+
+        // Set the emission to be ZERO.
+        SubtensorModule::drain_pending_emission(netuid, 0, 0, 0, 0);
+
+        // Get the new stake of the hotkey.
+        let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
+        // We expect the stake to remain unchanged.
+        assert_eq!(new_stake, init_stake);
+
+        // Check that the incentive and dividends are set by epoch.
+        assert!(Incentive::<Test>::get(netuid).iter().sum::<u16>() > 0);
+        assert!(Dividends::<Test>::get(netuid).iter().sum::<u16>() > 0);
+    });
+}
+
+#[test]
+fn test_run_coinbase_not_started() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let tempo = 2;
+
+        let sn_owner_hk = U256::from(7);
+        let sn_owner_ck = U256::from(8);
+
+        add_network_without_emission_block(netuid, tempo, 0);
+        assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
+
+        SubnetOwner::<Test>::insert(netuid, sn_owner_ck);
+        SubnetOwnerHotkey::<Test>::insert(netuid, sn_owner_hk);
+
+        let hotkey = U256::from(3);
+        let coldkey = U256::from(4);
+        let miner_hk = U256::from(5);
+        let miner_ck = U256::from(6);
+        let init_stake: u64 = 100_000_000_000_000;
+        let tempo = 2;
+        SubtensorModule::set_tempo(netuid, tempo);
+        // Set weight-set limit to 0.
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        register_ok_neuron(netuid, miner_hk, miner_ck, 0);
+        register_ok_neuron(netuid, sn_owner_hk, sn_owner_ck, 0);
+        // Give non-zero stake
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid, init_stake,
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+            init_stake
+        );
+
+        // Set the weight of root TAO to be 0%, so only alpha is effective.
+        SubtensorModule::set_tao_weight(0);
+
+        run_to_block_no_epoch(netuid, 30);
+
+        // Run epoch for initial setup.
+        SubtensorModule::epoch(netuid, 0);
+
+        // Set weights on miner
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            vec![0, 1, 2],
+            vec![0, 0, 1],
+            0,
+        ));
+
+        // Clear incentive and dividends.
+        Incentive::<Test>::remove(netuid);
+        Dividends::<Test>::remove(netuid);
+
+        // Step so tempo should run.
+        next_block_no_epoch(netuid);
+        next_block_no_epoch(netuid);
+        next_block_no_epoch(netuid);
+        let current_block = System::block_number();
+        assert!(SubtensorModule::should_run_epoch(netuid, current_block));
+
+        // Run coinbase with emission.
+        SubtensorModule::run_coinbase(U96F32::saturating_from_num(100_000_000));
+
+        // We expect that the epoch ran.
+        assert_eq!(BlocksSinceLastStep::<Test>::get(netuid), 0);
+
+        // Get the new stake of the hotkey. We expect no emissions.
+        let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
+        // We expect the stake to remain unchanged.
+        assert_eq!(new_stake, init_stake);
+
+        // Check that the incentive and dividends are set.
+        assert!(Incentive::<Test>::get(netuid).iter().sum::<u16>() > 0);
+        assert!(Dividends::<Test>::get(netuid).iter().sum::<u16>() > 0);
+    });
+}
+
+#[test]
+fn test_run_coinbase_not_started_start_after() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let tempo = 2;
+
+        let sn_owner_hk = U256::from(7);
+        let sn_owner_ck = U256::from(8);
+
+        add_network_without_emission_block(netuid, tempo, 0);
+        assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
+
+        SubnetOwner::<Test>::insert(netuid, sn_owner_ck);
+        SubnetOwnerHotkey::<Test>::insert(netuid, sn_owner_hk);
+
+        let hotkey = U256::from(3);
+        let coldkey = U256::from(4);
+        let miner_hk = U256::from(5);
+        let miner_ck = U256::from(6);
+        let init_stake: u64 = 100_000_000_000_000;
+        let tempo = 2;
+        SubtensorModule::set_tempo(netuid, tempo);
+        // Set weight-set limit to 0.
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        register_ok_neuron(netuid, miner_hk, miner_ck, 0);
+        register_ok_neuron(netuid, sn_owner_hk, sn_owner_ck, 0);
+        // Give non-zero stake
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid, init_stake,
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+            init_stake
+        );
+
+        // Set the weight of root TAO to be 0%, so only alpha is effective.
+        SubtensorModule::set_tao_weight(0);
+
+        run_to_block_no_epoch(netuid, 30);
+
+        // Run epoch for initial setup.
+        SubtensorModule::epoch(netuid, 0);
+
+        // Set weights on miner
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            vec![0, 1, 2],
+            vec![0, 0, 1],
+            0,
+        ));
+
+        // Clear incentive and dividends.
+        Incentive::<Test>::remove(netuid);
+        Dividends::<Test>::remove(netuid);
+
+        // Step so tempo should run.
+        next_block_no_epoch(netuid);
+        next_block_no_epoch(netuid);
+        next_block_no_epoch(netuid);
+        let current_block = System::block_number();
+        assert!(SubtensorModule::should_run_epoch(netuid, current_block));
+
+        // Run coinbase with emission.
+        SubtensorModule::run_coinbase(U96F32::saturating_from_num(100_000_000));
+        // We expect that the epoch ran.
+        assert_eq!(BlocksSinceLastStep::<Test>::get(netuid), 0);
+
+        let block_number = DurationOfStartCall::get();
+        run_to_block_no_epoch(netuid, block_number);
+
+        let current_block = System::block_number();
+
+        // Run start call.
+        assert_ok!(SubtensorModule::start_call(
+            RuntimeOrigin::signed(sn_owner_ck),
+            netuid
+        ));
+        assert_eq!(
+            FirstEmissionBlockNumber::<Test>::get(netuid),
+            Some(current_block + 1)
+        );
+
+        // Run coinbase with emission.
+        SubtensorModule::run_coinbase(U96F32::saturating_from_num(100_000_000));
+        // We expect that the epoch ran.
+        assert_eq!(BlocksSinceLastStep::<Test>::get(netuid), 0);
+
+        // Get the new stake of the hotkey. We expect no emissions.
+        let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
+        // We expect the stake to remain unchanged.
+        assert!(new_stake > init_stake);
+        log::info!("new_stake: {}", new_stake);
     });
 }

@@ -9,6 +9,7 @@ mod dispatches {
     use frame_support::traits::schedule::DispatchTime;
     use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
     use frame_system::pallet_prelude::BlockNumberFor;
+    use sp_core::ecdsa::Signature;
     use sp_runtime::traits::Saturating;
 
     use crate::MAX_CRV3_COMMIT_SIZE_BYTES;
@@ -1908,6 +1909,119 @@ mod dispatches {
             let _ = Self::do_try_associate_hotkey(&coldkey, &hotkey);
 
             Ok(())
+        }
+
+        /// Initiates a call on a subnet.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be signed by the subnet owner.
+        /// * `netuid` - The unique identifier of the subnet on which the call is being initiated.
+        ///
+        /// # Events
+        /// Emits a `FirstEmissionBlockNumberSet` event on success.
+        #[pallet::call_index(92)]
+        #[pallet::weight((
+            Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().reads_writes(6, 1)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn start_call(origin: T::RuntimeOrigin, netuid: u16) -> DispatchResult {
+            Self::do_start_call(origin, netuid)?;
+            Ok(())
+        }
+
+        /// Attempts to associate a hotkey with an EVM key.
+        ///
+        /// The signature will be checked to see if the recovered public key matches the `evm_key` provided.
+        ///
+        /// The EVM key is expected to sign the message according to this formula to produce the signature:
+        /// ```text
+        /// keccak_256(hotkey ++ keccak_256(block_number))
+        /// ```
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the transaction, which must be signed by the coldkey that owns the `hotkey`.
+        /// * `netuid` - The netuid that the `hotkey` belongs to.
+        /// * `hotkey` - The hotkey associated with the `origin`.
+        /// * `evm_key` - The EVM key to associate with the `hotkey`.
+        /// * `block_number` - The block number used in the `signature`.
+        /// * `signature` - A signed message by the `evm_key` containing the `hotkey` and the hashed `block_number`.
+        ///
+        /// # Errors
+        /// Returns an error if:
+        /// * The transaction is not signed.
+        /// * The hotkey is not owned by the origin coldkey.
+        /// * The hotkey does not belong to the subnet identified by the netuid.
+        /// * The EVM key cannot be recovered from the signature.
+        /// * The EVM key recovered from the signature does not match the given EVM key.
+        ///
+        /// # Events
+        /// May emit a `EvmKeyAssociated` event on success
+        #[pallet::call_index(93)]
+        #[pallet::weight((
+            Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().reads_writes(2, 1)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn associate_evm_key(
+            origin: T::RuntimeOrigin,
+            netuid: u16,
+            hotkey: T::AccountId,
+            evm_key: H160,
+            block_number: u64,
+            signature: Signature,
+        ) -> DispatchResult {
+            Self::do_associate_evm_key(origin, netuid, hotkey, evm_key, block_number, signature)
+        }
+
+        /// Recycles alpha from a cold/hot key pair, reducing AlphaOut on a subnet
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call (must be signed by the coldkey)
+        /// * `hotkey` - The hotkey account
+        /// * `amount` - The amount of alpha to recycle
+        /// * `netuid` - The subnet ID
+        ///
+        /// # Events
+        /// Emits a `TokensRecycled` event on success.
+        #[pallet::call_index(101)]
+        #[pallet::weight((
+            Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().reads_writes(3, 2)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn recycle_alpha(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+            amount: u64,
+            netuid: u16,
+        ) -> DispatchResult {
+            Self::do_recycle_alpha(origin, hotkey, amount, netuid)
+        }
+
+        /// Burns alpha from a cold/hot key pair without reducing `AlphaOut`
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call (must be signed by the coldkey)
+        /// * `hotkey` - The hotkey account
+        /// * `amount` - The amount of alpha to burn
+        /// * `netuid` - The subnet ID
+        ///
+        /// # Events
+        /// Emits a `TokensBurned` event on success.
+        #[pallet::call_index(102)]
+        #[pallet::weight((
+            Weight::from_parts(2_000_000, 0).saturating_add(T::DbWeight::get().reads_writes(2, 1)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn burn_alpha(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+            amount: u64,
+            netuid: u16,
+        ) -> DispatchResult {
+            Self::do_burn_alpha(origin, hotkey, amount, netuid)
         }
     }
 }

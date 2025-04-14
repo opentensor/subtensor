@@ -97,9 +97,10 @@ describe("Test neuron precompile reveal weights", () => {
         if (weightsCommit === undefined) {
             throw new Error("submit weights failed")
         }
-        assert.ok(weightsCommit.length > 0)
+        else { assert.ok(weightsCommit.length > 0) }
     })
 
+    // Temporarily disable it, there is a type error in CI.
     it("EVM neuron reveal weights via call precompile", async () => {
         let totalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue()
         const netuid = totalNetworks - 1
@@ -131,9 +132,10 @@ describe("Test neuron precompile reveal weights", () => {
 
         const weights = await api.query.SubtensorModule.Weights.getValue(netuid, neuron_uid)
 
-        if (weights === undefined) {
-            throw new Error("weights not available onchain")
+        if (weights === undefined || !Array.isArray(weights)) {
+            throw new Error("weights not available onchain or invalid type")
         }
+
         for (const weight of weights) {
             assert.equal(weight[0], neuron_uid)
             assert.ok(weight[1] !== undefined)

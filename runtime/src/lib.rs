@@ -34,7 +34,7 @@ use pallet_registry::CanRegisterIdentity;
 use pallet_subtensor::rpc_info::{
     delegate_info::DelegateInfo,
     dynamic_info::DynamicInfo,
-    metagraph::Metagraph,
+    metagraph::{Metagraph, SelectiveMetagraph},
     neuron_info::{NeuronInfo, NeuronInfoLite},
     show_subnet::SubnetState,
     stake_info::StakeInfo,
@@ -89,6 +89,8 @@ pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
 use core::marker::PhantomData;
+
+use scale_info::TypeInfo;
 
 // Frontier
 use fp_rpc::TransactionStatus;
@@ -206,7 +208,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 252,
+    spec_version: 261,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -919,12 +921,22 @@ impl pallet_registry::Config for Runtime {
 }
 
 parameter_types! {
-    pub const MaxCommitFields: u32 = 1;
+    pub const MaxCommitFieldsInner: u32 = 1;
     pub const CommitmentInitialDeposit: Balance = 0; // Free
     pub const CommitmentFieldDeposit: Balance = 0; // Free
     pub const CommitmentRateLimit: BlockNumber = 100; // Allow commitment every 100 blocks
 }
 
+#[subtensor_macros::freeze_struct("7c76bd954afbb54e")]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
+pub struct MaxCommitFields;
+impl Get<u32> for MaxCommitFields {
+    fn get() -> u32 {
+        MaxCommitFieldsInner::get()
+    }
+}
+
+#[subtensor_macros::freeze_struct("c39297f5eb97ee82")]
 pub struct AllowCommitments;
 impl CanCommit<AccountId> for AllowCommitments {
     #[cfg(not(feature = "runtime-benchmarks"))]
@@ -949,6 +961,20 @@ impl pallet_commitments::Config for Runtime {
     type InitialDeposit = CommitmentInitialDeposit;
     type FieldDeposit = CommitmentFieldDeposit;
     type DefaultRateLimit = CommitmentRateLimit;
+    type TempoInterface = TempoInterface;
+}
+
+pub struct TempoInterface;
+impl pallet_commitments::GetTempoInterface for TempoInterface {
+    fn get_epoch_index(netuid: u16, cur_block: u64) -> u64 {
+        SubtensorModule::get_epoch_index(netuid, cur_block)
+    }
+}
+
+impl pallet_commitments::GetTempoInterface for Runtime {
+    fn get_epoch_index(netuid: u16, cur_block: u64) -> u64 {
+        SubtensorModule::get_epoch_index(netuid, cur_block)
+    }
 }
 
 #[cfg(not(feature = "fast-blocks"))]
@@ -985,7 +1011,7 @@ parameter_types! {
     pub const SubtensorInitialMaxRegistrationsPerBlock: u16 = 1;
     pub const SubtensorInitialPruningScore : u16 = u16::MAX;
     pub const SubtensorInitialBondsMovingAverage: u64 = 900_000;
-    pub const SubtensorInitialBondsPenalty: u16 = 0;
+    pub const SubtensorInitialBondsPenalty: u16 = u16::MAX;
     pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
     pub const SubtensorInitialMinDelegateTake: u16 = 0; // Allow 0% delegate take
     pub const SubtensorInitialDefaultChildKeyTake: u16 = 0; // Allow 0% childkey take
@@ -1019,6 +1045,11 @@ parameter_types! {
     pub const InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const SubtensorInitialTaoWeight: u64 = 971_718_665_099_567_868; // 0.05267697438728329% tao weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
+    pub const DurationOfStartCall: u64 = if cfg!(feature = "fast-blocks") {
+        10 // Only 10 blocks for fast blocks
+    } else {
+        7 * 24 * 60 * 60 / 12 // 7 days
+    };
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1083,6 +1114,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
+    type DurationOfStartCall = DurationOfStartCall;
 }
 
 use sp_runtime::BoundedVec;
@@ -2088,6 +2120,11 @@ impl_runtime_apis! {
         fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<AccountId32>>> {
             SubtensorModule::get_all_dynamic_info()
         }
+
+        fn get_selective_metagraph(netuid: u16, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
+            SubtensorModule::get_selective_metagraph(netuid, metagraph_indexes)
+        }
+
     }
 
     impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {

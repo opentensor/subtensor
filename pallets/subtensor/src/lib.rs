@@ -77,7 +77,7 @@ pub mod pallet {
     };
     use frame_system::pallet_prelude::*;
     use pallet_drand::types::RoundNumber;
-    use sp_core::{ConstU32, H256};
+    use sp_core::{ConstU32, H160, H256};
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::collections::vec_deque::VecDeque;
     use sp_std::vec;
@@ -1024,6 +1024,17 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroU64<T>,
     >;
+    #[pallet::storage] // --- DMAP ( hot, netuid ) --> alpha | Returns the total amount of alpha a hotkey owned in the last epoch.
+    pub type TotalHotkeyAlphaLastEpoch<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        u16,
+        u64,
+        ValueQuery,
+        DefaultZeroU64<T>,
+    >;
     #[pallet::storage]
     /// DMAP ( hot, netuid ) --> total_alpha_shares | Returns the number of alpha shares for a hotkey on a subnet.
     pub type TotalHotkeyShares<T: Config> = StorageDoubleMap<
@@ -1125,7 +1136,11 @@ pub mod pallet {
     /// ============================
     /// ==== Subnet Parameters =====
     /// ============================
-    #[pallet::storage] // --- MAP ( netuid ) --> subnet mechanism
+    /// --- MAP ( netuid ) --> block number of first emission
+    #[pallet::storage]
+    pub type FirstEmissionBlockNumber<T: Config> = StorageMap<_, Identity, u16, u64, OptionQuery>;
+    /// --- MAP ( netuid ) --> subnet mechanism
+    #[pallet::storage]
     pub type SubnetMechanism<T: Config> =
         StorageMap<_, Identity, u16, u16, ValueQuery, DefaultZeroU16<T>>;
     #[pallet::storage]
@@ -1545,6 +1560,14 @@ pub mod pallet {
         u64,
         OptionQuery,
     >;
+
+    /// =============================
+    /// ==== EVM related storage ====
+    /// =============================
+    #[pallet::storage]
+    /// --- DMAP (netuid, uid) --> (H160, last_block_where_ownership_was_proven)
+    pub type AssociatedEvmAddress<T: Config> =
+        StorageDoubleMap<_, Twox64Concat, u16, Twox64Concat, u16, (H160, u64), OptionQuery>;
 
     /// ==================
     /// ==== Genesis =====
