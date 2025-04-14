@@ -5,6 +5,7 @@ import { KeyPair } from "@polkadot-labs/hdkd-helpers"
 import { getAliceSigner, waitForTransactionCompletion, getSignerFromKeypair } from './substrate'
 import { convertH160ToSS58, convertPublicKeyToSs58 } from './address-utils'
 import { tao } from './balance-math'
+import internal from "stream";
 
 // create a new subnet and return netuid 
 export async function addNewSubnetwork(api: TypedApi<typeof devnet>, hotkey: KeyPair, coldkey: KeyPair) {
@@ -337,6 +338,20 @@ export async function rootRegister(api: TypedApi<typeof devnet>, ss58Address: st
     let tx = api.tx.SubtensorModule.root_register({
         hotkey: ss58Address
     })
+
+    await waitForTransactionCompletion(api, tx, singer)
+        .then(() => { })
+        .catch((error) => { console.log(`transaction error ${error}`) });
+
+}
+
+export async function setSubtokenEnable(api: TypedApi<typeof devnet>, netuid: number, subtokenEnable: boolean) {
+    const singer = getAliceSigner()
+    let internalTx = api.tx.AdminUtils.sudo_set_subtoken_enabled({
+       netuid: netuid,
+       subtoken_enabled: subtokenEnable
+    })
+    let tx = api.tx.Sudo.sudo({ call: internalTx.decodedCall })
 
     await waitForTransactionCompletion(api, tx, singer)
         .then(() => { })
