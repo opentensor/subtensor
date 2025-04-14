@@ -628,7 +628,7 @@ impl<T: Config> Pallet<T> {
         tao: u64,
         price_limit: u64,
     ) -> Result<SwapResult, DispatchError> {
-        let swap_result = T::SwapInterface::swap(netuid, OrderType::Buy, tao, price_limit)?;
+        let swap_result = T::SwapInterface::swap(netuid, OrderType::Buy, tao, price_limit, false)?;
 
         // update Alpha reserves.
         SubnetAlphaIn::<T>::set(netuid, swap_result.new_alpha_reserve);
@@ -663,7 +663,8 @@ impl<T: Config> Pallet<T> {
         alpha: u64,
         price_limit: u64,
     ) -> Result<SwapResult, DispatchError> {
-        let swap_result = T::SwapInterface::swap(netuid, OrderType::Sell, alpha, price_limit)?;
+        let swap_result =
+            T::SwapInterface::swap(netuid, OrderType::Sell, alpha, price_limit, false)?;
 
         // Increase Alpha reserves.
         SubnetAlphaIn::<T>::set(netuid, swap_result.new_alpha_reserve);

@@ -1,8 +1,11 @@
-use super::*;
-use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
+
 use codec::Compact;
+use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::U96F32;
+use subtensor_swap_interface::SwapHandler;
+
+use super::*;
 
 #[freeze_struct("5cfb3c84c3af3116")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
@@ -116,11 +119,12 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_stake_fee(
         origin: Option<(T::AccountId, u16)>,
-        origin_coldkey_account: T::AccountId,
+        _origin_coldkey_account: T::AccountId,
         destination: Option<(T::AccountId, u16)>,
-        destination_coldkey_account: T::AccountId,
+        _destination_coldkey_account: T::AccountId,
         amount: u64,
     ) -> u64 {
-        T::SwapInterface::approx_fee_amount(destination.1, amount)
+        let netuid = origin.or(destination).map(|v| v.1).unwrap_or_default();
+        T::SwapInterface::approx_fee_amount(netuid, amount)
     }
 }
