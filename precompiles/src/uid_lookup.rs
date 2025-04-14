@@ -2,7 +2,7 @@ use core::marker::PhantomData;
 
 use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 use pallet_evm::PrecompileHandle;
-use precompile_utils::{prelude::Address, EvmResult};
+use precompile_utils::{EvmResult, prelude::Address};
 use sp_runtime::traits::{Dispatchable, StaticLookup};
 use sp_std::vec::Vec;
 
@@ -44,6 +44,10 @@ where
         evm_address: Address,
         limit: u16,
     ) -> EvmResult<Vec<(u16, u64)>> {
-        Ok(pallet_subtensor::Pallet::<R>::uid_lookup(netuid, evm_address.0, limit))
+        Ok(pallet_subtensor::Pallet::<R>::uid_lookup(
+            netuid,
+            evm_address.0,
+            limit,
+        ))
     }
 }
