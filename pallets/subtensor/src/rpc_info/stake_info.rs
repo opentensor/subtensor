@@ -122,6 +122,6 @@ impl<T: Config> Pallet<T> {
         destination_coldkey_account: T::AccountId,
         amount: u64,
     ) -> u64 {
-        DefaultStakingFee::<T>::get()
+		todo!()
     }
 }

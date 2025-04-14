@@ -1,5 +1,6 @@
 use core::marker::PhantomData;
 
+use frame_support::storage::{TransactionOutcome, transactional};
 use frame_support::{ensure, pallet_prelude::DispatchError, traits::Get};
 use safe_math::*;
 use sp_arithmetic::helpers_128bit;
@@ -350,9 +351,31 @@ impl<T: Config> Pallet<T> {
 
     /// Perform a swap
     ///
-    /// Returns a tuple (amount_paid_out, refund), where amount_paid_out is the resulting paid out amount
-    /// and refund is any unswapped amount returned to the caller
+    /// Returns a tuple (amount_paid_out, refund), where amount_paid_out is the resulting paid out
+    /// amount and refund is any unswapped amount returned to the caller
+    ///
+    /// The function can be used without writing into the storage by setting `should_rollback` to
+    /// `true`.
     pub fn swap(
+        netuid: NetUid,
+        order_type: OrderType,
+        amount: u64,
+        sqrt_price_limit: SqrtPrice,
+        should_rollback: bool,
+    ) -> Result<SwapResult, DispatchError> {
+        transactional::with_transaction(|| {
+            let result =
+                Self::swap_inner(netuid, order_type, amount, sqrt_price_limit).map_err(Into::into);
+
+            if should_rollback || result.is_err() {
+                TransactionOutcome::Rollback(result)
+            } else {
+                TransactionOutcome::Commit(result)
+            }
+        })
+    }
+
+    fn swap_inner(
         netuid: NetUid,
         order_type: OrderType,
         amount: u64,
@@ -384,9 +407,11 @@ impl<T: Config> Pallet<T> {
             }
 
             iteration_counter = iteration_counter.saturating_add(1);
-            if iteration_counter > MAX_SWAP_ITERATIONS {
-                return Err(Error::<T>::TooManySwapSteps);
-            }
+
+            ensure!(
+                iteration_counter <= MAX_SWAP_ITERATIONS,
+                Error::<T>::TooManySwapSteps
+            );
         }
 
         let tao_reserve = T::LiquidityDataProvider::tao_reserve(netuid.into());
@@ -1042,12 +1067,20 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
         order_t: OrderType,
         amount: u64,
         price_limit: u64,
+        should_rollback: bool,
     ) -> Result<SwapResult, DispatchError> {
         let sqrt_price_limit = SqrtPrice::saturating_from_num(price_limit)
             .checked_sqrt(SqrtPrice::saturating_from_num(2))
             .ok_or(Error::<T>::PriceLimitExceeded)?;
 
-        Self::swap(NetUid::from(netuid), order_t, amount, sqrt_price_limit).map_err(Into::into)
+        Self::swap(
+            NetUid::from(netuid),
+            order_t,
+            amount,
+            sqrt_price_limit,
+            should_rollback,
+        )
+        .map_err(Into::into)
     }
 
     fn add_liquidity(
@@ -1073,6 +1106,10 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
         Self::remove_liquidity(netuid.into(), account_id, position_id)
             .map(|result| (result.tao, result.alpha))
             .map_err(Into::into)
+    }
+
+    fn approx_fee_amount(netuid: u16, amount: u64) -> u64 {
+        Self::calculate_fee_amount(netuid.into(), amount)
     }
 
     fn min_price() -> u64 {
@@ -1547,9 +1584,14 @@ mod tests {
 
                     // Swap
                     let sqrt_limit_price = SqrtPrice::from_num((limit_price).sqrt());
-                    let swap_result =
-                        Pallet::<Test>::swap(netuid, order_type, liquidity, sqrt_limit_price)
-                            .unwrap();
+                    let swap_result = Pallet::<Test>::swap(
+                        netuid,
+                        order_type,
+                        liquidity,
+                        sqrt_limit_price,
+                        false,
+                    )
+                    .unwrap();
                     assert_abs_diff_eq!(
                         swap_result.amount_paid_out,
                         output_amount,
@@ -1783,6 +1825,7 @@ mod tests {
                             order_type,
                             order_liquidity as u64,
                             sqrt_limit_price,
+                            false,
                         )
                         .unwrap();
                         assert_abs_diff_eq!(
@@ -2010,9 +2053,14 @@ mod tests {
 
                 // Do the swap
                 let sqrt_limit_price = SqrtPrice::from_num((limit_price).sqrt());
-                let swap_result =
-                    Pallet::<Test>::swap(netuid, order_type, order_liquidity, sqrt_limit_price)
-                        .unwrap();
+                let swap_result = Pallet::<Test>::swap(
+                    netuid,
+                    order_type,
+                    order_liquidity,
+                    sqrt_limit_price,
+                    false,
+                )
+                .unwrap();
                 assert_abs_diff_eq!(
                     swap_result.amount_paid_out as f64,
                     output_amount,

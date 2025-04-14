@@ -16,6 +16,7 @@ pub trait SwapHandler<AccountId> {
         order_t: OrderType,
         amount: u64,
         price_limit: u64,
+        should_rollback: bool,
     ) -> Result<SwapResult, DispatchError>;
     fn add_liquidity(
         netuid: u16,
@@ -29,6 +30,7 @@ pub trait SwapHandler<AccountId> {
         account_id: &AccountId,
         position_id: PositionId,
     ) -> Result<(u64, u64), DispatchError>;
+    fn approx_fee_amount(netuid: u16, amount: u64) -> u64;
     fn max_price() -> u64;
     fn min_price() -> u64;
 }
