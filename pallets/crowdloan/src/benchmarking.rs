@@ -67,7 +67,7 @@ mod benchmarks {
             })
         );
         // ensure the creator has been deducted the deposit
-        assert!(CurrencyOf::<T>::free_balance(&creator).is_zero());
+        assert!(CurrencyOf::<T>::balance(&creator).is_zero());
         // ensure the initial deposit is stored correctly as contribution
         assert_eq!(
             Contributions::<T>::get(crowdloan_id, &creator),
@@ -77,7 +77,7 @@ mod benchmarks {
         assert!(Crowdloans::<T>::get(crowdloan_id).is_some_and(|c| c.raised == deposit));
         // ensure the crowdloan account has the deposit
         assert_eq!(
-            CurrencyOf::<T>::free_balance(&Pallet::<T>::crowdloan_account_id(crowdloan_id)),
+            CurrencyOf::<T>::balance(&Pallet::<T>::crowdloan_account_id(crowdloan_id)),
             deposit
         );
         // ensure the event is emitted
@@ -130,12 +130,12 @@ mod benchmarks {
             Some(amount)
         );
         // ensure the contributor has been deducted the amount
-        assert!(CurrencyOf::<T>::free_balance(&contributor).is_zero());
+        assert!(CurrencyOf::<T>::balance(&contributor).is_zero());
         // ensure the crowdloan raised amount is updated correctly
         assert!(Crowdloans::<T>::get(crowdloan_id).is_some_and(|c| c.raised == deposit + amount));
         // ensure the contribution is present in the crowdloan account
         assert_eq!(
-            CurrencyOf::<T>::free_balance(&Pallet::<T>::crowdloan_account_id(crowdloan_id)),
+            CurrencyOf::<T>::balance(&Pallet::<T>::crowdloan_account_id(crowdloan_id)),
             deposit + amount
         );
         // ensure the event is emitted
@@ -194,10 +194,10 @@ mod benchmarks {
         // ensure the creator contribution has been removed
         assert_eq!(Contributions::<T>::get(crowdloan_id, &contributor), None);
         // ensure the contributor has his contribution back in his balance
-        assert_eq!(CurrencyOf::<T>::free_balance(&contributor), amount);
+        assert_eq!(CurrencyOf::<T>::balance(&contributor), amount);
         // ensure the crowdloan account has been deducted the contribution
         assert_eq!(
-            CurrencyOf::<T>::free_balance(&Pallet::<T>::crowdloan_account_id(crowdloan_id)),
+            CurrencyOf::<T>::balance(&Pallet::<T>::crowdloan_account_id(crowdloan_id)),
             deposit
         );
         // ensure the crowdloan raised amount is updated correctly
@@ -256,17 +256,17 @@ mod benchmarks {
         _(RawOrigin::Signed(creator.clone()), crowdloan_id);
 
         // ensure the creator has been refunded and the contributions is removed
-        assert_eq!(CurrencyOf::<T>::free_balance(&creator), deposit);
+        assert_eq!(CurrencyOf::<T>::balance(&creator), deposit);
         assert_eq!(Contributions::<T>::get(crowdloan_id, &creator), None);
         // ensure each contributor has been refunded and the contributions is removed
         for i in 0..contributors {
             let contributor: T::AccountId = account::<T::AccountId>("contributor", i, SEED);
-            assert_eq!(CurrencyOf::<T>::free_balance(&contributor), amount);
+            assert_eq!(CurrencyOf::<T>::balance(&contributor), amount);
             assert_eq!(Contributions::<T>::get(crowdloan_id, &contributor), None);
         }
         // ensure the crowdloan account has been deducted the contributions
         assert_eq!(
-            CurrencyOf::<T>::free_balance(&Pallet::<T>::crowdloan_account_id(crowdloan_id)),
+            CurrencyOf::<T>::balance(&Pallet::<T>::crowdloan_account_id(crowdloan_id)),
             Zero::zero()
         );
         // ensure the raised amount is updated correctly
@@ -286,7 +286,7 @@ mod benchmarks {
         let target_address: T::AccountId = account::<T::AccountId>("target_address", 0, SEED);
         let call: Box<<T as Config>::RuntimeCall> =
             Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into());
-        let _ = CurrencyOf::<T>::make_free_balance_be(&creator, deposit);
+        let _ = CurrencyOf::<T>::balance(&creator, deposit);
         let _ = Pallet::<T>::create(
             RawOrigin::Signed(creator.clone()).into(),
             deposit,
@@ -314,10 +314,7 @@ mod benchmarks {
         _(RawOrigin::Signed(creator.clone()), crowdloan_id);
 
         // ensure the target address has received the raised amount
-        assert_eq!(
-            CurrencyOf::<T>::free_balance(&target_address),
-            deposit + amount
-        );
+        assert_eq!(CurrencyOf::<T>::balance(&target_address), deposit + amount);
         // ensure the crowdloan has been finalized
         assert!(Crowdloans::<T>::get(crowdloan_id).is_some_and(|c| c.finalized));
         // ensure the event is emitted
