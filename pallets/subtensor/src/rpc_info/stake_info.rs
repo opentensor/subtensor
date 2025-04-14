@@ -114,7 +114,6 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    #[deprecated = "The fee is now calculated in Swap pallet"]
     pub fn get_stake_fee(
         origin: Option<(T::AccountId, u16)>,
         origin_coldkey_account: T::AccountId,
@@ -122,6 +121,6 @@ impl<T: Config> Pallet<T> {
         destination_coldkey_account: T::AccountId,
         amount: u64,
     ) -> u64 {
-		todo!()
+        T::SwapInterface::approx_fee_amount(destination.1, amount)
     }
 }

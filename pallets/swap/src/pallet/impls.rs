@@ -388,6 +388,7 @@ impl<T: Config> Pallet<T> {
         let mut refund: u64 = 0;
         let mut iteration_counter: u16 = 0;
         let mut in_acc: u64 = 0;
+        let liquidity_before = CurrentLiquidity::<T>::get(netuid);
 
         // Swap one tick at a time until we reach one of the stop conditions
         while amount_remaining > 0 {
@@ -438,8 +439,18 @@ impl<T: Config> Pallet<T> {
             ),
         };
 
+        let global_fee = match order_type {
+            OrderType::Sell => FeeGlobalTao::<T>::get(netuid),
+            OrderType::Buy => FeeGlobalAlpha::<T>::get(netuid),
+        };
+        let fee_paid = global_fee
+            .saturating_mul(SqrtPrice::saturating_from_num(liquidity_before))
+            .saturating_round()
+            .saturating_to_num::<u64>();
+
         Ok(SwapResult {
             amount_paid_out,
+            fee_paid,
             refund,
             new_tao_reserve,
             new_alpha_reserve,
@@ -1083,31 +1094,6 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
         .map_err(Into::into)
     }
 
-    fn add_liquidity(
-        netuid: u16,
-        account_id: &T::AccountId,
-        tick_low: i32,
-        tick_high: i32,
-        liquidity: u64,
-    ) -> Result<(u64, u64), DispatchError> {
-        let tick_low = TickIndex::new(tick_low).map_err(|_| Error::<T>::InvalidTickRange)?;
-        let tick_high = TickIndex::new(tick_high).map_err(|_| Error::<T>::InvalidTickRange)?;
-
-        Self::add_liquidity(netuid.into(), account_id, tick_low, tick_high, liquidity)
-            .map(|(_, tao, alpha)| (tao, alpha))
-            .map_err(Into::into)
-    }
-
-    fn remove_liquidity(
-        netuid: u16,
-        account_id: &T::AccountId,
-        position_id: PositionId,
-    ) -> Result<(u64, u64), DispatchError> {
-        Self::remove_liquidity(netuid.into(), account_id, position_id)
-            .map(|result| (result.tao, result.alpha))
-            .map_err(Into::into)
-    }
-
     fn approx_fee_amount(netuid: u16, amount: u64) -> u64 {
         Self::calculate_fee_amount(netuid.into(), amount)
     }
@@ -1647,6 +1633,8 @@ mod tests {
                     .to_num::<f64>()
                         * (liquidity_before as f64))
                         as u64;
+
+                    assert!((swap_result.fee_paid as i64 - expected_fee as i64).abs() <= 1);
                     assert!((actual_global_fee as i64 - expected_fee as i64).abs() <= 1);
 
                     // Tick fees should be updated
@@ -1907,6 +1895,7 @@ mod tests {
                         .to_num::<f64>()
                             * (liquidity_before as f64))
                             as u64;
+                        assert!((swap_result.fee_paid as i64 - expected_fee as i64).abs() <= 1);
                         assert_abs_diff_eq!(
                             actual_global_fee,
                             expected_fee,

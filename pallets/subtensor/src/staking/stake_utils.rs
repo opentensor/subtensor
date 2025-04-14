@@ -724,15 +724,17 @@ impl<T: Config> Pallet<T> {
             swap_result.amount_paid_out,
             actual_alpha_decrease,
             netuid,
+            swap_result.fee_paid,
         ));
 
         log::debug!(
-            "StakeRemoved( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?} )",
+            "StakeRemoved( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?}, fee {} )",
             coldkey.clone(),
             hotkey.clone(),
             swap_result.amount_paid_out,
             actual_alpha_decrease,
             netuid,
+            swap_result.fee_paid
         );
 
         Ok(swap_result.amount_paid_out)
@@ -788,15 +790,17 @@ impl<T: Config> Pallet<T> {
             tao,
             swap_result.amount_paid_out,
             netuid,
+            swap_result.fee_paid,
         ));
 
         log::debug!(
-            "StakeAdded( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?} )",
+            "StakeAdded( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?}, fee {} )",
             coldkey.clone(),
             hotkey.clone(),
             tao,
             swap_result.amount_paid_out,
             netuid,
+            swap_result.fee_paid,
         );
 
         Ok(swap_result.amount_paid_out)
