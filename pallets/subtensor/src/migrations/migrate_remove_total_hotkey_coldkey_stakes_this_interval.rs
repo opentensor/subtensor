@@ -22,30 +22,31 @@ pub fn migrate_remove_total_hotkey_coldkey_stakes_this_interval<T: Config>() -> 
     let storage_name = twox_128(b"TotalHotkeyColdkeyStakesThisInterval");
     let prefix = [pallet_name, storage_name].concat();
 
-    // Try to remove all entries from the storage, if some entries are remaining,
-    // the migration will re-run again on next blocks until all entries are removed.
+    // Remove all entries.
     let removed_entries_count = match clear_prefix(&prefix, Some(u32::MAX)) {
-        KillStorageResult::AllRemoved(removed) => {
-            // Mark migration as completed
-            HasMigrationRun::<T>::insert(&migration_name_bytes, true);
-            weight = weight.saturating_add(T::DbWeight::get().writes(1));
-
-            log::info!(
-                "Migration '{:?}' completed successfully. {:?} entries removed.",
-                migration_name,
-                removed
-            );
-            removed
-        }
+        KillStorageResult::AllRemoved(removed) => removed as u64,
         KillStorageResult::SomeRemaining(removed) => {
-            log::info!(
-                "Migration '{:?}' completed partially. {:?} entries removed.",
-                migration_name,
-                removed
-            );
-            removed
+            log::info!("Failed to remove all entries from {:?}", migration_name);
+            removed as u64
         }
     };
 
-    weight.saturating_add(T::DbWeight::get().writes(removed_entries_count as u64))
+    weight = weight.saturating_add(T::DbWeight::get().writes(removed_entries_count as u64));
+
+    log::info!(
+        "Removed {:?} entries from TotalHotkeyColdkeyStakesThisInterval.",
+        removed_entries_count
+    );
+
+    // Mark migration as completed
+    HasMigrationRun::<T>::insert(&migration_name_bytes, true);
+    weight = weight.saturating_add(T::DbWeight::get().writes(1));
+
+    log::info!(
+        "Migration '{:?}' completed successfully. {:?} entries removed.",
+        migration_name,
+        removed_entries_count
+    );
+
+    weight
 }
