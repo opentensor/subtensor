@@ -32,6 +32,8 @@ serde_json = { workspace = true, features = ["alloc"] }
 pallet-aura = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-subtensor = { workspace = true }
+pallet-subtensor-swap = { workspace = true }
+subtensor-swap-interface = { workspace = true }
 frame-support = { workspace = true }
 pallet-grandpa = { workspace = true }
 pallet-insecure-randomness-collective-flip = { workspace = true }
@@ -150,6 +152,8 @@ std = [
 	"frame-system/std",
 	"frame-try-runtime/std",
 	"pallet-subtensor/std",
+	"pallet-subtensor-swap/std",
+	"subtensor-swap-interface/std",
 	"pallet-aura/std",
 	"pallet-balances/std",
 	"pallet-grandpa/std",
@@ -226,6 +230,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"pallet-safe-mode/runtime-benchmarks",
 	"pallet-subtensor/runtime-benchmarks",
+	"pallet-subtensor-swap/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",

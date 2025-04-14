@@ -1,11 +1,11 @@
 use frame_support::{PalletId, pallet_prelude::*, traits::Get};
 use frame_system::pallet_prelude::*;
 use substrate_fixed::types::U64F64;
-use subtensor_swap_interface::{LiquidityDataProvider, PositionId};
+use subtensor_swap_interface::LiquidityDataProvider;
 
 use crate::{
     NetUid, SqrtPrice,
-    position::Position,
+    position::{Position, PositionId},
     tick::{LayerLevel, Tick, TickIndex},
     weights::WeightInfo,
 };
@@ -103,6 +103,10 @@ mod pallet {
         OptionQuery,
     >;
 
+    /// Position ID counter.
+    #[pallet::storage]
+    pub type NextPositionId<T> = StorageValue<_, u128, ValueQuery>;
+
     /// Tick index bitmap words storage
     #[pallet::storage]
     pub type TickIndexBitmapWords<T: Config> = StorageNMap<
@@ -121,6 +125,27 @@ mod pallet {
     pub enum Event<T: Config> {
         /// Event emitted when the fee rate has been updated for a subnet
         FeeRateSet { netuid: NetUid, rate: u16 },
+
+        /// Event emitted when liquidity is added
+        LiquidityAdded {
+            account_id: T::AccountId,
+            netuid: NetUid,
+            position_id: PositionId,
+            liquidity: u64,
+            tao: u64,
+            alpha: u64,
+        },
+
+        /// Event emitted when liquidity is removed
+        LiquidityRemoved {
+            account_id: T::AccountId,
+            netuid: NetUid,
+            position_id: PositionId,
+            tao: u64,
+            alpha: u64,
+            fee_tao: u64,
+            fee_alpha: u64,
+        },
     }
 
     #[pallet::error]
@@ -176,6 +201,86 @@ mod pallet {
             FeeRate::<T>::insert(netuid, rate);
 
             Self::deposit_event(Event::FeeRateSet { netuid, rate });
+
+            Ok(())
+        }
+
+        /// Add liquidity to a specific price range for a subnet.
+        ///
+        /// Parameters:
+        /// - origin: The origin of the transaction
+        /// - netuid: Subnet ID
+        /// - tick_low: Lower bound of the price range
+        /// - tick_high: Upper bound of the price range
+        /// - liquidity: Amount of liquidity to add
+        ///
+        /// Emits `Event::LiquidityAdded` on success
+        #[pallet::call_index(1)]
+        #[pallet::weight(T::WeightInfo::add_liquidity())]
+        pub fn add_liquidity(
+            origin: OriginFor<T>,
+            netuid: u16,
+            tick_low: i32,
+            tick_high: i32,
+            liquidity: u64,
+        ) -> DispatchResult {
+            let account_id = ensure_signed(origin)?;
+            let netuid = netuid.into();
+            let tick_low_index =
+                TickIndex::new(tick_low).map_err(|_| Error::<T>::InvalidTickRange)?;
+            let tick_high_index =
+                TickIndex::new(tick_high).map_err(|_| Error::<T>::InvalidTickRange)?;
+
+            let (position_id, tao, alpha) = Self::do_add_liquidity(
+                netuid,
+                &account_id,
+                tick_low_index,
+                tick_high_index,
+                liquidity,
+            )?;
+
+            Self::deposit_event(Event::LiquidityAdded {
+                account_id,
+                netuid,
+                position_id,
+                liquidity,
+                tao,
+                alpha,
+            });
+
+            Ok(())
+        }
+
+        /// Remove liquidity from a specific position.
+        ///
+        /// Parameters:
+        /// - origin: The origin of the transaction
+        /// - netuid: Subnet ID
+        /// - position_id: ID of the position to remove
+        ///
+        /// Emits `Event::LiquidityRemoved` on success
+        #[pallet::call_index(2)]
+        #[pallet::weight(T::WeightInfo::remove_liquidity())]
+        pub fn remove_liquidity(
+            origin: OriginFor<T>,
+            netuid: u16,
+            position_id: u128,
+        ) -> DispatchResult {
+            let account_id = ensure_signed(origin)?;
+            let netuid = netuid.into();
+            let position_id = PositionId::from(position_id);
+
+            let result = Self::do_remove_liquidity(netuid, &account_id, position_id)?;
+
+            Self::deposit_event(Event::LiquidityRemoved {
+                account_id,
+                netuid,
+                position_id,
+                tao: result.tao,
+                alpha: result.alpha,
+                fee_tao: result.fee_tao,
+                fee_alpha: result.fee_alpha,
+            });
 
             Ok(())
         }

@@ -628,7 +628,7 @@ impl<T: Config> Pallet<T> {
         tao: u64,
         price_limit: u64,
     ) -> Result<SwapResult, DispatchError> {
-        let swap_result = T::SwapInterface::swap(netuid, OrderType::Buy, tao, price_limit)?;
+        let swap_result = T::SwapInterface::swap(netuid, OrderType::Buy, tao, price_limit, false)?;
 
         // update Alpha reserves.
         SubnetAlphaIn::<T>::set(netuid, swap_result.new_alpha_reserve);
@@ -663,7 +663,8 @@ impl<T: Config> Pallet<T> {
         alpha: u64,
         price_limit: u64,
     ) -> Result<SwapResult, DispatchError> {
-        let swap_result = T::SwapInterface::swap(netuid, OrderType::Sell, alpha, price_limit)?;
+        let swap_result =
+            T::SwapInterface::swap(netuid, OrderType::Sell, alpha, price_limit, false)?;
 
         // Increase Alpha reserves.
         SubnetAlphaIn::<T>::set(netuid, swap_result.new_alpha_reserve);
@@ -724,15 +725,17 @@ impl<T: Config> Pallet<T> {
             swap_result.amount_paid_out,
             actual_alpha_decrease,
             netuid,
+            swap_result.fee_paid,
         ));
 
         log::debug!(
-            "StakeRemoved( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?} )",
+            "StakeRemoved( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?}, fee {} )",
             coldkey.clone(),
             hotkey.clone(),
             swap_result.amount_paid_out,
             actual_alpha_decrease,
             netuid,
+            swap_result.fee_paid
         );
 
         Ok(swap_result.amount_paid_out)
@@ -788,15 +791,17 @@ impl<T: Config> Pallet<T> {
             tao,
             swap_result.amount_paid_out,
             netuid,
+            swap_result.fee_paid,
         ));
 
         log::debug!(
-            "StakeAdded( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?} )",
+            "StakeAdded( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?}, fee {} )",
             coldkey.clone(),
             hotkey.clone(),
             tao,
             swap_result.amount_paid_out,
             netuid,
+            swap_result.fee_paid,
         );
 
         Ok(swap_result.amount_paid_out)

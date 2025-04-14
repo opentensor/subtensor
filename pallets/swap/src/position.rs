@@ -2,9 +2,8 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
 use safe_math::*;
 use substrate_fixed::types::U64F64;
-use subtensor_swap_interface::PositionId;
 
-use crate::pallet::{Config, Error, FeeGlobalAlpha, FeeGlobalTao};
+use crate::pallet::{Config, Error, FeeGlobalAlpha, FeeGlobalTao, NextPositionId};
 use crate::tick::TickIndex;
 use crate::{NetUid, SqrtPrice};
 
@@ -120,5 +119,26 @@ impl Position {
         .saturating_sub(self.tick_low.fees_below::<T>(self.netuid, quote))
         .saturating_sub(self.tick_high.fees_above::<T>(self.netuid, quote))
         .saturating_to_num::<u64>()
+    }
+}
+
+#[derive(
+    Clone, Copy, Decode, Default, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo,
+)]
+pub struct PositionId(u128);
+
+impl PositionId {
+    /// Create a new position ID
+    pub fn new<T: Config>() -> Self {
+        let new = NextPositionId::<T>::get().saturating_add(1);
+        NextPositionId::<T>::put(new);
+
+        Self(new)
+    }
+}
+
+impl From<u128> for PositionId {
+    fn from(value: u128) -> Self {
+        Self(value)
     }
 }

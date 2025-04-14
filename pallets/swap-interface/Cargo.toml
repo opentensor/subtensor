@@ -7,11 +7,10 @@ edition.workspace = true
 codec = { workspace = true }
 frame-support = { workspace = true }
 scale-info = { workspace = true }
-uuid = { workspace = true, features = ["v4"] }
 
 [lints]
 workspace = true
 
 [features]
 default = ["std"]
-std = ["codec/std", "frame-support/std", "scale-info/std", "uuid/std"]
+std = ["codec/std", "frame-support/std", "scale-info/std"]

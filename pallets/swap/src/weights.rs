@@ -15,6 +15,8 @@ use sp_std::marker::PhantomData;
 /// Weight functions needed for pallet_subtensor_swap.
 pub trait WeightInfo {
 	fn set_fee_rate() -> Weight;
+	fn add_liquidity() -> Weight;
+	fn remove_liquidity() -> Weight;
 }
 
 /// Default weights for pallet_subtensor_swap.
@@ -26,6 +28,20 @@ impl<T: frame_system::Config> WeightInfo for DefaultWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	
+	fn add_liquidity() -> Weight {
+		// Conservative weight estimate
+		Weight::from_parts(50_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(4))
+	}
+	
+	fn remove_liquidity() -> Weight {
+		// Conservative weight estimate
+		Weight::from_parts(50_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(4))
+	}
 }
 
 // For backwards compatibility and tests
@@ -34,5 +50,17 @@ impl WeightInfo for () {
 		Weight::from_parts(10_000_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
+	}
+	
+	fn add_liquidity() -> Weight {
+		Weight::from_parts(50_000_000, 0)
+			.saturating_add(RocksDbWeight::get().reads(5))
+			.saturating_add(RocksDbWeight::get().writes(4))
+	}
+	
+	fn remove_liquidity() -> Weight {
+		Weight::from_parts(50_000_000, 0)
+			.saturating_add(RocksDbWeight::get().reads(4))
+			.saturating_add(RocksDbWeight::get().writes(4))
 	}
 }

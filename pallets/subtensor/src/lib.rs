@@ -2432,3 +2432,23 @@ impl<T, H, P> CollectiveInterface<T, H, P> for () {
         Ok(true)
     }
 }
+
+impl<T: Config + pallet_balances::Config<Balance = u64>>
+    subtensor_swap_interface::LiquidityDataProvider<T::AccountId> for Pallet<T>
+{
+    fn tao_reserve(netuid: u16) -> u64 {
+        SubnetTAO::<T>::get(netuid)
+    }
+
+    fn alpha_reserve(netuid: u16) -> u64 {
+        SubnetAlphaIn::<T>::get(netuid)
+    }
+
+    fn tao_balance(account_id: &T::AccountId) -> u64 {
+        pallet_balances::Pallet::<T>::free_balance(account_id)
+    }
+
+    fn alpha_balance(netuid: u16, account_id: &T::AccountId) -> u64 {
+        TotalHotkeyAlpha::<T>::get(account_id, netuid)
+    }
+}
