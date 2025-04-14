@@ -14,6 +14,7 @@ mod migrations;
 use codec::{Compact, Decode, Encode};
 use frame_support::traits::Imbalance;
 use frame_support::{
+    PalletId,
     dispatch::DispatchResultWithPostInfo,
     genesis_builder_helper::{build_state, get_preset},
     pallet_prelude::Get,
@@ -1114,6 +1115,25 @@ impl pallet_subtensor::Config for Runtime {
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
+    type SwapInterface = Swap;
+}
+
+parameter_types! {
+    pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
+    pub const SwapMaxFeeRate: u16 = 10000; // 15.26%
+    pub const SwapMaxPositions: u32 = 100;
+    pub const SwapMinimumLiquidity: u64 = 1_000;
+}
+
+impl pallet_subtensor_swap::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type AdminOrigin = EnsureRoot<AccountId>;
+    type LiquidityDataProvider = SubtensorModule;
+    type ProtocolId = SwapProtocolId;
+    type MaxFeeRate = SwapMaxFeeRate;
+    type MaxPositions = SwapMaxPositions;
+    type MinimumLiquidity = SwapMinimumLiquidity;
+    type WeightInfo = ();
 }
 
 use sp_runtime::BoundedVec;
@@ -1432,6 +1452,7 @@ construct_runtime!(
         BaseFee: pallet_base_fee = 25,
 
         Drand: pallet_drand = 26,
+        Swap: pallet_subtensor_swap = 27,
     }
 );
 

@@ -9,6 +9,8 @@ use alloy_primitives::{I256, U256};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
 use safe_math::*;
+use sp_std::vec;
+use sp_std::vec::Vec;
 use substrate_fixed::types::U64F64;
 
 use crate::pallet::{
@@ -1081,7 +1083,7 @@ pub enum TickMathError {
 }
 
 impl fmt::Display for TickMathError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> fmt::Result {
         match self {
 			Self::TickOutOfBounds => f.write_str("The given tick is outside of the minimum/maximum values."),
 			Self::SqrtPriceOutOfBounds =>f.write_str("Second inequality must be < because the price can never reach the price at the max tick"),

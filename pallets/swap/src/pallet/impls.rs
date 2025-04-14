@@ -6,12 +6,12 @@ use safe_math::*;
 use sp_arithmetic::helpers_128bit;
 use sp_runtime::traits::AccountIdConversion;
 use substrate_fixed::types::U64F64;
-use subtensor_swap_interface::{LiquidityDataProvider, PositionId, SwapHandler, SwapResult};
+use subtensor_swap_interface::{LiquidityDataProvider, SwapHandler, SwapResult};
 
 use super::pallet::*;
 use crate::{
     NetUid, OrderType, RemoveLiquidityResult, SqrtPrice,
-    position::Position,
+    position::{Position, PositionId},
     tick::{ActiveTickIndexManager, Tick, TickIndex},
 };
 
@@ -711,7 +711,7 @@ impl<T: Config> Pallet<T> {
     /// - [`SwapError::InsufficientBalance`] if the account does not have enough balance.
     /// - [`SwapError::InvalidTickRange`] if `tick_low` is greater than or equal to `tick_high`.
     /// - Other [`SwapError`] variants as applicable.
-    pub fn add_liquidity(
+    pub fn do_add_liquidity(
         netuid: NetUid,
         account_id: &T::AccountId,
         tick_low: TickIndex,
@@ -766,7 +766,7 @@ impl<T: Config> Pallet<T> {
         Self::update_liquidity_if_needed(netuid, tick_low, tick_high, liquidity as i128);
 
         // New position
-        let position_id = PositionId::new();
+        let position_id = PositionId::new::<T>();
         let position = Position {
             id: position_id,
             netuid,
@@ -804,7 +804,7 @@ impl<T: Config> Pallet<T> {
     /// Remove liquidity and credit balances back to account_id
     ///
     /// Account ID and Position ID identify position in the storage map
-    pub fn remove_liquidity(
+    pub fn do_remove_liquidity(
         netuid: NetUid,
         account_id: &T::AccountId,
         position_id: PositionId,
@@ -1284,7 +1284,7 @@ mod tests {
                     let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
 
                     // Add liquidity
-                    let (position_id, tao, alpha) = Pallet::<Test>::add_liquidity(
+                    let (position_id, tao, alpha) = Pallet::<Test>::do_add_liquidity(
                         netuid,
                         &OK_ACCOUNT_ID,
                         tick_low,
@@ -1381,7 +1381,7 @@ mod tests {
 
                 // Add liquidity
                 assert_err!(
-                    Swap::add_liquidity(netuid, &OK_ACCOUNT_ID, tick_low, tick_high, liquidity),
+                    Swap::do_add_liquidity(netuid, &OK_ACCOUNT_ID, tick_low, tick_high, liquidity),
                     Error::<Test>::InvalidTickRange,
                 );
             });
@@ -1413,7 +1413,7 @@ mod tests {
 
                 // Add liquidity
                 assert_err!(
-                    Pallet::<Test>::add_liquidity(
+                    Pallet::<Test>::do_add_liquidity(
                         netuid,
                         &account_id,
                         tick_low,
@@ -1470,7 +1470,7 @@ mod tests {
                 let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
 
                 // Add liquidity
-                let (position_id, _, _) = Pallet::<Test>::add_liquidity(
+                let (position_id, _, _) = Pallet::<Test>::do_add_liquidity(
                     netuid,
                     &OK_ACCOUNT_ID,
                     tick_low,
@@ -1481,7 +1481,7 @@ mod tests {
 
                 // Remove liquidity
                 let remove_result =
-                    Pallet::<Test>::remove_liquidity(netuid, &OK_ACCOUNT_ID, position_id).unwrap();
+                    Pallet::<Test>::do_remove_liquidity(netuid, &OK_ACCOUNT_ID, position_id).unwrap();
                 assert_abs_diff_eq!(remove_result.tao, tao, epsilon = tao / 1000);
                 assert_abs_diff_eq!(remove_result.alpha, alpha, epsilon = alpha / 1000);
                 assert_eq!(remove_result.fee_tao, 0);
@@ -1516,7 +1516,7 @@ mod tests {
             assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
 
             // Add liquidity
-            assert_ok!(Pallet::<Test>::add_liquidity(
+            assert_ok!(Pallet::<Test>::do_add_liquidity(
                 netuid,
                 &OK_ACCOUNT_ID,
                 tick_low,
@@ -1528,7 +1528,7 @@ mod tests {
 
             // Remove liquidity
             assert_err!(
-                Pallet::<Test>::remove_liquidity(netuid, &OK_ACCOUNT_ID, PositionId::new()),
+                Pallet::<Test>::do_remove_liquidity(netuid, &OK_ACCOUNT_ID, PositionId::new::<Test>()),
                 Error::<Test>::LiquidityNotFound,
             );
         });
@@ -1752,7 +1752,7 @@ mod tests {
                         let price_high = price_high_offset + current_price;
                         let tick_low = price_to_tick(price_low);
                         let tick_high = price_to_tick(price_high);
-                        let (_position_id, _tao, _alpha) = Pallet::<Test>::add_liquidity(
+                        let (_position_id, _tao, _alpha) = Pallet::<Test>::do_add_liquidity(
                             netuid,
                             &OK_ACCOUNT_ID,
                             tick_low,
@@ -1985,7 +1985,7 @@ mod tests {
                     let price_high = price_high_offset + current_price;
                     let tick_low = price_to_tick(price_low);
                     let tick_high = price_to_tick(price_high);
-                    let (_position_id, _tao, _alpha) = Pallet::<Test>::add_liquidity(
+                    let (_position_id, _tao, _alpha) = Pallet::<Test>::do_add_liquidity(
                         netuid,
                         &OK_ACCOUNT_ID,
                         tick_low,
