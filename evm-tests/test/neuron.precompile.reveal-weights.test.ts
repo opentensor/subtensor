@@ -15,7 +15,6 @@ import {
     setTempo, setCommitRevealWeightsInterval,
     startCall
 } from "../src/subtensor"
-import { start } from "repl";
 
 // hardcode some values for reveal hash
 const uids = [1];

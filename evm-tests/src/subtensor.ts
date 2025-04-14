@@ -342,7 +342,6 @@ export async function rootRegister(api: TypedApi<typeof devnet>, ss58Address: st
     await waitForTransactionCompletion(api, tx, singer)
         .then(() => { })
         .catch((error) => { console.log(`transaction error ${error}`) });
-
 }
 
 export async function setSubtokenEnable(api: TypedApi<typeof devnet>, netuid: number, subtokenEnable: boolean) {

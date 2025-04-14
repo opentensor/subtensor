@@ -10,7 +10,6 @@ import {
     setMinDelegateTake, becomeDelegate, setActivityCutoff, addStake, setWeight, rootRegister,
     startCall
 } from "../src/subtensor"
-import { start } from "repl";
 
 describe("Test neuron precompile reward", () => {
     const hotkey = getRandomSubstrateKeypair();
