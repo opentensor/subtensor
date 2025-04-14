@@ -15,16 +15,16 @@ use frame_support::{
     pallet_prelude::*,
     sp_runtime::{
         RuntimeDebug,
-        traits::{AccountIdConversion, CheckedAdd, Dispatchable, Zero},
+        traits::{AccountIdConversion, Dispatchable, Zero},
     },
     traits::{
-        Bounded, Currency, Get, IsSubType, QueryPreimage, ReservableCurrency, StorePreimage,
-        tokens::ExistenceRequirement,
+        Bounded, Get, IsSubType, QueryPreimage, StorePreimage, fungible, fungible::*,
+        tokens::Preservation,
     },
 };
 use frame_system::pallet_prelude::*;
 use scale_info::TypeInfo;
-use sp_runtime::traits::{CheckedSub, Saturating};
+use sp_runtime::traits::CheckedSub;
 use weights::WeightInfo;
 
 pub use pallet::*;
@@ -40,13 +40,13 @@ pub mod weights;
 pub(crate) type CurrencyOf<T> = <T as Config>::Currency;
 
 pub(crate) type BalanceOf<T> =
-    <CurrencyOf<T> as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+    <CurrencyOf<T> as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub type BoundedCallOf<T> =
     Bounded<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hashing>;
 
 /// A struct containing the information about a crowdloan.
-#[freeze_struct("de8793ad88ba2969")]
+#[freeze_struct("cae6cf2ef1037fb3")]
 #[derive(Encode, Decode, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct CrowdloanInfo<AccountId, Balance, BlockNumber, Call> {
     /// The creator of the crowdloan.
@@ -59,8 +59,10 @@ pub struct CrowdloanInfo<AccountId, Balance, BlockNumber, Call> {
     pub cap: Balance,
     /// The amount raised so far.
     pub raised: Balance,
-    /// The target address to transfer the raised funds to.
-    pub target_address: AccountId,
+    /// The optional target address to transfer the raised funds to, if not
+    /// provided, it means the funds will be transferred from on chain logic
+    /// inside the provided call to dispatch.
+    pub target_address: Option<AccountId>,
     /// The call to dispatch when the crowdloan is finalized.
     pub call: Call,
     /// Whether the crowdloan has been finalized.
@@ -96,7 +98,8 @@ pub mod pallet {
             + IsType<<Self as frame_system::Config>::RuntimeCall>;
 
         /// The currency mechanism.
-        type Currency: ReservableCurrency<Self::AccountId>;
+        type Currency: fungible::Balanced<Self::AccountId, Balance = u64>
+            + fungible::Mutate<Self::AccountId>;
 
         /// The weight information for the pallet.
         type WeightInfo: WeightInfo;
@@ -257,7 +260,7 @@ pub mod pallet {
             #[pallet::compact] deposit: BalanceOf<T>,
             #[pallet::compact] cap: BalanceOf<T>,
             #[pallet::compact] end: BlockNumberFor<T>,
-            target_address: T::AccountId,
+            target_address: Option<T::AccountId>,
             call: Box<<T as Config>::RuntimeCall>,
         ) -> DispatchResult {
             let creator = ensure_signed(origin)?;
@@ -285,7 +288,7 @@ pub mod pallet {
 
             // Ensure the creator has enough balance to pay the initial deposit
             ensure!(
-                CurrencyOf::<T>::free_balance(&creator) >= deposit,
+                CurrencyOf::<T>::balance(&creator) >= deposit,
                 Error::<T>::InsufficientBalance
             );
 
@@ -314,7 +317,7 @@ pub mod pallet {
                 &creator,
                 &Self::crowdloan_account_id(crowdloan_id),
                 deposit,
-                ExistenceRequirement::AllowDeath,
+                Preservation::Expendable,
             )?;
 
             Contributions::<T>::insert(crowdloan_id, &creator, deposit);
@@ -366,7 +369,7 @@ pub mod pallet {
             // and it does not exceed the cap
             let left_to_raise = crowdloan
                 .cap
-                .checked_sub(&crowdloan.raised)
+                .checked_sub(crowdloan.raised)
                 .ok_or(Error::<T>::Underflow)?;
 
             // If the contribution would raise the amount above the cap,
@@ -376,18 +379,18 @@ pub mod pallet {
             // Ensure contribution does not overflow the actual raised amount
             crowdloan.raised = crowdloan
                 .raised
-                .checked_add(&amount)
+                .checked_add(amount)
                 .ok_or(Error::<T>::Overflow)?;
 
             // Ensure contribution does not overflow the contributor's total contributions
             let contribution = Contributions::<T>::get(crowdloan_id, &contributor)
                 .unwrap_or(Zero::zero())
-                .checked_add(&amount)
+                .checked_add(amount)
                 .ok_or(Error::<T>::Overflow)?;
 
             // Ensure contributor has enough balance to pay
             ensure!(
-                CurrencyOf::<T>::free_balance(&contributor) >= amount,
+                CurrencyOf::<T>::balance(&contributor) >= amount,
                 Error::<T>::InsufficientBalance
             );
 
@@ -395,7 +398,7 @@ pub mod pallet {
                 &contributor,
                 &Self::crowdloan_account_id(crowdloan_id),
                 amount,
-                ExistenceRequirement::AllowDeath,
+                Preservation::Expendable,
             )?;
 
             Contributions::<T>::insert(crowdloan_id, &contributor, contribution);
@@ -441,7 +444,7 @@ pub mod pallet {
                 &Self::crowdloan_account_id(crowdloan_id),
                 &contributor,
                 amount,
-                ExistenceRequirement::AllowDeath,
+                Preservation::Expendable,
             )?;
 
             // Remove the contribution from the contributions map and update
@@ -497,7 +500,7 @@ pub mod pallet {
                     &crowdloan_account,
                     &contributor,
                     amount,
-                    ExistenceRequirement::AllowDeath,
+                    Preservation::Expendable,
                 )?;
 
                 refunded_contributors.push(contributor);
@@ -525,8 +528,8 @@ pub mod pallet {
 
         /// Finalize a successful crowdloan.
         ///
-        /// The call will transfer the raised amount to the target address and dispatch the call that
-        /// was provided when the crowdloan was created. The CurrentCrowdloanId will be set to the
+        /// The call will transfer the raised amount to the target address if it was provided when the crowdloan was created 
+        /// and dispatch the call that was provided using the creator origin. The CurrentCrowdloanId will be set to the
         /// crowdloan id being finalized so the dispatched call can access it temporarily by accessing
         /// the `CurrentCrowdloanId` storage item.
         ///
@@ -550,13 +553,15 @@ pub mod pallet {
                 Error::<T>::ExpectedCreatorOrigin
             );
 
-            // Transfer the raised amount to the target address
-            CurrencyOf::<T>::transfer(
-                &Self::crowdloan_account_id(crowdloan_id),
-                &crowdloan.target_address,
-                crowdloan.raised,
-                ExistenceRequirement::AllowDeath,
-            )?;
+            // If the target address is provided, transfer the raised amount to it.
+            if let Some(ref target_address) = crowdloan.target_address {
+                CurrencyOf::<T>::transfer(
+                    &Self::crowdloan_account_id(crowdloan_id),
+                    target_address,
+                    crowdloan.raised,
+                    Preservation::Expendable,
+                )?;
+            }
 
             // Set the current crowdloan id so the dispatched call
             // can access it temporarily
@@ -593,7 +598,7 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    fn crowdloan_account_id(id: CrowdloanId) -> T::AccountId {
+    pub fn crowdloan_account_id(id: CrowdloanId) -> T::AccountId {
         T::PalletId::get().into_sub_account_truncating(id)
     }
 
