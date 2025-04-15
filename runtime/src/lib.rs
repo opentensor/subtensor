@@ -1597,7 +1597,7 @@ impl_runtime_apis! {
         fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
             build_state::<RuntimeGenesisConfig>(config)
         }
-    
+
         fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
             get_preset::<RuntimeGenesisConfig>(id, |preset_id| {
                 let benchmark_id: sp_genesis_builder::PresetId = "benchmark".into();
@@ -1608,7 +1608,7 @@ impl_runtime_apis! {
                 }
             })
         }
-    
+
         fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
             vec!["benchmark".into()]
         }
