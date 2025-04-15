@@ -182,7 +182,7 @@ pub fn run() -> sc_cli::Result<()> {
                 // which sub-commands it wants to support.
                 match cmd {
                     BenchmarkCmd::Pallet(cmd) => {
-                        cmd.run_with_spec::<HashingFor<Block>, ()>(Some(config.chain_spec))
+                        cmd.run_with_spec::<HashingFor<Block>, crate::client::HostFunctions>(Some(config.chain_spec))
                     }
                     BenchmarkCmd::Block(cmd) => cmd.run(client),
                     BenchmarkCmd::Storage(cmd) => {
