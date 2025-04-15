@@ -13,8 +13,8 @@ use subtensor_swap_interface::LiquidityDataProvider;
 
 construct_runtime!(
     pub enum Test {
-        System: frame_system,
-        Swap: crate::pallet,
+        System: frame_system = 0,
+        Swap: crate::pallet = 1,
     }
 );
 

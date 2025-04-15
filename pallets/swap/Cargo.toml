@@ -21,6 +21,7 @@ sp-std = { workspace = true }
 substrate-fixed = { workspace = true }
 
 subtensor-swap-interface = { workspace = true }
+subtensor-macros = { workspace = true }
 
 [lints]
 workspace = true
@@ -28,24 +29,24 @@ workspace = true
 [features]
 default = ["std"]
 std = [
-    "alloy-primitives/std",
-    "codec/std",
-    "frame-benchmarking/std",
-    "frame-support/std",
-    "frame-system/std",
-    "subtensor-swap-interface/std",
-    "safe-math/std",
-    "scale-info/std",
-    "serde/std",
-    "sp-arithmetic/std",
-    "sp-core/std",
-    "sp-io/std",
-    "sp-runtime/std",
-    "sp-std/std",
-    "substrate-fixed/std",
+	"alloy-primitives/std",
+	"codec/std",
+	"frame-benchmarking/std",
+	"frame-support/std",
+	"frame-system/std",
+	"safe-math/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-arithmetic/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"substrate-fixed/std",
+	"subtensor-swap-interface/std",
 ]
 runtime-benchmarks = [
-    "frame-benchmarking/runtime-benchmarks",
-    "frame-support/runtime-benchmarks",
-    "frame-system/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
 ]

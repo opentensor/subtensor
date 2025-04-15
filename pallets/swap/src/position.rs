@@ -2,6 +2,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
 use safe_math::*;
 use substrate_fixed::types::U64F64;
+use subtensor_macros::freeze_struct;
 
 use crate::pallet::{Config, Error, FeeGlobalAlpha, FeeGlobalTao, NextPositionId};
 use crate::tick::TickIndex;
@@ -17,6 +18,7 @@ use crate::{NetUid, SqrtPrice};
 /// liquidity - position liquidity
 /// fees_tao - fees accrued by the position in quote currency (TAO)
 /// fees_alpha - fees accrued by the position in base currency (Alpha)
+#[freeze_struct("fef7b4de3c0df37d")]
 #[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen, Default)]
 pub struct Position {
     pub id: PositionId,
@@ -122,6 +124,7 @@ impl Position {
     }
 }
 
+#[freeze_struct("1f02550d787d80da")]
 #[derive(
     Clone, Copy, Decode, Default, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo,
 )]
