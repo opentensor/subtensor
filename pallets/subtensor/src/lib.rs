@@ -299,8 +299,6 @@ pub mod pallet {
             fee: u64,
             /// Alpha value
             alpha: u64,
-            /// Unstaked TAO to return to the account
-            tao_unstaked: u64,
             /// Signals whether it's a limit stake
             limit: bool,
         },

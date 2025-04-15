@@ -767,10 +767,19 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         alpha: u64,
         fee: u64,
+        // Alpha value decreased outside of the scope of this method
+        overridden_alpha_decrease: Option<u64>,
     ) -> u64 {
         // Step 1: Decrease alpha on subneet
-        let actual_alpha_decrease =
-            Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
+        let actual_alpha_decrease = {
+            if let Some(alpha_decrease) = overridden_alpha_decrease {
+                alpha_decrease
+            } else {
+                Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                    hotkey, coldkey, netuid, alpha,
+                )
+            }
+        };
 
         // Step 2: Swap the alpha for TAO.
         let tao: u64 = Self::swap_alpha_for_tao(netuid, actual_alpha_decrease);

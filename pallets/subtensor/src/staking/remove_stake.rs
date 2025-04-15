@@ -66,7 +66,7 @@ impl<T: Config> Pallet<T> {
             U96F32::saturating_from_num(alpha_unstaked),
         );
         let tao_unstaked: u64 =
-            Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha_unstaked, fee);
+            Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha_unstaked, fee, None);
 
         // 4. We add the balance to the coldkey. If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
@@ -149,17 +149,20 @@ impl<T: Config> Pallet<T> {
             U96F32::saturating_from_num(alpha_unstaked),
         );
 
-        let tao_unstaked: u64 =
-            Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha_unstaked, fee);
+        let alpha = Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            alpha_unstaked,
+        );
 
         // 4.1 Save the staking job for the on_finalize
         let stake_job = StakeJob::RemoveStake {
             hotkey,
             coldkey,
             netuid,
-            tao_unstaked,
             fee,
-            alpha: alpha_unstaked,
+            alpha,
             limit: false,
         };
 
@@ -176,9 +179,14 @@ impl<T: Config> Pallet<T> {
                 coldkey,
                 hotkey,
                 netuid,
+                fee,
+                alpha,
                 ..
             }) = stake_job
             {
+                let tao_unstaked =
+                    Self::unstake_from_subnet(&hotkey, &coldkey, netuid, 0, fee, Some(alpha));
+
                 // 4.3 We add the balance to the coldkey. If the above fails we will not credit this coldkey.
                 Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 
@@ -273,7 +281,7 @@ impl<T: Config> Pallet<T> {
             if alpha_unstaked > 0 {
                 // Swap the alpha to tao and update counters for this subnet.
                 let tao_unstaked: u64 =
-                    Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha_unstaked, fee);
+                    Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha_unstaked, fee, None);
 
                 // Add the balance to the coldkey. If the above fails we will not credit this coldkey.
                 Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
@@ -364,8 +372,14 @@ impl<T: Config> Pallet<T> {
 
                 if alpha_unstaked > 0 {
                     // Swap the alpha to tao and update counters for this subnet.
-                    let tao_unstaked =
-                        Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha_unstaked, fee);
+                    let tao_unstaked = Self::unstake_from_subnet(
+                        &hotkey,
+                        &coldkey,
+                        netuid,
+                        alpha_unstaked,
+                        fee,
+                        None,
+                    );
 
                     // Increment total
                     total_tao_unstaked = total_tao_unstaked.saturating_add(tao_unstaked);
@@ -471,7 +485,7 @@ impl<T: Config> Pallet<T> {
             U96F32::saturating_from_num(alpha_unstaked),
         );
         let tao_unstaked =
-            Self::unstake_from_subnet(&hotkey, &coldkey, netuid, possible_alpha, fee);
+            Self::unstake_from_subnet(&hotkey, &coldkey, netuid, possible_alpha, fee, None);
 
         // 5. We add the balance to the coldkey. If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
@@ -574,16 +588,19 @@ impl<T: Config> Pallet<T> {
             U96F32::saturating_from_num(alpha_unstaked),
         );
 
-        let tao_unstaked =
-            Self::unstake_from_subnet(&hotkey, &coldkey, netuid, possible_alpha, fee);
+        let alpha = Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            possible_alpha,
+        );
 
         // 4.1 Save the staking job for the on_finalize
         let stake_job = StakeJob::RemoveStake {
             hotkey,
             coldkey,
             netuid,
-            tao_unstaked,
-            alpha: possible_alpha,
+            alpha,
             fee,
             limit: true,
         };
@@ -601,10 +618,14 @@ impl<T: Config> Pallet<T> {
                 coldkey,
                 hotkey,
                 netuid,
-                tao_unstaked,
+                fee,
+                alpha,
                 ..
             }) = stake_job
             {
+                let tao_unstaked =
+                    Self::unstake_from_subnet(&hotkey, &coldkey, netuid, 0, fee, Some(alpha));
+
                 // 4.3 We add the balance to the coldkey. If the above fails we will not credit this coldkey.
                 Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 

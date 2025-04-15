@@ -178,7 +178,8 @@ impl<T: Config> Pallet<T> {
                 // Remove the stake from the nominator account. (this is a more forceful unstake operation which )
                 // Actually deletes the staking account.
                 // Do not apply any fees
-                let cleared_stake = Self::unstake_from_subnet(hotkey, coldkey, netuid, stake, 0);
+                let cleared_stake =
+                    Self::unstake_from_subnet(hotkey, coldkey, netuid, stake, 0, None);
                 // Add the stake to the coldkey account.
                 Self::add_balance_to_coldkey_account(coldkey, cleared_stake);
             }

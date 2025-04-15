@@ -84,11 +84,19 @@ mod hooks {
                         coldkey,
                         hotkey,
                         netuid,
-                        tao_unstaked,
                         alpha,
                         fee,
                         ..
                     } => {
+                        let tao_unstaked = Self::unstake_from_subnet(
+                            &hotkey,
+                            &coldkey,
+                            netuid,
+                            0,
+                            fee,
+                            Some(alpha),
+                        );
+
                         Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
                         Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
 
