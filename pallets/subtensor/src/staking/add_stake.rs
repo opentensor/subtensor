@@ -140,7 +140,7 @@ impl<T: Config> Pallet<T> {
         let fee = DefaultStakingFee::<T>::get();
 
         // 5.1 Consider the weight from on_finalize
-        if cfg!(feature = "runtime-benchmarks") {
+        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
             Self::stake_into_subnet(
                 &hotkey,
                 &coldkey,
@@ -166,7 +166,7 @@ impl<T: Config> Pallet<T> {
         NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
 
         // 5.3 Consider the weight from on_finalize
-        if cfg!(feature = "runtime-benchmarks") {
+        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
             StakeJobs::<T>::remove(stake_job_id);
         }
 
@@ -259,7 +259,7 @@ impl<T: Config> Pallet<T> {
         // 6.1 Consider the weight from on_finalize
         let fee = DefaultStakingFee::<T>::get();
 
-        if cfg!(feature = "runtime-benchmarks") {
+        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
             // Swap the stake into alpha on the subnet and increase counters.
             // Emit the staking event.
             Self::stake_into_subnet(
@@ -287,7 +287,7 @@ impl<T: Config> Pallet<T> {
         NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
 
         // 6.3 Consider the weight from on_finalize
-        if cfg!(feature = "runtime-benchmarks") {
+        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
             StakeJobs::<T>::remove(stake_job_id);
         }
 

@@ -165,7 +165,7 @@ impl<T: Config> Pallet<T> {
         NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
 
         // 4.2 Consider the weight from on_finalize
-        if cfg!(feature = "runtime-benchmarks") {
+        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
             let stake_job = StakeJobs::<T>::take(stake_job_id);
             // This branch is always active because we create the stake job above
             if let Some(StakeJob::RemoveStake {
@@ -591,7 +591,7 @@ impl<T: Config> Pallet<T> {
         NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
 
         // 4.2 Consider the weight from on_finalize
-        if cfg!(feature = "runtime-benchmarks") {
+        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
             let stake_job = StakeJobs::<T>::take(stake_job_id);
             // This branch is always active because we create the stake job above
             if let Some(StakeJob::RemoveStake {
