@@ -417,24 +417,6 @@ impl crate::Config for Test {
     type SwapInterface = Swap;
 }
 
-impl LiquidityDataProvider<AccountId> for SubtensorModule {
-    fn tao_reserve(netuid: u16) -> u64 {
-        SubnetTAO::<Test>::get(netuid)
-    }
-
-    fn alpha_reserve(netuid: u16) -> u64 {
-        SubnetAlphaIn::<Test>::get(netuid)
-    }
-
-    fn tao_balance(account_id: &AccountId) -> u64 {
-        Balances::free_balance(account_id)
-    }
-
-    fn alpha_balance(netuid: u16, account_id: &AccountId) -> u64 {
-        TotalHotkeyAlpha::<Test>::get(account_id, netuid)
-    }
-}
-
 // Swap-related parameter types
 parameter_types! {
     pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
