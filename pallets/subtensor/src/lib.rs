@@ -2089,6 +2089,101 @@ where
                     Self::get_priority_staking(who, hotkey, *amount_unstaked),
                 )
             }
+            Some(Call::add_stake_aggregate {
+                hotkey,
+                netuid,
+                amount_staked,
+            }) => {
+                if ColdkeySwapScheduled::<T>::contains_key(who) {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
+                    )
+                    .into();
+                }
+                // Fully validate the user input
+                Self::result_to_validity(
+                    Pallet::<T>::validate_add_stake(
+                        who,
+                        hotkey,
+                        *netuid,
+                        *amount_staked,
+                        *amount_staked,
+                        false,
+                    ),
+                    Self::get_priority_staking(who, hotkey, *amount_staked),
+                )
+            }
+            Some(Call::add_stake_limit_aggregate {
+                hotkey,
+                netuid,
+                amount_staked,
+                limit_price,
+                allow_partial,
+            }) => {
+                if ColdkeySwapScheduled::<T>::contains_key(who) {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
+                    )
+                    .into();
+                }
+
+                // Calcaulate the maximum amount that can be executed with price limit
+                let max_amount = Pallet::<T>::get_max_amount_add(*netuid, *limit_price);
+
+                // Fully validate the user input
+                Self::result_to_validity(
+                    Pallet::<T>::validate_add_stake(
+                        who,
+                        hotkey,
+                        *netuid,
+                        *amount_staked,
+                        max_amount,
+                        *allow_partial,
+                    ),
+                    Self::get_priority_staking(who, hotkey, *amount_staked),
+                )
+            }
+            Some(Call::remove_stake_aggregate {
+                hotkey,
+                netuid,
+                amount_unstaked,
+            }) => {
+                // Fully validate the user input
+                Self::result_to_validity(
+                    Pallet::<T>::validate_remove_stake(
+                        who,
+                        hotkey,
+                        *netuid,
+                        *amount_unstaked,
+                        *amount_unstaked,
+                        false,
+                    ),
+                    Self::get_priority_staking(who, hotkey, *amount_unstaked),
+                )
+            }
+            Some(Call::remove_stake_limit_aggregate {
+                hotkey,
+                netuid,
+                amount_unstaked,
+                limit_price,
+                allow_partial,
+            }) => {
+                // Calcaulate the maximum amount that can be executed with price limit
+                let max_amount = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price);
+
+                // Fully validate the user input
+                Self::result_to_validity(
+                    Pallet::<T>::validate_remove_stake(
+                        who,
+                        hotkey,
+                        *netuid,
+                        *amount_unstaked,
+                        max_amount,
+                        *allow_partial,
+                    ),
+                    Self::get_priority_staking(who, hotkey, *amount_unstaked),
+                )
+            }
             Some(Call::move_stake {
                 origin_hotkey,
                 destination_hotkey,
