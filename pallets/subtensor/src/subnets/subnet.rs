@@ -363,6 +363,7 @@ impl<T: Config> Pallet<T> {
         let next_block_number = current_block_number.saturating_add(1);
 
         FirstEmissionBlockNumber::<T>::insert(netuid, next_block_number);
+        SubtokenEnabled::<T>::insert(netuid, true);
         Self::deposit_event(Event::FirstEmissionBlockNumberSet(
             netuid,
             next_block_number,

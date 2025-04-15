@@ -10,7 +10,7 @@ import { convertPublicKeyToSs58, } from "../src/address-utils"
 import { ethers } from "ethers"
 import { INEURON_ADDRESS, INeuronABI } from "../src/contracts/neuron"
 import { generateRandomEthersWallet } from "../src/utils"
-import { forceSetBalanceToSs58Address, forceSetBalanceToEthAddress, addNewSubnetwork } from "../src/subtensor"
+import { forceSetBalanceToSs58Address, forceSetBalanceToEthAddress, addNewSubnetwork, startCall, setSubtokenEnable } from "../src/subtensor"
 
 describe("Test the Neuron precompile with emission", () => {
     // init eth part
@@ -39,11 +39,13 @@ describe("Test the Neuron precompile with emission", () => {
         await forceSetBalanceToEthAddress(api, wallet.address)
 
         const netuid = await addNewSubnetwork(api, hotkey2, coldkey)
+        await startCall(api, netuid, coldkey)
         console.log("test on subnet ", netuid)
     })
 
     it("Burned register and check emission", async () => {
         let netuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1
+        
         const uid = await api.query.SubtensorModule.SubnetworkN.getValue(netuid)
         const contract = new ethers.Contract(INEURON_ADDRESS, INeuronABI, wallet);
 
