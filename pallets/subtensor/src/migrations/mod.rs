@@ -16,6 +16,7 @@ pub mod migrate_remove_zero_total_hotkey_alpha;
 pub mod migrate_set_first_emission_block_number;
 pub mod migrate_set_min_burn;
 pub mod migrate_set_min_difficulty;
+pub mod migrate_set_subtoken_enabled;
 pub mod migrate_stake_threshold;
 pub mod migrate_subnet_volume;
 pub mod migrate_to_v1_separate_emission;

@@ -6,7 +6,7 @@ import { convertPublicKeyToSs58, convertH160ToSS58 } from "../src/address-utils"
 import { ethers } from "ethers"
 import { INEURON_ADDRESS, INeuronABI } from "../src/contracts/neuron"
 import { generateRandomEthersWallet } from "../src/utils"
-import { forceSetBalanceToEthAddress, forceSetBalanceToSs58Address, addNewSubnetwork, burnedRegister } from "../src/subtensor"
+import { forceSetBalanceToEthAddress, forceSetBalanceToSs58Address, addNewSubnetwork, burnedRegister, startCall } from "../src/subtensor"
 
 describe("Test neuron precompile Serve Axon Prometheus", () => {
     // init eth part
@@ -34,6 +34,7 @@ describe("Test neuron precompile Serve Axon Prometheus", () => {
         await forceSetBalanceToEthAddress(api, wallet2.address)
         await forceSetBalanceToEthAddress(api, wallet3.address)
         let netuid = await addNewSubnetwork(api, hotkey, coldkey)
+        await startCall(api, netuid, coldkey)
 
         console.log("test the case on subnet ", netuid)
 

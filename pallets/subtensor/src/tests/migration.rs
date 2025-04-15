@@ -440,6 +440,32 @@ fn test_migrate_set_first_emission_block_number() {
 }
 
 #[test]
+fn test_migrate_set_subtoken_enable() {
+    new_test_ext(1).execute_with(|| {
+        let netuids: [u16; 3] = [1, 2, 3];
+        let block_number = 100;
+        for netuid in netuids.iter() {
+            add_network(*netuid, 1, 0);
+        }
+
+        let new_netuid = 4;
+        add_network_without_emission_block(new_netuid, 1, 0);
+
+        let weight =
+            crate::migrations::migrate_set_subtoken_enabled::migrate_set_subtoken_enabled::<Test>();
+
+        let expected_weight: Weight = <Test as Config>::DbWeight::get().reads(1)
+            + <Test as Config>::DbWeight::get().writes(netuids.len() as u64 + 2);
+        assert_eq!(weight, expected_weight);
+
+        for netuid in netuids.iter() {
+            assert!(SubtokenEnabled::<Test>::get(netuid));
+        }
+        assert!(!SubtokenEnabled::<Test>::get(new_netuid));
+    });
+}
+
+#[test]
 fn test_migrate_remove_zero_total_hotkey_alpha() {
     new_test_ext(1).execute_with(|| {
         const MIGRATION_NAME: &str = "migrate_remove_zero_total_hotkey_alpha";

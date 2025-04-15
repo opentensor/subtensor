@@ -5,6 +5,7 @@ import { KeyPair } from "@polkadot-labs/hdkd-helpers"
 import { getAliceSigner, waitForTransactionCompletion, getSignerFromKeypair } from './substrate'
 import { convertH160ToSS58, convertPublicKeyToSs58 } from './address-utils'
 import { tao } from './balance-math'
+import internal from "stream";
 
 // create a new subnet and return netuid 
 export async function addNewSubnetwork(api: TypedApi<typeof devnet>, hotkey: KeyPair, coldkey: KeyPair) {
@@ -293,32 +294,32 @@ export async function setMinDelegateTake(api: TypedApi<typeof devnet>, minDelega
 }
 
 export async function becomeDelegate(api: TypedApi<typeof devnet>, ss58Address: string, keypair: KeyPair) {
-    const singer = getSignerFromKeypair(keypair)
+    const signer = getSignerFromKeypair(keypair)
 
     const tx = api.tx.SubtensorModule.become_delegate({
         hotkey: ss58Address
     })
-    await waitForTransactionCompletion(api, tx, singer)
+    await waitForTransactionCompletion(api, tx, signer)
         .then(() => { })
         .catch((error) => { console.log(`transaction error ${error}`) });
 }
 
 export async function addStake(api: TypedApi<typeof devnet>, netuid: number, ss58Address: string, amount_staked: bigint, keypair: KeyPair) {
-    const singer = getSignerFromKeypair(keypair)
+    const signer = getSignerFromKeypair(keypair)
     let tx = api.tx.SubtensorModule.add_stake({
         netuid: netuid,
         hotkey: ss58Address,
         amount_staked: amount_staked
     })
 
-    await waitForTransactionCompletion(api, tx, singer)
+    await waitForTransactionCompletion(api, tx, signer)
         .then(() => { })
         .catch((error) => { console.log(`transaction error ${error}`) });
 
 }
 
 export async function setWeight(api: TypedApi<typeof devnet>, netuid: number, dests: number[], weights: number[], version_key: bigint, keypair: KeyPair) {
-    const singer = getSignerFromKeypair(keypair)
+    const signer = getSignerFromKeypair(keypair)
     let tx = api.tx.SubtensorModule.set_weights({
         netuid: netuid,
         dests: dests,
@@ -326,19 +327,54 @@ export async function setWeight(api: TypedApi<typeof devnet>, netuid: number, de
         version_key: version_key
     })
 
-    await waitForTransactionCompletion(api, tx, singer)
+    await waitForTransactionCompletion(api, tx, signer)
         .then(() => { })
         .catch((error) => { console.log(`transaction error ${error}`) });
 
 }
 
 export async function rootRegister(api: TypedApi<typeof devnet>, ss58Address: string, keypair: KeyPair) {
-    const singer = getSignerFromKeypair(keypair)
+    const signer = getSignerFromKeypair(keypair)
     let tx = api.tx.SubtensorModule.root_register({
         hotkey: ss58Address
     })
 
-    await waitForTransactionCompletion(api, tx, singer)
+    await waitForTransactionCompletion(api, tx, signer)
+        .then(() => { })
+        .catch((error) => { console.log(`transaction error ${error}`) });
+}
+
+export async function setSubtokenEnable(api: TypedApi<typeof devnet>, netuid: number, subtokenEnable: boolean) {
+    const signer = getAliceSigner()
+    let internalTx = api.tx.AdminUtils.sudo_set_subtoken_enabled({
+       netuid: netuid,
+       subtoken_enabled: subtokenEnable
+    })
+    let tx = api.tx.Sudo.sudo({ call: internalTx.decodedCall })
+
+    await waitForTransactionCompletion(api, tx, signer)
+        .then(() => { })
+        .catch((error) => { console.log(`transaction error ${error}`) });
+
+}
+
+export async function startCall(api: TypedApi<typeof devnet>, netuid: number, keypair: KeyPair) {
+    const registerBlock = Number(await api.query.SubtensorModule.NetworkRegisteredAt.getValue(netuid))
+    let currentBlock = await api.query.System.Number.getValue()
+    const duration = Number(await api.constants.SubtensorModule.DurationOfStartCall)
+
+    while (currentBlock - registerBlock <= duration) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        currentBlock = await api.query.System.Number.getValue()
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    const signer = getSignerFromKeypair(keypair)
+    let tx = api.tx.SubtensorModule.start_call({
+       netuid: netuid,
+    })
+
+    await waitForTransactionCompletion(api, tx, signer)
         .then(() => { })
         .catch((error) => { console.log(`transaction error ${error}`) });
 
