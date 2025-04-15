@@ -9,37 +9,25 @@ pallets=(
   "pallet_admin_utils"
 )
 
-# 1) Build/Refresh the Chain Specs
-echo "*** Building all chain specs with your existing script ***"
-./scripts/build_all_chainspecs.sh
+RUNTIME_WASM=./target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm
 
-# 2) Build the Node in Production Mode with Benchmarking Features
-echo "*** Building node-subtensor with 'runtime-benchmarks' ***"
 cargo build \
   --profile production \
-  --package node-subtensor \
-  --bin node-subtensor \
-  --features "runtime-benchmarks,try-runtime,pow-faucet"
+  -p node-subtensor \
+  --features runtime-benchmarks
 
-CHAIN_SPEC="chainspecs/raw_spec_finney.json"
-
-# 3) Benchmark the Desired Pallets Using the Updated Chain Spec
-echo "*** Starting benchmarks using $CHAIN_SPEC ***"
 for pallet in "${pallets[@]}"; do
-  echo "======================================================"
-  echo "Benchmarking $pallet..."
-  echo "======================================================"
+  echo "--------------------------------------------------------"
+  echo " Benchmarking all extrinsics for $pallet..."
+  echo "--------------------------------------------------------"
 
-  ./target/production/node-subtensor \
-    benchmark pallet \
-    --chain "$CHAIN_SPEC" \
+  ./target/production/node-subtensor benchmark pallet \
+    --runtime "$RUNTIME_WASM" \
+    --genesis-builder=runtime \
+    --genesis-builder-preset=benchmark \
     --wasm-execution=compiled \
     --pallet "$pallet" \
-    --extrinsic '*' \
+    --extrinsic "*" \
     --steps 50 \
-    --repeat 5 \
-    --output "pallets/$pallet/src/weights.rs" \
-    --template ./.maintain/frame-weight-template.hbs
+    --repeat 5
 done
-
-echo "*** All benchmarks completed successfully ***"
