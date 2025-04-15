@@ -24,7 +24,10 @@ mod pallet {
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
-    pub trait Config: frame_system::Config {
+    pub trait Config:
+        frame_system::Config
+        + pallet_subtensor::pallet::Config
+    {
         /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -128,7 +131,8 @@ mod pallet {
 
         /// Event emitted when liquidity is added
         LiquidityAdded {
-            account_id: T::AccountId,
+            coldkey: T::AccountId,
+            hotkey: T::AccountId,
             netuid: NetUid,
             position_id: PositionId,
             liquidity: u64,
@@ -138,7 +142,7 @@ mod pallet {
 
         /// Event emitted when liquidity is removed
         LiquidityRemoved {
-            account_id: T::AccountId,
+            coldkey: T::AccountId,
             netuid: NetUid,
             position_id: PositionId,
             tao: u64,
@@ -180,6 +184,12 @@ mod pallet {
 
         /// Provided liquidity parameter is invalid (likely too small)
         InvalidLiquidityValue,
+
+        /// Subnet does not exist
+        SubnetDoesNotExist,
+
+        /// Hotkey account does not exist
+        HotKeyAccountDoesNotExist
     }
 
     #[pallet::call]
@@ -189,7 +199,7 @@ mod pallet {
         ///
         /// Only callable by the admin origin
         #[pallet::call_index(0)]
-        #[pallet::weight(T::WeightInfo::set_fee_rate())]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_fee_rate())]
         pub fn set_fee_rate(origin: OriginFor<T>, netuid: u16, rate: u16) -> DispatchResult {
             T::AdminOrigin::ensure_origin(origin)?;
 
@@ -216,15 +226,20 @@ mod pallet {
         ///
         /// Emits `Event::LiquidityAdded` on success
         #[pallet::call_index(1)]
-        #[pallet::weight(T::WeightInfo::add_liquidity())]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::add_liquidity())]
         pub fn add_liquidity(
             origin: OriginFor<T>,
+            hotkey: T::AccountId,
             netuid: u16,
             tick_low: i32,
             tick_high: i32,
             liquidity: u64,
         ) -> DispatchResult {
-            let account_id = ensure_signed(origin)?;
+            let coldkey = ensure_signed(origin)?;
+
+            // Ensure that the subnet exists.
+            ensure!(pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid), Error::<T>::SubnetDoesNotExist);
+
             let netuid = netuid.into();
             let tick_low_index =
                 TickIndex::new(tick_low).map_err(|_| Error::<T>::InvalidTickRange)?;
@@ -233,14 +248,31 @@ mod pallet {
 
             let (position_id, tao, alpha) = Self::do_add_liquidity(
                 netuid,
-                &account_id,
+                &coldkey,
+                &hotkey,
                 tick_low_index,
                 tick_high_index,
                 liquidity,
             )?;
 
+            // Remove TAO and Alpha balances or fail transaction if they can't be removed exactly
+            let tao_provided =
+                pallet_subtensor::Pallet::<T>::remove_balance_from_coldkey_account(&coldkey, tao)?;
+            ensure!(
+                tao_provided == tao,
+                Error::<T>::InsufficientBalance
+            );
+
+            let alpha_provided = pallet_subtensor::Pallet::<T>::decrease_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid.into(), alpha);
+            ensure!(
+                alpha_provided == alpha,
+                Error::<T>::InsufficientBalance
+            );
+
+            // Emit an event
             Self::deposit_event(Event::LiquidityAdded {
-                account_id,
+                coldkey,
+                hotkey,
                 netuid,
                 position_id,
                 liquidity,
@@ -260,21 +292,37 @@ mod pallet {
         ///
         /// Emits `Event::LiquidityRemoved` on success
         #[pallet::call_index(2)]
-        #[pallet::weight(T::WeightInfo::remove_liquidity())]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::remove_liquidity())]
         pub fn remove_liquidity(
             origin: OriginFor<T>,
+            hotkey: T::AccountId,
             netuid: u16,
             position_id: u128,
         ) -> DispatchResult {
-            let account_id = ensure_signed(origin)?;
+            let coldkey = ensure_signed(origin)?;
             let netuid = netuid.into();
             let position_id = PositionId::from(position_id);
 
-            let result = Self::do_remove_liquidity(netuid, &account_id, position_id)?;
+            // Ensure that the subnet exists.
+            ensure!(pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid), Error::<T>::SubnetDoesNotExist);
 
+            // Ensure the hotkey account exists
+            ensure!(
+                pallet_subtensor::Pallet::<T>::hotkey_account_exists(&hotkey),
+                Error::<T>::HotKeyAccountDoesNotExist
+            );
+
+            // Remove liquidity
+            let result = Self::do_remove_liquidity(netuid.into(), &coldkey, position_id)?;
+
+            // Credit the returned tao and alpha to the account
+            pallet_subtensor::Pallet::<T>::add_balance_to_coldkey_account(&coldkey, result.tao.saturating_add(result.fee_tao));
+            pallet_subtensor::Pallet::<T>::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid, result.alpha.saturating_add(result.fee_alpha));
+
+            // Emit an event
             Self::deposit_event(Event::LiquidityRemoved {
-                account_id,
-                netuid,
+                coldkey,
+                netuid: netuid.into(),
                 position_id,
                 tao: result.tao,
                 alpha: result.alpha,

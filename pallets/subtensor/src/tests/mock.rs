@@ -430,8 +430,8 @@ impl LiquidityDataProvider<AccountId> for SubtensorModule {
         Balances::free_balance(account_id)
     }
 
-    fn alpha_balance(netuid: u16, account_id: &AccountId) -> u64 {
-        TotalHotkeyAlpha::<Test>::get(account_id, netuid)
+    fn alpha_balance(netuid: u16, coldkey: &AccountId, hotkey: &AccountId) -> u64 {
+        SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid)
     }
 }
 
