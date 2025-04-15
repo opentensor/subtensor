@@ -155,6 +155,14 @@ fn test_add_stake_aggregate_ok_no_emission() {
                 RuntimeEvent::SubtensorModule(Event::StakeAdded(..))
             )
         }));
+
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedStakeAdded(..))
+            )
+        }));
     });
 }
 
@@ -244,7 +252,9 @@ fn test_verify_aggregated_stake_order() {
         let add_stake_position = System::events()
             .iter()
             .position(|e| {
-                if let RuntimeEvent::SubtensorModule(Event::StakeAdded(.., netuid, _)) = e.event {
+                if let RuntimeEvent::SubtensorModule(Event::AggregatedStakeAdded(.., netuid, _)) =
+                    e.event
+                {
                     netuid == netuid1
                 } else {
                     false
@@ -255,7 +265,9 @@ fn test_verify_aggregated_stake_order() {
         let add_stake_limit_position = System::events()
             .iter()
             .position(|e| {
-                if let RuntimeEvent::SubtensorModule(Event::StakeAdded(.., netuid, _)) = e.event {
+                if let RuntimeEvent::SubtensorModule(Event::AggregatedStakeAdded(.., netuid, _)) =
+                    e.event
+                {
                     netuid == netuid2
                 } else {
                     false
@@ -266,7 +278,9 @@ fn test_verify_aggregated_stake_order() {
         let remove_stake_position = System::events()
             .iter()
             .position(|e| {
-                if let RuntimeEvent::SubtensorModule(Event::StakeRemoved(.., netuid, _)) = e.event {
+                if let RuntimeEvent::SubtensorModule(Event::AggregatedStakeRemoved(.., netuid, _)) =
+                    e.event
+                {
                     netuid == netuid3
                 } else {
                     false
@@ -277,7 +291,9 @@ fn test_verify_aggregated_stake_order() {
         let remove_stake_limit_position = System::events()
             .iter()
             .position(|e| {
-                if let RuntimeEvent::SubtensorModule(Event::StakeRemoved(.., netuid, _)) = e.event {
+                if let RuntimeEvent::SubtensorModule(Event::AggregatedStakeRemoved(.., netuid, _)) =
+                    e.event
+                {
                     netuid == netuid4
                 } else {
                     false
@@ -698,6 +714,13 @@ fn test_remove_stake_aggregate_ok_no_emission() {
             matches!(
                 &e.event,
                 RuntimeEvent::SubtensorModule(Event::StakeRemoved(..))
+            )
+        }));
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedStakeRemoved(..))
             )
         }));
     });
@@ -4057,6 +4080,13 @@ fn test_add_stake_limit_aggregate_ok() {
                 RuntimeEvent::SubtensorModule(Event::StakeAdded(..))
             )
         }));
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedStakeAdded(..))
+            )
+        }));
     });
 }
 
@@ -4242,6 +4272,13 @@ fn test_remove_stake_limit_aggregate_ok() {
             matches!(
                 &e.event,
                 RuntimeEvent::SubtensorModule(Event::StakeRemoved(..))
+            )
+        }));
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedStakeRemoved(..))
             )
         }));
     });

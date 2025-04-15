@@ -71,18 +71,24 @@ mod hooks {
                         ..
                     } => {
                         Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked, fee);
+
+                        Self::deposit_event(Event::AggregatedStakeAdded(
+                            coldkey.clone(),
+                            hotkey.clone(),
+                            tao_staked,
+                            netuid,
+                            fee,
+                        ));
                     }
                     StakeJob::RemoveStake {
                         coldkey,
                         hotkey,
-                        fee,
                         netuid,
+                        tao_unstaked,
                         alpha,
+                        fee,
                         ..
                     } => {
-                        let tao_unstaked =
-                            Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha, fee);
-
                         Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
                         Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
 
@@ -91,6 +97,15 @@ mod hooks {
                                 PendingChildKeys::<T>::remove(netuid, &hotkey);
                             })
                         }
+
+                        Self::deposit_event(Event::AggregatedStakeRemoved(
+                            coldkey.clone(),
+                            hotkey.clone(),
+                            tao_unstaked,
+                            alpha,
+                            netuid,
+                            fee,
+                        ));
                     }
                 }
             }

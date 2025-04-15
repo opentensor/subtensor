@@ -149,11 +149,15 @@ impl<T: Config> Pallet<T> {
             U96F32::saturating_from_num(alpha_unstaked),
         );
 
+        let tao_unstaked: u64 =
+            Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha_unstaked, fee);
+
         // 4.1 Save the staking job for the on_finalize
         let stake_job = StakeJob::RemoveStake {
             hotkey,
             coldkey,
             netuid,
+            tao_unstaked,
             fee,
             alpha: alpha_unstaked,
             limit: false,
@@ -171,15 +175,10 @@ impl<T: Config> Pallet<T> {
             if let Some(StakeJob::RemoveStake {
                 coldkey,
                 hotkey,
-                fee,
                 netuid,
-                alpha,
                 ..
             }) = stake_job
             {
-                let tao_unstaked: u64 =
-                    Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha, fee);
-
                 // 4.3 We add the balance to the coldkey. If the above fails we will not credit this coldkey.
                 Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 
@@ -575,13 +574,17 @@ impl<T: Config> Pallet<T> {
             U96F32::saturating_from_num(alpha_unstaked),
         );
 
+        let tao_unstaked =
+            Self::unstake_from_subnet(&hotkey, &coldkey, netuid, possible_alpha, fee);
+
         // 4.1 Save the staking job for the on_finalize
         let stake_job = StakeJob::RemoveStake {
             hotkey,
             coldkey,
             netuid,
-            fee,
+            tao_unstaked,
             alpha: possible_alpha,
+            fee,
             limit: true,
         };
 
@@ -598,13 +601,10 @@ impl<T: Config> Pallet<T> {
                 coldkey,
                 hotkey,
                 netuid,
-                fee,
-                alpha,
+                tao_unstaked,
                 ..
             }) = stake_job
             {
-                let tao_unstaked = Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha, fee);
-
                 // 4.3 We add the balance to the coldkey. If the above fails we will not credit this coldkey.
                 Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 
