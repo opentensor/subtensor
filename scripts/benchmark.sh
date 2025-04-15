@@ -1,50 +1,25 @@
-#!/usr/bin/env bash
+#!/bin/bash
+set -e
 
-DEFAULT_BIN_PATH='./target/production/node-subtensor'
-BIN_PATH="$DEFAULT_BIN_PATH"
-OUTPUT_FILE='benchmarking.txt'
-
-# Getting arguments from user
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        -p | --bin-path)
-            BIN_PATH="$2"
-            shift
-            shift
-        ;;
-        -* | --*)
-            echo "Unknown option $1"
-            exit 1
-        ;;
-        *)
-            POSITIONAL_ARGS+=("$1")
-            shift
-        ;;
-    esac
-done
-
-echo "*** Building all chain specs using 'build_all_chainspecs.sh' ***"
-./scripts/build_all_chainspecs.sh
-CHAIN_SPEC='chainspecs/raw_spec_finney.json'
-
-echo "*** Building node-subtensor with 'runtime-benchmarks' ***"
+# 1) Clean and rebuild the node with runtime-benchmarks.
 cargo build \
-    --profile production \
-    --package node-subtensor \
-    --bin node-subtensor \
-    --features "runtime-benchmarks,try-runtime,pow-faucet"
+  --profile production \
+  --package node-subtensor \
+  --bin node-subtensor \
+  --all-features
 
-if [ ! -f "$BIN_PATH" ]; then
-    echo "ERROR: Node binary '$BIN_PATH' not found after build."
-    exit 1
-fi
+# 2) Locate your freshly-built runtime Wasm blob.
+RUNTIME_WASM=./target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm
 
-echo "*** Running benchmark ***"
-"$BIN_PATH" benchmark pallet \
-    --chain "$CHAIN_SPEC" \
-    --wasm-execution=compiled \
-    --pallet pallet-subtensor \
-    --extrinsic 'benchmark_register' \
-    --output "$OUTPUT_FILE"
-
-echo "*** Benchmark completed. Results saved to '$OUTPUT_FILE' ***"
+# 3) Run the benchmark using the runtime blob and genesis builder,
+#    and explicitly override the default preset by passing an empty preset.
+./target/production/node-subtensor benchmark pallet \
+  --runtime "$RUNTIME_WASM" \
+  --genesis-builder=runtime \
+  --genesis-builder-preset=benchmark  \
+  --wasm-execution=compiled \
+  --pallet=pallet_subtensor \
+  --extrinsic=benchmark_register \
+  --steps 50 \
+  --repeat 5 \
+  --output benchmarking.txt
