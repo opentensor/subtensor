@@ -9,7 +9,8 @@ import { INEURON_ADDRESS, INeuronABI } from "../src/contracts/neuron"
 import { generateRandomEthersWallet } from "../src/utils"
 import {
     forceSetBalanceToSs58Address, forceSetBalanceToEthAddress, addNewSubnetwork, burnedRegister, setCommitRevealWeightsEnabled,
-    setWeightsSetRateLimit
+    setWeightsSetRateLimit,
+    startCall
 } from "../src/subtensor"
 
 describe("Test neuron precompile contract, set weights function", () => {
@@ -31,6 +32,7 @@ describe("Test neuron precompile contract, set weights function", () => {
         await forceSetBalanceToEthAddress(api, wallet.address)
 
         const netuid = await addNewSubnetwork(api, hotkey, coldkey)
+        await startCall(api, netuid, coldkey)
         console.log("test on subnet ", netuid)
 
         await burnedRegister(api, netuid, convertH160ToSS58(wallet.address), coldkey)
