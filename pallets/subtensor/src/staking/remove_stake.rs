@@ -140,7 +140,7 @@ impl<T: Config> Pallet<T> {
             false,
         )?;
 
-        // 3. Swap the alpba to tao and update counters for this subnet.
+        // 3. Swap the alpha to tao and update counters for this subnet.
         let fee = Self::calculate_staking_fee(
             Some((&hotkey, netuid)),
             &coldkey,
