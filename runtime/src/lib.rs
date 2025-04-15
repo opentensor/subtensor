@@ -1505,7 +1505,6 @@ mod benches {
 }
 
 fn generate_genesis_json() -> Vec<u8> {
-    // Use SS58 addresses that match your chain’s prefix=42
     let json_str = r#"{
       "aura": {
         "authorities": [
