@@ -172,7 +172,10 @@ mod hooks {
                 // Remove all zero value entries in TotalHotkeyAlpha
                 .saturating_add(migrations::migrate_remove_zero_total_hotkey_alpha::migrate_remove_zero_total_hotkey_alpha::<T>())
                 // Wipe existing items to prevent bad decoding for new type
-                .saturating_add(migrations::migrate_upgrade_revealed_commitments::migrate_upgrade_revealed_commitments::<T>());
+                .saturating_add(migrations::migrate_upgrade_revealed_commitments::migrate_upgrade_revealed_commitments::<T>())
+                // Set subtoken enabled for all existed subnets
+                .saturating_add(migrations::migrate_set_subtoken_enabled::migrate_set_subtoken_enabled::<T>())
+                ;
             weight
         }
 

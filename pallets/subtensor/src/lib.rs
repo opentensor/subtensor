@@ -1394,6 +1394,9 @@ pub mod pallet {
     ///  MAP ( netuid ) --> (alpha_low, alpha_high)
     pub type AlphaValues<T> =
         StorageMap<_, Identity, u16, (u16, u16), ValueQuery, DefaultAlphaValues<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> If subtoken trading enabled
+    pub type SubtokenEnabled<T> = StorageMap<_, Identity, u16, bool, ValueQuery, DefaultFalse<T>>;
 
     /// =======================================
     /// ==== Subnetwork Consensus Storage  ====
@@ -1699,6 +1702,15 @@ pub mod pallet {
                 return false;
             }
             true
+        }
+
+        /// Ensure subtoken enalbed
+        pub fn ensure_subtoken_enabled(subnet: u16) -> DispatchResult {
+            ensure!(
+                SubtokenEnabled::<T>::get(subnet),
+                Error::<T>::SubtokenDisabled
+            );
+            Ok(())
         }
     }
 }
