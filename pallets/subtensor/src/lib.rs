@@ -2168,7 +2168,7 @@ where
                 limit_price,
                 allow_partial,
             }) => {
-                // Calcaulate the maximum amount that can be executed with price limit
+                // Calculate the maximum amount that can be executed with price limit
                 let max_amount = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price);
 
                 // Fully validate the user input
