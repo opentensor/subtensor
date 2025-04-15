@@ -132,6 +132,10 @@ describe("Test neuron precompile reveal weights", () => {
             ss58Address
         )
 
+        if (neuron_uid === undefined) {
+            throw new Error("neuron_uid not available onchain or invalid type")
+        }
+
         const weights = await api.query.SubtensorModule.Weights.getValue(netuid, neuron_uid)
 
         if (weights === undefined || !Array.isArray(weights)) {
