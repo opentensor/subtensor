@@ -7,9 +7,8 @@
 )]
 use crate::{BalanceOf, CrowdloanId, CrowdloanInfo, CurrencyOf, pallet::*};
 use frame_benchmarking::{account, v2::*};
-use frame_support::traits::{Currency, Get, StorePreimage};
+use frame_support::traits::{Get, fungible::*, StorePreimage};
 use frame_system::RawOrigin;
-use sp_runtime::traits::Zero;
 
 extern crate alloc;
 
@@ -39,7 +38,7 @@ mod benchmarks {
         let target_address = account::<T::AccountId>("target_address", 0, SEED);
         let call: Box<<T as Config>::RuntimeCall> =
             Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into());
-        let _ = CurrencyOf::<T>::make_free_balance_be(&creator, deposit);
+        let _ = CurrencyOf::<T>::set_balance(&creator, deposit);
 
         #[extrinsic_call]
         _(
@@ -47,7 +46,7 @@ mod benchmarks {
             deposit,
             cap,
             end,
-            target_address.clone(),
+            Some(target_address.clone()),
             call.clone(),
         );
 
@@ -61,13 +60,13 @@ mod benchmarks {
                 cap,
                 end,
                 raised: deposit,
-                target_address,
+                target_address: Some(target_address.clone()),
                 call: T::Preimages::bound(*call).unwrap(),
                 finalized: false,
             })
         );
         // ensure the creator has been deducted the deposit
-        assert!(CurrencyOf::<T>::balance(&creator).is_zero());
+        assert!(CurrencyOf::<T>::balance(&creator) == 0);
         // ensure the initial deposit is stored correctly as contribution
         assert_eq!(
             Contributions::<T>::get(crowdloan_id, &creator),
@@ -105,13 +104,13 @@ mod benchmarks {
         let target_address: T::AccountId = account::<T::AccountId>("target_address", 0, SEED);
         let call: Box<<T as Config>::RuntimeCall> =
             Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into());
-        let _ = CurrencyOf::<T>::make_free_balance_be(&creator, deposit);
+        let _ = CurrencyOf::<T>::set_balance(&creator, deposit);
         let _ = Pallet::<T>::create(
             RawOrigin::Signed(creator.clone()).into(),
             deposit,
             cap,
             end,
-            target_address.clone(),
+            Some(target_address.clone()),
             call.clone(),
         );
 
@@ -119,7 +118,7 @@ mod benchmarks {
         let contributor: T::AccountId = account::<T::AccountId>("contributor", 0, SEED);
         let amount: BalanceOf<T> = T::MinimumContribution::get();
         let crowdloan_id: CrowdloanId = 0;
-        let _ = CurrencyOf::<T>::make_free_balance_be(&contributor, amount);
+        let _ = CurrencyOf::<T>::set_balance(&contributor, amount);
 
         #[extrinsic_call]
         _(RawOrigin::Signed(contributor.clone()), crowdloan_id, amount);
@@ -130,7 +129,7 @@ mod benchmarks {
             Some(amount)
         );
         // ensure the contributor has been deducted the amount
-        assert!(CurrencyOf::<T>::balance(&contributor).is_zero());
+        assert!(CurrencyOf::<T>::balance(&contributor) == 0);
         // ensure the crowdloan raised amount is updated correctly
         assert!(Crowdloans::<T>::get(crowdloan_id).is_some_and(|c| c.raised == deposit + amount));
         // ensure the contribution is present in the crowdloan account
@@ -160,13 +159,13 @@ mod benchmarks {
         let target_address: T::AccountId = account::<T::AccountId>("target_address", 0, SEED);
         let call: Box<<T as Config>::RuntimeCall> =
             Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into());
-        let _ = CurrencyOf::<T>::make_free_balance_be(&creator, deposit);
+        let _ = CurrencyOf::<T>::set_balance(&creator, deposit);
         let _ = Pallet::<T>::create(
             RawOrigin::Signed(creator.clone()).into(),
             deposit,
             cap,
             end,
-            target_address.clone(),
+            Some(target_address.clone()),
             call.clone(),
         );
 
@@ -174,7 +173,7 @@ mod benchmarks {
         let contributor: T::AccountId = account::<T::AccountId>("contributor", 0, SEED);
         let amount: BalanceOf<T> = T::MinimumContribution::get();
         let crowdloan_id: CrowdloanId = 0;
-        let _ = CurrencyOf::<T>::make_free_balance_be(&contributor, amount);
+        let _ = CurrencyOf::<T>::set_balance(&contributor, amount);
         let _ = Pallet::<T>::contribute(
             RawOrigin::Signed(contributor.clone()).into(),
             crowdloan_id,
@@ -224,13 +223,13 @@ mod benchmarks {
         let target_address: T::AccountId = account::<T::AccountId>("target_address", 0, SEED);
         let call: Box<<T as Config>::RuntimeCall> =
             Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into());
-        let _ = CurrencyOf::<T>::make_free_balance_be(&creator, deposit);
+        let _ = CurrencyOf::<T>::set_balance(&creator, deposit);
         let _ = Pallet::<T>::create(
             RawOrigin::Signed(creator.clone()).into(),
             deposit,
             cap,
             end,
-            target_address.clone(),
+            Some(target_address.clone()),
             call,
         );
 
@@ -241,7 +240,7 @@ mod benchmarks {
         let contributors = k - 1;
         for i in 0..contributors {
             let contributor: T::AccountId = account::<T::AccountId>("contributor", i, SEED);
-            let _ = CurrencyOf::<T>::make_free_balance_be(&contributor, amount);
+            let _ = CurrencyOf::<T>::set_balance(&contributor, amount);
             let _ = Pallet::<T>::contribute(
                 RawOrigin::Signed(contributor.clone()).into(),
                 crowdloan_id,
@@ -267,10 +266,10 @@ mod benchmarks {
         // ensure the crowdloan account has been deducted the contributions
         assert_eq!(
             CurrencyOf::<T>::balance(&Pallet::<T>::crowdloan_account_id(crowdloan_id)),
-            Zero::zero()
+            0
         );
         // ensure the raised amount is updated correctly
-        assert!(Crowdloans::<T>::get(crowdloan_id).is_some_and(|c| c.raised == Zero::zero()));
+        assert!(Crowdloans::<T>::get(crowdloan_id).is_some_and(|c| c.raised == 0));
         // ensure the event is emitted
         assert_last_event::<T>(Event::<T>::AllRefunded { crowdloan_id }.into());
     }
@@ -286,13 +285,13 @@ mod benchmarks {
         let target_address: T::AccountId = account::<T::AccountId>("target_address", 0, SEED);
         let call: Box<<T as Config>::RuntimeCall> =
             Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into());
-        let _ = CurrencyOf::<T>::balance(&creator, deposit);
+        let _ = CurrencyOf::<T>::set_balance(&creator, deposit);
         let _ = Pallet::<T>::create(
             RawOrigin::Signed(creator.clone()).into(),
             deposit,
             cap,
             end,
-            target_address.clone(),
+            Some(target_address.clone()),
             call,
         );
 
@@ -300,7 +299,7 @@ mod benchmarks {
         let crowdloan_id: CrowdloanId = 0;
         let contributor: T::AccountId = account::<T::AccountId>("contributor", 0, SEED);
         let amount: BalanceOf<T> = cap - deposit;
-        let _ = CurrencyOf::<T>::make_free_balance_be(&contributor, amount);
+        let _ = CurrencyOf::<T>::set_balance(&contributor, amount);
         let _ = Pallet::<T>::contribute(
             RawOrigin::Signed(contributor.clone()).into(),
             crowdloan_id,
