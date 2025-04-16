@@ -2,7 +2,6 @@ extern crate alloc;
 
 use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
-use substrate_fixed::types::U96F32;
 use subtensor_swap_interface::SwapHandler;
 
 use super::*;

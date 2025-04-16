@@ -21,14 +21,6 @@ pub(crate) mod mock;
 
 type SqrtPrice = U64F64;
 
-#[derive(Debug, PartialEq)]
-pub struct RemoveLiquidityResult {
-    tao: u64,
-    alpha: u64,
-    fee_tao: u64,
-    fee_alpha: u64,
-}
-
 #[freeze_struct("2a62496e31bbcddc")]
 #[derive(
     Clone, Copy, Decode, Default, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo,

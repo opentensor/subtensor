@@ -145,3 +145,11 @@ impl From<u128> for PositionId {
         Self(value)
     }
 }
+
+impl From<PositionId> for u128 {
+    fn from(value: PositionId) -> Self {
+        value.0
+    }
+}
+
+

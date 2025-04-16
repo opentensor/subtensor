@@ -1,7 +1,7 @@
 use super::*;
 use safe_math::*;
 use sp_core::Get;
-use substrate_fixed::types::{U64F64, U96F32};
+use substrate_fixed::types::U64F64;
 use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {

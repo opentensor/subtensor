@@ -1,5 +1,4 @@
 use super::*;
-use substrate_fixed::types::U96F32;
 use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {

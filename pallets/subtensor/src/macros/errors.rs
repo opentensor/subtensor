@@ -207,5 +207,7 @@ mod errors {
         UnableToRecoverPublicKey,
         /// Recovered public key is invalid.
         InvalidRecoveredPublicKey,
+        /// The caller does not have enough balance for the operation.
+        InsufficientBalance,
     }
 }

@@ -5,7 +5,7 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod config {
-    use frame_support::pallet_prelude::*;
+    
     use subtensor_swap_interface::SwapHandler;
 
     /// Configure the pallet by specifying the parameters and types on which it depends.

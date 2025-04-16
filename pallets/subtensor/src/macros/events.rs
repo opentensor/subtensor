@@ -323,5 +323,41 @@ mod events {
         /// - **netuid**: The network identifier.
         /// - **Enabled**: Is Commit-Reveal enabled.
         CommitRevealEnabled(u16, bool),
+
+        /// Event emitted when liquidity is added to a subnet's liquidity pool.
+        LiquidityAdded {
+            /// The coldkey account that owns the position
+            coldkey: T::AccountId,
+            /// The hotkey account associated with the position
+            hotkey: T::AccountId,
+            /// The subnet identifier
+            netuid: u16,
+            /// Unique identifier for the liquidity position
+            position_id: u128,
+            /// The amount of liquidity added to the position
+            liquidity: u64,
+            /// The amount of TAO tokens committed to the position
+            tao: u64,
+            /// The amount of Alpha tokens committed to the position
+            alpha: u64,
+        },
+
+        /// Event emitted when liquidity is removed from a subnet's liquidity pool.
+        LiquidityRemoved {
+            /// The coldkey account that owns the position
+            coldkey: T::AccountId,
+            /// The subnet identifier
+            netuid: u16,
+            /// Unique identifier for the liquidity position
+            position_id: u128,
+            /// The amount of TAO tokens returned to the user
+            tao: u64,
+            /// The amount of Alpha tokens returned to the user
+            alpha: u64,
+            /// The amount of TAO fees earned from the position
+            fee_tao: u64,
+            /// The amount of Alpha fees earned from the position
+            fee_alpha: u64,
+        },
     }
 }
