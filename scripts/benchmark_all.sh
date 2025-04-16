@@ -3,7 +3,6 @@ set -e
 
 pallets=(
   "pallet_subtensor"
-  "pallet_collective"
   "pallet_commitments"
   "pallet_drand"
   "pallet_admin_utils"
