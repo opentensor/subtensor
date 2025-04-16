@@ -46,7 +46,7 @@ benchmarks! {
 
     Subtensor::<T>::init_new_network(netuid, tempo);
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
-
+    SubtokenEnabled::<T>::insert(netuid, true);
     Subtensor::<T>::set_network_registration_allowed( netuid, true );
     Subtensor::<T>::set_max_registrations_per_block( netuid, 4096 );
     Subtensor::<T>::set_target_registrations_per_interval( netuid, 4096 );
@@ -87,7 +87,8 @@ benchmarks! {
     let seed : u32 = 1;
 
     Subtensor::<T>::init_new_network(netuid, tempo);
-      Subtensor::<T>::set_burn(netuid, 1);
+    SubtokenEnabled::<T>::insert(netuid, true);
+    Subtensor::<T>::set_burn(netuid, 1);
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
 
     Subtensor::<T>::set_network_registration_allowed( netuid, true);
@@ -112,6 +113,7 @@ benchmarks! {
     let seed : u32 = 1;
 
     Subtensor::<T>::init_new_network(netuid, tempo);
+    SubtokenEnabled::<T>::insert(netuid, true);
 
     Subtensor::<T>::set_burn(netuid, 1);
     Subtensor::<T>::set_network_registration_allowed( netuid, true );
@@ -137,6 +139,7 @@ benchmarks! {
 
     Subtensor::<T>::increase_total_stake(1_000_000_000_000);
     Subtensor::<T>::init_new_network(netuid, tempo);
+    SubtokenEnabled::<T>::insert(netuid, true);
     Subtensor::<T>::set_network_registration_allowed(netuid, true);
     Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
     assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
@@ -187,6 +190,7 @@ benchmarks! {
     let placeholder2: u8 = 0;
 
     Subtensor::<T>::init_new_network(netuid, tempo);
+    SubtokenEnabled::<T>::insert(netuid, true);
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
     assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
 
@@ -213,6 +217,7 @@ benchmarks! {
     let ip_type: u8 = 4;
 
     Subtensor::<T>::init_new_network(netuid, tempo);
+    SubtokenEnabled::<T>::insert(netuid, true);
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
     assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
 
@@ -258,6 +263,7 @@ benchmarks! {
     let tempo: u16 = 1;
 
     Subtensor::<T>::init_new_network(netuid, tempo);
+    SubtokenEnabled::<T>::insert(netuid, true);
     Subtensor::<T>::set_burn(netuid, 1);
 
     let amount_to_be_staked =  1000000u32.into();
@@ -273,7 +279,7 @@ benchmarks! {
     let seed : u32 = 1;
 
     Subtensor::<T>::init_new_network(netuid, tempo);
-
+    SubtokenEnabled::<T>::insert(netuid, true);
     Subtensor::<T>::set_burn(netuid, 1);
     Subtensor::<T>::set_network_registration_allowed( netuid, true);
 
@@ -461,6 +467,7 @@ reveal_weights {
 
   // Initialize the network
   Subtensor::<T>::init_new_network(netuid, tempo);
+  SubtokenEnabled::<T>::insert(netuid, true);
 
   // Register the hotkey
   Subtensor::<T>::set_burn(netuid, 1);
@@ -613,6 +620,7 @@ benchmark_recycle_alpha {
   let hotkey: T::AccountId = account("Alice", 0, seed);
 
   Subtensor::<T>::init_new_network(netuid, tempo);
+  SubtokenEnabled::<T>::insert(netuid, true);
   Subtensor::<T>::set_network_registration_allowed(netuid, true);
   Subtensor::<T>::set_burn(netuid, 1);
 
@@ -648,6 +656,7 @@ benchmark_burn_alpha {
   let hotkey: T::AccountId = account("Alice", 0, seed);
 
   Subtensor::<T>::init_new_network(netuid, tempo);
+  SubtokenEnabled::<T>::insert(netuid, true);
   Subtensor::<T>::set_network_registration_allowed(netuid, true);
   Subtensor::<T>::set_burn(netuid, 1);
 
@@ -688,6 +697,7 @@ benchmark_start_call {
 
   // Initialize network
   Subtensor::<T>::init_new_network(netuid, tempo);
+  SubtokenEnabled::<T>::insert(netuid, true);
   Subtensor::<T>::set_network_registration_allowed(netuid, true);
 
   // Register the neuron
