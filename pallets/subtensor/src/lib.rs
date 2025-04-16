@@ -2139,7 +2139,7 @@ where
                     .into();
                 }
 
-                // Calcaulate the maximum amount that can be executed with price limit
+                //Calculate the maximum amount that can be executed with price limit
                 let max_amount = Pallet::<T>::get_max_amount_add(*netuid, *limit_price);
 
                 // Fully validate the user input
