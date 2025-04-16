@@ -159,7 +159,6 @@ impl<T: Config> Pallet<T> {
             netuid,
             tao_staked: tao_staked.saturating_to_num::<u64>(),
             fee,
-            limit: false,
         };
 
         let stake_job_id = NextStakeJobId::<T>::get();
@@ -222,65 +221,26 @@ impl<T: Config> Pallet<T> {
         limit_price: u64,
         allow_partial: bool,
     ) -> dispatch::DispatchResult {
-        // 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
-        log::debug!(
-            "do_add_stake( origin:{:?} hotkey:{:?}, netuid:{:?}, stake_to_be_added:{:?} )",
-            coldkey,
-            hotkey,
-            netuid,
-            stake_to_be_added
-        );
-
-        // 2. Calculate the maximum amount that can be executed with price limit
-        let max_amount = Self::get_max_amount_add(netuid, limit_price);
-        let mut possible_stake = stake_to_be_added;
-        if possible_stake > max_amount {
-            possible_stake = max_amount;
-        }
-
-        // 3. Validate user input
-        Self::validate_add_stake(
-            &coldkey,
-            &hotkey,
-            netuid,
-            stake_to_be_added,
-            max_amount,
-            allow_partial,
-        )?;
-
-        // 4. If the coldkey is not the owner, make the hotkey a delegate.
-        if Self::get_owning_coldkey_for_hotkey(&hotkey) != coldkey {
-            Self::maybe_become_delegate(&hotkey);
-        }
-
-        // 5. Ensure the remove operation from the coldkey is a success.
-        let tao_staked: I96F32 =
-            Self::remove_balance_from_coldkey_account(&coldkey, possible_stake)?.into();
-
-        // 6.1 Consider the weight from on_finalize
-        let fee = DefaultStakingFee::<T>::get();
 
         if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
-            // Swap the stake into alpha on the subnet and increase counters.
-            // Emit the staking event.
-            Self::stake_into_subnet(
-                &hotkey,
-                &coldkey,
+            Self::do_add_stake_limit(
+                crate::dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
                 netuid,
-                tao_staked.saturating_to_num::<u64>(),
-                fee,
-            );
+                stake_to_be_added,
+                limit_price,
+                allow_partial,
+            )?;
         }
 
-        // 6.2 Save the staking job for the on_finalize
-        let stake_job = StakeJob::AddStake {
+        let stake_job = StakeJob::AddStakeLimit {
             hotkey,
             coldkey,
             netuid,
-            tao_staked: tao_staked.saturating_to_num::<u64>(),
-            fee,
-            limit: true,
+            stake_to_be_added,
+            limit_price,
+            allow_partial,
         };
 
         let stake_job_id = NextStakeJobId::<T>::get();
@@ -288,12 +248,6 @@ impl<T: Config> Pallet<T> {
         StakeJobs::<T>::insert(stake_job_id, stake_job);
         NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
 
-        // 6.3 Consider the weight from on_finalize
-        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
-            StakeJobs::<T>::remove(stake_job_id);
-        }
-
-        // Ok and return.
         Ok(())
     }
 

@@ -66,6 +66,7 @@ pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 #[import_section(config::config)]
 #[frame_support::pallet]
 pub mod pallet {
+    use crate::dispatch;
     use crate::migrations;
     use frame_support::{
         BoundedVec,
@@ -272,7 +273,7 @@ pub mod pallet {
     /// Data structure for stake related jobs.
     #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub enum StakeJob<AccountId> {
-        /// Represents jobs for "add_stake" and "add_stake_limit" operation
+        /// Represents a job for "add_stake" operation
         AddStake {
             /// Hotkey account
             hotkey: AccountId,
@@ -284,8 +285,6 @@ pub mod pallet {
             tao_staked: u64,
             /// Operation fee
             fee: u64,
-            /// Signals whether it's a limit stake
-            limit: bool,
         },
         /// Represents jobs for "remove_stake" and "remove_stake_limit" operation
         RemoveStake {
@@ -301,6 +300,22 @@ pub mod pallet {
             alpha: u64,
             /// Signals whether it's a limit stake
             limit: bool,
+        },
+        /// Represents a job for "add_stake_limit" operation
+        AddStakeLimit {
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Hotkey account
+            hotkey: AccountId,
+            /// Subnet ID
+            netuid: u16,
+            /// The amount of stake to be added to the hotkey staking account.
+            stake_to_be_added: u64,
+            /// The limit price expressed in units of RAO per one Alpha.
+            limit_price: u64,
+            /// Allows partial execution of the amount. If set to false, this becomes
+            /// fill or kill type or order.
+            allow_partial: bool,
         },
     }
 

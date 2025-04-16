@@ -44,13 +44,8 @@ mod hooks {
 
             // Sort jobs by job type
             stake_jobs.sort_by_key(|(_, job)| match job {
-                StakeJob::AddStake { limit, .. } => {
-                    if *limit {
-                        0
-                    } else {
-                        1
-                    }
-                }
+                StakeJob::AddStakeLimit { .. } => 0,
+                StakeJob::AddStake { .. } => 1,
                 StakeJob::RemoveStake { limit, .. } => {
                     if *limit {
                         2
@@ -68,7 +63,6 @@ mod hooks {
                         netuid,
                         tao_staked,
                         fee,
-                        ..
                     } => {
                         Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked, fee);
 
@@ -79,6 +73,53 @@ mod hooks {
                             netuid,
                             fee,
                         ));
+                    }
+                    StakeJob::AddStakeLimit {
+                        hotkey,
+                        coldkey,
+                        netuid,
+                        stake_to_be_added,
+                        limit_price,
+                        allow_partial,
+                    } => {
+                        let result = Self::do_add_stake_limit(
+                            dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                            hotkey.clone(),
+                            netuid,
+                            stake_to_be_added,
+                            limit_price,
+                            allow_partial,
+                        );
+
+                        if let Err(err) = result {
+                            log::debug!(
+                                "Failed to add aggregated limited stake: {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                stake_to_be_added,
+                                limit_price,
+                                allow_partial,
+                                err
+                            );
+                            Self::deposit_event(Event::FailedToAddAggregatedLimitedStake(
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                stake_to_be_added,
+                                limit_price,
+                                allow_partial,
+                            ));
+                        } else {
+                            Self::deposit_event(Event::AggregatedLimitedStakeAdded(
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                stake_to_be_added,
+                                limit_price,
+                                allow_partial,
+                            ));
+                        }
                     }
                     StakeJob::RemoveStake {
                         coldkey,
