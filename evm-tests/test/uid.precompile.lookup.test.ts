@@ -22,6 +22,9 @@ describe("Test the UID Lookup precompile", () => {
     // sudo account alice as signer
     let alice: PolkadotSigner;
 
+    let uid: number;
+    let blockNumber: number;
+
     // init other variable
     let subnetId = 0;
 
@@ -61,8 +64,10 @@ describe("Test the UID Lookup precompile", () => {
             .then(() => { })
             .catch((error) => { console.log(`transaction error ${error}`) });
 
+        uid = (await api.query.SubtensorModule.Uids.getValue(subnetId, convertPublicKeyToSs58(hotkey.publicKey)))!
+
         // Associate EVM key
-        const blockNumber = await api.query.System.Number.getValue();
+        blockNumber = await api.query.System.Number.getValue();
         const blockNumberBytes = hexStringToUint8Array("0x" + blockNumber.toString(16));
         const blockNumberHash = hexStringToUint8Array(keccak256(blockNumberBytes));
         const concatenatedArray = new Uint8Array([...hotkey.publicKey, ...blockNumberHash]);
@@ -78,6 +83,9 @@ describe("Test the UID Lookup precompile", () => {
         await waitForTransactionCompletion(api, associateEvmKeyTx, alice)
             .then(() => { })
             .catch((error) => { console.log(`transaction error ${error}`) });
+
+        const storedEvmKey = await api.query.SubtensorModule.AssociatedEvmAddress.getValue(subnetId, uid)
+        assert.equal(storedEvmKey, [convertToFixedSizeBinary(evmWallet.address, 20), BigInt(blockNumber)])
     })
 
     it("UID lookup via precompile contract works correctly", async () => {
@@ -90,8 +98,9 @@ describe("Test the UID Lookup precompile", () => {
         })
 
         console.info(uidArray)
-        assert.ok(uidArray !== undefined, "UID should be defined")
+        assert.notEqual(uidArray, undefined, "UID should be defined")
         assert.ok(Array.isArray(uidArray), `UID should be an array, got ${typeof uidArray}`)
         assert.ok(uidArray.length > 0, "UID array should not be empty")
+        assert.equal(uidArray[0], [uid, BigInt(blockNumber)])
     })
 });
