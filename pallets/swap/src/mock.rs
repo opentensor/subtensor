@@ -20,7 +20,8 @@ construct_runtime!(
 
 pub type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = u32;
-pub const OK_ACCOUNT_ID: AccountId = 1;
+pub const OK_COLDKEY_ACCOUNT_ID: AccountId = 1;
+pub const OK_HOTKEY_ACCOUNT_ID: AccountId = 1000;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -70,24 +71,30 @@ parameter_types! {
 pub struct MockLiquidityProvider;
 
 impl LiquidityDataProvider<AccountId> for MockLiquidityProvider {
-    fn tao_reserve(_: u16) -> u64 {
-        1_000_000_000_000
+    fn tao_reserve(netuid: u16) -> u64 {
+        match netuid {
+            123 => 1_000,
+            _ => 1_000_000_000_000
+        }
     }
 
-    fn alpha_reserve(_: u16) -> u64 {
-        4_000_000_000_000
+    fn alpha_reserve(netuid: u16) -> u64 {
+        match netuid {
+            123 => 1,
+            _ => 4_000_000_000_000
+        }
     }
 
     fn tao_balance(account_id: &AccountId) -> u64 {
-        if *account_id == OK_ACCOUNT_ID {
+        if *account_id == OK_COLDKEY_ACCOUNT_ID {
             100_000_000_000_000
         } else {
             1_000_000_000
         }
     }
 
-    fn alpha_balance(_: u16, account_id: &AccountId) -> u64 {
-        if *account_id == OK_ACCOUNT_ID {
+    fn alpha_balance(_: u16, coldkey_account_id: &AccountId, hotkey_account_id: &AccountId) -> u64 {
+        if (*coldkey_account_id == OK_COLDKEY_ACCOUNT_ID) && (*hotkey_account_id == OK_HOTKEY_ACCOUNT_ID) {
             100_000_000_000_000
         } else {
             1_000_000_000
