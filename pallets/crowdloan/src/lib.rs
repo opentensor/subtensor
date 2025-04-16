@@ -46,7 +46,7 @@ pub type BoundedCallOf<T> =
     Bounded<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hashing>;
 
 /// A struct containing the information about a crowdloan.
-#[freeze_struct("cae6cf2ef1037fb3")]
+#[freeze_struct("af44b8def4be3cb9")]
 #[derive(Encode, Decode, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct CrowdloanInfo<AccountId, Balance, BlockNumber, Call> {
     /// The creator of the crowdloan.
@@ -57,6 +57,8 @@ pub struct CrowdloanInfo<AccountId, Balance, BlockNumber, Call> {
     pub end: BlockNumber,
     /// The cap to raise.
     pub cap: Balance,
+    /// The account holding the funds for this crowdloan. Derived on chain but put here for ease of use.
+    pub funds_account: AccountId,
     /// The amount raised so far.
     pub raised: Balance,
     /// The optional target address to transfer the raised funds to, if not
@@ -294,28 +296,29 @@ pub mod pallet {
 
             let crowdloan_id = NextCrowdloanId::<T>::get();
             let next_crowdloan_id = crowdloan_id.checked_add(1).ok_or(Error::<T>::Overflow)?;
-
-            Crowdloans::<T>::insert(
-                crowdloan_id,
-                CrowdloanInfo {
-                    creator: creator.clone(),
-                    deposit,
-                    end,
-                    cap,
-                    raised: deposit,
-                    target_address,
-                    call: T::Preimages::bound(*call)?,
-                    finalized: false,
-                },
-            );
-
             NextCrowdloanId::<T>::put(next_crowdloan_id);
 
-            // Track the crowdloan account and transfer the deposit to the crowdloan account
-            frame_system::Pallet::<T>::inc_providers(&Self::crowdloan_account_id(crowdloan_id));
+            // Derive the funds account and keep track of it
+            let funds_account = Self::funds_account(crowdloan_id);
+            frame_system::Pallet::<T>::inc_providers(&funds_account);
+
+            let crowdloan = CrowdloanInfo {
+                creator: creator.clone(),
+                deposit,
+                end,
+                cap,
+                funds_account,
+                raised: deposit,
+                target_address,
+                call: T::Preimages::bound(*call)?,
+                finalized: false,
+            };
+            Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
+
+            // Transfer the deposit to the funds account
             CurrencyOf::<T>::transfer(
                 &creator,
-                &Self::crowdloan_account_id(crowdloan_id),
+                &crowdloan.funds_account,
                 deposit,
                 Preservation::Expendable,
             )?;
@@ -396,7 +399,7 @@ pub mod pallet {
 
             CurrencyOf::<T>::transfer(
                 &contributor,
-                &Self::crowdloan_account_id(crowdloan_id),
+                &crowdloan.funds_account,
                 amount,
                 Preservation::Expendable,
             )?;
@@ -441,7 +444,7 @@ pub mod pallet {
             ensure!(amount > Zero::zero(), Error::<T>::NoContribution);
 
             CurrencyOf::<T>::transfer(
-                &Self::crowdloan_account_id(crowdloan_id),
+                &crowdloan.funds_account,
                 &contributor,
                 amount,
                 Preservation::Expendable,
@@ -481,7 +484,6 @@ pub mod pallet {
             ensure_signed(origin)?;
 
             let mut crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
-            let crowdloan_account = Self::crowdloan_account_id(crowdloan_id);
             Self::ensure_crowdloan_failed(&crowdloan)?;
 
             let mut refunded_contributors: Vec<T::AccountId> = vec![];
@@ -497,7 +499,7 @@ pub mod pallet {
                 }
 
                 CurrencyOf::<T>::transfer(
-                    &crowdloan_account,
+                    &crowdloan.funds_account,
                     &contributor,
                     amount,
                     Preservation::Expendable,
@@ -556,7 +558,7 @@ pub mod pallet {
             // If the target address is provided, transfer the raised amount to it.
             if let Some(ref target_address) = crowdloan.target_address {
                 CurrencyOf::<T>::transfer(
-                    &Self::crowdloan_account_id(crowdloan_id),
+                    &crowdloan.funds_account,
                     target_address,
                     crowdloan.raised,
                     Preservation::Expendable,
@@ -598,7 +600,7 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn crowdloan_account_id(id: CrowdloanId) -> T::AccountId {
+    fn funds_account(id: CrowdloanId) -> T::AccountId {
         T::PalletId::get().into_sub_account_truncating(id)
     }
 

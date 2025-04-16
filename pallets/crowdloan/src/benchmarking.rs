@@ -7,7 +7,7 @@
 )]
 use crate::{BalanceOf, CrowdloanId, CrowdloanInfo, CurrencyOf, pallet::*};
 use frame_benchmarking::{account, v2::*};
-use frame_support::traits::{Get, fungible::*, StorePreimage};
+use frame_support::traits::{Get, StorePreimage, fungible::*};
 use frame_system::RawOrigin;
 
 extern crate alloc;
@@ -52,6 +52,7 @@ mod benchmarks {
 
         // ensure the crowdloan is stored correctly
         let crowdloan_id = 0;
+        let funds_account = Pallet::<T>::funds_account(crowdloan_id);
         assert_eq!(
             Crowdloans::<T>::get(crowdloan_id),
             Some(CrowdloanInfo {
@@ -59,6 +60,7 @@ mod benchmarks {
                 deposit,
                 cap,
                 end,
+                funds_account: funds_account.clone(),
                 raised: deposit,
                 target_address: Some(target_address.clone()),
                 call: T::Preimages::bound(*call).unwrap(),
@@ -75,10 +77,7 @@ mod benchmarks {
         // ensure the raised amount is updated correctly
         assert!(Crowdloans::<T>::get(crowdloan_id).is_some_and(|c| c.raised == deposit));
         // ensure the crowdloan account has the deposit
-        assert_eq!(
-            CurrencyOf::<T>::balance(&Pallet::<T>::crowdloan_account_id(crowdloan_id)),
-            deposit
-        );
+        assert_eq!(CurrencyOf::<T>::balance(&funds_account), deposit);
         // ensure the event is emitted
         assert_last_event::<T>(
             Event::<T>::Created {
@@ -134,7 +133,7 @@ mod benchmarks {
         assert!(Crowdloans::<T>::get(crowdloan_id).is_some_and(|c| c.raised == deposit + amount));
         // ensure the contribution is present in the crowdloan account
         assert_eq!(
-            CurrencyOf::<T>::balance(&Pallet::<T>::crowdloan_account_id(crowdloan_id)),
+            CurrencyOf::<T>::balance(&Pallet::<T>::funds_account(crowdloan_id)),
             deposit + amount
         );
         // ensure the event is emitted
@@ -196,7 +195,7 @@ mod benchmarks {
         assert_eq!(CurrencyOf::<T>::balance(&contributor), amount);
         // ensure the crowdloan account has been deducted the contribution
         assert_eq!(
-            CurrencyOf::<T>::balance(&Pallet::<T>::crowdloan_account_id(crowdloan_id)),
+            CurrencyOf::<T>::balance(&Pallet::<T>::funds_account(crowdloan_id)),
             deposit
         );
         // ensure the crowdloan raised amount is updated correctly
@@ -265,7 +264,7 @@ mod benchmarks {
         }
         // ensure the crowdloan account has been deducted the contributions
         assert_eq!(
-            CurrencyOf::<T>::balance(&Pallet::<T>::crowdloan_account_id(crowdloan_id)),
+            CurrencyOf::<T>::balance(&Pallet::<T>::funds_account(crowdloan_id)),
             0
         );
         // ensure the raised amount is updated correctly
