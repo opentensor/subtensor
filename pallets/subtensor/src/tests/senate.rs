@@ -397,6 +397,7 @@ fn test_senate_leave_vote_removal() {
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, stake);
+        SubtokenEnabled::<Test>::insert(netuid, true);
 
         // Subscribe and check extrinsic output
         assert_ok!(SubtensorModule::burned_register(
@@ -479,6 +480,9 @@ fn test_senate_leave_vote_removal() {
         SubtensorModule::set_target_registrations_per_interval(other_netuid, 1000);
         SubtensorModule::set_max_registrations_per_block(root_netuid, 1000);
         SubtensorModule::set_target_registrations_per_interval(root_netuid, 1000);
+        SubtokenEnabled::<Test>::insert(root_netuid, true);
+        SubtokenEnabled::<Test>::insert(other_netuid, true);
+
         for i in 0..200 {
             let hot: U256 = U256::from(i + 100);
             let cold: U256 = U256::from(i + 100);
@@ -715,6 +719,8 @@ fn test_adjust_senate_events() {
         SubtensorModule::set_target_registrations_per_interval(netuid, max_senate_size + 1);
         SubtensorModule::set_max_registrations_per_block(root_netuid, max_senate_size + 1);
         SubtensorModule::set_target_registrations_per_interval(root_netuid, max_senate_size + 1);
+        SubtokenEnabled::<Test>::insert(netuid, true);
+        SubtokenEnabled::<Test>::insert(root_netuid, true);
 
         // Subscribe and check extrinsic output
         assert_ok!(SubtensorModule::burned_register(
