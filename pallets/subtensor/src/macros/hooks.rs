@@ -56,18 +56,38 @@ mod hooks {
                         hotkey,
                         coldkey,
                         netuid,
-                        tao_staked,
-                        fee,
+                        stake_to_be_added,
                     } => {
-                        Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked, fee);
-
-                        Self::deposit_event(Event::AggregatedStakeAdded(
-                            coldkey.clone(),
+                        let result = Self::do_add_stake(
+                            dispatch::RawOrigin::Signed(coldkey.clone()).into(),
                             hotkey.clone(),
-                            tao_staked,
                             netuid,
-                            fee,
-                        ));
+                            stake_to_be_added,
+                        );
+
+                        if let Err(err) = result {
+                            log::debug!(
+                                "Failed to add aggregated stake: {:?}, {:?}, {:?}, {:?}, {:?}",
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                stake_to_be_added,
+                                err
+                            );
+                            Self::deposit_event(Event::FailedToAddAggregatedStake(
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                stake_to_be_added,
+                            ));
+                        } else {
+                            Self::deposit_event(Event::AggregatedStakeAdded(
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                stake_to_be_added,
+                            ));
+                        }
                     }
                     StakeJob::AddStakeLimit {
                         hotkey,

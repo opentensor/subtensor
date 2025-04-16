@@ -281,10 +281,8 @@ pub mod pallet {
             coldkey: AccountId,
             /// Subnet ID
             netuid: u16,
-            /// Tao to be staked
-            tao_staked: u64,
-            /// Operation fee
-            fee: u64,
+            /// The amount of stake to be added to the hotkey staking account.
+            stake_to_be_added: u64,
         },
         /// Represents a job for "remove_stake" operation
         RemoveStake {

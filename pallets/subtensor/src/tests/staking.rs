@@ -167,6 +167,36 @@ fn test_add_stake_aggregate_ok_no_emission() {
 }
 
 #[test]
+fn test_add_stake_aggregate_failed() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
+        let amount = DefaultMinStake::<Test>::get() * 100;
+        //add network
+        let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+
+        // Transfer to hotkey account, and check if the result is ok
+        assert_ok!(SubtensorModule::add_stake_aggregate(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            amount
+        ));
+
+        // Enable on_finalize code to run
+        run_to_block_ext(2, true);
+
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::FailedToAddAggregatedStake(..))
+            )
+        }));
+    });
+}
+
+#[test]
 fn test_verify_aggregated_stake_order() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(533453);

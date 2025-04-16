@@ -113,52 +113,25 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         stake_to_be_added: u64,
     ) -> dispatch::DispatchResult {
-        // 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
+        // We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
-        log::debug!(
-            "do_add_stake( origin:{:?} hotkey:{:?}, netuid:{:?}, stake_to_be_added:{:?} )",
-            coldkey,
-            hotkey,
-            netuid,
-            stake_to_be_added
-        );
 
-        // 2. Validate user input
-        Self::validate_add_stake(
-            &coldkey,
-            &hotkey,
-            netuid,
-            stake_to_be_added,
-            stake_to_be_added,
-            false,
-        )?;
-
-        // 3. Ensure the remove operation from the coldkey is a success.
-        let tao_staked: I96F32 =
-            Self::remove_balance_from_coldkey_account(&coldkey, stake_to_be_added)?.into();
-
-        // 4. Swap the stake into alpha on the subnet and increase counters.
-        // Emit the staking event.
-        let fee = DefaultStakingFee::<T>::get();
-
-        // 5.1 Consider the weight from on_finalize
+        // Consider the weight from on_finalize
         if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
-            Self::stake_into_subnet(
-                &hotkey,
-                &coldkey,
+            Self::do_add_stake(
+                crate::dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
                 netuid,
-                tao_staked.saturating_to_num::<u64>(),
-                fee,
-            );
+                stake_to_be_added,
+            )?;
         }
 
-        // 5.2 Save the staking job for the on_finalize
+        // Save the staking job for the on_finalize
         let stake_job = StakeJob::AddStake {
             hotkey,
             coldkey,
             netuid,
-            tao_staked: tao_staked.saturating_to_num::<u64>(),
-            fee,
+            stake_to_be_added,
         };
 
         let stake_job_id = NextStakeJobId::<T>::get();
@@ -166,12 +139,6 @@ impl<T: Config> Pallet<T> {
         StakeJobs::<T>::insert(stake_job_id, stake_job);
         NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
 
-        // 5.3 Consider the weight from on_finalize
-        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
-            StakeJobs::<T>::remove(stake_job_id);
-        }
-
-        // Ok and return.
         Ok(())
     }
 

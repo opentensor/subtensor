@@ -18,7 +18,9 @@ mod events {
         /// stake has been removed from the hotkey staking account onto the coldkey account.
         StakeRemoved(T::AccountId, T::AccountId, u64, u64, u16, u64),
         /// stake has been transferred from the coldkey account onto the hotkey staking account (at the end of the block)
-        AggregatedStakeAdded(T::AccountId, T::AccountId, u64, u16, u64),
+        AggregatedStakeAdded(T::AccountId, T::AccountId, u16, u64),
+        /// adding aggregated stake has failed
+        FailedToAddAggregatedStake(T::AccountId, T::AccountId, u16, u64),
         /// limited stake has been transferred from the coldkey account onto the hotkey staking account (at the end of the block)
         AggregatedLimitedStakeAdded(T::AccountId, T::AccountId, u16, u64, u64, bool),
         /// adding limited aggregated stake has failed
