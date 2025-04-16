@@ -343,7 +343,7 @@ impl<T: Config> Pallet<T> {
             origin_coldkey,
             origin_netuid,
             move_amount,
-			T::SwapInterface::max_price(),
+            T::SwapInterface::max_price(),
         )?;
 
         // Stake the unstaked amount into the destination.

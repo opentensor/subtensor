@@ -1,20 +1,22 @@
 #![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
-use codec::Encode;
-use frame_support::weights::Weight;
-use frame_support::{assert_err, assert_noop, assert_ok};
-use frame_system::{Config, RawOrigin};
 
-use super::mock::*;
-use crate::*;
-use crate::{Call, ColdkeySwapScheduleDuration, Error};
 use approx::assert_abs_diff_eq;
+use codec::Encode;
 use frame_support::error::BadOrigin;
 use frame_support::traits::OnInitialize;
 use frame_support::traits::schedule::DispatchTime;
 use frame_support::traits::schedule::v3::Named as ScheduleNamed;
+use frame_support::weights::Weight;
+use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_system::{Config, RawOrigin};
 use sp_core::{Get, H256, U256};
 use sp_runtime::DispatchError;
 use substrate_fixed::types::U96F32;
+use subtensor_swap_interface::SwapHandler;
+
+use super::mock::*;
+use crate::*;
+use crate::{Call, ColdkeySwapScheduleDuration, Error};
 
 // // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_total_hotkey_coldkey_stakes_this_interval --exact --nocapture
 // #[test]
@@ -540,12 +542,9 @@ fn test_swap_concurrent_modifications() {
         let additional_stake = 500_000_000_000;
         let initial_stake_alpha =
             U96F32::from(initial_stake).saturating_mul(SubtensorModule::get_alpha_price(netuid));
-        let fee = SubtensorModule::calculate_staking_fee(
-            None,
-            &new_coldkey,
-            Some((&hotkey, netuid)),
-            &new_coldkey,
-            initial_stake_alpha,
+        let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
+            netuid,
+            initial_stake_alpha.to_num::<u64>(),
         );
 
         // Setup initial state

@@ -267,7 +267,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-		Ok(())
+        Ok(())
     }
 
     pub fn calculate_dividends_and_incentives(

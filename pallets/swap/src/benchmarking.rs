@@ -8,16 +8,16 @@ use frame_system::RawOrigin;
 
 #[benchmarks(where T: Config)]
 mod benchmarks {
-	use super::*; // Use imports from outer scope
+    use super::*; // Use imports from outer scope
 
-	#[benchmark]
-	fn set_fee_rate() {
-		let netuid: u16 = 1;
-		let rate: u16 = 100;  // Some arbitrary fee rate value
+    #[benchmark]
+    fn set_fee_rate() {
+        let netuid: u16 = 1;
+        let rate: u16 = 100; // Some arbitrary fee rate value
 
-		#[extrinsic_call]
-		set_fee_rate(RawOrigin::Root, netuid, rate);
-	}
+        #[extrinsic_call]
+        set_fee_rate(RawOrigin::Root, netuid, rate);
+    }
 
-	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
+    impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

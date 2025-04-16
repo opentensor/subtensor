@@ -2,9 +2,9 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
-use subtensor_swap_interface::OrderType;
 use substrate_fixed::types::U64F64;
 use subtensor_macros::freeze_struct;
+use subtensor_swap_interface::OrderType;
 
 pub mod pallet;
 mod position;

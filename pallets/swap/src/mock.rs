@@ -74,14 +74,14 @@ impl LiquidityDataProvider<AccountId> for MockLiquidityProvider {
     fn tao_reserve(netuid: u16) -> u64 {
         match netuid {
             123 => 1_000,
-            _ => 1_000_000_000_000
+            _ => 1_000_000_000_000,
         }
     }
 
     fn alpha_reserve(netuid: u16) -> u64 {
         match netuid {
             123 => 1,
-            _ => 4_000_000_000_000
+            _ => 4_000_000_000_000,
         }
     }
 
@@ -94,7 +94,9 @@ impl LiquidityDataProvider<AccountId> for MockLiquidityProvider {
     }
 
     fn alpha_balance(_: u16, coldkey_account_id: &AccountId, hotkey_account_id: &AccountId) -> u64 {
-        if (*coldkey_account_id == OK_COLDKEY_ACCOUNT_ID) && (*hotkey_account_id == OK_HOTKEY_ACCOUNT_ID) {
+        if (*coldkey_account_id == OK_COLDKEY_ACCOUNT_ID)
+            && (*hotkey_account_id == OK_HOTKEY_ACCOUNT_ID)
+        {
             100_000_000_000_000
         } else {
             1_000_000_000

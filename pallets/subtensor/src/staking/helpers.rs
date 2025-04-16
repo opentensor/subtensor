@@ -204,7 +204,7 @@ impl<T: Config> Pallet<T> {
             Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid)?;
         }
 
-		Ok(())
+        Ok(())
     }
 
     pub fn add_balance_to_coldkey_account(

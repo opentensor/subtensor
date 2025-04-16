@@ -20,7 +20,7 @@ use sp_runtime::{
 };
 use sp_std::cmp::Ordering;
 use substrate_fixed::types::U64F64;
-use subtensor_swap_interface::LiquidityDataProvider;
+use subtensor_swap_interface::{LiquidityDataProvider, SwapHandler};
 
 use crate::*;
 
@@ -415,24 +415,6 @@ impl crate::Config for Test {
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
     type SwapInterface = Swap;
-}
-
-impl LiquidityDataProvider<AccountId> for SubtensorModule {
-    fn tao_reserve(netuid: u16) -> u64 {
-        SubnetTAO::<Test>::get(netuid)
-    }
-
-    fn alpha_reserve(netuid: u16) -> u64 {
-        SubnetAlphaIn::<Test>::get(netuid)
-    }
-
-    fn tao_balance(account_id: &AccountId) -> u64 {
-        Balances::free_balance(account_id)
-    }
-
-    fn alpha_balance(netuid: u16, coldkey: &AccountId, hotkey: &AccountId) -> u64 {
-        SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid)
-    }
 }
 
 // Swap-related parameter types
@@ -846,8 +828,14 @@ pub fn increase_stake_on_coldkey_hotkey_account(
     tao_staked: u64,
     netuid: u16,
 ) {
-    let fee = 0;
-    SubtensorModule::stake_into_subnet(hotkey, coldkey, netuid, tao_staked, fee);
+    SubtensorModule::stake_into_subnet(
+        hotkey,
+        coldkey,
+        netuid,
+        tao_staked,
+        <Test as Config>::SwapInterface::max_price(),
+    )
+    .unwrap();
 }
 
 /// Increases the stake on the hotkey account under its owning coldkey.

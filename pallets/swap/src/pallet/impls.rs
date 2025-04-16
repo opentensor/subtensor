@@ -358,7 +358,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// The function can be used without writing into the storage by setting `should_rollback` to
     /// `true`.
-    pub fn swap(
+    pub fn do_swap(
         netuid: NetUid,
         order_type: OrderType,
         amount: u64,
@@ -1104,7 +1104,7 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
             .checked_sqrt(SqrtPrice::saturating_from_num(2))
             .ok_or(Error::<T>::PriceLimitExceeded)?;
 
-        Self::swap(
+        Self::do_swap(
             NetUid::from(netuid),
             order_t,
             amount,
@@ -1649,7 +1649,7 @@ mod tests {
 
                     // Swap
                     let sqrt_limit_price = SqrtPrice::from_num((limit_price).sqrt());
-                    let swap_result = Pallet::<Test>::swap(
+                    let swap_result = Pallet::<Test>::do_swap(
                         netuid,
                         order_type,
                         liquidity,
@@ -1891,7 +1891,7 @@ mod tests {
 
                         // Do the swap
                         let sqrt_limit_price = SqrtPrice::from_num((limit_price).sqrt());
-                        let swap_result = Pallet::<Test>::swap(
+                        let swap_result = Pallet::<Test>::do_swap(
                             netuid,
                             order_type,
                             order_liquidity as u64,
@@ -2126,7 +2126,7 @@ mod tests {
 
                 // Do the swap
                 let sqrt_limit_price = SqrtPrice::from_num((limit_price).sqrt());
-                let swap_result = Pallet::<Test>::swap(
+                let swap_result = Pallet::<Test>::do_swap(
                     netuid,
                     order_type,
                     order_liquidity,
@@ -2218,7 +2218,7 @@ mod tests {
 
             // Swap
             let swap_result =
-                Pallet::<Test>::swap(netuid, order_type, liquidity, sqrt_limit_price, true)
+                Pallet::<Test>::do_swap(netuid, order_type, liquidity, sqrt_limit_price, true)
                     .unwrap();
 
             assert!(swap_result.amount_paid_out > 0);

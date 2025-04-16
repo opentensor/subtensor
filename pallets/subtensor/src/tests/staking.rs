@@ -1,18 +1,19 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::arithmetic_side_effects)]
 
-use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
-use frame_system::RawOrigin;
-use safe_math::FixedExt;
-use substrate_fixed::traits::FromFixed;
-
-use super::mock::*;
-use crate::*;
 use approx::assert_abs_diff_eq;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
 use frame_support::sp_runtime::DispatchError;
+use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
+use frame_system::RawOrigin;
+use safe_math::FixedExt;
 use sp_core::{Get, H256, U256};
+use substrate_fixed::traits::FromFixed;
 use substrate_fixed::types::{I96F32, I110F18, U64F64, U96F32};
+use subtensor_swap_interface::{OrderType, SwapHandler};
+
+use super::mock::*;
+use crate::*;
 
 /***********************************************************
     staking::add_stake() tests
@@ -401,13 +402,7 @@ fn test_remove_stake_ok_no_emission() {
             amount
         ));
 
-        let fee = SubtensorModule::calculate_staking_fee(
-            Some((&hotkey_account_id, netuid)),
-            &coldkey_account_id,
-            None,
-            &coldkey_account_id,
-            U96F32::saturating_from_num(amount),
-        );
+        let fee = <Test as Config>::SwapInterface::approx_fee_amount(netuid, amount);
 
         // we do not expect the exact amount due to slippage
         assert!(SubtensorModule::get_coldkey_balance(&coldkey_account_id) > amount / 10 * 9 - fee);
@@ -582,13 +577,7 @@ fn test_remove_stake_total_balance_no_change() {
             amount
         ));
 
-        let fee = SubtensorModule::calculate_staking_fee(
-            Some((&hotkey_account_id, netuid)),
-            &coldkey_account_id,
-            None,
-            &coldkey_account_id,
-            U96F32::saturating_from_num(amount),
-        );
+        let fee = <Test as Config>::SwapInterface::approx_fee_amount(netuid, amount);
         assert_abs_diff_eq!(
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             amount - fee,
@@ -661,7 +650,14 @@ fn test_remove_stake_insufficient_liquidity() {
         // Simulate stake for hotkey
         SubnetTAO::<Test>::insert(netuid, u64::MAX / 1000);
         SubnetAlphaIn::<Test>::insert(netuid, u64::MAX / 1000);
-        let alpha = SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, amount_staked, 0);
+        let alpha = SubtensorModule::stake_into_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            amount_staked,
+            <Test as Config>::SwapInterface::max_price(),
+        )
+        .unwrap();
 
         // Set the liquidity at lowest possible value so that all staking requests fail
         SubnetTAO::<Test>::insert(
@@ -1513,7 +1509,7 @@ fn test_clear_small_nominations() {
         // Run clear all small nominations when min stake is zero (noop)
         SubtensorModule::set_nominator_min_required_stake(0);
         assert_eq!(SubtensorModule::get_nominator_min_required_stake(), 0);
-        SubtensorModule::clear_small_nominations();
+        SubtensorModule::clear_small_nominations().unwrap();
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold1, netuid),
             100
@@ -1540,7 +1536,7 @@ fn test_clear_small_nominations() {
         SubtensorModule::set_nominator_min_required_stake(1000);
 
         // Run clear all small nominations (removes delegations under 10)
-        SubtensorModule::clear_small_nominations();
+        SubtensorModule::clear_small_nominations().unwrap();
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold1, netuid),
             100
@@ -2478,8 +2474,15 @@ fn test_remove_stake_fee_realistic_values() {
 
         // Remove stake to measure fee
         let balance_before = SubtensorModule::get_coldkey_balance(&coldkey);
-        let expected_tao_no_fee =
-            SubtensorModule::sim_swap_alpha_for_tao(netuid, alpha_to_unstake).unwrap();
+        let expected_tao_no_fee = <Test as Config>::SwapInterface::swap(
+            netuid,
+            OrderType::Sell,
+            alpha_to_unstake,
+            <Test as Config>::SwapInterface::max_price(),
+            true,
+        )
+        .unwrap()
+        .amount_paid_out;
 
         // Estimate fees
         let mut expected_fee =
@@ -2800,7 +2803,14 @@ fn test_unstake_low_liquidity_validate() {
         // Simulate stake for hotkey
         SubnetTAO::<Test>::insert(netuid, u64::MAX / 1000);
         SubnetAlphaIn::<Test>::insert(netuid, u64::MAX / 1000);
-        let alpha = SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, amount_staked, 0);
+        let alpha = SubtensorModule::stake_into_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            amount_staked,
+            <Test as Config>::SwapInterface::max_price(),
+        )
+        .unwrap();
 
         // Set the liquidity at lowest possible value so that all staking requests fail
         SubnetTAO::<Test>::insert(
@@ -3975,8 +3985,8 @@ fn test_remove_stake_limit_fill_or_kill() {
 //             &coldkey_account_id,
 //             netuid,
 //             tao_staked,
-//             fee,
-//         );
+// 			   <Test as Config>::SwapInterface::max_price(),
+//         ).unwrap();
 
 //         // Check the stake and shares are correct
 //         assert!(Alpha::<Test>::get((&hotkey_account_id, &coldkey_account_id, netuid)) > 0);
@@ -4043,8 +4053,15 @@ fn test_add_stake_specific_stake_into_subnet_fail() {
         );
 
         // Add stake as new hotkey
-        let expected_alpha =
-            SubtensorModule::sim_swap_tao_for_alpha(netuid, tao_staked).unwrap_or(0);
+        let expected_alpha = <Test as Config>::SwapInterface::swap(
+            netuid,
+            OrderType::Buy,
+            tao_staked,
+            <Test as Config>::SwapInterface::max_price(),
+            true,
+        )
+        .map(|v| v.amount_paid_out)
+        .unwrap_or_default();
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,

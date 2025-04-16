@@ -5,6 +5,7 @@ use super::mock::*;
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use substrate_fixed::types::{I64F64, I96F32, U96F32};
+use subtensor_swap_interface::SwapHandler;
 
 use crate::{utils::rate_limiting::TransactionType, *};
 use sp_core::U256;
@@ -2955,10 +2956,15 @@ fn test_parent_child_chain_emission() {
         let stake_b = 100_000_000_000_u64;
         let stake_c = 50_000_000_000_u64;
         let total_tao: I96F32 = I96F32::from_num(stake_a + stake_b + stake_c);
-        let total_alpha: I96F32 = I96F32::from_num(SubtensorModule::swap_tao_for_alpha(
-            netuid,
-            total_tao.to_num::<u64>(),
-        ));
+        let total_alpha: I96F32 = I96F32::from_num(
+            SubtensorModule::swap_tao_for_alpha(
+                netuid,
+                total_tao.to_num::<u64>(),
+                <Test as Config>::SwapInterface::max_price(),
+            )
+            .unwrap()
+            .amount_paid_out,
+        );
 
         // Set the stakes directly
         // This avoids needing to swap tao to alpha, impacting the initial stake distribution.
@@ -3033,7 +3039,7 @@ fn test_parent_child_chain_emission() {
         PendingEmission::<Test>::insert(netuid, 0);
 
         // Run epoch with emission value
-        SubtensorModule::run_coinbase(emission);
+        SubtensorModule::run_coinbase(emission).unwrap();
 
         // Log new stake
         let stake_a_new: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_a);
@@ -3156,10 +3162,15 @@ fn test_parent_child_chain_epoch() {
 
         // Swap to alpha
         let total_tao: I96F32 = I96F32::from_num(300_000 + 100_000 + 50_000);
-        let total_alpha: I96F32 = I96F32::from_num(SubtensorModule::swap_tao_for_alpha(
-            netuid,
-            total_tao.saturating_to_num::<u64>(),
-        ));
+        let total_alpha = I96F32::from_num(
+            SubtensorModule::swap_tao_for_alpha(
+                netuid,
+                total_tao.saturating_to_num::<u64>(),
+                <Test as Config>::SwapInterface::max_price(),
+            )
+            .unwrap()
+            .amount_paid_out,
+        );
 
         // Set the stakes directly
         // This avoids needing to swap tao to alpha, impacting the initial stake distribution.
@@ -3287,10 +3298,15 @@ fn test_dividend_distribution_with_children() {
 
         // Swap to alpha
         let total_tao: I96F32 = I96F32::from_num(300_000 + 100_000 + 50_000);
-        let total_alpha: I96F32 = I96F32::from_num(SubtensorModule::swap_tao_for_alpha(
-            netuid,
-            total_tao.saturating_to_num::<u64>(),
-        ));
+        let total_alpha = I96F32::from_num(
+            SubtensorModule::swap_tao_for_alpha(
+                netuid,
+                total_tao.saturating_to_num::<u64>(),
+                <Test as Config>::SwapInterface::max_price(),
+            )
+            .unwrap()
+            .amount_paid_out,
+        );
 
         // Set the stakes directly
         // This avoids needing to swap tao to alpha, impacting the initial stake distribution.
@@ -3514,11 +3530,16 @@ fn test_dynamic_parent_child_relationships() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_child2, 30_000 + 1_000);
 
         // Swap to alpha
-        let total_tao: I96F32 = I96F32::from_num(500_000 + 50_000 + 30_000);
-        let total_alpha: I96F32 = I96F32::from_num(SubtensorModule::swap_tao_for_alpha(
-            netuid,
-            total_tao.saturating_to_num::<u64>(),
-        ));
+        let total_tao = I96F32::from_num(500_000 + 50_000 + 30_000);
+        let total_alpha = I96F32::from_num(
+            SubtensorModule::swap_tao_for_alpha(
+                netuid,
+                total_tao.saturating_to_num::<u64>(),
+                <Test as Config>::SwapInterface::max_price(),
+            )
+            .unwrap()
+            .amount_paid_out,
+        );
         log::info!("total_alpha: {:?}", total_alpha);
 
         // Set the stakes directly
@@ -3807,10 +3828,15 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
 
         // Swap to alpha
         let total_tao: I96F32 = I96F32::from_num(300_000 + 100_000);
-        let total_alpha: I96F32 = I96F32::from_num(SubtensorModule::swap_tao_for_alpha(
-            netuid,
-            total_tao.saturating_to_num::<u64>(),
-        ));
+        let total_alpha: I96F32 = I96F32::from_num(
+            SubtensorModule::swap_tao_for_alpha(
+                netuid,
+                total_tao.saturating_to_num::<u64>(),
+                <Test as Config>::SwapInterface::max_price(),
+            )
+            .unwrap()
+            .amount_paid_out,
+        );
 
         // Set the stakes directly
         // This avoids needing to swap tao to alpha, impacting the initial stake distribution.
