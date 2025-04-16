@@ -21,6 +21,7 @@ sp-std = { workspace = true }
 substrate-fixed = { workspace = true }
 
 subtensor-swap-interface = { workspace = true }
+pallet-subtensor = { version = "4.0.0-dev", default-features = false, path = "../subtensor" }
 
 [lints]
 workspace = true
@@ -33,6 +34,7 @@ std = [
     "frame-benchmarking/std",
     "frame-support/std",
     "frame-system/std",
+    "pallet-subtensor/std",
     "subtensor-swap-interface/std",
     "safe-math/std",
     "scale-info/std",

@@ -36,5 +36,5 @@ pub trait LiquidityDataProvider<AccountId> {
     fn tao_reserve(netuid: u16) -> u64;
     fn alpha_reserve(netuid: u16) -> u64;
     fn tao_balance(account_id: &AccountId) -> u64;
-    fn alpha_balance(netuid: u16, account_id: &AccountId) -> u64;
+    fn alpha_balance(netuid: u16, coldkey_account_id: &AccountId, hotkey_account_id: &AccountId) -> u64;
 }
