@@ -46,13 +46,8 @@ mod hooks {
             stake_jobs.sort_by_key(|(_, job)| match job {
                 StakeJob::AddStakeLimit { .. } => 0,
                 StakeJob::AddStake { .. } => 1,
-                StakeJob::RemoveStake { limit, .. } => {
-                    if *limit {
-                        2
-                    } else {
-                        3
-                    }
-                }
+                StakeJob::RemoveStakeLimit { .. } => 2,
+                StakeJob::RemoveStake { .. } => 3,
             });
 
             for (_, job) in stake_jobs.into_iter() {
@@ -127,7 +122,6 @@ mod hooks {
                         netuid,
                         alpha,
                         fee,
-                        ..
                     } => {
                         let tao_unstaked = Self::unstake_from_subnet(
                             &hotkey,
@@ -155,6 +149,53 @@ mod hooks {
                             netuid,
                             fee,
                         ));
+                    }
+                    StakeJob::RemoveStakeLimit {
+                        hotkey,
+                        coldkey,
+                        netuid,
+                        alpha_unstaked,
+                        limit_price,
+                        allow_partial,
+                    } => {
+                        let result = Self::do_remove_stake_limit(
+                            dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                            hotkey.clone(),
+                            netuid,
+                            alpha_unstaked,
+                            limit_price,
+                            allow_partial,
+                        );
+
+                        if let Err(err) = result {
+                            log::debug!(
+                                "Failed to remove aggregated limited stake: {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                alpha_unstaked,
+                                limit_price,
+                                allow_partial,
+                                err
+                            );
+                            Self::deposit_event(Event::FailedToRemoveAggregatedLimitedStake(
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                alpha_unstaked,
+                                limit_price,
+                                allow_partial,
+                            ));
+                        } else {
+                            Self::deposit_event(Event::AggregatedLimitedStakeRemoved(
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                alpha_unstaked,
+                                limit_price,
+                                allow_partial,
+                            ));
+                        }
                     }
                 }
             }

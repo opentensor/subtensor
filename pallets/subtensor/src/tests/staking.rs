@@ -297,8 +297,13 @@ fn test_verify_aggregated_stake_order() {
         let remove_stake_limit_position = System::events()
             .iter()
             .position(|e| {
-                if let RuntimeEvent::SubtensorModule(Event::AggregatedStakeRemoved(.., netuid, _)) =
-                    e.event
+                if let RuntimeEvent::SubtensorModule(Event::AggregatedLimitedStakeRemoved(
+                    ..,
+                    netuid,
+                    _,
+                    _,
+                    _,
+                )) = e.event
                 {
                     netuid == netuid4
                 } else {
@@ -4316,7 +4321,48 @@ fn test_remove_stake_limit_aggregate_ok() {
         assert!(System::events().iter().any(|e| {
             matches!(
                 &e.event,
-                RuntimeEvent::SubtensorModule(Event::AggregatedStakeRemoved(..))
+                RuntimeEvent::SubtensorModule(Event::AggregatedLimitedStakeRemoved(..))
+            )
+        }));
+    });
+}
+
+#[test]
+fn test_remove_stake_limit_aggregate_fail() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
+        let stake_amount = 300_000_000;
+        let unstake_amount = 150_000_000_000;
+        let limit_price = 1_350_000_000;
+        // add network
+        let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+            stake_amount,
+        );
+
+        assert_ok!(SubtensorModule::remove_stake_limit_aggregate(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            unstake_amount,
+            limit_price,
+            true
+        ));
+
+        // Enable on_finalize code to run
+        run_to_block_ext(2, true);
+
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::FailedToRemoveAggregatedLimitedStake(..))
             )
         }));
     });

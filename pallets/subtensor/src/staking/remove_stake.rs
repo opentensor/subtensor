@@ -165,7 +165,6 @@ impl<T: Config> Pallet<T> {
             netuid,
             fee,
             alpha,
-            limit: false,
         };
 
         let stake_job_id = NextStakeJobId::<T>::get();
@@ -560,94 +559,33 @@ impl<T: Config> Pallet<T> {
         limit_price: u64,
         allow_partial: bool,
     ) -> dispatch::DispatchResult {
-        // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
-        log::debug!(
-            "do_remove_stake( origin:{:?} hotkey:{:?}, netuid: {:?}, alpha_unstaked:{:?} )",
-            coldkey,
-            hotkey,
-            netuid,
-            alpha_unstaked
-        );
 
-        // 2. Calculate the maximum amount that can be executed with price limit
-        let max_amount = Self::get_max_amount_remove(netuid, limit_price);
-        let mut possible_alpha = alpha_unstaked;
-        if possible_alpha > max_amount {
-            possible_alpha = max_amount;
+        // Consider the weight from on_finalize
+        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
+            Self::do_remove_stake_limit(
+                crate::dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+                netuid,
+                alpha_unstaked,
+                limit_price,
+                allow_partial,
+            )?;
         }
 
-        // 3. Validate the user input
-        Self::validate_remove_stake(
-            &coldkey,
-            &hotkey,
-            netuid,
-            alpha_unstaked,
-            max_amount,
-            allow_partial,
-        )?;
-
-        // 4. Swap the alpha to tao and update counters for this subnet.
-        let fee = Self::calculate_staking_fee(
-            Some((&hotkey, netuid)),
-            &coldkey,
-            None,
-            &coldkey,
-            U96F32::saturating_from_num(alpha_unstaked),
-        );
-
-        let alpha = Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            netuid,
-            possible_alpha,
-        );
-
-        // 4.1 Save the staking job for the on_finalize
-        let stake_job = StakeJob::RemoveStake {
+        let stake_job = StakeJob::RemoveStakeLimit {
             hotkey,
             coldkey,
             netuid,
-            alpha,
-            fee,
-            limit: true,
+            alpha_unstaked,
+            limit_price,
+            allow_partial,
         };
 
         let stake_job_id = NextStakeJobId::<T>::get();
 
         StakeJobs::<T>::insert(stake_job_id, stake_job);
         NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
-
-        // 4.2 Consider the weight from on_finalize
-        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
-            let stake_job = StakeJobs::<T>::take(stake_job_id);
-            // This branch is always active because we create the stake job above
-            if let Some(StakeJob::RemoveStake {
-                coldkey,
-                hotkey,
-                netuid,
-                fee,
-                alpha,
-                ..
-            }) = stake_job
-            {
-                let tao_unstaked =
-                    Self::unstake_from_subnet(&hotkey, &coldkey, netuid, 0, fee, Some(alpha));
-
-                // 4.3 We add the balance to the coldkey. If the above fails we will not credit this coldkey.
-                Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
-
-                // 5. If the stake is below the minimum, we clear the nomination from storage.
-                Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
-
-                // 6. Check if stake lowered below MinStake and remove Pending children if it did
-                if Self::get_total_stake_for_hotkey(&hotkey) < StakeThreshold::<T>::get() {
-                    Self::get_all_subnet_netuids().iter().for_each(|netuid| {
-                        PendingChildKeys::<T>::remove(netuid, &hotkey);
-                    })
-                }
-            }
-        }
 
         // Done and ok.
         Ok(())

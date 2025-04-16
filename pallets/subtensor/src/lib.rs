@@ -286,7 +286,7 @@ pub mod pallet {
             /// Operation fee
             fee: u64,
         },
-        /// Represents jobs for "remove_stake" and "remove_stake_limit" operation
+        /// Represents a job for "remove_stake" operation
         RemoveStake {
             /// Hotkey account
             hotkey: AccountId,
@@ -298,8 +298,6 @@ pub mod pallet {
             fee: u64,
             /// Alpha value
             alpha: u64,
-            /// Signals whether it's a limit stake
-            limit: bool,
         },
         /// Represents a job for "add_stake_limit" operation
         AddStakeLimit {
@@ -312,6 +310,22 @@ pub mod pallet {
             /// The amount of stake to be added to the hotkey staking account.
             stake_to_be_added: u64,
             /// The limit price expressed in units of RAO per one Alpha.
+            limit_price: u64,
+            /// Allows partial execution of the amount. If set to false, this becomes
+            /// fill or kill type or order.
+            allow_partial: bool,
+        },
+        /// Represents a job for "remove_stake_limit" operation
+        RemoveStakeLimit {
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Hotkey account
+            hotkey: AccountId,
+            /// Subnet ID
+            netuid: u16,
+            /// The amount of stake to be added to the hotkey staking account.
+            alpha_unstaked: u64,
+            /// The limit price
             limit_price: u64,
             /// Allows partial execution of the amount. If set to false, this becomes
             /// fill or kill type or order.
