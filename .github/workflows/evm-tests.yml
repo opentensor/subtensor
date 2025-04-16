@@ -1,0 +1,44 @@
+name: EVM E2E Tests
+
+on:
+  pull_request:
+
+  ## Allow running workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      verbose:
+        description: "Output more information when triggered manually"
+        required: false
+        default: ""
+
+env:
+  CARGO_TERM_COLOR: always
+  VERBOSE: ${{ github.events.input.verbose }}
+
+jobs:
+  run:
+    runs-on: SubtensorCI
+    env:
+      RUST_BACKTRACE: full
+    steps:
+      - name: Check-out repository under $GITHUB_WORKSPACE
+        uses: actions/checkout@v4
+
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update &&
+          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler nodejs
+
+      - name: Run tests
+        working-directory: ${{ github.workspace }}
+        run: |
+          npm install --global yarn
+          ./evm-tests/run-ci.sh

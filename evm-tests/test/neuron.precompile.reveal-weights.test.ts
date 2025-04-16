@@ -12,7 +12,8 @@ import { convertH160ToPublicKey } from "../src/address-utils"
 import { blake2AsU8a } from "@polkadot/util-crypto"
 import {
     forceSetBalanceToEthAddress, forceSetBalanceToSs58Address, addNewSubnetwork, setCommitRevealWeightsEnabled, setWeightsSetRateLimit, burnedRegister,
-    setTempo, setCommitRevealWeightsInterval
+    setTempo, setCommitRevealWeightsInterval,
+    startCall
 } from "../src/subtensor"
 
 // hardcode some values for reveal hash
@@ -64,6 +65,7 @@ describe("Test neuron precompile reveal weights", () => {
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(coldkey.publicKey))
         await forceSetBalanceToEthAddress(api, wallet.address)
         let netuid = await addNewSubnetwork(api, hotkey, coldkey)
+        await startCall(api, netuid, coldkey)
 
         console.log("test the case on subnet ", netuid)
 
@@ -97,9 +99,10 @@ describe("Test neuron precompile reveal weights", () => {
         if (weightsCommit === undefined) {
             throw new Error("submit weights failed")
         }
-        assert.ok(weightsCommit.length > 0)
+        else { assert.ok(weightsCommit.length > 0) }
     })
 
+    // Temporarily disable it, there is a type error in CI.
     it("EVM neuron reveal weights via call precompile", async () => {
         let totalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue()
         const netuid = totalNetworks - 1
@@ -129,11 +132,16 @@ describe("Test neuron precompile reveal weights", () => {
             ss58Address
         )
 
-        const weights = await api.query.SubtensorModule.Weights.getValue(netuid, neuron_uid!)
-
-        if (weights === undefined) {
-            throw new Error("weights not available onchain")
+        if (neuron_uid === undefined) {
+            throw new Error("neuron_uid not available onchain or invalid type")
         }
+
+        const weights = await api.query.SubtensorModule.Weights.getValue(netuid, neuron_uid)
+
+        if (weights === undefined || !Array.isArray(weights)) {
+            throw new Error("weights not available onchain or invalid type")
+        }
+
         for (const weight of weights) {
             assert.equal(weight[0], neuron_uid)
             assert.ok(weight[1] !== undefined)

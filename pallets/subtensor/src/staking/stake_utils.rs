@@ -68,10 +68,6 @@ impl<T: Config> Pallet<T> {
             Self::get_current_block_as_u64().saturating_sub(start_call_block)
         });
 
-        // Use halving time hyperparameter. The meaning of this parameter can be best explained under
-        // the assumption of a constant price and SubnetMovingAlpha == 0.5: It is how many blocks it
-        // will take in order for the distance between current EMA of price and current price to shorten
-        // by half.
         let halving_time = EMAPriceHalvingBlocks::<T>::get(netuid);
         let current_ma_unsigned = U96F32::saturating_from_num(SubnetMovingAlpha::<T>::get());
         let alpha: U96F32 = current_ma_unsigned.saturating_mul(blocks_since_start_call.safe_div(
@@ -1017,6 +1013,16 @@ impl<T: Config> Pallet<T> {
                 Error::<T>::SubnetNotExists
             );
         }
+
+        ensure!(
+            SubtokenEnabled::<T>::get(origin_netuid),
+            Error::<T>::SubtokenDisabled
+        );
+
+        ensure!(
+            SubtokenEnabled::<T>::get(destination_netuid),
+            Error::<T>::SubtokenDisabled
+        );
 
         // Ensure that the origin hotkey account exists
         ensure!(
