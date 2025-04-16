@@ -135,7 +135,7 @@ pub mod pallet {
     /// A map of crowdloan ids to their information.
     #[pallet::storage]
     pub type Crowdloans<T: Config> =
-        StorageMap<_, Identity, CrowdloanId, CrowdloanInfoOf<T>, OptionQuery>;
+        StorageMap<_, Twox64Concat, CrowdloanId, CrowdloanInfoOf<T>, OptionQuery>;
 
     /// The next incrementing crowdloan id.
     #[pallet::storage]
@@ -145,7 +145,7 @@ pub mod pallet {
     #[pallet::storage]
     pub type Contributions<T: Config> = StorageDoubleMap<
         _,
-        Identity,
+        Twox64Concat,
         CrowdloanId,
         Identity,
         T::AccountId,
@@ -528,7 +528,7 @@ pub mod pallet {
 
         /// Finalize a successful crowdloan.
         ///
-        /// The call will transfer the raised amount to the target address if it was provided when the crowdloan was created 
+        /// The call will transfer the raised amount to the target address if it was provided when the crowdloan was created
         /// and dispatch the call that was provided using the creator origin. The CurrentCrowdloanId will be set to the
         /// crowdloan id being finalized so the dispatched call can access it temporarily by accessing
         /// the `CurrentCrowdloanId` storage item.
