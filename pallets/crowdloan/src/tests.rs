@@ -38,7 +38,7 @@ fn test_create_succeeds() {
                     deposit,
                     cap,
                     end,
-                    funds_account: funds_account.clone(),
+                    funds_account,
                     raised: deposit,
                     target_address: None,
                     call,
