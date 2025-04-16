@@ -1,3 +1,5 @@
+use core::num::NonZeroU64;
+
 use frame_support::{PalletId, pallet_prelude::*, traits::Get};
 use frame_system::pallet_prelude::*;
 use substrate_fixed::types::U64F64;
@@ -50,6 +52,10 @@ mod pallet {
         /// Minimum liquidity that is safe for rounding and integer math.
         #[pallet::constant]
         type MinimumLiquidity: Get<u64>;
+
+        /// Minimum reserve for tao and alpha
+        #[pallet::constant]
+        type MinimumReserve: Get<NonZeroU64>;
 
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
@@ -159,6 +165,9 @@ mod pallet {
 
         /// Provided liquidity parameter is invalid (likely too small)
         InvalidLiquidityValue,
+
+		/// Reserves too low for operation.
+		ReservesTooLow,
     }
 
     #[pallet::call]

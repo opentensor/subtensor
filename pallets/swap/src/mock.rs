@@ -1,3 +1,5 @@
+use core::num::NonZeroU64;
+
 use frame_support::construct_runtime;
 use frame_support::{
     PalletId, parameter_types,
@@ -65,6 +67,7 @@ parameter_types! {
     pub const MaxFeeRate: u16 = 10000; // 15.26%
     pub const MaxPositions: u32 = 100;
     pub const MinimumLiquidity: u64 = 1_000;
+    pub const MinimumReserves: NonZeroU64 = NonZeroU64::new(1).unwrap();
 }
 
 // Mock implementor of LiquidityDataProvider trait
@@ -112,6 +115,7 @@ impl crate::pallet::Config for Test {
     type MaxFeeRate = MaxFeeRate;
     type MaxPositions = MaxPositions;
     type MinimumLiquidity = MinimumLiquidity;
+    type MinimumReserve = MinimumReserves;
     type WeightInfo = ();
 }
 

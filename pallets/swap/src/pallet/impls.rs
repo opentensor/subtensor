@@ -383,6 +383,13 @@ impl<T: Config> Pallet<T> {
         amount: u64,
         sqrt_price_limit: SqrtPrice,
     ) -> Result<SwapResult, Error<T>> {
+        ensure!(
+            T::LiquidityDataProvider::tao_reserve(netuid.into()) >= T::MinimumReserve::get().get()
+                && T::LiquidityDataProvider::alpha_reserve(netuid.into())
+                    >= T::MinimumReserve::get().get(),
+            Error::<T>::ReservesTooLow
+        );
+
         Self::maybe_initialize_v3(netuid)?;
 
         let mut amount_remaining = amount;
@@ -2198,7 +2205,7 @@ mod tests {
         new_test_ext().execute_with(|| {
             let netuid = NetUid::from(123); // 123 is netuid with low edge case liquidity
             let order_type = OrderType::Sell;
-            let liquidity = 1000000000000000000;
+            let liquidity = 1_000_000_000_000_000_000;
             let tick_low = TickIndex::MIN;
             let tick_high = TickIndex::MAX;
 
