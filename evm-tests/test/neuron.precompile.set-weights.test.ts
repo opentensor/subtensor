@@ -53,7 +53,7 @@ describe("Test neuron precompile contract, set weights function", () => {
         const tx = await contract.setWeights(netuid, dests, weights, version_key);
 
         await tx.wait();
-        const weightsOnChain = await api.query.SubtensorModule.Weights.getValue(netuid, uid)
+        const weightsOnChain = await api.query.SubtensorModule.Weights.getValue(netuid, uid!)
 
         weightsOnChain.forEach((weight, _) => {
             const uidInWeight = weight[0];

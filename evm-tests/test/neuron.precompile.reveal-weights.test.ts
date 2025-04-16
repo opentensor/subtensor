@@ -129,7 +129,7 @@ describe("Test neuron precompile reveal weights", () => {
             ss58Address
         )
 
-        const weights = await api.query.SubtensorModule.Weights.getValue(netuid, neuron_uid)
+        const weights = await api.query.SubtensorModule.Weights.getValue(netuid, neuron_uid!)
 
         if (weights === undefined) {
             throw new Error("weights not available onchain")
