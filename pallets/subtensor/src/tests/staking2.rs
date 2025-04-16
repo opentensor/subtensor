@@ -7,6 +7,7 @@ use frame_support::{
 };
 use sp_core::U256;
 use substrate_fixed::types::{I96F32, U96F32};
+use subtensor_swap_interface::SwapHandler;
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --workspace --test staking2 -- test_swap_tao_for_alpha_dynamic_mechanism --exact --nocapture
 #[test]
@@ -668,13 +669,8 @@ fn test_stake_fee_api() {
             coldkey1,
             stake_amount,
         );
-        let dynamic_fee_0 = SubtensorModule::calculate_staking_fee(
-            None,
-            &coldkey1,
-            Some((&hotkey1, netuid0)),
-            &coldkey1,
-            U96F32::saturating_from_num(stake_amount),
-        );
+        let dynamic_fee_0 =
+            <SubtensorModule as Config>::SwapInterface::approx_fee_amount(netuid0, stake_amount);
         assert_eq!(stake_fee_0, dynamic_fee_0);
 
         // Test stake fee for remove on root
@@ -685,12 +681,9 @@ fn test_stake_fee_api() {
             coldkey1,
             stake_amount,
         );
-        let dynamic_fee_1 = SubtensorModule::calculate_staking_fee(
-            Some((&hotkey1, root_netuid)),
-            &coldkey1,
-            None,
-            &coldkey1,
-            U96F32::saturating_from_num(stake_amount),
+        let dynamic_fee_1 = <SubtensorModule as Config>::SwapInterface::approx_fee_amount(
+            root_netuid,
+            stake_amount,
         );
         assert_eq!(stake_fee_1, dynamic_fee_1);
 
@@ -702,13 +695,8 @@ fn test_stake_fee_api() {
             coldkey1,
             stake_amount,
         );
-        let dynamic_fee_2 = SubtensorModule::calculate_staking_fee(
-            Some((&hotkey1, root_netuid)),
-            &coldkey1,
-            Some((&hotkey1, netuid0)),
-            &coldkey1,
-            U96F32::saturating_from_num(stake_amount),
-        );
+        let dynamic_fee_2 =
+            <SubtensorModule as Config>::SwapInterface::approx_fee_amount(netuid0, stake_amount);
         assert_eq!(stake_fee_2, dynamic_fee_2);
 
         // Test stake fee for move between hotkeys on root
@@ -719,12 +707,9 @@ fn test_stake_fee_api() {
             coldkey1,
             stake_amount,
         );
-        let dynamic_fee_3 = SubtensorModule::calculate_staking_fee(
-            Some((&hotkey1, root_netuid)),
-            &coldkey1,
-            Some((&hotkey2, root_netuid)),
-            &coldkey1,
-            U96F32::saturating_from_num(stake_amount),
+        let dynamic_fee_3 = <SubtensorModule as Config>::SwapInterface::approx_fee_amount(
+            root_netuid,
+            stake_amount,
         );
         assert_eq!(stake_fee_3, dynamic_fee_3);
 
@@ -736,12 +721,9 @@ fn test_stake_fee_api() {
             coldkey2,
             stake_amount,
         );
-        let dynamic_fee_4 = SubtensorModule::calculate_staking_fee(
-            Some((&hotkey1, root_netuid)),
-            &coldkey1,
-            Some((&hotkey1, root_netuid)),
-            &coldkey2,
-            U96F32::saturating_from_num(stake_amount),
+        let dynamic_fee_4 = <SubtensorModule as Config>::SwapInterface::approx_fee_amount(
+            root_netuid,
+            stake_amount,
         );
         assert_eq!(stake_fee_4, dynamic_fee_4);
 
@@ -753,12 +735,9 @@ fn test_stake_fee_api() {
             coldkey1,
             stake_amount,
         );
-        let dynamic_fee_5 = SubtensorModule::calculate_staking_fee(
-            Some((&hotkey1, netuid0)),
-            &coldkey1,
-            Some((&hotkey1, root_netuid)),
-            &coldkey1,
-            U96F32::saturating_from_num(stake_amount),
+        let dynamic_fee_5 = <SubtensorModule as Config>::SwapInterface::approx_fee_amount(
+            root_netuid,
+            stake_amount,
         );
         assert_eq!(stake_fee_5, dynamic_fee_5);
 
@@ -770,13 +749,8 @@ fn test_stake_fee_api() {
             coldkey1,
             stake_amount,
         );
-        let dynamic_fee_6 = SubtensorModule::calculate_staking_fee(
-            Some((&hotkey1, netuid0)),
-            &coldkey1,
-            Some((&hotkey2, netuid0)),
-            &coldkey1,
-            U96F32::saturating_from_num(stake_amount),
-        );
+        let dynamic_fee_6 =
+            <SubtensorModule as Config>::SwapInterface::approx_fee_amount(netuid0, stake_amount);
         assert_eq!(stake_fee_6, dynamic_fee_6);
 
         // Test stake fee for move between coldkeys on non-root
@@ -787,13 +761,8 @@ fn test_stake_fee_api() {
             coldkey2,
             stake_amount,
         );
-        let dynamic_fee_7 = SubtensorModule::calculate_staking_fee(
-            Some((&hotkey1, netuid0)),
-            &coldkey1,
-            Some((&hotkey1, netuid0)),
-            &coldkey2,
-            U96F32::saturating_from_num(stake_amount),
-        );
+        let dynamic_fee_7 =
+            <SubtensorModule as Config>::SwapInterface::approx_fee_amount(netuid0, stake_amount);
         assert_eq!(stake_fee_7, dynamic_fee_7);
 
         // Test stake fee for *swap* from non-root to non-root
@@ -804,13 +773,8 @@ fn test_stake_fee_api() {
             coldkey1,
             stake_amount,
         );
-        let dynamic_fee_8 = SubtensorModule::calculate_staking_fee(
-            Some((&hotkey1, netuid0)),
-            &coldkey1,
-            Some((&hotkey1, netuid1)),
-            &coldkey1,
-            U96F32::saturating_from_num(stake_amount),
-        );
+        let dynamic_fee_8 =
+            <SubtensorModule as Config>::SwapInterface::approx_fee_amount(netuid1, stake_amount);
         assert_eq!(stake_fee_8, dynamic_fee_8);
     });
 }
@@ -856,93 +820,38 @@ fn test_stake_fee_calculation() {
         TotalHotkeyAlpha::<Test>::insert(hotkey1, netuid1, total_hotkey_alpha);
 
         // Test stake fee for add_stake
-        let stake_fee_0 = SubtensorModule::calculate_staking_fee(
-            None,
-            &coldkey1,
-            Some((&hotkey1, netuid0)),
-            &coldkey1,
-            U96F32::from_num(stake_amount),
-        ); // Default for adding stake
-        assert_eq!(stake_fee_0, default_fee);
+
+        // Default for adding stake
+        let stake_fee =
+            <SubtensorModule as Config>::SwapInterface::approx_fee_amount(netuid0, stake_amount);
+        assert_eq!(stake_fee, default_fee);
 
         // Test stake fee for remove on root
-        let stake_fee_1 = SubtensorModule::calculate_staking_fee(
-            Some((&hotkey1, root_netuid)),
-            &coldkey1,
-            None,
-            &coldkey1,
-            U96F32::from_num(stake_amount),
+        let stake_fee = <SubtensorModule as Config>::SwapInterface::approx_fee_amount(
+            root_netuid,
+            stake_amount,
         ); // Default for removing stake from root
-        assert_eq!(stake_fee_1, default_fee);
+        assert_eq!(stake_fee, default_fee);
 
         // Test stake fee for move from root to non-root
-        let stake_fee_2 = SubtensorModule::calculate_staking_fee(
-            Some((&hotkey1, root_netuid)),
-            &coldkey1,
-            Some((&hotkey1, netuid0)),
-            &coldkey1,
-            U96F32::from_num(stake_amount),
-        ); // Default for moving stake from root to non-root
-        assert_eq!(stake_fee_2, default_fee);
+
+        // Default for moving stake from root to non-root
+        let stake_fee =
+            <SubtensorModule as Config>::SwapInterface::approx_fee_amount(netuid0, stake_amount);
+        assert_eq!(stake_fee, default_fee);
 
         // Test stake fee for move between hotkeys on root
-        let stake_fee_3 = SubtensorModule::calculate_staking_fee(
-            Some((&hotkey1, root_netuid)),
-            &coldkey1,
-            Some((&hotkey2, root_netuid)),
-            &coldkey1,
-            U96F32::from_num(stake_amount),
+        let stake_fee = <SubtensorModule as Config>::SwapInterface::approx_fee_amount(
+            root_netuid,
+            stake_amount,
         ); // Default for moving stake between hotkeys on root
-        assert_eq!(stake_fee_3, default_fee);
-
-        // Test stake fee for move between coldkeys on root
-        let stake_fee_4 = SubtensorModule::calculate_staking_fee(
-            Some((&hotkey1, root_netuid)),
-            &coldkey1,
-            Some((&hotkey1, root_netuid)),
-            &coldkey2,
-            U96F32::from_num(stake_amount),
-        ); // Default for moving stake between coldkeys on root
-        assert_eq!(stake_fee_4, default_fee);
-
-        // Test stake fee for *swap* from non-root to root
-        let stake_fee_5 = SubtensorModule::calculate_staking_fee(
-            Some((&hotkey1, netuid0)),
-            &coldkey1,
-            Some((&hotkey1, root_netuid)),
-            &coldkey1,
-            U96F32::from_num(stake_amount),
-        ); // Charged a dynamic fee
-        assert_ne!(stake_fee_5, default_fee);
-
-        // Test stake fee for move between hotkeys on non-root
-        let stake_fee_6 = SubtensorModule::calculate_staking_fee(
-            Some((&hotkey1, netuid0)),
-            &coldkey1,
-            Some((&hotkey2, netuid0)),
-            &coldkey1,
-            U96F32::from_num(stake_amount),
-        ); // Charge the default fee
-        assert_eq!(stake_fee_6, default_fee);
-
-        // Test stake fee for move between coldkeys on non-root
-        let stake_fee_7 = SubtensorModule::calculate_staking_fee(
-            Some((&hotkey1, netuid0)),
-            &coldkey1,
-            Some((&hotkey1, netuid0)),
-            &coldkey2,
-            U96F32::from_num(stake_amount),
-        ); // Charge the default fee; stake did not leave the subnet.
-        assert_eq!(stake_fee_7, default_fee);
+        assert_eq!(stake_fee, default_fee);
 
         // Test stake fee for *swap* from non-root to non-root
-        let stake_fee_8 = SubtensorModule::calculate_staking_fee(
-            Some((&hotkey1, netuid0)),
-            &coldkey1,
-            Some((&hotkey1, netuid1)),
-            &coldkey1,
-            U96F32::from_num(stake_amount),
-        ); // Charged a dynamic fee
-        assert_ne!(stake_fee_8, default_fee);
+
+        // Charged a dynamic fee
+        let stake_fee =
+            <SubtensorModule as Config>::SwapInterface::approx_fee_amount(netuid1, stake_amount);
+        assert_ne!(stake_fee, default_fee);
     });
 }
