@@ -1,6 +1,6 @@
 import * as assert from "assert";
 
-import { getAliceSigner, getClient, getDevnetApi, waitForTransactionCompletion, convertPublicKeyToMultiAddress, getRandomSubstrateKeypair, getSignerFromKeypair } from "../src/substrate"
+import { getAliceSigner, getDevnetApi, waitForTransactionCompletion, convertPublicKeyToMultiAddress, getRandomSubstrateKeypair, getSignerFromKeypair } from "../src/substrate"
 import { convertToFixedSizeBinary, generateRandomEthersWallet, getPublicClient, hexStringToUint8Array } from "../src/utils";
 import { ETH_LOCAL_URL, SUB_LOCAL_URL } from "../src/config";
 import { devnet } from "@polkadot-api/descriptors"
@@ -28,7 +28,6 @@ describe("Test the UID Lookup precompile", () => {
     before(async () => {
         // init variables got from await and async
         publicClient = await getPublicClient(ETH_LOCAL_URL)
-        const subClient = await getClient(SUB_LOCAL_URL)
         api = await getDevnetApi()
         alice = await getAliceSigner();
 
