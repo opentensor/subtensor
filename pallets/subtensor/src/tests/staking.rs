@@ -766,6 +766,36 @@ fn test_remove_stake_aggregate_ok_no_emission() {
         }));
     });
 }
+#[test]
+fn test_remove_stake_aggregate_fail() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1);
+        let subnet_owner_hotkey = U256::from(2);
+        let coldkey_account_id = U256::from(4343);
+        let hotkey_account_id = U256::from(4968585);
+        let amount = DefaultMinStake::<Test>::get() * 10;
+        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
+
+        assert_ok!(SubtensorModule::remove_stake_aggregate(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            amount
+        ));
+
+        // Enable on_finalize code to run
+        run_to_block_ext(2, true);
+
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::FailedToRemoveAggregatedStake(..))
+            )
+        }));
+    });
+}
 
 #[test]
 fn test_remove_stake_amount_too_low() {

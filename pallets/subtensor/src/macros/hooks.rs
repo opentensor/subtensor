@@ -140,35 +140,38 @@ mod hooks {
                         coldkey,
                         hotkey,
                         netuid,
-                        alpha,
-                        fee,
+                        alpha_unstaked,
                     } => {
-                        let tao_unstaked = Self::unstake_from_subnet(
-                            &hotkey,
-                            &coldkey,
+                        let result = Self::do_remove_stake(
+                            dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                            hotkey.clone(),
                             netuid,
-                            0,
-                            fee,
-                            Some(alpha),
+                            alpha_unstaked,
                         );
 
-                        Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
-                        Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
-
-                        if Self::get_total_stake_for_hotkey(&hotkey) < StakeThreshold::<T>::get() {
-                            Self::get_all_subnet_netuids().iter().for_each(|netuid| {
-                                PendingChildKeys::<T>::remove(netuid, &hotkey);
-                            })
+                        if let Err(err) = result {
+                            log::debug!(
+                                "Failed to remove aggregated stake: {:?}, {:?}, {:?}, {:?}, {:?}",
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                alpha_unstaked,
+                                err
+                            );
+                            Self::deposit_event(Event::FailedToRemoveAggregatedStake(
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                alpha_unstaked,
+                            ));
+                        } else {
+                            Self::deposit_event(Event::AggregatedStakeRemoved(
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                alpha_unstaked,
+                            ));
                         }
-
-                        Self::deposit_event(Event::AggregatedStakeRemoved(
-                            coldkey.clone(),
-                            hotkey.clone(),
-                            tao_unstaked,
-                            alpha,
-                            netuid,
-                            fee,
-                        ));
                     }
                     StakeJob::RemoveStakeLimit {
                         hotkey,

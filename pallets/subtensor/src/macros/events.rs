@@ -26,7 +26,9 @@ mod events {
         /// adding limited aggregated stake has failed
         FailedToAddAggregatedLimitedStake(T::AccountId, T::AccountId, u16, u64, u64, bool),
         /// stake has been removed from the hotkey staking account into the coldkey account (at the end of the block).
-        AggregatedStakeRemoved(T::AccountId, T::AccountId, u64, u64, u16, u64),
+        AggregatedStakeRemoved(T::AccountId, T::AccountId, u16, u64),
+        /// removing aggregated stake has failed
+        FailedToRemoveAggregatedStake(T::AccountId, T::AccountId, u16, u64),
         /// aggregated limited stake has been removed from the hotkey staking account into the coldkey account (at the end of the block).
         AggregatedLimitedStakeRemoved(T::AccountId, T::AccountId, u16, u64, u64, bool),
         /// removing limited aggregated stake has failed

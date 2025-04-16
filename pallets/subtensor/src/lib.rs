@@ -292,10 +292,8 @@ pub mod pallet {
             coldkey: AccountId,
             /// Subnet ID
             netuid: u16,
-            /// Operation fee
-            fee: u64,
             /// Alpha value
-            alpha: u64,
+            alpha_unstaked: u64,
         },
         /// Represents a job for "add_stake_limit" operation
         AddStakeLimit {

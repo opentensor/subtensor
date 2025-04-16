@@ -353,7 +353,6 @@ impl<T: Config> Pallet<T> {
             origin_netuid,
             move_amount,
             fee,
-            None,
         );
 
         // Stake the unstaked amount into the destination.
