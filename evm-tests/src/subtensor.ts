@@ -160,7 +160,8 @@ export async function burnedRegister(api: TypedApi<typeof devnet>, netuid: numbe
     const tx = api.tx.SubtensorModule.burned_register({ hotkey: ss58Address, netuid: netuid })
     await waitForTransactionCompletion(api, tx, signer)
         .then(() => { })
-        .catch((error) => { console.log(`transaction error ${error}`) });
+        .catch((error) => { console.log(`c ${error}`) });
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     assert.equal(uids + 1, await api.query.SubtensorModule.SubnetworkN.getValue(netuid))
 }
 
