@@ -2,7 +2,7 @@
 #![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 use frame_support::{
     PalletId, derive_impl, parameter_types,
-    traits::{OnFinalize, OnInitialize},
+    traits::{OnFinalize, OnInitialize, fungible, fungible::*, tokens::Preservation},
     weights::Weight,
 };
 use frame_system::{EnsureRoot, pallet_prelude::BlockNumberFor};
@@ -130,12 +130,16 @@ pub(crate) mod pallet_test {
     pub struct Pallet<T>(_);
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + pallet_crowdloan::Config {}
+    pub trait Config: frame_system::Config + pallet_crowdloan::Config {
+        type Currency: fungible::Balanced<Self::AccountId, Balance = u64>
+            + fungible::Mutate<Self::AccountId>;
+    }
 
     #[pallet::error]
     pub enum Error<T> {
         ShouldFail,
         MissingCurrentCrowdloanId,
+        CrowdloanDoesNotExist,
     }
 
     #[pallet::storage]
@@ -149,21 +153,44 @@ pub(crate) mod pallet_test {
         }
 
         #[pallet::call_index(1)]
-        pub fn set_passed_crowdloan_id(origin: OriginFor<T>) -> DispatchResult {
+        pub fn transfer_funds(origin: OriginFor<T>, dest: AccountOf<T>) -> DispatchResult {
             let crowdloan_id = pallet_crowdloan::CurrentCrowdloanId::<T>::get()
                 .ok_or(Error::<T>::MissingCurrentCrowdloanId)?;
+            let crowdloan = pallet_crowdloan::Crowdloans::<T>::get(crowdloan_id)
+                .ok_or(Error::<T>::CrowdloanDoesNotExist)?;
+
             PassedCrowdloanId::<T>::put(crowdloan_id);
+
+            <T as Config>::Currency::transfer(
+                &crowdloan.funds_account,
+                &dest,
+                crowdloan.raised,
+                Preservation::Expendable,
+            )?;
+
             Ok(())
         }
 
         #[pallet::call_index(2)]
+        pub fn set_passed_crowdloan_id(origin: OriginFor<T>) -> DispatchResult {
+            let crowdloan_id = pallet_crowdloan::CurrentCrowdloanId::<T>::get()
+                .ok_or(Error::<T>::MissingCurrentCrowdloanId)?;
+
+            PassedCrowdloanId::<T>::put(crowdloan_id);
+
+            Ok(())
+        }
+
+        #[pallet::call_index(3)]
         pub fn failing_extrinsic(origin: OriginFor<T>) -> DispatchResult {
             Err(Error::<T>::ShouldFail.into())
         }
     }
 }
 
-impl pallet_test::Config for Test {}
+impl pallet_test::Config for Test {
+    type Currency = Balances;
+}
 
 pub(crate) struct TestState {
     block_number: BlockNumberFor<Test>,

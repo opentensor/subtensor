@@ -428,7 +428,7 @@ contributor,
         /// Parameters:
         /// - `contributor`: The contributor to withdraw from.
         /// - `crowdloan_id`: The id of the crowdloan to withdraw from.
-        #[pallet::call_index(3)]
+        #[pallet::call_index(2)]
         #[pallet::weight(T::WeightInfo::withdraw())]
         pub fn withdraw(
             origin: OriginFor<T>,
@@ -464,6 +464,76 @@ contributor,
                 crowdloan_id,
                 amount,
             });
+
+            Ok(())
+        }
+
+        /// Finalize a successful crowdloan.
+        ///
+        /// The call will transfer the raised amount to the target address if it was provided when the crowdloan was created
+        /// and dispatch the call that was provided using the creator origin. The CurrentCrowdloanId will be set to the
+        /// crowdloan id being finalized so the dispatched call can access it temporarily by accessing
+        /// the `CurrentCrowdloanId` storage item.
+        ///
+        /// The dispatch origin for this call must be _Signed_ and must be the creator of the crowdloan.
+        ///
+        /// Parameters:
+        /// - `crowdloan_id`: The id of the crowdloan to finalize.
+        #[pallet::call_index(3)]
+        #[pallet::weight(T::WeightInfo::finalize())]
+        pub fn finalize(
+            origin: OriginFor<T>,
+            #[pallet::compact] crowdloan_id: CrowdloanId,
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+            let now = frame_system::Pallet::<T>::block_number();
+
+            let mut crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
+
+            // Ensure the origin is the creator of the crowdloan and the crowdloan has ended,
+            // raised the cap and is not finalized.
+            ensure!(who == crowdloan.creator, Error::<T>::InvalidOrigin);
+            ensure!(now >= crowdloan.end, Error::<T>::ContributionPeriodNotEnded);
+            ensure!(crowdloan.raised == crowdloan.cap, Error::<T>::CapNotRaised);
+            ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
+
+            // If the target address is provided, transfer the raised amount to it.
+            if let Some(ref target_address) = crowdloan.target_address {
+                CurrencyOf::<T>::transfer(
+                    &crowdloan.funds_account,
+                    target_address,
+                    crowdloan.raised,
+                    Preservation::Expendable,
+                )?;
+            }
+
+            // Set the current crowdloan id so the dispatched call
+            // can access it temporarily
+            CurrentCrowdloanId::<T>::put(crowdloan_id);
+
+            // Retrieve the call from the preimage storage
+            let call = match T::Preimages::peek(&crowdloan.call) {
+                Ok((call, _)) => call,
+                Err(_) => {
+                    // If the call is not found, we drop it from the preimage storage
+                    // because it's not needed anymore
+                    T::Preimages::drop(&crowdloan.call);
+                    return Err(Error::<T>::CallUnavailable)?;
+                }
+            };
+
+            // Dispatch the call with creator origin
+            call.dispatch(frame_system::RawOrigin::Signed(who).into())
+                .map(|_| ())
+                .map_err(|e| e.error)?;
+
+            // Clear the current crowdloan id
+            CurrentCrowdloanId::<T>::kill();
+
+            crowdloan.finalized = true;
+            Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
+
+            Self::deposit_event(Event::<T>::Finalized { crowdloan_id });
 
             Ok(())
         }
@@ -616,16 +686,6 @@ impl<T: Config> Pallet<T> {
         let now = frame_system::Pallet::<T>::block_number();
         ensure!(now >= crowdloan.end, Error::<T>::ContributionPeriodNotEnded);
         ensure!(crowdloan.raised < crowdloan.cap, Error::<T>::CapRaised);
-        ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
-        Ok(())
-    }
-
-    // A crowdloan is considered to have succeeded if it has ended, has raised the cap and
-    // has not been finalized.
-    fn ensure_crowdloan_succeeded(crowdloan: &CrowdloanInfoOf<T>) -> Result<(), Error<T>> {
-        let now = frame_system::Pallet::<T>::block_number();
-        ensure!(now >= crowdloan.end, Error::<T>::ContributionPeriodNotEnded);
-        ensure!(crowdloan.raised == crowdloan.cap, Error::<T>::CapNotRaised);
         ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
         Ok(())
     }
