@@ -68,6 +68,15 @@ fn call_owner_util() -> RuntimeCall {
     })
 }
 
+// sn owner hotkey call
+fn call_sn_owner_hotkey() -> RuntimeCall {
+    let netuid = 1;
+    RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_sn_owner_hotkey {
+        netuid,
+        hotkey: AccountId::from(ACCOUNT).into(),
+    })
+}
+
 // critical call for Subtensor
 fn call_propose() -> RuntimeCall {
     let proposal = call_remark();
@@ -215,6 +224,33 @@ fn test_non_transfer_cannot_transfer() {
         ));
 
         let call = call_transfer();
+        assert_ok!(Proxy::proxy(
+            RuntimeOrigin::signed(AccountId::from(DELEGATE)),
+            AccountId::from(ACCOUNT).into(),
+            None,
+            Box::new(call.clone()),
+        ));
+
+        System::assert_last_event(
+            pallet_proxy::Event::ProxyExecuted {
+                result: Err(SystemError::CallFiltered.into()),
+            }
+            .into(),
+        );
+    });
+}
+
+#[test]
+fn test_owner_type_cannot_set_sn_owner_hotkey() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Proxy::add_proxy(
+            RuntimeOrigin::signed(AccountId::from(ACCOUNT)),
+            AccountId::from(DELEGATE).into(),
+            ProxyType::Owner,
+            0
+        ));
+
+        let call = call_sn_owner_hotkey();
         assert_ok!(Proxy::proxy(
             RuntimeOrigin::signed(AccountId::from(DELEGATE)),
             AccountId::from(ACCOUNT).into(),
