@@ -366,7 +366,7 @@ min_contribution,
 
             // Ensure contribution is at least the minimum contribution
             ensure!(
-                amount >= T::MinimumContribution::get(),
+                amount >= crowdloan.min_contribution,
                 Error::<T>::ContributionTooLow
             );
 
@@ -387,7 +387,7 @@ min_contribution,
                 .checked_add(amount)
                 .ok_or(Error::<T>::Overflow)?;
 
-            // Ensure contribution does not overflow the contributor's total contributions
+            // Compute the new total contribution and ensure it does not overflow.
             let contribution = Contributions::<T>::get(crowdloan_id, &contributor)
                 .unwrap_or(Zero::zero())
                 .checked_add(amount)
@@ -410,15 +410,15 @@ min_contribution,
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
 
             Self::deposit_event(Event::<T>::Contributed {
-                contributor,
-                crowdloan_id,
+                                crowdloan_id,
+contributor,
                 amount,
             });
 
             Ok(())
         }
 
-        /// Withdraw a contribution from a failed crowdloan.
+        /// Withdraw a contribution from an active (not yet finalized or dissolved) crowdloan.
         ///
         /// The origin doesn't needs to be the contributor, it can be any account,
         /// making it possible for someone to trigger a refund for a contributor.
@@ -438,7 +438,7 @@ min_contribution,
             ensure_signed(origin)?;
 
             let mut crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
-            Self::ensure_crowdloan_failed(&crowdloan)?;
+            ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
 
             // Ensure contributor has balance left in the crowdloan account
             let amount =
@@ -453,7 +453,7 @@ min_contribution,
             )?;
 
             // Remove the contribution from the contributions map and update
-            // refunds so far
+            // crowdloan raised amount to reflect the withdrawal.
             Contributions::<T>::remove(crowdloan_id, &contributor);
             crowdloan.raised = crowdloan.raised.saturating_sub(amount);
 
