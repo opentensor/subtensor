@@ -593,7 +593,7 @@ export async function startCall(
       console.log(`transaction error ${error}`);
     });
 
-  await new Promise((resolve) => setTimeout(resolve, 2000));
+  await new Promise((resolve) => setTimeout(resolve, 1000));
   const callStarted = await api.query.SubtensorModule.FirstEmissionBlockNumber
     .getValue(netuid);
   assert.notEqual(callStarted, undefined);
