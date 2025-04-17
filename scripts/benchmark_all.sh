@@ -1,24 +1,32 @@
-#!/bin/sh
-set -ex
+#!/usr/bin/env bash
+set -e
 
-# List of pallets you want to benchmark
-pallets=("pallet_subtensor" "pallet_collective" "pallet_commitments" "pallet_registry" "pallet_admin_utils")
+pallets=(
+  "pallet_subtensor"
+  "pallet_commitments"
+  "pallet_drand"
+  "pallet_admin_utils"
+)
 
-# Chain spec and output directory
-chain_spec="finney"  # or your specific chain spec
+RUNTIME_WASM=./target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm
 
-for pallet in "${pallets[@]}"
-do
-  echo "Benchmarking $pallet..."
-  cargo run --profile=production --features=runtime-benchmarks,try-runtime --bin node-subtensor -- benchmark pallet \
-    --chain $chain_spec \
+cargo build \
+  --profile production \
+  -p node-subtensor \
+  --features runtime-benchmarks
+
+for pallet in "${pallets[@]}"; do
+  echo "--------------------------------------------------------"
+  echo " Benchmarking all extrinsics for $pallet..."
+  echo "--------------------------------------------------------"
+
+  ./target/production/node-subtensor benchmark pallet \
+    --runtime "$RUNTIME_WASM" \
+    --genesis-builder=runtime \
+    --genesis-builder-preset=benchmark \
     --wasm-execution=compiled \
-    --pallet $pallet \
-    --extrinsic '*' \
+    --pallet "$pallet" \
+    --extrinsic "*" \
     --steps 50 \
-    --repeat 5 \
-    --output "pallets/$pallet/src/weights.rs" \
-    --template ./.maintain/frame-weight-template.hbs  # Adjust this path to your template file
+    --repeat 5
 done
-
-echo "All pallets have been benchmarked and weights updated."
