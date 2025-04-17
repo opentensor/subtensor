@@ -9,7 +9,6 @@ import {
 } from "./substrate";
 import { convertH160ToSS58, convertPublicKeyToSs58 } from "./address-utils";
 import { tao } from "./balance-math";
-import internal from "stream";
 
 // create a new subnet and return netuid
 export async function addNewSubnetwork(
