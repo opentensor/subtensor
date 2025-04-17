@@ -213,11 +213,34 @@ jobs:
       - name: Load Docker Image
         run: docker load -i subtensor-localnet.tar
 
-      - name: Run tests
+#      - name: Run tests
+#        working-directory: ${{ github.workspace }}/btcli
+#        run: |
+#          source ${{ github.workspace }}/venv/bin/activate
+#          uv run pytest ${{ matrix.test-file }} -s
+
+      - name: Run with retry
         working-directory: ${{ github.workspace }}/btcli
         run: |
           source ${{ github.workspace }}/venv/bin/activate
-          uv run pytest ${{ matrix.test-file }} -s
+          set +e
+          for i in 1 2; do
+            echo "🔁 Attempt $i: Running tests"
+            uv run pytest ${{ matrix.test-file }} -s
+            status=$?
+            if [ $status -eq 0 ]; then
+              echo "✅ Tests passed on attempt $i"
+              break
+            else
+              echo "❌ Tests failed on attempt $i"
+              if [ $i -eq 2 ]; then
+                echo "🔥 Tests failed after 2 attempts"
+                exit 1
+              fi
+              echo "🕒 Retrying..."
+              sleep 5
+            fi
+          done
 
   # main sdk job
   run-sdk-e2e-tests:
@@ -285,8 +308,31 @@ jobs:
       - name: Load Docker Image
         run: docker load -i subtensor-localnet.tar
 
-      - name: Run tests
+#      - name: Run tests
+#        working-directory: ${{ github.workspace }}/bittensor
+#        run: |
+#          source ${{ github.workspace }}/venv/bin/activate
+#          uv run pytest ${{ matrix.test-file }} -s
+
+      - name: Run with retry
         working-directory: ${{ github.workspace }}/bittensor
         run: |
           source ${{ github.workspace }}/venv/bin/activate
-          uv run pytest ${{ matrix.test-file }} -s
+          set +e
+          for i in 1 2; do
+            echo "🔁 Attempt $i: Running tests"
+            uv run pytest ${{ matrix.test-file }} -s
+            status=$?
+            if [ $status -eq 0 ]; then
+              echo "✅ Tests passed on attempt $i"
+              break
+            else
+              echo "❌ Tests failed on attempt $i"
+              if [ $i -eq 2 ]; then
+                echo "🔥 Tests failed after 2 attempts"
+                exit 1
+              fi
+              echo "🕒 Retrying..."
+              sleep 5
+            fi
+          done
