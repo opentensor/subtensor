@@ -145,7 +145,7 @@ mod benchmarks {
         pallet_subtensor::Pallet::<T>::init_new_network(1u16 /*netuid*/, 1u16 /*tempo*/);
 
         #[extrinsic_call]
-		_(RawOrigin::Root, 1u16/*netuid*/, 300u16/*activity_cutoff*/)/*sudo_set_activity_cutoff*/;
+		_(RawOrigin::Root, 1u16/*netuid*/, 361u16/*activity_cutoff*/)/*sudo_set_activity_cutoff*/;
     }
 
     #[benchmark]
