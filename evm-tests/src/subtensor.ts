@@ -155,13 +155,13 @@ export async function disableWhiteListCheck(api: TypedApi<typeof devnet>, disabl
 }
 
 export async function burnedRegister(api: TypedApi<typeof devnet>, netuid: number, ss58Address: string, keypair: KeyPair) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     const uids = await api.query.SubtensorModule.SubnetworkN.getValue(netuid)
     const signer = getSignerFromKeypair(keypair)
     const tx = api.tx.SubtensorModule.burned_register({ hotkey: ss58Address, netuid: netuid })
     await waitForTransactionCompletion(api, tx, signer)
         .then(() => { })
         .catch((error) => { console.log(`c ${error}`) });
-    await new Promise((resolve) => setTimeout(resolve, 1000));
     assert.equal(uids + 1, await api.query.SubtensorModule.SubnetworkN.getValue(netuid))
 }
 
@@ -378,5 +378,8 @@ export async function startCall(api: TypedApi<typeof devnet>, netuid: number, ke
     await waitForTransactionCompletion(api, tx, signer)
         .then(() => { })
         .catch((error) => { console.log(`transaction error ${error}`) });
-
+    
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const callStarted = await api.query.SubtensorModule.FirstEmissionBlockNumber.getValue(netuid)
+    assert.notEqual(callStarted, undefined)
 }
