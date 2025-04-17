@@ -1507,7 +1507,7 @@ pub mod pallet {
         ///
         /// # Rate Limiting
         /// This function is rate-limited to one call per subnet per interval (e.g., one week).
-        #[pallet::call_index(66)]
+        #[pallet::call_index(67)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_sn_owner_hotkey(
             origin: OriginFor<T>,
@@ -1515,6 +1515,37 @@ pub mod pallet {
             hotkey: T::AccountId,
         ) -> DispatchResult {
             pallet_subtensor::Pallet::<T>::do_set_sn_owner_hotkey(origin, netuid, &hotkey)
+		}
+
+
+        /// Enables or disables subtoken trading for a given subnet.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the root account.
+        /// * `netuid` - The unique identifier of the subnet.
+        /// * `subtoken_enabled` - A boolean indicating whether subtoken trading should be enabled or disabled.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the caller is not the root account.
+        ///
+        /// # Weight
+        /// Weight is handled by the `#[pallet::weight]` attribute.
+        #[pallet::call_index(66)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_subtoken_enabled(
+            origin: OriginFor<T>,
+            netuid: u16,
+            subtoken_enabled: bool,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::SubtokenEnabled::<T>::set(netuid, subtoken_enabled);
+
+            log::debug!(
+                "SubtokenEnabled( netuid: {:?}, subtoken_enabled: {:?} )",
+                netuid,
+                subtoken_enabled
+            );
+            Ok(())
         }
     }
 }

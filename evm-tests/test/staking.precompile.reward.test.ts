@@ -7,10 +7,11 @@ import { tao } from "../src/balance-math"
 import {
     forceSetBalanceToSs58Address, addNewSubnetwork, burnedRegister,
     setTxRateLimit, setTempo, setWeightsSetRateLimit, setSubnetOwnerCut, setMaxAllowedUids,
-    setMinDelegateTake, becomeDelegate, setActivityCutoff, addStake, setWeight, rootRegister
+    setMinDelegateTake, becomeDelegate, setActivityCutoff, addStake, setWeight, rootRegister,
+    startCall
 } from "../src/subtensor"
 
-describe("Test neuron precompile reveal weights", () => {
+describe("Test neuron precompile reward", () => {
     const hotkey = getRandomSubstrateKeypair();
     const coldkey = getRandomSubstrateKeypair();
 
@@ -35,6 +36,7 @@ describe("Test neuron precompile reveal weights", () => {
         // await forceSetBalanceToEthAddress(api, wallet1.address)
         // await forceSetBalanceToEthAddress(api, wallet2.address)
         let netuid = await addNewSubnetwork(api, hotkey, coldkey)
+        await startCall(api, netuid, coldkey)
 
         console.log("test the case on subnet ", netuid)
 

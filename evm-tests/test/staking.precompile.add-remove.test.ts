@@ -10,12 +10,13 @@ import { convertH160ToPublicKey } from "../src/address-utils"
 import {
     forceSetBalanceToEthAddress, forceSetBalanceToSs58Address, addNewSubnetwork, burnedRegister,
     sendProxyCall,
+    startCall,
 } from "../src/subtensor"
 import { ETH_LOCAL_URL } from "../src/config";
 import { ISTAKING_ADDRESS, ISTAKING_V2_ADDRESS, IStakingABI, IStakingV2ABI } from "../src/contracts/staking"
 import { PublicClient } from "viem";
 
-describe("Test neuron precompile reveal weights", () => {
+describe("Test neuron precompile add remove stake", () => {
     // init eth part
     const wallet1 = generateRandomEthersWallet();
     const wallet2 = generateRandomEthersWallet();
@@ -41,6 +42,7 @@ describe("Test neuron precompile reveal weights", () => {
         await forceSetBalanceToEthAddress(api, wallet1.address)
         await forceSetBalanceToEthAddress(api, wallet2.address)
         let netuid = await addNewSubnetwork(api, hotkey, coldkey)
+        await startCall(api, netuid, coldkey)
 
         console.log("test the case on subnet ", netuid)
 
