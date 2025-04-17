@@ -63,19 +63,21 @@ export async function forceSetBalanceToSs58Address(
   });
   const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
 
-  let failed = true;
+    let failed = true;
+    let retries = 0;
 
-  // retry the transaction until it is successful
-  while (failed) {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    failed = false
-    await waitForTransactionCompletion(api, tx, alice)
-      .then(() => {})
-      .catch((error) => {
-        failed = true
-        console.log(`transaction error ${error}`);
-      });
-  }
+    // set max retries times
+    while (failed && retries < 5) {
+        failed = false
+        await waitForTransactionCompletion(api, tx, alice)
+            .then(() => { })
+            .catch((error) => {
+                failed = true
+                console.log(`transaction error ${error}`)
+            });
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        retries += 1
+    }
 
   const balanceOnChain =
     (await api.query.System.Account.getValue(ss58Address)).data.free;
@@ -171,130 +173,10 @@ export async function setTempo(
   });
   const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
 
-  await waitForTransactionCompletion(api, tx, alice)
-    .then(() => {})
-    .catch((error) => {
-      console.log(`transaction error ${error}`);
-    });
-  assert.equal(tempo, await api.query.SubtensorModule.Tempo.getValue(netuid));
-}
-
-export async function setCommitRevealWeightsInterval(
-  api: TypedApi<typeof devnet>,
-  netuid: number,
-  interval: bigint,
-) {
-  const value = await api.query.SubtensorModule.RevealPeriodEpochs.getValue(
-    netuid,
-  );
-  if (value === interval) {
-    return;
-  }
-
-  const alice = getAliceSigner();
-  const internalCall = api.tx.AdminUtils
-    .sudo_set_commit_reveal_weights_interval({
-      netuid: netuid,
-      interval: interval,
-    });
-  const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
-
-  await waitForTransactionCompletion(api, tx, alice)
-    .then(() => {})
-    .catch((error) => {
-      console.log(`transaction error ${error}`);
-    });
-  assert.equal(
-    interval,
-    await api.query.SubtensorModule.RevealPeriodEpochs.getValue(netuid),
-  );
-}
-
-export async function forceSetChainID(
-  api: TypedApi<typeof devnet>,
-  chainId: bigint,
-) {
-  const value = await api.query.EVMChainId.ChainId.getValue();
-  if (value === chainId) {
-    return;
-  }
-
-  const alice = getAliceSigner();
-  const internalCall = api.tx.AdminUtils.sudo_set_evm_chain_id({
-    chain_id: chainId,
-  });
-  const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
-
-  await waitForTransactionCompletion(api, tx, alice)
-    .then(() => {})
-    .catch((error) => {
-      console.log(`transaction error ${error}`);
-    });
-  assert.equal(chainId, await api.query.EVMChainId.ChainId.getValue());
-}
-
-export async function disableWhiteListCheck(
-  api: TypedApi<typeof devnet>,
-  disabled: boolean,
-) {
-  const value = await api.query.EVM.DisableWhitelistCheck.getValue();
-  if (value === disabled) {
-    return;
-  }
-
-  const alice = getAliceSigner();
-  const internalCall = api.tx.EVM.disable_whitelist({ disabled: disabled });
-  const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
-
-  await waitForTransactionCompletion(api, tx, alice)
-    .then(() => {})
-    .catch((error) => {
-      console.log(`transaction error ${error}`);
-    });
-  assert.equal(disabled, await api.query.EVM.DisableWhitelistCheck.getValue());
-}
-
-export async function burnedRegister(
-  api: TypedApi<typeof devnet>,
-  netuid: number,
-  ss58Address: string,
-  keypair: KeyPair,
-) {
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-  const uids = await api.query.SubtensorModule.SubnetworkN.getValue(netuid);
-  const signer = getSignerFromKeypair(keypair);
-  const tx = api.tx.SubtensorModule.burned_register({
-    hotkey: ss58Address,
-    netuid: netuid,
-  });
-  await waitForTransactionCompletion(api, tx, signer)
-    .then(() => {})
-    .catch((error) => {
-      console.log(`c ${error}`);
-    });
-  assert.equal(
-    uids + 1,
-    await api.query.SubtensorModule.SubnetworkN.getValue(netuid),
-  );
-}
-
-export async function sendProxyCall(
-  api: TypedApi<typeof devnet>,
-  calldata: TxCallData,
-  ss58Address: string,
-  keypair: KeyPair,
-) {
-  const signer = getSignerFromKeypair(keypair);
-  const tx = api.tx.Proxy.proxy({
-    call: calldata,
-    real: MultiAddress.Id(ss58Address),
-    force_proxy_type: undefined,
-  });
-  await waitForTransactionCompletion(api, tx, signer)
-    .then(() => {})
-    .catch((error) => {
-      console.log(`transaction error ${error}`);
-    });
+    await waitForTransactionCompletion(api, tx, alice)
+        .then(() => { })
+        .catch((error) => { console.log(`transaction error ${error}`) });
+    assert.equal(tempo, await api.query.SubtensorModule.Tempo.getValue(netuid))
 }
 
 export async function setTxRateLimit(
@@ -439,32 +321,6 @@ export async function setMaxAllowedUids(
   );
 }
 
-export async function setMinDelegateTake(
-  api: TypedApi<typeof devnet>,
-  minDelegateTake: number,
-) {
-  const value = await api.query.SubtensorModule.MinDelegateTake.getValue();
-  if (value === minDelegateTake) {
-    return;
-  }
-
-  const alice = getAliceSigner();
-
-  const internalCall = api.tx.AdminUtils.sudo_set_min_delegate_take({
-    take: minDelegateTake,
-  });
-  const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
-
-  await waitForTransactionCompletion(api, tx, alice)
-    .then(() => {})
-    .catch((error) => {
-      console.log(`transaction error ${error}`);
-    });
-  assert.equal(
-    minDelegateTake,
-    await api.query.SubtensorModule.MinDelegateTake.getValue(),
-  );
-}
 
 export async function becomeDelegate(
   api: TypedApi<typeof devnet>,
@@ -582,10 +438,10 @@ export async function startCall(
   }
   await new Promise((resolve) => setTimeout(resolve, 2000));
 
-  const signer = getSignerFromKeypair(keypair);
-  let tx = api.tx.SubtensorModule.start_call({
-    netuid: netuid,
-  });
+    const signer = getSignerFromKeypair(keypair)
+    let tx = api.tx.SubtensorModule.start_call({
+        netuid: netuid,
+    })
 
   await waitForTransactionCompletion(api, tx, signer)
     .then(() => {})
@@ -593,8 +449,9 @@ export async function startCall(
       console.log(`transaction error ${error}`);
     });
 
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-  const callStarted = await api.query.SubtensorModule.FirstEmissionBlockNumber
-    .getValue(netuid);
-  assert.notEqual(callStarted, undefined);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const callStarted = await api.query.SubtensorModule.FirstEmissionBlockNumber
+        .getValue(netuid);
+    assert.notEqual(callStarted, undefined);
+
 }
