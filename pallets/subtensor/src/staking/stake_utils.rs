@@ -1166,6 +1166,7 @@ impl<T: Config> Pallet<T> {
         let mut remove_stake = vec![];
         let mut add_stake_limit = vec![];
         let mut remove_stake_limit = vec![];
+        let mut unstake_all = vec![];
 
         for (_, job) in stake_jobs.into_iter() {
             match &job {
@@ -1173,6 +1174,7 @@ impl<T: Config> Pallet<T> {
                 StakeJob::RemoveStake { .. } => remove_stake.push(job),
                 StakeJob::AddStakeLimit { .. } => add_stake_limit.push(job),
                 StakeJob::RemoveStakeLimit { .. } => remove_stake_limit.push(job),
+                StakeJob::UnstakeAll { .. } => unstake_all.push(job),
             }
         }
 
@@ -1191,6 +1193,16 @@ impl<T: Config> Pallet<T> {
             (
                 StakeJob::RemoveStake { coldkey: a_key, .. },
                 StakeJob::RemoveStake { coldkey: b_key, .. },
+            ) => {
+                a_key.cmp(b_key) // ascending
+            }
+            _ => sp_std::cmp::Ordering::Equal, // unreachable
+        });
+
+        unstake_all.sort_by(|a, b| match (a, b) {
+            (
+                StakeJob::UnstakeAll { coldkey: a_key, .. },
+                StakeJob::UnstakeAll { coldkey: b_key, .. },
             ) => {
                 a_key.cmp(b_key) // ascending
             }
@@ -1312,7 +1324,29 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // Process AddStakeLimit job (priority 3)
+        // Process UnstakeAll job (priority 3)
+        for job in unstake_all.into_iter() {
+            if let StakeJob::UnstakeAll { hotkey, coldkey } = job {
+                let result = Self::do_unstake_all(
+                    dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                    hotkey.clone(),
+                );
+
+                if let Err(err) = result {
+                    log::debug!(
+                        "Failed to unstake all: {:?}, {:?}, {:?}",
+                        coldkey,
+                        hotkey,
+                        err
+                    );
+                    Self::deposit_event(Event::AggregatedUnstakeAllFailed(coldkey, hotkey));
+                } else {
+                    Self::deposit_event(Event::AggregatedUnstakeAllSucceeded(coldkey, hotkey));
+                }
+            }
+        }
+
+        // Process AddStakeLimit job (priority 4)
         for job in add_stake_limit.into_iter() {
             if let StakeJob::AddStakeLimit {
                 hotkey,
@@ -1364,7 +1398,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // Process AddStake job (priority 4)
+        // Process AddStake job (priority 5)
         for job in add_stake.into_iter() {
             if let StakeJob::AddStake {
                 hotkey,

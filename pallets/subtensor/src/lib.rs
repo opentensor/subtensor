@@ -326,6 +326,13 @@ pub mod pallet {
             /// fill or kill type or order.
             allow_partial: bool,
         },
+        /// Represents a job for "unstake_all" operation
+        UnstakeAll {
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Hotkey account
+            hotkey: AccountId,
+        },
     }
 
     /// ============================

@@ -243,6 +243,58 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// ---- The implementation for the extrinsic unstake_all_aggregate: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
+    ///
+    /// # Args:
+    /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    ///     -  The signature of the caller's coldkey.
+    ///
+    /// * 'hotkey' (T::AccountId):
+    ///     -  The associated hotkey account.
+    ///
+    /// # Event:
+    /// * StakeRemoved;
+    ///     -  On the successfully removing stake from the hotkey account.
+    ///
+    /// # Raises:
+    /// * 'NotRegistered':
+    ///     -  Thrown if the account we are attempting to unstake from is non existent.
+    ///
+    /// * 'NonAssociatedColdKey':
+    ///     -  Thrown if the coldkey does not own the hotkey we are unstaking from.
+    ///
+    /// * 'NotEnoughStakeToWithdraw':
+    ///     -  Thrown if there is not enough stake on the hotkey to withdraw this amount.
+    ///
+    /// * 'TxRateLimitExceeded':
+    ///     -  Thrown if key has hit transaction rate limit
+    ///
+    pub fn do_unstake_all_aggregate(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+    ) -> dispatch::DispatchResult {
+        // We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
+        let coldkey = ensure_signed(origin)?;
+
+        // Consider the weight from on_finalize
+        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
+            Self::do_unstake_all(
+                crate::dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+            )?;
+        }
+
+        // Save the unstake_all job for the on_finalize
+        let stake_job = StakeJob::UnstakeAll { hotkey, coldkey };
+
+        let stake_job_id = NextStakeJobId::<T>::get();
+
+        StakeJobs::<T>::insert(stake_job_id, stake_job);
+        NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
+
+        Ok(())
+    }
+
     /// ---- The implementation for the extrinsic unstake_all: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
     ///
     /// # Args:
