@@ -2290,5 +2290,24 @@ mod dispatches {
         pub fn unstake_all_aggregate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_unstake_all_aggregate(origin, hotkey)
         }
+
+        /// ---- The implementation for the extrinsic unstake_all_alpha_aggregate: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
+        ///
+        /// The operation will be delayed until the end of the block.
+        ///
+        /// # Args:
+        /// * `origin` - (<T as frame_system::Config>::Origin):
+        ///     - The signature of the caller's coldkey.
+        ///
+        /// * `hotkey` (T::AccountId):
+        ///     - The associated hotkey account.
+        #[pallet::call_index(108)]
+        #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn unstake_all_alpha_aggregate(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+        ) -> DispatchResult {
+            Self::do_unstake_all_alpha_aggregate(origin, hotkey)
+        }
     }
 }

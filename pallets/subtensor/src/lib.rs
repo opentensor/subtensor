@@ -333,6 +333,13 @@ pub mod pallet {
             /// Hotkey account
             hotkey: AccountId,
         },
+        /// Represents a job for "unstake_all_alpha" operation
+        UnstakeAllAlpha {
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Hotkey account
+            hotkey: AccountId,
+        },
     }
 
     /// ============================
