@@ -343,9 +343,165 @@ fn test_verify_aggregated_stake_order() {
             .expect("Stake event must be present in the event log.");
 
         // Check events order
-        assert!(add_stake_limit_position < add_stake_position);
-        assert!(add_stake_position < remove_stake_position);
         assert!(remove_stake_limit_position < remove_stake_position);
+        assert!(add_stake_position > remove_stake_position);
+        assert!(add_stake_limit_position < add_stake_position);
+    });
+}
+
+#[test]
+#[allow(clippy::indexing_slicing)]
+fn test_verify_all_job_type_sort_by_coldkey_with_precollected_lists() {
+    new_test_ext(1).execute_with(|| {
+        let amount = 1_000_000_000_000;
+        let limit_price = 6_000_000_000u64;
+
+        // Coldkeys and hotkeys
+        let coldkeys = vec![
+            U256::from(100), // add_stake
+            U256::from(200), // add_stake
+            U256::from(300), // add_stake_limit
+            U256::from(400), // add_stake_limit
+            U256::from(500), // remove_stake
+            U256::from(600), // remove_stake
+            U256::from(700), // remove_stake_limit
+            U256::from(800), // remove_stake_limit
+        ];
+
+        let hotkeys = (1..=8).map(U256::from).collect::<Vec<_>>();
+
+        let netuids: Vec<_> = hotkeys
+            .iter()
+            .zip(coldkeys.iter())
+            .map(|(h, c)| add_dynamic_network(h, c))
+            .collect();
+
+        let tao_reserve = U96F32::from_num(150_000_000_000u64);
+        let alpha_in = U96F32::from_num(100_000_000_000u64);
+
+        for netuid in &netuids {
+            SubnetTAO::<Test>::insert(*netuid, tao_reserve.to_num::<u64>());
+            SubnetAlphaIn::<Test>::insert(*netuid, alpha_in.to_num::<u64>());
+        }
+
+        for coldkey in &coldkeys {
+            SubtensorModule::add_balance_to_coldkey_account(coldkey, amount);
+        }
+
+        for ((hotkey, coldkey), netuid) in hotkeys.iter().zip(coldkeys.iter()).zip(netuids.iter()) {
+            SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                hotkey, coldkey, *netuid, amount,
+            );
+        }
+
+        // === Submit all job types ===
+
+        assert_ok!(SubtensorModule::add_stake_aggregate(
+            RuntimeOrigin::signed(coldkeys[0]),
+            hotkeys[0],
+            netuids[0],
+            amount
+        ));
+        assert_ok!(SubtensorModule::add_stake_aggregate(
+            RuntimeOrigin::signed(coldkeys[1]),
+            hotkeys[1],
+            netuids[1],
+            amount
+        ));
+
+        assert_ok!(SubtensorModule::add_stake_limit_aggregate(
+            RuntimeOrigin::signed(coldkeys[2]),
+            hotkeys[2],
+            netuids[2],
+            amount,
+            limit_price,
+            true
+        ));
+        assert_ok!(SubtensorModule::add_stake_limit_aggregate(
+            RuntimeOrigin::signed(coldkeys[3]),
+            hotkeys[3],
+            netuids[3],
+            amount,
+            limit_price,
+            true
+        ));
+
+        assert_ok!(SubtensorModule::remove_stake_aggregate(
+            RuntimeOrigin::signed(coldkeys[4]),
+            hotkeys[4],
+            netuids[4],
+            amount
+        ));
+        assert_ok!(SubtensorModule::remove_stake_aggregate(
+            RuntimeOrigin::signed(coldkeys[5]),
+            hotkeys[5],
+            netuids[5],
+            amount
+        ));
+
+        assert_ok!(SubtensorModule::remove_stake_limit_aggregate(
+            RuntimeOrigin::signed(coldkeys[6]),
+            hotkeys[6],
+            netuids[6],
+            amount,
+            limit_price,
+            true
+        ));
+        assert_ok!(SubtensorModule::remove_stake_limit_aggregate(
+            RuntimeOrigin::signed(coldkeys[7]),
+            hotkeys[7],
+            netuids[7],
+            amount,
+            limit_price,
+            true
+        ));
+
+        // Finalize block
+        run_to_block_ext(2, true);
+
+        // === Collect coldkeys by event type ===
+        let mut add_coldkeys = vec![];
+        let mut add_limit_coldkeys = vec![];
+        let mut remove_coldkeys = vec![];
+        let mut remove_limit_coldkeys = vec![];
+
+        for event in System::events().iter().map(|e| &e.event) {
+            match event {
+                RuntimeEvent::SubtensorModule(Event::AggregatedStakeAdded(coldkey, _, _, _)) => {
+                    add_coldkeys.push(*coldkey);
+                }
+                RuntimeEvent::SubtensorModule(Event::AggregatedLimitedStakeAdded(
+                    coldkey,
+                    _,
+                    _,
+                    _,
+                    _,
+                    _,
+                )) => {
+                    add_limit_coldkeys.push(*coldkey);
+                }
+                RuntimeEvent::SubtensorModule(Event::AggregatedStakeRemoved(coldkey, _, _, _)) => {
+                    remove_coldkeys.push(*coldkey);
+                }
+                RuntimeEvent::SubtensorModule(Event::AggregatedLimitedStakeRemoved(
+                    coldkey,
+                    _,
+                    _,
+                    _,
+                    _,
+                    _,
+                )) => {
+                    remove_limit_coldkeys.push(*coldkey);
+                }
+                _ => {}
+            }
+        }
+
+        // === Assertions ===
+        assert_eq!(add_coldkeys, vec![coldkeys[1], coldkeys[0]]); // descending
+        assert_eq!(add_limit_coldkeys, vec![coldkeys[3], coldkeys[2]]); // descending
+        assert_eq!(remove_coldkeys, vec![coldkeys[4], coldkeys[5]]); // ascending
+        assert_eq!(remove_limit_coldkeys, vec![coldkeys[6], coldkeys[7]]); // ascending
     });
 }
 

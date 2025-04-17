@@ -1156,6 +1156,256 @@ impl<T: Config> Pallet<T> {
             None => DefaultStakingFee::<T>::get(),
         }
     }
+
+    // Process staking job for on_finalize() hook.
+    pub(crate) fn do_on_finalize() {
+        let stake_jobs = StakeJobs::<T>::drain().collect::<Vec<_>>();
+
+        // Sort jobs by job type
+        let mut add_stake = vec![];
+        let mut remove_stake = vec![];
+        let mut add_stake_limit = vec![];
+        let mut remove_stake_limit = vec![];
+
+        for (_, job) in stake_jobs.into_iter() {
+            match &job {
+                StakeJob::AddStake { .. } => add_stake.push(job),
+                StakeJob::RemoveStake { .. } => remove_stake.push(job),
+                StakeJob::AddStakeLimit { .. } => add_stake_limit.push(job),
+                StakeJob::RemoveStakeLimit { .. } => remove_stake_limit.push(job),
+            }
+        }
+
+        // Ascending sort by coldkey
+        remove_stake_limit.sort_by(|a, b| match (a, b) {
+            (
+                StakeJob::RemoveStakeLimit { coldkey: a_key, .. },
+                StakeJob::RemoveStakeLimit { coldkey: b_key, .. },
+            ) => {
+                a_key.cmp(b_key) // ascending
+            }
+            _ => sp_std::cmp::Ordering::Equal, // unreachable
+        });
+
+        remove_stake.sort_by(|a, b| match (a, b) {
+            (
+                StakeJob::RemoveStake { coldkey: a_key, .. },
+                StakeJob::RemoveStake { coldkey: b_key, .. },
+            ) => {
+                a_key.cmp(b_key) // ascending
+            }
+            _ => sp_std::cmp::Ordering::Equal, // unreachable
+        });
+
+        // Descending sort by coldkey
+        add_stake_limit.sort_by(|a, b| match (a, b) {
+            (
+                StakeJob::AddStakeLimit { coldkey: a_key, .. },
+                StakeJob::AddStakeLimit { coldkey: b_key, .. },
+            ) => {
+                b_key.cmp(a_key) // descending
+            }
+            _ => sp_std::cmp::Ordering::Equal, // unreachable
+        });
+
+        add_stake.sort_by(|a, b| match (a, b) {
+            (
+                StakeJob::AddStake { coldkey: a_key, .. },
+                StakeJob::AddStake { coldkey: b_key, .. },
+            ) => {
+                b_key.cmp(a_key) // descending
+            }
+            _ => sp_std::cmp::Ordering::Equal, // unreachable
+        });
+
+        // Process RemoveStakeLimit job (priority 1)
+        for job in remove_stake_limit.into_iter() {
+            if let StakeJob::RemoveStakeLimit {
+                hotkey,
+                coldkey,
+                netuid,
+                alpha_unstaked,
+                limit_price,
+                allow_partial,
+            } = job
+            {
+                let result = Self::do_remove_stake_limit(
+                    dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                    hotkey.clone(),
+                    netuid,
+                    alpha_unstaked,
+                    limit_price,
+                    allow_partial,
+                );
+
+                if let Err(err) = result {
+                    log::debug!(
+                        "Failed to remove aggregated limited stake: {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        alpha_unstaked,
+                        limit_price,
+                        allow_partial,
+                        err
+                    );
+                    Self::deposit_event(Event::FailedToRemoveAggregatedLimitedStake(
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        alpha_unstaked,
+                        limit_price,
+                        allow_partial,
+                    ));
+                } else {
+                    Self::deposit_event(Event::AggregatedLimitedStakeRemoved(
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        alpha_unstaked,
+                        limit_price,
+                        allow_partial,
+                    ));
+                }
+            }
+        }
+
+        // Process RemoveStake job (priority 2)
+        for job in remove_stake.into_iter() {
+            if let StakeJob::RemoveStake {
+                coldkey,
+                hotkey,
+                netuid,
+                alpha_unstaked,
+            } = job
+            {
+                let result = Self::do_remove_stake(
+                    dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                    hotkey.clone(),
+                    netuid,
+                    alpha_unstaked,
+                );
+
+                if let Err(err) = result {
+                    log::debug!(
+                        "Failed to remove aggregated stake: {:?}, {:?}, {:?}, {:?}, {:?}",
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        alpha_unstaked,
+                        err
+                    );
+                    Self::deposit_event(Event::FailedToRemoveAggregatedStake(
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        alpha_unstaked,
+                    ));
+                } else {
+                    Self::deposit_event(Event::AggregatedStakeRemoved(
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        alpha_unstaked,
+                    ));
+                }
+            }
+        }
+
+        // Process AddStakeLimit job (priority 3)
+        for job in add_stake_limit.into_iter() {
+            if let StakeJob::AddStakeLimit {
+                hotkey,
+                coldkey,
+                netuid,
+                stake_to_be_added,
+                limit_price,
+                allow_partial,
+            } = job
+            {
+                let result = Self::do_add_stake_limit(
+                    dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                    hotkey.clone(),
+                    netuid,
+                    stake_to_be_added,
+                    limit_price,
+                    allow_partial,
+                );
+
+                if let Err(err) = result {
+                    log::debug!(
+                        "Failed to add aggregated limited stake: {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        stake_to_be_added,
+                        limit_price,
+                        allow_partial,
+                        err
+                    );
+                    Self::deposit_event(Event::FailedToAddAggregatedLimitedStake(
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        stake_to_be_added,
+                        limit_price,
+                        allow_partial,
+                    ));
+                } else {
+                    Self::deposit_event(Event::AggregatedLimitedStakeAdded(
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        stake_to_be_added,
+                        limit_price,
+                        allow_partial,
+                    ));
+                }
+            }
+        }
+
+        // Process AddStake job (priority 4)
+        for job in add_stake.into_iter() {
+            if let StakeJob::AddStake {
+                hotkey,
+                coldkey,
+                netuid,
+                stake_to_be_added,
+            } = job
+            {
+                let result = Self::do_add_stake(
+                    dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                    hotkey.clone(),
+                    netuid,
+                    stake_to_be_added,
+                );
+
+                if let Err(err) = result {
+                    log::debug!(
+                        "Failed to add aggregated stake: {:?}, {:?}, {:?}, {:?}, {:?}",
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        stake_to_be_added,
+                        err
+                    );
+                    Self::deposit_event(Event::FailedToAddAggregatedStake(
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        stake_to_be_added,
+                    ));
+                } else {
+                    Self::deposit_event(Event::AggregatedStakeAdded(
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        stake_to_be_added,
+                    ));
+                }
+            }
+        }
+    }
 }
 
 ///////////////////////////////////////////

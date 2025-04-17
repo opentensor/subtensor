@@ -66,7 +66,6 @@ pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 #[import_section(config::config)]
 #[frame_support::pallet]
 pub mod pallet {
-    use crate::dispatch;
     use crate::migrations;
     use frame_support::{
         BoundedVec,
