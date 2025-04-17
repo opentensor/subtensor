@@ -59,15 +59,6 @@ impl pallet_balances::Config for Test {
     type AccountStore = System;
 }
 
-parameter_types! {
-    pub const CrowdloanPalletId: PalletId = PalletId(*b"bt/cloan");
-    pub const MinimumDeposit: u64 = 50;
-    pub const MinimumContribution: u64 = 10;
-    pub const MinimumBlockDuration: u64 = 20;
-    pub const MaximumBlockDuration: u64 = 100;
-    pub const RefundContributorsLimit: u32 = 5;
-}
-
 pub struct TestWeightInfo;
 impl WeightInfo for TestWeightInfo {
     fn create() -> Weight {
@@ -101,6 +92,15 @@ impl pallet_preimage::Config for Test {
     type Consideration = ();
 }
 
+parameter_types! {
+    pub const CrowdloanPalletId: PalletId = PalletId(*b"bt/cloan");
+    pub const MinimumDeposit: u64 = 50;
+    pub const AbsoluteMinimumContribution: u64 = 10;
+    pub const MinimumBlockDuration: u64 = 20;
+    pub const MaximumBlockDuration: u64 = 100;
+    pub const RefundContributorsLimit: u32 = 5;
+}
+
 impl pallet_crowdloan::Config for Test {
     type PalletId = CrowdloanPalletId;
     type Currency = Balances;
@@ -109,7 +109,7 @@ impl pallet_crowdloan::Config for Test {
     type WeightInfo = TestWeightInfo;
     type Preimages = Preimage;
     type MinimumDeposit = MinimumDeposit;
-    type MinimumContribution = MinimumContribution;
+    type AbsoluteMinimumContribution = AbsoluteMinimumContribution;
     type MinimumBlockDuration = MinimumBlockDuration;
     type MaximumBlockDuration = MaximumBlockDuration;
     type RefundContributorsLimit = RefundContributorsLimit;

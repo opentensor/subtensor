@@ -46,13 +46,15 @@ pub type BoundedCallOf<T> =
     Bounded<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hashing>;
 
 /// A struct containing the information about a crowdloan.
-#[freeze_struct("af44b8def4be3cb9")]
+#[freeze_struct("2fad4924268058e7")]
 #[derive(Encode, Decode, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct CrowdloanInfo<AccountId, Balance, BlockNumber, Call> {
     /// The creator of the crowdloan.
     pub creator: AccountId,
     /// The initial deposit of the crowdloan from the creator.
     pub deposit: Balance,
+/// Minimum contribution to the crowdloan.
+    pub min_contribution: Balance,
     /// The end block of the crowdloan.
     pub end: BlockNumber,
     /// The cap to raise.
@@ -117,9 +119,9 @@ pub mod pallet {
         #[pallet::constant]
         type MinimumDeposit: Get<BalanceOf<Self>>;
 
-        /// The minimum contribution required to contribute to a crowdloan.
+        /// The absolute minimum contribution required to contribute to a crowdloan.
         #[pallet::constant]
-        type MinimumContribution: Get<BalanceOf<Self>>;
+        type AbsoluteMinimumContribution: Get<BalanceOf<Self>>;
 
         /// The minimum block duration for a crowdloan.
         #[pallet::constant]
@@ -196,6 +198,8 @@ pub mod pallet {
         DepositTooLow,
         /// The crowdloan cap is too low.
         CapTooLow,
+/// The minimum contribution is too low.
+        MinimumContributionTooLow,
         /// The crowdloan cannot end in the past.
         CannotEndInPast,
         /// The crowdloan block duration is too short.
@@ -214,8 +218,8 @@ pub mod pallet {
         ContributionPeriodEnded,
         /// The contribution is too low.
         ContributionTooLow,
-        /// The origin is not from the creator of the crowdloan.
-        ExpectedCreatorOrigin,
+        /// The origin of this call is invalid.
+        InvalidOrigin,
         /// The crowdloan has already been finalized.
         AlreadyFinalized,
         /// The crowdloan contribution period has not ended yet.
@@ -233,7 +237,8 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Create a crowdloan that will raise funds up to a maximum cap and if successful,
-        /// will transfer funds to the target address and dispatch a call (using creator origin).
+        /// will transfer funds to the target address if provided and dispatch the call
+        /// (using creator origin).
         ///
         /// The initial deposit will be transfered to the crowdloan account and will be refunded
         /// in case the crowdloan fails to raise the cap. Additionally, the creator will pay for
@@ -243,10 +248,11 @@ pub mod pallet {
         ///
         /// Parameters:
         /// - `deposit`: The initial deposit from the creator.
+/// - `min_contribution`: The minimum contribution required to contribute to the crowdloan.
         /// - `cap`: The maximum amount of funds that can be raised.
         /// - `end`: The block number at which the crowdloan will end.
-        /// - `target_address`: The address to transfer the raised funds to.
-        /// - `call`: The call to dispatch when the crowdloan is finalized.
+                /// - `call`: The call to dispatch when the crowdloan is finalized.
+/// - `target_address`: The address to transfer the raised funds to if provided.
         #[pallet::call_index(0)]
         #[pallet::weight({
 			let di = call.get_dispatch_info();
@@ -260,33 +266,28 @@ pub mod pallet {
         pub fn create(
             origin: OriginFor<T>,
             #[pallet::compact] deposit: BalanceOf<T>,
+#[pallet::compact] min_contribution: BalanceOf<T>,
             #[pallet::compact] cap: BalanceOf<T>,
             #[pallet::compact] end: BlockNumberFor<T>,
-            target_address: Option<T::AccountId>,
-            call: Box<<T as Config>::RuntimeCall>,
+                        call: Box<<T as Config>::RuntimeCall>,
+target_address: Option<T::AccountId>,
         ) -> DispatchResult {
             let creator = ensure_signed(origin)?;
             let now = frame_system::Pallet::<T>::block_number();
 
-            // Ensure the deposit is at least the minimum deposit and cap is greater
+            // Ensure the deposit is at least the minimum deposit, cap is greater than deposit
+            // and the minimum contribution is greater than the absolute minimum contribution.
             ensure!(
                 deposit >= T::MinimumDeposit::get(),
                 Error::<T>::DepositTooLow
             );
             ensure!(cap > deposit, Error::<T>::CapTooLow);
+            ensure!(
+                min_contribution >= T::AbsoluteMinimumContribution::get(),
+                Error::<T>::MinimumContributionTooLow
+            );
 
-            // Ensure the end block is after the current block and the duration is
-            // between the minimum and maximum block duration
-            ensure!(now < end, Error::<T>::CannotEndInPast);
-            let block_duration = end.checked_sub(&now).ok_or(Error::<T>::Underflow)?;
-            ensure!(
-                block_duration >= T::MinimumBlockDuration::get(),
-                Error::<T>::BlockDurationTooShort
-            );
-            ensure!(
-                block_duration <= T::MaximumBlockDuration::get(),
-                Error::<T>::BlockDurationTooLong
-            );
+            Self::ensure_valid_end(now, end)?;
 
             // Ensure the creator has enough balance to pay the initial deposit
             ensure!(
@@ -305,6 +306,7 @@ pub mod pallet {
             let crowdloan = CrowdloanInfo {
                 creator: creator.clone(),
                 deposit,
+min_contribution,
                 end,
                 cap,
                 funds_account,
@@ -625,6 +627,22 @@ impl<T: Config> Pallet<T> {
         ensure!(now >= crowdloan.end, Error::<T>::ContributionPeriodNotEnded);
         ensure!(crowdloan.raised == crowdloan.cap, Error::<T>::CapNotRaised);
         ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
+        Ok(())
+    }
+
+    // Ensure the provided end block is after the current block and the duration is
+    // between the minimum and maximum block duration
+    fn ensure_valid_end(now: BlockNumberFor<T>, end: BlockNumberFor<T>) -> Result<(), Error<T>> {
+        ensure!(now < end, Error::<T>::CannotEndInPast);
+        let block_duration = end.checked_sub(&now).ok_or(Error::<T>::Underflow)?;
+        ensure!(
+            block_duration >= T::MinimumBlockDuration::get(),
+            Error::<T>::BlockDurationTooShort
+        );
+        ensure!(
+            block_duration <= T::MaximumBlockDuration::get(),
+            Error::<T>::BlockDurationTooLong
+        );
         Ok(())
     }
 }
