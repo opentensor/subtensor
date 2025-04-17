@@ -162,6 +162,11 @@ pub mod pallet {
     #[pallet::storage]
     pub type CurrentCrowdloanId<T: Config> = StorageValue<_, CrowdloanId, OptionQuery>;
 
+/// Scheduled for dissolution
+    #[pallet::storage]
+    pub type CrowdloansToDissolve<T: Config> =
+        StorageMap<_, Twox64Concat, CrowdloanId, CrowdloanInfoOf<T>, OptionQuery>;
+
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
@@ -538,6 +543,28 @@ contributor,
             Ok(())
         }
 
+        /// Dissolve a crowdloan and schedule for refund.
+        #[pallet::call_index(4)]
+        #[pallet::weight(T::WeightInfo::finalize())]
+        pub fn dissolve(
+            origin: OriginFor<T>,
+            #[pallet::compact] crowdloan_id: CrowdloanId,
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+
+            let crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
+            ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
+
+            // Only the creator can dissolve the crowdloan
+            ensure!(who == crowdloan.creator, Error::<T>::InvalidOrigin);
+
+            // Mark for dissolution, will be removed in the on_idle block.
+            CrowdloansToDissolve::<T>::insert(crowdloan_id, crowdloan);
+            Crowdloans::<T>::remove(crowdloan_id);
+
+            Ok(())
+        }
+
         /// Refund a failed crowdloan.
         ///
         /// The call will try to refund all contributors up to the limit defined by the `RefundContributorsLimit`.
@@ -547,7 +574,7 @@ contributor,
         ///
         /// Parameters:
         /// - `crowdloan_id`: The id of the crowdloan to refund.
-        #[pallet::call_index(4)]
+        #[pallet::call_index(5)]
         #[pallet::weight(T::WeightInfo::refund(T::RefundContributorsLimit::get()))]
         pub fn refund(
             origin: OriginFor<T>,
@@ -600,18 +627,8 @@ contributor,
             }
         }
 
-        /// Finalize a successful crowdloan.
-        ///
-        /// The call will transfer the raised amount to the target address if it was provided when the crowdloan was created
-        /// and dispatch the call that was provided using the creator origin. The CurrentCrowdloanId will be set to the
-        /// crowdloan id being finalized so the dispatched call can access it temporarily by accessing
-        /// the `CurrentCrowdloanId` storage item.
-        ///
-        /// The dispatch origin for this call must be _Signed_ and must be the creator of the crowdloan.
-        ///
-        /// Parameters:
-        /// - `crowdloan_id`: The id of the crowdloan to finalize.
-        #[pallet::call_index(5)]
+        /// Update min contribution
+        #[pallet::call_index(6)]
         #[pallet::weight(T::WeightInfo::finalize())]
         pub fn finalize(
             origin: OriginFor<T>,
