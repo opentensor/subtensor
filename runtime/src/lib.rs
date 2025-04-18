@@ -1403,7 +1403,7 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 parameter_types! {
     pub const CrowdloanPalletId: PalletId = PalletId(*b"bt/cloan");
     pub const MinimumDeposit: Balance = 10_000_000_000; // 10 TAO
-    pub const MinimumContribution: Balance = 100_000_000; // 0.1 TAO
+    pub const AbsoluteMinimumContribution: Balance = 100_000_000; // 0.1 TAO
     pub const MinimumBlockDuration: BlockNumber = if cfg!(feature = "fast-blocks") {
         50
     } else {
@@ -1425,7 +1425,7 @@ impl pallet_crowdloan::Config for Runtime {
     type WeightInfo = pallet_crowdloan::weights::SubstrateWeight<Runtime>;
     type Preimages = Preimage;
     type MinimumDeposit = MinimumDeposit;
-    type MinimumContribution = MinimumContribution;
+    type AbsoluteMinimumContribution = AbsoluteMinimumContribution;
     type MinimumBlockDuration = MinimumBlockDuration;
     type MaximumBlockDuration = MaximumBlockDuration;
     type RefundContributorsLimit = RefundContributorsLimit;
