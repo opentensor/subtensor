@@ -160,6 +160,10 @@ export async function waitForTransactionWithRetry(
     await new Promise((resolve) => setTimeout(resolve, 1000));
     retries += 1;
   }
+
+  if (failed) {
+    throw new Error("Transaction failed after 5 retries");
+  }
 }
 
 export async function waitForTransactionCompletion(
