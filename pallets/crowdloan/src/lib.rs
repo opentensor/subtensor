@@ -630,58 +630,78 @@ contributor,
         /// Update min contribution
         #[pallet::call_index(6)]
         #[pallet::weight(T::WeightInfo::finalize())]
-        pub fn finalize(
+        pub fn update_min_contribution(
             origin: OriginFor<T>,
             #[pallet::compact] crowdloan_id: CrowdloanId,
+#[pallet::compact] new_min_contribution: BalanceOf<T>,
         ) -> DispatchResult {
-            let creator = ensure_signed(origin)?;
+            let who = ensure_signed(origin)?;
 
             let mut crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
-            Self::ensure_crowdloan_succeeded(&crowdloan)?;
+            ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
 
+            // Only the creator can update the min contribution.
+            ensure!(who == crowdloan.creator, Error::<T>::InvalidOrigin);
+
+// The new min contribution should be greater than absolute minimum contribution.
             ensure!(
-                creator == crowdloan.creator,
-                Error::<T>::ExpectedCreatorOrigin
+                new_min_contribution > T::AbsoluteMinimumContribution::get(),
+                Error::<T>::MinimumContributionTooLow
             );
 
-            // If the target address is provided, transfer the raised amount to it.
-            if let Some(ref target_address) = crowdloan.target_address {
-                CurrencyOf::<T>::transfer(
-                    &crowdloan.funds_account,
-                    target_address,
-                    crowdloan.raised,
-                    Preservation::Expendable,
-                )?;
-            }
-
-            // Set the current crowdloan id so the dispatched call
-            // can access it temporarily
-            CurrentCrowdloanId::<T>::put(crowdloan_id);
-
-            // Retrieve the call from the preimage storage
-            let call = match T::Preimages::peek(&crowdloan.call) {
-                Ok((call, _)) => call,
-                Err(_) => {
-                    // If the call is not found, we drop it from the preimage storage
-                    // because it's not needed anymore
-                    T::Preimages::drop(&crowdloan.call);
-                    return Err(Error::<T>::CallUnavailable)?;
-                }
-            };
-
-            // Dispatch the call with creator origin
-            call.dispatch(frame_system::RawOrigin::Signed(creator).into())
-                .map(|_| ())
-                .map_err(|e| e.error)?;
-
-            // Clear the current crowdloan id
-            CurrentCrowdloanId::<T>::kill();
-
-            // Mark the crowdloan as finalized
-            crowdloan.finalized = true;
+            crowdloan.min_contribution = new_min_contribution;
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
 
-            Self::deposit_event(Event::<T>::Finalized { crowdloan_id });
+            Ok(())
+        }
+
+        /// Update end
+        #[pallet::call_index(7)]
+        #[pallet::weight(T::WeightInfo::finalize())]
+        pub fn update_end(
+            origin: OriginFor<T>,
+            #[pallet::compact] crowdloan_id: CrowdloanId,
+            #[pallet::compact] new_end: BlockNumberFor<T>,
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+            let now = frame_system::Pallet::<T>::block_number();
+
+            let mut crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
+            ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
+
+            // Only the creator can update the min contribution.
+            ensure!(who == crowdloan.creator, Error::<T>::InvalidOrigin);
+
+            Self::ensure_valid_end(now, new_end)?;
+
+            crowdloan.end = new_end;
+            Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
+
+            Ok(())
+        }
+
+        /// Update cap
+        #[pallet::call_index(8)]
+        #[pallet::weight(T::WeightInfo::finalize())]
+        pub fn update_cap(
+            origin: OriginFor<T>,
+            #[pallet::compact] crowdloan_id: CrowdloanId,
+            #[pallet::compact] new_cap: BalanceOf<T>,
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+
+            // The cap can only be updated if the crowdloan has not been finalized.
+            let mut crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
+            ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
+
+            // Only the creator can update the cap.
+            ensure!(who == crowdloan.creator, Error::<T>::InvalidOrigin);
+
+            // The new cap should be greater than the actual raised amount.
+            ensure!(new_cap > crowdloan.raised, Error::<T>::CapTooLow);
+
+            crowdloan.cap = new_cap;
+            Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
 
             Ok(())
         }
