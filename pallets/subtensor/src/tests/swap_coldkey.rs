@@ -373,7 +373,7 @@ fn test_swap_with_max_values() {
         mock::setup_reserves(netuid2, reserve, reserve);
 
         // Stake to hotkey on each subnet.
-        let expected_stake_alpha1 = mock::swap_tao_to_alpha(netuid, max_stake);
+        let (expected_stake_alpha1, fee) = mock::swap_tao_to_alpha(netuid, max_stake);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
             hotkey,
@@ -381,7 +381,7 @@ fn test_swap_with_max_values() {
             max_stake
         ));
 
-        let expected_stake_alpha2 = mock::swap_tao_to_alpha(netuid2, max_stake);
+        let (expected_stake_alpha2, fee) = mock::swap_tao_to_alpha(netuid2, max_stake);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey2),
             hotkey2,
@@ -440,7 +440,7 @@ fn test_swap_with_non_existent_new_coldkey() {
 
         // Stake to hotkey.
 
-        let expected_stake_alpha = mock::swap_tao_to_alpha(netuid, stake);
+        let (expected_stake_alpha, fee) = mock::swap_tao_to_alpha(netuid, stake);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
             hotkey,
@@ -562,7 +562,7 @@ fn test_swap_concurrent_modifications() {
 
         mock::setup_reserves(netuid, 1_000_000_000_000_000, 1_000_000_000_000_000);
 
-        let initial_stake_alpha = mock::swap_tao_to_alpha(netuid, initial_stake);
+        let (initial_stake_alpha, fee) = mock::swap_tao_to_alpha(netuid, initial_stake);
 
         // Setup initial state
         add_network(netuid, 1, 1);
@@ -590,7 +590,7 @@ fn test_swap_concurrent_modifications() {
         // Wait some blocks
         step_block(10);
 
-        let additional_stake_alpha = mock::swap_tao_to_alpha(netuid, additional_stake);
+        let (additional_stake_alpha, fee) = mock::swap_tao_to_alpha(netuid, additional_stake);
 
         // Simulate concurrent stake addition
         assert_ok!(SubtensorModule::add_stake(
@@ -854,7 +854,7 @@ fn test_swap_stake_for_coldkey() {
         mock::setup_reserves(netuid, reserve, reserve);
 
         // Stake to hotkeys
-        let expected_stake_alpha1 = mock::swap_tao_to_alpha(netuid, stake_amount1);
+        let (expected_stake_alpha1, fee) = mock::swap_tao_to_alpha(netuid, stake_amount1);
 
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
@@ -863,7 +863,7 @@ fn test_swap_stake_for_coldkey() {
             stake_amount1
         ));
 
-        let expected_stake_alpha2 = mock::swap_tao_to_alpha(netuid, stake_amount2);
+        let (expected_stake_alpha2, fee) = mock::swap_tao_to_alpha(netuid, stake_amount2);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
             hotkey2,
@@ -893,7 +893,7 @@ fn test_swap_stake_for_coldkey() {
         // give new coldkey some balance
         SubtensorModule::add_balance_to_coldkey_account(&new_coldkey, stake_amount3 + 1_000_000);
         // Stake to hotkey1
-        let expected_stake_alpha3 = mock::swap_tao_to_alpha(netuid, stake_amount3);
+        let (expected_stake_alpha3, fee) = mock::swap_tao_to_alpha(netuid, stake_amount3);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(new_coldkey),
             hotkey1,
@@ -1014,7 +1014,7 @@ fn test_swap_staking_hotkeys_for_coldkey() {
         mock::setup_reserves(netuid, reserve, reserve);
 
         // Stake to hotkeys
-        let expected_stake_alpha1 = mock::swap_tao_to_alpha(netuid, stake_amount1);
+        let (expected_stake_alpha1, fee) = mock::swap_tao_to_alpha(netuid, stake_amount1);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
             hotkey1,
@@ -1022,7 +1022,7 @@ fn test_swap_staking_hotkeys_for_coldkey() {
             stake_amount1
         ));
 
-        let expected_stake_alpha2 = mock::swap_tao_to_alpha(netuid, stake_amount2);
+        let (expected_stake_alpha2, fee) = mock::swap_tao_to_alpha(netuid, stake_amount2);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
             hotkey2,
@@ -1090,7 +1090,7 @@ fn test_swap_delegated_stake_for_coldkey() {
             stake_amount1 + stake_amount2 + 1_000_000,
         );
 
-        let expected_stake_alpha1 = mock::swap_tao_to_alpha(netuid, stake_amount1);
+        let (expected_stake_alpha1, fee) = mock::swap_tao_to_alpha(netuid, stake_amount1);
 
         // === Stake to hotkeys ===
         assert_ok!(SubtensorModule::add_stake(
@@ -1100,7 +1100,7 @@ fn test_swap_delegated_stake_for_coldkey() {
             stake_amount1
         ));
 
-        let expected_stake_alpha2 = mock::swap_tao_to_alpha(netuid, stake_amount2);
+        let (expected_stake_alpha2, fee) = mock::swap_tao_to_alpha(netuid, stake_amount2);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
             hotkey2,
@@ -1651,7 +1651,7 @@ fn test_coldkey_delegations() {
         mock::setup_reserves(netuid, reserve, reserve);
         mock::setup_reserves(netuid2, reserve, reserve);
 
-        let expected_stake = mock::swap_tao_to_alpha(netuid, stake);
+        let (expected_stake, fee) = mock::swap_tao_to_alpha(netuid, stake);
 
         add_network(netuid, 13, 0); // root
         add_network(netuid2, 13, 0);

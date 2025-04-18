@@ -863,7 +863,7 @@ pub(crate) fn setup_reserves(netuid: u16, tao: u64, alpha: u64) {
     SubnetAlphaIn::<Test>::set(netuid, alpha);
 }
 
-pub(crate) fn swap_tao_to_alpha(netuid: u16, tao: u64) -> u64 {
+pub(crate) fn swap_tao_to_alpha(netuid: u16, tao: u64) -> (u64, u64) {
     let result = <Test as pallet::Config>::SwapInterface::swap(
         netuid,
         OrderType::Buy,
@@ -874,10 +874,10 @@ pub(crate) fn swap_tao_to_alpha(netuid: u16, tao: u64) -> u64 {
 
     assert_ok!(&result);
 
-    let result = result.unwrap().amount_paid_out;
+    let result = result.unwrap();
 
     // we don't want to have silent 0 comparissons in tests
-    assert!(result > 0);
+    assert!(result.amount_paid_out > 0);
 
-    result
+    (result.amount_paid_out, result.fee_paid)
 }
