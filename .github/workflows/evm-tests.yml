@@ -3,7 +3,7 @@ name: EVM E2E Tests
 on:
   pull_request:
 
-  ## Allow running workflow manually from the Actions tab
+  ## Allow running workflow manually from the Actions
   workflow_dispatch:
     inputs:
       verbose:
