@@ -15,6 +15,11 @@ import { PublicClient } from "viem";
 import { PolkadotSigner, TypedApi } from "polkadot-api";
 import { convertPublicKeyToSs58, toViemAddress } from "../src/address-utils";
 import { IMETAGRAPH_ADDRESS, IMetagraphABI } from "../src/contracts/metagraph";
+import {
+  addNewSubnetwork,
+  burnedRegister,
+  forceSetBalanceToSs58Address,
+} from "../src/subtensor";
 
 describe("Test the Metagraph precompile", () => {
   // init substrate part
@@ -36,49 +41,23 @@ describe("Test the Metagraph precompile", () => {
     api = await getDevnetApi();
     alice = await getAliceSigner();
 
-    {
-      const multiAddress = convertPublicKeyToMultiAddress(hotkey.publicKey);
-      const internalCall = api.tx.Balances.force_set_balance({
-        who: multiAddress,
-        new_free: BigInt(1e12),
-      });
-      const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
-
-      await waitForTransactionWithRetry(api, tx, alice);
-    }
-
-    {
-      const multiAddress = convertPublicKeyToMultiAddress(coldkey.publicKey);
-      const internalCall = api.tx.Balances.force_set_balance({
-        who: multiAddress,
-        new_free: BigInt(1e12),
-      });
-      const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
-
-      await waitForTransactionWithRetry(api, tx, alice);
-    }
-
-    const signer = getSignerFromKeypair(coldkey);
-    const registerNetworkTx = api.tx.SubtensorModule.register_network({
-      hotkey: convertPublicKeyToSs58(hotkey.publicKey),
-    });
-    await waitForTransactionWithRetry(api, registerNetworkTx, signer);
-
-    let totalNetworks = await api.query.SubtensorModule.TotalNetworks
-      .getValue();
-    assert.ok(totalNetworks > 1);
-    subnetId = totalNetworks - 1;
-
-    let uid_count = await api.query.SubtensorModule.SubnetworkN.getValue(
-      subnetId,
+    await forceSetBalanceToSs58Address(
+      api,
+      convertPublicKeyToSs58(hotkey.publicKey),
     );
-    if (uid_count === 0) {
-      const tx = api.tx.SubtensorModule.burned_register({
-        hotkey: convertPublicKeyToSs58(hotkey.publicKey),
-        netuid: subnetId,
-      });
-      await waitForTransactionWithRetry(api, tx, signer);
-    }
+    await forceSetBalanceToSs58Address(
+      api,
+      convertPublicKeyToSs58(coldkey.publicKey),
+    );
+
+    const netuid = await addNewSubnetwork(api, hotkey, coldkey);
+    console.log("test on subnet ", netuid);
+    await burnedRegister(
+      api,
+      netuid,
+      convertPublicKeyToSs58(hotkey.publicKey),
+      coldkey,
+    );
   });
 
   it("Metagraph data access via precompile contract is ok", async () => {
