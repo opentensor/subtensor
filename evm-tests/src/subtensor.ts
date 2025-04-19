@@ -2,7 +2,7 @@ import * as assert from "assert";
 import { devnet, MultiAddress } from '@polkadot-api/descriptors';
 import { TypedApi, TxCallData } from 'polkadot-api';
 import { KeyPair } from "@polkadot-labs/hdkd-helpers"
-import { getAliceSigner, waitForTransactionCompletion, getSignerFromKeypair } from './substrate'
+import { getAliceSigner, waitForTransactionCompletion, getSignerFromKeypair, waitForTransactionWithRetry } from './substrate'
 import { convertH160ToSS58, convertPublicKeyToSs58 } from './address-utils'
 import { tao } from './balance-math'
 import internal from "stream";
@@ -38,21 +38,23 @@ export async function forceSetBalanceToSs58Address(api: TypedApi<typeof devnet>,
     const internalCall = api.tx.Balances.force_set_balance({ who: MultiAddress.Id(ss58Address), new_free: balance })
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
-    let failed = true;
-    let retries = 0;
+    await waitForTransactionWithRetry(api, tx, alice)
 
-    // set max retries times
-    while (failed && retries < 5) {
-        failed = false
-        await waitForTransactionCompletion(api, tx, alice)
-            .then(() => { })
-            .catch((error) => {
-                failed = true
-                console.log(`transaction error ${error}`)
-            });
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        retries += 1
-    }
+    // let failed = true;
+    // let retries = 0;
+
+    // // set max retries times
+    // while (failed && retries < 5) {
+    //     failed = false
+    //     await waitForTransactionCompletion(api, tx, alice)
+    //         .then(() => { })
+    //         .catch((error) => {
+    //             failed = true
+    //             console.log(`transaction error ${error}`)
+    //         });
+    //     await new Promise((resolve) => setTimeout(resolve, 1000));
+    //     retries += 1
+    // }
 
     const balanceOnChain = (await api.query.System.Account.getValue(ss58Address)).data.free
     // check the balance except for sudo account becasue of tx fee
