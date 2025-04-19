@@ -40,22 +40,6 @@ export async function forceSetBalanceToSs58Address(api: TypedApi<typeof devnet>,
 
     await waitForTransactionWithRetry(api, tx, alice)
 
-    // let failed = true;
-    // let retries = 0;
-
-    // // set max retries times
-    // while (failed && retries < 5) {
-    //     failed = false
-    //     await waitForTransactionCompletion(api, tx, alice)
-    //         .then(() => { })
-    //         .catch((error) => {
-    //             failed = true
-    //             console.log(`transaction error ${error}`)
-    //         });
-    //     await new Promise((resolve) => setTimeout(resolve, 1000));
-    //     retries += 1
-    // }
-
     const balanceOnChain = (await api.query.System.Account.getValue(ss58Address)).data.free
     // check the balance except for sudo account becasue of tx fee
     if (ss58Address !== convertPublicKeyToSs58(alice.publicKey)) {
