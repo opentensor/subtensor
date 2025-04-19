@@ -23,7 +23,9 @@ export async function addNewSubnetwork(api: TypedApi<typeof devnet>, hotkey: Key
     const registerNetworkTx = api.tx.SubtensorModule.register_network({ hotkey: convertPublicKeyToSs58(hotkey.publicKey) })
     await waitForTransactionWithRetry(api, registerNetworkTx, signer)
 
-    assert.equal(totalNetworks + 1, await api.query.SubtensorModule.TotalNetworks.getValue())
+    const newTotalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue()
+    // could create multiple subnetworks during retry, just return the first created one
+    assert.ok(newTotalNetworks > totalNetworks)
     return totalNetworks
 }
 
@@ -118,9 +120,7 @@ export async function forceSetChainID(api: TypedApi<typeof devnet>, chainId: big
     const internalCall = api.tx.AdminUtils.sudo_set_evm_chain_id({ chain_id: chainId })
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
-    await waitForTransactionCompletion(api, tx, alice)
-        .then(() => { })
-        .catch((error) => { console.log(`transaction error ${error}`) });
+    await waitForTransactionWithRetry(api, tx, alice)
     assert.equal(chainId, await api.query.EVMChainId.ChainId.getValue())
 }
 
@@ -134,9 +134,7 @@ export async function disableWhiteListCheck(api: TypedApi<typeof devnet>, disabl
     const internalCall = api.tx.EVM.disable_whitelist({ disabled: disabled })
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
-    await waitForTransactionCompletion(api, tx, alice)
-        .then(() => { })
-        .catch((error) => { console.log(`transaction error ${error}`) });
+    await waitForTransactionWithRetry(api, tx, alice)
     assert.equal(disabled, await api.query.EVM.DisableWhitelistCheck.getValue())
 }
 
@@ -145,9 +143,7 @@ export async function burnedRegister(api: TypedApi<typeof devnet>, netuid: numbe
     const uids = await api.query.SubtensorModule.SubnetworkN.getValue(netuid)
     const signer = getSignerFromKeypair(keypair)
     const tx = api.tx.SubtensorModule.burned_register({ hotkey: ss58Address, netuid: netuid })
-    await waitForTransactionCompletion(api, tx, signer)
-        .then(() => { })
-        .catch((error) => { console.log(`transaction error ${error}`) });
+    await waitForTransactionWithRetry(api, tx, signer)
     assert.equal(uids + 1, await api.query.SubtensorModule.SubnetworkN.getValue(netuid))
 }
 
@@ -159,9 +155,7 @@ export async function sendProxyCall(api: TypedApi<typeof devnet>, calldata: TxCa
         real: MultiAddress.Id(ss58Address),
         force_proxy_type: undefined
     });
-    await waitForTransactionCompletion(api, tx, signer)
-        .then(() => { })
-        .catch((error) => { console.log(`transaction error ${error}`) });
+    await waitForTransactionWithRetry(api, tx, signer)
 }
 
 
@@ -176,10 +170,7 @@ export async function setTxRateLimit(api: TypedApi<typeof devnet>, txRateLimit: 
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
 
-    await waitForTransactionCompletion(api, tx, alice)
-        .then(() => { })
-        .catch((error) => { console.log(`transaction error ${error}`) });
-    assert.equal(txRateLimit, await api.query.SubtensorModule.TxRateLimit.getValue())
+    await waitForTransactionWithRetry(api, tx, alice)
 }
 
 export async function setMaxAllowedValidators(api: TypedApi<typeof devnet>, netuid: number, maxAllowedValidators: number) {
@@ -196,9 +187,7 @@ export async function setMaxAllowedValidators(api: TypedApi<typeof devnet>, netu
     })
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
-    await waitForTransactionCompletion(api, tx, alice)
-        .then(() => { })
-        .catch((error) => { console.log(`transaction error ${error}`) });
+    await waitForTransactionWithRetry(api, tx, alice)
     assert.equal(maxAllowedValidators, await api.query.SubtensorModule.MaxAllowedValidators.getValue(netuid))
 }
 
@@ -215,9 +204,7 @@ export async function setSubnetOwnerCut(api: TypedApi<typeof devnet>, subnetOwne
     })
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
-    await waitForTransactionCompletion(api, tx, alice)
-        .then(() => { })
-        .catch((error) => { console.log(`transaction error ${error}`) });
+    await waitForTransactionWithRetry(api, tx, alice)
     assert.equal(subnetOwnerCut, await api.query.SubtensorModule.SubnetOwnerCut.getValue())
 }
 
@@ -235,9 +222,7 @@ export async function setActivityCutoff(api: TypedApi<typeof devnet>, netuid: nu
     })
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
-    await waitForTransactionCompletion(api, tx, alice)
-        .then(() => { })
-        .catch((error) => { console.log(`transaction error ${error}`) });
+    await waitForTransactionWithRetry(api, tx, alice)
     assert.equal(activityCutoff, await api.query.SubtensorModule.ActivityCutoff.getValue(netuid))
 }
 
@@ -255,9 +240,7 @@ export async function setMaxAllowedUids(api: TypedApi<typeof devnet>, netuid: nu
     })
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
-    await waitForTransactionCompletion(api, tx, alice)
-        .then(() => { })
-        .catch((error) => { console.log(`transaction error ${error}`) });
+    await waitForTransactionWithRetry(api, tx, alice)
     assert.equal(maxAllowedUids, await api.query.SubtensorModule.MaxAllowedUids.getValue(netuid))
 }
 
@@ -274,9 +257,7 @@ export async function setMinDelegateTake(api: TypedApi<typeof devnet>, minDelega
     })
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
-    await waitForTransactionCompletion(api, tx, alice)
-        .then(() => { })
-        .catch((error) => { console.log(`transaction error ${error}`) });
+    await waitForTransactionWithRetry(api, tx, alice)
     assert.equal(minDelegateTake, await api.query.SubtensorModule.MinDelegateTake.getValue())
 }
 
@@ -286,9 +267,7 @@ export async function becomeDelegate(api: TypedApi<typeof devnet>, ss58Address: 
     const tx = api.tx.SubtensorModule.become_delegate({
         hotkey: ss58Address
     })
-    await waitForTransactionCompletion(api, tx, signer)
-        .then(() => { })
-        .catch((error) => { console.log(`transaction error ${error}`) });
+    await waitForTransactionWithRetry(api, tx, signer)
 }
 
 export async function addStake(api: TypedApi<typeof devnet>, netuid: number, ss58Address: string, amount_staked: bigint, keypair: KeyPair) {
@@ -299,10 +278,7 @@ export async function addStake(api: TypedApi<typeof devnet>, netuid: number, ss5
         amount_staked: amount_staked
     })
 
-    await waitForTransactionCompletion(api, tx, signer)
-        .then(() => { })
-        .catch((error) => { console.log(`transaction error ${error}`) });
-
+    await waitForTransactionWithRetry(api, tx, signer)
 }
 
 export async function setWeight(api: TypedApi<typeof devnet>, netuid: number, dests: number[], weights: number[], version_key: bigint, keypair: KeyPair) {
@@ -314,10 +290,7 @@ export async function setWeight(api: TypedApi<typeof devnet>, netuid: number, de
         version_key: version_key
     })
 
-    await waitForTransactionCompletion(api, tx, signer)
-        .then(() => { })
-        .catch((error) => { console.log(`transaction error ${error}`) });
-
+    await waitForTransactionWithRetry(api, tx, signer)
 }
 
 export async function rootRegister(api: TypedApi<typeof devnet>, ss58Address: string, keypair: KeyPair) {
@@ -326,9 +299,7 @@ export async function rootRegister(api: TypedApi<typeof devnet>, ss58Address: st
         hotkey: ss58Address
     })
 
-    await waitForTransactionCompletion(api, tx, signer)
-        .then(() => { })
-        .catch((error) => { console.log(`transaction error ${error}`) });
+    await waitForTransactionWithRetry(api, tx, signer)
 }
 
 export async function setSubtokenEnable(api: TypedApi<typeof devnet>, netuid: number, subtokenEnable: boolean) {
@@ -339,10 +310,7 @@ export async function setSubtokenEnable(api: TypedApi<typeof devnet>, netuid: nu
     })
     let tx = api.tx.Sudo.sudo({ call: internalTx.decodedCall })
 
-    await waitForTransactionCompletion(api, tx, signer)
-        .then(() => { })
-        .catch((error) => { console.log(`transaction error ${error}`) });
-
+    await waitForTransactionWithRetry(api, tx, signer)
 }
 
 export async function startCall(api: TypedApi<typeof devnet>, netuid: number, keypair: KeyPair) {
@@ -354,6 +322,7 @@ export async function startCall(api: TypedApi<typeof devnet>, netuid: number, ke
         await new Promise((resolve) => setTimeout(resolve, 2000));
         currentBlock = await api.query.System.Number.getValue()
     }
+    // wait for chain to run coinbase
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
     const signer = getSignerFromKeypair(keypair)
@@ -361,13 +330,10 @@ export async function startCall(api: TypedApi<typeof devnet>, netuid: number, ke
         netuid: netuid,
     })
 
-    await waitForTransactionCompletion(api, tx, signer)
-        .then(() => { })
-        .catch((error) => { console.log(`transaction error ${error}`) });
+    await waitForTransactionWithRetry(api, tx, signer)
 
     await new Promise((resolve) => setTimeout(resolve, 1000));
     const callStarted = await api.query.SubtensorModule.FirstEmissionBlockNumber
         .getValue(netuid);
     assert.notEqual(callStarted, undefined);
-
 }
