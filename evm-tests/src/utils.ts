@@ -1,35 +1,36 @@
-import { createPublicClient, defineChain, http, publicActions } from "viem";
-import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { ethers } from "ethers";
-import { ETH_LOCAL_URL } from "./config";
+import { defineChain, http, publicActions, createPublicClient } from "viem"
+import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts'
+import { ethers } from "ethers"
+import { ETH_LOCAL_URL } from "./config"
 
-export type ClientUrlType = "http://localhost:9944";
+export type ClientUrlType = 'http://localhost:9944';
 
-export const chain = (id: number, url: string) =>
-  defineChain({
+export const chain = (id: number, url: string) => defineChain({
     id: id,
-    name: "bittensor",
-    network: "bittensor",
+    name: 'bittensor',
+    network: 'bittensor',
     nativeCurrency: {
-      name: "tao",
-      symbol: "TAO",
-      decimals: 9,
+        name: 'tao',
+        symbol: 'TAO',
+        decimals: 9,
     },
     rpcUrls: {
-      default: {
-        http: [url],
-      },
+        default: {
+            http: [url],
+        },
     },
     testnet: true,
-  });
+})
+
 
 export async function getPublicClient(url: ClientUrlType) {
-  const wallet = createPublicClient({
-    chain: chain(42, url),
-    transport: http(),
-  });
+    const wallet = createPublicClient({
+        chain: chain(42, url),
+        transport: http(),
 
-  return wallet.extend(publicActions);
+    })
+
+    return wallet.extend(publicActions)
 }
 
 /**
@@ -37,17 +38,18 @@ export async function getPublicClient(url: ClientUrlType) {
  * @returns wallet keyring
  */
 export function generateRandomEthWallet() {
-  let privateKey = generatePrivateKey().toString();
-  privateKey = privateKey.replace("0x", "");
+    let privateKey = generatePrivateKey().toString();
+    privateKey = privateKey.replace('0x', '');
 
-  const account = privateKeyToAccount(`0x${privateKey}`);
-  return account;
+    const account = privateKeyToAccount(`0x${privateKey}`)
+    return account
 }
 
-export function generateRandomEthersWallet() {
-  const account = ethers.Wallet.createRandom();
-  const provider = new ethers.JsonRpcProvider(ETH_LOCAL_URL);
 
-  const wallet = new ethers.Wallet(account.privateKey, provider);
-  return wallet;
+export function generateRandomEthersWallet() {
+    const account = ethers.Wallet.createRandom();
+    const provider = new ethers.JsonRpcProvider(ETH_LOCAL_URL);
+
+    const wallet = new ethers.Wallet(account.privateKey, provider);
+    return wallet;
 }
