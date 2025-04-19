@@ -1,6 +1,6 @@
 import * as assert from "assert";
 
-import { getAliceSigner, getDevnetApi, waitForTransactionCompletion, convertPublicKeyToMultiAddress, getRandomSubstrateKeypair, getSignerFromKeypair, waitForTransactionWithRetry } from "../src/substrate"
+import { getAliceSigner, getDevnetApi, convertPublicKeyToMultiAddress, getRandomSubstrateKeypair, getSignerFromKeypair, waitForTransactionWithRetry } from "../src/substrate"
 import { getPublicClient, } from "../src/utils";
 import { ETH_LOCAL_URL } from "../src/config";
 import { devnet } from "@polkadot-api/descriptors"

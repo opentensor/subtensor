@@ -16,16 +16,12 @@ export async function addNewSubnetwork(api: TypedApi<typeof devnet>, hotkey: Key
     if (rateLimit !== BigInt(0)) {
         const internalCall = api.tx.AdminUtils.sudo_set_network_rate_limit({ rate_limit: BigInt(0) })
         const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
-        await waitForTransactionCompletion(api, tx, alice)
-            .then(() => { })
-            .catch((error) => { console.log(`transaction error ${error}`) });
+        await waitForTransactionWithRetry(api, tx, alice)
     }
 
     const signer = getSignerFromKeypair(coldkey)
     const registerNetworkTx = api.tx.SubtensorModule.register_network({ hotkey: convertPublicKeyToSs58(hotkey.publicKey) })
-    await waitForTransactionCompletion(api, registerNetworkTx, signer)
-        .then(() => { })
-        .catch((error) => { console.log(`transaction error ${error}`) });
+    await waitForTransactionWithRetry(api, registerNetworkTx, signer)
 
     assert.equal(totalNetworks + 1, await api.query.SubtensorModule.TotalNetworks.getValue())
     return totalNetworks
@@ -77,9 +73,7 @@ export async function setWeightsSetRateLimit(api: TypedApi<typeof devnet>, netui
     const internalCall = api.tx.AdminUtils.sudo_set_weights_set_rate_limit({ netuid: netuid, weights_set_rate_limit: rateLimit })
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
-    await waitForTransactionCompletion(api, tx, alice)
-        .then(() => { })
-        .catch((error) => { console.log(`transaction error ${error}`) });
+    await waitForTransactionWithRetry(api, tx, alice)
     assert.equal(rateLimit, await api.query.SubtensorModule.WeightsSetRateLimit.getValue(netuid))
 }
 
@@ -95,9 +89,7 @@ export async function setTempo(api: TypedApi<typeof devnet>, netuid: number, tem
     const internalCall = api.tx.AdminUtils.sudo_set_tempo({ netuid: netuid, tempo: tempo })
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
-    await waitForTransactionCompletion(api, tx, alice)
-        .then(() => { })
-        .catch((error) => { console.log(`transaction error ${error}`) });
+    await waitForTransactionWithRetry(api, tx, alice)
     assert.equal(tempo, await api.query.SubtensorModule.Tempo.getValue(netuid))
 }
 
@@ -111,9 +103,7 @@ export async function setCommitRevealWeightsInterval(api: TypedApi<typeof devnet
     const internalCall = api.tx.AdminUtils.sudo_set_commit_reveal_weights_interval({ netuid: netuid, interval: interval })
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
-    await waitForTransactionCompletion(api, tx, alice)
-        .then(() => { })
-        .catch((error) => { console.log(`transaction error ${error}`) });
+    await waitForTransactionWithRetry(api, tx, alice)
     assert.equal(interval, await api.query.SubtensorModule.RevealPeriodEpochs.getValue(netuid))
 }
 
