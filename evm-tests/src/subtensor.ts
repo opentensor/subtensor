@@ -63,9 +63,7 @@ export async function setCommitRevealWeightsEnabled(api: TypedApi<typeof devnet>
     const internalCall = api.tx.AdminUtils.sudo_set_commit_reveal_weights_enabled({ netuid: netuid, enabled: enabled })
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
-    await waitForTransactionCompletion(api, tx, alice)
-        .then(() => { })
-        .catch((error) => { console.log(`transaction error ${error}`) });
+    await waitForTransactionWithRetry(api, tx, alice)
     assert.equal(enabled, await api.query.SubtensorModule.CommitRevealWeightsEnabled.getValue(netuid))
 }
 
