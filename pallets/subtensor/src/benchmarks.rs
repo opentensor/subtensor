@@ -716,4 +716,12 @@ benchmark_start_call {
 
 }: start_call(RawOrigin::Signed(coldkey), netuid)
 
+benchmark_adjust_senate {
+  let coldkey: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+  let hotkey:  T::AccountId = account("Alice", 0, 1);
+  let root: u16 = Subtensor::<T>::get_root_netuid();
+  Subtensor::<T>::init_new_network(root, 1);
+  Uids::<T>::insert(root, &hotkey, 0u16);
+}: adjust_senate(RawOrigin::Signed(coldkey), hotkey.clone())
+
 }
