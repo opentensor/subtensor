@@ -11,6 +11,10 @@ pub use pallet::*;
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, Hash};
 use sp_std::vec;
+use sp_core::H160;
+use codec::Compact;
+use sp_runtime::BoundedVec;
+use sp_core::ecdsa::Signature;
 
 benchmarks! {
   // Add individual benchmarks here
@@ -724,4 +728,30 @@ benchmark_adjust_senate {
   Uids::<T>::insert(root, &hotkey, 0u16);
 }: adjust_senate(RawOrigin::Signed(coldkey), hotkey.clone())
 
+benchmark_add_stake_limit {
+  let coldkey: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+  let hotkey : T::AccountId = account("Alice", 0, 1);
+  let netuid : u16          = 1;
+  let amount : u64          = 1_000_000;
+  let limit  : u64          = 1_000_000;
+  let allow  : bool         = true;
+  Subtensor::<T>::init_new_network(netuid, 1);
+  Subtensor::<T>::set_network_registration_allowed(netuid, true);
+  SubtokenEnabled::<T>::insert(netuid, true);
+
+  let bond    = Subtensor::<T>::get_burn_as_u64(netuid);
+  let deposit = (amount + bond + DefaultStakingFee::<T>::get()) * 10;
+  Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, deposit);
+  assert_ok!(
+      Subtensor::<T>::burned_register(
+          RawOrigin::Signed(coldkey.clone()).into(),
+          netuid,
+          hotkey.clone()
+      )
+  );
+  SubnetTAO::<T>::insert(netuid, deposit);
+  SubnetAlphaIn::<T>::insert(netuid, deposit);
+  TotalStake::<T>::set(deposit);
+
+}: add_stake_limit(RawOrigin::Signed(coldkey.clone()), hotkey.clone(), netuid, amount, limit, allow)
 }
