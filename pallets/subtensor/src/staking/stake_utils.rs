@@ -1019,6 +1019,16 @@ impl<T: Config> Pallet<T> {
             );
         }
 
+        ensure!(
+            SubtokenEnabled::<T>::get(origin_netuid),
+            Error::<T>::SubtokenDisabled
+        );
+
+        ensure!(
+            SubtokenEnabled::<T>::get(destination_netuid),
+            Error::<T>::SubtokenDisabled
+        );
+
         // Ensure that the origin hotkey account exists
         ensure!(
             Self::hotkey_account_exists(origin_hotkey),

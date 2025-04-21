@@ -440,6 +440,32 @@ fn test_migrate_set_first_emission_block_number() {
 }
 
 #[test]
+fn test_migrate_set_subtoken_enable() {
+    new_test_ext(1).execute_with(|| {
+        let netuids: [u16; 3] = [1, 2, 3];
+        let block_number = 100;
+        for netuid in netuids.iter() {
+            add_network(*netuid, 1, 0);
+        }
+
+        let new_netuid = 4;
+        add_network_without_emission_block(new_netuid, 1, 0);
+
+        let weight =
+            crate::migrations::migrate_set_subtoken_enabled::migrate_set_subtoken_enabled::<Test>();
+
+        let expected_weight: Weight = <Test as Config>::DbWeight::get().reads(1)
+            + <Test as Config>::DbWeight::get().writes(netuids.len() as u64 + 2);
+        assert_eq!(weight, expected_weight);
+
+        for netuid in netuids.iter() {
+            assert!(SubtokenEnabled::<Test>::get(netuid));
+        }
+        assert!(!SubtokenEnabled::<Test>::get(new_netuid));
+    });
+}
+
+#[test]
 fn test_migrate_remove_zero_total_hotkey_alpha() {
     new_test_ext(1).execute_with(|| {
         const MIGRATION_NAME: &str = "migrate_remove_zero_total_hotkey_alpha";
@@ -553,5 +579,41 @@ fn test_migrate_revealed_commitments() {
 
         // Weight returned should be > 0 (some cost was incurred clearing storage)
         assert!(!weight.is_zero(), "Migration weight should be non-zero");
+    });
+}
+
+#[test]
+fn test_migrate_remove_total_hotkey_coldkey_stakes_this_interval() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_remove_total_hotkey_coldkey_stakes_this_interval";
+
+        let pallet_name = twox_128(b"SubtensorModule");
+        let storage_name = twox_128(b"TotalHotkeyColdkeyStakesThisInterval");
+        let prefix = [pallet_name, storage_name].concat();
+
+        // Set up 200 000 entries to be deleted.
+        for i in 0..200_000{
+            let hotkey = U256::from(i as u64);
+            let coldkey = U256::from(i as u64);
+            let key = [prefix.clone(), hotkey.encode(), coldkey.encode()].concat();
+            let value = (100 + i, 200 + i);
+            put_raw(&key, &value.encode());
+        }
+
+        assert!(frame_support::storage::unhashed::contains_prefixed_key(&prefix), "Entries should exist before migration.");
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet."
+        );
+
+        // Run migration
+        let weight = crate::migrations::migrate_remove_total_hotkey_coldkey_stakes_this_interval::migrate_remove_total_hotkey_coldkey_stakes_this_interval::<Test>();
+
+        assert!(!frame_support::storage::unhashed::contains_prefixed_key(&prefix), "All entries should have been removed.");
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as run."
+        );
+        assert!(!weight.is_zero(),"Migration weight should be non-zero.");
     });
 }
