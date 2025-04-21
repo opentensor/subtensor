@@ -1360,7 +1360,7 @@ min_contribution,
 }
 
 #[test]
-fn test_dissolve_succeeds_for_a_running_crowdloan() {
+fn test_dissolve_succeeds() {
     TestState::default()
         .with_balance(U256::from(1), 100)
         .build_and_execute(|| {
@@ -1381,6 +1381,16 @@ fn test_dissolve_succeeds_for_a_running_crowdloan() {
                 None,
             ));
 
+            // run some blocks past end
+            run_to_block(60);
+
+            // refund the contributions
+            let crowdloan_id: CrowdloanId = 0;
+            assert_ok!(Crowdloan::refund(
+                RuntimeOrigin::signed(creator),
+                crowdloan_id
+            ));
+
             // dissolve the crowdloan
             let crowdloan_id: CrowdloanId = 0;
             assert_ok!(Crowdloan::dissolve(
@@ -1388,11 +1398,14 @@ fn test_dissolve_succeeds_for_a_running_crowdloan() {
                 crowdloan_id
             ));
 
-            // ensure the crowdloan is marked for dissolution
-            assert!(pallet_crowdloan::CrowdloansToDissolve::<Test>::get(crowdloan_id).is_some());
-
             // ensure the crowdloan is removed from the crowdloans map
             assert!(pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id).is_none());
+
+            // ensure the event is emitted
+            assert_eq!(
+                last_event(),
+                pallet_crowdloan::Event::<Test>::Dissolved { crowdloan_id }.into()
+            )
         });
 }
 
@@ -1481,8 +1494,7 @@ fn test_dissolve_fails_if_crowdloan_has_been_finalized() {
 fn test_dissolve_fails_if_origin_is_not_creator() {
     TestState::default()
         .with_balance(U256::from(1), 100)
-        .with_balance(U256::from(2), 100)
-        .build_and_execute(|| {
+                .build_and_execute(|| {
             let creator: AccountOf<Test> = U256::from(1);
             let deposit: BalanceOf<Test> = 50;
             let min_contribution: BalanceOf<Test> = 10;
@@ -1509,6 +1521,40 @@ fn test_dissolve_fails_if_origin_is_not_creator() {
             assert_err!(
                 Crowdloan::dissolve(RuntimeOrigin::signed(U256::from(2)), crowdloan_id),
                 pallet_crowdloan::Error::<Test>::InvalidOrigin
+            );
+        });
+}
+
+#[test]
+fn test_dissolve_fails_if_not_everyone_has_been_refunded() {
+    TestState::default()
+        .with_balance(U256::from(1), 100)
+        .build_and_execute(|| {
+            // create a crowdloan
+            let creator: AccountOf<Test> = U256::from(1);
+            let deposit: BalanceOf<Test> = 50;
+            let min_contribution: BalanceOf<Test> = 10;
+            let cap: BalanceOf<Test> = 100;
+            let end: BlockNumberFor<Test> = 50;
+
+            assert_ok!(Crowdloan::create(
+                RuntimeOrigin::signed(creator),
+                deposit,
+                min_contribution,
+                cap,
+                end,
+                noop_call(),
+                None,
+            ));
+
+            // run some blocks past end
+            run_to_block(10);
+
+            // try to dissolve the crowdloan
+            let crowdloan_id = 0;
+            assert_err!(
+                Crowdloan::dissolve(RuntimeOrigin::signed(creator), crowdloan_id),
+                pallet_crowdloan::Error::<Test>::NotReadyToDissolve
             );
         });
 }

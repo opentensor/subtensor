@@ -32,6 +32,7 @@ mod benchmarks {
     fn create() {
         let creator: T::AccountId = account::<T::AccountId>("creator", 0, SEED);
         let deposit = T::MinimumDeposit::get();
+        let min_contribution = T::AbsoluteMinimumContribution::get();
         let cap = deposit + deposit;
         let now = frame_system::Pallet::<T>::block_number();
         let end = now + T::MaximumBlockDuration::get();
@@ -44,10 +45,11 @@ mod benchmarks {
         _(
             RawOrigin::Signed(creator.clone()),
             deposit,
+            min_contribution,
             cap,
             end,
-            Some(target_address.clone()),
             call.clone(),
+            Some(target_address.clone()),
         );
 
         // ensure the crowdloan is stored correctly
@@ -58,6 +60,7 @@ mod benchmarks {
             Some(CrowdloanInfo {
                 creator: creator.clone(),
                 deposit,
+                min_contribution,
                 cap,
                 end,
                 funds_account: funds_account.clone(),
@@ -97,6 +100,7 @@ mod benchmarks {
         // create a crowdloan
         let creator: T::AccountId = account::<T::AccountId>("creator", 0, SEED);
         let deposit = T::MinimumDeposit::get();
+        let min_contribution = T::AbsoluteMinimumContribution::get();
         let cap = deposit + deposit;
         let now = frame_system::Pallet::<T>::block_number();
         let end = now + T::MaximumBlockDuration::get();
@@ -107,15 +111,16 @@ mod benchmarks {
         let _ = Pallet::<T>::create(
             RawOrigin::Signed(creator.clone()).into(),
             deposit,
+            min_contribution,
             cap,
             end,
-            Some(target_address.clone()),
             call.clone(),
+            Some(target_address.clone()),
         );
 
         // setup contributor
         let contributor: T::AccountId = account::<T::AccountId>("contributor", 0, SEED);
-        let amount: BalanceOf<T> = T::MinimumContribution::get();
+        let amount: BalanceOf<T> = min_contribution;
         let crowdloan_id: CrowdloanId = 0;
         let _ = CurrencyOf::<T>::set_balance(&contributor, amount);
 
@@ -152,6 +157,7 @@ mod benchmarks {
         // create a crowdloan
         let creator: T::AccountId = account::<T::AccountId>("creator", 0, SEED);
         let deposit = T::MinimumDeposit::get();
+        let min_contribution = T::AbsoluteMinimumContribution::get();
         let cap = deposit + deposit;
         let now = frame_system::Pallet::<T>::block_number();
         let end = now + T::MaximumBlockDuration::get();
@@ -162,15 +168,16 @@ mod benchmarks {
         let _ = Pallet::<T>::create(
             RawOrigin::Signed(creator.clone()).into(),
             deposit,
+            min_contribution,
             cap,
             end,
-            Some(target_address.clone()),
             call.clone(),
+            Some(target_address.clone()),
         );
 
         // create contribution
         let contributor: T::AccountId = account::<T::AccountId>("contributor", 0, SEED);
-        let amount: BalanceOf<T> = T::MinimumContribution::get();
+        let amount: BalanceOf<T> = min_contribution;
         let crowdloan_id: CrowdloanId = 0;
         let _ = CurrencyOf::<T>::set_balance(&contributor, amount);
         let _ = Pallet::<T>::contribute(
@@ -212,10 +219,11 @@ mod benchmarks {
     }
 
     #[benchmark]
-    fn refund(k: Linear<3, { T::RefundContributorsLimit::get() }>) {
+    fn finalize() {
         // create a crowdloan
         let creator: T::AccountId = account::<T::AccountId>("creator", 0, SEED);
         let deposit = T::MinimumDeposit::get();
+        let min_contribution = T::AbsoluteMinimumContribution::get();
         let cap = deposit + deposit;
         let now = frame_system::Pallet::<T>::block_number();
         let end = now + T::MaximumBlockDuration::get();
@@ -226,14 +234,63 @@ mod benchmarks {
         let _ = Pallet::<T>::create(
             RawOrigin::Signed(creator.clone()).into(),
             deposit,
+            min_contribution,
             cap,
             end,
+            call.clone(),
             Some(target_address.clone()),
+        );
+
+        // create contribution fullfilling the cap
+        let crowdloan_id: CrowdloanId = 0;
+        let contributor: T::AccountId = account::<T::AccountId>("contributor", 0, SEED);
+        let amount: BalanceOf<T> = cap - deposit;
+        let _ = CurrencyOf::<T>::set_balance(&contributor, amount);
+        let _ = Pallet::<T>::contribute(
+            RawOrigin::Signed(contributor.clone()).into(),
+            crowdloan_id,
+            amount,
+        );
+
+        // run to the end of the contribution period
+        frame_system::Pallet::<T>::set_block_number(end);
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(creator.clone()), crowdloan_id);
+
+        // ensure the target address has received the raised amount
+        assert_eq!(CurrencyOf::<T>::balance(&target_address), deposit + amount);
+        // ensure the crowdloan has been finalized
+        assert!(Crowdloans::<T>::get(crowdloan_id).is_some_and(|c| c.finalized));
+        // ensure the event is emitted
+        assert_last_event::<T>(Event::<T>::Finalized { crowdloan_id }.into());
+    }
+
+    #[benchmark]
+    fn refund(k: Linear<3, { T::RefundContributorsLimit::get() }>) {
+        // create a crowdloan
+        let creator: T::AccountId = account::<T::AccountId>("creator", 0, SEED);
+        let deposit = T::MinimumDeposit::get();
+        let min_contribution = T::AbsoluteMinimumContribution::get();
+        let cap = deposit + deposit;
+        let now = frame_system::Pallet::<T>::block_number();
+        let end = now + T::MaximumBlockDuration::get();
+        let target_address: T::AccountId = account::<T::AccountId>("target_address", 0, SEED);
+        let call: Box<<T as Config>::RuntimeCall> =
+            Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into());
+        let _ = CurrencyOf::<T>::set_balance(&creator, deposit);
+        let _ = Pallet::<T>::create(
+            RawOrigin::Signed(creator.clone()).into(),
+            deposit,
+            min_contribution,
+            cap,
+            end,
             call,
+            Some(target_address.clone()),
         );
 
         let crowdloan_id: CrowdloanId = 0;
-        let amount: BalanceOf<T> = T::MinimumContribution::get();
+        let amount: BalanceOf<T> = min_contribution;
         // create the worst case count of contributors k to be refunded minus the creator
         // who is already a contributor
         let contributors = k - 1;
@@ -271,52 +328,6 @@ mod benchmarks {
         assert!(Crowdloans::<T>::get(crowdloan_id).is_some_and(|c| c.raised == 0));
         // ensure the event is emitted
         assert_last_event::<T>(Event::<T>::AllRefunded { crowdloan_id }.into());
-    }
-
-    #[benchmark]
-    fn finalize() {
-        // create a crowdloan
-        let creator: T::AccountId = account::<T::AccountId>("creator", 0, SEED);
-        let deposit = T::MinimumDeposit::get();
-        let cap = deposit + deposit;
-        let now = frame_system::Pallet::<T>::block_number();
-        let end = now + T::MaximumBlockDuration::get();
-        let target_address: T::AccountId = account::<T::AccountId>("target_address", 0, SEED);
-        let call: Box<<T as Config>::RuntimeCall> =
-            Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into());
-        let _ = CurrencyOf::<T>::set_balance(&creator, deposit);
-        let _ = Pallet::<T>::create(
-            RawOrigin::Signed(creator.clone()).into(),
-            deposit,
-            cap,
-            end,
-            Some(target_address.clone()),
-            call,
-        );
-
-        // create contribution fullfilling the cap
-        let crowdloan_id: CrowdloanId = 0;
-        let contributor: T::AccountId = account::<T::AccountId>("contributor", 0, SEED);
-        let amount: BalanceOf<T> = cap - deposit;
-        let _ = CurrencyOf::<T>::set_balance(&contributor, amount);
-        let _ = Pallet::<T>::contribute(
-            RawOrigin::Signed(contributor.clone()).into(),
-            crowdloan_id,
-            amount,
-        );
-
-        // run to the end of the contribution period
-        frame_system::Pallet::<T>::set_block_number(end);
-
-        #[extrinsic_call]
-        _(RawOrigin::Signed(creator.clone()), crowdloan_id);
-
-        // ensure the target address has received the raised amount
-        assert_eq!(CurrencyOf::<T>::balance(&target_address), deposit + amount);
-        // ensure the crowdloan has been finalized
-        assert!(Crowdloans::<T>::get(crowdloan_id).is_some_and(|c| c.finalized));
-        // ensure the event is emitted
-        assert_last_event::<T>(Event::<T>::Finalized { crowdloan_id }.into());
     }
 
     impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test,);

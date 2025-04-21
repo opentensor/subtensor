@@ -18,7 +18,7 @@ use frame_support::{
         traits::{AccountIdConversion, Dispatchable, Zero},
     },
     traits::{
-        Bounded, Get, IsSubType, QueryPreimage, StorePreimage, fungible, fungible::*,
+        Bounded, Defensive, Get, IsSubType, QueryPreimage, StorePreimage, fungible, fungible::*,
         tokens::Preservation,
     },
 };
@@ -162,11 +162,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type CurrentCrowdloanId<T: Config> = StorageValue<_, CrowdloanId, OptionQuery>;
 
-/// Scheduled for dissolution
-    #[pallet::storage]
-    pub type CrowdloansToDissolve<T: Config> =
-        StorageMap<_, Twox64Concat, CrowdloanId, CrowdloanInfoOf<T>, OptionQuery>;
-
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
@@ -195,6 +190,8 @@ pub mod pallet {
         AllRefunded { crowdloan_id: CrowdloanId },
         /// A crowdloan was finalized, funds were transferred and the call was dispatched.
         Finalized { crowdloan_id: CrowdloanId },
+/// A crowdloan was dissolved.
+        Dissolved { crowdloan_id: CrowdloanId },
     }
 
     #[pallet::error]
@@ -237,6 +234,8 @@ pub mod pallet {
         Underflow,
         /// Call to dispatch was not found in the preimage storage.
         CallUnavailable,
+/// The crowdloan is not ready to be dissolved, it still has contributions.
+        NotReadyToDissolve,
     }
 
     #[pallet::call]
@@ -543,28 +542,6 @@ contributor,
             Ok(())
         }
 
-        /// Dissolve a crowdloan and schedule for refund.
-        #[pallet::call_index(4)]
-        #[pallet::weight(T::WeightInfo::finalize())]
-        pub fn dissolve(
-            origin: OriginFor<T>,
-            #[pallet::compact] crowdloan_id: CrowdloanId,
-        ) -> DispatchResult {
-            let who = ensure_signed(origin)?;
-
-            let crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
-            ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
-
-            // Only the creator can dissolve the crowdloan
-            ensure!(who == crowdloan.creator, Error::<T>::InvalidOrigin);
-
-            // Mark for dissolution, will be removed in the on_idle block.
-            CrowdloansToDissolve::<T>::insert(crowdloan_id, crowdloan);
-            Crowdloans::<T>::remove(crowdloan_id);
-
-            Ok(())
-        }
-
         /// Refund a failed crowdloan.
         ///
         /// The call will try to refund all contributors up to the limit defined by the `RefundContributorsLimit`.
@@ -580,10 +557,14 @@ contributor,
             origin: OriginFor<T>,
             #[pallet::compact] crowdloan_id: CrowdloanId,
         ) -> DispatchResultWithPostInfo {
+let now = frame_system::Pallet::<T>::block_number();
             ensure_signed(origin)?;
 
             let mut crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
-            Self::ensure_crowdloan_failed(&crowdloan)?;
+            
+            // Ensure the crowdloan has ended and is not finalized
+ensure!(now >= crowdloan.end, Error::<T>::ContributionPeriodNotEnded);
+            ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
 
             let mut refunded_contributors: Vec<T::AccountId> = vec![];
             let mut refund_count = 0;
@@ -627,9 +608,41 @@ contributor,
             }
         }
 
-        /// Update min contribution
+/// Dissolve a crowdloan and schedule for refund.
+        #[pallet::call_index(4)]
+        // #[pallet::weight(T::WeightInfo::finalize())]
+        pub fn dissolve(
+            origin: OriginFor<T>,
+            #[pallet::compact] crowdloan_id: CrowdloanId,
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+
+            let crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
+            ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
+
+            // Only the creator can dissolve the crowdloan
+            ensure!(who == crowdloan.creator, Error::<T>::InvalidOrigin);
+            // It can only be dissolved if the raised amount is 0, meaning
+            // there is no contributions or every contribution has been refunded
+            ensure!(crowdloan.raised == 0, Error::<T>::NotReadyToDissolve);
+
+            // Remove the crowdloan
+            let _ = frame_system::Pallet::<T>::dec_providers(&crowdloan.funds_account).defensive();
+            Crowdloans::<T>::remove(crowdloan_id);
+
+            Self::deposit_event(Event::<T>::Dissolved { crowdloan_id });
+            Ok(())
+        }
+
+        /// Update  the minimum contribution of a non-finalized crowdloan.
+        ///
+        /// The dispatch origin for this call must be _Signed_ and must be the creator of the crowdloan.
+        ///
+        /// Parameters:
+        /// - `crowdloan_id`: The id of the crowdloan to update the minimum contribution of.
+        /// - `new_min_contribution`: The new minimum contribution.
         #[pallet::call_index(6)]
-        #[pallet::weight(T::WeightInfo::finalize())]
+//         #[pallet::weight(T::WeightInfo::finalize())]
         pub fn update_min_contribution(
             origin: OriginFor<T>,
             #[pallet::compact] crowdloan_id: CrowdloanId,
@@ -655,7 +668,13 @@ contributor,
             Ok(())
         }
 
-        /// Update end
+        /// Update the end block of a non-finalized crowdloan.
+        ///
+        /// The dispatch origin for this call must be _Signed_ and must be the creator of the crowdloan.
+        ///
+        /// Parameters:
+        /// - `crowdloan_id`: The id of the crowdloan to update the end block of.
+        /// - `new_end`: The new end block.
         #[pallet::call_index(7)]
         #[pallet::weight(T::WeightInfo::finalize())]
         pub fn update_end(
@@ -680,7 +699,13 @@ contributor,
             Ok(())
         }
 
-        /// Update cap
+        /// Update the cap of a non-finalized crowdloan.
+        ///
+        /// The dispatch origin for this call must be _Signed_ and must be the creator of the crowdloan.
+        ///
+        /// Parameters:
+        /// - `crowdloan_id`: The id of the crowdloan to update the cap of.
+        /// - `new_cap`: The new cap.
         #[pallet::call_index(8)]
         #[pallet::weight(T::WeightInfo::finalize())]
         pub fn update_cap(
@@ -715,16 +740,6 @@ impl<T: Config> Pallet<T> {
 
     fn ensure_crowdloan_exists(crowdloan_id: CrowdloanId) -> Result<CrowdloanInfoOf<T>, Error<T>> {
         Crowdloans::<T>::get(crowdloan_id).ok_or(Error::<T>::InvalidCrowdloanId)
-    }
-
-    // A crowdloan is considered to have failed if it has ended, has not raised the cap and
-    // has not been finalized.
-    fn ensure_crowdloan_failed(crowdloan: &CrowdloanInfoOf<T>) -> Result<(), Error<T>> {
-        let now = frame_system::Pallet::<T>::block_number();
-        ensure!(now >= crowdloan.end, Error::<T>::ContributionPeriodNotEnded);
-        ensure!(crowdloan.raised < crowdloan.cap, Error::<T>::CapRaised);
-        ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
-        Ok(())
     }
 
     // Ensure the provided end block is after the current block and the duration is
