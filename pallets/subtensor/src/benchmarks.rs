@@ -1044,4 +1044,29 @@ benchmark_batch_set_weights {
   );
 }: batch_set_weights(RawOrigin::Signed(hotkey.clone()),netuids, weights, keys)
 
+benchmark_commit_crv3_weights {
+  let hotkey: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+  let netuid:  u16         = 1;
+  let vec_commit: Vec<u8>  = vec![0; MAX_CRV3_COMMIT_SIZE_BYTES as usize];
+  let commit: BoundedVec<_, _> =
+      vec_commit.try_into().unwrap();
+  let round: u64           = 0;
+
+  Subtensor::<T>::init_new_network(netuid, 1);
+  Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
+  SubtokenEnabled::<T>::insert(netuid, true);
+
+  let reg_fee = Subtensor::<T>::get_burn_as_u64(netuid);
+  Subtensor::<T>::add_balance_to_coldkey_account(&hotkey, reg_fee.saturating_mul(2));
+
+  assert_ok!(
+      Subtensor::<T>::burned_register(
+          RawOrigin::Signed(hotkey.clone()).into(),
+          netuid,
+          hotkey.clone()
+      )
+  );
+
+  Subtensor::<T>::set_commit_reveal_weights_enabled(netuid, true);
+}: commit_crv3_weights(RawOrigin::Signed(hotkey.clone()),netuid, commit, round)
 }
