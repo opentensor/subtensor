@@ -129,8 +129,19 @@ fn test_add_stake_aggregate_ok_no_emission() {
             SubtensorModule::get_network_min_lock()
         );
 
-        // Enable on_finalize code to run
+        // Check for the block delay
         run_to_block_ext(2, true);
+
+        // Check that event was not emitted.
+        assert!(System::events().iter().all(|e| {
+            !matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedStakeAdded(..))
+            )
+        }));
+
+        // Enable on_finalize code to run
+        run_to_block_ext(3, true);
 
         // Check if stake has increased
         assert_abs_diff_eq!(
@@ -183,8 +194,19 @@ fn test_add_stake_aggregate_failed() {
             amount
         ));
 
-        // Enable on_finalize code to run
+        // Check for the block delay
         run_to_block_ext(2, true);
+
+        // Check that event was not emitted.
+        assert!(System::events().iter().all(|e| {
+            !matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::FailedToAddAggregatedStake(..))
+            )
+        }));
+
+        // Enable on_finalize code to run
+        run_to_block_ext(3, true);
 
         // Check that event was emitted.
         assert!(System::events().iter().any(|e| {
@@ -281,7 +303,7 @@ fn test_verify_aggregated_stake_order() {
         ));
 
         // Enable on_finalize code to run
-        run_to_block_ext(2, true);
+        run_to_block_ext(3, true);
 
         let add_stake_position = System::events()
             .iter()
@@ -372,6 +394,194 @@ fn test_verify_aggregated_stake_order() {
         assert!(unstake_all_position < unstake_all_alpha_position);
         assert!(add_stake_position > unstake_all_alpha_position);
         assert!(add_stake_limit_position < add_stake_position);
+    });
+}
+
+#[test]
+#[allow(clippy::indexing_slicing)]
+fn test_verify_aggregated_stake_order_reversed() {
+    new_test_ext(1).execute_with(|| {
+        let amount = 900_000_000_000; // over the maximum
+        let limit_price = 6_000_000_000u64;
+
+        // Coldkeys and hotkeys
+        let coldkeys = vec![
+            U256::from(100), // add_stake
+            U256::from(200), // add_stake_limit
+            U256::from(300), // remove_stake
+            U256::from(400), // remove_stake_limit
+            U256::from(500), // unstake_all
+            U256::from(600), // unstake_all_alpha
+        ];
+
+        let hotkeys = (1..=6).map(U256::from).collect::<Vec<_>>();
+
+        let netuids: Vec<_> = hotkeys
+            .iter()
+            .zip(coldkeys.iter())
+            .map(|(h, c)| add_dynamic_network(h, c))
+            .collect();
+
+        let tao_reserve = U96F32::from_num(150_000_000_000u64);
+        let alpha_in = U96F32::from_num(100_000_000_000u64);
+
+        for netuid in &netuids {
+            SubnetTAO::<Test>::insert(*netuid, tao_reserve.to_num::<u64>());
+            SubnetAlphaIn::<Test>::insert(*netuid, alpha_in.to_num::<u64>());
+        }
+
+        for coldkey in &coldkeys {
+            SubtensorModule::add_balance_to_coldkey_account(coldkey, amount);
+        }
+
+        for ((hotkey, coldkey), netuid) in hotkeys.iter().zip(coldkeys.iter()).zip(netuids.iter()) {
+            SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                hotkey, coldkey, *netuid, amount,
+            );
+        }
+
+        // Add stake with slippage safety and check if the result is ok
+        assert_ok!(SubtensorModule::remove_stake_aggregate(
+            RuntimeOrigin::signed(coldkeys[2]),
+            hotkeys[2],
+            netuids[2],
+            amount
+        ));
+
+        assert_ok!(SubtensorModule::remove_stake_limit_aggregate(
+            RuntimeOrigin::signed(coldkeys[3]),
+            hotkeys[3],
+            netuids[3],
+            amount,
+            limit_price,
+            true
+        ));
+
+        assert_ok!(SubtensorModule::add_stake_aggregate(
+            RuntimeOrigin::signed(coldkeys[0]),
+            hotkeys[0],
+            netuids[0],
+            amount,
+        ));
+
+        assert_ok!(SubtensorModule::add_stake_limit_aggregate(
+            RuntimeOrigin::signed(coldkeys[1]),
+            hotkeys[1],
+            netuids[1],
+            amount,
+            limit_price,
+            true
+        ));
+
+        assert_ok!(SubtensorModule::unstake_all_aggregate(
+            RuntimeOrigin::signed(coldkeys[4]),
+            hotkeys[4],
+        ));
+
+        assert_ok!(SubtensorModule::unstake_all_alpha_aggregate(
+            RuntimeOrigin::signed(coldkeys[5]),
+            hotkeys[5],
+        ));
+
+        // Enable on_finalize code to run
+        run_to_block_ext(2, false);
+        // Reorder jobs based on the previous block hash
+        let mut parent_hash = <frame_system::Pallet<Test>>::parent_hash();
+        parent_hash.as_mut()[0] = 0b10000000;
+        <frame_system::Pallet<Test>>::set_parent_hash(parent_hash);
+
+        // Enable on_finalize code to run
+        run_to_block_ext(3, true);
+
+        let add_stake_position = System::events()
+            .iter()
+            .position(|e| {
+                if let RuntimeEvent::SubtensorModule(Event::AggregatedStakeAdded(.., netuid, _)) =
+                    e.event
+                {
+                    netuid == netuids[0]
+                } else {
+                    false
+                }
+            })
+            .expect("Stake event must be present in the event log.");
+
+        let add_stake_limit_position = System::events()
+            .iter()
+            .position(|e| {
+                if let RuntimeEvent::SubtensorModule(Event::AggregatedLimitedStakeAdded(
+                    _,
+                    _,
+                    netuid,
+                    _,
+                    _,
+                    _,
+                )) = e.event
+                {
+                    netuid == netuids[1]
+                } else {
+                    false
+                }
+            })
+            .expect("Stake event must be present in the event log.");
+
+        let remove_stake_position = System::events()
+            .iter()
+            .position(|e| {
+                if let RuntimeEvent::SubtensorModule(Event::AggregatedStakeRemoved(.., netuid, _)) =
+                    e.event
+                {
+                    netuid == netuids[2]
+                } else {
+                    false
+                }
+            })
+            .expect("Stake event must be present in the event log.");
+
+        let remove_stake_limit_position = System::events()
+            .iter()
+            .position(|e| {
+                if let RuntimeEvent::SubtensorModule(Event::AggregatedLimitedStakeRemoved(
+                    ..,
+                    netuid,
+                    _,
+                    _,
+                    _,
+                )) = e.event
+                {
+                    netuid == netuids[3]
+                } else {
+                    false
+                }
+            })
+            .expect("Stake event must be present in the event log.");
+
+        let unstake_all_position = System::events()
+            .iter()
+            .position(|e| {
+                matches!(
+                    e.event,
+                    RuntimeEvent::SubtensorModule(Event::AggregatedUnstakeAllSucceeded(..))
+                )
+            })
+            .expect("Stake event must be present in the event log.");
+
+        let unstake_all_alpha_position = System::events()
+            .iter()
+            .position(|e| {
+                matches!(
+                    e.event,
+                    RuntimeEvent::SubtensorModule(Event::AggregatedUnstakeAllAlphaSucceeded(..))
+                )
+            })
+            .expect("Stake event must be present in the event log.");
+
+        // Check events order
+        assert!(add_stake_limit_position > add_stake_position);
+        assert!(add_stake_position < unstake_all_alpha_position);
+        assert!(unstake_all_position > unstake_all_alpha_position);
+        assert!(remove_stake_position > unstake_all_position);
+        assert!(remove_stake_limit_position > remove_stake_position);
     });
 }
 
@@ -505,7 +715,7 @@ fn test_verify_all_job_type_sort_by_coldkey() {
         ));
 
         // Finalize block
-        run_to_block_ext(2, true);
+        run_to_block_ext(3, true);
 
         // === Collect coldkeys by event type ===
         let mut add_coldkeys = vec![];
@@ -552,6 +762,191 @@ fn test_verify_all_job_type_sort_by_coldkey() {
         assert_eq!(remove_limit_coldkeys, vec![coldkeys[6], coldkeys[7]]); // ascending
         assert_eq!(unstake_all_coldkeys, vec![coldkeys[8], coldkeys[9]]); // ascending
         assert_eq!(unstake_all_alpha_coldkeys, vec![coldkeys[10], coldkeys[11]]); // ascending
+    });
+}
+
+#[test]
+#[allow(clippy::indexing_slicing)]
+fn test_verify_all_job_type_sort_by_coldkey_reverse_order() {
+    new_test_ext(1).execute_with(|| {
+        let amount = 1_000_000_000_000;
+        let limit_price = 6_000_000_000u64;
+
+        // Coldkeys and hotkeys
+        let coldkeys = vec![
+            U256::from(100),  // add_stake
+            U256::from(200),  // add_stake
+            U256::from(300),  // add_stake_limit
+            U256::from(400),  // add_stake_limit
+            U256::from(500),  // remove_stake
+            U256::from(600),  // remove_stake
+            U256::from(700),  // remove_stake_limit
+            U256::from(800),  // remove_stake_limit
+            U256::from(900),  // unstake_all
+            U256::from(1000), // unstake_all
+            U256::from(1100), // unstake_all_alpha
+            U256::from(1200), // unstake_all_alpha
+        ];
+
+        let hotkeys = (1..=12).map(U256::from).collect::<Vec<_>>();
+
+        let netuids: Vec<_> = hotkeys
+            .iter()
+            .zip(coldkeys.iter())
+            .map(|(h, c)| add_dynamic_network(h, c))
+            .collect();
+
+        let tao_reserve = U96F32::from_num(150_000_000_000u64);
+        let alpha_in = U96F32::from_num(100_000_000_000u64);
+
+        for netuid in &netuids {
+            SubnetTAO::<Test>::insert(*netuid, tao_reserve.to_num::<u64>());
+            SubnetAlphaIn::<Test>::insert(*netuid, alpha_in.to_num::<u64>());
+        }
+
+        for coldkey in &coldkeys {
+            SubtensorModule::add_balance_to_coldkey_account(coldkey, amount);
+        }
+
+        for ((hotkey, coldkey), netuid) in hotkeys.iter().zip(coldkeys.iter()).zip(netuids.iter()) {
+            SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                hotkey, coldkey, *netuid, amount,
+            );
+        }
+
+        // === Submit all job types ===
+
+        assert_ok!(SubtensorModule::add_stake_aggregate(
+            RuntimeOrigin::signed(coldkeys[0]),
+            hotkeys[0],
+            netuids[0],
+            amount
+        ));
+        assert_ok!(SubtensorModule::add_stake_aggregate(
+            RuntimeOrigin::signed(coldkeys[1]),
+            hotkeys[1],
+            netuids[1],
+            amount
+        ));
+
+        assert_ok!(SubtensorModule::add_stake_limit_aggregate(
+            RuntimeOrigin::signed(coldkeys[2]),
+            hotkeys[2],
+            netuids[2],
+            amount,
+            limit_price,
+            true
+        ));
+        assert_ok!(SubtensorModule::add_stake_limit_aggregate(
+            RuntimeOrigin::signed(coldkeys[3]),
+            hotkeys[3],
+            netuids[3],
+            amount,
+            limit_price,
+            true
+        ));
+
+        assert_ok!(SubtensorModule::remove_stake_aggregate(
+            RuntimeOrigin::signed(coldkeys[4]),
+            hotkeys[4],
+            netuids[4],
+            amount
+        ));
+        assert_ok!(SubtensorModule::remove_stake_aggregate(
+            RuntimeOrigin::signed(coldkeys[5]),
+            hotkeys[5],
+            netuids[5],
+            amount
+        ));
+
+        assert_ok!(SubtensorModule::remove_stake_limit_aggregate(
+            RuntimeOrigin::signed(coldkeys[6]),
+            hotkeys[6],
+            netuids[6],
+            amount,
+            limit_price,
+            true
+        ));
+        assert_ok!(SubtensorModule::remove_stake_limit_aggregate(
+            RuntimeOrigin::signed(coldkeys[7]),
+            hotkeys[7],
+            netuids[7],
+            amount,
+            limit_price,
+            true
+        ));
+
+        assert_ok!(SubtensorModule::unstake_all_aggregate(
+            RuntimeOrigin::signed(coldkeys[8]),
+            hotkeys[8],
+        ));
+        assert_ok!(SubtensorModule::unstake_all_aggregate(
+            RuntimeOrigin::signed(coldkeys[9]),
+            hotkeys[9],
+        ));
+
+        assert_ok!(SubtensorModule::unstake_all_alpha_aggregate(
+            RuntimeOrigin::signed(coldkeys[10]),
+            hotkeys[10],
+        ));
+        assert_ok!(SubtensorModule::unstake_all_alpha_aggregate(
+            RuntimeOrigin::signed(coldkeys[11]),
+            hotkeys[11],
+        ));
+
+        // Reorder jobs based on the previous block hash
+        let mut parent_hash = <frame_system::Pallet<Test>>::parent_hash();
+        parent_hash.as_mut()[0] = 0b10000000;
+        <frame_system::Pallet<Test>>::set_parent_hash(parent_hash);
+
+        // Finalize block
+        run_to_block_ext(3, true);
+
+        // === Collect coldkeys by event type ===
+        let mut add_coldkeys = vec![];
+        let mut add_limit_coldkeys = vec![];
+        let mut remove_coldkeys = vec![];
+        let mut remove_limit_coldkeys = vec![];
+        let mut unstake_all_coldkeys = vec![];
+        let mut unstake_all_alpha_coldkeys = vec![];
+
+        for event in System::events().iter().map(|e| &e.event) {
+            match event {
+                RuntimeEvent::SubtensorModule(Event::AggregatedStakeAdded(coldkey, ..)) => {
+                    add_coldkeys.push(*coldkey);
+                }
+                RuntimeEvent::SubtensorModule(Event::AggregatedLimitedStakeAdded(coldkey, ..)) => {
+                    add_limit_coldkeys.push(*coldkey);
+                }
+                RuntimeEvent::SubtensorModule(Event::AggregatedStakeRemoved(coldkey, ..)) => {
+                    remove_coldkeys.push(*coldkey);
+                }
+                RuntimeEvent::SubtensorModule(Event::AggregatedLimitedStakeRemoved(
+                    coldkey,
+                    ..,
+                )) => {
+                    remove_limit_coldkeys.push(*coldkey);
+                }
+                RuntimeEvent::SubtensorModule(Event::AggregatedUnstakeAllSucceeded(coldkey, _)) => {
+                    unstake_all_coldkeys.push(*coldkey);
+                }
+                RuntimeEvent::SubtensorModule(Event::AggregatedUnstakeAllAlphaSucceeded(
+                    coldkey,
+                    _,
+                )) => {
+                    unstake_all_alpha_coldkeys.push(*coldkey);
+                }
+                _ => {}
+            }
+        }
+
+        // === Assertions ===
+        assert_eq!(add_coldkeys, vec![coldkeys[0], coldkeys[1]]); // ascending (reversed)
+        assert_eq!(add_limit_coldkeys, vec![coldkeys[2], coldkeys[3]]); // ascending (reversed)
+        assert_eq!(remove_coldkeys, vec![coldkeys[5], coldkeys[4]]); // descending (reversed)
+        assert_eq!(remove_limit_coldkeys, vec![coldkeys[7], coldkeys[6]]); // descending (reversed)
+        assert_eq!(unstake_all_coldkeys, vec![coldkeys[9], coldkeys[8]]); // descending (reversed)
+        assert_eq!(unstake_all_alpha_coldkeys, vec![coldkeys[11], coldkeys[10]]); // descending (reversed)
     });
 }
 
@@ -934,8 +1329,19 @@ fn test_remove_stake_aggregate_ok_no_emission() {
             amount
         ));
 
-        // Enable on_finalize code to run
+        // Check for the block delay
         run_to_block_ext(2, true);
+
+        // Check that event was not emitted.
+        assert!(System::events().iter().all(|e| {
+            !matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedStakeRemoved(..))
+            )
+        }));
+
+        // Enable on_finalize code to run
+        run_to_block_ext(3, true);
 
         let fee = SubtensorModule::calculate_staking_fee(
             Some((&hotkey_account_id, netuid)),
@@ -990,8 +1396,19 @@ fn test_remove_stake_aggregate_fail() {
             amount
         ));
 
-        // Enable on_finalize code to run
+        // Check for the block delay
         run_to_block_ext(2, true);
+
+        // Check that event was not emitted.
+        assert!(System::events().iter().all(|e| {
+            !matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::FailedToRemoveAggregatedStake(..))
+            )
+        }));
+
+        // Enable on_finalize code to run
+        run_to_block_ext(3, true);
 
         // Check that event was emitted.
         assert!(System::events().iter().any(|e| {
@@ -4320,8 +4737,19 @@ fn test_add_stake_limit_aggregate_ok() {
             true
         ));
 
-        // Enable on_finalize code to run
+        // Check for the block delay
         run_to_block_ext(2, true);
+
+        // Check that event was not emitted.
+        assert!(System::events().iter().all(|e| {
+            !matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedLimitedStakeAdded(..))
+            )
+        }));
+
+        // Enable on_finalize code to run
+        run_to_block_ext(3, true);
 
         // Check if stake has increased only by 75 Alpha
         assert_abs_diff_eq!(
@@ -4386,8 +4814,19 @@ fn test_add_stake_limit_aggregate_fail() {
             true
         ));
 
-        // Enable on_finalize code to run
+        // Check for the block delay
         run_to_block_ext(2, true);
+
+        // Check that event was not emitted.
+        assert!(System::events().iter().all(|e| {
+            !matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::FailedToAddAggregatedLimitedStake(..))
+            )
+        }));
+
+        // Enable on_finalize code to run
+        run_to_block_ext(3, true);
 
         // Check that event was emitted.
         assert!(System::events().iter().any(|e| {
@@ -4562,8 +5001,19 @@ fn test_remove_stake_limit_aggregate_ok() {
             true
         ));
 
-        // Enable on_finalize code to run
+        // Check for the block delay
         run_to_block_ext(2, true);
+
+        // Check that event was not emitted.
+        assert!(System::events().iter().all(|e| {
+            !matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedLimitedStakeRemoved(..))
+            )
+        }));
+
+        // Enable on_finalize code to run
+        run_to_block_ext(3, true);
 
         // Check if stake has decreased only by
         assert_abs_diff_eq!(
@@ -4621,8 +5071,19 @@ fn test_remove_stake_limit_aggregate_fail() {
             true
         ));
 
-        // Enable on_finalize code to run
+        // Check for the block delay
         run_to_block_ext(2, true);
+
+        // Check that event was not emitted.
+        assert!(System::events().iter().all(|e| {
+            !matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::FailedToRemoveAggregatedLimitedStake(..))
+            )
+        }));
+
+        // Enable on_finalize code to run
+        run_to_block_ext(3, true);
 
         // Check that event was emitted.
         assert!(System::events().iter().any(|e| {
@@ -5242,8 +5703,19 @@ fn test_unstake_all_alpha_aggregate_works() {
             hotkey,
         ));
 
-        // Enable on_finalize code to run
+        // Check for the block delay
         run_to_block_ext(2, true);
+
+        // Check that event was not emitted.
+        assert!(System::events().iter().all(|e| {
+            !matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedUnstakeAllAlphaSucceeded(..))
+            )
+        }));
+
+        // Enable on_finalize code to run
+        run_to_block_ext(3, true);
 
         let new_alpha =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
@@ -5273,8 +5745,19 @@ fn test_unstake_all_alpha_aggregate_fails() {
             hotkey,
         ));
 
-        // Enable on_finalize code to run
+        // Check for the block delay
         run_to_block_ext(2, true);
+
+        // Check that event was not emitted.
+        assert!(System::events().iter().all(|e| {
+            !matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedUnstakeAllAlphaFailed(..))
+            )
+        }));
+
+        // Enable on_finalize code to run
+        run_to_block_ext(3, true);
 
         // Check that event was emitted.
         assert!(System::events().iter().any(|e| {
@@ -5372,8 +5855,19 @@ fn test_unstake_all_aggregate_works() {
             hotkey,
         ));
 
-        // Enable on_finalize code to run
+        // Check for the block delay
         run_to_block_ext(2, true);
+
+        // Check that event was not emitted.
+        assert!(System::events().iter().all(|e| {
+            !matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedUnstakeAllSucceeded(..))
+            )
+        }));
+
+        // Enable on_finalize code to run
+        run_to_block_ext(3, true);
 
         let new_alpha =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
@@ -5403,8 +5897,19 @@ fn test_unstake_all_aggregate_fails() {
             hotkey,
         ));
 
-        // Enable on_finalize code to run
+        // Check for the block delay
         run_to_block_ext(2, true);
+
+        // Check that event was not emitted.
+        assert!(System::events().iter().all(|e| {
+            !matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedUnstakeAllFailed(..))
+            )
+        }));
+
+        // Enable on_finalize code to run
+        run_to_block_ext(3, true);
 
         // Check that event was emitted.
         assert!(System::events().iter().any(|e| {

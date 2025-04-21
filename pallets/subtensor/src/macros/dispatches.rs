@@ -2032,7 +2032,7 @@ mod dispatches {
         /// price, the staking order may execute only partially or not execute
         /// at all.
         ///
-        /// The operation will be delayed until the end of the block.
+        /// The operation will be delayed.
         ///
         /// # Args:
         ///  * 'origin': (<T as frame_system::Config>Origin):
@@ -2086,7 +2086,7 @@ mod dispatches {
         /// price, the staking order may execute only partially or not execute
         /// at all.
         ///
-        /// The operation will be delayed until the end of the block.
+        /// The operation will be delayed.
         ///
         /// # Args:
         /// * 'origin': (<T as frame_system::Config>Origin):
@@ -2140,7 +2140,7 @@ mod dispatches {
         /// price, the staking order may execute only partially or not execute
         /// at all.
         ///
-        /// The operation will be delayed until the end of the block.
+        /// The operation will be delayed.
         ///
         /// # Args:
         ///  * 'origin': (<T as frame_system::Config>Origin):
@@ -2203,7 +2203,7 @@ mod dispatches {
         /// price, the staking order may execute only partially or not execute
         /// at all.
         ///
-        /// The operation will be delayed until the end of the block.
+        /// The operation will be delayed.
         ///
         /// # Args:
         /// * 'origin': (<T as frame_system::Config>Origin):
@@ -2260,7 +2260,7 @@ mod dispatches {
 
         /// ---- The implementation for the extrinsic unstake_all_aggregate: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
         ///
-        /// The operation will be delayed until the end of the block.
+        /// The operation will be delayed.
         ///
         /// # Args:
         /// * `origin` - (<T as frame_system::Config>::Origin):
@@ -2293,7 +2293,7 @@ mod dispatches {
 
         /// ---- The implementation for the extrinsic unstake_all_alpha_aggregate: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
         ///
-        /// The operation will be delayed until the end of the block.
+        /// The operation will be delayed.
         ///
         /// # Args:
         /// * `origin` - (<T as frame_system::Config>::Origin):
