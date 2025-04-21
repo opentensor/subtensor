@@ -24,23 +24,22 @@ pub fn migrate_remove_total_hotkey_coldkey_stakes_this_interval<T: Config>() -> 
 
     // Remove all entries.
     let removed_entries_count = match clear_prefix(&prefix, Some(u32::MAX)) {
-        KillStorageResult::AllRemoved(removed) => removed as u64,
+        KillStorageResult::AllRemoved(removed) => {
+            log::info!("Removed all entries from {:?}.", storage_name);
+
+            // Mark migration as completed
+            HasMigrationRun::<T>::insert(&migration_name_bytes, true);
+            weight = weight.saturating_add(T::DbWeight::get().writes(1));
+
+            removed as u64
+        }
         KillStorageResult::SomeRemaining(removed) => {
-            log::info!("Failed to remove all entries from {:?}", migration_name);
+            log::info!("Failed to remove all entries from {:?}", storage_name);
             removed as u64
         }
     };
 
     weight = weight.saturating_add(T::DbWeight::get().writes(removed_entries_count as u64));
-
-    log::info!(
-        "Removed {:?} entries from TotalHotkeyColdkeyStakesThisInterval.",
-        removed_entries_count
-    );
-
-    // Mark migration as completed
-    HasMigrationRun::<T>::insert(&migration_name_bytes, true);
-    weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
     log::info!(
         "Migration '{:?}' completed successfully. {:?} entries removed.",
