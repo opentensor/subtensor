@@ -1096,4 +1096,32 @@ benchmark_register_network_with_identity {
   Subtensor::<T>::set_network_rate_limit(1);
   Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, 9_999_999_999_999u64);
 }: register_network_with_identity(RawOrigin::Signed(coldkey.clone()), hotkey.clone(), identity)
+
+benchmark_serve_axon_tls {
+  let caller:  T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+  let netuid:  u16          = 1;
+  let version: u32          = 1;
+  let ip:   u128 = 0xC0A8_0001;
+  let port: u16  = 30333;
+  let ip_type:  u8 = 4;
+  let proto:    u8 = 0;
+  let p1:       u8 = 0;
+  let p2:       u8 = 0;
+  let cert:  Vec<u8> = vec![];
+
+  Subtensor::<T>::init_new_network(netuid, 1);
+  Subtensor::<T>::set_network_registration_allowed(netuid, true);
+  SubtokenEnabled::<T>::insert(netuid, true);
+
+  let reg_fee = Subtensor::<T>::get_burn_as_u64(netuid);
+  Subtensor::<T>::add_balance_to_coldkey_account(&caller, reg_fee.saturating_mul(2));
+  assert_ok!(
+      Subtensor::<T>::burned_register(
+          RawOrigin::Signed(caller.clone()).into(),
+          netuid,
+          caller.clone()
+      )
+  );
+}: serve_axon_tls(RawOrigin::Signed(caller.clone()),netuid,version,ip,port,ip_type,proto,p1,p2,cert)
+
 }
