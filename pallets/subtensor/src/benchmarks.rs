@@ -1069,4 +1069,15 @@ benchmark_commit_crv3_weights {
 
   Subtensor::<T>::set_commit_reveal_weights_enabled(netuid, true);
 }: commit_crv3_weights(RawOrigin::Signed(hotkey.clone()),netuid, commit, round)
+
+benchmark_decrease_take {
+  let coldkey: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+  let hotkey:  T::AccountId = account("Alice", 0, 1);
+  let take:    u16          = 100;
+
+  Delegates::<T>::insert(&hotkey, 200u16);
+  Owner::<T>::insert(&hotkey, &coldkey);
+}: decrease_take(RawOrigin::Signed(coldkey.clone()), hotkey.clone(), take)
+
+
 }
