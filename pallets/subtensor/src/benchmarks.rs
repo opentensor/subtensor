@@ -1179,4 +1179,8 @@ benchmark_swap_hotkey {
   Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, cost);
 }: swap_hotkey(RawOrigin::Signed(coldkey.clone()), old.clone(), new.clone())
 
+benchmark_try_associate_hotkey {
+  let coldkey: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+  let hot:     T::AccountId = account("A", 0, 1);
+}: try_associate_hotkey(RawOrigin::Signed(coldkey.clone()), hot.clone())
 }
