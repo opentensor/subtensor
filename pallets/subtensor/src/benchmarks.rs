@@ -1124,4 +1124,24 @@ benchmark_serve_axon_tls {
   );
 }: serve_axon_tls(RawOrigin::Signed(caller.clone()),netuid,version,ip,port,ip_type,proto,p1,p2,cert)
 
+benchmark_set_identity {
+  let coldkey: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+  let hotkey:  T::AccountId = account("Alice", 0, 5);
+  let name = b"n".to_vec();
+  let url  = vec![];
+  let repo = vec![];
+  let img  = vec![];
+  let disc = vec![];
+  let descr= vec![];
+  let add  = vec![];
+
+  Subtensor::<T>::create_account_if_non_existent(&coldkey, &hotkey);
+  Subtensor::<T>::init_new_network(1, 1);
+  Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, 1_000_000_000u64.saturating_mul(2));
+  SubtokenEnabled::<T>::insert(1, true);
+  assert_ok!( Subtensor::<T>::burned_register(
+      RawOrigin::Signed(coldkey.clone()).into(),
+      1, hotkey.clone()
+  ));
+}: set_identity(RawOrigin::Signed(coldkey.clone()),name, url, repo, img, disc, descr, add)
 }
