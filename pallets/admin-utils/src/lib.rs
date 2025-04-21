@@ -1528,11 +1528,11 @@ pub mod pallet {
                 "Yuma3EnableToggled( netuid: {:?}, Enabled: {:?} ) ",
                 netuid,
                 enabled
-		    );
+            );
             Ok(())
         }
 
-		/// Enables or disables subtoken trading for a given subnet.
+        /// Enables or disables subtoken trading for a given subnet.
         ///
         /// # Arguments
         /// * `origin` - The origin of the call, which must be the root account.
@@ -1542,11 +1542,11 @@ pub mod pallet {
         /// # Errors
         /// * `BadOrigin` - If the caller is not the root account.
         ///
-		/// # Weight
+        /// # Weight
         /// Weight is handled by the `#[pallet::weight]` attribute.
-		#[pallet::call_index(66)]
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-		pub fn sudo_set_subtoken_enabled(
+        #[pallet::call_index(66)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_subtoken_enabled(
             origin: OriginFor<T>,
             netuid: u16,
             subtoken_enabled: bool,
