@@ -65,7 +65,10 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn compute_alpha_for_ema(l: U96F32, l_max: U96F32) -> U96F32 {
-        // comment this
+        if l >= l_max {
+            return U96F32::saturating_from_num(1);
+        }
+
         let i_l_max = I96F32::saturating_from_num(l_max);
         let i_l = I96F32::saturating_from_num(l);
         let neg_one = I96F32::from_num(-1);
