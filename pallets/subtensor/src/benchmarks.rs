@@ -1087,4 +1087,13 @@ benchmark_increase_take {
   Delegates::<T>::insert(&hotkey, 100u16);
   Owner::<T>::insert(&hotkey, &coldkey);
 }: increase_take(RawOrigin::Signed(coldkey.clone()), hotkey.clone(), take)
+
+benchmark_register_network_with_identity {
+  let coldkey: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+  let hotkey:  T::AccountId = account("Alice", 0, 1);
+  let identity: Option<SubnetIdentityOfV2> = None;
+  Subtensor::<T>::set_network_registration_allowed( 1, true );
+  Subtensor::<T>::set_network_rate_limit(1);
+  Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, 9_999_999_999_999u64);
+}: register_network_with_identity(RawOrigin::Signed(coldkey.clone()), hotkey.clone(), identity)
 }
