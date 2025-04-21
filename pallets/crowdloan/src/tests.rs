@@ -1360,6 +1360,180 @@ min_contribution,
 }
 
 #[test]
+fn test_refund_succeeds() {
+    TestState::default()
+        .with_balance(U256::from(1), 100)
+        .with_balance(U256::from(2), 100)
+        .with_balance(U256::from(3), 100)
+        .with_balance(U256::from(4), 100)
+        .with_balance(U256::from(5), 100)
+        .with_balance(U256::from(6), 100)
+        .with_balance(U256::from(7), 100)
+        .build_and_execute(|| {
+            // create a crowdloan
+            let creator: AccountOf<Test> = U256::from(1);
+            let initial_deposit: BalanceOf<Test> = 50;
+            let min_contribution: BalanceOf<Test> = 10;
+            let cap: BalanceOf<Test> = 400;
+            let end: BlockNumberFor<Test> = 50;
+            assert_ok!(Crowdloan::create(
+                RuntimeOrigin::signed(creator),
+                initial_deposit,
+                min_contribution,
+                cap,
+                end,
+                noop_call(),
+                None,
+            ));
+
+            // run some blocks
+            run_to_block(10);
+
+            // make 6 contributions to reach 350 raised amount (initial deposit + contributions)
+            let crowdloan_id: CrowdloanId = 0;
+            let amount: BalanceOf<Test> = 50;
+            for i in 2..8 {
+                let contributor: AccountOf<Test> = U256::from(i);
+                assert_ok!(Crowdloan::contribute(
+                    RuntimeOrigin::signed(contributor),
+                    crowdloan_id,
+                    amount
+                ));
+            }
+
+            // run some more blocks past the end of the contribution period
+            run_to_block(60);
+
+            //  first round of refund
+            assert_ok!(Crowdloan::refund(
+                RuntimeOrigin::signed(creator),
+                crowdloan_id
+            ));
+
+            // ensure the crowdloan account has the correct amount
+            let funds_account = pallet_crowdloan::Pallet::<Test>::funds_account(crowdloan_id);
+            assert_eq!(Balances::free_balance(funds_account), 350 - 5 * amount);
+            // ensure raised amount is updated correctly
+            assert!(
+                pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id)
+                    .is_some_and(|c| c.raised == 350 - 5 * amount)
+            );
+            // ensure the event is emitted
+            assert_eq!(
+                last_event(),
+                pallet_crowdloan::Event::<Test>::PartiallyRefunded { crowdloan_id }.into()
+            );
+
+            // run some more blocks
+            run_to_block(70);
+
+            //  second round of refund
+            assert_ok!(Crowdloan::refund(
+                RuntimeOrigin::signed(creator),
+                crowdloan_id
+            ));
+
+            // ensure the crowdloan account has the correct amount
+            assert_eq!(
+                pallet_balances::Pallet::<Test>::free_balance(funds_account),
+                0
+            );
+            // ensure the raised amount is updated correctly
+            assert!(
+                pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id)
+                    .is_some_and(|c| c.raised == 0)
+            );
+
+            // ensure creator has the correct amount
+            assert_eq!(pallet_balances::Pallet::<Test>::free_balance(creator), 100);
+
+            // ensure each contributor has been refunded and  removed from the crowdloan
+            for i in 2..8 {
+                let contributor: AccountOf<Test> = U256::from(i);
+                assert_eq!(
+                    pallet_balances::Pallet::<Test>::free_balance(contributor),
+                    100
+                );
+                assert_eq!(
+                    pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, contributor),
+                    None,
+                );
+            }
+
+            // ensure the event is emitted
+            assert_eq!(
+                last_event(),
+                pallet_crowdloan::Event::<Test>::AllRefunded { crowdloan_id }.into()
+            );
+        })
+}
+
+#[test]
+fn test_refund_fails_if_bad_origin() {
+    TestState::default().build_and_execute(|| {
+        let crowdloan_id: CrowdloanId = 0;
+
+        assert_err!(
+            Crowdloan::refund(RuntimeOrigin::none(), crowdloan_id),
+            DispatchError::BadOrigin
+        );
+
+        assert_err!(
+            Crowdloan::refund(RuntimeOrigin::root(), crowdloan_id),
+            DispatchError::BadOrigin
+        );
+    });
+}
+
+#[test]
+fn test_refund_fails_if_crowdloan_does_not_exist() {
+    TestState::default()
+        .with_balance(U256::from(1), 100)
+        .build_and_execute(|| {
+            let creator: AccountOf<Test> = U256::from(1);
+            let crowdloan_id: CrowdloanId = 0;
+
+            assert_err!(
+                Crowdloan::refund(RuntimeOrigin::signed(creator), crowdloan_id),
+                pallet_crowdloan::Error::<Test>::InvalidCrowdloanId
+            );
+        });
+}
+
+#[test]
+fn test_refund_fails_if_crowdloan_has_not_ended() {
+    TestState::default()
+        .with_balance(U256::from(1), 100)
+        .build_and_execute(|| {
+            // create a crowdloan
+            let creator: AccountOf<Test> = U256::from(1);
+            let initial_deposit: BalanceOf<Test> = 50;
+            let min_contribution: BalanceOf<Test> = 10;
+            let cap: BalanceOf<Test> = 300;
+            let end: BlockNumberFor<Test> = 50;
+            assert_ok!(Crowdloan::create(
+                RuntimeOrigin::signed(creator),
+                initial_deposit,
+                min_contribution,
+                cap,
+                end,
+                noop_call(),
+                None,
+            ));
+
+            // run some blocks
+            run_to_block(10);
+
+            // try to refund
+            let crowdloan_id: CrowdloanId = 0;
+            assert_err!(
+                Crowdloan::refund(RuntimeOrigin::signed(creator), crowdloan_id),
+                pallet_crowdloan::Error::<Test>::ContributionPeriodNotEnded
+            );
+        });
+}
+
+#[test]
 fn test_dissolve_succeeds() {
     TestState::default()
         .with_balance(U256::from(1), 100)
