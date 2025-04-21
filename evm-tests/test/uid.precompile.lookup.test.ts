@@ -68,6 +68,8 @@ describe("Test the UID Lookup precompile", () => {
 
         uid = (await api.query.SubtensorModule.Uids.getValue(subnetId, convertPublicKeyToSs58(hotkey.publicKey)))!
 
+        console.info(`UID: ${uid}`)
+
         // Associate EVM key
         blockNumber = await api.query.System.Number.getValue();
         const blockNumberBytes = u64.enc(BigInt(blockNumber));
