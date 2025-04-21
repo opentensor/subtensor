@@ -47,7 +47,7 @@ describe("Test the UID Lookup precompile", () => {
         const hotkeyAddress = convertPublicKeyToSs58(hotkey.publicKey)
         await burnedRegister(api, subnetId, hotkeyAddress, coldkey)
 
-        uid = await api.query.SubtensorModule.Uids.getValue(subnetId, hotkeyAddress)
+        uid = (await api.query.SubtensorModule.Uids.getValue(subnetId, hotkeyAddress))!
 
         assert.notEqual(uid, undefined, "UID should be defined")
 
