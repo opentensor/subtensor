@@ -38,9 +38,21 @@ export async function forceSetBalanceToSs58Address(api: TypedApi<typeof devnet>,
     const internalCall = api.tx.Balances.force_set_balance({ who: MultiAddress.Id(ss58Address), new_free: balance })
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
-    await waitForTransactionCompletion(api, tx, alice)
-        .then(() => { })
-        .catch((error) => { console.log(`transaction error ${error}`) });
+    let failed = true;
+    let retries = 0;
+
+    // set max retries times
+    while (failed && retries < 5) {
+        failed = false
+        await waitForTransactionCompletion(api, tx, alice)
+            .then(() => { })
+            .catch((error) => {
+                failed = true
+                console.log(`transaction error ${error}`)
+            });
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        retries += 1
+    }
 
     const balanceOnChain = (await api.query.System.Account.getValue(ss58Address)).data.free
     // check the balance except for sudo account becasue of tx fee
@@ -155,6 +167,7 @@ export async function disableWhiteListCheck(api: TypedApi<typeof devnet>, disabl
 }
 
 export async function burnedRegister(api: TypedApi<typeof devnet>, netuid: number, ss58Address: string, keypair: KeyPair) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     const uids = await api.query.SubtensorModule.SubnetworkN.getValue(netuid)
     const signer = getSignerFromKeypair(keypair)
     const tx = api.tx.SubtensorModule.burned_register({ hotkey: ss58Address, netuid: netuid })
@@ -347,8 +360,8 @@ export async function rootRegister(api: TypedApi<typeof devnet>, ss58Address: st
 export async function setSubtokenEnable(api: TypedApi<typeof devnet>, netuid: number, subtokenEnable: boolean) {
     const signer = getAliceSigner()
     let internalTx = api.tx.AdminUtils.sudo_set_subtoken_enabled({
-       netuid: netuid,
-       subtoken_enabled: subtokenEnable
+        netuid: netuid,
+        subtoken_enabled: subtokenEnable
     })
     let tx = api.tx.Sudo.sudo({ call: internalTx.decodedCall })
 
@@ -371,11 +384,16 @@ export async function startCall(api: TypedApi<typeof devnet>, netuid: number, ke
 
     const signer = getSignerFromKeypair(keypair)
     let tx = api.tx.SubtensorModule.start_call({
-       netuid: netuid,
+        netuid: netuid,
     })
 
     await waitForTransactionCompletion(api, tx, signer)
         .then(() => { })
         .catch((error) => { console.log(`transaction error ${error}`) });
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const callStarted = await api.query.SubtensorModule.FirstEmissionBlockNumber
+        .getValue(netuid);
+    assert.notEqual(callStarted, undefined);
 
 }
