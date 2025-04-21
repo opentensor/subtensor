@@ -1515,7 +1515,7 @@ pub mod pallet {
             hotkey: T::AccountId,
         ) -> DispatchResult {
             pallet_subtensor::Pallet::<T>::do_set_sn_owner_hotkey(origin, netuid, &hotkey)
-		}
+        }
 
         /// Enables or disables subtoken trading for a given subnet.
         ///
