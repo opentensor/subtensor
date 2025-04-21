@@ -561,6 +561,7 @@ pub mod pallet {
         ///
         /// The call will try to refund all contributors up to the limit defined by the `RefundContributorsLimit`.
         /// If the limit is reached, the call will stop and the crowdloan will be marked as partially refunded.
+        /// It may be needed to dispatch this call multiple times to refund all contributors.
         ///
         /// The dispatch origin for this call must be _Signed_ and doesn't need to be the creator of the crowdloan.
         ///

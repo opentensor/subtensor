@@ -1412,9 +1412,9 @@ parameter_types! {
     pub const MaximumBlockDuration: BlockNumber = if cfg!(feature = "fast-blocks") {
        20000
     } else {
-        216000 // 30 days maximum (30 * 24 * 60 * 60 / 12)
+        432000 // 60 days maximum (60 * 24 * 60 * 60 / 12)
     };
-    pub const RefundContributorsLimit: u32 = 5;
+    pub const RefundContributorsLimit: u32 = 50;
 }
 
 impl pallet_crowdloan::Config for Runtime {
