@@ -1014,4 +1014,34 @@ benchmark_batch_commit_weights {
   }
 }: batch_commit_weights(RawOrigin::Signed(hotkey.clone()),netuids, hashes)
 
+benchmark_batch_set_weights {
+  let hotkey: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+  let netuid:  u16         = 1;
+  let version: u64         = 1;
+  let entries: Vec<(Compact<u16>, Compact<u16>)> = vec![
+      (Compact(0u16), Compact(0u16))
+  ];
+  let netuids: Vec<Compact<u16>> =
+      vec![ Compact(netuid) ];
+  let weights: Vec<Vec<(Compact<u16>, Compact<u16>)>> =
+      vec![ entries.clone() ];
+  let keys: Vec<Compact<u64>> =
+      vec![ Compact(version) ];
+
+  Subtensor::<T>::init_new_network(netuid, 1);
+  Subtensor::<T>::set_network_registration_allowed(netuid, true);
+  SubtokenEnabled::<T>::insert(netuid, true);
+
+  let reg_fee = Subtensor::<T>::get_burn_as_u64(netuid);
+  Subtensor::<T>::add_balance_to_coldkey_account(&hotkey, reg_fee.saturating_mul(2));
+
+  assert_ok!(
+      Subtensor::<T>::burned_register(
+          RawOrigin::Signed(hotkey.clone()).into(),
+          netuid,
+          hotkey.clone()
+      )
+  );
+}: batch_set_weights(RawOrigin::Signed(hotkey.clone()),netuids, weights, keys)
+
 }
