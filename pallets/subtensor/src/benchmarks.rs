@@ -1183,4 +1183,11 @@ benchmark_try_associate_hotkey {
   let coldkey: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
   let hot:     T::AccountId = account("A", 0, 1);
 }: try_associate_hotkey(RawOrigin::Signed(coldkey.clone()), hot.clone())
+
+benchmark_unstake_all {
+  let coldkey: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+  let hotkey:  T::AccountId = account("A", 0, 14);
+  Subtensor::<T>::create_account_if_non_existent(&coldkey, &hotkey);
+}: unstake_all(RawOrigin::Signed(coldkey.clone()), hotkey.clone())
+
 }
