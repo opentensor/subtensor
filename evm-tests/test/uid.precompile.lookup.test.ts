@@ -11,6 +11,7 @@ import { PolkadotSigner, TypedApi } from "polkadot-api";
 import { toViemAddress, convertPublicKeyToSs58 } from "../src/address-utils"
 import { IUIDLookupABI, IUID_LOOKUP_ADDRESS } from "../src/contracts/uidLookup"
 import { keccak256 } from 'ethers';
+import { burnedRegister, forceSetBalanceToSs58Address } from "../src/subtensor";
 
 describe("Test the UID Lookup precompile", () => {
     // init substrate part
@@ -37,38 +38,18 @@ describe("Test the UID Lookup precompile", () => {
         alice = await getAliceSigner();
 
         // Fund the hotkey account
-        {
-            const multiAddress = convertPublicKeyToMultiAddress(hotkey.publicKey)
-            const internalCall = api.tx.Balances.force_set_balance({ who: multiAddress, new_free: BigInt(1e12) })
-            const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
-
-            await waitForTransactionCompletion(api, tx, alice)
-                .then(() => { })
-                .catch((error) => { console.log(`transaction error ${error}`) });
-        }
+        await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(hotkey.publicKey))
 
         // Fund the coldkey account
-        {
-            const multiAddress = convertPublicKeyToMultiAddress(coldkey.publicKey)
-            const internalCall = api.tx.Balances.force_set_balance({ who: multiAddress, new_free: BigInt(1e12) })
-            const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
-
-            await waitForTransactionCompletion(api, tx, alice)
-                .then(() => { })
-                .catch((error) => { console.log(`transaction error ${error}`) });
-        }
+        await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(coldkey.publicKey))
 
         // Register neuron
-        const signer = getSignerFromKeypair(coldkey)
         const hotkeyAddress = convertPublicKeyToSs58(hotkey.publicKey)
-        const tx = api.tx.SubtensorModule.burned_register({ hotkey: hotkeyAddress, netuid: subnetId })
-        await waitForTransactionCompletion(api, tx, signer)
-            .then(() => { })
-            .catch((error) => { console.log(`transaction error ${error}`) });
+        await burnedRegister(api, subnetId, hotkeyAddress, coldkey)
 
-        uid = (await api.query.SubtensorModule.Uids.getValue(subnetId, convertPublicKeyToSs58(hotkey.publicKey)))!
+        uid = await api.query.SubtensorModule.Uids.getValue(subnetId, hotkeyAddress)
 
-        console.info(`UID: ${uid}`)
+        assert.notEqual(uid, undefined, "UID should be defined")
 
         // Associate EVM key
         blockNumber = await api.query.System.Number.getValue();
