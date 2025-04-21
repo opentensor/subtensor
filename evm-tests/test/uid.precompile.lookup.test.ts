@@ -11,7 +11,7 @@ import { PolkadotSigner, TypedApi } from "polkadot-api";
 import { toViemAddress, convertPublicKeyToSs58 } from "../src/address-utils"
 import { IUIDLookupABI, IUID_LOOKUP_ADDRESS } from "../src/contracts/uidLookup"
 import { keccak256 } from 'ethers';
-import { burnedRegister, forceSetBalanceToSs58Address } from "../src/subtensor";
+import { addNewSubnetwork, burnedRegister, forceSetBalanceToSs58Address } from "../src/subtensor";
 
 describe("Test the UID Lookup precompile", () => {
     // init substrate part
@@ -29,7 +29,7 @@ describe("Test the UID Lookup precompile", () => {
     let blockNumber: number;
 
     // init other variable
-    let subnetId = 0;
+    let netuid: number;
 
     before(async () => {
         // init variables got from await and async
@@ -43,11 +43,14 @@ describe("Test the UID Lookup precompile", () => {
         // Fund the coldkey account
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(coldkey.publicKey))
 
+        // Add new subnet
+        netuid = await addNewSubnetwork(api, hotkey, coldkey)
+
         // Register neuron
         const hotkeyAddress = convertPublicKeyToSs58(hotkey.publicKey)
-        await burnedRegister(api, subnetId, hotkeyAddress, coldkey)
+        await burnedRegister(api, netuid, hotkeyAddress, coldkey)
 
-        uid = (await api.query.SubtensorModule.Uids.getValue(subnetId, hotkeyAddress))!
+        uid = (await api.query.SubtensorModule.Uids.getValue(netuid, hotkeyAddress))!
 
         assert.notEqual(uid, undefined, "UID should be defined")
 
@@ -59,7 +62,7 @@ describe("Test the UID Lookup precompile", () => {
         const concatenatedHash = keccak256(concatenatedArray);
         const signature = await evmWallet.signMessage(concatenatedHash);
         const associateEvmKeyTx = api.tx.SubtensorModule.associate_evm_key({
-            netuid: subnetId,
+            netuid: netuid,
             hotkey: convertPublicKeyToSs58(hotkey.publicKey),
             evm_key: convertToFixedSizeBinary(evmWallet.address, 20),
             block_number: BigInt(blockNumber),
@@ -69,7 +72,7 @@ describe("Test the UID Lookup precompile", () => {
             .then(() => { })
             .catch((error) => { console.log(`transaction error ${error}`) });
 
-        const storedEvmKey = await api.query.SubtensorModule.AssociatedEvmAddress.getValue(subnetId, uid)
+        const storedEvmKey = await api.query.SubtensorModule.AssociatedEvmAddress.getValue(netuid, uid)
         assert.equal(storedEvmKey, [convertToFixedSizeBinary(evmWallet.address, 20), BigInt(blockNumber)])
     })
 
@@ -79,10 +82,9 @@ describe("Test the UID Lookup precompile", () => {
             abi: IUIDLookupABI,
             address: toViemAddress(IUID_LOOKUP_ADDRESS),
             functionName: "uidLookup",
-            args: [subnetId, evmWallet.address, 1024]
+            args: [netuid, evmWallet.address, 1024]
         })
 
-        console.info(uidArray)
         assert.notEqual(uidArray, undefined, "UID should be defined")
         assert.ok(Array.isArray(uidArray), `UID should be an array, got ${typeof uidArray}`)
         assert.ok(uidArray.length > 0, "UID array should not be empty")
