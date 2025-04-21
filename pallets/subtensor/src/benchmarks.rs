@@ -1079,5 +1079,12 @@ benchmark_decrease_take {
   Owner::<T>::insert(&hotkey, &coldkey);
 }: decrease_take(RawOrigin::Signed(coldkey.clone()), hotkey.clone(), take)
 
+benchmark_increase_take {
+  let coldkey: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+  let hotkey:  T::AccountId = account("Alice", 0, 2);
+  let take:    u16          = 150;
 
+  Delegates::<T>::insert(&hotkey, 100u16);
+  Owner::<T>::insert(&hotkey, &coldkey);
+}: increase_take(RawOrigin::Signed(coldkey.clone()), hotkey.clone(), take)
 }
