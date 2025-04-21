@@ -1488,7 +1488,7 @@ pub mod pallet {
         /// * `BadOrigin` - If the caller is not the root account.
         /// # Weight
         /// Weight is handled by the `#[pallet::weight]` attribute.
-        #[pallet::call_index(66)]
+        #[pallet::call_index(67)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_alpha_sigmoid_steepness(
             origin: OriginFor<T>,
@@ -1515,7 +1515,7 @@ pub mod pallet {
         ///
         /// # Weight
         /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
-        #[pallet::call_index(67)]
+        #[pallet::call_index(68)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_yuma3_enabled(
             origin: OriginFor<T>,
@@ -1528,6 +1528,36 @@ pub mod pallet {
                 "Yuma3EnableToggled( netuid: {:?}, Enabled: {:?} ) ",
                 netuid,
                 enabled
+		    );
+            Ok(())
+        }
+
+		/// Enables or disables subtoken trading for a given subnet.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the root account.
+        /// * `netuid` - The unique identifier of the subnet.
+        /// * `subtoken_enabled` - A boolean indicating whether subtoken trading should be enabled or disabled.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the caller is not the root account.
+        ///
+		/// # Weight
+        /// Weight is handled by the `#[pallet::weight]` attribute.
+		#[pallet::call_index(66)]
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_subtoken_enabled(
+            origin: OriginFor<T>,
+            netuid: u16,
+            subtoken_enabled: bool,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::SubtokenEnabled::<T>::set(netuid, subtoken_enabled);
+
+            log::debug!(
+                "SubtokenEnabled( netuid: {:?}, subtoken_enabled: {:?} )",
+                netuid,
+                subtoken_enabled
             );
             Ok(())
         }

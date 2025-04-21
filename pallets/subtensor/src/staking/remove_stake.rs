@@ -47,6 +47,8 @@ impl<T: Config> Pallet<T> {
             alpha_unstaked
         );
 
+        Self::ensure_subtoken_enabled(netuid)?;
+
         // 2. Validate the user input
         Self::validate_remove_stake(
             &coldkey,
@@ -131,6 +133,9 @@ impl<T: Config> Pallet<T> {
 
         // 4. Iterate through all subnets and remove stake.
         for netuid in netuids.into_iter() {
+            if !SubtokenEnabled::<T>::get(netuid) {
+                continue;
+            }
             // Ensure that the hotkey has enough stake to withdraw.
             let alpha_unstaked =
                 Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
@@ -221,6 +226,9 @@ impl<T: Config> Pallet<T> {
         // 4. Iterate through all subnets and remove stake.
         let mut total_tao_unstaked: u64 = 0;
         for netuid in netuids.into_iter() {
+            if !SubtokenEnabled::<T>::get(netuid) {
+                continue;
+            }
             // If not Root network.
             if netuid != Self::get_root_netuid() {
                 // Ensure that the hotkey has enough stake to withdraw.

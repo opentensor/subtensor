@@ -2245,6 +2245,7 @@ fn test_get_set_alpha() {
         );
 
         assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey));
+        SubtokenEnabled::<Test>::insert(netuid, true);
         assert_ok!(SubtensorModule::add_stake(
             signer.clone(),
             hotkey,

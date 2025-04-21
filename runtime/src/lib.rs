@@ -207,7 +207,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 261,
+    spec_version: 262,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1508,6 +1508,45 @@ mod benches {
     );
 }
 
+fn generate_genesis_json() -> Vec<u8> {
+    let json_str = r#"{
+      "aura": {
+        "authorities": [
+          "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+        ]
+      },
+      "balances": {
+        "balances": [
+          [
+            "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+            1000000000000000
+          ],
+          [
+            "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
+            1000000000000000
+          ]
+        ]
+      },
+      "grandpa": {
+        "authorities": [
+          [
+            "5FA9nQDVg267DEd8m1ZypXLBnvN7SFxYwV7ndqSYGiN9TTpu",
+            1
+          ]
+        ]
+      },
+      "sudo": {
+        "key": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+      },
+      "subtensorModule": {
+        "balancesIssuance": 0,
+        "stakes": []
+      }
+    }"#;
+
+    json_str.as_bytes().to_vec()
+}
+
 impl_runtime_apis! {
     impl sp_api::Core<Block> for Runtime {
         fn version() -> RuntimeVersion {
@@ -1564,11 +1603,18 @@ impl_runtime_apis! {
         }
 
         fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
-            get_preset::<RuntimeGenesisConfig>(id, |_| None)
+            get_preset::<RuntimeGenesisConfig>(id, |preset_id| {
+                let benchmark_id: sp_genesis_builder::PresetId = "benchmark".into();
+                if *preset_id == benchmark_id {
+                    Some(generate_genesis_json())
+                } else {
+                    None
+                }
+            })
         }
 
         fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-            vec![]
+            vec!["benchmark".into()]
         }
     }
 
