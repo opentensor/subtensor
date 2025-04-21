@@ -1507,7 +1507,7 @@ pub mod pallet {
         ///
         /// # Rate Limiting
         /// This function is rate-limited to one call per subnet per interval (e.g., one week).
-        #[pallet::call_index(66)]
+        #[pallet::call_index(67)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_sn_owner_hotkey(
             origin: OriginFor<T>,
@@ -1515,7 +1515,7 @@ pub mod pallet {
             hotkey: T::AccountId,
         ) -> DispatchResult {
             pallet_subtensor::Pallet::<T>::do_set_sn_owner_hotkey(origin, netuid, &hotkey)
-        }
+		}
 
         /// Enables or disables subtoken trading for a given subnet.
         ///
