@@ -1190,4 +1190,9 @@ benchmark_unstake_all {
   Subtensor::<T>::create_account_if_non_existent(&coldkey, &hotkey);
 }: unstake_all(RawOrigin::Signed(coldkey.clone()), hotkey.clone())
 
+benchmark_unstake_all_alpha {
+  let coldkey: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+  let hotkey:  T::AccountId = account("A", 0, 15);
+  Subtensor::<T>::create_account_if_non_existent(&coldkey, &hotkey);
+}: unstake_all_alpha(RawOrigin::Signed(coldkey.clone()), hotkey.clone())
 }
