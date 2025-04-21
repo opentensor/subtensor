@@ -854,4 +854,47 @@ benchmark_remove_stake_limit {
   );
 }: remove_stake_limit(RawOrigin::Signed(coldkey.clone()),hotkey.clone(),netuid,alpha,u64::MAX,true)
 
+benchmark_swap_stake_limit {
+  let coldkey: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+  let hot:     T::AccountId = account("A", 0, 1);
+  let netuid:  u16          = 1;
+  let allow:   bool         = true;
+
+  SubtokenEnabled::<T>::insert(netuid, true);
+  Subtensor::<T>::init_new_network(netuid, 1);
+
+  let reg_fee   = Subtensor::<T>::get_burn_as_u64(netuid);
+  let stake_tao = 1_000_000;
+  let deposit   = reg_fee.saturating_mul(2).saturating_add(stake_tao);
+  Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, deposit);
+
+  assert_ok!(
+    Subtensor::<T>::burned_register(
+      RawOrigin::Signed(coldkey.clone()).into(),
+      netuid,
+      hot.clone()
+    )
+  );
+
+  SubnetTAO::<T>::insert(netuid,   deposit);
+  SubnetAlphaIn::<T>::insert(netuid, deposit);
+  TotalStake::<T>::set(deposit);
+
+  assert_ok!(
+    Subtensor::<T>::add_stake_limit(
+      RawOrigin::Signed(coldkey.clone()).into(),
+      hot.clone(),
+      netuid,
+      stake_tao,
+      u64::MAX,
+      allow
+    )
+  );
+
+  let alpha_to_swap: u64 =
+    Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
+      &hot, &coldkey, netuid
+    );
+}: swap_stake_limit(RawOrigin::Signed(coldkey.clone()),hot.clone(),netuid,netuid,alpha_to_swap,u64::MAX,allow)
+
 }
