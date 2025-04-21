@@ -623,7 +623,15 @@ pub mod pallet {
             }
         }
 
-        /// Dissolve a crowdloan and schedule for refund.
+        /// Dissolve a crowdloan. 
+        /// 
+        /// The crowdloan will be removed from the storage.
+        /// All contributions must have been refunded before the crowdloan can be dissolved.
+        ///
+        /// The dispatch origin for this call must be _Signed_ and must be the creator of the crowdloan.
+        ///
+        /// Parameters:
+        /// - `crowdloan_id`: The id of the crowdloan to dissolve.
         #[pallet::call_index(5)]
         #[pallet::weight(T::WeightInfo::dissolve())]
         pub fn dissolve(
@@ -649,7 +657,7 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Update  the minimum contribution of a non-finalized crowdloan.
+        /// Update the minimum contribution of a non-finalized crowdloan.
         ///
         /// The dispatch origin for this call must be _Signed_ and must be the creator of the crowdloan.
         ///
