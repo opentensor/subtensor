@@ -983,4 +983,35 @@ benchmark_swap_stake {
       &hot, &coldkey, netuid
     );
 }: swap_stake(RawOrigin::Signed(coldkey.clone()),hot.clone(),netuid,netuid,alpha_to_swap)
+
+benchmark_batch_commit_weights {
+  let hotkey: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+  let netuid:  u16         = 1;
+  let count:   usize       = 3;
+  let mut netuids: Vec<Compact<u16>> = Vec::new();
+  let mut hashes:  Vec<H256>         = Vec::new();
+
+  Subtensor::<T>::init_new_network(netuid, 1);
+  Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
+  SubtokenEnabled::<T>::insert(netuid, true);
+  let reg_fee = Subtensor::<T>::get_burn_as_u64(netuid);
+  Subtensor::<T>::add_balance_to_coldkey_account(&hotkey, reg_fee.saturating_mul(2));
+
+  assert_ok!(
+      Subtensor::<T>::burned_register(
+          RawOrigin::Signed(hotkey.clone()).into(),
+          netuid,
+          hotkey.clone()
+      )
+  );
+
+  Subtensor::<T>::set_validator_permit_for_uid(netuid, 0, true);
+  Subtensor::<T>::set_commit_reveal_weights_enabled(netuid, true);
+
+  for i in 0..count {
+      netuids.push( Compact(netuid) );
+      hashes.push( H256::repeat_byte(i as u8) );
+  }
+}: batch_commit_weights(RawOrigin::Signed(hotkey.clone()),netuids, hashes)
+
 }
