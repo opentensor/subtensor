@@ -1144,4 +1144,20 @@ benchmark_set_identity {
       1, hotkey.clone()
   ));
 }: set_identity(RawOrigin::Signed(coldkey.clone()),name, url, repo, img, disc, descr, add)
+
+benchmark_set_subnet_identity {
+  let coldkey: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+  let netuid:  u16          = 1;
+  let name = b"n".to_vec();
+  let repo = vec![];
+  let contact = vec![];
+  let url    = vec![];
+  let disc   = vec![];
+  let descr  = vec![];
+  let add    = vec![];
+
+  SubnetOwner::<T>::insert(netuid, coldkey.clone());
+  SubtokenEnabled::<T>::insert(netuid, true);
+}: set_subnet_identity(RawOrigin::Signed(coldkey.clone()), netuid, name, repo, contact, url, disc, descr, add)
+
 }
