@@ -53,7 +53,7 @@ pub struct CrowdloanInfo<AccountId, Balance, BlockNumber, Call> {
     pub creator: AccountId,
     /// The initial deposit of the crowdloan from the creator.
     pub deposit: Balance,
-/// Minimum contribution to the crowdloan.
+    /// Minimum contribution to the crowdloan.
     pub min_contribution: Balance,
     /// The end block of the crowdloan.
     pub end: BlockNumber,
@@ -190,8 +190,23 @@ pub mod pallet {
         AllRefunded { crowdloan_id: CrowdloanId },
         /// A crowdloan was finalized, funds were transferred and the call was dispatched.
         Finalized { crowdloan_id: CrowdloanId },
-/// A crowdloan was dissolved.
+        /// A crowdloan was dissolved.
         Dissolved { crowdloan_id: CrowdloanId },
+        /// The minimum contribution was updated.
+        MinContributionUpdated {
+            crowdloan_id: CrowdloanId,
+            new_min_contribution: BalanceOf<T>,
+        },
+        /// The end was updated.
+        EndUpdated {
+            crowdloan_id: CrowdloanId,
+            new_end: BlockNumberFor<T>,
+        },
+        /// The cap was updated.
+        CapUpdated {
+            crowdloan_id: CrowdloanId,
+            new_cap: BalanceOf<T>,
+        },
     }
 
     #[pallet::error]
@@ -200,7 +215,7 @@ pub mod pallet {
         DepositTooLow,
         /// The crowdloan cap is too low.
         CapTooLow,
-/// The minimum contribution is too low.
+        /// The minimum contribution is too low.
         MinimumContributionTooLow,
         /// The crowdloan cannot end in the past.
         CannotEndInPast,
@@ -234,7 +249,7 @@ pub mod pallet {
         Underflow,
         /// Call to dispatch was not found in the preimage storage.
         CallUnavailable,
-/// The crowdloan is not ready to be dissolved, it still has contributions.
+        /// The crowdloan is not ready to be dissolved, it still has contributions.
         NotReadyToDissolve,
     }
 
@@ -252,11 +267,11 @@ pub mod pallet {
         ///
         /// Parameters:
         /// - `deposit`: The initial deposit from the creator.
-/// - `min_contribution`: The minimum contribution required to contribute to the crowdloan.
+        /// - `min_contribution`: The minimum contribution required to contribute to the crowdloan.
         /// - `cap`: The maximum amount of funds that can be raised.
         /// - `end`: The block number at which the crowdloan will end.
-                /// - `call`: The call to dispatch when the crowdloan is finalized.
-/// - `target_address`: The address to transfer the raised funds to if provided.
+        /// - `call`: The call to dispatch when the crowdloan is finalized.
+        /// - `target_address`: The address to transfer the raised funds to if provided.
         #[pallet::call_index(0)]
         #[pallet::weight({
 			let di = call.get_dispatch_info();
@@ -270,11 +285,11 @@ pub mod pallet {
         pub fn create(
             origin: OriginFor<T>,
             #[pallet::compact] deposit: BalanceOf<T>,
-#[pallet::compact] min_contribution: BalanceOf<T>,
+            #[pallet::compact] min_contribution: BalanceOf<T>,
             #[pallet::compact] cap: BalanceOf<T>,
             #[pallet::compact] end: BlockNumberFor<T>,
-                        call: Box<<T as Config>::RuntimeCall>,
-target_address: Option<T::AccountId>,
+            call: Box<<T as Config>::RuntimeCall>,
+            target_address: Option<T::AccountId>,
         ) -> DispatchResult {
             let creator = ensure_signed(origin)?;
             let now = frame_system::Pallet::<T>::block_number();
@@ -310,7 +325,7 @@ target_address: Option<T::AccountId>,
             let crowdloan = CrowdloanInfo {
                 creator: creator.clone(),
                 deposit,
-min_contribution,
+                min_contribution,
                 end,
                 cap,
                 funds_account,
@@ -414,8 +429,8 @@ min_contribution,
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
 
             Self::deposit_event(Event::<T>::Contributed {
-                                crowdloan_id,
-contributor,
+                crowdloan_id,
+                contributor,
                 amount,
             });
 
@@ -551,19 +566,19 @@ contributor,
         ///
         /// Parameters:
         /// - `crowdloan_id`: The id of the crowdloan to refund.
-        #[pallet::call_index(5)]
+        #[pallet::call_index(4)]
         #[pallet::weight(T::WeightInfo::refund(T::RefundContributorsLimit::get()))]
         pub fn refund(
             origin: OriginFor<T>,
             #[pallet::compact] crowdloan_id: CrowdloanId,
         ) -> DispatchResultWithPostInfo {
-let now = frame_system::Pallet::<T>::block_number();
+            let now = frame_system::Pallet::<T>::block_number();
             ensure_signed(origin)?;
 
             let mut crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
-            
+
             // Ensure the crowdloan has ended and is not finalized
-ensure!(now >= crowdloan.end, Error::<T>::ContributionPeriodNotEnded);
+            ensure!(now >= crowdloan.end, Error::<T>::ContributionPeriodNotEnded);
             ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
 
             let mut refunded_contributors: Vec<T::AccountId> = vec![];
@@ -608,9 +623,9 @@ ensure!(now >= crowdloan.end, Error::<T>::ContributionPeriodNotEnded);
             }
         }
 
-/// Dissolve a crowdloan and schedule for refund.
-        #[pallet::call_index(4)]
-        // #[pallet::weight(T::WeightInfo::finalize())]
+        /// Dissolve a crowdloan and schedule for refund.
+        #[pallet::call_index(5)]
+        #[pallet::weight(T::WeightInfo::dissolve())]
         pub fn dissolve(
             origin: OriginFor<T>,
             #[pallet::compact] crowdloan_id: CrowdloanId,
@@ -642,11 +657,11 @@ ensure!(now >= crowdloan.end, Error::<T>::ContributionPeriodNotEnded);
         /// - `crowdloan_id`: The id of the crowdloan to update the minimum contribution of.
         /// - `new_min_contribution`: The new minimum contribution.
         #[pallet::call_index(6)]
-//         #[pallet::weight(T::WeightInfo::finalize())]
+        #[pallet::weight(T::WeightInfo::update_min_contribution())]
         pub fn update_min_contribution(
             origin: OriginFor<T>,
             #[pallet::compact] crowdloan_id: CrowdloanId,
-#[pallet::compact] new_min_contribution: BalanceOf<T>,
+            #[pallet::compact] new_min_contribution: BalanceOf<T>,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
 
@@ -656,7 +671,7 @@ ensure!(now >= crowdloan.end, Error::<T>::ContributionPeriodNotEnded);
             // Only the creator can update the min contribution.
             ensure!(who == crowdloan.creator, Error::<T>::InvalidOrigin);
 
-// The new min contribution should be greater than absolute minimum contribution.
+            // The new min contribution should be greater than absolute minimum contribution.
             ensure!(
                 new_min_contribution > T::AbsoluteMinimumContribution::get(),
                 Error::<T>::MinimumContributionTooLow
@@ -665,6 +680,10 @@ ensure!(now >= crowdloan.end, Error::<T>::ContributionPeriodNotEnded);
             crowdloan.min_contribution = new_min_contribution;
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
 
+            Self::deposit_event(Event::<T>::MinContributionUpdated {
+                crowdloan_id,
+                new_min_contribution,
+            });
             Ok(())
         }
 
@@ -676,7 +695,7 @@ ensure!(now >= crowdloan.end, Error::<T>::ContributionPeriodNotEnded);
         /// - `crowdloan_id`: The id of the crowdloan to update the end block of.
         /// - `new_end`: The new end block.
         #[pallet::call_index(7)]
-        #[pallet::weight(T::WeightInfo::finalize())]
+        #[pallet::weight(T::WeightInfo::update_end())]
         pub fn update_end(
             origin: OriginFor<T>,
             #[pallet::compact] crowdloan_id: CrowdloanId,
@@ -696,6 +715,10 @@ ensure!(now >= crowdloan.end, Error::<T>::ContributionPeriodNotEnded);
             crowdloan.end = new_end;
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
 
+            Self::deposit_event(Event::<T>::EndUpdated {
+                crowdloan_id,
+                new_end,
+            });
             Ok(())
         }
 
@@ -707,7 +730,7 @@ ensure!(now >= crowdloan.end, Error::<T>::ContributionPeriodNotEnded);
         /// - `crowdloan_id`: The id of the crowdloan to update the cap of.
         /// - `new_cap`: The new cap.
         #[pallet::call_index(8)]
-        #[pallet::weight(T::WeightInfo::finalize())]
+        #[pallet::weight(T::WeightInfo::update_cap())]
         pub fn update_cap(
             origin: OriginFor<T>,
             #[pallet::compact] crowdloan_id: CrowdloanId,
@@ -728,6 +751,10 @@ ensure!(now >= crowdloan.end, Error::<T>::ContributionPeriodNotEnded);
             crowdloan.cap = new_cap;
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
 
+            Self::deposit_event(Event::<T>::CapUpdated {
+                crowdloan_id,
+                new_cap,
+            });
             Ok(())
         }
     }

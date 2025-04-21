@@ -8,7 +8,7 @@
 use crate::{BalanceOf, CrowdloanId, CrowdloanInfo, CurrencyOf, pallet::*};
 use frame_benchmarking::{account, v2::*};
 use frame_support::traits::{Get, StorePreimage, fungible::*};
-use frame_system::RawOrigin;
+use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
 
 extern crate alloc;
 
@@ -330,5 +330,169 @@ mod benchmarks {
         assert_last_event::<T>(Event::<T>::AllRefunded { crowdloan_id }.into());
     }
 
-    impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test,);
+    #[benchmark]
+    fn dissolve() {
+        // create a crowdloan
+        let creator: T::AccountId = account::<T::AccountId>("creator", 0, SEED);
+        let deposit = T::MinimumDeposit::get();
+        let min_contribution = T::AbsoluteMinimumContribution::get();
+        let cap = deposit + deposit;
+        let now = frame_system::Pallet::<T>::block_number();
+        let end = now + T::MaximumBlockDuration::get();
+        let target_address: T::AccountId = account::<T::AccountId>("target_address", 0, SEED);
+        let call: Box<<T as Config>::RuntimeCall> =
+            Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into());
+        let _ = CurrencyOf::<T>::set_balance(&creator, deposit);
+        let _ = Pallet::<T>::create(
+            RawOrigin::Signed(creator.clone()).into(),
+            deposit,
+            min_contribution,
+            cap,
+            end,
+            call,
+            Some(target_address.clone()),
+        );
+
+        // run to the end of the contribution period
+        frame_system::Pallet::<T>::set_block_number(end);
+
+        // refund the contributions
+        let crowdloan_id: CrowdloanId = 0;
+        let _ = Pallet::<T>::refund(RawOrigin::Signed(creator.clone()).into(), crowdloan_id);
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(creator.clone()), crowdloan_id);
+
+        // ensure the crowdloan has been dissolved
+        assert!(Crowdloans::<T>::get(crowdloan_id).is_none());
+        // ensure the event is emitted
+        assert_last_event::<T>(Event::<T>::Dissolved { crowdloan_id }.into());
+    }
+
+    #[benchmark]
+    fn update_min_contribution() {
+        // create a crowdloan
+        let creator: T::AccountId = account::<T::AccountId>("creator", 0, SEED);
+        let deposit = T::MinimumDeposit::get();
+        let min_contribution = T::AbsoluteMinimumContribution::get();
+        let cap = deposit + deposit;
+        let end = frame_system::Pallet::<T>::block_number() + T::MaximumBlockDuration::get();
+        let call: Box<<T as Config>::RuntimeCall> =
+            Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into());
+        let _ = CurrencyOf::<T>::set_balance(&creator, deposit);
+        let _ = Pallet::<T>::create(
+            RawOrigin::Signed(creator.clone()).into(),
+            deposit,
+            min_contribution,
+            cap,
+            end,
+            call,
+            None,
+        );
+
+        let crowdloan_id: CrowdloanId = 0;
+        let new_min_contribution: BalanceOf<T> = min_contribution + min_contribution;
+
+        #[extrinsic_call]
+        _(
+            RawOrigin::Signed(creator.clone()),
+            crowdloan_id,
+            new_min_contribution,
+        );
+
+        // ensure the min contribution is updated correctly
+        assert!(
+            Crowdloans::<T>::get(crowdloan_id)
+                .is_some_and(|c| c.min_contribution == new_min_contribution)
+        );
+        // ensure the event is emitted
+        assert_last_event::<T>(
+            Event::<T>::MinContributionUpdated {
+                crowdloan_id,
+                new_min_contribution,
+            }
+            .into(),
+        );
+    }
+
+    #[benchmark]
+    fn update_end() {
+        // create a crowdloan
+        let creator: T::AccountId = account::<T::AccountId>("creator", 0, SEED);
+        let deposit = T::MinimumDeposit::get();
+        let min_contribution = T::AbsoluteMinimumContribution::get();
+        let cap = deposit + deposit;
+        let now = frame_system::Pallet::<T>::block_number();
+        let end = now + T::MinimumBlockDuration::get();
+        let call: Box<<T as Config>::RuntimeCall> =
+            Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into());
+        let _ = CurrencyOf::<T>::set_balance(&creator, deposit);
+        let _ = Pallet::<T>::create(
+            RawOrigin::Signed(creator.clone()).into(),
+            deposit,
+            min_contribution,
+            cap,
+            end,
+            call,
+            None,
+        );
+
+        let crowdloan_id: CrowdloanId = 0;
+        let new_end: BlockNumberFor<T> = now + T::MaximumBlockDuration::get();
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(creator.clone()), crowdloan_id, new_end);
+
+        // ensure the end is updated correctly
+        assert!(Crowdloans::<T>::get(crowdloan_id).is_some_and(|c| c.end == new_end));
+        // ensure the event is emitted
+        assert_last_event::<T>(
+            Event::<T>::EndUpdated {
+                crowdloan_id,
+                new_end,
+            }
+            .into(),
+        );
+    }
+
+    #[benchmark]
+    fn update_cap() {
+        // create a crowdloan
+        let creator: T::AccountId = account::<T::AccountId>("creator", 0, SEED);
+        let deposit = T::MinimumDeposit::get();
+        let min_contribution = T::AbsoluteMinimumContribution::get();
+        let cap = deposit + deposit;
+        let end = frame_system::Pallet::<T>::block_number() + T::MaximumBlockDuration::get();
+        let call: Box<<T as Config>::RuntimeCall> =
+            Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into());
+        let _ = CurrencyOf::<T>::set_balance(&creator, deposit);
+        let _ = Pallet::<T>::create(
+            RawOrigin::Signed(creator.clone()).into(),
+            deposit,
+            min_contribution,
+            cap,
+            end,
+            call,
+            None,
+        );
+
+        let crowdloan_id: CrowdloanId = 0;
+        let new_cap: BalanceOf<T> = cap + cap;
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(creator.clone()), crowdloan_id, new_cap);
+
+        // ensure the cap is updated correctly
+        assert!(Crowdloans::<T>::get(crowdloan_id).is_some_and(|c| c.cap == new_cap));
+        // ensure the event is emitted
+        assert_last_event::<T>(
+            Event::<T>::CapUpdated {
+                crowdloan_id,
+                new_cap,
+            }
+            .into(),
+        );
+    }
+
+    impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

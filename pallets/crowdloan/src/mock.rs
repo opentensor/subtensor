@@ -76,6 +76,18 @@ impl WeightInfo for TestWeightInfo {
     fn finalize() -> Weight {
         Weight::zero()
     }
+    fn dissolve() -> Weight {
+        Weight::zero()
+    }
+    fn update_min_contribution() -> Weight {
+        Weight::zero()
+    }
+    fn update_end() -> Weight {
+        Weight::zero()
+    }
+    fn update_cap() -> Weight {
+        Weight::zero()
+    }
 }
 
 parameter_types! {
