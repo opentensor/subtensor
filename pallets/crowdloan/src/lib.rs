@@ -624,8 +624,8 @@ pub mod pallet {
             }
         }
 
-        /// Dissolve a crowdloan. 
-        /// 
+        /// Dissolve a crowdloan.
+        ///
         /// The crowdloan will be removed from the storage.
         /// All contributions must have been refunded before the crowdloan can be dissolved.
         ///
