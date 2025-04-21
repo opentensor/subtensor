@@ -1170,4 +1170,13 @@ benchmark_set_tao_weights {
   Subtensor::<T>::init_new_network(netuid, 1);
 }: set_tao_weights(RawOrigin::None, netuid, hotkey.clone(), dests, weights, version)
 
+benchmark_swap_hotkey {
+  let coldkey: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+  let old:     T::AccountId = account("A", 0, 7);
+  let new:     T::AccountId = account("B", 0, 8);
+  Owner::<T>::insert(&old, &coldkey);
+  let cost = Subtensor::<T>::get_key_swap_cost();
+  Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, cost);
+}: swap_hotkey(RawOrigin::Signed(coldkey.clone()), old.clone(), new.clone())
+
 }
