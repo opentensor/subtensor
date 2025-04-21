@@ -1540,6 +1540,45 @@ mod benches {
     );
 }
 
+fn generate_genesis_json() -> Vec<u8> {
+    let json_str = r#"{
+      "aura": {
+        "authorities": [
+          "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+        ]
+      },
+      "balances": {
+        "balances": [
+          [
+            "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+            1000000000000000
+          ],
+          [
+            "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
+            1000000000000000
+          ]
+        ]
+      },
+      "grandpa": {
+        "authorities": [
+          [
+            "5FA9nQDVg267DEd8m1ZypXLBnvN7SFxYwV7ndqSYGiN9TTpu",
+            1
+          ]
+        ]
+      },
+      "sudo": {
+        "key": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+      },
+      "subtensorModule": {
+        "balancesIssuance": 0,
+        "stakes": []
+      }
+    }"#;
+
+    json_str.as_bytes().to_vec()
+}
+
 impl_runtime_apis! {
     impl sp_api::Core<Block> for Runtime {
         fn version() -> RuntimeVersion {
@@ -1596,11 +1635,18 @@ impl_runtime_apis! {
         }
 
         fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
-            get_preset::<RuntimeGenesisConfig>(id, |_| None)
+            get_preset::<RuntimeGenesisConfig>(id, |preset_id| {
+                let benchmark_id: sp_genesis_builder::PresetId = "benchmark".into();
+                if *preset_id == benchmark_id {
+                    Some(generate_genesis_json())
+                } else {
+                    None
+                }
+            })
         }
 
         fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-            vec![]
+            vec!["benchmark".into()]
         }
     }
 
