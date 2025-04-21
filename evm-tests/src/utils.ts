@@ -3,6 +3,7 @@ import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts'
 import { ethers } from "ethers"
 import { ETH_LOCAL_URL } from "./config"
 import { FixedSizeBinary } from "polkadot-api";
+import { hexToU8a } from "@polkadot/util";
 
 export type ClientUrlType = 'http://localhost:9944';
 
@@ -57,7 +58,7 @@ export function generateRandomEthersWallet() {
 
 export function convertToFixedSizeBinary<T extends number>(hexString: string, size: T): FixedSizeBinary<T> {
     // Convert hex string to a byte array
-    const byteArray = hexStringToUint8Array(hexString);
+    const byteArray = hexToU8a(hexString);
 
     // Ensure the byte array is exactly the specified size
     if (byteArray.length !== size) {
@@ -65,14 +66,4 @@ export function convertToFixedSizeBinary<T extends number>(hexString: string, si
     }
 
     return new FixedSizeBinary(byteArray);
-}
-
-export function hexStringToUint8Array(hexString: string): Uint8Array {
-    if (hexString.startsWith('0x')) hexString = hexString.slice(2);
-    if (hexString.length % 2 !== 0) hexString = '0' + hexString;
-    const bytes = new Uint8Array(hexString.length / 2);
-    for (let i = 0; i < bytes.length; i++) {
-        bytes[i] = parseInt(hexString.substring(i * 2, i * 2 + 2), 16);
-    }
-    return bytes;
 }

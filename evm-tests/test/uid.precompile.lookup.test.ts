@@ -1,9 +1,11 @@
 import * as assert from "assert";
 
 import { getAliceSigner, getDevnetApi, waitForTransactionCompletion, convertPublicKeyToMultiAddress, getRandomSubstrateKeypair, getSignerFromKeypair } from "../src/substrate"
-import { convertToFixedSizeBinary, generateRandomEthersWallet, getPublicClient, hexStringToUint8Array } from "../src/utils";
-import { ETH_LOCAL_URL, SUB_LOCAL_URL } from "../src/config";
+import { convertToFixedSizeBinary, generateRandomEthersWallet, getPublicClient } from "../src/utils";
+import { ETH_LOCAL_URL } from "../src/config";
 import { devnet } from "@polkadot-api/descriptors"
+import { hexToU8a } from "@polkadot/util";
+import { u64 } from "scale-ts";
 import { PublicClient } from "viem";
 import { PolkadotSigner, TypedApi } from "polkadot-api";
 import { toViemAddress, convertPublicKeyToSs58 } from "../src/address-utils"
@@ -68,8 +70,8 @@ describe("Test the UID Lookup precompile", () => {
 
         // Associate EVM key
         blockNumber = await api.query.System.Number.getValue();
-        const blockNumberBytes = hexStringToUint8Array("0x" + blockNumber.toString(16));
-        const blockNumberHash = hexStringToUint8Array(keccak256(blockNumberBytes));
+        const blockNumberBytes = u64.enc(BigInt(blockNumber));
+        const blockNumberHash = hexToU8a(keccak256(blockNumberBytes));
         const concatenatedArray = new Uint8Array([...hotkey.publicKey, ...blockNumberHash]);
         const concatenatedHash = keccak256(concatenatedArray);
         const signature = await evmWallet.signMessage(concatenatedHash);
