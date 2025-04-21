@@ -1160,4 +1160,14 @@ benchmark_set_subnet_identity {
   SubtokenEnabled::<T>::insert(netuid, true);
 }: set_subnet_identity(RawOrigin::Signed(coldkey.clone()), netuid, name, repo, contact, url, disc, descr, add)
 
+benchmark_set_tao_weights {
+  let netuid: u16 = 1;
+  let hotkey: T::AccountId = account("A", 0, 6);
+  let dests = vec![0u16];
+  let weights = vec![0u16];
+  let version: u64 = 1;
+
+  Subtensor::<T>::init_new_network(netuid, 1);
+}: set_tao_weights(RawOrigin::None, netuid, hotkey.clone(), dests, weights, version)
+
 }
