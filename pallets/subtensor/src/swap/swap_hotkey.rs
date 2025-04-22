@@ -11,6 +11,7 @@ impl<T: Config> Pallet<T> {
     /// * `origin` - The origin of the transaction, and also the coldkey account.
     /// * `old_hotkey` - The old hotkey to be swapped.
     /// * `new_hotkey` - The new hotkey to replace the old one.
+    /// * `netuid` - The hotkey swap in a subnet or all subnets.
     ///
     /// # Returns
     ///
@@ -27,6 +28,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         old_hotkey: &T::AccountId,
         new_hotkey: &T::AccountId,
+        netuid: Option<u16>,
     ) -> DispatchResultWithPostInfo {
         // 1. Ensure the origin is signed and get the coldkey
         let coldkey = ensure_signed(origin)?;
@@ -488,5 +490,108 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
         }
         Ok(())
+    }
+
+    /// Swaps the hotkey of a coldkey account.
+    ///
+    /// # Arguments
+    ///
+    /// * `origin` - The origin of the transaction, and also the coldkey account.
+    /// * `old_hotkey` - The old hotkey to be swapped.
+    /// * `new_hotkey` - The new hotkey to replace the old one.
+    ///
+    /// # Returns
+    ///
+    /// * `DispatchResultWithPostInfo` - The result of the dispatch.
+    ///
+    /// # Errors
+    ///
+    /// * `NonAssociatedColdKey` - If the coldkey does not own the old hotkey.
+    /// * `HotKeySetTxRateLimitExceeded` - If the transaction rate limit is exceeded.
+    /// * `NewHotKeyIsSameWithOld` - If the new hotkey is the same as the old hotkey.
+    /// * `HotKeyAlreadyRegisteredInSubNet` - If the new hotkey is already registered in the subnet.
+    /// * `NotEnoughBalanceToPaySwapHotKey` - If there is not enough balance to pay for the swap.
+    pub fn do_swap_hotkey_in_subnet(
+        origin: T::RuntimeOrigin,
+        old_hotkey: &T::AccountId,
+        new_hotkey: &T::AccountId,
+        netuid: Option<u16>,
+    ) -> DispatchResultWithPostInfo {
+        // 1. Ensure the origin is signed and get the coldkey
+        let coldkey = ensure_signed(origin)?;
+
+        // 2. Initialize the weight for this operation
+        let mut weight = T::DbWeight::get().reads(2);
+
+        // 3. Ensure the new hotkey is different from the old one
+        ensure!(old_hotkey != new_hotkey, Error::<T>::NewHotKeyIsSameWithOld);
+
+        let netuid = netuid.unwrap_or(0);
+        ensure!(
+            Self::if_subnet_exist(netuid),
+            Error::<T>::SubNetworkDoesNotExist
+        );
+
+        // 4. Ensure the new hotkey is not already registered on any network
+        ensure!(
+            IsNetworkMember::<T>::get(new_hotkey, netuid),
+            Error::<T>::HotKeyNotRegisteredInSubNet
+        );
+
+        // 5. Update the weight for the checks above
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 0));
+
+        // 6. Ensure the coldkey owns the old hotkey
+        ensure!(
+            Self::coldkey_owns_hotkey(&coldkey, old_hotkey),
+            Error::<T>::NonAssociatedColdKey
+        );
+
+        // 7. Get the current block number
+        let block: u64 = Self::get_current_block_as_u64();
+
+        // 8. Ensure the transaction rate limit is not exceeded
+        ensure!(
+            !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
+            Error::<T>::HotKeySetTxRateLimitExceeded
+        );
+
+        // 9. Update the weight for reading the total networks
+        weight.saturating_accrue(
+            T::DbWeight::get().reads((TotalNetworks::<T>::get().saturating_add(1u16)) as u64),
+        );
+
+        // 10. Get the cost for swapping the key
+        let swap_cost = Self::get_key_swap_cost();
+        log::debug!("Swap cost: {:?}", swap_cost);
+
+        // 11. Ensure the coldkey has enough balance to pay for the swap
+        ensure!(
+            Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost),
+            Error::<T>::NotEnoughBalanceToPaySwapHotKey
+        );
+
+        // 12. Remove the swap cost from the coldkey's account
+        let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, swap_cost)?;
+
+        // 13. Burn the tokens
+        Self::burn_tokens(actual_burn_amount);
+
+        // 14. Perform the hotkey swap
+        let _ = Self::perform_hotkey_swap(old_hotkey, new_hotkey, &coldkey, &mut weight);
+
+        // 15. Update the last transaction block for the coldkey
+        Self::set_last_tx_block(&coldkey, block);
+        weight.saturating_accrue(T::DbWeight::get().writes(1));
+
+        // 16. Emit an event for the hotkey swap
+        Self::deposit_event(Event::HotkeySwapped {
+            coldkey,
+            old_hotkey: old_hotkey.clone(),
+            new_hotkey: new_hotkey.clone(),
+        });
+
+        // 17. Return the weight of the operation
+        Ok(Some(weight).into())
     }
 }
