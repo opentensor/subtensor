@@ -25,7 +25,7 @@ fn test_create_succeeds() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None,
             ));
 
@@ -44,7 +44,7 @@ fn test_create_succeeds() {
                     funds_account,
                     raised: deposit,
                     target_address: None,
-                    call,
+                    call: Some(call),
                     finalized: false,
                 })
             );
@@ -97,7 +97,7 @@ fn test_create_fails_if_bad_origin() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None
             ),
             DispatchError::BadOrigin
@@ -110,7 +110,7 @@ fn test_create_fails_if_bad_origin() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None
             ),
             DispatchError::BadOrigin
@@ -136,7 +136,7 @@ fn test_create_fails_if_deposit_is_too_low() {
                     min_contribution,
                     cap,
                     end,
-                    noop_call(),
+                    Some(noop_call()),
                     None
                 ),
                 pallet_crowdloan::Error::<Test>::DepositTooLow
@@ -162,7 +162,7 @@ fn test_create_fails_if_cap_is_not_greater_than_deposit() {
                     min_contribution,
                     cap,
                     end,
-                    noop_call(),
+                    Some(noop_call()),
                     None
                 ),
                 pallet_crowdloan::Error::<Test>::CapTooLow
@@ -188,7 +188,7 @@ fn test_create_fails_if_min_contribution_is_too_low() {
                     min_contribution,
                     cap,
                     end,
-                    noop_call(),
+                    Some(noop_call()),
                     None
                 ),
                 pallet_crowdloan::Error::<Test>::MinimumContributionTooLow
@@ -217,7 +217,7 @@ fn test_create_fails_if_end_is_in_the_past() {
                     min_contribution,
                     cap,
                     end,
-                    noop_call(),
+                    Some(noop_call()),
                     None
                 ),
                 pallet_crowdloan::Error::<Test>::CannotEndInPast
@@ -243,7 +243,7 @@ fn test_create_fails_if_block_duration_is_too_short() {
                     min_contribution,
                     cap,
                     end,
-                    noop_call(),
+                    Some(noop_call()),
                     None
                 ),
                 pallet_crowdloan::Error::<Test>::BlockDurationTooShort
@@ -269,7 +269,7 @@ fn test_create_fails_if_block_duration_is_too_long() {
                     min_contribution,
                     cap,
                     end,
-                    noop_call(),
+                    Some(noop_call()),
                     None
                 ),
                 pallet_crowdloan::Error::<Test>::BlockDurationTooLong
@@ -295,7 +295,7 @@ fn test_create_fails_if_creator_has_insufficient_balance() {
                     min_contribution,
                     cap,
                     end,
-                    noop_call(),
+                    Some(noop_call()),
                     None
                 ),
                 pallet_crowdloan::Error::<Test>::InsufficientBalance
@@ -323,7 +323,7 @@ fn test_contribute_succeeds() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None
             ));
 
@@ -433,7 +433,7 @@ fn test_contribute_succeeds_if_contribution_will_make_the_raised_amount_exceed_t
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None
             ));
 
@@ -554,7 +554,7 @@ fn test_contribute_fails_if_contribution_period_ended() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None
             ));
 
@@ -592,7 +592,7 @@ fn test_contribute_fails_if_cap_has_been_raised() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None
             ));
 
@@ -638,7 +638,7 @@ fn test_contribute_fails_if_contribution_is_below_minimum_contribution() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None
             ));
 
@@ -675,7 +675,7 @@ fn test_contribute_fails_if_contributor_has_insufficient_balance() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None
             ));
 
@@ -714,7 +714,7 @@ fn test_withdraw_succeeds() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None
             ));
 
@@ -796,7 +796,7 @@ fn test_withdraw_succeeds_for_another_contributor() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None
             ));
 
@@ -896,7 +896,7 @@ fn test_withdraw_fails_if_no_contribution_exists() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None
             ));
 
@@ -942,6 +942,11 @@ fn test_finalize_succeeds() {
             let min_contribution: BalanceOf<Test> = 10;
             let cap: BalanceOf<Test> = 100;
             let end: BlockNumberFor<Test> = 50;
+            let call = Box::new(RuntimeCall::TestPallet(
+                pallet_test::Call::<Test>::transfer_funds {
+                    dest: U256::from(42),
+                },
+            ));
 
             assert_ok!(Crowdloan::create(
                 RuntimeOrigin::signed(creator),
@@ -949,11 +954,7 @@ fn test_finalize_succeeds() {
                 min_contribution,
                 cap,
                 end,
-                Box::new(RuntimeCall::TestPallet(
-                    pallet_test::Call::<Test>::transfer_funds {
-                        dest: U256::from(42),
-                    }
-                )),
+                Some(call),
                 None
             ));
 
@@ -1019,6 +1020,9 @@ fn test_finalize_succeeds_with_target_address() {
             let cap: BalanceOf<Test> = 100;
             let end: BlockNumberFor<Test> = 50;
             let target_address: AccountOf<Test> = U256::from(42);
+            let call = Box::new(RuntimeCall::TestPallet(
+                pallet_test::Call::<Test>::set_passed_crowdloan_id {},
+            ));
 
             assert_ok!(Crowdloan::create(
                 RuntimeOrigin::signed(creator),
@@ -1026,9 +1030,7 @@ fn test_finalize_succeeds_with_target_address() {
                 min_contribution,
                 cap,
                 end,
-                Box::new(RuntimeCall::TestPallet(
-                    pallet_test::Call::<Test>::set_passed_crowdloan_id {}
-                )),
+                Some(call),
                 Some(target_address),
             ));
 
@@ -1135,7 +1137,7 @@ fn test_finalize_fails_if_not_creator_origin() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None
             ));
 
@@ -1182,7 +1184,7 @@ fn test_finalize_fails_if_crowdloan_has_not_ended() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None,
             ));
 
@@ -1230,7 +1232,7 @@ fn test_finalize_fails_if_crowdloan_cap_is_not_raised() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None,
             ));
 
@@ -1278,7 +1280,7 @@ fn test_finalize_fails_if_crowdloan_has_already_been_finalized() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None,
             ));
 
@@ -1322,6 +1324,9 @@ fn test_finalize_fails_if_call_fails() {
             let min_contribution: BalanceOf<Test> = 10;
             let cap: BalanceOf<Test> = 100;
             let end: BlockNumberFor<Test> = 50;
+            let call = Box::new(RuntimeCall::TestPallet(
+                pallet_test::Call::<Test>::failing_extrinsic {},
+            ));
 
             assert_ok!(Crowdloan::create(
                 RuntimeOrigin::signed(creator),
@@ -1329,9 +1334,7 @@ fn test_finalize_fails_if_call_fails() {
                 min_contribution,
                 cap,
                 end,
-                Box::new(RuntimeCall::TestPallet(
-                    pallet_test::Call::<Test>::failing_extrinsic {}
-                )),
+                Some(call),
                 None,
             ));
 
@@ -1382,7 +1385,7 @@ fn test_refund_succeeds() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None,
             ));
 
@@ -1517,7 +1520,7 @@ fn test_refund_fails_if_crowdloan_has_not_ended() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None,
             ));
 
@@ -1551,7 +1554,7 @@ fn test_dissolve_succeeds() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None,
             ));
 
@@ -1629,7 +1632,7 @@ fn test_dissolve_fails_if_crowdloan_has_been_finalized() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None,
             ));
 
@@ -1681,7 +1684,7 @@ fn test_dissolve_fails_if_origin_is_not_creator() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None,
             ));
 
@@ -1717,7 +1720,7 @@ fn test_dissolve_fails_if_not_everyone_has_been_refunded() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None,
             ));
 
@@ -1751,7 +1754,7 @@ fn test_update_min_contribution_succeeds() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None,
             ));
 
@@ -1833,7 +1836,7 @@ fn test_update_min_contribution_fails_if_crowdloan_has_been_finalized() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None,
             ));
 
@@ -1888,7 +1891,7 @@ fn test_update_min_contribution_fails_if_not_creator() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None,
             ));
 
@@ -1924,7 +1927,7 @@ fn test_update_min_contribution_fails_if_new_min_contribution_is_too_low() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None,
             ));
 
@@ -1960,7 +1963,7 @@ fn test_update_end_succeeds() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None,
             ));
 
@@ -2038,7 +2041,7 @@ fn test_update_end_fails_if_crowdloan_has_been_finalized() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None,
             ));
 
@@ -2089,7 +2092,7 @@ fn test_update_end_fails_if_not_creator() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None,
             ));
 
@@ -2122,7 +2125,7 @@ fn test_update_end_fails_if_new_end_is_in_past() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None,
             ));
 
@@ -2154,7 +2157,7 @@ fn test_update_end_fails_if_block_duration_is_too_short() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None,
             ));
 
@@ -2189,7 +2192,7 @@ fn test_update_end_fails_if_block_duration_is_too_long() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None,
             ));
 
@@ -2221,7 +2224,7 @@ fn test_update_cap_succeeds() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None,
             ));
 
@@ -2298,7 +2301,7 @@ fn test_update_cap_fails_if_crowdloan_has_been_finalized() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None,
             ));
 
@@ -2349,7 +2352,7 @@ fn test_update_cap_fails_if_not_creator() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None,
             ));
 
@@ -2380,7 +2383,7 @@ fn test_update_cap_fails_if_new_cap_is_too_low() {
                 min_contribution,
                 cap,
                 end,
-                noop_call(),
+                Some(noop_call()),
                 None,
             ));
 

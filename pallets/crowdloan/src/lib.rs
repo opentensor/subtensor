@@ -46,7 +46,7 @@ pub type BoundedCallOf<T> =
     Bounded<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hashing>;
 
 /// A struct containing the information about a crowdloan.
-#[freeze_struct("2fad4924268058e7")]
+#[freeze_struct("6b86ccf70fc1b8f1")]
 #[derive(Encode, Decode, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct CrowdloanInfo<AccountId, Balance, BlockNumber, Call> {
     /// The creator of the crowdloan.
@@ -67,8 +67,8 @@ pub struct CrowdloanInfo<AccountId, Balance, BlockNumber, Call> {
     /// provided, it means the funds will be transferred from on chain logic
     /// inside the provided call to dispatch.
     pub target_address: Option<AccountId>,
-    /// The call to dispatch when the crowdloan is finalized.
-    pub call: Call,
+    /// The optional call to dispatch when the crowdloan is finalized.
+    pub call: Option<Call>,
     /// Whether the crowdloan has been finalized.
     pub finalized: bool,
 }
@@ -274,10 +274,10 @@ pub mod pallet {
         /// - `target_address`: The address to transfer the raised funds to if provided.
         #[pallet::call_index(0)]
         #[pallet::weight({
-			let di = call.get_dispatch_info();
-			let inner_call_weight = match di.pays_fee {
-				Pays::Yes => di.weight,
-				Pays::No => Weight::zero(),
+			let di = call.as_ref().map(|c| c.get_dispatch_info());
+			let inner_call_weight = match di {
+				Some(di) => di.weight,
+				None => Weight::zero(),
 			};
 			let base_weight = T::WeightInfo::create();
 			(base_weight.saturating_add(inner_call_weight), Pays::Yes)
@@ -288,7 +288,7 @@ pub mod pallet {
             #[pallet::compact] min_contribution: BalanceOf<T>,
             #[pallet::compact] cap: BalanceOf<T>,
             #[pallet::compact] end: BlockNumberFor<T>,
-            call: Box<<T as Config>::RuntimeCall>,
+            call: Option<Box<<T as Config>::RuntimeCall>>,
             target_address: Option<T::AccountId>,
         ) -> DispatchResult {
             let creator = ensure_signed(origin)?;
@@ -322,6 +322,13 @@ pub mod pallet {
             let funds_account = Self::funds_account(crowdloan_id);
             frame_system::Pallet::<T>::inc_providers(&funds_account);
 
+            // If the call is provided, bound it and store it in the preimage storage
+            let call = if let Some(call) = call {
+                Some(T::Preimages::bound(*call)?)
+            } else {
+                None
+            };
+
             let crowdloan = CrowdloanInfo {
                 creator: creator.clone(),
                 deposit,
@@ -331,7 +338,7 @@ pub mod pallet {
                 funds_account,
                 raised: deposit,
                 target_address,
-                call: T::Preimages::bound(*call)?,
+                call,
                 finalized: false,
             };
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
@@ -526,28 +533,32 @@ pub mod pallet {
                 )?;
             }
 
-            // Set the current crowdloan id so the dispatched call
-            // can access it temporarily
-            CurrentCrowdloanId::<T>::put(crowdloan_id);
+            // If the call is provided, dispatch it.
+            if let Some(ref call) = crowdloan.call {
+                // Set the current crowdloan id so the dispatched call
+                // can access it temporarily
+                CurrentCrowdloanId::<T>::put(crowdloan_id);
 
-            // Retrieve the call from the preimage storage
-            let call = match T::Preimages::peek(&crowdloan.call) {
-                Ok((call, _)) => call,
-                Err(_) => {
-                    // If the call is not found, we drop it from the preimage storage
-                    // because it's not needed anymore
-                    T::Preimages::drop(&crowdloan.call);
-                    return Err(Error::<T>::CallUnavailable)?;
-                }
-            };
+                // Retrieve the call from the preimage storage
+                let stored_call = match T::Preimages::peek(call) {
+                    Ok((call, _)) => call,
+                    Err(_) => {
+                        // If the call is not found, we drop it from the preimage storage
+                        // because it's not needed anymore
+                        T::Preimages::drop(call);
+                        return Err(Error::<T>::CallUnavailable)?;
+                    }
+                };
 
-            // Dispatch the call with creator origin
-            call.dispatch(frame_system::RawOrigin::Signed(who).into())
-                .map(|_| ())
-                .map_err(|e| e.error)?;
+                // Dispatch the call with creator origin
+                stored_call
+                    .dispatch(frame_system::RawOrigin::Signed(who).into())
+                    .map(|_| ())
+                    .map_err(|e| e.error)?;
 
-            // Clear the current crowdloan id
-            CurrentCrowdloanId::<T>::kill();
+                // Clear the current crowdloan id
+                CurrentCrowdloanId::<T>::kill();
+            }
 
             crowdloan.finalized = true;
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
@@ -649,6 +660,11 @@ pub mod pallet {
             // It can only be dissolved if the raised amount is 0, meaning
             // there is no contributions or every contribution has been refunded
             ensure!(crowdloan.raised == 0, Error::<T>::NotReadyToDissolve);
+
+            // Clear the call from the preimage storage
+            if let Some(call) = crowdloan.call {
+                T::Preimages::drop(&call);
+            }
 
             // Remove the crowdloan
             let _ = frame_system::Pallet::<T>::dec_providers(&crowdloan.funds_account).defensive();

@@ -48,7 +48,7 @@ mod benchmarks {
             min_contribution,
             cap,
             end,
-            call.clone(),
+            Some(call.clone()),
             Some(target_address.clone()),
         );
 
@@ -66,7 +66,7 @@ mod benchmarks {
                 funds_account: funds_account.clone(),
                 raised: deposit,
                 target_address: Some(target_address.clone()),
-                call: T::Preimages::bound(*call).unwrap(),
+                call: Some(T::Preimages::bound(*call).unwrap()),
                 finalized: false,
             })
         );
@@ -114,8 +114,8 @@ mod benchmarks {
             min_contribution,
             cap,
             end,
-            call.clone(),
-            Some(target_address.clone()),
+            Some(call),
+            Some(target_address),
         );
 
         // setup contributor
@@ -171,8 +171,8 @@ mod benchmarks {
             min_contribution,
             cap,
             end,
-            call.clone(),
-            Some(target_address.clone()),
+            Some(call),
+            Some(target_address),
         );
 
         // create contribution
@@ -237,7 +237,7 @@ mod benchmarks {
             min_contribution,
             cap,
             end,
-            call.clone(),
+            Some(call),
             Some(target_address.clone()),
         );
 
@@ -285,8 +285,8 @@ mod benchmarks {
             min_contribution,
             cap,
             end,
-            call,
-            Some(target_address.clone()),
+            Some(call),
+            Some(target_address),
         );
 
         let crowdloan_id: CrowdloanId = 0;
@@ -349,8 +349,8 @@ mod benchmarks {
             min_contribution,
             cap,
             end,
-            call,
-            Some(target_address.clone()),
+            Some(call),
+            Some(target_address),
         );
 
         // run to the end of the contribution period
@@ -386,7 +386,7 @@ mod benchmarks {
             min_contribution,
             cap,
             end,
-            call,
+            Some(call),
             None,
         );
 
@@ -433,7 +433,7 @@ mod benchmarks {
             min_contribution,
             cap,
             end,
-            call,
+            Some(call),
             None,
         );
 
@@ -472,7 +472,7 @@ mod benchmarks {
             min_contribution,
             cap,
             end,
-            call,
+            Some(call),
             None,
         );
 
