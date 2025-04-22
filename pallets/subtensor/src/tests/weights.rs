@@ -1,6 +1,7 @@
 #![allow(clippy::indexing_slicing)]
 
 use super::mock::*;
+use super::mock;
 use crate::coinbase::run_coinbase::WeightsTlockPayload;
 use crate::*;
 use ark_serialize::CanonicalDeserialize;
@@ -69,7 +70,7 @@ fn test_set_rootweights_validate() {
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1); // Add the hotkey field
         assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
-        let fee = DefaultStakingFee::<Test>::get();
+        let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
 
         let who = coldkey; // The coldkey signs this transaction
 
@@ -186,7 +187,7 @@ fn test_commit_weights_validate() {
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1); // Add the hotkey field
         assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
-        let fee = DefaultStakingFee::<Test>::get();
+        let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
 
         let who = hotkey; // The hotkey signs this transaction
 
@@ -207,6 +208,9 @@ fn test_commit_weights_validate() {
         SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
 
         let min_stake = 500_000_000_000;
+
+		mock::setup_reserves(netuid, min_stake * 100, min_stake * 10);
+
         // Set the minimum stake
         SubtensorModule::set_stake_threshold(min_stake);
 
@@ -296,7 +300,7 @@ fn test_set_weights_validate() {
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1);
         assert_ne!(hotkey, coldkey);
-        let fee = DefaultStakingFee::<Test>::get();
+        let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
 
         let who = hotkey; // The hotkey signs this transaction
 
@@ -309,6 +313,7 @@ fn test_set_weights_validate() {
 
         // Create netuid
         add_network(netuid, 1, 0);
+		mock::setup_reserves(netuid, 1_000_000_000_000, 1_000_000_000_000);
         // Register the hotkey
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
@@ -371,7 +376,7 @@ fn test_reveal_weights_validate() {
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1); // Add the hotkey field
         assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
-        let fee = DefaultStakingFee::<Test>::get();
+        let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
 
         let who = hotkey; // The hotkey signs this transaction
 

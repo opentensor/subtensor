@@ -353,7 +353,7 @@ fn test_swap_with_max_values() {
         let netuid2 = 2u16;
         let stake = 10_000;
         let max_stake = 21_000_000_000_000_000; // 21 Million TAO; max possible balance.
-        let fee = DefaultStakingFee::<Test>::get();
+        let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
 
         // Add a network
         add_network(netuid, 1, 0);

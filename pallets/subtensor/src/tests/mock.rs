@@ -426,7 +426,7 @@ parameter_types! {
     pub const SwapMaxFeeRate: u16 = 10000; // 15.26%
     pub const SwapMaxPositions: u32 = 100;
     pub const SwapMinimumLiquidity: u64 = 1_000;
-    pub const SwapMinimumReserve: NonZeroU64 = NonZeroU64::new(1).unwrap();
+    pub const SwapMinimumReserve: NonZeroU64 = NonZeroU64::new(100).unwrap();
 }
 
 impl pallet_subtensor_swap::Config for Test {
@@ -881,3 +881,23 @@ pub(crate) fn swap_tao_to_alpha(netuid: u16, tao: u64) -> (u64, u64) {
 
     (result.amount_paid_out, result.fee_paid)
 }
+
+pub(crate) fn swap_alpha_to_tao(netuid: u16, alpha: u64) -> (u64, u64) {
+    let result = <Test as pallet::Config>::SwapInterface::swap(
+        netuid,
+        OrderType::Sell,
+        alpha,
+        <Test as pallet::Config>::SwapInterface::max_price(),
+        true,
+    );
+
+    assert_ok!(&result);
+
+    let result = result.unwrap();
+
+    // we don't want to have silent 0 comparissons in tests
+    assert!(result.amount_paid_out > 0);
+
+    (result.amount_paid_out, result.fee_paid)
+}
+

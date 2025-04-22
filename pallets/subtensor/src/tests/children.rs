@@ -2211,6 +2211,10 @@ fn test_do_remove_stake_clears_pending_childkeys() {
         add_network(child_netuid, 13, 0);
         register_ok_neuron(child_netuid, hotkey, coldkey, 0);
 
+        let reserve = 1_000_000_000_000_000;
+        mock::setup_reserves(netuid, reserve, reserve);
+        mock::setup_reserves(child_netuid, reserve, reserve);
+
         // Set non-default value for childkey stake threshold
         StakeThreshold::<Test>::set(1_000_000_000_000);
 
@@ -2815,6 +2819,7 @@ fn test_childkey_take_drain() {
 
             // Add network, register hotkeys, and setup network parameters
             add_network(netuid, subnet_tempo, 0);
+            mock::setup_reserves(netuid, stake * 10, stake * 10);
             register_ok_neuron(netuid, child_hotkey, child_coldkey, 0);
             register_ok_neuron(netuid, parent_hotkey, parent_coldkey, 1);
             register_ok_neuron(netuid, miner_hotkey, miner_coldkey, 1);
@@ -3278,6 +3283,7 @@ fn test_dividend_distribution_with_children() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         add_network(netuid, 1, 0);
+        mock::setup_reserves(netuid, 1_000_000_000_000_000, 1_000_000_000_000_000);
         // Set owner cut to 0
         SubtensorModule::set_subnet_owner_cut(0_u16);
 
@@ -3300,16 +3306,9 @@ fn test_dividend_distribution_with_children() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_c, 1_000);
 
         // Swap to alpha
-        let total_tao: I96F32 = I96F32::from_num(300_000 + 100_000 + 50_000);
-        let total_alpha = I96F32::from_num(
-            SubtensorModule::swap_tao_for_alpha(
-                netuid,
-                total_tao.saturating_to_num::<u64>(),
-                <Test as Config>::SwapInterface::max_price(),
-            )
-            .unwrap()
-            .amount_paid_out,
-        );
+        let total_tao = I96F32::from_num(300_000 + 100_000 + 50_000);
+        let (total_alpha, _) = mock::swap_tao_to_alpha(netuid, total_tao.to_num());
+        let total_alpha = I96F32::from_num(total_alpha);
 
         // Set the stakes directly
         // This avoids needing to swap tao to alpha, impacting the initial stake distribution.
@@ -3333,21 +3332,22 @@ fn test_dividend_distribution_with_children() {
         );
 
         // Get old stakes
-        let stake_a: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_a);
-        let stake_b: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_b);
-        let stake_c: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_c);
+        let stake_a = SubtensorModule::get_total_stake_for_hotkey(&hotkey_a);
+        let stake_b = SubtensorModule::get_total_stake_for_hotkey(&hotkey_b);
+        let stake_c = SubtensorModule::get_total_stake_for_hotkey(&hotkey_c);
 
         // Assert initial stake is correct
-        let rel_stake_a = I96F32::from_num(stake_a) / total_tao;
-        let rel_stake_b = I96F32::from_num(stake_b) / total_tao;
-        let rel_stake_c = I96F32::from_num(stake_c) / total_tao;
+        let rel_stake_a = I96F32::from_num(stake_a) / total_alpha;
+        let rel_stake_b = I96F32::from_num(stake_b) / total_alpha;
+        let rel_stake_c = I96F32::from_num(stake_c) / total_alpha;
 
         log::info!("rel_stake_a: {:?}", rel_stake_a); // 0.6666 -> 2/3
         log::info!("rel_stake_b: {:?}", rel_stake_b); // 0.2222 -> 2/9
         log::info!("rel_stake_c: {:?}", rel_stake_c); // 0.1111 -> 1/9
-        assert_eq!(rel_stake_a, I96F32::from_num(300_000) / total_tao);
-        assert_eq!(rel_stake_b, I96F32::from_num(100_000) / total_tao);
-        assert_eq!(rel_stake_c, I96F32::from_num(50_000) / total_tao);
+        let epsilon = I96F32::from_num(0.00001);
+        assert!((rel_stake_a - I96F32::from_num(300_000) / total_tao).abs() <= epsilon);
+        assert!((rel_stake_b - I96F32::from_num(100_000) / total_tao).abs() <= epsilon);
+        assert!((rel_stake_c - I96F32::from_num(50_000) / total_tao).abs() <= epsilon);
 
         // Set parent-child relationships
         // A -> B (50% of A's stake)
@@ -3510,12 +3510,12 @@ fn test_dynamic_parent_child_relationships() {
         add_network(netuid, 1, 0);
 
         // Define hotkeys and coldkeys
-        let parent: U256 = U256::from(1);
-        let child1: U256 = U256::from(2);
-        let child2: U256 = U256::from(3);
-        let coldkey_parent: U256 = U256::from(100);
-        let coldkey_child1: U256 = U256::from(101);
-        let coldkey_child2: U256 = U256::from(102);
+        let parent = U256::from(1);
+        let child1 = U256::from(2);
+        let child2 = U256::from(3);
+        let coldkey_parent = U256::from(100);
+        let coldkey_child1 = U256::from(101);
+        let coldkey_child2 = U256::from(102);
 
         // Register neurons with varying stakes
         register_ok_neuron(netuid, parent, coldkey_parent, 0);
@@ -3573,16 +3573,17 @@ fn test_dynamic_parent_child_relationships() {
         let total_stake_0: u64 = stake_parent_0 + stake_child1_0 + stake_child2_0;
 
         // Assert initial stake is correct
-        let rel_stake_parent_0 = I96F32::from_num(stake_parent_0) / total_tao;
-        let rel_stake_child1_0 = I96F32::from_num(stake_child1_0) / total_tao;
-        let rel_stake_child2_0 = I96F32::from_num(stake_child2_0) / total_tao;
+        let rel_stake_parent_0 = I96F32::from_num(stake_parent_0) / total_alpha;
+        let rel_stake_child1_0 = I96F32::from_num(stake_child1_0) / total_alpha;
+        let rel_stake_child2_0 = I96F32::from_num(stake_child2_0) / total_alpha;
 
         log::info!("rel_stake_parent_0: {:?}", rel_stake_parent_0);
         log::info!("rel_stake_child1_0: {:?}", rel_stake_child1_0);
         log::info!("rel_stake_child2_0: {:?}", rel_stake_child2_0);
-        assert_eq!(rel_stake_parent_0, I96F32::from_num(500_000) / total_tao);
-        assert_eq!(rel_stake_child1_0, I96F32::from_num(50_000) / total_tao);
-        assert_eq!(rel_stake_child2_0, I96F32::from_num(30_000) / total_tao);
+        let epsilon = I96F32::from_num(0.00001);
+        assert!((rel_stake_parent_0 - I96F32::from_num(500_000) / total_tao).abs() <= epsilon);
+        assert!((rel_stake_child1_0 - I96F32::from_num(50_000) / total_tao).abs() <= epsilon);
+        assert!((rel_stake_child2_0 - I96F32::from_num(30_000) / total_tao).abs() <= epsilon);
 
         mock_set_children(&coldkey_parent, &parent, netuid, &[(u64::MAX / 2, child1)]);
 
@@ -3811,6 +3812,7 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
         add_network(netuid, 1, 0);
         // Set SN owner cut to 0
         SubtensorModule::set_subnet_owner_cut(0_u16);
+        mock::setup_reserves(netuid, 1_000_000_000_000, 1_000_000_000_000);
 
         // Define hotkeys and coldkeys
         let hotkey_a: U256 = U256::from(1);
@@ -3826,16 +3828,9 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 1_000);
 
         // Swap to alpha
-        let total_tao: I96F32 = I96F32::from_num(300_000 + 100_000);
-        let total_alpha: I96F32 = I96F32::from_num(
-            SubtensorModule::swap_tao_for_alpha(
-                netuid,
-                total_tao.saturating_to_num::<u64>(),
-                <Test as Config>::SwapInterface::max_price(),
-            )
-            .unwrap()
-            .amount_paid_out,
-        );
+        let total_tao = 300_000 + 100_000;
+        let total_alpha = I96F32::from_num(mock::swap_tao_to_alpha(netuid, total_tao).0);
+        let total_tao = I96F32::from_num(total_tao);
 
         // Set the stakes directly
         // This avoids needing to swap tao to alpha, impacting the initial stake distribution.
@@ -3857,13 +3852,14 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
         let stake_b: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_b);
 
         // Assert initial stake is correct
-        let rel_stake_a = I96F32::from_num(stake_a) / total_tao;
-        let rel_stake_b = I96F32::from_num(stake_b) / total_tao;
+        let rel_stake_a = I96F32::from_num(stake_a) / total_alpha;
+        let rel_stake_b = I96F32::from_num(stake_b) / total_alpha;
 
         log::info!("rel_stake_a: {:?}", rel_stake_a); // 0.75 -> 3/4
         log::info!("rel_stake_b: {:?}", rel_stake_b); // 0.25 -> 1/4
-        assert_eq!(rel_stake_a, I96F32::from_num(300_000) / total_tao);
-        assert_eq!(rel_stake_b, I96F32::from_num(100_000) / total_tao);
+        let epsilon = I96F32::from_num(0.0001);
+        assert!((rel_stake_a - I96F32::from_num(300_000) / total_tao).abs() <= epsilon);
+        assert!((rel_stake_b - I96F32::from_num(100_000) / total_tao).abs() <= epsilon);
 
         // Set parent-child relationships
         // A -> B (50% of A's stake)

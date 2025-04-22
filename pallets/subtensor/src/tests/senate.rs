@@ -67,7 +67,7 @@ fn test_senate_join_works() {
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
         let stake = DefaultMinStake::<Test>::get() * 100;
-        let fee = DefaultStakingFee::<Test>::get();
+        let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
 
         //add network
         SubtensorModule::set_burn(netuid, burn_cost);
@@ -141,7 +141,7 @@ fn test_senate_vote_works() {
         let hotkey_account_id = U256::from(6);
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
-        let fee = DefaultStakingFee::<Test>::get();
+        let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
 
         //add network
         SubtensorModule::set_burn(netuid, burn_cost);
@@ -315,7 +315,7 @@ fn test_senate_leave_works() {
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
         let stake = DefaultMinStake::<Test>::get() * 10;
-        let fee = DefaultStakingFee::<Test>::get();
+        let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
 
         //add network
         SubtensorModule::set_burn(netuid, burn_cost);
@@ -390,7 +390,7 @@ fn test_senate_leave_vote_removal() {
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
         let coldkey_origin = <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id);
         let stake = DefaultMinStake::<Test>::get() * 10;
-        let fee = DefaultStakingFee::<Test>::get();
+        let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
 
         //add network
         SubtensorModule::set_burn(netuid, burn_cost);
@@ -532,7 +532,7 @@ fn test_senate_not_leave_when_stake_removed() {
         let hotkey_account_id = U256::from(6);
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
-        let fee = DefaultStakingFee::<Test>::get();
+        let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
 
         //add network
         SubtensorModule::set_burn(netuid, burn_cost);
@@ -691,11 +691,11 @@ fn test_adjust_senate_events() {
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667);
         let root_netuid = SubtensorModule::get_root_netuid();
-        let fee = DefaultStakingFee::<Test>::get();
+        let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
 
         let max_senate_size: u16 = SenateMaxMembers::get() as u16;
         let stake_threshold: u64 =
-            DefaultMinStake::<Test>::get() + DefaultStakingFee::<Test>::get(); // Give this much to every senator
+            DefaultMinStake::<Test>::get() + 0; // FIXME: DefaultStakingFee is deprecated // Give this much to every senator
 
         // We will be registering MaxMembers hotkeys and two more to try a replace
         let balance_to_add = DefaultMinStake::<Test>::get() * 10

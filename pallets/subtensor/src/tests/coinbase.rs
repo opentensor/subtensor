@@ -1,6 +1,7 @@
 #![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
 use super::mock::*;
 
+use crate::tests::mock;
 use crate::*;
 use alloc::collections::BTreeMap;
 use approx::assert_abs_diff_eq;
@@ -439,6 +440,7 @@ fn test_owner_cut_base() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         add_network(netuid, 1, 0);
+        mock::setup_reserves(netuid, 1_000_000_000_000, 1_000_000_000_000);
         SubtensorModule::set_tempo(netuid, 10000); // Large number (dont drain)
         SubtensorModule::set_subnet_owner_cut(0);
         SubtensorModule::run_coinbase(U96F32::from_num(0)).unwrap();
@@ -456,6 +458,7 @@ fn test_pending_swapped() {
         let netuid: u16 = 1;
         let emission: u64 = 1_000_000;
         add_network(netuid, 1, 0);
+        mock::setup_reserves(netuid, 1_000_000_000_000, 1_000_000_000_000);
         SubtensorModule::run_coinbase(U96F32::from_num(0)).unwrap();
         assert_eq!(PendingAlphaSwapped::<Test>::get(netuid), 0); // Zero tao weight and no root.
         SubnetTAO::<Test>::insert(0, 1_000_000_000); // Add root weight.

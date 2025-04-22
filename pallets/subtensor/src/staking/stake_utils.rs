@@ -3,7 +3,7 @@ use safe_math::*;
 use share_pool::{SharePool, SharePoolDataOperations};
 use sp_std::ops::Neg;
 use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
-use subtensor_swap_interface::{OrderType, SwapHandler, SwapResult};
+use subtensor_swap_interface::{LiquidityDataProvider, OrderType, SwapHandler, SwapResult};
 
 impl<T: Config> Pallet<T> {
     /// Retrieves the total alpha issuance for a given subnet.
@@ -642,9 +642,7 @@ impl<T: Config> Pallet<T> {
         SubnetTAO::<T>::set(netuid, swap_result.new_tao_reserve);
 
         // Increase Total Tao reserves.
-        TotalStake::<T>::mutate(|total| {
-            *total = total.saturating_add(tao);
-        });
+        TotalStake::<T>::mutate(|total| *total = total.saturating_add(tao));
 
         // Increase total subnet TAO volume.
         SubnetVolume::<T>::mutate(netuid, |total| {
@@ -678,13 +676,11 @@ impl<T: Config> Pallet<T> {
         SubnetTAO::<T>::set(netuid, swap_result.new_tao_reserve);
 
         // Reduce total TAO reserves.
-        TotalStake::<T>::mutate(|total| {
-            *total = total.saturating_sub(swap_result.amount_paid_out);
-        });
+        TotalStake::<T>::mutate(|total| *total = total.saturating_sub(swap_result.amount_paid_out));
 
         // Increase total subnet TAO volume.
         SubnetVolume::<T>::mutate(netuid, |total| {
-            *total = total.saturating_add(swap_result.amount_paid_out.into());
+            *total = total.saturating_add(swap_result.amount_paid_out.into())
         });
 
         // Return the tao received.
@@ -828,7 +824,11 @@ impl<T: Config> Pallet<T> {
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
         // Get the minimum balance (and amount) that satisfies the transaction
-        let min_amount = DefaultMinStake::<T>::get().saturating_add(DefaultStakingFee::<T>::get());
+        let min_amount = {
+            let default_stake = DefaultMinStake::<T>::get();
+            let fee = T::SwapInterface::approx_fee_amount(netuid, default_stake);
+            default_stake.saturating_add(fee)
+        };
 
         // Ensure that the stake_to_be_added is at least the min_amount
         ensure!(stake_to_be_added >= min_amount, Error::<T>::AmountTooLow);
@@ -851,6 +851,25 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyAccountNotExists
         );
 
+        let expected_alpha = T::SwapInterface::swap(
+            netuid,
+            OrderType::Buy,
+            stake_to_be_added,
+            T::SwapInterface::max_price(),
+            true,
+        )
+        .map_err(|_| Error::<T>::InsufficientLiquidity)?;
+
+		ensure!(expected_alpha.amount_paid_out > 0, Error::<T>::InsufficientLiquidity);
+
+        // Ensure hotkey pool is precise enough
+        let try_stake_result = Self::try_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            hotkey,
+            netuid,
+            expected_alpha.amount_paid_out,
+        );
+        ensure!(try_stake_result, Error::<T>::InsufficientLiquidity);
+
         Ok(())
     }
 
@@ -866,6 +885,21 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), Error<T>> {
         // Ensure that the subnet exists.
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+
+        // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
+        match T::SwapInterface::swap(
+            netuid,
+            OrderType::Sell,
+            alpha_unstaked,
+            T::SwapInterface::max_price(),
+            true,
+        ) {
+            Ok(res) => ensure!(
+                res.amount_paid_out > DefaultMinStake::<T>::get(),
+                Error::<T>::AmountTooLow
+            ),
+            Err(_) => return Err(Error::<T>::InsufficientLiquidity),
+        }
 
         // Ensure that if partial execution is not allowed, the amount will not cause
         // slippage over desired

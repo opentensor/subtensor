@@ -5,12 +5,14 @@ use codec::Encode;
 use frame_support::weights::Weight;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::{Config, RawOrigin};
-
-use super::mock::*;
-use crate::*;
 use sp_core::{Get, H256, U256};
 use sp_runtime::SaturatedConversion;
 use substrate_fixed::types::U64F64;
+use subtensor_swap_interface::SwapHandler;
+
+use super::mock;
+use super::mock::*;
+use crate::*;
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_owner --exact --nocapture
 #[test]
@@ -66,15 +68,18 @@ fn test_swap_total_hotkey_stake() {
         let coldkey = U256::from(3);
         let amount = DefaultMinStake::<Test>::get() * 10;
         let mut weight = Weight::zero();
-        let fee = DefaultStakingFee::<Test>::get();
 
         //add network
-        let netuid: u16 = add_dynamic_network(&old_hotkey, &coldkey);
+        let netuid = add_dynamic_network(&old_hotkey, &coldkey);
+
+        mock::setup_reserves(netuid, amount * 100, amount * 100);
 
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount);
 
         // Add stake
+        let (expected_alpha, _) = mock::swap_tao_to_alpha(netuid, amount);
+		assert!(expected_alpha > 0);
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey),
             old_hotkey,
@@ -83,11 +88,7 @@ fn test_swap_total_hotkey_stake() {
         ));
 
         // Check if stake has increased
-        assert_abs_diff_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&old_hotkey),
-            amount - fee,
-            epsilon = amount / 1000,
-        );
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(old_hotkey, netuid), expected_alpha);
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&new_hotkey),
             0,
@@ -108,11 +109,7 @@ fn test_swap_total_hotkey_stake() {
             0,
             epsilon = 1,
         );
-        assert_abs_diff_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&new_hotkey),
-            amount - fee,
-            epsilon = amount / 1000,
-        );
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(new_hotkey, netuid), expected_alpha);
     });
 }
 
@@ -599,6 +596,9 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
         add_network(netuid2, 1, 1);
         register_ok_neuron(netuid1, old_hotkey, coldkey1, 1234);
         register_ok_neuron(netuid2, old_hotkey, coldkey1, 1234);
+
+        mock::setup_reserves(netuid1, stake * 100, stake * 100);
+        mock::setup_reserves(netuid2, stake * 100, stake * 100);
 
         // Add balance to both coldkeys
         SubtensorModule::add_balance_to_coldkey_account(&coldkey1, stake + 1_000);

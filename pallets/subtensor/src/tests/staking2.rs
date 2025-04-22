@@ -1,5 +1,3 @@
-use super::mock::*;
-use crate::*;
 use frame_support::{
     assert_ok,
     dispatch::{GetDispatchInfo, Pays},
@@ -8,6 +6,10 @@ use frame_support::{
 use sp_core::U256;
 use substrate_fixed::types::{I96F32, U96F32};
 use subtensor_swap_interface::SwapHandler;
+
+use super::mock;
+use super::mock::*;
+use crate::*;
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --workspace --test staking2 -- test_swap_tao_for_alpha_dynamic_mechanism --exact --nocapture
 #[test]
@@ -22,14 +24,14 @@ fn test_stake_base_case() {
         // Initialize subnet with some existing TAO and Alpha
         let initial_subnet_tao = 10_000_000_000; // 10 TAO
         let initial_subnet_alpha = 5_000_000_000; // 5 Alpha
-        SubnetTAO::<Test>::insert(netuid, initial_subnet_tao);
-        SubnetAlphaIn::<Test>::insert(netuid, initial_subnet_alpha);
+        mock::setup_reserves(netuid, initial_subnet_tao, initial_subnet_alpha);
         SubnetAlphaOut::<Test>::insert(netuid, initial_subnet_alpha);
 
         // Record initial total stake
         let initial_total_stake = TotalStake::<Test>::get();
 
         // Perform swap
+        let (alpha_expected, fee) = mock::swap_tao_to_alpha(netuid, tao_to_swap);
         let alpha_received = SubtensorModule::swap_tao_for_alpha(
             netuid,
             tao_to_swap,
@@ -39,21 +41,15 @@ fn test_stake_base_case() {
         .amount_paid_out;
 
         // Verify correct alpha calculation using constant product formula
-        let k: I96F32 =
-            I96F32::from_num(initial_subnet_alpha) * I96F32::from_num(initial_subnet_tao);
-        let expected_alpha: I96F32 = I96F32::from_num(initial_subnet_alpha)
-            - (k / (I96F32::from_num(initial_subnet_tao + tao_to_swap)));
-        let expected_alpha_u64 = expected_alpha.to_num::<u64>();
-
         assert_eq!(
-            alpha_received, expected_alpha_u64,
+            alpha_received, alpha_expected,
             "Alpha received calculation is incorrect"
         );
 
         // Check subnet updates
         assert_eq!(
             SubnetTAO::<Test>::get(netuid),
-            initial_subnet_tao + tao_to_swap,
+            initial_subnet_tao + tao_to_swap - fee,
             "Subnet TAO not updated correctly"
         );
         assert_eq!(
@@ -777,13 +773,11 @@ fn test_stake_fee_api() {
     });
 }
 
+#[ignore = "fees are now calculated by SwapInterface"]
 #[test]
 fn test_stake_fee_calculation() {
     new_test_ext(1).execute_with(|| {
         let hotkey1 = U256::from(1);
-        let coldkey1 = U256::from(2);
-        let hotkey2 = U256::from(3);
-        let coldkey2 = U256::from(4);
 
         let netuid0 = 1;
         let netuid1 = 2;
@@ -798,16 +792,14 @@ fn test_stake_fee_calculation() {
         let reciprocal_price = 2; // 1 / price
         let stake_amount = 100_000_000_000_u64;
 
-        let default_fee = DefaultStakingFee::<Test>::get();
+        let default_fee = 0; // FIXME: DefaultStakingFee is deprecated
 
         // Setup alpha out
         SubnetAlphaOut::<Test>::insert(netuid0, 100_000_000_000);
         SubnetAlphaOut::<Test>::insert(netuid1, 100_000_000_000);
         // Set pools using price
-        SubnetAlphaIn::<Test>::insert(netuid0, tao_in * reciprocal_price);
-        SubnetTAO::<Test>::insert(netuid0, tao_in);
-        SubnetAlphaIn::<Test>::insert(netuid1, tao_in * reciprocal_price);
-        SubnetTAO::<Test>::insert(netuid1, tao_in);
+        mock::setup_reserves(netuid0, tao_in, tao_in * reciprocal_price);
+        mock::setup_reserves(netuid1, tao_in, tao_in * reciprocal_price);
 
         // Setup alpha divs for hotkey1
         AlphaDividendsPerSubnet::<Test>::insert(netuid0, hotkey1, alpha_divs);

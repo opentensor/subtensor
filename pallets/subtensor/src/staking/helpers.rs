@@ -42,16 +42,15 @@ impl<T: Config> Pallet<T> {
         TotalStake::<T>::put(Self::get_total_stake().saturating_sub(decrement));
     }
 
-    // Returns the total amount of stake under a hotkey (delegative or otherwise)
-    //
+    /// Returns the total amount of stake (in TAO) under a hotkey (delegative or otherwise)
     pub fn get_total_stake_for_hotkey(hotkey: &T::AccountId) -> u64 {
         Self::get_all_subnet_netuids()
-            .iter()
+            .into_iter()
             .map(|netuid| {
-                let alpha: U96F32 = U96F32::saturating_from_num(
-                    Self::get_stake_for_hotkey_on_subnet(hotkey, *netuid),
-                );
-                let tao_price: U96F32 = Self::get_alpha_price(*netuid);
+                let alpha = U96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(
+                    hotkey, netuid,
+                ));
+                let tao_price = Self::get_alpha_price(netuid);
                 alpha.saturating_mul(tao_price).saturating_to_num::<u64>()
             })
             .sum()
