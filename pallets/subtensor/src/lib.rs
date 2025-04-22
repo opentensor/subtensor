@@ -476,6 +476,11 @@ pub mod pallet {
         T::InitialEmaPriceHalvingPeriod::get()
     }
     #[pallet::type_value]
+    /// Default Liquidity Scale Max factor for which to retain ema
+    pub fn DefaultLiquidityScaleMax<T: Config>() -> u64 {
+        T::LiquidityScaleMax::get()
+    }
+    #[pallet::type_value]
     /// Default registrations this block.
     pub fn DefaultBurn<T: Config>() -> u64 {
         T::InitialBurn::get()
@@ -1448,6 +1453,10 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> Halving time of average moving price.
     pub type EMAPriceHalvingBlocks<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultEMAPriceMovingBlocks<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid) ) --> Liquidity level at which to remove EMA
+    pub type LiquidityScaleMax<T> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultLiquidityScaleMax<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> global_RAO_recycled_for_registration
     pub type RAORecycledForRegistration<T> =

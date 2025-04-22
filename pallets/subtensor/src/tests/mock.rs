@@ -189,6 +189,7 @@ parameter_types! {
     pub const InitialDissolveNetworkScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
     pub const InitialTaoWeight: u64 = 0; // 100% global weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
+    pub const LiquidityScaleMax: u64 = 2000; // TODO: figure out what this value should be
     pub const DurationOfStartCall: u64 =  7 * 24 * 60 * 60 / 12; // Default as 7 days
 }
 
@@ -417,6 +418,7 @@ impl crate::Config for Test {
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
+    type LiquidityScaleMax = LiquidityScaleMax;
     type DurationOfStartCall = DurationOfStartCall;
 }
 

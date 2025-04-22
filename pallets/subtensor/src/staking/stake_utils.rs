@@ -60,16 +60,12 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn get_l_max() -> U96F32 {
-        U96F32::saturating_from_num(2000)
-    }
-
-    pub fn compute_alpha_for_ema(l: U96F32, l_max: U96F32) -> U96F32 {
-        if l >= l_max {
+    pub fn compute_alpha_for_ema(l: U96F32, liquidity_scale_max: U96F32) -> U96F32 {
+        if l >= liquidity_scale_max {
             return U96F32::saturating_from_num(1);
         }
 
-        let i_l_max = I96F32::saturating_from_num(l_max);
+        let i_l_max = I96F32::saturating_from_num(liquidity_scale_max);
         let i_l = I96F32::saturating_from_num(l);
         let neg_one = I96F32::from_num(-1);
         let two = I96F32::from_num(2);
@@ -101,17 +97,19 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn update_moving_price(netuid: u16) {
-        let tao_reserves = U96F32::saturating_from_num(SubnetTAO::<T>::get(netuid));
-        let alpha_reserves = U96F32::saturating_from_num(SubnetAlphaIn::<T>::get(netuid));
+        let tao_reserves_rao = U96F32::saturating_from_num(SubnetTAO::<T>::get(netuid));
+        let alpha_reserves_rao = U96F32::saturating_from_num(SubnetAlphaIn::<T>::get(netuid));
+        let tao_reserves =
+            tao_reserves_rao.saturating_div(U96F32::saturating_from_num(1_000_000_000));
+        let alpha_reserves =
+            alpha_reserves_rao.saturating_div(U96F32::saturating_from_num(1_000_000_000));
 
         let k = tao_reserves.saturating_mul(alpha_reserves);
         let epsilon: U96F32 = U96F32::from_num(0.0000001); // TODO: how accurate to make this baby
         let l = checked_sqrt(k, epsilon).unwrap_or(U96F32::from_num(0));
-        let l_max = Self::get_l_max();
-        let alpha = Self::compute_alpha_for_ema(l, l_max);
+        let liquidity_scale_max = U96F32::saturating_from_num(LiquidityScaleMax::<T>::get(netuid));
+        let alpha = Self::compute_alpha_for_ema(l, liquidity_scale_max);
 
-        // Because alpha = b / (b + h), where b and h > 0, alpha < 1, so 1 - alpha > 0.
-        // We can use unsigned type here: U96F32
         let one_minus_alpha: U96F32 = U96F32::saturating_from_num(1.0).saturating_sub(alpha);
         let moving_price = Self::get_moving_alpha_price(netuid);
         let current_price = Self::get_alpha_price(netuid);

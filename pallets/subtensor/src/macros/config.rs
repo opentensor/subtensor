@@ -221,6 +221,9 @@ mod config {
         /// Initial EMA price halving period
         #[pallet::constant]
         type InitialEmaPriceHalvingPeriod: Get<u64>;
+        /// Maximum liquidity scale after which to drop the EMA
+        #[pallet::constant]
+        type LiquidityScaleMax: Get<u64>;
         /// Block number after a new subnet accept the start call extrinsic.
         #[pallet::constant]
         type DurationOfStartCall: Get<u64>;
