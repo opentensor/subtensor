@@ -2,7 +2,7 @@
 import * as assert from "assert";
 import * as chai from "chai";
 
-import { getDevnetApi, waitForTransactionCompletion, getRandomSubstrateKeypair } from "../src/substrate"
+import { getDevnetApi, waitForTransactionWithRetry, getRandomSubstrateKeypair } from "../src/substrate"
 import { generateRandomEthWallet, getPublicClient } from "../src/utils";
 import { convertPublicKeyToSs58 } from "../src/address-utils"
 import { ETH_LOCAL_URL } from "../src/config";
@@ -64,9 +64,7 @@ describe("Test the EVM chain ID", () => {
     )
 
     let tx = api.tx.AdminUtils.sudo_set_evm_chain_id({ chain_id: BigInt(100) })
-    await waitForTransactionCompletion(api, tx, signer)
-      .then(() => { })
-      .catch((error) => { console.log(`transaction error ${error}`) });
+    await waitForTransactionWithRetry(api, tx, signer)
 
     // extrinsic should be failed and chain ID not updated.
     chainId = await ethClient.getChainId();
