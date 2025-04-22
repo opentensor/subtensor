@@ -10,8 +10,6 @@ pallets=(
 
 RUNTIME_WASM=./target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm
 
-mkdir -p bench_results
-
 cargo build \
   --profile production \
   -p node-subtensor \
@@ -30,8 +28,5 @@ for pallet in "${pallets[@]}"; do
     --pallet "$pallet" \
     --extrinsic "*" \
     --steps 50 \
-    --repeat 5 \
-  | tee bench_results/"$pallet".txt
+    --repeat 5
 done
-
-echo "All benchmarks complete. Outputs in bench_results/."
