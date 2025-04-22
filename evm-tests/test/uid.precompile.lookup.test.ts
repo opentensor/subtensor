@@ -37,10 +37,8 @@ describe("Test the UID Lookup precompile", () => {
         api = await getDevnetApi()
         alice = await getAliceSigner();
 
-        // Fund the hotkey account
+        await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(alice.publicKey))
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(hotkey.publicKey))
-
-        // Fund the coldkey account
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(coldkey.publicKey))
 
         // Add new subnet
