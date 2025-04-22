@@ -1,0 +1,14 @@
+      - name: Run benchmarks (via your script)
+        run: |
+          chmod +x scripts/benchmark_all.sh
+          mkdir -p bench_results
+          # run your script, redirecting its full output
+          ./scripts/benchmark_all.sh > bench_results/all.txt
+
+      - name: Validate benchmark weights
+        run: |
+          if ! git diff --exit-code -- bench_results; then
+            echo "::error ::Benchmark weights have changed!"
+            echo "::error ::Please review and commit updated bench_results/ files."
+            exit 1
+          fi
