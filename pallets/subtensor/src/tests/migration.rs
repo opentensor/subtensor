@@ -617,3 +617,57 @@ fn test_migrate_remove_total_hotkey_coldkey_stakes_this_interval() {
         assert!(!weight.is_zero(),"Migration weight should be non-zero.");
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::migration::test_migrate_remove_unused_root_values --exact --show-output
+#[test]
+fn test_migrate_remove_unused_root_values() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_remove_unused_root_values";
+
+        // Some test data
+        let test_u16 = vec![u16::MAX; 64];
+        let test_u64 = vec![1_000_000_u64; 64];
+        let test_bool = vec![true; 64];
+
+        // Set up entries to be deleted.
+        let netuid = 0;
+        Incentive::<Test>::insert(netuid, test_u16.clone());
+        Dividends::<Test>::insert(netuid, test_u16.clone());
+        Rank::<Test>::insert(netuid, test_u16.clone());
+        Trust::<Test>::insert(netuid, test_u16.clone());
+        ValidatorTrust::<Test>::insert(netuid, test_u16.clone());
+        ValidatorPermit::<Test>::insert(netuid, test_bool.clone());
+        Consensus::<Test>::insert(netuid, test_u16.clone());
+        StakeWeight::<Test>::insert(netuid, test_u16.clone());
+        Active::<Test>::insert(netuid, test_bool.clone());
+        Emission::<Test>::insert(netuid, test_u64.clone());
+        PruningScores::<Test>::insert(netuid, test_u16.clone());
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet."
+        );
+
+        // Run migration
+        let weight = crate::migrations::migrate_remove_unused_root_values::migrate_remove_unused_root_values::<Test>();
+
+        // Verify storage is cleared
+        assert_eq!(Incentive::<Test>::get(netuid).len(), 0);
+        assert_eq!(Dividends::<Test>::get(netuid).len(), 0);
+        assert_eq!(Rank::<Test>::get(netuid).len(), 0);
+        assert_eq!(Trust::<Test>::get(netuid).len(), 0);
+        assert_eq!(ValidatorTrust::<Test>::get(netuid).len(), 0);
+        assert_eq!(ValidatorPermit::<Test>::get(netuid).len(), 0);
+        assert_eq!(Consensus::<Test>::get(netuid).len(), 0);
+        assert_eq!(StakeWeight::<Test>::get(netuid).len(), 0);
+        assert_eq!(Active::<Test>::get(netuid).len(), 0);
+        assert_eq!(Emission::<Test>::get(netuid).len(), 0);
+        assert_eq!(PruningScores::<Test>::get(netuid).len(), 0);
+
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as run."
+        );
+        assert!(!weight.is_zero(),"Migration weight should be non-zero.");
+    });
+}

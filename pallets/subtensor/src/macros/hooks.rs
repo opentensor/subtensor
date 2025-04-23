@@ -91,7 +91,9 @@ mod hooks {
                 // Set subtoken enabled for all existed subnets
                 .saturating_add(migrations::migrate_set_subtoken_enabled::migrate_set_subtoken_enabled::<T>())
                 // Remove all entries in TotalHotkeyColdkeyStakesThisInterval
-                .saturating_add(migrations::migrate_remove_total_hotkey_coldkey_stakes_this_interval::migrate_remove_total_hotkey_coldkey_stakes_this_interval::<T>());
+                .saturating_add(migrations::migrate_remove_total_hotkey_coldkey_stakes_this_interval::migrate_remove_total_hotkey_coldkey_stakes_this_interval::<T>())
+                // Remove unused root values from yuma maps
+                .saturating_add(migrations::migrate_remove_unused_root_values::migrate_remove_unused_root_values::<T>());
             weight
         }
 
