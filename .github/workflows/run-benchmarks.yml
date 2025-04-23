@@ -1,12 +1,12 @@
-# .github/workflows/benchmark-weights.yml
-name: Benchmark Weights
+# .github/workflows/benchmarks.yml
+name: Benchmarks
 
 on:
   pull_request:
   workflow_dispatch:
 
 concurrency:
-  group: benchmark-weights-${{ github.ref }}
+  group: benchmarks-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
