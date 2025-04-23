@@ -135,8 +135,9 @@ impl<T: Config> Pallet<T> {
         };
 
         let stake_job_id = NextStakeJobId::<T>::get();
+        let current_blocknumber = <frame_system::Pallet<T>>::block_number();
 
-        StakeJobs::<T>::insert(stake_job_id, stake_job);
+        StakeJobs::<T>::insert(current_blocknumber, stake_job_id, stake_job);
         NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
 
         Ok(())
@@ -211,8 +212,9 @@ impl<T: Config> Pallet<T> {
         };
 
         let stake_job_id = NextStakeJobId::<T>::get();
+        let current_blocknumber = <frame_system::Pallet<T>>::block_number();
 
-        StakeJobs::<T>::insert(stake_job_id, stake_job);
+        StakeJobs::<T>::insert(current_blocknumber, stake_job_id, stake_job);
         NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
 
         Ok(())
