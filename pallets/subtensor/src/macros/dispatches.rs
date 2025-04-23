@@ -1987,7 +1987,7 @@ mod dispatches {
         /// Emits a `TokensRecycled` event on success.
         #[pallet::call_index(101)]
         #[pallet::weight((
-            Weight::from_parts(99_260_000, 0).saturating_add(T::DbWeight::get().reads_writes(3, 2)),
+            Weight::from_parts(115_300_000, 0).saturating_add(T::DbWeight::get().reads_writes(3, 2)),
             DispatchClass::Operational,
             Pays::Yes
         ))]
