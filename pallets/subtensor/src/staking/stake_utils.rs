@@ -61,7 +61,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-	/// Computes the smoothing factor α for the exponential moving average (EMA)
+    /// Computes the smoothing factor α for the exponential moving average (EMA)
     /// based on current pool liquidity.
     ///
     /// This function implements a custom curve:
@@ -115,7 +115,7 @@ impl<T: Config> Pallet<T> {
         U96F32::saturating_from_num(alpha)
     }
 
-	/// Updates the stored “moving” alpha price for a subnet using a dynamic EMA.
+    /// Updates the stored “moving” alpha price for a subnet using a dynamic EMA.
     ///
     /// Steps performed:
     /// 1. Load raw TAO and α reserves (`SubnetTAO`, `SubnetAlphaIn`) and down-scale by 1e9 (to TAO units)
