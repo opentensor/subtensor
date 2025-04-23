@@ -560,6 +560,9 @@ mod dispatches {
         ///  * 'hotkey' (T::AccountId):
         /// 	- The associated hotkey account.
         ///
+        /// * 'netuid' (u16):
+        ///     - Subnetwork UID
+        ///
         ///  * 'amount_staked' (u64):
         /// 	- The amount of stake to be added to the hotkey staking account.
         ///
@@ -600,6 +603,9 @@ mod dispatches {
         ///
         /// * 'hotkey' (T::AccountId):
         /// 	- The associated hotkey account.
+        ///
+        /// * 'netuid' (u16):
+        ///     - Subnetwork UID
         ///
         /// * 'amount_unstaked' (u64):
         /// 	- The amount of stake to be added to the hotkey staking account.
@@ -1731,6 +1737,9 @@ mod dispatches {
         ///  * 'hotkey' (T::AccountId):
         /// 	- The associated hotkey account.
         ///
+        /// * 'netuid' (u16):
+        ///     - Subnetwork UID
+        ///
         ///  * 'amount_staked' (u64):
         /// 	- The amount of stake to be added to the hotkey staking account.
         ///
@@ -1791,6 +1800,9 @@ mod dispatches {
         ///
         /// * 'hotkey' (T::AccountId):
         /// 	- The associated hotkey account.
+        ///
+        /// * 'netuid' (u16):
+        ///     - Subnetwork UID
         ///
         /// * 'amount_unstaked' (u64):
         /// 	- The amount of stake to be added to the hotkey staking account.
@@ -2041,15 +2053,11 @@ mod dispatches {
         ///  * 'hotkey' (T::AccountId):
         /// 	- The associated hotkey account.
         ///
+        /// * 'netuid' (u16):
+        ///     - Subnetwork UID
+        ///
         ///  * 'amount_staked' (u64):
         /// 	- The amount of stake to be added to the hotkey staking account.
-        ///
-        ///  * 'limit_price' (u64):
-        /// 	- The limit price expressed in units of RAO per one Alpha.
-        ///
-        ///  * 'allow_partial' (bool):
-        /// 	- Allows partial execution of the amount. If set to false, this becomes
-        ///       fill or kill type or order.
         ///
         /// # Event:
         ///  * StakeAdded;
@@ -2095,15 +2103,11 @@ mod dispatches {
         /// * 'hotkey' (T::AccountId):
         /// 	- The associated hotkey account.
         ///
+        /// * 'netuid' (u16):
+        ///     - Subnetwork UID
+        ///
         /// * 'amount_unstaked' (u64):
         /// 	- The amount of stake to be added to the hotkey staking account.
-        ///
-        ///  * 'limit_price' (u64):
-        ///     - The limit price expressed in units of RAO per one Alpha.
-        ///
-        ///  * 'allow_partial' (bool):
-        ///     - Allows partial execution of the amount. If set to false, this becomes
-        ///       fill or kill type or order.
         ///
         /// # Event:
         /// * StakeRemoved;
@@ -2148,6 +2152,9 @@ mod dispatches {
         ///
         ///  * 'hotkey' (T::AccountId):
         /// 	- The associated hotkey account.
+        ///
+        /// * 'netuid' (u16):
+        ///     - Subnetwork UID
         ///
         ///  * 'amount_staked' (u64):
         /// 	- The amount of stake to be added to the hotkey staking account.
@@ -2211,6 +2218,9 @@ mod dispatches {
         ///
         /// * 'hotkey' (T::AccountId):
         /// 	- The associated hotkey account.
+        ///
+        /// * 'netuid' (u16):
+        ///     - Subnetwork UID
         ///
         /// * 'amount_unstaked' (u64):
         /// 	- The amount of stake to be added to the hotkey staking account.

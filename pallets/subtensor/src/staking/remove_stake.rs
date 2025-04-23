@@ -11,6 +11,9 @@ impl<T: Config> Pallet<T> {
     /// * 'hotkey' (T::AccountId):
     ///     -  The associated hotkey account.
     ///
+    /// * 'netuid' (u16):
+    ///     - Subnetwork UID
+    ///
     /// * 'stake_to_be_added' (u64):
     ///     -  The amount of stake to be added to the hotkey staking account.
     ///
@@ -95,6 +98,9 @@ impl<T: Config> Pallet<T> {
     ///
     /// * 'hotkey' (T::AccountId):
     ///     -  The associated hotkey account.
+    ///
+    /// * 'netuid' (u16):
+    ///     - Subnetwork UID
     ///
     /// * 'stake_to_be_added' (u64):
     ///     -  The amount of stake to be added to the hotkey staking account.
@@ -433,6 +439,9 @@ impl<T: Config> Pallet<T> {
     /// * 'hotkey' (T::AccountId):
     ///     - The associated hotkey account.
     ///
+    /// * 'netuid' (u16):
+    ///     - Subnetwork UID
+    ///
     /// * 'amount_unstaked' (u64):
     ///     - The amount of stake to be added to the hotkey staking account.
     ///
@@ -535,6 +544,9 @@ impl<T: Config> Pallet<T> {
     ///
     /// * 'hotkey' (T::AccountId):
     ///     - The associated hotkey account.
+    ///
+    /// * 'netuid' (u16):
+    ///     - Subnetwork UID
     ///
     /// * 'amount_unstaked' (u64):
     ///     - The amount of stake to be added to the hotkey staking account.
