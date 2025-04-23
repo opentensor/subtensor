@@ -326,6 +326,20 @@ pub mod pallet {
             /// fill or kill type or order.
             allow_partial: bool,
         },
+        /// Represents a job for "unstake_all" operation
+        UnstakeAll {
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Hotkey account
+            hotkey: AccountId,
+        },
+        /// Represents a job for "unstake_all_alpha" operation
+        UnstakeAllAlpha {
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Hotkey account
+            hotkey: AccountId,
+        },
     }
 
     /// ============================
@@ -877,8 +891,15 @@ pub mod pallet {
         StorageValue<_, u64, ValueQuery, DefaultSenateRequiredStakePercentage<T>>;
 
     #[pallet::storage]
-    pub type StakeJobs<T: Config> =
-        StorageMap<_, Blake2_128Concat, u64, StakeJob<T::AccountId>, OptionQuery>;
+    pub type StakeJobs<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        BlockNumberFor<T>, // first key: current block number
+        Twox64Concat,
+        u64, // second key: unique job ID
+        StakeJob<T::AccountId>,
+        OptionQuery,
+    >;
 
     #[pallet::storage]
     /// Ensures unique IDs for StakeJobs storage map

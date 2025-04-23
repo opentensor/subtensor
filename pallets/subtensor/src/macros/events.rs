@@ -33,6 +33,14 @@ mod events {
         AggregatedLimitedStakeRemoved(T::AccountId, T::AccountId, u16, u64, u64, bool),
         /// removing limited aggregated stake has failed
         FailedToRemoveAggregatedLimitedStake(T::AccountId, T::AccountId, u16, u64, u64, bool),
+        ///  aggregated unstake_all operation has succeeded
+        AggregatedUnstakeAllSucceeded(T::AccountId, T::AccountId),
+        /// aggregated unstake_all operation has failed
+        AggregatedUnstakeAllFailed(T::AccountId, T::AccountId),
+        ///  aggregated unstake_all_alpha operation has succeeded
+        AggregatedUnstakeAllAlphaSucceeded(T::AccountId, T::AccountId),
+        /// aggregated unstake_all_alpha operation has failed
+        AggregatedUnstakeAllAlphaFailed(T::AccountId, T::AccountId),
         /// stake has been moved from origin (hotkey, subnet ID) to destination (hotkey, subnet ID) of this amount (in TAO).
         StakeMoved(T::AccountId, T::AccountId, u16, T::AccountId, u16, u64),
         /// a caller successfully sets their weights on a subnetwork.
