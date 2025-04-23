@@ -1041,7 +1041,7 @@ mod dispatches {
         #[pallet::weight((
             Weight::from_parts(6_873_000, 0)
         .saturating_add(T::DbWeight::get().reads(0))
-        .saturating_add(T::DbWeight::get().writes(0)),
+        .saturating_add(T::DbWeight::get().writes(1)),
     DispatchClass::Operational,
     Pays::No
 ))]
