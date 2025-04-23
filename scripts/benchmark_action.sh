@@ -75,15 +75,15 @@ while IFS= read -r line; do
     drift=$(awk -v a="$meas_ps" -v b="$code_w" 'BEGIN{printf("%.1f", (a-b)/b*100)}')
 
     # Store formatted summary
-    summary_lines+=("$(printf "%-30s | reads code=%3s meas=%3s | writes code=%3s meas=%3s | weight code=%12s meas=%12s | drift %6s%%" \
+    summary_lines+=("$(printf "%-30s | reads code=%3s measured=%3s | writes code=%3s measured=%3s | weight code=%12s measured=%12s | drift %6s%%" \
       "$extr" "$code_reads" "$meas_reads" "$code_writes" "$meas_writes" "$code_w" "$meas_ps" "$drift")")
 
     # Validation checks
     [[ -z "$code_w" ]]        && failures+=("[${extr}] missing code weight")       && fail=1
     [[ -z "$meas_reads" ]]    && failures+=("[${extr}] missing measured reads")    && fail=1
     [[ -z "$meas_writes" ]]   && failures+=("[${extr}] missing measured writes")   && fail=1
-    (( meas_reads   != code_reads ))  && failures+=("[${extr}] reads mismatch code=${code_reads}, meas=${meas_reads}")   && fail=1
-    (( meas_writes  != code_writes )) && failures+=("[${extr}] writes mismatch code=${code_writes}, meas=${meas_writes}") && fail=1
+    (( meas_reads   != code_reads ))  && failures+=("[${extr}] reads mismatch code=${code_reads}, measured=${meas_reads}")   && fail=1
+    (( meas_writes  != code_writes )) && failures+=("[${extr}] writes mismatch code=${code_writes}, measured=${meas_writes}") && fail=1
     [[ "$code_w" == "0" ]]    && failures+=("[${extr}] zero code weight")           && fail=1
     abs_drift=$(awk -v d="$drift" 'BEGIN{if(d<0)d=-d;printf("%.1f",d)}')
     (( $(awk -v d="$abs_drift" -v t="$THRESHOLD" 'BEGIN{print d>t}') )) && failures+=("[${extr}] drift ${drift}%") && fail=1
