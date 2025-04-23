@@ -1068,6 +1068,7 @@ mod dispatches {
         #[pallet::call_index(76)]
         #[pallet::weight((
             Weight::from_parts(6_000, 0)
+            .saturating_add(T::DbWeight::get().reads(1))
             .saturating_add(T::DbWeight::get().writes(1)),
             DispatchClass::Operational,
             Pays::No
@@ -1092,6 +1093,7 @@ mod dispatches {
         #[pallet::call_index(77)]
         #[pallet::weight((
             Weight::from_parts(6_000, 0)
+            .saturating_add(T::DbWeight::get().reads(1))
             .saturating_add(T::DbWeight::get().writes(1)),
             DispatchClass::Operational,
             Pays::No
@@ -1560,7 +1562,9 @@ mod dispatches {
         /// * `TxRateLimitExceeded`:
         ///     - Thrown if key has hit transaction rate limit
         #[pallet::call_index(83)]
-        #[pallet::weight((Weight::from_parts(36_200_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(36_200_000, 0)
+        .saturating_add(T::DbWeight::get().reads(1))
+        .saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn unstake_all(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_unstake_all(origin, hotkey)
         }
@@ -1591,7 +1595,9 @@ mod dispatches {
         /// * `TxRateLimitExceeded`:
         ///     - Thrown if key has hit transaction rate limit
         #[pallet::call_index(84)]
-        #[pallet::weight((Weight::from_parts(68_730_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(68_730_000, 0)
+        .saturating_add(T::DbWeight::get().reads(1))
+        .saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn unstake_all_alpha(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_unstake_all_alpha(origin, hotkey)
         }
@@ -1618,7 +1624,9 @@ mod dispatches {
         ///     - The alpha stake amount to move.
         ///
         #[pallet::call_index(85)]
-        #[pallet::weight((Weight::from_parts(196_600_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(196_600_000, 0)
+        .saturating_add(T::DbWeight::get().reads(1))
+        .saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn move_stake(
             origin: T::RuntimeOrigin,
             origin_hotkey: T::AccountId,
@@ -1659,7 +1667,9 @@ mod dispatches {
         /// # Events
         /// May emit a `StakeTransferred` event on success.
         #[pallet::call_index(86)]
-        #[pallet::weight((Weight::from_parts(207_300_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(207_300_000, 0)
+        .saturating_add(T::DbWeight::get().reads(1))
+        .saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn transfer_stake(
             origin: T::RuntimeOrigin,
             destination_coldkey: T::AccountId,
@@ -1699,7 +1709,9 @@ mod dispatches {
         /// May emit a `StakeSwapped` event on success.
         #[pallet::call_index(87)]
         #[pallet::weight((
-            Weight::from_parts(190_100_000, 0).saturating_add(T::DbWeight::get().writes(1)),
+            Weight::from_parts(190_100_000, 0)
+            .saturating_add(T::DbWeight::get().reads(1))
+            .saturating_add(T::DbWeight::get().writes(1)),
             DispatchClass::Operational,
             Pays::No
         ))]
@@ -1864,7 +1876,9 @@ mod dispatches {
         /// May emit a `StakeSwapped` event on success.
         #[pallet::call_index(90)]
         #[pallet::weight((
-            Weight::from_parts(162_400_000, 0).saturating_add(T::DbWeight::get().writes(1)),
+            Weight::from_parts(162_400_000, 0)
+            .saturating_add(T::DbWeight::get().reads(1))
+            .saturating_add(T::DbWeight::get().writes(1)),
             DispatchClass::Operational,
             Pays::No
         ))]
