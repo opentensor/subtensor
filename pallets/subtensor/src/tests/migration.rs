@@ -617,3 +617,37 @@ fn test_migrate_remove_total_hotkey_coldkey_stakes_this_interval() {
         assert!(!weight.is_zero(),"Migration weight should be non-zero.");
     });
 }
+fn test_migrate_remove_last_hotkey_coldkey_emission_on_netuid() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_remove_last_hotkey_coldkey_emission_on_netuid";
+
+        let pallet_name = twox_128(b"SubtensorModule");
+        let storage_name = twox_128(b"LastHotkeyColdkeyEmissionOnNetuid");
+        let prefix = [pallet_name, storage_name].concat();
+
+        // Set up 200 000 entries to be deleted.
+        for i in 0..200_000{
+            let hotkey = U256::from(i as u64);
+            let coldkey = U256::from(i as u64);
+            let key = [prefix.clone(), hotkey.encode(), coldkey.encode()].concat();
+            let value = (100 + i, 200 + i);
+            put_raw(&key, &value.encode());
+        }
+
+        assert!(frame_support::storage::unhashed::contains_prefixed_key(&prefix), "Entries should exist before migration.");
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet."
+        );
+
+        // Run migration
+        let weight = crate::migrations::migrate_remove_last_hotkey_coldkey_emission_on_netuid::migrate_remove_last_hotkey_coldkey_emission_on_netuid::<Test>();
+
+        assert!(!frame_support::storage::unhashed::contains_prefixed_key(&prefix), "All entries should have been removed.");
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as run."
+        );
+        assert!(!weight.is_zero(),"Migration weight should be non-zero.");
+    });
+}

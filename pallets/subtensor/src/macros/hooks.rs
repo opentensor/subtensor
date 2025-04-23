@@ -102,6 +102,9 @@ mod hooks {
                 // Remove all entries in TotalHotkeyColdkeyStakesThisInterval
                 .saturating_add(migrations::migrate_remove_total_hotkey_coldkey_stakes_this_interval::migrate_remove_total_hotkey_coldkey_stakes_this_interval::<T>());
             weight
+                // Remove all entries in LastHotkeyColdkeyEmissionOnNetuid
+                .saturating_add(migrations::migrate_remove_last_hotkey_coldkey_emission_on_netuid::migrate_remove_last_hotkey_coldkey_emission_on_netuid::<T>());
+            weight
         }
 
         #[cfg(feature = "try-runtime")]
