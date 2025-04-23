@@ -812,7 +812,7 @@ impl<T: Config> Pallet<T> {
             // Name and symbol
             Some(SelectiveMetagraphIndex::Netuid) => SelectiveMetagraph {
                 netuid: netuid.into(),
-                .. Default::default()
+                ..Default::default()
             },
             Some(SelectiveMetagraphIndex::Name) => SelectiveMetagraph {
                 netuid: netuid.into(),
