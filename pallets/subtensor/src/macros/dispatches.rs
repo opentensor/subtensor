@@ -498,7 +498,7 @@ mod dispatches {
         /// 	- The delegate is setting a take which is not lower than the previous.
         ///
         #[pallet::call_index(65)]
-        #[pallet::weight((Weight::from_parts(79_000_000, 0)
+        #[pallet::weight((Weight::from_parts(37_380_000, 0)
 		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
         pub fn decrease_take(
@@ -540,7 +540,7 @@ mod dispatches {
         /// 	- The delegate is setting a take which is not greater than the previous.
         ///
         #[pallet::call_index(66)]
-        #[pallet::weight((Weight::from_parts(79_000_000, 0)
+        #[pallet::weight((Weight::from_parts(44_630_000, 0)
 		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
         pub fn increase_take(
@@ -900,7 +900,7 @@ mod dispatches {
 
         /// Register the hotkey to root network
         #[pallet::call_index(62)]
-        #[pallet::weight((Weight::from_parts(164_000_000, 0)
+        #[pallet::weight((Weight::from_parts(145_500_000, 0)
 		.saturating_add(T::DbWeight::get().reads(23))
 		.saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Normal, Pays::No))]
         pub fn root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
