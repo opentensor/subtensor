@@ -1,14 +1,41 @@
-      - name: Run benchmarks (via your script)
+# .github/workflows/benchmark-weights.yml
+name: Benchmark Weights
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: benchmark-weights-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark-weights:
+    runs-on: SubtensorCI
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: bench-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build node with benchmarks
+        run: |
+          cargo build --profile production -p node-subtensor --features runtime-benchmarks
+
+      - name: Run & validate benchmarks
         run: |
           chmod +x scripts/benchmark_all.sh
-          mkdir -p bench_results
-          # run your script, redirecting its full output
-          ./scripts/benchmark_all.sh > bench_results/all.txt
-
-      - name: Validate benchmark weights
-        run: |
-          if ! git diff --exit-code -- bench_results; then
-            echo "::error ::Benchmark weights have changed!"
-            echo "::error ::Please review and commit updated bench_results/ files."
-            exit 1
-          fi
+          ./scripts/benchmark_all.sh
