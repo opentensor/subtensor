@@ -620,7 +620,7 @@ mod dispatches {
         ///
         #[pallet::call_index(3)]
         #[pallet::weight((Weight::from_parts(111_000_000, 0)
-		.saturating_add(Weight::from_parts(0, 43991))
+		.saturating_add(Weight::from_parts(111_100_000, 43991))
 		.saturating_add(T::DbWeight::get().reads(10))
 		.saturating_add(T::DbWeight::get().writes(7)), DispatchClass::Normal, Pays::No))]
         pub fn remove_stake(
@@ -906,7 +906,7 @@ mod dispatches {
 
         /// Attempt to adjust the senate membership to include a hotkey
         #[pallet::call_index(63)]
-        #[pallet::weight((Weight::from_parts(0, 0)
+        #[pallet::weight((Weight::from_parts(111_100_000, 0)
 		.saturating_add(T::DbWeight::get().reads(0))
 		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Normal, Pays::Yes))]
         pub fn adjust_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
@@ -956,7 +956,7 @@ mod dispatches {
         /// Weight is calculated based on the number of database reads and writes.
         #[pallet::call_index(71)]
         #[pallet::weight((Weight::from_parts(127_713_000, 0)
-        .saturating_add(Weight::from_parts(0, 11645))
+        .saturating_add(Weight::from_parts(111_100_000, 11645))
         .saturating_add(T::DbWeight::get().reads(18))
         .saturating_add(T::DbWeight::get().writes(12)), DispatchClass::Operational, Pays::No))]
         pub fn swap_coldkey(
@@ -1119,7 +1119,7 @@ mod dispatches {
         /// ## Complexity
         /// - O(1).
         #[pallet::call_index(51)]
-        #[pallet::weight((Weight::from_parts(0, 0), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(111_100_000, 0), DispatchClass::Operational, Pays::No))]
         pub fn sudo(
             origin: OriginFor<T>,
             call: Box<T::SudoRuntimeCall>,
@@ -1166,8 +1166,7 @@ mod dispatches {
 
         /// User vote on a proposal
         #[pallet::call_index(55)]
-        #[pallet::weight((Weight::from_parts(0, 0)
-		.saturating_add(Weight::from_parts(0, 0))
+        #[pallet::weight((Weight::from_parts(111_100_000, 0)
 		.saturating_add(T::DbWeight::get().reads(0))
 		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Operational))]
         pub fn vote(
@@ -1818,7 +1817,7 @@ mod dispatches {
         ///
         #[pallet::call_index(89)]
         #[pallet::weight((Weight::from_parts(111_000_000, 0)
-		.saturating_add(Weight::from_parts(0, 43991))
+		.saturating_add(Weight::from_parts(111_100_000, 43991))
 		.saturating_add(T::DbWeight::get().reads(10))
 		.saturating_add(T::DbWeight::get().writes(7)), DispatchClass::Normal, Pays::No))]
         pub fn remove_stake_limit(
