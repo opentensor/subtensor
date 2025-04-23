@@ -47,6 +47,7 @@ impl<T: Config> Pallet<T> {
                 .unwrap_or(U96F32::saturating_from_num(0))
         }
     }
+
     pub fn get_moving_alpha_price(netuid: u16) -> U96F32 {
         let one = U96F32::saturating_from_num(1.0);
         if netuid == Self::get_root_netuid() {
@@ -60,6 +61,24 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+	/// Computes the smoothing factor α for the exponential moving average (EMA)
+    /// based on current pool liquidity.
+    ///
+    /// This function implements a custom curve:
+    /// 1. If `l >= liquidity_scale_max`, returns α = 1.
+    /// 2. Otherwise:
+    ///    - Normalize `x = 2·l / liquidity_scale_max − 1`.
+    ///    - Compute a cubic polynomial
+    ///      `f(x) = (((7/2·x³ − 1)·x³ + 3/2)·x − 4)`.
+    ///    - Take `|f(x)|`, ceiling it to an integer `exp_int`, and set
+    ///      α = 10^(−exp_int).
+    ///
+    /// # Arguments
+    /// * `l` – Current liquidity measure (√(TAO·α) after scaling).
+    /// * `liquidity_scale_max` – Liquidity level at which α saturates to 1.
+    ///
+    /// # Returns
+    /// * `U96F32` – The EMA weight α in the range [0, 1].
     pub fn compute_alpha_for_ema(l: U96F32, liquidity_scale_max: U96F32) -> U96F32 {
         if l >= liquidity_scale_max {
             return U96F32::saturating_from_num(1);
@@ -82,7 +101,7 @@ impl<T: Config> Pallet<T> {
         .saturating_mul(x)
         .saturating_add(d);
 
-        let abs_f_x = f_x.saturating_neg();
+        let abs_f_x = f_x.saturating_abs();
         let exp = abs_f_x.ceil();
 
         let exp_int = exp.to_num::<u32>();
@@ -96,6 +115,23 @@ impl<T: Config> Pallet<T> {
         U96F32::saturating_from_num(alpha)
     }
 
+	/// Updates the stored “moving” alpha price for a subnet using a dynamic EMA.
+    ///
+    /// Steps performed:
+    /// 1. Load raw TAO and α reserves (`SubnetTAO`, `SubnetAlphaIn`) and down-scale by 1e9 (to TAO units)
+    /// 2. Compute the constant-product k = TAO_reserves·α_reserves, then
+    ///    l = √k (with minimal epsilon).
+    /// 3. Call `compute_alpha_for_ema(l, liquidity_scale_max)` to obtain α.
+    /// 4. Blend current price (`get_alpha_price`) and previous moving price
+    ///    (`get_moving_alpha_price`) as
+    ///    `α·current + (1−α)·moving`.
+    /// 5. Clamp the result to ≤ current price and write into `SubnetMovingPrice`.
+    ///
+    /// # Arguments
+    /// * `netuid` – The subnet identifier whose price to update.
+    ///
+    /// # Effects
+    /// * Writes a new `I96F32` into storage map `SubnetMovingPrice::<T>::insert(netuid, …)`.
     pub fn update_moving_price(netuid: u16) {
         let tao_reserves_rao = U96F32::saturating_from_num(SubnetTAO::<T>::get(netuid));
         let alpha_reserves_rao = U96F32::saturating_from_num(SubnetAlphaIn::<T>::get(netuid));
@@ -105,7 +141,7 @@ impl<T: Config> Pallet<T> {
             alpha_reserves_rao.saturating_div(U96F32::saturating_from_num(1_000_000_000));
 
         let k = tao_reserves.saturating_mul(alpha_reserves);
-        let epsilon: U96F32 = U96F32::from_num(0.0000001); // TODO: how accurate to make this baby
+        let epsilon: U96F32 = U96F32::from_num(0.0000001);
         let l = checked_sqrt(k, epsilon).unwrap_or(U96F32::from_num(0));
         let liquidity_scale_max = U96F32::saturating_from_num(LiquidityScaleMax::<T>::get(netuid));
         let alpha = Self::compute_alpha_for_ema(l, liquidity_scale_max);
@@ -116,7 +152,6 @@ impl<T: Config> Pallet<T> {
         let weighted_current_price: U96F32 = alpha.saturating_mul(current_price);
         let weighted_current_moving: U96F32 = one_minus_alpha.saturating_mul(moving_price);
 
-        // Convert batch to signed I96F32 to avoid migration of SubnetMovingPrice for now
         let mut new_moving: I96F32 = I96F32::saturating_from_num(
             weighted_current_price.saturating_add(weighted_current_moving),
         );
