@@ -99,7 +99,8 @@ mod hooks {
                 .saturating_add(migrations::migrate_upgrade_revealed_commitments::migrate_upgrade_revealed_commitments::<T>())
                 // Set subtoken enabled for all existed subnets
                 .saturating_add(migrations::migrate_set_subtoken_enabled::migrate_set_subtoken_enabled::<T>())
-                ;
+                // Remove all entries in TotalHotkeyColdkeyStakesThisInterval
+                .saturating_add(migrations::migrate_remove_total_hotkey_coldkey_stakes_this_interval::migrate_remove_total_hotkey_coldkey_stakes_this_interval::<T>());
             weight
         }
 
