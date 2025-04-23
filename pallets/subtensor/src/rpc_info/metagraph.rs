@@ -1457,11 +1457,11 @@ fn test_selective_metagraph() {
     metagraph.merge_value(&metagraph_name, wrong_index);
     assert!(metagraph.name.is_none());
 
-    let name_index: usize = 0;
+    let name_index: usize = 1;
     metagraph.merge_value(&metagraph_name, name_index);
     assert!(metagraph.name.is_some());
 
-    let alph_low_index: usize = 49;
+    let alph_low_index: usize = 50;
     let metagraph_alpha_low = SelectiveMetagraph::<u32> {
         netuid: 0_u16.into(),
         alpha_low: Some(0_u16.into()),
