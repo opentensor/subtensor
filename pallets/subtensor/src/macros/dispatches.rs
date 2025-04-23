@@ -910,8 +910,8 @@ mod dispatches {
         /// Attempt to adjust the senate membership to include a hotkey
         #[pallet::call_index(63)]
         #[pallet::weight((Weight::from_parts(68_100_000, 0)
-		.saturating_add(T::DbWeight::get().reads(0))
-		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().reads(7))
+		.saturating_add(T::DbWeight::get().writes(4)), DispatchClass::Normal, Pays::Yes))]
         pub fn adjust_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_adjust_senate(origin, hotkey)
         }
@@ -1761,7 +1761,7 @@ mod dispatches {
         #[pallet::call_index(88)]
         #[pallet::weight((Weight::from_parts(91_010_000, 0)
 		.saturating_add(T::DbWeight::get().reads(10))
-		.saturating_add(T::DbWeight::get().writes(7)), DispatchClass::Normal, Pays::No))]
+		.saturating_add(T::DbWeight::get().writes(6)), DispatchClass::Normal, Pays::No))]
         pub fn add_stake_limit(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1923,7 +1923,7 @@ mod dispatches {
         /// Emits a `FirstEmissionBlockNumberSet` event on success.
         #[pallet::call_index(92)]
         #[pallet::weight((
-            Weight::from_parts(35_770_000, 0).saturating_add(T::DbWeight::get().reads_writes(6, 1)),
+            Weight::from_parts(35_770_000, 0).saturating_add(T::DbWeight::get().reads_writes(4, 2)),
             DispatchClass::Operational,
             Pays::Yes
         ))]
@@ -1988,7 +1988,7 @@ mod dispatches {
         /// Emits a `TokensRecycled` event on success.
         #[pallet::call_index(101)]
         #[pallet::weight((
-            Weight::from_parts(101_000_000, 0).saturating_add(T::DbWeight::get().reads_writes(3, 2)),
+            Weight::from_parts(101_000_000, 0).saturating_add(T::DbWeight::get().reads_writes(7, 4)),
             DispatchClass::Operational,
             Pays::Yes
         ))]
@@ -2013,7 +2013,7 @@ mod dispatches {
         /// Emits a `TokensBurned` event on success.
         #[pallet::call_index(102)]
         #[pallet::weight((
-            Weight::from_parts(98_010_000, 0).saturating_add(T::DbWeight::get().reads_writes(2, 1)),
+            Weight::from_parts(98_010_000, 0).saturating_add(T::DbWeight::get().reads_writes(7, 3)),
             DispatchClass::Operational,
             Pays::Yes
         ))]
