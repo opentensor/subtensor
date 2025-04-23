@@ -726,7 +726,7 @@ impl<T: Config> Pallet<T> {
             coldkeys, // coldkey per UID
             axons,    // Axon information per UID.
             identities,
-            active: Active::<T>::get(netuid), // Avtive per UID
+            active: Active::<T>::get(netuid), // Active per UID
             validator_permit: ValidatorPermit::<T>::get(netuid), // Val permit per UID
             pruning_score: PruningScores::<T>::get(netuid)
                 .into_iter()
@@ -1172,7 +1172,7 @@ impl<T: Config> Pallet<T> {
             },
             Some(SelectiveMetagraphIndex::ValidatorPermit) => SelectiveMetagraph {
                 netuid: netuid.into(),
-                active: Some(ValidatorPermit::<T>::get(netuid)),
+                validator_permit: Some(ValidatorPermit::<T>::get(netuid)),
                 ..Default::default()
             },
 
