@@ -87,11 +87,11 @@ while IFS= read -r line; do
     too_big=$(awk -v d="$abs_drift" -v t="$THRESHOLD" 'BEGIN { print (d>t) ? 1 : 0 }')
 
     if [[ "$too_big" -eq 1 ]]; then
-      echo "::error ::[${extr}] code=${code_w}, meas_ps=${meas_ps}, drift=${drift}% (>±${THRESHOLD}%)"
-      failures+=("[${extr}] code=${code_w}, meas_ps=${meas_ps}, drift=${drift}%")
+      echo "::error ::[${extr}] code=${code_w}, measured=${meas_ps}, drift=${drift}%"
+      failures+=("[${extr}] code=${code_w}, measured=${meas_ps}, drift=${drift}%")
       fail=1
     else
-      echo "[ok] ${extr}: drift ${drift}% (code=${code_w}, meas_ps=${meas_ps})"
+      echo "[ok] ${extr}: drift ${drift}% (code=${code_w}, measured=${meas_ps})"
     fi
 
     # clear extr so we only handle one Time~= per block
@@ -101,7 +101,7 @@ done < "$TMP"
 
 echo
 if (( fail )); then
-  echo "❌ Benchmark regressions detected:"
+  echo "❌ Benchmark drift detected:"
   for e in "${failures[@]}"; do
     echo "  • $e"
   done
