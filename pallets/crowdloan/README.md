@@ -1,21 +1,19 @@
-# Crowdloan Pallet 
-A pallet allowing to create and manage generic crowdloans around a transfer of funds and a arbitrary call.
+# Crowdloan Pallet
 
-A user of this pallet can create a crowdloan by providing a deposit, a cap, an end block, a optionnal target address and a call.
+A pallet that enables the creation and management of generic crowdloans for transferring funds and executing an arbitrary call.
 
-Users will be able to contribute to the crowdloan by providing funds to the crowdloan they chose to contribute to.
+Users of this pallet can create a crowdloan by providing a deposit, a cap, an end block, an optional target address and an optional call.
 
-Once the crowdloan is finalized, the funds will be transferred to the target address if provided or the end user is expected to transfer them manually on chain if the call is a pallet extrinsic. The call will be dispatched with the current crowdloan id as a temporary storage item.
+Users can contribute to a crowdloan by providing funds to the crowdloan they choose to support.
 
-In case the crowdloan fails to raise the cap, the initial deposit will be returned to the creator and contributions will be returned to the contributors.
+Once the crowdloan is finalized, the funds will be transferred to the target address if provided; otherwise, the end user is expected to transfer them manually on-chain if the call is a pallet extrinsic. The call will be dispatched with the current crowdloan ID stored as a temporary item.
+
+If the crowdloan fails to reach the cap, the initial deposit will be returned to the creator, and contributions will be refunded to the contributors.
 
 ## Overview
 
 ## Interface
 
-### Dispatchable Functions
-
-[`Call`]: ./enum.Call.html
-[`Config`]: ./trait.Config.html
+## Dispatchable Functions
 
 License: Apache-2.0
