@@ -41,7 +41,7 @@ function run_command() {
   # Command to run subtensor
   $F_BIN_PATH \
     --base-path /tmp/blockchain \
-    --chain ./chainspecs/raw_spec_finney.json \
+    --chain ./raw_spec_finney.json \
     --rpc-external --rpc-cors all \
     --no-mdns \
     --rpc-max-connections 10000 \
