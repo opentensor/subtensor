@@ -37,5 +37,5 @@ jobs:
 
       - name: Run & validate benchmarks
         run: |
-          chmod +x scripts/benchmark_all.sh
-          ./scripts/benchmark_all.sh
+          chmod +x scripts/benchmark_action.sh
+          ./scripts/benchmark_action.sh
