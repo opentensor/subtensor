@@ -345,7 +345,7 @@ fn test_remove_stake_dispatch_info_ok() {
             call.get_dispatch_info(),
             DispatchInfo {
                 weight: frame_support::weights::Weight::from_parts(1_671_800_000, 0)
-                    .add_proof_size(43991),
+                    .add_proof_size(0),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
             }
