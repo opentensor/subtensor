@@ -65,10 +65,29 @@ while IFS= read -r line; do
     code_record=$(
       awk -v extr="$extr" '
         /^\s*#\[pallet::call_index\(/      { next }
-        /Weight::from_parts/               { lw=$0; sub(/.*Weight::from_parts\(\s*/, "", lw); sub(/[^0-9_].*$/, "", lw); gsub(/_/, "", lw); w=lw; next }
-        /reads_writes\(/                   { lw=$0; sub(/.*reads_writes\(/, "", lw); sub(/\).*/, "", lw); split(lw,io,/,/); gsub(/^[ \t]+|[ \t]+$/, "", io[1]); gsub(/^[ \t]+|[ \t]+$/, "", io[2]); r=io[1]; wri=io[2]; next }
-        /\.reads\(/                        { lw=$0; sub(/.*\.reads\(/, "", lw); sub(/\).*/, "", lw); r=lw; next }
-        /\.writes\(/                       { lw=$0; sub(/.*\.writes\(/, "", lw); sub(/\).*/, "", lw); wri=lw; next }
+        /Weight::from_parts/               {
+                                            lw=$0; sub(/.*Weight::from_parts\(\s*/, "", lw);
+                                            sub(/[^0-9_].*$/, "", lw); gsub(/_/, "", lw);
+                                            w=lw
+                                          }
+        /reads_writes\(/                   {
+                                            lw=$0; sub(/.*reads_writes\(/, "", lw);
+                                            sub(/\).*/, "", lw);
+                                            split(lw,io,/,/);
+                                            gsub(/^[ \t]+|[ \t]+$/, "", io[1]);
+                                            gsub(/^[ \t]+|[ \t]+$/, "", io[2]);
+                                            r=io[1]; wri=io[2]; next
+                                          }
+        /\.reads\(/                        {
+                                            lw=$0; sub(/.*\.reads\(/, "", lw);
+                                            sub(/\).*/, "", lw);
+                                            r=lw; next
+                                          }
+        /\.writes\(/                       {
+                                            lw=$0; sub(/.*\.writes\(/, "", lw);
+                                            sub(/\).*/, "", lw);
+                                            wri=lw; next
+                                          }
         $0 ~ ("pub fn[[:space:]]+" extr "\\(") { print w, r, wri; exit }
       ' "$DISPATCH"
     )
