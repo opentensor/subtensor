@@ -2328,7 +2328,7 @@ mod dispatches {
         /// * `hotkey` (T::AccountId):
         ///     - The associated hotkey account.
         #[pallet::call_index(108)]
-        #[pallet::weight((Weight::from_parts(7, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn unstake_all_alpha_aggregate(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
