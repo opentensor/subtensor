@@ -1,8 +1,8 @@
-use frame_support::pallet_prelude::Weight;
-use sp_io::hashing::twox_128;
-use sp_io::KillStorageResult;
-use sp_io::storage::clear_prefix;
 use super::*;
+use frame_support::pallet_prelude::Weight;
+use sp_io::KillStorageResult;
+use sp_io::hashing::twox_128;
+use sp_io::storage::clear_prefix;
 pub mod migrate_chain_identity;
 pub mod migrate_commit_reveal_v2;
 pub mod migrate_create_root_network;
@@ -11,9 +11,9 @@ pub mod migrate_delete_subnet_3;
 pub mod migrate_fix_is_network_member;
 pub mod migrate_identities_v2;
 pub mod migrate_init_total_issuance;
+pub mod migrate_orphaned_storage_items;
 pub mod migrate_populate_owned_hotkeys;
 pub mod migrate_rao;
-pub mod migrate_orphaned_storage_items;
 pub mod migrate_remove_stake_map;
 pub mod migrate_remove_total_hotkey_coldkey_stakes_this_interval;
 pub mod migrate_remove_unused_maps_and_values;
@@ -79,4 +79,3 @@ pub(crate) fn migrate_storage<T: Config>(
 
     weight
 }
-
