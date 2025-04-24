@@ -73,7 +73,7 @@ pub struct CrowdloanInfo<AccountId, Balance, BlockNumber, Call> {
     pub finalized: bool,
 }
 
-type CrowdloanInfoOf<T> = CrowdloanInfo<
+pub type CrowdloanInfoOf<T> = CrowdloanInfo<
     <T as frame_system::Config>::AccountId,
     BalanceOf<T>,
     BlockNumberFor<T>,
