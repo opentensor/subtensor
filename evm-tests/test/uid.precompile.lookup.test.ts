@@ -1,6 +1,6 @@
 import * as assert from "assert";
 
-import { getAliceSigner, getDevnetApi, waitForTransactionCompletion, convertPublicKeyToMultiAddress, getRandomSubstrateKeypair, getSignerFromKeypair } from "../src/substrate"
+import { getAliceSigner, getDevnetApi, waitForTransactionCompletion, getRandomSubstrateKeypair } from "../src/substrate"
 import { convertToFixedSizeBinary, generateRandomEthersWallet, getPublicClient } from "../src/utils";
 import { ETH_LOCAL_URL } from "../src/config";
 import { devnet } from "@polkadot-api/descriptors"
@@ -11,7 +11,7 @@ import { PolkadotSigner, TypedApi } from "polkadot-api";
 import { toViemAddress, convertPublicKeyToSs58 } from "../src/address-utils"
 import { IUIDLookupABI, IUID_LOOKUP_ADDRESS } from "../src/contracts/uidLookup"
 import { keccak256 } from 'ethers';
-import { addNewSubnetwork, burnedRegister, forceSetBalanceToSs58Address } from "../src/subtensor";
+import { addNewSubnetwork, burnedRegister, forceSetBalanceToSs58Address, startCall } from "../src/subtensor";
 
 describe("Test the UID Lookup precompile", () => {
     const hotkey = getRandomSubstrateKeypair();
@@ -36,8 +36,8 @@ describe("Test the UID Lookup precompile", () => {
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(hotkey.publicKey))
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(coldkey.publicKey))
 
-        // Add new subnet
         netuid = await addNewSubnetwork(api, hotkey, coldkey)
+        await startCall(api, netuid, coldkey)
 
         // Register neuron
         const hotkeyAddress = convertPublicKeyToSs58(hotkey.publicKey)
