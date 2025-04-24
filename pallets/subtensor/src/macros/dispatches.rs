@@ -77,7 +77,7 @@ mod dispatches {
         /// * 'MaxWeightExceeded':
         /// 	- Attempting to set weights with max value exceeding limit.
         #[pallet::call_index(0)]
-        #[pallet::weight((Weight::from_parts(7, 0)
+        #[pallet::weight((Weight::from_parts(20_730_000_000, 0)
         .saturating_add(T::DbWeight::get().reads(4111))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn set_weights(
