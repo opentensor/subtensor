@@ -2090,7 +2090,7 @@ mod dispatches {
         ///  	- Errors stemming from transaction pallet.
         ///
         #[pallet::call_index(103)]
-        #[pallet::weight((Weight::from_parts(99_000_000, 5127)
+        #[pallet::weight((Weight::from_parts(162_000_000, 5127)
         .saturating_add(T::DbWeight::get().reads(14_u64))
         .saturating_add(T::DbWeight::get().writes(12_u64)), DispatchClass::Normal, Pays::No))]
         pub fn add_stake_aggregate(
@@ -2197,7 +2197,7 @@ mod dispatches {
         ///  	- Errors stemming from transaction pallet.
         ///
         #[pallet::call_index(105)]
-        #[pallet::weight((Weight::from_parts(99_000_000, 5127)
+        #[pallet::weight((Weight::from_parts(169_200_000, 5127)
         .saturating_add(T::DbWeight::get().reads(14_u64))
         .saturating_add(T::DbWeight::get().writes(12_u64)), DispatchClass::Normal, Pays::No))]
         pub fn add_stake_limit_aggregate(
@@ -2263,7 +2263,7 @@ mod dispatches {
         /// 	- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
         ///
         #[pallet::call_index(106)]
-        #[pallet::weight((Weight::from_parts(129_000_000, 10163)
+        #[pallet::weight((Weight::from_parts(211_700_000, 10163)
         .saturating_add(T::DbWeight::get().reads(19_u64))
         .saturating_add(T::DbWeight::get().writes(12_u64)), DispatchClass::Normal, Pays::No))]
         pub fn remove_stake_limit_aggregate(
