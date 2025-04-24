@@ -2091,7 +2091,7 @@ mod dispatches {
         ///
         #[pallet::call_index(103)]
         #[pallet::weight((Weight::from_parts(162_000_000, 5127)
-        .saturating_add(T::DbWeight::get().reads(14_u64))
+        .saturating_add(T::DbWeight::get().reads(15_u64))
         .saturating_add(T::DbWeight::get().writes(12_u64)), DispatchClass::Normal, Pays::No))]
         pub fn add_stake_aggregate(
             origin: OriginFor<T>,
@@ -2141,7 +2141,7 @@ mod dispatches {
         ///
         #[pallet::call_index(104)]
         #[pallet::weight((Weight::from_parts(213_300_000, 10163)
-        .saturating_add(T::DbWeight::get().reads(19_u64))
+        .saturating_add(T::DbWeight::get().reads(20_u64))
         .saturating_add(T::DbWeight::get().writes(12_u64)), DispatchClass::Normal, Pays::No))]
         pub fn remove_stake_aggregate(
             origin: OriginFor<T>,
