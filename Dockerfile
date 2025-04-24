@@ -36,6 +36,7 @@ EXPOSE 30333 9933 9944
 FROM $BASE_IMAGE AS subtensor
 # Copy all chainspec files
 COPY --from=prod_builder /build/*.json /
+COPY --from=prod_builder /build/chainspecs/*.json /
 # Copy final binary
 COPY --from=prod_builder /build/target/production/node-subtensor /usr/local/bin
 
@@ -57,6 +58,7 @@ EXPOSE 30333 9933 9944
 FROM $BASE_IMAGE AS subtensor-local
 # Copy all chainspec files
 COPY --from=local_builder /build/*.json /
+COPY --from=local_builder /build/chainspecs/*.json /
 # Copy final binary
 COPY --from=local_builder /build/target/release/node-subtensor /usr/local/bin
 RUN "node-subtensor" build-spec --disable-default-bootnode --raw --chain local > /localnet.json

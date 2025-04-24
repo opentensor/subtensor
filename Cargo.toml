@@ -268,3 +268,4 @@ runtime-benchmarks = [
 	"node-subtensor-runtime/runtime-benchmarks",
 ]
 metadata-hash = ["node-subtensor-runtime/metadata-hash"]
+pow-faucet = []
