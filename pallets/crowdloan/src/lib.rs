@@ -37,9 +37,9 @@ mod mock;
 mod tests;
 pub mod weights;
 
-pub(crate) type CurrencyOf<T> = <T as Config>::Currency;
+pub type CurrencyOf<T> = <T as Config>::Currency;
 
-pub(crate) type BalanceOf<T> =
+pub type BalanceOf<T> =
     <CurrencyOf<T> as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub type BoundedCallOf<T> =
