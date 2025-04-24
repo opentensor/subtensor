@@ -1671,6 +1671,36 @@ pub mod pallet {
             );
             Ok(())
         }
+
+        /// Change liquidity scale max for a given subnet.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the root account.
+        /// * `netuid` - The unique identifier for the subnet.
+        /// * `liquidity_scale_max` - The new maximum liquidity scale value.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the caller is not the root account.
+        ///
+        /// # Weight
+        /// Weight is handled by the `#[pallet::weight]` attribute.
+        #[pallet::call_index(67)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_liquidity_scale_max(
+            origin: OriginFor<T>,
+            netuid: u16,
+            liquidity_scale_max: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::LiquidityScaleMax::<T>::set(netuid, liquidity_scale_max);
+
+            log::debug!(
+                "LiquidityScaleMax( netuid: {:?}, liquidity_scale_max: {:?} )",
+                netuid,
+                liquidity_scale_max
+            );
+            Ok(())
+        }
     }
 }
 

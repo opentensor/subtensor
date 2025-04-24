@@ -88,11 +88,11 @@ impl<T: Config> Pallet<T> {
         let i_l = I96F32::saturating_from_num(l);
         let neg_one = I96F32::from_num(-1);
         let two = I96F32::from_num(2);
-        let a = I96F32::from_num(7).saturating_div(two);
+        let a = I96F32::from_num(7).safe_div(two);
         let b = neg_one;
-        let c = I96F32::from_num(3).saturating_div(two);
+        let c = I96F32::from_num(3).safe_div(two);
         let d = neg_one.saturating_mul(I96F32::from_num(4));
-        let x = (two.saturating_mul(i_l).saturating_div(i_l_max)).saturating_add(neg_one);
+        let x = (two.saturating_mul(i_l).safe_div(i_l_max)).saturating_add(neg_one);
 
         let x_cubed = x.saturating_mul(x).saturating_mul(x);
         let f_x = ((a.saturating_mul(x_cubed).saturating_add(b))
@@ -105,11 +105,11 @@ impl<T: Config> Pallet<T> {
         let exp = abs_f_x.ceil();
 
         let exp_int = exp.to_num::<u32>();
-        let mut alpha = I96F32::from_num(1);
-        let ten = I96F32::from_num(10);
+        let mut alpha = I96F32::saturating_to_num(1);
+        let ten = I96F32::saturating_to_num(10);
 
         for _ in 0..exp_int {
-            alpha = alpha.saturating_div(ten);
+            alpha = alpha.safe_div(ten);
         }
 
         U96F32::saturating_from_num(alpha)
@@ -135,10 +135,9 @@ impl<T: Config> Pallet<T> {
     pub fn update_moving_price(netuid: u16) {
         let tao_reserves_rao = U96F32::saturating_from_num(SubnetTAO::<T>::get(netuid));
         let alpha_reserves_rao = U96F32::saturating_from_num(SubnetAlphaIn::<T>::get(netuid));
-        let tao_reserves =
-            tao_reserves_rao.saturating_div(U96F32::saturating_from_num(1_000_000_000));
+        let tao_reserves = tao_reserves_rao.safe_div(U96F32::saturating_from_num(1_000_000_000));
         let alpha_reserves =
-            alpha_reserves_rao.saturating_div(U96F32::saturating_from_num(1_000_000_000));
+            alpha_reserves_rao.safe_div(U96F32::saturating_from_num(1_000_000_000));
 
         let k = tao_reserves.saturating_mul(alpha_reserves);
         let epsilon: U96F32 = U96F32::from_num(0.0000001);
