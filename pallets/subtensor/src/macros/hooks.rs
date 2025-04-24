@@ -34,6 +34,15 @@ mod hooks {
             }
         }
 
+        // ---- Called on the finalization of this pallet. The code weight must be taken into account prior to the execution of this macro.
+        //
+        // # Args:
+        // 	* 'n': (BlockNumberFor<T>):
+        // 		- The number of the block we are finalizing.
+        fn on_finalize(block_number: BlockNumberFor<T>) {
+            Self::do_on_finalize(block_number);
+        }
+
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             // --- Migrate storage
             let mut weight = frame_support::weights::Weight::from_parts(0, 0);
@@ -90,7 +99,8 @@ mod hooks {
                 .saturating_add(migrations::migrate_upgrade_revealed_commitments::migrate_upgrade_revealed_commitments::<T>())
                 // Set subtoken enabled for all existed subnets
                 .saturating_add(migrations::migrate_set_subtoken_enabled::migrate_set_subtoken_enabled::<T>())
-                ;
+                // Remove all entries in TotalHotkeyColdkeyStakesThisInterval
+                .saturating_add(migrations::migrate_remove_total_hotkey_coldkey_stakes_this_interval::migrate_remove_total_hotkey_coldkey_stakes_this_interval::<T>());
             weight
         }
 
