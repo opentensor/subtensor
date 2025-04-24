@@ -104,9 +104,12 @@ while (( attempt <= MAX_RETRIES )); do
       read code_w code_reads code_writes <<<"$code_record"
 
       # strip any non-digit (e.g. "_u64") so math works
-      code_w=${code_w//[!0-9]/}
-      code_reads=${code_reads//[!0-9]/}
-      code_writes=${code_writes//[!0-9]/}
+      code_w=${code_w//_/}
+      code_w=${code_w%%[^0-9]*}
+      code_reads=${code_reads//_/}
+      code_reads=${code_reads%%[^0-9]*}
+      code_writes=${code_writes//_/}
+      code_writes=${code_writes%%[^0-9]*}
 
       # compute drift %
       drift=$(awk -v a="$meas_ps" -v b="$code_w" 'BEGIN{printf("%.1f", (a-b)/b*100)}')
