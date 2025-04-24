@@ -86,12 +86,12 @@ impl<T: Config> Pallet<T> {
 
         let i_l_max = I96F32::saturating_from_num(liquidity_scale_max);
         let i_l = I96F32::saturating_from_num(l);
-        let neg_one = I96F32::from_num(-1);
-        let two = I96F32::from_num(2);
-        let a = I96F32::from_num(7).safe_div(two);
+        let neg_one = I96F32::saturating_from_num(-1);
+        let two = I96F32::saturating_from_num(2);
+        let a = I96F32::saturating_from_num(7).safe_div(two);
         let b = neg_one;
-        let c = I96F32::from_num(3).safe_div(two);
-        let d = neg_one.saturating_mul(I96F32::from_num(4));
+        let c = I96F32::saturating_from_num(3).safe_div(two);
+        let d = neg_one.saturating_mul(I96F32::saturating_from_num(4));
         let x = (two.saturating_mul(i_l).safe_div(i_l_max)).saturating_add(neg_one);
 
         let x_cubed = x.saturating_mul(x).saturating_mul(x);
@@ -105,8 +105,8 @@ impl<T: Config> Pallet<T> {
         let exp = abs_f_x.ceil();
 
         let exp_int = exp.to_num::<u32>();
-        let mut alpha = I96F32::saturating_to_num(1);
-        let ten = I96F32::saturating_to_num(10);
+        let mut alpha = I96F32::saturating_from_num(1);
+        let ten = I96F32::saturating_from_num(10);
 
         for _ in 0..exp_int {
             alpha = alpha.safe_div(ten);
@@ -140,8 +140,8 @@ impl<T: Config> Pallet<T> {
             alpha_reserves_rao.safe_div(U96F32::saturating_from_num(1_000_000_000));
 
         let k = tao_reserves.saturating_mul(alpha_reserves);
-        let epsilon: U96F32 = U96F32::from_num(0.0000001);
-        let l = checked_sqrt(k, epsilon).unwrap_or(U96F32::from_num(0));
+        let epsilon: U96F32 = U96F32::saturating_from_num(0.0000001);
+        let l = checked_sqrt(k, epsilon).unwrap_or(U96F32::saturating_from_num(0));
         let liquidity_scale_max = U96F32::saturating_from_num(LiquidityScaleMax::<T>::get(netuid));
         let alpha = Self::compute_alpha_for_ema(l, liquidity_scale_max);
 
@@ -155,7 +155,7 @@ impl<T: Config> Pallet<T> {
             weighted_current_price.saturating_add(weighted_current_moving),
         );
 
-        new_moving = new_moving.min(I96F32::from_num(current_price));
+        new_moving = new_moving.min(I96F32::saturating_from_num(current_price));
         SubnetMovingPrice::<T>::insert(netuid, new_moving);
     }
 
