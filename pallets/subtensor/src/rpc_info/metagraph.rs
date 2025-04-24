@@ -213,7 +213,7 @@ where
 {
     pub fn merge_value(&mut self, other: &Self, metagraph_index: usize) {
         match SelectiveMetagraphIndex::from_index(metagraph_index) {
-            // Name and symbol
+            Some(SelectiveMetagraphIndex::Netuid) => self.netuid = other.netuid,
             Some(SelectiveMetagraphIndex::Name) => self.name = other.name.clone(),
             Some(SelectiveMetagraphIndex::Symbol) => self.symbol = other.symbol.clone(),
             Some(SelectiveMetagraphIndex::Identity) => self.identity = other.identity.clone(),
@@ -450,6 +450,7 @@ where
 }
 
 pub enum SelectiveMetagraphIndex {
+    Netuid,
     Name,
     Symbol,
     Identity,
@@ -526,77 +527,78 @@ pub enum SelectiveMetagraphIndex {
 impl SelectiveMetagraphIndex {
     fn from_index(index: usize) -> Option<Self> {
         match index {
-            0 => Some(SelectiveMetagraphIndex::Name),
-            1 => Some(SelectiveMetagraphIndex::Symbol),
-            2 => Some(SelectiveMetagraphIndex::Identity),
-            3 => Some(SelectiveMetagraphIndex::NetworkRegisteredAt),
-            4 => Some(SelectiveMetagraphIndex::OwnerHotkey),
-            5 => Some(SelectiveMetagraphIndex::OwnerColdkey),
-            6 => Some(SelectiveMetagraphIndex::Block),
-            7 => Some(SelectiveMetagraphIndex::Tempo),
-            8 => Some(SelectiveMetagraphIndex::LastStep),
-            9 => Some(SelectiveMetagraphIndex::BlocksSinceLastStep),
-            10 => Some(SelectiveMetagraphIndex::SubnetEmission),
-            11 => Some(SelectiveMetagraphIndex::AlphaIn),
-            12 => Some(SelectiveMetagraphIndex::AlphaOut),
-            13 => Some(SelectiveMetagraphIndex::TaoIn),
-            14 => Some(SelectiveMetagraphIndex::AlphaOutEmission),
-            15 => Some(SelectiveMetagraphIndex::AlphaInEmission),
-            16 => Some(SelectiveMetagraphIndex::TaoInEmission),
-            17 => Some(SelectiveMetagraphIndex::PendingAlphaEmission),
-            18 => Some(SelectiveMetagraphIndex::PendingRootEmission),
-            19 => Some(SelectiveMetagraphIndex::SubnetVolume),
-            20 => Some(SelectiveMetagraphIndex::MovingPrice),
-            21 => Some(SelectiveMetagraphIndex::Rho),
-            22 => Some(SelectiveMetagraphIndex::Kappa),
-            23 => Some(SelectiveMetagraphIndex::MinAllowedWeights),
-            24 => Some(SelectiveMetagraphIndex::MaxWeightsLimit),
-            25 => Some(SelectiveMetagraphIndex::WeightsVersion),
-            26 => Some(SelectiveMetagraphIndex::WeightsRateLimit),
-            27 => Some(SelectiveMetagraphIndex::ActivityCutoff),
-            28 => Some(SelectiveMetagraphIndex::MaxValidators),
-            29 => Some(SelectiveMetagraphIndex::NumUids),
-            30 => Some(SelectiveMetagraphIndex::MaxUids),
-            31 => Some(SelectiveMetagraphIndex::Burn),
-            32 => Some(SelectiveMetagraphIndex::Difficulty),
-            33 => Some(SelectiveMetagraphIndex::RegistrationAllowed),
-            34 => Some(SelectiveMetagraphIndex::PowRegistrationAllowed),
-            35 => Some(SelectiveMetagraphIndex::ImmunityPeriod),
-            36 => Some(SelectiveMetagraphIndex::MinDifficulty),
-            37 => Some(SelectiveMetagraphIndex::MaxDifficulty),
-            38 => Some(SelectiveMetagraphIndex::MinBurn),
-            39 => Some(SelectiveMetagraphIndex::MaxBurn),
-            40 => Some(SelectiveMetagraphIndex::AdjustmentAlpha),
-            41 => Some(SelectiveMetagraphIndex::AdjustmentInterval),
-            42 => Some(SelectiveMetagraphIndex::TargetRegsPerInterval),
-            43 => Some(SelectiveMetagraphIndex::MaxRegsPerBlock),
-            44 => Some(SelectiveMetagraphIndex::ServingRateLimit),
-            45 => Some(SelectiveMetagraphIndex::CommitRevealWeightsEnabled),
-            46 => Some(SelectiveMetagraphIndex::CommitRevealPeriod),
-            47 => Some(SelectiveMetagraphIndex::LiquidAlphaEnabled),
-            48 => Some(SelectiveMetagraphIndex::AlphaHigh),
-            49 => Some(SelectiveMetagraphIndex::AlphaLow),
-            50 => Some(SelectiveMetagraphIndex::BondsMovingAvg),
-            51 => Some(SelectiveMetagraphIndex::Hotkeys),
-            52 => Some(SelectiveMetagraphIndex::Coldkeys),
-            53 => Some(SelectiveMetagraphIndex::Identities),
-            54 => Some(SelectiveMetagraphIndex::Axons),
-            55 => Some(SelectiveMetagraphIndex::Active),
-            56 => Some(SelectiveMetagraphIndex::ValidatorPermit),
-            57 => Some(SelectiveMetagraphIndex::PruningScore),
-            58 => Some(SelectiveMetagraphIndex::LastUpdate),
-            59 => Some(SelectiveMetagraphIndex::Emission),
-            60 => Some(SelectiveMetagraphIndex::Dividends),
-            61 => Some(SelectiveMetagraphIndex::Incentives),
-            62 => Some(SelectiveMetagraphIndex::Consensus),
-            63 => Some(SelectiveMetagraphIndex::Trust),
-            64 => Some(SelectiveMetagraphIndex::Rank),
-            65 => Some(SelectiveMetagraphIndex::BlockAtRegistration),
-            66 => Some(SelectiveMetagraphIndex::AlphaStake),
-            67 => Some(SelectiveMetagraphIndex::TaoStake),
-            68 => Some(SelectiveMetagraphIndex::TotalStake),
-            69 => Some(SelectiveMetagraphIndex::TaoDividendsPerHotkey),
-            70 => Some(SelectiveMetagraphIndex::AlphaDividendsPerHotkey),
+            0 => Some(SelectiveMetagraphIndex::Netuid),
+            1 => Some(SelectiveMetagraphIndex::Name),
+            2 => Some(SelectiveMetagraphIndex::Symbol),
+            3 => Some(SelectiveMetagraphIndex::Identity),
+            4 => Some(SelectiveMetagraphIndex::NetworkRegisteredAt),
+            5 => Some(SelectiveMetagraphIndex::OwnerHotkey),
+            6 => Some(SelectiveMetagraphIndex::OwnerColdkey),
+            7 => Some(SelectiveMetagraphIndex::Block),
+            8 => Some(SelectiveMetagraphIndex::Tempo),
+            9 => Some(SelectiveMetagraphIndex::LastStep),
+            10 => Some(SelectiveMetagraphIndex::BlocksSinceLastStep),
+            11 => Some(SelectiveMetagraphIndex::SubnetEmission),
+            12 => Some(SelectiveMetagraphIndex::AlphaIn),
+            13 => Some(SelectiveMetagraphIndex::AlphaOut),
+            14 => Some(SelectiveMetagraphIndex::TaoIn),
+            15 => Some(SelectiveMetagraphIndex::AlphaOutEmission),
+            16 => Some(SelectiveMetagraphIndex::AlphaInEmission),
+            17 => Some(SelectiveMetagraphIndex::TaoInEmission),
+            18 => Some(SelectiveMetagraphIndex::PendingAlphaEmission),
+            19 => Some(SelectiveMetagraphIndex::PendingRootEmission),
+            20 => Some(SelectiveMetagraphIndex::SubnetVolume),
+            21 => Some(SelectiveMetagraphIndex::MovingPrice),
+            22 => Some(SelectiveMetagraphIndex::Rho),
+            23 => Some(SelectiveMetagraphIndex::Kappa),
+            24 => Some(SelectiveMetagraphIndex::MinAllowedWeights),
+            25 => Some(SelectiveMetagraphIndex::MaxWeightsLimit),
+            26 => Some(SelectiveMetagraphIndex::WeightsVersion),
+            27 => Some(SelectiveMetagraphIndex::WeightsRateLimit),
+            28 => Some(SelectiveMetagraphIndex::ActivityCutoff),
+            29 => Some(SelectiveMetagraphIndex::MaxValidators),
+            30 => Some(SelectiveMetagraphIndex::NumUids),
+            31 => Some(SelectiveMetagraphIndex::MaxUids),
+            32 => Some(SelectiveMetagraphIndex::Burn),
+            33 => Some(SelectiveMetagraphIndex::Difficulty),
+            34 => Some(SelectiveMetagraphIndex::RegistrationAllowed),
+            35 => Some(SelectiveMetagraphIndex::PowRegistrationAllowed),
+            36 => Some(SelectiveMetagraphIndex::ImmunityPeriod),
+            37 => Some(SelectiveMetagraphIndex::MinDifficulty),
+            38 => Some(SelectiveMetagraphIndex::MaxDifficulty),
+            39 => Some(SelectiveMetagraphIndex::MinBurn),
+            40 => Some(SelectiveMetagraphIndex::MaxBurn),
+            41 => Some(SelectiveMetagraphIndex::AdjustmentAlpha),
+            42 => Some(SelectiveMetagraphIndex::AdjustmentInterval),
+            43 => Some(SelectiveMetagraphIndex::TargetRegsPerInterval),
+            44 => Some(SelectiveMetagraphIndex::MaxRegsPerBlock),
+            45 => Some(SelectiveMetagraphIndex::ServingRateLimit),
+            46 => Some(SelectiveMetagraphIndex::CommitRevealWeightsEnabled),
+            47 => Some(SelectiveMetagraphIndex::CommitRevealPeriod),
+            48 => Some(SelectiveMetagraphIndex::LiquidAlphaEnabled),
+            49 => Some(SelectiveMetagraphIndex::AlphaHigh),
+            50 => Some(SelectiveMetagraphIndex::AlphaLow),
+            51 => Some(SelectiveMetagraphIndex::BondsMovingAvg),
+            52 => Some(SelectiveMetagraphIndex::Hotkeys),
+            53 => Some(SelectiveMetagraphIndex::Coldkeys),
+            54 => Some(SelectiveMetagraphIndex::Identities),
+            55 => Some(SelectiveMetagraphIndex::Axons),
+            56 => Some(SelectiveMetagraphIndex::Active),
+            57 => Some(SelectiveMetagraphIndex::ValidatorPermit),
+            58 => Some(SelectiveMetagraphIndex::PruningScore),
+            59 => Some(SelectiveMetagraphIndex::LastUpdate),
+            60 => Some(SelectiveMetagraphIndex::Emission),
+            61 => Some(SelectiveMetagraphIndex::Dividends),
+            62 => Some(SelectiveMetagraphIndex::Incentives),
+            63 => Some(SelectiveMetagraphIndex::Consensus),
+            64 => Some(SelectiveMetagraphIndex::Trust),
+            65 => Some(SelectiveMetagraphIndex::Rank),
+            66 => Some(SelectiveMetagraphIndex::BlockAtRegistration),
+            67 => Some(SelectiveMetagraphIndex::AlphaStake),
+            68 => Some(SelectiveMetagraphIndex::TaoStake),
+            69 => Some(SelectiveMetagraphIndex::TotalStake),
+            70 => Some(SelectiveMetagraphIndex::TaoDividendsPerHotkey),
+            71 => Some(SelectiveMetagraphIndex::AlphaDividendsPerHotkey),
             _ => None,
         }
     }
@@ -724,7 +726,7 @@ impl<T: Config> Pallet<T> {
             coldkeys, // coldkey per UID
             axons,    // Axon information per UID.
             identities,
-            active: Active::<T>::get(netuid), // Avtive per UID
+            active: Active::<T>::get(netuid), // Active per UID
             validator_permit: ValidatorPermit::<T>::get(netuid), // Val permit per UID
             pruning_score: PruningScores::<T>::get(netuid)
                 .into_iter()
@@ -808,6 +810,10 @@ impl<T: Config> Pallet<T> {
     ) -> SelectiveMetagraph<T::AccountId> {
         match SelectiveMetagraphIndex::from_index(metagraph_index as usize) {
             // Name and symbol
+            Some(SelectiveMetagraphIndex::Netuid) => SelectiveMetagraph {
+                netuid: netuid.into(),
+                ..Default::default()
+            },
             Some(SelectiveMetagraphIndex::Name) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 name: Some(
@@ -1166,7 +1172,7 @@ impl<T: Config> Pallet<T> {
             },
             Some(SelectiveMetagraphIndex::ValidatorPermit) => SelectiveMetagraph {
                 netuid: netuid.into(),
-                active: Some(ValidatorPermit::<T>::get(netuid)),
+                validator_permit: Some(ValidatorPermit::<T>::get(netuid)),
                 ..Default::default()
             },
 
@@ -1451,11 +1457,11 @@ fn test_selective_metagraph() {
     metagraph.merge_value(&metagraph_name, wrong_index);
     assert!(metagraph.name.is_none());
 
-    let name_index: usize = 0;
+    let name_index: usize = 1;
     metagraph.merge_value(&metagraph_name, name_index);
     assert!(metagraph.name.is_some());
 
-    let alph_low_index: usize = 49;
+    let alph_low_index: usize = 50;
     let metagraph_alpha_low = SelectiveMetagraph::<u32> {
         netuid: 0_u16.into(),
         alpha_low: Some(0_u16.into()),
