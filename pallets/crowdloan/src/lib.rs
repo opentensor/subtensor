@@ -30,7 +30,7 @@ use weights::WeightInfo;
 pub use pallet::*;
 use subtensor_macros::freeze_struct;
 
-type CrowdloanId = u32;
+pub type CrowdloanId = u32;
 
 mod benchmarking;
 mod mock;
