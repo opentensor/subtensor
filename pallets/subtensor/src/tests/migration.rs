@@ -18,6 +18,7 @@ use sp_io::hashing::twox_128;
 use sp_runtime::traits::Zero;
 use substrate_fixed::types::I96F32;
 use substrate_fixed::types::extra::U2;
+use crate::migrations::migrate_storage;
 
 #[allow(clippy::arithmetic_side_effects)]
 fn close(value: u64, target: u64, eps: u64) {
@@ -618,11 +619,23 @@ fn test_migrate_remove_total_hotkey_coldkey_stakes_this_interval() {
     });
 }
 fn test_migrate_remove_last_hotkey_coldkey_emission_on_netuid() {
-    new_test_ext(1).execute_with(|| {
         const MIGRATION_NAME: &str = "migrate_remove_last_hotkey_coldkey_emission_on_netuid";
+        let pallet_name = "SubtensorModule";
+        let storage_name = "LastHotkeyColdkeyEmissionOnNetuid";
+        let migration =  crate::migrations::migrate_orphaned_storage_items::remove_last_hotkey_coldkey_emission_on_netuid::<Test>;
 
-        let pallet_name = twox_128(b"SubtensorModule");
-        let storage_name = twox_128(b"LastHotkeyColdkeyEmissionOnNetuid");
+        test_remove_storage_item(MIGRATION_NAME, pallet_name, storage_name, migration);
+}
+
+#[allow(clippy::arithmetic_side_effects)]
+fn test_remove_storage_item<F: FnOnce() -> Weight,>( migration_name: &'static str,
+                             pallet_name: &'static str,
+                             storage_name: &'static str,
+                            migration: F,
+) {
+    new_test_ext(1).execute_with(|| {
+        let pallet_name = twox_128(pallet_name.as_bytes());
+        let storage_name = twox_128(storage_name.as_bytes());
         let prefix = [pallet_name, storage_name].concat();
 
         // Set up 200 000 entries to be deleted.
@@ -636,16 +649,16 @@ fn test_migrate_remove_last_hotkey_coldkey_emission_on_netuid() {
 
         assert!(frame_support::storage::unhashed::contains_prefixed_key(&prefix), "Entries should exist before migration.");
         assert!(
-            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            !HasMigrationRun::<Test>::get(migration_name.as_bytes().to_vec()),
             "Migration should not have run yet."
         );
 
         // Run migration
-        let weight = crate::migrations::migrate_remove_last_hotkey_coldkey_emission_on_netuid::migrate_remove_last_hotkey_coldkey_emission_on_netuid::<Test>();
+        let weight = migration();
 
         assert!(!frame_support::storage::unhashed::contains_prefixed_key(&prefix), "All entries should have been removed.");
         assert!(
-            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            HasMigrationRun::<Test>::get(migration_name.as_bytes().to_vec()),
             "Migration should be marked as run."
         );
         assert!(!weight.is_zero(),"Migration weight should be non-zero.");
