@@ -14,7 +14,6 @@ import { keccak256 } from 'ethers';
 import { addNewSubnetwork, burnedRegister, forceSetBalanceToSs58Address } from "../src/subtensor";
 
 describe("Test the UID Lookup precompile", () => {
-    // init substrate part
     const hotkey = getRandomSubstrateKeypair();
     const coldkey = getRandomSubstrateKeypair();
     const evmWallet = generateRandomEthersWallet();
@@ -22,17 +21,13 @@ describe("Test the UID Lookup precompile", () => {
 
     let api: TypedApi<typeof devnet>
 
-    // sudo account alice as signer
     let alice: PolkadotSigner;
 
     let uid: number;
     let blockNumber: number;
-
-    // init other variable
     let netuid: number;
 
     before(async () => {
-        // init variables got from await and async
         publicClient = await getPublicClient(ETH_LOCAL_URL)
         api = await getDevnetApi()
         alice = await getAliceSigner();
@@ -50,7 +45,9 @@ describe("Test the UID Lookup precompile", () => {
 
         const maybeUid = await api.query.SubtensorModule.Uids.getValue(netuid, hotkeyAddress)
 
-        assert.notEqual(maybeUid, undefined, "UID should be defined")
+        if (maybeUid === undefined) {
+            throw new Error("UID should be defined")
+        }
         uid = maybeUid
 
         // Associate EVM key
