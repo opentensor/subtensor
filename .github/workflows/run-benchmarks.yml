@@ -1,5 +1,5 @@
 # .github/workflows/benchmarks.yml
-name: Run-Benchmarks
+name: Validate-Benchmarks
 
 on:
   pull_request:
@@ -10,7 +10,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  run-benchmarks:
+  validate-benchmarks:
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-validate-benchmarks') }}
     runs-on: SubtensorCI
     steps:
       - name: Checkout PR branch
