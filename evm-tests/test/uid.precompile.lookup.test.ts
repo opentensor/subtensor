@@ -48,9 +48,10 @@ describe("Test the UID Lookup precompile", () => {
         const hotkeyAddress = convertPublicKeyToSs58(hotkey.publicKey)
         await burnedRegister(api, netuid, hotkeyAddress, coldkey)
 
-        uid = (await api.query.SubtensorModule.Uids.getValue(netuid, hotkeyAddress))!
+        const maybeUid = await api.query.SubtensorModule.Uids.getValue(netuid, hotkeyAddress)
 
-        assert.notEqual(uid, undefined, "UID should be defined")
+        assert.notEqual(maybeUid, undefined, "UID should be defined")
+        uid = maybeUid
 
         // Associate EVM key
         blockNumber = await api.query.System.Number.getValue();
