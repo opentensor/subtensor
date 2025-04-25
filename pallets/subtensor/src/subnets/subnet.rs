@@ -211,7 +211,6 @@ impl<T: Config> Pallet<T> {
         SubnetAlphaIn::<T>::insert(netuid_to_register, pool_initial_tao);
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
         SubnetOwnerHotkey::<T>::insert(netuid_to_register, hotkey.clone());
-        TotalStakeAtDynamic::<T>::insert(netuid_to_register, TotalStake::<T>::get());
 
         if actual_tao_lock_amount_less_pool_tao > 0 {
             Self::burn_tokens(actual_tao_lock_amount_less_pool_tao);
