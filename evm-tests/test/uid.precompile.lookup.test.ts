@@ -39,11 +39,7 @@ describe("Test the UID Lookup precompile", () => {
         netuid = await addNewSubnetwork(api, hotkey, coldkey)
         await startCall(api, netuid, coldkey)
 
-        // Register neuron
-        const hotkeyAddress = convertPublicKeyToSs58(hotkey.publicKey)
-        await burnedRegister(api, netuid, hotkeyAddress, coldkey)
-
-        const maybeUid = await api.query.SubtensorModule.Uids.getValue(netuid, hotkeyAddress)
+        const maybeUid = await api.query.SubtensorModule.Uids.getValue(netuid, convertPublicKeyToSs58(hotkey.publicKey))
 
         if (maybeUid === undefined) {
             throw new Error("UID should be defined")
