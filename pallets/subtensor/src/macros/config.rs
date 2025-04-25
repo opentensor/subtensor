@@ -213,5 +213,8 @@ mod config {
         /// Block number after a new subnet accept the start call extrinsic.
         #[pallet::constant]
         type DurationOfStartCall: Get<u64>;
+        /// Cost of swapping a hotkey in a subnet.
+        #[pallet::constant]
+        type KeySwapOneSubnetCost: Get<u64>;
     }
 }

@@ -33,26 +33,20 @@ impl<T: Config> Pallet<T> {
         // 1. Ensure the origin is signed and get the coldkey
         let coldkey = ensure_signed(origin)?;
 
+        // 6. Ensure the coldkey owns the old hotkey
+        ensure!(
+            Self::coldkey_owns_hotkey(&coldkey, old_hotkey),
+            Error::<T>::NonAssociatedColdKey
+        );
+
         // 2. Initialize the weight for this operation
         let mut weight = T::DbWeight::get().reads(2);
 
         // 3. Ensure the new hotkey is different from the old one
         ensure!(old_hotkey != new_hotkey, Error::<T>::NewHotKeyIsSameWithOld);
 
-        // 4. Ensure the new hotkey is not already registered on any network
-        ensure!(
-            !Self::is_hotkey_registered_on_any_network(new_hotkey),
-            Error::<T>::HotKeyAlreadyRegisteredInSubNet
-        );
-
         // 5. Update the weight for the checks above
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 0));
-
-        // 6. Ensure the coldkey owns the old hotkey
-        ensure!(
-            Self::coldkey_owns_hotkey(&coldkey, old_hotkey),
-            Error::<T>::NonAssociatedColdKey
-        );
 
         // 7. Get the current block number
         let block: u64 = Self::get_current_block_as_u64();
@@ -66,6 +60,16 @@ impl<T: Config> Pallet<T> {
         // 9. Update the weight for reading the total networks
         weight.saturating_accrue(
             T::DbWeight::get().reads((TotalNetworks::<T>::get().saturating_add(1u16)) as u64),
+        );
+
+        if let Some(netuid) = netuid {
+            return Self::swap_hotkey_on_subnet(&coldkey, old_hotkey, new_hotkey, netuid, weight);
+        };
+
+        // 4. Ensure the new hotkey is not already registered on any network
+        ensure!(
+            !Self::is_hotkey_registered_on_any_network(new_hotkey),
+            Error::<T>::HotKeyAlreadyRegisteredInSubNet
         );
 
         // 10. Get the cost for swapping the key
@@ -492,78 +496,26 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Swaps the hotkey of a coldkey account.
-    ///
-    /// # Arguments
-    ///
-    /// * `origin` - The origin of the transaction, and also the coldkey account.
-    /// * `old_hotkey` - The old hotkey to be swapped.
-    /// * `new_hotkey` - The new hotkey to replace the old one.
-    ///
-    /// # Returns
-    ///
-    /// * `DispatchResultWithPostInfo` - The result of the dispatch.
-    ///
-    /// # Errors
-    ///
-    /// * `NonAssociatedColdKey` - If the coldkey does not own the old hotkey.
-    /// * `HotKeySetTxRateLimitExceeded` - If the transaction rate limit is exceeded.
-    /// * `NewHotKeyIsSameWithOld` - If the new hotkey is the same as the old hotkey.
-    /// * `HotKeyAlreadyRegisteredInSubNet` - If the new hotkey is already registered in the subnet.
-    /// * `NotEnoughBalanceToPaySwapHotKey` - If there is not enough balance to pay for the swap.
-    pub fn do_swap_hotkey_in_subnet(
-        origin: T::RuntimeOrigin,
+    fn swap_hotkey_on_subnet(
+        coldkey: &T::AccountId,
         old_hotkey: &T::AccountId,
         new_hotkey: &T::AccountId,
-        netuid: Option<u16>,
+        netuid: u16,
+        init_weight: Weight,
     ) -> DispatchResultWithPostInfo {
-        // 1. Ensure the origin is signed and get the coldkey
-        let coldkey = ensure_signed(origin)?;
+        let mut weight = init_weight;
 
-        // 2. Initialize the weight for this operation
-        let mut weight = T::DbWeight::get().reads(2);
+        // Ensure the hotkey not registered on the network before.
 
-        // 3. Ensure the new hotkey is different from the old one
-        ensure!(old_hotkey != new_hotkey, Error::<T>::NewHotKeyIsSameWithOld);
-
-        let netuid = netuid.unwrap_or(0);
         ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::SubNetworkDoesNotExist
+            !Self::is_hotkey_registered_on_specific_network(new_hotkey, netuid),
+            Error::<T>::HotKeyAlreadyRegisteredInSubNet
         );
-
-        // 4. Ensure the new hotkey is not already registered on any network
-        ensure!(
-            IsNetworkMember::<T>::get(new_hotkey, netuid),
-            Error::<T>::HotKeyNotRegisteredInSubNet
-        );
-
-        // 5. Update the weight for the checks above
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 0));
 
-        // 6. Ensure the coldkey owns the old hotkey
-        ensure!(
-            Self::coldkey_owns_hotkey(&coldkey, old_hotkey),
-            Error::<T>::NonAssociatedColdKey
-        );
-
-        // 7. Get the current block number
-        let block: u64 = Self::get_current_block_as_u64();
-
-        // 8. Ensure the transaction rate limit is not exceeded
-        ensure!(
-            !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
-            Error::<T>::HotKeySetTxRateLimitExceeded
-        );
-
-        // 9. Update the weight for reading the total networks
-        weight.saturating_accrue(
-            T::DbWeight::get().reads((TotalNetworks::<T>::get().saturating_add(1u16)) as u64),
-        );
-
         // 10. Get the cost for swapping the key
-        let swap_cost = Self::get_key_swap_cost();
-        log::debug!("Swap cost: {:?}", swap_cost);
+        let swap_cost = T::KeySwapOneSubnetCost::get();
+        log::debug!("Swap cost in subnet {:?}: {:?}", netuid, swap_cost);
 
         // 11. Ensure the coldkey has enough balance to pay for the swap
         ensure!(
@@ -579,19 +531,18 @@ impl<T: Config> Pallet<T> {
 
         // 14. Perform the hotkey swap
         let _ = Self::perform_hotkey_swap(old_hotkey, new_hotkey, &coldkey, &mut weight);
-
+        let block: u64 = Self::get_current_block_as_u64();
         // 15. Update the last transaction block for the coldkey
         Self::set_last_tx_block(&coldkey, block);
         weight.saturating_accrue(T::DbWeight::get().writes(1));
 
         // 16. Emit an event for the hotkey swap
         Self::deposit_event(Event::HotkeySwapped {
-            coldkey,
+            coldkey: coldkey.clone(),
             old_hotkey: old_hotkey.clone(),
             new_hotkey: new_hotkey.clone(),
         });
 
-        // 17. Return the weight of the operation
         Ok(Some(weight).into())
     }
 }
