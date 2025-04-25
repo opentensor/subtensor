@@ -139,6 +139,13 @@ export async function disableWhiteListCheck(api: TypedApi<typeof devnet>, disabl
 }
 
 export async function burnedRegister(api: TypedApi<typeof devnet>, netuid: number, ss58Address: string, keypair: KeyPair) {
+    const registered = await api.query.SubtensorModule.Uids.getValue(netuid, ss58Address);
+    // just return if already registered
+    if (registered !== undefined) {
+        console.log("hotkey ", ss58Address, " already registered in netuid ", netuid)
+        return;
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 1000));
     const uids = await api.query.SubtensorModule.SubnetworkN.getValue(netuid)
     const signer = getSignerFromKeypair(keypair)
