@@ -273,7 +273,7 @@ blocks and executing the state changes they define. The Substrate project in thi
 [FRAME](https://docs.substrate.io/main-docs/fundamentals/runtime-intro/#frame) to construct a
 blockchain runtime. FRAME allows runtime developers to declare domain-specific logic in modules
 called "pallets". At the heart of FRAME is a helpful
-[macro language](https://docs.substrate.io/reference/frame-macros/) that makes it easy to
+[macro language](https://docs.polkadot.com/develop/parachains/customize-parachain/overview/#pallet-structure) that makes it easy to
 create pallets and flexibly compose them to create blockchains that can address
 [a variety of needs](https://substrate.io/ecosystem/projects/).
 
