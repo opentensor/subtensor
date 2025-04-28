@@ -47,12 +47,16 @@ describe("Test the UID Lookup precompile", () => {
         uid = maybeUid
 
         // Associate EVM key
-        blockNumber = await api.query.System.Number.getValue();
+        blockNumber = 0;
         const blockNumberBytes = u64.enc(BigInt(blockNumber));
         const blockNumberHash = hexToU8a(keccak256(blockNumberBytes));
+        console.info(blockNumberHash)
         const concatenatedArray = new Uint8Array([...hotkey.publicKey, ...blockNumberHash]);
+        console.info(concatenatedArray)
         const concatenatedHash = keccak256(concatenatedArray);
+        console.info(concatenatedHash)
         const signature = await evmWallet.signMessage(concatenatedHash);
+        console.info(signature)
         const associateEvmKeyTx = api.tx.SubtensorModule.associate_evm_key({
             netuid: netuid,
             hotkey: convertPublicKeyToSs58(hotkey.publicKey),
