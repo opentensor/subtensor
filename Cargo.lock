@@ -5628,6 +5628,7 @@ dependencies = [
  "pallet-base-fee",
  "pallet-collective",
  "pallet-commitments",
+ "pallet-crowdloan",
  "pallet-drand",
  "pallet-ethereum",
  "pallet-evm",
@@ -6110,6 +6111,24 @@ dependencies = [
  "subtensor-macros",
  "tle",
  "w3f-bls",
+]
+
+[[package]]
+name = "pallet-crowdloan"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-preimage",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409)",
+ "subtensor-macros",
 ]
 
 [[package]]
