@@ -136,6 +136,7 @@ parameter_types! {
     pub const InitialTaoWeight: u64 = u64::MAX/10; // 10% global weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
     pub const DurationOfStartCall: u64 = 7 * 24 * 60 * 60 / 12; // 7 days
+    pub const InitialKeySwapOnSubnetCost: u64 = 10_000_000;
 }
 
 impl pallet_subtensor::Config for Test {
@@ -201,6 +202,7 @@ impl pallet_subtensor::Config for Test {
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
+    type KeySwapOneSubnetCost = InitialKeySwapOnSubnetCost;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
