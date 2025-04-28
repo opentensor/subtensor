@@ -446,9 +446,9 @@ where
     #[precompile::public("setMaxBurn(uint16,uint64)")]
     #[precompile::payable]
     fn set_max_burn(
-        handle: &mut impl PrecompileHandle,
-        netuid: u16,
-        max_burn: u64,
+        _handle: &mut impl PrecompileHandle,
+        _netuid: u16,
+        _max_burn: u64,
     ) -> EvmResult<()> {
         // DEPRECATED. The subnet owner cannot set the max burn anymore.
         Ok(())
