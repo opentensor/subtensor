@@ -12,6 +12,7 @@ pub mod check_nonce;
 mod migrations;
 
 use codec::{Compact, Decode, Encode};
+use frame_support::dispatch::DispatchResult;
 use frame_support::traits::Imbalance;
 use frame_support::{
     PalletId,
@@ -496,7 +497,7 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
     }
 }
 
-use pallet_subtensor::{CollectiveInterface, MemberManagement};
+use pallet_subtensor::{CollectiveInterface, MemberManagement, ProxyInterface};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
@@ -799,6 +800,67 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 }
                 _ => false,
             },
+            ProxyType::SubnetLeaseBeneficiary => matches!(
+                c,
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::start_call { .. })
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_serving_rate_limit { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_min_difficulty { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_max_difficulty { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_weights_version_key { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_adjustment_alpha { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_max_weight_limit { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_immunity_period { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_min_allowed_weights { .. }
+                    )
+                    | RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_kappa { .. })
+                    | RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_rho { .. })
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_activity_cutoff { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_network_registration_allowed { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_network_pow_registration_allowed { .. }
+                    )
+                    | RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_max_burn { .. })
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_bonds_moving_average { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_bonds_penalty { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_commit_reveal_weights_enabled { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_liquid_alpha_enabled { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_alpha_values { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_commit_reveal_weights_interval { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_toggle_transfer { .. }
+                    )
+            ),
         }
     }
     fn is_superset(&self, o: &Self) -> bool {
@@ -830,6 +892,18 @@ impl pallet_proxy::Config for Runtime {
     type CallHasher = BlakeTwo256;
     type AnnouncementDepositBase = AnnouncementDepositBase;
     type AnnouncementDepositFactor = AnnouncementDepositFactor;
+}
+
+pub struct Proxier;
+impl ProxyInterface<AccountId> for Proxier {
+    fn add_lease_beneficiary_proxy(lease: &AccountId, beneficiary: &AccountId) -> DispatchResult {
+        pallet_proxy::Pallet::<Runtime>::add_proxy_delegate(
+            lease,
+            beneficiary.clone(),
+            ProxyType::SubnetLeaseBeneficiary,
+            0,
+        )
+    }
 }
 
 parameter_types! {
@@ -1139,6 +1213,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
+    type ProxyInterface = Proxier;
 }
 
 use sp_runtime::BoundedVec;

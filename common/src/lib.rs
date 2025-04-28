@@ -50,6 +50,7 @@ pub enum ProxyType {
     RootWeights,
     ChildKeys,
     SudoUncheckedSetCode,
+    SubnetLeaseBeneficiary, // Used to operate the leased subnet
 }
 
 impl Default for ProxyType {
