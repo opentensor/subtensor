@@ -1028,18 +1028,6 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroU64<T>,
     >;
-    #[pallet::storage]
-    /// --- NMAP ( hot, cold, netuid ) --> last_emission_on_hot_cold_net | Returns the last_emission_update_on_hot_cold_net
-    pub type LastHotkeyColdkeyEmissionOnNetuid<T: Config> = StorageNMap<
-        _,
-        (
-            NMapKey<Blake2_128Concat, T::AccountId>, // hot
-            NMapKey<Blake2_128Concat, T::AccountId>, // cold
-            NMapKey<Identity, u16>,                  // subnet
-        ),
-        u64, // Stake
-        ValueQuery,
-    >;
 
     /// ==========================
     /// ==== Staking Counters ====
@@ -1057,8 +1045,6 @@ pub mod pallet {
     pub type TotalIssuance<T> = StorageValue<_, u64, ValueQuery, DefaultTotalIssuance<T>>;
     #[pallet::storage] // --- ITEM ( total_stake )
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
-    #[pallet::storage] // --- ITEM ( dynamic_block ) -- block when dynamic was turned on.
-    pub type DynamicBlock<T> = StorageValue<_, u64, ValueQuery>;
     #[pallet::storage] // --- ITEM ( moving_alpha ) -- subnet moving alpha.
     pub type SubnetMovingAlpha<T> = StorageValue<_, I96F32, ValueQuery, DefaultMovingAlpha<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> moving_price | The subnet moving price.
@@ -1078,12 +1064,6 @@ pub mod pallet {
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> tao_in_emission | Returns the amount of tao emitted into this subent on the last block.
     pub type SubnetTaoInEmission<T: Config> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> alpha_sell_per_block | Alpha sold per block.
-    pub type SubnetAlphaEmissionSell<T: Config> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> total_stake_at_moment_of_subnet_registration
-    pub type TotalStakeAtDynamic<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the pool.
     pub type SubnetAlphaIn<T: Config> =
@@ -1150,9 +1130,6 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> token_symbol | Returns the token symbol for a subnet.
     pub type TokenSymbol<T: Config> =
         StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> subnet_name | Returns the name of the subnet.
-    pub type SubnetName<T: Config> =
-        StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
 
     /// ============================
     /// ==== Global Parameters =====
@@ -1175,10 +1152,6 @@ pub mod pallet {
     /// ITEM( network_last_registered_block )
     pub type NetworkLastRegistered<T> =
         StorageValue<_, u64, ValueQuery, DefaultNetworkLastRegistered<T>>;
-    #[pallet::storage]
-    /// ITEM( network_min_allowed_uids )
-    pub type NetworkMinAllowedUids<T> =
-        StorageValue<_, u16, ValueQuery, DefaultNetworkMinAllowedUids<T>>;
     #[pallet::storage]
     /// ITEM( min_network_lock_cost )
     pub type NetworkMinLockCost<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkMinLockCost<T>>;
@@ -1306,9 +1279,6 @@ pub mod pallet {
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Kappa
     pub type Kappa<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultKappa<T>>;
-    #[pallet::storage]
-    /// --- MAP ( netuid ) --> uid, we use to record uids to prune at next epoch.
-    pub type NeuronsToPruneAtNextEpoch<T: Config> = StorageMap<_, Identity, u16, u16, ValueQuery>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> registrations_this_interval
     pub type RegistrationsThisInterval<T: Config> = StorageMap<_, Identity, u16, u16, ValueQuery>;

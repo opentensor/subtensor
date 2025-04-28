@@ -102,6 +102,12 @@ mod hooks {
                 // Remove all entries in TotalHotkeyColdkeyStakesThisInterval
                 .saturating_add(migrations::migrate_remove_total_hotkey_coldkey_stakes_this_interval::migrate_remove_total_hotkey_coldkey_stakes_this_interval::<T>());
             weight
+                // Remove all entries in orphaned storage items
+                .saturating_add(
+                    migrations::migrate_orphaned_storage_items::migrate_orphaned_storage_items::<T>(
+                    ),
+                );
+            weight
         }
 
         #[cfg(feature = "try-runtime")]
