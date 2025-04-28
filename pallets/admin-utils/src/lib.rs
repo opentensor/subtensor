@@ -662,7 +662,7 @@ pub mod pallet {
             netuid: u16,
             max_burn: u64,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            ensure_root(origin)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -744,7 +744,7 @@ pub mod pallet {
             netuid: u16,
             bonds_moving_average: u64,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            ensure_root(origin)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
