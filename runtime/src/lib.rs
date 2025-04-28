@@ -722,7 +722,15 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 }) => *alpha_amount < SMALL_TRANSFER_LIMIT,
                 _ => false,
             },
-            ProxyType::Owner => matches!(c, RuntimeCall::AdminUtils(..)),
+            ProxyType::Owner => {
+                matches!(c, RuntimeCall::AdminUtils(..))
+                    && !matches!(
+                        c,
+                        RuntimeCall::AdminUtils(
+                            pallet_admin_utils::Call::sudo_set_sn_owner_hotkey { .. }
+                        )
+                    )
+            }
             ProxyType::NonCritical => !matches!(
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::dissolve_network { .. })

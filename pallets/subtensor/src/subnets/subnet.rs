@@ -370,6 +370,73 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Sets or updates the hotkey account associated with the owner of a specific subnet.
+    ///
+    /// This function allows either the root origin or the current subnet owner to set or update
+    /// the hotkey for a given subnet. The subnet must already exist. To prevent abuse, the call is
+    /// rate-limited to once per configured interval (default: one week) per subnet.
+    ///
+    /// # Parameters
+    /// - `origin`: The dispatch origin of the call. Must be either root or the current owner of the subnet.
+    /// - `netuid`: The unique identifier of the subnet whose owner hotkey is being set.
+    /// - `hotkey`: The new hotkey account to associate with the subnet owner.
+    ///
+    /// # Returns
+    /// - `DispatchResult`: Returns `Ok(())` if the hotkey was successfully set, or an appropriate error otherwise.
+    ///
+    /// # Errors
+    /// - `Error::SubnetNotExists`: If the specified subnet does not exist.
+    /// - `Error::TxRateLimitExceeded`: If the function is called more frequently than the allowed rate limit.
+    ///
+    /// # Access Control
+    /// Only callable by:
+    /// - Root origin, or
+    /// - The coldkey account that owns the subnet.
+    ///
+    /// # Storage
+    /// - Updates [`SubnetOwnerHotkey`] for the given `netuid`.
+    /// - Reads and updates [`LastRateLimitedBlock`] for rate-limiting.
+    /// - Reads [`DefaultSetSNOwnerHotkeyRateLimit`] to determine the interval between allowed updates.
+    ///
+    /// # Rate Limiting
+    /// This function is rate-limited to one call per subnet per interval (e.g., one week).
+    pub fn do_set_sn_owner_hotkey(
+        origin: T::RuntimeOrigin,
+        netuid: u16,
+        hotkey: &T::AccountId,
+    ) -> DispatchResult {
+        // Ensure the caller is either root or subnet owner.
+        Self::ensure_subnet_owner_or_root(origin, netuid)?;
+
+        // Ensure that the subnet exists.
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+
+        // Rate limit: 1 call per week
+        ensure!(
+            Self::passes_rate_limit_on_subnet(
+                &TransactionType::SetSNOwnerHotkey,
+                hotkey, // ignored
+                netuid, // Specific to a subnet.
+            ),
+            Error::<T>::TxRateLimitExceeded
+        );
+
+        // Set last transaction block
+        let current_block = Self::get_current_block_as_u64();
+        Self::set_last_transaction_block_on_subnet(
+            hotkey,
+            netuid,
+            &TransactionType::SetSNOwnerHotkey,
+            current_block,
+        );
+
+        // Insert/update the hotkey
+        SubnetOwnerHotkey::<T>::insert(netuid, hotkey);
+
+        // Return success.
+        Ok(())
+    }
+
     pub fn is_valid_subnet_for_emission(netuid: u16) -> bool {
         FirstEmissionBlockNumber::<T>::get(netuid).is_some()
     }
