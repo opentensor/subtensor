@@ -29,8 +29,10 @@ pub fn migrate_reset_bonds_moving_average<T: Config>() -> Weight {
 
     let mut reset_entries_count = 0u64;
 
-    for (netuid, average) in BondsMovingAverage::<T>::mut_iter() {
-        *average = 975000;
+    for netuid in BondsMovingAverage::<T>::iter_keys() {
+        BondsMovingAverage::<T>::mutate(netuid, |average| {
+            *average = 975000;
+        });
         reset_entries_count = reset_entries_count.saturating_add(1);
     }
 

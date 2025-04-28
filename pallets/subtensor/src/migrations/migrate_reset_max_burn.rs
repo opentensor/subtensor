@@ -29,8 +29,10 @@ pub fn migrate_reset_max_burn<T: Config>() -> Weight {
 
     let mut reset_entries_count = 0u64;
 
-    for (netuid, max) in MaxBurn::<T>::mut_iter() {
-        *max = 100_000_000_000;
+    for netuid in MaxBurn::<T>::iter_keys() {
+        MaxBurn::<T>::mutate(netuid, |max| {
+            *max = 100_000_000_000;
+        });
         reset_entries_count = reset_entries_count.saturating_add(1);
     }
 
