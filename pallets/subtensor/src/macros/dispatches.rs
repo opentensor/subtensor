@@ -10,7 +10,7 @@ mod dispatches {
     use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
     use frame_system::pallet_prelude::BlockNumberFor;
     use sp_core::ecdsa::Signature;
-    use sp_runtime::traits::Saturating;
+    use sp_runtime::{Percent, traits::Saturating};
 
     use crate::MAX_CRV3_COMMIT_SIZE_BYTES;
     /// Dispatchable functions allow users to interact with the pallet and invoke state changes.
@@ -1352,7 +1352,7 @@ mod dispatches {
                 swap_cost,
             };
 
-            let bound_call = T::Preimages::bound(LocalCallOf::<T>::from(call.clone()))
+            let bound_call = <T as Config>::Preimages::bound(LocalCallOf::<T>::from(call.clone()))
                 .map_err(|_| Error::<T>::FailedToSchedule)?;
 
             T::Scheduler::schedule(
@@ -2318,6 +2318,24 @@ mod dispatches {
             hotkey: T::AccountId,
         ) -> DispatchResult {
             Self::do_unstake_all_alpha_aggregate(origin, hotkey)
+        }
+
+        /// Some documentation
+        #[pallet::call_index(109)]
+        #[pallet::weight(T::DbWeight::get().writes(1))]
+        pub fn register_leased_network(
+            origin: T::RuntimeOrigin,
+            emissions_share: Percent,
+            end_block: Option<BlockNumberFor<T>>,
+        ) -> DispatchResult {
+            Self::do_register_leased_network(origin, emissions_share, end_block)
+        }
+
+        /// Some documentation
+        #[pallet::call_index(110)]
+        #[pallet::weight(T::DbWeight::get().writes(1))]
+        pub fn terminate_lease(origin: T::RuntimeOrigin, lease_id: LeaseId) -> DispatchResult {
+            Self::do_terminate_lease(origin, lease_id)
         }
     }
 }
