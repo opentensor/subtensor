@@ -11,7 +11,7 @@ import { PolkadotSigner, TypedApi } from "polkadot-api";
 import { toViemAddress, convertPublicKeyToSs58 } from "../src/address-utils"
 import { IUIDLookupABI, IUID_LOOKUP_ADDRESS } from "../src/contracts/uidLookup"
 import { keccak256 } from 'ethers';
-import { addNewSubnetwork, burnedRegister, forceSetBalanceToSs58Address, startCall } from "../src/subtensor";
+import { addNewSubnetwork, forceSetBalanceToSs58Address, startCall } from "../src/subtensor";
 
 describe("Test the UID Lookup precompile", () => {
     const hotkey = getRandomSubstrateKeypair();
