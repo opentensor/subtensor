@@ -52,6 +52,7 @@ describe("Test the UID Lookup precompile", () => {
         const blockNumberHash = hexToU8a(keccak256(blockNumberBytes));
         console.info(blockNumberHash)
         const concatenatedArray = new Uint8Array([...hotkey.publicKey, ...blockNumberHash]);
+        console.info(hotkey.publicKey)
         console.info(concatenatedArray)
         const concatenatedHash = keccak256(concatenatedArray);
         console.info(concatenatedHash)
