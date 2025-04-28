@@ -810,7 +810,7 @@ impl<T: Config> Pallet<T> {
     ///
     ///  * 'weights' ( Vec<Vec<(Compact<u16>, Compact<u16>)>> ):
     ///    - Tuples of (uid, value) of the weights to be set on the chain,
-    ///         one Vec for each netuid in the batch.
+    ///      one Vec for each netuid in the batch.
     ///
     ///  * 'version_keys' ( Vec<Compact<u64>> ):
     ///    - The network version key, one u64 for each netuid in the batch.
