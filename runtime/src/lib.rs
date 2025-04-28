@@ -1073,6 +1073,7 @@ parameter_types! {
     } else {
         7 * 24 * 60 * 60 / 12 // 7 days
     };
+    pub const SubtensorInitialKeySwapOnSubnetCost: u64 = 1_000_000; // 0.001 TAO
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1138,6 +1139,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
+    type KeySwapOneSubnetCost = SubtensorInitialKeySwapOnSubnetCost;
 }
 
 use sp_runtime::BoundedVec;

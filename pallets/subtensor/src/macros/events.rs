@@ -347,5 +347,17 @@ mod events {
         /// - **netuid**: The network identifier.
         /// - **Enabled**: Is Commit-Reveal enabled.
         CommitRevealEnabled(u16, bool),
+
+        /// the hotkey is swapped
+        HotkeySwappedOnSubnet {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of old hotkey
+            old_hotkey: T::AccountId,
+            /// the account ID of new hotkey
+            new_hotkey: T::AccountId,
+            /// the subnet ID
+            netuid: u16,
+        },
     }
 }
