@@ -1270,7 +1270,7 @@ benchmark_swap_hotkey {
   Owner::<T>::insert(&old, &coldkey);
   let cost = Subtensor::<T>::get_key_swap_cost();
   Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, cost);
-}: swap_hotkey(RawOrigin::Signed(coldkey.clone()), old.clone(), new.clone())
+}: swap_hotkey(RawOrigin::Signed(coldkey.clone()), old.clone(), new.clone(), None)
 
 benchmark_try_associate_hotkey {
   let coldkey: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
