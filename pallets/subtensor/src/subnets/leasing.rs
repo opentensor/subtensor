@@ -2,7 +2,7 @@ use super::*;
 use frame_support::{
     dispatch::RawOrigin,
     pallet_prelude::*,
-    traits::{fungible::*, tokens::Preservation},
+    traits::{Defensive, fungible::*, tokens::Preservation},
 };
 use frame_system::pallet_prelude::*;
 use sp_core::blake2_256;
@@ -30,13 +30,17 @@ impl<T: Config> Pallet<T> {
         emissions_share: Percent,
         end_block: Option<BlockNumberFor<T>>,
     ) -> DispatchResult {
-        let beneficiary = ensure_signed(origin)?;
+        let who = ensure_signed(origin)?;
         let (crowdloan_id, crowdloan) = Self::get_crowdloan_being_finalized()?;
 
-        // Initialize the lease id, coldkey and hotkey
+        ensure!(who == crowdloan.creator, Error::<T>::InvalidBeneficiary);
+
+        // Initialize the lease id, coldkey and hotkey and keep track of them
         let lease_id = Self::get_next_lease_id()?;
         let lease_coldkey = Self::lease_coldkey(lease_id);
         let lease_hotkey = Self::lease_hotkey(lease_id);
+        frame_system::Pallet::<T>::inc_providers(&lease_coldkey);
+        frame_system::Pallet::<T>::inc_providers(&lease_hotkey);
 
         // Transfer money from crowdloan account to leased network coldkey
         <T as Config>::Currency::transfer(
@@ -61,7 +65,7 @@ impl<T: Config> Pallet<T> {
         SubnetLeases::<T>::insert(
             lease_id,
             SubnetLease {
-                beneficiary: beneficiary.clone(),
+                beneficiary: who.clone(),
                 coldkey: lease_coldkey.clone(),
                 hotkey: lease_hotkey.clone(),
                 emissions_share,
@@ -72,19 +76,66 @@ impl<T: Config> Pallet<T> {
         SubnetUidToLeaseId::<T>::insert(netuid, lease_id);
 
         // Enable the beneficiary to operate the subnet through a proxy
-        T::ProxyInterface::add_lease_beneficiary_proxy(&lease_coldkey, &beneficiary)?;
+        T::ProxyInterface::add_lease_beneficiary_proxy(&lease_coldkey, &who)?;
 
         // Compute the share to the lease of each contributor to the crowdloan except for
         // the beneficiary which will be computed as the dividends are distributed
         let contributions = pallet_crowdloan::Contributions::<T>::iter_prefix(crowdloan_id)
             .into_iter()
-            .filter(|(contributor, _)| contributor != &beneficiary);
-
+            .filter(|(contributor, _)| contributor != &who);
         for (contributor, amount) in contributions {
             let share: U64F64 = U64F64::from(amount).saturating_div(U64F64::from(crowdloan.raised));
             SubnetLeaseShares::<T>::insert(lease_id, contributor, share);
         }
 
+        Self::deposit_event(Event::SubnetLeaseCreated {
+            beneficiary: who,
+            lease_id,
+            netuid,
+            end_block,
+        });
+
+        Ok(())
+    }
+
+    pub fn do_terminate_lease(origin: T::RuntimeOrigin, lease_id: LeaseId) -> DispatchResult {
+        let who = ensure_signed(origin)?;
+        let now = frame_system::Pallet::<T>::block_number();
+
+        // Ensure the lease exists and the beneficiary is the caller
+        let lease = SubnetLeases::<T>::get(lease_id).ok_or(Error::<T>::LeaseDoesNotExist)?;
+        ensure!(lease.beneficiary == who, Error::<T>::InvalidBeneficiary);
+
+        // Ensure the lease has an end block and we are past it
+        let end_block = lease.end_block.ok_or(Error::<T>::LeaseHasNoEndBlock)?;
+        ensure!(end_block >= now, Error::<T>::LeaseHasNotEnded);
+
+        // Transfer ownership to the beneficiary
+        Self::set_subnet_owner_hotkey(lease.netuid, &lease.beneficiary);
+
+        // Stop tracking the lease coldkey and hotkey
+        let _ = frame_system::Pallet::<T>::dec_providers(&lease.coldkey).defensive();
+        let _ = frame_system::Pallet::<T>::dec_providers(&lease.hotkey).defensive();
+
+        // Remove the lease, its contributors and accumulated dividends from storage
+        let _ = SubnetLeaseShares::<T>::clear_prefix(
+            lease_id,
+            T::MaxContributorsPerLeaseToRemove::get(),
+            None,
+        );
+        AccumulatedLeaseDividends::<T>::remove(lease_id);
+        SubnetLeases::<T>::remove(lease_id);
+
+        // Remove the beneficiary proxy
+        T::ProxyInterface::remove_lease_beneficiary_proxy(&lease.coldkey, &lease.beneficiary)?;
+
+        Self::deposit_event(Event::SubnetLeaseTerminated {
+            beneficiary: lease.beneficiary,
+            netuid: lease.netuid,
+        });
+
+        // TODO: Refund the weights for the difference between max contributors to refund and the real
+        // number of contributors that were refunded
         Ok(())
     }
 
@@ -100,6 +151,12 @@ impl<T: Config> Pallet<T> {
                 return;
             }
         };
+
+        // Ensure the lease has not ended
+        let now = frame_system::Pallet::<T>::block_number();
+        if lease.end_block.is_some_and(|end_block| end_block <= now) {
+            return;
+        }
 
         // Get the actual amount of alpha to distribute from the owner's cut,
         // we voluntarily round up to favor the contributors

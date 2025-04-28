@@ -209,6 +209,14 @@ mod errors {
         InvalidRecoveredPublicKey,
         /// SubToken disabled now
         SubtokenDisabled,
+        /// Invalid beneficiary to register the leased network
+        InvalidBeneficiary,
+        /// Lease does not exist
+        LeaseDoesNotExist,
+        /// Lease has no end block
+        LeaseHasNoEndBlock,
+        /// Lease has not ended
+        LeaseHasNotEnded,
         /// An overflow occurred.
         Overflow,
     }

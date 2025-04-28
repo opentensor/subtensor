@@ -347,5 +347,25 @@ mod events {
         /// - **netuid**: The network identifier.
         /// - **Enabled**: Is Commit-Reveal enabled.
         CommitRevealEnabled(u16, bool),
+
+        /// A subnet lease has been created.
+        SubnetLeaseCreated {
+            /// The beneficiary of the lease.
+            beneficiary: T::AccountId,
+            /// The lease ID
+            lease_id: LeaseId,
+            /// The subnet ID
+            netuid: u16,
+            /// The end block of the lease
+            end_block: Option<BlockNumberFor<T>>,
+        },
+
+        /// A subnet lease has been terminated.
+        SubnetLeaseTerminated {
+            /// The beneficiary of the lease.
+            beneficiary: T::AccountId,
+            /// The subnet ID
+            netuid: u16,
+        },
     }
 }
