@@ -3,6 +3,11 @@ name: Validate-Benchmarks
 
 on:
   pull_request:
+    types:
+      - labeled
+      - unlabeled
+      - synchronize
+      - opened
   workflow_dispatch:
 
 concurrency:
