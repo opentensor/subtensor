@@ -64,8 +64,8 @@ describe("Test the UID Lookup precompile", () => {
             .then(() => { })
             .catch((error) => { console.log(`transaction error ${error}`) });
 
-        // const storedEvmKey = await api.query.SubtensorModule.AssociatedEvmAddress.getValue(netuid, uid)
-        // assert.equal(storedEvmKey, [convertToFixedSizeBinary(evmWallet.address, 20), BigInt(blockNumber)])
+        const storedEvmKey = await api.query.SubtensorModule.AssociatedEvmAddress.getValue(netuid, uid)
+        assert.equal(storedEvmKey, [convertToFixedSizeBinary(evmWallet.address, 20), BigInt(blockNumber)])
     })
 
     it("UID lookup via precompile contract works correctly", async () => {
