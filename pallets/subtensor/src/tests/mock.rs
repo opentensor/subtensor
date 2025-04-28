@@ -186,6 +186,8 @@ parameter_types! {
     pub const InitialTaoWeight: u64 = 0; // 100% global weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
     pub const DurationOfStartCall: u64 =  7 * 24 * 60 * 60 / 12; // Default as 7 days
+    pub const InitialKeySwapOnSubnetCost: u64 = 10_000_000;
+
 }
 
 // Configure collective pallet for council
@@ -410,6 +412,7 @@ impl crate::Config for Test {
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
+    type KeySwapOneSubnetCost = InitialKeySwapOnSubnetCost;
 }
 
 pub struct OriginPrivilegeCmp;

@@ -742,7 +742,8 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
         assert_ok!(SubtensorModule::do_swap_hotkey(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             &old_hotkey,
-            &new_hotkey_1
+            &new_hotkey_1,
+            None
         ));
 
         // Attempt to perform another swap immediately, which should fail due to rate limit
@@ -750,7 +751,8 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
             SubtensorModule::do_swap_hotkey(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey),
                 &new_hotkey_1,
-                &new_hotkey_2
+                &new_hotkey_2,
+                None
             ),
             Error::<Test>::HotKeySetTxRateLimitExceeded
         );
@@ -760,7 +762,8 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
         assert_ok!(SubtensorModule::do_swap_hotkey(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             &new_hotkey_1,
-            &new_hotkey_2
+            &new_hotkey_2,
+            None
         ));
     });
 }
@@ -787,7 +790,8 @@ fn test_do_swap_hotkey_err_not_owner() {
             SubtensorModule::do_swap_hotkey(
                 <<Test as Config>::RuntimeOrigin>::signed(not_owner_coldkey),
                 &old_hotkey,
-                &new_hotkey
+                &new_hotkey,
+                None
             ),
             Error::<Test>::NonAssociatedColdKey
         );
@@ -1049,7 +1053,8 @@ fn test_swap_hotkey_error_cases() {
             SubtensorModule::do_swap_hotkey(
                 RuntimeOrigin::signed(coldkey),
                 &old_hotkey,
-                &new_hotkey
+                &new_hotkey,
+                None
             ),
             Error::<Test>::NotEnoughBalanceToPaySwapHotKey
         );
@@ -1062,7 +1067,8 @@ fn test_swap_hotkey_error_cases() {
             SubtensorModule::do_swap_hotkey(
                 RuntimeOrigin::signed(coldkey),
                 &old_hotkey,
-                &old_hotkey
+                &old_hotkey,
+                None
             ),
             Error::<Test>::NewHotKeyIsSameWithOld
         );
@@ -1073,7 +1079,8 @@ fn test_swap_hotkey_error_cases() {
             SubtensorModule::do_swap_hotkey(
                 RuntimeOrigin::signed(coldkey),
                 &old_hotkey,
-                &new_hotkey
+                &new_hotkey,
+                None
             ),
             Error::<Test>::HotKeyAlreadyRegisteredInSubNet
         );
@@ -1084,7 +1091,8 @@ fn test_swap_hotkey_error_cases() {
             SubtensorModule::do_swap_hotkey(
                 RuntimeOrigin::signed(wrong_coldkey),
                 &old_hotkey,
-                &new_hotkey
+                &new_hotkey,
+                None
             ),
             Error::<Test>::NonAssociatedColdKey
         );
@@ -1093,7 +1101,8 @@ fn test_swap_hotkey_error_cases() {
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
-            &new_hotkey
+            &new_hotkey,
+            None
         ));
 
         // Check balance after swap
