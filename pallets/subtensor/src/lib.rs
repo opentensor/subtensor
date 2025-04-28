@@ -2659,4 +2659,16 @@ impl<T, H, P> CollectiveInterface<T, H, P> for () {
 
 pub trait ProxyInterface<AccountId> {
     fn add_lease_beneficiary_proxy(beneficiary: &AccountId, lease: &AccountId) -> DispatchResult;
+    fn remove_lease_beneficiary_proxy(beneficiary: &AccountId, lease: &AccountId)
+    -> DispatchResult;
+}
+
+impl<T> ProxyInterface<T> for () {
+    fn add_lease_beneficiary_proxy(_: &T, _: &T) -> DispatchResult {
+        Ok(())
+    }
+
+    fn remove_lease_beneficiary_proxy(_: &T, _: &T) -> DispatchResult {
+        Ok(())
+    }
 }

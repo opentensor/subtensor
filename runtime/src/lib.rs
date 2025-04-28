@@ -904,6 +904,18 @@ impl ProxyInterface<AccountId> for Proxier {
             0,
         )
     }
+
+    fn remove_lease_beneficiary_proxy(
+        lease: &AccountId,
+        beneficiary: &AccountId,
+    ) -> DispatchResult {
+        pallet_proxy::Pallet::<Runtime>::remove_proxy_delegate(
+            lease,
+            beneficiary.clone(),
+            ProxyType::SubnetLeaseBeneficiary,
+            0,
+        )
+    }
 }
 
 parameter_types! {
@@ -1148,6 +1160,7 @@ parameter_types! {
     } else {
         7 * 24 * 60 * 60 / 12 // 7 days
     };
+    pub const MaxContributorsPerLeaseToRemove: u32 = 500;
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1214,6 +1227,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
     type ProxyInterface = Proxier;
+    type MaxContributorsPerLeaseToRemove = MaxContributorsPerLeaseToRemove;
 }
 
 use sp_runtime::BoundedVec;
