@@ -94,6 +94,8 @@ pub mod pallet {
         MaxValidatorsLargerThanMaxUIds,
         /// The maximum number of subnet validators must be more than the current number of UIDs already in the subnet.
         MaxAllowedUIdsLessThanCurrentUIds,
+        /// The maximum value for bonds moving average is reached
+        BondsMovingAverageMaxReached,
     }
     /// Enum for specifying the type of precompile operation.
     #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, Copy)]
@@ -744,7 +746,14 @@ pub mod pallet {
             netuid: u16,
             bonds_moving_average: u64,
         ) -> DispatchResult {
-            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+
+            if pallet_subtensor::Pallet::<T>::ensure_subnet_owner(origin, netuid).is_ok() {
+                ensure!(
+                    bonds_moving_average <= 975000,
+                    Error::<T>::BondsMovingAverageMaxReached
+                )
+            }
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),

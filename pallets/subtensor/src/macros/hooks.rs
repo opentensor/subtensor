@@ -106,7 +106,9 @@ mod hooks {
                 .saturating_add(
                     migrations::migrate_orphaned_storage_items::migrate_orphaned_storage_items::<T>(
                     ),
-                );
+                )
+                // Reset bonds moving average
+                .saturating_add(migrations::migrate_reset_bonds_moving_average::<T>());
             weight
         }
 
