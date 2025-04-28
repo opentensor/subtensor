@@ -39,44 +39,46 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NonAssociatedColdKey
         );
 
-        // 2. Initialize the weight for this operation
+        // 3. Initialize the weight for this operation
         let mut weight = T::DbWeight::get().reads(2);
 
-        // 3. Ensure the new hotkey is different from the old one
+        // 4. Ensure the new hotkey is different from the old one
         ensure!(old_hotkey != new_hotkey, Error::<T>::NewHotKeyIsSameWithOld);
 
         // 5. Update the weight for the checks above
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 0));
 
-        // 7. Get the current block number
+        // 6. Get the current block number
         let block: u64 = Self::get_current_block_as_u64();
 
-        // 8. Ensure the transaction rate limit is not exceeded
+        // 7. Ensure the transaction rate limit is not exceeded
         ensure!(
             !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
             Error::<T>::HotKeySetTxRateLimitExceeded
         );
 
-        // fork for swap hotkey on a specific subnet case after do the common check
+        // 8. fork for swap hotkey on a specific subnet case after do the common check
         if let Some(netuid) = netuid {
             return Self::swap_hotkey_on_subnet(&coldkey, old_hotkey, new_hotkey, netuid, weight);
         };
 
-        // 5. Swap LastTxBlock
+        // following update just for swap hotkey in all subnets case
+
+        // 9. Swap LastTxBlock
         // LastTxBlock( hotkey ) --> u64 -- the last transaction block for the hotkey.
         let last_tx_block: u64 = LastTxBlock::<T>::get(old_hotkey);
         LastTxBlock::<T>::remove(old_hotkey);
         LastTxBlock::<T>::insert(new_hotkey, last_tx_block);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
-        // 6. Swap LastTxBlockDelegateTake
+        // 10. Swap LastTxBlockDelegateTake
         // LastTxBlockDelegateTake( hotkey ) --> u64 -- the last transaction block for the hotkey delegate take.
         let last_tx_block_delegate_take: u64 = LastTxBlockDelegateTake::<T>::get(old_hotkey);
         LastTxBlockDelegateTake::<T>::remove(old_hotkey);
         LastTxBlockDelegateTake::<T>::insert(new_hotkey, last_tx_block_delegate_take);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
-        // 7. Swap LastTxBlockChildKeyTake
+        // 11. Swap LastTxBlockChildKeyTake
         // LastTxBlockChildKeyTake( hotkey ) --> u64 -- the last transaction block for the hotkey child key take.
         let last_tx_block_child_key_take: u64 = LastTxBlockChildKeyTake::<T>::get(old_hotkey);
         LastTxBlockChildKeyTake::<T>::remove(old_hotkey);
