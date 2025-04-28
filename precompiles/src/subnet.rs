@@ -450,12 +450,8 @@ where
         netuid: u16,
         max_burn: u64,
     ) -> EvmResult<()> {
-        let call = pallet_admin_utils::Call::<R>::sudo_set_max_burn { netuid, max_burn };
-
-        handle.try_dispatch_runtime_call::<R, _>(
-            call,
-            RawOrigin::Signed(handle.caller_account_id::<R>()),
-        )
+        // DEPRECATED. The subnet owner cannot set the max burn anymore.
+        Ok(())
     }
 
     #[precompile::public("getDifficulty(uint16)")]
