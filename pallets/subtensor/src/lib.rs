@@ -67,6 +67,8 @@ pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 #[frame_support::pallet]
 pub mod pallet {
     use crate::migrations;
+    use crate::subnets::leasing::{LeaseId, SubnetLeaseOf};
+    use frame_support::Twox64Concat;
     use frame_support::{
         BoundedVec,
         dispatch::GetDispatchInfo,
@@ -77,7 +79,7 @@ pub mod pallet {
     };
     use frame_system::pallet_prelude::*;
     use pallet_drand::types::RoundNumber;
-    use sp_core::{ConstU32, H160, H256};
+    use sp_core::{ConstU32, ConstU64, H160, H256};
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::collections::vec_deque::VecDeque;
     use sp_std::vec;
@@ -1661,6 +1663,32 @@ pub mod pallet {
     pub type AssociatedEvmAddress<T: Config> =
         StorageDoubleMap<_, Twox64Concat, u16, Twox64Concat, u16, (H160, u64), OptionQuery>;
 
+    /// ========================
+    /// ==== Subnet Leasing ====
+    /// ========================
+    #[pallet::storage]
+    /// --- MAP ( lease_id ) --> subnet lease | The subnet lease for a given lease id.
+    pub type SubnetLeases<T: Config> =
+        StorageMap<_, Twox64Concat, LeaseId, SubnetLeaseOf<T>, OptionQuery>;
+
+    #[pallet::storage]
+    /// --- DMAP ( lease_id, contributor ) --> shares | The shares of a contributor for a given lease.
+    pub type SubnetLeaseShares<T: Config> =
+        StorageDoubleMap<_, Twox64Concat, LeaseId, Identity, T::AccountId, U64F64, ValueQuery>;
+
+    #[pallet::storage]
+    // --- MAP ( netuid ) --> lease_id | The lease id for a given netuid.
+    pub type SubnetUidToLeaseId<T: Config> = StorageMap<_, Twox64Concat, u16, LeaseId, OptionQuery>;
+
+    #[pallet::storage]
+    /// --- ITEM ( next_lease_id ) | The next lease id.
+    pub type NextSubnetLeaseId<T: Config> = StorageValue<_, LeaseId, ValueQuery, ConstU32<0>>;
+
+    #[pallet::storage]
+    /// --- MAP ( lease_id ) --> accumulated_dividends | The accumulated dividends for a given lease that needs to be distributed.
+    pub type AccumulatedLeaseDividends<T: Config> =
+        StorageMap<_, Twox64Concat, LeaseId, u64, ValueQuery, ConstU64<0>>;
+
     /// ==================
     /// ==== Genesis =====
     /// ==================
@@ -2627,4 +2655,8 @@ impl<T, H, P> CollectiveInterface<T, H, P> for () {
     fn add_vote(_: &T, _: H, _: P, _: bool) -> Result<bool, DispatchError> {
         Ok(true)
     }
+}
+
+pub trait ProxyInterface<AccountId> {
+    fn add_lease_beneficiary_proxy(beneficiary: &AccountId, lease: &AccountId) -> DispatchResult;
 }
