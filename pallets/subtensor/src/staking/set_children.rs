@@ -363,8 +363,7 @@ impl<T: Config> Pallet<T> {
     /// If no specific take value has been set, it returns the default childkey take.
     ///
     /// # Arguments:
-    /// * `hotkey` (&T::AccountId):
-    ///     - The hotkey for which to retrieve the childkey take.
+    /// * `hotkey` (&T::AccountId): The hotkey for which to retrieve the childkey take.
     ///
     /// # Returns:
     /// * `u16`
