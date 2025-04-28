@@ -209,5 +209,7 @@ mod errors {
         InvalidRecoveredPublicKey,
         /// SubToken disabled now
         SubtokenDisabled,
+        /// An overflow occurred.
+        Overflow,
     }
 }
