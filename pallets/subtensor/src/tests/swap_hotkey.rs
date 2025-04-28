@@ -22,7 +22,7 @@ fn test_swap_owner() {
         let mut weight = Weight::zero();
 
         Owner::<Test>::insert(old_hotkey, coldkey);
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
             &old_hotkey,
             &new_hotkey,
             &coldkey,
@@ -44,7 +44,7 @@ fn test_swap_owned_hotkeys() {
         let mut weight = Weight::zero();
 
         OwnedHotkeys::<Test>::insert(coldkey, vec![old_hotkey]);
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
             &old_hotkey,
             &new_hotkey,
             &coldkey,
@@ -95,7 +95,7 @@ fn test_swap_total_hotkey_stake() {
         );
 
         // Swap hotkey
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
             &old_hotkey,
             &new_hotkey,
             &coldkey,
@@ -127,7 +127,7 @@ fn test_swap_senate_members() {
 
         // Assuming there's a way to add a member to the senate
         // SenateMembers::add_member(&old_hotkey);
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
             &old_hotkey,
             &new_hotkey,
             &coldkey,
@@ -150,7 +150,7 @@ fn test_swap_delegates() {
         let mut weight = Weight::zero();
 
         Delegates::<Test>::insert(old_hotkey, 100);
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
             &old_hotkey,
             &new_hotkey,
             &coldkey,
@@ -174,7 +174,7 @@ fn test_swap_subnet_membership() {
 
         add_network(netuid, 1, 1);
         IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
             &old_hotkey,
             &new_hotkey,
             &coldkey,
@@ -202,7 +202,7 @@ fn test_swap_uids_and_keys() {
         Uids::<Test>::insert(netuid, old_hotkey, uid);
         Keys::<Test>::insert(netuid, uid, old_hotkey);
 
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
             &old_hotkey,
             &new_hotkey,
             &coldkey,
@@ -230,7 +230,7 @@ fn test_swap_prometheus() {
         IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
         Prometheus::<Test>::insert(netuid, old_hotkey, prometheus_info.clone());
 
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
             &old_hotkey,
             &new_hotkey,
             &coldkey,
@@ -260,7 +260,7 @@ fn test_swap_axons() {
         IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
         Axons::<Test>::insert(netuid, old_hotkey, axon_info.clone());
 
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
             &old_hotkey,
             &new_hotkey,
             &coldkey,
@@ -287,7 +287,7 @@ fn test_swap_certificates() {
         IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
         NeuronCertificates::<Test>::insert(netuid, old_hotkey, certificate.clone());
 
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
             &old_hotkey,
             &new_hotkey,
             &coldkey,
@@ -320,7 +320,7 @@ fn test_swap_weight_commits() {
         IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
         WeightCommits::<Test>::insert(netuid, old_hotkey, weight_commits.clone());
 
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
             &old_hotkey,
             &new_hotkey,
             &coldkey,
@@ -354,7 +354,7 @@ fn test_swap_loaded_emission() {
             vec![(old_hotkey, server_emission, validator_emission)],
         );
 
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
             &old_hotkey,
             &new_hotkey,
             &coldkey,
@@ -382,7 +382,7 @@ fn test_swap_staking_hotkeys() {
         StakingHotkeys::<Test>::insert(coldkey, vec![old_hotkey]);
         Alpha::<Test>::insert((old_hotkey, coldkey, netuid), U64F64::from_num(100));
 
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
             &old_hotkey,
             &new_hotkey,
             &coldkey,
@@ -437,7 +437,7 @@ fn test_swap_hotkey_with_multiple_coldkeys() {
         let stake1_before = SubtensorModule::get_total_stake_for_coldkey(&coldkey1);
         let stake2_before = SubtensorModule::get_total_stake_for_coldkey(&coldkey2);
 
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
             &old_hotkey,
             &new_hotkey,
             &coldkey1,
@@ -473,7 +473,7 @@ fn test_swap_hotkey_with_multiple_subnets() {
         IsNetworkMember::<Test>::insert(old_hotkey, netuid1, true);
         IsNetworkMember::<Test>::insert(old_hotkey, netuid2, true);
 
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
             &old_hotkey,
             &new_hotkey,
             &coldkey,
@@ -529,7 +529,7 @@ fn test_swap_staking_hotkeys_multiple_coldkeys() {
             stake
         ));
 
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
             &old_hotkey,
             &new_hotkey,
             &coldkey1,
@@ -564,7 +564,7 @@ fn test_swap_hotkey_with_no_stake() {
         // Set up initial state with no stake
         Owner::<Test>::insert(old_hotkey, coldkey);
 
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
             &old_hotkey,
             &new_hotkey,
             &coldkey,
@@ -635,7 +635,7 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
         let total_hk_stake = SubtensorModule::get_total_stake_for_hotkey(&old_hotkey);
         assert!(total_hk_stake > 0);
 
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
             &old_hotkey,
             &new_hotkey,
             &coldkey1,
@@ -807,7 +807,12 @@ fn test_swap_owner_success() {
         Owner::<Test>::insert(old_hotkey, coldkey);
 
         // Perform the swap
-        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
+        SubtensorModule::perform_hotkey_swap_on_all_subnets(
+            &old_hotkey,
+            &new_hotkey,
+            &coldkey,
+            &mut weight,
+        );
 
         // Verify the swap
         assert_eq!(Owner::<Test>::get(new_hotkey), coldkey);
@@ -828,7 +833,12 @@ fn test_swap_owner_old_hotkey_not_exist() {
         assert!(!Owner::<Test>::contains_key(old_hotkey));
 
         // Perform the swap
-        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
+        SubtensorModule::perform_hotkey_swap_on_all_subnets(
+            &old_hotkey,
+            &new_hotkey,
+            &coldkey,
+            &mut weight,
+        );
 
         // Verify the swap
         assert_eq!(Owner::<Test>::get(new_hotkey), coldkey);
@@ -851,7 +861,12 @@ fn test_swap_owner_new_hotkey_already_exists() {
         Owner::<Test>::insert(new_hotkey, another_coldkey);
 
         // Perform the swap
-        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
+        SubtensorModule::perform_hotkey_swap_on_all_subnets(
+            &old_hotkey,
+            &new_hotkey,
+            &coldkey,
+            &mut weight,
+        );
 
         // Verify the swap
         assert_eq!(Owner::<Test>::get(new_hotkey), coldkey);
@@ -873,7 +888,12 @@ fn test_swap_delegates_success() {
         Delegates::<Test>::insert(old_hotkey, delegate_take);
 
         // Perform the swap
-        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
+        SubtensorModule::perform_hotkey_swap_on_all_subnets(
+            &old_hotkey,
+            &new_hotkey,
+            &coldkey,
+            &mut weight,
+        );
 
         // Verify the swap
         assert_eq!(Delegates::<Test>::get(new_hotkey), delegate_take);
@@ -904,7 +924,12 @@ fn test_swap_stake_success() {
         TaoDividendsPerSubnet::<Test>::insert(netuid, old_hotkey, amount);
 
         // Perform the swap
-        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
+        SubtensorModule::perform_hotkey_swap_on_all_subnets(
+            &old_hotkey,
+            &new_hotkey,
+            &coldkey,
+            &mut weight,
+        );
 
         // Verify the swap
         assert_eq!(TotalHotkeyAlpha::<Test>::get(old_hotkey, netuid), 0);
@@ -964,7 +989,12 @@ fn test_swap_stake_old_hotkey_not_exist() {
         assert!(Alpha::<Test>::contains_key((old_hotkey, coldkey, netuid)));
 
         // Perform the swap
-        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
+        SubtensorModule::perform_hotkey_swap_on_all_subnets(
+            &old_hotkey,
+            &new_hotkey,
+            &coldkey,
+            &mut weight,
+        );
 
         // Verify that new_hotkey has the stake and old_hotkey does not
         assert!(Alpha::<Test>::contains_key((new_hotkey, coldkey, netuid)));
@@ -986,7 +1016,7 @@ fn test_swap_stake_old_hotkey_not_exist() {
 //         TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(old_hotkey, coldkey, stake);
 
 //         // Perform the swap
-//         SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
+//         SubtensorModule::perform_hotkey_swap_on_all_subnets(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
 
 //         // Verify the swap
 //         assert_eq!(
@@ -1087,7 +1117,12 @@ fn test_swap_child_keys() {
         ChildKeys::<Test>::insert(old_hotkey, netuid, children.clone());
 
         // Perform the swap
-        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
+        SubtensorModule::perform_hotkey_swap_on_all_subnets(
+            &old_hotkey,
+            &new_hotkey,
+            &coldkey,
+            &mut weight,
+        );
 
         // Verify the swap
         assert_eq!(ChildKeys::<Test>::get(new_hotkey, netuid), children);
@@ -1115,7 +1150,12 @@ fn test_swap_parent_keys() {
         ChildKeys::<Test>::insert(U256::from(5), netuid, vec![(200u64, old_hotkey)]);
 
         // Perform the swap
-        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
+        SubtensorModule::perform_hotkey_swap_on_all_subnets(
+            &old_hotkey,
+            &new_hotkey,
+            &coldkey,
+            &mut weight,
+        );
 
         // Verify ParentKeys swap
         assert_eq!(ParentKeys::<Test>::get(new_hotkey, netuid), parents);
@@ -1154,7 +1194,12 @@ fn test_swap_multiple_subnets() {
         ChildKeys::<Test>::insert(old_hotkey, netuid2, children2.clone());
 
         // Perform the swap
-        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
+        SubtensorModule::perform_hotkey_swap_on_all_subnets(
+            &old_hotkey,
+            &new_hotkey,
+            &coldkey,
+            &mut weight,
+        );
 
         // Verify the swap for both subnets
         assert_eq!(ChildKeys::<Test>::get(new_hotkey, netuid1), children1);
@@ -1199,7 +1244,12 @@ fn test_swap_complex_parent_child_structure() {
         );
 
         // Perform the swap
-        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
+        SubtensorModule::perform_hotkey_swap_on_all_subnets(
+            &old_hotkey,
+            &new_hotkey,
+            &coldkey,
+            &mut weight,
+        );
 
         // Verify ParentKeys swap
         assert_eq!(
@@ -1259,7 +1309,7 @@ fn test_swap_parent_hotkey_childkey_maps() {
 
         // Swap
         let mut weight = Weight::zero();
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
             &parent_old,
             &parent_new,
             &coldkey,
@@ -1314,7 +1364,7 @@ fn test_swap_child_hotkey_childkey_maps() {
 
         // Swap
         let mut weight = Weight::zero();
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
             &child_old,
             &child_new,
             &coldkey,
@@ -1352,7 +1402,12 @@ fn test_swap_hotkey_is_sn_owner_hotkey() {
         assert_eq!(SubnetOwnerHotkey::<Test>::get(netuid), old_hotkey);
 
         // Perform the swap
-        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
+        SubtensorModule::perform_hotkey_swap_on_all_subnets(
+            &old_hotkey,
+            &new_hotkey,
+            &coldkey,
+            &mut weight,
+        );
 
         // Check for SubnetOwnerHotkey
         assert_eq!(SubnetOwnerHotkey::<Test>::get(netuid), new_hotkey);
@@ -1380,7 +1435,12 @@ fn test_swap_hotkey_swap_rate_limits() {
         LastTxBlockChildKeyTake::<Test>::insert(old_hotkey, child_key_take_block);
 
         // Perform the swap
-        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
+        SubtensorModule::perform_hotkey_swap_on_all_subnets(
+            &old_hotkey,
+            &new_hotkey,
+            &coldkey,
+            &mut weight,
+        );
 
         // Check for new hotkey
         assert_eq!(LastTxBlock::<Test>::get(new_hotkey), last_tx_block);

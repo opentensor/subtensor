@@ -282,12 +282,12 @@ impl<T: Config> Pallet<T> {
 
         // 11. Ensure the coldkey has enough balance to pay for the swap
         ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost),
+            Self::can_remove_balance_from_coldkey_account(coldkey, swap_cost),
             Error::<T>::NotEnoughBalanceToPaySwapHotKey
         );
 
         // 12. Remove the swap cost from the coldkey's account
-        let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, swap_cost)?;
+        let actual_burn_amount = Self::remove_balance_from_coldkey_account(coldkey, swap_cost)?;
 
         // 13. Burn the tokens
         Self::burn_tokens(actual_burn_amount);
@@ -315,7 +315,7 @@ impl<T: Config> Pallet<T> {
 
         let block: u64 = Self::get_current_block_as_u64();
         // 15. Update the last transaction block for the coldkey
-        Self::set_last_tx_block(&coldkey, block);
+        Self::set_last_tx_block(coldkey, block);
         weight.saturating_accrue(T::DbWeight::get().writes(1));
 
         // 16. Emit an event for the hotkey swap
