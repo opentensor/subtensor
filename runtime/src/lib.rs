@@ -1176,7 +1176,6 @@ impl pallet_admin_utils::Config for Runtime {
     type Aura = AuraPalletIntrf;
     type Grandpa = GrandpaInterfaceImpl;
     type Balance = Balance;
-    type WeightInfo = pallet_admin_utils::weights::SubstrateWeight<Runtime>;
 }
 
 /// Define the ChainId
