@@ -30,9 +30,6 @@ pub fn migrate_rao<T: Config>() -> Weight {
         .collect();
     weight = weight.saturating_add(T::DbWeight::get().reads_writes(netuids.len() as u64, 0));
 
-    // Set the Dynamic block.
-    DynamicBlock::<T>::set(Pallet::<T>::get_current_block_as_u64());
-
     // Migrate all TAO to root.
     // This migration has already run, leaving this only for reference for now, since this is a recent migration
     // Stake::<T>::iter().for_each(|(hotkey, coldkey, stake)| {
@@ -106,7 +103,6 @@ pub fn migrate_rao<T: Config>() -> Weight {
 
         // Set the token symbol for this subnet using Self instead of Pallet::<T>
         TokenSymbol::<T>::insert(netuid, Pallet::<T>::get_symbol_for_subnet(*netuid));
-        TotalStakeAtDynamic::<T>::insert(netuid, 0);
 
         if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
             // Set Owner as the coldkey.

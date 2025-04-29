@@ -145,7 +145,7 @@ benchmarks! {
     let seed : u32 = 1;
 
     Subtensor::<T>::init_new_network(netuid, tempo);
-
+    SubtokenEnabled::<T>::insert(netuid, true);
     Subtensor::<T>::set_burn(netuid, 1);
     Subtensor::<T>::set_network_registration_allowed( netuid, true );
 
@@ -175,6 +175,7 @@ benchmarks! {
 
     Subtensor::<T>::init_new_network(netuid, tempo);
     Subtensor::<T>::set_network_registration_allowed( netuid, true );
+    SubtokenEnabled::<T>::insert(netuid, true);
 
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
     assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
@@ -216,6 +217,7 @@ benchmarks! {
 
     Subtensor::<T>::init_new_network(netuid, tempo);
     Subtensor::<T>::set_network_registration_allowed( netuid, true );
+    SubtokenEnabled::<T>::insert(netuid, true);
 
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
     assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
@@ -247,6 +249,7 @@ benchmarks! {
     let seed : u32 = 1;
 
     Subtensor::<T>::init_new_network(netuid, tempo);
+    SubtokenEnabled::<T>::insert(netuid, true);
     Subtensor::<T>::set_burn(netuid, 1);
     Subtensor::<T>::set_network_registration_allowed( netuid, true );
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );

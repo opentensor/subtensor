@@ -186,7 +186,7 @@ fn test_register_network_min_burn_at_default() {
                     RuntimeEvent::SubtensorModule(Event::<Test>::NetworkAdded(..))
                 )
             })
-            .last();
+            .next_back();
 
         let netuid = match min_burn_event.map(|event| event.event.clone()) {
             Some(RuntimeEvent::SubtensorModule(Event::<Test>::NetworkAdded(netuid, _))) => netuid,
