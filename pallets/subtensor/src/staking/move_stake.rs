@@ -433,7 +433,8 @@ impl<T: Config> Pallet<T> {
                     .safe_div(U64F64::saturating_from_num(limit_price))
                     .saturating_mul(tao)
                     .saturating_to_num::<u64>();
-                return Self::get_max_amount_add(destination_netuid, destination_subnet_price);
+                return Self::get_max_amount_add(destination_netuid, destination_subnet_price)
+                    .unwrap_or(0);
             }
         }
 
