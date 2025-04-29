@@ -285,7 +285,6 @@ impl crate::Config for Test {
     type Aura = ();
     type Grandpa = GrandpaInterfaceImpl;
     type Balance = Balance;
-    type WeightInfo = ();
 }
 
 parameter_types! {
