@@ -10,7 +10,7 @@ MAX_RETRIES=3   # Number of retry attempts
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNTIME_WASM="./target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm"
 
-echo "[DEBUG] Building runtime-benchmarks…"
+echo "Building runtime-benchmarks…"
 cargo build --profile production -p node-subtensor --features runtime-benchmarks
 
 # Pallets to benchmark
@@ -52,7 +52,6 @@ for pallet in "${PALLETS[@]}"; do
     TMP="$(mktemp)"
     trap 'rm -f "$TMP"' EXIT
 
-    echo "[DEBUG] Running benchmarks for $PALLET_NAME…"
     ./target/production/node-subtensor benchmark pallet \
       --runtime "$RUNTIME_WASM" \
       --genesis-builder=runtime \
@@ -70,44 +69,27 @@ for pallet in "${PALLETS[@]}"; do
     extrinsics_list=()
     measure_list=()
 
-    echo "[DEBUG] Parsing output line by line…"
-
     while IFS= read -r line; do
-      echo "[DEBUG] Line => $line"
-
-      # (A) Match lines in the form:
-      #     Pallet: "pallet_foo", Extrinsic: "bar", ...
-      # Example:
-      #     Pallet: "pallet_subtensor", Extrinsic: "benchmark_register", Lowest values: []
-      #
-      # So we capture the extrinsic name out of the quotes after 'Extrinsic:'
+      # Match lines like:  Pallet: "pallet_subtensor", Extrinsic: "register", ...
       if [[ $line =~ ^Pallet:\ \"${PALLET_NAME}\",[[:space:]]Extrinsic:\ \"([[:alnum:]_]+)\" ]]; then
         ex="${BASH_REMATCH[1]}"
-        echo "[DEBUG]   --> Matched extrinsic name: $ex"
         extrinsics_list+=("$ex")
 
-      # (B) Match lines in the form:
-      #     Time ~=    123.45
-      # Possibly with multiple spaces, so we use a more relaxed pattern:
+      # Match lines like:  Time ~=   123.45
       elif [[ $line =~ ^Time[[:space:]]*~=[[:space:]]*([0-9]+(\.[0-9]+)?) ]]; then
         meas_us="${BASH_REMATCH[1]}"
-        echo "[DEBUG]   --> Matched time microseconds: $meas_us"
 
         # Convert microseconds → picoseconds
         meas_ps=$(awk -v u="$meas_us" 'BEGIN{printf("%.0f", u * 1000000)}')
-        echo "[DEBUG]       => Converted to picoseconds: $meas_ps"
 
-        # Next lines: "Reads = X" and "Writes = Y"
+        # Attempt to read next lines for "Reads = X" / "Writes = Y"
         meas_reads=""
         meas_writes=""
         while IFS= read -r sub; do
-          echo "[DEBUG]       sub => $sub"
           if [[ $sub =~ Reads[[:space:]]*=[[:space:]]*([0-9]+).* ]]; then
             meas_reads="${BASH_REMATCH[1]}"
-            echo "[DEBUG]         --> Matched reads: $meas_reads"
           elif [[ $sub =~ Writes[[:space:]]*=[[:space:]]*([0-9]+).* ]]; then
             meas_writes="${BASH_REMATCH[1]}"
-            echo "[DEBUG]         --> Matched writes: $meas_writes"
           fi
           if [[ -n "$meas_reads" && -n "$meas_writes" ]]; then
             break
@@ -115,13 +97,8 @@ for pallet in "${PALLETS[@]}"; do
         done
 
         measure_list+=("${meas_ps},${meas_reads},${meas_writes}")
-        echo "[DEBUG]   --> Pushed measurement: ${meas_ps},${meas_reads},${meas_writes}"
       fi
     done < "$TMP"
-
-    echo "[DEBUG] Finished reading logs."
-    echo "[DEBUG] extrinsics_list => ${extrinsics_list[@]}"
-    echo "[DEBUG] measure_list    => ${measure_list[@]}"
 
     # -------------------------------
     # PHASE 2: Pair up extrinsics & measurements
@@ -134,45 +111,44 @@ for pallet in "${PALLETS[@]}"; do
     len_meas=${#measure_list[@]}
     pair_count=$(( len_extr < len_meas ? len_extr : len_meas ))
 
-    echo "[DEBUG] extrinsics count: $len_extr"
-    echo "[DEBUG] measurements count: $len_meas"
-    echo "[DEBUG] pairing up to: $pair_count"
-
     for (( i=0; i< pair_count; i++ )); do
       extr="${extrinsics_list[$i]}"
       measurement="${measure_list[$i]}"
-      echo "[DEBUG] Pairing extrinsic #$i '$extr' with measurement '$measurement'"
 
       IFS=',' read -r meas_ps meas_reads meas_writes <<< "$measurement"
 
       # Look up code-side values from the dispatch file
       code_record=$(
         awk -v extr="$extr" '
-          /^\s*#\[pallet::call_index\(/     { next }
-          /Weight::from_parts/              {
-                                              lw=$0; sub(/.*Weight::from_parts\(\s*/, "", lw);
-                                              sub(/[^0-9_].*$/, "", lw);
-                                              gsub(/_/, "", lw);
-                                              w=lw
-                                            }
-          /reads_writes\(/                  {
-                                              lw=$0; sub(/.*reads_writes\(/, "", lw);
-                                              sub(/\).*/, "", lw);
-                                              split(lw,io,/,/);
-                                              gsub(/^[ \t]+|[ \t]+$/, "", io[1]);
-                                              gsub(/^[ \t]+|[ \t]+$/, "", io[2]);
-                                              r=io[1]; wri=io[2]; next
-                                            }
-          /\.reads\(/                       {
-                                              lw=$0; sub(/.*\.reads\(/, "", lw);
-                                              sub(/\).*/, "", lw);
-                                              r=lw; next
-                                            }
-          /\.writes\(/                      {
-                                              lw=$0; sub(/.*\.writes\(/, "", lw);
-                                              sub(/\).*/, "", lw);
-                                              wri=lw; next
-                                            }
+          /^\s*#\[pallet::call_index\(/ { next }
+          /Weight::from_parts/ {
+             lw=$0; sub(/.*Weight::from_parts\(\s*/, "", lw);
+             sub(/[^0-9_].*$/, "", lw);
+             gsub(/_/, "", lw);
+             w=lw
+          }
+          /reads_writes\(/ {
+             lw=$0; sub(/.*reads_writes\(/, "", lw);
+             sub(/\).*/, "", lw);
+             split(lw,io,/,/);
+             gsub(/^[ \t]+|[ \t]+$/, "", io[1]);
+             gsub(/^[ \t]+|[ \t]+$/, "", io[2]);
+             r=io[1];
+             wri=io[2];
+             next
+          }
+          /\.reads\(/ {
+             lw=$0; sub(/.*\.reads\(/, "", lw);
+             sub(/\).*/, "", lw);
+             r=lw;
+             next
+          }
+          /\.writes\(/ {
+             lw=$0; sub(/.*\.writes\(/, "", lw);
+             sub(/\).*/, "", lw);
+             wri=lw;
+             next
+          }
           $0 ~ ("pub fn[[:space:]]+" extr "\\(") {
              print w, r, wri
              exit
@@ -196,8 +172,6 @@ for pallet in "${PALLETS[@]}"; do
         "${code_writes:-0}" "${meas_writes:-0}" \
         "${code_w:-0}" "$meas_ps" "$drift" )"
       summary_lines+=( "$summary_line" )
-
-      echo "[DEBUG] Built summary line => $summary_line"
 
       # Validations
       if [[ -z "$code_w" ]]; then
