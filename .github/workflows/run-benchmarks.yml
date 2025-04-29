@@ -1,0 +1,46 @@
+# .github/workflows/benchmarks.yml
+name: Validate-Benchmarks
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: run-benchmarks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-benchmarks:
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-validate-benchmarks') }}
+    runs-on: SubtensorCI
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: bench-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build node with benchmarks
+        run: |
+          cargo build --profile production -p node-subtensor --features runtime-benchmarks
+
+      - name: Run & validate benchmarks
+        run: |
+          chmod +x scripts/benchmark_action.sh
+          ./scripts/benchmark_action.sh

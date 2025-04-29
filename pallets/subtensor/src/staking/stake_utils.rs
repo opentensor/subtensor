@@ -1,6 +1,8 @@
 use super::*;
+use frame_system::pallet_prelude::BlockNumberFor;
 use safe_math::*;
 use share_pool::{SharePool, SharePoolDataOperations};
+use sp_runtime::Saturating;
 use sp_std::ops::Neg;
 use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32, U110F18};
 
@@ -57,6 +59,7 @@ impl<T: Config> Pallet<T> {
             U96F32::saturating_from_num(SubnetMovingPrice::<T>::get(netuid))
         }
     }
+
     pub fn update_moving_price(netuid: u16) {
         let blocks_since_start_call = U96F32::saturating_from_num({
             // We expect FirstEmissionBlockNumber to be set earlier, and we take the block when
@@ -68,6 +71,10 @@ impl<T: Config> Pallet<T> {
             Self::get_current_block_as_u64().saturating_sub(start_call_block)
         });
 
+        // Use halving time hyperparameter. The meaning of this parameter can be best explained under
+        // the assumption of a constant price and SubnetMovingAlpha == 0.5: It is how many blocks it
+        // will take in order for the distance between current EMA of price and current price to shorten
+        // by half.
         let halving_time = EMAPriceHalvingBlocks::<T>::get(netuid);
         let current_ma_unsigned = U96F32::saturating_from_num(SubnetMovingAlpha::<T>::get());
         let alpha: U96F32 = current_ma_unsigned.saturating_mul(blocks_since_start_call.safe_div(
@@ -238,8 +245,8 @@ impl<T: Config> Pallet<T> {
     /// * `netuid` - Network unique identifier specifying the subnet context.
     ///
     /// # Returns
-    /// * `u64` - The total inherited alpha for the hotkey on the subnet after considering the stakes
-    ///           allocated to children and inherited from parents.
+    /// * `u64`: The total inherited alpha for the hotkey on the subnet after considering the
+    ///   stakes allocated to children and inherited from parents.
     ///
     /// # Note
     /// This function uses saturating arithmetic to prevent overflows.
@@ -1014,6 +1021,16 @@ impl<T: Config> Pallet<T> {
             );
         }
 
+        ensure!(
+            SubtokenEnabled::<T>::get(origin_netuid),
+            Error::<T>::SubtokenDisabled
+        );
+
+        ensure!(
+            SubtokenEnabled::<T>::get(destination_netuid),
+            Error::<T>::SubtokenDisabled
+        );
+
         // Ensure that the origin hotkey account exists
         ensure!(
             Self::hotkey_account_exists(origin_hotkey),
@@ -1144,6 +1161,368 @@ impl<T: Config> Pallet<T> {
             }
             // If origin is not defined, we are adding stake; use default fee
             None => DefaultStakingFee::<T>::get(),
+        }
+    }
+
+    // Process staking job for on_finalize() hook.
+    pub(crate) fn do_on_finalize(current_block_number: BlockNumberFor<T>) {
+        // We delay job execution
+        const DELAY_IN_BLOCKS: u32 = 1u32;
+        let actual_block_with_delay = current_block_number.saturating_sub(DELAY_IN_BLOCKS.into());
+
+        let stake_jobs = StakeJobs::<T>::drain_prefix(actual_block_with_delay).collect::<Vec<_>>();
+
+        // Sort jobs by job type
+        let mut add_stake = vec![];
+        let mut remove_stake = vec![];
+        let mut add_stake_limit = vec![];
+        let mut remove_stake_limit = vec![];
+        let mut unstake_all = vec![];
+        let mut unstake_all_aplha = vec![];
+
+        for (_, job) in stake_jobs.into_iter() {
+            match &job {
+                StakeJob::AddStake { .. } => add_stake.push(job),
+                StakeJob::RemoveStake { .. } => remove_stake.push(job),
+                StakeJob::AddStakeLimit { .. } => add_stake_limit.push(job),
+                StakeJob::RemoveStakeLimit { .. } => remove_stake_limit.push(job),
+                StakeJob::UnstakeAll { .. } => unstake_all.push(job),
+                StakeJob::UnstakeAllAlpha { .. } => unstake_all_aplha.push(job),
+            }
+        }
+        // Reorder jobs based on the previous block hash
+        let previous_block_hash = <frame_system::Pallet<T>>::parent_hash();
+        let hash_bytes = previous_block_hash.as_ref();
+        let first_byte = hash_bytes.first().expect("hash operation is infallible");
+        // Extract the first bit
+        let altered_order = (first_byte & 0b10000000) != 0;
+
+        // Ascending sort by coldkey
+        remove_stake_limit.sort_by(|a, b| match (a, b) {
+            (
+                StakeJob::RemoveStakeLimit { coldkey: a_key, .. },
+                StakeJob::RemoveStakeLimit { coldkey: b_key, .. },
+            ) => {
+                let direct_order = a_key.cmp(b_key); // ascending
+
+                if altered_order {
+                    direct_order.reverse()
+                } else {
+                    direct_order
+                }
+            }
+            _ => sp_std::cmp::Ordering::Equal, // unreachable
+        });
+
+        remove_stake.sort_by(|a, b| match (a, b) {
+            (
+                StakeJob::RemoveStake { coldkey: a_key, .. },
+                StakeJob::RemoveStake { coldkey: b_key, .. },
+            ) => {
+                let direct_order = a_key.cmp(b_key); // ascending
+
+                if altered_order {
+                    direct_order.reverse()
+                } else {
+                    direct_order
+                }
+            }
+            _ => sp_std::cmp::Ordering::Equal, // unreachable
+        });
+
+        unstake_all.sort_by(|a, b| match (a, b) {
+            (
+                StakeJob::UnstakeAll { coldkey: a_key, .. },
+                StakeJob::UnstakeAll { coldkey: b_key, .. },
+            ) => {
+                let direct_order = a_key.cmp(b_key); // ascending
+
+                if altered_order {
+                    direct_order.reverse()
+                } else {
+                    direct_order
+                }
+            }
+            _ => sp_std::cmp::Ordering::Equal, // unreachable
+        });
+
+        unstake_all_aplha.sort_by(|a, b| match (a, b) {
+            (
+                StakeJob::UnstakeAllAlpha { coldkey: a_key, .. },
+                StakeJob::UnstakeAllAlpha { coldkey: b_key, .. },
+            ) => {
+                let direct_order = a_key.cmp(b_key); // ascending
+
+                if altered_order {
+                    direct_order.reverse()
+                } else {
+                    direct_order
+                }
+            }
+            _ => sp_std::cmp::Ordering::Equal, // unreachable
+        });
+
+        // Descending sort by coldkey
+        add_stake_limit.sort_by(|a, b| match (a, b) {
+            (
+                StakeJob::AddStakeLimit { coldkey: a_key, .. },
+                StakeJob::AddStakeLimit { coldkey: b_key, .. },
+            ) => {
+                let direct_order = b_key.cmp(a_key); // descending
+
+                if altered_order {
+                    direct_order.reverse()
+                } else {
+                    direct_order
+                }
+            }
+            _ => sp_std::cmp::Ordering::Equal, // unreachable
+        });
+
+        add_stake.sort_by(|a, b| match (a, b) {
+            (
+                StakeJob::AddStake { coldkey: a_key, .. },
+                StakeJob::AddStake { coldkey: b_key, .. },
+            ) => {
+                let direct_order = b_key.cmp(a_key); // descending
+
+                if altered_order {
+                    direct_order.reverse()
+                } else {
+                    direct_order
+                }
+            }
+            _ => sp_std::cmp::Ordering::Equal, // unreachable
+        });
+
+        // direct job order
+        let mut job_batches = vec![
+            remove_stake_limit,
+            remove_stake,
+            unstake_all,
+            unstake_all_aplha,
+            add_stake_limit,
+            add_stake,
+        ];
+        if altered_order {
+            job_batches.reverse();
+        }
+
+        for jobs in job_batches.into_iter() {
+            for job in jobs.into_iter() {
+                match job {
+                    StakeJob::RemoveStakeLimit {
+                        hotkey,
+                        coldkey,
+                        netuid,
+                        alpha_unstaked,
+                        limit_price,
+                        allow_partial,
+                    } => {
+                        let result = Self::do_remove_stake_limit(
+                            dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                            hotkey.clone(),
+                            netuid,
+                            alpha_unstaked,
+                            limit_price,
+                            allow_partial,
+                        );
+
+                        if let Err(err) = result {
+                            log::debug!(
+                                "Failed to remove aggregated limited stake: {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                alpha_unstaked,
+                                limit_price,
+                                allow_partial,
+                                err
+                            );
+                            Self::deposit_event(Event::FailedToRemoveAggregatedLimitedStake(
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                alpha_unstaked,
+                                limit_price,
+                                allow_partial,
+                            ));
+                        } else {
+                            Self::deposit_event(Event::AggregatedLimitedStakeRemoved(
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                alpha_unstaked,
+                                limit_price,
+                                allow_partial,
+                            ));
+                        }
+                    }
+                    StakeJob::RemoveStake {
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        alpha_unstaked,
+                    } => {
+                        let result = Self::do_remove_stake(
+                            dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                            hotkey.clone(),
+                            netuid,
+                            alpha_unstaked,
+                        );
+
+                        if let Err(err) = result {
+                            log::debug!(
+                                "Failed to remove aggregated stake: {:?}, {:?}, {:?}, {:?}, {:?}",
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                alpha_unstaked,
+                                err
+                            );
+                            Self::deposit_event(Event::FailedToRemoveAggregatedStake(
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                alpha_unstaked,
+                            ));
+                        } else {
+                            Self::deposit_event(Event::AggregatedStakeRemoved(
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                alpha_unstaked,
+                            ));
+                        }
+                    }
+                    StakeJob::UnstakeAll { hotkey, coldkey } => {
+                        let result = Self::do_unstake_all(
+                            dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                            hotkey.clone(),
+                        );
+
+                        if let Err(err) = result {
+                            log::debug!(
+                                "Failed to unstake all: {:?}, {:?}, {:?}",
+                                coldkey,
+                                hotkey,
+                                err
+                            );
+                            Self::deposit_event(Event::AggregatedUnstakeAllFailed(coldkey, hotkey));
+                        } else {
+                            Self::deposit_event(Event::AggregatedUnstakeAllSucceeded(
+                                coldkey, hotkey,
+                            ));
+                        }
+                    }
+                    StakeJob::UnstakeAllAlpha { hotkey, coldkey } => {
+                        let result = Self::do_unstake_all_alpha(
+                            dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                            hotkey.clone(),
+                        );
+
+                        if let Err(err) = result {
+                            log::debug!(
+                                "Failed to unstake all alpha: {:?}, {:?}, {:?}",
+                                coldkey,
+                                hotkey,
+                                err
+                            );
+                            Self::deposit_event(Event::AggregatedUnstakeAllAlphaFailed(
+                                coldkey, hotkey,
+                            ));
+                        } else {
+                            Self::deposit_event(Event::AggregatedUnstakeAllAlphaSucceeded(
+                                coldkey, hotkey,
+                            ));
+                        }
+                    }
+                    StakeJob::AddStakeLimit {
+                        hotkey,
+                        coldkey,
+                        netuid,
+                        stake_to_be_added,
+                        limit_price,
+                        allow_partial,
+                    } => {
+                        let result = Self::do_add_stake_limit(
+                            dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                            hotkey.clone(),
+                            netuid,
+                            stake_to_be_added,
+                            limit_price,
+                            allow_partial,
+                        );
+
+                        if let Err(err) = result {
+                            log::debug!(
+                                "Failed to add aggregated limited stake: {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                stake_to_be_added,
+                                limit_price,
+                                allow_partial,
+                                err
+                            );
+                            Self::deposit_event(Event::FailedToAddAggregatedLimitedStake(
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                stake_to_be_added,
+                                limit_price,
+                                allow_partial,
+                            ));
+                        } else {
+                            Self::deposit_event(Event::AggregatedLimitedStakeAdded(
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                stake_to_be_added,
+                                limit_price,
+                                allow_partial,
+                            ));
+                        }
+                    }
+                    StakeJob::AddStake {
+                        hotkey,
+                        coldkey,
+                        netuid,
+                        stake_to_be_added,
+                    } => {
+                        let result = Self::do_add_stake(
+                            dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                            hotkey.clone(),
+                            netuid,
+                            stake_to_be_added,
+                        );
+
+                        if let Err(err) = result {
+                            log::debug!(
+                                "Failed to add aggregated stake: {:?}, {:?}, {:?}, {:?}, {:?}",
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                stake_to_be_added,
+                                err
+                            );
+                            Self::deposit_event(Event::FailedToAddAggregatedStake(
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                stake_to_be_added,
+                            ));
+                        } else {
+                            Self::deposit_event(Event::AggregatedStakeAdded(
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                stake_to_be_added,
+                            ));
+                        }
+                    }
+                }
+            }
         }
     }
 }
