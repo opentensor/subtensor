@@ -1,86 +1,161 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Max allowed drift (%)
-THRESHOLD=10
+# ---------------------------
+# Configurable parameters
+# ---------------------------
+THRESHOLD=10    # Max allowed drift in %
+MAX_RETRIES=3   # Number of retry attempts
 
-# Resolve script paths
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DISPATCH="$SCRIPT_DIR/../pallets/subtensor/src/macros/dispatches.rs"
 RUNTIME_WASM="./target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm"
 
-# Sanity check
-if [[ ! -f "$DISPATCH" ]]; then
-  echo "❌ ERROR: dispatches.rs not found at $DISPATCH"
-  exit 1
-fi
-
-echo "Building runtime-benchmarks…"
+echo "[DEBUG] Building runtime-benchmarks…"
 cargo build --profile production -p node-subtensor --features runtime-benchmarks
 
-echo
-echo "──────────────────────────────────────────"
-echo " Running pallet_subtensor benchmarks…"
-echo "──────────────────────────────────────────"
+# Pallets to benchmark
+PALLETS=(subtensor admin_utils commitments drand crowdloan)
 
-MAX_RETRIES=3
-attempt=1
+# Dispatch-file paths
+declare -A DISPATCH_PATHS=(
+  [subtensor]="../pallets/subtensor/src/macros/dispatches.rs"
+  [admin_utils]="../pallets/admin-utils/src/lib.rs"
+  [commitments]="../pallets/commitments/src/lib.rs"
+  [drand]="../pallets/drand/src/lib.rs"
+  [crowdloan]="../pallets/crowdloan/src/lib.rs"
+)
 
-while (( attempt <= MAX_RETRIES )); do
+# -------------------------------------
+# Main loop over each pallet
+# -------------------------------------
+for pallet in "${PALLETS[@]}"; do
   echo
-  echo "Attempt #$attempt"
+  echo "──────────────────────────────────────────"
+  echo " Benchmarking pallet: $pallet"
   echo "──────────────────────────────────────────"
 
-  # run benchmarks and capture output
-  TMP="$(mktemp)"
-  trap "rm -f \"$TMP\"" EXIT
-  ./target/production/node-subtensor benchmark pallet \
-    --runtime "$RUNTIME_WASM" \
-    --genesis-builder=runtime \
-    --genesis-builder-preset=benchmark \
-    --wasm-execution=compiled \
-    --pallet pallet_subtensor \
-    --extrinsic "*" \
-    --steps 50 \
-    --repeat 5 \
-  | tee "$TMP"
+  DISPATCH="$SCRIPT_DIR/${DISPATCH_PATHS[$pallet]}"
+  if [[ ! -f "$DISPATCH" ]]; then
+    echo "❌ ERROR: dispatch file not found at $DISPATCH"
+    exit 1
+  fi
 
-  # reset counters
-  declare -a summary_lines=()
-  declare -a failures=()
-  fail=0
-  extr=""
+  # Convert e.g. "admin_utils" → "pallet_admin_utils"
+  PALLET_NAME="pallet_${pallet}"
 
-  # parse output
-  while IFS= read -r line; do
-    if [[ $line =~ Extrinsic:\ \"benchmark_([[:alnum:]_]+)\" ]]; then
-      extr="${BASH_REMATCH[1]}"
-      continue
-    fi
+  attempt=1
+  while (( attempt <= MAX_RETRIES )); do
+    echo
+    echo "Attempt #$attempt for $PALLET_NAME"
+    echo "──────────────────────────────────────────"
 
-    if [[ $line =~ Time\ ~=\ *([0-9]+(\.[0-9]+)?) ]]; then
-      [[ -z "$extr" ]] && continue
+    TMP="$(mktemp)"
+    trap 'rm -f "$TMP"' EXIT
 
-      meas_us="${BASH_REMATCH[1]}"
-      meas_ps=$(awk -v u="$meas_us" 'BEGIN{printf("%.0f", u * 1000000)}')
+    echo "[DEBUG] Running benchmarks for $PALLET_NAME…"
+    ./target/production/node-subtensor benchmark pallet \
+      --runtime "$RUNTIME_WASM" \
+      --genesis-builder=runtime \
+      --genesis-builder-preset=benchmark \
+      --wasm-execution=compiled \
+      --pallet "$PALLET_NAME" \
+      --extrinsic "*" \
+      --steps 50 \
+      --repeat 5 \
+    | tee "$TMP"
 
-      # grab reads & writes
-      meas_reads="" meas_writes=""
-      while IFS= read -r sub; do
-        [[ $sub =~ Reads[[:space:]]*=[[:space:]]*([0-9]+) ]] && meas_reads="${BASH_REMATCH[1]}" && continue
-        [[ $sub =~ Writes[[:space:]]*=[[:space:]]*([0-9]+) ]] && meas_writes="${BASH_REMATCH[1]}" && break
-      done
+    # ---------------------
+    # PHASE 1: Collect logs
+    # ---------------------
+    extrinsics_list=()
+    measure_list=()
 
-      # extract code-side values
+    echo "[DEBUG] Parsing output line by line…"
+
+    while IFS= read -r line; do
+      echo "[DEBUG] Line => $line"
+
+      # (A) Match lines in the form:
+      #     Pallet: "pallet_foo", Extrinsic: "bar", ...
+      # Example:
+      #     Pallet: "pallet_subtensor", Extrinsic: "benchmark_register", Lowest values: []
+      #
+      # So we capture the extrinsic name out of the quotes after 'Extrinsic:'
+      if [[ $line =~ ^Pallet:\ \"${PALLET_NAME}\",[[:space:]]Extrinsic:\ \"([[:alnum:]_]+)\" ]]; then
+        ex="${BASH_REMATCH[1]}"
+        echo "[DEBUG]   --> Matched extrinsic name: $ex"
+        extrinsics_list+=("$ex")
+
+      # (B) Match lines in the form:
+      #     Time ~=    123.45
+      # Possibly with multiple spaces, so we use a more relaxed pattern:
+      elif [[ $line =~ ^Time[[:space:]]*~=[[:space:]]*([0-9]+(\.[0-9]+)?) ]]; then
+        meas_us="${BASH_REMATCH[1]}"
+        echo "[DEBUG]   --> Matched time microseconds: $meas_us"
+
+        # Convert microseconds → picoseconds
+        meas_ps=$(awk -v u="$meas_us" 'BEGIN{printf("%.0f", u * 1000000)}')
+        echo "[DEBUG]       => Converted to picoseconds: $meas_ps"
+
+        # Next lines: "Reads = X" and "Writes = Y"
+        meas_reads=""
+        meas_writes=""
+        while IFS= read -r sub; do
+          echo "[DEBUG]       sub => $sub"
+          if [[ $sub =~ Reads[[:space:]]*=[[:space:]]*([0-9]+).* ]]; then
+            meas_reads="${BASH_REMATCH[1]}"
+            echo "[DEBUG]         --> Matched reads: $meas_reads"
+          elif [[ $sub =~ Writes[[:space:]]*=[[:space:]]*([0-9]+).* ]]; then
+            meas_writes="${BASH_REMATCH[1]}"
+            echo "[DEBUG]         --> Matched writes: $meas_writes"
+          fi
+          if [[ -n "$meas_reads" && -n "$meas_writes" ]]; then
+            break
+          fi
+        done
+
+        measure_list+=("${meas_ps},${meas_reads},${meas_writes}")
+        echo "[DEBUG]   --> Pushed measurement: ${meas_ps},${meas_reads},${meas_writes}"
+      fi
+    done < "$TMP"
+
+    echo "[DEBUG] Finished reading logs."
+    echo "[DEBUG] extrinsics_list => ${extrinsics_list[@]}"
+    echo "[DEBUG] measure_list    => ${measure_list[@]}"
+
+    # -------------------------------
+    # PHASE 2: Pair up extrinsics & measurements
+    # -------------------------------
+    summary_lines=()
+    failures=()
+    fail=0
+
+    len_extr=${#extrinsics_list[@]}
+    len_meas=${#measure_list[@]}
+    pair_count=$(( len_extr < len_meas ? len_extr : len_meas ))
+
+    echo "[DEBUG] extrinsics count: $len_extr"
+    echo "[DEBUG] measurements count: $len_meas"
+    echo "[DEBUG] pairing up to: $pair_count"
+
+    for (( i=0; i< pair_count; i++ )); do
+      extr="${extrinsics_list[$i]}"
+      measurement="${measure_list[$i]}"
+      echo "[DEBUG] Pairing extrinsic #$i '$extr' with measurement '$measurement'"
+
+      IFS=',' read -r meas_ps meas_reads meas_writes <<< "$measurement"
+
+      # Look up code-side values from the dispatch file
       code_record=$(
         awk -v extr="$extr" '
-          /^\s*#\[pallet::call_index\(/      { next }
-          /Weight::from_parts/               {
+          /^\s*#\[pallet::call_index\(/     { next }
+          /Weight::from_parts/              {
                                               lw=$0; sub(/.*Weight::from_parts\(\s*/, "", lw);
-                                              sub(/[^0-9_].*$/, "", lw); gsub(/_/, "", lw);
+                                              sub(/[^0-9_].*$/, "", lw);
+                                              gsub(/_/, "", lw);
                                               w=lw
                                             }
-          /reads_writes\(/                   {
+          /reads_writes\(/                  {
                                               lw=$0; sub(/.*reads_writes\(/, "", lw);
                                               sub(/\).*/, "", lw);
                                               split(lw,io,/,/);
@@ -88,80 +163,133 @@ while (( attempt <= MAX_RETRIES )); do
                                               gsub(/^[ \t]+|[ \t]+$/, "", io[2]);
                                               r=io[1]; wri=io[2]; next
                                             }
-          /\.reads\(/                        {
+          /\.reads\(/                       {
                                               lw=$0; sub(/.*\.reads\(/, "", lw);
                                               sub(/\).*/, "", lw);
                                               r=lw; next
                                             }
-          /\.writes\(/                       {
+          /\.writes\(/                      {
                                               lw=$0; sub(/.*\.writes\(/, "", lw);
                                               sub(/\).*/, "", lw);
                                               wri=lw; next
                                             }
-          $0 ~ ("pub fn[[:space:]]+" extr "\\(") { print w, r, wri; exit }
+          $0 ~ ("pub fn[[:space:]]+" extr "\\(") {
+             print w, r, wri
+             exit
+          }
         ' "$DISPATCH"
       )
-      read code_w code_reads code_writes <<<"$code_record"
 
-      # strip any non-digit (e.g. "_u64") so math works
-      code_w=${code_w//_/}
-      code_w=${code_w%%[^0-9]*}
-      code_reads=${code_reads//_/}
-      code_reads=${code_reads%%[^0-9]*}
-      code_writes=${code_writes//_/}
-      code_writes=${code_writes%%[^0-9]*}
+      read code_w code_reads code_writes <<< "$code_record"
+      code_w=${code_w//_/};        code_w=${code_w%%[^0-9]*}
+      code_reads=${code_reads//_/}; code_reads=${code_reads%%[^0-9]*}
+      code_writes=${code_writes//_/}; code_writes=${code_writes%%[^0-9]*}
 
-      # compute drift %
-      drift=$(awk -v a="$meas_ps" -v b="$code_w" 'BEGIN{printf("%.1f", (a-b)/b*100)}')
+      drift="0"
+      if [[ -n "$code_w" && "$code_w" != "0" ]]; then
+        drift=$(awk -v a="$meas_ps" -v b="$code_w" 'BEGIN{printf("%.1f", (a-b)/b*100)}')
+      fi
 
-      summary_lines+=("$(printf "%-30s | reads code=%3s measured=%3s | writes code=%3s measured=%3s | weight code=%12s measured=%12s | drift %6s%%" \
-        "$extr" "$code_reads" "$meas_reads" "$code_writes" "$meas_writes" "$code_w" "$meas_ps" "$drift")")
+      summary_line="$(printf "%-30s | reads code=%3s measured=%3s | writes code=%3s measured=%3s | weight code=%12s measured=%12s | drift %6s%%" \
+        "$extr" \
+        "${code_reads:-0}" "${meas_reads:-0}" \
+        "${code_writes:-0}" "${meas_writes:-0}" \
+        "${code_w:-0}" "$meas_ps" "$drift" )"
+      summary_lines+=( "$summary_line" )
 
-      # validations
-      [[ -z "$code_w" ]]      && failures+=("[${extr}] missing code weight")     && fail=1
-      [[ -z "$meas_reads" ]]  && failures+=("[${extr}] missing measured reads")  && fail=1
-      [[ -z "$meas_writes" ]] && failures+=("[${extr}] missing measured writes") && fail=1
-      (( meas_reads   != code_reads  )) && failures+=("[${extr}] reads mismatch code=${code_reads}, measured=${meas_reads}")   && fail=1
-      (( meas_writes  != code_writes )) && failures+=("[${extr}] writes mismatch code=${code_writes}, measured=${meas_writes}") && fail=1
-      [[ "$code_w" == "0" ]] && failures+=("[${extr}] zero code weight")        && fail=1
+      echo "[DEBUG] Built summary line => $summary_line"
 
+      # Validations
+      if [[ -z "$code_w" ]]; then
+        failures+=("[${extr}] missing code weight")
+        fail=1
+      fi
+      if [[ -z "$meas_reads" ]]; then
+        failures+=("[${extr}] missing measured reads")
+        fail=1
+      fi
+      if [[ -z "$meas_writes" ]]; then
+        failures+=("[${extr}] missing measured writes")
+        fail=1
+      fi
+      if [[ -n "$code_reads" && -n "$meas_reads" ]]; then
+        (( meas_reads != code_reads )) && {
+          failures+=("[${extr}] reads mismatch code=${code_reads}, measured=${meas_reads}")
+          fail=1
+        }
+      fi
+      if [[ -n "$code_writes" && -n "$meas_writes" ]]; then
+        (( meas_writes != code_writes )) && {
+          failures+=("[${extr}] writes mismatch code=${code_writes}, measured=${meas_writes}")
+          fail=1
+        }
+      fi
+      if [[ "$code_w" == "0" ]]; then
+        failures+=("[${extr}] zero code weight")
+        fail=1
+      fi
       abs_drift=${drift#-}
       drift_int=${abs_drift%%.*}
       if (( drift_int > THRESHOLD )); then
         failures+=("[${extr}] weight code=${code_w}, measured=${meas_ps}, drift=${drift}%")
         fail=1
       fi
-
-      extr=""
-    fi
-  done < "$TMP"
-
-  # summary output
-  echo
-  echo "Benchmark Summary for attempt #$attempt:"
-  for l in "${summary_lines[@]}"; do
-    echo "  $l"
-  done
-
-  if (( fail )); then
-    echo
-    echo "❌ Issues detected on attempt #$attempt:"
-    for e in "${failures[@]}"; do
-      echo "  • $e"
     done
 
-    if (( attempt < MAX_RETRIES )); then
-      echo "→ Retrying…"
-      (( attempt++ ))
-      continue
+    # If there are more extrinsics than measurements
+    if (( len_extr > pair_count )); then
+      echo "⚠️  Found ${len_extr} extrinsics but only ${len_meas} measurements."
+      extra=$(( len_extr - pair_count ))
+      echo "   → ${extra} extrinsics had no timing data!"
+      fail=1
+    fi
+
+    # If there are more measurements than extrinsics
+    if (( len_meas > pair_count )); then
+      echo "⚠️  Found ${len_meas} measurements but only ${len_extr} extrinsics."
+      extra=$(( len_meas - pair_count ))
+      echo "   → ${extra} measurements were unused (no matching extrinsic)!"
+      fail=1
+    fi
+
+    # ---------------
+    # Print summary
+    # ---------------
+    echo
+    echo "Benchmark Summary for $PALLET_NAME attempt #$attempt:"
+    if [[ ${#summary_lines[@]} -eq 0 ]]; then
+      echo "  (No extrinsics matched or no measurement data was paired.)"
+    else
+      for line in "${summary_lines[@]}"; do
+        echo "  $line"
+      done
+    fi
+
+    # Check for failures
+    if (( fail )); then
+      echo
+      echo "❌ Issues detected for $PALLET_NAME on attempt #$attempt:"
+      for e in "${failures[@]}"; do
+        echo "  • $e"
+      done
+
+      if (( attempt < MAX_RETRIES )); then
+        echo "→ Retrying…"
+        (( attempt++ ))
+        continue
+      else
+        echo
+        echo "❌ Benchmarks failed for $PALLET_NAME after $MAX_RETRIES attempts."
+        exit 1
+      fi
     else
       echo
-      echo "❌ Benchmarks failed after $MAX_RETRIES attempts."
-      exit 1
+      echo "✅ All benchmarks within ±${THRESHOLD}% drift for $PALLET_NAME."
+      break
     fi
-  else
-    echo
-    echo "✅ All benchmarks within ±${THRESHOLD}% drift."
-    exit 0
-  fi
+
+  done
 done
+
+echo
+echo "✅ All pallets benchmarked successfully."
