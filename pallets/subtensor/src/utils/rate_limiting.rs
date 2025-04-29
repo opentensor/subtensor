@@ -8,6 +8,7 @@ pub enum TransactionType {
     Unknown,
     RegisterNetwork,
     SetWeightsVersionKey,
+    SetSNOwnerHotkey,
 }
 
 /// Implement conversion from TransactionType to u16
@@ -19,6 +20,7 @@ impl From<TransactionType> for u16 {
             TransactionType::Unknown => 2,
             TransactionType::RegisterNetwork => 3,
             TransactionType::SetWeightsVersionKey => 4,
+            TransactionType::SetSNOwnerHotkey => 5,
         }
     }
 }
@@ -31,6 +33,7 @@ impl From<u16> for TransactionType {
             1 => TransactionType::SetChildkeyTake,
             3 => TransactionType::RegisterNetwork,
             4 => TransactionType::SetWeightsVersionKey,
+            5 => TransactionType::SetSNOwnerHotkey,
             _ => TransactionType::Unknown,
         }
     }
@@ -56,6 +59,8 @@ impl<T: Config> Pallet<T> {
         match tx_type {
             TransactionType::SetWeightsVersionKey => (Tempo::<T>::get(netuid) as u64)
                 .saturating_mul(WeightsVersionKeyRateLimit::<T>::get()),
+            TransactionType::SetSNOwnerHotkey => DefaultSetSNOwnerHotkeyRateLimit::<T>::get(),
+
             _ => Self::get_rate_limit(tx_type),
         }
     }
@@ -102,6 +107,9 @@ impl<T: Config> Pallet<T> {
     ) -> u64 {
         match tx_type {
             TransactionType::RegisterNetwork => Self::get_network_last_lock_block(),
+            TransactionType::SetSNOwnerHotkey => {
+                Self::get_rate_limited_last_block(&RateLimitKey::SetSNOwnerHotkey(netuid))
+            }
             _ => {
                 let tx_as_u16: u16 = (*tx_type).into();
                 TransactionKeyLastBlock::<T>::get((hotkey, netuid, tx_as_u16))
@@ -126,6 +134,9 @@ impl<T: Config> Pallet<T> {
     ) {
         match tx_type {
             TransactionType::RegisterNetwork => Self::set_network_last_lock_block(block),
+            TransactionType::SetSNOwnerHotkey => {
+                Self::set_rate_limited_last_block(&RateLimitKey::SetSNOwnerHotkey(netuid), block)
+            }
             _ => {
                 let tx_as_u16: u16 = (*tx_type).into();
                 TransactionKeyLastBlock::<T>::insert((key, netuid, tx_as_u16), block);

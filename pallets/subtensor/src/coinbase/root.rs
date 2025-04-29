@@ -665,4 +665,10 @@ impl<T: Config> Pallet<T> {
         let halved_interval: I64F64 = interval.saturating_mul(halving);
         halved_interval.saturating_to_num::<u64>()
     }
+    pub fn get_rate_limited_last_block(rate_limit_key: &RateLimitKey) -> u64 {
+        LastRateLimitedBlock::<T>::get(rate_limit_key)
+    }
+    pub fn set_rate_limited_last_block(rate_limit_key: &RateLimitKey, block: u64) {
+        LastRateLimitedBlock::<T>::set(rate_limit_key, block);
+    }
 }
