@@ -2350,8 +2350,12 @@ mod dispatches {
         /// Some documentation
         #[pallet::call_index(110)]
         #[pallet::weight(T::DbWeight::get().writes(1))]
-        pub fn terminate_lease(origin: T::RuntimeOrigin, lease_id: LeaseId) -> DispatchResult {
-            Self::do_terminate_lease(origin, lease_id)
+        pub fn terminate_lease(
+            origin: T::RuntimeOrigin,
+            lease_id: LeaseId,
+            hotkey: T::AccountId,
+        ) -> DispatchResult {
+            Self::do_terminate_lease(origin, lease_id, hotkey)
         }
     }
 }

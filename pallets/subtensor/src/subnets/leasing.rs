@@ -98,7 +98,11 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn do_terminate_lease(origin: T::RuntimeOrigin, lease_id: LeaseId) -> DispatchResult {
+    pub fn do_terminate_lease(
+        origin: T::RuntimeOrigin,
+        lease_id: LeaseId,
+        hotkey: T::AccountId,
+    ) -> DispatchResult {
         let who = ensure_signed(origin)?;
         let now = frame_system::Pallet::<T>::block_number();
 
@@ -108,10 +112,15 @@ impl<T: Config> Pallet<T> {
 
         // Ensure the lease has an end block and we are past it
         let end_block = lease.end_block.ok_or(Error::<T>::LeaseHasNoEndBlock)?;
-        ensure!(end_block >= now, Error::<T>::LeaseHasNotEnded);
+        ensure!(now >= end_block, Error::<T>::LeaseHasNotEnded);
 
         // Transfer ownership to the beneficiary
-        Self::set_subnet_owner_hotkey(lease.netuid, &lease.beneficiary);
+        ensure!(
+            OwnedHotkeys::<T>::get(&lease.beneficiary).contains(&hotkey),
+            Error::<T>::BeneficiaryDoesNotOwnHotkey
+        );
+        SubnetOwner::<T>::insert(lease.netuid, lease.beneficiary.clone());
+        Self::set_subnet_owner_hotkey(lease.netuid, &hotkey);
 
         // Stop tracking the lease coldkey and hotkey
         let _ = frame_system::Pallet::<T>::dec_providers(&lease.coldkey).defensive();
