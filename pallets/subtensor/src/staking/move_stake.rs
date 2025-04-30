@@ -443,7 +443,7 @@ impl<T: Config> Pallet<T> {
             || (SubnetMechanism::<T>::get(destination_netuid)) == 0)
             && ((SubnetMechanism::<T>::get(origin_netuid)) == 1)
         {
-            return Ok(Self::get_max_amount_remove(origin_netuid, limit_price));
+            return Self::get_max_amount_remove(origin_netuid, limit_price);
         }
 
         // Corner case: SubnetTAO for any of two subnets is zero

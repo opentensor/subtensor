@@ -2123,8 +2123,14 @@ where
                 limit_price,
                 allow_partial,
             }) => {
-                // Calcaulate the maximum amount that can be executed with price limit
-                let max_amount = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price);
+                // Calculate the maximum amount that can be executed with price limit
+                let Ok(max_amount) = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price)
+                else {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ZeroMaxAmount.into(),
+                    )
+                    .into();
+                };
 
                 // Fully validate the user input
                 Self::result_to_validity(
@@ -2224,7 +2230,13 @@ where
                 allow_partial,
             }) => {
                 // Calculate the maximum amount that can be executed with price limit
-                let max_amount = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price);
+                let Ok(max_amount) = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price)
+                else {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ZeroMaxAmount.into(),
+                    )
+                    .into();
+                };
 
                 // Fully validate the user input
                 Self::result_to_validity(

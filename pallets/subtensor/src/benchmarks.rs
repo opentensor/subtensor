@@ -162,7 +162,48 @@ benchmarks! {
     assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
   }: add_stake_aggregate(RawOrigin::Signed( coldkey.clone() ), hotkey, netuid, amount)
 
-  benchmark_remove_stake_limit_aggregate{
+  benchmark_remove_stake_limit {
+    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+    let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
+    let netuid: u16 = 1;
+    let tempo: u16 = 1;
+    let modality: u16 = 0;
+    let seed : u32 = 1;
+
+    // Set our total stake to 1000 TAO
+    Subtensor::<T>::increase_total_stake(1_000_000_000_000);
+
+    Subtensor::<T>::init_new_network(netuid, tempo);
+    Subtensor::<T>::set_network_registration_allowed( netuid, true );
+    SubtokenEnabled::<T>::insert(netuid, true);
+
+    Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
+    assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
+
+    let coldkey: T::AccountId = account("Test", 0, seed);
+    let hotkey: T::AccountId = account("Alice", 0, seed);
+    Subtensor::<T>::set_burn(netuid, 1);
+
+    let limit: u64 = 1_000_000_000;
+    let tao_reserve = 150_000_000_000_u64;
+    let alpha_in = 100_000_000_000_u64;
+    SubnetTAO::<T>::insert(netuid, tao_reserve);
+    SubnetAlphaIn::<T>::insert(netuid, alpha_in);
+
+    let wallet_bal = 1000000u32.into();
+    Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), wallet_bal);
+
+    assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
+
+    let u64_staked_amt = 100_000_000_000;
+    Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), u64_staked_amt);
+
+    assert_ok!(Subtensor::<T>::add_stake(RawOrigin::Signed( coldkey.clone() ).into() , hotkey.clone(), netuid, u64_staked_amt));
+
+    let amount_unstaked: u64 = 30_000_000_000;
+  }: remove_stake_limit(RawOrigin::Signed( coldkey.clone() ), hotkey.clone(), netuid, amount_unstaked, limit, false)
+
+benchmark_remove_stake_limit_aggregate{
     let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
     let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
     let netuid: u16 = 1;
@@ -895,103 +936,62 @@ benchmark_move_stake {
   Subtensor::<T>::create_account_if_non_existent(&coldkey, &destination);
 }: move_stake(RawOrigin::Signed(coldkey.clone()),origin.clone(),destination.clone(),netuid,netuid,alpha_to_move)
 
-benchmark_remove_stake_limit {
-  let coldkey: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
-  let hotkey:  T::AccountId = account("Alice", 0, 1);
-  let netuid:  u16          = 1;
-
-  Subtensor::<T>::init_new_network(netuid, 1);
-  Subtensor::<T>::set_network_registration_allowed(netuid, true);
-  SubtokenEnabled::<T>::insert(netuid, true);
-
-  let bond   = Subtensor::<T>::get_burn_as_u64(netuid);
-  let fee    = DefaultStakingFee::<T>::get();
-  let amount: u64 = 1_000_000;
-  let deposit = (amount + bond + fee).saturating_mul(10);
-
-  Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, deposit);
-  assert_ok!(
-      Subtensor::<T>::burned_register(
-          RawOrigin::Signed(coldkey.clone()).into(),
-          netuid,
-          hotkey.clone(),
-      )
-  );
-
-  SubnetTAO::<T>::insert(netuid, deposit);
-  SubnetAlphaIn::<T>::insert(netuid, deposit);
-  SubnetAlphaOut::<T>::insert(netuid, deposit);
-  TotalStake::<T>::set(deposit);
-
-  assert_ok!(
-      Subtensor::<T>::add_stake_limit(
-          RawOrigin::Signed(coldkey.clone()).into(),
-          hotkey.clone(),
-          netuid,
-          amount,
-          u64::MAX,
-          false,
-      )
-  );
-
-  let alpha: u64 = Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
-      &hotkey, &coldkey, netuid
-  );
-
-  assert_ok!(
-      Subtensor::<T>::remove_stake_limit(
-          RawOrigin::Signed(coldkey.clone()).into(),
-          hotkey.clone(),
-          netuid,
-          alpha,
-          u64::MAX,
-          true,
-      )
-  );
-}: remove_stake_limit(RawOrigin::Signed(coldkey.clone()),hotkey.clone(),netuid,alpha,u64::MAX,true)
-
 benchmark_swap_stake_limit {
-  let coldkey: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
-  let hot:     T::AccountId = account("A", 0, 1);
-  let netuid:  u16          = 1;
-  let allow:   bool         = true;
+    let coldkey: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+    let hot:     T::AccountId = account("A", 0, 1);
+    let netuid1: u16          = 1;
+    let netuid2: u16          = 2;
+    let allow:   bool         = true;
 
-  SubtokenEnabled::<T>::insert(netuid, true);
-  Subtensor::<T>::init_new_network(netuid, 1);
+    SubtokenEnabled::<T>::insert(netuid1, true);
+    Subtensor::<T>::init_new_network(netuid1, 1);
+    SubtokenEnabled::<T>::insert(netuid2, true);
+    Subtensor::<T>::init_new_network(netuid2, 1);
 
-  let reg_fee   = Subtensor::<T>::get_burn_as_u64(netuid);
-  let stake_tao = 1_000_000;
-  let deposit   = reg_fee.saturating_mul(2).saturating_add(stake_tao);
-  Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, deposit);
+    let tao_reserve = 150_000_000_000_u64;
+    let alpha_in = 100_000_000_000_u64;
+    SubnetTAO::<T>::insert(netuid1, tao_reserve);
+    SubnetAlphaIn::<T>::insert(netuid1, alpha_in);
+    SubnetTAO::<T>::insert(netuid2, tao_reserve);
 
-  assert_ok!(
-    Subtensor::<T>::burned_register(
-      RawOrigin::Signed(coldkey.clone()).into(),
-      netuid,
-      hot.clone()
-    )
-  );
+    Subtensor::<T>::increase_total_stake(1_000_000_000_000);
 
-  SubnetTAO::<T>::insert(netuid,   deposit);
-  SubnetAlphaIn::<T>::insert(netuid, deposit);
-  TotalStake::<T>::set(deposit);
+    let limit: u64 = 1_000_000_000;
+    let amount = 900_000_000_000;
+    let limit_stake: u64 = 6_000_000_000;
+    let limit_swap: u64 = 1_000_000_000;
+    let amount_to_be_staked = 440_000_000_000;
+    let amount_swapped: u64 = 30_000_000_000;
+    Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount);
 
-  assert_ok!(
-    Subtensor::<T>::add_stake_limit(
-      RawOrigin::Signed(coldkey.clone()).into(),
-      hot.clone(),
-      netuid,
-      stake_tao,
-      u64::MAX,
-      allow
-    )
-  );
-
-  let alpha_to_swap: u64 =
-    Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
-      &hot, &coldkey, netuid
+    assert_ok!(
+        Subtensor::<T>::burned_register(
+          RawOrigin::Signed(coldkey.clone()).into(),
+          netuid1,
+          hot.clone()
+        )
     );
-}: swap_stake_limit(RawOrigin::Signed(coldkey.clone()),hot.clone(),netuid,netuid,alpha_to_swap,u64::MAX,allow)
+
+    assert_ok!(
+        Subtensor::<T>::burned_register(
+          RawOrigin::Signed(coldkey.clone()).into(),
+          netuid2,
+          hot.clone()
+        )
+    );
+
+    assert_ok!(
+        Subtensor::<T>::add_stake_limit(
+          RawOrigin::Signed(coldkey.clone()).into(),
+          hot.clone(),
+          netuid1,
+          amount_to_be_staked,
+          limit_stake,
+          allow
+    )
+  );
+
+}: swap_stake_limit(RawOrigin::Signed(coldkey.clone()),hot.clone(),netuid1,netuid2,amount_swapped,limit_swap,allow)
 
 benchmark_transfer_stake {
   let coldkey: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
