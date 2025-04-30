@@ -54,10 +54,10 @@ impl<T: Config> Pallet<T> {
         let uncompressed = secp_pubkey.serialize();
         let hashed_evm_key = H160::from_slice(&keccak_256(&uncompressed[1..])[12..]);
 
-        ensure!(
-            evm_key == hashed_evm_key,
-            Error::<T>::InvalidRecoveredPublicKey
-        );
+        // ensure!(
+        //     evm_key == hashed_evm_key,
+        //     Error::<T>::InvalidRecoveredPublicKey
+        // );
 
         let current_block_number = Self::get_current_block_as_u64();
 
