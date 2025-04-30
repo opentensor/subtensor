@@ -5229,6 +5229,161 @@ fn test_remove_stake_limit_fill_or_kill() {
     });
 }
 
+#[test]
+fn test_move_stake_limit_ok() {
+    new_test_ext(1).execute_with(|| {
+        let origin_hotkey = U256::from(533453);
+        let destination_hotkey = U256::from(533454);
+        let coldkey = U256::from(55453);
+        let stake_amount = 900_000_000_000; // over the maximum
+        let fee = DefaultStakingFee::<Test>::get();
+
+        // Add origin network
+        let origin_netuid: u16 = add_dynamic_network(&origin_hotkey, &coldkey);
+
+        // Add destination network
+        let destination_netuid: u16 = add_dynamic_network(&destination_hotkey, &coldkey);
+
+        // Give the neuron some stake to move
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &origin_hotkey,
+            &coldkey,
+            origin_netuid,
+            stake_amount,
+        );
+
+        // Force-set alpha in and tao reserve for origin subnet to make price equal 1.5
+        let origin_tao_reserve: U96F32 = U96F32::from_num(150_000_000_000_u64);
+        let origin_alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(origin_netuid, origin_tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(origin_netuid, origin_alpha_in.to_num::<u64>());
+
+        // Force-set alpha in and tao reserve for destination subnet to make price equal 3.0
+        let destination_tao_reserve: U96F32 = U96F32::from_num(300_000_000_000_u64);
+        let destination_alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(destination_netuid, destination_tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(destination_netuid, destination_alpha_in.to_num::<u64>());
+
+        // Verify prices
+        let origin_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(origin_netuid));
+        let destination_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(destination_netuid));
+        assert_eq!(origin_price, U96F32::from_num(1.5));
+        assert_eq!(destination_price, U96F32::from_num(3.0));
+
+        // Setup limit price so that it doesn't exceed the slippage limit
+        // The amount that can be executed at this price is 450 TAO only
+        // Alpha produced will be calculated accordingly
+        let limit_price = 400_000_000;
+        let expected_executed_stake = 75_000_000_000;
+
+        // Move stake limit call
+        assert_ok!(SubtensorModule::move_stake_limit(
+            RuntimeOrigin::signed(coldkey),
+            origin_hotkey,
+            destination_hotkey,
+            origin_netuid,
+            destination_netuid,
+            stake_amount,
+            limit_price,
+            true
+        ));
+
+        // Check if stake has increased only by expected amount minus fee
+        assert_abs_diff_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &destination_hotkey,
+                &coldkey,
+                destination_netuid
+            ),
+            expected_executed_stake - fee,
+            epsilon = expected_executed_stake / 1000,
+        );
+
+        // Check that price has updated appropriately
+        let exp_price = U96F32::from_num(6.0);
+        let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(destination_netuid));
+        assert_abs_diff_eq!(
+            exp_price.to_num::<f64>(),
+            current_price.to_num::<f64>(),
+            epsilon = 0.0001,
+        );
+    });
+}
+
+#[test]
+fn test_move_stake_limit_fill_or_kill() {
+    new_test_ext(1).execute_with(|| {
+        let origin_hotkey = U256::from(533453);
+        let destination_hotkey = U256::from(533454);
+        let coldkey = U256::from(55453);
+        let stake_amount = 900_000_000_000; // over the maximum
+        let move_amount = 900_000_000_000;
+
+        // Add origin network
+        let origin_netuid: u16 = add_dynamic_network(&origin_hotkey, &coldkey);
+
+        // Add destination network
+        let destination_netuid: u16 = add_dynamic_network(&destination_hotkey, &coldkey);
+
+        // Give the neuron some stake to move
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &origin_hotkey,
+            &coldkey,
+            origin_netuid,
+            stake_amount,
+        );
+
+        // Force-set alpha in and tao reserve for origin subnet to make price equal 1.5
+        let origin_tao_reserve: U96F32 = U96F32::from_num(150_000_000_000_u64);
+        let origin_alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(origin_netuid, origin_tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(origin_netuid, origin_alpha_in.to_num::<u64>());
+
+        // Force-set alpha in and tao reserve for destination subnet to make price equal 3.0
+        let destination_tao_reserve: U96F32 = U96F32::from_num(300_000_000_000_u64);
+        let destination_alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(destination_netuid, destination_tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(destination_netuid, destination_alpha_in.to_num::<u64>());
+
+        // Verify prices
+        let origin_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(origin_netuid));
+        let destination_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(destination_netuid));
+        assert_eq!(origin_price, U96F32::from_num(1.5));
+        assert_eq!(destination_price, U96F32::from_num(3.0));
+
+        // Setup limit price
+        let limit_price = 400_000_000;
+
+        // Move stake limit call with fill or kill set to false, should fail
+        assert_noop!(
+            SubtensorModule::move_stake_limit(
+                RuntimeOrigin::signed(coldkey),
+                origin_hotkey,
+                destination_hotkey,
+                origin_netuid,
+                destination_netuid,
+                move_amount,
+                limit_price,
+                false
+            ),
+            Error::<Test>::SlippageTooHigh
+        );
+
+        // Lower the amount and it should succeed now
+        let amount_ok = 45_000_000_000; // fits the maximum
+        assert_ok!(SubtensorModule::move_stake_limit(
+            RuntimeOrigin::signed(coldkey),
+            origin_hotkey,
+            destination_hotkey,
+            origin_netuid,
+            destination_netuid,
+            amount_ok,
+            limit_price,
+            false
+        ));
+    });
+}
+
 // #[test]
 // fn test_add_stake_specific() {
 //     new_test_ext(1).execute_with(|| {
@@ -5546,7 +5701,8 @@ fn test_move_stake_limit_partial() {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
         let coldkey = U256::from(1);
-        let hotkey = U256::from(2);
+        let origin_hotkey = U256::from(2);
+        let destination_hotkey = U256::from(3);
         let stake_amount = 150_000_000_000;
         let move_amount = 150_000_000_000;
 
@@ -5554,18 +5710,18 @@ fn test_move_stake_limit_partial() {
         let origin_netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         let destination_netuid: u16 =
             add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        register_ok_neuron(origin_netuid, hotkey, coldkey, 192213123);
-        register_ok_neuron(destination_netuid, hotkey, coldkey, 192213123);
+        register_ok_neuron(origin_netuid, origin_hotkey, coldkey, 192213123);
+        register_ok_neuron(destination_netuid, destination_hotkey, coldkey, 192213123);
 
-        // Give the neuron some stake to remove
+        // Give the neuron some stake to move
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
+            &origin_hotkey,
             &coldkey,
             origin_netuid,
             stake_amount,
         );
 
-        // Forse-set alpha in and tao reserve to make price equal 1.5 on both origin and destination,
+        // Force-set alpha in and tao reserve to make price equal 1.5 on both origin and destination,
         // but there's much more liquidity on destination, so its price wouldn't go up when restaked
         let tao_reserve: U96F32 = U96F32::from_num(150_000_000_000_u64);
         let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
@@ -5582,9 +5738,10 @@ fn test_move_stake_limit_partial() {
         let limit_price = 990_000_000;
 
         // Move stake with slippage safety - executes partially
-        assert_ok!(SubtensorModule::swap_stake_limit(
+        assert_ok!(SubtensorModule::move_stake_limit(
             RuntimeOrigin::signed(coldkey),
-            hotkey,
+            origin_hotkey,
+            destination_hotkey,
             origin_netuid,
             destination_netuid,
             move_amount,
@@ -5592,13 +5749,21 @@ fn test_move_stake_limit_partial() {
             true,
         ));
 
-        let new_alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
+        // Check remaining balance in origin subnet
+        let origin_alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &origin_hotkey,
             &coldkey,
             origin_netuid,
         );
+        assert_abs_diff_eq!(origin_alpha, 149_000_000_000, epsilon = 100_000_000);
 
-        assert_abs_diff_eq!(new_alpha, 149_000_000_000, epsilon = 100_000_000,);
+        // Check moved balance in destination subnet
+        let destination_alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &destination_hotkey,
+            &coldkey,
+            destination_netuid,
+        );
+        assert_abs_diff_eq!(destination_alpha, 1_000_000_000, epsilon = 100_000_000);
     });
 }
 
