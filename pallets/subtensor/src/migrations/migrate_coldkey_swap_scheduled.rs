@@ -1,6 +1,5 @@
 use super::*;
 use crate::AccountIdOf;
-use alloc::collections::BTreeMap;
 use frame_support::{
     pallet_prelude::{Blake2_128Concat, ValueQuery},
     storage_alias,
@@ -41,23 +40,13 @@ pub fn migrate_coldkey_swap_scheduled<T: Config>() -> Weight {
     // ------------------------------
     // Step 1: Migrate ColdkeySwapScheduled map
     // ------------------------------
-    let mut scheduled_map: BTreeMap<AccountIdOf<T>, (BlockNumberFor<T>, AccountIdOf<T>)> =
-        BTreeMap::new();
-
-    // for (block, scheduled_tasks) in old::ColdkeySwapScheduled::iter() {
-    // for task in old::ColdkeySwapScheduled::<T>::iter() {
-
-    //     //scheduled_map.insert(task.to, (block, new_coldkey));
-    // }
-    // }
 
     let curr_keys: Vec<AccountIdOf<T>> = old::ColdkeySwapScheduled::<T>::iter_keys().collect();
 
     // Remove any undecodable entries
-    for coldkey in curr_keys {
+    for coldkey in &curr_keys {
         weight.saturating_accrue(T::DbWeight::get().reads(1));
         if old::ColdkeySwapScheduled::<T>::try_get(&coldkey).is_err() {
-            weight.saturating_accrue(T::DbWeight::get().writes(1));
             old::ColdkeySwapScheduled::<T>::remove(&coldkey);
             log::warn!(
                 "Was unable to decode old coldkey_swap_scheduled for coldkey {:?}",
@@ -67,11 +56,11 @@ pub fn migrate_coldkey_swap_scheduled<T: Config>() -> Weight {
     }
 
     let default_value = DefaultColdkeySwapScheduled::<T>::get();
-    ColdkeySwapScheduled::<T>::translate::<(), _>(|coldkey: AccountIdOf<T>, _: ()| {
-        let (when, new_coldkey) = scheduled_map.get(&coldkey).unwrap_or(&default_value);
-
-        Some((*when, new_coldkey.clone()))
+    ColdkeySwapScheduled::<T>::translate::<(), _>(|_coldkey: AccountIdOf<T>, _: ()| {
+        Some((default_value.0, default_value.1.clone()))
     });
+    // write once for each item in the map, no matter remove or translate
+    weight.saturating_accrue(T::DbWeight::get().writes(curr_keys.len() as u64));
 
     // ------------------------------
     // Step 2: Mark Migration as Completed
