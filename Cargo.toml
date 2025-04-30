@@ -46,6 +46,7 @@ pallet-admin-utils = { default-features = false, path = "pallets/admin-utils" }
 pallet-collective = { default-features = false, path = "pallets/collective" }
 pallet-commitments = { default-features = false, path = "pallets/commitments" }
 pallet-registry = { default-features = false, path = "pallets/registry" }
+pallet-crowdloan = { default-features = false, path = "pallets/crowdloan" }
 pallet-subtensor = { default-features = false, path = "pallets/subtensor" }
 subtensor-custom-rpc = { default-features = false, path = "pallets/subtensor/rpc" }
 subtensor-custom-rpc-runtime-api = { default-features = false, path = "pallets/subtensor/runtime-api" }
