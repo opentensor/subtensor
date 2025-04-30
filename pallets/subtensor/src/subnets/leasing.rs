@@ -153,10 +153,7 @@ impl<T: Config> Pallet<T> {
         let lease = match SubnetLeases::<T>::get(lease_id) {
             Some(lease) => lease,
             None => {
-                log::debug!(
-                    "Lease {} doesn't exists so we can't distribute dividends",
-                    lease_id
-                );
+                log::debug!("Lease {lease_id} doesn't exists so we can't distribute dividends");
                 return;
             }
         };
@@ -185,11 +182,7 @@ impl<T: Config> Pallet<T> {
             total_contributors_cut_alpha,
             false,
         ) {
-            log::debug!(
-                "Couldn't distributing dividends for lease {}: {:?}",
-                lease_id,
-                err
-            );
+            log::debug!("Couldn't distributing dividends for lease {lease_id}: {err:?}");
             AccumulatedLeaseDividends::<T>::mutate(lease_id, |v| {
                 *v = v.saturating_add(current_contributors_cut_alpha)
             });
