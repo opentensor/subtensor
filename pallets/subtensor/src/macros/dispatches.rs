@@ -1339,9 +1339,9 @@ mod dispatches {
 
             // If the coldkey has a scheduled swap, check if we can reschedule it
             if ColdkeySwapScheduled::<T>::contains_key(&who) {
+                let (scheduled_block, _scheduled_coldkey) = ColdkeySwapScheduled::<T>::get(&who);
                 let reschedule_duration = ColdkeySwapRescheduleDuration::<T>::get();
-                let redo_when = current_block.saturating_add(reschedule_duration);
-
+                let redo_when = scheduled_block.saturating_add(reschedule_duration);
                 ensure!(redo_when <= current_block, Error::<T>::SwapAlreadyScheduled);
             }
 
