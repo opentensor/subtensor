@@ -4246,31 +4246,37 @@ fn test_max_amount_remove_dynamic() {
 fn test_max_amount_move_root_root() {
     new_test_ext(0).execute_with(|| {
         // 0 price on (root, root) exchange => max is u64::MAX
-        assert_eq!(SubtensorModule::get_max_amount_move(0, 0, 0), u64::MAX);
+        assert_eq!(SubtensorModule::get_max_amount_move(0, 0, 0), Ok(u64::MAX));
 
         // 0.5 price on (root, root) => max is u64::MAX
         assert_eq!(
             SubtensorModule::get_max_amount_move(0, 0, 500_000_000),
-            u64::MAX
+            Ok(u64::MAX)
         );
 
         // 0.999999... price on (root, root) => max is u64::MAX
         assert_eq!(
             SubtensorModule::get_max_amount_move(0, 0, 999_999_999),
-            u64::MAX
+            Ok(u64::MAX)
         );
 
         // 1.0 price on (root, root) => max is u64::MAX
         assert_eq!(
             SubtensorModule::get_max_amount_move(0, 0, 1_000_000_000),
-            u64::MAX
+            Ok(u64::MAX)
         );
 
         // 1.000...001 price on (root, root) => max is 0
-        assert_eq!(SubtensorModule::get_max_amount_move(0, 0, 1_000_000_001), 0);
+        assert_eq!(
+            SubtensorModule::get_max_amount_move(0, 0, 1_000_000_001),
+            Err(Error::<Test>::ZeroMaxStakeAmount)
+        );
 
         // 2.0 price on (root, root) => max is 0
-        assert_eq!(SubtensorModule::get_max_amount_move(0, 0, 2_000_000_000), 0);
+        assert_eq!(
+            SubtensorModule::get_max_amount_move(0, 0, 2_000_000_000),
+            Err(Error::<Test>::ZeroMaxStakeAmount)
+        );
     });
 }
 
@@ -4282,36 +4288,39 @@ fn test_max_amount_move_root_stable() {
         add_network(netuid, 1, 0);
 
         // 0 price on (root, stable) exchange => max is u64::MAX
-        assert_eq!(SubtensorModule::get_max_amount_move(0, netuid, 0), u64::MAX);
+        assert_eq!(
+            SubtensorModule::get_max_amount_move(0, netuid, 0),
+            Ok(u64::MAX)
+        );
 
         // 0.5 price on (root, stable) => max is u64::MAX
         assert_eq!(
             SubtensorModule::get_max_amount_move(0, netuid, 500_000_000),
-            u64::MAX
+            Ok(u64::MAX)
         );
 
         // 0.999999... price on (root, stable) => max is u64::MAX
         assert_eq!(
             SubtensorModule::get_max_amount_move(0, netuid, 999_999_999),
-            u64::MAX
+            Ok(u64::MAX)
         );
 
         // 1.0 price on (root, stable) => max is u64::MAX
         assert_eq!(
             SubtensorModule::get_max_amount_move(0, netuid, 1_000_000_000),
-            u64::MAX
+            Ok(u64::MAX)
         );
 
         // 1.000...001 price on (root, stable) => max is 0
         assert_eq!(
             SubtensorModule::get_max_amount_move(0, netuid, 1_000_000_001),
-            0
+            Err(Error::<Test>::ZeroMaxStakeAmount)
         );
 
         // 2.0 price on (root, stable) => max is 0
         assert_eq!(
             SubtensorModule::get_max_amount_move(0, netuid, 2_000_000_000),
-            0
+            Err(Error::<Test>::ZeroMaxStakeAmount)
         );
     });
 }
@@ -4343,24 +4352,25 @@ fn test_max_amount_move_stable_dynamic() {
         // 0 price => max is u64::MAX
         assert_eq!(
             SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 0),
-            u64::MAX
+            Ok(u64::MAX)
         );
 
         // 2.0 price => max is 0
         assert_eq!(
             SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 2_000_000_000),
-            0
+            Err(Error::<Test>::ZeroMaxStakeAmount)
         );
 
         // 3.0 price => max is 0
         assert_eq!(
             SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 3_000_000_000),
-            0
+            Err(Error::<Test>::ZeroMaxStakeAmount)
         );
 
         // 2x price => max is 1x TAO
         assert_abs_diff_eq!(
-            SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 1_000_000_000),
+            SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 1_000_000_000)
+                .unwrap(),
             50_000_000_000,
             epsilon = 10_000,
         );
@@ -4368,21 +4378,23 @@ fn test_max_amount_move_stable_dynamic() {
         // Precision test:
         // 1.99999..9000 price => max > 0
         assert!(
-            SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 1_999_999_000) > 0
+            SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 1_999_999_000)
+                .unwrap()
+                > 0
         );
 
         // Max price doesn't panic and returns something meaningful
         assert_eq!(
             SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, u64::MAX),
-            0
+            Err(Error::<Test>::ZeroMaxStakeAmount)
         );
         assert_eq!(
             SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, u64::MAX - 1),
-            0
+            Err(Error::<Test>::ZeroMaxStakeAmount)
         );
         assert_eq!(
             SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, u64::MAX / 2),
-            0
+            Err(Error::<Test>::ZeroMaxStakeAmount)
         );
     });
 }
@@ -4414,30 +4426,38 @@ fn test_max_amount_move_dynamic_stable() {
         // 0 price => max is u64::MAX
         assert_eq!(
             SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, 0),
-            u64::MAX
+            Ok(u64::MAX)
         );
 
         // Low price values don't blow things up
-        assert!(SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, 1) > 0);
-        assert!(SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, 2) > 0);
-        assert!(SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, 3) > 0);
+        assert!(
+            SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, 1).unwrap() > 0
+        );
+        assert!(
+            SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, 2).unwrap() > 0
+        );
+        assert!(
+            SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, 3).unwrap() > 0
+        );
 
         // 1.5000...1 price => max is 0
         assert_eq!(
             SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, 1_500_000_001),
-            0
+            Err(Error::<Test>::ZeroMaxStakeAmount)
         );
 
         // 1.5 price => max is 0 because of non-zero slippage
         assert_abs_diff_eq!(
-            SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, 1_500_000_000),
+            SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, 1_500_000_000)
+                .unwrap(),
             0,
             epsilon = 10_000
         );
 
         // 1/2 price => max is 1x Alpha
         assert_abs_diff_eq!(
-            SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, 750_000_000),
+            SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, 750_000_000)
+                .unwrap(),
             100_000_000_000,
             epsilon = 10_000,
         );
@@ -4445,20 +4465,24 @@ fn test_max_amount_move_dynamic_stable() {
         // Precision test:
         // 1.499999.. price => max > 0
         assert!(
-            SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, 1_499_999_999) > 0
+            SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, 1_499_999_999)
+                .unwrap()
+                > 0
         );
 
         // Max price doesn't panic and returns something meaningful
         assert!(
-            SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, u64::MAX)
+            SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, u64::MAX).unwrap()
                 < 21_000_000_000_000_000
         );
         assert!(
             SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, u64::MAX - 1)
+                .unwrap()
                 < 21_000_000_000_000_000
         );
         assert!(
             SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, u64::MAX / 2)
+                .unwrap()
                 < 21_000_000_000_000_000
         );
     });
@@ -4682,7 +4706,8 @@ fn test_max_amount_move_dynamic_dynamic() {
                         origin_netuid,
                         destination_netuid,
                         limit_price
-                    ),
+                    )
+                    .unwrap_or(0u64),
                     expected_max_swappable,
                     epsilon = precision
                 );

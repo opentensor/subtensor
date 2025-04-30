@@ -2347,11 +2347,16 @@ where
                 }
 
                 // Get the max amount possible to exchange
-                let max_amount = Pallet::<T>::get_max_amount_move(
+                let Ok(max_amount) = Pallet::<T>::get_max_amount_move(
                     *origin_netuid,
                     *destination_netuid,
                     *limit_price,
-                );
+                ) else {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ZeroMaxAmount.into(),
+                    )
+                    .into();
+                };
 
                 // Fully validate the user input
                 Self::result_to_validity(
