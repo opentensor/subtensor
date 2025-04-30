@@ -52,6 +52,10 @@ describe("Test the UID Lookup precompile", () => {
         const blockNumberHash = hexToU8a(keccak256(blockNumberBytes));
         const concatenatedArray = new Uint8Array([...hotkey.publicKey, ...blockNumberHash]);
         const concatenatedHash = keccak256(concatenatedArray);
+        console.info(hotkey.publicKey)
+        console.info(concatenatedArray)
+        console.info(concatenatedHash)
+        console.info(convertPublicKeyToSs58(hotkey.publicKey))
         const signature = await evmWallet.signMessage(concatenatedHash);
         const associateEvmKeyTx = api.tx.SubtensorModule.associate_evm_key({
             netuid: netuid,
