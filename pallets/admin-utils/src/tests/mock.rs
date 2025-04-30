@@ -132,7 +132,7 @@ parameter_types! {
     // pub const InitialHotkeyEmissionTempo: u64 = 1; // (DEPRECATED)
     // pub const InitialNetworkMaxStake: u64 = u64::MAX; // (DEPRECATED)
     pub const InitialColdkeySwapScheduleDuration: u64 = 5 * 24 * 60 * 60 / 12; // 5 days
-    pub const InitialColdkeySwapRescheduleDuration: u64 = 1 * 24 * 60 * 60 / 12; // 1 day
+    pub const InitialColdkeySwapRescheduleDuration: u64 = 24 * 60 * 60 / 12; // 1 day
     pub const InitialDissolveNetworkScheduleDuration: u64 = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const InitialTaoWeight: u64 = u64::MAX/10; // 10% global weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks

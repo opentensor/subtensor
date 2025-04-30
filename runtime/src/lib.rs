@@ -1074,7 +1074,7 @@ parameter_types! {
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     // pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // (DEPRECATED)
     pub const InitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
-    pub const InitialColdkeySwapRescheduleDuration: BlockNumber = 1 * 24 * 60 * 60 / 12; // 1 day
+    pub const InitialColdkeySwapRescheduleDuration: BlockNumber = 24 * 60 * 60 / 12; // 1 day
     pub const InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const SubtensorInitialTaoWeight: u64 = 971_718_665_099_567_868; // 0.05267697438728329% tao weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks

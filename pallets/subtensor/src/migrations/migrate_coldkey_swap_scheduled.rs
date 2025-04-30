@@ -46,8 +46,8 @@ pub fn migrate_coldkey_swap_scheduled<T: Config>() -> Weight {
     // Remove any undecodable entries
     for coldkey in &curr_keys {
         weight.saturating_accrue(T::DbWeight::get().reads(1));
-        if old::ColdkeySwapScheduled::<T>::try_get(&coldkey).is_err() {
-            old::ColdkeySwapScheduled::<T>::remove(&coldkey);
+        if old::ColdkeySwapScheduled::<T>::try_get(coldkey).is_err() {
+            old::ColdkeySwapScheduled::<T>::remove(coldkey);
             log::warn!(
                 "Was unable to decode old coldkey_swap_scheduled for coldkey {:?}",
                 &coldkey

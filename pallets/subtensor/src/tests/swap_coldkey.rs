@@ -1915,7 +1915,7 @@ fn test_schedule_swap_coldkey_failure_and_reschedule() {
 
         // Check the failure
         next_block(); // Still in the scheduled-swap map
-        assert!(ColdkeySwapScheduled::<Test>::contains_key(&old_coldkey));
+        assert!(ColdkeySwapScheduled::<Test>::contains_key(old_coldkey));
 
         // Try to schedule the second swap
         assert_noop!(
@@ -1944,7 +1944,7 @@ fn test_schedule_swap_coldkey_failure_and_reschedule() {
 
         // Check the success
         next_block(); // Now in the scheduled-swap map
-        assert!(!ColdkeySwapScheduled::<Test>::contains_key(&old_coldkey));
+        assert!(!ColdkeySwapScheduled::<Test>::contains_key(old_coldkey));
     });
 }
 
