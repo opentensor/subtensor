@@ -1330,10 +1330,15 @@ mod dispatches {
             new_coldkey: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
-            ensure!(
-                !ColdkeySwapScheduled::<T>::contains_key(&who),
-                Error::<T>::SwapAlreadyScheduled
-            );
+            let current_block = <frame_system::Pallet<T>>::block_number();
+
+            // If the coldkey has a scheduled swap, check if we can reschedule it
+            if ColdkeySwapScheduled::<T>::contains_key(&who) {
+                let reschedule_duration = ColdkeySwapRescheduleDuration::<T>::get();
+                let redo_when = current_block.saturating_add(reschedule_duration);
+
+                ensure!(redo_when <= current_block, Error::<T>::SwapAlreadyScheduled);
+            }
 
             // Calculate the swap cost and ensure sufficient balance
             let swap_cost = Self::get_key_swap_cost();
@@ -1364,7 +1369,7 @@ mod dispatches {
             )
             .map_err(|_| Error::<T>::FailedToSchedule)?;
 
-            ColdkeySwapScheduled::<T>::insert(&who, ());
+            ColdkeySwapScheduled::<T>::insert(&who, (when, new_coldkey.clone()));
             // Emit the SwapScheduled event
             Self::deposit_event(Event::ColdkeySwapScheduled {
                 old_coldkey: who.clone(),

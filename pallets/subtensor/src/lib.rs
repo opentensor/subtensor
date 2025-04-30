@@ -811,6 +811,12 @@ pub mod pallet {
     }
 
     #[pallet::type_value]
+    /// Default value for coldkey swap reschedule duration
+    pub fn DefaultColdkeySwapRescheduleDuration<T: Config>() -> BlockNumberFor<T> {
+        T::InitialColdkeySwapRescheduleDuration::get()
+    }
+
+    #[pallet::type_value]
     /// Default value for applying pending items (e.g. childkeys).
     pub fn DefaultPendingCooldown<T: Config>() -> u64 {
         if cfg!(feature = "fast-blocks") {
@@ -874,6 +880,14 @@ pub mod pallet {
         360
     }
 
+    #[pallet::type_value]
+    /// Default value for coldkey swap scheduled
+    pub fn DefaultColdkeySwapScheduled<T: Config>() -> (BlockNumberFor<T>, T::AccountId) {
+        let default_account = T::AccountId::decode(&mut TrailingZeroInput::zeroes())
+            .expect("trailing zeroes always produce a valid account ID; qed");
+        (BlockNumberFor::<T>::from(0_i32), default_account)
+    }
+
     #[pallet::storage]
     pub type MinActivityCutoff<T: Config> =
         StorageValue<_, u16, ValueQuery, DefaultMinActivityCutoff<T>>;
@@ -881,6 +895,10 @@ pub mod pallet {
     #[pallet::storage]
     pub type ColdkeySwapScheduleDuration<T: Config> =
         StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapScheduleDuration<T>>;
+
+    #[pallet::storage]
+    pub type ColdkeySwapRescheduleDuration<T: Config> =
+        StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapRescheduleDuration<T>>;
 
     #[pallet::storage]
     pub type DissolveNetworkScheduleDuration<T: Config> =
@@ -1098,9 +1116,15 @@ pub mod pallet {
     pub type OwnedHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
 
-    #[pallet::storage] // --- DMAP ( cold ) --> () | Maps coldkey to if a coldkey swap is scheduled.
-    pub type ColdkeySwapScheduled<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, (), ValueQuery>;
+    #[pallet::storage] // --- DMAP ( cold ) --> (block_expected, new_coldkey) | Maps coldkey to the block to swap at and new coldkey.
+    pub type ColdkeySwapScheduled<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        (BlockNumberFor<T>, T::AccountId),
+        ValueQuery,
+        DefaultColdkeySwapScheduled<T>,
+    >;
 
     #[pallet::storage] // --- DMAP ( hot, netuid ) --> alpha | Returns the total amount of alpha a hotkey owns.
     pub type TotalHotkeyAlpha<T: Config> = StorageDoubleMap<
