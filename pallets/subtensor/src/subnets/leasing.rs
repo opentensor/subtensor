@@ -31,9 +31,18 @@ impl<T: Config> Pallet<T> {
         end_block: Option<BlockNumberFor<T>>,
     ) -> DispatchResult {
         let who = ensure_signed(origin)?;
-        let (crowdloan_id, crowdloan) = Self::get_crowdloan_being_finalized()?;
+        let now = frame_system::Pallet::<T>::block_number();
 
-        ensure!(who == crowdloan.creator, Error::<T>::InvalidBeneficiary);
+        // Ensure the origin is the creator of the crowdloan
+        let (crowdloan_id, crowdloan) = Self::get_crowdloan_being_finalized()?;
+        ensure!(
+            who == crowdloan.creator,
+            Error::<T>::InvalidLeaseBeneficiary
+        );
+
+        if let Some(end_block) = end_block {
+            ensure!(end_block > now, Error::<T>::LeaseCannotEndInThePast);
+        }
 
         // Initialize the lease id, coldkey and hotkey and keep track of them
         let lease_id = Self::get_next_lease_id()?;
@@ -59,7 +68,8 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // Retrieve the network id
-        let netuid = Self::find_lease_netuid(&lease_coldkey).unwrap();
+        let netuid =
+            Self::find_lease_netuid(&lease_coldkey).ok_or(Error::<T>::LeaseNetuidNotFound)?;
 
         // Create the subnet lease
         SubnetLeases::<T>::insert(
@@ -108,7 +118,10 @@ impl<T: Config> Pallet<T> {
 
         // Ensure the lease exists and the beneficiary is the caller
         let lease = SubnetLeases::<T>::get(lease_id).ok_or(Error::<T>::LeaseDoesNotExist)?;
-        ensure!(lease.beneficiary == who, Error::<T>::InvalidBeneficiary);
+        ensure!(
+            lease.beneficiary == who,
+            Error::<T>::ExpectedBeneficiaryOrigin
+        );
 
         // Ensure the lease has an end block and we are past it
         let end_block = lease.end_block.ok_or(Error::<T>::LeaseHasNoEndBlock)?;

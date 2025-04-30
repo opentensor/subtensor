@@ -1,12 +1,12 @@
 use super::mock::*;
 use crate::{subnets::leasing::SubnetLeaseOf, *};
-use frame_support::assert_ok;
+use frame_support::{StorageDoubleMap, assert_err, assert_ok};
 use sp_core::U256;
 use sp_runtime::Percent;
 use substrate_fixed::types::U64F64;
 
 #[test]
-fn test_do_register_leased_network_works() {
+fn test_register_leased_network_works() {
     new_test_ext(1).execute_with(|| {
         // Setup a crowdloan
         let crowdloan_id = 0;
@@ -22,7 +22,7 @@ fn test_do_register_leased_network_works() {
         // Register the leased network
         let end_block = 500;
         let emissions_share = Percent::from_percent(30);
-        assert_ok!(SubtensorModule::do_register_leased_network(
+        assert_ok!(SubtensorModule::register_leased_network(
             RuntimeOrigin::signed(beneficiary),
             emissions_share,
             Some(end_block),
@@ -66,6 +66,376 @@ fn test_do_register_leased_network_works() {
     });
 }
 
+#[test]
+fn test_register_leased_network_fails_if_bad_origin() {
+    new_test_ext(1).execute_with(|| {
+        let end_block = 500;
+        let emissions_share = Percent::from_percent(30);
+
+        assert_err!(
+            SubtensorModule::register_leased_network(
+                RuntimeOrigin::none(),
+                emissions_share,
+                Some(end_block),
+            ),
+            DispatchError::BadOrigin,
+        );
+
+        assert_err!(
+            SubtensorModule::register_leased_network(
+                RuntimeOrigin::root(),
+                emissions_share,
+                Some(end_block),
+            ),
+            DispatchError::BadOrigin,
+        );
+    });
+}
+
+#[test]
+fn test_register_leased_network_fails_if_crowdloan_does_not_exists() {
+    new_test_ext(1).execute_with(|| {
+        let beneficiary = U256::from(1);
+        let end_block = 500;
+        let emissions_share = Percent::from_percent(30);
+
+        assert_err!(
+            SubtensorModule::register_leased_network(
+                RuntimeOrigin::signed(beneficiary),
+                emissions_share,
+                Some(end_block),
+            ),
+            pallet_crowdloan::Error::<Test>::InvalidCrowdloanId,
+        );
+    });
+}
+
+#[test]
+fn test_register_lease_network_fails_if_current_crowdloan_id_is_not_set() {
+    new_test_ext(1).execute_with(|| {
+        // Setup a crowdloan
+        let crowdloan_id = 0;
+        let beneficiary = U256::from(1);
+        let deposit = 10_000_000_000; // 10 TAO
+        let cap = 1_000_000_000_000; // 1000 TAO
+        let contributions = vec![
+            (U256::from(2), 600_000_000_000), // 600 TAO
+            (U256::from(3), 390_000_000_000), // 390 TAO
+        ];
+        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+
+        // Mark as if the current crowdloan id is not set
+        pallet_crowdloan::CurrentCrowdloanId::<Test>::set(None);
+
+        let end_block = 500;
+        let emissions_share = Percent::from_percent(30);
+
+        assert_err!(
+            SubtensorModule::register_leased_network(
+                RuntimeOrigin::signed(beneficiary),
+                emissions_share,
+                Some(end_block),
+            ),
+            pallet_crowdloan::Error::<Test>::InvalidCrowdloanId,
+        );
+    });
+}
+
+#[test]
+fn test_register_leased_network_fails_if_origin_is_not_crowdloan_creator() {
+    new_test_ext(1).execute_with(|| {
+        // Setup a crowdloan
+        let crowdloan_id = 0;
+        let beneficiary = U256::from(1);
+        let deposit = 10_000_000_000; // 10 TAO
+        let cap = 1_000_000_000_000; // 1000 TAO
+        let contributions = vec![
+            (U256::from(2), 600_000_000_000), // 600 TAO
+            (U256::from(3), 390_000_000_000), // 390 TAO
+        ];
+        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+
+        let end_block = 500;
+        let emissions_share = Percent::from_percent(30);
+
+        assert_err!(
+            SubtensorModule::register_leased_network(
+                RuntimeOrigin::signed(U256::from(2)),
+                emissions_share,
+                Some(end_block),
+            ),
+            Error::<Test>::InvalidLeaseBeneficiary,
+        );
+    });
+}
+
+#[test]
+fn test_register_lease_network_fails_if_end_block_is_in_the_past() {
+    new_test_ext(501).execute_with(|| {
+        let crowdloan_id = 0;
+        let beneficiary = U256::from(1);
+        let deposit = 10_000_000_000; // 10 TAO
+        let cap = 1_000_000_000_000; // 1000 TAO
+        let contributions = vec![
+            (U256::from(2), 600_000_000_000), // 600 TAO
+            (U256::from(3), 390_000_000_000), // 390 TAO
+        ];
+        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+
+        let end_block = 500;
+        let emissions_share = Percent::from_percent(30);
+
+        assert_err!(
+            SubtensorModule::register_leased_network(
+                RuntimeOrigin::signed(beneficiary),
+                emissions_share,
+                Some(end_block),
+            ),
+            Error::<Test>::LeaseCannotEndInThePast,
+        );
+    });
+}
+
+#[test]
+fn test_terminate_lease_works() {
+    new_test_ext(1).execute_with(|| {
+        // Setup a crowdloan
+        let crowdloan_id = 0;
+        let beneficiary = U256::from(1);
+        let deposit = 10_000_000_000; // 10 TAO
+        let cap = 1_000_000_000_000; // 1000 TAO
+        let contributions = vec![(U256::from(2), 990_000_000_000)]; // 990 TAO
+        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+
+        // Setup a leased network
+        let end_block = 500;
+        let tao_to_stake = 100_000_000_000; // 100 TAO
+        let emissions_share = Percent::from_percent(30);
+        let (lease_id, lease) = setup_leased_network(
+            beneficiary,
+            emissions_share,
+            Some(end_block),
+            Some(tao_to_stake),
+        );
+
+        // Run to the end of the lease
+        run_to_block(end_block);
+
+        // Create a hotkey for the beneficiary
+        let hotkey = U256::from(3);
+        SubtensorModule::create_account_if_non_existent(&beneficiary, &hotkey);
+
+        // Terminate the lease
+        assert_ok!(SubtensorModule::terminate_lease(
+            RuntimeOrigin::signed(beneficiary),
+            lease_id,
+            hotkey,
+        ));
+
+        // Ensure the beneficiary is now the owner of the subnet
+        assert_eq!(SubnetOwner::<Test>::get(lease.netuid), beneficiary);
+        assert_eq!(SubnetOwnerHotkey::<Test>::get(lease.netuid), hotkey);
+
+        // Ensure everything has been cleaned up
+        assert_eq!(SubnetLeases::<Test>::get(lease_id), None);
+        assert!(!SubnetLeaseShares::<Test>::contains_prefix(lease_id));
+        assert!(!AccumulatedLeaseDividends::<Test>::contains_key(lease_id));
+
+        // Ensure the beneficiary has been removed as a proxy
+        assert!(PROXIES.with_borrow(|proxies| proxies.0.len() == 0));
+
+        // Ensure the event is emitted
+        assert_eq!(
+            last_event(),
+            crate::Event::<Test>::SubnetLeaseTerminated {
+                beneficiary: lease.beneficiary,
+                netuid: lease.netuid,
+            }
+            .into()
+        );
+    });
+}
+
+#[test]
+fn test_terminate_lease_fails_if_bad_origin() {
+    new_test_ext(1).execute_with(|| {
+        let lease_id = 0;
+        let hotkey = U256::from(1);
+
+        assert_err!(
+            SubtensorModule::terminate_lease(RuntimeOrigin::none(), lease_id, hotkey),
+            DispatchError::BadOrigin,
+        );
+
+        assert_err!(
+            SubtensorModule::terminate_lease(RuntimeOrigin::root(), lease_id, hotkey),
+            DispatchError::BadOrigin,
+        );
+    });
+}
+
+#[test]
+fn test_terminate_lease_fails_if_lease_does_not_exist() {
+    new_test_ext(1).execute_with(|| {
+        let lease_id = 0;
+        let beneficiary = U256::from(1);
+        let hotkey = U256::from(2);
+
+        assert_err!(
+            SubtensorModule::terminate_lease(RuntimeOrigin::signed(beneficiary), lease_id, hotkey),
+            Error::<Test>::LeaseDoesNotExist,
+        );
+    });
+}
+
+#[test]
+fn test_terminate_lease_fails_if_origin_is_not_beneficiary() {
+    new_test_ext(1).execute_with(|| {
+        // Setup a crowdloan
+        let crowdloan_id = 0;
+        let beneficiary = U256::from(1);
+        let deposit = 10_000_000_000; // 10 TAO
+        let cap = 1_000_000_000_000; // 1000 TAO
+        let contributions = vec![(U256::from(2), 990_000_000_000)]; // 990 TAO
+        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+
+        // Setup a leased network
+        let end_block = 500;
+        let tao_to_stake = 100_000_000_000; // 100 TAO
+        let emissions_share = Percent::from_percent(30);
+        let (lease_id, _lease) = setup_leased_network(
+            beneficiary,
+            emissions_share,
+            Some(end_block),
+            Some(tao_to_stake),
+        );
+
+        // Run to the end of the lease
+        run_to_block(end_block);
+
+        // Create a hotkey for the beneficiary
+        let hotkey = U256::from(3);
+        SubtensorModule::create_account_if_non_existent(&beneficiary, &hotkey);
+
+        // Terminate the lease
+        assert_err!(
+            SubtensorModule::terminate_lease(
+                RuntimeOrigin::signed(U256::from(42)),
+                lease_id,
+                hotkey,
+            ),
+            Error::<Test>::ExpectedBeneficiaryOrigin,
+        );
+    });
+}
+
+#[test]
+fn test_terminate_lease_fails_if_lease_has_no_end_block() {
+    new_test_ext(1).execute_with(|| {
+        // Setup a crowdloan
+        let crowdloan_id = 0;
+        let beneficiary = U256::from(1);
+        let deposit = 10_000_000_000; // 10 TAO
+        let cap = 1_000_000_000_000; // 1000 TAO
+        let contributions = vec![(U256::from(2), 990_000_000_000)]; // 990 TAO
+        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+
+        // Setup a leased network
+        let tao_to_stake = 100_000_000_000; // 100 TAO
+        let emissions_share = Percent::from_percent(30);
+        let (lease_id, lease) =
+            setup_leased_network(beneficiary, emissions_share, None, Some(tao_to_stake));
+
+        // Create a hotkey for the beneficiary
+        let hotkey = U256::from(3);
+        SubtensorModule::create_account_if_non_existent(&beneficiary, &hotkey);
+
+        // Terminate the lease
+        assert_err!(
+            SubtensorModule::terminate_lease(
+                RuntimeOrigin::signed(lease.beneficiary),
+                lease_id,
+                hotkey,
+            ),
+            Error::<Test>::LeaseHasNoEndBlock,
+        );
+    });
+}
+
+#[test]
+fn test_terminate_lease_fails_if_lease_has_not_ended() {
+    new_test_ext(1).execute_with(|| {
+        // Setup a crowdloan
+        let crowdloan_id = 0;
+        let beneficiary = U256::from(1);
+        let deposit = 10_000_000_000; // 10 TAO
+        let cap = 1_000_000_000_000; // 1000 TAO
+        let contributions = vec![(U256::from(2), 990_000_000_000)]; // 990 TAO
+        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+
+        // Setup a leased network
+        let end_block = 500;
+        let tao_to_stake = 100_000_000_000; // 100 TAO
+        let emissions_share = Percent::from_percent(30);
+        let (lease_id, lease) = setup_leased_network(
+            beneficiary,
+            emissions_share,
+            Some(end_block),
+            Some(tao_to_stake),
+        );
+
+        // Create a hotkey for the beneficiary
+        let hotkey = U256::from(3);
+        SubtensorModule::create_account_if_non_existent(&beneficiary, &hotkey);
+
+        // Terminate the lease
+        assert_err!(
+            SubtensorModule::terminate_lease(
+                RuntimeOrigin::signed(lease.beneficiary),
+                lease_id,
+                hotkey,
+            ),
+            Error::<Test>::LeaseHasNotEnded,
+        );
+    });
+}
+
+#[test]
+fn test_terminate_lease_fails_if_beneficiary_does_not_own_hotkey() {
+    new_test_ext(1).execute_with(|| {
+        // Setup a crowdloan
+        let crowdloan_id = 0;
+        let beneficiary = U256::from(1);
+        let deposit = 10_000_000_000; // 10 TAO
+        let cap = 1_000_000_000_000; // 1000 TAO
+        let contributions = vec![(U256::from(2), 990_000_000_000)]; // 990 TAO
+        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+
+        // Setup a leased network
+        let end_block = 500;
+        let tao_to_stake = 100_000_000_000; // 100 TAO
+        let emissions_share = Percent::from_percent(30);
+        let (lease_id, lease) = setup_leased_network(
+            beneficiary,
+            emissions_share,
+            Some(end_block),
+            Some(tao_to_stake),
+        );
+
+        // Run to the end of the lease
+        run_to_block(end_block);
+
+        // Terminate the lease
+        assert_err!(
+            SubtensorModule::terminate_lease(
+                RuntimeOrigin::signed(lease.beneficiary),
+                lease_id,
+                U256::from(42),
+            ),
+            Error::<Test>::BeneficiaryDoesNotOwnHotkey,
+        );
+    });
+}
 #[test]
 fn test_distribute_lease_network_dividends_multiple_contributors_works() {
     new_test_ext(1).execute_with(|| {

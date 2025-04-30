@@ -209,8 +209,12 @@ mod errors {
         InvalidRecoveredPublicKey,
         /// SubToken disabled now
         SubtokenDisabled,
-        /// Invalid beneficiary to register the leased network.
-        InvalidBeneficiary,
+        /// Invalid lease beneficiary to register the leased network.
+        InvalidLeaseBeneficiary,
+        /// Lease cannot end in the past.
+        LeaseCannotEndInThePast,
+        /// Couldn't find the lease netuid.
+        LeaseNetuidNotFound,
         /// Lease does not exist.
         LeaseDoesNotExist,
         /// Lease has no end block.
@@ -221,5 +225,7 @@ mod errors {
         Overflow,
         /// Beneficiary does not own hotkey.
         BeneficiaryDoesNotOwnHotkey,
+        /// Expected beneficiary origin.
+        ExpectedBeneficiaryOrigin,
     }
 }
