@@ -152,9 +152,9 @@ mod dispatches {
         ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
         ///
         #[pallet::call_index(96)]
-        #[pallet::weight((Weight::from_parts(46_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(1))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_parts(72_300_000, 0)
+		.saturating_add(T::DbWeight::get().reads(7))
+		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_weights(
             origin: T::RuntimeOrigin,
             netuid: u16,
@@ -235,9 +235,9 @@ mod dispatches {
         ///   - The revealed hash does not match any committed hash.
         ///
         #[pallet::call_index(97)]
-        #[pallet::weight((Weight::from_parts(103_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(11))
-		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_parts(122_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(16))
+		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn reveal_weights(
             origin: T::RuntimeOrigin,
             netuid: u16,
@@ -332,8 +332,8 @@ mod dispatches {
         ///   - The input vectors are of mismatched lengths.
         #[pallet::call_index(98)]
         #[pallet::weight((Weight::from_parts(367_612_000, 0)
-		.saturating_add(T::DbWeight::get().reads(14))
-		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
+		.saturating_add(T::DbWeight::get().reads(16))
+		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn batch_reveal_weights(
             origin: T::RuntimeOrigin,
             netuid: u16,
@@ -454,7 +454,7 @@ mod dispatches {
         /// 	- The hotkey we are delegating is not owned by the calling coldket.
         ///
         #[pallet::call_index(1)]
-        #[pallet::weight((Weight::from_parts(4_428_000, 0)
+        #[pallet::weight((Weight::from_parts(5_110_000, 0)
 		.saturating_add(T::DbWeight::get().reads(0))
 		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Normal, Pays::No))]
         pub fn become_delegate(_origin: OriginFor<T>, _hotkey: T::AccountId) -> DispatchResult {
@@ -964,10 +964,9 @@ mod dispatches {
         ///
         /// Weight is calculated based on the number of database reads and writes.
         #[pallet::call_index(71)]
-        #[pallet::weight((Weight::from_parts(127_713_000, 0)
-        .saturating_add(Weight::from_parts(111_100_000, 11645))
-        .saturating_add(T::DbWeight::get().reads(18))
-        .saturating_add(T::DbWeight::get().writes(12)), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(179_500_000, 0)
+        .saturating_add(T::DbWeight::get().reads(14))
+        .saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Operational, Pays::No))]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
             old_coldkey: T::AccountId,
@@ -1327,9 +1326,9 @@ mod dispatches {
         /// - Consider adding checks to prevent scheduling too far into the future.
         /// TODO: Benchmark this call
         #[pallet::call_index(73)]
-        #[pallet::weight((Weight::from_parts(119_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(6))
-		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
+        #[pallet::weight((Weight::from_parts(44_520_000, 0)
+		.saturating_add(T::DbWeight::get().reads(4))
+		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Operational, Pays::Yes))]
         pub fn schedule_swap_coldkey(
             origin: OriginFor<T>,
             new_coldkey: T::AccountId,
