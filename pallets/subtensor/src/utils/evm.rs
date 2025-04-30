@@ -35,10 +35,10 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         let coldkey = ensure_signed(origin)?;
 
-        ensure!(
-            Self::get_owning_coldkey_for_hotkey(&hotkey) == coldkey,
-            Error::<T>::NonAssociatedColdKey
-        );
+        // ensure!(
+        //     Self::get_owning_coldkey_for_hotkey(&hotkey) == coldkey,
+        //     Error::<T>::NonAssociatedColdKey
+        // );
 
         let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey)?;
 
