@@ -3686,6 +3686,85 @@ fn test_remove_stake_limit_validate() {
     });
 }
 
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_move_stake_limit_validate --exact --show-output
+#[test]
+fn test_move_stake_limit_validate() {
+    // Testing the signed extension validate function
+    // correctly filters the `move_stake_limit` transaction.
+
+    new_test_ext(0).execute_with(|| {
+        let origin_hotkey = U256::from(533453);
+        let destination_hotkey = U256::from(533454);
+        let coldkey = U256::from(55453);
+        let stake_amount = 300_000_000_000;
+        let move_amount = 150_000_000_000;
+
+        // Add origin network
+        let origin_netuid: u16 = add_dynamic_network(&origin_hotkey, &coldkey);
+
+        // Add destination network
+        let destination_netuid: u16 = add_dynamic_network(&destination_hotkey, &coldkey);
+
+        // Give the neuron some stake to move
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &origin_hotkey,
+            &coldkey,
+            origin_netuid,
+            stake_amount,
+        );
+
+        // Force-set alpha in and tao reserve for origin subnet to make price equal 1.5
+        let origin_tao_reserve: U96F32 = U96F32::from_num(150_000_000_000_u64);
+        let origin_alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(origin_netuid, origin_tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(origin_netuid, origin_alpha_in.to_num::<u64>());
+
+        // Force-set alpha in and tao reserve for destination subnet to make price equal 3.0
+        let destination_tao_reserve: U96F32 = U96F32::from_num(300_000_000_000_u64);
+        let destination_alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(destination_netuid, destination_tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(destination_netuid, destination_alpha_in.to_num::<u64>());
+
+        // Verify prices
+        let origin_price: U96F32 =
+            U96F32::from_num(SubtensorModule::get_alpha_price(origin_netuid));
+        let destination_price: U96F32 =
+            U96F32::from_num(SubtensorModule::get_alpha_price(destination_netuid));
+        assert_eq!(origin_price, U96F32::from_num(1.5));
+        assert_eq!(destination_price, U96F32::from_num(3.0));
+
+        // The relative price of origin to destination is 0.5 (1.5/3.0)
+        // Set limit price so that it would fail due to slippage (e.g., 0.6 which is higher than 0.5)
+        let limit_price = 600_000_000; // 0.6 in RAO units
+
+        // Move stake limit call
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::move_stake_limit {
+            origin_hotkey,
+            destination_hotkey,
+            origin_netuid,
+            destination_netuid,
+            alpha_amount: move_amount,
+            limit_price,
+            allow_partial: false,
+        });
+
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+
+        let extension = SubtensorSignedExtension::<Test>::new();
+        // Submit to the signed extension validate function
+        let result = extension.validate(&coldkey, &call.clone(), &info, 10);
+
+        // Should fail due to slippage
+        assert_err!(
+            result,
+            TransactionValidityError::Invalid(InvalidTransaction::Custom(
+                CustomTransactionError::SlippageTooHigh.into()
+            ))
+        );
+    });
+}
+
 #[test]
 fn test_stake_overflow() {
     new_test_ext(1).execute_with(|| {

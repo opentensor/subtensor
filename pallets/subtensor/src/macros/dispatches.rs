@@ -1865,6 +1865,53 @@ mod dispatches {
             )
         }
 
+        /// Moves specified amount of stake from a hotkey to another across subnets with a price limit.
+        ///
+        /// # Arguments
+        /// * `origin` - (<T as frame_system::Config>::Origin): - The signature of the caller's coldkey.
+        /// * `origin_hotkey` (T::AccountId): - The hotkey account to move stake from.
+        /// * `destination_hotkey` (T::AccountId): - The hotkey account to move stake to.
+        /// * `origin_netuid` (T::AccountId): - The subnet ID to move stake from.
+        /// * `destination_netuid` (T::AccountId): - The subnet ID to move stake to.
+        /// * `alpha_amount` (T::AccountId): - The alpha stake amount to move.
+        /// * `limit_price` (u64): - The limit price expressed in units of RAO per one Alpha.
+        /// * `allow_partial` (bool): - Allows partial execution of the amount. If set to false, this becomes fill or kill type or order.
+        ///
+        /// # Errors
+        /// Returns an error if:
+        /// * The origin is not signed by the correct coldkey.
+        /// * Either subnet does not exist.
+        /// * The hotkeys do not exist.
+        /// * There is insufficient stake on `(coldkey, origin_hotkey, origin_netuid)`.
+        /// * The price is worse than the limit_price.
+        /// * The transfer amount is below the minimum stake requirement and partial execution is not allowed.
+        ///
+        /// # Events
+        /// Emits a `StakeMoved` event upon successful completion of the stake movement.
+        #[pallet::call_index(94)]
+        #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn move_stake_limit(
+            origin: T::RuntimeOrigin,
+            origin_hotkey: T::AccountId,
+            destination_hotkey: T::AccountId,
+            origin_netuid: u16,
+            destination_netuid: u16,
+            alpha_amount: u64,
+            limit_price: u64,
+            allow_partial: bool,
+        ) -> DispatchResult {
+            Self::do_move_stake_limit(
+                origin,
+                origin_hotkey,
+                destination_hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+                limit_price,
+                allow_partial,
+            )
+        }
+
         /// Swaps a specified amount of stake from one subnet to another, while keeping the same coldkey and hotkey.
         ///
         /// # Arguments
