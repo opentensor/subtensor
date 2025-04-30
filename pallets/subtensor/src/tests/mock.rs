@@ -1,9 +1,9 @@
 #![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 use crate::utils::rate_limiting::TransactionType;
-use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
 use frame_support::weights::Weight;
 use frame_support::weights::constants::RocksDbWeight;
+use frame_support::{PalletId, derive_impl};
 use frame_support::{
     assert_ok, parameter_types,
     traits::{Everything, Hooks, PrivilegeCmp},
@@ -17,7 +17,7 @@ use sp_runtime::{
     BuildStorage,
     traits::{BlakeTwo256, IdentityLookup},
 };
-use sp_std::cmp::Ordering;
+use sp_std::{cell::RefCell, cmp::Ordering};
 
 use crate::*;
 
@@ -38,6 +38,7 @@ frame_support::construct_runtime!(
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 9,
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 10,
         Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 11,
+        Crowdloan: pallet_crowdloan::{Pallet, Call, Storage, Event<T>} = 12,
     }
 );
 
@@ -186,6 +187,7 @@ parameter_types! {
     pub const InitialTaoWeight: u64 = 0; // 100% global weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
     pub const DurationOfStartCall: u64 =  7 * 24 * 60 * 60 / 12; // Default as 7 days
+    pub const MaxContributorsPerLeaseToRemove: u32 = 3;
 }
 
 // Configure collective pallet for council
@@ -410,6 +412,8 @@ impl crate::Config for Test {
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
+    type ProxyInterface = FakeProxier;
+    type MaxContributorsPerLeaseToRemove = MaxContributorsPerLeaseToRemove;
 }
 
 pub struct OriginPrivilegeCmp;
@@ -459,6 +463,54 @@ impl pallet_preimage::Config for Test {
     type Currency = Balances;
     type ManagerOrigin = EnsureRoot<AccountId>;
     type Consideration = ();
+}
+
+thread_local! {
+    pub static PROXIES: RefCell<FakeProxier> = RefCell::new(FakeProxier(vec![]));
+}
+
+pub struct FakeProxier(pub Vec<(U256, U256)>);
+
+impl ProxyInterface<U256> for FakeProxier {
+    fn add_lease_beneficiary_proxy(beneficiary: &AccountId, lease: &AccountId) -> DispatchResult {
+        PROXIES.with_borrow_mut(|proxies| {
+            proxies.0.push((*beneficiary, *lease));
+        });
+        Ok(())
+    }
+
+    fn remove_lease_beneficiary_proxy(
+        beneficiary: &AccountId,
+        lease: &AccountId,
+    ) -> DispatchResult {
+        PROXIES.with_borrow_mut(|proxies| {
+            proxies.0.retain(|(b, l)| b != beneficiary && l != lease);
+        });
+        Ok(())
+    }
+}
+
+parameter_types! {
+    pub const CrowdloanPalletId: PalletId = PalletId(*b"bt/cloan");
+    pub const MinimumDeposit: u64 = 50;
+    pub const AbsoluteMinimumContribution: u64 = 10;
+    pub const MinimumBlockDuration: u64 = 20;
+    pub const MaximumBlockDuration: u64 = 100;
+    pub const RefundContributorsLimit: u32 = 5;
+}
+
+impl pallet_crowdloan::Config for Test {
+    type PalletId = CrowdloanPalletId;
+    type Currency = Balances;
+    type RuntimeCall = RuntimeCall;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = pallet_crowdloan::weights::SubstrateWeight<Test>;
+    type Preimages = Preimage;
+    type MinimumDeposit = MinimumDeposit;
+    type AbsoluteMinimumContribution = AbsoluteMinimumContribution;
+    type MinimumBlockDuration = MinimumBlockDuration;
+    type MaximumBlockDuration = MaximumBlockDuration;
+    type RefundContributorsLimit = RefundContributorsLimit;
 }
 
 mod test_crypto {
@@ -838,4 +890,9 @@ pub fn increase_stake_on_hotkey_account(hotkey: &U256, increment: u64, netuid: u
         increment,
         netuid,
     );
+}
+
+#[allow(dead_code)]
+pub(crate) fn last_event() -> RuntimeEvent {
+    System::events().pop().expect("RuntimeEvent expected").event
 }

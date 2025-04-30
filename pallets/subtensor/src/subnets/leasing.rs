@@ -153,7 +153,7 @@ impl<T: Config> Pallet<T> {
         let lease = match SubnetLeases::<T>::get(lease_id) {
             Some(lease) => lease,
             None => {
-                log::error!(
+                log::debug!(
                     "Lease {} doesn't exists so we can't distribute dividends",
                     lease_id
                 );
@@ -176,30 +176,24 @@ impl<T: Config> Pallet<T> {
         let total_contributors_cut_alpha = AccumulatedLeaseDividends::<T>::get(lease_id)
             .saturating_add(current_contributors_cut_alpha);
 
-        // Ensure trading is enabled for the subnet else we accumulate the dividends for later
-        // distribution
-        if let Err(_) = Self::ensure_subtoken_enabled(lease.netuid) {
-            log::error!(
-                "Subtoken is not enabled for subnet {} so we can't distribute lease dividends",
-                lease.netuid
+        // Ensure there is enough liquidity to unstake the contributors cut
+        if let Err(err) = Self::validate_remove_stake(
+            &lease.coldkey,
+            &lease.hotkey,
+            lease.netuid,
+            total_contributors_cut_alpha,
+            total_contributors_cut_alpha,
+            false,
+        ) {
+            log::debug!(
+                "Couldn't distributing dividends for lease {}: {:?}",
+                lease_id,
+                err
             );
             AccumulatedLeaseDividends::<T>::mutate(lease_id, |v| {
                 *v = v.saturating_add(current_contributors_cut_alpha)
             });
             return;
-        }
-
-        // Check if we can safely swap the accumulated alpha dividends for tao else we accumulate
-        // the dividends for later distribution
-        if let Some(tao_equivalent) =
-            Self::sim_swap_alpha_for_tao(lease.netuid, total_contributors_cut_alpha)
-        {
-            if tao_equivalent < DefaultMinStake::<T>::get() {
-                AccumulatedLeaseDividends::<T>::mutate(lease_id, |v| {
-                    *v = v.saturating_add(current_contributors_cut_alpha)
-                });
-                return;
-            }
         }
 
         // Unstake the contributors cut from the subnet as tao to the lease coldkey
