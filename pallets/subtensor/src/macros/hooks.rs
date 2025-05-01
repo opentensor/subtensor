@@ -4,6 +4,9 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod hooks {
+    use frame_system::migrations;
+    use num_traits::ops::saturating;
+
     // ================
     // ==== Hooks =====
     // ================
@@ -101,6 +104,7 @@ mod hooks {
                 .saturating_add(migrations::migrate_set_subtoken_enabled::migrate_set_subtoken_enabled::<T>())
                 // Remove all entries in TotalHotkeyColdkeyStakesThisInterval
                 .saturating_add(migrations::migrate_remove_total_hotkey_coldkey_stakes_this_interval::migrate_remove_total_hotkey_coldkey_stakes_this_interval::<T>());
+
             weight
                 // Remove all entries in orphaned storage items
                 .saturating_add(
@@ -110,7 +114,9 @@ mod hooks {
                 // Reset bonds moving average
                 .saturating_add(migrations::migrate_reset_bonds_moving_average::migrate_reset_bonds_moving_average::<T>())
                 // Reset max burn
-                .saturating_add(migrations::migrate_reset_max_burn::migrate_reset_max_burn::<T>());
+                .saturating_add(migrations::migrate_reset_max_burn::migrate_reset_max_burn::<T>())
+                // Migrate ColdkeySwapScheduled structure to new format
+                .saturating_add(migrations::migrate_coldkey_swap_scheduled::migrate_coldkey_swap_scheduled::<T>());
             weight
         }
 
