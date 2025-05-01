@@ -26,6 +26,7 @@ describe("Test the UID Lookup precompile", () => {
     let uid: number;
     let blockNumber: number;
     let netuid: number;
+    let blockNumberAssociated: bigint;
 
     before(async () => {
         publicClient = await getPublicClient(ETH_LOCAL_URL)
@@ -69,6 +70,7 @@ describe("Test the UID Lookup precompile", () => {
         assert.notEqual(storedEvmKey, undefined, "storedEvmKey should be defined")
         if (storedEvmKey !== undefined) {
             assert.equal(storedEvmKey[0], convertToFixedSizeBinary(evmWallet.address, 20))
+            blockNumberAssociated = storedEvmKey[1]
         }
     })
 
@@ -84,6 +86,6 @@ describe("Test the UID Lookup precompile", () => {
         assert.notEqual(uidArray, undefined, "UID should be defined")
         assert.ok(Array.isArray(uidArray), `UID should be an array, got ${typeof uidArray}`)
         assert.ok(uidArray.length > 0, "UID array should not be empty")
-        assert.equal(uidArray[0], [uid, BigInt(blockNumber)])
+        assert.equal(uidArray[0], [uid, blockNumberAssociated])
     })
 });
