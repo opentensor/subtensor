@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # A list of pallets we wish to benchmark
-PALLETS=(subtensor admin_utils commitments drand crowdloan)
+PALLETS=(subtensor admin_utils commitments drand)
 
 # Map of pallet -> dispatch path (relative to this script's directory)
 declare -A DISPATCH_PATHS=(
@@ -10,7 +10,6 @@ declare -A DISPATCH_PATHS=(
   [admin_utils]="../pallets/admin-utils/src/lib.rs"
   [commitments]="../pallets/commitments/src/lib.rs"
   [drand]="../pallets/drand/src/lib.rs"
-  [crowdloan]="../pallets/crowdloan/src/lib.rs"
 )
 
 # Max allowed drift (%)
