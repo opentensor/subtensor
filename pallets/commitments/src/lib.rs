@@ -198,7 +198,9 @@ pub mod pallet {
         /// Set the commitment for a given netuid
         #[pallet::call_index(0)]
         #[pallet::weight((
-            <T as pallet::Config>::WeightInfo::set_commitment(),
+            Weight::from_parts(28_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64)),
             DispatchClass::Operational,
             Pays::No
         ))]
@@ -309,7 +311,9 @@ pub mod pallet {
         /// Sudo-set the commitment rate limit
         #[pallet::call_index(1)]
         #[pallet::weight((
-            <T as pallet::Config>::WeightInfo::set_rate_limit(),
+            Weight::from_parts(10_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64)),
 			DispatchClass::Operational,
 			Pays::No
 		))]
@@ -322,7 +326,9 @@ pub mod pallet {
         /// Sudo-set MaxSpace
         #[pallet::call_index(2)]
         #[pallet::weight((
-            <T as pallet::Config>::WeightInfo::set_rate_limit(),
+            Weight::from_parts(10_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64)),
             DispatchClass::Operational,
             Pays::No
         ))]
