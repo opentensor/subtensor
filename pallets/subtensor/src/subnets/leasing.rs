@@ -122,7 +122,7 @@ impl<T: Config> Pallet<T> {
         for (contributor, amount) in contributions {
             // Compute the share of the contributor to the lease
             let share: U64F64 = U64F64::from(amount).saturating_div(U64F64::from(crowdloan.raised));
-            SubnetLeaseShares::<T>::insert(lease_id, &contributor, &share);
+            SubnetLeaseShares::<T>::insert(lease_id, &contributor, share);
 
             // Refund the unused part of the cap to the contributor relative to their share
             let contributor_refund = share

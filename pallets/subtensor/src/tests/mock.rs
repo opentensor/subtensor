@@ -466,7 +466,7 @@ impl pallet_preimage::Config for Test {
 }
 
 thread_local! {
-    pub static PROXIES: RefCell<FakeProxier> = RefCell::new(FakeProxier(vec![]));
+    pub static PROXIES: RefCell<FakeProxier> = const { RefCell::new(FakeProxier(vec![])) };
 }
 
 pub struct FakeProxier(pub Vec<(U256, U256)>);

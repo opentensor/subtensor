@@ -274,7 +274,7 @@ fn test_terminate_lease_works() {
         assert!(!AccumulatedLeaseDividends::<Test>::contains_key(lease_id));
 
         // Ensure the beneficiary has been removed as a proxy
-        assert!(PROXIES.with_borrow(|proxies| proxies.0.len() == 0));
+        assert!(PROXIES.with_borrow(|proxies| proxies.0.is_empty()));
 
         // Ensure the event is emitted
         assert_eq!(
