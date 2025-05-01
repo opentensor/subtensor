@@ -69,7 +69,7 @@ describe("Test the UID Lookup precompile", () => {
         const storedEvmKey = await api.query.SubtensorModule.AssociatedEvmAddress.getValue(netuid, uid)
         assert.notEqual(storedEvmKey, undefined, "storedEvmKey should be defined")
         if (storedEvmKey !== undefined) {
-            assert.equal(storedEvmKey[0], convertToFixedSizeBinary(evmWallet.address, 20))
+            assert.equal(storedEvmKey[0].asBytes(), convertToFixedSizeBinary(evmWallet.address, 20).asBytes())
             blockNumberAssociated = storedEvmKey[1]
         }
     })
