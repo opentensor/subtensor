@@ -444,7 +444,7 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the minimum allowed weights.
         #[pallet::call_index(14)]
-        #[pallet::weight(Weight::from_parts(27_199_000, 0)
+        #[pallet::weight(Weight::from_parts(19_770_000, 0)
         .saturating_add(T::DbWeight::get().reads(1_u64))
         .saturating_add(T::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_min_allowed_weights(
