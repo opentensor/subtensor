@@ -464,9 +464,9 @@ fn test_distribute_lease_network_dividends_multiple_contributors_works() {
         // Get the initial subnet tao after stake and ensure all contributor
         // balances are in initial state
         let subnet_tao_before = SubnetTAO::<Test>::get(lease.netuid);
-        assert_eq!(SubtensorModule::get_coldkey_balance(&contributions[0].0), 0);
-        assert_eq!(SubtensorModule::get_coldkey_balance(&contributions[1].0), 0);
-        assert_eq!(SubtensorModule::get_coldkey_balance(&beneficiary), 0);
+        let contributor1_balance_before = SubtensorModule::get_coldkey_balance(&contributions[0].0);
+        let contributor2_balance_before = SubtensorModule::get_coldkey_balance(&contributions[1].0);
+        let beneficiary_balance_before = SubtensorModule::get_coldkey_balance(&beneficiary);
 
         // Setup some previously accumulated dividends
         let accumulated_dividends = 5_000_000;
@@ -478,13 +478,16 @@ fn test_distribute_lease_network_dividends_multiple_contributors_works() {
 
         // Ensure the dividends were distributed correctly relative to their shares
         let distributed_tao = subnet_tao_before - SubnetTAO::<Test>::get(lease.netuid);
-        let contributor1_balance_after = SubtensorModule::get_coldkey_balance(&contributions[0].0);
-        let contributor2_balance_after = SubtensorModule::get_coldkey_balance(&contributions[1].0);
-        let beneficiary_balance_after = SubtensorModule::get_coldkey_balance(&beneficiary);
+        let contributor1_balance_delta = SubtensorModule::get_coldkey_balance(&contributions[0].0)
+            .saturating_sub(contributor1_balance_before);
+        let contributor2_balance_delta = SubtensorModule::get_coldkey_balance(&contributions[1].0)
+            .saturating_sub(contributor2_balance_before);
+        let beneficiary_balance_delta = SubtensorModule::get_coldkey_balance(&beneficiary)
+            .saturating_sub(beneficiary_balance_before);
 
         assert_eq!(
             distributed_tao,
-            beneficiary_balance_after + contributor1_balance_after + contributor2_balance_after
+            beneficiary_balance_delta + contributor1_balance_delta + contributor2_balance_delta
         );
 
         let expected_contributor1_balance =
@@ -492,19 +495,19 @@ fn test_distribute_lease_network_dividends_multiple_contributors_works() {
                 .saturating_mul(U64F64::from(distributed_tao))
                 .floor()
                 .to_num::<u64>();
-        assert_eq!(contributor1_balance_after, expected_contributor1_balance);
+        assert_eq!(contributor1_balance_delta, expected_contributor1_balance);
 
         let expected_contributor2_balance =
             SubnetLeaseShares::<Test>::get(lease_id, contributions[1].0)
                 .saturating_mul(U64F64::from(distributed_tao))
                 .floor()
                 .to_num::<u64>();
-        assert_eq!(contributor2_balance_after, expected_contributor2_balance);
+        assert_eq!(contributor2_balance_delta, expected_contributor2_balance);
 
         // The beneficiary should have received the remaining dividends
         let expected_beneficiary_balance =
             distributed_tao - (expected_contributor1_balance + expected_contributor2_balance);
-        assert_eq!(beneficiary_balance_after, expected_beneficiary_balance);
+        assert_eq!(beneficiary_balance_delta, expected_beneficiary_balance);
 
         // Ensure nothing was accumulated for later distribution
         assert_eq!(AccumulatedLeaseDividends::<Test>::get(lease_id), 0);
@@ -533,10 +536,9 @@ fn test_distribute_lease_network_dividends_only_beneficiary_works() {
             Some(tao_to_stake),
         );
 
-        // Get the initial subnet tao after stake and ensure all contributor
-        // balances are in initial state
+        // Get the initial subnet tao after stake and beneficiary balance
         let subnet_tao_before = SubnetTAO::<Test>::get(lease.netuid);
-        assert_eq!(SubtensorModule::get_coldkey_balance(&beneficiary), 0);
+        let beneficiary_balance_before = SubtensorModule::get_coldkey_balance(&beneficiary);
 
         // Setup some previously accumulated dividends
         let accumulated_dividends = 5_000_000;
@@ -548,8 +550,9 @@ fn test_distribute_lease_network_dividends_only_beneficiary_works() {
 
         // Ensure the dividends were distributed correctly relative to their shares
         let distributed_tao = subnet_tao_before - SubnetTAO::<Test>::get(lease.netuid);
-        let beneficiary_balance_after = SubtensorModule::get_coldkey_balance(&beneficiary);
-        assert_eq!(distributed_tao, beneficiary_balance_after);
+        let beneficiary_balance_delta = SubtensorModule::get_coldkey_balance(&beneficiary)
+            .saturating_sub(beneficiary_balance_before);
+        assert_eq!(distributed_tao, beneficiary_balance_delta);
 
         // Ensure nothing was accumulated for later distribution
         assert_eq!(AccumulatedLeaseDividends::<Test>::get(lease_id), 0);
