@@ -2336,7 +2336,22 @@ mod dispatches {
             Self::do_unstake_all_alpha_aggregate(origin, hotkey)
         }
 
-        /// Some documentation
+        /// Register a new leased network.
+        ///
+        /// The crowdloan's contributions are used to compute the share of the emissions that the contributors
+        /// will receive as dividends.
+        ///
+        /// The leftover cap is refunded to the contributors and the beneficiary.
+        ///
+        /// # Args:
+        /// * `origin` - (<T as frame_system::Config>::Origin):
+        ///     - The signature of the caller's coldkey.
+        ///
+        /// * `emissions_share` (Percent):
+        ///     - The share of the emissions that the contributors will receive as dividends.
+        ///
+        /// * `end_block` (Option<BlockNumberFor<T>>):
+        ///     - The block at which the lease will end. If not defined, the lease is perpetual.
         #[pallet::call_index(109)]
         #[pallet::weight(T::DbWeight::get().writes(1))]
         pub fn register_leased_network(
@@ -2347,7 +2362,22 @@ mod dispatches {
             Self::do_register_leased_network(origin, emissions_share, end_block)
         }
 
-        /// Some documentation
+        /// Terminate a lease.
+        ///
+        /// The beneficiary can terminate the lease after the end block has passed and get the subnet ownership.
+        /// The subnet is transferred to the beneficiary and the lease is removed from storage.
+        ///
+        /// **The hotkey must be owned by the beneficiary coldkey.**
+        ///
+        /// # Args:
+        /// * `origin` - (<T as frame_system::Config>::Origin):
+        ///     - The signature of the caller's coldkey.
+        ///
+        /// * `lease_id` (LeaseId):
+        ///     - The ID of the lease to terminate.
+        ///
+        /// * `hotkey` (T::AccountId):
+        ///     - The hotkey of the beneficiary to mark as subnet owner hotkey.
         #[pallet::call_index(110)]
         #[pallet::weight(T::DbWeight::get().writes(1))]
         pub fn terminate_lease(

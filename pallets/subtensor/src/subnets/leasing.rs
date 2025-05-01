@@ -16,15 +16,23 @@ pub type CurrencyOf<T> = <T as Config>::Currency;
 pub type BalanceOf<T> =
     <CurrencyOf<T> as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
-// #[freeze_struct("1941771e0ae01e2e")]
+#[freeze_struct("75abd76dca254c88")]
 #[derive(Encode, Decode, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo)]
 pub struct SubnetLease<AccountId, BlockNumber, Balance> {
+    /// The beneficiary of the lease, able to operate the subnet through
+    /// a proxy and taking ownership of the subnet at the end of the lease (if defined).
     pub beneficiary: AccountId,
+    /// The coldkey of the lease.
     pub coldkey: AccountId,
+    /// The hotkey of the lease.
     pub hotkey: AccountId,
+    /// The share of the emissions that the contributors will receive.
     pub emissions_share: Percent,
+    /// The block at which the lease will end. If not defined, the lease is perpetual.
     pub end_block: Option<BlockNumber>,
+    /// The netuid of the subnet that the lease is for.
     pub netuid: u16,
+    /// The cost of the lease including the network registration and proxy.
     pub cost: Balance,
 }
 
@@ -32,6 +40,14 @@ pub type SubnetLeaseOf<T> =
     SubnetLease<<T as frame_system::Config>::AccountId, BlockNumberFor<T>, BalanceOf<T>>;
 
 impl<T: Config> Pallet<T> {
+    /// Register a new leased network through a crowdloan. A new subnet will be registered
+    /// paying the lock cost using the crowdloan funds and a proxy will be created for the beneficiary
+    /// to operate the subnet.
+    ///
+    /// The crowdloan's contributions are used to compute the share of the emissions that the contributors
+    /// will receive as dividends.
+    ///
+    /// The leftover cap is refunded to the contributors and the beneficiary.
     pub fn do_register_leased_network(
         origin: T::RuntimeOrigin,
         emissions_share: Percent,
@@ -141,6 +157,10 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Terminate a lease.
+    ///
+    /// The beneficiary can terminate the lease after the end block has passed and get the subnet ownership.
+    /// The subnet is transferred to the beneficiary and the lease is removed from storage.
     pub fn do_terminate_lease(
         origin: T::RuntimeOrigin,
         lease_id: LeaseId,
@@ -194,6 +214,11 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Hook used when the subnet owner's cut is distributed to split the amount into dividends
+    /// for the contributors and the beneficiary in shares relative to their initial contributions.
+    ///
+    /// It will ensure the subnet has enough alpha in its liquidity pool before swapping it to tao to be distributed,
+    /// and if not enough liquidity is available, it will accumulate the dividends for later distribution.
     pub fn distribute_leased_network_dividends(lease_id: LeaseId, owner_cut_alpha: u64) {
         // Ensure the lease exists
         let lease = match SubnetLeases::<T>::get(lease_id) {
@@ -299,6 +324,8 @@ impl<T: Config> Pallet<T> {
             .map(|(netuid, _)| netuid)
     }
 
+    // Get the crowdloan being finalized from the crowdloan pallet when the call is executed,
+    // and the current crowdloan ID is exposed to us.
     fn get_crowdloan_being_finalized() -> Result<
         (
             pallet_crowdloan::CrowdloanId,
