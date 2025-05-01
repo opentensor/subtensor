@@ -261,7 +261,7 @@ pub mod pallet {
         ///
         /// The initial deposit will be transfered to the crowdloan account and will be refunded
         /// in case the crowdloan fails to raise the cap. Additionally, the creator will pay for
-        /// the execution of the call
+        /// the execution of the call.
         ///
         /// The dispatch origin for this call must be _Signed_.
         ///
@@ -446,47 +446,43 @@ pub mod pallet {
 
         /// Withdraw a contribution from an active (not yet finalized or dissolved) crowdloan.
         ///
-        /// The origin doesn't needs to be the contributor, it can be any account,
-        /// making it possible for someone to trigger a refund for a contributor.
+        /// Only contributions over the deposit can be withdrawn by the creator.
         ///
         /// The dispatch origin for this call must be _Signed_.
         ///
         /// Parameters:
-        /// - `contributor`: The contributor to withdraw from.
         /// - `crowdloan_id`: The id of the crowdloan to withdraw from.
         #[pallet::call_index(2)]
         #[pallet::weight(T::WeightInfo::withdraw())]
         pub fn withdraw(
             origin: OriginFor<T>,
-            contributor: T::AccountId,
             #[pallet::compact] crowdloan_id: CrowdloanId,
         ) -> DispatchResult {
-            ensure_signed(origin)?;
+            let who = ensure_signed(origin)?;
 
             let mut crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
             ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
 
             // Ensure contributor has balance left in the crowdloan account
-            let amount =
-                Contributions::<T>::get(crowdloan_id, &contributor).unwrap_or_else(Zero::zero);
+            let amount = Contributions::<T>::get(crowdloan_id, &who).unwrap_or_else(Zero::zero);
             ensure!(amount > Zero::zero(), Error::<T>::NoContribution);
 
             CurrencyOf::<T>::transfer(
                 &crowdloan.funds_account,
-                &contributor,
+                &who,
                 amount,
                 Preservation::Expendable,
             )?;
 
             // Remove the contribution from the contributions map and update
             // crowdloan raised amount to reflect the withdrawal.
-            Contributions::<T>::remove(crowdloan_id, &contributor);
+            Contributions::<T>::remove(crowdloan_id, &who);
             crowdloan.raised = crowdloan.raised.saturating_sub(amount);
 
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
 
             Self::deposit_event(Event::<T>::Withdrew {
-                contributor,
+                contributor: who,
                 crowdloan_id,
                 amount,
             });
