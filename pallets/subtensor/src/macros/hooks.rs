@@ -110,9 +110,7 @@ mod hooks {
                 // Reset bonds moving average
                 .saturating_add(migrations::migrate_reset_bonds_moving_average::migrate_reset_bonds_moving_average::<T>())
                 // Reset max burn
-                .saturating_add(migrations::migrate_reset_max_burn::migrate_reset_max_burn::<T>())
-                // Wipe unused SubnetName map
-                .saturating_add(migrations::migrate_remove_subnet_name_map::migrate_remove_subnet_name_map::<T>());
+                .saturating_add(migrations::migrate_reset_max_burn::migrate_reset_max_burn::<T>());
             weight
         }
 

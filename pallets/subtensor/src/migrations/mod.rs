@@ -15,7 +15,6 @@ pub mod migrate_orphaned_storage_items;
 pub mod migrate_populate_owned_hotkeys;
 pub mod migrate_rao;
 pub mod migrate_remove_stake_map;
-pub mod migrate_remove_subnet_name_map;
 pub mod migrate_remove_total_hotkey_coldkey_stakes_this_interval;
 pub mod migrate_remove_unused_maps_and_values;
 pub mod migrate_remove_zero_total_hotkey_alpha;
