@@ -251,6 +251,8 @@ pub mod pallet {
         CallUnavailable,
         /// The crowdloan is not ready to be dissolved, it still has contributions.
         NotReadyToDissolve,
+        /// The deposit cannot be withdrawn from the crowdloan.
+        DepositCannotBeWithdrawn,
     }
 
     #[pallet::call]
@@ -464,8 +466,17 @@ pub mod pallet {
             ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
 
             // Ensure contributor has balance left in the crowdloan account
-            let amount = Contributions::<T>::get(crowdloan_id, &who).unwrap_or_else(Zero::zero);
+            let mut amount = Contributions::<T>::get(crowdloan_id, &who).unwrap_or_else(Zero::zero);
             ensure!(amount > Zero::zero(), Error::<T>::NoContribution);
+
+            if who == crowdloan.creator {
+                // Ensure the deposit is left
+                amount = amount.saturating_sub(crowdloan.deposit);
+                ensure!(amount > Zero::zero(), Error::<T>::DepositCannotBeWithdrawn);
+                Contributions::<T>::insert(crowdloan_id, &who, crowdloan.deposit);
+            } else {
+                Contributions::<T>::remove(crowdloan_id, &who);
+            }
 
             CurrencyOf::<T>::transfer(
                 &crowdloan.funds_account,
@@ -474,11 +485,8 @@ pub mod pallet {
                 Preservation::Expendable,
             )?;
 
-            // Remove the contribution from the contributions map and update
-            // crowdloan raised amount to reflect the withdrawal.
-            Contributions::<T>::remove(crowdloan_id, &who);
+            // Update the crowdloan raised amount to reflect the withdrawal.
             crowdloan.raised = crowdloan.raised.saturating_sub(amount);
-
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
 
             Self::deposit_event(Event::<T>::Withdrew {
