@@ -698,7 +698,7 @@ pub mod pallet {
 
             // The new min contribution should be greater than absolute minimum contribution.
             ensure!(
-                new_min_contribution > T::AbsoluteMinimumContribution::get(),
+                new_min_contribution >= T::AbsoluteMinimumContribution::get(),
                 Error::<T>::MinimumContributionTooLow
             );
 
@@ -771,7 +771,7 @@ pub mod pallet {
             ensure!(who == crowdloan.creator, Error::<T>::InvalidOrigin);
 
             // The new cap should be greater than the actual raised amount.
-            ensure!(new_cap > crowdloan.raised, Error::<T>::CapTooLow);
+            ensure!(new_cap >= crowdloan.raised, Error::<T>::CapTooLow);
 
             crowdloan.cap = new_cap;
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);

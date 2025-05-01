@@ -1932,7 +1932,7 @@ fn test_update_min_contribution_fails_if_new_min_contribution_is_too_low() {
             ));
 
             let crowdloan_id: CrowdloanId = 0;
-            let new_min_contribution: BalanceOf<Test> = 10;
+            let new_min_contribution: BalanceOf<Test> = 9;
 
             // try update the min contribution
             assert_err!(
@@ -2389,7 +2389,7 @@ fn test_update_cap_fails_if_new_cap_is_too_low() {
 
             // try update the cap
             let crowdloan_id: CrowdloanId = 0;
-            let new_cap: BalanceOf<Test> = 50;
+            let new_cap: BalanceOf<Test> = 49;
             assert_err!(
                 Crowdloan::update_cap(RuntimeOrigin::signed(creator), crowdloan_id, new_cap),
                 pallet_crowdloan::Error::<Test>::CapTooLow
