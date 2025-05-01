@@ -202,9 +202,7 @@ impl<T: Config> Pallet<T> {
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
         for netuid in Self::get_all_subnet_netuids() {
-            Self::perform_hotkey_swap_on_one_subnet(
-                coldkey, old_hotkey, new_hotkey, weight, netuid,
-            );
+            Self::perform_hotkey_swap_on_one_subnet(old_hotkey, new_hotkey, weight, netuid);
         }
 
         // 5. Swap LastTxBlock
@@ -355,13 +353,7 @@ impl<T: Config> Pallet<T> {
         // hotkeys.retain(|hk| *hk != *old_hotkey);
 
         // 14. Perform the hotkey swap
-        Self::perform_hotkey_swap_on_one_subnet(
-            coldkey,
-            old_hotkey,
-            new_hotkey,
-            &mut weight,
-            netuid,
-        );
+        Self::perform_hotkey_swap_on_one_subnet(old_hotkey, new_hotkey, &mut weight, netuid);
 
         let block: u64 = Self::get_current_block_as_u64();
         // 15. Update the last transaction block for the coldkey
