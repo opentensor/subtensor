@@ -4,9 +4,6 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod hooks {
-    use frame_system::migrations;
-    use num_traits::ops::saturating;
-
     // ================
     // ==== Hooks =====
     // ================
