@@ -381,7 +381,6 @@ impl<T: Config> Pallet<T> {
 
     // do hotkey swap public part for both swap all subnets and just swap one subnet
     pub fn perform_hotkey_swap_on_one_subnet(
-        coldkey: &T::AccountId,
         old_hotkey: &T::AccountId,
         new_hotkey: &T::AccountId,
         weight: &mut Weight,
