@@ -693,6 +693,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake_limit { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::move_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::move_stake_limit { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
