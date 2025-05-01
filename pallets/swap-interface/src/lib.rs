@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::pallet_prelude::*;
+use substrate_fixed::types::U96F32;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OrderType {
@@ -30,6 +31,7 @@ pub trait SwapHandler<AccountId> {
         position_id: u128,
     ) -> Result<RemoveLiquidityResult, DispatchError>;
     fn approx_fee_amount(netuid: u16, amount: u64) -> u64;
+    fn current_alpha_price(netuid: u16) -> U96F32;
     fn max_price() -> u64;
     fn min_price() -> u64;
 }

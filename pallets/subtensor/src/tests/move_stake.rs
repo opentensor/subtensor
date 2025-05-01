@@ -779,9 +779,9 @@ fn test_do_move_storage_updates() {
             0
         );
         let alpha_fee =
-            U96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
-        let alpha2 = U96F32::from_num(alpha) * SubtensorModule::get_alpha_price(origin_netuid)
-            / SubtensorModule::get_alpha_price(destination_netuid);
+            U96F32::from_num(fee) / <Test as pallet::Config>::SwapInterface::current_alpha_price(destination_netuid);
+        let alpha2 = U96F32::from_num(alpha) * <Test as pallet::Config>::SwapInterface::current_alpha_price(origin_netuid)
+            / <Test as pallet::Config>::SwapInterface::current_alpha_price(destination_netuid);
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &destination_hotkey,
@@ -1189,7 +1189,7 @@ fn test_do_transfer_different_subnets() {
             destination_netuid,
         );
         let expected_value = U96F32::from_num(stake_amount - fee)
-            / SubtensorModule::get_alpha_price(destination_netuid);
+            / <Test as pallet::Config>::SwapInterface::current_alpha_price(destination_netuid);
         assert_abs_diff_eq!(
             dest_stake,
             expected_value.to_num::<u64>(),
@@ -1249,10 +1249,10 @@ fn test_do_swap_success() {
             destination_netuid,
         );
         let alpha_fee =
-            U96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
+            U96F32::from_num(fee) / <Test as pallet::Config>::SwapInterface::current_alpha_price(destination_netuid);
         let expected_value = U96F32::from_num(alpha_before)
-            * SubtensorModule::get_alpha_price(origin_netuid)
-            / SubtensorModule::get_alpha_price(destination_netuid);
+            * <Test as pallet::Config>::SwapInterface::current_alpha_price(origin_netuid)
+            / <Test as pallet::Config>::SwapInterface::current_alpha_price(destination_netuid);
         assert_abs_diff_eq!(
             alpha_after,
             (expected_value - alpha_fee).to_num::<u64>(),
@@ -1509,10 +1509,10 @@ fn test_do_swap_partial_stake() {
         );
 
         let alpha_fee =
-            U96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
+            U96F32::from_num(fee) / <Test as pallet::Config>::SwapInterface::current_alpha_price(destination_netuid);
         let expected_value = U96F32::from_num(swap_amount)
-            * SubtensorModule::get_alpha_price(origin_netuid)
-            / SubtensorModule::get_alpha_price(destination_netuid);
+            * <Test as pallet::Config>::SwapInterface::current_alpha_price(origin_netuid)
+            / <Test as pallet::Config>::SwapInterface::current_alpha_price(destination_netuid);
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey,
@@ -1571,10 +1571,10 @@ fn test_do_swap_storage_updates() {
         );
 
         let alpha_fee =
-            U96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
+            U96F32::from_num(fee) / <Test as pallet::Config>::SwapInterface::current_alpha_price(destination_netuid);
         let expected_value = U96F32::from_num(alpha)
-            * SubtensorModule::get_alpha_price(origin_netuid)
-            / SubtensorModule::get_alpha_price(destination_netuid);
+            * <Test as pallet::Config>::SwapInterface::current_alpha_price(origin_netuid)
+            / <Test as pallet::Config>::SwapInterface::current_alpha_price(destination_netuid);
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey,
@@ -1736,8 +1736,8 @@ fn test_swap_stake_limit_validate() {
         .unwrap();
 
         // Setup limit price so that it doesn't allow much slippage at all
-        let limit_price = ((SubtensorModule::get_alpha_price(origin_netuid)
-            / SubtensorModule::get_alpha_price(destination_netuid))
+        let limit_price = ((<Test as pallet::Config>::SwapInterface::current_alpha_price(origin_netuid)
+            / <Test as pallet::Config>::SwapInterface::current_alpha_price(destination_netuid))
             * U96F32::from_num(1_000_000_000))
         .to_num::<u64>()
             - 1_u64;
@@ -1938,10 +1938,10 @@ fn test_move_stake_specific_stake_into_subnet_fail() {
             0
         );
         let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
-        let alpha_fee: U96F32 = U96F32::from_num(fee) / SubtensorModule::get_alpha_price(netuid);
+        let alpha_fee: U96F32 = U96F32::from_num(fee) / <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid);
         let expected_value = U96F32::from_num(alpha_to_move)
-            * SubtensorModule::get_alpha_price(origin_netuid)
-            / SubtensorModule::get_alpha_price(netuid);
+            * <Test as pallet::Config>::SwapInterface::current_alpha_price(origin_netuid)
+            / <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid);
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey_account_id,

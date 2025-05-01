@@ -11624,6 +11624,7 @@ dependencies = [
  "frame-support",
  "parity-scale-codec",
  "scale-info",
+ "substrate-fixed",
 ]
 
 [[package]]

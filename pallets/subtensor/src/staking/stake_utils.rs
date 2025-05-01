@@ -20,32 +20,6 @@ impl<T: Config> Pallet<T> {
         SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaOut::<T>::get(netuid))
     }
 
-    /// Calculates the price of alpha for a given subnet.
-    ///
-    /// This function determines the price of alpha by dividing the total TAO
-    /// reserves by the total alpha reserves (`SubnetAlphaIn`) for the specified subnet.
-    /// If the alpha reserves are zero, the function returns zero to avoid division by zero.
-    ///
-    /// # Arguments
-    /// * `netuid` - The unique identifier of the subnet.
-    ///
-    /// # Returns
-    /// * `I96F32` - The price of alpha for the specified subnet.
-    pub fn get_alpha_price(netuid: u16) -> U96F32 {
-        if netuid == Self::get_root_netuid() {
-            return U96F32::saturating_from_num(1.0); // Root.
-        }
-        if SubnetMechanism::<T>::get(netuid) == 0 {
-            return U96F32::saturating_from_num(1.0); // Stable
-        }
-        if SubnetAlphaIn::<T>::get(netuid) == 0 {
-            U96F32::saturating_from_num(0)
-        } else {
-            U96F32::saturating_from_num(SubnetTAO::<T>::get(netuid))
-                .checked_div(U96F32::saturating_from_num(SubnetAlphaIn::<T>::get(netuid)))
-                .unwrap_or(U96F32::saturating_from_num(0))
-        }
-    }
     pub fn get_moving_alpha_price(netuid: u16) -> U96F32 {
         let one = U96F32::saturating_from_num(1.0);
         if netuid == Self::get_root_netuid() {
@@ -58,6 +32,7 @@ impl<T: Config> Pallet<T> {
             U96F32::saturating_from_num(SubnetMovingPrice::<T>::get(netuid))
         }
     }
+
     pub fn update_moving_price(netuid: u16) {
         let blocks_since_start_call = U96F32::saturating_from_num({
             // We expect FirstEmissionBlockNumber to be set earlier, and we take the block when
@@ -81,8 +56,9 @@ impl<T: Config> Pallet<T> {
         // Because alpha = b / (b + h), where b and h > 0, alpha < 1, so 1 - alpha > 0.
         // We can use unsigned type here: U96F32
         let one_minus_alpha: U96F32 = U96F32::saturating_from_num(1.0).saturating_sub(alpha);
-        let current_price: U96F32 = alpha
-            .saturating_mul(Self::get_alpha_price(netuid).min(U96F32::saturating_from_num(1.0)));
+        let current_price: U96F32 = alpha.saturating_mul(
+            T::SwapInterface::current_alpha_price(netuid).min(U96F32::saturating_from_num(1.0)),
+        );
         let current_moving: U96F32 =
             one_minus_alpha.saturating_mul(Self::get_moving_alpha_price(netuid));
         // Convert batch to signed I96F32 to avoid migration of SubnetMovingPrice for now``
@@ -860,7 +836,10 @@ impl<T: Config> Pallet<T> {
         )
         .map_err(|_| Error::<T>::InsufficientLiquidity)?;
 
-		ensure!(expected_alpha.amount_paid_out > 0, Error::<T>::InsufficientLiquidity);
+        ensure!(
+            expected_alpha.amount_paid_out > 0,
+            Error::<T>::InsufficientLiquidity
+        );
 
         // Ensure hotkey pool is precise enough
         let try_stake_result = Self::try_increase_stake_for_hotkey_and_coldkey_on_subnet(

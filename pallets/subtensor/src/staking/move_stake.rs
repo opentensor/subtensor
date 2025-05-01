@@ -462,8 +462,8 @@ impl<T: Config> Pallet<T> {
         let limit_price_float: U64F64 = U64F64::saturating_from_num(limit_price)
             .checked_div(U64F64::saturating_from_num(1_000_000_000))
             .unwrap_or(U64F64::saturating_from_num(0));
-        let current_price = Self::get_alpha_price(origin_netuid)
-            .safe_div(Self::get_alpha_price(destination_netuid));
+        let current_price = T::SwapInterface::current_alpha_price(origin_netuid)
+            .safe_div(T::SwapInterface::current_alpha_price(destination_netuid));
         if limit_price_float > current_price {
             return 0;
         }

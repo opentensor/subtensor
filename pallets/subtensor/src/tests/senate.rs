@@ -1,24 +1,25 @@
 #![allow(clippy::unwrap_used)]
 
-use super::mock::*;
-use crate::*;
 use approx::assert_abs_diff_eq;
 use codec::Encode;
 use frame_support::{assert_noop, assert_ok};
+use frame_system::Config;
+use frame_system::pallet_prelude::*;
 use frame_system::{EventRecord, Phase};
+use pallet_collective::Event as CollectiveEvent;
 use sp_core::{Get, H256, U256, bounded_vec};
 use sp_runtime::{
     BuildStorage,
     traits::{BlakeTwo256, Hash},
 };
+use subtensor_swap_interface::SwapHandler;
 
+use super::mock;
+use super::mock::*;
+use crate::Delegates;
 use crate::Error;
 use crate::migrations;
-use frame_system::Config;
-use frame_system::pallet_prelude::*;
-use pallet_collective::Event as CollectiveEvent;
-
-use crate::Delegates;
+use crate::*;
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
@@ -691,11 +692,13 @@ fn test_adjust_senate_events() {
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667);
         let root_netuid = SubtensorModule::get_root_netuid();
-        let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
-
         let max_senate_size: u16 = SenateMaxMembers::get() as u16;
-        let stake_threshold: u64 =
-            DefaultMinStake::<Test>::get() + 0; // FIXME: DefaultStakingFee is deprecated // Give this much to every senator
+        let stake_threshold = {
+            let default_stake = DefaultMinStake::<Test>::get();
+            let fee =
+                <Test as pallet::Config>::SwapInterface::approx_fee_amount(netuid, default_stake);
+            default_stake + fee
+        };
 
         // We will be registering MaxMembers hotkeys and two more to try a replace
         let balance_to_add = DefaultMinStake::<Test>::get() * 10
@@ -715,6 +718,9 @@ fn test_adjust_senate_events() {
         SubtensorModule::set_target_registrations_per_interval(netuid, max_senate_size + 1);
         SubtensorModule::set_max_registrations_per_block(root_netuid, max_senate_size + 1);
         SubtensorModule::set_target_registrations_per_interval(root_netuid, max_senate_size + 1);
+
+        let reserve = 1_000_000_000_000;
+        mock::setup_reserves(netuid, reserve, reserve);
 
         // Subscribe and check extrinsic output
         assert_ok!(SubtensorModule::burned_register(
@@ -802,6 +808,12 @@ fn test_adjust_senate_events() {
         assert!(!Senate::is_member(&replacement_hotkey_account_id));
         // Add/delegate enough stake to join the senate
         let stake = DefaultMinStake::<Test>::get() * 10;
+
+        let reserve = stake * 1000;
+        mock::setup_reserves(root_netuid, reserve, reserve);
+
+		let (_, fee) = mock::swap_tao_to_alpha(root_netuid, stake);
+
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             replacement_hotkey_account_id,

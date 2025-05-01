@@ -5,7 +5,7 @@ use frame_support::{ensure, pallet_prelude::DispatchError, traits::Get};
 use safe_math::*;
 use sp_arithmetic::helpers_128bit;
 use sp_runtime::traits::AccountIdConversion;
-use substrate_fixed::types::U64F64;
+use substrate_fixed::types::{U64F64, U96F32};
 use subtensor_swap_interface::{
     LiquidityDataProvider, RemoveLiquidityResult, SwapHandler, SwapResult,
 };
@@ -1157,6 +1157,11 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
         Self::calculate_fee_amount(netuid.into(), amount)
     }
 
+    fn current_alpha_price(netuid: u16) -> U96F32 {
+        let sqrt_price = AlphaSqrtPrice::<T>::get(NetUid::from(netuid));
+        U96F32::saturating_from_num(sqrt_price.saturating_mul(sqrt_price))
+    }
+
     fn min_price() -> u64 {
         TickIndex::min_sqrt_price()
             .saturating_mul(TickIndex::min_sqrt_price())
@@ -1166,6 +1171,7 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
     fn max_price() -> u64 {
         TickIndex::max_sqrt_price()
             .saturating_mul(TickIndex::max_sqrt_price())
+            .saturating_round()
             .saturating_to_num()
     }
 }

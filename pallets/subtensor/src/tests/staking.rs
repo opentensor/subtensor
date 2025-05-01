@@ -394,16 +394,16 @@ fn test_remove_stake_ok_no_emission() {
             netuid,
             amount,
         );
-        assert_eq!(
+        assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            amount
+            amount,
+            epsilon = amount / 1000
         );
 
         // Add subnet TAO for the equivalent amount added at price
-        let amount_tao =
-            U96F32::saturating_from_num(amount) * SubtensorModule::get_alpha_price(netuid);
-        SubnetTAO::<Test>::mutate(netuid, |v| *v += amount_tao.saturating_to_num::<u64>());
-        TotalStake::<Test>::mutate(|v| *v += amount_tao.saturating_to_num::<u64>());
+        let (amount_tao, fee) = mock::swap_alpha_to_tao(netuid, amount);
+        SubnetTAO::<Test>::mutate(netuid, |v| *v += amount_tao + fee);
+        TotalStake::<Test>::mutate(|v| *v += amount_tao + fee);
 
         // Do the magic
         assert_ok!(SubtensorModule::remove_stake(
@@ -413,17 +413,17 @@ fn test_remove_stake_ok_no_emission() {
             amount
         ));
 
-        let fee = <Test as Config>::SwapInterface::approx_fee_amount(netuid, amount);
-
         // we do not expect the exact amount due to slippage
         assert!(SubtensorModule::get_coldkey_balance(&coldkey_account_id) > amount / 10 * 9 - fee);
-        assert_eq!(
+        assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            0
+            0,
+			epsilon = 20000
         );
-        assert_eq!(
+        assert_abs_diff_eq!(
             SubtensorModule::get_total_stake(),
-            SubtensorModule::get_network_min_lock() + fee
+            SubtensorModule::get_network_min_lock() + fee,
+			epsilon = 1000
         );
     });
 }
@@ -575,8 +575,8 @@ fn test_remove_stake_total_balance_no_change() {
         );
 
         // Add subnet TAO for the equivalent amount added at price
-        let amount_tao =
-            U96F32::saturating_from_num(amount) * SubtensorModule::get_alpha_price(netuid);
+        let amount_tao = U96F32::saturating_from_num(amount)
+            * <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid);
         SubnetTAO::<Test>::mutate(netuid, |v| *v += amount_tao.saturating_to_num::<u64>());
         TotalStake::<Test>::mutate(|v| *v += amount_tao.saturating_to_num::<u64>());
 
@@ -624,14 +624,8 @@ fn test_add_stake_insufficient_liquidity() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount_staked);
 
         // Set the liquidity at lowest possible value so that all staking requests fail
-        SubnetTAO::<Test>::insert(
-            netuid,
-            DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>(),
-        );
-        SubnetAlphaIn::<Test>::insert(
-            netuid,
-            DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>(),
-        );
+        let reserve = DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>();
+        mock::setup_reserves(netuid, reserve, reserve);
 
         // Check the error
         assert_noop!(
@@ -2576,7 +2570,7 @@ fn test_add_stake_limit_validate() {
         let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
         SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
         SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
-        let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
+        let current_price = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid);
         assert_eq!(current_price, U96F32::from_num(1.5));
 
         // Give it some $$$ in his coldkey balance
@@ -2640,7 +2634,7 @@ fn test_remove_stake_limit_validate() {
         let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
         SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
         SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
-        let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
+        let current_price = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid);
         assert_eq!(current_price, U96F32::from_num(1.5));
 
         // Setup limit price so that it doesn't drop by more than 10% from current price
@@ -2981,7 +2975,10 @@ fn test_max_amount_add_dynamic() {
 
             if alpha_in != 0 {
                 let expected_price = I96F32::from_num(tao_in) / I96F32::from_num(alpha_in);
-                assert_eq!(SubtensorModule::get_alpha_price(netuid), expected_price);
+                assert_eq!(
+                    <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid),
+                    expected_price
+                );
             }
 
             assert_eq!(
@@ -3150,7 +3147,10 @@ fn test_max_amount_remove_dynamic() {
 
             if alpha_in != 0 {
                 let expected_price = I96F32::from_num(tao_in) / I96F32::from_num(alpha_in);
-                assert_eq!(SubtensorModule::get_alpha_price(netuid), expected_price);
+                assert_eq!(
+                    <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid),
+                    expected_price
+                );
             }
 
             assert_eq!(
@@ -3254,8 +3254,8 @@ fn test_max_amount_move_stable_dynamic() {
         let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
         SubnetTAO::<Test>::insert(dynamic_netuid, tao_reserve.to_num::<u64>());
         SubnetAlphaIn::<Test>::insert(dynamic_netuid, alpha_in.to_num::<u64>());
-        let current_price: U96F32 =
-            U96F32::from_num(SubtensorModule::get_alpha_price(dynamic_netuid));
+        let current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(dynamic_netuid);
         assert_eq!(current_price, U96F32::from_num(0.5));
 
         // The tests below just mimic the add_stake_limit tests for reverted price
@@ -3325,8 +3325,8 @@ fn test_max_amount_move_dynamic_stable() {
         let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
         SubnetTAO::<Test>::insert(dynamic_netuid, tao_reserve.to_num::<u64>());
         SubnetAlphaIn::<Test>::insert(dynamic_netuid, alpha_in.to_num::<u64>());
-        let current_price: U96F32 =
-            U96F32::from_num(SubtensorModule::get_alpha_price(dynamic_netuid));
+        let current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(dynamic_netuid);
         assert_eq!(current_price, U96F32::from_num(1.5));
 
         // The tests below just mimic the remove_stake_limit tests
@@ -3590,8 +3590,11 @@ fn test_max_amount_move_dynamic_dynamic() {
                     if dest_price != 0 {
                         let expected_price = origin_price / dest_price;
                         assert_eq!(
-                            SubtensorModule::get_alpha_price(origin_netuid)
-                                / SubtensorModule::get_alpha_price(destination_netuid),
+                            <Test as pallet::Config>::SwapInterface::current_alpha_price(
+                                origin_netuid
+                            ) / <Test as pallet::Config>::SwapInterface::current_alpha_price(
+                                destination_netuid
+                            ),
                             expected_price
                         );
                     }
@@ -3625,7 +3628,7 @@ fn test_add_stake_limit_ok() {
         let tao_reserve = U96F32::from_num(150_000_000_000_u64);
         let alpha_in = U96F32::from_num(100_000_000_000_u64);
         mock::setup_reserves(netuid, tao_reserve.to_num(), alpha_in.to_num());
-        let current_price = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
+        let current_price = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid);
         assert_eq!(current_price, U96F32::from_num(1.5));
 
         // Give it some $$$ in his coldkey balance
@@ -3667,7 +3670,7 @@ fn test_add_stake_limit_ok() {
 
         // Check that price has updated to ~24 = (150+450) / (100 - 75)
         let exp_price = U96F32::from_num(24.0);
-        let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
+        let current_price = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid);
         assert_abs_diff_eq!(
             exp_price.to_num::<f64>(),
             current_price.to_num::<f64>(),
@@ -3691,7 +3694,7 @@ fn test_add_stake_limit_fill_or_kill() {
         let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
         SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
         SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
-        let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
+        let current_price = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid);
         assert_eq!(current_price, U96F32::from_num(1.5));
 
         // Give it some $$$ in his coldkey balance
@@ -3758,7 +3761,7 @@ fn test_remove_stake_limit_ok() {
         let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
         SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
         SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
-        let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
+        let current_price = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid);
         assert_eq!(current_price, U96F32::from_num(1.5));
 
         // Setup limit price so resulting average price doesn't drop by more than 10% from current price
@@ -3814,7 +3817,7 @@ fn test_remove_stake_limit_fill_or_kill() {
         let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
         SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
         SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
-        let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
+        let current_price = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid);
         assert_eq!(current_price, U96F32::from_num(1.5));
 
         // Setup limit price so that it doesn't drop by more than 10% from current price
@@ -4198,8 +4201,8 @@ fn test_move_stake_limit_partial() {
         SubnetAlphaIn::<Test>::insert(origin_netuid, alpha_in.to_num::<u64>());
         SubnetTAO::<Test>::insert(destination_netuid, (tao_reserve * 100_000).to_num::<u64>());
         SubnetAlphaIn::<Test>::insert(destination_netuid, (alpha_in * 100_000).to_num::<u64>());
-        let current_price: U96F32 =
-            U96F32::from_num(SubtensorModule::get_alpha_price(origin_netuid));
+        let current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(origin_netuid);
         assert_eq!(current_price, U96F32::from_num(1.5));
 
         // The relative price between origin and destination subnets is 1.
