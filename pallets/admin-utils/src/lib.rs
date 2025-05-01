@@ -83,6 +83,13 @@ pub mod pallet {
             /// Indicates if the precompile operation is enabled or not.
             enabled: bool,
         },
+        /// Event emitted when the Yuma3 enable is toggled.
+        Yuma3EnableToggled {
+            /// The network identifier.
+            netuid: u16,
+            /// Indicates if the Yuma3 enable was enabled or disabled.
+            enabled: bool,
+        },
     }
 
     // Errors inform users that something went wrong.
@@ -1533,13 +1540,15 @@ pub mod pallet {
         ) -> DispatchResult {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
             pallet_subtensor::Pallet::<T>::set_yuma3_enabled(netuid, enabled);
+
+            Self::deposit_event(Event::Yuma3EnableToggled { netuid, enabled });
             log::debug!(
                 "Yuma3EnableToggled( netuid: {:?}, Enabled: {:?} ) ",
                 netuid,
                 enabled
             );
             Ok(())
-		}
+        }
 
         /// Sets or updates the hotkey account associated with the owner of a specific subnet.
         ///
