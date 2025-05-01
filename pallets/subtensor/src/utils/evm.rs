@@ -33,31 +33,31 @@ impl<T: Config> Pallet<T> {
         block_number: u64,
         signature: Signature,
     ) -> dispatch::DispatchResult {
-        // let coldkey = ensure_signed(origin)?;
+        let coldkey = ensure_signed(origin)?;
 
-        // ensure!(
-        //     Self::get_owning_coldkey_for_hotkey(&hotkey) == coldkey,
-        //     Error::<T>::NonAssociatedColdKey
-        // );
+        ensure!(
+            Self::get_owning_coldkey_for_hotkey(&hotkey) == coldkey,
+            Error::<T>::NonAssociatedColdKey
+        );
 
         let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey)?;
 
-        // let mut message = [0u8; 64];
-        // let block_hash = keccak_256(block_number.encode().as_ref());
-        // message[..32].copy_from_slice(&hotkey.encode()[..]);
-        // message[32..].copy_from_slice(block_hash.as_ref());
-        // let public = signature
-        //     .recover_prehashed(&keccak_256(message.as_ref()))
-        //     .ok_or(Error::<T>::UnableToRecoverPublicKey)?;
-        // let secp_pubkey = libsecp256k1::PublicKey::parse_compressed(&public.0)
-        //     .map_err(|_| Error::<T>::UnableToRecoverPublicKey)?;
-        // let uncompressed = secp_pubkey.serialize();
-        // let hashed_evm_key = H160::from_slice(&keccak_256(&uncompressed[1..])[12..]);
+        let mut message = [0u8; 64];
+        let block_hash = keccak_256(block_number.encode().as_ref());
+        message[..32].copy_from_slice(&hotkey.encode()[..]);
+        message[32..].copy_from_slice(block_hash.as_ref());
+        let public = signature
+            .recover_prehashed(&keccak_256(message.as_ref()))
+            .ok_or(Error::<T>::UnableToRecoverPublicKey)?;
+        let secp_pubkey = libsecp256k1::PublicKey::parse_compressed(&public.0)
+            .map_err(|_| Error::<T>::UnableToRecoverPublicKey)?;
+        let uncompressed = secp_pubkey.serialize();
+        let hashed_evm_key = H160::from_slice(&keccak_256(&uncompressed[1..])[12..]);
 
-        // ensure!(
-        //     evm_key == hashed_evm_key,
-        //     Error::<T>::InvalidRecoveredPublicKey
-        // );
+        ensure!(
+            evm_key == hashed_evm_key,
+            Error::<T>::InvalidRecoveredPublicKey
+        );
 
         let current_block_number = Self::get_current_block_as_u64();
 

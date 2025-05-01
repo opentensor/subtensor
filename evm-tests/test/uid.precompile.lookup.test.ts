@@ -1,6 +1,6 @@
 import * as assert from "assert";
 
-import { getAliceSigner, getDevnetApi, waitForTransactionCompletion, getRandomSubstrateKeypair } from "../src/substrate"
+import { getAliceSigner, getDevnetApi, waitForTransactionCompletion, getRandomSubstrateKeypair, getSignerFromKeypair } from "../src/substrate"
 import { convertToFixedSizeBinary, generateRandomEthersWallet, getPublicClient } from "../src/utils";
 import { ETH_LOCAL_URL } from "../src/config";
 import { devnet } from "@polkadot-api/descriptors"
@@ -60,13 +60,16 @@ describe("Test the UID Lookup precompile", () => {
             block_number: BigInt(blockNumber),
             signature: convertToFixedSizeBinary(signature, 65)
         });
-        await waitForTransactionCompletion(api, associateEvmKeyTx, alice)
+        const signer = getSignerFromKeypair(coldkey);
+        await waitForTransactionCompletion(api, associateEvmKeyTx, signer)
             .then(() => { })
             .catch((error) => { console.log(`transaction error ${error}`) });
 
         const storedEvmKey = await api.query.SubtensorModule.AssociatedEvmAddress.getValue(netuid, uid)
-        console.info(storedEvmKey)
-        assert.equal(storedEvmKey, [convertToFixedSizeBinary(evmWallet.address, 20), BigInt(blockNumber)])
+        assert.notEqual(storedEvmKey, undefined, "storedEvmKey should be defined")
+        if (storedEvmKey !== undefined) {
+            assert.equal(storedEvmKey[0], convertToFixedSizeBinary(evmWallet.address, 20))
+        }
     })
 
     it("UID lookup via precompile contract works correctly", async () => {
