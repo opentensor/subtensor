@@ -470,7 +470,7 @@ pub mod pallet {
             ensure!(amount > Zero::zero(), Error::<T>::NoContribution);
 
             if who == crowdloan.creator {
-                // Ensure the deposit is left
+                // Ensure the deposit is kept
                 amount = amount.saturating_sub(crowdloan.deposit);
                 ensure!(amount > Zero::zero(), Error::<T>::DepositCannotBeWithdrawn);
                 Contributions::<T>::insert(crowdloan_id, &who, crowdloan.deposit);

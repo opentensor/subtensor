@@ -306,7 +306,7 @@ mod benchmarks {
         #[extrinsic_call]
         _(RawOrigin::Signed(creator.clone()), crowdloan_id);
 
-        // ensure the creator has not been refunded and the contributions is removed
+        // ensure the creator has not been refunded and contribution is the actual initial deposit
         assert_eq!(CurrencyOf::<T>::balance(&creator), 0);
         assert_eq!(
             Contributions::<T>::get(crowdloan_id, &creator),
