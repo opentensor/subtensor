@@ -11,18 +11,25 @@ use substrate_fixed::types::{U64F64, U96F32};
 
 pub type LeaseId = u32;
 
+pub type CurrencyOf<T> = <T as Config>::Currency;
+
+pub type BalanceOf<T> =
+    <CurrencyOf<T> as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+
 // #[freeze_struct("1941771e0ae01e2e")]
 #[derive(Encode, Decode, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo)]
-pub struct SubnetLease<AccountId, BlockNumber> {
+pub struct SubnetLease<AccountId, BlockNumber, Balance> {
     pub beneficiary: AccountId,
     pub coldkey: AccountId,
     pub hotkey: AccountId,
     pub emissions_share: Percent,
     pub end_block: Option<BlockNumber>,
     pub netuid: u16,
+    pub cost: Balance,
 }
 
-pub type SubnetLeaseOf<T> = SubnetLease<<T as frame_system::Config>::AccountId, BlockNumberFor<T>>;
+pub type SubnetLeaseOf<T> =
+    SubnetLease<<T as frame_system::Config>::AccountId, BlockNumberFor<T>, BalanceOf<T>>;
 
 impl<T: Config> Pallet<T> {
     pub fn do_register_leased_network(
@@ -51,7 +58,6 @@ impl<T: Config> Pallet<T> {
         frame_system::Pallet::<T>::inc_providers(&lease_coldkey);
         frame_system::Pallet::<T>::inc_providers(&lease_hotkey);
 
-        // Transfer money from crowdloan account to leased network coldkey
         <T as Config>::Currency::transfer(
             &crowdloan.funds_account,
             &lease_coldkey,
@@ -59,7 +65,6 @@ impl<T: Config> Pallet<T> {
             Preservation::Expendable,
         )?;
 
-        // Register the network
         Self::do_register_network(
             RawOrigin::Signed(lease_coldkey.clone()).into(),
             &lease_hotkey,
@@ -67,11 +72,16 @@ impl<T: Config> Pallet<T> {
             None,
         )?;
 
-        // Retrieve the network id
         let netuid =
             Self::find_lease_netuid(&lease_coldkey).ok_or(Error::<T>::LeaseNetuidNotFound)?;
 
-        // Create the subnet lease
+        // Enable the beneficiary to operate the subnet through a proxy
+        T::ProxyInterface::add_lease_beneficiary_proxy(&lease_coldkey, &who)?;
+
+        // Get left leftover cap and compute the cost of the registration + proxy
+        let leftover_cap = <T as Config>::Currency::balance(&lease_coldkey);
+        let cost = crowdloan.raised.saturating_sub(leftover_cap);
+
         SubnetLeases::<T>::insert(
             lease_id,
             SubnetLease {
@@ -81,22 +91,16 @@ impl<T: Config> Pallet<T> {
                 emissions_share,
                 end_block,
                 netuid,
+                cost,
             },
         );
         SubnetUidToLeaseId::<T>::insert(netuid, lease_id);
-
-        // Enable the beneficiary to operate the subnet through a proxy
-        T::ProxyInterface::add_lease_beneficiary_proxy(&lease_coldkey, &who)?;
 
         // Get all the contributions to the crowdloan except for the beneficiary
         // because it's share will be computed as the dividends are distributed
         let contributions = pallet_crowdloan::Contributions::<T>::iter_prefix(crowdloan_id)
             .into_iter()
             .filter(|(contributor, _)| contributor != &who);
-
-        // This is what is left in the lease coldkey after registering the network and proxy
-        // and that needs to be refunded to the contributor and beneficiary
-        let leftover_cap = <T as Config>::Currency::balance(&lease_coldkey);
 
         let mut refunded_cap = 0u64;
         for (contributor, amount) in contributions {
