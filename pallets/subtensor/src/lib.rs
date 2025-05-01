@@ -66,6 +66,7 @@ pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 #[import_section(config::config)]
 #[frame_support::pallet]
 pub mod pallet {
+    use crate::RateLimitKey;
     use crate::migrations;
     use frame_support::{
         BoundedVec,
@@ -268,6 +269,80 @@ pub mod pallet {
         /// Additional information about the subnet
         pub additional: Vec<u8>,
     }
+
+    /// Data structure for stake related jobs.
+    #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    pub enum StakeJob<AccountId> {
+        /// Represents a job for "add_stake" operation
+        AddStake {
+            /// Hotkey account
+            hotkey: AccountId,
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Subnet ID
+            netuid: u16,
+            /// The amount of stake to be added to the hotkey staking account.
+            stake_to_be_added: u64,
+        },
+        /// Represents a job for "remove_stake" operation
+        RemoveStake {
+            /// Hotkey account
+            hotkey: AccountId,
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Subnet ID
+            netuid: u16,
+            /// Alpha value
+            alpha_unstaked: u64,
+        },
+        /// Represents a job for "add_stake_limit" operation
+        AddStakeLimit {
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Hotkey account
+            hotkey: AccountId,
+            /// Subnet ID
+            netuid: u16,
+            /// The amount of stake to be added to the hotkey staking account.
+            stake_to_be_added: u64,
+            /// The limit price expressed in units of RAO per one Alpha.
+            limit_price: u64,
+            /// Allows partial execution of the amount. If set to false, this becomes
+            /// fill or kill type or order.
+            allow_partial: bool,
+        },
+        /// Represents a job for "remove_stake_limit" operation
+        RemoveStakeLimit {
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Hotkey account
+            hotkey: AccountId,
+            /// Subnet ID
+            netuid: u16,
+            /// The amount of stake to be added to the hotkey staking account.
+            alpha_unstaked: u64,
+            /// The limit price
+            limit_price: u64,
+            /// Allows partial execution of the amount. If set to false, this becomes
+            /// fill or kill type or order.
+            allow_partial: bool,
+        },
+        /// Represents a job for "unstake_all" operation
+        UnstakeAll {
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Hotkey account
+            hotkey: AccountId,
+        },
+        /// Represents a job for "unstake_all_alpha" operation
+        UnstakeAllAlpha {
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Hotkey account
+            hotkey: AccountId,
+        },
+    }
+
     /// ============================
     /// ==== Staking + Accounts ====
     /// ============================
@@ -810,6 +885,12 @@ pub mod pallet {
         360
     }
 
+    #[pallet::type_value]
+    /// Default value for setting subnet owner hotkey rate limit
+    pub fn DefaultSetSNOwnerHotkeyRateLimit<T: Config>() -> u64 {
+        50400
+    }
+
     #[pallet::storage]
     pub type MinActivityCutoff<T: Config> =
         StorageValue<_, u16, ValueQuery, DefaultMinActivityCutoff<T>>;
@@ -825,6 +906,21 @@ pub mod pallet {
     #[pallet::storage]
     pub type SenateRequiredStakePercentage<T> =
         StorageValue<_, u64, ValueQuery, DefaultSenateRequiredStakePercentage<T>>;
+
+    #[pallet::storage]
+    pub type StakeJobs<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        BlockNumberFor<T>, // first key: current block number
+        Twox64Concat,
+        u64, // second key: unique job ID
+        StakeJob<T::AccountId>,
+        OptionQuery,
+    >;
+
+    #[pallet::storage]
+    /// Ensures unique IDs for StakeJobs storage map
+    pub type NextStakeJobId<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
 
     /// ============================
     /// ==== Staking Variables ====
@@ -949,18 +1045,6 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroU64<T>,
     >;
-    #[pallet::storage]
-    /// --- NMAP ( hot, cold, netuid ) --> last_emission_on_hot_cold_net | Returns the last_emission_update_on_hot_cold_net
-    pub type LastHotkeyColdkeyEmissionOnNetuid<T: Config> = StorageNMap<
-        _,
-        (
-            NMapKey<Blake2_128Concat, T::AccountId>, // hot
-            NMapKey<Blake2_128Concat, T::AccountId>, // cold
-            NMapKey<Identity, u16>,                  // subnet
-        ),
-        u64, // Stake
-        ValueQuery,
-    >;
 
     /// ==========================
     /// ==== Staking Counters ====
@@ -978,8 +1062,6 @@ pub mod pallet {
     pub type TotalIssuance<T> = StorageValue<_, u64, ValueQuery, DefaultTotalIssuance<T>>;
     #[pallet::storage] // --- ITEM ( total_stake )
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
-    #[pallet::storage] // --- ITEM ( dynamic_block ) -- block when dynamic was turned on.
-    pub type DynamicBlock<T> = StorageValue<_, u64, ValueQuery>;
     #[pallet::storage] // --- ITEM ( moving_alpha ) -- subnet moving alpha.
     pub type SubnetMovingAlpha<T> = StorageValue<_, I96F32, ValueQuery, DefaultMovingAlpha<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> moving_price | The subnet moving price.
@@ -999,12 +1081,6 @@ pub mod pallet {
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> tao_in_emission | Returns the amount of tao emitted into this subent on the last block.
     pub type SubnetTaoInEmission<T: Config> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> alpha_sell_per_block | Alpha sold per block.
-    pub type SubnetAlphaEmissionSell<T: Config> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> total_stake_at_moment_of_subnet_registration
-    pub type TotalStakeAtDynamic<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the pool.
     pub type SubnetAlphaIn<T: Config> =
@@ -1071,9 +1147,6 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> token_symbol | Returns the token symbol for a subnet.
     pub type TokenSymbol<T: Config> =
         StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> subnet_name | Returns the name of the subnet.
-    pub type SubnetName<T: Config> =
-        StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
 
     /// ============================
     /// ==== Global Parameters =====
@@ -1097,10 +1170,6 @@ pub mod pallet {
     pub type NetworkLastRegistered<T> =
         StorageValue<_, u64, ValueQuery, DefaultNetworkLastRegistered<T>>;
     #[pallet::storage]
-    /// ITEM( network_min_allowed_uids )
-    pub type NetworkMinAllowedUids<T> =
-        StorageValue<_, u16, ValueQuery, DefaultNetworkMinAllowedUids<T>>;
-    #[pallet::storage]
     /// ITEM( min_network_lock_cost )
     pub type NetworkMinLockCost<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkMinLockCost<T>>;
     #[pallet::storage]
@@ -1123,6 +1192,15 @@ pub mod pallet {
     /// ITEM( weights_version_key_rate_limit ) --- Rate limit in tempos.
     pub type WeightsVersionKeyRateLimit<T> =
         StorageValue<_, u64, ValueQuery, DefaultWeightsVersionKeyRateLimit<T>>;
+
+    /// ============================
+    /// ==== Rate Limiting =====
+    /// ============================
+
+    #[pallet::storage]
+    /// --- MAP ( RateLimitKey ) --> Block number in which the last rate limited operation occured
+    pub type LastRateLimitedBlock<T: Config> =
+        StorageMap<_, Identity, RateLimitKey, u64, ValueQuery, DefaultZeroU64<T>>;
 
     /// ============================
     /// ==== Subnet Locks =====
@@ -1231,9 +1309,6 @@ pub mod pallet {
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Kappa
     pub type Kappa<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultKappa<T>>;
-    #[pallet::storage]
-    /// --- MAP ( netuid ) --> uid, we use to record uids to prune at next epoch.
-    pub type NeuronsToPruneAtNextEpoch<T: Config> = StorageMap<_, Identity, u16, u16, ValueQuery>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> registrations_this_interval
     pub type RegistrationsThisInterval<T: Config> = StorageMap<_, Identity, u16, u16, ValueQuery>;
@@ -2074,6 +2149,101 @@ where
                     Self::get_priority_staking(who, hotkey, *amount_unstaked),
                 )
             }
+            Some(Call::add_stake_aggregate {
+                hotkey,
+                netuid,
+                amount_staked,
+            }) => {
+                if ColdkeySwapScheduled::<T>::contains_key(who) {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
+                    )
+                    .into();
+                }
+                // Fully validate the user input
+                Self::result_to_validity(
+                    Pallet::<T>::validate_add_stake(
+                        who,
+                        hotkey,
+                        *netuid,
+                        *amount_staked,
+                        *amount_staked,
+                        false,
+                    ),
+                    Self::get_priority_staking(who, hotkey, *amount_staked),
+                )
+            }
+            Some(Call::add_stake_limit_aggregate {
+                hotkey,
+                netuid,
+                amount_staked,
+                limit_price,
+                allow_partial,
+            }) => {
+                if ColdkeySwapScheduled::<T>::contains_key(who) {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
+                    )
+                    .into();
+                }
+
+                //Calculate the maximum amount that can be executed with price limit
+                let max_amount = Pallet::<T>::get_max_amount_add(*netuid, *limit_price);
+
+                // Fully validate the user input
+                Self::result_to_validity(
+                    Pallet::<T>::validate_add_stake(
+                        who,
+                        hotkey,
+                        *netuid,
+                        *amount_staked,
+                        max_amount,
+                        *allow_partial,
+                    ),
+                    Self::get_priority_staking(who, hotkey, *amount_staked),
+                )
+            }
+            Some(Call::remove_stake_aggregate {
+                hotkey,
+                netuid,
+                amount_unstaked,
+            }) => {
+                // Fully validate the user input
+                Self::result_to_validity(
+                    Pallet::<T>::validate_remove_stake(
+                        who,
+                        hotkey,
+                        *netuid,
+                        *amount_unstaked,
+                        *amount_unstaked,
+                        false,
+                    ),
+                    Self::get_priority_staking(who, hotkey, *amount_unstaked),
+                )
+            }
+            Some(Call::remove_stake_limit_aggregate {
+                hotkey,
+                netuid,
+                amount_unstaked,
+                limit_price,
+                allow_partial,
+            }) => {
+                // Calculate the maximum amount that can be executed with price limit
+                let max_amount = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price);
+
+                // Fully validate the user input
+                Self::result_to_validity(
+                    Pallet::<T>::validate_remove_stake(
+                        who,
+                        hotkey,
+                        *netuid,
+                        *amount_unstaked,
+                        max_amount,
+                        *allow_partial,
+                    ),
+                    Self::get_priority_staking(who, hotkey, *amount_unstaked),
+                )
+            }
             Some(Call::move_stake {
                 origin_hotkey,
                 destination_hotkey,
@@ -2460,4 +2630,12 @@ impl<T, H, P> CollectiveInterface<T, H, P> for () {
     fn add_vote(_: &T, _: H, _: P, _: bool) -> Result<bool, DispatchError> {
         Ok(true)
     }
+}
+
+/// Enum that defines types of rate limited operations for
+/// storing last block when this operation occured
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
+pub enum RateLimitKey {
+    // The setting sn owner hotkey operation is rate limited per netuid
+    SetSNOwnerHotkey(u16),
 }

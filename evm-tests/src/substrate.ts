@@ -120,6 +120,29 @@ export function convertPublicKeyToMultiAddress(publicKey: Uint8Array, ss58Format
     return MultiAddress.Id(address);
 }
 
+export async function waitForTransactionWithRetry(
+    api: TypedApi<typeof devnet>,
+    tx: Transaction<{}, string, string, void>,
+    signer: PolkadotSigner,
+  ) {
+    let success = false;
+    let retries = 0;
+  
+    // set max retries times
+    while (!success && retries < 5) {
+      await waitForTransactionCompletion(api, tx, signer)
+        .then(() => {success = true})
+        .catch((error) => {
+          console.log(`transaction error ${error}`);
+        });
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      retries += 1;
+    }
+  
+    if (!success) {
+      console.log("Transaction failed after 5 retries");
+    }
+  }
 
 export async function waitForTransactionCompletion(api: TypedApi<typeof devnet>, tx: Transaction<{}, string, string, void>, signer: PolkadotSigner,) {
     const transactionPromise = await getTransactionWatchPromise(tx, signer)

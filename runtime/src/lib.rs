@@ -14,6 +14,7 @@ mod migrations;
 use codec::{Compact, Decode, Encode};
 use frame_support::traits::Imbalance;
 use frame_support::{
+    PalletId,
     dispatch::DispatchResultWithPostInfo,
     genesis_builder_helper::{build_state, get_preset},
     pallet_prelude::Get,
@@ -207,7 +208,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 262,
+    spec_version: 264,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -673,6 +674,18 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(
                         pallet_subtensor::Call::remove_stake_limit { .. }
                     )
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::add_stake_aggregate { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::add_stake_limit_aggregate { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::remove_stake_aggregate { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::remove_stake_limit_aggregate { .. }
+                    )
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::unstake_all { .. })
                     | RuntimeCall::SubtensorModule(
                         pallet_subtensor::Call::unstake_all_alpha { .. }
@@ -710,7 +723,15 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 }) => *alpha_amount < SMALL_TRANSFER_LIMIT,
                 _ => false,
             },
-            ProxyType::Owner => matches!(c, RuntimeCall::AdminUtils(..)),
+            ProxyType::Owner => {
+                matches!(c, RuntimeCall::AdminUtils(..))
+                    && !matches!(
+                        c,
+                        RuntimeCall::AdminUtils(
+                            pallet_admin_utils::Call::sudo_set_sn_owner_hotkey { .. }
+                        )
+                    )
+            }
             ProxyType::NonCritical => !matches!(
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::dissolve_network { .. })
@@ -745,6 +766,18 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake_limit { .. })
                     | RuntimeCall::SubtensorModule(
                         pallet_subtensor::Call::remove_stake_limit { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::add_stake_aggregate { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::add_stake_limit_aggregate { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::remove_stake_aggregate { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::remove_stake_limit_aggregate { .. }
                     )
             ),
             ProxyType::Registration => matches!(
@@ -1402,6 +1435,38 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
     }
 }
 
+// Crowdloan
+parameter_types! {
+    pub const CrowdloanPalletId: PalletId = PalletId(*b"bt/cloan");
+    pub const MinimumDeposit: Balance = 10_000_000_000; // 10 TAO
+    pub const AbsoluteMinimumContribution: Balance = 100_000_000; // 0.1 TAO
+    pub const MinimumBlockDuration: BlockNumber = if cfg!(feature = "fast-blocks") {
+        50
+    } else {
+        50400 // 7 days minimum (7 * 24 * 60 * 60 / 12)
+    };
+    pub const MaximumBlockDuration: BlockNumber = if cfg!(feature = "fast-blocks") {
+       20000
+    } else {
+        432000 // 60 days maximum (60 * 24 * 60 * 60 / 12)
+    };
+    pub const RefundContributorsLimit: u32 = 50;
+}
+
+impl pallet_crowdloan::Config for Runtime {
+    type PalletId = CrowdloanPalletId;
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type Currency = Balances;
+    type WeightInfo = pallet_crowdloan::weights::SubstrateWeight<Runtime>;
+    type Preimages = Preimage;
+    type MinimumDeposit = MinimumDeposit;
+    type AbsoluteMinimumContribution = AbsoluteMinimumContribution;
+    type MinimumBlockDuration = MinimumBlockDuration;
+    type MaximumBlockDuration = MaximumBlockDuration;
+    type RefundContributorsLimit = RefundContributorsLimit;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
     pub struct Runtime
@@ -1436,6 +1501,8 @@ construct_runtime!(
         BaseFee: pallet_base_fee = 25,
 
         Drand: pallet_drand = 26,
+
+        Crowdloan: pallet_crowdloan = 27,
     }
 );
 
@@ -1505,6 +1572,7 @@ mod benches {
         [pallet_admin_utils, AdminUtils]
         [pallet_subtensor, SubtensorModule]
         [pallet_drand, Drand]
+        [pallet_crowdloan, Crowdloan]
     );
 }
 

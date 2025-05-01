@@ -1,6 +1,6 @@
 import * as assert from "assert";
 
-import { getAliceSigner, getDevnetApi, waitForTransactionCompletion, convertPublicKeyToMultiAddress, getRandomSubstrateKeypair, getSignerFromKeypair } from "../src/substrate"
+import { getAliceSigner, getDevnetApi, convertPublicKeyToMultiAddress, getRandomSubstrateKeypair, getSignerFromKeypair, waitForTransactionWithRetry } from "../src/substrate"
 import { getPublicClient, } from "../src/utils";
 import { ETH_LOCAL_URL } from "../src/config";
 import { devnet } from "@polkadot-api/descriptors"
@@ -34,7 +34,7 @@ describe("Test the Metagraph precompile", () => {
             const internalCall = api.tx.Balances.force_set_balance({ who: multiAddress, new_free: BigInt(1e12) })
             const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
-            await waitForTransactionCompletion(api, tx, alice)
+            await waitForTransactionWithRetry(api, tx, alice)
                 .then(() => { })
                 .catch((error) => { console.log(`transaction error ${error}`) });
         }
@@ -44,14 +44,14 @@ describe("Test the Metagraph precompile", () => {
             const internalCall = api.tx.Balances.force_set_balance({ who: multiAddress, new_free: BigInt(1e12) })
             const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
-            await waitForTransactionCompletion(api, tx, alice)
+            await waitForTransactionWithRetry(api, tx, alice)
                 .then(() => { })
                 .catch((error) => { console.log(`transaction error ${error}`) });
         }
 
         const signer = getSignerFromKeypair(coldkey)
         const registerNetworkTx = api.tx.SubtensorModule.register_network({ hotkey: convertPublicKeyToSs58(hotkey.publicKey) })
-        await waitForTransactionCompletion(api, registerNetworkTx, signer)
+        await waitForTransactionWithRetry(api, registerNetworkTx, signer)
             .then(() => { })
             .catch((error) => { console.log(`transaction error ${error}`) });
 
@@ -63,7 +63,7 @@ describe("Test the Metagraph precompile", () => {
             await api.query.SubtensorModule.SubnetworkN.getValue(subnetId)
         if (uid_count === 0) {
             const tx = api.tx.SubtensorModule.burned_register({ hotkey: convertPublicKeyToSs58(hotkey.publicKey), netuid: subnetId })
-            await waitForTransactionCompletion(api, tx, signer)
+            await waitForTransactionWithRetry(api, tx, signer)
                 .then(() => { })
                 .catch((error) => { console.log(`transaction error ${error}`) });
         }
