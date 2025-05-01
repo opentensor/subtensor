@@ -88,15 +88,44 @@ impl<T: Config> Pallet<T> {
         // Enable the beneficiary to operate the subnet through a proxy
         T::ProxyInterface::add_lease_beneficiary_proxy(&lease_coldkey, &who)?;
 
-        // Compute the share to the lease of each contributor to the crowdloan except for
-        // the beneficiary which will be computed as the dividends are distributed
+        // Get all the contributions to the crowdloan except for the beneficiary
+        // because it's share will be computed as the dividends are distributed
         let contributions = pallet_crowdloan::Contributions::<T>::iter_prefix(crowdloan_id)
             .into_iter()
             .filter(|(contributor, _)| contributor != &who);
+
+        // This is what is left in the lease coldkey after registering the network and proxy
+        // and that needs to be refunded to the contributor and beneficiary
+        let leftover_cap = <T as Config>::Currency::balance(&lease_coldkey);
+
+        let mut refunded_cap = 0u64;
         for (contributor, amount) in contributions {
+            // Compute the share of the contributor to the lease
             let share: U64F64 = U64F64::from(amount).saturating_div(U64F64::from(crowdloan.raised));
-            SubnetLeaseShares::<T>::insert(lease_id, contributor, share);
+            SubnetLeaseShares::<T>::insert(lease_id, &contributor, &share);
+
+            // Refund the unused part of the cap to the contributor relative to their share
+            let contributor_refund = share
+                .saturating_mul(U64F64::from(leftover_cap))
+                .floor()
+                .to_num::<u64>();
+            <T as Config>::Currency::transfer(
+                &lease_coldkey,
+                &contributor,
+                contributor_refund,
+                Preservation::Expendable,
+            )?;
+            refunded_cap = refunded_cap.saturating_add(contributor_refund);
         }
+
+        // Refund what's left after refunding the contributors to the beneficiary
+        let beneficiary_refund = leftover_cap.saturating_sub(refunded_cap);
+        <T as Config>::Currency::transfer(
+            &lease_coldkey,
+            &who,
+            beneficiary_refund,
+            Preservation::Expendable,
+        )?;
 
         Self::deposit_event(Event::SubnetLeaseCreated {
             beneficiary: who,
