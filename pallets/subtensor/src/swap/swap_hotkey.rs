@@ -1,7 +1,7 @@
 use super::*;
 use frame_support::weights::Weight;
 use sp_core::Get;
-
+use substrate_fixed::types::U64F64;
 impl<T: Config> Pallet<T> {
     /// Swaps the hotkey of a coldkey account.
     ///
@@ -255,6 +255,36 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().writes(1));
         }
 
+        // 11. Swap Alpha
+        // Alpha( hotkey, coldkey, netuid ) -> alpha
+        let old_alpha_values: Vec<((T::AccountId, u16), U64F64)> =
+            Alpha::<T>::iter_prefix((old_hotkey,)).collect();
+        // Clear the entire old prefix here.
+        let _ = Alpha::<T>::clear_prefix((old_hotkey,), old_alpha_values.len() as u32, None);
+        weight.saturating_accrue(T::DbWeight::get().reads(old_alpha_values.len() as u64));
+        weight.saturating_accrue(T::DbWeight::get().writes(old_alpha_values.len() as u64));
+
+        // Insert the new alpha values.
+        for ((coldkey, netuid), alpha) in old_alpha_values {
+            let new_alpha = Alpha::<T>::get((new_hotkey, &coldkey, netuid));
+            Alpha::<T>::insert(
+                (new_hotkey, &coldkey, netuid),
+                new_alpha.saturating_add(alpha),
+            );
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+
+            // Swap StakingHotkeys.
+            // StakingHotkeys( coldkey ) --> Vec<hotkey> -- the hotkeys that the coldkey stakes.
+            let mut staking_hotkeys = StakingHotkeys::<T>::get(&coldkey);
+            weight.saturating_accrue(T::DbWeight::get().reads(1));
+            if staking_hotkeys.contains(old_hotkey) {
+                staking_hotkeys.retain(|hk| *hk != *old_hotkey && *hk != *new_hotkey);
+                staking_hotkeys.push(new_hotkey.clone());
+                StakingHotkeys::<T>::insert(&coldkey, staking_hotkeys);
+                weight.saturating_accrue(T::DbWeight::get().writes(1));
+            }
+        }
+
         // Return successful after swapping all the relevant terms.
         Ok(())
     }
@@ -457,26 +487,6 @@ impl<T: Config> Pallet<T> {
                 weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
             }
         }
-
-        // });
-
-        // 11. Swap Alpha
-        // Alpha( hotkey, coldkey, netuid ) -> alpha
-        // let old_alpha_values: Vec<((T::AccountId, u16), U64F64)> =
-        //     Alpha::<T>::iter_prefix((old_hotkey,)).collect();
-        // Clear the entire old prefix here.
-        // let _ = Alpha::<T>::clear_prefix((old_hotkey,), old_alpha_values.len() as u32, None);
-
-        let alpha_value = Alpha::<T>::take((old_hotkey, &coldkey, netuid));
-
-        weight.saturating_accrue(T::DbWeight::get().reads(1_u64));
-        weight.saturating_accrue(T::DbWeight::get().writes(1_u64));
-
-        // Insert the new alpha values.
-        // for ((coldkey, netuid), alpha) in old_alpha_values {
-        //     let new_alpha = Alpha::<T>::get((new_hotkey, &coldkey, netuid));
-        Alpha::<T>::insert((new_hotkey, &coldkey, netuid), alpha_value);
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
         // }
 

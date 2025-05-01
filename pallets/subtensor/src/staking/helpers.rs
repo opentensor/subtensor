@@ -60,7 +60,7 @@ impl<T: Config> Pallet<T> {
     //
     pub fn get_total_stake_for_coldkey(coldkey: &T::AccountId) -> u64 {
         let hotkeys = StakingHotkeys::<T>::get(coldkey);
-        hotkeys
+        let result = hotkeys
             .iter()
             .map(|hotkey| {
                 let mut total_stake: u64 = 0;
@@ -76,7 +76,9 @@ impl<T: Config> Pallet<T> {
                 }
                 total_stake
             })
-            .sum::<u64>()
+            .sum::<u64>();
+        log::error!("= ======= Total stake for coldkey {}: {}", coldkey, result);
+        result
     }
 
     // Creates a cold - hot pairing account if the hotkey is not already an active account.
