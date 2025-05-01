@@ -1513,16 +1513,19 @@ fn test_refund_succeeds() {
             // ensure the crowdloan account has the correct amount
             assert_eq!(
                 pallet_balances::Pallet::<Test>::free_balance(funds_account),
-                0
+                initial_deposit
             );
             // ensure the raised amount is updated correctly
             assert!(
                 pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id)
-                    .is_some_and(|c| c.raised == 0)
+                    .is_some_and(|c| c.raised == initial_deposit)
             );
 
             // ensure creator has the correct amount
-            assert_eq!(pallet_balances::Pallet::<Test>::free_balance(creator), 100);
+            assert_eq!(
+                pallet_balances::Pallet::<Test>::free_balance(creator),
+                initial_deposit
+            );
 
             // ensure each contributor has been refunded and  removed from the crowdloan
             for i in 2..8 {
@@ -1780,6 +1783,7 @@ fn test_dissolve_fails_if_origin_is_not_creator() {
 fn test_dissolve_fails_if_not_everyone_has_been_refunded() {
     TestState::default()
         .with_balance(U256::from(1), 100)
+        .with_balance(U256::from(2), 100)
         .build_and_execute(|| {
             // create a crowdloan
             let creator: AccountOf<Test> = U256::from(1);
@@ -1798,7 +1802,20 @@ fn test_dissolve_fails_if_not_everyone_has_been_refunded() {
                 None,
             ));
 
-            // run some blocks past end
+            // run some blocks
+            run_to_block(10);
+
+            // some contribution
+            let crowdloan_id: CrowdloanId = 0;
+            let contributor: AccountOf<Test> = U256::from(2);
+            let amount: BalanceOf<Test> = 50;
+            assert_ok!(Crowdloan::contribute(
+                RuntimeOrigin::signed(contributor),
+                crowdloan_id,
+                amount
+            ));
+
+            // run some blocks
             run_to_block(10);
 
             // try to dissolve the crowdloan

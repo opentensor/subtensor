@@ -574,7 +574,7 @@ pub mod pallet {
 
         /// Refund a failed crowdloan.
         ///
-        /// The call will try to refund all contributors up to the limit defined by the `RefundContributorsLimit`.
+        /// The call will try to refund all contributors (excluding the creator) up to the limit defined by the `RefundContributorsLimit`.
         /// If the limit is reached, the call will stop and the crowdloan will be marked as partially refunded.
         /// It may be needed to dispatch this call multiple times to refund all contributors.
         ///
@@ -599,9 +599,13 @@ pub mod pallet {
 
             let mut refunded_contributors: Vec<T::AccountId> = vec![];
             let mut refund_count = 0;
+
             // Assume everyone can be refunded
             let mut all_refunded = true;
-            let contributions = Contributions::<T>::iter_prefix(crowdloan_id);
+
+            // We try to refund all contributors (excluding the creator)
+            let contributions = Contributions::<T>::iter_prefix(crowdloan_id)
+                .filter(|(contributor, _)| *contributor != crowdloan.creator);
             for (contributor, amount) in contributions {
                 if refund_count >= T::RefundContributorsLimit::get() {
                     // Not everyone can be refunded
@@ -642,7 +646,7 @@ pub mod pallet {
         /// Dissolve a crowdloan.
         ///
         /// The crowdloan will be removed from the storage.
-        /// All contributions must have been refunded before the crowdloan can be dissolved.
+        /// All contributions must have been refunded before the crowdloan can be dissolved (except the creator's one).
         ///
         /// The dispatch origin for this call must be _Signed_ and must be the creator of the crowdloan.
         ///
@@ -661,9 +665,23 @@ pub mod pallet {
 
             // Only the creator can dissolve the crowdloan
             ensure!(who == crowdloan.creator, Error::<T>::InvalidOrigin);
-            // It can only be dissolved if the raised amount is 0, meaning
-            // there is no contributions or every contribution has been refunded
-            ensure!(crowdloan.raised == 0, Error::<T>::NotReadyToDissolve);
+
+            // It can only be dissolved if the raised amount is the creator's contribution,
+            // meaning there is no contributions or every contribution has been refunded
+            let creator_contribution = Contributions::<T>::get(crowdloan_id, &crowdloan.creator)
+                .ok_or(Error::<T>::NoContribution)?;
+            ensure!(
+                creator_contribution == crowdloan.raised,
+                Error::<T>::NotReadyToDissolve
+            );
+
+            // Refund the creator's contribution
+            CurrencyOf::<T>::transfer(
+                &crowdloan.funds_account,
+                &crowdloan.creator,
+                creator_contribution,
+                Preservation::Expendable,
+            )?;
 
             // Clear the call from the preimage storage
             if let Some(call) = crowdloan.call {
