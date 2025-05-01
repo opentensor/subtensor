@@ -1,7 +1,7 @@
 #![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 
 use frame_support::{
-    assert_ok, derive_impl, parameter_types,
+    PalletId, assert_ok, derive_impl, parameter_types,
     traits::{Everything, Hooks, PrivilegeCmp},
     weights,
 };
@@ -32,6 +32,8 @@ frame_support::construct_runtime!(
         Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 6,
         Grandpa: pallet_grandpa = 7,
         EVMChainId: pallet_evm_chain_id = 8,
+        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 9,
+        Crowdloan: pallet_crowdloan::{Pallet, Call, Storage, Event<T>} = 10,
     }
 );
 
@@ -136,6 +138,7 @@ parameter_types! {
     pub const InitialTaoWeight: u64 = u64::MAX/10; // 10% global weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
     pub const DurationOfStartCall: u64 = 7 * 24 * 60 * 60 / 12; // 7 days
+    pub const MaxContributorsPerLeaseToRemove: u32 = 50;
 }
 
 impl pallet_subtensor::Config for Test {
@@ -201,6 +204,45 @@ impl pallet_subtensor::Config for Test {
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
+    type MaxContributorsPerLeaseToRemove = MaxContributorsPerLeaseToRemove;
+    type ProxyInterface = ();
+}
+
+parameter_types! {
+    pub const PreimageMaxSize: u32 = 4096 * 1024;
+    pub const PreimageBaseDeposit: Balance = 1;
+    pub const PreimageByteDeposit: Balance = 1;
+}
+
+impl pallet_preimage::Config for Test {
+    type WeightInfo = pallet_preimage::weights::SubstrateWeight<Test>;
+    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
+    type ManagerOrigin = EnsureRoot<AccountId>;
+    type Consideration = ();
+}
+
+parameter_types! {
+    pub const CrowdloanPalletId: PalletId = PalletId(*b"bt/cloan");
+    pub const MinimumDeposit: u64 = 50;
+    pub const AbsoluteMinimumContribution: u64 = 10;
+    pub const MinimumBlockDuration: u64 = 20;
+    pub const MaximumBlockDuration: u64 = 100;
+    pub const RefundContributorsLimit: u32 = 5;
+}
+
+impl pallet_crowdloan::Config for Test {
+    type PalletId = CrowdloanPalletId;
+    type Currency = Balances;
+    type RuntimeCall = RuntimeCall;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = pallet_crowdloan::weights::SubstrateWeight<Test>;
+    type Preimages = Preimage;
+    type MinimumDeposit = MinimumDeposit;
+    type AbsoluteMinimumContribution = AbsoluteMinimumContribution;
+    type MinimumBlockDuration = MinimumBlockDuration;
+    type MaximumBlockDuration = MaximumBlockDuration;
+    type RefundContributorsLimit = RefundContributorsLimit;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
