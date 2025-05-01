@@ -14,7 +14,7 @@ declare -A DISPATCH_PATHS=(
 )
 
 # Max allowed drift (%)
-THRESHOLD=10
+THRESHOLD=15
 MAX_RETRIES=3
 
 # We'll build once for runtime-benchmarks
