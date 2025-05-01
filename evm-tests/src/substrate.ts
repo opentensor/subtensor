@@ -9,22 +9,16 @@ import { getPolkadotSigner } from "polkadot-api/signer"
 import { randomBytes } from 'crypto';
 import { Keyring } from '@polkadot/keyring';
 import { SS58_PREFIX, TX_TIMEOUT } from "./config";
-
+import { getClient } from "./setup"
 let api: TypedApi<typeof devnet> | undefined = undefined
 
 // define url string as type to extend in the future
 // export type ClientUrlType = 'ws://localhost:9944' | 'wss://test.finney.opentensor.ai:443' | 'wss://dev.chain.opentensor.ai:443' | 'wss://archive.chain.opentensor.ai';
 export type ClientUrlType = 'ws://localhost:9944'
 
-export async function getClient(url: ClientUrlType) {
-    const provider = getWsProvider(url);
-    const client = createClient(provider);
-    return client
-}
-
 export async function getDevnetApi() {
     if (api === undefined) {
-        let client = await getClient('ws://localhost:9944')
+        let client = await getClient()
         api = client.getTypedApi(devnet)
     }
     return api
@@ -126,6 +120,29 @@ export function convertPublicKeyToMultiAddress(publicKey: Uint8Array, ss58Format
     return MultiAddress.Id(address);
 }
 
+export async function waitForTransactionWithRetry(
+    api: TypedApi<typeof devnet>,
+    tx: Transaction<{}, string, string, void>,
+    signer: PolkadotSigner,
+  ) {
+    let success = false;
+    let retries = 0;
+  
+    // set max retries times
+    while (!success && retries < 5) {
+      await waitForTransactionCompletion(api, tx, signer)
+        .then(() => {success = true})
+        .catch((error) => {
+          console.log(`transaction error ${error}`);
+        });
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      retries += 1;
+    }
+  
+    if (!success) {
+      console.log("Transaction failed after 5 retries");
+    }
+  }
 
 export async function waitForTransactionCompletion(api: TypedApi<typeof devnet>, tx: Transaction<{}, string, string, void>, signer: PolkadotSigner,) {
     const transactionPromise = await getTransactionWatchPromise(tx, signer)

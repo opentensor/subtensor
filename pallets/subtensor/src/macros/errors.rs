@@ -207,5 +207,7 @@ mod errors {
         UnableToRecoverPublicKey,
         /// Recovered public key is invalid.
         InvalidRecoveredPublicKey,
+        /// SubToken disabled now
+        SubtokenDisabled,
     }
 }

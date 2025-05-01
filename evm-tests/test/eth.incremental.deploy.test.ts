@@ -14,7 +14,7 @@ import { toViemAddress } from "../src/address-utils";
 import { ethers } from "ethers"
 import { disableWhiteListCheck, forceSetBalanceToEthAddress } from "../src/subtensor";
 
-describe("bridge token contract deployment", () => {
+describe("incremental smart contract deployment", () => {
     // init eth part
     const wallet = generateRandomEthersWallet();
     let publicClient: PublicClient;

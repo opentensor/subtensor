@@ -579,16 +579,23 @@ pub(crate) fn step_block(n: u16) {
 
 #[allow(dead_code)]
 pub(crate) fn run_to_block(n: u64) {
+    run_to_block_ext(n, false)
+}
+
+#[allow(dead_code)]
+pub(crate) fn run_to_block_ext(n: u64, enable_events: bool) {
     while System::block_number() < n {
         Scheduler::on_finalize(System::block_number());
         SubtensorModule::on_finalize(System::block_number());
         System::on_finalize(System::block_number());
         System::set_block_number(System::block_number() + 1);
         System::on_initialize(System::block_number());
-        System::events().iter().for_each(|event| {
-            log::info!("Event: {:?}", event.event);
-        });
-        System::reset_events();
+        if !enable_events {
+            System::events().iter().for_each(|event| {
+                log::info!("Event: {:?}", event.event);
+            });
+            System::reset_events();
+        }
         SubtensorModule::on_initialize(System::block_number());
         Scheduler::on_initialize(System::block_number());
     }
@@ -689,6 +696,7 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
     FirstEmissionBlockNumber::<Test>::insert(netuid, 1);
+    SubtokenEnabled::<Test>::insert(netuid, true);
 }
 
 #[allow(dead_code)]
@@ -696,6 +704,14 @@ pub fn add_network_without_emission_block(netuid: u16, tempo: u16, _modality: u1
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+}
+
+#[allow(dead_code)]
+pub fn add_network_disable_subtoken(netuid: u16, tempo: u16, _modality: u16) {
+    SubtensorModule::init_new_network(netuid, tempo);
+    SubtensorModule::set_network_registration_allowed(netuid, true);
+    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+    SubtokenEnabled::<Test>::insert(netuid, false);
 }
 
 #[allow(dead_code)]
@@ -711,6 +727,7 @@ pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> u16 {
     NetworkRegistrationAllowed::<Test>::insert(netuid, true);
     NetworkPowRegistrationAllowed::<Test>::insert(netuid, true);
     FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
+    SubtokenEnabled::<Test>::insert(netuid, true);
     netuid
 }
 
