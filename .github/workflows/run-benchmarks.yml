@@ -17,7 +17,7 @@ concurrency:
 jobs:
   validate-benchmarks:
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-validate-benchmarks') }}
-    runs-on: SubtensorCI
+    runs-on: Benchmarking
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v4
