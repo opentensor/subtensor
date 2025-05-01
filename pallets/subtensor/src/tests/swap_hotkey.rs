@@ -376,8 +376,12 @@ fn test_swap_staking_hotkeys() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
+
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
         let mut weight = Weight::zero();
-        let netuid = 1;
 
         StakingHotkeys::<Test>::insert(coldkey, vec![old_hotkey]);
         Alpha::<Test>::insert((old_hotkey, coldkey, netuid), U64F64::from_num(100));
@@ -982,9 +986,12 @@ fn test_swap_stake_old_hotkey_not_exist() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
         let alpha_share = U64F64::from_num(1234);
         let mut weight = Weight::zero();
-        let netuid = 1;
 
         // Initialize Stake for old_hotkey
         Alpha::<Test>::insert((old_hotkey, coldkey, netuid), alpha_share);
