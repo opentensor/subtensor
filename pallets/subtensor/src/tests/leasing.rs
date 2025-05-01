@@ -34,24 +34,56 @@ fn test_register_leased_network_works() {
         assert_eq!(lease.beneficiary, beneficiary);
         assert_eq!(lease.emissions_share, emissions_share);
         assert_eq!(lease.end_block, Some(end_block));
+
         // Ensure the subnet exists
         assert!(SubnetMechanism::<Test>::contains_key(lease.netuid));
+
         // Ensure the subnet uid to lease id mapping exists
         assert_eq!(
             SubnetUidToLeaseId::<Test>::get(lease.netuid),
             Some(lease_id)
         );
+
         // Ensure the beneficiary has been added as a proxy
         assert!(PROXIES.with_borrow(|proxies| proxies.0 == vec![(lease.coldkey, beneficiary)]));
+
         // Ensure the lease shares have been created for each contributor
+        let contributor1_share = U64F64::from(contributions[0].1).saturating_div(U64F64::from(cap));
         assert_eq!(
             SubnetLeaseShares::<Test>::get(lease_id, contributions[0].0),
-            U64F64::from(contributions[0].1).saturating_div(U64F64::from(cap))
+            contributor1_share
         );
+        let contributor2_share = U64F64::from(contributions[1].1).saturating_div(U64F64::from(cap));
         assert_eq!(
             SubnetLeaseShares::<Test>::get(lease_id, contributions[1].0),
-            U64F64::from(contributions[1].1).saturating_div(U64F64::from(cap))
+            contributor2_share
         );
+
+        // Ensure each contributor and beneficiary has been refunded their share of the leftover cap
+        let leftover_cap = cap.saturating_sub(lease.cost);
+
+        let expected_contributor1_refund = U64F64::from(leftover_cap)
+            .saturating_mul(contributor1_share)
+            .floor()
+            .to_num::<u64>();
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&contributions[0].0),
+            expected_contributor1_refund
+        );
+
+        let expected_contributor2_refund = U64F64::from(leftover_cap)
+            .saturating_mul(contributor2_share)
+            .floor()
+            .to_num::<u64>();
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&contributions[1].0),
+            expected_contributor2_refund
+        );
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&beneficiary),
+            leftover_cap - (expected_contributor1_refund + expected_contributor2_refund)
+        );
+
         // Ensure the event is emitted
         assert_eq!(
             last_event(),
