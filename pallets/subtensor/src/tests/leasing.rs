@@ -1,3 +1,4 @@
+#![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 use super::mock::*;
 use crate::{subnets::leasing::SubnetLeaseOf, *};
 use frame_support::{StorageDoubleMap, assert_err, assert_ok};
