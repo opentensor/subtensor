@@ -190,11 +190,7 @@ mod benchmarks {
         frame_system::Pallet::<T>::set_block_number(end);
 
         #[extrinsic_call]
-        _(
-            RawOrigin::Signed(contributor.clone()),
-            contributor.clone(),
-            crowdloan_id,
-        );
+        _(RawOrigin::Signed(contributor.clone()), crowdloan_id);
 
         // ensure the creator contribution has been removed
         assert_eq!(Contributions::<T>::get(crowdloan_id, &contributor), None);
@@ -310,9 +306,12 @@ mod benchmarks {
         #[extrinsic_call]
         _(RawOrigin::Signed(creator.clone()), crowdloan_id);
 
-        // ensure the creator has been refunded and the contributions is removed
-        assert_eq!(CurrencyOf::<T>::balance(&creator), deposit);
-        assert_eq!(Contributions::<T>::get(crowdloan_id, &creator), None);
+        // ensure the creator has not been refunded and contribution is the actual initial deposit
+        assert_eq!(CurrencyOf::<T>::balance(&creator), 0);
+        assert_eq!(
+            Contributions::<T>::get(crowdloan_id, &creator),
+            Some(deposit)
+        );
         // ensure each contributor has been refunded and the contributions is removed
         for i in 0..contributors {
             let contributor: T::AccountId = account::<T::AccountId>("contributor", i, SEED);
@@ -322,10 +321,10 @@ mod benchmarks {
         // ensure the crowdloan account has been deducted the contributions
         assert_eq!(
             CurrencyOf::<T>::balance(&Pallet::<T>::funds_account(crowdloan_id)),
-            0
+            deposit
         );
         // ensure the raised amount is updated correctly
-        assert!(Crowdloans::<T>::get(crowdloan_id).is_some_and(|c| c.raised == 0));
+        assert!(Crowdloans::<T>::get(crowdloan_id).is_some_and(|c| c.raised == deposit));
         // ensure the event is emitted
         assert_last_event::<T>(Event::<T>::AllRefunded { crowdloan_id }.into());
     }
