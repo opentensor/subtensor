@@ -125,8 +125,14 @@ fn test_swap_senate_members() {
         let coldkey = U256::from(3);
         let mut weight = Weight::zero();
 
-        // Assuming there's a way to add a member to the senate
-        // SenateMembers::add_member(&old_hotkey);
+        assert_ok!(SenateMembers::add_member(
+            RuntimeOrigin::root(),
+            old_hotkey.clone()
+        ));
+        let members = SenateMembers::members();
+        assert!(members.contains(&old_hotkey));
+        assert!(!members.contains(&new_hotkey));
+
         assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
             &old_hotkey,
             &new_hotkey,
@@ -135,8 +141,9 @@ fn test_swap_senate_members() {
         ));
 
         // Assert that the old_hotkey is no longer a member and new_hotkey is now a member
-        // assert!(!SenateMembers::is_member(&old_hotkey));
-        // assert!(SenateMembers::is_member(&new_hotkey));
+        let members = SenateMembers::members();
+        assert!(!members.contains(&old_hotkey));
+        assert!(members.contains(&new_hotkey));
     });
 }
 
