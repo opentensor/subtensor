@@ -999,7 +999,7 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn validate_stake_transition(
         origin_coldkey: &T::AccountId,
-        _destination_coldkey: &T::AccountId,
+        destination_coldkey: &T::AccountId,
         origin_hotkey: &T::AccountId,
         destination_hotkey: &T::AccountId,
         origin_netuid: u16,
@@ -1009,6 +1009,14 @@ impl<T: Config> Pallet<T> {
         maybe_allow_partial: Option<bool>,
         check_transfer_toggle: bool,
     ) -> Result<(), Error<T>> {
+        // Ensure stake transition is actually happening
+        if origin_coldkey == destination_coldkey && origin_hotkey == destination_hotkey {
+            ensure!(
+                origin_netuid != destination_netuid,
+                Error::<T>::SameSubnetId
+            );
+        }
+
         // Ensure that both subnets exist.
         ensure!(
             Self::if_subnet_exist(origin_netuid),

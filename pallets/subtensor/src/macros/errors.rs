@@ -210,7 +210,9 @@ mod errors {
         InvalidRecoveredPublicKey,
         /// SubToken disabled now
         SubtokenDisabled,
-        /// Zero max stake amout
+        /// Zero max stake amount
         ZeroMaxStakeAmount,
+        /// Invalid netuid duplication
+        SameSubnetId,
     }
 }
