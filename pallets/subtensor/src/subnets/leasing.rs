@@ -183,7 +183,7 @@ impl<T: Config> Pallet<T> {
 
         // Transfer ownership to the beneficiary
         ensure!(
-            OwnedHotkeys::<T>::get(&lease.beneficiary).contains(&hotkey),
+            Self::coldkey_owns_hotkey(&lease.beneficiary, &hotkey),
             Error::<T>::BeneficiaryDoesNotOwnHotkey
         );
         SubnetOwner::<T>::insert(lease.netuid, lease.beneficiary.clone());
