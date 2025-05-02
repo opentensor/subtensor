@@ -134,10 +134,7 @@ fn test_swap_senate_members() {
         let netuid: u16 = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
-        assert_ok!(SenateMembers::add_member(
-            RuntimeOrigin::root(),
-            old_hotkey
-        ));
+        assert_ok!(SenateMembers::add_member(RuntimeOrigin::root(), old_hotkey));
 
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),

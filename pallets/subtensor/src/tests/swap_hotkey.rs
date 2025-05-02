@@ -125,10 +125,7 @@ fn test_swap_senate_members() {
         let coldkey = U256::from(3);
         let mut weight = Weight::zero();
 
-        assert_ok!(SenateMembers::add_member(
-            RuntimeOrigin::root(),
-            old_hotkey
-        ));
+        assert_ok!(SenateMembers::add_member(RuntimeOrigin::root(), old_hotkey));
         let members = SenateMembers::members();
         assert!(members.contains(&old_hotkey));
         assert!(!members.contains(&new_hotkey));
