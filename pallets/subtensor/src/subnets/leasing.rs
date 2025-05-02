@@ -1,4 +1,3 @@
-#![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 use super::*;
 use frame_support::{
     dispatch::RawOrigin,
