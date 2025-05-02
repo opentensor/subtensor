@@ -8,8 +8,6 @@ use super::mock::*;
 use crate::*;
 use frame_support::testing_prelude::*;
 use sp_core::{H160, Pair, U256, blake2_256, ecdsa, keccak_256};
-use sp_core::crypto::Ss58Codec;
-use sp_runtime::AccountId32;
 
 fn public_to_evm_key(pubkey: &ecdsa::Public) -> H160 {
     use libsecp256k1::PublicKey;
