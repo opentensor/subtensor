@@ -1,7 +1,5 @@
 #![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
 
-use core::u64;
-
 use approx::assert_abs_diff_eq;
 use codec::Encode;
 use frame_support::weights::Weight;
