@@ -245,8 +245,8 @@ impl<T: Config> Pallet<T> {
     /// * `netuid` - Network unique identifier specifying the subnet context.
     ///
     /// # Returns
-    /// * `u64` - The total inherited alpha for the hotkey on the subnet after considering the stakes
-    ///           allocated to children and inherited from parents.
+    /// * `u64`: The total inherited alpha for the hotkey on the subnet after considering the
+    ///   stakes allocated to children and inherited from parents.
     ///
     /// # Note
     /// This function uses saturating arithmetic to prevent overflows.
