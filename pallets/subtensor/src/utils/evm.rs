@@ -1,5 +1,6 @@
 use super::*;
 
+use alloc::string::ToString;
 use frame_support::ensure;
 use frame_system::ensure_signed;
 use sp_core::{H160, ecdsa::Signature, hashing::keccak_256};
@@ -38,7 +39,7 @@ impl<T: Config> Pallet<T> {
         hotkey: T::AccountId,
         evm_key: H160,
         block_number: u64,
-        signature: Signature,
+        mut signature: Signature,
     ) -> dispatch::DispatchResult {
         let coldkey = ensure_signed(origin)?;
 
@@ -47,15 +48,18 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NonAssociatedColdKey
         );
 
+        // Normalize the v value to 0 or 1
+        if signature.0[64] >= 27 {
+            signature.0[64] -= 27;
+        }
+
         let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey)?;
 
-        let mut message = [0u8; 64];
         let block_hash = keccak_256(block_number.encode().as_ref());
-        message[..32].copy_from_slice(&hotkey.encode()[..]);
-        message[32..].copy_from_slice(block_hash.as_ref());
+        let message = [hotkey.encode().as_ref(), block_hash.as_ref()].concat();
         let public = signature
-            .recover_prehashed(&Self::hash_message_eip191(message.as_ref()))
-            .ok_or(Error::<T>::UnableToRecoverPublicKey)?;
+            .recover_prehashed(&Self::hash_message_eip191(message))
+            .ok_or(Error::<T>::InvalidIdentity)?;
         let secp_pubkey = libsecp256k1::PublicKey::parse_compressed(&public.0)
             .map_err(|_| Error::<T>::UnableToRecoverPublicKey)?;
         let uncompressed = secp_pubkey.serialize();

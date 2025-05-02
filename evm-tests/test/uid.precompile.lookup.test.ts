@@ -68,7 +68,7 @@ describe("Test the UID Lookup precompile", () => {
         const storedEvmKey = await api.query.SubtensorModule.AssociatedEvmAddress.getValue(netuid, uid)
         assert.notEqual(storedEvmKey, undefined, "storedEvmKey should be defined")
         if (storedEvmKey !== undefined) {
-            assert.equal(storedEvmKey[0].asBytes(), convertToFixedSizeBinary(evmWallet.address, 20).asBytes())
+            assert.equal(storedEvmKey[0].asHex(), convertToFixedSizeBinary(evmWallet.address, 20).asHex())
             blockNumberAssociated = storedEvmKey[1]
         }
     })
@@ -85,6 +85,6 @@ describe("Test the UID Lookup precompile", () => {
         assert.notEqual(uidArray, undefined, "UID should be defined")
         assert.ok(Array.isArray(uidArray), `UID should be an array, got ${typeof uidArray}`)
         assert.ok(uidArray.length > 0, "UID array should not be empty")
-        assert.equal(uidArray[0], [uid, blockNumberAssociated])
+        assert.deepStrictEqual(uidArray[0], { uid: uid, block_associated: blockNumberAssociated })
     })
 });
