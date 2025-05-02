@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-EXTRINSIC="${1:-benchmark_register}"
+EXTRINSIC="${1:-register}"
 
 cargo build \
   --profile production \
