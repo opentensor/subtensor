@@ -5,7 +5,14 @@ use frame_system::ensure_signed;
 use sp_core::{H160, ecdsa::Signature, hashing::keccak_256};
 use sp_std::vec::Vec;
 
+const MESSAGE_PREFIX: &str = "\x19Ethereum Signed Message:\n";
+
 impl<T: Config> Pallet<T> {
+    pub(crate) fn hash_message_eip191<M: AsRef<[u8]>>(message: M) -> [u8; 32] {
+        let msg_len = message.as_ref().len().to_string();
+        keccak_256(&[MESSAGE_PREFIX.as_bytes(), msg_len.as_bytes(), message.as_ref()].concat())
+    }
+
     /// Associate an EVM key with a hotkey.
     ///
     /// This function accepts a Signature, which is a signed message containing the hotkey concatenated with
@@ -47,7 +54,7 @@ impl<T: Config> Pallet<T> {
         message[..32].copy_from_slice(&hotkey.encode()[..]);
         message[32..].copy_from_slice(block_hash.as_ref());
         let public = signature
-            .recover_prehashed(&keccak_256(message.as_ref()))
+            .recover_prehashed(&Self::hash_message_eip191(message.as_ref()))
             .ok_or(Error::<T>::UnableToRecoverPublicKey)?;
         let secp_pubkey = libsecp256k1::PublicKey::parse_compressed(&public.0)
             .map_err(|_| Error::<T>::UnableToRecoverPublicKey)?;

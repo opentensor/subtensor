@@ -8,6 +8,8 @@ use super::mock::*;
 use crate::*;
 use frame_support::testing_prelude::*;
 use sp_core::{H160, Pair, U256, blake2_256, ecdsa, keccak_256};
+use sp_core::crypto::Ss58Codec;
+use sp_runtime::AccountId32;
 
 fn public_to_evm_key(pubkey: &ecdsa::Public) -> H160 {
     use libsecp256k1::PublicKey;
@@ -47,7 +49,7 @@ fn test_associate_evm_key_success() {
         let mut message = [0u8; 64];
         message[..32].copy_from_slice(hotkey_bytes.as_ref());
         message[32..].copy_from_slice(hashed_block_number.as_ref());
-        let hashed_message = keccak_256(message.as_ref());
+        let hashed_message = SubtensorModule::hash_message_eip191(dbg!(message).as_ref());
         let signature = pair.sign_prehashed(&hashed_message);
 
         assert_ok!(SubtensorModule::associate_evm_key(

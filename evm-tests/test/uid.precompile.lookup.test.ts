@@ -49,16 +49,10 @@ describe("Test the UID Lookup precompile", () => {
 
         // Associate EVM key
         blockNumber = await api.query.System.Number.getValue();
-        console.info(blockNumber)
         const blockNumberBytes = u64.enc(BigInt(blockNumber));
         const blockNumberHash = hexToU8a(keccak256(blockNumberBytes));
         const concatenatedArray = new Uint8Array([...hotkey.publicKey, ...blockNumberHash]);
-        console.info(hotkey.publicKey)
-        console.info(concatenatedArray)
-        const concatenatedHash = keccak256(concatenatedArray);
-        console.info(concatenatedHash)
-        const signature = await evmWallet.signMessage(concatenatedHash);
-        console.info(signature)
+        const signature = await evmWallet.signMessage(concatenatedArray);
         const associateEvmKeyTx = api.tx.SubtensorModule.associate_evm_key({
             netuid: netuid,
             hotkey: convertPublicKeyToSs58(hotkey.publicKey),
