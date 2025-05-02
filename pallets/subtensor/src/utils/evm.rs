@@ -11,7 +11,14 @@ const MESSAGE_PREFIX: &str = "\x19Ethereum Signed Message:\n";
 impl<T: Config> Pallet<T> {
     pub(crate) fn hash_message_eip191<M: AsRef<[u8]>>(message: M) -> [u8; 32] {
         let msg_len = message.as_ref().len().to_string();
-        keccak_256(&[MESSAGE_PREFIX.as_bytes(), msg_len.as_bytes(), message.as_ref()].concat())
+        keccak_256(
+            &[
+                MESSAGE_PREFIX.as_bytes(),
+                msg_len.as_bytes(),
+                message.as_ref(),
+            ]
+            .concat(),
+        )
     }
 
     /// Associate an EVM key with a hotkey.
@@ -50,7 +57,7 @@ impl<T: Config> Pallet<T> {
 
         // Normalize the v value to 0 or 1
         if signature.0[64] >= 27 {
-            signature.0[64] -= 27;
+            signature.0[64] = signature.0[64].saturating_sub(27);
         }
 
         let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey)?;
