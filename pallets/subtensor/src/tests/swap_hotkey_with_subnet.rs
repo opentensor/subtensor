@@ -136,7 +136,7 @@ fn test_swap_senate_members() {
 
         assert_ok!(SenateMembers::add_member(
             RuntimeOrigin::root(),
-            old_hotkey.clone()
+            old_hotkey
         ));
 
         assert_ok!(SubtensorModule::do_swap_hotkey(
