@@ -596,7 +596,7 @@ fn test_do_move_same_hotkey_fails() {
                 netuid,
                 alpha,
             ),
-            Err(Error::<Test>::SameNetuid.into())
+            Err(Error::<Test>::SameSubnetId.into())
         );
 
         // Check that stake remains unchanged
@@ -1309,7 +1309,7 @@ fn test_do_swap_same_subnet() {
                 netuid,
                 alpha_before
             ),
-            Err(Error::<Test>::SameNetuid.into())
+            Err(Error::<Test>::SameSubnetId.into())
         );
 
         let alpha_after =
