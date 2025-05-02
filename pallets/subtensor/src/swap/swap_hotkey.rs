@@ -253,35 +253,37 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().writes(1));
         }
 
-        // 11. Swap Alpha
-        // Alpha( hotkey, coldkey, netuid ) -> alpha
-        let old_alpha_values: Vec<((T::AccountId, u16), U64F64)> =
-            Alpha::<T>::iter_prefix((old_hotkey,)).collect();
-        // Clear the entire old prefix here.
-        let _ = Alpha::<T>::clear_prefix((old_hotkey,), old_alpha_values.len() as u32, None);
-        weight.saturating_accrue(T::DbWeight::get().reads(old_alpha_values.len() as u64));
-        weight.saturating_accrue(T::DbWeight::get().writes(old_alpha_values.len() as u64));
+        // // 11. Swap Alpha
+        // // Alpha( hotkey, coldkey, netuid ) -> alpha
+        // let old_alpha_values: Vec<((T::AccountId, u16), U64F64)> =
+        //     Alpha::<T>::iter_prefix((old_hotkey,)).collect();
+        // // Clear the entire old prefix here.
+        // let _ = Alpha::<T>::clear_prefix((old_hotkey,), old_alpha_values.len() as u32, None);
+        // weight.saturating_accrue(T::DbWeight::get().reads(old_alpha_values.len() as u64));
+        // weight.saturating_accrue(T::DbWeight::get().writes(old_alpha_values.len() as u64));
 
-        // Insert the new alpha values.
-        for ((coldkey, netuid), alpha) in old_alpha_values {
-            let new_alpha = Alpha::<T>::get((new_hotkey, &coldkey, netuid));
-            Alpha::<T>::insert(
-                (new_hotkey, &coldkey, netuid),
-                new_alpha.saturating_add(alpha),
-            );
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+        // // Insert the new alpha values.
+        // for ((coldkey, netuid), alpha) in old_alpha_values {
+        //     let new_alpha = Alpha::<T>::get((new_hotkey, &coldkey, netuid));
+        //     Alpha::<T>::insert(
+        //         (new_hotkey, &coldkey, netuid),
+        //         new_alpha.saturating_add(alpha),
+        //     );
+        //     weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
-            // Swap StakingHotkeys.
-            // StakingHotkeys( coldkey ) --> Vec<hotkey> -- the hotkeys that the coldkey stakes.
-            let mut staking_hotkeys = StakingHotkeys::<T>::get(&coldkey);
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
-            if staking_hotkeys.contains(old_hotkey) {
-                staking_hotkeys.retain(|hk| *hk != *old_hotkey && *hk != *new_hotkey);
-                staking_hotkeys.push(new_hotkey.clone());
-                StakingHotkeys::<T>::insert(&coldkey, staking_hotkeys);
-                weight.saturating_accrue(T::DbWeight::get().writes(1));
-            }
-        }
+        //     // Swap StakingHotkeys.
+        //     // StakingHotkeys( coldkey ) --> Vec<hotkey> -- the hotkeys that the coldkey stakes.
+        //     let mut staking_hotkeys = StakingHotkeys::<T>::get(&coldkey);
+        //     weight.saturating_accrue(T::DbWeight::get().reads(1));
+        //     if staking_hotkeys.contains(old_hotkey) {
+        //         staking_hotkeys.retain(|hk| *hk != *old_hotkey && *hk != *new_hotkey);
+        //         if !staking_hotkeys.contains(new_hotkey) {
+        //             staking_hotkeys.push(new_hotkey.clone());
+        //         }
+        //         StakingHotkeys::<T>::insert(&coldkey, staking_hotkeys);
+        //         weight.saturating_accrue(T::DbWeight::get().writes(1));
+        //     }
+        // }
 
         // Return successful after swapping all the relevant terms.
         Ok(())
@@ -359,6 +361,14 @@ impl<T: Config> Pallet<T> {
         // 15. Update the last transaction block for the coldkey
         Self::set_last_tx_block(coldkey, block);
         weight.saturating_accrue(T::DbWeight::get().writes(1));
+
+        let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
+        weight.saturating_accrue(T::DbWeight::get().reads(1));
+        if staking_hotkeys.contains(old_hotkey) && !staking_hotkeys.contains(new_hotkey) {
+            staking_hotkeys.push(new_hotkey.clone());
+            StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
+            weight.saturating_accrue(T::DbWeight::get().writes(1));
+        }
 
         // 16. Emit an event for the hotkey swap
         Self::deposit_event(Event::HotkeySwappedOnSubnet {
@@ -603,6 +613,38 @@ impl<T: Config> Pallet<T> {
             old_hotkey_tao_dividends.saturating_add(new_hotkey_tao_dividends),
         );
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+
+        // 11. Swap Alpha
+        // Alpha( hotkey, coldkey, netuid ) -> alpha
+        let old_alpha_values: Vec<((T::AccountId, u16), U64F64)> =
+            Alpha::<T>::iter_prefix((old_hotkey,)).collect();
+        // Clear the entire old prefix here.
+        // let _ = Alpha::<T>::clear_prefix((old_hotkey,), old_alpha_values.len() as u32, None);
+        weight.saturating_accrue(T::DbWeight::get().reads(old_alpha_values.len() as u64));
+        weight.saturating_accrue(T::DbWeight::get().writes(old_alpha_values.len() as u64));
+
+        // Insert the new alpha values.
+        for ((coldkey, netuid_alpha), alpha) in old_alpha_values {
+            if netuid == netuid_alpha {
+                let new_alpha = Alpha::<T>::take((new_hotkey, &coldkey, netuid));
+                Alpha::<T>::insert(
+                    (new_hotkey, &coldkey, netuid),
+                    new_alpha.saturating_add(alpha),
+                );
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+
+                // Swap StakingHotkeys.
+                // StakingHotkeys( coldkey ) --> Vec<hotkey> -- the hotkeys that the coldkey stakes.
+                let mut staking_hotkeys = StakingHotkeys::<T>::get(&coldkey);
+                weight.saturating_accrue(T::DbWeight::get().reads(1));
+                if staking_hotkeys.contains(old_hotkey) && !staking_hotkeys.contains(new_hotkey) {
+                    staking_hotkeys.push(new_hotkey.clone());
+
+                    StakingHotkeys::<T>::insert(&coldkey, staking_hotkeys);
+                    weight.saturating_accrue(T::DbWeight::get().writes(1));
+                }
+            }
+        }
 
         // Return successful after swapping all the relevant terms.
         // Ok(())
