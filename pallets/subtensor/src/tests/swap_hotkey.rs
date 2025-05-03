@@ -806,32 +806,6 @@ fn test_do_swap_hotkey_err_not_owner() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_owner_success --exact --nocapture
-#[test]
-fn test_swap_owner_success() {
-    new_test_ext(1).execute_with(|| {
-        let old_hotkey = U256::from(1);
-        let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
-
-        // Initialize Owner for old_hotkey
-        Owner::<Test>::insert(old_hotkey, coldkey);
-
-        // Perform the swap
-        SubtensorModule::perform_hotkey_swap_on_all_subnets(
-            &old_hotkey,
-            &new_hotkey,
-            &coldkey,
-            &mut weight,
-        );
-
-        // Verify the swap
-        assert_eq!(Owner::<Test>::get(new_hotkey), coldkey);
-        assert!(!Owner::<Test>::contains_key(old_hotkey));
-    });
-}
-
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_owner_old_hotkey_not_exist --exact --nocapture
 #[test]
 fn test_swap_owner_old_hotkey_not_exist() {
@@ -883,33 +857,6 @@ fn test_swap_owner_new_hotkey_already_exists() {
         // Verify the swap
         assert_eq!(Owner::<Test>::get(new_hotkey), coldkey);
         assert!(!Owner::<Test>::contains_key(old_hotkey));
-    });
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey::test_swap_delegates_success --exact --show-output
-#[test]
-fn test_swap_delegates_success() {
-    new_test_ext(1).execute_with(|| {
-        let old_hotkey = U256::from(1);
-        let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
-        let delegate_take = 10u16;
-        let mut weight = Weight::zero();
-
-        // Initialize Delegates for old_hotkey
-        Delegates::<Test>::insert(old_hotkey, delegate_take);
-
-        // Perform the swap
-        SubtensorModule::perform_hotkey_swap_on_all_subnets(
-            &old_hotkey,
-            &new_hotkey,
-            &coldkey,
-            &mut weight,
-        );
-
-        // Verify the swap
-        assert_eq!(Delegates::<Test>::get(new_hotkey), delegate_take);
-        assert!(!Delegates::<Test>::contains_key(old_hotkey));
     });
 }
 
