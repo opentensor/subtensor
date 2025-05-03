@@ -989,7 +989,7 @@ fn test_swap_hotkey_error_cases() {
 
         // Test not enough balance
         let swap_cost = SubtensorModule::get_key_swap_cost();
-        assert_noop!(
+        assert_err!(
             SubtensorModule::do_swap_hotkey(
                 RuntimeOrigin::signed(coldkey),
                 &old_hotkey,

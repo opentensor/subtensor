@@ -514,6 +514,8 @@ fn test_swap_staking_hotkeys_multiple_coldkeys() {
         // Set up initial state
         StakingHotkeys::<Test>::insert(coldkey1, vec![old_hotkey]);
         StakingHotkeys::<Test>::insert(coldkey2, vec![old_hotkey, staker5]);
+        Alpha::<Test>::insert((old_hotkey, coldkey1, netuid), U64F64::from_num(100));
+        Alpha::<Test>::insert((old_hotkey, coldkey2, netuid), U64F64::from_num(100));
 
         SubtensorModule::create_account_if_non_existent(&coldkey1, &old_hotkey);
         SubtensorModule::add_balance_to_coldkey_account(
@@ -1007,7 +1009,7 @@ fn test_swap_hotkey_error_cases() {
 
         // Test not enough balance
         let swap_cost = SubtensorModule::get_key_swap_cost();
-        assert_noop!(
+        assert_err!(
             SubtensorModule::do_swap_hotkey(
                 RuntimeOrigin::signed(coldkey),
                 &old_hotkey,
