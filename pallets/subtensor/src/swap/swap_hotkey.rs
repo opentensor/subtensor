@@ -625,14 +625,10 @@ impl<T: Config> Pallet<T> {
 
         // Insert the new alpha values.
         for ((coldkey, netuid_alpha), alpha) in old_alpha_values {
-            log::error!("Alpha: {:?}", alpha);
-            log::error!("Coldkey: {:?}", coldkey);
-            log::error!("Netuid: {:?}", netuid_alpha);
             if netuid == netuid_alpha {
                 // let new_alpha = Alpha::<T>::take((old_hotkey, &coldkey, netuid));
                 let new_alpha = Alpha::<T>::take((new_hotkey, &coldkey, netuid));
                 Alpha::<T>::remove((old_hotkey, &coldkey, netuid));
-                log::error!("New Alpha: {:?}", new_alpha);
                 Alpha::<T>::insert(
                     (new_hotkey, &coldkey, netuid),
                     alpha.saturating_add(new_alpha),
@@ -644,9 +640,7 @@ impl<T: Config> Pallet<T> {
                 let mut staking_hotkeys = StakingHotkeys::<T>::get(&coldkey);
                 weight.saturating_accrue(T::DbWeight::get().reads(1));
                 if staking_hotkeys.contains(old_hotkey) && !staking_hotkeys.contains(new_hotkey) {
-                    log::error!("Staking hotkeys: {:?}", staking_hotkeys);
                     staking_hotkeys.push(new_hotkey.clone());
-
                     StakingHotkeys::<T>::insert(&coldkey, staking_hotkeys);
                     weight.saturating_accrue(T::DbWeight::get().writes(1));
                 }
