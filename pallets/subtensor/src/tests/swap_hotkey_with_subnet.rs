@@ -632,8 +632,8 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
         register_ok_neuron(netuid2, old_hotkey, coldkey1, 1234);
 
         // Add balance to both coldkeys
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, stake + 1_000);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey2, stake + 1_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, u64::MAX);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey2, u64::MAX);
 
         // Stake with coldkey1
         assert_ok!(SubtensorModule::add_stake(
@@ -666,11 +666,18 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
         let total_hk_stake = SubtensorModule::get_total_stake_for_hotkey(&old_hotkey);
         assert!(total_hk_stake > 0);
 
-        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(coldkey1),
             &old_hotkey,
             &new_hotkey,
-            &coldkey1,
-            &mut weight
+            Some(netuid1)
+        ));
+
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(coldkey1),
+            &old_hotkey,
+            &new_hotkey,
+            Some(netuid2)
         ));
 
         // Check ownership transfer
@@ -771,19 +778,19 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
 
         // Perform the first swap
         assert_ok!(SubtensorModule::do_swap_hotkey(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey_1,
-            None
-        ));
+            Some(netuid)
+        ),);
 
         // Attempt to perform another swap immediately, which should fail due to rate limit
         assert_err!(
             SubtensorModule::do_swap_hotkey(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                RuntimeOrigin::signed(coldkey),
+                &old_hotkey,
                 &new_hotkey_1,
-                &new_hotkey_2,
-                None
+                Some(netuid)
             ),
             Error::<Test>::HotKeySetTxRateLimitExceeded
         );
@@ -819,39 +826,13 @@ fn test_do_swap_hotkey_err_not_owner() {
         // Attempt the swap with a non-owner coldkey
         assert_err!(
             SubtensorModule::do_swap_hotkey(
-                <<Test as Config>::RuntimeOrigin>::signed(not_owner_coldkey),
+                RuntimeOrigin::signed(not_owner_coldkey),
                 &old_hotkey,
                 &new_hotkey,
-                None
+                Some(netuid)
             ),
             Error::<Test>::NonAssociatedColdKey
         );
-    });
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey_with_subnet -- test_swap_owner_success --exact --nocapture
-#[test]
-fn test_swap_owner_success() {
-    new_test_ext(1).execute_with(|| {
-        let old_hotkey = U256::from(1);
-        let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
-
-        // Initialize Owner for old_hotkey
-        Owner::<Test>::insert(old_hotkey, coldkey);
-
-        // Perform the swap
-        SubtensorModule::perform_hotkey_swap_on_all_subnets(
-            &old_hotkey,
-            &new_hotkey,
-            &coldkey,
-            &mut weight,
-        );
-
-        // Verify the swap
-        assert_eq!(Owner::<Test>::get(new_hotkey), coldkey);
-        assert!(!Owner::<Test>::contains_key(old_hotkey));
     });
 }
 
@@ -864,15 +845,21 @@ fn test_swap_owner_old_hotkey_not_exist() {
         let coldkey = U256::from(3);
         let mut weight = Weight::zero();
 
+        let netuid = add_dynamic_network(&new_hotkey, &coldkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
+
         // Ensure old_hotkey does not exist
         assert!(!Owner::<Test>::contains_key(old_hotkey));
 
         // Perform the swap
-        SubtensorModule::perform_hotkey_swap_on_all_subnets(
-            &old_hotkey,
-            &new_hotkey,
-            &coldkey,
-            &mut weight,
+        assert_err!(
+            SubtensorModule::do_swap_hotkey(
+                RuntimeOrigin::signed(coldkey),
+                &old_hotkey,
+                &new_hotkey,
+                Some(netuid)
+            ),
+            Error::<Test>::NonAssociatedColdKey
         );
 
         // Verify the swap
@@ -890,49 +877,27 @@ fn test_swap_owner_new_hotkey_already_exists() {
         let coldkey = U256::from(3);
         let another_coldkey = U256::from(4);
         let mut weight = Weight::zero();
+        let netuid = add_dynamic_network(&new_hotkey, &coldkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
         // Initialize Owner for old_hotkey and new_hotkey
         Owner::<Test>::insert(old_hotkey, coldkey);
         Owner::<Test>::insert(new_hotkey, another_coldkey);
 
         // Perform the swap
-        SubtensorModule::perform_hotkey_swap_on_all_subnets(
-            &old_hotkey,
-            &new_hotkey,
-            &coldkey,
-            &mut weight,
+        assert_err!(
+            SubtensorModule::do_swap_hotkey(
+                RuntimeOrigin::signed(coldkey),
+                &old_hotkey,
+                &new_hotkey,
+                Some(netuid)
+            ),
+            Error::<Test>::HotKeyAlreadyRegisteredInSubNet
         );
 
         // Verify the swap
-        assert_eq!(Owner::<Test>::get(new_hotkey), coldkey);
-        assert!(!Owner::<Test>::contains_key(old_hotkey));
-    });
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey::test_swap_delegates_success --exact --show-output
-#[test]
-fn test_swap_delegates_success() {
-    new_test_ext(1).execute_with(|| {
-        let old_hotkey = U256::from(1);
-        let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
-        let delegate_take = 10u16;
-        let mut weight = Weight::zero();
-
-        // Initialize Delegates for old_hotkey
-        Delegates::<Test>::insert(old_hotkey, delegate_take);
-
-        // Perform the swap
-        SubtensorModule::perform_hotkey_swap_on_all_subnets(
-            &old_hotkey,
-            &new_hotkey,
-            &coldkey,
-            &mut weight,
-        );
-
-        // Verify the swap
-        assert_eq!(Delegates::<Test>::get(new_hotkey), delegate_take);
-        assert!(!Delegates::<Test>::contains_key(old_hotkey));
+        assert_eq!(Owner::<Test>::get(old_hotkey), coldkey);
+        assert!(Owner::<Test>::contains_key(old_hotkey));
     });
 }
 
@@ -945,7 +910,8 @@ fn test_swap_stake_success() {
         let coldkey = U256::from(3);
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
-        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid = add_dynamic_network(&old_hotkey, &coldkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
         let amount = 10_000;
         let shares = U64F64::from_num(123456);
         let mut weight = Weight::zero();
@@ -959,12 +925,12 @@ fn test_swap_stake_success() {
         TaoDividendsPerSubnet::<Test>::insert(netuid, old_hotkey, amount);
 
         // Perform the swap
-        SubtensorModule::perform_hotkey_swap_on_all_subnets(
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            &coldkey,
-            &mut weight,
-        );
+            Some(netuid)
+        ),);
 
         // Verify the swap
         assert_eq!(TotalHotkeyAlpha::<Test>::get(old_hotkey, netuid), 0);
