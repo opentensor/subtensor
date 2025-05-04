@@ -1391,6 +1391,8 @@ fn test_swap_hotkey_swap_rate_limits() {
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
         let mut weight = Weight::zero();
+        let netuid: u16 = add_dynamic_network(&old_hotkey, &coldkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
         let last_tx_block = 123;
         let delegate_take_block = 4567;
@@ -1404,12 +1406,12 @@ fn test_swap_hotkey_swap_rate_limits() {
         LastTxBlockChildKeyTake::<Test>::insert(old_hotkey, child_key_take_block);
 
         // Perform the swap
-        SubtensorModule::perform_hotkey_swap_on_all_subnets(
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            &coldkey,
-            &mut weight,
-        );
+            None
+        ));
 
         // Check for new hotkey
         assert_eq!(LastTxBlock::<Test>::get(new_hotkey), last_tx_block);
