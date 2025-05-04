@@ -1390,7 +1390,6 @@ fn test_swap_hotkey_swap_rate_limits() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
         let netuid: u16 = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
