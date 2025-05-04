@@ -18,7 +18,6 @@ fn test_swap_owner() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
 
         let netuid: u16 = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
@@ -42,7 +41,6 @@ fn test_swap_owned_hotkeys() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
 
         let netuid: u16 = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
@@ -69,7 +67,7 @@ fn test_swap_total_hotkey_stake() {
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
         let amount = DefaultMinStake::<Test>::get() * 10;
-        let mut weight = Weight::zero();
+
         let fee = DefaultStakingFee::<Test>::get();
 
         //add network
@@ -127,7 +125,6 @@ fn test_swap_senate_members() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
 
         let netuid: u16 = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
@@ -154,7 +151,6 @@ fn test_swap_delegates() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
 
         let netuid: u16 = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
@@ -179,7 +175,6 @@ fn test_swap_subnet_membership() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
 
         let netuid: u16 = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
@@ -205,7 +200,6 @@ fn test_swap_uids_and_keys() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
 
         let netuid: u16 = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
@@ -235,7 +229,7 @@ fn test_swap_prometheus() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
+
         let prometheus_info = PrometheusInfo::default();
 
         let netuid: u16 = add_dynamic_network(&old_hotkey, &coldkey);
@@ -267,7 +261,7 @@ fn test_swap_axons() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
+
         let axon_info = AxonInfo::default();
 
         let netuid: u16 = add_dynamic_network(&old_hotkey, &coldkey);
@@ -296,7 +290,7 @@ fn test_swap_certificates() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
+
         let certificate = NeuronCertificate::try_from(vec![1, 2, 3]).unwrap();
 
         let netuid: u16 = add_dynamic_network(&old_hotkey, &coldkey);
@@ -330,7 +324,7 @@ fn test_swap_weight_commits() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
+
         let mut weight_commits: VecDeque<(H256, u64, u64, u64)> = VecDeque::new();
         weight_commits.push_back((H256::from_low_u64_be(100), 200, 1, 1));
 
@@ -363,7 +357,7 @@ fn test_swap_loaded_emission() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
+
         let server_emission = 1000u64;
         let validator_emission = 1000u64;
 
@@ -401,8 +395,6 @@ fn test_swap_staking_hotkeys() {
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
-        let mut weight = Weight::zero();
-
         StakingHotkeys::<Test>::insert(coldkey, vec![old_hotkey]);
         Alpha::<Test>::insert((old_hotkey, coldkey, netuid), U64F64::from_num(100));
 
@@ -431,7 +423,7 @@ fn test_swap_hotkey_with_multiple_coldkeys() {
         let new_hotkey = U256::from(2);
         let coldkey1 = U256::from(3);
         let coldkey2 = U256::from(4);
-        let mut weight = Weight::zero();
+
         let stake = 1_000_000_000;
 
         StakingHotkeys::<Test>::insert(coldkey1, vec![old_hotkey]);
@@ -492,7 +484,7 @@ fn test_swap_hotkey_with_multiple_subnets() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
+
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
         let netuid1 = add_dynamic_network(&old_hotkey, &coldkey);
@@ -535,7 +527,7 @@ fn test_swap_staking_hotkeys_multiple_coldkeys() {
         let coldkey1 = U256::from(3);
         let coldkey2 = U256::from(4);
         let staker5 = U256::from(5);
-        let mut weight = Weight::zero();
+
         let stake = 1_000_000_000;
         SubtensorModule::add_balance_to_coldkey_account(&coldkey1, u64::MAX);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey2, u64::MAX);
@@ -589,7 +581,7 @@ fn test_swap_hotkey_with_no_stake() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
+
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
         // Set up initial state with no stake
@@ -623,7 +615,6 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
         let netuid1 = 1;
         let netuid2 = 2;
         let stake = DefaultMinStake::<Test>::get() * 10;
-        let mut weight = Weight::zero();
 
         // Set up initial state
         add_network(netuid1, 1, 1);
@@ -843,7 +834,6 @@ fn test_swap_owner_old_hotkey_not_exist() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
 
         let netuid = add_dynamic_network(&new_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
@@ -876,7 +866,7 @@ fn test_swap_owner_new_hotkey_already_exists() {
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
         let another_coldkey = U256::from(4);
-        let mut weight = Weight::zero();
+
         let netuid = add_dynamic_network(&new_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
@@ -914,7 +904,6 @@ fn test_swap_stake_success() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
         let amount = 10_000;
         let shares = U64F64::from_num(123456);
-        let mut weight = Weight::zero();
 
         // Initialize staking variables for old_hotkey
         TotalHotkeyAlpha::<Test>::insert(old_hotkey, netuid, amount);
@@ -1058,7 +1047,6 @@ fn test_swap_child_keys() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
         let children = vec![(100u64, U256::from(4)), (200u64, U256::from(5))];
-        let mut weight = Weight::zero();
 
         // Initialize ChildKeys for old_hotkey
         ChildKeys::<Test>::insert(old_hotkey, netuid, children.clone());
@@ -1087,7 +1075,6 @@ fn test_swap_parent_keys() {
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
         let parents = vec![(100u64, U256::from(4)), (200u64, U256::from(5))];
-        let mut weight = Weight::zero();
 
         // Initialize ParentKeys for old_hotkey
         ParentKeys::<Test>::insert(old_hotkey, netuid, parents.clone());
@@ -1134,7 +1121,6 @@ fn test_swap_multiple_subnets() {
 
         let children1 = vec![(100u64, U256::from(4)), (200u64, U256::from(5))];
         let children2 = vec![(300u64, U256::from(6))];
-        let mut weight = Weight::zero();
 
         // Initialize ChildKeys for old_hotkey in multiple subnets
         ChildKeys::<Test>::insert(old_hotkey, netuid1, children1.clone());
@@ -1176,7 +1162,6 @@ fn test_swap_complex_parent_child_structure() {
         let parent2 = U256::from(5);
         let child1 = U256::from(6);
         let child2 = U256::from(7);
-        let mut weight = Weight::zero();
 
         // Set up complex parent-child structure
         ParentKeys::<Test>::insert(
@@ -1263,7 +1248,7 @@ fn test_swap_parent_hotkey_childkey_maps() {
         assert_eq!(existing_pending_child_keys.0, vec![(u64::MAX, child_other)]);
 
         // Swap
-        let mut weight = Weight::zero();
+
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &parent_old,
@@ -1319,7 +1304,7 @@ fn test_swap_child_hotkey_childkey_maps() {
         assert_eq!(existing_pending_child_keys.0, vec![(u64::MAX, child_old)]);
 
         // Swap
-        let mut weight = Weight::zero();
+
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &child_old,
@@ -1350,7 +1335,6 @@ fn test_swap_hotkey_is_sn_owner_hotkey() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
 
         // Create dynamic network
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
@@ -1379,7 +1363,6 @@ fn test_swap_hotkey_swap_rate_limits() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
 
         let last_tx_block = 123;
         let delegate_take_block = 4567;
