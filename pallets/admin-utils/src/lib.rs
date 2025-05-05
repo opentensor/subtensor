@@ -1539,7 +1539,7 @@ pub mod pallet {
                 enabled
             );
             Ok(())
-		}
+        }
 
         /// Sets or updates the hotkey account associated with the owner of a specific subnet.
         ///
