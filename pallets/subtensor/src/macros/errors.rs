@@ -210,7 +210,7 @@ mod errors {
         InvalidRecoveredPublicKey,
         /// SubToken disabled now
         SubtokenDisabled,
-        /// Zero max stake amout
+        /// Estimating the maximum stake for limited staking operations returned zero.
         ZeroMaxStakeAmount,
     }
 }
