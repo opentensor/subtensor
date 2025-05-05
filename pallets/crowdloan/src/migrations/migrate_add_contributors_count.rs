@@ -4,8 +4,7 @@ use frame_support::{BoundedVec, traits::Get, weights::Weight};
 use crate::*;
 
 pub fn migrate_add_contributors_count<T: Config>() -> Weight {
-    let migration_name =
-        BoundedVec::truncate_from(b"migrate_crowdloan_contributors_count".to_vec());
+    let migration_name = BoundedVec::truncate_from(b"migrate_add_contributors_count".to_vec());
     let mut weight = T::DbWeight::get().reads(1);
 
     if HasMigrationRun::<T>::get(&migration_name) {
