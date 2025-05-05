@@ -56,16 +56,6 @@ mod benchmarks {
     }
 
     #[benchmark]
-    fn set_rate_limit() {
-        let new_limit: u32 = 42;
-
-        #[extrinsic_call]
-        _(RawOrigin::Root, new_limit);
-
-        assert_eq!(RateLimit::<T>::get(), new_limit.into());
-    }
-
-    #[benchmark]
     fn set_max_space() {
         let new_space: u32 = 1_000;
 

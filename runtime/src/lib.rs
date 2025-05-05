@@ -955,7 +955,6 @@ parameter_types! {
     pub const MaxCommitFieldsInner: u32 = 1;
     pub const CommitmentInitialDeposit: Balance = 0; // Free
     pub const CommitmentFieldDeposit: Balance = 0; // Free
-    pub const CommitmentRateLimit: BlockNumber = 100; // Allow commitment every 100 blocks
 }
 
 #[subtensor_macros::freeze_struct("7c76bd954afbb54e")]
@@ -991,7 +990,6 @@ impl pallet_commitments::Config for Runtime {
     type MaxFields = MaxCommitFields;
     type InitialDeposit = CommitmentInitialDeposit;
     type FieldDeposit = CommitmentFieldDeposit;
-    type DefaultRateLimit = CommitmentRateLimit;
     type TempoInterface = TempoInterface;
 }
 
