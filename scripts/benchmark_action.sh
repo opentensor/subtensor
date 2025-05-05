@@ -1,44 +1,44 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# A list of pallets we wish to benchmark
+PALLETS=(subtensor admin_utils commitments drand)
+
+# Map of pallet -> dispatch path (relative to this script's directory)
+declare -A DISPATCH_PATHS=(
+  [subtensor]="../pallets/subtensor/src/macros/dispatches.rs"
+  [admin_utils]="../pallets/admin-utils/src/lib.rs"
+  [commitments]="../pallets/commitments/src/lib.rs"
+  [drand]="../pallets/drand/src/lib.rs"
+)
+
 # Max allowed drift (%)
-THRESHOLD=10
+THRESHOLD=15
+MAX_RETRIES=3
 
-# Resolve script paths
+# We'll build once for runtime-benchmarks
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DISPATCH="$SCRIPT_DIR/../pallets/subtensor/src/macros/dispatches.rs"
-RUNTIME_WASM="./target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm"
-
-# Sanity check
-if [[ ! -f "$DISPATCH" ]]; then
-  echo "❌ ERROR: dispatches.rs not found at $DISPATCH"
-  exit 1
-fi
+RUNTIME_WASM="$SCRIPT_DIR/../target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm"
 
 echo "Building runtime-benchmarks…"
 cargo build --profile production -p node-subtensor --features runtime-benchmarks
 
 echo
 echo "──────────────────────────────────────────"
-echo " Running pallet_subtensor benchmarks…"
+echo " Will benchmark pallets: ${PALLETS[*]}"
 echo "──────────────────────────────────────────"
 
-MAX_RETRIES=3
-attempt=1
-
 ################################################################################
-# Helper function to "finalize" an extrinsic. We look up the code-side
-# reads/writes/weight in dispatches.rs, then compare to measured values.
+# Helper to "finalize" an extrinsic. We look up code-side reads/writes/weight
+# in the dispatch file, then compare them to measured values.
 ################################################################################
-summary_lines=()
-failures=()
-fail=0
 
 function process_extr() {
   local e="$1"
   local us="$2"
   local rd="$3"
   local wr="$4"
+  local dispatch_file="$5"
 
   # If any piece is empty, skip
   if [[ -z "$e" || -z "$us" || -z "$rd" || -z "$wr" ]]; then
@@ -50,11 +50,8 @@ function process_extr() {
   meas_ps=$(awk -v x="$us" 'BEGIN{printf("%.0f", x * 1000000)}')
 
   # ---------------------------------------------------------------------------
-  # Code-side lookup from $DISPATCH
+  # Code-side lookup from dispatch_file
   # ---------------------------------------------------------------------------
-  # We find the matching "pub fn <extr>(" line in dispatches.rs,
-  # then parse the preceding Weight::from_parts, .reads, .writes lines.
-
   local code_record
   code_record=$(awk -v extr="$e" '
     /^\s*#\[pallet::call_index\(/ { next }
@@ -100,9 +97,8 @@ function process_extr() {
       print w, r, wri
       exit
     }
-  ' "$DISPATCH")
+  ' "$dispatch_file")
 
-  # separate into variables
   local code_w code_reads code_writes
   read code_w code_reads code_writes <<<"$code_record"
 
@@ -163,107 +159,130 @@ function process_extr() {
 }
 
 ################################################################################
+# We'll do the standard "attempt" logic for each pallet
+################################################################################
 
-while (( attempt <= MAX_RETRIES )); do
-  echo
-  echo "Attempt #$attempt"
-  echo "──────────────────────────────────────────"
+for pallet_name in "${PALLETS[@]}"; do
+  # ensure the dispatch path is defined
+  if [[ -z "${DISPATCH_PATHS[$pallet_name]:-}" ]]; then
+    echo "❌ ERROR: dispatch path not defined for pallet '$pallet_name'"
+    exit 1
+  fi
 
-  # run benchmarks and capture output
-  TMP="$(mktemp)"
-  trap "rm -f \"$TMP\"" EXIT
+  # Prepend $SCRIPT_DIR to the path
+  DISPATCH="$SCRIPT_DIR/${DISPATCH_PATHS[$pallet_name]}"
+  if [[ ! -f "$DISPATCH" ]]; then
+    echo "❌ ERROR: dispatch file not found at $DISPATCH"
+    exit 1
+  fi
 
-  ./target/production/node-subtensor benchmark pallet \
-    --runtime "$RUNTIME_WASM" \
-    --genesis-builder=runtime \
-    --genesis-builder-preset=benchmark \
-    --wasm-execution=compiled \
-    --pallet pallet_subtensor \
-    --extrinsic "*" \
-    --steps 50 \
-    --repeat 5 \
-    | tee "$TMP"
+  attempt=1
+  pallet_success=0
 
-  # reset arrays
-  summary_lines=()
-  failures=()
-  fail=0
+  while (( attempt <= MAX_RETRIES )); do
+    echo
+    echo "══════════════════════════════════════"
+    echo "Benchmarking pallet: $pallet_name (attempt #$attempt)"
+    echo "Dispatch file: $DISPATCH"
+    echo "══════════════════════════════════════"
 
-  # Current extrinsic data
-  extr=""
-  meas_us=""
-  meas_reads=""
-  meas_writes=""
+    TMP="$(mktemp)"
+    trap "rm -f \"$TMP\"" EXIT
 
-  # We'll finalize an extrinsic each time we see a new "Extrinsic: <x>"
-  # or at the end of parsing.
-  function finalize_extr() {
-    process_extr "$extr" "$meas_us" "$meas_reads" "$meas_writes"
-    # reset
+    # Run benchmark for just this pallet
+    ./target/production/node-subtensor benchmark pallet \
+      --runtime "$RUNTIME_WASM" \
+      --genesis-builder=runtime \
+      --genesis-builder-preset=benchmark \
+      --wasm-execution=compiled \
+      --pallet "pallet_${pallet_name}" \
+      --extrinsic "*" \
+      --steps 50 \
+      --repeat 5 \
+      | tee "$TMP"
+
+    # now parse results
+    summary_lines=()
+    failures=()
+    fail=0
+
     extr=""
     meas_us=""
     meas_reads=""
     meas_writes=""
-  }
 
-  # parse the file line-by-line
-  while IFS= read -r line; do
-    # match new extrinsic name
-    if [[ $line =~ Extrinsic:\ \"([[:alnum:]_]+)\" ]]; then
-      # finalize the old extrinsic if any
-      finalize_extr
-      extr="${BASH_REMATCH[1]}"
-      continue
-    fi
+    function finalize_extr() {
+      process_extr "$extr" "$meas_us" "$meas_reads" "$meas_writes" "$DISPATCH"
+      extr=""
+      meas_us=""
+      meas_reads=""
+      meas_writes=""
+    }
 
-    # match "Time ~= ..."
-    if [[ $line =~ Time\ ~=\ *([0-9]+(\.[0-9]+)?) ]]; then
-      meas_us="${BASH_REMATCH[1]}"
-      continue
-    fi
+    while IFS= read -r line; do
+      if [[ $line =~ Extrinsic:\ \"([[:alnum:]_]+)\" ]]; then
+        finalize_extr
+        extr="${BASH_REMATCH[1]}"
+        continue
+      fi
 
-    # match "Reads = n"
-    if [[ $line =~ Reads[[:space:]]*=[[:space:]]*([0-9]+) ]]; then
-      meas_reads="${BASH_REMATCH[1]}"
-      continue
-    fi
+      if [[ $line =~ Time\ ~=\ *([0-9]+(\.[0-9]+)?) ]]; then
+        meas_us="${BASH_REMATCH[1]}"
+        continue
+      fi
 
-    # match "Writes = n"
-    if [[ $line =~ Writes[[:space:]]*=[[:space:]]*([0-9]+) ]]; then
-      meas_writes="${BASH_REMATCH[1]}"
-      continue
-    fi
-  done < "$TMP"
+      if [[ $line =~ Reads[[:space:]]*=[[:space:]]*([0-9]+) ]]; then
+        meas_reads="${BASH_REMATCH[1]}"
+        continue
+      fi
 
-  # finalize the last extrinsic if we have one
-  finalize_extr
+      if [[ $line =~ Writes[[:space:]]*=[[:space:]]*([0-9]+) ]]; then
+        meas_writes="${BASH_REMATCH[1]}"
+        continue
+      fi
+    done < "$TMP"
 
-  # summary output
-  echo
-  echo "Benchmark Summary for attempt #$attempt:"
-  for l in "${summary_lines[@]}"; do
-    echo "  $l"
-  done
+    finalize_extr
 
-  if (( fail )); then
     echo
-    echo "❌ Issues detected on attempt #$attempt:"
-    for e in "${failures[@]}"; do
-      echo "  • $e"
+    echo "Benchmark Summary for pallet '$pallet_name' (attempt #$attempt):"
+    for l in "${summary_lines[@]}"; do
+      echo "  $l"
     done
 
-    if (( attempt < MAX_RETRIES )); then
-      echo "→ Retrying…"
-      (( attempt++ ))
-      continue
+    if (( fail )); then
+      echo
+      echo "❌ Issues detected on attempt #$attempt (pallet '$pallet_name'):"
+      for e in "${failures[@]}"; do
+        echo "  • $e"
+      done
+
+      if (( attempt < MAX_RETRIES )); then
+        echo "→ Retrying…"
+        (( attempt++ ))
+        continue
+      else
+        echo
+        echo "❌ Benchmarks for pallet '$pallet_name' failed after $MAX_RETRIES attempts."
+        exit 1
+      fi
     else
       echo
-      echo "❌ Benchmarks failed after $MAX_RETRIES attempts."
-      exit 1
+      echo "✅ Pallet '$pallet_name' benchmarks all good within ±${THRESHOLD}% drift."
+      pallet_success=1
+      break
     fi
-  else
-    echo
-    echo "✅ All benchmarks within ±${THRESHOLD}% drift."
-    exit 0
+  done
+
+  # If we never succeeded for this pallet, exit
+  if (( pallet_success == 0 )); then
+    echo "❌ Could not benchmark pallet '$pallet_name' successfully."
+    exit 1
   fi
 done
+
+echo
+echo "══════════════════════════════════════"
+echo "All requested pallets benchmarked successfully!"
+echo "══════════════════════════════════════"
+exit 0

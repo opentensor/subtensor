@@ -100,7 +100,6 @@ use pallet_evm::{Account as EVMAccount, BalanceConverter, FeeCalculator, Runner}
 // Drand
 impl pallet_drand::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = pallet_drand::weights::SubstrateWeight<Runtime>;
     type AuthorityId = pallet_drand::crypto::TestAuthId;
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;
@@ -1178,7 +1177,6 @@ impl pallet_admin_utils::Config for Runtime {
     type Aura = AuraPalletIntrf;
     type Grandpa = GrandpaInterfaceImpl;
     type Balance = Balance;
-    type WeightInfo = pallet_admin_utils::weights::SubstrateWeight<Runtime>;
 }
 
 /// Define the ChainId
