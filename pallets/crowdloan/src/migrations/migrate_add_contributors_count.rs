@@ -75,20 +75,16 @@ mod tests {
             Contributions::<Test>::insert(0, U256::from(3), 100);
 
             assert_eq!(ContributorsCount::<Test>::get(0), None);
-            assert!(
-                !HasMigrationRun::<Test>::get(BoundedVec::truncate_from(
-                    b"migrate_add_contributors_count".to_vec()
-                ))
-            );
+            assert!(!HasMigrationRun::<Test>::get(BoundedVec::truncate_from(
+                b"migrate_add_contributors_count".to_vec()
+            )));
 
             migrate_add_contributors_count::<Test>();
 
             assert_eq!(ContributorsCount::<Test>::get(0), Some(3));
-            assert!(
-                HasMigrationRun::<Test>::get(BoundedVec::truncate_from(
-                    b"migrate_add_contributors_count".to_vec()
-                ))
-            );
+            assert!(HasMigrationRun::<Test>::get(BoundedVec::truncate_from(
+                b"migrate_add_contributors_count".to_vec()
+            )));
         });
     }
 }
