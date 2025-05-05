@@ -418,12 +418,12 @@ fn test_remove_stake_ok_no_emission() {
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0,
-			epsilon = 20000
+            epsilon = 20000
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake(),
             SubtensorModule::get_network_min_lock() + fee,
-			epsilon = 1000
+            epsilon = 1000
         );
     });
 }
@@ -624,7 +624,7 @@ fn test_add_stake_insufficient_liquidity() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount_staked);
 
         // Set the liquidity at lowest possible value so that all staking requests fail
-        let reserve = DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>();
+        let reserve = u64::from(mock::SwapMinimumReserve::get()) - 1;
         mock::setup_reserves(netuid, reserve, reserve);
 
         // Check the error
@@ -667,14 +667,8 @@ fn test_remove_stake_insufficient_liquidity() {
         .unwrap();
 
         // Set the liquidity at lowest possible value so that all staking requests fail
-        SubnetTAO::<Test>::insert(
-            netuid,
-            DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>(),
-        );
-        SubnetAlphaIn::<Test>::insert(
-            netuid,
-            DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>(),
-        );
+        let reserve = u64::from(mock::SwapMinimumReserve::get()) - 1;
+        mock::setup_reserves(netuid, reserve, reserve);
 
         // Check the error
         assert_noop!(
@@ -2725,7 +2719,7 @@ fn test_stake_low_liquidity_validate() {
 
         // Set the liquidity at lowest possible value so that all staking requests fail
 
-        let reserve = mock::SwapMinimumReserve::get().into();
+        let reserve = u64::from(mock::SwapMinimumReserve::get()) - 1;
         mock::setup_reserves(netuid, reserve, reserve);
 
         // Add stake call
@@ -2781,7 +2775,7 @@ fn test_unstake_low_liquidity_validate() {
         .unwrap();
 
         // Set the liquidity at lowest possible value so that all staking requests fail
-        let reserve = DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>();
+        let reserve = u64::from(mock::SwapMinimumReserve::get()) - 1;
         mock::setup_reserves(netuid, reserve, reserve);
 
         // Remove stake call
@@ -3695,6 +3689,8 @@ fn test_add_stake_limit_fill_or_kill() {
         SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
         SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
         let current_price = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid);
+		// FIXME it's failing because in the swap pallet, the alpha price is set only after an
+		// initial swap
         assert_eq!(current_price, U96F32::from_num(1.5));
 
         // Give it some $$$ in his coldkey balance
@@ -4251,17 +4247,16 @@ fn test_unstake_all_hits_liquidity_min() {
         );
 
         // Setup the Alpha pool so that removing all the Alpha will bring liqudity below the minimum
-        let remaining_tao: I96F32 =
-            DefaultMinimumPoolLiquidity::<Test>::get().saturating_sub(I96F32::from(1));
-        let alpha_reserves: I110F18 = I110F18::from(stake_amount + 10_000_000);
+        let remaining_tao = I96F32::from_num(u64::from(mock::SwapMinimumReserve::get()) - 1)
+            .saturating_sub(I96F32::from(1));
+        let alpha_reserves = I110F18::from(stake_amount + 10_000_000);
         let alpha = stake_amount;
 
-        let k: I110F18 = I110F18::from_fixed(remaining_tao)
+        let k = I110F18::from_fixed(remaining_tao)
             .saturating_mul(alpha_reserves.saturating_add(I110F18::from(alpha)));
-        let tao_reserves: I110F18 = k.safe_div(alpha_reserves);
+        let tao_reserves = k.safe_div(alpha_reserves);
 
-        SubnetTAO::<Test>::insert(netuid, tao_reserves.to_num::<u64>());
-        SubnetAlphaIn::<Test>::insert(netuid, alpha_reserves.to_num::<u64>());
+        mock::setup_reserves(netuid, tao_reserves.to_num(), alpha_reserves.to_num());
 
         // Try to unstake, but we reduce liquidity too far
 
@@ -4298,17 +4293,16 @@ fn test_unstake_all_alpha_hits_liquidity_min() {
         );
 
         // Setup the Alpha pool so that removing all the Alpha will bring liqudity below the minimum
-        let remaining_tao: I96F32 =
-            DefaultMinimumPoolLiquidity::<Test>::get().saturating_sub(I96F32::from(1));
-        let alpha_reserves: I110F18 = I110F18::from(stake_amount + 10_000_000);
+        let remaining_tao = I96F32::from_num(u64::from(mock::SwapMinimumReserve::get()) - 1)
+            .saturating_sub(I96F32::from(1));
+        let alpha_reserves = I110F18::from(stake_amount + 10_000_000);
         let alpha = stake_amount;
 
-        let k: I110F18 = I110F18::from_fixed(remaining_tao)
+        let k = I110F18::from_fixed(remaining_tao)
             .saturating_mul(alpha_reserves.saturating_add(I110F18::from(alpha)));
-        let tao_reserves: I110F18 = k.safe_div(alpha_reserves);
+        let tao_reserves = k.safe_div(alpha_reserves);
 
-        SubnetTAO::<Test>::insert(netuid, tao_reserves.to_num::<u64>());
-        SubnetAlphaIn::<Test>::insert(netuid, alpha_reserves.to_num::<u64>());
+        mock::setup_reserves(netuid, tao_reserves.to_num(), alpha_reserves.to_num());
 
         // Try to unstake, but we reduce liquidity too far
 
@@ -4346,8 +4340,8 @@ fn test_unstake_all_alpha_works() {
         );
 
         // Setup the Alpha pool so that removing all the Alpha will keep liq above min
-        let remaining_tao =
-            DefaultMinimumPoolLiquidity::<Test>::get().saturating_add(I96F32::from(10_000_000));
+        let remaining_tao = I96F32::from_num(u64::from(mock::SwapMinimumReserve::get()) - 1)
+            .saturating_add(I96F32::from(10_000_000));
         let alpha_reserves = I110F18::from(stake_amount + 10_000_000);
         let alpha = stake_amount;
 
@@ -4393,14 +4387,16 @@ fn test_unstake_all_works() {
         );
 
         // Setup the Alpha pool so that removing all the Alpha will keep liq above min
-        let remaining_tao: I96F32 =
-            DefaultMinimumPoolLiquidity::<Test>::get().saturating_add(I96F32::from(10_000_000));
-        let alpha_reserves: I110F18 = I110F18::from(stake_amount + 10_000_000);
+        let remaining_tao = I96F32::from_num(u64::from(mock::SwapMinimumReserve::get()) - 1)
+            .saturating_add(I96F32::from(10_000_000));
+        let alpha_reserves = I110F18::from(stake_amount + 10_000_000);
         let alpha = stake_amount;
 
-        let k: I110F18 = I110F18::from_fixed(remaining_tao)
+        let k = I110F18::from_fixed(remaining_tao)
             .saturating_mul(alpha_reserves.saturating_add(I110F18::from(alpha)));
         let tao_reserves: I110F18 = k.safe_div(alpha_reserves);
+
+        mock::setup_reserves(netuid, tao_reserves.to_num(), alpha_reserves.to_num());
 
         SubnetTAO::<Test>::insert(netuid, tao_reserves.to_num::<u64>());
         SubnetAlphaIn::<Test>::insert(netuid, alpha_reserves.to_num::<u64>());
