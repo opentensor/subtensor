@@ -209,5 +209,7 @@ mod errors {
         InvalidRecoveredPublicKey,
         /// SubToken disabled now
         SubtokenDisabled,
+        /// Too frequent hotkey swap on subnet
+        HotKeySwapOnSubnetIntervalNotPassed,
     }
 }

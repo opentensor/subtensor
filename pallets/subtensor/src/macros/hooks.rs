@@ -41,6 +41,7 @@ mod hooks {
         // 		- The number of the block we are finalizing.
         fn on_finalize(block_number: BlockNumberFor<T>) {
             Self::do_on_finalize(block_number);
+            Self::clean_up_hotkey_swap_records(block_number);
         }
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
@@ -120,6 +121,28 @@ mod hooks {
             // Disabled: https://github.com/opentensor/subtensor/pull/1166
             // Self::check_total_stake()?;
             Ok(())
+        }
+    }
+
+    impl<T: Config> Pallet<T> {
+        fn clean_up_hotkey_swap_records(block_number: BlockNumberFor<T>) {
+            let hotkey_swap_on_subnet_interval = T::HotkeySwapOnSubnetInterval::get();
+            let block_number: u64 = TryInto::try_into(block_number)
+                .ok()
+                .expect("blockchain will not exceed 2^64 blocks; QED.");
+            let netuids = Self::get_all_subnet_netuids();
+
+            let slot = block_number % hotkey_swap_on_subnet_interval;
+
+            if slot < (u16::MAX as u64) && netuids.contains(&(slot as u16)) {
+                for (coldkey, swap_block_number) in
+                    LastHotkeySwapOnNetuid::<T>::iter_prefix(slot as u16)
+                {
+                    if swap_block_number + hotkey_swap_on_subnet_interval < block_number {
+                        LastHotkeySwapOnNetuid::<T>::remove(slot as u16, coldkey);
+                    }
+                }
+            }
         }
     }
 }

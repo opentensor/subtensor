@@ -216,5 +216,8 @@ mod config {
         /// Cost of swapping a hotkey in a subnet.
         #[pallet::constant]
         type KeySwapOneSubnetCost: Get<u64>;
+        /// Block number for a coldkey swap the hotkey in specific subnet.
+        #[pallet::constant]
+        type HotkeySwapOnSubnetInterval: Get<u64>;
     }
 }

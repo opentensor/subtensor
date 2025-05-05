@@ -1083,6 +1083,7 @@ parameter_types! {
         7 * 24 * 60 * 60 / 12 // 7 days
     };
     pub const SubtensorInitialKeySwapOnSubnetCost: u64 = 1_000_000; // 0.001 TAO
+    pub const HotkeySwapOnSubnetInterval : BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1149,6 +1150,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
     type KeySwapOneSubnetCost = SubtensorInitialKeySwapOnSubnetCost;
+    type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
 }
 
 use sp_runtime::BoundedVec;

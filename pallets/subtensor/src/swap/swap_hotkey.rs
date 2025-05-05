@@ -264,12 +264,23 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         init_weight: Weight,
     ) -> DispatchResultWithPostInfo {
+        // 1. Ensure coldkey not swap hotkey too frequently
+        let mut weight: Weight = init_weight;
+        let block: u64 = Self::get_current_block_as_u64();
+        let hotkey_swap_interval = T::HotkeySwapOnSubnetInterval::get();
+        let last_hotkey_swap_block = LastHotkeySwapOnNetuid::<T>::get(netuid, coldkey);
+
+        ensure!(
+            last_hotkey_swap_block + hotkey_swap_interval < block,
+            Error::<T>::HotKeySwapOnSubnetIntervalNotPassed
+        );
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 0));
+
         // Ensure the hotkey not registered on the network before.
         ensure!(
             !Self::is_hotkey_registered_on_specific_network(new_hotkey, netuid),
             Error::<T>::HotKeyAlreadyRegisteredInSubNet
         );
-        let mut weight: Weight = init_weight;
 
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
 
@@ -311,10 +322,10 @@ impl<T: Config> Pallet<T> {
         // 14. Perform the hotkey swap
         Self::perform_hotkey_swap_on_one_subnet(old_hotkey, new_hotkey, &mut weight, netuid);
 
-        let block: u64 = Self::get_current_block_as_u64();
         // 15. Update the last transaction block for the coldkey
         Self::set_last_tx_block(coldkey, block);
-        weight.saturating_accrue(T::DbWeight::get().writes(1));
+        LastHotkeySwapOnNetuid::<T>::insert(netuid, coldkey, block);
+        weight.saturating_accrue(T::DbWeight::get().writes(2));
 
         // 16. Emit an event for the hotkey swap
         Self::deposit_event(Event::HotkeySwappedOnSubnet {

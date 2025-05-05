@@ -187,6 +187,7 @@ parameter_types! {
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
     pub const DurationOfStartCall: u64 =  7 * 24 * 60 * 60 / 12; // Default as 7 days
     pub const InitialKeySwapOnSubnetCost: u64 = 10_000_000;
+    pub const HotkeySwapOnSubnetInterval: u64 = 1; // 1 block
 
 }
 
@@ -413,6 +414,7 @@ impl crate::Config for Test {
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
     type KeySwapOneSubnetCost = InitialKeySwapOnSubnetCost;
+    type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
 }
 
 pub struct OriginPrivilegeCmp;
