@@ -756,6 +756,10 @@ impl<T: Config> Pallet<T> {
                 }
             });
 
+        // TODO: Optimize to use kill_prefix()
+        // Remove all stake delta after the epoch calculation
+        for _ in StakeDeltaSinceLastEmissionDrain::<T>::drain() {}
+
         // Emission tuples ( hotkeys, server_emission, validator_emission )
         hotkeys
             .into_iter()

@@ -2,7 +2,7 @@ use super::*;
 use frame_system::pallet_prelude::BlockNumberFor;
 use safe_math::*;
 use share_pool::{SharePool, SharePoolDataOperations};
-use sp_runtime::Saturating;
+use sp_runtime::{SaturatedConversion, Saturating};
 use sp_std::ops::Neg;
 use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32, U110F18};
 
@@ -201,9 +201,16 @@ impl<T: Config> Pallet<T> {
             .map(|uid| {
                 if Keys::<T>::contains_key(netuid, uid) {
                     let hotkey: T::AccountId = Keys::<T>::get(netuid, uid);
-                    I64F64::saturating_from_num(Self::get_tao_inherited_for_hotkey_on_subnet(
-                        &hotkey, netuid,
-                    ))
+                    let initial_stake =
+                        Self::get_tao_inherited_for_hotkey_on_subnet(&hotkey, netuid);
+
+                    let stake_delta = Self::get_stake_delta_for_hotkey_on_subnet(&hotkey, netuid);
+
+                    let final_stake = (initial_stake.saturated_into::<i128>())
+                        .saturating_sub(stake_delta)
+                        .saturated_into::<u64>();
+
+                    I64F64::saturating_from_num(final_stake)
                 } else {
                     I64F64::saturating_from_num(0)
                 }
@@ -342,6 +349,10 @@ impl<T: Config> Pallet<T> {
 
         // Step 6: Return the final inherited tao value.
         finalized_tao.saturating_to_num::<u64>()
+    }
+
+    pub fn get_stake_delta_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> i128 {
+        StakeDeltaSinceLastEmissionDrain::<T>::get(hotkey, netuid).total()
     }
 
     pub fn get_inherited_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
