@@ -3,8 +3,8 @@ use sp_std::prelude::*;
 
 #[cfg(test)]
 use crate::{
-    CommitmentInfo, CommitmentOf, Config, Data, Error, Event, MaxSpace, Pallet,
-    Registration, RevealedCommitments, TimelockedIndex, UsedSpaceOf,
+    CommitmentInfo, CommitmentOf, Config, Data, Error, Event, MaxSpace, Pallet, Registration,
+    RevealedCommitments, TimelockedIndex, UsedSpaceOf,
     mock::{
         Balances, DRAND_QUICKNET_SIG_2000_HEX, DRAND_QUICKNET_SIG_HEX, RuntimeEvent, RuntimeOrigin,
         Test, TestMaxFields, insert_drand_pulse, new_test_ext, produce_ciphertext,
