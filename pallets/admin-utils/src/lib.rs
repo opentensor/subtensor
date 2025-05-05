@@ -110,6 +110,8 @@ pub mod pallet {
         Metagraph,
         /// Enum for neuron precompile
         Neuron,
+        /// Enum for UID lookup precompile
+        UidLookup,
     }
 
     #[pallet::type_value]
