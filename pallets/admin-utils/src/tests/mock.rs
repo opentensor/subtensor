@@ -137,6 +137,7 @@ parameter_types! {
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
     pub const DurationOfStartCall: u64 = 7 * 24 * 60 * 60 / 12; // 7 days
     pub const InitialKeySwapOnSubnetCost: u64 = 10_000_000;
+    pub const HotkeySwapOnSubnetInterval: u64 = 10_000_7 * 24 * 60 * 60 / 12; // 7 days
 }
 
 impl pallet_subtensor::Config for Test {
@@ -203,6 +204,7 @@ impl pallet_subtensor::Config for Test {
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
     type KeySwapOneSubnetCost = InitialKeySwapOnSubnetCost;
+    type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
