@@ -100,7 +100,6 @@ impl pallet_commitments::Config for Test {
     type CanCommit = TestCanCommit;
     type FieldDeposit = ConstU64<0>;
     type InitialDeposit = ConstU64<0>;
-    type DefaultRateLimit = ConstU64<0>;
     type TempoInterface = MockTempoInterface;
 }
 

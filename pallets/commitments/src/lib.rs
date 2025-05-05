@@ -68,10 +68,6 @@ pub mod pallet {
         #[pallet::constant]
         type FieldDeposit: Get<BalanceOf<Self>>;
 
-        /// The rate limit for commitments
-        #[pallet::constant]
-        type DefaultRateLimit: Get<BlockNumberFor<Self>>;
-
         /// Used to retreive the given subnet's tempo
         type TempoInterface: GetTempoInterface;
     }
