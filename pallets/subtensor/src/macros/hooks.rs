@@ -125,6 +125,8 @@ mod hooks {
     }
 
     impl<T: Config> Pallet<T> {
+        // This function is to clean up the old hotkey swap records
+        // It just clean up for one subnet at a time, according to the block number
         fn clean_up_hotkey_swap_records(block_number: BlockNumberFor<T>) {
             let hotkey_swap_on_subnet_interval = T::HotkeySwapOnSubnetInterval::get();
             let block_number: u64 = TryInto::try_into(block_number)
