@@ -134,14 +134,14 @@ mod hooks {
                 .expect("blockchain will not exceed 2^64 blocks; QED.");
             let netuids = Self::get_all_subnet_netuids();
 
-            let slot = block_number % hotkey_swap_on_subnet_interval;
-
-            if slot < (u16::MAX as u64) && netuids.contains(&(slot as u16)) {
-                for (coldkey, swap_block_number) in
-                    LastHotkeySwapOnNetuid::<T>::iter_prefix(slot as u16)
-                {
-                    if swap_block_number + hotkey_swap_on_subnet_interval < block_number {
-                        LastHotkeySwapOnNetuid::<T>::remove(slot as u16, coldkey);
+            if let Some(slot) = block_number.checked_rem(hotkey_swap_on_subnet_interval) {
+                if slot < (u16::MAX as u64) && netuids.contains(&(slot as u16)) {
+                    for (coldkey, swap_block_number) in
+                        LastHotkeySwapOnNetuid::<T>::iter_prefix(slot as u16)
+                    {
+                        if swap_block_number + hotkey_swap_on_subnet_interval < block_number {
+                            LastHotkeySwapOnNetuid::<T>::remove(slot as u16, coldkey);
+                        }
                     }
                 }
             }
