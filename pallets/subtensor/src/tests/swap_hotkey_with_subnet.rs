@@ -22,6 +22,7 @@ fn test_swap_owner() {
         let netuid: u16 = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
         Owner::<Test>::insert(old_hotkey, coldkey);
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -46,6 +47,7 @@ fn test_swap_owned_hotkeys() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
         OwnedHotkeys::<Test>::insert(coldkey, vec![old_hotkey]);
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -97,6 +99,7 @@ fn test_swap_total_hotkey_stake() {
         );
 
         // Swap hotkey
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -131,6 +134,7 @@ fn test_swap_senate_members() {
 
         assert_ok!(SenateMembers::add_member(RuntimeOrigin::root(), old_hotkey));
 
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -156,6 +160,7 @@ fn test_swap_delegates() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
         Delegates::<Test>::insert(old_hotkey, 100);
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -180,6 +185,7 @@ fn test_swap_subnet_membership() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
         IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -208,6 +214,7 @@ fn test_swap_uids_and_keys() {
         Uids::<Test>::insert(netuid, old_hotkey, uid);
         Keys::<Test>::insert(netuid, uid, old_hotkey);
 
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -238,6 +245,7 @@ fn test_swap_prometheus() {
         IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
         Prometheus::<Test>::insert(netuid, old_hotkey, prometheus_info.clone());
 
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -270,6 +278,7 @@ fn test_swap_axons() {
         IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
         Axons::<Test>::insert(netuid, old_hotkey, axon_info.clone());
 
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -299,6 +308,7 @@ fn test_swap_certificates() {
         IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
         NeuronCertificates::<Test>::insert(netuid, old_hotkey, certificate.clone());
 
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -334,6 +344,7 @@ fn test_swap_weight_commits() {
         IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
         WeightCommits::<Test>::insert(netuid, old_hotkey, weight_commits.clone());
 
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -370,6 +381,7 @@ fn test_swap_loaded_emission() {
             vec![(old_hotkey, server_emission, validator_emission)],
         );
 
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -398,6 +410,7 @@ fn test_swap_staking_hotkeys() {
         StakingHotkeys::<Test>::insert(coldkey, vec![old_hotkey]);
         Alpha::<Test>::insert((old_hotkey, coldkey, netuid), U64F64::from_num(100));
 
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -447,6 +460,7 @@ fn test_swap_hotkey_with_multiple_coldkeys() {
         let stake1_before = SubtensorModule::get_total_stake_for_coldkey(&coldkey1);
         let stake2_before = SubtensorModule::get_total_stake_for_coldkey(&coldkey2);
 
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey1),
             &old_hotkey,
@@ -493,6 +507,7 @@ fn test_swap_hotkey_with_multiple_subnets() {
         IsNetworkMember::<Test>::insert(old_hotkey, netuid1, true);
         IsNetworkMember::<Test>::insert(old_hotkey, netuid2, true);
 
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -500,6 +515,7 @@ fn test_swap_hotkey_with_multiple_subnets() {
             Some(netuid1)
         ));
 
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -551,6 +567,7 @@ fn test_swap_staking_hotkeys_multiple_coldkeys() {
             stake
         ));
 
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey1),
             &old_hotkey,
@@ -587,6 +604,7 @@ fn test_swap_hotkey_with_no_stake() {
         // Set up initial state with no stake
         Owner::<Test>::insert(old_hotkey, coldkey);
 
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -656,6 +674,7 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
         assert!(ck2_stake > 0);
         let total_hk_stake = SubtensorModule::get_total_stake_for_hotkey(&old_hotkey);
         assert!(total_hk_stake > 0);
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
 
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey1),
@@ -664,6 +683,7 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
             Some(netuid1)
         ));
 
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey1),
             &old_hotkey,
@@ -768,6 +788,7 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, swap_cost);
 
         // Perform the first swap
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -788,6 +809,7 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
 
         // move in time past the rate limit
         step_block(1001);
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             &new_hotkey_1,
@@ -875,6 +897,7 @@ fn test_swap_owner_new_hotkey_already_exists() {
         Owner::<Test>::insert(new_hotkey, another_coldkey);
 
         // Perform the swap
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_err!(
             SubtensorModule::do_swap_hotkey(
                 RuntimeOrigin::signed(coldkey),
@@ -914,6 +937,7 @@ fn test_swap_stake_success() {
         TaoDividendsPerSubnet::<Test>::insert(netuid, old_hotkey, amount);
 
         // Perform the swap
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -978,6 +1002,7 @@ fn test_swap_hotkey_error_cases() {
 
         // Test not enough balance
         let swap_cost = SubtensorModule::get_key_swap_cost();
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_err!(
             SubtensorModule::do_swap_hotkey(
                 RuntimeOrigin::signed(coldkey),
@@ -992,6 +1017,7 @@ fn test_swap_hotkey_error_cases() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_balance);
 
         // Test new hotkey same as old
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_noop!(
             SubtensorModule::do_swap_hotkey(
                 RuntimeOrigin::signed(coldkey),
@@ -1004,6 +1030,7 @@ fn test_swap_hotkey_error_cases() {
 
         // Test new hotkey already registered
         IsNetworkMember::<Test>::insert(new_hotkey, netuid, true);
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_noop!(
             SubtensorModule::do_swap_hotkey(
                 RuntimeOrigin::signed(coldkey),
@@ -1027,6 +1054,7 @@ fn test_swap_hotkey_error_cases() {
         );
 
         // Run the successful swap
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -1052,6 +1080,7 @@ fn test_swap_child_keys() {
         ChildKeys::<Test>::insert(old_hotkey, netuid, children.clone());
 
         // Perform the swap
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -1084,6 +1113,7 @@ fn test_swap_parent_keys() {
         ChildKeys::<Test>::insert(U256::from(5), netuid, vec![(200u64, old_hotkey)]);
 
         // Perform the swap
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -1127,6 +1157,7 @@ fn test_swap_multiple_subnets() {
         ChildKeys::<Test>::insert(old_hotkey, netuid2, children2.clone());
 
         // Perform the swap
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -1134,6 +1165,7 @@ fn test_swap_multiple_subnets() {
             Some(netuid1)
         ),);
 
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -1182,6 +1214,7 @@ fn test_swap_complex_parent_child_structure() {
         );
 
         // Perform the swap
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -1249,6 +1282,7 @@ fn test_swap_parent_hotkey_childkey_maps() {
 
         // Swap
 
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &parent_old,
@@ -1305,6 +1339,7 @@ fn test_swap_child_hotkey_childkey_maps() {
 
         // Swap
 
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &child_old,
@@ -1344,6 +1379,7 @@ fn test_swap_hotkey_is_sn_owner_hotkey() {
         assert_eq!(SubnetOwnerHotkey::<Test>::get(netuid), old_hotkey);
 
         // Perform the swap
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
@@ -1379,6 +1415,7 @@ fn test_swap_hotkey_swap_rate_limits() {
         LastTxBlockChildKeyTake::<Test>::insert(old_hotkey, child_key_take_block);
 
         // Perform the swap
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
