@@ -116,23 +116,11 @@ pub mod pallet {
         TooManyFieldsInCommitmentInfo,
         /// Account is not allow to make commitments to the chain
         AccountNotAllowedCommit,
-        /// Account is trying to commit data too fast, rate limit exceeded
-        CommitmentSetRateLimitExceeded,
         /// Space Limit Exceeded for the current interval
         SpaceLimitExceeded,
         /// Indicates that unreserve returned a leftover, which is unexpected.
         UnexpectedUnreserveLeftover,
     }
-
-    #[pallet::type_value]
-    /// *DEPRECATED* Default value for commitment rate limit.
-    pub fn DefaultRateLimit<T: Config>() -> BlockNumberFor<T> {
-        T::DefaultRateLimit::get()
-    }
-
-    /// *DEPRECATED* The rate limit for commitments
-    #[pallet::storage]
-    pub type RateLimit<T> = StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultRateLimit<T>>;
 
     /// Tracks all CommitmentOf that have at least one timelocked field.
     #[pallet::storage]
@@ -309,19 +297,19 @@ pub mod pallet {
         }
 
         /// Sudo-set the commitment rate limit
-        #[pallet::call_index(1)]
-        #[pallet::weight((
-            Weight::from_parts(3_596_000, 0)
-			.saturating_add(T::DbWeight::get().reads(0_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64)),
-			DispatchClass::Operational,
-			Pays::No
-		))]
-        pub fn set_rate_limit(origin: OriginFor<T>, rate_limit_blocks: u32) -> DispatchResult {
-            ensure_root(origin)?;
-            RateLimit::<T>::set(rate_limit_blocks.into());
-            Ok(())
-        }
+        // #[pallet::call_index(1)]
+        // #[pallet::weight((
+        //     Weight::from_parts(3_596_000, 0)
+		// 	.saturating_add(T::DbWeight::get().reads(0_u64))
+		// 	.saturating_add(T::DbWeight::get().writes(1_u64)),
+		// 	DispatchClass::Operational,
+		// 	Pays::No
+		// ))]
+        // pub fn set_rate_limit(origin: OriginFor<T>, rate_limit_blocks: u32) -> DispatchResult {
+        //     ensure_root(origin)?;
+        //     RateLimit::<T>::set(rate_limit_blocks.into());
+        //     Ok(())
+        // }
 
         /// Sudo-set MaxSpace
         #[pallet::call_index(2)]
