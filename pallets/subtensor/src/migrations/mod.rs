@@ -15,6 +15,7 @@ pub mod migrate_init_total_issuance;
 pub mod migrate_orphaned_storage_items;
 pub mod migrate_populate_owned_hotkeys;
 pub mod migrate_rao;
+pub mod migrate_remove_commitments_rate_limit;
 pub mod migrate_remove_stake_map;
 pub mod migrate_remove_total_hotkey_coldkey_stakes_this_interval;
 pub mod migrate_remove_unused_maps_and_values;
@@ -32,7 +33,6 @@ pub mod migrate_to_v2_fixed_total_stake;
 pub mod migrate_total_issuance;
 pub mod migrate_transfer_ownership_to_foundation;
 pub mod migrate_upgrade_revealed_commitments;
-pub mod migrate_remove_commitments_rate_limit;
 
 pub(crate) fn migrate_storage<T: Config>(
     migration_name: &'static str,

@@ -8,7 +8,10 @@ pub fn migrate_remove_commitments_rate_limit<T: Config>() -> Weight {
     let migration_name = b"migrate_remove_commitments_rate_limit".to_vec();
     let mut weight = T::DbWeight::get().reads(1);
     if HasMigrationRun::<T>::get(&migration_name) {
-        log::info!("Migration '{:?}' has already run. Skipping.", migration_name);
+        log::info!(
+            "Migration '{:?}' has already run. Skipping.",
+            migration_name
+        );
         return weight;
     }
 
