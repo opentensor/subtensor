@@ -571,6 +571,14 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         amount: u64,
     ) -> u64 {
+        if amount > 0 {
+            let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
+            if !staking_hotkeys.contains(hotkey) {
+                staking_hotkeys.push(hotkey.clone());
+                StakingHotkeys::<T>::insert(coldkey, staking_hotkeys.clone());
+            }
+        }
+
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
         // We expect to add a positive amount here.
         let actual_alpha = alpha_share_pool.update_value_for_one(coldkey, amount as i64);
@@ -848,16 +856,9 @@ impl<T: Config> Pallet<T> {
             actual_alpha = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 hotkey, coldkey, netuid, alpha,
             );
-
-            // Step 4: Update the list of hotkeys staking for this coldkey
-            let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
-            if !staking_hotkeys.contains(hotkey) {
-                staking_hotkeys.push(hotkey.clone());
-                StakingHotkeys::<T>::insert(coldkey, staking_hotkeys.clone());
-            }
         }
 
-        // Step 5. Increase Tao reserves by the fee amount.
+        // Step 4. Increase Tao reserves by the fee amount.
         SubnetTAO::<T>::mutate(netuid, |total| {
             *total = total.saturating_add(actual_fee);
         });
@@ -866,7 +867,7 @@ impl<T: Config> Pallet<T> {
         });
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
-        // Step 6. Deposit and log the staking event.
+        // Step 5. Deposit and log the staking event.
         Self::deposit_event(Event::StakeAdded(
             coldkey.clone(),
             hotkey.clone(),
@@ -885,7 +886,7 @@ impl<T: Config> Pallet<T> {
             actual_fee
         );
 
-        // Step 7: Return the amount of alpha staked
+        // Step 6: Return the amount of alpha staked
         actual_alpha
     }
 
