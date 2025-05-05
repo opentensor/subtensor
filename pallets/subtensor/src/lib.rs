@@ -1803,6 +1803,7 @@ pub enum CustomTransactionError {
     ServingRateLimitExceeded,
     InvalidPort,
     BadRequest,
+    ZeroMaxAmount,
 }
 
 impl From<CustomTransactionError> for u8 {
@@ -1823,6 +1824,7 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::ServingRateLimitExceeded => 12,
             CustomTransactionError::InvalidPort => 13,
             CustomTransactionError::BadRequest => 255,
+            CustomTransactionError::ZeroMaxAmount => 14,
         }
     }
 }
@@ -2099,8 +2101,13 @@ where
                     .into();
                 }
 
-                // Calcaulate the maximum amount that can be executed with price limit
-                let max_amount = Pallet::<T>::get_max_amount_add(*netuid, *limit_price);
+                // Calculate the maximum amount that can be executed with price limit
+                let Ok(max_amount) = Pallet::<T>::get_max_amount_add(*netuid, *limit_price) else {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ZeroMaxAmount.into(),
+                    )
+                    .into();
+                };
 
                 // Fully validate the user input
                 Self::result_to_validity(
@@ -2140,8 +2147,14 @@ where
                 limit_price,
                 allow_partial,
             }) => {
-                // Calcaulate the maximum amount that can be executed with price limit
-                let max_amount = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price);
+                // Calculate the maximum amount that can be executed with price limit
+                let Ok(max_amount) = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price)
+                else {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ZeroMaxAmount.into(),
+                    )
+                    .into();
+                };
 
                 // Fully validate the user input
                 Self::result_to_validity(
@@ -2194,8 +2207,13 @@ where
                     .into();
                 }
 
-                //Calculate the maximum amount that can be executed with price limit
-                let max_amount = Pallet::<T>::get_max_amount_add(*netuid, *limit_price);
+                // Calculate the maximum amount that can be executed with price limit
+                let Ok(max_amount) = Pallet::<T>::get_max_amount_add(*netuid, *limit_price) else {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ZeroMaxAmount.into(),
+                    )
+                    .into();
+                };
 
                 // Fully validate the user input
                 Self::result_to_validity(
@@ -2236,7 +2254,13 @@ where
                 allow_partial,
             }) => {
                 // Calculate the maximum amount that can be executed with price limit
-                let max_amount = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price);
+                let Ok(max_amount) = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price)
+                else {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ZeroMaxAmount.into(),
+                    )
+                    .into();
+                };
 
                 // Fully validate the user input
                 Self::result_to_validity(
@@ -2359,11 +2383,16 @@ where
                 }
 
                 // Get the max amount possible to exchange
-                let max_amount = Pallet::<T>::get_max_amount_move(
+                let Ok(max_amount) = Pallet::<T>::get_max_amount_move(
                     *origin_netuid,
                     *destination_netuid,
                     *limit_price,
-                );
+                ) else {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ZeroMaxAmount.into(),
+                    )
+                    .into();
+                };
 
                 // Fully validate the user input
                 Self::result_to_validity(

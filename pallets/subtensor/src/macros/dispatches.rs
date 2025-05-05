@@ -1784,9 +1784,9 @@ mod dispatches {
         ///  	- Errors stemming from transaction pallet.
         ///
         #[pallet::call_index(88)]
-        #[pallet::weight((Weight::from_parts(91_010_000, 0)
-		.saturating_add(T::DbWeight::get().reads(10))
-		.saturating_add(T::DbWeight::get().writes(6)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_parts(159_200_000, 0)
+		.saturating_add(T::DbWeight::get().reads(13))
+		.saturating_add(T::DbWeight::get().writes(10)), DispatchClass::Normal, Pays::No))]
         pub fn add_stake_limit(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1848,9 +1848,9 @@ mod dispatches {
         /// 	- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
         ///
         #[pallet::call_index(89)]
-        #[pallet::weight((Weight::from_parts(172_100_000, 0)
-		.saturating_add(T::DbWeight::get().reads(17))
-		.saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_parts(192_600_000, 0)
+		.saturating_add(T::DbWeight::get().reads(18))
+		.saturating_add(T::DbWeight::get().writes(10)), DispatchClass::Normal, Pays::No))]
         pub fn remove_stake_limit(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1892,9 +1892,9 @@ mod dispatches {
         /// May emit a `StakeSwapped` event on success.
         #[pallet::call_index(90)]
         #[pallet::weight((
-            Weight::from_parts(162_400_000, 0)
-            .saturating_add(T::DbWeight::get().reads(12))
-            .saturating_add(T::DbWeight::get().writes(9)),
+            Weight::from_parts(232_000_000, 0)
+            .saturating_add(T::DbWeight::get().reads(25))
+            .saturating_add(T::DbWeight::get().writes(16)),
             DispatchClass::Operational,
             Pays::No
         ))]
