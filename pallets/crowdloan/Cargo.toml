@@ -21,6 +21,7 @@ frame-support.workspace = true
 frame-system.workspace = true
 sp-runtime.workspace = true
 sp-std.workspace = true
+log = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { default-features = true, workspace = true }
