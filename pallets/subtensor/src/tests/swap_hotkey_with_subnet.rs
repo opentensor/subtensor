@@ -1435,3 +1435,82 @@ fn test_swap_hotkey_swap_rate_limits() {
         );
     });
 }
+
+#[test]
+fn test_swap_owner_failed_interval_not_passed() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+
+        let netuid: u16 = add_dynamic_network(&old_hotkey, &coldkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
+        Owner::<Test>::insert(old_hotkey, coldkey);
+        assert_err!(
+            SubtensorModule::do_swap_hotkey(
+                RuntimeOrigin::signed(coldkey),
+                &old_hotkey,
+                &new_hotkey,
+                Some(netuid)
+            ),
+            Error::<Test>::HotKeySwapOnSubnetIntervalNotPassed,
+        );
+    });
+}
+
+#[test]
+fn test_swap_owner_check_swap_block_set() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+
+        let netuid: u16 = add_dynamic_network(&old_hotkey, &coldkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
+        Owner::<Test>::insert(old_hotkey, coldkey);
+        let new_block_number = System::block_number() + HotkeySwapOnSubnetInterval::get();
+        System::set_block_number(new_block_number);
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(coldkey),
+            &old_hotkey,
+            &new_hotkey,
+            Some(netuid)
+        ));
+
+        assert_eq!(
+            LastHotkeySwapOnNetuid::<Test>::get(netuid, coldkey),
+            new_block_number
+        );
+    });
+}
+
+#[test]
+fn test_swap_owner_check_swap_record_clean_up() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+
+        let netuid: u16 = add_dynamic_network(&old_hotkey, &coldkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
+        Owner::<Test>::insert(old_hotkey, coldkey);
+        let new_block_number = System::block_number() + HotkeySwapOnSubnetInterval::get();
+        System::set_block_number(new_block_number);
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(coldkey),
+            &old_hotkey,
+            &new_hotkey,
+            Some(netuid)
+        ));
+
+        assert_eq!(
+            LastHotkeySwapOnNetuid::<Test>::get(netuid, coldkey),
+            new_block_number
+        );
+
+        step_block((HotkeySwapOnSubnetInterval::get() as u16 + netuid) * 2);
+        assert!(!LastHotkeySwapOnNetuid::<Test>::contains_key(
+            netuid, coldkey
+        ));
+    });
+}
