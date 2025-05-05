@@ -43,3 +43,54 @@ pub fn migrate_add_contributors_count<T: Config>() -> Weight {
 
     weight
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::mock::{Test, TestState};
+
+    use super::*;
+    use sp_core::U256;
+
+    #[test]
+    fn test_migrate_add_contributors_count_works() {
+        TestState::default().build_and_execute(|| {
+            Crowdloans::<Test>::insert(
+                0,
+                CrowdloanInfo {
+                    creator: U256::from(1),
+                    deposit: 100,
+                    min_contribution: 10,
+                    cap: 1000,
+                    end: 100,
+                    call: None,
+                    finalized: false,
+                    raised: 0,
+                    funds_account: U256::from(2),
+                    target_address: None,
+                },
+            );
+
+            Contributions::<Test>::insert(0, U256::from(1), 100);
+            Contributions::<Test>::insert(0, U256::from(2), 100);
+            Contributions::<Test>::insert(0, U256::from(3), 100);
+
+            assert_eq!(ContributorsCount::<Test>::get(0), None);
+            assert_eq!(
+                HasMigrationRun::<Test>::get(BoundedVec::truncate_from(
+                    b"migrate_add_contributors_count".to_vec()
+                )),
+                false
+            );
+
+            migrate_add_contributors_count::<Test>();
+
+            assert_eq!(ContributorsCount::<Test>::get(0), Some(3));
+            assert_eq!(
+                HasMigrationRun::<Test>::get(BoundedVec::truncate_from(
+                    b"migrate_add_contributors_count".to_vec()
+                )),
+                true
+            );
+        });
+    }
+}
