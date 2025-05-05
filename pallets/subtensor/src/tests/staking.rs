@@ -6111,3 +6111,50 @@ fn test_unstake_all_aggregate_fails() {
         }));
     });
 }
+
+#[test]
+fn test_increase_stake_for_hotkey_and_coldkey_on_subnet_adds_to_staking_hotkeys_map() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let coldkey1 = U256::from(2);
+        let hotkey = U256::from(3);
+
+        let netuid = 1;
+        let stake_amount = 100_000_000_000;
+
+        // Check no entry in the staking hotkeys map
+        assert!(!StakingHotkeys::<Test>::contains_key(coldkey));
+        // insert manually
+        StakingHotkeys::<Test>::insert(coldkey, Vec::<U256>::new());
+        // check entry has no hotkey
+        assert!(!StakingHotkeys::<Test>::get(coldkey).contains(&hotkey));
+
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            stake_amount,
+        );
+
+        // Check entry exists in the staking hotkeys map
+        assert!(StakingHotkeys::<Test>::contains_key(coldkey));
+        // check entry has hotkey
+        assert!(StakingHotkeys::<Test>::get(coldkey).contains(&hotkey));
+
+        // Check no entry in the staking hotkeys map for coldkey1
+        assert!(!StakingHotkeys::<Test>::contains_key(coldkey1));
+
+        // Run increase stake for hotkey and coldkey1 on subnet
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey1,
+            netuid,
+            stake_amount,
+        );
+
+        // Check entry exists in the staking hotkeys map for coldkey1
+        assert!(StakingHotkeys::<Test>::contains_key(coldkey1));
+        // check entry has hotkey
+        assert!(StakingHotkeys::<Test>::get(coldkey1).contains(&hotkey));
+    });
+}
