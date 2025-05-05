@@ -139,7 +139,9 @@ mod hooks {
                     for (coldkey, swap_block_number) in
                         LastHotkeySwapOnNetuid::<T>::iter_prefix(slot as u16)
                     {
-                        if swap_block_number + hotkey_swap_on_subnet_interval < block_number {
+                        if swap_block_number.saturating_add(hotkey_swap_on_subnet_interval)
+                            < block_number
+                        {
                             LastHotkeySwapOnNetuid::<T>::remove(slot as u16, coldkey);
                         }
                     }

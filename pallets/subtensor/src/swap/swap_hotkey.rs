@@ -271,7 +271,7 @@ impl<T: Config> Pallet<T> {
         let last_hotkey_swap_block = LastHotkeySwapOnNetuid::<T>::get(netuid, coldkey);
 
         ensure!(
-            last_hotkey_swap_block + hotkey_swap_interval < block,
+            last_hotkey_swap_block.saturating_add(hotkey_swap_interval) < block,
             Error::<T>::HotKeySwapOnSubnetIntervalNotPassed
         );
         weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 0));
