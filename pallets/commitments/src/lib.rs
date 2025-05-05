@@ -292,7 +292,7 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Sudo-set the commitment rate limit
+        // /// Sudo-set the commitment rate limit
         // #[pallet::call_index(1)]
         // #[pallet::weight((
         //     Weight::from_parts(3_596_000, 0)
