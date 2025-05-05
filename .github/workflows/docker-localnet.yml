@@ -57,6 +57,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Patch non-fast-block node
+        run: |
+          sed -i 's|7 \* 24 \* 60 \* 60 / 12 // 7 days|5 // Only 5 blocks for tests|' runtime/src/lib.rs
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
