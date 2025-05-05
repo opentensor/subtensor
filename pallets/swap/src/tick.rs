@@ -15,7 +15,7 @@ use substrate_fixed::types::U64F64;
 use subtensor_macros::freeze_struct;
 
 use crate::pallet::{
-    AlphaSqrtPrice, Config, FeeGlobalAlpha, FeeGlobalTao, TickIndexBitmapWords, Ticks,
+    AlphaSqrtPrice, Config, CurrentTick, FeeGlobalAlpha, FeeGlobalTao, TickIndexBitmapWords, Ticks,
 };
 use crate::{NetUid, SqrtPrice};
 
@@ -248,8 +248,14 @@ impl TickIndex {
 
     /// Get the current tick index for a subnet, ensuring it's within valid bounds
     pub fn current_bounded<T: Config>(netuid: NetUid) -> Self {
-        let current_price = AlphaSqrtPrice::<T>::get(netuid);
-        Self::from_sqrt_price_bounded(current_price)
+        let current_tick = CurrentTick::<T>::get(netuid);
+        if current_tick > Self::MAX {
+            Self::MAX
+        } else if current_tick < Self::MIN {
+            Self::MIN
+        } else {
+            current_tick
+        }
     }
 
     /// Converts a sqrt price to a tick index, ensuring it's within valid bounds

@@ -7,7 +7,7 @@ use sp_arithmetic::helpers_128bit;
 use sp_runtime::traits::AccountIdConversion;
 use substrate_fixed::types::{U64F64, U96F32};
 use subtensor_swap_interface::{
-    LiquidityDataProvider, RemoveLiquidityResult, SwapHandler, SwapResult,
+    LiquidityDataProvider, UpdateLiquidityResult, SwapHandler, SwapResult,
 };
 
 use super::pallet::*;
@@ -214,17 +214,17 @@ impl<T: Config> SwapStep<T> {
 
     /// Process a single step of a swap
     fn process_swap(&self) -> Result<SwapStepResult, Error<T>> {
-        // amount_swapped = delta_in / (1 - self.fee_size)
+        // total_cost = delta_in / (1 - self.fee_size)
         let fee_rate = U64F64::saturating_from_num(FeeRate::<T>::get(self.netuid));
         let u16_max = U64F64::saturating_from_num(u16::MAX);
         let delta_fixed = U64F64::saturating_from_num(self.delta_in);
-        let amount_swapped =
+        let total_cost =
             delta_fixed.saturating_mul(u16_max.safe_div(u16_max.saturating_sub(fee_rate)));
 
         // Hold the fees
         let fee = Pallet::<T>::calculate_fee_amount(
             self.netuid,
-            amount_swapped.saturating_to_num::<u64>(),
+            total_cost.saturating_to_num::<u64>(),
         );
         Pallet::<T>::add_fees(self.netuid, self.order_type, fee);
         let delta_out = Pallet::<T>::convert_deltas(self.netuid, self.order_type, self.delta_in);
@@ -275,11 +275,15 @@ impl<T: Config> SwapStep<T> {
             SwapStepAction::StopIn => {}
         }
 
-        // Update current price, which effectively updates current tick too
+        // Update current price
         AlphaSqrtPrice::<T>::set(self.netuid, self.final_price);
 
+        // Update current tick
+        let new_current_tick = TickIndex::from_sqrt_price_bounded(self.final_price);
+        CurrentTick::<T>::set(self.netuid, new_current_tick);
+
         Ok(SwapStepResult {
-            amount_to_take: amount_swapped.saturating_to_num::<u64>(),
+            amount_to_take: total_cost.saturating_to_num::<u64>(),
             delta_in: self.delta_in,
             delta_out,
         })
@@ -325,10 +329,15 @@ impl<T: Config> Pallet<T> {
 
         let epsilon = U64F64::saturating_from_num(0.000001);
 
+        let current_sqrt_price = price.checked_sqrt(epsilon).unwrap_or(U64F64::from_num(0));
         AlphaSqrtPrice::<T>::set(
             netuid,
-            price.checked_sqrt(epsilon).unwrap_or(U64F64::from_num(0)),
+            current_sqrt_price,
         );
+
+        // Set current tick
+        let current_tick = TickIndex::from_sqrt_price_bounded(current_sqrt_price);
+        CurrentTick::<T>::set(netuid, current_tick);        
 
         // Set initial (protocol owned) liquidity and positions
         // Protocol liquidity makes one position from TickIndex::MIN to TickIndex::MAX
@@ -449,8 +458,8 @@ impl<T: Config> Pallet<T> {
         };
 
         let global_fee = match order_type {
-            OrderType::Sell => FeeGlobalTao::<T>::get(netuid),
-            OrderType::Buy => FeeGlobalAlpha::<T>::get(netuid),
+            OrderType::Sell => FeeGlobalAlpha::<T>::get(netuid),
+            OrderType::Buy => FeeGlobalTao::<T>::get(netuid),
         };
         let fee_paid = global_fee
             .saturating_mul(SqrtPrice::saturating_from_num(liquidity_before))
@@ -539,15 +548,15 @@ impl<T: Config> Pallet<T> {
 
         match order_type {
             OrderType::Sell => {
-                FeeGlobalTao::<T>::set(
-                    netuid,
-                    fee_global_tao.saturating_add(fee_fixed.safe_div(liquidity_curr)),
-                );
-            }
-            OrderType::Buy => {
                 FeeGlobalAlpha::<T>::set(
                     netuid,
                     fee_global_alpha.saturating_add(fee_fixed.safe_div(liquidity_curr)),
+                );
+            }
+            OrderType::Buy => {
+                FeeGlobalTao::<T>::set(
+                    netuid,
+                    fee_global_tao.saturating_add(fee_fixed.safe_div(liquidity_curr)),
                 );
             }
         }
@@ -828,7 +837,7 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         coldkey_account_id: &T::AccountId,
         position_id: PositionId,
-    ) -> Result<RemoveLiquidityResult, Error<T>> {
+    ) -> Result<UpdateLiquidityResult, Error<T>> {
         let Some(mut position) = Positions::<T>::get((netuid, coldkey_account_id, position_id))
         else {
             return Err(Error::<T>::LiquidityNotFound);
@@ -866,11 +875,7 @@ impl<T: Config> Pallet<T> {
             //     self.state_ops.set_alpha_reserve(new_alpha_reserve);
         }
 
-        // TODO: Clear with R&D
-        // Update current price (why?)
-        // AlphaSqrtPrice::<T>::set(netuid, sqrt_price);
-
-        Ok(RemoveLiquidityResult {
+        Ok(UpdateLiquidityResult {
             tao,
             alpha,
             fee_tao,
@@ -884,7 +889,7 @@ impl<T: Config> Pallet<T> {
         hotkey_account_id: &T::AccountId,
         position_id: PositionId,
         liquidity_delta: i64,
-    ) -> Result<RemoveLiquidityResult, Error<T>> {
+    ) -> Result<UpdateLiquidityResult, Error<T>> {
         // Find the position
         let Some(mut position) = Positions::<T>::get((netuid, coldkey_account_id, position_id))
         else {
@@ -979,7 +984,7 @@ impl<T: Config> Pallet<T> {
 
         // TODO: Withdraw balances and update pool reserves
 
-        Ok(RemoveLiquidityResult {
+        Ok(UpdateLiquidityResult {
             tao: tao.saturating_to_num::<u64>(),
             alpha: alpha.saturating_to_num::<u64>(),
             fee_tao,
@@ -1148,7 +1153,7 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
         netuid: u16,
         coldkey_account_id: &T::AccountId,
         position_id: u128,
-    ) -> Result<RemoveLiquidityResult, DispatchError> {
+    ) -> Result<UpdateLiquidityResult, DispatchError> {
         Self::remove_liquidity(netuid.into(), coldkey_account_id, position_id.into())
             .map_err(Into::into)
     }
@@ -1256,12 +1261,18 @@ mod tests {
 
             assert!(SwapV3Initialized::<Test>::get(netuid));
 
+            // Verify current price is set
             let sqrt_price = AlphaSqrtPrice::<Test>::get(netuid);
             let expected_sqrt_price = U64F64::from_num(tao)
                 .safe_div(U64F64::from_num(alpha))
                 .checked_sqrt(U64F64::from_num(0.000001))
                 .unwrap();
             assert_eq!(sqrt_price, expected_sqrt_price);
+
+            // Verify that current tick is set
+            let current_tick = CurrentTick::<Test>::get(netuid);            
+            let expected_current_tick = TickIndex::from_sqrt_price_bounded(expected_sqrt_price);
+            assert_eq!(current_tick, expected_current_tick);
 
             // Calculate expected liquidity
             let expected_liquidity =
@@ -1719,8 +1730,8 @@ mod tests {
 
                     // Global fees should be updated
                     let actual_global_fee = ((match order_type {
-                        OrderType::Buy => FeeGlobalAlpha::<Test>::get(netuid),
-                        OrderType::Sell => FeeGlobalTao::<Test>::get(netuid),
+                        OrderType::Buy => FeeGlobalTao::<Test>::get(netuid),
+                        OrderType::Sell => FeeGlobalAlpha::<Test>::get(netuid),
                     })
                     .to_num::<f64>()
                         * (liquidity_before as f64))
@@ -1760,6 +1771,11 @@ mod tests {
                         OrderType::Buy => assert!(current_price_after > current_price),
                         OrderType::Sell => assert!(current_price_after < current_price),
                     }
+
+                    // Assert that current tick is updated
+                    let current_tick = CurrentTick::<Test>::get(netuid);            
+                    let expected_current_tick = TickIndex::from_sqrt_price_bounded(sqrt_current_price_after);
+                    assert_eq!(current_tick, expected_current_tick);                    
                 },
             );
         });
@@ -1985,8 +2001,8 @@ mod tests {
 
                         // Global fees should be updated
                         let actual_global_fee = ((match order_type {
-                            OrderType::Buy => FeeGlobalAlpha::<Test>::get(netuid),
-                            OrderType::Sell => FeeGlobalTao::<Test>::get(netuid),
+                            OrderType::Buy => FeeGlobalTao::<Test>::get(netuid),
+                            OrderType::Sell => FeeGlobalAlpha::<Test>::get(netuid),
                         })
                         .to_num::<f64>()
                             * (liquidity_before as f64))

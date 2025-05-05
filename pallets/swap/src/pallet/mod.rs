@@ -91,6 +91,10 @@ mod pallet {
     #[pallet::storage]
     pub type AlphaSqrtPrice<T> = StorageMap<_, Twox64Concat, NetUid, U64F64, ValueQuery>;
 
+    /// Storage for the current price tick.
+    #[pallet::storage]
+    pub type CurrentTick<T> = StorageMap<_, Twox64Concat, NetUid, TickIndex, ValueQuery>;
+
     /// Storage for the current liquidity amount for each subnet.
     #[pallet::storage]
     pub type CurrentLiquidity<T> = StorageMap<_, Twox64Concat, NetUid, u64, ValueQuery>;

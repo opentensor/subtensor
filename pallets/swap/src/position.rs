@@ -94,14 +94,14 @@ impl Position {
     /// Collect fees for a position
     /// Updates the position
     pub fn collect_fees<T: Config>(&mut self) -> (u64, u64) {
-        let mut fee_tao = self.fees_in_range::<T>(true);
-        let mut fee_alpha = self.fees_in_range::<T>(false);
+        let fee_tao_agg = self.fees_in_range::<T>(true);
+        let fee_alpha_agg = self.fees_in_range::<T>(false);
 
-        fee_tao = fee_tao.saturating_sub(self.fees_tao);
-        fee_alpha = fee_alpha.saturating_sub(self.fees_alpha);
+        let mut fee_tao = fee_tao_agg.saturating_sub(self.fees_tao);
+        let mut fee_alpha = fee_alpha_agg.saturating_sub(self.fees_alpha);
 
-        self.fees_tao = fee_tao;
-        self.fees_alpha = fee_alpha;
+        self.fees_tao = fee_tao_agg;
+        self.fees_alpha = fee_alpha_agg;
 
         fee_tao = self.liquidity.saturating_mul(fee_tao);
         fee_alpha = self.liquidity.saturating_mul(fee_alpha);
