@@ -2,8 +2,9 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
-use subtensor_swap_interface::OrderType;
 use substrate_fixed::types::U64F64;
+use subtensor_macros::freeze_struct;
+use subtensor_swap_interface::OrderType;
 
 pub mod pallet;
 mod position;
@@ -20,14 +21,7 @@ pub(crate) mod mock;
 
 type SqrtPrice = U64F64;
 
-#[derive(Debug, PartialEq)]
-pub struct RemoveLiquidityResult {
-    tao: u64,
-    alpha: u64,
-    fee_tao: u64,
-    fee_alpha: u64,
-}
-
+#[freeze_struct("2a62496e31bbcddc")]
 #[derive(
     Clone, Copy, Decode, Default, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo,
 )]

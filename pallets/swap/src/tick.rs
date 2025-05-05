@@ -12,6 +12,7 @@ use safe_math::*;
 use sp_std::vec;
 use sp_std::vec::Vec;
 use substrate_fixed::types::U64F64;
+use subtensor_macros::freeze_struct;
 
 use crate::pallet::{
     AlphaSqrtPrice, Config, FeeGlobalAlpha, FeeGlobalTao, TickIndexBitmapWords, Ticks,
@@ -76,6 +77,7 @@ const TICK_HIGH: I256 = I256::from_raw(U256::from_limbs([
 ///  - Net liquidity
 ///  - Gross liquidity
 ///  - Fees (above global) in both currencies
+#[freeze_struct("a73c75ea32eb04ed")]
 #[derive(Debug, Default, Clone, Encode, Decode, TypeInfo, MaxEncodedLen, PartialEq, Eq)]
 pub struct Tick {
     pub liquidity_net: i128,
@@ -91,6 +93,7 @@ impl Tick {
 }
 
 /// Struct representing a tick index
+#[freeze_struct("cdd46795662dcc43")]
 #[derive(
     Debug,
     Default,
@@ -683,6 +686,7 @@ pub enum LayerLevel {
     Bottom = 2,
 }
 
+#[freeze_struct("183175773f3f92e0")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo, MaxEncodedLen)]
 struct BitmapLayer {
     word: u32,

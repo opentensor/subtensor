@@ -1,3 +1,5 @@
+use core::num::NonZeroU64;
+
 use frame_support::construct_runtime;
 use frame_support::{
     PalletId, parameter_types,
@@ -13,8 +15,8 @@ use subtensor_swap_interface::LiquidityDataProvider;
 
 construct_runtime!(
     pub enum Test {
-        System: frame_system,
-        Swap: crate::pallet,
+        System: frame_system = 0,
+        Swap: crate::pallet = 1,
     }
 );
 
@@ -65,6 +67,7 @@ parameter_types! {
     pub const MaxFeeRate: u16 = 10000; // 15.26%
     pub const MaxPositions: u32 = 100;
     pub const MinimumLiquidity: u64 = 1_000;
+    pub const MinimumReserves: NonZeroU64 = NonZeroU64::new(1).unwrap();
 }
 
 // Mock implementor of LiquidityDataProvider trait
@@ -74,14 +77,14 @@ impl LiquidityDataProvider<AccountId> for MockLiquidityProvider {
     fn tao_reserve(netuid: u16) -> u64 {
         match netuid {
             123 => 1_000,
-            _ => 1_000_000_000_000
+            _ => 1_000_000_000_000,
         }
     }
 
     fn alpha_reserve(netuid: u16) -> u64 {
         match netuid {
             123 => 1,
-            _ => 4_000_000_000_000
+            _ => 4_000_000_000_000,
         }
     }
 
@@ -94,7 +97,9 @@ impl LiquidityDataProvider<AccountId> for MockLiquidityProvider {
     }
 
     fn alpha_balance(_: u16, coldkey_account_id: &AccountId, hotkey_account_id: &AccountId) -> u64 {
-        if (*coldkey_account_id == OK_COLDKEY_ACCOUNT_ID) && (*hotkey_account_id == OK_HOTKEY_ACCOUNT_ID) {
+        if (*coldkey_account_id == OK_COLDKEY_ACCOUNT_ID)
+            && (*hotkey_account_id == OK_HOTKEY_ACCOUNT_ID)
+        {
             100_000_000_000_000
         } else {
             1_000_000_000
@@ -110,6 +115,7 @@ impl crate::pallet::Config for Test {
     type MaxFeeRate = MaxFeeRate;
     type MaxPositions = MaxPositions;
     type MinimumLiquidity = MinimumLiquidity;
+    type MinimumReserve = MinimumReserves;
     type WeightInfo = ();
 }
 

@@ -1,3 +1,5 @@
+use core::num::NonZeroU64;
+
 use frame_support::{PalletId, pallet_prelude::*, traits::Get};
 use frame_system::pallet_prelude::*;
 use substrate_fixed::types::U64F64;
@@ -24,10 +26,7 @@ mod pallet {
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
-    pub trait Config:
-        frame_system::Config
-        + pallet_subtensor::pallet::Config
-    {
+    pub trait Config: frame_system::Config {
         /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -53,6 +52,10 @@ mod pallet {
         /// Minimum liquidity that is safe for rounding and integer math.
         #[pallet::constant]
         type MinimumLiquidity: Get<u64>;
+
+        /// Minimum reserve for tao and alpha
+        #[pallet::constant]
+        type MinimumReserve: Get<NonZeroU64>;
 
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
@@ -128,28 +131,6 @@ mod pallet {
     pub enum Event<T: Config> {
         /// Event emitted when the fee rate has been updated for a subnet
         FeeRateSet { netuid: NetUid, rate: u16 },
-
-        /// Event emitted when liquidity is added
-        LiquidityAdded {
-            coldkey: T::AccountId,
-            hotkey: T::AccountId,
-            netuid: NetUid,
-            position_id: PositionId,
-            liquidity: u64,
-            tao: u64,
-            alpha: u64,
-        },
-
-        /// Event emitted when liquidity is removed
-        LiquidityRemoved {
-            coldkey: T::AccountId,
-            netuid: NetUid,
-            position_id: PositionId,
-            tao: u64,
-            alpha: u64,
-            fee_tao: u64,
-            fee_alpha: u64,
-        },
     }
 
     #[pallet::error]
@@ -185,11 +166,8 @@ mod pallet {
         /// Provided liquidity parameter is invalid (likely too small)
         InvalidLiquidityValue,
 
-        /// Subnet does not exist
-        SubnetDoesNotExist,
-
-        /// Hotkey account does not exist
-        HotKeyAccountDoesNotExist
+		/// Reserves too low for operation.
+		ReservesTooLow,
     }
 
     #[pallet::call]
@@ -211,124 +189,6 @@ mod pallet {
             FeeRate::<T>::insert(netuid, rate);
 
             Self::deposit_event(Event::FeeRateSet { netuid, rate });
-
-            Ok(())
-        }
-
-        /// Add liquidity to a specific price range for a subnet.
-        ///
-        /// Parameters:
-        /// - origin: The origin of the transaction
-        /// - netuid: Subnet ID
-        /// - tick_low: Lower bound of the price range
-        /// - tick_high: Upper bound of the price range
-        /// - liquidity: Amount of liquidity to add
-        ///
-        /// Emits `Event::LiquidityAdded` on success
-        #[pallet::call_index(1)]
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::add_liquidity())]
-        pub fn add_liquidity(
-            origin: OriginFor<T>,
-            hotkey: T::AccountId,
-            netuid: u16,
-            tick_low: i32,
-            tick_high: i32,
-            liquidity: u64,
-        ) -> DispatchResult {
-            let coldkey = ensure_signed(origin)?;
-
-            // Ensure that the subnet exists.
-            ensure!(pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid), Error::<T>::SubnetDoesNotExist);
-
-            let netuid = netuid.into();
-            let tick_low_index =
-                TickIndex::new(tick_low).map_err(|_| Error::<T>::InvalidTickRange)?;
-            let tick_high_index =
-                TickIndex::new(tick_high).map_err(|_| Error::<T>::InvalidTickRange)?;
-
-            let (position_id, tao, alpha) = Self::do_add_liquidity(
-                netuid,
-                &coldkey,
-                &hotkey,
-                tick_low_index,
-                tick_high_index,
-                liquidity,
-            )?;
-
-            // Remove TAO and Alpha balances or fail transaction if they can't be removed exactly
-            let tao_provided =
-                pallet_subtensor::Pallet::<T>::remove_balance_from_coldkey_account(&coldkey, tao)?;
-            ensure!(
-                tao_provided == tao,
-                Error::<T>::InsufficientBalance
-            );
-
-            let alpha_provided = pallet_subtensor::Pallet::<T>::decrease_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid.into(), alpha);
-            ensure!(
-                alpha_provided == alpha,
-                Error::<T>::InsufficientBalance
-            );
-
-            // Emit an event
-            Self::deposit_event(Event::LiquidityAdded {
-                coldkey,
-                hotkey,
-                netuid,
-                position_id,
-                liquidity,
-                tao,
-                alpha,
-            });
-
-            Ok(())
-        }
-
-        /// Remove liquidity from a specific position.
-        ///
-        /// Parameters:
-        /// - origin: The origin of the transaction
-        /// - netuid: Subnet ID
-        /// - position_id: ID of the position to remove
-        ///
-        /// Emits `Event::LiquidityRemoved` on success
-        #[pallet::call_index(2)]
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::remove_liquidity())]
-        pub fn remove_liquidity(
-            origin: OriginFor<T>,
-            hotkey: T::AccountId,
-            netuid: u16,
-            position_id: u128,
-        ) -> DispatchResult {
-            let coldkey = ensure_signed(origin)?;
-            let netuid = netuid.into();
-            let position_id = PositionId::from(position_id);
-
-            // Ensure that the subnet exists.
-            ensure!(pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid), Error::<T>::SubnetDoesNotExist);
-
-            // Ensure the hotkey account exists
-            ensure!(
-                pallet_subtensor::Pallet::<T>::hotkey_account_exists(&hotkey),
-                Error::<T>::HotKeyAccountDoesNotExist
-            );
-
-            // Remove liquidity
-            let result = Self::do_remove_liquidity(netuid.into(), &coldkey, position_id)?;
-
-            // Credit the returned tao and alpha to the account
-            pallet_subtensor::Pallet::<T>::add_balance_to_coldkey_account(&coldkey, result.tao.saturating_add(result.fee_tao));
-            pallet_subtensor::Pallet::<T>::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid, result.alpha.saturating_add(result.fee_alpha));
-
-            // Emit an event
-            Self::deposit_event(Event::LiquidityRemoved {
-                coldkey,
-                netuid: netuid.into(),
-                position_id,
-                tao: result.tao,
-                alpha: result.alpha,
-                fee_tao: result.fee_tao,
-                fee_alpha: result.fee_alpha,
-            });
 
             Ok(())
         }

@@ -1,8 +1,10 @@
-use super::mock::*;
-use crate::*;
 use frame_support::{assert_noop, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
+
+use super::mock;
+use super::mock::*;
+use crate::*;
 
 /***************************
   pub fn do_start_call() tests
@@ -20,6 +22,7 @@ fn test_do_start_call_ok() {
         SubtensorModule::set_burn(netuid, burn_cost);
         add_network_without_emission_block(netuid, tempo, 0);
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
+        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000);
 
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -75,6 +78,7 @@ fn test_do_start_call_fail_not_owner() {
         //add network
         SubtensorModule::set_burn(netuid, burn_cost);
         add_network_without_emission_block(netuid, tempo, 0);
+        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000);
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
 
@@ -110,6 +114,7 @@ fn test_do_start_call_fail_with_cannot_start_call_now() {
         //add network
         SubtensorModule::set_burn(netuid, burn_cost);
         add_network_without_emission_block(netuid, tempo, 0);
+        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000);
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
 
@@ -144,6 +149,8 @@ fn test_do_start_call_fail_for_set_again() {
         SubtensorModule::set_burn(netuid, burn_cost);
         add_network_without_emission_block(netuid, tempo, 0);
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
+
+        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000);
 
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -187,6 +194,7 @@ fn test_do_start_call_ok_with_same_block_number_after_coinbase() {
         SubtensorModule::set_burn(netuid, burn_cost);
         add_network_without_emission_block(netuid, tempo, 0);
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
+        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000);
 
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);

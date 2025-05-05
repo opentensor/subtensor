@@ -1,7 +1,7 @@
 use super::*;
 use safe_math::*;
 use substrate_fixed::types::U96F32;
-use subtensor_swap_interface::SwapHandler;
+use subtensor_swap_interface::{OrderType, SwapHandler};
 
 use frame_support::traits::{
     Imbalance,
@@ -42,17 +42,21 @@ impl<T: Config> Pallet<T> {
         TotalStake::<T>::put(Self::get_total_stake().saturating_sub(decrement));
     }
 
-    // Returns the total amount of stake under a hotkey (delegative or otherwise)
-    //
+    /// Returns the total amount of stake (in TAO) under a hotkey (delegative or otherwise)
     pub fn get_total_stake_for_hotkey(hotkey: &T::AccountId) -> u64 {
         Self::get_all_subnet_netuids()
-            .iter()
+            .into_iter()
             .map(|netuid| {
-                let alpha: U96F32 = U96F32::saturating_from_num(
-                    Self::get_stake_for_hotkey_on_subnet(hotkey, *netuid),
-                );
-                let tao_price: U96F32 = Self::get_alpha_price(*netuid);
-                alpha.saturating_mul(tao_price).saturating_to_num::<u64>()
+                let alpha = Self::get_stake_for_hotkey_on_subnet(hotkey, netuid);
+                T::SwapInterface::swap(
+                    netuid,
+                    OrderType::Sell,
+                    alpha,
+                    T::SwapInterface::max_price(),
+                    true,
+                )
+                .map(|r| r.amount_paid_out.saturating_add(r.fee_paid))
+                .unwrap_or_default()
             })
             .sum()
     }
@@ -64,18 +68,22 @@ impl<T: Config> Pallet<T> {
         hotkeys
             .iter()
             .map(|hotkey| {
-                let mut total_stake: u64 = 0;
-                for (netuid, _) in Alpha::<T>::iter_prefix((hotkey, coldkey)) {
-                    let alpha_stake =
-                        Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
-                    let tao_price: U96F32 = Self::get_alpha_price(netuid);
-                    total_stake = total_stake.saturating_add(
-                        U96F32::saturating_from_num(alpha_stake)
-                            .saturating_mul(tao_price)
-                            .saturating_to_num::<u64>(),
-                    );
-                }
-                total_stake
+                Alpha::<T>::iter_prefix((hotkey, coldkey))
+                    .map(|(netuid, _)| {
+                        let alpha_stake = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
+                            hotkey, coldkey, netuid,
+                        );
+                        T::SwapInterface::swap(
+                            netuid,
+                            OrderType::Sell,
+                            alpha_stake,
+                            T::SwapInterface::max_price(),
+                            true,
+                        )
+                        .map(|r| r.amount_paid_out.saturating_add(r.fee_paid))
+                        .unwrap_or_default()
+                    })
+                    .sum::<u64>()
             })
             .sum::<u64>()
     }
@@ -204,7 +212,7 @@ impl<T: Config> Pallet<T> {
             Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid)?;
         }
 
-		Ok(())
+        Ok(())
     }
 
     pub fn add_balance_to_coldkey_account(

@@ -753,12 +753,6 @@ pub mod pallet {
     }
 
     #[pallet::type_value]
-    /// Default staking fee.
-    pub fn DefaultStakingFee<T: Config>() -> u64 {
-        50_000
-    }
-
-    #[pallet::type_value]
     /// Default unicode vector for tau symbol.
     pub fn DefaultUnicodeVecU8<T: Config>() -> Vec<u8> {
         b"\xF0\x9D\x9C\x8F".to_vec() // Unicode for tau (𝜏)
@@ -786,12 +780,6 @@ pub mod pallet {
     /// Default value for Share Pool variables
     pub fn DefaultSharePoolZero<T: Config>() -> U64F64 {
         U64F64::saturating_from_num(0)
-    }
-
-    #[pallet::type_value]
-    /// Default value for minimum liquidity in pool
-    pub fn DefaultMinimumPoolLiquidity<T: Config>() -> I96F32 {
-        I96F32::saturating_from_num(10_000_000)
     }
 
     #[pallet::type_value]

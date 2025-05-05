@@ -2,8 +2,8 @@ use super::*;
 use safe_math::*;
 use share_pool::{SharePool, SharePoolDataOperations};
 use sp_std::ops::Neg;
-use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32, U110F18};
-use subtensor_swap_interface::{OrderType, SwapHandler, SwapResult};
+use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
+use subtensor_swap_interface::{LiquidityDataProvider, OrderType, SwapHandler, SwapResult};
 
 impl<T: Config> Pallet<T> {
     /// Retrieves the total alpha issuance for a given subnet.
@@ -20,32 +20,6 @@ impl<T: Config> Pallet<T> {
         SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaOut::<T>::get(netuid))
     }
 
-    /// Calculates the price of alpha for a given subnet.
-    ///
-    /// This function determines the price of alpha by dividing the total TAO
-    /// reserves by the total alpha reserves (`SubnetAlphaIn`) for the specified subnet.
-    /// If the alpha reserves are zero, the function returns zero to avoid division by zero.
-    ///
-    /// # Arguments
-    /// * `netuid` - The unique identifier of the subnet.
-    ///
-    /// # Returns
-    /// * `I96F32` - The price of alpha for the specified subnet.
-    pub fn get_alpha_price(netuid: u16) -> U96F32 {
-        if netuid == Self::get_root_netuid() {
-            return U96F32::saturating_from_num(1.0); // Root.
-        }
-        if SubnetMechanism::<T>::get(netuid) == 0 {
-            return U96F32::saturating_from_num(1.0); // Stable
-        }
-        if SubnetAlphaIn::<T>::get(netuid) == 0 {
-            U96F32::saturating_from_num(0)
-        } else {
-            U96F32::saturating_from_num(SubnetTAO::<T>::get(netuid))
-                .checked_div(U96F32::saturating_from_num(SubnetAlphaIn::<T>::get(netuid)))
-                .unwrap_or(U96F32::saturating_from_num(0))
-        }
-    }
     pub fn get_moving_alpha_price(netuid: u16) -> U96F32 {
         let one = U96F32::saturating_from_num(1.0);
         if netuid == Self::get_root_netuid() {
@@ -58,6 +32,7 @@ impl<T: Config> Pallet<T> {
             U96F32::saturating_from_num(SubnetMovingPrice::<T>::get(netuid))
         }
     }
+
     pub fn update_moving_price(netuid: u16) {
         let blocks_since_start_call = U96F32::saturating_from_num({
             // We expect FirstEmissionBlockNumber to be set earlier, and we take the block when
@@ -81,8 +56,9 @@ impl<T: Config> Pallet<T> {
         // Because alpha = b / (b + h), where b and h > 0, alpha < 1, so 1 - alpha > 0.
         // We can use unsigned type here: U96F32
         let one_minus_alpha: U96F32 = U96F32::saturating_from_num(1.0).saturating_sub(alpha);
-        let current_price: U96F32 = alpha
-            .saturating_mul(Self::get_alpha_price(netuid).min(U96F32::saturating_from_num(1.0)));
+        let current_price: U96F32 = alpha.saturating_mul(
+            T::SwapInterface::current_alpha_price(netuid).min(U96F32::saturating_from_num(1.0)),
+        );
         let current_moving: U96F32 =
             one_minus_alpha.saturating_mul(Self::get_moving_alpha_price(netuid));
         // Convert batch to signed I96F32 to avoid migration of SubnetMovingPrice for now``
@@ -642,9 +618,7 @@ impl<T: Config> Pallet<T> {
         SubnetTAO::<T>::set(netuid, swap_result.new_tao_reserve);
 
         // Increase Total Tao reserves.
-        TotalStake::<T>::mutate(|total| {
-            *total = total.saturating_add(tao);
-        });
+        TotalStake::<T>::mutate(|total| *total = total.saturating_add(tao));
 
         // Increase total subnet TAO volume.
         SubnetVolume::<T>::mutate(netuid, |total| {
@@ -678,13 +652,11 @@ impl<T: Config> Pallet<T> {
         SubnetTAO::<T>::set(netuid, swap_result.new_tao_reserve);
 
         // Reduce total TAO reserves.
-        TotalStake::<T>::mutate(|total| {
-            *total = total.saturating_sub(swap_result.amount_paid_out);
-        });
+        TotalStake::<T>::mutate(|total| *total = total.saturating_sub(swap_result.amount_paid_out));
 
         // Increase total subnet TAO volume.
         SubnetVolume::<T>::mutate(netuid, |total| {
-            *total = total.saturating_add(swap_result.amount_paid_out.into());
+            *total = total.saturating_add(swap_result.amount_paid_out.into())
         });
 
         // Return the tao received.
@@ -828,7 +800,11 @@ impl<T: Config> Pallet<T> {
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
         // Get the minimum balance (and amount) that satisfies the transaction
-        let min_amount = DefaultMinStake::<T>::get().saturating_add(DefaultStakingFee::<T>::get());
+        let min_amount = {
+            let default_stake = DefaultMinStake::<T>::get();
+            let fee = T::SwapInterface::approx_fee_amount(netuid, default_stake);
+            default_stake.saturating_add(fee)
+        };
 
         // Ensure that the stake_to_be_added is at least the min_amount
         ensure!(stake_to_be_added >= min_amount, Error::<T>::AmountTooLow);
@@ -851,6 +827,28 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyAccountNotExists
         );
 
+        let expected_alpha = T::SwapInterface::swap(
+            netuid,
+            OrderType::Buy,
+            stake_to_be_added,
+            T::SwapInterface::max_price(),
+            true,
+        )
+        .map_err(|_| Error::<T>::InsufficientLiquidity)?;
+
+        ensure!(
+            expected_alpha.amount_paid_out > 0,
+            Error::<T>::InsufficientLiquidity
+        );
+
+        // Ensure hotkey pool is precise enough
+        let try_stake_result = Self::try_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            hotkey,
+            netuid,
+            expected_alpha.amount_paid_out,
+        );
+        ensure!(try_stake_result, Error::<T>::InsufficientLiquidity);
+
         Ok(())
     }
 
@@ -866,6 +864,21 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), Error<T>> {
         // Ensure that the subnet exists.
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+
+        // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
+        match T::SwapInterface::swap(
+            netuid,
+            OrderType::Sell,
+            alpha_unstaked,
+            T::SwapInterface::max_price(),
+            true,
+        ) {
+            Ok(res) => ensure!(
+                res.amount_paid_out > DefaultMinStake::<T>::get(),
+                Error::<T>::AmountTooLow
+            ),
+            Err(_) => return Err(Error::<T>::InsufficientLiquidity),
+        }
 
         // Ensure that if partial execution is not allowed, the amount will not cause
         // slippage over desired

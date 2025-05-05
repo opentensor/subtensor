@@ -202,7 +202,7 @@ impl<T: Config> Pallet<T> {
         let tao = 1_000_000_000_u128;
         let limit_price_u128 = limit_price as u128;
         if (limit_price_u128
-            < Self::get_alpha_price(netuid)
+            < T::SwapInterface::current_alpha_price(netuid)
                 .saturating_to_num::<u128>()
                 .saturating_mul(tao))
             || (limit_price == 0u64)

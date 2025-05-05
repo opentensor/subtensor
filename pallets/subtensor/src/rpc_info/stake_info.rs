@@ -2,7 +2,6 @@ extern crate alloc;
 
 use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
-use substrate_fixed::types::U96F32;
 use subtensor_swap_interface::SwapHandler;
 
 use super::*;
@@ -124,7 +123,7 @@ impl<T: Config> Pallet<T> {
         _destination_coldkey_account: T::AccountId,
         amount: u64,
     ) -> u64 {
-        let netuid = origin.or(destination).map(|v| v.1).unwrap_or_default();
+        let netuid = destination.or(origin).map(|v| v.1).unwrap_or_default();
         T::SwapInterface::approx_fee_amount(netuid, amount)
     }
 }

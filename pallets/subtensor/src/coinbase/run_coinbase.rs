@@ -70,7 +70,7 @@ impl<T: Config> Pallet<T> {
         // Only calculate for subnets that we are emitting to.
         for netuid_i in subnets_to_emit_to.iter() {
             // Get subnet price.
-            let price_i: U96F32 = Self::get_alpha_price(*netuid_i);
+            let price_i = T::SwapInterface::current_alpha_price(*netuid_i);
             log::debug!("price_i: {:?}", price_i);
             // Get subnet TAO.
             let moving_price_i: U96F32 = Self::get_moving_alpha_price(*netuid_i);
@@ -267,7 +267,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-		Ok(())
+        Ok(())
     }
 
     pub fn calculate_dividends_and_incentives(

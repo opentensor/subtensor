@@ -1,5 +1,7 @@
 #![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
-use crate::utils::rate_limiting::TransactionType;
+
+use core::num::NonZeroU64;
+
 use frame_support::PalletId;
 use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
@@ -20,8 +22,9 @@ use sp_runtime::{
 };
 use sp_std::cmp::Ordering;
 use substrate_fixed::types::U64F64;
-use subtensor_swap_interface::LiquidityDataProvider;
+use subtensor_swap_interface::{LiquidityDataProvider, OrderType, SwapHandler};
 
+use crate::utils::rate_limiting::TransactionType;
 use crate::*;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -417,30 +420,13 @@ impl crate::Config for Test {
     type SwapInterface = Swap;
 }
 
-impl LiquidityDataProvider<AccountId> for SubtensorModule {
-    fn tao_reserve(netuid: u16) -> u64 {
-        SubnetTAO::<Test>::get(netuid)
-    }
-
-    fn alpha_reserve(netuid: u16) -> u64 {
-        SubnetAlphaIn::<Test>::get(netuid)
-    }
-
-    fn tao_balance(account_id: &AccountId) -> u64 {
-        Balances::free_balance(account_id)
-    }
-
-    fn alpha_balance(netuid: u16, coldkey: &AccountId, hotkey: &AccountId) -> u64 {
-        SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid)
-    }
-}
-
 // Swap-related parameter types
 parameter_types! {
     pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
     pub const SwapMaxFeeRate: u16 = 10000; // 15.26%
     pub const SwapMaxPositions: u32 = 100;
     pub const SwapMinimumLiquidity: u64 = 1_000;
+    pub const SwapMinimumReserve: NonZeroU64 = NonZeroU64::new(100).unwrap();
 }
 
 impl pallet_subtensor_swap::Config for Test {
@@ -451,6 +437,7 @@ impl pallet_subtensor_swap::Config for Test {
     type MaxFeeRate = SwapMaxFeeRate;
     type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
+    type MinimumReserve = SwapMinimumReserve;
     type WeightInfo = ();
 }
 
@@ -846,8 +833,14 @@ pub fn increase_stake_on_coldkey_hotkey_account(
     tao_staked: u64,
     netuid: u16,
 ) {
-    let fee = 0;
-    SubtensorModule::stake_into_subnet(hotkey, coldkey, netuid, tao_staked, fee);
+    SubtensorModule::stake_into_subnet(
+        hotkey,
+        coldkey,
+        netuid,
+        tao_staked,
+        <Test as Config>::SwapInterface::max_price(),
+    )
+    .unwrap();
 }
 
 /// Increases the stake on the hotkey account under its owning coldkey.
@@ -864,3 +857,47 @@ pub fn increase_stake_on_hotkey_account(hotkey: &U256, increment: u64, netuid: u
         netuid,
     );
 }
+
+pub(crate) fn setup_reserves(netuid: u16, tao: u64, alpha: u64) {
+    SubnetTAO::<Test>::set(netuid, tao);
+    SubnetAlphaIn::<Test>::set(netuid, alpha);
+}
+
+pub(crate) fn swap_tao_to_alpha(netuid: u16, tao: u64) -> (u64, u64) {
+    let result = <Test as pallet::Config>::SwapInterface::swap(
+        netuid,
+        OrderType::Buy,
+        tao,
+        <Test as pallet::Config>::SwapInterface::max_price(),
+        true,
+    );
+
+    assert_ok!(&result);
+
+    let result = result.unwrap();
+
+    // we don't want to have silent 0 comparissons in tests
+    assert!(result.amount_paid_out > 0);
+
+    (result.amount_paid_out, result.fee_paid)
+}
+
+pub(crate) fn swap_alpha_to_tao(netuid: u16, alpha: u64) -> (u64, u64) {
+    let result = <Test as pallet::Config>::SwapInterface::swap(
+        netuid,
+        OrderType::Sell,
+        alpha,
+        <Test as pallet::Config>::SwapInterface::max_price(),
+        true,
+    );
+
+    assert_ok!(&result);
+
+    let result = result.unwrap();
+
+    // we don't want to have silent 0 comparissons in tests
+    assert!(result.amount_paid_out > 0);
+
+    (result.amount_paid_out, result.fee_paid)
+}
+

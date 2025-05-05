@@ -1,7 +1,9 @@
 #![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 
+use core::num::NonZeroU64;
+
 use frame_support::{
-    assert_ok, derive_impl, parameter_types,
+    PalletId, assert_ok, derive_impl, parameter_types,
     traits::{Everything, Hooks, PrivilegeCmp},
     weights,
 };
@@ -267,6 +269,7 @@ parameter_types! {
     pub const SwapMaxFeeRate: u16 = 10000; // 15.26%
     pub const SwapMaxPositions: u32 = 100;
     pub const SwapMinimumLiquidity: u64 = 1_000;
+    pub const SwapMinimumReserve: NonZeroU64 = NonZeroU64::new(1_000_000).unwrap();
 }
 
 impl pallet_subtensor_swap::Config for Test {
@@ -277,6 +280,7 @@ impl pallet_subtensor_swap::Config for Test {
     type MaxFeeRate = SwapMaxFeeRate;
     type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
+    type MinimumReserve = SwapMinimumReserve;
     type WeightInfo = ();
 }
 

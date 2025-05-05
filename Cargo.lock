@@ -6380,6 +6380,7 @@ dependencies = [
  "pallet-grandpa",
  "pallet-scheduler",
  "pallet-subtensor",
+ "pallet-subtensor-swap",
  "parity-scale-codec",
  "scale-info",
  "sp-consensus-aura",
@@ -6888,7 +6889,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "pallet-subtensor",
  "parity-scale-codec",
  "safe-math",
  "scale-info",
@@ -6899,6 +6899,7 @@ dependencies = [
  "sp-runtime",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409)",
  "substrate-fixed",
+ "subtensor-macros",
  "subtensor-swap-interface",
 ]
 
@@ -11623,6 +11624,7 @@ dependencies = [
  "frame-support",
  "parity-scale-codec",
  "scale-info",
+ "substrate-fixed",
 ]
 
 [[package]]
