@@ -26,3 +26,16 @@ jobs:
               repo: context.repo.repo,
               body: '@opentensor/cerebrum / @opentensor/gyrus / @opentensor/cortex breaking change detected! Please prepare accordingly!'
             })
+
+  dispatch_benchmarks:
+    needs: comment_on_breaking_change
+    runs-on: ubuntu-latest
+    if: >
+      github.event.action == 'unlabeled' &&
+      github.event.label.name == 'skip-validate-benchmarks'
+    steps:
+      - name: Re-trigger Validate-Benchmarks
+        uses: peter-evans/workflow-dispatch@v2
+        with:
+          workflow: benchmarks.yml
+          ref: ${{ github.event.pull_request.head.sha }}
