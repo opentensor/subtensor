@@ -100,7 +100,6 @@ impl pallet_commitments::Config for Test {
     type CanCommit = TestCanCommit;
     type FieldDeposit = ConstU64<0>;
     type InitialDeposit = ConstU64<0>;
-    type DefaultRateLimit = ConstU64<0>;
     type TempoInterface = MockTempoInterface;
 }
 
@@ -118,7 +117,6 @@ impl pallet_commitments::GetTempoInterface for MockTempoInterface {
 
 impl pallet_drand::Config for Test {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = pallet_drand::weights::SubstrateWeight<Test>;
     type AuthorityId = test_crypto::TestAuthId;
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;
