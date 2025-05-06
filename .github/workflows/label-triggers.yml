@@ -10,7 +10,6 @@ on:
 permissions:
   issues: write
   pull-requests: write
-  actions: write
 
 jobs:
   comment_on_breaking_change:
@@ -32,31 +31,10 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.action == 'labeled' && github.event.label.name == 'skip-validate-benchmarks' }}
     steps:
-      - name: Log that benchmarks will be skipped
+      - name: Mark Benchmarks as Skipped
         run: |
-          echo "The 'skip-validate-benchmarks' label was added. Benchmarks will be skipped."
-
-      - name: Cancel any running 'run-benchmarks.yml' workflow
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const runs = await github.rest.actions.listWorkflowRuns({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'run-benchmarks.yml',
-              status: 'in_progress'
-            });
-
-            for (const run of runs.data.workflow_runs) {
-              if (run.head_branch === context.payload.pull_request.head.ref) {
-                console.log(`Cancelling run ${run.id} on branch ${run.head_branch}`);
-                await github.rest.actions.cancelWorkflowRun({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  run_id: run.id
-                });
-              }
-            }
+          echo "The 'skip-validate-benchmarks' label was added. We will skip running benchmarks."
+          exit 78
 
   skip_benchmark_label_removed:
     runs-on: ubuntu-latest
