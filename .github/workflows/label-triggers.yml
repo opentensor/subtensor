@@ -29,20 +29,37 @@ jobs:
               body: '@opentensor/cerebrum / @opentensor/gyrus / @opentensor/cortex breaking change detected! Please prepare accordingly!'
             })
 
-  re_dispatch_benchmarks:
-    runs-on: ubuntu-latest
-    if: >
-      github.event.label.name == 'skip-validate-benchmarks' ||
-      github.event.label.name == 'skip-validate-benchmarks' && github.event.action == 'labeled' ||
-      github.event.label.name == 'skip-validate-benchmarks' && github.event.action == 'unlabeled'
-    steps:
-      - name: Re-dispatch Validate-Benchmarks
-        uses: actions/github-script@v6
-        with:
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'run-benchmarks.yml',
-              ref: context.payload.pull_request.head.ref
-            })
+  dispatch_benchmarks:
+      runs-on: ubuntu-latest
+
+      steps:
+        - name: Determine skip flag
+          id: skip-check
+          uses: actions/github-script@v6
+          with:
+            script: |
+              const pr = context.payload.pull_request.number;
+              const labels = (await github.rest.issues.listLabelsOnIssue({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr
+              })).data.map(l => l.name);
+              const skip = labels.includes('skip-validate-benchmarks') ? 'true' : 'false';
+              core.setOutput('skip', skip);
+
+        - name: Dispatch Validate-Benchmarks
+          uses: actions/github-script@v6
+          with:
+            script: |
+              const pr = context.payload.pull_request.number;
+              const skip = '${{ steps.skip-check.outputs.skip }}';
+              await github.rest.actions.createWorkflowDispatch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'run-benchmarks.yml',
+                ref: context.payload.pull_request.head.ref,
+                inputs: {
+                  pr_number: pr.toString(),
+                  skip
+                }
+              });
