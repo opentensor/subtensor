@@ -1012,10 +1012,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), Error<T>> {
         // Ensure stake transition is actually happening
         if origin_coldkey == destination_coldkey && origin_hotkey == destination_hotkey {
-            ensure!(
-                origin_netuid != destination_netuid,
-                Error::<T>::SameSubnetId
-            );
+            ensure!(origin_netuid != destination_netuid, Error::<T>::SameNetuid);
         }
 
         // Ensure that both subnets exist.
