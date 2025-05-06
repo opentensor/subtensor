@@ -10,12 +10,12 @@ on:
       - unlabeled
   workflow_dispatch:
 
-concurrency:
-  group: run-benchmarks-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   validate-benchmarks:
+    concurrency:
+      group: run-benchmarks-${{ github.ref }}
+      cancel-in-progress: true
+
     if: >
       (
         github.event.action == 'opened' ||
