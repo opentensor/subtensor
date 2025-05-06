@@ -168,11 +168,6 @@ pub mod pallet {
         OptionQuery,
     >;
 
-    /// A map of crowdloan ids to their contributors count.
-    #[pallet::storage]
-    pub type ContributorsCount<T: Config> =
-        StorageMap<_, Twox64Concat, CrowdloanId, u32, OptionQuery>;
-
     /// The current crowdloan id that will be set during the finalize call, making it
     /// temporarily accessible to the dispatched call.
     #[pallet::storage]
@@ -391,7 +386,6 @@ pub mod pallet {
             )?;
 
             Contributions::<T>::insert(crowdloan_id, &creator, deposit);
-            ContributorsCount::<T>::insert(crowdloan_id, 1);
 
             Self::deposit_event(Event::<T>::Created {
                 crowdloan_id,
@@ -437,10 +431,8 @@ pub mod pallet {
             );
 
             // Ensure the crowdloan has not reached the maximum number of contributors
-            let contributors_count =
-                ContributorsCount::<T>::get(crowdloan_id).ok_or(Error::<T>::InvalidCrowdloanId)?;
             ensure!(
-                contributors_count < T::MaxContributors::get(),
+                crowdloan.contributors_count < T::MaxContributors::get(),
                 Error::<T>::MaxContributorsReached
             );
 
@@ -470,7 +462,7 @@ pub mod pallet {
                         .ok_or(Error::<T>::Overflow)?
                 } else {
                     // We have a new contribution
-                    Self::increment_contributor_count(crowdloan_id);
+                    crowdloan.contributors_count += 1;
                     amount
                 };
 
@@ -529,7 +521,7 @@ pub mod pallet {
                 Contributions::<T>::insert(crowdloan_id, &who, crowdloan.deposit);
             } else {
                 Contributions::<T>::remove(crowdloan_id, &who);
-                Self::decrement_contributor_count(crowdloan_id);
+                crowdloan.contributors_count -= 1;
             }
 
             CurrencyOf::<T>::transfer(
@@ -679,16 +671,12 @@ pub mod pallet {
                 refund_count = refund_count.checked_add(1).ok_or(Error::<T>::Overflow)?;
             }
 
-            crowdloan.contributors_count = crowdloan
-                .contributors_count
-                .checked_sub(refund_count)
-                .ok_or(Error::<T>::Underflow)?;
+            crowdloan.contributors_count -= refund_count;
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
 
             // Clear refunded contributors
             for contributor in refunded_contributors {
                 Contributions::<T>::remove(crowdloan_id, &contributor);
-                Self::decrement_contributor_count(crowdloan_id);
             }
 
             if all_refunded {
@@ -751,7 +739,6 @@ pub mod pallet {
             // Remove the crowdloan
             let _ = frame_system::Pallet::<T>::dec_providers(&crowdloan.funds_account).defensive();
             Crowdloans::<T>::remove(crowdloan_id);
-            ContributorsCount::<T>::remove(crowdloan_id);
 
             Self::deposit_event(Event::<T>::Dissolved { crowdloan_id });
             Ok(())
@@ -891,17 +878,5 @@ impl<T: Config> Pallet<T> {
             Error::<T>::BlockDurationTooLong
         );
         Ok(())
-    }
-
-    fn increment_contributor_count(crowdloan_id: CrowdloanId) {
-        ContributorsCount::<T>::mutate(crowdloan_id, |count| {
-            *count = count.map(|v| v.saturating_add(1))
-        });
-    }
-
-    fn decrement_contributor_count(crowdloan_id: CrowdloanId) {
-        ContributorsCount::<T>::mutate(crowdloan_id, |count| {
-            *count = count.map(|v| v.saturating_sub(1))
-        });
     }
 }
