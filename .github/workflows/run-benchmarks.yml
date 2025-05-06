@@ -1,25 +1,30 @@
 name: Validate-Benchmarks
 
 on:
-  pull_request:
-    types:
-      - opened
-      - synchronize
   workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number for concurrency grouping'
+        required: true
+        type: string
+      skip:
+        description: 'Whether to skip benchmarks'
+        required: true
+        type: boolean
 
 concurrency:
-  group: run-benchmarks-${{ github.ref }}
+  group: run-benchmarks-${{ github.event.inputs.pr_number }}
   cancel-in-progress: true
 
 jobs:
   validate-benchmarks:
-    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-validate-benchmarks') }}
+    if: ${{ github.event.inputs.skip == 'false' }}
     runs-on: Benchmarking
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}
+          ref: ${{ github.event.inputs.pr_number }}
           fetch-depth: 0
 
       - name: Install system dependencies
