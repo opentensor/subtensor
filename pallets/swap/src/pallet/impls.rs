@@ -1152,7 +1152,15 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
 
     fn current_alpha_price(netuid: u16) -> U96F32 {
         let sqrt_price = AlphaSqrtPrice::<T>::get(NetUid::from(netuid));
-        U96F32::saturating_from_num(sqrt_price.saturating_mul(sqrt_price))
+        let tao_reserve = T::LiquidityDataProvider::tao_reserve(netuid);
+        let alpha_reserve = T::LiquidityDataProvider::alpha_reserve(netuid);
+
+        if sqrt_price == 0 && tao_reserve > 0 && alpha_reserve > 0 {
+            U96F32::saturating_from_num(tao_reserve)
+                .saturating_div(U96F32::saturating_from_num(alpha_reserve))
+        } else {
+            U96F32::saturating_from_num(sqrt_price.saturating_mul(sqrt_price))
+        }
     }
 
     fn min_price() -> u64 {
