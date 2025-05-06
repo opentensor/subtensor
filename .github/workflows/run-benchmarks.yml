@@ -10,6 +10,10 @@ on:
 
 jobs:
   validate-benchmarks:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      !contains(github.event.pull_request.labels.*.name, 'skip-validate-benchmarks')
+
     runs-on: Benchmarking
     concurrency:
       group: run-benchmarks-${{ github.ref }}
