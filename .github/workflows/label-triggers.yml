@@ -29,20 +29,14 @@ jobs:
               body: '@opentensor/cerebrum / @opentensor/gyrus / @opentensor/cortex breaking change detected! Please prepare accordingly!'
             })
 
-  skip_benchmark_label_added:
+  re_dispatch_benchmarks:
     runs-on: ubuntu-latest
-    if: ${{ github.event.action == 'labeled' && github.event.label.name == 'skip-validate-benchmarks' }}
+    if: >
+      github.event.label.name == 'skip-validate-benchmarks' ||
+      github.event.label.name == 'skip-validate-benchmarks' && github.event.action == 'labeled' ||
+      github.event.label.name == 'skip-validate-benchmarks' && github.event.action == 'unlabeled'
     steps:
-      - name: Mark Benchmarks as Skipped
-        run: |
-          echo "The 'skip-validate-benchmarks' label was added. We will skip running benchmarks."
-          exit 0
-
-  skip_benchmark_label_removed:
-    runs-on: ubuntu-latest
-    if: ${{ github.event.action == 'unlabeled' && github.event.label.name == 'skip-validate-benchmarks' }}
-    steps:
-      - name: Trigger the Validate-Benchmarks workflow
+      - name: Re-dispatch Validate-Benchmarks
         uses: actions/github-script@v6
         with:
           script: |
