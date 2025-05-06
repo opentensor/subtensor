@@ -448,14 +448,7 @@ impl<T: Config> Pallet<T> {
             ),
         };
 
-        let global_fee = match order_type {
-            OrderType::Sell => FeeGlobalTao::<T>::get(netuid),
-            OrderType::Buy => FeeGlobalAlpha::<T>::get(netuid),
-        };
-        let fee_paid = global_fee
-            .saturating_mul(SqrtPrice::saturating_from_num(liquidity_before))
-            .saturating_round()
-            .saturating_to_num::<u64>();
+        let fee_paid = amount.saturating_sub(in_acc);
 
         Ok(SwapResult {
             amount_paid_out,
