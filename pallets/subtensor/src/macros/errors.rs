@@ -213,6 +213,6 @@ mod errors {
         /// Zero max stake amount
         ZeroMaxStakeAmount,
         /// Invalid netuid duplication
-        SameSubnetId,
+        SameNetuid,
     }
 }
