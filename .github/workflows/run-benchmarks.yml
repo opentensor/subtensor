@@ -17,7 +17,6 @@ concurrency:
 jobs:
   validate-benchmarks:
     if: ${{ 
-      github.event_name == 'pull_request' &&
       !contains(github.event.pull_request.labels.*.name, 'skip-validate-benchmarks') &&
       (
         github.event.action == 'opened' ||
