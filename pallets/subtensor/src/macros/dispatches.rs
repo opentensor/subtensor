@@ -1334,10 +1334,15 @@ mod dispatches {
             new_coldkey: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
-            ensure!(
-                !ColdkeySwapScheduled::<T>::contains_key(&who),
-                Error::<T>::SwapAlreadyScheduled
-            );
+            let current_block = <frame_system::Pallet<T>>::block_number();
+
+            // If the coldkey has a scheduled swap, check if we can reschedule it
+            if ColdkeySwapScheduled::<T>::contains_key(&who) {
+                let (scheduled_block, _scheduled_coldkey) = ColdkeySwapScheduled::<T>::get(&who);
+                let reschedule_duration = ColdkeySwapRescheduleDuration::<T>::get();
+                let redo_when = scheduled_block.saturating_add(reschedule_duration);
+                ensure!(redo_when <= current_block, Error::<T>::SwapAlreadyScheduled);
+            }
 
             // Calculate the swap cost and ensure sufficient balance
             let swap_cost = Self::get_key_swap_cost();
@@ -1368,7 +1373,7 @@ mod dispatches {
             )
             .map_err(|_| Error::<T>::FailedToSchedule)?;
 
-            ColdkeySwapScheduled::<T>::insert(&who, ());
+            ColdkeySwapScheduled::<T>::insert(&who, (when, new_coldkey.clone()));
             // Emit the SwapScheduled event
             Self::deposit_event(Event::ColdkeySwapScheduled {
                 old_coldkey: who.clone(),
@@ -1779,9 +1784,9 @@ mod dispatches {
         ///  	- Errors stemming from transaction pallet.
         ///
         #[pallet::call_index(88)]
-        #[pallet::weight((Weight::from_parts(91_010_000, 0)
-		.saturating_add(T::DbWeight::get().reads(10))
-		.saturating_add(T::DbWeight::get().writes(6)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_parts(159_200_000, 0)
+		.saturating_add(T::DbWeight::get().reads(13))
+		.saturating_add(T::DbWeight::get().writes(10)), DispatchClass::Normal, Pays::No))]
         pub fn add_stake_limit(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1843,9 +1848,9 @@ mod dispatches {
         /// 	- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
         ///
         #[pallet::call_index(89)]
-        #[pallet::weight((Weight::from_parts(172_100_000, 0)
-		.saturating_add(T::DbWeight::get().reads(17))
-		.saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_parts(192_600_000, 0)
+		.saturating_add(T::DbWeight::get().reads(18))
+		.saturating_add(T::DbWeight::get().writes(10)), DispatchClass::Normal, Pays::No))]
         pub fn remove_stake_limit(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1887,9 +1892,9 @@ mod dispatches {
         /// May emit a `StakeSwapped` event on success.
         #[pallet::call_index(90)]
         #[pallet::weight((
-            Weight::from_parts(162_400_000, 0)
-            .saturating_add(T::DbWeight::get().reads(12))
-            .saturating_add(T::DbWeight::get().writes(9)),
+            Weight::from_parts(232_000_000, 0)
+            .saturating_add(T::DbWeight::get().reads(25))
+            .saturating_add(T::DbWeight::get().writes(16)),
             DispatchClass::Operational,
             Pays::No
         ))]
