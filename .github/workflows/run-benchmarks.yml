@@ -2,17 +2,13 @@
 name: Validate-Benchmarks
 
 on:
-  workflow_dispatch:
-
   pull_request:
     types:
       - opened
       - synchronize
       - labeled
       - unlabeled
-  push:
-    paths:
-      - .github/workflows/benchmarks.yml
+  workflow_dispatch:
 
 concurrency:
   group: run-benchmarks-${{ github.ref }}
@@ -20,18 +16,21 @@ concurrency:
 
 jobs:
   validate-benchmarks:
-    if: ${{ 
-      github.event_name == 'push' ||
+    if: >
       (
-        !contains(github.event.pull_request.labels.*.name, 'skip-validate-benchmarks') &&
+        github.event.action == 'opened' ||
+        github.event.action == 'synchronize' ||
         (
-          github.event.action == 'opened'       ||
-          github.event.action == 'synchronize'  ||
-          (github.event.action == 'labeled'   && github.event.label.name == 'validate-benchmarks') ||
-          (github.event.action == 'unlabeled' && github.event.label.name == 'validate-benchmarks')
+          github.event.action == 'labeled'   &&
+          github.event.label.name == 'skip-validate-benchmarks'
+        ) ||
+        (
+          github.event.action == 'unlabeled' &&
+          github.event.label.name == 'skip-validate-benchmarks'
         )
       )
-    }}
+      &&
+      !contains(github.event.pull_request.labels.*.name, 'skip-validate-benchmarks')
     runs-on: Benchmarking
     steps:
       - name: Checkout PR branch
