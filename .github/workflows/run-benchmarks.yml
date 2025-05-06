@@ -18,10 +18,13 @@ jobs:
 
     if: >
       (
-        github.event.action == 'opened'      ||
+        github.event.action == 'opened' ||
         github.event.action == 'synchronize' ||
-        github.event.action == 'labeled'     ||
-        github.event.action == 'unlabeled'
+        (
+          (github.event.action == 'labeled' || github.event.action == 'unlabeled')
+          &&
+          github.event.label.name == 'skip-validate-benchmarks'
+        )
       )
       &&
       !contains(github.event.pull_request.labels.*.name, 'skip-validate-benchmarks')
