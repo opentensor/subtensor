@@ -4,6 +4,7 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod errors {
+    #[derive(PartialEq)]
     #[pallet::error]
     pub enum Error<T> {
         /// The subnet does not exist.
@@ -211,5 +212,7 @@ mod errors {
         SubtokenDisabled,
         /// Too frequent hotkey swap on subnet
         HotKeySwapOnSubnetIntervalNotPassed,
+        /// Estimating the maximum stake for limited staking operations returned zero.
+        ZeroMaxStakeAmount,
     }
 }

@@ -4,9 +4,9 @@
 // Edit this file to define custom logic or remove it if it is not needed.
 // Learn more about FRAME and the core library of Substrate FRAME pallets:
 // <https://docs.substrate.io/reference/frame-pallets/>
-pub use pallet::*;
 
 use frame_system::{self as system, ensure_signed};
+pub use pallet::*;
 
 use frame_support::{
     dispatch::{self, DispatchInfo, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo},
@@ -812,6 +812,12 @@ pub mod pallet {
     }
 
     #[pallet::type_value]
+    /// Default value for coldkey swap reschedule duration
+    pub fn DefaultColdkeySwapRescheduleDuration<T: Config>() -> BlockNumberFor<T> {
+        T::InitialColdkeySwapRescheduleDuration::get()
+    }
+
+    #[pallet::type_value]
     /// Default value for applying pending items (e.g. childkeys).
     pub fn DefaultPendingCooldown<T: Config>() -> u64 {
         if cfg!(feature = "fast-blocks") {
@@ -876,6 +882,14 @@ pub mod pallet {
     }
 
     #[pallet::type_value]
+    /// Default value for coldkey swap scheduled
+    pub fn DefaultColdkeySwapScheduled<T: Config>() -> (BlockNumberFor<T>, T::AccountId) {
+        let default_account = T::AccountId::decode(&mut TrailingZeroInput::zeroes())
+            .expect("trailing zeroes always produce a valid account ID; qed");
+        (BlockNumberFor::<T>::from(0_u32), default_account)
+    }
+
+    #[pallet::type_value]
     /// Default value for setting subnet owner hotkey rate limit
     pub fn DefaultSetSNOwnerHotkeyRateLimit<T: Config>() -> u64 {
         50400
@@ -888,6 +902,10 @@ pub mod pallet {
     #[pallet::storage]
     pub type ColdkeySwapScheduleDuration<T: Config> =
         StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapScheduleDuration<T>>;
+
+    #[pallet::storage]
+    pub type ColdkeySwapRescheduleDuration<T: Config> =
+        StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapRescheduleDuration<T>>;
 
     #[pallet::storage]
     pub type DissolveNetworkScheduleDuration<T: Config> =
@@ -1098,9 +1116,15 @@ pub mod pallet {
     pub type OwnedHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
 
-    #[pallet::storage] // --- DMAP ( cold ) --> () | Maps coldkey to if a coldkey swap is scheduled.
-    pub type ColdkeySwapScheduled<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, (), ValueQuery>;
+    #[pallet::storage] // --- DMAP ( cold ) --> (block_expected, new_coldkey) | Maps coldkey to the block to swap at and new coldkey.
+    pub type ColdkeySwapScheduled<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        (BlockNumberFor<T>, T::AccountId),
+        ValueQuery,
+        DefaultColdkeySwapScheduled<T>,
+    >;
 
     #[pallet::storage] // --- DMAP ( hot, netuid ) --> alpha | Returns the total amount of alpha a hotkey owns.
     pub type TotalHotkeyAlpha<T: Config> = StorageDoubleMap<
@@ -1792,6 +1816,7 @@ pub enum CustomTransactionError {
     ServingRateLimitExceeded,
     InvalidPort,
     BadRequest,
+    ZeroMaxAmount,
 }
 
 impl From<CustomTransactionError> for u8 {
@@ -1812,6 +1837,7 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::ServingRateLimitExceeded => 12,
             CustomTransactionError::InvalidPort => 13,
             CustomTransactionError::BadRequest => 255,
+            CustomTransactionError::ZeroMaxAmount => 14,
         }
     }
 }
@@ -2088,8 +2114,13 @@ where
                     .into();
                 }
 
-                // Calcaulate the maximum amount that can be executed with price limit
-                let max_amount = Pallet::<T>::get_max_amount_add(*netuid, *limit_price);
+                // Calculate the maximum amount that can be executed with price limit
+                let Ok(max_amount) = Pallet::<T>::get_max_amount_add(*netuid, *limit_price) else {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ZeroMaxAmount.into(),
+                    )
+                    .into();
+                };
 
                 // Fully validate the user input
                 Self::result_to_validity(
@@ -2129,8 +2160,14 @@ where
                 limit_price,
                 allow_partial,
             }) => {
-                // Calcaulate the maximum amount that can be executed with price limit
-                let max_amount = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price);
+                // Calculate the maximum amount that can be executed with price limit
+                let Ok(max_amount) = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price)
+                else {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ZeroMaxAmount.into(),
+                    )
+                    .into();
+                };
 
                 // Fully validate the user input
                 Self::result_to_validity(
@@ -2183,8 +2220,13 @@ where
                     .into();
                 }
 
-                //Calculate the maximum amount that can be executed with price limit
-                let max_amount = Pallet::<T>::get_max_amount_add(*netuid, *limit_price);
+                // Calculate the maximum amount that can be executed with price limit
+                let Ok(max_amount) = Pallet::<T>::get_max_amount_add(*netuid, *limit_price) else {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ZeroMaxAmount.into(),
+                    )
+                    .into();
+                };
 
                 // Fully validate the user input
                 Self::result_to_validity(
@@ -2225,7 +2267,13 @@ where
                 allow_partial,
             }) => {
                 // Calculate the maximum amount that can be executed with price limit
-                let max_amount = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price);
+                let Ok(max_amount) = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price)
+                else {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ZeroMaxAmount.into(),
+                    )
+                    .into();
+                };
 
                 // Fully validate the user input
                 Self::result_to_validity(
@@ -2348,11 +2396,16 @@ where
                 }
 
                 // Get the max amount possible to exchange
-                let max_amount = Pallet::<T>::get_max_amount_move(
+                let Ok(max_amount) = Pallet::<T>::get_max_amount_move(
                     *origin_netuid,
                     *destination_netuid,
                     *limit_price,
-                );
+                ) else {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ZeroMaxAmount.into(),
+                    )
+                    .into();
+                };
 
                 // Fully validate the user input
                 Self::result_to_validity(
