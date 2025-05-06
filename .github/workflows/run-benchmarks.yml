@@ -9,6 +9,9 @@ on:
       - synchronize
       - opened
   workflow_dispatch:
+    push:
+      paths:
+        - .github/workflows/benchmarks.yml
 
 concurrency:
   group: run-benchmarks-${{ github.ref }}
