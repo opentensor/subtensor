@@ -22,12 +22,12 @@ frame-system.workspace = true
 sp-runtime.workspace = true
 sp-std.workspace = true
 log = { workspace = true }
+sp-core = { default-features = true, workspace = true }
+sp-io = { default-features = true, workspace = true }
 
 [dev-dependencies]
 pallet-balances = { default-features = true, workspace = true }
 pallet-preimage = { default-features = true, workspace = true }
-sp-core = { default-features = true, workspace = true }
-sp-io = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

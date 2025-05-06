@@ -46,6 +46,7 @@ fn test_create_succeeds() {
                     target_address: None,
                     call: Some(call),
                     finalized: false,
+                    contributors_count: 1,
                 })
             );
             // ensure the crowdloan account has the deposit
@@ -57,11 +58,6 @@ fn test_create_succeeds() {
                 pallet_crowdloan::Contributions::<Test>::iter_prefix(crowdloan_id)
                     .collect::<Vec<_>>(),
                 vec![(creator, deposit)]
-            );
-            // ensure the contributor count is updated
-            assert_eq!(
-                pallet_crowdloan::ContributorsCount::<Test>::get(crowdloan_id),
-                Some(1)
             );
             // ensure the raised amount is updated correctly
             assert!(
@@ -338,9 +334,9 @@ fn test_contribute_succeeds() {
             let crowdloan_id: CrowdloanId = 0;
 
             // only the creator has contributed so far
-            assert_eq!(
-                pallet_crowdloan::ContributorsCount::<Test>::get(crowdloan_id),
-                Some(1)
+            assert!(
+                pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id)
+                    .is_some_and(|c| c.contributors_count == 1)
             );
 
             // first contribution to the crowdloan from creator
@@ -363,9 +359,9 @@ fn test_contribute_succeeds() {
                 pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, creator),
                 Some(100)
             );
-            assert_eq!(
-                pallet_crowdloan::ContributorsCount::<Test>::get(crowdloan_id),
-                Some(1)
+            assert!(
+                pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id)
+                    .is_some_and(|c| c.contributors_count == 1)
             );
             assert_eq!(
                 Balances::free_balance(creator),
@@ -393,9 +389,9 @@ fn test_contribute_succeeds() {
                 pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, contributor1),
                 Some(100)
             );
-            assert_eq!(
-                pallet_crowdloan::ContributorsCount::<Test>::get(crowdloan_id),
-                Some(2)
+            assert!(
+                pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id)
+                    .is_some_and(|c| c.contributors_count == 2)
             );
             assert_eq!(Balances::free_balance(contributor1), 500 - amount);
 
@@ -420,9 +416,9 @@ fn test_contribute_succeeds() {
                 pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, contributor2),
                 Some(50)
             );
-            assert_eq!(
-                pallet_crowdloan::ContributorsCount::<Test>::get(crowdloan_id),
-                Some(3)
+            assert!(
+                pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id)
+                    .is_some_and(|c| c.contributors_count == 3)
             );
             assert_eq!(Balances::free_balance(contributor2), 200 - amount);
 
@@ -824,9 +820,9 @@ fn test_withdraw_from_contributor_succeeds() {
             run_to_block(60);
 
             // ensure the contributor count is correct
-            assert_eq!(
-                pallet_crowdloan::ContributorsCount::<Test>::get(crowdloan_id),
-                Some(3)
+            assert!(
+                pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id)
+                    .is_some_and(|c| c.contributors_count == 3)
             );
 
             // withdraw from contributor1
@@ -839,9 +835,9 @@ fn test_withdraw_from_contributor_succeeds() {
                 pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, contributor1),
                 None,
             );
-            assert_eq!(
-                pallet_crowdloan::ContributorsCount::<Test>::get(crowdloan_id),
-                Some(2)
+            assert!(
+                pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id)
+                    .is_some_and(|c| c.contributors_count == 2)
             );
             // ensure the contributor1 has the correct amount
             assert_eq!(
@@ -859,9 +855,9 @@ fn test_withdraw_from_contributor_succeeds() {
                 pallet_crowdloan::Contributions::<Test>::get(crowdloan_id, contributor2),
                 None,
             );
-            assert_eq!(
-                pallet_crowdloan::ContributorsCount::<Test>::get(crowdloan_id),
-                Some(1)
+            assert!(
+                pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id)
+                    .is_some_and(|c| c.contributors_count == 1)
             );
             // ensure the contributor2 has the correct amount
             assert_eq!(
@@ -913,9 +909,9 @@ fn test_withdraw_from_creator_with_contribution_over_deposit_succeeds() {
             ));
 
             // ensure the contributor count is correct
-            assert_eq!(
-                pallet_crowdloan::ContributorsCount::<Test>::get(crowdloan_id),
-                Some(1)
+            assert!(
+                pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id)
+                    .is_some_and(|c| c.contributors_count == 1)
             );
 
             // withdraw
@@ -936,9 +932,9 @@ fn test_withdraw_from_creator_with_contribution_over_deposit_succeeds() {
                 Some(initial_deposit),
             );
             // ensure the contributor count hasn't changed because deposit is kept
-            assert_eq!(
-                pallet_crowdloan::ContributorsCount::<Test>::get(crowdloan_id),
-                Some(1)
+            assert!(
+                pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id)
+                    .is_some_and(|c| c.contributors_count == 1)
             );
 
             // ensure the crowdloan account has the correct amount
@@ -1584,9 +1580,9 @@ fn test_refund_succeeds() {
             }
 
             // ensure the contributor count is correct
-            assert_eq!(
-                pallet_crowdloan::ContributorsCount::<Test>::get(crowdloan_id),
-                Some(7)
+            assert!(
+                pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id)
+                    .is_some_and(|c| c.contributors_count == 7)
             );
 
             // run some more blocks past the end of the contribution period
@@ -1599,9 +1595,9 @@ fn test_refund_succeeds() {
             ));
 
             // ensure the contributor count is correct, we processed 5 refunds
-            assert_eq!(
-                pallet_crowdloan::ContributorsCount::<Test>::get(crowdloan_id),
-                Some(2)
+            assert!(
+                pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id)
+                    .is_some_and(|c| c.contributors_count == 2)
             );
 
             // ensure the crowdloan account has the correct amount
@@ -1629,9 +1625,9 @@ fn test_refund_succeeds() {
 
             // ensure the contributor count is correct, we processed 1 more refund
             // keeping deposit
-            assert_eq!(
-                pallet_crowdloan::ContributorsCount::<Test>::get(crowdloan_id),
-                Some(1)
+            assert!(
+                pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id)
+                    .is_some_and(|c| c.contributors_count == 1)
             );
 
             // ensure the crowdloan account has the correct amount
@@ -1765,9 +1761,9 @@ fn test_dissolve_succeeds() {
             let crowdloan_id: CrowdloanId = 0;
 
             // ensure the contributor count is correct
-            assert_eq!(
-                pallet_crowdloan::ContributorsCount::<Test>::get(crowdloan_id),
-                Some(1)
+            assert!(
+                pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id)
+                    .is_some_and(|c| c.contributors_count == 1)
             );
 
             // dissolve the crowdloan
@@ -1783,9 +1779,6 @@ fn test_dissolve_succeeds() {
             assert!(!pallet_crowdloan::Contributions::<Test>::contains_prefix(
                 crowdloan_id
             ));
-
-            // ensure the contributor count is removed
-            assert!(pallet_crowdloan::ContributorsCount::<Test>::get(crowdloan_id).is_none());
 
             // ensure the event is emitted
             assert_eq!(
