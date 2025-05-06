@@ -801,8 +801,8 @@ impl<T: Config> Pallet<T> {
             tick_low,
             tick_high,
             liquidity,
-            fees_tao: 0,
-            fees_alpha: 0,
+            fees_tao: U64F64::saturating_from_num(0),
+            fees_alpha: U64F64::saturating_from_num(0),
         };
 
         let current_price = AlphaSqrtPrice::<T>::get(netuid);
@@ -1636,83 +1636,119 @@ mod tests {
         });
     }
 
-    // #[test]
-    // fn test_modify_position_basic() {
-    //     new_test_ext().execute_with(|| {
-    //         let min_price = tick_to_price(TickIndex::MIN);
-    //         let max_price = tick_to_price(TickIndex::MAX);
-    //         let max_tick = price_to_tick(max_price);
-    //         assert_eq!(max_tick, TickIndex::MAX);
+    #[test]
+    fn test_modify_position_basic() {
+        new_test_ext().execute_with(|| {
+            let min_price = tick_to_price(TickIndex::MIN);
+            let max_price = tick_to_price(TickIndex::MAX);
+            let max_tick = price_to_tick(max_price);
+            let limit_price = 1000.0_f64;
+            assert_eq!(max_tick, TickIndex::MAX);
 
-    //         // As a user add liquidity with all possible corner cases
-    //         //   - Initial price is 0.25
-    //         //   - liquidity is expressed in RAO units
-    //         // Test case is (price_low, price_high, liquidity, tao, alpha)
-    //         [
-    //             // // Repeat the protocol liquidity at maximum range: Expect all the same values
-    //             // (
-    //             //     min_price,
-    //             //     max_price,
-    //             //     2_000_000_000_u64,
-    //             //     1_000_000_000_u64,
-    //             //     4_000_000_000_u64,
-    //             // ),
-    //             // // Repeat the protocol liquidity at current to max range: Expect the same alpha
-    //             // (0.25, max_price, 2_000_000_000_u64, 0, 4_000_000_000),
-    //             // Repeat the protocol liquidity at min to current range: Expect all the same tao
-    //             (min_price, 0.24999, 2_000_000_000_u64, 1_000_000_000, 0),
-    //             // // Half to double price - just some sane wothdraw amounts
-    //             // (0.125, 0.5, 2_000_000_000_u64, 293_000_000, 1_171_000_000),
-    //             // // Both below price - tao is non-zero, alpha is zero
-    //             // (0.12, 0.13, 2_000_000_000_u64, 28_270_000, 0),
-    //             // // Both above price - tao is zero, alpha is non-zero
-    //             // (0.3, 0.4, 2_000_000_000_u64, 0, 489_200_000),
-    //         ]
-    //         .into_iter()
-    //         .enumerate()
-    //         .map(|(n, v)| (NetUid::from(n as u16), v.0, v.1, v.2, v.3, v.4))
-    //         .for_each(|(netuid, price_low, price_high, liquidity, tao, alpha)| {
-    //             // Calculate ticks (assuming tick math is tested separately)
-    //             let tick_low = price_to_tick(price_low);
-    //             let tick_high = price_to_tick(price_high);
+            // As a user add liquidity with all possible corner cases
+            //   - Initial price is 0.25
+            //   - liquidity is expressed in RAO units
+            // Test case is (price_low, price_high, liquidity, tao, alpha)
+            [
+                // // Repeat the protocol liquidity at maximum range: Expect all the same values
+                // (
+                //     min_price,
+                //     max_price,
+                //     2_000_000_000_u64,
+                //     1_000_000_000_u64,
+                //     4_000_000_000_u64,
+                // ),
+                // // Repeat the protocol liquidity at current to max range: Expect the same alpha
+                (0.25, max_price, 2_000_000_000_u64, 1_000_000_000, 4_000_000_000),
+                // Repeat the protocol liquidity at min to current range: Expect all the same tao
+                // (min_price, 0.24999, 2_000_000_000_u64, 1_000_000_000, 0),
+                // // Half to double price - just some sane wothdraw amounts
+                // (0.125, 0.5, 2_000_000_000_u64, 293_000_000, 1_171_000_000),
+                // // Both below price - tao is non-zero, alpha is zero
+                // (0.12, 0.13, 2_000_000_000_u64, 28_270_000, 0),
+                // // Both above price - tao is zero, alpha is non-zero
+                // (0.3, 0.4, 2_000_000_000_u64, 0, 489_200_000),
+            ]
+            .into_iter()
+            .enumerate()
+            .map(|(n, v)| (NetUid::from(n as u16), v.0, v.1, v.2, v.3, v.4))
+            .for_each(|(netuid, price_low, price_high, liquidity, tao, alpha)| {
+                // Calculate ticks (assuming tick math is tested separately)
+                let tick_low = price_to_tick(price_low);
+                let tick_high = price_to_tick(price_high);
 
-    //             assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
-    //             let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
+                assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
 
-    //             // Add liquidity
-    //             let (position_id, _, _) = Pallet::<Test>::add_liquidity(
-    //                 netuid,
-    //                 &OK_COLDKEY_ACCOUNT_ID,
-    //                 &OK_HOTKEY_ACCOUNT_ID,
-    //                 tick_low,
-    //                 tick_high,
-    //                 liquidity,
-    //             )
-    //             .unwrap();
+                // Add liquidity
+                let (position_id, _, _) = Pallet::<Test>::add_liquidity(
+                    netuid,
+                    &OK_COLDKEY_ACCOUNT_ID,
+                    &OK_HOTKEY_ACCOUNT_ID,
+                    tick_low,
+                    tick_high,
+                    liquidity,
+                )
+                .unwrap();
 
-    //             // Remove liquidity
-    //             let remove_result =
-    //                 Pallet::<Test>::remove_liquidity(netuid, &OK_COLDKEY_ACCOUNT_ID, position_id)
-    //                     .unwrap();
-    //             assert_abs_diff_eq!(remove_result.tao, tao, epsilon = tao / 1000);
-    //             assert_abs_diff_eq!(remove_result.alpha, alpha, epsilon = alpha / 1000);
-    //             assert_eq!(remove_result.fee_tao, 0);
-    //             assert_eq!(remove_result.fee_alpha, 0);
+                // Swap to create fees on the position
+                let sqrt_limit_price = SqrtPrice::from_num((limit_price).sqrt());
+                Pallet::<Test>::do_swap(
+                    netuid,
+                    OrderType::Buy,
+                    liquidity / 10,
+                    sqrt_limit_price,
+                    false,
+                )
+                .unwrap();
 
-    //             // Liquidity position is removed
-    //             assert_eq!(
-    //                 Pallet::<Test>::count_positions(netuid, &OK_COLDKEY_ACCOUNT_ID),
-    //                 0
-    //             );
-    //             assert!(
-    //                 Positions::<Test>::get((netuid, OK_COLDKEY_ACCOUNT_ID, position_id)).is_none()
-    //             );
+                // Modify liquidity (also causes claiming of fees)
+                let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
+                let modify_result =
+                    Pallet::<Test>::modify_position(
+                        netuid,
+                        &OK_COLDKEY_ACCOUNT_ID,
+                        &OK_HOTKEY_ACCOUNT_ID,
+                        position_id,
+                        -1_i64 * ((liquidity / 10) as i64),
+                    )
+                    .unwrap();
+                assert_abs_diff_eq!(modify_result.alpha, alpha / 10, epsilon = alpha / 1000);
+                assert!(modify_result.fee_tao > 0);
+                assert_eq!(modify_result.fee_alpha, 0);
 
-    //             // Current liquidity is updated (back where it was)
-    //             assert_eq!(CurrentLiquidity::<Test>::get(netuid), liquidity_before);
-    //         });
-    //     });
-    // }
+                // Liquidity position is reduced
+                assert_eq!(
+                    Pallet::<Test>::count_positions(netuid, &OK_COLDKEY_ACCOUNT_ID),
+                    1
+                );
+
+                // Current liquidity is reduced with modify_position
+                assert!(CurrentLiquidity::<Test>::get(netuid) < liquidity_before);
+
+                // Position liquidity is reduced
+                let position =
+                    Positions::<Test>::get(&(netuid, OK_COLDKEY_ACCOUNT_ID, position_id))
+                        .unwrap();
+                assert_eq!(position.liquidity, liquidity * 9 / 10);
+                assert_eq!(position.tick_low, tick_low);
+                assert_eq!(position.tick_high, tick_high);
+
+                // Modify liquidity again (ensure fees aren't double-collected)
+                let modify_result =
+                    Pallet::<Test>::modify_position(
+                        netuid,
+                        &OK_COLDKEY_ACCOUNT_ID,
+                        &OK_HOTKEY_ACCOUNT_ID,
+                        position_id,
+                        -1_i64 * ((liquidity / 10) as i64),
+                    )
+                    .unwrap();
+                assert_abs_diff_eq!(modify_result.alpha, alpha / 10, epsilon = alpha / 1000);
+                assert_eq!(modify_result.fee_tao, 0);
+                assert_eq!(modify_result.fee_alpha, 0);
+            });
+        });
+    }
 
     // cargo test --package pallet-subtensor-swap --lib -- pallet::impls::tests::test_swap_basic --exact --show-output
     #[test]
