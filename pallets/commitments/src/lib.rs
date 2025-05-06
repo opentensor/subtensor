@@ -151,6 +151,19 @@ pub mod pallet {
         BlockNumberFor<T>,
         OptionQuery,
     >;
+
+    #[pallet::storage]
+    #[pallet::getter(fn last_bonds_reset)]
+    pub(super) type LastBondsReset<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        u16,
+        Twox64Concat,
+        T::AccountId,
+        BlockNumberFor<T>,
+        OptionQuery,
+    >;
+
     #[pallet::storage]
     #[pallet::getter(fn revealed_commitments)]
     pub(super) type RevealedCommitments<T: Config> = StorageDoubleMap<
@@ -230,6 +243,8 @@ pub mod pallet {
             // check if ResetBondsFlag is set in the fields
             for field in info.fields.iter() {
                 if let Data::ResetBondsFlag = field {
+                    // track when bonds reset was last triggered
+                    <LastBondsReset<T>>::insert(netuid, &who, cur_block);
                     T::OnMetadataCommitment::on_metadata_commitment(netuid, &who);
                     break;
                 }
