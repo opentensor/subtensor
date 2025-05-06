@@ -16,15 +16,16 @@ concurrency:
 
 jobs:
   validate-benchmarks:
-    if: >
+    if: ${{ 
       github.event_name == 'pull_request' &&
       !contains(github.event.pull_request.labels.*.name, 'skip-validate-benchmarks') &&
       (
         github.event.action == 'opened' ||
         github.event.action == 'synchronize' ||
-        (github.event.action == 'labeled' and github.event.label.name == 'validate-benchmarks') ||
-        (github.event.action == 'unlabeled' and github.event.label.name == 'validate-benchmarks')
+        (github.event.action == 'labeled' && github.event.label.name == 'validate-benchmarks') ||
+        (github.event.action == 'unlabeled' && github.event.label.name == 'validate-benchmarks')
       )
+    }}
     runs-on: Benchmarking
     steps:
       - name: Checkout PR branch
