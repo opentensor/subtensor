@@ -26,3 +26,39 @@ jobs:
               repo: context.repo.repo,
               body: '@opentensor/cerebrum / @opentensor/gyrus / @opentensor/cortex breaking change detected! Please prepare accordingly!'
             })
+
+  cancel_benchmarks:
+    needs: comment_on_breaking_change
+    runs-on: ubuntu-latest
+    if: github.event.action == 'labeled' && github.event.label.name == 'skip-validate-benchmarks'
+    steps:
+      - name: Cancel in-progress Validate-Benchmarks runs
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'benchmarks.yml',
+              branch: context.payload.pull_request.head.ref,
+              status: 'in_progress'
+            });
+            for (const run of runs.data.workflow_runs) {
+              await github.rest.actions.cancelWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: run.id
+              });
+            }
+
+  dispatch_benchmarks:
+    needs: cancel_benchmarks
+    runs-on: ubuntu-latest
+    if: github.event.action == 'unlabeled' && github.event.label.name == 'skip-validate-benchmarks'
+    steps:
+      - name: Re-trigger Validate-Benchmarks
+        uses: peter-evans/workflow-dispatch@v2
+        with:
+          workflow: benchmarks.yml
+          ref: ${{ github.event.pull_request.head.sha }}
+
