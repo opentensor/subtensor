@@ -484,6 +484,7 @@ fn split_graph(
 
 // Map the retention graph for consensus guarantees with an single epoch on a graph with 512 nodes, of which the first 64 are validators, the graph is split into a major and minor set, each setting specific weight on itself and the complement on the other.
 #[test]
+#[ignore] // Not an automated test!
 fn map_consensus_guarantees() {
     let netuid: u16 = 1;
     let network_n: u16 = 512;
