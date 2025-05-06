@@ -26,3 +26,26 @@ jobs:
               repo: context.repo.repo,
               body: '@opentensor/cerebrum / @opentensor/gyrus / @opentensor/cortex breaking change detected! Please prepare accordingly!'
             })
+
+  skip_benchmark_label_added:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.action == 'labeled' && github.event.label.name == 'skip-validate-benchmarks' }}
+    steps:
+      - name: Log that benchmarks will be skipped
+        run: |
+          echo "The 'skip-validate-benchmarks' label was added. Benchmarks will be skipped."
+
+  skip_benchmark_label_removed:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.action == 'unlabeled' && github.event.label.name == 'skip-validate-benchmarks' }}
+    steps:
+      - name: Trigger the Validate-Benchmarks workflow
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'run-benchmarks.yml',
+              ref: context.payload.pull_request.head.ref
+            })
