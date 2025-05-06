@@ -10,6 +10,7 @@ on:
 permissions:
   issues: write
   pull-requests: write
+  actions: write
 
 jobs:
   comment_on_breaking_change:
@@ -44,7 +45,7 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            github.rest.actions.createWorkflowDispatch({
+            await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
               workflow_id: 'run-benchmarks.yml',
