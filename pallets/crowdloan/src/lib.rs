@@ -462,7 +462,10 @@ pub mod pallet {
                         .ok_or(Error::<T>::Overflow)?
                 } else {
                     // We have a new contribution
-                    crowdloan.contributors_count += 1;
+                    crowdloan.contributors_count = crowdloan
+                        .contributors_count
+                        .checked_add(1)
+                        .ok_or(Error::<T>::Overflow)?;
                     amount
                 };
 
@@ -521,7 +524,10 @@ pub mod pallet {
                 Contributions::<T>::insert(crowdloan_id, &who, crowdloan.deposit);
             } else {
                 Contributions::<T>::remove(crowdloan_id, &who);
-                crowdloan.contributors_count -= 1;
+                crowdloan.contributors_count = crowdloan
+                    .contributors_count
+                    .checked_sub(1)
+                    .ok_or(Error::<T>::Underflow)?;
             }
 
             CurrencyOf::<T>::transfer(
@@ -671,7 +677,10 @@ pub mod pallet {
                 refund_count = refund_count.checked_add(1).ok_or(Error::<T>::Overflow)?;
             }
 
-            crowdloan.contributors_count -= refund_count;
+            crowdloan.contributors_count = crowdloan
+                .contributors_count
+                .checked_sub(refund_count)
+                .ok_or(Error::<T>::Underflow)?;
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
 
             // Clear refunded contributors
