@@ -10,6 +10,7 @@ on:
 permissions:
   issues: write
   pull-requests: write
+  workflows: write
 
 jobs:
   comment_on_breaking_change:
