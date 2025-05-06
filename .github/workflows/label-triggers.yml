@@ -30,7 +30,6 @@ jobs:
             })
 
   cancel_benchmarks:
-    needs: comment_on_breaking_change
     runs-on: ubuntu-latest
     if: github.event.action == 'labeled' && github.event.label.name == 'skip-validate-benchmarks'
     steps:
@@ -54,7 +53,6 @@ jobs:
             }
 
   dispatch_benchmarks:
-    needs: comment_on_breaking_change
     runs-on: ubuntu-latest
     if: github.event.action == 'unlabeled' && github.event.label.name == 'skip-validate-benchmarks'
     steps:
