@@ -40,7 +40,7 @@ pub fn migrate_reset_max_burn<T: Config>() -> Weight {
         .saturating_add(T::DbWeight::get().reads_writes(reset_entries_count, reset_entries_count));
 
     log::info!(
-        "Reset {} subnets from BondsMovingAverage.",
+        "Reset {} subnets from MaxBurn.",
         reset_entries_count
     );
 
