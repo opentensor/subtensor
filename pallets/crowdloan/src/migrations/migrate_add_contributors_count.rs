@@ -1,11 +1,13 @@
 use alloc::string::String;
 use frame_support::{BoundedVec, migration::storage_key_iter, traits::Get, weights::Weight};
+use subtensor_macros::freeze_struct;
 
 use crate::*;
 
 mod old_storage {
     use super::*;
 
+    #[freeze_struct("84bcbf9b8d3f0ddf")]
     #[derive(Encode, Decode, Debug)]
     pub struct OldCrowdloanInfo<AccountId, Balance, BlockNumber, Call> {
         pub creator: AccountId,
