@@ -1,5 +1,5 @@
 # ------------------------------------------------------------------------------
-#  Subtensor Dockerfile (hardened)
+#  Subtensor Dockerfile (hardened, full-functionality)
 #  – Builds production and local binaries
 #  – Final runtime images run as non-root `subtensor` user (UID/GID 10001)
 # ------------------------------------------------------------------------------
