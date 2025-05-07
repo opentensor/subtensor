@@ -97,8 +97,8 @@ impl Position {
         let fee_tao_agg = self.fees_in_range::<T>(true);
         let fee_alpha_agg = self.fees_in_range::<T>(false);
 
-        let mut fee_tao = fee_tao_agg.saturating_sub(U64F64::saturating_from_num(self.fees_tao));
-        let mut fee_alpha = fee_alpha_agg.saturating_sub(U64F64::saturating_from_num(self.fees_alpha));
+        let mut fee_tao = fee_tao_agg.saturating_sub(self.fees_tao);
+        let mut fee_alpha = fee_alpha_agg.saturating_sub(self.fees_alpha);
 
         self.fees_tao = fee_tao_agg;
         self.fees_alpha = fee_alpha_agg;

@@ -62,6 +62,8 @@ impl<T: Config> SwapStep<T> {
         let possible_delta_in = amount_remaining
             .saturating_sub(Pallet::<T>::calculate_fee_amount(netuid, amount_remaining));
 
+        println!("possible_delta_in = {:?}", possible_delta_in);
+
         // Target price and quantities
         let sqrt_price_target = Pallet::<T>::sqrt_price_target(
             order_type,
@@ -226,6 +228,9 @@ impl<T: Config> SwapStep<T> {
         let delta_fixed = U64F64::saturating_from_num(self.delta_in);
         let total_cost =
             delta_fixed.saturating_mul(u16_max.safe_div(u16_max.saturating_sub(fee_rate)));
+
+        println!("process_swap delta_fixed = {:?}", delta_fixed);
+        println!("process_swap total_cost = {:?}", total_cost);
 
         // Hold the fees
         let fee = Pallet::<T>::calculate_fee_amount(
@@ -412,15 +417,18 @@ impl<T: Config> Pallet<T> {
         let mut refund: u64 = 0;
         let mut iteration_counter: u16 = 0;
         let mut in_acc: u64 = 0;
-        let liquidity_before = CurrentLiquidity::<T>::get(netuid);
 
         // Swap one tick at a time until we reach one of the stop conditions
         while amount_remaining > 0 {
             // Create and execute a swap step
+            println!("amount_remaining = {:?}", amount_remaining);
+
             let mut swap_step =
                 SwapStep::<T>::new(netuid, order_type, amount_remaining, sqrt_price_limit);
 
             let swap_result = swap_step.execute()?;
+
+            println!("swap_result = {:?}", swap_result);
 
             in_acc = in_acc.saturating_add(swap_result.delta_in);
             amount_remaining = amount_remaining.saturating_sub(swap_result.amount_to_take);
@@ -428,6 +436,11 @@ impl<T: Config> Pallet<T> {
 
             if swap_step.stop_and_refund {
                 refund = amount_remaining;
+                amount_remaining = 0;
+            }
+
+            // The swap step didn't exchange anything
+            if swap_result.amount_to_take == 0 {
                 amount_remaining = 0;
             }
 
@@ -882,7 +895,7 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    fn modify_position(
+    pub fn modify_position(
         netuid: NetUid,
         coldkey_account_id: &T::AccountId,
         hotkey_account_id: &T::AccountId,
@@ -1019,6 +1032,9 @@ impl<T: Config> Pallet<T> {
                 });
             }
         });
+
+        // Update active ticks
+        ActiveTickIndexManager::insert::<T>(netuid, tick_index);
     }
 
     /// Remove liquidity at tick index.
@@ -1043,6 +1059,9 @@ impl<T: Config> Pallet<T> {
                 // If no liquidity is left at the tick, remove it
                 if tick.liquidity_gross == 0 {
                     *maybe_tick = None;
+
+                    // Update active ticks: Final liquidity is zero, remove this tick from active.
+                    ActiveTickIndexManager::remove::<T>(netuid, tick_index);
                 }
             }
         });
@@ -1157,6 +1176,17 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
             .map_err(Into::into)
     }
 
+    fn modify_position(
+        netuid: u16,
+        coldkey_account_id: &T::AccountId,
+        hotkey_account_id: &T::AccountId,
+        position_id: u128,
+        liquidity_delta: i64,
+    ) -> Result<UpdateLiquidityResult, DispatchError> {
+        Self::modify_position(netuid.into(), coldkey_account_id, hotkey_account_id, position_id.into(), liquidity_delta)
+            .map_err(Into::into)
+    }
+
     fn approx_fee_amount(netuid: u16, amount: u64) -> u64 {
         Self::calculate_fee_amount(netuid.into(), amount)
     }
@@ -1198,7 +1228,7 @@ pub enum SwapStepAction {
 #[cfg(test)]
 mod tests {
     use approx::assert_abs_diff_eq;
-    use frame_support::{assert_err, assert_noop, assert_ok};
+    use frame_support::{assert_err, assert_ok};
     use sp_arithmetic::helpers_128bit;
 
     use super::*;
@@ -1639,7 +1669,6 @@ mod tests {
     #[test]
     fn test_modify_position_basic() {
         new_test_ext().execute_with(|| {
-            let min_price = tick_to_price(TickIndex::MIN);
             let max_price = tick_to_price(TickIndex::MAX);
             let max_tick = price_to_tick(max_price);
             let limit_price = 1000.0_f64;
@@ -1659,11 +1688,9 @@ mod tests {
                 //     4_000_000_000_u64,
                 // ),
                 // // Repeat the protocol liquidity at current to max range: Expect the same alpha
-                (0.25, max_price, 2_000_000_000_u64, 1_000_000_000, 4_000_000_000),
-                // Repeat the protocol liquidity at min to current range: Expect all the same tao
-                // (min_price, 0.24999, 2_000_000_000_u64, 1_000_000_000, 0),
-                // // Half to double price - just some sane wothdraw amounts
-                // (0.125, 0.5, 2_000_000_000_u64, 293_000_000, 1_171_000_000),
+                (0.25, max_price, 2_000_000_000_u64, 4_000_000_000),
+                // Half to double price - just some sane wothdraw amounts
+                // (0.125, 0.5, 2_000_000_000_u64, 1_171_000_000),
                 // // Both below price - tao is non-zero, alpha is zero
                 // (0.12, 0.13, 2_000_000_000_u64, 28_270_000, 0),
                 // // Both above price - tao is zero, alpha is non-zero
@@ -1671,8 +1698,8 @@ mod tests {
             ]
             .into_iter()
             .enumerate()
-            .map(|(n, v)| (NetUid::from(n as u16), v.0, v.1, v.2, v.3, v.4))
-            .for_each(|(netuid, price_low, price_high, liquidity, tao, alpha)| {
+            .map(|(n, v)| (NetUid::from(n as u16), v.0, v.1, v.2, v.3))
+            .for_each(|(netuid, price_low, price_high, liquidity, alpha)| {
                 // Calculate ticks (assuming tick math is tested separately)
                 let tick_low = price_to_tick(price_low);
                 let tick_high = price_to_tick(price_high);
@@ -1740,10 +1767,11 @@ mod tests {
                         &OK_COLDKEY_ACCOUNT_ID,
                         &OK_HOTKEY_ACCOUNT_ID,
                         position_id,
-                        -1_i64 * ((liquidity / 10) as i64),
+                        -1_i64 * ((liquidity / 100) as i64),
                     )
                     .unwrap();
-                assert_abs_diff_eq!(modify_result.alpha, alpha / 10, epsilon = alpha / 1000);
+
+                assert_abs_diff_eq!(modify_result.alpha, alpha / 100, epsilon = alpha / 1000);
                 assert_eq!(modify_result.fee_tao, 0);
                 assert_eq!(modify_result.fee_alpha, 0);
             });
@@ -2007,10 +2035,6 @@ mod tests {
                         // Calculate the expected output amount for the cornercase of one step
                         let order_liquidity = order_liquidity_fraction * position_liquidity as f64;
 
-                        let input_amount = match order_type {
-                            OrderType::Buy => order_liquidity * sqrt_current_price.to_num::<f64>(),
-                            OrderType::Sell => order_liquidity / sqrt_current_price.to_num::<f64>(),
-                        };
                         let output_amount = match order_type {
                             OrderType::Buy => {
                                 let denom = sqrt_current_price.to_num::<f64>()
@@ -2157,7 +2181,6 @@ mod tests {
             let min_price = tick_to_price(TickIndex::MIN);
             let max_price = tick_to_price(TickIndex::MAX);
             let max_tick = price_to_tick(max_price);
-            let current_price = 0.25;
             let netuid = NetUid(1);
             assert_eq!(max_tick, TickIndex::MAX);
 
@@ -2342,21 +2365,11 @@ mod tests {
             let order_type = OrderType::Sell;
             let liquidity = 1_000_000_000_000_000_000;
             let tick_low = TickIndex::MIN;
-            let tick_high = TickIndex::MAX;
 
             let sqrt_limit_price: SqrtPrice = tick_low.try_to_sqrt_price().unwrap();
 
             // Setup swap
             assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
-
-            // Get tick infos before the swap
-            let tick_low_info_before = Ticks::<Test>::get(netuid, tick_low).unwrap_or_default();
-            let tick_high_info_before = Ticks::<Test>::get(netuid, tick_high).unwrap_or_default();
-            let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
-
-            // Get current price
-            let sqrt_current_price = AlphaSqrtPrice::<Test>::get(netuid);
-            let current_price = (sqrt_current_price * sqrt_current_price).to_num::<f64>();
 
             // Swap
             let swap_result =

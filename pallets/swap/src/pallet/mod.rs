@@ -6,7 +6,7 @@ use substrate_fixed::types::U64F64;
 use subtensor_swap_interface::LiquidityDataProvider;
 
 use crate::{
-    NetUid, SqrtPrice,
+    NetUid,
     position::{Position, PositionId},
     tick::{LayerLevel, Tick, TickIndex},
     weights::WeightInfo,
