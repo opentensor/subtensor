@@ -1228,7 +1228,7 @@ pub fn mat_vec_mul(matrix: &[Vec<I32F32>], vector: &[I32F32]) -> Vec<Vec<I32F32>
 }
 
 // Element-wise product of matrix and vector
-#[allow(dead_code, clippy::indexing_slicing)]
+#[allow(dead_code)]
 pub fn mat_vec_mul_sparse(
     matrix: &[Vec<(u16, I32F32)>],
     vector: &[I32F32],
@@ -1239,7 +1239,9 @@ pub fn mat_vec_mul_sparse(
             if let Some(vector_value) = vector.get(*j as usize) {
                 let new_value = value.saturating_mul(*vector_value);
                 if new_value != I32F32::saturating_from_num(0.0) {
-                    result[i].push((*j, new_value));
+                    if let Some(result_row) = result.get_mut(i) {
+                        result_row.push((*j, new_value));
+                    }
                 }
             }
         }
