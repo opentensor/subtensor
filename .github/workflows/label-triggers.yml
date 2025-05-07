@@ -1,6 +1,6 @@
 name: Label Triggers
 on:
-  pull_request:
+  pull_request_target:
     types:
       - labeled
       - unlabeled
@@ -11,6 +11,7 @@ permissions:
   issues: write
   pull-requests: write
   contents: write 
+  actions: write 
 
 jobs:
   comment_on_breaking_change:
