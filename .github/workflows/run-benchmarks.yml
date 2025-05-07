@@ -50,7 +50,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
 
-      - name: Check skip label again
+      - name: Check skip label
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         run: |
           labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
@@ -66,7 +66,7 @@ jobs:
           profile: minimal
           toolchain: stable
 
-      - name: Check skip label again
+      - name: Check skip label
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         run: |
           labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
@@ -81,7 +81,7 @@ jobs:
         with:
           key: bench-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Check skip label again
+      - name: Check skip label
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         run: |
           labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
@@ -95,7 +95,7 @@ jobs:
         run: |
           cargo build --profile production -p node-subtensor --features runtime-benchmarks
 
-      - name: Check skip label again
+      - name: Check skip label
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         run: |
           labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
