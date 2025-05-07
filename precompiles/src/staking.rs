@@ -30,7 +30,8 @@ use core::marker::PhantomData;
 use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 use frame_system::RawOrigin;
 use pallet_evm::{
-    AddressMapping, BalanceConverter, ExitError, PrecompileFailure, PrecompileHandle,
+    AddressMapping, BalanceConverter, EvmBalance, ExitError, PrecompileFailure, PrecompileHandle,
+    SubstrateBalance,
 };
 use precompile_utils::EvmResult;
 use sp_core::{H256, U256};
@@ -401,10 +402,11 @@ where
         let account_id = handle.caller_account_id::<R>();
         let hotkey = R::AccountId::from(address.0);
         let netuid = try_u16_from_u256(netuid)?;
+        let amount = EvmBalance::new(amount);
         let amount_unstaked =
             <R as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
+                .map(|amount| amount.into_u64_saturating())
                 .ok_or(ExitError::OutOfFund)?;
-        let amount_unstaked = amount_unstaked.unique_saturated_into();
         let call = pallet_subtensor::Call::<R>::remove_stake {
             hotkey,
             netuid,
@@ -425,8 +427,9 @@ where
         // get total stake of coldkey
         let total_stake = pallet_subtensor::Pallet::<R>::get_total_stake_for_coldkey(&coldkey);
         // Convert to EVM decimals
-        let stake_u256 = U256::from(total_stake);
+        let stake_u256: SubstrateBalance = total_stake.into();
         let stake_eth = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(stake_u256)
+            .map(|amount| amount.into_u256())
             .ok_or(ExitError::InvalidRange)?;
 
         Ok(stake_eth)
@@ -443,8 +446,9 @@ where
         // get total stake of hotkey
         let total_stake = pallet_subtensor::Pallet::<R>::get_total_stake_for_hotkey(&hotkey);
         // Convert to EVM decimals
-        let stake_u256 = U256::from(total_stake);
+        let stake_u256: SubstrateBalance = total_stake.into();
         let stake_eth = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(stake_u256)
+            .map(|amount| amount.into_u256())
             .ok_or(ExitError::InvalidRange)?;
 
         Ok(stake_eth)
@@ -464,8 +468,9 @@ where
         let stake = pallet_subtensor::Pallet::<R>::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey, &coldkey, netuid,
         );
-        let stake = U256::from(stake);
+        let stake: SubstrateBalance = stake.into();
         let stake = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(stake)
+            .map(|amount| amount.into_u256())
             .ok_or(ExitError::InvalidRange)?;
 
         Ok(stake)
@@ -503,15 +508,20 @@ where
         account_id: &<R as frame_system::Config>::AccountId,
         amount: U256,
     ) -> Result<(), PrecompileFailure> {
+        let amount = EvmBalance::new(amount);
         let amount_sub =
             <R as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
                 .ok_or(ExitError::OutOfFund)?;
 
         // Create a transfer call from the smart contract to the caller
+        let value = amount_sub
+            .into_u64_saturating()
+            .try_into()
+            .map_err(|_| ExitError::Other("Failed to convert u64 to Balance".into()))?;
         let transfer_call = <R as frame_system::Config>::RuntimeCall::from(
             pallet_balances::Call::<R>::transfer_allow_death {
                 dest: account_id.clone().into(),
-                value: amount_sub.unique_saturated_into(),
+                value,
             },
         );
 

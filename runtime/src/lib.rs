@@ -95,7 +95,9 @@ use scale_info::TypeInfo;
 // Frontier
 use fp_rpc::TransactionStatus;
 use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
-use pallet_evm::{Account as EVMAccount, BalanceConverter, FeeCalculator, Runner};
+use pallet_evm::{
+    Account as EVMAccount, BalanceConverter, EvmBalance, FeeCalculator, Runner, SubstrateBalance,
+};
 
 // Drand
 impl pallet_drand::Config for Runtime {
@@ -1237,11 +1239,12 @@ pub struct SubtensorEvmBalanceConverter;
 
 impl BalanceConverter for SubtensorEvmBalanceConverter {
     /// Convert from Substrate balance (u64) to EVM balance (U256)
-    fn into_evm_balance(value: U256) -> Option<U256> {
+    fn into_evm_balance(value: SubstrateBalance) -> Option<EvmBalance> {
+        let value = value.into_u256();
         if let Some(evm_value) = value.checked_mul(U256::from(EVM_TO_SUBSTRATE_DECIMALS)) {
             // Ensure the result fits within the maximum U256 value
             if evm_value <= U256::MAX {
-                Some(evm_value)
+                Some(EvmBalance::new(evm_value))
             } else {
                 // Log value too large
                 log::debug!(
@@ -1261,11 +1264,12 @@ impl BalanceConverter for SubtensorEvmBalanceConverter {
     }
 
     /// Convert from EVM balance (U256) to Substrate balance (u64)
-    fn into_substrate_balance(value: U256) -> Option<U256> {
+    fn into_substrate_balance(value: EvmBalance) -> Option<SubstrateBalance> {
+        let value = value.into_u256();
         if let Some(substrate_value) = value.checked_div(U256::from(EVM_TO_SUBSTRATE_DECIMALS)) {
             // Ensure the result fits within the TAO balance type (u64)
             if substrate_value <= U256::from(u64::MAX) {
-                Some(substrate_value)
+                Some(SubstrateBalance::new(substrate_value))
             } else {
                 // Log value too large
                 log::debug!(
