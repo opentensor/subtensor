@@ -217,19 +217,12 @@ where
     #[precompile::public("setAdjustmentAlpha(uint16,uint64)")]
     #[precompile::payable]
     fn set_adjustment_alpha(
-        handle: &mut impl PrecompileHandle,
-        netuid: u16,
-        adjustment_alpha: u64,
+        _handle: &mut impl PrecompileHandle,
+        _netuid: u16,
+        _adjustment_alpha: u64,
     ) -> EvmResult<()> {
-        let call = pallet_admin_utils::Call::<R>::sudo_set_adjustment_alpha {
-            netuid,
-            adjustment_alpha,
-        };
-
-        handle.try_dispatch_runtime_call::<R, _>(
-            call,
-            RawOrigin::Signed(handle.caller_account_id::<R>()),
-        )
+        // DEPRECATED. Subnet owner cannot set adjustment alpha
+        Ok(())
     }
 
     #[precompile::public("getMaxWeightLimit(uint16)")]

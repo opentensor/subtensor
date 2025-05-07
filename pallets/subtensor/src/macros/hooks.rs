@@ -115,7 +115,9 @@ mod hooks {
                 // Reset max burn
                 .saturating_add(migrations::migrate_reset_max_burn::migrate_reset_max_burn::<T>())
                 // Migrate ColdkeySwapScheduled structure to new format
-                .saturating_add(migrations::migrate_coldkey_swap_scheduled::migrate_coldkey_swap_scheduled::<T>());
+                .saturating_add(migrations::migrate_coldkey_swap_scheduled::migrate_coldkey_swap_scheduled::<T>())
+                // Reset adjustment alpha
+                .saturating_add(migrations::migrate_reset_adjustment_alpha::migrate_reset_adjustment_alpha::<T>());
             weight
         }
 
