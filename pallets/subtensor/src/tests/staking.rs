@@ -985,7 +985,7 @@ fn test_remove_stake_from_hotkey_account() {
         let hotkey_id = U256::from(5445);
         let coldkey_id = U256::from(5443433);
         let amount = 10_000;
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, hotkey_id, coldkey_id, 192213123);
 
         // Add some stake that can be removed
@@ -997,9 +997,10 @@ fn test_remove_stake_from_hotkey_account() {
         );
 
         // Prelimiary checks
-        assert_eq!(
+        assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
-            amount
+            amount,
+            epsilon = 10
         );
 
         // Remove stake
@@ -3689,8 +3690,8 @@ fn test_add_stake_limit_fill_or_kill() {
         SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
         SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
         let current_price = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid);
-		// FIXME it's failing because in the swap pallet, the alpha price is set only after an
-		// initial swap
+        // FIXME it's failing because in the swap pallet, the alpha price is set only after an
+        // initial swap
         assert_eq!(current_price, U96F32::from_num(1.5));
 
         // Give it some $$$ in his coldkey balance

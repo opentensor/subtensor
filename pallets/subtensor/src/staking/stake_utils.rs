@@ -802,7 +802,15 @@ impl<T: Config> Pallet<T> {
         // Get the minimum balance (and amount) that satisfies the transaction
         let min_amount = {
             let default_stake = DefaultMinStake::<T>::get();
-            let fee = T::SwapInterface::approx_fee_amount(netuid, default_stake);
+            let fee = T::SwapInterface::swap(
+                netuid,
+                OrderType::Buy,
+                default_stake,
+                T::SwapInterface::max_price(),
+                true,
+            )
+            .map(|res| res.fee_paid)
+            .unwrap_or(T::SwapInterface::approx_fee_amount(netuid, default_stake));
             default_stake.saturating_add(fee)
         };
 
@@ -949,6 +957,21 @@ impl<T: Config> Pallet<T> {
         ensure!(
             alpha_amount <= origin_alpha,
             Error::<T>::NotEnoughStakeToWithdraw
+        );
+
+        // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
+        let tao_equivalent = T::SwapInterface::swap(
+            origin_netuid,
+            OrderType::Sell,
+            alpha_amount,
+            T::SwapInterface::max_price(),
+            true,
+        )
+        .map(|res| res.amount_paid_out)
+        .map_err(|_| Error::<T>::InsufficientLiquidity)?;
+        ensure!(
+            tao_equivalent > DefaultMinStake::<T>::get(),
+            Error::<T>::AmountTooLow
         );
 
         // Ensure that if partial execution is not allowed, the amount will not cause
