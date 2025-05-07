@@ -2364,7 +2364,7 @@ checksum = "e8c02a5121d4ea3eb16a80748c74f5549a5665e4c21333c6098f283870fbdea6"
 [[package]]
 name = "fc-api"
 version = "1.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=9462b36d09#9462b36d092f36ffee175434881b611f5c170780"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
 dependencies = [
  "async-trait",
  "fp-storage",
@@ -2374,9 +2374,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "fc-aura"
+version = "1.0.0-dev"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
+dependencies = [
+ "fc-rpc",
+ "fp-storage",
+ "sc-client-api",
+ "sc-consensus-aura",
+ "sp-api",
+ "sp-consensus-aura",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-timestamp",
+]
+
+[[package]]
 name = "fc-consensus"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=9462b36d09#9462b36d092f36ffee175434881b611f5c170780"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
 dependencies = [
  "async-trait",
  "fp-consensus",
@@ -2392,7 +2408,7 @@ dependencies = [
 [[package]]
 name = "fc-db"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=9462b36d09#9462b36d092f36ffee175434881b611f5c170780"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
 dependencies = [
  "async-trait",
  "ethereum",
@@ -2422,7 +2438,7 @@ dependencies = [
 [[package]]
 name = "fc-mapping-sync"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=9462b36d09#9462b36d092f36ffee175434881b611f5c170780"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
 dependencies = [
  "fc-db",
  "fc-storage",
@@ -2445,7 +2461,7 @@ dependencies = [
 [[package]]
 name = "fc-rpc"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=9462b36d09#9462b36d092f36ffee175434881b611f5c170780"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2496,7 +2512,7 @@ dependencies = [
 [[package]]
 name = "fc-rpc-core"
 version = "1.1.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=9462b36d09#9462b36d092f36ffee175434881b611f5c170780"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2511,7 +2527,7 @@ dependencies = [
 [[package]]
 name = "fc-storage"
 version = "1.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=9462b36d09#9462b36d092f36ffee175434881b611f5c170780"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2694,7 +2710,7 @@ dependencies = [
 [[package]]
 name = "fp-account"
 version = "1.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=9462b36d09#9462b36d092f36ffee175434881b611f5c170780"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
 dependencies = [
  "hex",
  "impl-serde",
@@ -2713,7 +2729,7 @@ dependencies = [
 [[package]]
 name = "fp-consensus"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=9462b36d09#9462b36d092f36ffee175434881b611f5c170780"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
 dependencies = [
  "ethereum",
  "parity-scale-codec",
@@ -2724,7 +2740,7 @@ dependencies = [
 [[package]]
 name = "fp-ethereum"
 version = "1.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=9462b36d09#9462b36d092f36ffee175434881b611f5c170780"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2736,7 +2752,7 @@ dependencies = [
 [[package]]
 name = "fp-evm"
 version = "3.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=9462b36d09#9462b36d092f36ffee175434881b611f5c170780"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
 dependencies = [
  "evm",
  "frame-support",
@@ -2751,7 +2767,7 @@ dependencies = [
 [[package]]
 name = "fp-rpc"
 version = "3.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=9462b36d09#9462b36d092f36ffee175434881b611f5c170780"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2767,7 +2783,7 @@ dependencies = [
 [[package]]
 name = "fp-self-contained"
 version = "1.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=9462b36d09#9462b36d092f36ffee175434881b611f5c170780"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -2779,7 +2795,7 @@ dependencies = [
 [[package]]
 name = "fp-storage"
 version = "2.0.0"
-source = "git+https://github.com/opentensor/frontier?rev=9462b36d09#9462b36d092f36ffee175434881b611f5c170780"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
 dependencies = [
  "parity-scale-codec",
  "serde",
@@ -3693,7 +3709,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.4.10",
+ "socket2 0.5.7",
  "tokio",
  "tower-service",
  "tracing",
@@ -5523,6 +5539,7 @@ dependencies = [
  "async-trait",
  "clap",
  "fc-api",
+ "fc-aura",
  "fc-consensus",
  "fc-db",
  "fc-mapping-sync",
@@ -6055,7 +6072,7 @@ dependencies = [
 [[package]]
 name = "pallet-base-fee"
 version = "1.0.0"
-source = "git+https://github.com/opentensor/frontier?rev=9462b36d09#9462b36d092f36ffee175434881b611f5c170780"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
 dependencies = [
  "fp-evm",
  "frame-support",
@@ -6164,7 +6181,7 @@ dependencies = [
 [[package]]
 name = "pallet-ethereum"
 version = "4.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=9462b36d09#9462b36d092f36ffee175434881b611f5c170780"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -6186,7 +6203,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm"
 version = "6.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=9462b36d09#9462b36d092f36ffee175434881b611f5c170780"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
 dependencies = [
  "environmental",
  "evm",
@@ -6209,7 +6226,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-chain-id"
 version = "1.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=9462b36d09#9462b36d092f36ffee175434881b611f5c170780"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -6220,7 +6237,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-modexp"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=9462b36d09#9462b36d092f36ffee175434881b611f5c170780"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
 dependencies = [
  "fp-evm",
  "num",
@@ -6229,7 +6246,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-sha3fips"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=9462b36d09#9462b36d092f36ffee175434881b611f5c170780"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
 dependencies = [
  "fp-evm",
  "tiny-keccak",
@@ -6238,7 +6255,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-simple"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=9462b36d09#9462b36d092f36ffee175434881b611f5c170780"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
 dependencies = [
  "fp-evm",
  "ripemd",
@@ -6270,7 +6287,7 @@ dependencies = [
 [[package]]
 name = "pallet-hotfix-sufficients"
 version = "1.0.0"
-source = "git+https://github.com/opentensor/frontier?rev=9462b36d09#9462b36d092f36ffee175434881b611f5c170780"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -7072,7 +7089,7 @@ dependencies = [
 [[package]]
 name = "precompile-utils"
 version = "0.1.0"
-source = "git+https://github.com/opentensor/frontier?rev=9462b36d09#9462b36d092f36ffee175434881b611f5c170780"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
 dependencies = [
  "environmental",
  "evm",
@@ -7096,7 +7113,7 @@ dependencies = [
 [[package]]
 name = "precompile-utils-macro"
 version = "0.1.0"
-source = "git+https://github.com/opentensor/frontier?rev=9462b36d09#9462b36d092f36ffee175434881b611f5c170780"
+source = "git+https://github.com/opentensor/frontier?rev=b902a66fff#b902a66fffadcfb63a8fe83256fd92c1c6cf73f3"
 dependencies = [
  "case",
  "num_enum",

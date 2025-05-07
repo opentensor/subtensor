@@ -2,9 +2,10 @@ pub use fc_consensus::FrontierBlockImport;
 use fc_rpc::{
     Debug, DebugApiServer, Eth, EthApiServer, EthConfig, EthDevSigner, EthFilter,
     EthFilterApiServer, EthPubSub, EthPubSubApiServer, EthSigner, EthTask, Net, NetApiServer, Web3,
-    Web3ApiServer, pending::AuraConsensusDataProvider,
+    Web3ApiServer,
 };
 pub use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
+use fc_aura::AuraConsensusDataProvider;
 /// Frontier DB backend type.
 pub use fc_storage::{StorageOverride, StorageOverrideHandler};
 use fp_rpc::ConvertTransaction;
