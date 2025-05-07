@@ -4,10 +4,8 @@ name: Validate-Benchmarks
 on:
   pull_request:
     types:
-      - labeled
-      - unlabeled
-      - synchronize
       - opened
+      - synchronize
   workflow_dispatch:
 
 concurrency:
@@ -25,10 +23,32 @@ jobs:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
 
+      - name: Install GitHub CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gh
+          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+
+      - name: Check skip label
+        run: |
+          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          if echo "$labels" | grep -q "skip-validate-benchmarks"; then
+            echo "Skip label found - stopping."
+            exit 0
+          fi
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
+
+      - name: Check skip label
+        run: |
+          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          if echo "$labels" | grep -q "skip-validate-benchmarks"; then
+            echo "Skip label found - stopping."
+            exit 0
+          fi
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -36,14 +56,38 @@ jobs:
           profile: minimal
           toolchain: stable
 
+      - name: Check skip label
+        run: |
+          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          if echo "$labels" | grep -q "skip-validate-benchmarks"; then
+            echo "Skip label found - stopping."
+            exit 0
+          fi
+
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
         with:
           key: bench-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Check skip label
+        run: |
+          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          if echo "$labels" | grep -q "skip-validate-benchmarks"; then
+            echo "Skip label found - stopping."
+            exit 0
+          fi
+
       - name: Build node with benchmarks
         run: |
           cargo build --profile production -p node-subtensor --features runtime-benchmarks
+
+      - name: Check skip label
+        run: |
+          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          if echo "$labels" | grep -q "skip-validate-benchmarks"; then
+            echo "Skip label found - stopping."
+            exit 0
+          fi
 
       - name: Run & validate benchmarks
         run: |
