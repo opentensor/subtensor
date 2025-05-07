@@ -29,7 +29,7 @@ pub trait SwapHandler<AccountId> {
         netuid: u16,
         coldkey_account_id: &AccountId,
         position_id: u128,
-    ) -> Result<RemoveLiquidityResult, DispatchError>;
+    ) -> Result<UpdateLiquidityResult, DispatchError>;
     fn approx_fee_amount(netuid: u16, amount: u64) -> u64;
     fn current_alpha_price(netuid: u16) -> U96F32;
     fn max_price() -> u64;
@@ -47,7 +47,7 @@ pub struct SwapResult {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct RemoveLiquidityResult {
+pub struct UpdateLiquidityResult {
     pub tao: u64,
     pub alpha: u64,
     pub fee_tao: u64,

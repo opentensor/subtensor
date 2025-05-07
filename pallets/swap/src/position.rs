@@ -18,7 +18,7 @@ use crate::{NetUid, SqrtPrice};
 /// liquidity - position liquidity
 /// fees_tao - fees accrued by the position in quote currency (TAO)
 /// fees_alpha - fees accrued by the position in base currency (Alpha)
-#[freeze_struct("fef7b4de3c0df37d")]
+#[freeze_struct("1a4924d76eb084f1")]
 #[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen, Default)]
 pub struct Position {
     pub id: PositionId,
@@ -26,8 +26,8 @@ pub struct Position {
     pub tick_low: TickIndex,
     pub tick_high: TickIndex,
     pub liquidity: u64,
-    pub fees_tao: u64,
-    pub fees_alpha: u64,
+    pub fees_tao: U64F64,
+    pub fees_alpha: U64F64,
 }
 
 impl Position {
@@ -94,25 +94,26 @@ impl Position {
     /// Collect fees for a position
     /// Updates the position
     pub fn collect_fees<T: Config>(&mut self) -> (u64, u64) {
-        let mut fee_tao = self.fees_in_range::<T>(true);
-        let mut fee_alpha = self.fees_in_range::<T>(false);
+        let fee_tao_agg = self.fees_in_range::<T>(true);
+        let fee_alpha_agg = self.fees_in_range::<T>(false);
 
-        fee_tao = fee_tao.saturating_sub(self.fees_tao);
-        fee_alpha = fee_alpha.saturating_sub(self.fees_alpha);
+        let mut fee_tao = fee_tao_agg.saturating_sub(U64F64::saturating_from_num(self.fees_tao));
+        let mut fee_alpha = fee_alpha_agg.saturating_sub(U64F64::saturating_from_num(self.fees_alpha));
 
-        self.fees_tao = fee_tao;
-        self.fees_alpha = fee_alpha;
+        self.fees_tao = fee_tao_agg;
+        self.fees_alpha = fee_alpha_agg;
 
-        fee_tao = self.liquidity.saturating_mul(fee_tao);
-        fee_alpha = self.liquidity.saturating_mul(fee_alpha);
+        let liquidity_frac = U64F64::saturating_from_num(self.liquidity);
+        fee_tao = liquidity_frac.saturating_mul(fee_tao);
+        fee_alpha = liquidity_frac.saturating_mul(fee_alpha);
 
-        (fee_tao, fee_alpha)
+        (fee_tao.saturating_to_num::<u64>(), fee_alpha.saturating_to_num::<u64>())
     }
 
     /// Get fees in a position's range
     ///
     /// If quote flag is true, Tao is returned, otherwise alpha.
-    fn fees_in_range<T: Config>(&self, quote: bool) -> u64 {
+    fn fees_in_range<T: Config>(&self, quote: bool) -> U64F64 {
         if quote {
             FeeGlobalTao::<T>::get(self.netuid)
         } else {
@@ -120,7 +121,6 @@ impl Position {
         }
         .saturating_sub(self.tick_low.fees_below::<T>(self.netuid, quote))
         .saturating_sub(self.tick_high.fees_above::<T>(self.netuid, quote))
-        .saturating_to_num::<u64>()
     }
 }
 
