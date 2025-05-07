@@ -90,6 +90,8 @@ pub mod pallet {
         MaxAllowedUIdsLessThanCurrentUIds,
         /// The maximum value for bonds moving average is reached
         BondsMovingAverageMaxReached,
+        /// The maximum value for adjustment alpha is reached
+        AdjustmentAlphaMaxReached,
     }
     /// Enum for specifying the type of precompile operation.
     #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, Copy)]
@@ -374,7 +376,14 @@ pub mod pallet {
             netuid: u16,
             adjustment_alpha: u64,
         ) -> DispatchResult {
-            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+
+            if pallet_subtensor::Pallet::<T>::ensure_subnet_owner(origin, netuid).is_ok() {
+                ensure!(
+                    adjustment_alpha <= (u64::MAX.saturating_div(2)),
+                    Error::<T>::AdjustmentAlphaMaxReached
+                )
+            }
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),

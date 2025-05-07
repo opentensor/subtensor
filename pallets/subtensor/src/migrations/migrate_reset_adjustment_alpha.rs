@@ -31,7 +31,7 @@ pub fn migrate_reset_adjustment_alpha<T: Config>() -> Weight {
 
     for netuid in AdjustmentAlpha::<T>::iter_keys() {
         AdjustmentAlpha::<T>::mutate(netuid, |adjustment| {
-            *adjustment = (*adjustment).min(32768); // 0.5
+            *adjustment = (*adjustment).min(u64::MAX.saturating_div(2)); // 0.5
         });
         reset_entries_count = reset_entries_count.saturating_add(1);
     }
