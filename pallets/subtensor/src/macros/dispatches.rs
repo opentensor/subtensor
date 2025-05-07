@@ -1719,9 +1719,9 @@ mod dispatches {
         /// May emit a `StakeSwapped` event on success.
         #[pallet::call_index(87)]
         #[pallet::weight((
-            Weight::from_parts(190_100_000, 0)
-            .saturating_add(T::DbWeight::get().reads(13))
-            .saturating_add(T::DbWeight::get().writes(9)),
+            Weight::from_parts(221_600_000, 0)
+            .saturating_add(T::DbWeight::get().reads(25))
+            .saturating_add(T::DbWeight::get().writes(16)),
             DispatchClass::Operational,
             Pays::No
         ))]
