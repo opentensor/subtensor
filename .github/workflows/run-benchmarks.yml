@@ -34,7 +34,7 @@ jobs:
           labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
           if echo "$labels" | grep -q "skip-validate-benchmarks"; then
             echo "Skip label found - stopping."
-            exit 0
+            exit 1
           fi
 
       - name: Install system dependencies
@@ -47,7 +47,7 @@ jobs:
           labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
           if echo "$labels" | grep -q "skip-validate-benchmarks"; then
             echo "Skip label found - stopping."
-            exit 0
+            exit 1
           fi
 
       - name: Install Rust toolchain
@@ -61,7 +61,7 @@ jobs:
           labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
           if echo "$labels" | grep -q "skip-validate-benchmarks"; then
             echo "Skip label found - stopping."
-            exit 0
+            exit 1
           fi
 
       - name: Cache Rust build
@@ -74,7 +74,7 @@ jobs:
           labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
           if echo "$labels" | grep -q "skip-validate-benchmarks"; then
             echo "Skip label found - stopping."
-            exit 0
+            exit 1
           fi
 
       - name: Build node with benchmarks
@@ -86,7 +86,7 @@ jobs:
           labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
           if echo "$labels" | grep -q "skip-validate-benchmarks"; then
             echo "Skip label found - stopping."
-            exit 0
+            exit 1
           fi
 
       - name: Run & validate benchmarks
