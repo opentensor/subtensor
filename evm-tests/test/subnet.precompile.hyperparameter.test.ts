@@ -481,7 +481,7 @@ describe("Test the Subnet precompile contract", () => {
       const tx = await contract.setYuma3Enabled(netuid, newValue);
       await tx.wait();
 
-      let onchainValue = await api.query.SubtensorModule.Yuma3Enabled.getValue(netuid)
+      let onchainValue = await api.query.SubtensorModule.Yuma3On.getValue(netuid)
 
       let valueFromContract = Boolean(
         await contract.getYuma3Enabled(netuid)

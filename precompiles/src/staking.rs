@@ -276,6 +276,56 @@ where
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
     }
+
+    #[precompile::public("addStakeLimit(bytes32,uint256,uint256,bool,uint256)")]
+    fn add_stake_limit(
+        handle: &mut impl PrecompileHandle,
+        address: H256,
+        amount_rao: U256,
+        limit_price_rao: U256,
+        allow_partial: bool,
+        netuid: U256,
+    ) -> EvmResult<()> {
+        let account_id = handle.caller_account_id::<R>();
+        let amount_staked = amount_rao.unique_saturated_into();
+        let limit_price = limit_price_rao.unique_saturated_into();
+        let hotkey = R::AccountId::from(address.0);
+        let netuid = try_u16_from_u256(netuid)?;
+        let call = pallet_subtensor::Call::<R>::add_stake_limit {
+            hotkey,
+            netuid,
+            amount_staked,
+            limit_price,
+            allow_partial,
+        };
+
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+    }
+
+    #[precompile::public("removeStakeLimit(bytes32,uint256,uint256,bool,uint256)")]
+    fn remove_stake_limit(
+        handle: &mut impl PrecompileHandle,
+        address: H256,
+        amount_alpha: U256,
+        limit_price_rao: U256,
+        allow_partial: bool,
+        netuid: U256,
+    ) -> EvmResult<()> {
+        let account_id = handle.caller_account_id::<R>();
+        let hotkey = R::AccountId::from(address.0);
+        let netuid = try_u16_from_u256(netuid)?;
+        let amount_unstaked = amount_alpha.unique_saturated_into();
+        let limit_price = limit_price_rao.unique_saturated_into();
+        let call = pallet_subtensor::Call::<R>::remove_stake_limit {
+            hotkey,
+            netuid,
+            amount_unstaked,
+            limit_price,
+            allow_partial,
+        };
+
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+    }
 }
 
 // Deprecated, exists for backward compatibility.
