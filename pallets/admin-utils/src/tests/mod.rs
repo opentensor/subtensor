@@ -339,12 +339,14 @@ fn test_sudo_set_adjustment_interval() {
 fn test_sudo_set_adjustment_alpha() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
-        let to_be_set: u64 = 10;
+        let coldkey: U256 = U256::from(1);
+        let to_be_set: u64 = u64::MAX / 3;
         add_network(netuid, 10);
         let init_value: u64 = SubtensorModule::get_adjustment_alpha(netuid);
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, coldkey);
         assert_eq!(
             AdminUtils::sudo_set_adjustment_alpha(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(100)),
                 netuid,
                 to_be_set
             ),
@@ -358,9 +360,17 @@ fn test_sudo_set_adjustment_alpha() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
+        assert_eq!(
+            AdminUtils::sudo_set_adjustment_alpha(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                netuid,
+                u64::MAX
+            ),
+            Err(Error::<Test>::AdjustmentAlphaMaxReached.into())
+        );
         assert_eq!(SubtensorModule::get_adjustment_alpha(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_adjustment_alpha(
-            <<Test as Config>::RuntimeOrigin>::root(),
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             netuid,
             to_be_set
         ));

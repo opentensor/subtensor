@@ -376,7 +376,7 @@ pub mod pallet {
             netuid: u16,
             adjustment_alpha: u64,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
 
             if pallet_subtensor::Pallet::<T>::ensure_subnet_owner(origin, netuid).is_ok() {
                 ensure!(
