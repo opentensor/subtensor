@@ -10,6 +10,7 @@ on:
 permissions:
   issues: write
   pull-requests: write
+  contents: write 
 
 jobs:
   comment_on_breaking_change:
@@ -25,4 +26,20 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: '@opentensor/cerebrum / @opentensor/gyrus / @opentensor/cortex breaking change detected! Please prepare accordingly!'
+            })
+
+  re_run_validate_benchmarks:
+    name: "Re-run Validate-Benchmarks if skip-validate-benchmarks is removed"
+    runs-on: ubuntu-latest
+    if: github.event.action == 'unlabeled' && github.event.label.name == 'skip-validate-benchmarks'
+    steps:
+      - name: Trigger Benchmarks workflow_dispatch
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'run-benchmarks.yml',
+              ref: context.payload.pull_request.head.ref
             })
