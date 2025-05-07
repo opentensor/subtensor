@@ -1122,44 +1122,49 @@ mod pallet_benchmarks {
     fn swap_stake() {
         let coldkey: T::AccountId = whitelisted_caller();
         let hot: T::AccountId = account("A", 0, 9);
-        let netuid: u16 = 1;
+        let netuid1: u16 = 1;
+        let netuid2: u16 = 2;
 
-        SubtokenEnabled::<T>::insert(netuid, true);
-        Subtensor::<T>::init_new_network(netuid, 1);
+        SubtokenEnabled::<T>::insert(netuid1, true);
+        Subtensor::<T>::init_new_network(netuid1, 1);
+        SubtokenEnabled::<T>::insert(netuid2, true);
+        Subtensor::<T>::init_new_network(netuid2, 1);
 
-        let reg_fee = Subtensor::<T>::get_burn_as_u64(netuid);
+        let reg_fee = Subtensor::<T>::get_burn_as_u64(netuid1);
         let stake_tao: u64 = 1_000_000;
         let deposit = reg_fee.saturating_mul(2).saturating_add(stake_tao);
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, deposit);
 
         assert_ok!(Subtensor::<T>::burned_register(
             RawOrigin::Signed(coldkey.clone()).into(),
-            netuid,
+            netuid1,
             hot.clone()
         ));
 
-        SubnetTAO::<T>::insert(netuid, deposit);
-        SubnetAlphaIn::<T>::insert(netuid, deposit);
+        SubnetTAO::<T>::insert(netuid1, deposit);
+        SubnetAlphaIn::<T>::insert(netuid1, deposit);
+        SubnetTAO::<T>::insert(netuid2, deposit);
+        SubnetAlphaIn::<T>::insert(netuid2, deposit);
         TotalStake::<T>::set(deposit);
 
         assert_ok!(Subtensor::<T>::add_stake_limit(
             RawOrigin::Signed(coldkey.clone()).into(),
             hot.clone(),
-            netuid,
+            netuid1,
             stake_tao,
             u64::MAX,
             false
         ));
 
         let alpha_to_swap: u64 =
-            Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(&hot, &coldkey, netuid);
+            Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(&hot, &coldkey, netuid1);
 
         #[extrinsic_call]
         _(
             RawOrigin::Signed(coldkey.clone()),
             hot.clone(),
-            netuid,
-            netuid,
+            netuid1,
+            netuid2,
             alpha_to_swap,
         );
     }
