@@ -2258,8 +2258,8 @@ fn check_whitelist() {
 #[test]
 fn test_into_substrate_balance_valid() {
     // Valid conversion within u64 range
-    let evm_balance = U256::from(1_000_000_000_000_000_000u128); // 1 TAO in EVM
-    let expected_substrate_balance = U256::from(1_000_000_000u128); // 1 TAO in Substrate
+    let evm_balance: EvmBalance = 1_000_000_000_000_000_000u128.into(); // 1 TAO in EVM
+    let expected_substrate_balance: SubstrateBalance = 1_000_000_000u128.into(); // 1 TAO in Substrate
 
     let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
     assert_eq!(result, Some(expected_substrate_balance));
@@ -2268,8 +2268,8 @@ fn test_into_substrate_balance_valid() {
 #[test]
 fn test_into_substrate_balance_large_value() {
     // Maximum valid balance for u64
-    let evm_balance = U256::from(u64::MAX) * U256::from(EVM_TO_SUBSTRATE_DECIMALS); // Max u64 TAO in EVM
-    let expected_substrate_balance = U256::from(u64::MAX);
+    let evm_balance = EvmBalance::new(U256::from(u64::MAX) * U256::from(EVM_TO_SUBSTRATE_DECIMALS)); // Max u64 TAO in EVM
+    let expected_substrate_balance = SubstrateBalance::new(U256::from(u64::MAX));
 
     let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
     assert_eq!(result, Some(expected_substrate_balance));
@@ -2278,8 +2278,9 @@ fn test_into_substrate_balance_large_value() {
 #[test]
 fn test_into_substrate_balance_exceeds_u64() {
     // EVM balance that exceeds u64 after conversion
-    let evm_balance =
-        (U256::from(u64::MAX) + U256::from(1)) * U256::from(EVM_TO_SUBSTRATE_DECIMALS);
+    let evm_balance = EvmBalance::new(
+        (U256::from(u64::MAX) + U256::from(1)) * U256::from(EVM_TO_SUBSTRATE_DECIMALS),
+    );
 
     let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
     assert_eq!(result, None); // Exceeds u64, should return None
@@ -2288,8 +2289,8 @@ fn test_into_substrate_balance_exceeds_u64() {
 #[test]
 fn test_into_substrate_balance_precision_loss() {
     // EVM balance with precision loss
-    let evm_balance = U256::from(1_000_000_000_123_456_789u128); // 1 TAO + extra precision in EVM
-    let expected_substrate_balance = U256::from(1_000_000_000u128); // Truncated to 1 TAO in Substrate
+    let evm_balance = EvmBalance::new(U256::from(1_000_000_000_123_456_789u128)); // 1 TAO + extra precision in EVM
+    let expected_substrate_balance = SubstrateBalance::new(U256::from(1_000_000_000u128)); // Truncated to 1 TAO in Substrate
 
     let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
     assert_eq!(result, Some(expected_substrate_balance));
@@ -2298,8 +2299,8 @@ fn test_into_substrate_balance_precision_loss() {
 #[test]
 fn test_into_substrate_balance_zero_value() {
     // Zero balance should convert to zero
-    let evm_balance = U256::from(0);
-    let expected_substrate_balance = U256::from(0);
+    let evm_balance = EvmBalance::new(U256::from(0));
+    let expected_substrate_balance = SubstrateBalance::new(U256::from(0));
 
     let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
     assert_eq!(result, Some(expected_substrate_balance));
@@ -2308,8 +2309,8 @@ fn test_into_substrate_balance_zero_value() {
 #[test]
 fn test_into_evm_balance_valid() {
     // Valid conversion from Substrate to EVM
-    let substrate_balance = U256::from(1_000_000_000u128); // 1 TAO in Substrate
-    let expected_evm_balance = U256::from(1_000_000_000_000_000_000u128); // 1 TAO in EVM
+    let substrate_balance: SubstrateBalance = 1_000_000_000u128.into(); // 1 TAO in Substrate
+    let expected_evm_balance = EvmBalance::new(U256::from(1_000_000_000_000_000_000u128)); // 1 TAO in EVM
 
     let result = SubtensorEvmBalanceConverter::into_evm_balance(substrate_balance);
     assert_eq!(result, Some(expected_evm_balance));
@@ -2318,8 +2319,9 @@ fn test_into_evm_balance_valid() {
 #[test]
 fn test_into_evm_balance_overflow() {
     // Substrate balance larger than u64::MAX but valid within U256
-    let substrate_balance = U256::from(u64::MAX) + U256::from(1); // Large balance
-    let expected_evm_balance = substrate_balance * U256::from(EVM_TO_SUBSTRATE_DECIMALS);
+    let substrate_balance = SubstrateBalance::new(U256::from(u64::MAX) + U256::from(1)); // Large balance
+    let expected_evm_balance =
+        EvmBalance::new(substrate_balance.into_u256() * U256::from(EVM_TO_SUBSTRATE_DECIMALS));
 
     let result = SubtensorEvmBalanceConverter::into_evm_balance(substrate_balance);
     assert_eq!(result, Some(expected_evm_balance)); // Should return the scaled value
