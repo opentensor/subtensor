@@ -88,7 +88,6 @@ parameter_types! {
 impl pallet_drand_bridge::Config for Test {
     type AuthorityId = crypto::TestAuthId;
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = pallet_drand_bridge::weights::SubstrateWeight<Test>;
     type Verifier = QuicknetVerifier;
     type UnsignedPriority = UnsignedPriority;
     type HttpFetchTimeout = ConstU64<1_000>;

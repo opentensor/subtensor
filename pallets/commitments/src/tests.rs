@@ -3,8 +3,8 @@ use sp_std::prelude::*;
 
 #[cfg(test)]
 use crate::{
-    CommitmentInfo, CommitmentOf, Config, Data, Error, Event, MaxSpace, Pallet, RateLimit,
-    Registration, RevealedCommitments, TimelockedIndex, UsedSpaceOf,
+    CommitmentInfo, CommitmentOf, Config, Data, Error, Event, MaxSpace, Pallet, Registration,
+    RevealedCommitments, TimelockedIndex, UsedSpaceOf,
     mock::{
         Balances, DRAND_QUICKNET_SIG_2000_HEX, DRAND_QUICKNET_SIG_HEX, RuntimeEvent, RuntimeOrigin,
         Test, TestMaxFields, insert_drand_pulse, new_test_ext, produce_ciphertext,
@@ -34,6 +34,7 @@ fn manual_data_type_info() {
             Data::ShaThree256(_) => "ShaThree256".to_string(),
             Data::Raw(bytes) => format!("Raw{}", bytes.len()),
             Data::TimelockEncrypted { .. } => "TimelockEncrypted".to_string(),
+            Data::ResetBondsFlag => "ResetBondsFlag".to_string(),
         };
         if let scale_info::TypeDef::Variant(variant) = &type_info.type_def {
             let variant = variant
@@ -63,6 +64,7 @@ fn manual_data_type_info() {
                         let reveal_round_len = reveal_round.encode().len() as u32; // Typically 8 bytes
                         encrypted_len + reveal_round_len
                     }
+                    Data::ResetBondsFlag => 0,
                 };
                 assert_eq!(
                     encoded.len() as u32 - 1, // Subtract variant byte
@@ -89,6 +91,7 @@ fn manual_data_type_info() {
         Data::Sha256(Default::default()),
         Data::Keccak256(Default::default()),
         Data::ShaThree256(Default::default()),
+        Data::ResetBondsFlag,
     ];
 
     // Add Raw instances for all possible sizes
@@ -150,39 +153,6 @@ fn set_commitment_too_many_fields_panics() {
     });
 }
 
-// DEPRECATED
-// #[test]
-// fn set_commitment_rate_limit_exceeded() {
-//     new_test_ext().execute_with(|| {
-//         let rate_limit = <Test as Config>::DefaultRateLimit::get();
-//         System::<Test>::set_block_number(1);
-//         let info = Box::new(CommitmentInfo {
-//             fields: BoundedVec::try_from(vec![]).expect("Expected not to panic"),
-//         });
-
-//         assert_ok!(Pallet::<Test>::set_commitment(
-//             RuntimeOrigin::signed(1),
-//             1,
-//             info.clone()
-//         ));
-
-//         // Set block number to just before rate limit expires
-//         System::<Test>::set_block_number(rate_limit);
-//         assert_noop!(
-//             Pallet::<Test>::set_commitment(RuntimeOrigin::signed(1), 1, info.clone()),
-//             Error::<Test>::CommitmentSetRateLimitExceeded
-//         );
-
-//         // Set block number to after rate limit
-//         System::<Test>::set_block_number(rate_limit + 1);
-//         assert_ok!(Pallet::<Test>::set_commitment(
-//             RuntimeOrigin::signed(1),
-//             1,
-//             info
-//         ));
-//     });
-// }
-
 #[test]
 fn set_commitment_updates_deposit() {
     new_test_ext().execute_with(|| {
@@ -222,22 +192,6 @@ fn set_commitment_updates_deposit() {
                 .expect("Expected not to panic")
                 .deposit,
             expected_deposit2
-        );
-    });
-}
-
-#[test]
-fn set_rate_limit_works() {
-    new_test_ext().execute_with(|| {
-        let default_rate_limit: u64 = <Test as Config>::DefaultRateLimit::get();
-        assert_eq!(RateLimit::<Test>::get(), default_rate_limit);
-
-        assert_ok!(Pallet::<Test>::set_rate_limit(RuntimeOrigin::root(), 200));
-        assert_eq!(RateLimit::<Test>::get(), 200);
-
-        assert_noop!(
-            Pallet::<Test>::set_rate_limit(RuntimeOrigin::signed(1), 300),
-            sp_runtime::DispatchError::BadOrigin
         );
     });
 }

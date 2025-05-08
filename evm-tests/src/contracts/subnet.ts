@@ -579,6 +579,43 @@ export const ISubnetABI = [
                 name: "netuid",
                 type: "uint16",
             },
+        ],
+        name: "getYuma3Enabled",
+        outputs: [
+            {
+                internalType: "bool",
+                name: "",
+                type: "bool",
+            },
+        ],
+        stateMutability: "view",
+        type: "function",
+    },
+    {
+      inputs: [
+          {
+              internalType: "uint16",
+              name: "netuid",
+              type: "uint16",
+          },
+          {
+              internalType: "bool",
+              name: "yuma3Enabled",
+              type: "bool",
+          },
+        ],
+        name: "setYuma3Enabled",
+        outputs: [],
+        stateMutability: "payable",
+        type: "function",
+    },
+    {
+        inputs: [
+            {
+                internalType: "uint16",
+                name: "netuid",
+                type: "uint16",
+            },
             {
                 internalType: "bool",
                 name: "liquidAlphaEnabled",

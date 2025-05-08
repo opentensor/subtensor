@@ -57,6 +57,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Patch non-fast-block node
+        run: |
+          perl -0777 -i -pe 's|7 \* 24 \* 60 \* 60 / 12 // 7 days|5 // Only 5 blocks for tests|' runtime/src/lib.rs
+          perl -0777 -i -pe 's|pub fn DefaultPendingCooldown<T: Config>\(\) -> u64 \{\s*if cfg!\(feature = "fast-blocks"\) \{\s*return 15;\s*\}\s*7_200\s*\}|pub fn DefaultPendingCooldown<T: Config>() -> u64 {\n        15\n    }|g' pallets/subtensor/src/lib.rs
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:

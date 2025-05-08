@@ -4,9 +4,9 @@
 // Edit this file to define custom logic or remove it if it is not needed.
 // Learn more about FRAME and the core library of Substrate FRAME pallets:
 // <https://docs.substrate.io/reference/frame-pallets/>
-pub use pallet::*;
 
 use frame_system::{self as system, ensure_signed};
+pub use pallet::*;
 
 use frame_support::{
     dispatch::{self, DispatchInfo, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo},
@@ -641,6 +641,11 @@ pub mod pallet {
         T::InitialRho::get()
     }
     #[pallet::type_value]
+    /// Default value for alpha sigmoid steepness.
+    pub fn DefaultAlphaSigmoidSteepness<T: Config>() -> u16 {
+        T::InitialAlphaSigmoidSteepness::get()
+    }
+    #[pallet::type_value]
     /// Default value for kappa parameter.
     pub fn DefaultKappa<T: Config>() -> u16 {
         T::InitialKappa::get()
@@ -695,8 +700,13 @@ pub mod pallet {
     pub fn DefaultBondsPenalty<T: Config>() -> u16 {
         T::InitialBondsPenalty::get()
     }
+    /// Default value for bonds reset - will not reset bonds
     #[pallet::type_value]
+    pub fn DefaultBondsResetOn<T: Config>() -> bool {
+        T::InitialBondsResetOn::get()
+    }
     /// Default validator prune length.
+    #[pallet::type_value]
     pub fn DefaultValidatorPruneLen<T: Config>() -> u64 {
         T::InitialValidatorPruneLen::get()
     }
@@ -800,15 +810,25 @@ pub mod pallet {
         false
     }
     #[pallet::type_value]
+    /// -- ITEM (switches liquid alpha on)
+    pub fn DefaultYuma3<T: Config>() -> bool {
+        false
+    }
+    #[pallet::type_value]
     /// (alpha_low: 0.7, alpha_high: 0.9)
     pub fn DefaultAlphaValues<T: Config>() -> (u16, u16) {
         (45875, 58982)
     }
-
     #[pallet::type_value]
     /// Default value for coldkey swap schedule duration
     pub fn DefaultColdkeySwapScheduleDuration<T: Config>() -> BlockNumberFor<T> {
         T::InitialColdkeySwapScheduleDuration::get()
+    }
+
+    #[pallet::type_value]
+    /// Default value for coldkey swap reschedule duration
+    pub fn DefaultColdkeySwapRescheduleDuration<T: Config>() -> BlockNumberFor<T> {
+        T::InitialColdkeySwapRescheduleDuration::get()
     }
 
     #[pallet::type_value]
@@ -876,6 +896,14 @@ pub mod pallet {
     }
 
     #[pallet::type_value]
+    /// Default value for coldkey swap scheduled
+    pub fn DefaultColdkeySwapScheduled<T: Config>() -> (BlockNumberFor<T>, T::AccountId) {
+        let default_account = T::AccountId::decode(&mut TrailingZeroInput::zeroes())
+            .expect("trailing zeroes always produce a valid account ID; qed");
+        (BlockNumberFor::<T>::from(0_u32), default_account)
+    }
+
+    #[pallet::type_value]
     /// Default value for setting subnet owner hotkey rate limit
     pub fn DefaultSetSNOwnerHotkeyRateLimit<T: Config>() -> u64 {
         50400
@@ -888,6 +916,10 @@ pub mod pallet {
     #[pallet::storage]
     pub type ColdkeySwapScheduleDuration<T: Config> =
         StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapScheduleDuration<T>>;
+
+    #[pallet::storage]
+    pub type ColdkeySwapRescheduleDuration<T: Config> =
+        StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapRescheduleDuration<T>>;
 
     #[pallet::storage]
     pub type DissolveNetworkScheduleDuration<T: Config> =
@@ -1085,9 +1117,15 @@ pub mod pallet {
     pub type OwnedHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
 
-    #[pallet::storage] // --- DMAP ( cold ) --> () | Maps coldkey to if a coldkey swap is scheduled.
-    pub type ColdkeySwapScheduled<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, (), ValueQuery>;
+    #[pallet::storage] // --- DMAP ( cold ) --> (block_expected, new_coldkey) | Maps coldkey to the block to swap at and new coldkey.
+    pub type ColdkeySwapScheduled<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        (BlockNumberFor<T>, T::AccountId),
+        ValueQuery,
+        DefaultColdkeySwapScheduled<T>,
+    >;
 
     #[pallet::storage] // --- DMAP ( hot, netuid ) --> alpha | Returns the total amount of alpha a hotkey owns.
     pub type TotalHotkeyAlpha<T: Config> = StorageDoubleMap<
@@ -1293,6 +1331,10 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> Rho
     pub type Rho<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultRho<T>>;
     #[pallet::storage]
+    /// --- MAP ( netuid ) --> AlphaSigmoidSteepness
+    pub type AlphaSigmoidSteepness<T> =
+        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultAlphaSigmoidSteepness<T>>;
+    #[pallet::storage]
     /// --- MAP ( netuid ) --> Kappa
     pub type Kappa<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultKappa<T>>;
     #[pallet::storage]
@@ -1346,6 +1388,10 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> bonds_penalty
     pub type BondsPenalty<T> =
         StorageMap<_, Identity, u16, u16, ValueQuery, DefaultBondsPenalty<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> bonds_reset
+    pub type BondsResetOn<T> =
+        StorageMap<_, Identity, u16, bool, ValueQuery, DefaultBondsResetOn<T>>;
     /// --- MAP ( netuid ) --> weights_set_rate_limit
     #[pallet::storage]
     pub type WeightsSetRateLimit<T> =
@@ -1421,6 +1467,9 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> Whether or not Liquid Alpha is enabled
     pub type LiquidAlphaOn<T> =
         StorageMap<_, Blake2_128Concat, u16, bool, ValueQuery, DefaultLiquidAlpha<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> Whether or not Yuma3 is enabled
+    pub type Yuma3On<T> = StorageMap<_, Blake2_128Concat, u16, bool, ValueQuery, DefaultYuma3<T>>;
     #[pallet::storage]
     ///  MAP ( netuid ) --> (alpha_low, alpha_high)
     pub type AlphaValues<T> =
@@ -1779,6 +1828,7 @@ pub enum CustomTransactionError {
     ServingRateLimitExceeded,
     InvalidPort,
     BadRequest,
+    ZeroMaxAmount,
 }
 
 impl From<CustomTransactionError> for u8 {
@@ -1799,6 +1849,7 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::ServingRateLimitExceeded => 12,
             CustomTransactionError::InvalidPort => 13,
             CustomTransactionError::BadRequest => 255,
+            CustomTransactionError::ZeroMaxAmount => 14,
         }
     }
 }
@@ -2075,8 +2126,13 @@ where
                     .into();
                 }
 
-                // Calcaulate the maximum amount that can be executed with price limit
-                let max_amount = Pallet::<T>::get_max_amount_add(*netuid, *limit_price);
+                // Calculate the maximum amount that can be executed with price limit
+                let Ok(max_amount) = Pallet::<T>::get_max_amount_add(*netuid, *limit_price) else {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ZeroMaxAmount.into(),
+                    )
+                    .into();
+                };
 
                 // Fully validate the user input
                 Self::result_to_validity(
@@ -2116,8 +2172,14 @@ where
                 limit_price,
                 allow_partial,
             }) => {
-                // Calcaulate the maximum amount that can be executed with price limit
-                let max_amount = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price);
+                // Calculate the maximum amount that can be executed with price limit
+                let Ok(max_amount) = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price)
+                else {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ZeroMaxAmount.into(),
+                    )
+                    .into();
+                };
 
                 // Fully validate the user input
                 Self::result_to_validity(
@@ -2170,8 +2232,13 @@ where
                     .into();
                 }
 
-                //Calculate the maximum amount that can be executed with price limit
-                let max_amount = Pallet::<T>::get_max_amount_add(*netuid, *limit_price);
+                // Calculate the maximum amount that can be executed with price limit
+                let Ok(max_amount) = Pallet::<T>::get_max_amount_add(*netuid, *limit_price) else {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ZeroMaxAmount.into(),
+                    )
+                    .into();
+                };
 
                 // Fully validate the user input
                 Self::result_to_validity(
@@ -2212,7 +2279,13 @@ where
                 allow_partial,
             }) => {
                 // Calculate the maximum amount that can be executed with price limit
-                let max_amount = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price);
+                let Ok(max_amount) = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price)
+                else {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ZeroMaxAmount.into(),
+                    )
+                    .into();
+                };
 
                 // Fully validate the user input
                 Self::result_to_validity(
@@ -2335,11 +2408,16 @@ where
                 }
 
                 // Get the max amount possible to exchange
-                let max_amount = Pallet::<T>::get_max_amount_move(
+                let Ok(max_amount) = Pallet::<T>::get_max_amount_move(
                     *origin_netuid,
                     *destination_netuid,
                     *limit_price,
-                );
+                ) else {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ZeroMaxAmount.into(),
+                    )
+                    .into();
+                };
 
                 // Fully validate the user input
                 Self::result_to_validity(

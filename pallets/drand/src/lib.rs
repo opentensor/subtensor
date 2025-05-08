@@ -73,8 +73,6 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-pub mod weights;
-pub use weights::*;
 
 /// the main drand api endpoint
 const ENDPOINTS: [&str; 5] = [
@@ -162,8 +160,6 @@ pub mod pallet {
         type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
         /// The overarching runtime event type.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-        /// A type representing the weights required by the dispatchables of this pallet.
-        type WeightInfo: WeightInfo;
         /// something that knows how to verify beacon pulses
         type Verifier: Verifier;
         /// A configuration for base priority of unsigned transactions.
@@ -309,7 +305,9 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// Verify and write a pulse from the beacon into the runtime
         #[pallet::call_index(0)]
-        #[pallet::weight(T::WeightInfo::write_pulse(pulses_payload.pulses.len() as u32))]
+        #[pallet::weight(Weight::from_parts(5_708_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(2_u64))
+        .saturating_add(T::DbWeight::get().writes(3_u64)))]
         pub fn write_pulse(
             origin: OriginFor<T>,
             pulses_payload: PulsesPayload<T::Public, BlockNumberFor<T>>,
@@ -363,7 +361,9 @@ pub mod pallet {
         /// * `origin`: the root user
         /// * `config`: the beacon configuration
         #[pallet::call_index(1)]
-        #[pallet::weight(T::WeightInfo::set_beacon_config())]
+        #[pallet::weight(Weight::from_parts(9_878_000, 0)
+        .saturating_add(T::DbWeight::get().reads(0_u64))
+        .saturating_add(T::DbWeight::get().writes(2_u64)))]
         pub fn set_beacon_config(
             origin: OriginFor<T>,
             config_payload: BeaconConfigurationPayload<T::Public, BlockNumberFor<T>>,

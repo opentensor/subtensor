@@ -7,7 +7,7 @@
 
 extern crate alloc;
 
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::{boxed::Box, vec};
 use codec::{Decode, Encode};
 use frame_support::{
     PalletId,
@@ -25,6 +25,7 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use scale_info::TypeInfo;
 use sp_runtime::traits::CheckedSub;
+use sp_std::vec::Vec;
 use weights::WeightInfo;
 
 pub use pallet::*;
@@ -33,6 +34,7 @@ use subtensor_macros::freeze_struct;
 pub type CrowdloanId = u32;
 
 mod benchmarking;
+mod migrations;
 mod mock;
 mod tests;
 pub mod weights;
@@ -42,11 +44,14 @@ pub type CurrencyOf<T> = <T as Config>::Currency;
 pub type BalanceOf<T> =
     <CurrencyOf<T> as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
+// Define a maximum length for the migration key
+type MigrationKeyMaxLen = ConstU32<128>;
+
 pub type BoundedCallOf<T> =
     Bounded<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hashing>;
 
 /// A struct containing the information about a crowdloan.
-#[freeze_struct("6b86ccf70fc1b8f1")]
+#[freeze_struct("5db9538284491545")]
 #[derive(Encode, Decode, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct CrowdloanInfo<AccountId, Balance, BlockNumber, Call> {
     /// The creator of the crowdloan.
@@ -71,6 +76,8 @@ pub struct CrowdloanInfo<AccountId, Balance, BlockNumber, Call> {
     pub call: Option<Call>,
     /// Whether the crowdloan has been finalized.
     pub finalized: bool,
+    /// The number of contributors to the crowdloan.
+    pub contributors_count: u32,
 }
 
 pub type CrowdloanInfoOf<T> = CrowdloanInfo<
@@ -134,6 +141,10 @@ pub mod pallet {
         /// The maximum number of contributors that can be refunded in a single refund.
         #[pallet::constant]
         type RefundContributorsLimit: Get<u32>;
+
+        // The maximum number of contributors that can contribute to a crowdloan.
+        #[pallet::constant]
+        type MaxContributors: Get<u32>;
     }
 
     /// A map of crowdloan ids to their information.
@@ -161,6 +172,11 @@ pub mod pallet {
     /// temporarily accessible to the dispatched call.
     #[pallet::storage]
     pub type CurrentCrowdloanId<T: Config> = StorageValue<_, CrowdloanId, OptionQuery>;
+
+    /// Storage for the migration run status.
+    #[pallet::storage]
+    pub type HasMigrationRun<T: Config> =
+        StorageMap<_, Identity, BoundedVec<u8, MigrationKeyMaxLen>, bool, ValueQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -251,6 +267,23 @@ pub mod pallet {
         CallUnavailable,
         /// The crowdloan is not ready to be dissolved, it still has contributions.
         NotReadyToDissolve,
+        /// The deposit cannot be withdrawn from the crowdloan.
+        DepositCannotBeWithdrawn,
+        /// The maximum number of contributors has been reached.
+        MaxContributorsReached,
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            let mut weight = frame_support::weights::Weight::from_parts(0, 0);
+
+            weight = weight
+                // Add the contributors count for each crowdloan
+                .saturating_add(migrations::migrate_add_contributors_count::<T>());
+
+            weight
+        }
     }
 
     #[pallet::call]
@@ -261,7 +294,7 @@ pub mod pallet {
         ///
         /// The initial deposit will be transfered to the crowdloan account and will be refunded
         /// in case the crowdloan fails to raise the cap. Additionally, the creator will pay for
-        /// the execution of the call
+        /// the execution of the call.
         ///
         /// The dispatch origin for this call must be _Signed_.
         ///
@@ -340,6 +373,7 @@ pub mod pallet {
                 target_address,
                 call,
                 finalized: false,
+                contributors_count: 1,
             };
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
 
@@ -396,6 +430,12 @@ pub mod pallet {
                 Error::<T>::ContributionTooLow
             );
 
+            // Ensure the crowdloan has not reached the maximum number of contributors
+            ensure!(
+                crowdloan.contributors_count < T::MaxContributors::get(),
+                Error::<T>::MaxContributorsReached
+            );
+
             // Ensure contribution does not overflow the actual raised amount
             // and it does not exceed the cap
             let left_to_raise = crowdloan
@@ -413,11 +453,21 @@ pub mod pallet {
                 .checked_add(amount)
                 .ok_or(Error::<T>::Overflow)?;
 
-            // Compute the new total contribution and ensure it does not overflow.
-            let contribution = Contributions::<T>::get(crowdloan_id, &contributor)
-                .unwrap_or(Zero::zero())
-                .checked_add(amount)
-                .ok_or(Error::<T>::Overflow)?;
+            // Compute the new total contribution and ensure it does not overflow, we
+            // also increment the contributor count if the contribution is new.
+            let contribution =
+                if let Some(contribution) = Contributions::<T>::get(crowdloan_id, &contributor) {
+                    contribution
+                        .checked_add(amount)
+                        .ok_or(Error::<T>::Overflow)?
+                } else {
+                    // We have a new contribution
+                    crowdloan.contributors_count = crowdloan
+                        .contributors_count
+                        .checked_add(1)
+                        .ok_or(Error::<T>::Overflow)?;
+                    amount
+                };
 
             // Ensure contributor has enough balance to pay
             ensure!(
@@ -446,47 +496,53 @@ pub mod pallet {
 
         /// Withdraw a contribution from an active (not yet finalized or dissolved) crowdloan.
         ///
-        /// The origin doesn't needs to be the contributor, it can be any account,
-        /// making it possible for someone to trigger a refund for a contributor.
+        /// Only contributions over the deposit can be withdrawn by the creator.
         ///
         /// The dispatch origin for this call must be _Signed_.
         ///
         /// Parameters:
-        /// - `contributor`: The contributor to withdraw from.
         /// - `crowdloan_id`: The id of the crowdloan to withdraw from.
         #[pallet::call_index(2)]
         #[pallet::weight(T::WeightInfo::withdraw())]
         pub fn withdraw(
             origin: OriginFor<T>,
-            contributor: T::AccountId,
             #[pallet::compact] crowdloan_id: CrowdloanId,
         ) -> DispatchResult {
-            ensure_signed(origin)?;
+            let who = ensure_signed(origin)?;
 
             let mut crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
             ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
 
             // Ensure contributor has balance left in the crowdloan account
-            let amount =
-                Contributions::<T>::get(crowdloan_id, &contributor).unwrap_or_else(Zero::zero);
+            let mut amount = Contributions::<T>::get(crowdloan_id, &who).unwrap_or_else(Zero::zero);
             ensure!(amount > Zero::zero(), Error::<T>::NoContribution);
+
+            if who == crowdloan.creator {
+                // Ensure the deposit is kept
+                amount = amount.saturating_sub(crowdloan.deposit);
+                ensure!(amount > Zero::zero(), Error::<T>::DepositCannotBeWithdrawn);
+                Contributions::<T>::insert(crowdloan_id, &who, crowdloan.deposit);
+            } else {
+                Contributions::<T>::remove(crowdloan_id, &who);
+                crowdloan.contributors_count = crowdloan
+                    .contributors_count
+                    .checked_sub(1)
+                    .ok_or(Error::<T>::Underflow)?;
+            }
 
             CurrencyOf::<T>::transfer(
                 &crowdloan.funds_account,
-                &contributor,
+                &who,
                 amount,
                 Preservation::Expendable,
             )?;
 
-            // Remove the contribution from the contributions map and update
-            // crowdloan raised amount to reflect the withdrawal.
-            Contributions::<T>::remove(crowdloan_id, &contributor);
+            // Update the crowdloan raised amount to reflect the withdrawal.
             crowdloan.raised = crowdloan.raised.saturating_sub(amount);
-
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
 
             Self::deposit_event(Event::<T>::Withdrew {
-                contributor,
+                contributor: who,
                 crowdloan_id,
                 amount,
             });
@@ -570,7 +626,7 @@ pub mod pallet {
 
         /// Refund a failed crowdloan.
         ///
-        /// The call will try to refund all contributors up to the limit defined by the `RefundContributorsLimit`.
+        /// The call will try to refund all contributors (excluding the creator) up to the limit defined by the `RefundContributorsLimit`.
         /// If the limit is reached, the call will stop and the crowdloan will be marked as partially refunded.
         /// It may be needed to dispatch this call multiple times to refund all contributors.
         ///
@@ -595,9 +651,13 @@ pub mod pallet {
 
             let mut refunded_contributors: Vec<T::AccountId> = vec![];
             let mut refund_count = 0;
+
             // Assume everyone can be refunded
             let mut all_refunded = true;
-            let contributions = Contributions::<T>::iter_prefix(crowdloan_id);
+
+            // We try to refund all contributors (excluding the creator)
+            let contributions = Contributions::<T>::iter_prefix(crowdloan_id)
+                .filter(|(contributor, _)| *contributor != crowdloan.creator);
             for (contributor, amount) in contributions {
                 if refund_count >= T::RefundContributorsLimit::get() {
                     // Not everyone can be refunded
@@ -617,6 +677,10 @@ pub mod pallet {
                 refund_count = refund_count.checked_add(1).ok_or(Error::<T>::Overflow)?;
             }
 
+            crowdloan.contributors_count = crowdloan
+                .contributors_count
+                .checked_sub(refund_count)
+                .ok_or(Error::<T>::Underflow)?;
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
 
             // Clear refunded contributors
@@ -638,7 +702,7 @@ pub mod pallet {
         /// Dissolve a crowdloan.
         ///
         /// The crowdloan will be removed from the storage.
-        /// All contributions must have been refunded before the crowdloan can be dissolved.
+        /// All contributions must have been refunded before the crowdloan can be dissolved (except the creator's one).
         ///
         /// The dispatch origin for this call must be _Signed_ and must be the creator of the crowdloan.
         ///
@@ -657,9 +721,24 @@ pub mod pallet {
 
             // Only the creator can dissolve the crowdloan
             ensure!(who == crowdloan.creator, Error::<T>::InvalidOrigin);
-            // It can only be dissolved if the raised amount is 0, meaning
-            // there is no contributions or every contribution has been refunded
-            ensure!(crowdloan.raised == 0, Error::<T>::NotReadyToDissolve);
+
+            // It can only be dissolved if the raised amount is the creator's contribution,
+            // meaning there is no contributions or every contribution has been refunded
+            let creator_contribution = Contributions::<T>::get(crowdloan_id, &crowdloan.creator)
+                .ok_or(Error::<T>::NoContribution)?;
+            ensure!(
+                creator_contribution == crowdloan.raised,
+                Error::<T>::NotReadyToDissolve
+            );
+
+            // Refund the creator's contribution
+            CurrencyOf::<T>::transfer(
+                &crowdloan.funds_account,
+                &crowdloan.creator,
+                creator_contribution,
+                Preservation::Expendable,
+            )?;
+            Contributions::<T>::remove(crowdloan_id, &crowdloan.creator);
 
             // Clear the call from the preimage storage
             if let Some(call) = crowdloan.call {
@@ -698,7 +777,7 @@ pub mod pallet {
 
             // The new min contribution should be greater than absolute minimum contribution.
             ensure!(
-                new_min_contribution > T::AbsoluteMinimumContribution::get(),
+                new_min_contribution >= T::AbsoluteMinimumContribution::get(),
                 Error::<T>::MinimumContributionTooLow
             );
 
@@ -771,7 +850,7 @@ pub mod pallet {
             ensure!(who == crowdloan.creator, Error::<T>::InvalidOrigin);
 
             // The new cap should be greater than the actual raised amount.
-            ensure!(new_cap > crowdloan.raised, Error::<T>::CapTooLow);
+            ensure!(new_cap >= crowdloan.raised, Error::<T>::CapTooLow);
 
             crowdloan.cap = new_cap;
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);

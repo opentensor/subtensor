@@ -173,6 +173,9 @@ export async function getTransactionWatchPromise(tx: Transaction<{}, string, str
                 if (value.type === "finalized") {
                     console.log("Transaction is finalized in block:", value.txHash);
                     subscription.unsubscribe();
+                    if (!value.ok) {
+                        console.log("Transaction threw an error:", value.dispatchError)
+                    }
                     // Resolve the promise when the transaction is finalized
                     resolve();
 

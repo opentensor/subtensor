@@ -56,6 +56,11 @@ pub fn u16_proportion_to_fixed(x: u16) -> I32F32 {
 }
 
 #[allow(dead_code)]
+pub fn fixed_to_fixed_u16_proportion(x: I32F32) -> I32F32 {
+    x.safe_div(I32F32::saturating_from_num(u16::MAX))
+}
+
+#[allow(dead_code)]
 pub fn fixed_proportion_to_u16(x: I32F32) -> u16 {
     fixed_to_u16(x.saturating_mul(I32F32::saturating_from_num(u16::MAX)))
 }
@@ -78,11 +83,6 @@ pub fn vec_fixed32_to_fixed64(vec: Vec<I32F32>) -> Vec<I64F64> {
 #[allow(dead_code)]
 pub fn vec_fixed64_to_u64(vec: Vec<I64F64>) -> Vec<u64> {
     vec.into_iter().map(fixed64_to_u64).collect()
-}
-
-#[allow(dead_code)]
-pub fn vec_u16_proportions_to_fixed(vec: Vec<u16>) -> Vec<I32F32> {
-    vec.into_iter().map(u16_proportion_to_fixed).collect()
 }
 
 #[allow(dead_code)]
@@ -1207,6 +1207,48 @@ pub fn interpolate_sparse(
     result
 }
 
+// Element-wise product of two vectors.
+#[allow(dead_code)]
+pub fn vec_mul(a: &[I32F32], b: &[I32F32]) -> Vec<I32F32> {
+    a.iter()
+        .zip(b.iter())
+        .map(|(x, y)| x.checked_mul(*y).unwrap_or_default())
+        .collect()
+}
+
+// Element-wise product of matrix and vector
+pub fn mat_vec_mul(matrix: &[Vec<I32F32>], vector: &[I32F32]) -> Vec<Vec<I32F32>> {
+    let Some(first_row) = matrix.first() else {
+        return vec![vec![]];
+    };
+    if first_row.is_empty() {
+        return vec![vec![]];
+    }
+    matrix.iter().map(|row| vec_mul(row, vector)).collect()
+}
+
+// Element-wise product of matrix and vector
+#[allow(dead_code)]
+pub fn mat_vec_mul_sparse(
+    matrix: &[Vec<(u16, I32F32)>],
+    vector: &[I32F32],
+) -> Vec<Vec<(u16, I32F32)>> {
+    let mut result: Vec<Vec<(u16, I32F32)>> = vec![vec![]; matrix.len()];
+    for (i, matrix_row) in matrix.iter().enumerate() {
+        for (j, value) in matrix_row.iter() {
+            if let Some(vector_value) = vector.get(*j as usize) {
+                let new_value = value.saturating_mul(*vector_value);
+                if new_value != I32F32::saturating_from_num(0.0) {
+                    if let Some(result_row) = result.get_mut(i) {
+                        result_row.push((*j, new_value));
+                    }
+                }
+            }
+        }
+    }
+    result
+}
+
 // Element-wise product of two matrices.
 #[allow(dead_code)]
 pub fn hadamard(mat1: &[Vec<I32F32>], mat2: &[Vec<I32F32>]) -> Vec<Vec<I32F32>> {
@@ -1257,6 +1299,20 @@ pub fn hadamard_sparse(
         }
     }
     result
+}
+
+/// Clamp the input value between high and low.
+/// Note: assumes high > low
+pub fn clamp_value(value: I32F32, low: I32F32, high: I32F32) -> I32F32 {
+    // First, clamp the value to ensure it does not exceed the upper bound (high).
+    // If the value is greater than 'high', it will be set to 'high'.
+    // otherwise it remains unchanged.
+    value
+        .min(I32F32::from_num(high))
+        // Next, clamp the value to ensure it does not go below the lower bound (_low).
+        // If the value (after the first clamping) is less than 'low', it will be set to 'low'.
+        // otherwise it remains unchanged.
+        .max(I32F32::from_num(low))
 }
 
 // Return matrix exponential moving average: `alpha * a_ij + one_minus_alpha * b_ij`.
@@ -1319,144 +1375,117 @@ pub fn mat_ema_sparse(
     result
 }
 
-// Return sparse matrix only with elements >= threshold of an input sparse matrix.
-#[allow(dead_code)]
-pub fn sparse_threshold(w: &[Vec<(u16, I32F32)>], threshold: I32F32) -> Vec<Vec<(u16, I32F32)>> {
-    w.iter()
-        .map(|row| {
-            row.iter()
-                .filter(|(_, weight)| *weight >= threshold)
-                .copied()
-                .collect()
-        })
-        .collect()
-}
-
 /// Calculates the exponential moving average (EMA) for a sparse matrix using dynamic alpha values.
 #[allow(dead_code)]
-pub fn mat_ema_alpha_vec_sparse(
+pub fn mat_ema_alpha_sparse(
     new: &[Vec<(u16, I32F32)>],
     old: &[Vec<(u16, I32F32)>],
-    alpha: &[I32F32],
+    alpha: &[Vec<I32F32>],
 ) -> Vec<Vec<(u16, I32F32)>> {
-    // Ensure the new and old matrices have the same number of rows.
+    // Ensure dimensions match.
     assert!(new.len() == old.len());
-    let n = new.len(); // Assume square matrix, rows=cols
+    assert!(new.len() == alpha.len());
+
+    // The output vector of rows.
+    let mut result: Vec<Vec<(u16, I32F32)>> = Vec::with_capacity(new.len());
     let zero: I32F32 = I32F32::saturating_from_num(0.0);
-    let mut result: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
+    let one = I32F32::saturating_from_num(1.0);
 
     // Iterate over each row of the matrices.
-    for (i, (new_row, old_row)) in new.iter().zip(old).enumerate() {
+    for ((new_row, old_row), alpha_row) in new.iter().zip(old).zip(alpha) {
         // Initialize a row of zeros for the result matrix.
-        let mut row: Vec<I32F32> = vec![zero; n];
+        let mut decayed_values: Vec<I32F32> = vec![zero; alpha_row.len()];
 
-        // Process the new matrix values.
-        for (j, value) in new_row.iter() {
-            // Retrieve the alpha value for the current column.
-            let alpha_val: I32F32 = alpha.get(*j as usize).copied().unwrap_or(zero);
-            // Compute the EMA component for the new value using saturating multiplication.
-            if let Some(row_val) = row.get_mut(*j as usize) {
-                *row_val = alpha_val.saturating_mul(*value);
-            }
-            log::trace!(
-                "new[{}][{}] * alpha[{}] = {} * {} = {}",
-                i,
-                j,
-                j,
-                value,
-                alpha_val,
-                row.get(*j as usize).unwrap_or(&zero)
-            );
-        }
+        let mut result_row: Vec<(u16, I32F32)> = Vec::new();
 
         // Process the old matrix values.
-        for (j, value) in old_row.iter() {
-            // Retrieve the alpha value for the current column.
-            let alpha_val: I32F32 = alpha.get(*j as usize).copied().unwrap_or(zero);
-            // Calculate the complement of the alpha value using saturating subtraction.
-            let one_minus_alpha: I32F32 =
-                I32F32::saturating_from_num(1.0).saturating_sub(alpha_val);
-            // Compute the EMA component for the old value and add it to the row using saturating operations.
-            if let Some(row_val) = row.get_mut(*j as usize) {
-                *row_val = row_val.saturating_add(one_minus_alpha.saturating_mul(*value));
+        for (j, old_val) in old_row.iter() {
+            if let (Some(alpha_val), Some(decayed_val)) = (
+                alpha_row.get(*j as usize),
+                decayed_values.get_mut(*j as usize),
+            ) {
+                // Calculate the complement of the alpha value
+                let one_minus_alpha = one.saturating_sub(*alpha_val);
+                // Bonds_decayed = Bonds * (1 - alpha)
+                *decayed_val = one_minus_alpha.saturating_mul(*old_val);
             }
-            log::trace!(
-                "old[{}][{}] * (1 - alpha[{}]) = {} * {} = {}",
-                i,
-                j,
-                j,
-                value,
-                one_minus_alpha,
-                one_minus_alpha.saturating_mul(*value)
-            );
         }
 
-        // Collect the non-zero values into the result matrix.
-        for (j, value) in row.iter().enumerate() {
-            if *value > zero {
-                if let Some(result_row) = result.get_mut(i) {
-                    result_row.push((j as u16, *value));
-                    log::trace!("result[{}][{}] = {}", i, j, value);
+        // Process the new matrix values.
+        for (j, new_val) in new_row.iter() {
+            if let (Some(alpha_val), Some(decayed_val)) =
+                (alpha_row.get(*j as usize), decayed_values.get(*j as usize))
+            {
+                // Each validator can increase bonds by at most clamped_alpha per epoch towards the cap
+                // Validators allocate their purchase across miners based on weights
+                let purchase_increment = alpha_val.saturating_mul(*new_val).max(zero);
+                let result_val = decayed_val.saturating_add(purchase_increment).min(one);
+
+                if result_val > zero {
+                    result_row.push((*j, result_val));
                 }
             }
         }
+        result.push(result_row);
     }
 
     // Return the computed EMA sparse matrix.
     result
 }
 
-/// Return matrix exponential moving average: `alpha_j * a_ij + one_minus_alpha_j * b_ij`.
-/// `alpha_` is the EMA coefficient passed as a vector per column.
+/// Calculates the exponential moving average (EMA) for a dense matrix using dynamic alpha values.
 #[allow(dead_code)]
-pub fn mat_ema_alpha_vec(
-    new: &[Vec<I32F32>],
-    old: &[Vec<I32F32>],
-    alpha: &[I32F32],
+pub fn mat_ema_alpha(
+    new: &[Vec<I32F32>], // Weights
+    old: &[Vec<I32F32>], // Bonds
+    alpha: &[Vec<I32F32>],
 ) -> Vec<Vec<I32F32>> {
     // Check if the new matrix is empty or its first row is empty.
     if new.is_empty() || new.first().is_none_or(|row| row.is_empty()) {
         return vec![vec![]; 1];
     }
 
-    // Ensure the dimensions of the new and old matrices match.
+    // Ensure the dimensions of the new, old and alpha matrices match.
     assert!(new.len() == old.len());
-    assert!(new.first().map_or(0, |row| row.len()) == alpha.len());
+    assert!(new.len() == alpha.len());
 
     // Initialize the result matrix with zeros, having the same dimensions as the new matrix.
-    let mut result: Vec<Vec<I32F32>> =
-        vec![
-            vec![I32F32::saturating_from_num(0.0); new.first().map_or(0, |row| row.len())];
-            new.len()
-        ];
+    let zero: I32F32 = I32F32::saturating_from_num(0.0);
+    let one = I32F32::saturating_from_num(1.0);
+
+    let mut result: Vec<Vec<I32F32>> = Vec::with_capacity(new.len());
 
     // Iterate over each row of the matrices.
-    for (i, (new_row, old_row)) in new.iter().zip(old).enumerate() {
-        // Ensure the current row of the new and old matrices have the same length.
+    for ((new_row, old_row), alpha_row) in new.iter().zip(old).zip(alpha) {
         assert!(new_row.len() == old_row.len());
+        assert!(new_row.len() == alpha_row.len());
+        let mut result_row: Vec<I32F32> = Vec::new();
 
         // Iterate over each column of the current row.
-        for (j, &alpha_val) in alpha.iter().enumerate().take(new_row.len()) {
-            // Calculate the complement of the alpha value using saturating subtraction.
-            let one_minus_alpha = I32F32::saturating_from_num(1.0).saturating_sub(alpha_val);
-
+        for j in 0..new_row.len() {
             // Compute the EMA for the current element using saturating operations.
-            if let (Some(new_val), Some(old_val), Some(result_val)) = (
-                new_row.get(j),
-                old_row.get(j),
-                result.get_mut(i).and_then(|row| row.get_mut(j)),
-            ) {
-                *result_val = alpha_val
-                    .saturating_mul(*new_val)
-                    .saturating_add(one_minus_alpha.saturating_mul(*old_val));
+            if let (Some(new_val), Some(old_val), Some(alpha_val)) =
+                (new_row.get(j), old_row.get(j), alpha_row.get(j))
+            {
+                // Calculate the complement of the alpha value
+                let one_minus_alpha = one.saturating_sub(*alpha_val);
+
+                // Bonds_decayed = Bonds * (1 - alpha)
+                let decayed_val = one_minus_alpha.saturating_mul(*old_val);
+
+                // Each validator can increase bonds by at most clamped_alpha per epoch towards the cap
+                // Validators allocate their purchase across miners based on weights
+                let purchase_increment = alpha_val.saturating_mul(*new_val).max(zero);
+                let result_val = decayed_val.saturating_add(purchase_increment).min(one);
+                result_row.push(result_val);
             }
         }
+        result.push(result_row);
     }
 
     // Return the computed EMA matrix.
     result
 }
-
 /// Return the quantile of a vector of I32F32 values.
 pub fn quantile(data: &[I32F32], quantile: f64) -> I32F32 {
     // Clone the input data to avoid modifying the original vector.
