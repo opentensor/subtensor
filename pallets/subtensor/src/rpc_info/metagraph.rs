@@ -1395,7 +1395,6 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|(uid, hotkey)| {
                 let stake = Self::get_stake_weights_for_hotkey_on_subnet(hotkey, netuid);
-                // let stake = stake.0[*uid as usize];
                 (*uid, stake.0)
             })
             .collect();
@@ -1405,10 +1404,7 @@ impl<T: Config> Pallet<T> {
 
         let validators: Vec<Compact<u16>> = validators
             .iter()
-            .filter(|(_uid, stake)| {
-                // let stake = stake.0[*uid as usize];
-                *stake > stake_threshold
-            })
+            .filter(|(_uid, stake)| *stake > stake_threshold)
             .map(|(uid, _)| Compact::from(*uid))
             .collect::<Vec<_>>();
 
