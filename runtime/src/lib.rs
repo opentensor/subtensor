@@ -2197,8 +2197,8 @@ impl_runtime_apis! {
             SubtensorModule::get_all_dynamic_info()
         }
 
-        fn get_selective_metagraph(netuid: u16, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
-            SubtensorModule::get_selective_metagraph(netuid, metagraph_indexes)
+        fn get_selective_metagraph(netuid: u16, metagraph_indexes: Vec<u16>, validator_only: bool) -> Option<SelectiveMetagraph<AccountId32>> {
+            SubtensorModule::get_selective_metagraph(netuid, metagraph_indexes, validator_only)
         }
 
     }

@@ -409,7 +409,7 @@ where
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        match api.get_selective_metagraph(at, netuid, metagraph_index) {
+        match api.get_selective_metagraph(at, netuid, metagraph_index, validator_only) {
             Ok(result) => Ok(result.encode()),
             Err(e) => Err(Error::RuntimeError(format!(
                 "Unable to get selective metagraph: {:?}",
