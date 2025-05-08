@@ -214,5 +214,7 @@ mod errors {
         HotKeySwapOnSubnetIntervalNotPassed,
         /// Estimating the maximum stake for limited staking operations returned zero.
         ZeroMaxStakeAmount,
+        /// Invalid netuid duplication
+        SameNetuid,
     }
 }
