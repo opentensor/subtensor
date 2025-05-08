@@ -562,7 +562,6 @@ fn test_senate_not_leave_when_stake_removed() {
         let hotkey_account_id = U256::from(6);
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
-        let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
 
         //add network
         SubtensorModule::set_burn(netuid, burn_cost);

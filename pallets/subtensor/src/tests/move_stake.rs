@@ -85,7 +85,6 @@ fn test_do_move_different_subnets() {
         let origin_hotkey = U256::from(2);
         let destination_hotkey = U256::from(3);
         let stake_amount = DefaultMinStake::<Test>::get() * 10;
-        let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
 
         mock::setup_reserves(origin_netuid, stake_amount * 100, stake_amount * 100);
         mock::setup_reserves(destination_netuid, stake_amount * 100, stake_amount * 100);
@@ -153,7 +152,6 @@ fn test_do_move_nonexistent_subnet() {
         let destination_hotkey = U256::from(3);
         let nonexistent_netuid = 99; // Assuming this subnet doesn't exist
         let stake_amount = 1_000_000;
-        let fee = 0;
 
         // Set up initial stake
         SubtensorModule::stake_into_subnet(
@@ -567,7 +565,6 @@ fn test_do_move_wrong_origin() {
         let destination_hotkey = U256::from(3);
         let netuid = 1;
         let stake_amount = DefaultMinStake::<Test>::get() * 10;
-        let fee = 0;
 
         // Set up initial stake
         SubtensorModule::stake_into_subnet(
@@ -807,7 +804,6 @@ fn test_do_move_max_values() {
         let destination_hotkey = U256::from(3);
         let max_stake = u64::MAX;
         let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        let fee = 0;
 
         // Set up initial stake with maximum value
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);

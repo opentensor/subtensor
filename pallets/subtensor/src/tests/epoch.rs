@@ -9,11 +9,11 @@ use crate::epoch::math::safe_exp;
 use crate::*;
 
 use approx::assert_abs_diff_eq;
-use frame_support::{assert_err, assert_ok};
+use frame_support::assert_ok;
 
 // use frame_system::Config;
 use rand::{Rng, SeedableRng, distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng};
-use sp_core::{Get, U256};
+use sp_core::U256;
 // use sp_runtime::DispatchError;
 use std::time::Instant;
 use substrate_fixed::types::I32F32;

@@ -62,8 +62,6 @@ impl<T: Config> SwapStep<T> {
         let possible_delta_in = amount_remaining
             .saturating_sub(Pallet::<T>::calculate_fee_amount(netuid, amount_remaining));
 
-        println!("possible_delta_in = {:?}", possible_delta_in);
-
         // Target price and quantities
         let sqrt_price_target = Pallet::<T>::sqrt_price_target(
             order_type,
@@ -228,9 +226,6 @@ impl<T: Config> SwapStep<T> {
         let delta_fixed = U64F64::saturating_from_num(self.delta_in);
         let total_cost =
             delta_fixed.saturating_mul(u16_max.safe_div(u16_max.saturating_sub(fee_rate)));
-
-        println!("process_swap delta_fixed = {:?}", delta_fixed);
-        println!("process_swap total_cost = {:?}", total_cost);
 
         // Hold the fees
         let fee = Pallet::<T>::calculate_fee_amount(
@@ -421,14 +416,10 @@ impl<T: Config> Pallet<T> {
         // Swap one tick at a time until we reach one of the stop conditions
         while amount_remaining > 0 {
             // Create and execute a swap step
-            println!("amount_remaining = {:?}", amount_remaining);
-
             let mut swap_step =
                 SwapStep::<T>::new(netuid, order_type, amount_remaining, sqrt_price_limit);
 
             let swap_result = swap_step.execute()?;
-
-            println!("swap_result = {:?}", swap_result);
 
             in_acc = in_acc.saturating_add(swap_result.delta_in);
             amount_remaining = amount_remaining.saturating_sub(swap_result.amount_to_take);
@@ -2379,4 +2370,25 @@ mod tests {
             assert!(swap_result.amount_paid_out > 0);
         });
     }
+
+    // cargo test --package pallet-subtensor-swap --lib -- pallet::impls::tests::test_price_tick_price_roundtrip --exact --show-output
+    #[test]
+    fn test_price_tick_price_roundtrip() {
+        new_test_ext().execute_with(|| {
+            let netuid = NetUid::from(1);
+
+            // Setup swap
+            assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+
+            let current_price = SqrtPrice::from_num(0.50000051219212275465);
+            let tick = TickIndex::try_from_sqrt_price(current_price).unwrap();
+            let round_trip_price = TickIndex::try_to_sqrt_price(&tick).unwrap();
+            assert!(round_trip_price <= current_price);
+
+            let roundtrip_tick = TickIndex::try_from_sqrt_price(round_trip_price).unwrap();
+            assert!(tick == roundtrip_tick);
+        });
+    }
+
+
 }
