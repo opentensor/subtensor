@@ -68,6 +68,7 @@ mod benchmarks {
                 target_address: Some(target_address.clone()),
                 call: Some(T::Preimages::bound(*call).unwrap()),
                 finalized: false,
+                contributors_count: 1,
             })
         );
         // ensure the creator has been deducted the deposit

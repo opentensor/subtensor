@@ -1449,6 +1449,7 @@ parameter_types! {
         432000 // 60 days maximum (60 * 24 * 60 * 60 / 12)
     };
     pub const RefundContributorsLimit: u32 = 50;
+    pub const MaxContributors: u32 = 500;
 }
 
 impl pallet_crowdloan::Config for Runtime {
@@ -1463,6 +1464,7 @@ impl pallet_crowdloan::Config for Runtime {
     type MinimumBlockDuration = MinimumBlockDuration;
     type MaximumBlockDuration = MaximumBlockDuration;
     type RefundContributorsLimit = RefundContributorsLimit;
+    type MaxContributors = MaxContributors;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
