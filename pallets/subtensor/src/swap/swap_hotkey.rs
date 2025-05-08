@@ -285,7 +285,7 @@ impl<T: Config> Pallet<T> {
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
 
         // 3. Get the cost for swapping the key on the subnet
-        let swap_cost = T::KeySwapOneSubnetCost::get();
+        let swap_cost = T::KeySwapOnSubnetCost::get();
         log::debug!("Swap cost in subnet {:?}: {:?}", netuid, swap_cost);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
 
