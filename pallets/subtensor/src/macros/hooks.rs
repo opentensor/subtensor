@@ -141,17 +141,21 @@ mod hooks {
             let block_number: u64 = TryInto::try_into(block_number)
                 .ok()
                 .expect("blockchain will not exceed 2^64 blocks; QED.");
-            let netuids = Self::get_all_subnet_netuids();
+            weight.saturating_accrue(T::DbWeight::get().reads(2_u64));
 
-            weight.saturating_accrue(T::DbWeight::get().reads(2_u64 + netuids.len() as u64));
+            let netuids = Self::get_all_subnet_netuids();
+            weight.saturating_accrue(T::DbWeight::get().reads(netuids.len() as u64));
 
             if let Some(slot) = block_number.checked_rem(hotkey_swap_on_subnet_interval) {
+                // only handle the subnet with the same residue as current block number by HotkeySwapOnSubnetInterval
                 for netuid in netuids.iter().filter(|netuid| {
                     (**netuid as u64).checked_rem(hotkey_swap_on_subnet_interval) == Some(slot)
                 }) {
+                    // Iterate over all the coldkeys in the subnet
                     for (coldkey, swap_block_number) in
                         LastHotkeySwapOnNetuid::<T>::iter_prefix(netuid)
                     {
+                        // Clean up out of date swap records
                         if swap_block_number.saturating_add(hotkey_swap_on_subnet_interval)
                             < block_number
                         {
