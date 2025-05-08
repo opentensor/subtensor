@@ -27,6 +27,13 @@ jobs:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
 
+      - name: Install GitHub CLI
+        if: ${{ env.SKIP_BENCHMARKS != '1' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gh
+          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+
       - name: Check skip label
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         run: |
