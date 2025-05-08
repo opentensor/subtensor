@@ -116,4 +116,3 @@ jobs:
           labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
           if echo "$labels" | grep -q "skip-validate-benchmarks"; then
             echo "skip-validate-benchmarks label was found — but benchmarks already ran."
-            # Nothing else to skip now, but you can do something else if desired.
