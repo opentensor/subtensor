@@ -6,8 +6,8 @@ use frame_support::dispatch::{GetDispatchInfo, Pays, PostDispatchInfo};
 use frame_system::RawOrigin;
 use pallet_admin_utils::{PrecompileEnable, PrecompileEnum};
 use pallet_evm::{
-    AddressMapping, BalanceConverter, ExitError, GasWeightMapping, Precompile, PrecompileFailure,
-    PrecompileHandle, PrecompileResult,
+    AddressMapping, BalanceConverter, EvmBalance, ExitError, GasWeightMapping, Precompile,
+    PrecompileFailure, PrecompileHandle, PrecompileResult,
 };
 use precompile_utils::EvmResult;
 use sp_core::{H160, U256, blake2_256};
@@ -27,14 +27,14 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
     where
         R: pallet_evm::Config,
     {
-        let amount = self.context().apparent_value;
-        <R as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount).ok_or(
-            PrecompileFailure::Error {
+        let amount = EvmBalance::new(self.context().apparent_value);
+        let result = <R as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
+            .ok_or(PrecompileFailure::Error {
                 exit_status: ExitError::Other(
                     "error converting balance from ETH to subtensor".into(),
                 ),
-            },
-        )
+            })?;
+        Ok(result.into())
     }
 
     /// Dispatches a runtime call, but also checks and records the gas costs.
