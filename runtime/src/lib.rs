@@ -1166,7 +1166,7 @@ parameter_types! {
     } else {
         7 * 24 * 60 * 60 / 12 // 7 days
     };
-    pub const MaxContributorsPerLeaseToRemove: u32 = 500;
+    pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1234,7 +1234,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
     type ProxyInterface = Proxier;
-    type MaxContributorsPerLeaseToRemove = MaxContributorsPerLeaseToRemove;
+    type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
 }
 
 use sp_runtime::BoundedVec;

@@ -221,8 +221,8 @@ mod config {
         /// Block number after a new subnet accept the start call extrinsic.
         #[pallet::constant]
         type DurationOfStartCall: Get<u64>;
-        /// Max number of contributors per lease to remove from storage on termination.
+        /// Number of blocks between dividends distribution.
         #[pallet::constant]
-        type MaxContributorsPerLeaseToRemove: Get<u32>;
+        type LeaseDividendsDistributionInterval: Get<u32>;
     }
 }

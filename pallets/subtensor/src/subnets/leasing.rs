@@ -113,7 +113,7 @@ impl<T: Config> Pallet<T> {
         SubnetUidToLeaseId::<T>::insert(netuid, lease_id);
 
         // Get all the contributions to the crowdloan except for the beneficiary
-        // because it's share will be computed as the dividends are distributed
+        // because its share will be computed as the dividends are distributed
         let contributions = pallet_crowdloan::Contributions::<T>::iter_prefix(crowdloan_id)
             .into_iter()
             .filter(|(contributor, _)| contributor != &who);
@@ -244,6 +244,12 @@ impl<T: Config> Pallet<T> {
         let total_contributors_cut_alpha = AccumulatedLeaseDividends::<T>::get(lease_id)
             .saturating_add(current_contributors_cut_alpha);
 
+        // Ensure this is the correct block to distribute dividends
+        if (now % T::LeaseDividendsDistributionInterval::get().into()) != 0u32.into() {
+            AccumulatedLeaseDividends::<T>::set(lease_id, total_contributors_cut_alpha);
+            return;
+        }
+
         // Ensure there is enough liquidity to unstake the contributors cut
         if let Err(err) = Self::validate_remove_stake(
             &lease.coldkey,
@@ -254,9 +260,7 @@ impl<T: Config> Pallet<T> {
             false,
         ) {
             log::debug!("Couldn't distributing dividends for lease {lease_id}: {err:?}");
-            AccumulatedLeaseDividends::<T>::mutate(lease_id, |v| {
-                *v = v.saturating_add(current_contributors_cut_alpha)
-            });
+            AccumulatedLeaseDividends::<T>::set(lease_id, total_contributors_cut_alpha);
             return;
         }
 

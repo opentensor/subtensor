@@ -189,6 +189,7 @@ parameter_types! {
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
     pub const DurationOfStartCall: u64 =  7 * 24 * 60 * 60 / 12; // Default as 7 days
     pub const MaxContributorsPerLeaseToRemove: u32 = 3;
+    pub const LeaseDividendsDistributionInterval: u32 = 100;
 }
 
 // Configure collective pallet for council
@@ -415,7 +416,7 @@ impl crate::Config for Test {
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
     type ProxyInterface = FakeProxier;
-    type MaxContributorsPerLeaseToRemove = MaxContributorsPerLeaseToRemove;
+    type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
 }
 
 pub struct OriginPrivilegeCmp;

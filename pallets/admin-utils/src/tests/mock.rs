@@ -139,7 +139,7 @@ parameter_types! {
     pub const InitialTaoWeight: u64 = u64::MAX/10; // 10% global weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
     pub const DurationOfStartCall: u64 = 7 * 24 * 60 * 60 / 12; // 7 days
-    pub const MaxContributorsPerLeaseToRemove: u32 = 50;
+    pub const LeaseDividendsDistributionInterval: u32 = 100; // 100 blocks
 }
 
 impl pallet_subtensor::Config for Test {
@@ -206,8 +206,8 @@ impl pallet_subtensor::Config for Test {
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
-    type MaxContributorsPerLeaseToRemove = MaxContributorsPerLeaseToRemove;
     type ProxyInterface = ();
+    type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
 }
 
 parameter_types! {

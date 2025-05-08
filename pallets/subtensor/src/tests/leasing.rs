@@ -494,6 +494,9 @@ fn test_distribute_lease_network_dividends_multiple_contributors_works() {
             Some(tao_to_stake),
         );
 
+        // Setup the correct block to distribute dividends
+        run_to_block(<Test as Config>::LeaseDividendsDistributionInterval::get() as u64);
+
         // Get the initial subnet tao after stake and ensure all contributor
         // balances are in initial state
         let subnet_tao_before = SubnetTAO::<Test>::get(lease.netuid);
@@ -569,6 +572,9 @@ fn test_distribute_lease_network_dividends_only_beneficiary_works() {
             Some(tao_to_stake),
         );
 
+        // Setup the correct block to distribute dividends
+        run_to_block(<Test as Config>::LeaseDividendsDistributionInterval::get() as u64);
+
         // Get the initial subnet tao after stake and beneficiary balance
         let subnet_tao_before = SubnetTAO::<Test>::get(lease.netuid);
         let beneficiary_balance_before = SubtensorModule::get_coldkey_balance(&beneficiary);
@@ -589,6 +595,69 @@ fn test_distribute_lease_network_dividends_only_beneficiary_works() {
 
         // Ensure nothing was accumulated for later distribution
         assert_eq!(AccumulatedLeaseDividends::<Test>::get(lease_id), 0);
+    });
+}
+
+#[test]
+fn test_distribute_lease_network_dividends_accumulates_if_not_the_correct_block() {
+    new_test_ext(1).execute_with(|| {
+        // Setup a crowdloan
+        let crowdloan_id = 0;
+        let beneficiary = U256::from(1);
+        let deposit = 10_000_000_000; // 10 TAO
+        let cap = 1_000_000_000_000; // 1000 TAO
+        let contributions = vec![
+            (U256::from(2), 600_000_000_000), // 600 TAO
+            (U256::from(3), 390_000_000_000), // 390 TAO
+        ];
+        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+
+        // Setup a leased network
+        let end_block = 500;
+        let emissions_share = Percent::from_percent(30);
+        let tao_to_stake = 100_000_000_000; // 100 TAO
+        let (lease_id, _) = setup_leased_network(
+            beneficiary,
+            emissions_share,
+            Some(end_block),
+            Some(tao_to_stake),
+        );
+
+        // Setup incorrect block to distribute dividends
+        run_to_block(<Test as Config>::LeaseDividendsDistributionInterval::get() as u64 + 1);
+
+        // Get the initial subnet tao after stake and ensure all contributor
+        let contributor1_balance_before = SubtensorModule::get_coldkey_balance(&contributions[0].0);
+        let contributor2_balance_before = SubtensorModule::get_coldkey_balance(&contributions[1].0);
+        let beneficiary_balance_before = SubtensorModule::get_coldkey_balance(&beneficiary);
+
+        // Setup some previously accumulated dividends
+        let accumulated_dividends = 5_000_000;
+        AccumulatedLeaseDividends::<Test>::insert(lease_id, accumulated_dividends);
+
+        // Distribute the dividends
+        let owner_cut_alpha = 5_000_000;
+        SubtensorModule::distribute_leased_network_dividends(lease_id, owner_cut_alpha);
+
+        // Ensure the dividends were not distributed
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&contributions[0].0),
+            contributor1_balance_before
+        );
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&contributions[1].0),
+            contributor2_balance_before
+        );
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&beneficiary),
+            beneficiary_balance_before
+        );
+
+        // Ensure we correctly accumulated the dividends
+        assert_eq!(
+            AccumulatedLeaseDividends::<Test>::get(lease_id),
+            accumulated_dividends + emissions_share.mul_ceil(owner_cut_alpha)
+        );
     });
 }
 
