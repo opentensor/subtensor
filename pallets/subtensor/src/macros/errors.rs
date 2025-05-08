@@ -4,6 +4,7 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod errors {
+    #[derive(PartialEq)]
     #[pallet::error]
     pub enum Error<T> {
         /// The subnet does not exist.
@@ -209,6 +210,10 @@ mod errors {
         InvalidRecoveredPublicKey,
         /// SubToken disabled now
         SubtokenDisabled,
+        /// Estimating the maximum stake for limited staking operations returned zero.
+        ZeroMaxStakeAmount,
+        /// Invalid netuid duplication
+        SameNetuid,
         /// Invalid lease beneficiary to register the leased network.
         InvalidLeaseBeneficiary,
         /// Lease cannot end in the past.

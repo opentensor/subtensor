@@ -101,7 +101,6 @@ use pallet_evm::{Account as EVMAccount, BalanceConverter, FeeCalculator, Runner}
 // Drand
 impl pallet_drand::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = pallet_drand::weights::SubstrateWeight<Runtime>;
     type AuthorityId = pallet_drand::crypto::TestAuthId;
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;
@@ -209,7 +208,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 265,
+    spec_version: 267,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1042,7 +1041,6 @@ parameter_types! {
     pub const MaxCommitFieldsInner: u32 = 1;
     pub const CommitmentInitialDeposit: Balance = 0; // Free
     pub const CommitmentFieldDeposit: Balance = 0; // Free
-    pub const CommitmentRateLimit: BlockNumber = 100; // Allow commitment every 100 blocks
 }
 
 #[subtensor_macros::freeze_struct("7c76bd954afbb54e")]
@@ -1078,7 +1076,6 @@ impl pallet_commitments::Config for Runtime {
     type MaxFields = MaxCommitFields;
     type InitialDeposit = CommitmentInitialDeposit;
     type FieldDeposit = CommitmentFieldDeposit;
-    type DefaultRateLimit = CommitmentRateLimit;
     type TempoInterface = TempoInterface;
 }
 
@@ -1160,6 +1157,7 @@ parameter_types! {
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     // pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // (DEPRECATED)
     pub const InitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
+    pub const InitialColdkeySwapRescheduleDuration: BlockNumber = 24 * 60 * 60 / 12; // 1 day
     pub const InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const SubtensorInitialTaoWeight: u64 = 971_718_665_099_567_868; // 0.05267697438728329% tao weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
@@ -1231,6 +1229,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialTaoWeight = SubtensorInitialTaoWeight;
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
+    type InitialColdkeySwapRescheduleDuration = InitialColdkeySwapRescheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
@@ -1265,7 +1264,6 @@ impl pallet_admin_utils::Config for Runtime {
     type Aura = AuraPalletIntrf;
     type Grandpa = GrandpaInterfaceImpl;
     type Balance = Balance;
-    type WeightInfo = pallet_admin_utils::weights::SubstrateWeight<Runtime>;
 }
 
 /// Define the ChainId
@@ -1536,6 +1534,7 @@ parameter_types! {
         432000 // 60 days maximum (60 * 24 * 60 * 60 / 12)
     };
     pub const RefundContributorsLimit: u32 = 50;
+    pub const MaxContributors: u32 = 500;
 }
 
 impl pallet_crowdloan::Config for Runtime {
@@ -1550,6 +1549,7 @@ impl pallet_crowdloan::Config for Runtime {
     type MinimumBlockDuration = MinimumBlockDuration;
     type MaximumBlockDuration = MaximumBlockDuration;
     type RefundContributorsLimit = RefundContributorsLimit;
+    type MaxContributors = MaxContributors;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

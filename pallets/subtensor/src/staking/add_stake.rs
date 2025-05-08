@@ -288,7 +288,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // 2. Calculate the maximum amount that can be executed with price limit
-        let max_amount = Self::get_max_amount_add(netuid, limit_price);
+        let max_amount = Self::get_max_amount_add(netuid, limit_price)?;
         let mut possible_stake = stake_to_be_added;
         if possible_stake > max_amount {
             possible_stake = max_amount;
@@ -329,29 +329,29 @@ impl<T: Config> Pallet<T> {
     }
 
     // Returns the maximum amount of RAO that can be executed with price limit
-    pub fn get_max_amount_add(netuid: u16, limit_price: u64) -> u64 {
+    pub fn get_max_amount_add(netuid: u16, limit_price: u64) -> Result<u64, Error<T>> {
         // Corner case: root and stao
         // There's no slippage for root or stable subnets, so if limit price is 1e9 rao or
         // higher, then max_amount equals u64::MAX, otherwise it is 0.
         if (netuid == Self::get_root_netuid()) || (SubnetMechanism::<T>::get(netuid)) == 0 {
             if limit_price >= 1_000_000_000 {
-                return u64::MAX;
+                return Ok(u64::MAX);
             } else {
-                return 0;
+                return Err(Error::ZeroMaxStakeAmount);
             }
         }
 
         // Corner case: SubnetAlphaIn is zero. Staking can't happen, so max amount is zero.
         let alpha_in = SubnetAlphaIn::<T>::get(netuid);
         if alpha_in == 0 {
-            return 0;
+            return Err(Error::ZeroMaxStakeAmount);
         }
         let alpha_in_u128 = alpha_in as u128;
 
         // Corner case: SubnetTAO is zero. Staking can't happen, so max amount is zero.
         let tao_reserve = SubnetTAO::<T>::get(netuid);
         if tao_reserve == 0 {
-            return 0;
+            return Err(Error::ZeroMaxStakeAmount);
         }
         let tao_reserve_u128 = tao_reserve as u128;
 
@@ -364,7 +364,7 @@ impl<T: Config> Pallet<T> {
                 .saturating_mul(tao))
             || (limit_price == 0u64)
         {
-            return 0;
+            return Err(Error::ZeroMaxStakeAmount);
         }
 
         // Main case: return limit_price * SubnetAlphaIn - SubnetTAO
@@ -375,10 +375,15 @@ impl<T: Config> Pallet<T> {
             .checked_div(tao)
             .unwrap_or(0)
             .saturating_sub(tao_reserve_u128);
+
+        if result == 0 {
+            return Err(Error::ZeroMaxStakeAmount);
+        }
+
         if result < u64::MAX as u128 {
-            result as u64
+            Ok(result as u64)
         } else {
-            u64::MAX
+            Ok(u64::MAX)
         }
     }
 }

@@ -183,6 +183,7 @@ parameter_types! {
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     // pub const InitialNetworkMaxStake: u64 = u64::MAX; // (DEPRECATED)
     pub const InitialColdkeySwapScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
+    pub const InitialColdkeySwapRescheduleDuration: u64 = 24 * 60 * 60 / 12; // Default as 1 day
     pub const InitialDissolveNetworkScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
     pub const InitialTaoWeight: u64 = 0; // 100% global weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
@@ -408,6 +409,7 @@ impl crate::Config for Test {
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
+    type InitialColdkeySwapRescheduleDuration = InitialColdkeySwapRescheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
@@ -557,7 +559,6 @@ where
 
 impl pallet_drand::Config for Test {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = pallet_drand::weights::SubstrateWeight<Test>;
     type AuthorityId = TestAuthId;
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;

@@ -24,14 +24,14 @@ pub fn migrate_reset_bonds_moving_average<T: Config>() -> Weight {
     );
 
     // ------------------------------
-    // Step 1: Reset all subnet's BondsMovingAverage to 975000
+    // Step 1: Reset all subnet's BondsMovingAverage to 975000 if the value exceeds 975000
     // ------------------------------
 
     let mut reset_entries_count = 0u64;
 
     for netuid in BondsMovingAverage::<T>::iter_keys() {
         BondsMovingAverage::<T>::mutate(netuid, |average| {
-            *average = 975000;
+            *average = (*average).min(975000);
         });
         reset_entries_count = reset_entries_count.saturating_add(1);
     }

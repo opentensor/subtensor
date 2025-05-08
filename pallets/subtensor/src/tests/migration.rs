@@ -767,3 +767,56 @@ fn test_remove_storage_item<F: FnOnce() -> Weight>(
         assert!(!weight.is_zero(), "Migration weight should be non-zero.");
     });
 }
+
+#[test]
+fn test_migrate_remove_commitments_rate_limit() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // Step 1: Simulate Old Storage Entry
+        // ------------------------------
+        const MIGRATION_NAME: &str = "migrate_remove_commitments_rate_limit";
+
+        // Build the raw storage key: twox128("Commitments") ++ twox128("RateLimit")
+        let pallet_prefix = twox_128("Commitments".as_bytes());
+        let storage_prefix = twox_128("RateLimit".as_bytes());
+
+        let mut key = Vec::new();
+        key.extend_from_slice(&pallet_prefix);
+        key.extend_from_slice(&storage_prefix);
+
+        let original_value: u64 = 123;
+        put_raw(&key, &original_value.encode());
+
+        let stored_before = get_raw(&key).expect("Expected RateLimit to exist");
+        assert_eq!(
+            u64::decode(&mut &stored_before[..]).expect("Failed to decode RateLimit"),
+            original_value
+        );
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // ------------------------------
+        // Step 2: Run the Migration
+        // ------------------------------
+        let weight = crate::migrations::migrate_remove_commitments_rate_limit::
+            migrate_remove_commitments_rate_limit::<Test>();
+
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as completed"
+        );
+
+        // ------------------------------
+        // Step 3: Verify Migration Effects
+        // ------------------------------
+        assert!(
+            get_raw(&key).is_none(),
+            "RateLimit storage should have been cleared"
+        );
+
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+    });
+}
