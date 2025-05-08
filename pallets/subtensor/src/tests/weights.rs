@@ -1,17 +1,15 @@
 #![allow(clippy::indexing_slicing)]
 
-use super::mock;
-use super::mock::*;
-use crate::coinbase::run_coinbase::WeightsTlockPayload;
-use crate::*;
 use ark_serialize::CanonicalDeserialize;
 use frame_support::{
     assert_err, assert_ok,
     dispatch::{DispatchClass, DispatchResult, GetDispatchInfo, Pays},
 };
+use pallet_drand::types::Pulse;
 use rand_chacha::{ChaCha20Rng, rand_core::SeedableRng};
 use scale_info::prelude::collections::HashMap;
 use sha2::Digest;
+use sp_core::Encode;
 use sp_core::{Get, H256, U256};
 use sp_runtime::{
     BoundedVec, DispatchError,
@@ -19,6 +17,7 @@ use sp_runtime::{
 };
 use sp_std::collections::vec_deque::VecDeque;
 use substrate_fixed::types::I32F32;
+use subtensor_swap_interface::SwapHandler;
 use tle::{
     curves::drand::TinyBLS381,
     ibe::fullident::Identity,
@@ -27,8 +26,10 @@ use tle::{
 };
 use w3f_bls::EngineBLS;
 
-use pallet_drand::types::Pulse;
-use sp_core::Encode;
+use super::mock;
+use super::mock::*;
+use crate::coinbase::run_coinbase::WeightsTlockPayload;
+use crate::*;
 
 /***************************
   pub fn set_weights() tests
@@ -300,7 +301,6 @@ fn test_set_weights_validate() {
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1);
         assert_ne!(hotkey, coldkey);
-        let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
 
         let who = hotkey; // The hotkey signs this transaction
 
@@ -341,6 +341,7 @@ fn test_set_weights_validate() {
         );
 
         // Increase the stake to be equal to the minimum
+        let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(netuid, min_stake);
         assert_ok!(SubtensorModule::do_add_stake(
             RuntimeOrigin::signed(hotkey),
             hotkey,

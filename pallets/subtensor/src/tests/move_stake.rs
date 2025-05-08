@@ -86,7 +86,6 @@ fn test_do_move_different_subnets() {
         let origin_hotkey = U256::from(2);
         let destination_hotkey = U256::from(3);
         let stake_amount = DefaultMinStake::<Test>::get() * 10;
-        let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
 
         mock::setup_reserves(origin_netuid, stake_amount * 100, stake_amount * 100);
         mock::setup_reserves(destination_netuid, stake_amount * 100, stake_amount * 100);
