@@ -679,6 +679,12 @@ impl<T: Config> Pallet<T> {
         AlphaValues::<T>::get(netuid)
     }
 
+    pub fn set_alpha_values_32(netuid: u16, low: I32F32, high: I32F32) {
+        let low = (low.saturating_mul(I32F32::saturating_from_num(u16::MAX))).to_num::<u16>();
+        let high = (high.saturating_mul(I32F32::saturating_from_num(u16::MAX))).to_num::<u16>();
+        AlphaValues::<T>::insert(netuid, (low, high));
+    }
+
     pub fn get_alpha_values_32(netuid: u16) -> (I32F32, I32F32) {
         let (alpha_low, alpha_high): (u16, u16) = AlphaValues::<T>::get(netuid);
         let converted_low =
@@ -689,12 +695,28 @@ impl<T: Config> Pallet<T> {
         (converted_low, converted_high)
     }
 
+    pub fn set_alpha_sigmoid_steepness(netuid: u16, steepness: u16) {
+        AlphaSigmoidSteepness::<T>::insert(netuid, steepness);
+    }
+    pub fn get_alpha_sigmoid_steepness(netuid: u16) -> I32F32 {
+        let alpha = AlphaSigmoidSteepness::<T>::get(netuid);
+        I32F32::saturating_from_num(alpha)
+    }
+
     pub fn set_liquid_alpha_enabled(netuid: u16, enabled: bool) {
         LiquidAlphaOn::<T>::set(netuid, enabled);
     }
 
     pub fn get_liquid_alpha_enabled(netuid: u16) -> bool {
         LiquidAlphaOn::<T>::get(netuid)
+    }
+
+    pub fn set_yuma3_enabled(netuid: u16, enabled: bool) {
+        Yuma3On::<T>::set(netuid, enabled);
+    }
+
+    pub fn get_yuma3_enabled(netuid: u16) -> bool {
+        Yuma3On::<T>::get(netuid)
     }
 
     /// Set the duration for coldkey swap

@@ -641,6 +641,11 @@ pub mod pallet {
         T::InitialRho::get()
     }
     #[pallet::type_value]
+    /// Default value for alpha sigmoid steepness.
+    pub fn DefaultAlphaSigmoidSteepness<T: Config>() -> u16 {
+        T::InitialAlphaSigmoidSteepness::get()
+    }
+    #[pallet::type_value]
     /// Default value for kappa parameter.
     pub fn DefaultKappa<T: Config>() -> u16 {
         T::InitialKappa::get()
@@ -802,6 +807,11 @@ pub mod pallet {
     #[pallet::type_value]
     /// -- ITEM (switches liquid alpha on)
     pub fn DefaultLiquidAlpha<T: Config>() -> bool {
+        false
+    }
+    #[pallet::type_value]
+    /// -- ITEM (switches liquid alpha on)
+    pub fn DefaultYuma3<T: Config>() -> bool {
         false
     }
     #[pallet::type_value]
@@ -1321,6 +1331,10 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> Rho
     pub type Rho<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultRho<T>>;
     #[pallet::storage]
+    /// --- MAP ( netuid ) --> AlphaSigmoidSteepness
+    pub type AlphaSigmoidSteepness<T> =
+        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultAlphaSigmoidSteepness<T>>;
+    #[pallet::storage]
     /// --- MAP ( netuid ) --> Kappa
     pub type Kappa<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultKappa<T>>;
     #[pallet::storage]
@@ -1453,6 +1467,9 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> Whether or not Liquid Alpha is enabled
     pub type LiquidAlphaOn<T> =
         StorageMap<_, Blake2_128Concat, u16, bool, ValueQuery, DefaultLiquidAlpha<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> Whether or not Yuma3 is enabled
+    pub type Yuma3On<T> = StorageMap<_, Blake2_128Concat, u16, bool, ValueQuery, DefaultYuma3<T>>;
     #[pallet::storage]
     ///  MAP ( netuid ) --> (alpha_low, alpha_high)
     pub type AlphaValues<T> =

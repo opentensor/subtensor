@@ -95,7 +95,9 @@ use scale_info::TypeInfo;
 // Frontier
 use fp_rpc::TransactionStatus;
 use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
-use pallet_evm::{Account as EVMAccount, BalanceConverter, FeeCalculator, Runner};
+use pallet_evm::{
+    Account as EVMAccount, BalanceConverter, EvmBalance, FeeCalculator, Runner, SubstrateBalance,
+};
 
 // Drand
 impl pallet_drand::Config for Runtime {
@@ -1033,6 +1035,7 @@ pub const INITIAL_CHILDKEY_TAKE_RATELIMIT: u64 = 5;
 // Configure the pallet subtensor.
 parameter_types! {
     pub const SubtensorInitialRho: u16 = 10;
+    pub const SubtensorInitialAlphaSigmoidSteepness: u16 = 1000;
     pub const SubtensorInitialKappa: u16 = 32_767; // 0.5 = 65535/2
     pub const SubtensorInitialMaxAllowedUids: u16 = 4096;
     pub const SubtensorInitialIssuance: u64 = 0;
@@ -1082,6 +1085,7 @@ parameter_types! {
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
+    pub const InitialYuma3On: bool = false; // Default value for Yuma3On
     // pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // (DEPRECATED)
     pub const InitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const InitialColdkeySwapRescheduleDuration: BlockNumber = 24 * 60 * 60 / 12; // 1 day
@@ -1105,6 +1109,7 @@ impl pallet_subtensor::Config for Runtime {
     type TriumvirateInterface = TriumvirateVotes;
     type Scheduler = Scheduler;
     type InitialRho = SubtensorInitialRho;
+    type InitialAlphaSigmoidSteepness = SubtensorInitialAlphaSigmoidSteepness;
     type InitialKappa = SubtensorInitialKappa;
     type InitialMaxAllowedUids = SubtensorInitialMaxAllowedUids;
     type InitialBondsMovingAverage = SubtensorInitialBondsMovingAverage;
@@ -1153,6 +1158,7 @@ impl pallet_subtensor::Config for Runtime {
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;
+    type Yuma3On = InitialYuma3On;
     type InitialTaoWeight = SubtensorInitialTaoWeight;
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
@@ -1251,11 +1257,12 @@ pub struct SubtensorEvmBalanceConverter;
 
 impl BalanceConverter for SubtensorEvmBalanceConverter {
     /// Convert from Substrate balance (u64) to EVM balance (U256)
-    fn into_evm_balance(value: U256) -> Option<U256> {
+    fn into_evm_balance(value: SubstrateBalance) -> Option<EvmBalance> {
+        let value = value.into_u256();
         if let Some(evm_value) = value.checked_mul(U256::from(EVM_TO_SUBSTRATE_DECIMALS)) {
             // Ensure the result fits within the maximum U256 value
             if evm_value <= U256::MAX {
-                Some(evm_value)
+                Some(EvmBalance::new(evm_value))
             } else {
                 // Log value too large
                 log::debug!(
@@ -1275,11 +1282,12 @@ impl BalanceConverter for SubtensorEvmBalanceConverter {
     }
 
     /// Convert from EVM balance (U256) to Substrate balance (u64)
-    fn into_substrate_balance(value: U256) -> Option<U256> {
+    fn into_substrate_balance(value: EvmBalance) -> Option<SubstrateBalance> {
+        let value = value.into_u256();
         if let Some(substrate_value) = value.checked_div(U256::from(EVM_TO_SUBSTRATE_DECIMALS)) {
             // Ensure the result fits within the TAO balance type (u64)
             if substrate_value <= U256::from(u64::MAX) {
-                Some(substrate_value)
+                Some(SubstrateBalance::new(substrate_value))
             } else {
                 // Log value too large
                 log::debug!(
@@ -2270,8 +2278,8 @@ fn check_whitelist() {
 #[test]
 fn test_into_substrate_balance_valid() {
     // Valid conversion within u64 range
-    let evm_balance = U256::from(1_000_000_000_000_000_000u128); // 1 TAO in EVM
-    let expected_substrate_balance = U256::from(1_000_000_000u128); // 1 TAO in Substrate
+    let evm_balance: EvmBalance = 1_000_000_000_000_000_000u128.into(); // 1 TAO in EVM
+    let expected_substrate_balance: SubstrateBalance = 1_000_000_000u128.into(); // 1 TAO in Substrate
 
     let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
     assert_eq!(result, Some(expected_substrate_balance));
@@ -2280,8 +2288,8 @@ fn test_into_substrate_balance_valid() {
 #[test]
 fn test_into_substrate_balance_large_value() {
     // Maximum valid balance for u64
-    let evm_balance = U256::from(u64::MAX) * U256::from(EVM_TO_SUBSTRATE_DECIMALS); // Max u64 TAO in EVM
-    let expected_substrate_balance = U256::from(u64::MAX);
+    let evm_balance = EvmBalance::new(U256::from(u64::MAX) * U256::from(EVM_TO_SUBSTRATE_DECIMALS)); // Max u64 TAO in EVM
+    let expected_substrate_balance = SubstrateBalance::new(U256::from(u64::MAX));
 
     let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
     assert_eq!(result, Some(expected_substrate_balance));
@@ -2290,8 +2298,9 @@ fn test_into_substrate_balance_large_value() {
 #[test]
 fn test_into_substrate_balance_exceeds_u64() {
     // EVM balance that exceeds u64 after conversion
-    let evm_balance =
-        (U256::from(u64::MAX) + U256::from(1)) * U256::from(EVM_TO_SUBSTRATE_DECIMALS);
+    let evm_balance = EvmBalance::new(
+        (U256::from(u64::MAX) + U256::from(1)) * U256::from(EVM_TO_SUBSTRATE_DECIMALS),
+    );
 
     let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
     assert_eq!(result, None); // Exceeds u64, should return None
@@ -2300,8 +2309,8 @@ fn test_into_substrate_balance_exceeds_u64() {
 #[test]
 fn test_into_substrate_balance_precision_loss() {
     // EVM balance with precision loss
-    let evm_balance = U256::from(1_000_000_000_123_456_789u128); // 1 TAO + extra precision in EVM
-    let expected_substrate_balance = U256::from(1_000_000_000u128); // Truncated to 1 TAO in Substrate
+    let evm_balance = EvmBalance::new(U256::from(1_000_000_000_123_456_789u128)); // 1 TAO + extra precision in EVM
+    let expected_substrate_balance = SubstrateBalance::new(U256::from(1_000_000_000u128)); // Truncated to 1 TAO in Substrate
 
     let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
     assert_eq!(result, Some(expected_substrate_balance));
@@ -2310,8 +2319,8 @@ fn test_into_substrate_balance_precision_loss() {
 #[test]
 fn test_into_substrate_balance_zero_value() {
     // Zero balance should convert to zero
-    let evm_balance = U256::from(0);
-    let expected_substrate_balance = U256::from(0);
+    let evm_balance = EvmBalance::new(U256::from(0));
+    let expected_substrate_balance = SubstrateBalance::new(U256::from(0));
 
     let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
     assert_eq!(result, Some(expected_substrate_balance));
@@ -2320,8 +2329,8 @@ fn test_into_substrate_balance_zero_value() {
 #[test]
 fn test_into_evm_balance_valid() {
     // Valid conversion from Substrate to EVM
-    let substrate_balance = U256::from(1_000_000_000u128); // 1 TAO in Substrate
-    let expected_evm_balance = U256::from(1_000_000_000_000_000_000u128); // 1 TAO in EVM
+    let substrate_balance: SubstrateBalance = 1_000_000_000u128.into(); // 1 TAO in Substrate
+    let expected_evm_balance = EvmBalance::new(U256::from(1_000_000_000_000_000_000u128)); // 1 TAO in EVM
 
     let result = SubtensorEvmBalanceConverter::into_evm_balance(substrate_balance);
     assert_eq!(result, Some(expected_evm_balance));
@@ -2330,8 +2339,9 @@ fn test_into_evm_balance_valid() {
 #[test]
 fn test_into_evm_balance_overflow() {
     // Substrate balance larger than u64::MAX but valid within U256
-    let substrate_balance = U256::from(u64::MAX) + U256::from(1); // Large balance
-    let expected_evm_balance = substrate_balance * U256::from(EVM_TO_SUBSTRATE_DECIMALS);
+    let substrate_balance = SubstrateBalance::new(U256::from(u64::MAX) + U256::from(1)); // Large balance
+    let expected_evm_balance =
+        EvmBalance::new(substrate_balance.into_u256() * U256::from(EVM_TO_SUBSTRATE_DECIMALS));
 
     let result = SubtensorEvmBalanceConverter::into_evm_balance(substrate_balance);
     assert_eq!(result, Some(expected_evm_balance)); // Should return the scaled value

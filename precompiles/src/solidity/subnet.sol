@@ -152,6 +152,13 @@ interface ISubnet {
         bool liquidAlphaEnabled
     ) external payable;
 
+    function getYuma3Enabled(uint16 netuid) external view returns (bool);
+
+    function setYuma3Enabled(
+        uint16 netuid,
+        bool yuma3Enabled
+    ) external payable;
+
     function getAlphaValues(
         uint16 netuid
     ) external view returns (uint16, uint16);
