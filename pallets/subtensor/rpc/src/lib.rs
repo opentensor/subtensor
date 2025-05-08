@@ -69,6 +69,7 @@ pub trait SubtensorCustomApi<BlockHash> {
         &self,
         netuid: u16,
         metagraph_index: Vec<u16>,
+        validator_only: bool,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
 }
@@ -402,6 +403,7 @@ where
         &self,
         netuid: u16,
         metagraph_index: Vec<u16>,
+        validator_only: bool,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();

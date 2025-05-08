@@ -2,6 +2,7 @@ use super::*;
 extern crate alloc;
 use crate::epoch::math::*;
 use codec::Compact;
+use frame_support::IterableStorageDoubleMap;
 use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I64F64;
 use substrate_fixed::types::I96F32;
@@ -107,7 +108,7 @@ pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     alpha_dividends_per_hotkey: Vec<(AccountId, Compact<u64>)>, // List of dividend payout in alpha via subnet.
 }
 
-#[freeze_struct("182c7375fee9db7b")]
+#[freeze_struct("2eca518cf84390fa")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode + Clone> {
     // Subnet index
@@ -205,6 +206,9 @@ pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode + Clone> {
     // Dividend break down.
     tao_dividends_per_hotkey: Option<Vec<(AccountId, Compact<u64>)>>, // List of dividend payouts in tao via root.
     alpha_dividends_per_hotkey: Option<Vec<(AccountId, Compact<u64>)>>, // List of dividend payout in alpha via subnet.
+
+    // validators
+    validators: Option<Vec<Compact<u16>>>, // List of validators
 }
 
 impl<AccountId> SelectiveMetagraph<AccountId>
@@ -362,6 +366,8 @@ where
                 self.alpha_dividends_per_hotkey = other.alpha_dividends_per_hotkey.clone()
             }
 
+            Some(SelectiveMetagraphIndex::Validators) => self.validators = other.validators.clone(),
+
             None => {}
         };
     }
@@ -445,6 +451,7 @@ where
             total_stake: None,
             tao_dividends_per_hotkey: None,
             alpha_dividends_per_hotkey: None,
+            validators: None,
         }
     }
 }
@@ -522,6 +529,7 @@ pub enum SelectiveMetagraphIndex {
     TotalStake,
     TaoDividendsPerHotkey,
     AlphaDividendsPerHotkey,
+    Validators,
 }
 
 impl SelectiveMetagraphIndex {
@@ -599,6 +607,7 @@ impl SelectiveMetagraphIndex {
             69 => Some(SelectiveMetagraphIndex::TotalStake),
             70 => Some(SelectiveMetagraphIndex::TaoDividendsPerHotkey),
             71 => Some(SelectiveMetagraphIndex::AlphaDividendsPerHotkey),
+            72 => Some(SelectiveMetagraphIndex::Validators),
             _ => None,
         }
     }
@@ -791,10 +800,14 @@ impl<T: Config> Pallet<T> {
     pub fn get_selective_metagraph(
         netuid: u16,
         metagraph_indexes: Vec<u16>,
+        validator_only: bool,
     ) -> Option<SelectiveMetagraph<T::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
             None
         } else {
+            if validator_only {
+                return Some(Self::get_valiators(netuid));
+            }
             let mut result = SelectiveMetagraph::default();
             for index in metagraph_indexes.iter() {
                 let value = Self::get_single_selective_metagraph(netuid, *index);
@@ -1356,11 +1369,54 @@ impl<T: Config> Pallet<T> {
                     ..Default::default()
                 }
             }
-            None => SelectiveMetagraph {
+            _ => SelectiveMetagraph {
                 // Subnet index
                 netuid: netuid.into(),
                 ..Default::default()
             },
+        }
+    }
+
+    fn get_valiators(netuid: u16) -> SelectiveMetagraph<T::AccountId> {
+        let stake_threshold = Self::get_stake_threshold();
+        let hotkeys: Vec<(u16, T::AccountId)> =
+            <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(netuid)
+                .collect();
+        let validator_permits: Vec<bool> = Self::get_validator_permit(netuid);
+
+        // filter according to validator_permits
+        let hotkeys: Vec<&(u16, T::AccountId)> = hotkeys
+            .iter()
+            .filter(|(uid, _)| *validator_permits.get(*uid as usize).unwrap_or(&false))
+            .collect::<Vec<_>>();
+
+        // map hotkeys to validators with stake
+        let mut validators: Vec<(u16, I64F64)> = hotkeys
+            .iter()
+            .map(|(uid, hotkey)| {
+                let stake = Self::get_stake_weights_for_hotkey_on_subnet(hotkey, netuid);
+                // let stake = stake.0[*uid as usize];
+                (*uid, stake.0)
+            })
+            .collect();
+
+        // sort validators by stake
+        validators.sort_by(|a, b| a.1.cmp(&b.1));
+
+        let validators: Vec<Compact<u16>> = validators
+            .iter()
+            .filter(|(_uid, stake)| {
+                // let stake = stake.0[*uid as usize];
+                *stake > stake_threshold
+            })
+            .map(|(uid, _)| Compact::from(*uid))
+            .collect::<Vec<_>>();
+
+        SelectiveMetagraph {
+            // Subnet index
+            netuid: netuid.into(),
+            validators: Some(validators),
+            ..Default::default()
         }
     }
 }
@@ -1441,6 +1497,7 @@ fn test_selective_metagraph() {
         total_stake: None,
         tao_dividends_per_hotkey: None,
         alpha_dividends_per_hotkey: None,
+        validators: None,
     };
 
     // test init value
