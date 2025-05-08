@@ -1,7 +1,10 @@
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_noop, assert_ok, traits::Currency};
+use serde::de::Expected;
 use sp_core::U256;
+use sp_core::bytes::ExpectedLen;
 
+use super::mock;
 use super::mock::*;
 use crate::*;
 
@@ -82,6 +85,7 @@ fn test_recycle_two_stakers() {
 
         // add stake to coldkey-hotkey pair so we can recycle it
         let stake = 200_000;
+        let (expected_alpha, _) = mock::swap_tao_to_alpha(netuid, stake);
         increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake, netuid);
 
         // add some stake to other coldkey on same hotkey.
@@ -115,7 +119,7 @@ fn test_recycle_two_stakers() {
                 &other_coldkey,
                 netuid
             ),
-            stake,
+            expected_alpha,
             epsilon = 2
         );
 
@@ -151,6 +155,7 @@ fn test_recycle_staker_is_nominator() {
 
         // add stake to coldkey-hotkey pair so we can recycle it
         let stake = 200_000;
+        let (expected_alpha, _) = mock::swap_tao_to_alpha(netuid, stake);
         increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake, netuid);
 
         // add some stake to other coldkey on same hotkey.
@@ -189,7 +194,7 @@ fn test_recycle_staker_is_nominator() {
         // Make sure the other coldkey has no change
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid),
-            stake,
+            expected_alpha,
             epsilon = 2
         );
 
@@ -279,6 +284,7 @@ fn test_burn_staker_is_nominator() {
 
         // add stake to coldkey-hotkey pair so we can recycle it
         let stake = 200_000;
+        let (expected_alpha, _) = mock::swap_tao_to_alpha(netuid, stake);
         increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake, netuid);
 
         // add some stake to other coldkey on same hotkey.
@@ -312,7 +318,7 @@ fn test_burn_staker_is_nominator() {
         // Make sure the other coldkey has no change
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid),
-            stake,
+            expected_alpha,
             epsilon = 2
         );
 
@@ -348,6 +354,7 @@ fn test_burn_two_stakers() {
 
         // add stake to coldkey-hotkey pair so we can recycle it
         let stake = 200_000;
+        let (expected_alpha, _) = mock::swap_tao_to_alpha(netuid, stake);
         increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake, netuid);
 
         // add some stake to other coldkey on same hotkey.
@@ -381,7 +388,7 @@ fn test_burn_two_stakers() {
                 &other_coldkey,
                 netuid
             ),
-            stake,
+            expected_alpha,
             epsilon = 2
         );
 

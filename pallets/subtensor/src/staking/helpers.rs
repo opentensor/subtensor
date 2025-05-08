@@ -55,7 +55,12 @@ impl<T: Config> Pallet<T> {
                     T::SwapInterface::max_price(),
                     true,
                 )
-                .map(|r| r.amount_paid_out.saturating_add(r.fee_paid))
+                .map(|r| {
+                    let fee: u64 = U96F32::saturating_from_num(r.fee_paid)
+                        .saturating_mul(T::SwapInterface::current_alpha_price(netuid))
+                        .saturating_to_num();
+                    r.amount_paid_out.saturating_add(fee)
+                })
                 .unwrap_or_default()
             })
             .sum()
@@ -80,7 +85,12 @@ impl<T: Config> Pallet<T> {
                             T::SwapInterface::max_price(),
                             true,
                         )
-                        .map(|r| r.amount_paid_out.saturating_add(r.fee_paid))
+                        .map(|r| {
+                            let fee: u64 = U96F32::saturating_from_num(r.fee_paid)
+                                .saturating_mul(T::SwapInterface::current_alpha_price(netuid))
+                                .saturating_to_num();
+                            r.amount_paid_out.saturating_add(fee)
+                        })
                         .unwrap_or_default()
                     })
                     .sum::<u64>()

@@ -2218,11 +2218,12 @@ fn test_do_remove_stake_clears_pending_childkeys() {
         // Set non-default value for childkey stake threshold
         StakeThreshold::<Test>::set(1_000_000_000_000);
 
+        let (_, fee) = mock::swap_tao_to_alpha(netuid, StakeThreshold::<Test>::get());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey,
             netuid,
-            StakeThreshold::<Test>::get(),
+            StakeThreshold::<Test>::get() + fee,
         );
 
         // Attempt to set child
@@ -2415,13 +2416,19 @@ fn test_revoke_child_no_min_stake_check() {
         add_network(netuid, 13, 0);
         register_ok_neuron(netuid, parent, coldkey, 0);
 
+		let reserve = 1_000_000_000_000_000;
+		mock::setup_reserves(netuid, reserve, reserve);
+		mock::setup_reserves(root, reserve, reserve);
+
         // Set minimum stake for setting children
         StakeThreshold::<Test>::put(1_000_000_000_000);
+
+		let (_, fee) = mock::swap_tao_to_alpha(root, StakeThreshold::<Test>::get());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &parent,
             &coldkey,
             root,
-            StakeThreshold::<Test>::get(),
+            StakeThreshold::<Test>::get() + fee,
         );
 
         // Schedule parent-child relationship
@@ -2441,7 +2448,7 @@ fn test_revoke_child_no_min_stake_check() {
             &parent,
             &coldkey,
             root,
-            StakeThreshold::<Test>::get(),
+            StakeThreshold::<Test>::get() + fee,
         );
 
         // Ensure the childkeys are applied
@@ -2487,13 +2494,17 @@ fn test_do_set_child_registration_disabled() {
         add_network(netuid, 13, 0);
         register_ok_neuron(netuid, parent, coldkey, 0);
 
+		let reserve = 1_000_000_000_000_000;
+		mock::setup_reserves(netuid, reserve, reserve);
+
         // Set minimum stake for setting children
         StakeThreshold::<Test>::put(1_000_000_000_000);
+		let (_, fee) = mock::swap_tao_to_alpha(netuid, StakeThreshold::<Test>::get());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &parent,
             &coldkey,
             netuid,
-            StakeThreshold::<Test>::get(),
+            StakeThreshold::<Test>::get() + fee,
         );
 
         // Disable subnet registrations
@@ -2512,7 +2523,7 @@ fn test_do_set_child_registration_disabled() {
             &parent,
             &coldkey,
             netuid,
-            StakeThreshold::<Test>::get(),
+            StakeThreshold::<Test>::get() + fee,
         );
 
         // Ensure the childkeys are applied
