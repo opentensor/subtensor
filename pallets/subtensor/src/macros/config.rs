@@ -102,6 +102,9 @@ mod config {
         /// Rho constant.
         #[pallet::constant]
         type InitialRho: Get<u16>;
+        /// AlphaSigmoidSteepness constant.
+        #[pallet::constant]
+        type InitialAlphaSigmoidSteepness: Get<u16>;
         /// Kappa constant.
         #[pallet::constant]
         type InitialKappa: Get<u16>;
@@ -195,6 +198,8 @@ mod config {
         /// A flag to indicate if Liquid Alpha is enabled.
         #[pallet::constant]
         type LiquidAlphaOn: Get<bool>;
+        /// A flag to indicate if Yuma3 is enabled.
+        type Yuma3On: Get<bool>;
         // /// Initial hotkey emission tempo.
         // #[pallet::constant]
         // type InitialHotkeyEmissionTempo: Get<u64>;

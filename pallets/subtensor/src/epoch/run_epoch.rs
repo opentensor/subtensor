@@ -12,7 +12,7 @@ impl<T: Config> Pallet<T> {
     pub fn epoch_dense(netuid: u16, rao_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
         // Get subnetwork size.
         let n: u16 = Self::get_subnetwork_n(netuid);
-        log::trace!("n:\n{:?}\n", n);
+        log::trace!("n: {:?}", n);
 
         // ======================
         // == Active & updated ==
@@ -20,7 +20,7 @@ impl<T: Config> Pallet<T> {
 
         // Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
-        log::trace!("current_block:\n{:?}\n", current_block);
+        log::trace!("current_block: {:?}", current_block);
 
         // Get tempo.
         let tempo: u64 = Self::get_tempo(netuid).into();
@@ -28,25 +28,25 @@ impl<T: Config> Pallet<T> {
 
         // Get activity cutoff.
         let activity_cutoff: u64 = Self::get_activity_cutoff(netuid) as u64;
-        log::trace!("activity_cutoff:\n{:?}\n", activity_cutoff);
+        log::trace!("activity_cutoff: {:?}", activity_cutoff);
 
         // Last update vector.
         let last_update: Vec<u64> = Self::get_last_update(netuid);
-        log::trace!("Last update:\n{:?}\n", &last_update);
+        log::trace!("Last update: {:?}", &last_update);
 
         // Inactive mask.
         let inactive: Vec<bool> = last_update
             .iter()
             .map(|updated| updated.saturating_add(activity_cutoff) < current_block)
             .collect();
-        log::trace!("Inactive:\n{:?}\n", inactive.clone());
+        log::trace!("Inactive: {:?}", inactive.clone());
 
         // Logical negation of inactive.
         let active: Vec<bool> = inactive.iter().map(|&b| !b).collect();
 
         // Block at registration vector (block when each neuron was most recently registered).
         let block_at_registration: Vec<u64> = Self::get_block_at_registration(netuid);
-        log::trace!("Block at registration:\n{:?}\n", &block_at_registration);
+        log::trace!("Block at registration: {:?}", &block_at_registration);
 
         // Outdated matrix, outdated_ij=True if i has last updated (weights) after j has last registered.
         let outdated: Vec<Vec<bool>> = last_update
@@ -58,7 +58,7 @@ impl<T: Config> Pallet<T> {
                     .collect()
             })
             .collect();
-        log::trace!("Outdated:\n{:?}\n", &outdated);
+        log::trace!("Outdated: {:?}", &outdated);
 
         // Recently registered matrix, recently_ij=True if last_tempo was *before* j was last registered.
         // Mask if: the last tempo block happened *before* the registration block
@@ -68,7 +68,7 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|registered| last_tempo <= *registered)
             .collect();
-        log::trace!("Recently registered:\n{:?}\n", &recently_registered);
+        log::trace!("Recently registered: {:?}", &recently_registered);
 
         // ===========
         // == Stake ==
@@ -84,7 +84,7 @@ impl<T: Config> Pallet<T> {
             Self::get_stake_weights_for_network(netuid);
         inplace_normalize_64(&mut total_stake);
         let stake: Vec<I32F32> = vec_fixed64_to_fixed32(total_stake);
-        log::trace!("S:\n{:?}\n", &stake);
+        log::trace!("S: {:?}", &stake);
 
         // =======================
         // == Validator permits ==
@@ -119,7 +119,7 @@ impl<T: Config> Pallet<T> {
 
         // Normalize active stake.
         inplace_normalize(&mut active_stake);
-        log::trace!("S:\n{:?}\n", &active_stake);
+        log::trace!("S: {:?}", &active_stake);
 
         // =============
         // == Weights ==
@@ -130,7 +130,7 @@ impl<T: Config> Pallet<T> {
 
         // Access network weights row unnormalized.
         let mut weights: Vec<Vec<I32F32>> = Self::get_weights(netuid);
-        log::trace!("W:\n{:?}\n", &weights);
+        log::trace!("W: {:?}", &weights);
 
         // Mask weights that are not from permitted validators.
         inplace_mask_rows(&validator_forbids, &mut weights);
@@ -144,15 +144,15 @@ impl<T: Config> Pallet<T> {
         }
 
         inplace_mask_diag(&mut weights);
-        log::trace!("W (permit+diag):\n{:?}\n", &weights);
+        log::trace!("W (permit+diag): {:?}", &weights);
 
         // Mask outdated weights: remove weights referring to deregistered neurons.
         inplace_mask_matrix(&outdated, &mut weights);
-        log::trace!("W (permit+diag+outdate):\n{:?}\n", &weights);
+        log::trace!("W (permit+diag+outdate): {:?}", &weights);
 
         // Normalize remaining weights.
         inplace_row_normalize(&mut weights);
-        log::trace!("W (mask+norm):\n{:?}\n", &weights);
+        log::trace!("W (mask+norm): {:?}", &weights);
 
         // ================================
         // == Consensus, Validator Trust ==
@@ -183,7 +183,7 @@ impl<T: Config> Pallet<T> {
 
         inplace_normalize(&mut ranks);
         let incentive: Vec<I32F32> = ranks.clone();
-        log::trace!("I:\n{:?}\n", &incentive);
+        log::trace!("I: {:?}", &incentive);
 
         // =========================
         // == Bonds and Dividends ==
@@ -197,26 +197,61 @@ impl<T: Config> Pallet<T> {
         let weights_for_bonds: Vec<Vec<I32F32>> =
             interpolate(&weights, &clipped_weights, bonds_penalty);
 
-        // Access network bonds.
-        let mut bonds: Vec<Vec<I32F32>> = Self::get_bonds(netuid);
-        // Remove bonds referring to neurons that have registered since last tempo.
-        inplace_mask_cols(&recently_registered, &mut bonds); // mask recently registered bonds
-        inplace_col_normalize(&mut bonds); // sum_i b_ij = 1
-        log::trace!("B:\n{:?}\n", &bonds);
+        let mut dividends: Vec<I32F32>;
+        let mut ema_bonds: Vec<Vec<I32F32>>;
+        if Yuma3On::<T>::get(netuid) {
+            // Access network bonds.
+            let mut bonds: Vec<Vec<I32F32>> = Self::get_bonds_fixed_proportion(netuid);
+            inplace_mask_cols(&recently_registered, &mut bonds); // mask outdated bonds
+            log::trace!("B: {:?}", &bonds);
 
-        // Compute bonds delta column normalized.
-        let mut bonds_delta: Vec<Vec<I32F32>> = row_hadamard(&weights_for_bonds, &active_stake); // ΔB = W◦S
-        inplace_col_normalize(&mut bonds_delta); // sum_i b_ij = 1
-        log::trace!("ΔB:\n{:?}\n", &bonds_delta);
-        // Compute the Exponential Moving Average (EMA) of bonds.
-        let mut ema_bonds = Self::compute_ema_bonds(netuid, consensus.clone(), bonds_delta, bonds);
-        inplace_col_normalize(&mut ema_bonds); // sum_i b_ij = 1
-        log::trace!("emaB:\n{:?}\n", &ema_bonds);
+            // Compute the Exponential Moving Average (EMA) of bonds.
+            ema_bonds = Self::compute_bonds(netuid, &weights_for_bonds, &bonds, &consensus);
+            log::trace!("emaB: {:?}", &ema_bonds);
 
-        // Compute dividends: d_i = SUM(j) b_ij * inc_j
-        let mut dividends: Vec<I32F32> = matmul_transpose(&ema_bonds, &incentive);
-        inplace_normalize(&mut dividends);
-        log::trace!("D:\n{:?}\n", &dividends);
+            // Normalize EMA bonds.
+            let mut ema_bonds_norm = ema_bonds.clone();
+            inplace_col_normalize(&mut ema_bonds_norm);
+            log::trace!("emaB norm: {:?}", &ema_bonds_norm);
+
+            // # === Dividend Calculation===
+            let total_bonds_per_validator: Vec<I32F32> =
+                row_sum(&mat_vec_mul(&ema_bonds_norm, &incentive));
+            log::trace!(
+                "total_bonds_per_validator: {:?}",
+                &total_bonds_per_validator
+            );
+
+            dividends = vec_mul(&total_bonds_per_validator, &active_stake);
+            inplace_normalize(&mut dividends);
+            log::trace!("D: {:?}", &dividends);
+        } else {
+            // original Yuma - liquid alpha disabled
+            // Access network bonds.
+            let mut bonds: Vec<Vec<I32F32>> = Self::get_bonds(netuid);
+            // Remove bonds referring to neurons that have registered since last tempo.
+            inplace_mask_cols(&recently_registered, &mut bonds); // mask recently registered bonds
+            inplace_col_normalize(&mut bonds); // sum_i b_ij = 1
+            log::trace!("B: {:?}", &bonds);
+
+            // Compute bonds delta column normalized.
+            let mut bonds_delta: Vec<Vec<I32F32>> = row_hadamard(&weights_for_bonds, &active_stake); // ΔB = W◦S
+            inplace_col_normalize(&mut bonds_delta); // sum_i b_ij = 1
+            log::trace!("ΔB: {:?}", &bonds_delta);
+
+            // Compute the Exponential Moving Average (EMA) of bonds.
+            ema_bonds = Self::compute_ema_bonds_normal(&bonds_delta, &bonds, netuid);
+            inplace_col_normalize(&mut ema_bonds); // sum_i b_ij = 1
+            log::trace!("emaB: {:?}", &ema_bonds);
+
+            // Compute dividends: d_i = SUM(j) b_ij * inc_j
+            dividends = matmul_transpose(&ema_bonds, &incentive);
+            inplace_normalize(&mut dividends);
+            log::trace!("Dividends: {:?}", &dividends);
+
+            // Column max-upscale EMA bonds for storage: max_i w_ij = 1.
+            inplace_col_max_upscale(&mut ema_bonds);
+        }
 
         // =================================
         // == Emission and Pruning scores ==
@@ -341,8 +376,6 @@ impl<T: Config> Pallet<T> {
         ValidatorTrust::<T>::insert(netuid, cloned_validator_trust);
         ValidatorPermit::<T>::insert(netuid, new_validator_permits.clone());
 
-        // Column max-upscale EMA bonds for storage: max_i w_ij = 1.
-        inplace_col_max_upscale(&mut ema_bonds);
         new_validator_permits
             .iter()
             .zip(validator_permits)
@@ -476,7 +509,7 @@ impl<T: Config> Pallet<T> {
 
         // Normalize active stake.
         inplace_normalize(&mut active_stake);
-        log::debug!("Active Stake:\n{:?}\n", &active_stake);
+        log::trace!("Active Stake: {:?}", &active_stake);
 
         // =============
         // == Weights ==
@@ -545,7 +578,7 @@ impl<T: Config> Pallet<T> {
 
         // Compute server trust: ratio of rank after vs. rank before.
         let trust: Vec<I32F32> = vecdiv(&ranks, &preranks); // range: I32F32(0, 1)
-        log::trace!("T: {:?}", &trust);
+        log::trace!("Trust: {:?}", &trust);
 
         inplace_normalize(&mut ranks); // range: I32F32(0, 1)
         let incentive: Vec<I32F32> = ranks.clone();
@@ -563,47 +596,92 @@ impl<T: Config> Pallet<T> {
         let weights_for_bonds: Vec<Vec<(u16, I32F32)>> =
             interpolate_sparse(&weights, &clipped_weights, n, bonds_penalty);
 
-        // Access network bonds.
-        let mut bonds: Vec<Vec<(u16, I32F32)>> = Self::get_bonds_sparse(netuid);
-        log::trace!("B: {:?}", &bonds);
+        let mut dividends: Vec<I32F32>;
+        let mut ema_bonds: Vec<Vec<(u16, I32F32)>>;
+        if Yuma3On::<T>::get(netuid) {
+            // Access network bonds.
+            let mut bonds = Self::get_bonds_sparse_fixed_proportion(netuid);
+            log::trace!("Bonds: {:?}", &bonds);
 
-        // Remove bonds referring to neurons that have registered since last tempo.
-        // Mask if: the last tempo block happened *before* the registration block
-        // ==> last_tempo <= registered
-        let last_tempo: u64 = current_block.saturating_sub(tempo);
-        bonds = scalar_vec_mask_sparse_matrix(
-            &bonds,
-            last_tempo,
-            &block_at_registration,
-            &|last_tempo, registered| last_tempo <= registered,
-        );
-        log::trace!("B (outdatedmask): {:?}", &bonds);
+            // Remove bonds referring to neurons that have registered since last tempo.
+            // Mask if: the last tempo block happened *before* the registration block
+            // ==> last_tempo <= registered
+            let last_tempo: u64 = current_block.saturating_sub(tempo);
+            bonds = scalar_vec_mask_sparse_matrix(
+                &bonds,
+                last_tempo,
+                &block_at_registration,
+                &|last_tempo, registered| last_tempo <= registered,
+            );
+            log::trace!("Bonds: (mask) {:?}", &bonds);
 
-        // Normalize remaining bonds: sum_i b_ij = 1.
-        inplace_col_normalize_sparse(&mut bonds, n);
-        log::trace!("B (mask+norm): {:?}", &bonds);
+            // Compute the Exponential Moving Average (EMA) of bonds.
+            log::trace!("weights_for_bonds: {:?}", &weights_for_bonds);
+            ema_bonds = Self::compute_bonds_sparse(netuid, &weights_for_bonds, &bonds, &consensus);
+            log::trace!("emaB: {:?}", &ema_bonds);
 
-        // Compute bonds delta column normalized.
-        let mut bonds_delta: Vec<Vec<(u16, I32F32)>> =
-            row_hadamard_sparse(&weights_for_bonds, &active_stake); // ΔB = W◦S (outdated W masked)
-        log::trace!("ΔB: {:?}", &bonds_delta);
+            // Normalize EMA bonds.
+            let mut ema_bonds_norm = ema_bonds.clone();
+            inplace_col_normalize_sparse(&mut ema_bonds_norm, n); // sum_i b_ij = 1
+            log::trace!("emaB norm: {:?}", &ema_bonds_norm);
 
-        // Normalize bonds delta.
-        inplace_col_normalize_sparse(&mut bonds_delta, n); // sum_i b_ij = 1
-        log::trace!("ΔB (norm): {:?}", &bonds_delta);
+            // # === Dividend Calculation===
+            let total_bonds_per_validator: Vec<I32F32> =
+                row_sum_sparse(&mat_vec_mul_sparse(&ema_bonds_norm, &incentive));
+            log::trace!(
+                "total_bonds_per_validator: {:?}",
+                &total_bonds_per_validator
+            );
 
-        // Compute the Exponential Moving Average (EMA) of bonds.
-        let mut ema_bonds =
-            Self::compute_ema_bonds_sparse(netuid, consensus.clone(), bonds_delta, bonds);
-        // Normalize EMA bonds.
-        inplace_col_normalize_sparse(&mut ema_bonds, n); // sum_i b_ij = 1
-        log::trace!("Exponential Moving Average Bonds: {:?}", &ema_bonds);
+            dividends = vec_mul(&total_bonds_per_validator, &active_stake);
+            inplace_normalize(&mut dividends);
+            log::trace!("Dividends: {:?}", &dividends);
+        } else {
+            // original Yuma - liquid alpha disabled
+            // Access network bonds.
+            let mut bonds: Vec<Vec<(u16, I32F32)>> = Self::get_bonds_sparse(netuid);
+            log::trace!("B: {:?}", &bonds);
 
-        // Compute dividends: d_i = SUM(j) b_ij * inc_j.
-        // range: I32F32(0, 1)
-        let mut dividends: Vec<I32F32> = matmul_transpose_sparse(&ema_bonds, &incentive);
-        inplace_normalize(&mut dividends);
-        log::trace!("Dividends: {:?}", &dividends);
+            // Remove bonds referring to neurons that have registered since last tempo.
+            // Mask if: the last tempo block happened *before* the registration block
+            // ==> last_tempo <= registered
+            let last_tempo: u64 = current_block.saturating_sub(tempo);
+            bonds = scalar_vec_mask_sparse_matrix(
+                &bonds,
+                last_tempo,
+                &block_at_registration,
+                &|last_tempo, registered| last_tempo <= registered,
+            );
+            log::trace!("B (outdatedmask): {:?}", &bonds);
+
+            // Normalize remaining bonds: sum_i b_ij = 1.
+            inplace_col_normalize_sparse(&mut bonds, n);
+            log::trace!("B (mask+norm): {:?}", &bonds);
+
+            // Compute bonds delta column normalized.
+            let mut bonds_delta: Vec<Vec<(u16, I32F32)>> =
+                row_hadamard_sparse(&weights_for_bonds, &active_stake); // ΔB = W◦S (outdated W masked)
+            log::trace!("ΔB: {:?}", &bonds_delta);
+
+            // Normalize bonds delta.
+            inplace_col_normalize_sparse(&mut bonds_delta, n); // sum_i b_ij = 1
+            log::trace!("ΔB (norm): {:?}", &bonds_delta);
+
+            // Compute the Exponential Moving Average (EMA) of bonds.
+            ema_bonds = Self::compute_ema_bonds_normal_sparse(&bonds_delta, &bonds, netuid);
+            // Normalize EMA bonds.
+            inplace_col_normalize_sparse(&mut ema_bonds, n); // sum_i b_ij = 1
+            log::trace!("Exponential Moving Average Bonds: {:?}", &ema_bonds);
+
+            // Compute dividends: d_i = SUM(j) b_ij * inc_j.
+            // range: I32F32(0, 1)
+            dividends = matmul_transpose_sparse(&ema_bonds, &incentive);
+            inplace_normalize(&mut dividends);
+            log::trace!("Dividends: {:?}", &dividends);
+
+            // Column max-upscale EMA bonds for storage: max_i w_ij = 1.
+            inplace_col_max_upscale_sparse(&mut ema_bonds, n);
+        }
 
         // =================================
         // == Emission and Pruning scores ==
@@ -734,8 +812,6 @@ impl<T: Config> Pallet<T> {
         ValidatorTrust::<T>::insert(netuid, cloned_validator_trust);
         ValidatorPermit::<T>::insert(netuid, new_validator_permits.clone());
 
-        // Column max-upscale EMA bonds for storage: max_i w_ij = 1.
-        inplace_col_max_upscale_sparse(&mut ema_bonds, n);
         new_validator_permits
             .iter()
             .zip(validator_permits)
@@ -848,7 +924,7 @@ impl<T: Config> Pallet<T> {
                 bonds
                     .get_mut(uid_i as usize)
                     .expect("uid_i is filtered to be less than n; qed")
-                    .push((uid_j, I32F32::saturating_from_num(bonds_ij)));
+                    .push((uid_j, u16_to_fixed(bonds_ij)));
             }
         }
         bonds
@@ -868,186 +944,30 @@ impl<T: Config> Pallet<T> {
                     .expect("uid_i has been filtered to be less than n; qed")
                     .get_mut(uid_j as usize)
                     .expect("uid_j has been filtered to be less than n; qed") =
-                    I32F32::saturating_from_num(bonds_ij);
+                    u16_to_fixed(bonds_ij);
             }
         }
         bonds
     }
 
-    /// Calculate the logistic function parameters 'a' and 'b' based on alpha and consensus values.
-    ///
-    /// # Args:
-    /// * `alpha_high` - The high alpha value.
-    /// * `alpha_low` - The low alpha value.
-    /// * `consensus_high` - The high consensus value.
-    /// * `consensus_low` - The low consensus value.
-    ///
-    /// # Returns:
-    /// A tuple containing the slope 'a' and intercept 'b' for the logistic function.
-    pub fn calculate_logistic_params(
-        alpha_high: I32F32,
-        alpha_low: I32F32,
-        consensus_high: I32F32,
-        consensus_low: I32F32,
-    ) -> (I32F32, I32F32) {
-        log::trace!("alpha_high: {:?}", alpha_high);
-        log::trace!("alpha_low: {:?}", alpha_low);
-        log::trace!("consensus_high: {:?}", consensus_high);
-        log::trace!("consensus_low: {:?}", consensus_low);
-        // Check for division by zero
-        // extra caution to ensure we never divide by zero
-        if consensus_high <= consensus_low || alpha_low == 0 || alpha_high == 0 {
-            // Return 0 for both 'a' and 'b' when consensus values are equal
-            return (
-                I32F32::saturating_from_num(0.0),
-                I32F32::saturating_from_num(0.0),
-            );
-        }
-
-        // Calculate the slope 'a' of the logistic function.
-        // a = (ln((1 / alpha_high - 1)) - ln((1 / alpha_low - 1))) / (consensus_low - consensus_high)
-        let a = (safe_ln(
-            (I32F32::saturating_from_num(1.0).safe_div(alpha_high))
-                .saturating_sub(I32F32::saturating_from_num(1.0)),
-        )
-        .saturating_sub(safe_ln(
-            (I32F32::saturating_from_num(1.0).safe_div(alpha_low))
-                .saturating_sub(I32F32::saturating_from_num(1.0)),
-        )))
-        .safe_div(consensus_low.saturating_sub(consensus_high));
-        log::trace!("a: {:?}", a);
-
-        // Calculate the intercept 'b' of the logistic function.
-        // b = ln((1 / alpha_low - 1)) + a * consensus_low
-        let b = safe_ln(
-            (I32F32::saturating_from_num(1.0).safe_div(alpha_low))
-                .saturating_sub(I32F32::saturating_from_num(1.0)),
-        )
-        .saturating_add(a.saturating_mul(consensus_low));
-        log::trace!("b: {:?}", b);
-
-        // Return the calculated slope 'a' and intercept 'b'.
-        (a, b)
+    pub fn get_bonds_fixed_proportion(netuid: u16) -> Vec<Vec<I32F32>> {
+        let mut bonds = Self::get_bonds(netuid);
+        bonds.iter_mut().for_each(|bonds_row| {
+            bonds_row
+                .iter_mut()
+                .for_each(|bond| *bond = fixed_to_fixed_u16_proportion(*bond));
+        });
+        bonds
     }
 
-    /// Compute the alpha values using the logistic function parameters 'a' and 'b'.
-    ///
-    /// # Args:
-    /// * `consensus` - A vector of consensus values.
-    /// * `a` - The slope of the logistic function.
-    /// * `b` - The intercept of the logistic function.
-    ///
-    /// # Returns:
-    /// A vector of computed alpha values.
-    pub fn compute_alpha_values(consensus: &[I32F32], a: I32F32, b: I32F32) -> Vec<I32F32> {
-        // Compute the alpha values for each consensus value.
-        let alpha: Vec<I32F32> = consensus
-            .iter()
-            .map(|c| {
-                // Calculate the exponent value for the logistic function.
-                // exp_val = exp(b - a * c)
-                let exp_val = safe_exp(b.saturating_sub(a.saturating_mul(*c)));
-
-                // Compute the alpha value using the logistic function formula.
-                // alpha = 1 / (1 + exp_val)
-                I32F32::saturating_from_num(1.0)
-                    .safe_div(I32F32::saturating_from_num(1.0).saturating_add(exp_val))
-            })
-            .collect();
-
-        // Log the computed alpha values for debugging purposes.
-        log::trace!("alpha: {:?}", alpha);
-
-        // Return the computed alpha values.
-        alpha
-    }
-
-    /// Clamp the alpha values between alpha_high and alpha_low.
-    ///
-    /// # Args:
-    /// * `alpha` - A vector of alpha values.
-    /// * `alpha_high` - The high alpha value.
-    /// * `alpha_low` - The low alpha value.
-    ///
-    /// # Returns:
-    /// A vector of clamped alpha values.
-    pub fn clamp_alpha_values(
-        alpha: Vec<I32F32>,
-        alpha_high: I32F32,
-        alpha_low: I32F32,
-    ) -> Vec<I32F32> {
-        let clamped_alpha: Vec<I32F32> = alpha
-            .iter()
-            .map(|a| {
-                // First, clamp the value to ensure it does not exceed the upper bound (alpha_high).
-                // If 'a' is greater than 'alpha_high', it will be set to 'alpha_high'.
-                // If 'a' is less than or equal to 'alpha_high', it remains unchanged.
-                let clamped_a = a
-                    .min(&alpha_high)
-                    // Next, clamp the value to ensure it does not go below the lower bound (alpha_low).
-                    // If the value (after the first clamping) is less than 'alpha_low', it will be set to 'alpha_low'.
-                    // If the value is greater than or equal to 'alpha_low', it remains unchanged.
-                    .max(&alpha_low);
-                // Return the clamped value.
-                *clamped_a
-            })
-            .collect();
-        log::trace!("alpha_clamped: {:?}", clamped_alpha);
-        clamped_alpha
-    }
-
-    /// Compute the Exponential Moving Average (EMA) of bonds using the clamped alpha values for a sparse matrix.
-    ///
-    /// # Args:
-    /// * `bonds_delta` - A vector of bond deltas.
-    /// * `bonds` - A vector of bonds.
-    /// * `alpha` - A vector of clamped alpha values.
-    ///
-    /// # Returns:
-    /// A vector of EMA bonds.
-    pub fn compute_ema_bonds_with_liquid_alpha_sparse(
-        bonds_delta: &[Vec<(u16, I32F32)>],
-        bonds: &[Vec<(u16, I32F32)>],
-        alpha: Vec<I32F32>,
-    ) -> Vec<Vec<(u16, I32F32)>> {
-        // Compute the Exponential Moving Average (EMA) of bonds using the provided clamped alpha values.
-        let ema_bonds = mat_ema_alpha_vec_sparse(bonds_delta, bonds, &alpha);
-
-        // Log the computed EMA bonds for debugging purposes.
-        log::trace!(
-            "Exponential Moving Average Bonds Liquid Alpha: {:?}",
-            ema_bonds
-        );
-
-        // Return the computed EMA bonds.
-        ema_bonds
-    }
-
-    /// Compute the Exponential Moving Average (EMA) of bonds using the clamped alpha values.
-    ///
-    /// # Args:
-    /// * `bonds_delta` - A vector of bond deltas.
-    /// * `bonds` - A vector of bonds.
-    /// * `alpha` - A vector of clamped alpha values.
-    ///
-    /// # Returns:
-    /// A vector of EMA bonds.
-    pub fn compute_ema_bonds_with_liquid_alpha(
-        bonds_delta: &[Vec<I32F32>],
-        bonds: &[Vec<I32F32>],
-        alpha: Vec<I32F32>,
-    ) -> Vec<Vec<I32F32>> {
-        // Compute the Exponential Moving Average (EMA) of bonds using the provided clamped alpha values.
-        let ema_bonds = mat_ema_alpha_vec(bonds_delta, bonds, &alpha);
-
-        // Log the computed EMA bonds for debugging purposes.
-        log::trace!(
-            "Exponential Moving Average Bonds Liquid Alpha: {:?}",
-            ema_bonds
-        );
-
-        // Return the computed EMA bonds.
-        ema_bonds
+    pub fn get_bonds_sparse_fixed_proportion(netuid: u16) -> Vec<Vec<(u16, I32F32)>> {
+        let mut bonds = Self::get_bonds_sparse(netuid);
+        bonds.iter_mut().for_each(|bonds_row| {
+            bonds_row
+                .iter_mut()
+                .for_each(|(_, bond)| *bond = fixed_to_fixed_u16_proportion(*bond));
+        });
+        bonds
     }
 
     /// Compute the Exponential Moving Average (EMA) of bonds using a normal alpha value for a sparse matrix.
@@ -1118,92 +1038,22 @@ impl<T: Config> Pallet<T> {
         ema_bonds
     }
 
-    /// Compute the Exponential Moving Average (EMA) of bonds based on the Liquid Alpha setting for a sparse matrix.
+    /// Compute the Exponential Moving Average (EMA) of bonds based on the Liquid Alpha setting
     ///
     /// # Args:
     /// * `netuid` - The network ID.
-    /// * `consensus` - A vector of consensus values.
-    /// * `bonds_delta` - A vector of bond deltas.
+    /// * `weights` - A vector of weights.
     /// * `bonds` - A vector of bonds.
+    /// * `consensus` - A vector of consensus values.
+    /// * `active_stake` - A vector of active stake values.
     ///
     /// # Returns:
     /// A vector of EMA bonds.
-    pub fn compute_ema_bonds_sparse(
+    pub fn compute_bonds(
         netuid: u16,
-        consensus: Vec<I32F32>,
-        bonds_delta: Vec<Vec<(u16, I32F32)>>,
-        bonds: Vec<Vec<(u16, I32F32)>>,
-    ) -> Vec<Vec<(u16, I32F32)>> {
-        // Check if Liquid Alpha is enabled, consensus is not empty, and contains non-zero values.
-        // This way we avoid the quantil function panic.
-        if LiquidAlphaOn::<T>::get(netuid)
-            && !consensus.is_empty()
-            && consensus
-                .iter()
-                .any(|&c| c != I32F32::saturating_from_num(0))
-        {
-            // Calculate the 75th percentile (high) and 25th percentile (low) of the consensus values.
-            let consensus_high = quantile(&consensus, 0.75);
-            let consensus_low = quantile(&consensus, 0.25);
-            // Further check if the high and low consensus values meet the required conditions.
-            if (consensus_high > consensus_low) || consensus_high != 0 || consensus_low < 0 {
-                // if (consensus_high > consensus_low) || consensus_high != 0) || consensus_low != 0 {
-                // if (consensus_high > consensus_low) || consensus_low != 0 {
-                log::trace!("Using Liquid Alpha");
-
-                // Get the high and low alpha values for the network.
-                let (alpha_low, alpha_high): (I32F32, I32F32) = Self::get_alpha_values_32(netuid);
-                log::trace!("alpha_low: {:?} alpha_high: {:?}", alpha_low, alpha_high);
-
-                // Calculate the logistic function parameters 'a' and 'b' based on alpha and consensus values.
-                let (a, b) = Self::calculate_logistic_params(
-                    alpha_high,
-                    alpha_low,
-                    consensus_high,
-                    consensus_low,
-                );
-
-                // Compute the alpha values using the logistic function parameters.
-                let alpha = Self::compute_alpha_values(&consensus, a, b);
-
-                // Clamp the alpha values between alpha_high and alpha_low.
-                let clamped_alpha = Self::clamp_alpha_values(alpha, alpha_high, alpha_low);
-
-                // Compute the Exponential Moving Average (EMA) of bonds using the clamped alpha values.
-                Self::compute_ema_bonds_with_liquid_alpha_sparse(
-                    &bonds_delta,
-                    &bonds,
-                    clamped_alpha,
-                )
-            } else {
-                log::trace!("Using Bonds Moving Average");
-
-                // Compute the EMA of bonds using a normal alpha value.
-                Self::compute_ema_bonds_normal_sparse(&bonds_delta, &bonds, netuid)
-            }
-        } else {
-            log::trace!("Using Bonds Moving Average");
-
-            // Compute the EMA of bonds using a normal alpha value.
-            Self::compute_ema_bonds_normal_sparse(&bonds_delta, &bonds, netuid)
-        }
-    }
-
-    /// Compute the Exponential Moving Average (EMA) of bonds based on the Liquid Alpha setting.
-    ///
-    /// # Args:
-    /// * `netuid` - The network ID.
-    /// * `consensus` - A vector of consensus values.
-    /// * `bonds_delta` - A vector of bond deltas.
-    /// * `bonds` - A vector of bonds.
-    ///
-    /// # Returns:
-    /// A vector of EMA bonds.
-    pub fn compute_ema_bonds(
-        netuid: u16,
-        consensus: Vec<I32F32>,
-        bonds_delta: Vec<Vec<I32F32>>,
-        bonds: Vec<Vec<I32F32>>,
+        weights: &[Vec<I32F32>], // weights_for_bonds
+        bonds: &[Vec<I32F32>],
+        consensus: &[I32F32],
     ) -> Vec<Vec<I32F32>> {
         // Check if Liquid Alpha is enabled, consensus is not empty, and contains non-zero values.
         if LiquidAlphaOn::<T>::get(netuid)
@@ -1212,46 +1062,221 @@ impl<T: Config> Pallet<T> {
                 .iter()
                 .any(|&c| c != I32F32::saturating_from_num(0))
         {
-            // Calculate the 75th percentile (high) and 25th percentile (low) of the consensus values.
-            let consensus_high = quantile(&consensus, 0.75);
-            let consensus_low = quantile(&consensus, 0.25);
+            // Liquid Alpha is enabled, compute the liquid alphas matrix.
+            let alphas: Vec<Vec<I32F32>> =
+                Self::compute_liquid_alpha_values(netuid, weights, bonds, consensus);
+            log::trace!("alphas: {:?}", &alphas);
 
-            // Further check if the high and low consensus values meet the required conditions.
-            if (consensus_high > consensus_low) || consensus_high != 0 || consensus_low < 0 {
-                log::trace!("Using Liquid Alpha");
-
-                // Get the high and low alpha values for the network.
-                let (alpha_low, alpha_high): (I32F32, I32F32) = Self::get_alpha_values_32(netuid);
-                log::trace!("alpha_low: {:?} alpha_high: {:?}", alpha_low, alpha_high);
-
-                // Calculate the logistic function parameters 'a' and 'b' based on alpha and consensus values.
-                let (a, b) = Self::calculate_logistic_params(
-                    alpha_high,
-                    alpha_low,
-                    consensus_high,
-                    consensus_low,
-                );
-
-                // Compute the alpha values using the logistic function parameters.
-                let alpha = Self::compute_alpha_values(&consensus, a, b);
-
-                // Clamp the alpha values between alpha_high and alpha_low.
-                let clamped_alpha = Self::clamp_alpha_values(alpha, alpha_high, alpha_low);
-
-                // Compute the Exponential Moving Average (EMA) of bonds using the clamped alpha values.
-                Self::compute_ema_bonds_with_liquid_alpha(&bonds_delta, &bonds, clamped_alpha)
-            } else {
-                log::trace!("Using Bonds Moving Average");
-
-                // Compute the EMA of bonds using a normal alpha value.
-                Self::compute_ema_bonds_normal(&bonds_delta, &bonds, netuid)
-            }
+            // Compute the Exponential Moving Average (EMA) of bonds using the provided clamped alpha values.
+            mat_ema_alpha(weights, bonds, &alphas)
         } else {
-            log::trace!("Using Bonds Moving Average");
+            // Liquid Alpha is disabled, compute the liquid alpha value.
+            let alpha: I32F32 = Self::compute_disabled_liquid_alpha(netuid);
 
-            // Compute the EMA of bonds using a normal alpha value.
-            Self::compute_ema_bonds_normal(&bonds_delta, &bonds, netuid)
+            // Compute the Exponential Moving Average (EMA) of bonds using the calculated alpha value.
+            mat_ema(weights, bonds, alpha)
         }
+    }
+
+    /// Compute the Exponential Moving Average (EMA) of bonds based on the Liquid Alpha setting for a sparse matrix.
+    ///
+    /// # Args:
+    /// * `netuid` - The network ID.
+    /// * `weights` - A vector of weights.
+    /// * `bonds` - A vector of bonds.
+    /// * `consensus` - A vector of consensus values.
+    /// * `active_stake` - A vector of active stake values.
+    ///
+    /// # Returns:
+    /// A vector of EMA bonds.
+    pub fn compute_bonds_sparse(
+        netuid: u16,
+        weights: &[Vec<(u16, I32F32)>],
+        bonds: &[Vec<(u16, I32F32)>],
+        consensus: &[I32F32],
+    ) -> Vec<Vec<(u16, I32F32)>> {
+        // Check if Liquid Alpha is enabled, consensus is not empty, and contains non-zero values.
+        if LiquidAlphaOn::<T>::get(netuid)
+            && !consensus.is_empty()
+            && consensus
+                .iter()
+                .any(|&c| c != I32F32::saturating_from_num(0))
+        {
+            // Liquid Alpha is enabled, compute the liquid alphas matrix.
+            let alphas: Vec<Vec<I32F32>> =
+                Self::compute_liquid_alpha_values_sparse(netuid, weights, bonds, consensus);
+            log::trace!("alphas: {:?}", &alphas);
+
+            // Compute the Exponential Moving Average (EMA) of bonds using the provided clamped alpha values.
+            mat_ema_alpha_sparse(weights, bonds, &alphas)
+        } else {
+            // Liquid Alpha is disabled, compute the liquid alpha value.
+            let alpha: I32F32 = Self::compute_disabled_liquid_alpha(netuid);
+
+            // Compute the Exponential Moving Average (EMA) of bonds using the calculated alpha value.
+            mat_ema_sparse(weights, bonds, alpha)
+        }
+    }
+
+    /// Compute liquid alphas matrix
+    /// There is a separate alpha param for each validator-miner binding
+    ///
+    /// # Args:
+    /// * `netuid` - The network ID.
+    /// * `weights` - A vector of weights.
+    /// * `bonds` - A vector of bonds.
+    /// * `consensus` - A vector of consensus values.
+    ///
+    /// # Returns:
+    /// A matrix of alphas
+    pub fn compute_liquid_alpha_values(
+        netuid: u16,
+        weights: &[Vec<I32F32>], // current epoch weights
+        bonds: &[Vec<I32F32>],   // previous epoch bonds
+        consensus: &[I32F32],    // previous epoch consensus weights
+    ) -> Vec<Vec<I32F32>> {
+        assert!(weights.len() == bonds.len());
+
+        // Get the high and low alpha values for the network.
+        let alpha_sigmoid_steepness: I32F32 = Self::get_alpha_sigmoid_steepness(netuid);
+        let (alpha_low, alpha_high): (I32F32, I32F32) = Self::get_alpha_values_32(netuid);
+
+        let mut alphas = Vec::new();
+
+        for (w_row, b_row) in weights.iter().zip(bonds.iter()) {
+            let mut row_alphas = Vec::new();
+
+            for ((weight, bond), consensus_val) in
+                w_row.iter().zip(b_row.iter()).zip(consensus.iter())
+            {
+                let alpha = Self::alpha_sigmoid(
+                    *consensus_val,
+                    *weight,
+                    *bond,
+                    alpha_low,
+                    alpha_high,
+                    alpha_sigmoid_steepness,
+                );
+                row_alphas.push(alpha);
+            }
+            alphas.push(row_alphas);
+        }
+        alphas
+    }
+
+    /// Compute liquid alphas sparse matrix
+    /// There is a separate alpha param for each validator-miner binding
+    ///
+    /// # Args:
+    /// * `netuid` - The network ID.
+    /// * `weights` - A vector of weights.
+    /// * `bonds` - A vector of bonds.
+    /// * `consensus` - A vector of consensus values.
+    ///
+    /// # Returns:
+    /// A dense matrix of alphas
+    pub fn compute_liquid_alpha_values_sparse(
+        netuid: u16,
+        weights: &[Vec<(u16, I32F32)>], // current epoch weights
+        bonds: &[Vec<(u16, I32F32)>],   // previous epoch bonds
+        consensus: &[I32F32],           // previous epoch consensus weights
+    ) -> Vec<Vec<I32F32>> {
+        assert!(weights.len() == bonds.len());
+
+        let alpha_sigmoid_steepness: I32F32 = Self::get_alpha_sigmoid_steepness(netuid);
+        let (alpha_low, alpha_high): (I32F32, I32F32) = Self::get_alpha_values_32(netuid);
+
+        let mut alphas = Vec::with_capacity(consensus.len());
+        let zero = I32F32::from_num(0.0);
+
+        // iterate over rows
+        for (w_row, b_row) in weights.iter().zip(bonds.iter()) {
+            let mut row_alphas = Vec::with_capacity(w_row.len());
+            let mut w_iter = w_row.iter().peekable();
+            let mut b_iter = b_row.iter().peekable();
+            for (j_pos, consensus_val) in consensus.iter().enumerate() {
+                let j = j_pos as u16;
+
+                let mut weight = zero;
+                while let Some(&&(i, val)) = w_iter.peek() {
+                    if i < j {
+                        w_iter.next();
+                    } else {
+                        if i == j {
+                            weight = val;
+                        }
+                        break;
+                    }
+                }
+
+                let mut bond = zero;
+                while let Some(&&(i, val)) = b_iter.peek() {
+                    if i < j {
+                        b_iter.next();
+                    } else {
+                        if i == j {
+                            bond = val;
+                        }
+                        break;
+                    }
+                }
+
+                let alpha = Self::alpha_sigmoid(
+                    *consensus_val,
+                    weight,
+                    bond,
+                    alpha_low,
+                    alpha_high,
+                    alpha_sigmoid_steepness,
+                );
+                row_alphas.push(alpha);
+            }
+            alphas.push(row_alphas);
+        }
+        alphas
+    }
+
+    /// Helper function to compute the alpha value using a sigmoid function.
+    pub fn alpha_sigmoid(
+        consensus: I32F32,
+        weight: I32F32,
+        bond: I32F32,
+        alpha_low: I32F32,
+        alpha_high: I32F32,
+        alpha_sigmoid_steepness: I32F32,
+    ) -> I32F32 {
+        let zero = I32F32::from_num(0.0);
+        let one = I32F32::from_num(1.0);
+
+        let diff_buy = clamp_value(weight.saturating_sub(consensus), zero, one);
+        let diff_sell = clamp_value(bond.saturating_sub(weight), zero, one);
+        let combined_diff = if weight >= bond { diff_buy } else { diff_sell };
+
+        // sigmoid = 1. / (1. + e^(-steepness * (combined_diff - 0.5)))
+        let sigmoid = one.saturating_div(
+            one.saturating_add(safe_exp(
+                I32F32::from_num(-1).saturating_mul(
+                    alpha_sigmoid_steepness
+                        .saturating_mul(combined_diff.saturating_sub(I32F32::from_num(0.5))),
+                ),
+            )),
+        );
+        let alpha =
+            alpha_low.saturating_add(sigmoid.saturating_mul(alpha_high.saturating_sub(alpha_low)));
+
+        clamp_value(alpha, alpha_low, alpha_high)
+    }
+
+    pub fn compute_disabled_liquid_alpha(netuid: u16) -> I32F32 {
+        // Retrieve the bonds moving average for the given network ID and scale it down.
+        let bonds_moving_average: I64F64 = I64F64::from_num(Self::get_bonds_moving_average(netuid))
+            .saturating_div(I64F64::from_num(1_000_000));
+
+        // Calculate the alpha value for the EMA calculation.
+        // Alpha is derived by subtracting the scaled bonds moving average from 1.
+        let alpha: I32F32 =
+            I32F32::from_num(1).saturating_sub(I32F32::from_num(bonds_moving_average));
+        alpha
     }
 
     pub fn do_set_alpha_values(
