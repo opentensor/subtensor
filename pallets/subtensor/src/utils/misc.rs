@@ -582,6 +582,14 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::BondsPenaltySet(netuid, bonds_penalty));
     }
 
+    pub fn get_bonds_reset(netuid: u16) -> bool {
+        BondsResetOn::<T>::get(netuid)
+    }
+    pub fn set_bonds_reset(netuid: u16, bonds_reset: bool) {
+        BondsResetOn::<T>::insert(netuid, bonds_reset);
+        Self::deposit_event(Event::BondsResetOnSet(netuid, bonds_reset));
+    }
+
     pub fn get_max_registrations_per_block(netuid: u16) -> u16 {
         MaxRegistrationsPerBlock::<T>::get(netuid)
     }

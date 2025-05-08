@@ -3332,3 +3332,149 @@ fn test_yuma_3_stable_miner() {
         })
     }
 }
+
+#[test]
+fn test_yuma_3_bonds_reset() {
+    new_test_ext(1).execute_with(|| {
+        let sparse: bool = true;
+        let n: u16 = 5; // 3 validators, 2 servers
+        let netuid: u16 = 1;
+        let max_stake: u64 = 8;
+
+        // "Case 8 - big vali moves late, then late"
+        // Big dishonest lazy vali. (0.8)
+        // Small eager-eager vali. (0.1)
+        // Small eager-eager vali 2. (0.1)
+        let stakes: Vec<u64> = vec![8, 1, 1, 0, 0];
+
+        setup_yuma_3_scenario(netuid, n, sparse, max_stake, stakes);
+        SubtensorModule::set_bonds_reset(netuid, true);
+
+        // target bonds and dividends for specific epoch
+        let targets_dividends: std::collections::HashMap<_, _> = [
+            (0, vec![0.8000, 0.1000, 0.1000, 0.0000, 0.0000]),
+            (1, vec![0.8944, 0.0528, 0.0528, 0.0000, 0.0000]),
+            (2, vec![0.5230, 0.2385, 0.2385, 0.0000, 0.0000]),
+            (19, vec![0.7919, 0.1040, 0.1040, 0.0000, 0.0000]),
+            (20, vec![0.7928, 0.1036, 0.1036, 0.0000, 0.0000]),
+            (21, vec![0.8467, 0.0766, 0.0766, 0.0000, 0.0000]),
+            (40, vec![0.7928, 0.1036, 0.1036, 0.0000, 0.0000]),
+        ]
+        .into_iter()
+        .collect();
+        let targets_bonds: std::collections::HashMap<_, _> = [
+            (
+                0,
+                vec![
+                    vec![0.1013, 0.0000],
+                    vec![0.1013, 0.0000],
+                    vec![0.1013, 0.0000],
+                ],
+            ),
+            (
+                1,
+                vec![
+                    vec![0.1924, 0.0000],
+                    vec![0.0908, 0.2987],
+                    vec![0.0908, 0.2987],
+                ],
+            ),
+            (
+                2,
+                vec![
+                    vec![0.1715, 0.1013],
+                    vec![0.0815, 0.3697],
+                    vec![0.0815, 0.3697],
+                ],
+            ),
+            (
+                19,
+                vec![
+                    vec![0.0269, 0.8539],
+                    vec![0.0131, 0.8975],
+                    vec![0.0131, 0.8975],
+                ],
+            ),
+            (
+                20,
+                vec![
+                    vec![0.0000, 0.8687],
+                    vec![0.0000, 0.9079],
+                    vec![0.0000, 0.9079],
+                ],
+            ),
+            (
+                21,
+                vec![
+                    vec![0.0000, 0.8820],
+                    vec![0.2987, 0.6386],
+                    vec![0.2987, 0.6386],
+                ],
+            ),
+            (
+                40,
+                vec![
+                    vec![0.8687, 0.0578],
+                    vec![0.9079, 0.0523],
+                    vec![0.9079, 0.0523],
+                ],
+            ),
+        ]
+        .into_iter()
+        .collect();
+
+        for epoch in 0..=40 {
+            match epoch {
+                0 => {
+                    // All validators -> Server 1
+                    set_yuma_3_weights(netuid, vec![vec![u16::MAX, 0]; 3], vec![3, 4]);
+                }
+                1 => {
+                    // validators B, C switch
+                    // Validator A -> Server 1
+                    // Validator B -> Server 2
+                    // Validator C -> Server 2
+                    set_yuma_3_weights(
+                        netuid,
+                        vec![vec![u16::MAX, 0], vec![0, u16::MAX], vec![0, u16::MAX]],
+                        vec![3, 4],
+                    );
+                }
+                (2..=20) => {
+                    // validator A copies weights
+                    // All validators -> Server 2
+                    set_yuma_3_weights(netuid, vec![vec![0, u16::MAX]; 3], vec![3, 4]);
+                    if epoch == 20 {
+                        let hotkey = SubtensorModule::get_hotkey_for_net_and_uid(netuid, 3)
+                            .expect("Hotkey not found");
+                        let _ = SubtensorModule::do_reset_bonds(netuid, &hotkey);
+                    }
+                }
+                21 => {
+                    // validators B, C switch back
+                    // Validator A -> Server 2
+                    // Validator B -> Server 1
+                    // Validator C -> Server 1
+                    set_yuma_3_weights(
+                        netuid,
+                        vec![vec![0, u16::MAX], vec![u16::MAX, 0], vec![u16::MAX, 0]],
+                        vec![3, 4],
+                    );
+                }
+                _ => {
+                    // validator A copies weights
+                    // All validators -> Server 1
+                    set_yuma_3_weights(netuid, vec![vec![u16::MAX, 0]; 3], vec![3, 4]);
+                }
+            };
+
+            if let Some((target_dividend, target_bond)) =
+                targets_dividends.get(&epoch).zip(targets_bonds.get(&epoch))
+            {
+                run_epoch_and_check_bonds_dividends(netuid, sparse, target_bond, target_dividend);
+            } else {
+                run_epoch(netuid, sparse);
+            }
+        }
+    })
+}

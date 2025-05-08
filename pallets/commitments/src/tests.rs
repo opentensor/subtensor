@@ -34,6 +34,7 @@ fn manual_data_type_info() {
             Data::ShaThree256(_) => "ShaThree256".to_string(),
             Data::Raw(bytes) => format!("Raw{}", bytes.len()),
             Data::TimelockEncrypted { .. } => "TimelockEncrypted".to_string(),
+            Data::ResetBondsFlag => "ResetBondsFlag".to_string(),
         };
         if let scale_info::TypeDef::Variant(variant) = &type_info.type_def {
             let variant = variant
@@ -63,6 +64,7 @@ fn manual_data_type_info() {
                         let reveal_round_len = reveal_round.encode().len() as u32; // Typically 8 bytes
                         encrypted_len + reveal_round_len
                     }
+                    Data::ResetBondsFlag => 0,
                 };
                 assert_eq!(
                     encoded.len() as u32 - 1, // Subtract variant byte
@@ -89,6 +91,7 @@ fn manual_data_type_info() {
         Data::Sha256(Default::default()),
         Data::Keccak256(Default::default()),
         Data::ShaThree256(Default::default()),
+        Data::ResetBondsFlag,
     ];
 
     // Add Raw instances for all possible sizes

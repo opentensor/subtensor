@@ -26,7 +26,7 @@ use frame_support::{
     },
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
-use pallet_commitments::CanCommit;
+use pallet_commitments::{CanCommit, OnMetadataCommitment};
 use pallet_grandpa::{
     AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList, fg_primitives,
 };
@@ -954,7 +954,7 @@ impl pallet_registry::Config for Runtime {
 }
 
 parameter_types! {
-    pub const MaxCommitFieldsInner: u32 = 1;
+    pub const MaxCommitFieldsInner: u32 = 2;
     pub const CommitmentInitialDeposit: Balance = 0; // Free
     pub const CommitmentFieldDeposit: Balance = 0; // Free
 }
@@ -982,12 +982,24 @@ impl CanCommit<AccountId> for AllowCommitments {
     }
 }
 
+pub struct ResetBondsOnCommit;
+impl OnMetadataCommitment<AccountId> for ResetBondsOnCommit {
+    #[cfg(not(feature = "runtime-benchmarks"))]
+    fn on_metadata_commitment(netuid: u16, address: &AccountId) {
+        let _ = SubtensorModule::do_reset_bonds(netuid, address);
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn on_metadata_commitment(_: u16, _: &AccountId) {}
+}
+
 impl pallet_commitments::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type WeightInfo = pallet_commitments::weights::SubstrateWeight<Runtime>;
 
     type CanCommit = AllowCommitments;
+    type OnMetadataCommitment = ResetBondsOnCommit;
 
     type MaxFields = MaxCommitFields;
     type InitialDeposit = CommitmentInitialDeposit;
@@ -1044,6 +1056,7 @@ parameter_types! {
     pub const SubtensorInitialPruningScore : u16 = u16::MAX;
     pub const SubtensorInitialBondsMovingAverage: u64 = 900_000;
     pub const SubtensorInitialBondsPenalty: u16 = u16::MAX;
+    pub const SubtensorInitialBondsResetOn: bool = false;
     pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
     pub const SubtensorInitialMinDelegateTake: u16 = 0; // Allow 0% delegate take
     pub const SubtensorInitialDefaultChildKeyTake: u16 = 0; // Allow 0% childkey take
@@ -1101,6 +1114,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialMaxAllowedUids = SubtensorInitialMaxAllowedUids;
     type InitialBondsMovingAverage = SubtensorInitialBondsMovingAverage;
     type InitialBondsPenalty = SubtensorInitialBondsPenalty;
+    type InitialBondsResetOn = SubtensorInitialBondsResetOn;
     type InitialIssuance = SubtensorInitialIssuance;
     type InitialMinAllowedWeights = SubtensorInitialMinAllowedWeights;
     type InitialEmissionValue = SubtensorInitialEmissionValue;
