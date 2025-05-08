@@ -231,6 +231,7 @@ parameter_types! {
     pub const MinimumBlockDuration: u64 = 20;
     pub const MaximumBlockDuration: u64 = 100;
     pub const RefundContributorsLimit: u32 = 5;
+    pub const MaxContributors: u32 = 10;
 }
 
 impl pallet_crowdloan::Config for Test {
@@ -245,6 +246,7 @@ impl pallet_crowdloan::Config for Test {
     type MinimumBlockDuration = MinimumBlockDuration;
     type MaximumBlockDuration = MaximumBlockDuration;
     type RefundContributorsLimit = RefundContributorsLimit;
+    type MaxContributors = MaxContributors;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
