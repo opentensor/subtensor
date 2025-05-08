@@ -795,6 +795,7 @@ fn setup_crowdloan(
             funds_account,
             call: None,
             target_address: None,
+            contributors_count: 1 + contributions.len() as u32,
         },
     );
 
