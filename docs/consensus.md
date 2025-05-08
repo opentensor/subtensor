@@ -17,6 +17,8 @@ Community oversight (as in Steemit) must identify wrongful downvoting, but only 
 
 High-volume, on-demand generative content (as in Bittensor) demands automated evaluation and divide-and-conquer validation, but introduces subjectivity both in the automated value measures and mutually exclusive task subsets across subnet validators. A coalition of validators can collude to skew scoring of subnet servers in their favour, which is harder to detect because of the inherent subjectivity. Existing consensus mechanisms will fail to deter reward manipulation for such high-volume subjective utility networks, so the need for a more sophisticated consensus arises.
 
+---
+
 ### Consensus Mechanism
 
 Yuma Consensus guarantees long-term network honesty despite persistent adversarial presence in high-volume subjective utility networks. It directly penalizes selfish scoring by down-correction to the majority consensus and slashing of cabal voting stake, and also penalizes low-scoring of honest servers via forfeited validator rewards when cabals don’t score at consensus.
@@ -30,6 +32,8 @@ Yuma Consensus is adversarially-resilient when majority stake is honest, via sta
 **Cabal sets low weight on honest majority**: The median calculation ignores selfish subsets that vote dishonestly (cabals), if they have minority stake (less than $\kappa$-majority), when they set low weights on the honest majority. This means that a minority cabal cannot negatively influence the consensus weight on honest servers.
 
 **Cabal sets high self-weight**: Cabal servers with poor utility will receive low weights from majority stake, and high self-weight from minority cabals will then get reduced to the low consensus. This means that minority cabals lose voting power as penalty for unfair voting while still receiving low consensus weight despite high self-weight. This consensus mechanism thus protects against selfish weighting if the majority stake is honest.
+
+---
 
 ### Game-theoretic framework
 
@@ -112,6 +116,64 @@ let mut ema_bonds: Vec<Vec<I32F32>> = mat_ema( &bonds_delta, &bonds, alpha );  /
 let mut dividends: Vec<I32F32> = inplace_normalize(matmul_transpose( &ema_bonds, &incentive ));  // Validator reward
 ```
 
+---
+
+### Monte Carlo simulations
+
+We consider a two-team game between (protagonist) honest stake ($0.5< S_H\le 1$) and (adversarial) cabal stake ($1 - S_H$), with $|H|$ honest and $|C|$ cabal players, that have $S_H = \sum_{i\in H}S_i$ honest stake and $1-S_H = \sum_{i\in C}S_i$ cabal stake.
+
+#### Network sizing
+
+A network size of $N=|H|+|C|=(|H_V|+|H_S|)+(|C_V|+|C_S|)=512$ and validator count of $|H_V|+|C_V|=64$ is considered for consensus guarantee experiments, and the honest/cabal ratio $|H|/N=S_H$ reflects the honest stake ratio $S_H$, but modifying extremes to ensure that each subset has at least one validator and at least one server.
+
+#### Stake sampling
+
+For the Monte Carlo simulations we use Gaussian distributions for stake and weight assignments, and ensure that the honest/cabal ratios are met. Note that stake is only assigned to validator nodes $H_V$ and $C_V$ and not servers.
+
+Firstly, we sample initial validator ($i\in H_V\cup C_V$) stake values $S'_i \sim \mathcal{N}(1,\sigma_S^{2})$ with a typical $\sigma_S=0.3$ standard deviation, followed by clamping to avoid negative stake:
+
+$$S'_i = \begin{cases}
+x & \text{if } x \sim \mathcal{N}(1, \sigma_S^2), x \ge 0 \\
+0 & \text{if } x \sim \mathcal{N}(1, \sigma_S^2), x < 0
+\end{cases}$$
+
+Then we normalize each honest/cabal subset and multiply by its stake proportion, which thus gives an overall normalized stake and the correct stake ratio for each subset:
+
+$$S_{i\in H_V} = S_H \cdot S'\_i \left/ \sum_{k\in H_V} S'\_k\right.\qquad\qquad S_{i\in C_V} = (1-S_H)\cdot S'\_i \left/ \sum_{k\in C_V}S'\_k\right.$$
+
+#### Weight sampling
+
+Similarly, we randomize the weights that validators $H_V,C_V$ set on servers $H_S,C_S$.
+Specifically, honest players $i\in H$ set $W_H = \sum_{j\in H}W_{ij}$ self-weight and $1-W_H = \sum_{j\in C}W_{ij}$ weight on cabal players, while cabal players $i\in C$ set $W_C = \sum_{j\in C}W_{ij}$ self-weight and $1-W_C = \sum_{j\in H}W_{ij}$ weight on honest players.
+
+We firstly sample initial weights $W'_{ij} \sim \mathcal{N}(1,\sigma_W^{2})$ with various standard deviations ranging in $0\ge\sigma_W\ge0.4$, but then clamping to avoid negative weights:
+
+$$W'_{ij} = \begin{cases}
+x & \text{if } x \sim \mathcal{N}(1, \sigma_S^2), x \geq 0 \\
+0 & \text{if } x \sim \mathcal{N}(1, \sigma_S^2), x < 0
+\end{cases}$$
+
+Weight setting between the two subsets forms quadrants $H_V\rightarrow H_S$, $H_V\rightarrow C_S$, $C_V\rightarrow H_S$, and $C_V\rightarrow C_S$, so we ensure those weight ratios are met by normalizing each weight subset and multiplying by the corresponding quadrant ratio:
+
+$$W_{i\in H_V, j\in H_S} = W_H\cdot W'\_{ij} \left/ \sum_{k\in H_S}W'\_{ik}\right.\qquad\qquad W_{i\in H_V, j\in C_S} = (1-W_H)\cdot W'\_{ij} \left/ \sum_{k\in C_S}W'\_{ik}\right.$$
+
+$$W_{i\in C_V, j\in H_S} = (1-W_C)\cdot W'\_{ij} \left/ \sum_{k\in H_S}W'\_{ik}\right.\qquad\qquad W_{i\in C_V, j\in C_S} = W_C\cdot W'\_{ij} \left/ \sum_{k\in C_S}W'\_{ik}\right.$$
+
+#### Emission calculation
+
+Given the simulation parameters of the network size, validator count, a defined major/honest stake $S_H$, a defined major/honest utility $W_H$, and a defined minor/cabal self-weight $W_C$, we have now instantiated the network with randomly sampled stake and weights and can proceed with an emission calculation.
+
+We calculate the consensus $\overline{W_j} = \arg \max_w \left( \sum_i S_i \cdot \left\lbrace W_{ij} \ge w \right\rbrace \ge \kappa \right)$ for each server $j$, and calculate consensus-clipped weights $\overline{W_{ij}} = \min( W_{ij}, \overline{W_j} )$. This then gives us the adjusted weights that offers a measure of protection against reward manipulation.
+
+To calculate emissions for this epoch, we firstly calculate server rank $R_j = \sum_i S_i \cdot \overline{W_{ij}}$ then incentive $I_j = R_j / \sum_k R_k$, as well as validator bonds $\Delta B_{ij} = S_i \cdot \widetilde{W_{ij}} \left/ \left( \sum_k S_k \cdot \widetilde{W_{kj}} \right) \right.$ and rewards $D_i = \sum_j B_{ij} \cdot I_j$.
+
+Then we add up server incentive and validator bonds over honest nodes to obtain honest emission $E_H = \xi \cdot D_{i\in H} + (1-\xi) \cdot I_{i\in H}$ with a typical validator reward ratio of $\xi=0.5$.
+The objective is to prove major stake retention $S_H\ge E_H$ for a single epoch, which by extension proves retention over many epochs due to additive nature of EMA bonds, so we do not bother with validator EMA bonds in these experiments.
+
+The honest objective $S_H\le E_H$ at least retains scoring power $S_H$ over all action transitions in the game, otherwise when $E_H\le S_H$ honest emission will erode to 0 over time, despite a starting condition of $0.5\lt S_H$.
+
+---
+
 ### Consensus guarantees
 Yuma Consensus guarantees honest majority stake retention $S_H\le E_H$ even under worst-case adversarial attacks, given sufficiently large honest utility $W_H$. The specific honest stake and utility pairs that delineate the guarantees are complicated by natural variances inside large realistic networks.
 Therefore, we use extensive random sampling simulations (Monte Carlo studies) of large realistic networks and subject them to varying degrees of adversarial attacks, and calculate comprehensive consensus guarantees under representative conditions.
@@ -124,9 +186,9 @@ The x-axis is major self-weight and the y-axis is minor self-weight, and each co
 Major/honest self-weight $W_H$ is the true honest utility, while minor/cabal self-weight $W_C$ is an arbitrary value a self-serving coalition may self-report.
 
 <p align="center">
- <img src="img/emission-60.svg" width="330">
- <img src="img/emission-70.svg" width="330">
- <img src="img/retention-lines.svg" width="330">
+ <img src="img/emission-60.svg" width="320">
+ <img src="img/emission-70.svg" width="320">
+ <img src="img/retention-lines.svg" width="320">
 </p>
 
 To understand how we construct these plots, let us first consider contour plot for a single major/honest stake setting $S_H=0.6$. Here each contour value is the honest emission $E_H$, and we highlight at (1) the specific contour $E_H=0.6$ that matches the honest stake. This means that any weight setting on contour $E_H=S_H=0.6$ will retain honest stake, while any setting to the right of it will grow honest stake.
@@ -138,18 +200,20 @@ A compound plot then combines all the highlighted $S_H=E_H$ contours from indivi
 Retention graphs like these comprehensively capture consensus guarantees across all primary conditions, and we utilize these to analyze the effect of consensus hyperparameters.
 Subtensor integration tests run Monte Carlo simulations of large realistic networks under adversarial conditions, and constructs retention profiles to confirm consensus guarantees of the actual blockchain implementation.
 
-Retention profiles are reproducible by running [`_map_consensus_guarantees`](../pallets/subtensor/tests/epoch.rs) (decorate with `#[test]`).
+Retention profiles are reproducible by running test [`map_consensus_guarantees()`](../pallets/subtensor/src/tests/consensus.rs) and plotting with [`map_consensus.py`](../scripts/map_consensus.py).
 ```bash
-RUST_BACKTRACE=1 SKIP_WASM_BUILD=1 cargo test -- _map_consensus_guarantees --exact --nocapture > consensus.txt
+RUST_BACKTRACE=1 SKIP_WASM_BUILD=1 RUSTFLAGS="-C opt-level=3" cargo test --manifest-path=pallets/subtensor/Cargo.toml -- tests::consensus::map_consensus_guarantees <bonds_penalty> --exact --nocapture > consensus.txt
+
+python scripts/map_consensus.py consensus.txt
 ```
 
 #### Subjectivity variance
 Yuma Consensus corrects reward manipulation in subjective utility networks, but the extent of subjectivity influences the exact consensus guarantees. In particular, we expect lower subjectivity to offer improved guarantees since there is stronger consensus. However, for higher variance in assigned weights it is easier to hide reward manipulation, we then expect poorer guarantees.
 
 <p align="center">
- <img src="img/weights_stddev_0.svg" width="330">
- <img src="img/weights_stddev_20.svg" width="330">
- <img src="img/weights_stddev_40.svg" width="330">
+ <img src="img/weights_stddev_0.svg" width="320">
+ <img src="img/weights_stddev_20.svg" width="320">
+ <img src="img/weights_stddev_40.svg" width="320">
 </p>
 
 We assume normally distributed weights originating from a particular side, either honest or cabal, then we modify the weight deviation magnitude $\sigma(W)$ in terms of the mean weight $\mu(W)$.
@@ -167,9 +231,9 @@ Increasing $\kappa$ demands greater honest stake, e.g. when $\kappa=0.6$ there i
 Hence $\kappa=0.5$ is typically the most sensible setting.
 
 <p align="center">
- <img src="img/kappa_40.svg" width="330">
- <img src="img/kappa_50.svg" width="330">
- <img src="img/kappa_60.svg" width="330">
+ <img src="img/kappa_40.svg" width="320">
+ <img src="img/kappa_50.svg" width="320">
+ <img src="img/kappa_60.svg" width="320">
 </p>
 
 #### Bonds penalty (β)
@@ -179,9 +243,9 @@ Lower-stake validators may experience lower service priority, which can result i
 Full bonds penalty $\beta=1$ may not be desired, due to the presence of non-adversarial cases like these.
 
 <p align="center">
- <img src="img/bonds_penalty_0.svg" width="330">
- <img src="img/bonds_penalty_50.svg" width="330">
- <img src="img/bonds_penalty_100.svg" width="330">
+ <img src="img/bonds_penalty_0.svg" width="320">
+ <img src="img/bonds_penalty_50.svg" width="320">
+ <img src="img/bonds_penalty_100.svg" width="320">
 </p>
 
 We expect that greater bonds penalty will penalize out-of-consensus validators more, which means less emission going to cabals. Comprehensive simulation with $\beta = 0$, $0.5$, and $1$ respectively show 78%, 76%, and 73% honest utility requirement. This confirms the expectation, that greater bonds penalty means greater inflation going to the honest majority.
@@ -191,10 +255,110 @@ Subnet servers need incentive to deliver high utility, and subnet validators nee
 We expect that more emission going to validators will improve security guarantees, since self-serving validation can then be economically disincentivized.
 
 <p align="center">
- <img src="img/validator_emission_0.svg" width="330">
- <img src="img/validator_emission_25.svg" width="330">
- <img src="img/validator_emission_50.svg" width="330">
+ <img src="img/validator_emission_0.svg" width="320">
+ <img src="img/validator_emission_25.svg" width="320">
+ <img src="img/validator_emission_50.svg" width="320">
 </p>
 
 We set validation reward ratio at $\xi=0$, $0.25$, and $0.5$ and respectively observe 82%, 78%, 73% honest utility requirement for 60% honest stake preservation.
 This means that network security improves as the validation reward ratio is increased, although a significant server incentive ratio still needs to be maintained to ensure overall high utility.
+
+---
+
+### Reproduce Consensus Plots (Runpod)
+
+This guide demonstrates how to reproduce consensus retention profile plots on a minimal Runpod CPU instance.
+
+#### 1. Deploy Runpod Instance
+
+Navigate to https://www.runpod.io/console/deploy and select the following:
+
+* **Pod Type:** CPU Pod, CPU5 (5.7 GHz • DDR5 RAM • NVMe) or equivalent.
+* **Instance Configuration:** Compute-Optimized ($0.07/hr, 2 vCPUs, 4GB RAM).
+
+**Important:**  Edit the template and set "Container Disk (Temporary)" to 20GB. This ensures sufficient disk space for the process.
+
+Retrieve the connection details, including the SSH command and port, under "Connect" -> "SSH over exposed TCP". You can optionally enable Jupyter access (`8888:localhost:8888`) if desired.  Connect to your instance via SSH:
+
+```bash
+ssh -L 8888:localhost:8888 root@<your_vps_ip_address> -p <your_vps_port> -i ~/.ssh/id_ed25519  # Replace placeholders
+```
+
+#### 2. Set up the Environment
+
+1. **Start a `tmux` session for persistence:**
+
+   ```bash
+   tmux
+   ```
+
+2. **Update system packages and install prerequisites (Python, Rust, and dependencies):**
+
+   ```bash
+   sudo apt-get update && sudo apt install -y build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler python3 python3-pip \
+   && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
+   && source ~/.cargo/env && rustup default stable && rustup update \
+   && rustup target add wasm32-unknown-unknown \
+   && rustup toolchain install nightly \
+   && rustup target add --toolchain nightly wasm32-unknown-unknown
+
+   ```
+
+3. **Clone the Subtensor repository and checkout the relevant branch:**
+
+   ```bash
+   git clone https://github.com/opentensor/subtensor.git 
+   cd subtensor
+   git checkout main
+
+   ```
+
+
+#### 3. Simulate Networks and Generate Data
+
+The Subtensor integration tests simulate large, realistic networks under adversarial conditions to generate retention profiles that validate the blockchain's consensus guarantees.  Building takes about 10 minutes, and the actual test itself another 15 minutes approximately.
+
+
+```bash
+RUST_BACKTRACE=1 SKIP_WASM_BUILD=1 RUSTFLAGS="-C opt-level=3" cargo test --manifest-path=pallets/subtensor/Cargo.toml -- tests::consensus::map_consensus_guarantees <bonds_penalty> --exact --nocapture > consensus.txt
+```
+This command runs the `map_consensus_guarantees` test and saves the output to `consensus.txt`. Replace `<bonds_penalty>` with a float e.g. 1.0 (100% bonds penalty).
+
+#### 4. Generate Contour Plots
+
+1.  **Create a Python virtual environment and install necessary libraries:**
+
+    ```bash
+    python3 -m venv .venv
+    source .venv/bin/activate
+    pip install numpy matplotlib jupyterlab
+
+    ```
+
+2.  **Run the plotting script:**
+
+    ```bash
+    python3 scripts/map_consensus.py consensus.txt
+    ```
+    This generates an SVG file named `consensus_plot.svg` in the current directory.
+
+
+#### 5. Explore and Modify (Optional)
+
+You can use Jupyter-lab to interactively explore and modify the generated plots:
+
+1.  **Start Jupyter-lab (on VPS):**
+    ```bash
+    jupyter-lab --allow-root --port=8888
+    ```
+
+2.  **Connect to Jupyter:** Open the provided URL (e.g., `http://localhost:8888/tree?token=...`) in your local workstation web browser.
+
+3.  **Modify the plotting script:** Edit `scripts/map_consensus.py` to customize the plots, otherwise download the SVG file.
+
+
+#### Disclaimer
+
+> This reproduction procedure is provided as a guide and may require adjustments depending on your specific VPS environment and configuration. While every effort has been made to ensure accuracy and completeness, variations in system setup, software versions, or network conditions could affect the results.
+>
+> Please exercise caution when executing commands with root privileges and ensure you understand the potential implications before proceeding.  The author assumes no responsibility for any issues arising from the use of this procedure.  If you encounter problems or have suggestions for improvement, please open an issue on this repository.
