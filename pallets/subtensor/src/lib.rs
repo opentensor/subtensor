@@ -1171,13 +1171,13 @@ pub mod pallet {
         StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
 
     #[pallet::storage]
-    /// Map ( hot, netuid ) --> StakeDeltaMap| Stake added/removed since last emission drain for coldkey.
+    /// Map ( netuid, hot ) --> StakeDeltaMap| Stake added/removed since last emission drain for coldkey.
     pub type StakeDeltaSinceLastEmissionDrain<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        T::AccountId,
-        Identity,
         u16,
+        Identity,
+        T::AccountId,
         StakeDeltaMap<T::AccountId>,
         ValueQuery,
         DefaultStakeDeltaMap<T>,
@@ -2695,5 +2695,12 @@ impl<AccountId: Ord + Clone> StakeDeltaMap<AccountId> {
             .entry(coldkey.clone())
             .and_modify(|stake| *stake = stake.saturating_add(stake_value.into()))
             .or_insert(stake_value.into());
+    }
+    pub fn remove_stake(&mut self, coldkey: &AccountId, stake_value: u64) {
+        let converted_stake: i128 = stake_value.into();
+        self.coldkey_stake_deltas
+            .entry(coldkey.clone())
+            .and_modify(|stake| *stake = stake.saturating_sub(converted_stake))
+            .or_insert(0_i128.saturating_sub(converted_stake)); // clippy warning mitigation
     }
 }

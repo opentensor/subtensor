@@ -62,11 +62,6 @@ impl<T: Config> Pallet<T> {
             false,
         )?;
 
-        // Track this addition in the stake delta.
-        StakeDeltaSinceLastEmissionDrain::<T>::mutate(&hotkey, &netuid, |stake_delta| {
-            stake_delta.add_stake(&coldkey, stake_to_be_added);
-        });
-
         // 3. Ensure the remove operation from the coldkey is a success.
         let tao_staked: I96F32 =
             Self::remove_balance_from_coldkey_account(&coldkey, stake_to_be_added)?.into();

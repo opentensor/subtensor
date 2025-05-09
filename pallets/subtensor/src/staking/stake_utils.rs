@@ -185,9 +185,15 @@ impl<T: Config> Pallet<T> {
             .map(|uid| {
                 if Keys::<T>::contains_key(netuid, uid) {
                     let hotkey: T::AccountId = Keys::<T>::get(netuid, uid);
-                    I64F64::saturating_from_num(Self::get_inherited_for_hotkey_on_subnet(
-                        &hotkey, netuid,
-                    ))
+                    let initial_stake = Self::get_inherited_for_hotkey_on_subnet(&hotkey, netuid);
+
+                    let stake_delta = Self::get_stake_delta_for_hotkey_on_subnet(&hotkey, netuid);
+
+                    let final_stake = (initial_stake.saturated_into::<i128>())
+                        .saturating_sub(stake_delta)
+                        .saturated_into::<u64>();
+
+                    I64F64::saturating_from_num(final_stake)
                 } else {
                     I64F64::saturating_from_num(0)
                 }
@@ -201,16 +207,9 @@ impl<T: Config> Pallet<T> {
             .map(|uid| {
                 if Keys::<T>::contains_key(netuid, uid) {
                     let hotkey: T::AccountId = Keys::<T>::get(netuid, uid);
-                    let initial_stake =
-                        Self::get_tao_inherited_for_hotkey_on_subnet(&hotkey, netuid);
-
-                    let stake_delta = Self::get_stake_delta_for_hotkey_on_subnet(&hotkey, netuid);
-
-                    let final_stake = (initial_stake.saturated_into::<i128>())
-                        .saturating_sub(stake_delta)
-                        .saturated_into::<u64>();
-
-                    I64F64::saturating_from_num(final_stake)
+                    I64F64::saturating_from_num(Self::get_tao_inherited_for_hotkey_on_subnet(
+                        &hotkey, netuid,
+                    ))
                 } else {
                     I64F64::saturating_from_num(0)
                 }
@@ -352,7 +351,19 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_stake_delta_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> i128 {
-        StakeDeltaSinceLastEmissionDrain::<T>::get(hotkey, netuid).total()
+        StakeDeltaSinceLastEmissionDrain::<T>::get(netuid, hotkey).total()
+    }
+
+    // Remove all stake delta after the epoch calculation
+    pub fn clear_stake_delta(block_number: u64) {
+        let subnets: Vec<u16> = Self::get_all_subnet_netuids();
+
+        for netuid in subnets.into_iter() {
+            if Self::should_run_epoch(netuid, block_number) {
+                // We don't use the operation result
+                let _ = StakeDeltaSinceLastEmissionDrain::<T>::clear_prefix(netuid, u32::MAX, None);
+            }
+        }
     }
 
     pub fn get_inherited_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
@@ -790,6 +801,11 @@ impl<T: Config> Pallet<T> {
         let actual_alpha_decrease =
             Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
 
+        // Track this substraction in the stake delta.
+        StakeDeltaSinceLastEmissionDrain::<T>::mutate(&netuid, &hotkey, |stake_delta| {
+            stake_delta.remove_stake(coldkey, actual_alpha_decrease);
+        });
+
         // Step 2: Swap the alpha for TAO.
         let tao: u64 = Self::swap_alpha_for_tao(netuid, actual_alpha_decrease);
 
@@ -866,6 +882,11 @@ impl<T: Config> Pallet<T> {
                 staking_hotkeys.push(hotkey.clone());
                 StakingHotkeys::<T>::insert(coldkey, staking_hotkeys.clone());
             }
+
+            // Track this addition in the stake delta.
+            StakeDeltaSinceLastEmissionDrain::<T>::mutate(&netuid, &hotkey, |stake_delta| {
+                stake_delta.add_stake(coldkey, actual_alpha);
+            });
         }
 
         // Step 5. Increase Tao reserves by the fee amount.

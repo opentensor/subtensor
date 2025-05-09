@@ -1,6 +1,7 @@
 use super::*;
 use alloc::collections::BTreeMap;
 use safe_math::*;
+use sp_runtime::SaturatedConversion;
 use substrate_fixed::types::U96F32;
 use tle::stream_ciphers::AESGCMStreamCipherProvider;
 use tle::tlock::tld;
@@ -511,7 +512,20 @@ impl<T: Config> Pallet<T> {
             // Get hotkey TAO on root.
             let root_stake: u64 =
                 Self::get_stake_for_hotkey_on_subnet(hotkey, Self::get_root_netuid());
-            stake_map.insert(hotkey.clone(), (alpha_stake, root_stake));
+
+            let alpha_stake_delta = Self::get_stake_delta_for_hotkey_on_subnet(hotkey, netuid);
+            let root_stake_delta =
+                Self::get_stake_delta_for_hotkey_on_subnet(hotkey, Self::get_root_netuid());
+
+            let final_alpha_stake = (alpha_stake.saturated_into::<i128>())
+                .saturating_sub(alpha_stake_delta)
+                .saturated_into::<u64>();
+
+            let final_toot_stake = (root_stake.saturated_into::<i128>())
+                .saturating_sub(root_stake_delta)
+                .saturated_into::<u64>();
+
+            stake_map.insert(hotkey.clone(), (final_alpha_stake, final_toot_stake));
         }
         stake_map
     }

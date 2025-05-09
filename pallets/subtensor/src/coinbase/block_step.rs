@@ -18,7 +18,10 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         Self::run_coinbase(block_emission);
         // --- 4. Set pending children on the epoch; but only after the coinbase has been run.
         Self::try_set_pending_children(block_number);
-        // Return ok.
+
+        // Clear stake delta for netuids with running epoch this block
+        Self::clear_stake_delta(block_number);
+
         Ok(())
     }
 
