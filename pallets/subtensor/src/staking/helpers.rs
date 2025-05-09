@@ -47,23 +47,15 @@ impl<T: Config> Pallet<T> {
         Self::get_all_subnet_netuids()
             .into_iter()
             .map(|netuid| {
-                let alpha = Self::get_stake_for_hotkey_on_subnet(hotkey, netuid);
-                T::SwapInterface::swap(
-                    netuid,
-                    OrderType::Sell,
-                    alpha,
-                    T::SwapInterface::max_price(),
-                    true,
-                )
-                .map(|r| {
-                    let fee: u64 = U96F32::saturating_from_num(r.fee_paid)
-                        .saturating_mul(T::SwapInterface::current_alpha_price(netuid))
-                        .saturating_to_num();
-                    r.amount_paid_out.saturating_add(fee)
-                })
-                .unwrap_or_default()
+                let alpha = U96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(
+                    hotkey, netuid,
+                ));
+                let alpha_price =
+                    U96F32::saturating_from_num(T::SwapInterface::current_alpha_price(netuid));
+                alpha.saturating_mul(alpha_price)
             })
-            .sum()
+            .sum::<U96F32>()
+            .saturating_to_num::<u64>()
     }
 
     // Returns the total amount of stake under a coldkey
