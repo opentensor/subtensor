@@ -170,8 +170,8 @@ mod pallet {
         /// Provided liquidity parameter is invalid (likely too small)
         InvalidLiquidityValue,
 
-		/// Reserves too low for operation.
-		ReservesTooLow,
+        /// Reserves too low for operation.
+        ReservesTooLow,
     }
 
     #[pallet::call]

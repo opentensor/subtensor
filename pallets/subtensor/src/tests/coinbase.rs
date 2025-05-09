@@ -1980,8 +1980,8 @@ fn test_run_coinbase_not_started() {
         // Set weight-set limit to 0.
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
-		let reserve = init_stake * 1000;
-		mock::setup_reserves(netuid, reserve, reserve);
+        let reserve = init_stake * 1000;
+        mock::setup_reserves(netuid, reserve, reserve);
 
         register_ok_neuron(netuid, hotkey, coldkey, 0);
         register_ok_neuron(netuid, miner_hk, miner_ck, 0);
