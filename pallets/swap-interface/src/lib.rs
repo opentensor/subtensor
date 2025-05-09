@@ -30,6 +30,13 @@ pub trait SwapHandler<AccountId> {
         coldkey_account_id: &AccountId,
         position_id: u128,
     ) -> Result<UpdateLiquidityResult, DispatchError>;
+    fn modify_position(
+        netuid: u16,
+        coldkey_account_id: &AccountId,
+        hotkey_account_id: &AccountId,
+        position_id: u128,
+        liquidity_delta: i64,
+    ) -> Result<UpdateLiquidityResult, DispatchError>;
     fn approx_fee_amount(netuid: u16, amount: u64) -> u64;
     fn current_alpha_price(netuid: u16) -> U96F32;
     fn max_price() -> u64;

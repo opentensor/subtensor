@@ -4,7 +4,6 @@ use frame_support::{
     weights::Weight,
 };
 use sp_core::U256;
-use substrate_fixed::types::{I96F32, U96F32};
 use subtensor_swap_interface::SwapHandler;
 
 use super::mock;

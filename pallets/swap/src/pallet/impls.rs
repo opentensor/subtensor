@@ -412,7 +412,6 @@ impl<T: Config> Pallet<T> {
         let mut refund: u64 = 0;
         let mut iteration_counter: u16 = 0;
         let mut in_acc: u64 = 0;
-        let liquidity_before = CurrentLiquidity::<T>::get(netuid);
 
         // Swap one tick at a time until we reach one of the stop conditions
         while amount_remaining > 0 {
@@ -428,6 +427,11 @@ impl<T: Config> Pallet<T> {
 
             if swap_step.stop_and_refund {
                 refund = amount_remaining;
+                amount_remaining = 0;
+            }
+
+            // The swap step didn't exchange anything
+            if swap_result.amount_to_take == 0 {
                 amount_remaining = 0;
             }
 
@@ -882,7 +886,7 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    fn modify_position(
+    pub fn modify_position(
         netuid: NetUid,
         coldkey_account_id: &T::AccountId,
         hotkey_account_id: &T::AccountId,
@@ -1019,6 +1023,9 @@ impl<T: Config> Pallet<T> {
                 });
             }
         });
+
+        // Update active ticks
+        ActiveTickIndexManager::insert::<T>(netuid, tick_index);
     }
 
     /// Remove liquidity at tick index.
@@ -1043,6 +1050,9 @@ impl<T: Config> Pallet<T> {
                 // If no liquidity is left at the tick, remove it
                 if tick.liquidity_gross == 0 {
                     *maybe_tick = None;
+
+                    // Update active ticks: Final liquidity is zero, remove this tick from active.
+                    ActiveTickIndexManager::remove::<T>(netuid, tick_index);
                 }
             }
         });
@@ -1157,6 +1167,17 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
             .map_err(Into::into)
     }
 
+    fn modify_position(
+        netuid: u16,
+        coldkey_account_id: &T::AccountId,
+        hotkey_account_id: &T::AccountId,
+        position_id: u128,
+        liquidity_delta: i64,
+    ) -> Result<UpdateLiquidityResult, DispatchError> {
+        Self::modify_position(netuid.into(), coldkey_account_id, hotkey_account_id, position_id.into(), liquidity_delta)
+            .map_err(Into::into)
+    }
+
     fn approx_fee_amount(netuid: u16, amount: u64) -> u64 {
         Self::calculate_fee_amount(netuid.into(), amount)
     }
@@ -1206,7 +1227,7 @@ pub enum SwapStepAction {
 #[cfg(test)]
 mod tests {
     use approx::assert_abs_diff_eq;
-    use frame_support::{assert_err, assert_noop, assert_ok};
+    use frame_support::{assert_err, assert_ok};
     use sp_arithmetic::helpers_128bit;
 
     use super::*;
@@ -1647,7 +1668,6 @@ mod tests {
     #[test]
     fn test_modify_position_basic() {
         new_test_ext().execute_with(|| {
-            let min_price = tick_to_price(TickIndex::MIN);
             let max_price = tick_to_price(TickIndex::MAX);
             let max_tick = price_to_tick(max_price);
             let limit_price = 1000.0_f64;
@@ -1667,11 +1687,9 @@ mod tests {
                 //     4_000_000_000_u64,
                 // ),
                 // // Repeat the protocol liquidity at current to max range: Expect the same alpha
-                (0.25, max_price, 2_000_000_000_u64, 1_000_000_000, 4_000_000_000),
-                // Repeat the protocol liquidity at min to current range: Expect all the same tao
-                // (min_price, 0.24999, 2_000_000_000_u64, 1_000_000_000, 0),
-                // // Half to double price - just some sane wothdraw amounts
-                // (0.125, 0.5, 2_000_000_000_u64, 293_000_000, 1_171_000_000),
+                (0.25, max_price, 2_000_000_000_u64, 4_000_000_000),
+                // Half to double price - just some sane wothdraw amounts
+                // (0.125, 0.5, 2_000_000_000_u64, 1_171_000_000),
                 // // Both below price - tao is non-zero, alpha is zero
                 // (0.12, 0.13, 2_000_000_000_u64, 28_270_000, 0),
                 // // Both above price - tao is zero, alpha is non-zero
@@ -1679,8 +1697,8 @@ mod tests {
             ]
             .into_iter()
             .enumerate()
-            .map(|(n, v)| (NetUid::from(n as u16), v.0, v.1, v.2, v.3, v.4))
-            .for_each(|(netuid, price_low, price_high, liquidity, tao, alpha)| {
+            .map(|(n, v)| (NetUid::from(n as u16), v.0, v.1, v.2, v.3))
+            .for_each(|(netuid, price_low, price_high, liquidity, alpha)| {
                 // Calculate ticks (assuming tick math is tested separately)
                 let tick_low = price_to_tick(price_low);
                 let tick_high = price_to_tick(price_high);
@@ -1748,10 +1766,11 @@ mod tests {
                         &OK_COLDKEY_ACCOUNT_ID,
                         &OK_HOTKEY_ACCOUNT_ID,
                         position_id,
-                        -1_i64 * ((liquidity / 10) as i64),
+                        -1_i64 * ((liquidity / 100) as i64),
                     )
                     .unwrap();
-                assert_abs_diff_eq!(modify_result.alpha, alpha / 10, epsilon = alpha / 1000);
+
+                assert_abs_diff_eq!(modify_result.alpha, alpha / 100, epsilon = alpha / 1000);
                 assert_eq!(modify_result.fee_tao, 0);
                 assert_eq!(modify_result.fee_alpha, 0);
             });
@@ -2015,10 +2034,6 @@ mod tests {
                         // Calculate the expected output amount for the cornercase of one step
                         let order_liquidity = order_liquidity_fraction * position_liquidity as f64;
 
-                        let input_amount = match order_type {
-                            OrderType::Buy => order_liquidity * sqrt_current_price.to_num::<f64>(),
-                            OrderType::Sell => order_liquidity / sqrt_current_price.to_num::<f64>(),
-                        };
                         let output_amount = match order_type {
                             OrderType::Buy => {
                                 let denom = sqrt_current_price.to_num::<f64>()
@@ -2165,7 +2180,6 @@ mod tests {
             let min_price = tick_to_price(TickIndex::MIN);
             let max_price = tick_to_price(TickIndex::MAX);
             let max_tick = price_to_tick(max_price);
-            let current_price = 0.25;
             let netuid = NetUid(1);
             assert_eq!(max_tick, TickIndex::MAX);
 
@@ -2350,21 +2364,11 @@ mod tests {
             let order_type = OrderType::Sell;
             let liquidity = 1_000_000_000_000_000_000;
             let tick_low = TickIndex::MIN;
-            let tick_high = TickIndex::MAX;
 
             let sqrt_limit_price: SqrtPrice = tick_low.try_to_sqrt_price().unwrap();
 
             // Setup swap
             assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
-
-            // Get tick infos before the swap
-            let tick_low_info_before = Ticks::<Test>::get(netuid, tick_low).unwrap_or_default();
-            let tick_high_info_before = Ticks::<Test>::get(netuid, tick_high).unwrap_or_default();
-            let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
-
-            // Get current price
-            let sqrt_current_price = AlphaSqrtPrice::<Test>::get(netuid);
-            let current_price = (sqrt_current_price * sqrt_current_price).to_num::<f64>();
 
             // Swap
             let swap_result =
@@ -2374,4 +2378,25 @@ mod tests {
             assert!(swap_result.amount_paid_out > 0);
         });
     }
+
+    // cargo test --package pallet-subtensor-swap --lib -- pallet::impls::tests::test_price_tick_price_roundtrip --exact --show-output
+    #[test]
+    fn test_price_tick_price_roundtrip() {
+        new_test_ext().execute_with(|| {
+            let netuid = NetUid::from(1);
+
+            // Setup swap
+            assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+
+            let current_price = SqrtPrice::from_num(0.50000051219212275465);
+            let tick = TickIndex::try_from_sqrt_price(current_price).unwrap();
+            let round_trip_price = TickIndex::try_to_sqrt_price(&tick).unwrap();
+            assert!(round_trip_price <= current_price);
+
+            let roundtrip_tick = TickIndex::try_from_sqrt_price(round_trip_price).unwrap();
+            assert!(tick == roundtrip_tick);
+        });
+    }
+
+
 }

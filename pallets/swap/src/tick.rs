@@ -15,7 +15,7 @@ use substrate_fixed::types::U64F64;
 use subtensor_macros::freeze_struct;
 
 use crate::pallet::{
-    AlphaSqrtPrice, Config, CurrentTick, FeeGlobalAlpha, FeeGlobalTao, TickIndexBitmapWords, Ticks,
+    Config, CurrentTick, FeeGlobalAlpha, FeeGlobalTao, TickIndexBitmapWords, Ticks,
 };
 use crate::{NetUid, SqrtPrice};
 
@@ -692,9 +692,9 @@ pub enum LayerLevel {
     Bottom = 2,
 }
 
-#[freeze_struct("183175773f3f92e0")]
+#[freeze_struct("4015a04919eb5e2e")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo, MaxEncodedLen)]
-struct BitmapLayer {
+pub(crate) struct BitmapLayer {
     word: u32,
     bit: u32,
 }

@@ -2149,5 +2149,94 @@ mod dispatches {
 
             Ok(())
         }
+
+        /// Modify a liquidity position.
+        ///
+        /// Parameters:
+        /// - origin: The origin of the transaction
+        /// - netuid: Subnet ID
+        /// - position_id: ID of the position to remove
+        /// - liquidity_delta: Liquidity to add (if positive) or remove (if negative)
+        ///
+        /// Emits `Event::LiquidityRemoved` on success
+        #[pallet::call_index(105)]
+        #[pallet::weight((
+		Weight::from_parts(50_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(4)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn modify_position(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: u16,
+            position_id: u128,
+            liquidity_delta: i64,
+        ) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+
+            // Ensure that the subnet exists.
+            ensure!(
+                Self::if_subnet_exist(netuid),
+                Error::<T>::SubNetworkDoesNotExist
+            );
+
+            // Ensure the hotkey account exists
+            ensure!(
+                Self::hotkey_account_exists(&hotkey),
+                Error::<T>::HotKeyAccountNotExists
+            );
+
+            // Add or remove liquidity
+            let result = T::SwapInterface::modify_position(netuid, &coldkey, &hotkey, position_id, liquidity_delta)?;
+
+            if liquidity_delta > 0 {
+                // Remove TAO and Alpha balances or fail transaction if they can't be removed exactly
+                let tao_provided = Self::remove_balance_from_coldkey_account(&coldkey, result.tao)?;
+                ensure!(tao_provided == result.tao, Error::<T>::InsufficientBalance);
+
+                let alpha_provided = Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey, &coldkey, netuid, result.alpha,
+                );
+                ensure!(alpha_provided == result.alpha, Error::<T>::InsufficientBalance);
+
+                // Emit an event
+                Self::deposit_event(Event::LiquidityAdded {
+                    coldkey,
+                    hotkey,
+                    netuid,
+                    position_id,
+                    liquidity: liquidity_delta as u64,
+                    tao: result.tao,
+                    alpha: result.alpha,
+                });
+            } else {
+                // Credit the returned tao and alpha to the account
+                Self::add_balance_to_coldkey_account(
+                    &coldkey,
+                    result.tao.saturating_add(result.fee_tao),
+                );
+                Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey,
+                    &coldkey,
+                    netuid,
+                    result.alpha.saturating_add(result.fee_alpha),
+                );
+
+                // Emit an event
+                Self::deposit_event(Event::LiquidityRemoved {
+                    coldkey,
+                    netuid: netuid.into(),
+                    position_id,
+                    tao: result.tao,
+                    alpha: result.alpha,
+                    fee_tao: result.fee_tao,
+                    fee_alpha: result.fee_alpha,
+                });
+            }
+
+            Ok(())
+        }
     }
 }

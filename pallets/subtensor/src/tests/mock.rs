@@ -21,8 +21,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
 };
 use sp_std::cmp::Ordering;
-use substrate_fixed::types::U64F64;
-use subtensor_swap_interface::{LiquidityDataProvider, OrderType, SwapHandler};
+use subtensor_swap_interface::{OrderType, SwapHandler};
 
 use crate::utils::rate_limiting::TransactionType;
 use crate::*;
