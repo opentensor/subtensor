@@ -5,7 +5,7 @@ use core::fmt;
 use core::hash::Hash;
 use core::ops::{Add, AddAssign, BitOr, Deref, Neg, Shl, Shr, Sub, SubAssign};
 
-use alloy_primitives::{I256, U256};
+use alloy_primitives::{I256, U256, uint};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
 use safe_math::*;
@@ -443,17 +443,25 @@ impl TickIndex {
     /// tick index matches the price by the following inequality:
     ///    sqrt_lower_price <= sqrt_price < sqrt_higher_price
     pub fn try_from_sqrt_price(sqrt_price: SqrtPrice) -> Result<Self, TickMathError> {
-        let tick = get_tick_at_sqrt_ratio(u64f64_to_u256_q64_96(sqrt_price))?;
+        // price in the native Q64.96 integer format
+        let price_x96 = u64f64_to_u256_q64_96(sqrt_price);
 
-        // Correct for rounding error during conversions between different fixed-point formats
-        if tick == 0 {
-            Ok(Self(tick))
+        // first‑pass estimate from the log calculation
+        let mut tick = get_tick_at_sqrt_ratio(price_x96)?;
+
+        // post‑verification, *both* directions
+        let price_at_tick = get_sqrt_ratio_at_tick(tick)?;
+        if price_at_tick > price_x96 {
+            tick -= 1; // estimate was too high
         } else {
-            match (tick + 1).into_tick_index() {
-                Ok(incremented) => Ok(incremented),
-                Err(e) => Err(e),
+            // it may still be one too low
+            let price_at_tick_plus = get_sqrt_ratio_at_tick(tick + 1)?;
+            if price_at_tick_plus <= price_x96 {
+                tick += 1; // step up when required
             }
         }
+
+        tick.into_tick_index()
     }
 }
 
@@ -905,12 +913,13 @@ fn get_sqrt_ratio_at_tick(tick: i32) -> Result<U256, TickMathError> {
         ratio = U256::MAX / ratio;
     }
 
-    Ok((ratio >> 32)
-        + if (ratio.wrapping_rem(U256_1 << 32)).is_zero() {
-            U256::ZERO
-        } else {
-            U256_1
-        })
+    let shifted = ratio >> 32;
+    let ceil = if ratio & U256::from((1u128 << 32) - 1) != U256::ZERO {
+        shifted + U256_1
+    } else {
+        shifted
+    };
+    Ok(ceil)
 }
 
 fn get_tick_at_sqrt_ratio(sqrt_price_x_96: U256) -> Result<i32, TickMathError> {
@@ -1025,7 +1034,7 @@ fn get_tick_at_sqrt_ratio(sqrt_price_x_96: U256) -> Result<i32, TickMathError> {
 /// * `value` - The U256 value in Q64.96 format
 ///
 /// # Returns
-/// * `Result<U64F64, &'static str>` - Converted value or error if too large
+/// * `Result<U64F64, TickMathError>` - Converted value or error if too large
 fn u256_to_u64f64(value: U256, source_fractional_bits: u32) -> Result<U64F64, TickMathError> {
     if value > U256::from(u128::MAX) {
         return Err(TickMathError::ConversionError);
@@ -1047,6 +1056,11 @@ fn u256_to_u64f64(value: U256, source_fractional_bits: u32) -> Result<U64F64, Ti
     }
 
     Ok(U64F64::from_bits(value))
+}
+
+// Convert U64F64 to U256 in Q64.96 format (Uniswap's sqrt price format)
+fn u64f64_to_u256_q64_96(value: U64F64) -> U256 {
+    u64f64_to_u256(value, 96)
 }
 
 /// Convert U64F64 to U256
@@ -1075,12 +1089,32 @@ fn u64f64_to_u256(value: U64F64, target_fractional_bits: u32) -> U256 {
 
 /// Convert U256 in Q64.96 format (Uniswap's sqrt price format) to U64F64
 fn u256_q64_96_to_u64f64(value: U256) -> Result<U64F64, TickMathError> {
-    u256_to_u64f64(value, 96)
+    q_to_u64f64(value, 96)
 }
 
-/// Convert U64F64 to U256 in Q64.96 format (Uniswap's sqrt price format)
-fn u64f64_to_u256_q64_96(value: U64F64) -> U256 {
-    u64f64_to_u256(value, 96)
+fn q_to_u64f64(x: U256, frac_bits: u32) -> Result<U64F64, TickMathError> {
+    let diff = frac_bits.checked_sub(64).unwrap_or(0);
+
+    // 1. shift right diff bits
+    let shifted = if diff != 0 { x >> diff } else { x };
+
+    // 2. **round up** if we threw away any 1‑bits
+    let mask = if diff != 0 {
+        (U256_1 << diff) - U256_1
+    } else {
+        U256::ZERO
+    };
+    let rounded = if diff != 0 && (x & mask) != U256::ZERO {
+        shifted + U256_1
+    } else {
+        shifted
+    };
+
+    // 3. check that it fits in 128 bits and transmute
+    if (rounded >> 128) != U256::ZERO {
+        return Err(TickMathError::Overflow);
+    }
+    Ok(U64F64::from_bits(rounded.to::<u128>()))
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -1110,6 +1144,7 @@ impl Error for TickMathError {}
 mod tests {
     use std::{ops::Sub, str::FromStr};
 
+    use approx::assert_abs_diff_eq;
     use safe_math::FixedExt;
 
     use super::*;
@@ -1361,18 +1396,31 @@ mod tests {
         assert_eq!(tick_index, TickIndex::new_unchecked(0));
 
         // Test with sqrt price equal to tick_spacing_tao (should be tick index 2)
-        let tick_index = TickIndex::try_from_sqrt_price(tick_spacing).unwrap();
-        assert_eq!(tick_index, TickIndex::new_unchecked(2));
+        let epsilon = SqrtPrice::from_num(0.0000000000000001);
+        assert!(
+            TickIndex::new_unchecked(2)
+                .to_sqrt_price_bounded()
+                .abs_diff(tick_spacing)
+                < epsilon
+        );
 
         // Test with sqrt price equal to tick_spacing_tao^2 (should be tick index 4)
         let sqrt_price = tick_spacing * tick_spacing;
-        let tick_index = TickIndex::try_from_sqrt_price(sqrt_price).unwrap();
-        assert_eq!(tick_index, TickIndex::new_unchecked(4));
+        assert!(
+            TickIndex::new_unchecked(4)
+                .to_sqrt_price_bounded()
+                .abs_diff(sqrt_price)
+                < epsilon
+        );
 
         // Test with sqrt price equal to tick_spacing_tao^5 (should be tick index 10)
         let sqrt_price = tick_spacing.checked_pow(5).unwrap();
-        let tick_index = TickIndex::try_from_sqrt_price(sqrt_price).unwrap();
-        assert_eq!(tick_index, TickIndex::new_unchecked(10));
+        assert!(
+            TickIndex::new_unchecked(10)
+                .to_sqrt_price_bounded()
+                .abs_diff(sqrt_price)
+                < epsilon
+        );
     }
 
     #[test]
@@ -1392,9 +1440,9 @@ mod tests {
             1000,
             TickIndex::MAX.get(),
         ]
-        .iter()
+        .into_iter()
         {
-            let tick_index = TickIndex(*i32_value);
+            let tick_index = TickIndex::new_unchecked(i32_value);
             let sqrt_price = tick_index.try_to_sqrt_price().unwrap();
             let round_trip_tick_index = TickIndex::try_from_sqrt_price(sqrt_price).unwrap();
             assert_eq!(round_trip_tick_index, tick_index);

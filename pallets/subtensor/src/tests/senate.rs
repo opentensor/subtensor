@@ -191,19 +191,19 @@ fn test_senate_vote_works() {
             stake
         ));
 
-		let approx_expected = stake - fee;
+        let approx_expected = stake - fee;
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey_account_id,
                 &staker_coldkey,
                 netuid
             ),
-			approx_expected,
+            approx_expected,
             epsilon = approx_expected / 1000
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
-			approx_expected,
+            approx_expected,
             epsilon = approx_expected / 1000
         );
 

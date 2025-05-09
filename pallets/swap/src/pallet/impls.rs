@@ -7,7 +7,7 @@ use sp_arithmetic::helpers_128bit;
 use sp_runtime::traits::AccountIdConversion;
 use substrate_fixed::types::{U64F64, U96F32};
 use subtensor_swap_interface::{
-    LiquidityDataProvider, UpdateLiquidityResult, SwapHandler, SwapResult,
+    LiquidityDataProvider, SwapHandler, SwapResult, UpdateLiquidityResult,
 };
 
 use super::pallet::*;
@@ -90,14 +90,14 @@ impl<T: Config> SwapStep<T> {
                     lq = one.safe_div(TickIndex::min_sqrt_price());
                 }
                 lq
-            },
+            }
             OrderType::Buy => {
                 let mut lq = TickIndex::max_sqrt_price().min(sqrt_price_limit.into());
                 if lq < current_price {
                     lq = TickIndex::max_sqrt_price();
                 }
                 lq
-            },
+            }
         };
 
         Self {
@@ -228,10 +228,8 @@ impl<T: Config> SwapStep<T> {
             delta_fixed.saturating_mul(u16_max.safe_div(u16_max.saturating_sub(fee_rate)));
 
         // Hold the fees
-        let fee = Pallet::<T>::calculate_fee_amount(
-            self.netuid,
-            total_cost.saturating_to_num::<u64>(),
-        );
+        let fee =
+            Pallet::<T>::calculate_fee_amount(self.netuid, total_cost.saturating_to_num::<u64>());
         Pallet::<T>::add_fees(self.netuid, self.order_type, fee);
         let delta_out = Pallet::<T>::convert_deltas(self.netuid, self.order_type, self.delta_in);
 
@@ -336,14 +334,11 @@ impl<T: Config> Pallet<T> {
         let epsilon = U64F64::saturating_from_num(0.000001);
 
         let current_sqrt_price = price.checked_sqrt(epsilon).unwrap_or(U64F64::from_num(0));
-        AlphaSqrtPrice::<T>::set(
-            netuid,
-            current_sqrt_price,
-        );
+        AlphaSqrtPrice::<T>::set(netuid, current_sqrt_price);
 
         // Set current tick
         let current_tick = TickIndex::from_sqrt_price_bounded(current_sqrt_price);
-        CurrentTick::<T>::set(netuid, current_tick);        
+        CurrentTick::<T>::set(netuid, current_tick);
 
         // Set initial (protocol owned) liquidity and positions
         // Protocol liquidity makes one position from TickIndex::MIN to TickIndex::MAX
@@ -1174,8 +1169,14 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
         position_id: u128,
         liquidity_delta: i64,
     ) -> Result<UpdateLiquidityResult, DispatchError> {
-        Self::modify_position(netuid.into(), coldkey_account_id, hotkey_account_id, position_id.into(), liquidity_delta)
-            .map_err(Into::into)
+        Self::modify_position(
+            netuid.into(),
+            coldkey_account_id,
+            hotkey_account_id,
+            position_id.into(),
+            liquidity_delta,
+        )
+        .map_err(Into::into)
     }
 
     fn approx_fee_amount(netuid: u16, amount: u64) -> u64 {
@@ -1298,7 +1299,7 @@ mod tests {
             assert_eq!(sqrt_price, expected_sqrt_price);
 
             // Verify that current tick is set
-            let current_tick = CurrentTick::<Test>::get(netuid);            
+            let current_tick = CurrentTick::<Test>::get(netuid);
             let expected_current_tick = TickIndex::from_sqrt_price_bounded(expected_sqrt_price);
             assert_eq!(current_tick, expected_current_tick);
 
@@ -1729,15 +1730,14 @@ mod tests {
 
                 // Modify liquidity (also causes claiming of fees)
                 let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
-                let modify_result =
-                    Pallet::<Test>::modify_position(
-                        netuid,
-                        &OK_COLDKEY_ACCOUNT_ID,
-                        &OK_HOTKEY_ACCOUNT_ID,
-                        position_id,
-                        -1_i64 * ((liquidity / 10) as i64),
-                    )
-                    .unwrap();
+                let modify_result = Pallet::<Test>::modify_position(
+                    netuid,
+                    &OK_COLDKEY_ACCOUNT_ID,
+                    &OK_HOTKEY_ACCOUNT_ID,
+                    position_id,
+                    -1_i64 * ((liquidity / 10) as i64),
+                )
+                .unwrap();
                 assert_abs_diff_eq!(modify_result.alpha, alpha / 10, epsilon = alpha / 1000);
                 assert!(modify_result.fee_tao > 0);
                 assert_eq!(modify_result.fee_alpha, 0);
@@ -1753,22 +1753,20 @@ mod tests {
 
                 // Position liquidity is reduced
                 let position =
-                    Positions::<Test>::get(&(netuid, OK_COLDKEY_ACCOUNT_ID, position_id))
-                        .unwrap();
+                    Positions::<Test>::get(&(netuid, OK_COLDKEY_ACCOUNT_ID, position_id)).unwrap();
                 assert_eq!(position.liquidity, liquidity * 9 / 10);
                 assert_eq!(position.tick_low, tick_low);
                 assert_eq!(position.tick_high, tick_high);
 
                 // Modify liquidity again (ensure fees aren't double-collected)
-                let modify_result =
-                    Pallet::<Test>::modify_position(
-                        netuid,
-                        &OK_COLDKEY_ACCOUNT_ID,
-                        &OK_HOTKEY_ACCOUNT_ID,
-                        position_id,
-                        -1_i64 * ((liquidity / 100) as i64),
-                    )
-                    .unwrap();
+                let modify_result = Pallet::<Test>::modify_position(
+                    netuid,
+                    &OK_COLDKEY_ACCOUNT_ID,
+                    &OK_HOTKEY_ACCOUNT_ID,
+                    position_id,
+                    -1_i64 * ((liquidity / 100) as i64),
+                )
+                .unwrap();
 
                 assert_abs_diff_eq!(modify_result.alpha, alpha / 100, epsilon = alpha / 1000);
                 assert_eq!(modify_result.fee_tao, 0);
@@ -1913,9 +1911,10 @@ mod tests {
                     }
 
                     // Assert that current tick is updated
-                    let current_tick = CurrentTick::<Test>::get(netuid);            
-                    let expected_current_tick = TickIndex::from_sqrt_price_bounded(sqrt_current_price_after);
-                    assert_eq!(current_tick, expected_current_tick);                    
+                    let current_tick = CurrentTick::<Test>::get(netuid);
+                    let expected_current_tick =
+                        TickIndex::from_sqrt_price_bounded(sqrt_current_price_after);
+                    assert_eq!(current_tick, expected_current_tick);
                 },
             );
         });
@@ -2390,6 +2389,7 @@ mod tests {
 
             let current_price = SqrtPrice::from_num(0.50000051219212275465);
             let tick = TickIndex::try_from_sqrt_price(current_price).unwrap();
+
             let round_trip_price = TickIndex::try_to_sqrt_price(&tick).unwrap();
             assert!(round_trip_price <= current_price);
 
@@ -2397,6 +2397,4 @@ mod tests {
             assert!(tick == roundtrip_tick);
         });
     }
-
-
 }

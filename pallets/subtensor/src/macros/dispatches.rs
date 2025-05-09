@@ -2189,7 +2189,13 @@ mod dispatches {
             );
 
             // Add or remove liquidity
-            let result = T::SwapInterface::modify_position(netuid, &coldkey, &hotkey, position_id, liquidity_delta)?;
+            let result = T::SwapInterface::modify_position(
+                netuid,
+                &coldkey,
+                &hotkey,
+                position_id,
+                liquidity_delta,
+            )?;
 
             if liquidity_delta > 0 {
                 // Remove TAO and Alpha balances or fail transaction if they can't be removed exactly
@@ -2197,9 +2203,15 @@ mod dispatches {
                 ensure!(tao_provided == result.tao, Error::<T>::InsufficientBalance);
 
                 let alpha_provided = Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-                    &hotkey, &coldkey, netuid, result.alpha,
+                    &hotkey,
+                    &coldkey,
+                    netuid,
+                    result.alpha,
                 );
-                ensure!(alpha_provided == result.alpha, Error::<T>::InsufficientBalance);
+                ensure!(
+                    alpha_provided == result.alpha,
+                    Error::<T>::InsufficientBalance
+                );
 
                 // Emit an event
                 Self::deposit_event(Event::LiquidityAdded {

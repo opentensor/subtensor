@@ -79,7 +79,7 @@ fn test_swap_total_hotkey_stake() {
 
         // Add stake
         let (expected_alpha, _) = mock::swap_tao_to_alpha(netuid, amount);
-		assert!(expected_alpha > 0);
+        assert!(expected_alpha > 0);
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey),
             old_hotkey,
@@ -88,7 +88,10 @@ fn test_swap_total_hotkey_stake() {
         ));
 
         // Check if stake has increased
-        assert_eq!(TotalHotkeyAlpha::<Test>::get(old_hotkey, netuid), expected_alpha);
+        assert_eq!(
+            TotalHotkeyAlpha::<Test>::get(old_hotkey, netuid),
+            expected_alpha
+        );
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&new_hotkey),
             0,
@@ -109,7 +112,10 @@ fn test_swap_total_hotkey_stake() {
             0,
             epsilon = 1,
         );
-        assert_eq!(TotalHotkeyAlpha::<Test>::get(new_hotkey, netuid), expected_alpha);
+        assert_eq!(
+            TotalHotkeyAlpha::<Test>::get(new_hotkey, netuid),
+            expected_alpha
+        );
     });
 }
 

@@ -107,7 +107,10 @@ impl Position {
         fee_tao = liquidity_frac.saturating_mul(fee_tao);
         fee_alpha = liquidity_frac.saturating_mul(fee_alpha);
 
-        (fee_tao.saturating_to_num::<u64>(), fee_alpha.saturating_to_num::<u64>())
+        (
+            fee_tao.saturating_to_num::<u64>(),
+            fee_alpha.saturating_to_num::<u64>(),
+        )
     }
 
     /// Get fees in a position's range

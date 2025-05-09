@@ -899,4 +899,3 @@ pub(crate) fn swap_alpha_to_tao(netuid: u16, alpha: u64) -> (u64, u64) {
 
     (result.amount_paid_out, result.fee_paid)
 }
-
