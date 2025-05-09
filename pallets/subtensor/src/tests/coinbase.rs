@@ -947,11 +947,11 @@ fn test_get_root_children() {
 
         // Assert Alice and Bob TAO inherited stakes
         assert_eq!(
-            SubtensorModule::get_tao_inherited_for_hotkey_on_subnet(&alice, alpha),
+            SubtensorModule::get_tao_inherited_for_hotkey_on_subnet(&alice, alpha, false),
             0
         );
         assert_eq!(
-            SubtensorModule::get_tao_inherited_for_hotkey_on_subnet(&bob, alpha),
+            SubtensorModule::get_tao_inherited_for_hotkey_on_subnet(&bob, alpha, false),
             bob_root_stake + alice_root_stake
         );
 
