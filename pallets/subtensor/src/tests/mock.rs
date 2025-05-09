@@ -132,6 +132,7 @@ parameter_types! {
     pub const TransactionByteFee: Balance = 100;
     pub const SDebug:u64 = 1;
     pub const InitialRho: u16 = 30;
+    pub const InitialAlphaSigmoidSteepness: u16 = 10;
     pub const InitialKappa: u16 = 32_767;
     pub const InitialTempo: u16 = 360;
     pub const SelfOwnership: u64 = 2;
@@ -139,6 +140,7 @@ parameter_types! {
     pub const InitialMaxAllowedUids: u16 = 2;
     pub const InitialBondsMovingAverage: u64 = 900_000;
     pub const InitialBondsPenalty:u16 = u16::MAX;
+    pub const InitialBondsResetOn: bool = false;
     pub const InitialStakePruningMin: u16 = 0;
     pub const InitialFoundationDistribution: u64 = 0;
     pub const InitialDefaultDelegateTake: u16 = 11_796; // 18%, same as in production
@@ -180,6 +182,7 @@ parameter_types! {
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
+    pub const InitialYuma3On: bool = false; // Default value for Yuma3On
     // pub const InitialNetworkMaxStake: u64 = u64::MAX; // (DEPRECATED)
     pub const InitialColdkeySwapScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
     pub const InitialColdkeySwapRescheduleDuration: u64 = 24 * 60 * 60 / 12; // Default as 1 day
@@ -370,6 +373,7 @@ impl crate::Config for Test {
     type InitialAdjustmentAlpha = InitialAdjustmentAlpha;
     type InitialTargetRegistrationsPerInterval = InitialTargetRegistrationsPerInterval;
     type InitialRho = InitialRho;
+    type InitialAlphaSigmoidSteepness = InitialAlphaSigmoidSteepness;
     type InitialKappa = InitialKappa;
     type InitialMaxAllowedUids = InitialMaxAllowedUids;
     type InitialValidatorPruneLen = InitialValidatorPruneLen;
@@ -380,6 +384,7 @@ impl crate::Config for Test {
     type InitialPruningScore = InitialPruningScore;
     type InitialBondsMovingAverage = InitialBondsMovingAverage;
     type InitialBondsPenalty = InitialBondsPenalty;
+    type InitialBondsResetOn = InitialBondsResetOn;
     type InitialMaxAllowedValidators = InitialMaxAllowedValidators;
     type InitialDefaultDelegateTake = InitialDefaultDelegateTake;
     type InitialMinDelegateTake = InitialMinDelegateTake;
@@ -408,6 +413,7 @@ impl crate::Config for Test {
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;
+    type Yuma3On = InitialYuma3On;
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialColdkeySwapRescheduleDuration = InitialColdkeySwapRescheduleDuration;

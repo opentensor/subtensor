@@ -213,6 +213,7 @@ mod errors {
         /// Too frequent hotkey swap on subnet
         HotKeySwapOnSubnetIntervalNotPassed,
         /// Estimating the maximum stake for limited staking operations returned zero.
+        /// Zero max stake amount
         ZeroMaxStakeAmount,
         /// Invalid netuid duplication
         SameNetuid,
