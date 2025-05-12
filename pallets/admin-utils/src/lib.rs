@@ -380,7 +380,7 @@ pub mod pallet {
 
             if pallet_subtensor::Pallet::<T>::ensure_subnet_owner(origin, netuid).is_ok() {
                 ensure!(
-                    adjustment_alpha <= (u64::MAX.saturating_div(2)),
+                    adjustment_alpha <= (u64::MAX.saturating_div(100).saturating_mul(97)), // 0.97
                     Error::<T>::AdjustmentAlphaMaxReached
                 )
             }

@@ -24,14 +24,14 @@ pub fn migrate_reset_adjustment_alpha<T: Config>() -> Weight {
     );
 
     // ------------------------------
-    // Step 1: Reset all subnet's adjustment alpha to 0.5 if the value exceeds 0.5
+    // Step 1: Reset all subnet's adjustment alpha to 0.97 if the value exceeds 0.97
     // ------------------------------
 
     let mut reset_entries_count = 0u64;
 
     for netuid in AdjustmentAlpha::<T>::iter_keys() {
         AdjustmentAlpha::<T>::mutate(netuid, |adjustment| {
-            *adjustment = (*adjustment).min(u64::MAX.saturating_div(2)); // 0.5
+            *adjustment = (*adjustment).min(u64::MAX.saturating_div(100).saturating_mul(97)); // 0.97
         });
         reset_entries_count = reset_entries_count.saturating_add(1);
     }
