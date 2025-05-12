@@ -10,7 +10,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: SubtensorCI
 
     steps:
       - name: Checkout code
@@ -44,7 +44,7 @@ jobs:
 
   deploy:
         needs: build
-        runs-on: ubuntu-latest
+        runs-on: SubtensorCI
 
         permissions:
             pages: write
