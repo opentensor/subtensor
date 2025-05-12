@@ -52,7 +52,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         emissions_share: Percent,
         end_block: Option<BlockNumberFor<T>>,
-    ) -> DispatchResult {
+    ) -> DispatchResultWithPostInfo {
         let who = ensure_signed(origin)?;
         let now = frame_system::Pallet::<T>::block_number();
 
@@ -154,7 +154,23 @@ impl<T: Config> Pallet<T> {
             end_block,
         });
 
-        Ok(())
+        if crowdloan.contributors_count < T::MaxContributors::get() {
+            // We have less contributors than the max allowed, so we need to refund the difference
+            let k = crowdloan.contributors_count.into();
+            Ok(Some(
+                Weight::from_parts(301_560_714, 10079)
+                    .saturating_add(Weight::from_parts(26_884_006, 0).saturating_mul(k))
+                    .saturating_add(T::DbWeight::get().reads(41_u64))
+                    .saturating_add(T::DbWeight::get().reads(2_u64.saturating_mul(k)))
+                    .saturating_add(T::DbWeight::get().writes(55_u64))
+                    .saturating_add(T::DbWeight::get().writes(2_u64.saturating_mul(k)))
+                    .saturating_add(Weight::from_parts(0, 2579).saturating_mul(k)),
+            )
+            .into())
+        } else {
+            // We have the max number of contributors, so we don't need to refund anything
+            Ok(().into())
+        }
     }
 
     /// Terminate a lease.
@@ -165,7 +181,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         lease_id: LeaseId,
         hotkey: T::AccountId,
-    ) -> DispatchResult {
+    ) -> DispatchResultWithPostInfo {
         let who = ensure_signed(origin)?;
         let now = frame_system::Pallet::<T>::block_number();
 
@@ -193,7 +209,8 @@ impl<T: Config> Pallet<T> {
         let _ = frame_system::Pallet::<T>::dec_providers(&lease.hotkey).defensive();
 
         // Remove the lease, its contributors and accumulated dividends from storage
-        let _ = SubnetLeaseShares::<T>::clear_prefix(lease_id, T::MaxContributors::get(), None);
+        let clear_result =
+            SubnetLeaseShares::<T>::clear_prefix(lease_id, T::MaxContributors::get(), None);
         AccumulatedLeaseDividends::<T>::remove(lease_id);
         SubnetLeases::<T>::remove(lease_id);
 
@@ -205,9 +222,23 @@ impl<T: Config> Pallet<T> {
             netuid: lease.netuid,
         });
 
-        // TODO: Refund the weights for the difference between max contributors to refund and the real
-        // number of contributors that were refunded
-        Ok(())
+        if clear_result.unique < T::MaxContributors::get() {
+            // We have cleared less than the max number of shareholders, so we need to refund the difference
+            let k = clear_result.unique.into();
+            Ok(Some(
+                Weight::from_parts(56_635_122, 6148)
+                    .saturating_add(Weight::from_parts(912_993, 0).saturating_mul(k))
+                    .saturating_add(T::DbWeight::get().reads(4_u64))
+                    .saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(k)))
+                    .saturating_add(T::DbWeight::get().writes(6_u64))
+                    .saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(k)))
+                    .saturating_add(Weight::from_parts(0, 2529).saturating_mul(k)),
+            )
+            .into())
+        } else {
+            // We have cleared the max number of shareholders, so we don't need to refund anything
+            Ok(().into())
+        }
     }
 
     /// Hook used when the subnet owner's cut is distributed to split the amount into dividends
