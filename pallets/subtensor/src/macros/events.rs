@@ -67,6 +67,8 @@ mod events {
         ActivityCutoffSet(u16, u16),
         /// Rho value is set.
         RhoSet(u16, u16),
+        /// steepness of the sigmoid used to compute alpha values.
+        AlphaSigmoidSteepnessSet(u16, u16),
         /// Kappa is set for a subnet.
         KappaSet(u16, u16),
         /// minimum allowed weight is set for a subnet.
@@ -83,6 +85,8 @@ mod events {
         BondsMovingAverageSet(u16, u64),
         /// bonds penalty is set for a subnet.
         BondsPenaltySet(u16, u16),
+        /// bonds reset is set for a subnet.
+        BondsResetOnSet(u16, bool),
         /// setting the max number of allowed validators on a subnet.
         MaxAllowedValidatorsSet(u16, u16),
         /// the axon server information is added to the network.

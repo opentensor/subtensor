@@ -641,6 +641,11 @@ pub mod pallet {
         T::InitialRho::get()
     }
     #[pallet::type_value]
+    /// Default value for alpha sigmoid steepness.
+    pub fn DefaultAlphaSigmoidSteepness<T: Config>() -> u16 {
+        T::InitialAlphaSigmoidSteepness::get()
+    }
+    #[pallet::type_value]
     /// Default value for kappa parameter.
     pub fn DefaultKappa<T: Config>() -> u16 {
         T::InitialKappa::get()
@@ -695,8 +700,13 @@ pub mod pallet {
     pub fn DefaultBondsPenalty<T: Config>() -> u16 {
         T::InitialBondsPenalty::get()
     }
+    /// Default value for bonds reset - will not reset bonds
     #[pallet::type_value]
+    pub fn DefaultBondsResetOn<T: Config>() -> bool {
+        T::InitialBondsResetOn::get()
+    }
     /// Default validator prune length.
+    #[pallet::type_value]
     pub fn DefaultValidatorPruneLen<T: Config>() -> u64 {
         T::InitialValidatorPruneLen::get()
     }
@@ -800,11 +810,15 @@ pub mod pallet {
         false
     }
     #[pallet::type_value]
+    /// -- ITEM (switches liquid alpha on)
+    pub fn DefaultYuma3<T: Config>() -> bool {
+        false
+    }
+    #[pallet::type_value]
     /// (alpha_low: 0.7, alpha_high: 0.9)
     pub fn DefaultAlphaValues<T: Config>() -> (u16, u16) {
         (45875, 58982)
     }
-
     #[pallet::type_value]
     /// Default value for coldkey swap schedule duration
     pub fn DefaultColdkeySwapScheduleDuration<T: Config>() -> BlockNumberFor<T> {
@@ -1317,6 +1331,10 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> Rho
     pub type Rho<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultRho<T>>;
     #[pallet::storage]
+    /// --- MAP ( netuid ) --> AlphaSigmoidSteepness
+    pub type AlphaSigmoidSteepness<T> =
+        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultAlphaSigmoidSteepness<T>>;
+    #[pallet::storage]
     /// --- MAP ( netuid ) --> Kappa
     pub type Kappa<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultKappa<T>>;
     #[pallet::storage]
@@ -1370,6 +1388,10 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> bonds_penalty
     pub type BondsPenalty<T> =
         StorageMap<_, Identity, u16, u16, ValueQuery, DefaultBondsPenalty<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> bonds_reset
+    pub type BondsResetOn<T> =
+        StorageMap<_, Identity, u16, bool, ValueQuery, DefaultBondsResetOn<T>>;
     /// --- MAP ( netuid ) --> weights_set_rate_limit
     #[pallet::storage]
     pub type WeightsSetRateLimit<T> =
@@ -1445,6 +1467,9 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> Whether or not Liquid Alpha is enabled
     pub type LiquidAlphaOn<T> =
         StorageMap<_, Blake2_128Concat, u16, bool, ValueQuery, DefaultLiquidAlpha<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> Whether or not Yuma3 is enabled
+    pub type Yuma3On<T> = StorageMap<_, Blake2_128Concat, u16, bool, ValueQuery, DefaultYuma3<T>>;
     #[pallet::storage]
     ///  MAP ( netuid ) --> (alpha_low, alpha_high)
     pub type AlphaValues<T> =
