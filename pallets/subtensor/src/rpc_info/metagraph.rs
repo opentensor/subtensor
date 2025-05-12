@@ -806,7 +806,7 @@ impl<T: Config> Pallet<T> {
             None
         } else {
             if validator_only {
-                return Some(Self::get_valiators(netuid));
+                return Some(Self::get_validators(netuid));
             }
             let mut result = SelectiveMetagraph::default();
             for index in metagraph_indexes.iter() {
@@ -1377,7 +1377,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    fn get_valiators(netuid: u16) -> SelectiveMetagraph<T::AccountId> {
+    fn get_validators(netuid: u16) -> SelectiveMetagraph<T::AccountId> {
         let stake_threshold = Self::get_stake_threshold();
         let hotkeys: Vec<(u16, T::AccountId)> =
             <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(netuid)
