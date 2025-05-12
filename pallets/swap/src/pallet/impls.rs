@@ -40,7 +40,7 @@ struct SwapStep<T: frame_system::Config> {
     action: SwapStepAction,
     delta_in: u64,
     final_price: SqrtPrice,
-    stop_and_refund: bool,
+    stop: bool,
 
     // Phantom data to use T
     _phantom: PhantomData<T>,
@@ -115,7 +115,7 @@ impl<T: Config> SwapStep<T> {
             action: SwapStepAction::StopIn,
             delta_in: 0,
             final_price: sqrt_price_target,
-            stop_and_refund: false,
+            stop: false,
             _phantom: PhantomData,
         }
     }
@@ -130,15 +130,12 @@ impl<T: Config> SwapStep<T> {
     fn determine_action(&mut self) {
         // Case 1: target_quantity < edge_quantity
         if self.target_quantity < self.edge_quantity {
+            self.action = SwapStepAction::StopIn;
             if self.target_quantity <= self.lim_quantity {
-                // Stop at target price (no refund needed)
-                self.action = SwapStepAction::StopIn;
                 self.delta_in = self.possible_delta_in;
                 self.final_price = self.sqrt_price_target;
-                self.stop_and_refund = false;
+                self.stop = false;
             } else {
-                // Stop at limit price (refund needed)
-                self.action = SwapStepAction::StopIn;
                 self.delta_in = Self::delta_in(
                     self.order_type,
                     self.current_liquidity,
@@ -146,7 +143,7 @@ impl<T: Config> SwapStep<T> {
                     self.sqrt_price_limit,
                 );
                 self.final_price = self.sqrt_price_limit;
-                self.stop_and_refund = true;
+                self.stop = true;
             }
         }
         // Case 2: target_quantity > edge_quantity
@@ -161,7 +158,7 @@ impl<T: Config> SwapStep<T> {
                     self.sqrt_price_edge,
                 );
                 self.final_price = self.sqrt_price_edge;
-                self.stop_and_refund = false;
+                self.stop = false;
             } else if self.edge_quantity > self.lim_quantity {
                 // Stop at limit price (refund needed)
                 self.action = SwapStepAction::StopIn;
@@ -172,7 +169,7 @@ impl<T: Config> SwapStep<T> {
                     self.sqrt_price_limit,
                 );
                 self.final_price = self.sqrt_price_limit;
-                self.stop_and_refund = true;
+                self.stop = true;
             } else {
                 // Stop on edge (refund needed)
                 self.action = SwapStepAction::StopOn;
@@ -183,7 +180,7 @@ impl<T: Config> SwapStep<T> {
                     self.sqrt_price_edge,
                 );
                 self.final_price = self.sqrt_price_edge;
-                self.stop_and_refund = true;
+                self.stop = true;
             }
         }
         // Case 3: target_quantity = edge_quantity
@@ -202,7 +199,7 @@ impl<T: Config> SwapStep<T> {
                 } else {
                     SwapStepAction::Crossing
                 };
-                self.stop_and_refund = false;
+                self.stop = false;
             } else {
                 // Stop at limit price (refund needed)
                 self.action = SwapStepAction::StopIn;
@@ -213,7 +210,7 @@ impl<T: Config> SwapStep<T> {
                     self.sqrt_price_limit,
                 );
                 self.final_price = self.sqrt_price_limit;
-                self.stop_and_refund = true;
+                self.stop = true;
             }
         }
     }
@@ -404,7 +401,6 @@ impl<T: Config> Pallet<T> {
 
         let mut amount_remaining = amount;
         let mut amount_paid_out: u64 = 0;
-        let mut refund: u64 = 0;
         let mut iteration_counter: u16 = 0;
         let mut in_acc: u64 = 0;
 
@@ -420,8 +416,7 @@ impl<T: Config> Pallet<T> {
             amount_remaining = amount_remaining.saturating_sub(swap_result.amount_to_take);
             amount_paid_out = amount_paid_out.saturating_add(swap_result.delta_out);
 
-            if swap_step.stop_and_refund {
-                refund = amount_remaining;
+            if swap_step.stop {
                 amount_remaining = 0;
             }
 
@@ -467,7 +462,6 @@ impl<T: Config> Pallet<T> {
         Ok(SwapResult {
             amount_paid_out,
             fee_paid,
-            refund,
             new_tao_reserve,
             new_alpha_reserve,
         })
