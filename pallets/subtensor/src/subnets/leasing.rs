@@ -193,11 +193,7 @@ impl<T: Config> Pallet<T> {
         let _ = frame_system::Pallet::<T>::dec_providers(&lease.hotkey).defensive();
 
         // Remove the lease, its contributors and accumulated dividends from storage
-        let _ = SubnetLeaseShares::<T>::clear_prefix(
-            lease_id,
-            T::MaxContributorsPerLeaseToRemove::get(),
-            None,
-        );
+        let _ = SubnetLeaseShares::<T>::clear_prefix(lease_id, T::MaxContributors::get(), None);
         AccumulatedLeaseDividends::<T>::remove(lease_id);
         SubnetLeases::<T>::remove(lease_id);
 
