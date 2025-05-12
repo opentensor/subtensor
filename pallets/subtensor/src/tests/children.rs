@@ -3988,3 +3988,115 @@ fn test_pending_cooldown_one_day() {
         assert_eq!(pending_children.1, curr_block + expected_cooldown);
     });
 }
+
+#[test]
+fn test_do_set_childkey_take_success() {
+    new_test_ext(1).execute_with(|| {
+        // Setup
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid: u16 = 1;
+        let take = 5000;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Set childkey take
+        assert_ok!(SubtensorModule::do_set_childkey_take(
+            coldkey,
+            hotkey.clone(),
+            netuid,
+            take
+        ));
+
+        // Verify the take was set correctly
+        assert_eq!(SubtensorModule::get_childkey_take(&hotkey, netuid), take);
+        let tx_type: u16 = TransactionType::SetChildkeyTake.into();
+        assert_eq!(
+            TransactionKeyLastBlock::<Test>::get((hotkey, netuid, tx_type,)),
+            System::block_number()
+        );
+    });
+}
+
+#[test]
+fn test_do_set_childkey_take_non_associated_coldkey() {
+    new_test_ext(1).execute_with(|| {
+        // Setup
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let hotkey2 = U256::from(3);
+        let netuid: u16 = 1;
+        let take = 5000;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Set childkey take
+        assert_noop!(
+            SubtensorModule::do_set_childkey_take(coldkey, hotkey2.clone(), netuid, take),
+            Error::<Test>::NonAssociatedColdKey
+        );
+    });
+}
+
+#[test]
+fn test_do_set_childkey_take_invalid_take_value() {
+    new_test_ext(1).execute_with(|| {
+        // Setup
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid: u16 = 1;
+        let take = SubtensorModule::get_max_childkey_take() + 1;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Set childkey take
+        assert_noop!(
+            SubtensorModule::do_set_childkey_take(coldkey, hotkey.clone(), netuid, take),
+            Error::<Test>::InvalidChildkeyTake
+        );
+    });
+}
+
+#[test]
+fn test_do_set_childkey_take_rate_limit_exceeded() {
+    new_test_ext(1).execute_with(|| {
+        // Setup
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid: u16 = 1;
+        let initial_take = 3000;
+        let higher_take = 5000;
+        let lower_take = 1000;
+
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Set initial childkey take
+        assert_ok!(SubtensorModule::do_set_childkey_take(
+            coldkey.clone(),
+            hotkey.clone(),
+            netuid,
+            initial_take
+        ));
+
+        // Try to increase the take value, should hit rate limit
+        assert_noop!(
+            SubtensorModule::do_set_childkey_take(coldkey, hotkey, netuid, higher_take),
+            Error::<Test>::TxChildkeyTakeRateLimitExceeded
+        );
+
+        // lower take value should be ok
+        assert_ok!(SubtensorModule::do_set_childkey_take(
+            coldkey.clone(),
+            hotkey.clone(),
+            netuid,
+            lower_take
+        ));
+    });
+}
