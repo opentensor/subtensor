@@ -4005,7 +4005,7 @@ fn test_do_set_childkey_take_success() {
         // Set childkey take
         assert_ok!(SubtensorModule::do_set_childkey_take(
             coldkey,
-            hotkey.clone(),
+            hotkey,
             netuid,
             take
         ));
@@ -4036,7 +4036,7 @@ fn test_do_set_childkey_take_non_associated_coldkey() {
 
         // Set childkey take
         assert_noop!(
-            SubtensorModule::do_set_childkey_take(coldkey, hotkey2.clone(), netuid, take),
+            SubtensorModule::do_set_childkey_take(coldkey, hotkey2, netuid, take),
             Error::<Test>::NonAssociatedColdKey
         );
     });
@@ -4057,7 +4057,7 @@ fn test_do_set_childkey_take_invalid_take_value() {
 
         // Set childkey take
         assert_noop!(
-            SubtensorModule::do_set_childkey_take(coldkey, hotkey.clone(), netuid, take),
+            SubtensorModule::do_set_childkey_take(coldkey, hotkey, netuid, take),
             Error::<Test>::InvalidChildkeyTake
         );
     });
@@ -4079,8 +4079,8 @@ fn test_do_set_childkey_take_rate_limit_exceeded() {
 
         // Set initial childkey take
         assert_ok!(SubtensorModule::do_set_childkey_take(
-            coldkey.clone(),
-            hotkey.clone(),
+            coldkey,
+            hotkey,
             netuid,
             initial_take
         ));
@@ -4093,8 +4093,8 @@ fn test_do_set_childkey_take_rate_limit_exceeded() {
 
         // lower take value should be ok
         assert_ok!(SubtensorModule::do_set_childkey_take(
-            coldkey.clone(),
-            hotkey.clone(),
+            coldkey,
+            hotkey,
             netuid,
             lower_take
         ));
