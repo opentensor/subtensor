@@ -101,6 +101,7 @@ impl pallet_commitments::Config for Test {
     type FieldDeposit = ConstU64<0>;
     type InitialDeposit = ConstU64<0>;
     type TempoInterface = MockTempoInterface;
+    type OnMetadataCommitment = ();
 }
 
 pub struct MockTempoInterface;

@@ -79,7 +79,7 @@ describe("Test the Subnet precompile contract", () => {
     })
 
 
-    // minDifficulty hyperparameter 
+    // minDifficulty hyperparameter
     //
     // disabled: only by sudo
     //
@@ -470,6 +470,26 @@ describe("Test the Subnet precompile contract", () => {
         assert.equal(valueFromContract, newValue)
         assert.equal(valueFromContract, onchainValue);
     })
+
+    it("Can set yuma3Enabled hyperparameter", async () =>
+    {
+      const totalNetwork = await api.query.SubtensorModule.TotalNetworks.getValue()
+      const contract = new ethers.Contract(ISUBNET_ADDRESS, ISubnetABI, wallet);
+      const netuid = totalNetwork - 1;
+
+      const newValue = true;
+      const tx = await contract.setYuma3Enabled(netuid, newValue);
+      await tx.wait();
+
+      let onchainValue = await api.query.SubtensorModule.Yuma3On.getValue(netuid)
+
+      let valueFromContract = Boolean(
+        await contract.getYuma3Enabled(netuid)
+      );
+      assert.equal(valueFromContract, newValue)
+      assert.equal(valueFromContract, onchainValue);
+    })
+
 
     it("Can set alphaValues parameter", async () => {
         const totalNetwork = await api.query.SubtensorModule.TotalNetworks.getValue()
