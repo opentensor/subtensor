@@ -231,6 +231,6 @@ mod config {
         type DurationOfStartCall: Get<u64>;
         /// Number of blocks between dividends distribution.
         #[pallet::constant]
-        type LeaseDividendsDistributionInterval: Get<u32>;
+        type LeaseDividendsDistributionInterval: Get<BlockNumberFor<Self>>;
     }
 }

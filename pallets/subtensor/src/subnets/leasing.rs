@@ -271,8 +271,17 @@ impl<T: Config> Pallet<T> {
         let total_contributors_cut_alpha = AccumulatedLeaseDividends::<T>::get(lease_id)
             .saturating_add(current_contributors_cut_alpha);
 
-        // Ensure this is the correct block to distribute dividends
-        if (now % T::LeaseDividendsDistributionInterval::get().into()) != 0u32.into() {
+        // Ensure the distribution interval is not zero
+        let rem = now
+            .into()
+            .checked_rem(T::LeaseDividendsDistributionInterval::get().into());
+        if rem.is_none() {
+            // This should never happen but we check it anyway
+            log::error!("LeaseDividendsDistributionInterval must be greater than 0");
+            AccumulatedLeaseDividends::<T>::set(lease_id, total_contributors_cut_alpha);
+            return;
+        } else if rem.is_some_and(|rem| rem > 0u32.into()) {
+            // This is not the time to distribute dividends, so we accumulate the dividends
             AccumulatedLeaseDividends::<T>::set(lease_id, total_contributors_cut_alpha);
             return;
         }
