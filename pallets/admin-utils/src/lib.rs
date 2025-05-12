@@ -77,6 +77,13 @@ pub mod pallet {
             /// Indicates if the precompile operation is enabled or not.
             enabled: bool,
         },
+        /// Event emitted when the Yuma3 enable is toggled.
+        Yuma3EnableToggled {
+            /// The network identifier.
+            netuid: u16,
+            /// Indicates if the Yuma3 enable was enabled or disabled.
+            enabled: bool,
+        },
     }
 
     // Errors inform users that something went wrong.
@@ -1543,6 +1550,63 @@ pub mod pallet {
                 "EMAPriceHalvingBlocks( netuid: {:?}, ema_halving: {:?} )",
                 netuid,
                 ema_halving
+            );
+            Ok(())
+        }
+
+        ///
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the root account.
+        /// * `netuid` - The unique identifier for the subnet.
+        /// * `steepness` - The new steepness for the alpha sigmoid function.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the caller is not the root account.
+        /// # Weight
+        /// Weight is handled by the `#[pallet::weight]` attribute.
+        #[pallet::call_index(68)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_alpha_sigmoid_steepness(
+            origin: OriginFor<T>,
+            netuid: u16,
+            steepness: u16,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_alpha_sigmoid_steepness(netuid, steepness);
+
+            log::debug!(
+                "AlphaSigmoidSteepnessSet( netuid: {:?}, steepness: {:?} )",
+                netuid,
+                steepness
+            );
+            Ok(())
+        }
+
+        /// Enables or disables Yuma3 for a given subnet.
+        ///
+        /// # Parameters
+        /// - `origin`: The origin of the call, which must be the root account or subnet owner.
+        /// - `netuid`: The unique identifier for the subnet.
+        /// - `enabled`: A boolean flag to enable or disable Yuma3.
+        ///
+        /// # Weight
+        /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
+        #[pallet::call_index(69)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_yuma3_enabled(
+            origin: OriginFor<T>,
+            netuid: u16,
+            enabled: bool,
+        ) -> DispatchResult {
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            pallet_subtensor::Pallet::<T>::set_yuma3_enabled(netuid, enabled);
+
+            Self::deposit_event(Event::Yuma3EnableToggled { netuid, enabled });
+            log::debug!(
+                "Yuma3EnableToggled( netuid: {:?}, Enabled: {:?} ) ",
+                netuid,
+                enabled
             );
             Ok(())
         }

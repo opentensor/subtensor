@@ -21,6 +21,7 @@ frame-support.workspace = true
 frame-system.workspace = true
 sp-runtime.workspace = true
 sp-std.workspace = true
+log = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { default-features = true, workspace = true }
@@ -39,6 +40,7 @@ std = [
   "sp-runtime/std",
   "sp-std/std",
   "sp-io/std",
+  "log/std",
   "sp-core/std",
   "pallet-balances/std",
   "pallet-preimage/std",
