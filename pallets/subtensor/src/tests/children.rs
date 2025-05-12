@@ -4004,10 +4004,7 @@ fn test_do_set_childkey_take_success() {
 
         // Set childkey take
         assert_ok!(SubtensorModule::do_set_childkey_take(
-            coldkey,
-            hotkey,
-            netuid,
-            take
+            coldkey, hotkey, netuid, take
         ));
 
         // Verify the take was set correctly
@@ -4093,10 +4090,7 @@ fn test_do_set_childkey_take_rate_limit_exceeded() {
 
         // lower take value should be ok
         assert_ok!(SubtensorModule::do_set_childkey_take(
-            coldkey,
-            hotkey,
-            netuid,
-            lower_take
+            coldkey, hotkey, netuid, lower_take
         ));
     });
 }
