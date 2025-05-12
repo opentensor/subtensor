@@ -57,6 +57,11 @@ extern crate alloc;
 
 pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 
+pub const ALPHA_MAP_CLEAN_BATCH_SIZE: usize = 10;
+
+/// Min alpha level before removing from Alpha map
+pub const MIN_ALPHA: u64 = 10u64;
+
 #[deny(missing_docs)]
 #[import_section(errors::errors)]
 #[import_section(events::events)]
@@ -430,6 +435,11 @@ pub mod pallet {
     /// Default total issuance.
     pub fn DefaultTotalIssuance<T: Config>() -> u64 {
         T::InitialIssuance::get()
+    }
+    #[pallet::type_value]
+    /// Default last Alpha map key for cleaning
+    pub fn DefaultAlphaCleanLastKey<T: Config>() -> Option<Vec<u8>> {
+        None
     }
     #[pallet::type_value]
     /// Default account, derived from zero trailing bytes.
@@ -1175,6 +1185,10 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> token_symbol | Returns the token symbol for a subnet.
     pub type TokenSymbol<T: Config> =
         StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
+
+    #[pallet::storage] // Contains last Alpha storage map key to clean (check first)
+    pub type AlphaMapCleanLastKey<T: Config> =
+        StorageValue<_, Option<Vec<u8>>, ValueQuery, DefaultAlphaCleanLastKey<T>>;
 
     /// ============================
     /// ==== Global Parameters =====
@@ -2616,6 +2630,7 @@ use sp_std::vec;
 // used not 25 lines below
 #[allow(unused)]
 use sp_std::vec::Vec;
+use substrate_fixed::types::U64F64;
 use subtensor_macros::freeze_struct;
 
 /// Trait for managing a membership pallet instance in the runtime
