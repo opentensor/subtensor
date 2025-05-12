@@ -117,6 +117,7 @@ std = [
 	"share-pool/std",
 	"pallet-proxy/std",
 	"pallet-crowdloan/std",
+	"subtensor-runtime-common/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
