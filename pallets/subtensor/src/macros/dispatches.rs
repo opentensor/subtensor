@@ -2393,7 +2393,7 @@ mod dispatches {
         ///     - The hotkey of the beneficiary to mark as subnet owner hotkey.
         #[pallet::call_index(110)]
         #[pallet::weight({
-            let k = T::MaxContributors::get().into();                
+            let k = T::MaxContributors::get().into();
             Weight::from_parts(56_635_122, 6148)
 			.saturating_add(Weight::from_parts(912_993, 0).saturating_mul(k))
 			.saturating_add(T::DbWeight::get().reads(4_u64))
