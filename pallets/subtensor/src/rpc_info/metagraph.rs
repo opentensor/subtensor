@@ -365,9 +365,6 @@ where
             Some(SelectiveMetagraphIndex::AlphaDividendsPerHotkey) => {
                 self.alpha_dividends_per_hotkey = other.alpha_dividends_per_hotkey.clone()
             }
-
-            Some(SelectiveMetagraphIndex::Validators) => self.validators = other.validators.clone(),
-
             None => {}
         };
     }
@@ -529,7 +526,6 @@ pub enum SelectiveMetagraphIndex {
     TotalStake,
     TaoDividendsPerHotkey,
     AlphaDividendsPerHotkey,
-    Validators,
 }
 
 impl SelectiveMetagraphIndex {
@@ -607,7 +603,6 @@ impl SelectiveMetagraphIndex {
             69 => Some(SelectiveMetagraphIndex::TotalStake),
             70 => Some(SelectiveMetagraphIndex::TaoDividendsPerHotkey),
             71 => Some(SelectiveMetagraphIndex::AlphaDividendsPerHotkey),
-            72 => Some(SelectiveMetagraphIndex::Validators),
             _ => None,
         }
     }
