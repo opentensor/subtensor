@@ -3,7 +3,7 @@ name: rustdocs
 on:
   push:
     branches:
-      - devnet-ready
+      - main
 
 env:
   CARGO_TERM_COLOR: always
