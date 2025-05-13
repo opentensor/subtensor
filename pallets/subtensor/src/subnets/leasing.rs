@@ -236,9 +236,7 @@ impl<T: Config> Pallet<T> {
     /// and if not enough liquidity is available, it will accumulate the dividends for later distribution.
     pub fn distribute_leased_network_dividends(lease_id: LeaseId, owner_cut_alpha: u64) {
         // Ensure the lease exists
-        let lease = if let Some(lease) = SubnetLeases::<T>::get(lease_id) {
-            lease
-        } else {
+        let Some(lease) = SubnetLeases::<T>::get(lease_id) else {
             log::debug!("Lease {lease_id} doesn't exists so we can't distribute dividends");
             return;
         };
