@@ -1829,6 +1829,7 @@ fn set_commitment_works_with_multiple_raw_fields() {
     });
 }
 
+#[allow(clippy::indexing_slicing)]
 #[test]
 fn multiple_timelocked_commitments_reveal_works() {
     new_test_ext().execute_with(|| {
@@ -2008,6 +2009,7 @@ fn multiple_timelocked_commitments_reveal_works() {
     });
 }
 
+#[allow(clippy::indexing_slicing)]
 #[test]
 fn mixed_timelocked_and_raw_fields_works() {
     new_test_ext().execute_with(|| {
