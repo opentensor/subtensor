@@ -6,6 +6,7 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod dispatches {
+    use crate::subnets::leasing::SubnetLeasingWeightInfo;
     use frame_support::traits::schedule::DispatchTime;
     use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
     use frame_system::pallet_prelude::BlockNumberFor;
@@ -2357,16 +2358,7 @@ mod dispatches {
         /// * `end_block` (Option<BlockNumberFor<T>>):
         ///     - The block at which the lease will end. If not defined, the lease is perpetual.
         #[pallet::call_index(109)]
-        #[pallet::weight({
-            let k = T::MaxContributors::get().into();
-            Weight::from_parts(301_560_714, 10079)
-			.saturating_add(Weight::from_parts(26_884_006, 0).saturating_mul(k))
-			.saturating_add(T::DbWeight::get().reads(41_u64))
-			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(k)))
-			.saturating_add(T::DbWeight::get().writes(55_u64))
-			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(k)))
-			.saturating_add(Weight::from_parts(0, 2579).saturating_mul(k))
-        })]
+        #[pallet::weight(SubnetLeasingWeightInfo::<T>::do_register_leased_network(T::MaxContributors::get()))]
         pub fn register_leased_network(
             origin: T::RuntimeOrigin,
             emissions_share: Percent,
@@ -2392,16 +2384,7 @@ mod dispatches {
         /// * `hotkey` (T::AccountId):
         ///     - The hotkey of the beneficiary to mark as subnet owner hotkey.
         #[pallet::call_index(110)]
-        #[pallet::weight({
-            let k = T::MaxContributors::get().into();
-            Weight::from_parts(56_635_122, 6148)
-			.saturating_add(Weight::from_parts(912_993, 0).saturating_mul(k))
-			.saturating_add(T::DbWeight::get().reads(4_u64))
-			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(k)))
-			.saturating_add(T::DbWeight::get().writes(6_u64))
-			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(k)))
-            .saturating_add(Weight::from_parts(0, 2529).saturating_mul(k))
-        })]
+        #[pallet::weight(SubnetLeasingWeightInfo::<T>::do_terminate_lease(T::MaxContributors::get()))]
         pub fn terminate_lease(
             origin: T::RuntimeOrigin,
             lease_id: LeaseId,
