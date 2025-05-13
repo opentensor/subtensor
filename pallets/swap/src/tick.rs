@@ -1143,8 +1143,6 @@ impl Error for TickMathError {}
 #[cfg(test)]
 mod tests {
     use std::{ops::Sub, str::FromStr};
-
-    use approx::assert_abs_diff_eq;
     use safe_math::FixedExt;
 
     use super::*;

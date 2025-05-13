@@ -40,7 +40,6 @@ struct SwapStep<T: frame_system::Config> {
     action: SwapStepAction,
     delta_in: u64,
     final_price: SqrtPrice,
-    stop: bool,
 
     // Phantom data to use T
     _phantom: PhantomData<T>,
@@ -112,10 +111,9 @@ impl<T: Config> SwapStep<T> {
             target_quantity,
             edge_quantity,
             lim_quantity,
-            action: SwapStepAction::StopIn,
+            action: SwapStepAction::Stop,
             delta_in: 0,
             final_price: sqrt_price_target,
-            stop: false,
             _phantom: PhantomData,
         }
     }
@@ -128,90 +126,47 @@ impl<T: Config> SwapStep<T> {
 
     /// Determine the appropriate action for this swap step
     fn determine_action(&mut self) {
-        // Case 1: target_quantity < edge_quantity
-        if self.target_quantity < self.edge_quantity {
-            self.action = SwapStepAction::StopIn;
-            if self.target_quantity <= self.lim_quantity {
-                self.delta_in = self.possible_delta_in;
-                self.final_price = self.sqrt_price_target;
-                self.stop = false;
-            } else {
-                self.delta_in = Self::delta_in(
-                    self.order_type,
-                    self.current_liquidity,
-                    self.current_price,
-                    self.sqrt_price_limit,
-                );
-                self.final_price = self.sqrt_price_limit;
-                self.stop = true;
-            }
+        // Calculate the stopping price: The price at which we either reach the limit price, 
+        // exchange the full amount, or reach the edge price.
+
+        if (self.target_quantity <= self.lim_quantity) && (self.target_quantity <= self.edge_quantity) {
+            // Case 1. target_quantity is the lowest
+            // The trade completely happens within one tick, no tick crossing happens.
+            self.action = SwapStepAction::Stop;
+            self.final_price = self.sqrt_price_target;
+            self.delta_in = self.possible_delta_in;
+        } else if (self.lim_quantity <= self.target_quantity) && (self.lim_quantity <= self.edge_quantity) {
+            // Case 2. lim_quantity is the lowest
+            // The trade also completely happens within one tick, no tick crossing happens.
+            self.action = SwapStepAction::Stop;
+            self.final_price = self.sqrt_price_limit;
+            self.delta_in = Self::delta_in(
+                self.order_type,
+                self.current_liquidity,
+                self.current_price,
+                self.sqrt_price_limit,
+            );
+        } else if (self.edge_quantity <= self.target_quantity) && (self.edge_quantity <= self.lim_quantity) {
+            // Case 3. edge_quantity is the lowest
+            // Tick crossing is likely
+            self.action = SwapStepAction::Crossing;
+            self.delta_in = Self::delta_in(
+                self.order_type,
+                self.current_liquidity,
+                self.current_price,
+                self.sqrt_price_edge,
+            );
+            self.final_price = self.sqrt_price_edge;
         }
-        // Case 2: target_quantity > edge_quantity
-        else if self.target_quantity > self.edge_quantity {
-            if self.edge_quantity < self.lim_quantity {
-                // Cross at edge price
-                self.action = SwapStepAction::Crossing;
-                self.delta_in = Self::delta_in(
-                    self.order_type,
-                    self.current_liquidity,
-                    self.current_price,
-                    self.sqrt_price_edge,
-                );
-                self.final_price = self.sqrt_price_edge;
-                self.stop = false;
-            } else if self.edge_quantity > self.lim_quantity {
-                // Stop at limit price (refund needed)
-                self.action = SwapStepAction::StopIn;
-                self.delta_in = Self::delta_in(
-                    self.order_type,
-                    self.current_liquidity,
-                    self.current_price,
-                    self.sqrt_price_limit,
-                );
-                self.final_price = self.sqrt_price_limit;
-                self.stop = true;
-            } else {
-                // Stop on edge (refund needed)
-                self.action = SwapStepAction::StopOn;
-                self.delta_in = Self::delta_in(
-                    self.order_type,
-                    self.current_liquidity,
-                    self.current_price,
-                    self.sqrt_price_edge,
-                );
-                self.final_price = self.sqrt_price_edge;
-                self.stop = true;
-            }
-        }
-        // Case 3: target_quantity = edge_quantity
-        else {
-            if self.target_quantity <= self.lim_quantity {
-                // Stop on edge price
-                self.delta_in = Self::delta_in(
-                    self.order_type,
-                    self.current_liquidity,
-                    self.current_price,
-                    self.sqrt_price_edge,
-                );
-                self.final_price = self.sqrt_price_edge;
-                self.action = if self.delta_in > 0 {
-                    SwapStepAction::StopOn
-                } else {
-                    SwapStepAction::Crossing
-                };
-                self.stop = false;
-            } else {
-                // Stop at limit price (refund needed)
-                self.action = SwapStepAction::StopIn;
-                self.delta_in = Self::delta_in(
-                    self.order_type,
-                    self.current_liquidity,
-                    self.current_price,
-                    self.sqrt_price_limit,
-                );
-                self.final_price = self.sqrt_price_limit;
-                self.stop = true;
-            }
+
+        // Now correct the action if we stopped exactly at the edge no matter what was the case above
+        // Because order type buy moves the price up and tick semi-open interval doesn't include its right 
+        // point, we cross on buys and stop on sells. 
+        if self.final_price == self.sqrt_price_edge {
+            self.action = match self.order_type {
+                OrderType::Buy => SwapStepAction::Crossing,
+                OrderType::Sell => SwapStepAction::Stop,
+            };
         }
     }
 
@@ -233,47 +188,24 @@ impl<T: Config> SwapStep<T> {
         // Get current tick
         let current_tick_index = TickIndex::current_bounded::<T>(self.netuid);
 
-        match self.action {
-            SwapStepAction::Crossing => {
-                let mut tick = match self.order_type {
-                    OrderType::Sell => {
-                        Pallet::<T>::find_closest_lower_active_tick(self.netuid, current_tick_index)
-                    }
-                    OrderType::Buy => Pallet::<T>::find_closest_higher_active_tick(
-                        self.netuid,
-                        current_tick_index,
-                    ),
+        if self.action == SwapStepAction::Crossing {
+            let mut tick = match self.order_type {
+                OrderType::Sell => {
+                    Pallet::<T>::find_closest_lower_active_tick(self.netuid, current_tick_index)
                 }
-                .ok_or(Error::<T>::InsufficientLiquidity)?;
-
-                tick.fees_out_tao =
-                    FeeGlobalTao::<T>::get(self.netuid).saturating_sub(tick.fees_out_tao);
-                tick.fees_out_alpha =
-                    FeeGlobalAlpha::<T>::get(self.netuid).saturating_sub(tick.fees_out_alpha);
-                Pallet::<T>::update_liquidity_at_crossing(self.netuid, self.order_type)?;
-                Ticks::<T>::insert(self.netuid, current_tick_index, tick);
+                OrderType::Buy => Pallet::<T>::find_closest_higher_active_tick(
+                    self.netuid,
+                    current_tick_index,
+                ),
             }
+            .ok_or(Error::<T>::InsufficientLiquidity)?;
 
-            SwapStepAction::StopOn => match self.order_type {
-                OrderType::Buy => {
-                    Pallet::<T>::update_liquidity_at_crossing(self.netuid, self.order_type)?;
-                    let Some(mut tick) = Pallet::<T>::find_closest_higher_active_tick(
-                        self.netuid,
-                        current_tick_index,
-                    ) else {
-                        return Err(Error::<T>::InsufficientLiquidity);
-                    };
-
-                    tick.fees_out_tao =
-                        FeeGlobalTao::<T>::get(self.netuid).saturating_sub(tick.fees_out_tao);
-                    tick.fees_out_alpha =
-                        FeeGlobalAlpha::<T>::get(self.netuid).saturating_sub(tick.fees_out_alpha);
-                    Ticks::<T>::insert(self.netuid, current_tick_index, tick);
-                }
-                OrderType::Sell => {}
-            },
-
-            SwapStepAction::StopIn => {}
+            tick.fees_out_tao =
+                FeeGlobalTao::<T>::get(self.netuid).saturating_sub(tick.fees_out_tao);
+            tick.fees_out_alpha =
+                FeeGlobalAlpha::<T>::get(self.netuid).saturating_sub(tick.fees_out_alpha);
+            Pallet::<T>::update_liquidity_at_crossing(self.netuid, self.order_type)?;
+            Ticks::<T>::insert(self.netuid, current_tick_index, tick);
         }
 
         // Update current price
@@ -328,7 +260,7 @@ impl<T: Config> Pallet<T> {
         let price = U64F64::saturating_from_num(tao_reserve)
             .safe_div(U64F64::saturating_from_num(alpha_reserve));
 
-        let epsilon = U64F64::saturating_from_num(0.000001);
+        let epsilon = U64F64::saturating_from_num(0.000000000001);
 
         let current_sqrt_price = price.checked_sqrt(epsilon).unwrap_or(U64F64::from_num(0));
         AlphaSqrtPrice::<T>::set(netuid, current_sqrt_price);
@@ -416,7 +348,7 @@ impl<T: Config> Pallet<T> {
             amount_remaining = amount_remaining.saturating_sub(swap_result.amount_to_take);
             amount_paid_out = amount_paid_out.saturating_add(swap_result.delta_out);
 
-            if swap_step.stop {
+            if swap_step.action == SwapStepAction::Stop {
                 amount_remaining = 0;
             }
 
@@ -1214,8 +1146,7 @@ struct SwapStepResult {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SwapStepAction {
     Crossing,
-    StopOn,
-    StopIn,
+    Stop,
 }
 
 // cargo test --package pallet-subtensor-swap --lib -- pallet::impls::tests --show-output
@@ -1254,6 +1185,23 @@ mod tests {
         }
     }
 
+    fn get_ticked_prices_around_current_price() -> (f64, f64) {
+        // Get current price, ticks around it, and prices on the tick edges for test cases
+        let netuid = NetUid::from(1);
+        assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+        let current_price_sqrt = AlphaSqrtPrice::<Test>::get(netuid);
+        let tick_index_for_current_price_low = TickIndex::try_from_sqrt_price(current_price_sqrt).unwrap();
+        let tick_index_for_current_price_high = tick_index_for_current_price_low.next().unwrap().next().unwrap();
+
+        // Low and high prices that match to a lower and higher tick that doesn't contain the current price
+        let current_price_low_sqrt = TickIndex::try_to_sqrt_price(&tick_index_for_current_price_low).unwrap().to_num::<f64>();
+        let current_price_high_sqrt = TickIndex::try_to_sqrt_price(&tick_index_for_current_price_high).unwrap().to_num::<f64>();
+        let current_price_low = current_price_low_sqrt * current_price_low_sqrt;
+        let current_price_high = current_price_high_sqrt * current_price_high_sqrt;
+
+        (current_price_low, current_price_high)
+    }
+
     // this function is used to convert tick index NON-SQRT (!) price. it's only utility for
     // testing, all the implementation logic is based on sqrt prices
     fn tick_to_price(tick: TickIndex) -> f64 {
@@ -1286,11 +1234,12 @@ mod tests {
 
             // Verify current price is set
             let sqrt_price = AlphaSqrtPrice::<Test>::get(netuid);
-            let expected_sqrt_price = U64F64::from_num(tao)
-                .safe_div(U64F64::from_num(alpha))
-                .checked_sqrt(U64F64::from_num(0.000001))
-                .unwrap();
-            assert_eq!(sqrt_price, expected_sqrt_price);
+            let expected_sqrt_price = U64F64::from_num(0.5_f64);
+            assert_abs_diff_eq!(
+                sqrt_price.to_num::<f64>(),
+                expected_sqrt_price.to_num::<f64>(),
+                epsilon = 0.000000001
+            );
 
             // Verify that current tick is set
             let current_tick = CurrentTick::<Test>::get(netuid);
@@ -1341,6 +1290,8 @@ mod tests {
             let current_price = 0.25;
             assert_eq!(max_tick, TickIndex::MAX);
 
+            let (current_price_low, current_price_high) = get_ticked_prices_around_current_price();
+
             // As a user add liquidity with all possible corner cases
             //   - Initial price is 0.25
             //   - liquidity is expressed in RAO units
@@ -1355,9 +1306,9 @@ mod tests {
                     4_000_000_000_u64,
                 ),
                 // Repeat the protocol liquidity at current to max range: Expect the same alpha
-                (0.25, max_price, 2_000_000_000_u64, 0, 4_000_000_000),
+                (current_price_high, max_price, 2_000_000_000_u64, 0, 4_000_000_000),
                 // Repeat the protocol liquidity at min to current range: Expect all the same tao
-                (min_price, 0.24999, 2_000_000_000_u64, 1_000_000_000, 0),
+                (min_price, current_price_low, 2_000_000_000_u64, 1_000_000_000, 0),
                 // Half to double price - just some sane wothdraw amounts
                 (0.125, 0.5, 2_000_000_000_u64, 293_000_000, 1_171_000_000),
                 // Both below price - tao is non-zero, alpha is zero
@@ -1540,6 +1491,7 @@ mod tests {
         });
     }
 
+    // cargo test --package pallet-subtensor-swap --lib -- pallet::impls::tests::test_remove_liquidity_basic --exact --show-output
     #[test]
     fn test_remove_liquidity_basic() {
         new_test_ext().execute_with(|| {
@@ -1547,6 +1499,8 @@ mod tests {
             let max_price = tick_to_price(TickIndex::MAX);
             let max_tick = price_to_tick(max_price);
             assert_eq!(max_tick, TickIndex::MAX);
+
+            let (current_price_low, current_price_high) = get_ticked_prices_around_current_price();
 
             // As a user add liquidity with all possible corner cases
             //   - Initial price is 0.25
@@ -1562,9 +1516,9 @@ mod tests {
                     4_000_000_000_u64,
                 ),
                 // Repeat the protocol liquidity at current to max range: Expect the same alpha
-                (0.25, max_price, 2_000_000_000_u64, 0, 4_000_000_000),
+                (current_price_high, max_price, 2_000_000_000_u64, 0, 4_000_000_000),
                 // Repeat the protocol liquidity at min to current range: Expect all the same tao
-                (min_price, 0.24999, 2_000_000_000_u64, 1_000_000_000, 0),
+                (min_price, current_price_low, 2_000_000_000_u64, 1_000_000_000, 0),
                 // Half to double price - just some sane wothdraw amounts
                 (0.125, 0.5, 2_000_000_000_u64, 293_000_000, 1_171_000_000),
                 // Both below price - tao is non-zero, alpha is zero
