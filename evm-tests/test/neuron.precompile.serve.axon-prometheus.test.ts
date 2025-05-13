@@ -1,13 +1,12 @@
 import * as assert from "assert";
-import { getAliceSigner, getClient, getDevnetApi, getRandomSubstrateKeypair } from "../src/substrate"
-import { SUB_LOCAL_URL, } from "../src/config";
+import { getAliceSigner, getDevnetApi, getRandomSubstrateKeypair } from "../src/substrate"
 import { devnet } from "@polkadot-api/descriptors"
 import { PolkadotSigner, TypedApi } from "polkadot-api";
 import { convertPublicKeyToSs58, convertH160ToSS58 } from "../src/address-utils"
 import { ethers } from "ethers"
 import { INEURON_ADDRESS, INeuronABI } from "../src/contracts/neuron"
 import { generateRandomEthersWallet } from "../src/utils"
-import { forceSetBalanceToEthAddress, forceSetBalanceToSs58Address, addNewSubnetwork, burnedRegister } from "../src/subtensor"
+import { forceSetBalanceToEthAddress, forceSetBalanceToSs58Address, addNewSubnetwork, burnedRegister, startCall } from "../src/subtensor"
 
 describe("Test neuron precompile Serve Axon Prometheus", () => {
     // init eth part
@@ -25,7 +24,6 @@ describe("Test neuron precompile Serve Axon Prometheus", () => {
     let alice: PolkadotSigner;
     before(async () => {
         // init variables got from await and async
-        const subClient = await getClient(SUB_LOCAL_URL)
         api = await getDevnetApi()
         alice = await getAliceSigner();
 
@@ -36,6 +34,7 @@ describe("Test neuron precompile Serve Axon Prometheus", () => {
         await forceSetBalanceToEthAddress(api, wallet2.address)
         await forceSetBalanceToEthAddress(api, wallet3.address)
         let netuid = await addNewSubnetwork(api, hotkey, coldkey)
+        await startCall(api, netuid, coldkey)
 
         console.log("test the case on subnet ", netuid)
 

@@ -58,6 +58,8 @@ pub enum Data {
         encrypted: BoundedVec<u8, ConstU32<MAX_TIMELOCK_COMMITMENT_SIZE_BYTES>>,
         reveal_round: u64,
     },
+    /// Flag to trigger bonds reset for subnet
+    ResetBondsFlag,
 }
 
 impl Data {
@@ -79,6 +81,7 @@ impl Data {
             | Data::Keccak256(arr)
             | Data::ShaThree256(arr) => arr.len() as u64,
             Data::TimelockEncrypted { encrypted, .. } => encrypted.len() as u64,
+            Data::ResetBondsFlag => 0,
         }
     }
 }
@@ -108,6 +111,7 @@ impl Decode for Data {
                     reveal_round,
                 }
             }
+            135 => Data::ResetBondsFlag,
             _ => return Err(codec::Error::from("invalid leading byte")),
         })
     }
@@ -136,6 +140,7 @@ impl Encode for Data {
                 r.extend_from_slice(&reveal_round.encode());
                 r
             }
+            Data::ResetBondsFlag => vec![135],
         }
     }
 }
@@ -321,7 +326,8 @@ impl TypeInfo for Data {
                         })
                         .field(|f| f.name("reveal_round").ty::<u64>()),
                 )
-            });
+            })
+            .variant("ResetBondsFlag", |v| v.index(135));
 
         Type::builder()
             .path(Path::new("Data", module_path!()))

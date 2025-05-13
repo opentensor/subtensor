@@ -11,6 +11,9 @@ impl<T: Config> Pallet<T> {
     /// * 'hotkey' (T::AccountId):
     ///     -  The associated hotkey account.
     ///
+    /// * 'netuid' (u16):
+    ///     - Subnetwork UID
+    ///
     /// * 'stake_to_be_added' (u64):
     ///     -  The amount of stake to be added to the hotkey staking account.
     ///
@@ -47,6 +50,8 @@ impl<T: Config> Pallet<T> {
             stake_to_be_added
         );
 
+        Self::ensure_subtoken_enabled(netuid)?;
+
         // 2. Validate user input
         Self::validate_add_stake(
             &coldkey,
@@ -76,6 +81,154 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// ---- The implementation for the extrinsic add_stake_aggregate: Adds stake to a hotkey account.
+    /// The operation will be delayed until the end of the block.
+    /// # Args:
+    /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    ///     -  The signature of the caller's coldkey.
+    ///
+    /// * 'hotkey' (T::AccountId):
+    ///     -  The associated hotkey account.
+    ///
+    /// * 'netuid' (u16):
+    ///     - Subnetwork UID
+    ///
+    /// * 'stake_to_be_added' (u64):
+    ///     -  The amount of stake to be added to the hotkey staking account.
+    ///
+    /// # Event:
+    /// * StakeAdded;
+    ///     -  On the successfully adding stake to a global account.
+    ///
+    /// # Raises:
+    /// * 'NotEnoughBalanceToStake':
+    ///     -  Not enough balance on the coldkey to add onto the global account.
+    ///
+    /// * 'NonAssociatedColdKey':
+    ///     -  The calling coldkey is not associated with this hotkey.
+    ///
+    /// * 'BalanceWithdrawalError':
+    ///     -  Errors stemming from transaction pallet.
+    ///
+    /// * 'TxRateLimitExceeded':
+    ///     -  Thrown if key has hit transaction rate limit
+    ///
+    pub fn do_add_stake_aggregate(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+        netuid: u16,
+        stake_to_be_added: u64,
+    ) -> dispatch::DispatchResult {
+        // We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
+        let coldkey = ensure_signed(origin)?;
+
+        // Consider the weight from on_finalize
+        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
+            Self::do_add_stake(
+                crate::dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+                netuid,
+                stake_to_be_added,
+            )?;
+        }
+
+        // Save the staking job for the on_finalize
+        let stake_job = StakeJob::AddStake {
+            hotkey,
+            coldkey,
+            netuid,
+            stake_to_be_added,
+        };
+
+        let stake_job_id = NextStakeJobId::<T>::get();
+        let current_blocknumber = <frame_system::Pallet<T>>::block_number();
+
+        StakeJobs::<T>::insert(current_blocknumber, stake_job_id, stake_job);
+        NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
+
+        Ok(())
+    }
+
+    /// ---- The implementation for the extrinsic add_stake_limit_aggregate: Adds stake to a hotkey
+    /// account on a subnet with price limit. The operation will be delayed until the end of the
+    /// block.
+    ///
+    /// # Args:
+    /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    ///     -  The signature of the caller's coldkey.
+    ///
+    /// * 'hotkey' (T::AccountId):
+    ///     -  The associated hotkey account.
+    ///
+    /// * 'netuid' (u16):
+    ///     - Subnetwork UID
+    ///
+    /// * 'stake_to_be_added' (u64):
+    ///     -  The amount of stake to be added to the hotkey staking account.
+    ///
+    ///  * 'limit_price' (u64):
+    ///     - The limit price expressed in units of RAO per one Alpha.
+    ///
+    ///  * 'allow_partial' (bool):
+    ///     - Allows partial execution of the amount. If set to false, this becomes
+    ///       fill or kill type or order.
+    ///
+    /// # Event:
+    /// * StakeAdded;
+    ///     -  On the successfully adding stake to a global account.
+    ///
+    /// # Raises:
+    /// * 'NotEnoughBalanceToStake':
+    ///     -  Not enough balance on the coldkey to add onto the global account.
+    ///
+    /// * 'NonAssociatedColdKey':
+    ///     -  The calling coldkey is not associated with this hotkey.
+    ///
+    /// * 'BalanceWithdrawalError':
+    ///     -  Errors stemming from transaction pallet.
+    ///
+    /// * 'TxRateLimitExceeded':
+    ///     -  Thrown if key has hit transaction rate limit
+    ///
+    pub fn do_add_stake_limit_aggregate(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+        netuid: u16,
+        stake_to_be_added: u64,
+        limit_price: u64,
+        allow_partial: bool,
+    ) -> dispatch::DispatchResult {
+        let coldkey = ensure_signed(origin)?;
+
+        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
+            Self::do_add_stake_limit(
+                crate::dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+                netuid,
+                stake_to_be_added,
+                limit_price,
+                allow_partial,
+            )?;
+        }
+
+        let stake_job = StakeJob::AddStakeLimit {
+            hotkey,
+            coldkey,
+            netuid,
+            stake_to_be_added,
+            limit_price,
+            allow_partial,
+        };
+
+        let stake_job_id = NextStakeJobId::<T>::get();
+        let current_blocknumber = <frame_system::Pallet<T>>::block_number();
+
+        StakeJobs::<T>::insert(current_blocknumber, stake_job_id, stake_job);
+        NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
+
+        Ok(())
+    }
+
     /// ---- The implementation for the extrinsic add_stake_limit: Adds stake to a hotkey
     /// account on a subnet with price limit.
     ///
@@ -85,6 +238,9 @@ impl<T: Config> Pallet<T> {
     ///
     /// * 'hotkey' (T::AccountId):
     ///     -  The associated hotkey account.
+    ///
+    /// * 'netuid' (u16):
+    ///     - Subnetwork UID
     ///
     /// * 'stake_to_be_added' (u64):
     ///     -  The amount of stake to be added to the hotkey staking account.
@@ -131,8 +287,8 @@ impl<T: Config> Pallet<T> {
             stake_to_be_added
         );
 
-        // 2. Calcaulate the maximum amount that can be executed with price limit
-        let max_amount = Self::get_max_amount_add(netuid, limit_price);
+        // 2. Calculate the maximum amount that can be executed with price limit
+        let max_amount = Self::get_max_amount_add(netuid, limit_price)?;
         let mut possible_stake = stake_to_be_added;
         if possible_stake > max_amount {
             possible_stake = max_amount;
@@ -173,29 +329,29 @@ impl<T: Config> Pallet<T> {
     }
 
     // Returns the maximum amount of RAO that can be executed with price limit
-    pub fn get_max_amount_add(netuid: u16, limit_price: u64) -> u64 {
+    pub fn get_max_amount_add(netuid: u16, limit_price: u64) -> Result<u64, Error<T>> {
         // Corner case: root and stao
         // There's no slippage for root or stable subnets, so if limit price is 1e9 rao or
         // higher, then max_amount equals u64::MAX, otherwise it is 0.
         if (netuid == Self::get_root_netuid()) || (SubnetMechanism::<T>::get(netuid)) == 0 {
             if limit_price >= 1_000_000_000 {
-                return u64::MAX;
+                return Ok(u64::MAX);
             } else {
-                return 0;
+                return Err(Error::ZeroMaxStakeAmount);
             }
         }
 
         // Corner case: SubnetAlphaIn is zero. Staking can't happen, so max amount is zero.
         let alpha_in = SubnetAlphaIn::<T>::get(netuid);
         if alpha_in == 0 {
-            return 0;
+            return Err(Error::ZeroMaxStakeAmount);
         }
         let alpha_in_u128 = alpha_in as u128;
 
         // Corner case: SubnetTAO is zero. Staking can't happen, so max amount is zero.
         let tao_reserve = SubnetTAO::<T>::get(netuid);
         if tao_reserve == 0 {
-            return 0;
+            return Err(Error::ZeroMaxStakeAmount);
         }
         let tao_reserve_u128 = tao_reserve as u128;
 
@@ -208,7 +364,7 @@ impl<T: Config> Pallet<T> {
                 .saturating_mul(tao))
             || (limit_price == 0u64)
         {
-            return 0;
+            return Err(Error::ZeroMaxStakeAmount);
         }
 
         // Main case: return limit_price * SubnetAlphaIn - SubnetTAO
@@ -219,10 +375,15 @@ impl<T: Config> Pallet<T> {
             .checked_div(tao)
             .unwrap_or(0)
             .saturating_sub(tao_reserve_u128);
+
+        if result == 0 {
+            return Err(Error::ZeroMaxStakeAmount);
+        }
+
         if result < u64::MAX as u128 {
-            result as u64
+            Ok(result as u64)
         } else {
-            u64::MAX
+            Ok(u64::MAX)
         }
     }
 }
