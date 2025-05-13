@@ -2077,6 +2077,7 @@ fn test_commit_reveal_multiple_commits() {
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        SubtensorModule::set_stake_threshold(0);
 
         // 1. Commit 10 times successfully
         let mut commit_info = Vec::new();
