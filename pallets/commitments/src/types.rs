@@ -163,9 +163,7 @@ impl TypeInfo for Data {
     type Identity = Self;
 
     fn type_info() -> Type {
-        let variants = Variants::new()
-            .variant("None", |v| v.index(0))
-            .variant("ResetBondsFlag", |v| v.index(135));
+        let variants = Variants::new().variant("None", |v| v.index(0));
 
         // create a variant for all sizes of Raw data from 0-32
         let variants = data_raw_variants!(
