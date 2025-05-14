@@ -5,7 +5,7 @@ use core::fmt;
 use core::hash::Hash;
 use core::ops::{Add, AddAssign, BitOr, Deref, Neg, Shl, Shr, Sub, SubAssign};
 
-use alloy_primitives::{I256, U256, uint};
+use alloy_primitives::{I256, U256};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
 use safe_math::*;
@@ -1143,8 +1143,6 @@ impl Error for TickMathError {}
 #[cfg(test)]
 mod tests {
     use std::{ops::Sub, str::FromStr};
-
-    use approx::assert_abs_diff_eq;
     use safe_math::FixedExt;
 
     use super::*;

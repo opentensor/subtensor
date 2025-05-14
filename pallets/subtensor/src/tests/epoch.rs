@@ -13,7 +13,6 @@ use sp_core::{Get, U256};
 use substrate_fixed::types::I32F32;
 use subtensor_swap_interface::SwapHandler;
 
-use super::mock;
 use super::mock::*;
 use crate::epoch::math::safe_exp;
 use crate::*;
