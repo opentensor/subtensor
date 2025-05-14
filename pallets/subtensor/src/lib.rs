@@ -903,6 +903,12 @@ pub mod pallet {
         StakeDeltaMap::new()
     }
 
+    #[pallet::type_value]
+    /// Default value for enable stake delta calculation.
+    pub fn DefaultEnableStakeDeltaCalculation() -> bool {
+        true
+    }
+
     #[pallet::storage]
     pub type MinActivityCutoff<T: Config> =
         StorageValue<_, u16, ValueQuery, DefaultMinActivityCutoff<T>>;
@@ -1182,6 +1188,11 @@ pub mod pallet {
         ValueQuery,
         DefaultStakeDeltaMap<T>,
     >;
+
+    #[pallet::storage]
+    /// --- ITEM( enables effect of the saved stake delta )
+    pub type EnableStakeDeltaCalculation<T> =
+        StorageValue<_, bool, ValueQuery, DefaultEnableStakeDeltaCalculation>;
 
     /// ============================
     /// ==== Global Parameters =====

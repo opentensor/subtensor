@@ -317,9 +317,23 @@ impl<T: Config> Pallet<T> {
         // Step 4: Calculate the total tao inherited from parents.
         for (proportion, parent) in parents {
             // Retrieve the parent's total stake on this subnet.
-            let parent_tao: U96F32 = U96F32::saturating_from_num(
-                Self::get_stake_for_hotkey_on_subnet(&parent, Self::get_root_netuid()),
-            );
+            let initial_tao =
+                Self::get_stake_for_hotkey_on_subnet(&parent, Self::get_root_netuid());
+
+            let parent_tao = U96F32::saturating_from_num({
+                if use_stake_delta {
+                    let stake_delta = Self::get_stake_delta_for_hotkey_on_subnet(
+                        &parent,
+                        Self::get_root_netuid(),
+                    );
+
+                    // modified tao
+                    initial_tao.saturating_sub(stake_delta)
+                } else {
+                    initial_tao
+                }
+            });
+
             log::trace!(
                 "Parent tao for parent {:?} on subnet {}: {:?}",
                 parent,
@@ -364,9 +378,16 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_stake_delta_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
+        let enable_stake_delta = EnableStakeDeltaCalculation::<T>::get();
+
+        if !enable_stake_delta {
+            return 0;
+        }
+
         let total_stake = StakeDeltaSinceLastEmissionDrain::<T>::get(netuid, hotkey).total();
 
-        total_stake.abs().saturated_into()
+        // We only care about positive stake delta
+        total_stake.max(0).saturated_into()
     }
 
     // Remove all stake delta after the epoch calculation

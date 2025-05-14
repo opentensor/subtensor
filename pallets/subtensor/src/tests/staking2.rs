@@ -6,7 +6,7 @@ use frame_support::{
     weights::Weight,
 };
 use sp_core::U256;
-use substrate_fixed::types::{I96F32, U96F32};
+use substrate_fixed::types::{I64F64, I96F32, U96F32};
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --workspace --test staking2 -- test_swap_tao_for_alpha_dynamic_mechanism --exact --nocapture
 #[test]
@@ -944,5 +944,264 @@ fn test_stake_fee_calculation() {
             U96F32::from_num(stake_amount),
         ); // Charged a dynamic fee
         assert_ne!(stake_fee_8, default_fee);
+    });
+}
+
+#[test]
+fn test_stake_delta() {
+    fn emulate_emissions(enable_stake_delta: bool) -> u64 {
+        let mut out_emission = 0u64;
+
+        new_test_ext(1).execute_with(|| {
+            let parent_hotkey_take = 0u16;
+            let parent_coldkey = U256::from(1);
+            let parent_hotkey = U256::from(3);
+            let child_coldkey = U256::from(2);
+            let child_hotkey = U256::from(4);
+            let miner_coldkey = U256::from(5);
+            let miner_hotkey = U256::from(6);
+            let nominator = U256::from(7);
+            let netuid: u16 = 1;
+            let subnet_tempo = 10;
+            let stake = 100_000_000_000;
+            let proportion: u64 = u64::MAX / 2;
+
+            EnableStakeDeltaCalculation::<Test>::put(enable_stake_delta);
+            add_network(netuid, subnet_tempo, 0);
+            register_ok_neuron(netuid, child_hotkey, child_coldkey, 0);
+            register_ok_neuron(netuid, parent_hotkey, parent_coldkey, 1);
+            register_ok_neuron(netuid, miner_hotkey, miner_coldkey, 1);
+            SubtensorModule::add_balance_to_coldkey_account(
+                &parent_coldkey,
+                stake + ExistentialDeposit::get(),
+            );
+            SubtensorModule::add_balance_to_coldkey_account(
+                &nominator,
+                stake + ExistentialDeposit::get(),
+            );
+            SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+            SubtensorModule::set_max_allowed_validators(netuid, 2);
+            step_block(subnet_tempo);
+            SubnetOwnerCut::<Test>::set(0);
+
+            // Set children
+            mock_set_children_no_epochs(netuid, &parent_hotkey, &[(proportion, child_hotkey)]);
+
+            // Set 20% childkey take
+            let max_take: u16 = 0xFFFF / 5;
+            SubtensorModule::set_max_childkey_take(max_take);
+            assert_ok!(SubtensorModule::set_childkey_take(
+                RuntimeOrigin::signed(child_coldkey),
+                child_hotkey,
+                netuid,
+                max_take
+            ));
+
+            // Set hotkey take for parent
+            SubtensorModule::set_max_delegate_take(parent_hotkey_take);
+            Delegates::<Test>::insert(parent_hotkey, parent_hotkey_take);
+
+            // Set 0% for childkey-as-a-delegate take
+            Delegates::<Test>::insert(child_hotkey, 0);
+
+            // Setup stakes:
+            //   Stake from parent
+            //   Stake from nominator to childkey
+            //   Parent gives 50% of stake to childkey
+            assert_ok!(SubtensorModule::add_stake(
+                RuntimeOrigin::signed(parent_coldkey),
+                parent_hotkey,
+                netuid,
+                stake
+            ));
+            assert_ok!(SubtensorModule::add_stake(
+                RuntimeOrigin::signed(nominator),
+                child_hotkey,
+                netuid,
+                stake
+            ));
+
+            // Setup YUMA so that it creates emissions
+            Weights::<Test>::insert(netuid, 0, vec![(2, 0xFFFF)]);
+            Weights::<Test>::insert(netuid, 1, vec![(2, 0xFFFF)]);
+            BlockAtRegistration::<Test>::set(netuid, 0, 1);
+            BlockAtRegistration::<Test>::set(netuid, 1, 1);
+            BlockAtRegistration::<Test>::set(netuid, 2, 1);
+            LastUpdate::<Test>::set(netuid, vec![2, 2, 2]);
+            Kappa::<Test>::set(netuid, u16::MAX / 5);
+            ActivityCutoff::<Test>::set(netuid, u16::MAX); // makes all stake active
+            ValidatorPermit::<Test>::insert(netuid, vec![true, true, false]);
+
+            // Run run_coinbase to hit subnet epoch
+            let parent_stake_before = SubtensorModule::get_total_stake_for_coldkey(&parent_coldkey);
+
+            step_block(subnet_tempo);
+
+            let parent_emission =
+                SubtensorModule::get_total_stake_for_coldkey(&parent_coldkey) - parent_stake_before;
+
+            out_emission = parent_emission;
+        });
+
+        out_emission
+    }
+
+    let no_stake_delta_parent_emission = emulate_emissions(false);
+    let with_stake_delta_parent_emission = emulate_emissions(true);
+
+    assert!(no_stake_delta_parent_emission > with_stake_delta_parent_emission);
+}
+
+#[test]
+fn test_stake_map_with_stake_delta() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid: u16 = 1;
+        let stake = 100_000_000_000;
+        let root_stake = 50_000_000_000;
+        let tempo = 10;
+
+        add_network(netuid, 10, 0);
+        add_network(SubtensorModule::get_root_netuid(), tempo, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 1);
+
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey,
+            2 * stake + ExistentialDeposit::get(),
+        );
+
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            stake
+        ));
+
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            SubtensorModule::get_root_netuid(),
+            root_stake
+        ));
+
+        // Stake delta disabled
+        EnableStakeDeltaCalculation::<Test>::put(false);
+        let alpha_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid);
+        let root_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(
+            &hotkey,
+            SubtensorModule::get_root_netuid(),
+        );
+        let stake_map = SubtensorModule::get_stake_map(netuid, vec![&hotkey])
+            .into_iter()
+            .collect::<Vec<_>>();
+
+        assert_eq!(stake_map, vec![(hotkey, (alpha_stake, root_stake))]);
+
+        // Stake delta enabled
+        EnableStakeDeltaCalculation::<Test>::put(true);
+        let stake_map = SubtensorModule::get_stake_map(netuid, vec![&hotkey])
+            .into_iter()
+            .collect::<Vec<_>>();
+
+        assert_eq!(stake_map, vec![(hotkey, (0, 0))]);
+
+        // Stake delta enabled and epoch passed
+        EnableStakeDeltaCalculation::<Test>::put(true);
+        step_block(tempo);
+
+        let alpha_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid);
+        let root_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(
+            &hotkey,
+            SubtensorModule::get_root_netuid(),
+        );
+        let stake_map = SubtensorModule::get_stake_map(netuid, vec![&hotkey])
+            .into_iter()
+            .collect::<Vec<_>>();
+
+        assert_eq!(stake_map, vec![(hotkey, (alpha_stake, root_stake))]);
+    });
+}
+
+#[test]
+fn test_stake_weights_with_stake_delta() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid: u16 = 1;
+        let stake = 100_000_000_000;
+        let root_stake = 50_000_000_000;
+        let tempo = 10;
+
+        add_network(netuid, 10, 0);
+        add_network(SubtensorModule::get_root_netuid(), tempo, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 1);
+
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey,
+            2 * stake + ExistentialDeposit::get(),
+        );
+
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            stake
+        ));
+
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            SubtensorModule::get_root_netuid(),
+            root_stake
+        ));
+
+        // Stake delta disabled
+        EnableStakeDeltaCalculation::<Test>::put(false);
+        let alpha_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid);
+        let root_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(
+            &hotkey,
+            SubtensorModule::get_root_netuid(),
+        );
+        let stake_weights = SubtensorModule::get_stake_weights_for_network(netuid);
+
+        assert_eq!(
+            (stake_weights.1, stake_weights.2),
+            (
+                vec![I64F64::saturating_from_num(alpha_stake)],
+                vec![I64F64::saturating_from_num(root_stake)]
+            )
+        );
+
+        // Stake delta enabled
+        EnableStakeDeltaCalculation::<Test>::put(true);
+        let stake_weights = SubtensorModule::get_stake_weights_for_network(netuid);
+
+        assert_eq!(
+            (stake_weights.1, stake_weights.2),
+            (
+                vec![I64F64::saturating_from_num(0)],
+                vec![I64F64::saturating_from_num(0)]
+            )
+        );
+
+        // Stake delta enabled and epoch passed
+        EnableStakeDeltaCalculation::<Test>::put(true);
+        step_block(tempo);
+
+        let alpha_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid);
+        let root_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(
+            &hotkey,
+            SubtensorModule::get_root_netuid(),
+        );
+        let stake_weights = SubtensorModule::get_stake_weights_for_network(netuid);
+
+        assert_eq!(
+            (stake_weights.1, stake_weights.2),
+            (
+                vec![I64F64::saturating_from_num(alpha_stake)],
+                vec![I64F64::saturating_from_num(root_stake)]
+            )
+        );
     });
 }

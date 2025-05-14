@@ -1918,6 +1918,13 @@ fn test_staking_sets_div_variables() {
 
         // Wait for 1 epoch
         step_block(tempo + 1);
+        // Stake delta will mitigate stake movement
+        assert_eq!(
+            AlphaDividendsPerSubnet::<Test>::get(netuid, hotkey_account_id),
+            0
+        );
+        // Wait for 2 epoch
+        step_block(tempo + 1);
 
         // Verify that divident variables have been set
         let stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(

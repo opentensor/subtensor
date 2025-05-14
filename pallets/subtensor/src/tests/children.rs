@@ -2812,6 +2812,7 @@ fn test_childkey_take_drain() {
             let proportion: u64 = u64::MAX / 2;
 
             // Add network, register hotkeys, and setup network parameters
+            EnableStakeDeltaCalculation::<Test>::put(false);
             add_network(netuid, subnet_tempo, 0);
             register_ok_neuron(netuid, child_hotkey, child_coldkey, 0);
             register_ok_neuron(netuid, parent_hotkey, parent_coldkey, 1);

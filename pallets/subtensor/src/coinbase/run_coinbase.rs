@@ -508,6 +508,7 @@ impl<T: Config> Pallet<T> {
         for hotkey in hotkeys {
             // Get hotkey ALPHA on subnet.
             let alpha_stake: u64 = Self::get_stake_for_hotkey_on_subnet(hotkey, netuid);
+
             // Get hotkey TAO on root.
             let root_stake: u64 =
                 Self::get_stake_for_hotkey_on_subnet(hotkey, Self::get_root_netuid());
@@ -518,9 +519,9 @@ impl<T: Config> Pallet<T> {
 
             let final_alpha_stake = alpha_stake.saturating_sub(alpha_stake_delta);
 
-            let final_toot_stake = root_stake.saturating_sub(root_stake_delta);
+            let final_root_stake = root_stake.saturating_sub(root_stake_delta);
 
-            stake_map.insert(hotkey.clone(), (final_alpha_stake, final_toot_stake));
+            stake_map.insert(hotkey.clone(), (final_alpha_stake, final_root_stake));
         }
         stake_map
     }
