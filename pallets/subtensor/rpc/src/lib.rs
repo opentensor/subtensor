@@ -69,7 +69,6 @@ pub trait SubtensorCustomApi<BlockHash> {
         &self,
         netuid: u16,
         metagraph_index: Vec<u16>,
-        validator_only: bool,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
 }
@@ -403,13 +402,12 @@ where
         &self,
         netuid: u16,
         metagraph_index: Vec<u16>,
-        validator_only: bool,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        match api.get_selective_metagraph(at, netuid, metagraph_index, validator_only) {
+        match api.get_selective_metagraph(at, netuid, metagraph_index) {
             Ok(result) => Ok(result.encode()),
             Err(e) => Err(Error::RuntimeError(format!(
                 "Unable to get selective metagraph: {:?}",

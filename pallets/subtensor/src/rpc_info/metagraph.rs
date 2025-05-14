@@ -365,6 +365,7 @@ where
             Some(SelectiveMetagraphIndex::AlphaDividendsPerHotkey) => {
                 self.alpha_dividends_per_hotkey = other.alpha_dividends_per_hotkey.clone()
             }
+            Some(SelectiveMetagraphIndex::Validators) => self.validators = other.validators.clone(),
             None => {}
         };
     }
@@ -526,6 +527,7 @@ pub enum SelectiveMetagraphIndex {
     TotalStake,
     TaoDividendsPerHotkey,
     AlphaDividendsPerHotkey,
+    Validators,
 }
 
 impl SelectiveMetagraphIndex {
@@ -603,6 +605,7 @@ impl SelectiveMetagraphIndex {
             69 => Some(SelectiveMetagraphIndex::TotalStake),
             70 => Some(SelectiveMetagraphIndex::TaoDividendsPerHotkey),
             71 => Some(SelectiveMetagraphIndex::AlphaDividendsPerHotkey),
+            72 => Some(SelectiveMetagraphIndex::Validators),
             _ => None,
         }
     }
@@ -795,14 +798,10 @@ impl<T: Config> Pallet<T> {
     pub fn get_selective_metagraph(
         netuid: u16,
         metagraph_indexes: Vec<u16>,
-        validator_only: bool,
     ) -> Option<SelectiveMetagraph<T::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
             None
         } else {
-            if validator_only {
-                return Some(Self::get_validators(netuid));
-            }
             let mut result = SelectiveMetagraph::default();
             for index in metagraph_indexes.iter() {
                 let value = Self::get_single_selective_metagraph(netuid, *index);
@@ -1364,7 +1363,8 @@ impl<T: Config> Pallet<T> {
                     ..Default::default()
                 }
             }
-            _ => SelectiveMetagraph {
+            Some(SelectiveMetagraphIndex::Validators) => Self::get_validators(netuid),
+            None => SelectiveMetagraph {
                 // Subnet index
                 netuid: netuid.into(),
                 ..Default::default()
