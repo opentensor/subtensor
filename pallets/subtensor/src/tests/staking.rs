@@ -1492,7 +1492,7 @@ fn test_clear_small_nominations() {
         // Run clear all small nominations when min stake is zero (noop)
         SubtensorModule::set_nominator_min_required_stake(0);
         assert_eq!(SubtensorModule::get_nominator_min_required_stake(), 0);
-        SubtensorModule::clear_small_nominations().unwrap();
+        SubtensorModule::clear_small_nominations();
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold1, netuid),
             100
@@ -1519,7 +1519,7 @@ fn test_clear_small_nominations() {
         SubtensorModule::set_nominator_min_required_stake(1000);
 
         // Run clear all small nominations (removes delegations under 10)
-        SubtensorModule::clear_small_nominations().unwrap();
+        SubtensorModule::clear_small_nominations();
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold1, netuid),
             100

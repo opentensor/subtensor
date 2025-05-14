@@ -33,7 +33,7 @@ macro_rules! tou64 {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn run_coinbase(block_emission: U96F32) -> DispatchResult {
+    pub fn run_coinbase(block_emission: U96F32) {
         // --- 0. Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
         log::debug!("Current block: {:?}", current_block);
@@ -192,25 +192,29 @@ impl<T: Config> Pallet<T> {
             let pending_alpha: U96F32 = alpha_out_i.saturating_sub(root_alpha);
             log::debug!("pending_alpha: {:?}", pending_alpha);
             // Sell root emission through the pool.
-            let root_tao: u64 = Self::swap_alpha_for_tao(
+
+            let swap_result = Self::swap_alpha_for_tao(
                 *netuid_i,
                 tou64!(root_alpha),
-                T::SwapInterface::max_price(),
-            )?
-            .amount_paid_out;
-            log::debug!("root_tao: {:?}", root_tao);
-            // Accumulate alpha emission in pending.
-            PendingAlphaSwapped::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(tou64!(root_alpha));
-            });
-            // Accumulate alpha emission in pending.
-            PendingEmission::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(tou64!(pending_alpha));
-            });
-            // Accumulate root divs for subnet.
-            PendingRootDivs::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(root_tao);
-            });
+                T::SwapInterface::min_price(),
+            );
+            if let Ok(ok_result) = swap_result {
+                let root_tao: u64 = ok_result.amount_paid_out;
+
+                log::debug!("root_tao: {:?}", root_tao);
+                // Accumulate alpha emission in pending.
+                PendingAlphaSwapped::<T>::mutate(*netuid_i, |total| {
+                    *total = total.saturating_add(tou64!(root_alpha));
+                });
+                // Accumulate alpha emission in pending.
+                PendingEmission::<T>::mutate(*netuid_i, |total| {
+                    *total = total.saturating_add(tou64!(pending_alpha));
+                });
+                // Accumulate root divs for subnet.
+                PendingRootDivs::<T>::mutate(*netuid_i, |total| {
+                    *total = total.saturating_add(root_tao);
+                });
+            }
         }
 
         // --- 7 Update moving prices after using them in the emission calculation.
@@ -266,8 +270,6 @@ impl<T: Config> Pallet<T> {
                 BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));
             }
         }
-
-        Ok(())
     }
 
     pub fn calculate_dividends_and_incentives(

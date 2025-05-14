@@ -596,6 +596,70 @@ impl<T: Config> Pallet<T> {
         actual_alpha.neg().max(0).unsigned_abs()
     }
 
+    /// Calculates Some(Alpha) returned from pool by staking operation
+    /// if liquidity allows that. If not, returns None.
+    ///
+    /// If new alpha_reserve is about to drop below DefaultMinimumPoolLiquidity,
+    /// then don't do it.
+    ///
+    pub fn sim_swap_tao_for_alpha(netuid: u16, tao: u64) -> Result<SwapResult, DispatchError> {
+        // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
+        let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
+        // Step 2: Simulate swapping tao and attain alpha
+        if mechanism_id == 1 {
+            let swap_result = T::SwapInterface::swap(
+                netuid,
+                OrderType::Buy,
+                tao,
+                T::SwapInterface::max_price(),
+                true,
+            )
+            .map_err(|_| Error::<T>::InsufficientLiquidity)?;
+
+            Ok(swap_result)
+        } else {
+            // Step 3.b.1: Stable mechanism, just return the value 1:1
+            Ok(SwapResult {
+                amount_paid_out: tao,
+                fee_paid: 0,
+                new_tao_reserve: 0,
+                new_alpha_reserve: 0,
+            })
+        }
+    }
+
+    /// Calculates Some(Tao) returned from pool by unstaking operation
+    /// if liquidity allows that. If not, returns None.
+    ///
+    /// If new tao_reserve is about to drop below DefaultMinimumPoolLiquidity,
+    /// then don't do it.
+    ///
+    pub fn sim_swap_alpha_for_tao(netuid: u16, alpha: u64) -> Result<SwapResult, DispatchError> {
+        // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
+        let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
+        // Step 2: Simulate swapping alpha and attain tao
+        if mechanism_id == 1 {
+            let swap_result = T::SwapInterface::swap(
+                netuid,
+                OrderType::Sell,
+                alpha,
+                T::SwapInterface::min_price(),
+                true,
+            )
+            .map_err(|_| Error::<T>::InsufficientLiquidity)?;
+
+            Ok(swap_result)
+        } else {
+            // Step 3.b.1: Stable mechanism, just return the value 1:1
+            Ok(SwapResult {
+                amount_paid_out: alpha,
+                fee_paid: 0,
+                new_tao_reserve: 0,
+                new_alpha_reserve: 0,
+            })
+        }
+    }
+
     /// Swaps TAO for the alpha token on the subnet.
     ///
     /// Updates TaoIn, AlphaIn, and AlphaOut
@@ -604,29 +668,41 @@ impl<T: Config> Pallet<T> {
         tao: u64,
         price_limit: u64,
     ) -> Result<SwapResult, DispatchError> {
-        let swap_result = T::SwapInterface::swap(netuid, OrderType::Buy, tao, price_limit, false)?;
+        // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
+        let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
+        if mechanism_id == 1 {
+            let swap_result = T::SwapInterface::swap(netuid, OrderType::Buy, tao, price_limit, false)?;
 
-        // update Alpha reserves.
-        SubnetAlphaIn::<T>::set(netuid, swap_result.new_alpha_reserve);
-
-        // Increase Alpha outstanding.
-        SubnetAlphaOut::<T>::mutate(netuid, |total| {
-            *total = total.saturating_add(swap_result.amount_paid_out);
-        });
-
-        // update Tao reserves.
-        SubnetTAO::<T>::set(netuid, swap_result.new_tao_reserve);
-
-        // Increase Total Tao reserves.
-        TotalStake::<T>::mutate(|total| *total = total.saturating_add(tao));
-
-        // Increase total subnet TAO volume.
-        SubnetVolume::<T>::mutate(netuid, |total| {
-            *total = total.saturating_add(tao.into());
-        });
-
-        // Return the alpha received.
-        Ok(swap_result)
+            // update Alpha reserves.
+            SubnetAlphaIn::<T>::set(netuid, swap_result.new_alpha_reserve);
+    
+            // Increase Alpha outstanding.
+            SubnetAlphaOut::<T>::mutate(netuid, |total| {
+                *total = total.saturating_add(swap_result.amount_paid_out);
+            });
+    
+            // update Tao reserves.
+            SubnetTAO::<T>::set(netuid, swap_result.new_tao_reserve);
+    
+            // Increase Total Tao reserves.
+            TotalStake::<T>::mutate(|total| *total = total.saturating_add(tao));
+    
+            // Increase total subnet TAO volume.
+            SubnetVolume::<T>::mutate(netuid, |total| {
+                *total = total.saturating_add(tao.into());
+            });
+    
+            // Return the alpha received.
+            Ok(swap_result)
+        } else {
+            // Step 3.b.1: Stable mechanism, just return the value 1:1
+            Ok(SwapResult {
+                amount_paid_out: tao,
+                fee_paid: 0,
+                new_tao_reserve: 0,
+                new_alpha_reserve: 0,
+            })
+        }
     }
 
     /// Swaps a subnet's Alpba token for TAO.
@@ -637,30 +713,42 @@ impl<T: Config> Pallet<T> {
         alpha: u64,
         price_limit: u64,
     ) -> Result<SwapResult, DispatchError> {
-        let swap_result =
-            T::SwapInterface::swap(netuid, OrderType::Sell, alpha, price_limit, false)?;
+        // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
+        let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
+        // Step 2: Swap alpha and attain tao
+        if mechanism_id == 1 {
+            let swap_result = T::SwapInterface::swap(netuid, OrderType::Sell, alpha, price_limit, false)?;
 
-        // Increase Alpha reserves.
-        SubnetAlphaIn::<T>::set(netuid, swap_result.new_alpha_reserve);
+            // Increase Alpha reserves.
+            SubnetAlphaIn::<T>::set(netuid, swap_result.new_alpha_reserve);
 
-        // Decrease Alpha outstanding.
-        SubnetAlphaOut::<T>::mutate(netuid, |total| {
-            *total = total.saturating_sub(alpha);
-        });
+            // Decrease Alpha outstanding.
+            SubnetAlphaOut::<T>::mutate(netuid, |total| {
+                *total = total.saturating_sub(alpha);
+            });
 
-        // Decrease tao reserves.
-        SubnetTAO::<T>::set(netuid, swap_result.new_tao_reserve);
+            // Decrease tao reserves.
+            SubnetTAO::<T>::set(netuid, swap_result.new_tao_reserve);
 
-        // Reduce total TAO reserves.
-        TotalStake::<T>::mutate(|total| *total = total.saturating_sub(swap_result.amount_paid_out));
+            // Reduce total TAO reserves.
+            TotalStake::<T>::mutate(|total| *total = total.saturating_sub(swap_result.amount_paid_out));
 
-        // Increase total subnet TAO volume.
-        SubnetVolume::<T>::mutate(netuid, |total| {
-            *total = total.saturating_add(swap_result.amount_paid_out.into())
-        });
+            // Increase total subnet TAO volume.
+            SubnetVolume::<T>::mutate(netuid, |total| {
+                *total = total.saturating_add(swap_result.amount_paid_out.into())
+            });
 
-        // Return the tao received.
-        Ok(swap_result)
+            // Return the tao received.
+            Ok(swap_result)
+        } else {
+            // Step 3.b.1: Stable mechanism, just return the value 1:1
+            Ok(SwapResult {
+                amount_paid_out: alpha,
+                fee_paid: 0,
+                new_tao_reserve: 0,
+                new_alpha_reserve: 0,
+            })
+        }
     }
 
     /// Unstakes alpha from a subnet for a given hotkey and coldkey pair.
@@ -801,17 +889,14 @@ impl<T: Config> Pallet<T> {
 
         // Get the minimum balance (and amount) that satisfies the transaction
         let min_amount = {
-            let default_stake = DefaultMinStake::<T>::get();
-            let fee = T::SwapInterface::swap(
+            let min_stake = DefaultMinStake::<T>::get();
+            let fee = Self::sim_swap_tao_for_alpha(
                 netuid,
-                OrderType::Buy,
-                default_stake,
-                T::SwapInterface::max_price(),
-                true,
+                min_stake,
             )
             .map(|res| res.fee_paid)
-            .unwrap_or(T::SwapInterface::approx_fee_amount(netuid, default_stake));
-            default_stake.saturating_add(fee)
+            .unwrap_or(T::SwapInterface::approx_fee_amount(netuid, min_stake));
+            min_stake.saturating_add(fee)
         };
 
         // Ensure that the stake_to_be_added is at least the min_amount
@@ -835,12 +920,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyAccountNotExists
         );
 
-        let expected_alpha = T::SwapInterface::swap(
+        let expected_alpha = Self::sim_swap_tao_for_alpha(
             netuid,
-            OrderType::Buy,
             stake_to_be_added,
-            T::SwapInterface::max_price(),
-            true,
         )
         .map_err(|_| Error::<T>::InsufficientLiquidity)?;
 
@@ -874,12 +956,9 @@ impl<T: Config> Pallet<T> {
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
         // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
-        match T::SwapInterface::swap(
+        match Self::sim_swap_alpha_for_tao(
             netuid,
-            OrderType::Sell,
             alpha_unstaked,
-            T::SwapInterface::max_price(),
-            true,
         ) {
             Ok(res) => ensure!(
                 res.amount_paid_out > DefaultMinStake::<T>::get(),
@@ -960,12 +1039,9 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
-        let tao_equivalent = T::SwapInterface::swap(
+        let tao_equivalent = Self::sim_swap_alpha_for_tao(
             origin_netuid,
-            OrderType::Sell,
             alpha_amount,
-            T::SwapInterface::max_price(),
-            true,
         )
         .map(|res| res.amount_paid_out)
         .map_err(|_| Error::<T>::InsufficientLiquidity)?;

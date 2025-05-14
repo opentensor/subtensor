@@ -110,6 +110,8 @@ impl<T: Config> SwapStep<T> {
             self.action = SwapStepAction::Stop;
             self.final_price = self.sqrt_price_target;
             self.delta_in = self.possible_delta_in;
+
+            // println!("Case 1. Delta in = {:?}", self.delta_in);
         } else if self.price_is_closer(&self.sqrt_price_limit, &self.sqrt_price_target) && self.price_is_closer(&self.sqrt_price_limit, &self.sqrt_price_edge) {
             // Case 2. lim_quantity is the lowest
             // The trade also completely happens within one tick, no tick crossing happens.
@@ -121,6 +123,8 @@ impl<T: Config> SwapStep<T> {
                 self.current_price,
                 self.sqrt_price_limit,
             );
+            // println!("Case 2. Delta in = {:?}", self.delta_in);
+            // println!("Case 2. sqrt_price_limit = {:?}", self.sqrt_price_limit);
         } else {
             // Case 3. edge_quantity is the lowest
             // Tick crossing is likely
@@ -132,6 +136,7 @@ impl<T: Config> SwapStep<T> {
                 self.sqrt_price_edge,
             );
             self.final_price = self.sqrt_price_edge;
+            // println!("Case 3. Delta in = {:?}", self.delta_in);
         }
 
         // Now correct the action if we stopped exactly at the edge no matter what was the case above
@@ -158,6 +163,9 @@ impl<T: Config> SwapStep<T> {
         let delta_fixed = U64F64::saturating_from_num(self.delta_in);
         let total_cost =
             delta_fixed.saturating_mul(u16_max.safe_div(u16_max.saturating_sub(fee_rate)));
+
+        // println!("Executing swap step. order_type = {:?}", self.order_type);
+        // println!("Executing swap step. delta_in = {:?}", self.delta_in);
 
         // Hold the fees
         let fee =
@@ -310,6 +318,8 @@ impl<T: Config> Pallet<T> {
         );
 
         Self::maybe_initialize_v3(netuid)?;
+
+        // println!("swap_inner amount = {:?}", amount);
 
         let mut amount_remaining = amount;
         let mut amount_paid_out: u64 = 0;

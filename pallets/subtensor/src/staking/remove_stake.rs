@@ -47,6 +47,8 @@ impl<T: Config> Pallet<T> {
             alpha_unstaked
         );
 
+        // println!("alpha to be unstaked = {:?}", alpha_unstaked);
+
         // 2. Validate the user input
         Self::validate_remove_stake(
             &coldkey,
@@ -63,14 +65,16 @@ impl<T: Config> Pallet<T> {
             &coldkey,
             netuid,
             alpha_unstaked,
-            T::SwapInterface::max_price(),
+            T::SwapInterface::min_price(),
         )?;
+
+        // println!("tao_unstaked = {:?}, alpha_unstaked = {:?}", tao_unstaked, alpha_unstaked);
 
         // 4. We add the balance to the coldkey. If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 
         // 5. If the stake is below the minimum, we clear the nomination from storage.
-        Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid)?;
+        Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
 
         // 6. Check if stake lowered below MinStake and remove Pending children if it did
         if Self::get_total_stake_for_hotkey(&hotkey) < StakeThreshold::<T>::get() {
@@ -161,7 +165,7 @@ impl<T: Config> Pallet<T> {
                 Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 
                 // If the stake is below the minimum, we clear the nomination from storage.
-                Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid)?;
+                Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
             }
         }
 
@@ -250,7 +254,7 @@ impl<T: Config> Pallet<T> {
                     total_tao_unstaked = total_tao_unstaked.saturating_add(tao_unstaked);
 
                     // If the stake is below the minimum, we clear the nomination from storage.
-                    Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid)?;
+                    Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
                 }
             }
         }
@@ -354,7 +358,7 @@ impl<T: Config> Pallet<T> {
         Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 
         // 6. If the stake is below the minimum, we clear the nomination from storage.
-        Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid)?;
+        Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
 
         // 7. Check if stake lowered below MinStake and remove Pending children if it did
         if Self::get_total_stake_for_hotkey(&hotkey) < StakeThreshold::<T>::get() {
