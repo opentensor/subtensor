@@ -76,14 +76,14 @@ pub struct MockLiquidityProvider;
 impl LiquidityDataProvider<AccountId> for MockLiquidityProvider {
     fn tao_reserve(netuid: u16) -> u64 {
         match netuid {
-            123 => 1_000,
+            123 => 10_000,
             _ => 1_000_000_000_000,
         }
     }
 
     fn alpha_reserve(netuid: u16) -> u64 {
         match netuid {
-            123 => 1,
+            123 => 10_000,
             _ => 4_000_000_000_000,
         }
     }
