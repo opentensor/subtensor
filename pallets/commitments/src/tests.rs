@@ -35,6 +35,7 @@ fn manual_data_type_info() {
             Data::Raw(bytes) => format!("Raw{}", bytes.len()),
             Data::TimelockEncrypted { .. } => "TimelockEncrypted".to_string(),
             Data::ResetBondsFlag => "ResetBondsFlag".to_string(),
+            Data::BigRaw(_) => "BigRaw".to_string(),
         };
         if let scale_info::TypeDef::Variant(variant) = &type_info.type_def {
             let variant = variant
@@ -50,7 +51,8 @@ fn manual_data_type_info() {
             if !variant.fields.is_empty() {
                 let expected_len = match data {
                     Data::None => 0,
-                    Data::Raw(bytes) => bytes.len() as u32,
+                    Data::Raw(bytes)
+                    | Data::BigRaw(bytes) => bytes.len() as u32,
                     Data::BlakeTwo256(_)
                     | Data::Sha256(_)
                     | Data::Keccak256(_)
