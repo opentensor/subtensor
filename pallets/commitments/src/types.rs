@@ -31,15 +31,18 @@ use sp_runtime::{
 use sp_std::{fmt::Debug, iter::once, prelude::*};
 use subtensor_macros::freeze_struct;
 
-/// Either underlying data blob if it is at most 32 bytes, or a hash of it. If the data is greater
-/// than 32-bytes then it will be truncated when encoding.
-///
+/// Represents stored data which can be:
+/// - `Raw`: a direct blob up to 128 bytes
+/// - `BigRaw`: a larger blob up to 512 bytes
+/// - A cryptographic hash (BlakeTwo256, Sha256, Keccak256, ShaThree256)
+/// - A timelock-encrypted blob with a reveal round
+/// - A reset flag (`ResetBondsFlag`)
 /// Can also be `None`.
 #[derive(Clone, Eq, PartialEq, RuntimeDebug, MaxEncodedLen)]
 pub enum Data {
     /// No data here.
     None,
-    /// The data is stored directly.
+    /// The data is stored directly (up to 128 bytes).
     Raw(BoundedVec<u8, ConstU32<128>>),
     /// Only the Blake2 hash of the data is stored. The preimage of the hash may be retrieved
     /// through some hash-lookup service.
@@ -60,8 +63,7 @@ pub enum Data {
     },
     /// Flag to trigger bonds reset for subnet
     ResetBondsFlag,
-
-    /// A "larger" raw blob, up to 512 bytes, encoded via standard SCALE in this arm.
+    /// The data is stored directly (up to 512 bytes).
     BigRaw(BoundedVec<u8, ConstU32<MAX_BIGRAW_COMMITMENT_SIZE_BYTES>>),
 }
 
