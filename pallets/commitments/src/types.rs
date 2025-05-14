@@ -37,7 +37,7 @@ use subtensor_macros::freeze_struct;
 /// - A cryptographic hash (BlakeTwo256, Sha256, Keccak256, ShaThree256)
 /// - A timelock-encrypted blob with a reveal round
 /// - A reset flag (`ResetBondsFlag`)
-/// Can also be `None`.
+///   Can also be `None`.
 #[derive(Clone, Eq, PartialEq, RuntimeDebug, MaxEncodedLen)]
 pub enum Data {
     /// No data here.
