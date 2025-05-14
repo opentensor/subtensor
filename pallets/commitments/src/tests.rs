@@ -51,8 +51,7 @@ fn manual_data_type_info() {
             if !variant.fields.is_empty() {
                 let expected_len = match data {
                     Data::None => 0,
-                    Data::Raw(bytes)
-                    | Data::BigRaw(bytes) => bytes.len() as u32,
+                    Data::Raw(bytes) | Data::BigRaw(bytes) => bytes.len() as u32,
                     Data::BlakeTwo256(_)
                     | Data::Sha256(_)
                     | Data::Keccak256(_)

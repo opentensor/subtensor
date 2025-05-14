@@ -117,7 +117,8 @@ impl Decode for Data {
             }
             135 => Data::ResetBondsFlag,
             136 => {
-                let bigvec = BoundedVec::<u8, ConstU32<MAX_BIGRAW_COMMITMENT_SIZE_BYTES>>::decode(input)?;
+                let bigvec =
+                    BoundedVec::<u8, ConstU32<MAX_BIGRAW_COMMITMENT_SIZE_BYTES>>::decode(input)?;
                 Data::BigRaw(bigvec)
             }
             _ => return Err(codec::Error::from("invalid leading byte")),
@@ -342,8 +343,9 @@ impl TypeInfo for Data {
             })
             .variant("ResetBondsFlag", |v| v.index(135))
             .variant("BigRaw", |v| {
-                v.index(136)
-                 .fields(Fields::unnamed().field(|f| f.ty::<BoundedVec<u8, ConstU32<MAX_BIGRAW_COMMITMENT_SIZE_BYTES>>>()))
+                v.index(136).fields(Fields::unnamed().field(|f| {
+                    f.ty::<BoundedVec<u8, ConstU32<MAX_BIGRAW_COMMITMENT_SIZE_BYTES>>>()
+                }))
             });
 
         Type::builder()
