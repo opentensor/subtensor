@@ -91,7 +91,7 @@ impl<T: Config> SwapStep<T> {
     /// in terms of order direction.
     ///    For buying:  price1 <= price2
     ///    For selling: price1 >= price2
-    /// 
+    ///
     fn price_is_closer(&self, price1: &SqrtPrice, price2: &SqrtPrice) -> bool {
         match self.order_type {
             OrderType::Buy => price1 <= price2,
@@ -101,7 +101,7 @@ impl<T: Config> SwapStep<T> {
 
     /// Determine the appropriate action for this swap step
     fn determine_action(&mut self) {
-        // Calculate the stopping price: The price at which we either reach the limit price, 
+        // Calculate the stopping price: The price at which we either reach the limit price,
         // exchange the full amount, or reach the edge price.
 
         if self.price_is_closer(&self.sqrt_price_target, &self.sqrt_price_limit) && self.price_is_closer(&self.sqrt_price_target, &self.sqrt_price_edge) {
@@ -135,7 +135,7 @@ impl<T: Config> SwapStep<T> {
         }
 
         // Now correct the action if we stopped exactly at the edge no matter what was the case above
-        // Because order type buy moves the price up and tick semi-open interval doesn't include its right 
+        // Because order type buy moves the price up and tick semi-open interval doesn't include its right
         // point, we cross on buys and stop on sells.
         let natural_reason_stop_price = if self.price_is_closer(&self.sqrt_price_limit, &self.sqrt_price_target) {
             self.sqrt_price_limit
@@ -173,10 +173,9 @@ impl<T: Config> SwapStep<T> {
                 OrderType::Sell => {
                     Pallet::<T>::find_closest_lower_active_tick(self.netuid, current_tick_index)
                 }
-                OrderType::Buy => Pallet::<T>::find_closest_higher_active_tick(
-                    self.netuid,
-                    current_tick_index,
-                ),
+                OrderType::Buy => {
+                    Pallet::<T>::find_closest_higher_active_tick(self.netuid, current_tick_index)
+                }
             }
             .ok_or(Error::<T>::InsufficientLiquidity)?;
 
@@ -490,29 +489,39 @@ impl<T: Config> Pallet<T> {
         // Using safe math operations throughout to prevent overflows
         let result = match order_type {
             OrderType::Sell => {
-                // TODO: This needs to be reimplemented in full precision non-overflowing math:
-                let a = liquidity_curr / (liquidity_curr / sqrt_price_curr + delta_fixed);
-                let b = a * sqrt_price_curr;
-                let c = delta_fixed * b;
-                c
+                // liquidity_curr / (liquidity_curr / sqrt_price_curr + delta_fixed);
+                let denom = liquidity_curr
+                    .safe_div(sqrt_price_curr)
+                    .saturating_add(delta_fixed);
+                let a = liquidity_curr.safe_div(denom);
+                // a * sqrt_price_curr;
+                let b = a.saturating_mul(sqrt_price_curr);
+
+                // delta_fixed * b;
+                delta_fixed.saturating_mul(b)
             }
             OrderType::Buy => {
-                let a = (liquidity_curr * sqrt_price_curr + delta_fixed) * sqrt_price_curr;
-                let b = liquidity_curr / a;
-                let c = b * delta_fixed;
-                c
+                // (liquidity_curr * sqrt_price_curr + delta_fixed) * sqrt_price_curr;
+                let a = liquidity_curr
+                    .saturating_mul(sqrt_price_curr)
+                    .saturating_add(delta_fixed)
+                    .saturating_mul(sqrt_price_curr);
+                // liquidity_curr / a;
+                let b = liquidity_curr.safe_div(a);
+                // b * delta_fixed;
+                b.saturating_mul(delta_fixed)
             }
         };
 
-        result.to_num::<u64>()
+        result.saturating_to_num::<u64>()
     }
 
     /// Get the target square root price based on the input amount
-    /// 
+    ///
     /// This is the price that would be reached if
     ///    - There are no liquidity positions other than protocol liquidity
     ///    - Full delta_in amount is executed
-    /// 
+    ///
     fn sqrt_price_target(
         order_type: OrderType,
         liquidity_curr: U64F64,
@@ -816,10 +825,12 @@ impl<T: Config> Pallet<T> {
         };
 
         // Calculate token amounts for the liquidity change
-        // TODO: Rewrite in non-overflowing math
-        let alpha = SqrtPrice::from_num(delta_liquidity_abs)
-            * (SqrtPrice::from_num(1) / sqrt_price_box - SqrtPrice::from_num(1) / sqrt_pb);
-        let tao = SqrtPrice::from_num(delta_liquidity_abs) * (sqrt_price_box - sqrt_pa);
+        let mul = SqrtPrice::from_num(1)
+            .safe_div(sqrt_price_box)
+            .saturating_sub(SqrtPrice::from_num(1).safe_div(sqrt_pb));
+        let alpha = SqrtPrice::saturating_from_num(delta_liquidity_abs).saturating_mul(mul);
+        let tao = SqrtPrice::saturating_from_num(delta_liquidity_abs)
+            .saturating_mul(sqrt_price_box.saturating_sub(sqrt_pa));
 
         // Validate delta
         if liquidity_delta > 0 {
@@ -1153,12 +1164,23 @@ mod tests {
         let netuid = NetUid::from(1);
         assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
         let current_price_sqrt = AlphaSqrtPrice::<Test>::get(netuid);
-        let tick_index_for_current_price_low = TickIndex::try_from_sqrt_price(current_price_sqrt).unwrap();
-        let tick_index_for_current_price_high = tick_index_for_current_price_low.next().unwrap().next().unwrap();
+        let tick_index_for_current_price_low =
+            TickIndex::try_from_sqrt_price(current_price_sqrt).unwrap();
+        let tick_index_for_current_price_high = tick_index_for_current_price_low
+            .next()
+            .unwrap()
+            .next()
+            .unwrap();
 
         // Low and high prices that match to a lower and higher tick that doesn't contain the current price
-        let current_price_low_sqrt = TickIndex::try_to_sqrt_price(&tick_index_for_current_price_low).unwrap().to_num::<f64>();
-        let current_price_high_sqrt = TickIndex::try_to_sqrt_price(&tick_index_for_current_price_high).unwrap().to_num::<f64>();
+        let current_price_low_sqrt =
+            TickIndex::try_to_sqrt_price(&tick_index_for_current_price_low)
+                .unwrap()
+                .to_num::<f64>();
+        let current_price_high_sqrt =
+            TickIndex::try_to_sqrt_price(&tick_index_for_current_price_high)
+                .unwrap()
+                .to_num::<f64>();
         let current_price_low = current_price_low_sqrt * current_price_low_sqrt;
         let current_price_high = current_price_high_sqrt * current_price_high_sqrt;
 
@@ -1269,9 +1291,21 @@ mod tests {
                     4_000_000_000_u64,
                 ),
                 // Repeat the protocol liquidity at current to max range: Expect the same alpha
-                (current_price_high, max_price, 2_000_000_000_u64, 0, 4_000_000_000),
+                (
+                    current_price_high,
+                    max_price,
+                    2_000_000_000_u64,
+                    0,
+                    4_000_000_000,
+                ),
                 // Repeat the protocol liquidity at min to current range: Expect all the same tao
-                (min_price, current_price_low, 2_000_000_000_u64, 1_000_000_000, 0),
+                (
+                    min_price,
+                    current_price_low,
+                    2_000_000_000_u64,
+                    1_000_000_000,
+                    0,
+                ),
                 // Half to double price - just some sane wothdraw amounts
                 (0.125, 0.5, 2_000_000_000_u64, 293_000_000, 1_171_000_000),
                 // Both below price - tao is non-zero, alpha is zero
@@ -1479,9 +1513,21 @@ mod tests {
                     4_000_000_000_u64,
                 ),
                 // Repeat the protocol liquidity at current to max range: Expect the same alpha
-                (current_price_high, max_price, 2_000_000_000_u64, 0, 4_000_000_000),
+                (
+                    current_price_high,
+                    max_price,
+                    2_000_000_000_u64,
+                    0,
+                    4_000_000_000,
+                ),
                 // Repeat the protocol liquidity at min to current range: Expect all the same tao
-                (min_price, current_price_low, 2_000_000_000_u64, 1_000_000_000, 0),
+                (
+                    min_price,
+                    current_price_low,
+                    2_000_000_000_u64,
+                    1_000_000_000,
+                    0,
+                ),
                 // Half to double price - just some sane wothdraw amounts
                 (0.125, 0.5, 2_000_000_000_u64, 293_000_000, 1_171_000_000),
                 // Both below price - tao is non-zero, alpha is zero
@@ -1592,7 +1638,12 @@ mod tests {
             // Test case is (price_low, price_high, liquidity, tao, alpha)
             [
                 // Repeat the protocol liquidity at current to max range: Expect the same alpha
-                (current_price_high, max_price, 2_000_000_000_u64, 4_000_000_000),
+                (
+                    current_price_high,
+                    max_price,
+                    2_000_000_000_u64,
+                    4_000_000_000,
+                ),
             ]
             .into_iter()
             .enumerate()
@@ -1851,9 +1902,17 @@ mod tests {
                 2_000_000_000_u64,
             ),
             // Repeat the protocol liquidity at current to max range
-            (current_price_high - current_price, max_price - current_price, 2_000_000_000_u64),
+            (
+                current_price_high - current_price,
+                max_price - current_price,
+                2_000_000_000_u64,
+            ),
             // Repeat the protocol liquidity at min to current range
-            (min_price - current_price, current_price_low - current_price, 2_000_000_000_u64),
+            (
+                min_price - current_price,
+                current_price_low - current_price,
+                2_000_000_000_u64,
+            ),
             // Half to double price
             (-0.125, 0.25, 2_000_000_000_u64),
             // A few other price ranges and liquidity volumes
@@ -2035,7 +2094,9 @@ mod tests {
 
                         // Expected fee amount
                         let fee_rate = FeeRate::<Test>::get(netuid) as f64 / u16::MAX as f64;
-                        let expected_fee = (order_liquidity as f64 - order_liquidity as f64 / (1.0 + fee_rate)) as u64;
+                        let expected_fee = (order_liquidity as f64
+                            - order_liquidity as f64 / (1.0 + fee_rate))
+                            as u64;
 
                         // Global fees should be updated
                         let actual_global_fee = ((match order_type {
@@ -2297,6 +2358,74 @@ mod tests {
 
             let roundtrip_tick = TickIndex::try_from_sqrt_price(round_trip_price).unwrap();
             assert!(tick == roundtrip_tick);
+        });
+    }
+
+    #[test]
+    fn test_convert_deltas() {
+        new_test_ext().execute_with(|| {
+            let netuid = NetUid::from(1);
+            assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+
+            for (sqrt_price, delta_in, expected_buy, expected_sell) in [
+                (SqrtPrice::from_num(1.5), 1, 0, 2),
+                (SqrtPrice::from_num(1.5), 10000, 4444, 22500),
+                (SqrtPrice::from_num(1.5), 1000000, 444444, 2250000),
+                (
+                    SqrtPrice::from_num(1.5),
+                    u64::MAX,
+                    2000000000000,
+                    3000000000000,
+                ),
+                (
+                    TickIndex::MIN.to_sqrt_price_bounded(),
+                    1,
+                    18406523739291577836,
+                    465,
+                ),
+                (TickIndex::MIN.to_sqrt_price_bounded(), 10000, u64::MAX, 465),
+                (
+                    TickIndex::MIN.to_sqrt_price_bounded(),
+                    1000000,
+                    u64::MAX,
+                    465,
+                ),
+                (
+                    TickIndex::MIN.to_sqrt_price_bounded(),
+                    u64::MAX,
+                    u64::MAX,
+                    464,
+                ),
+                (
+                    TickIndex::MAX.to_sqrt_price_bounded(),
+                    1,
+                    0,
+                    18406523745214495085,
+                ),
+                (TickIndex::MAX.to_sqrt_price_bounded(), 10000, 0, u64::MAX),
+                (TickIndex::MAX.to_sqrt_price_bounded(), 1000000, 0, u64::MAX),
+                (
+                    TickIndex::MAX.to_sqrt_price_bounded(),
+                    u64::MAX,
+                    2000000000000,
+                    u64::MAX,
+                ),
+            ] {
+                {
+                    AlphaSqrtPrice::<Test>::insert(netuid, sqrt_price);
+
+                    assert_abs_diff_eq!(
+                        Pallet::<Test>::convert_deltas(netuid, OrderType::Sell, delta_in),
+                        expected_sell,
+                        epsilon = 2
+                    );
+                    assert_abs_diff_eq!(
+                        Pallet::<Test>::convert_deltas(netuid, OrderType::Buy, delta_in),
+                        expected_buy,
+                        epsilon = 2
+                    );
+                }
+            }
         });
     }
 }

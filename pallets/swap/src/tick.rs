@@ -1035,7 +1035,6 @@ fn get_tick_at_sqrt_ratio(sqrt_price_x_96: U256) -> Result<i32, TickMathError> {
 ///
 /// # Returns
 /// * `Result<U64F64, TickMathError>` - Converted value or error if too large
-#[allow(dead_code)]
 fn u256_to_u64f64(value: U256, source_fractional_bits: u32) -> Result<U64F64, TickMathError> {
     if value > U256::from(u128::MAX) {
         return Err(TickMathError::ConversionError);
