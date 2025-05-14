@@ -40,7 +40,7 @@ pub enum Data {
     /// No data here.
     None,
     /// The data is stored directly.
-    Raw(BoundedVec<u8, ConstU32<512>>),
+    Raw(BoundedVec<u8, ConstU32<128>>),
     /// Only the Blake2 hash of the data is stored. The preimage of the hash may be retrieved
     /// through some hash-lookup service.
     BlakeTwo256([u8; 32]),
@@ -60,6 +60,9 @@ pub enum Data {
     },
     /// Flag to trigger bonds reset for subnet
     ResetBondsFlag,
+
+    /// A "larger" raw blob, up to 512 bytes, encoded via standard SCALE in this arm.
+    BigRaw(BoundedVec<u8, ConstU32<MAX_BIGRAW_COMMITMENT_SIZE_BYTES>>),
 }
 
 impl Data {
@@ -82,6 +85,7 @@ impl Data {
             | Data::ShaThree256(arr) => arr.len() as u64,
             Data::TimelockEncrypted { encrypted, .. } => encrypted.len() as u64,
             Data::ResetBondsFlag => 0,
+            Data::BigRaw(bytes) => bytes.len() as u64,
         }
     }
 }
@@ -112,6 +116,10 @@ impl Decode for Data {
                 }
             }
             135 => Data::ResetBondsFlag,
+            136 => {
+                let bigvec = BoundedVec::<u8, ConstU32<MAX_BIGRAW_COMMITMENT_SIZE_BYTES>>::decode(input)?;
+                Data::BigRaw(bigvec)
+            }
             _ => return Err(codec::Error::from("invalid leading byte")),
         })
     }
@@ -141,6 +149,11 @@ impl Encode for Data {
                 r
             }
             Data::ResetBondsFlag => vec![135],
+            Data::BigRaw(bigvec) => {
+                let mut r = vec![136];
+                r.extend_from_slice(&bigvec.encode());
+                r
+            }
         }
     }
 }
@@ -327,7 +340,11 @@ impl TypeInfo for Data {
                         .field(|f| f.name("reveal_round").ty::<u64>()),
                 )
             })
-            .variant("ResetBondsFlag", |v| v.index(135));
+            .variant("ResetBondsFlag", |v| v.index(135))
+            .variant("BigRaw", |v| {
+                v.index(136)
+                 .fields(Fields::unnamed().field(|f| f.ty::<BoundedVec<u8, ConstU32<MAX_BIGRAW_COMMITMENT_SIZE_BYTES>>>()))
+            });
 
         Type::builder()
             .path(Path::new("Data", module_path!()))
@@ -354,6 +371,7 @@ pub struct CommitmentInfo<FieldLimit: Get<u32>> {
 
 /// Maximum size of the serialized timelock commitment in bytes
 pub const MAX_TIMELOCK_COMMITMENT_SIZE_BYTES: u32 = 1024;
+pub const MAX_BIGRAW_COMMITMENT_SIZE_BYTES: u32 = 512;
 
 /// Contains the decrypted data of a revealed commitment.
 #[freeze_struct("bf575857b57f9bef")]
