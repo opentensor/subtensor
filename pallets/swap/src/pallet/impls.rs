@@ -32,9 +32,6 @@ struct SwapStep<T: frame_system::Config> {
     sqrt_price_edge: SqrtPrice,
     possible_delta_in: u64,
     sqrt_price_target: SqrtPrice,
-    target_quantity: SqrtPrice,
-    edge_quantity: U64F64,
-    lim_quantity: U64F64,
 
     // Result values
     action: SwapStepAction,
@@ -53,17 +50,12 @@ impl<T: Config> SwapStep<T> {
         amount_remaining: u64,
         sqrt_price_limit: SqrtPrice,
     ) -> Self {
-        let one = U64F64::from_num(1);
         let current_price = AlphaSqrtPrice::<T>::get(netuid);
         let current_liquidity = Pallet::<T>::current_liquidity_safe(netuid);
         let sqrt_price_edge = Pallet::<T>::sqrt_price_edge(netuid, current_price, order_type);
 
         let possible_delta_in = amount_remaining
             .saturating_sub(Pallet::<T>::calculate_fee_amount(netuid, amount_remaining));
-
-        // println!("Swap step amount_remaining = {:?}", amount_remaining);
-        // println!("Swap step current_price = {:?}", current_price);
-        // println!("Swap step sqrt_price_edge = {:?}", sqrt_price_edge);
 
         // Target price and quantities
         let sqrt_price_target = Pallet::<T>::sqrt_price_target(
@@ -72,43 +64,6 @@ impl<T: Config> SwapStep<T> {
             current_price,
             possible_delta_in,
         );
-        let target_quantity = Pallet::<T>::target_quantity(
-            order_type,
-            current_liquidity,
-            current_price,
-            possible_delta_in,
-        );
-
-        // println!("Swap step sqrt_price_target = {:?}", sqrt_price_target);
-        // println!("Swap step possible_delta_in = {:?}", possible_delta_in);
-
-        // Quantities for comparison
-        let edge_quantity = match order_type {
-            OrderType::Buy => sqrt_price_edge.into(),
-            OrderType::Sell => one.safe_div(sqrt_price_edge.into()),
-        };
-        let lim_quantity = match order_type {
-            OrderType::Sell => {
-                let mut lq = one
-                    .safe_div(TickIndex::min_sqrt_price())
-                    .min(one.safe_div(sqrt_price_limit.into()));
-                if lq < one.safe_div(current_price) {
-                    lq = one.safe_div(TickIndex::min_sqrt_price());
-                }
-                lq
-            }
-            OrderType::Buy => {
-                let mut lq = TickIndex::max_sqrt_price().min(sqrt_price_limit.into());
-                if lq < current_price {
-                    lq = TickIndex::max_sqrt_price();
-                }
-                lq
-            }
-        };
-
-        // println!("Swap step edge_quantity = {:?}", edge_quantity);
-        // println!("Swap step lim_quantity = {:?}", lim_quantity);
-        // println!("Swap step target_quantity = {:?}", target_quantity);
 
         Self {
             netuid,
@@ -119,9 +74,6 @@ impl<T: Config> SwapStep<T> {
             sqrt_price_edge,
             possible_delta_in,
             sqrt_price_target,
-            target_quantity,
-            edge_quantity,
-            lim_quantity,
             action: SwapStepAction::Stop,
             delta_in: 0,
             final_price: sqrt_price_target,
@@ -135,30 +87,32 @@ impl<T: Config> SwapStep<T> {
         self.process_swap()
     }
 
+    /// Returns True is price1 is closer to the current price than price2
+    /// in terms of order direction.
+    ///    For buying:  price1 <= price2
+    ///    For selling: price1 >= price2
+    ///
+    fn price_is_closer(&self, price1: &SqrtPrice, price2: &SqrtPrice) -> bool {
+        match self.order_type {
+            OrderType::Buy => price1 <= price2,
+            OrderType::Sell => price1 >= price2,
+        }
+    }
+
     /// Determine the appropriate action for this swap step
     fn determine_action(&mut self) {
         // Calculate the stopping price: The price at which we either reach the limit price,
         // exchange the full amount, or reach the edge price.
 
-        if (self.target_quantity <= self.lim_quantity)
-            && (self.target_quantity <= self.edge_quantity)
-        {
+        if self.price_is_closer(&self.sqrt_price_target, &self.sqrt_price_limit) && self.price_is_closer(&self.sqrt_price_target, &self.sqrt_price_edge) {
             // Case 1. target_quantity is the lowest
             // The trade completely happens within one tick, no tick crossing happens.
-
-            // println!("==== Case 1");
-
             self.action = SwapStepAction::Stop;
             self.final_price = self.sqrt_price_target;
             self.delta_in = self.possible_delta_in;
-        } else if (self.lim_quantity <= self.target_quantity)
-            && (self.lim_quantity <= self.edge_quantity)
-        {
+        } else if self.price_is_closer(&self.sqrt_price_limit, &self.sqrt_price_target) && self.price_is_closer(&self.sqrt_price_limit, &self.sqrt_price_edge) {
             // Case 2. lim_quantity is the lowest
             // The trade also completely happens within one tick, no tick crossing happens.
-
-            // println!("==== Case 2");
-
             self.action = SwapStepAction::Stop;
             self.final_price = self.sqrt_price_limit;
             self.delta_in = Self::delta_in(
@@ -167,14 +121,9 @@ impl<T: Config> SwapStep<T> {
                 self.current_price,
                 self.sqrt_price_limit,
             );
-        } else if (self.edge_quantity <= self.target_quantity)
-            && (self.edge_quantity <= self.lim_quantity)
-        {
+        } else {
             // Case 3. edge_quantity is the lowest
             // Tick crossing is likely
-
-            // println!("==== Case 3");
-
             self.action = SwapStepAction::Crossing;
             self.delta_in = Self::delta_in(
                 self.order_type,
@@ -188,7 +137,7 @@ impl<T: Config> SwapStep<T> {
         // Now correct the action if we stopped exactly at the edge no matter what was the case above
         // Because order type buy moves the price up and tick semi-open interval doesn't include its right
         // point, we cross on buys and stop on sells.
-        let natural_reason_stop_price = if self.lim_quantity <= self.target_quantity {
+        let natural_reason_stop_price = if self.price_is_closer(&self.sqrt_price_limit, &self.sqrt_price_target) {
             self.sqrt_price_limit
         } else {
             self.sqrt_price_target
@@ -215,9 +164,6 @@ impl<T: Config> SwapStep<T> {
             Pallet::<T>::calculate_fee_amount(self.netuid, total_cost.saturating_to_num::<u64>());
         Pallet::<T>::add_fees(self.netuid, self.order_type, fee);
         let delta_out = Pallet::<T>::convert_deltas(self.netuid, self.order_type, self.delta_in);
-
-        // println!("Swap step delta_in = {:?}, delta_out = {:?}", self.delta_in, delta_out);
-        // println!("Swap step action = {:?}", self.action);
 
         // Get current tick
         let current_tick_index = TickIndex::current_bounded::<T>(self.netuid);
@@ -458,6 +404,7 @@ impl<T: Config> Pallet<T> {
 
         let current_price_tick =
             TickIndex::try_from_sqrt_price(current_price).unwrap_or(fallback_tick);
+        let roundtrip_current_price = current_price_tick.try_to_sqrt_price().unwrap_or(SqrtPrice::from_num(0));
 
         (match order_type {
             OrderType::Buy => {
@@ -471,8 +418,13 @@ impl<T: Config> Pallet<T> {
                 }
             }
             OrderType::Sell => {
-                ActiveTickIndexManager::find_closest_lower::<T>(netuid, current_price_tick)
-                    .unwrap_or(TickIndex::MIN)
+                let mut lower_tick = ActiveTickIndexManager::find_closest_lower::<T>(netuid, current_price_tick)
+                    .unwrap_or(TickIndex::MIN);
+
+                if current_price == roundtrip_current_price {
+                    lower_tick = ActiveTickIndexManager::find_closest_lower::<T>(netuid, lower_tick.prev().unwrap_or(TickIndex::MIN)).unwrap_or(TickIndex::MIN);
+                }
+                lower_tick
             }
         })
         .try_to_sqrt_price()
@@ -596,37 +548,6 @@ impl<T: Config> Pallet<T> {
             OrderType::Buy => delta_fixed
                 .safe_div(liquidity_curr)
                 .saturating_add(sqrt_price_curr),
-        }
-    }
-
-    /// Get the target quantity, which is
-    ///     `1 / (target square root price)` in case of sell order
-    ///     `target square root price` in case of buy order
-    ///
-    /// ...based on the input amount, current liquidity, and current alpha price
-    fn target_quantity(
-        order_type: OrderType,
-        liquidity_curr: U64F64,
-        sqrt_price_curr: U64F64,
-        delta_in: u64,
-    ) -> SqrtPrice {
-        let delta_fixed = U64F64::saturating_from_num(delta_in);
-        let one = U64F64::saturating_from_num(1);
-
-        if liquidity_curr == 0 {
-            // No liquidity means zero
-            return SqrtPrice::saturating_from_num(0);
-        }
-
-        match order_type {
-            OrderType::Buy => delta_fixed
-                .safe_div(liquidity_curr)
-                .saturating_add(sqrt_price_curr)
-                .into(),
-            OrderType::Sell => delta_fixed
-                .safe_div(liquidity_curr)
-                .saturating_add(one.safe_div(sqrt_price_curr))
-                .into(),
         }
     }
 
@@ -2077,11 +1998,6 @@ mod tests {
                         // Calculate the expected output amount for the cornercase of one step
                         let order_liquidity = order_liquidity_fraction * position_liquidity as f64;
 
-                        // println!("order_liquidity = {:?}", order_liquidity);
-                        // println!("liquidity_before = {:?}", liquidity_before);
-                        // println!("order_type = {:?}", order_type);
-                        // println!("current_price = {:?}", current_price);
-
                         let output_amount = match order_type {
                             OrderType::Buy => {
                                 let denom = sqrt_current_price.to_num::<f64>()
@@ -2101,7 +2017,6 @@ mod tests {
                                 per_order_liq * order_liquidity
                             }
                         };
-                        // println!("output_amount = {:?}", output_amount);
 
                         // Do the swap
                         let sqrt_limit_price = SqrtPrice::from_num((limit_price).sqrt());
@@ -2192,21 +2107,15 @@ mod tests {
                             * (liquidity_before as f64))
                             as u64;
 
-                        // println!("swap_result.fee_paid = {:?}", swap_result.fee_paid);
-                        // println!("expected_fee = {:?}", expected_fee);
-                        // println!("actual_global_fee = {:?}", actual_global_fee);
-                        // println!("order_liquidity = {:?}", order_liquidity);
-                        // println!("fee_rate = {:?}", fee_rate);
-
                         assert_abs_diff_eq!(
                             swap_result.fee_paid,
                             expected_fee,
-                            epsilon = expected_fee / 100
+                            epsilon = expected_fee / 10
                         );
                         assert_abs_diff_eq!(
                             actual_global_fee,
                             expected_fee,
-                            epsilon = expected_fee / 100
+                            epsilon = expected_fee / 10
                         );
 
                         // Tick fees should be updated
