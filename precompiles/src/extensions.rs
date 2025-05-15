@@ -9,7 +9,6 @@ use pallet_evm::{
     AddressMapping, BalanceConverter, EvmBalance, ExitError, GasWeightMapping, Precompile,
     PrecompileFailure, PrecompileHandle, PrecompileResult,
 };
-use pallet_evm_precompile_dispatch::Dispatch;
 use precompile_utils::EvmResult;
 use sp_core::{H160, U256, blake2_256};
 use sp_runtime::traits::Dispatchable;
@@ -138,8 +137,6 @@ pub(crate) trait PrecompileExt<AccountId: From<[u8; 32]>>: Precompile {
         R: frame_system::Config + pallet_admin_utils::Config,
     {
         if PrecompileEnable::<R>::get(&precompile_enum) {
-            // Some(Dispatch::<R>::execute(handle))
-
             Some(Self::execute(handle))
         } else {
             Some(Err(PrecompileFailure::Error {
