@@ -1993,7 +1993,7 @@ mod dispatches {
         #[pallet::weight((
             Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().reads_writes(2, 1)),
             DispatchClass::Operational,
-            Pays::Yes
+            Pays::No
         ))]
         pub fn associate_evm_key(
             origin: T::RuntimeOrigin,
