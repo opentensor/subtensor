@@ -6,6 +6,7 @@ use core::marker::PhantomData;
 
 use frame_support::{
     dispatch::{GetDispatchInfo, PostDispatchInfo},
+    pallet_prelude::Decode,
     traits::ConstU32,
 };
 use pallet_evm::{
@@ -42,8 +43,6 @@ mod subnet;
 mod uid_lookup;
 
 pub struct Precompiles<R>(PhantomData<R>);
-
-type DecodeLimit = ConstU32<8>;
 
 impl<R> Default for Precompiles<R>
 where
@@ -125,7 +124,10 @@ where
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
         + GetDispatchInfo
-        + Dispatchable<PostInfo = PostDispatchInfo>,
+        + Dispatchable<PostInfo = PostDispatchInfo>
+        + Decode,
+    <<R as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
+        From<Option<R::AccountId>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
