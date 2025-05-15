@@ -4,11 +4,15 @@ extern crate alloc;
 
 use core::marker::PhantomData;
 
-use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
+use frame_support::{
+    dispatch::{GetDispatchInfo, PostDispatchInfo},
+    traits::ConstU32,
+};
 use pallet_evm::{
     AddressMapping, IsPrecompileResult, Precompile, PrecompileHandle, PrecompileResult,
     PrecompileSet,
 };
+use pallet_evm_precompile_dispatch::Dispatch;
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;
 use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripemd160, Sha256};
@@ -38,6 +42,8 @@ mod subnet;
 mod uid_lookup;
 
 pub struct Precompiles<R>(PhantomData<R>);
+
+type DecodeLimit = ConstU32<8>;
 
 impl<R> Default for Precompiles<R>
 where
@@ -132,6 +138,7 @@ where
             a if a == hash(3) => Some(Ripemd160::execute(handle)),
             a if a == hash(4) => Some(Identity::execute(handle)),
             a if a == hash(5) => Some(Modexp::execute(handle)),
+            // a if a == hash(6) => Some(Dispatch::<R>::execute(handle)),
             // Non-Frontier specific nor Ethereum precompiles :
             a if a == hash(1024) => Some(Sha3FIPS256::execute(handle)),
             a if a == hash(1025) => Some(ECRecoverPublicKey::execute(handle)),
@@ -177,4 +184,63 @@ where
 
 fn hash(a: u64) -> H160 {
     H160::from_low_u64_be(a)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    struct A;
+    impl PrecompileHandle for A {
+        fn gas_limit(&self) -> Option<u64> {
+            Some(1000000)
+        }
+
+        fn code_address(&self) -> H160 {
+            hash(1)
+        }
+
+        fn input(&self) -> &[u8] {
+            &[0]
+        }
+
+        fn context(&self) -> &fp_evm::Context {
+            unimplemented!()
+        }
+
+        fn is_static(&self) -> bool {
+            false
+        }
+
+        fn remaining_gas(&self) -> u64 {
+            1000000
+        }
+        fn call(
+            &mut self,
+            to: H160,
+            transfer: Option<fp_evm::Transfer>,
+            input: Vec<u8>,
+            gas_limit: Option<u64>,
+            is_static: bool,
+            context: &fp_evm::Context,
+        ) -> (fp_evm::ExitReason, Vec<u8>) {
+            unimplemented!()
+        }
+        fn record_cost(&mut self, cost: u64) -> Result<(), fp_evm::ExitError> {
+            unimplemented!()
+        }
+    }
+
+    #[test]
+    fn test_hash() {
+        let a = A {};
+        let compiles = Precompiles::default();
+        let hash = compiles.execute(&mut a);
+        // assert_eq!(hash, H160::from_low_u64_be(1));
+    }
+
+    #[test]
+    fn test_hash_2() {
+        let hash = hash(2);
+        assert_eq!(hash, H160::from_low_u64_be(2));
+    }
 }

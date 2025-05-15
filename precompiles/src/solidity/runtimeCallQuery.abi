@@ -1,0 +1,34 @@
+[
+    {
+        "inputs": [
+            {
+                "internalType": "bytes",
+                "name": "call",
+                "type": "bytes"
+            }
+        ],
+        "name": "call",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes",
+                "name": "key",
+                "type": "bytes"
+            }
+        ],
+        "name": "query",
+        "outputs": [
+            {
+                "internalType": "bytes",
+                "name": "result",
+                "type": "bytes"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    }
+]

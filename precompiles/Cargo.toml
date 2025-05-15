@@ -18,6 +18,7 @@ frame-system = { workspace = true }
 log = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-evm = { workspace = true }
+pallet-evm-precompile-dispatch = { workspace = true }
 pallet-evm-precompile-modexp = { workspace = true }
 pallet-evm-precompile-sha3fips = { workspace = true }
 pallet-evm-precompile-simple = { workspace = true }
