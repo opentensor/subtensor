@@ -40,7 +40,7 @@ pub enum Data {
     /// No data here.
     None,
     /// The data is stored directly.
-    Raw(BoundedVec<u8, ConstU32<128>>),
+    Raw(BoundedVec<u8, ConstU32<512>>),
     /// Only the Blake2 hash of the data is stored. The preimage of the hash may be retrieved
     /// through some hash-lookup service.
     BlakeTwo256([u8; 32]),
@@ -163,9 +163,7 @@ impl TypeInfo for Data {
     type Identity = Self;
 
     fn type_info() -> Type {
-        let variants = Variants::new()
-            .variant("None", |v| v.index(0))
-            .variant("ResetBondsFlag", |v| v.index(135));
+        let variants = Variants::new().variant("None", |v| v.index(0));
 
         // create a variant for all sizes of Raw data from 0-32
         let variants = data_raw_variants!(
