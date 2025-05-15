@@ -2432,11 +2432,59 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
         SubnetAlphaIn::<T>::get(netuid)
     }
 
+    fn subnet_exist(netuid: u16) -> bool {
+        Self::if_subnet_exist(netuid)
+    }
+}
+
+impl<T: Config + pallet_balances::Config<Balance = u64>>
+    subtensor_swap_interface::BalanceOps<T::AccountId> for Pallet<T>
+{
     fn tao_balance(account_id: &T::AccountId) -> u64 {
         pallet_balances::Pallet::<T>::free_balance(account_id)
     }
 
     fn alpha_balance(netuid: u16, coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
         Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid)
+    }
+
+    fn increase_balance(coldkey: &T::AccountId, tao: u64) {
+        Self::add_balance_to_coldkey_account(&coldkey, tao)
+    }
+
+    fn decrease_balance(coldkey: &T::AccountId, tao: u64) -> Result<u64, DispatchError> {
+        Self::remove_balance_from_coldkey_account(&coldkey, tao)
+    }
+
+    fn increase_stake(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+        netuid: u16,
+        alpha: u64,
+    ) -> Result<(), DispatchError> {
+        ensure!(
+            Self::hotkey_account_exists(&hotkey),
+            Error::<T>::HotKeyAccountNotExists
+        );
+
+        Self::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid, alpha);
+
+        Ok(())
+    }
+
+    fn decrease_stake(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+        netuid: u16,
+        alpha: u64,
+    ) -> Result<u64, DispatchError> {
+        ensure!(
+            Self::hotkey_account_exists(&hotkey),
+            Error::<T>::HotKeyAccountNotExists
+        );
+
+        Ok(Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid, alpha,
+        ))
     }
 }
