@@ -79,7 +79,9 @@ impl<T: Config> Pallet<T> {
                 .saturating_mul(moving_price_i)
                 .checked_div(total_moving_prices)
                 .unwrap_or(asfloat!(0.0));
-            log::debug!("tao_in_i: {:?}", tao_in_i);
+            log::debug!("tao_in_i (before root proportion): {:?}", tao_in_i);
+            tao_in_i = Self::adjust_inbound_tao_for_root_proportion(*netuid_i, tao_in_i);
+            log::debug!("tao_in_i (post-root-proportion): {:?}", tao_in_i);
             // Get alpha_emission total
             let alpha_emission_i: U96F32 = asfloat!(
                 Self::get_block_emission_for_issuance(Self::get_alpha_issuance(*netuid_i))
@@ -971,5 +973,14 @@ impl<T: Config> Pallet<T> {
         }
 
         Ok(())
+    }
+
+    pub fn adjust_inbound_tao_for_root_proportion(netuid: u16, inbound_tao: U96F32) -> U96F32 {
+        let root_tao: U96F32 = asfloat!(SubnetTAO::<T>::get(0));
+        let root_stake: U96F32 = root_tao.saturating_mul(Self::get_tao_weight());
+        let netuid_tao: U96F32 = asfloat!(SubnetTAO::<T>::get(netuid));
+        let total_stake: U96F32 = root_stake.saturating_add(netuid_tao);
+        let root_proportion: U96F32 = root_stake.checked_div(total_stake).unwrap_or(asfloat!(1.0));
+        inbound_tao.saturating_mul(root_proportion)
     }
 }
