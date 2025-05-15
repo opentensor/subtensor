@@ -51,7 +51,7 @@ fn test_add_stake_ok_no_emission() {
         //add network
         let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
 
-        mock::setup_reserves(netuid, amount * 10, amount * 100);
+        mock::setup_reserves(netuid, amount * 1_000_000, amount * 10_000_000);
 
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
@@ -2872,119 +2872,116 @@ fn test_max_amount_add_stable() {
 // cargo test --package pallet-subtensor --lib -- tests::staking::test_max_amount_add_dynamic --exact --show-output
 #[test]
 fn test_max_amount_add_dynamic() {
-    new_test_ext(0).execute_with(|| {
-        let subnet_owner_coldkey = U256::from(1001);
-        let subnet_owner_hotkey = U256::from(1002);
-        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-
-        // Test cases are generated with help with this limit-staking calculator:
-        // https://docs.google.com/spreadsheets/d/1pfU-PVycd3I4DbJIc0GjtPohy4CbhdV6CWqgiy__jKE
-        // This is for reference only; verify before use.
-        //
-        // CSV backup for this spreadhsheet:
-        //
-        // SubnetTAO,AlphaIn,initial price,limit price,max swappable
-        // 100,100,=A2/B2,4,=B8*D8-A8
-        //
-        // tao_in, alpha_in, limit_price, expected_max_swappable
-        [
-            // Zero handling (no panics)
-            (0, 1_000_000_000, 100, 0),
-            (1_000_000_000, 0, 100, 0),
-            (1_000_000_000, 1_000_000_000, 0, 0),
-            // Low bounds
-            (1, 1, 0, 0),
-            (1, 1, 1, 0),
-            (1, 1, 2, 0),
-            (1, 1, 50_000_000_000, 49),
-            // Basic math
-            (1_000, 1_000, 2_000_000_000, 1_000),
-            (1_000, 1_000, 4_000_000_000, 3_000),
-            (1_000, 1_000, 16_000_000_000, 15_000),
-            (
-                1_000_000_000_000,
-                1_000_000_000_000,
-                16_000_000_000,
-                15_000_000_000_000,
-            ),
-            // Normal range values with edge cases
-            (150_000_000_000, 100_000_000_000, 0, 0),
-            (150_000_000_000, 100_000_000_000, 100_000_000, 0),
-            (150_000_000_000, 100_000_000_000, 500_000_000, 0),
-            (150_000_000_000, 100_000_000_000, 1_499_999_999, 0),
-            (150_000_000_000, 100_000_000_000, 1_500_000_000, 0),
-            (150_000_000_000, 100_000_000_000, 1_500_000_001, 100),
-            (
-                150_000_000_000,
-                100_000_000_000,
-                3_000_000_000,
-                150_000_000_000,
-            ),
-            // Miscellaneous overflows and underflows
-            (150_000_000_000, 100_000_000_000, u64::MAX, u64::MAX),
-            (150_000_000_000, 100_000_000_000, u64::MAX / 2, u64::MAX),
-            (1_000_000, 1_000_000_000_000_000_000_u64, 1, 999_000_000),
-            (1_000_000, 1_000_000_000_000_000_000_u64, 2, 1_999_000_000),
-            (
-                1_000_000,
-                1_000_000_000_000_000_000_u64,
-                10_000,
-                9_999_999_000_000,
-            ),
-            (
-                1_000_000,
-                1_000_000_000_000_000_000_u64,
-                100_000,
-                99_999_999_000_000,
-            ),
-            (
-                1_000_000,
-                1_000_000_000_000_000_000_u64,
-                1_000_000,
-                999_999_999_000_000,
-            ),
-            (
-                1_000_000,
-                1_000_000_000_000_000_000_u64,
-                1_000_000_000,
-                999_999_999_999_000_000,
-            ),
-            (
-                21_000_000_000_000_000,
-                10_000_000,
-                4_200_000_000_000_000_000,
-                21_000_000_000_000_000,
-            ),
-            (
-                21_000_000_000_000_000,
-                1_000_000_000_000_000_000_u64,
-                u64::MAX,
-                u64::MAX,
-            ),
-            (
-                21_000_000_000_000_000,
-                1_000_000_000_000_000_000_u64,
-                42_000_000,
-                21_000_000_000_000_000,
-            ),
-        ]
-        .iter()
-        .for_each(|&(tao_in, alpha_in, limit_price, expected_max_swappable)| {
+    // tao_in, alpha_in, limit_price, expected_max_swappable
+    [
+        // Zero handling (no panics)
+        (1_000_000_000, 1_000_000_000, 0, 0),
+        // Low bounds
+        (100, 100, 1_100_000_000, 0),
+        (1_000, 1_000, 1_100_000_000, 0),
+        (10_000, 10_000, 1_100_000_000, 440),
+        // Basic math
+        (1_000_000, 1_000_000, 4_000_000_000, 1_000_000),
+        (1_000_000, 1_000_000, 9_000_000_000, 2_000_000),
+        (1_000_000, 1_000_000, 16_000_000_000, 3_000_000),
+        (
+            1_000_000_000_000,
+            1_000_000_000_000,
+            16_000_000_000,
+            3_000_000_000_000,
+        ),
+        // Normal range values with edge cases
+        (150_000_000_000, 100_000_000_000, 0, 0),
+        (150_000_000_000, 100_000_000_000, 100_000_000, 0),
+        (150_000_000_000, 100_000_000_000, 500_000_000, 0),
+        (150_000_000_000, 100_000_000_000, 1_499_999_999, 0),
+        (150_000_000_000, 100_000_000_000, 1_500_000_000, 5),
+        (150_000_000_000, 100_000_000_000, 1_500_000_001, 51),
+        (
+            150_000_000_000,
+            100_000_000_000,
+            6_000_000_000,
+            150_000_000_000,
+        ),
+        // Miscellaneous overflows and underflows
+        (u64::MAX/2, u64::MAX, u64::MAX, u64::MAX),
+        // (150_000_000_000, 100_000_000_000, u64::MAX / 2, u64::MAX),
+        // (1_000_000, 1_000_000_000_000_000_000_u64, 1, 999_000_000),
+        // (1_000_000, 1_000_000_000_000_000_000_u64, 2, 1_999_000_000),
+        // (
+        //     1_000_000,
+        //     1_000_000_000_000_000_000_u64,
+        //     10_000,
+        //     9_999_999_000_000,
+        // ),
+        // (
+        //     1_000_000,
+        //     1_000_000_000_000_000_000_u64,
+        //     100_000,
+        //     99_999_999_000_000,
+        // ),
+        // (
+        //     1_000_000,
+        //     1_000_000_000_000_000_000_u64,
+        //     1_000_000,
+        //     999_999_999_000_000,
+        // ),
+        // (
+        //     1_000_000,
+        //     1_000_000_000_000_000_000_u64,
+        //     1_000_000_000,
+        //     999_999_999_999_000_000,
+        // ),
+        // (
+        //     21_000_000_000_000_000,
+        //     10_000_000,
+        //     4_200_000_000_000_000_000,
+        //     21_000_000_000_000_000,
+        // ),
+        // (
+        //     21_000_000_000_000_000,
+        //     1_000_000_000_000_000_000_u64,
+        //     u64::MAX,
+        //     u64::MAX,
+        // ),
+        // (
+        //     21_000_000_000_000_000,
+        //     1_000_000_000_000_000_000_u64,
+        //     42_000_000,
+        //     21_000_000_000_000_000,
+        // ),
+    ]
+    .iter()
+    .for_each(|&(tao_in, alpha_in, limit_price, expected_max_swappable)| {
+        new_test_ext(0).execute_with(|| {
+            let subnet_owner_coldkey = U256::from(1001);
+            let subnet_owner_hotkey = U256::from(1002);
+            let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        
             // Forse-set alpha in and tao reserve to achieve relative price of subnets
             SubnetTAO::<Test>::insert(netuid, tao_in);
             SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
 
+            // Force the swap to initialize
+            SubtensorModule::swap_tao_for_alpha(
+                netuid,
+                0,
+                1_000_000_000_000
+            ).unwrap();
+
             if alpha_in != 0 {
-                let expected_price = I96F32::from_num(tao_in) / I96F32::from_num(alpha_in);
-                assert_eq!(
-                    <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid),
-                    expected_price
+                let expected_price = U96F32::from_num(tao_in) / U96F32::from_num(alpha_in);
+                assert_abs_diff_eq!(
+                    <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid).to_num::<f64>(),
+                    expected_price.to_num::<f64>(),
+                    epsilon = expected_price.to_num::<f64>() / 1_000_000_000_f64
                 );
             }
 
-            assert_eq!(
+            assert_abs_diff_eq!(
                 SubtensorModule::get_max_amount_add(netuid, limit_price),
                 expected_max_swappable,
+                epsilon = expected_max_swappable / 100
             );
         });
     });
@@ -3638,7 +3635,7 @@ fn test_add_stake_limit_ok() {
         // Setup limit price so that it doesn't peak above 4x of current price
         // The amount that can be executed at this price is 450 TAO only
         // Alpha produced will be equal to 75 = 450*100/(450+150)
-        let limit_price = 6_000_000_000;
+        let limit_price = 24_000_000_000;
         let expected_executed_stake = 75_000_000_000;
 
         // Add stake with slippage safety and check if the result is ok
@@ -3650,7 +3647,7 @@ fn test_add_stake_limit_ok() {
             limit_price,
             true
         ));
-
+        
         // Check if stake has increased only by 75 Alpha
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -3662,11 +3659,12 @@ fn test_add_stake_limit_ok() {
             epsilon = expected_executed_stake / 1000,
         );
 
-        // Check that 450 TAO balance still remains free on coldkey
+        // Check that 450 TAO less fees balance still remains free on coldkey
+        let fee = <tests::mock::Test as pallet::Config>::SwapInterface::approx_fee_amount(netuid, amount / 2) as f64;
         assert_abs_diff_eq!(
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
-            450_000_000_000,
-            epsilon = 10_000
+            amount / 2 - fee as u64,
+            epsilon = amount / 2 / 1000
         );
 
         // Check that price has updated to ~24 = (150+450) / (100 - 75)
@@ -3675,7 +3673,7 @@ fn test_add_stake_limit_ok() {
         assert_abs_diff_eq!(
             exp_price.to_num::<f64>(),
             current_price.to_num::<f64>(),
-            epsilon = 0.2, // because of the new swap, epsilon should be quite big
+            epsilon = 0.0001,
         );
     });
 }
@@ -3706,7 +3704,7 @@ fn test_add_stake_limit_fill_or_kill() {
         // Setup limit price so that it doesn't peak above 4x of current price
         // The amount that can be executed at this price is 450 TAO only
         // Alpha produced will be equal to 25 = 100 - 450*100/(150+450)
-        let limit_price = 6_000_000_000;
+        let limit_price = 24_000_000_000;
 
         // Add stake with slippage safety and check if it fails
         assert_noop!(

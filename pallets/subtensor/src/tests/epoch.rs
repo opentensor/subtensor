@@ -560,17 +560,20 @@ fn test_1_graph() {
         let coldkey = U256::from(0);
         let hotkey = U256::from(0);
         let uid: u16 = 0;
-        let stake_amount: u64 = 1;
+        let stake_amount: u64 = 1_000_000_000;
         add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
         SubtensorModule::set_max_allowed_uids(netuid, 1);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_amount);
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_amount + ExistentialDeposit::get());
+        register_ok_neuron(netuid, hotkey, coldkey, 1);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
             netuid,
-            stake_amount,
-        );
-        SubtensorModule::append_neuron(netuid, &hotkey, 0);
+            stake_amount
+        ));
+
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
         run_to_block(1); // run to next block to ensure weights are set on nodes after their registration block
         assert_ok!(SubtensorModule::set_weights(

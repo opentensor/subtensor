@@ -45,6 +45,7 @@ pub trait SwapHandler<AccountId> {
 
 #[derive(Debug, PartialEq)]
 pub struct SwapResult {
+    pub amount_paid_in: u64,
     pub amount_paid_out: u64,
     pub fee_paid: u64,
     // calculated new tao/alpha reserves
@@ -69,4 +70,5 @@ pub trait LiquidityDataProvider<AccountId> {
         coldkey_account_id: &AccountId,
         hotkey_account_id: &AccountId,
     ) -> u64;
+    fn subnet_mechanism(netuid: u16) -> u16;
 }

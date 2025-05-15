@@ -57,6 +57,9 @@ impl<T: Config> SwapStep<T> {
         let possible_delta_in = amount_remaining
             .saturating_sub(Pallet::<T>::calculate_fee_amount(netuid, amount_remaining));
 
+        // println!("SwapStep::new order_type = {:?}", order_type);
+        // println!("SwapStep::new sqrt_price_limit = {:?}", sqrt_price_limit);
+
         // Target price and quantities
         let sqrt_price_target = Pallet::<T>::sqrt_price_target(
             order_type,
@@ -205,6 +208,7 @@ impl<T: Config> SwapStep<T> {
 
         Ok(SwapStepResult {
             amount_to_take: total_cost.saturating_to_num::<u64>(),
+            fee_paid: fee,
             delta_in: self.delta_in,
             delta_out,
         })
@@ -319,12 +323,11 @@ impl<T: Config> Pallet<T> {
 
         Self::maybe_initialize_v3(netuid)?;
 
-        // println!("swap_inner amount = {:?}", amount);
-
         let mut amount_remaining = amount;
         let mut amount_paid_out: u64 = 0;
         let mut iteration_counter: u16 = 0;
         let mut in_acc: u64 = 0;
+        let mut fee_acc: u64 = 0;
 
         // Swap one tick at a time until we reach one of the stop conditions
         while amount_remaining > 0 {
@@ -335,6 +338,7 @@ impl<T: Config> Pallet<T> {
             let swap_result = swap_step.execute()?;
 
             in_acc = in_acc.saturating_add(swap_result.delta_in);
+            fee_acc = fee_acc.saturating_add(swap_result.fee_paid);
             amount_remaining = amount_remaining.saturating_sub(swap_result.amount_to_take);
             amount_paid_out = amount_paid_out.saturating_add(swap_result.delta_out);
 
@@ -379,11 +383,10 @@ impl<T: Config> Pallet<T> {
             ),
         };
 
-        let fee_paid = amount.saturating_sub(in_acc);
-
         Ok(SwapResult {
+            amount_paid_in: in_acc,
             amount_paid_out,
-            fee_paid,
+            fee_paid: fee_acc,
             new_tao_reserve,
             new_alpha_reserve,
         })
@@ -1016,7 +1019,8 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
         should_rollback: bool,
     ) -> Result<SwapResult, DispatchError> {
         let sqrt_price_limit = SqrtPrice::saturating_from_num(price_limit)
-            .checked_sqrt(SqrtPrice::saturating_from_num(2))
+            .safe_div(SqrtPrice::saturating_from_num(1_000_000_000))
+            .checked_sqrt(SqrtPrice::saturating_from_num(0.0000000001))
             .ok_or(Error::<T>::PriceLimitExceeded)?;
 
         Self::do_swap(
@@ -1083,27 +1087,36 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
     }
 
     fn current_alpha_price(netuid: u16) -> U96F32 {
-        let sqrt_price = AlphaSqrtPrice::<T>::get(NetUid::from(netuid));
-        let tao_reserve = T::LiquidityDataProvider::tao_reserve(netuid);
-        let alpha_reserve = T::LiquidityDataProvider::alpha_reserve(netuid);
-
-        if sqrt_price == 0 && tao_reserve > 0 && alpha_reserve > 0 {
-            U96F32::saturating_from_num(tao_reserve)
-                .saturating_div(U96F32::saturating_from_num(alpha_reserve))
-        } else {
-            U96F32::saturating_from_num(sqrt_price.saturating_mul(sqrt_price))
+        match T::LiquidityDataProvider::subnet_mechanism(netuid) {
+            1 => {
+                let sqrt_price = AlphaSqrtPrice::<T>::get(NetUid::from(netuid));
+                let tao_reserve = T::LiquidityDataProvider::tao_reserve(netuid);
+                let alpha_reserve = T::LiquidityDataProvider::alpha_reserve(netuid);
+        
+                if sqrt_price == 0 && tao_reserve > 0 && alpha_reserve > 0 {
+                    U96F32::saturating_from_num(tao_reserve)
+                        .saturating_div(U96F32::saturating_from_num(alpha_reserve))
+                } else {
+                    U96F32::saturating_from_num(sqrt_price.saturating_mul(sqrt_price))
+                }
+            },
+            _ => {
+                U96F32::saturating_from_num(1)
+            }
         }
     }
 
     fn min_price() -> u64 {
         TickIndex::min_sqrt_price()
             .saturating_mul(TickIndex::min_sqrt_price())
+            .saturating_mul(SqrtPrice::saturating_from_num(1_000_000_000))
             .saturating_to_num()
     }
 
     fn max_price() -> u64 {
         TickIndex::max_sqrt_price()
             .saturating_mul(TickIndex::max_sqrt_price())
+            .saturating_mul(SqrtPrice::saturating_from_num(1_000_000_000))
             .saturating_round()
             .saturating_to_num()
     }
@@ -1112,6 +1125,7 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
 #[derive(Debug, PartialEq)]
 struct SwapStepResult {
     amount_to_take: u64,
+    fee_paid: u64,
     delta_in: u64,
     delta_out: u64,
 }

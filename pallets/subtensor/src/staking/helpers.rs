@@ -191,7 +191,7 @@ impl<T: Config> Pallet<T> {
                     coldkey,
                     netuid,
                     stake,
-                    T::SwapInterface::max_price(),
+                    T::SwapInterface::min_price(),
                 );
 
                 if let Ok(cleared_stake) = maybe_cleared_stake {

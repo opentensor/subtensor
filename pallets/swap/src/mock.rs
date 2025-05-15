@@ -105,6 +105,14 @@ impl LiquidityDataProvider<AccountId> for MockLiquidityProvider {
             1_000_000_000
         }
     }
+
+    fn subnet_mechanism(netuid: u16) -> u16 {
+        if netuid == 0 {
+            0
+        } else {
+            1
+        }
+    }
 }
 
 impl crate::pallet::Config for Test {

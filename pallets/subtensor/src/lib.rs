@@ -2439,4 +2439,8 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
     fn alpha_balance(netuid: u16, coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
         Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid)
     }
+
+    fn subnet_mechanism(netuid: u16) -> u16 {
+        SubnetMechanism::<T>::get(netuid)
+    }
 }

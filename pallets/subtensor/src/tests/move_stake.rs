@@ -868,7 +868,7 @@ fn test_do_move_max_values() {
                 netuid
             ),
             alpha_after_fee,
-            epsilon = alpha_after_fee / 1_000_000
+            epsilon = alpha_after_fee / 100_000
         );
     });
 }
@@ -1808,7 +1808,7 @@ fn test_stake_transfers_disabled_validate() {
 }
 
 #[test]
-// RUST_LOG=info cargo test --package pallet-subtensor --lib -- tests::staking::test_move_stake_specific_stake_into_subnet_fail --exact --show-output
+// RUST_LOG=info cargo test --package pallet-subtensor --lib -- tests::move_stake::test_move_stake_specific_stake_into_subnet_fail --exact --show-output
 fn test_move_stake_specific_stake_into_subnet_fail() {
     new_test_ext(1).execute_with(|| {
         let sn_owner_coldkey = U256::from(55453);

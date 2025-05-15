@@ -620,6 +620,7 @@ impl<T: Config> Pallet<T> {
         } else {
             // Step 3.b.1: Stable mechanism, just return the value 1:1
             Ok(SwapResult {
+                amount_paid_in: tao,
                 amount_paid_out: tao,
                 fee_paid: 0,
                 new_tao_reserve: 0,
@@ -652,6 +653,7 @@ impl<T: Config> Pallet<T> {
         } else {
             // Step 3.b.1: Stable mechanism, just return the value 1:1
             Ok(SwapResult {
+                amount_paid_in: alpha,
                 amount_paid_out: alpha,
                 fee_paid: 0,
                 new_tao_reserve: 0,
@@ -697,6 +699,7 @@ impl<T: Config> Pallet<T> {
         } else {
             // Step 3.b.1: Stable mechanism, just return the value 1:1
             Ok(SwapResult {
+                amount_paid_in: tao,
                 amount_paid_out: tao,
                 fee_paid: 0,
                 new_tao_reserve: 0,
@@ -743,6 +746,7 @@ impl<T: Config> Pallet<T> {
         } else {
             // Step 3.b.1: Stable mechanism, just return the value 1:1
             Ok(SwapResult {
+                amount_paid_in: alpha,
                 amount_paid_out: alpha,
                 fee_paid: 0,
                 new_tao_reserve: 0,
