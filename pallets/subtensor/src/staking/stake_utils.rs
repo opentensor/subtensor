@@ -607,16 +607,13 @@ impl<T: Config> Pallet<T> {
         let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
         // Step 2: Simulate swapping tao and attain alpha
         if mechanism_id == 1 {
-            let swap_result = T::SwapInterface::swap(
+            T::SwapInterface::swap(
                 netuid,
                 OrderType::Buy,
                 tao,
                 T::SwapInterface::max_price(),
                 true,
             )
-            .map_err(|_| Error::<T>::InsufficientLiquidity)?;
-
-            Ok(swap_result)
         } else {
             // Step 3.b.1: Stable mechanism, just return the value 1:1
             Ok(SwapResult {
@@ -640,16 +637,13 @@ impl<T: Config> Pallet<T> {
         let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
         // Step 2: Simulate swapping alpha and attain tao
         if mechanism_id == 1 {
-            let swap_result = T::SwapInterface::swap(
+            T::SwapInterface::swap(
                 netuid,
                 OrderType::Sell,
                 alpha,
                 T::SwapInterface::min_price(),
                 true,
             )
-            .map_err(|_| Error::<T>::InsufficientLiquidity)?;
-
-            Ok(swap_result)
         } else {
             // Step 3.b.1: Stable mechanism, just return the value 1:1
             Ok(SwapResult {
@@ -677,23 +671,23 @@ impl<T: Config> Pallet<T> {
 
             // update Alpha reserves.
             SubnetAlphaIn::<T>::set(netuid, swap_result.new_alpha_reserve);
-    
+
             // Increase Alpha outstanding.
             SubnetAlphaOut::<T>::mutate(netuid, |total| {
                 *total = total.saturating_add(swap_result.amount_paid_out);
             });
-    
+
             // update Tao reserves.
             SubnetTAO::<T>::set(netuid, swap_result.new_tao_reserve);
-    
+
             // Increase Total Tao reserves.
             TotalStake::<T>::mutate(|total| *total = total.saturating_add(tao));
-    
+
             // Increase total subnet TAO volume.
             SubnetVolume::<T>::mutate(netuid, |total| {
                 *total = total.saturating_add(tao.into());
             });
-    
+
             // Return the alpha received.
             Ok(swap_result)
         } else {
