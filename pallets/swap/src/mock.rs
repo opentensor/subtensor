@@ -92,6 +92,14 @@ impl LiquidityDataProvider<AccountId> for MockLiquidityProvider {
     fn subnet_exist(_netuid: u16) -> bool {
         true
     }
+
+    fn subnet_mechanism(netuid: u16) -> u16 {
+        if netuid == 0 {
+            0
+        } else {
+            1
+        }
+    }    
 }
 
 pub struct MockBalanceOps;

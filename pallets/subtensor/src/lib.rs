@@ -2435,6 +2435,10 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
     fn subnet_exist(netuid: u16) -> bool {
         Self::if_subnet_exist(netuid)
     }
+
+    fn subnet_mechanism(netuid: u16) -> u16 {
+        SubnetMechanism::<T>::get(netuid)
+    }    
 }
 
 impl<T: Config + pallet_balances::Config<Balance = u64>>
@@ -2486,5 +2490,5 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
         Ok(Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey, &coldkey, netuid, alpha,
         ))
-    }
+    }  
 }

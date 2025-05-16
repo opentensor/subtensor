@@ -276,6 +276,7 @@ impl pallet_subtensor_swap::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type AdminOrigin = EnsureRoot<AccountId>;
     type LiquidityDataProvider = SubtensorModule;
+    type BalanceOps = SubtensorModule;    
     type ProtocolId = SwapProtocolId;
     type MaxFeeRate = SwapMaxFeeRate;
     type MaxPositions = SwapMaxPositions;

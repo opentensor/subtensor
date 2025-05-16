@@ -25,6 +25,7 @@ pub trait SwapHandler<AccountId> {
 
 #[derive(Debug, PartialEq)]
 pub struct SwapResult {
+    pub amount_paid_in: u64,
     pub amount_paid_out: u64,
     pub fee_paid: u64,
     // calculated new tao/alpha reserves
@@ -44,6 +45,7 @@ pub trait LiquidityDataProvider<AccountId> {
     fn tao_reserve(netuid: u16) -> u64;
     fn alpha_reserve(netuid: u16) -> u64;
     fn subnet_exist(netuid: u16) -> bool;
+    fn subnet_mechanism(netuid: u16) -> u16;    
 }
 
 pub trait BalanceOps<AccountId> {

@@ -2202,53 +2202,55 @@ fn test_do_remove_stake_clears_pending_childkeys() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 0;
-        let child_netuid: u16 = 1;
+        let netuid: u16 = 1;
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
-        add_network(child_netuid, 13, 0);
-        register_ok_neuron(child_netuid, hotkey, coldkey, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 10_000_000_000_000);
 
         let reserve = 1_000_000_000_000_000;
         mock::setup_reserves(netuid, reserve, reserve);
-        mock::setup_reserves(child_netuid, reserve, reserve);
 
         // Set non-default value for childkey stake threshold
         StakeThreshold::<Test>::set(1_000_000_000_000);
 
-        let (_, fee) = mock::swap_tao_to_alpha(netuid, StakeThreshold::<Test>::get());
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
             netuid,
-            StakeThreshold::<Test>::get() + fee,
-        );
+            StakeThreshold::<Test>::get() * 2
+        ));
+
+        let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+
+        println!("StakeThreshold::<Test>::get() = {:?}", StakeThreshold::<Test>::get());
+        println!("alpha                         = {:?}", alpha);
 
         // Attempt to set child
         assert_ok!(SubtensorModule::do_schedule_children(
             RuntimeOrigin::signed(coldkey),
             hotkey,
-            child_netuid,
+            netuid,
             vec![(proportion, child)]
         ));
 
         // Check that pending child exists
-        let pending_before = PendingChildKeys::<Test>::get(child_netuid, hotkey);
+        let pending_before = PendingChildKeys::<Test>::get(netuid, hotkey);
         assert!(!pending_before.0.is_empty());
         assert!(pending_before.1 > 0);
 
         // Remove stake
-        let _ = SubtensorModule::do_remove_stake(
+        assert_ok!(SubtensorModule::do_remove_stake(
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            100_000_000_000,
-        );
+            alpha,
+        ));
 
         // Assert that pending child is removed
-        let pending_after = PendingChildKeys::<Test>::get(child_netuid, hotkey);
+        let pending_after = PendingChildKeys::<Test>::get(netuid, hotkey);
         close(
             pending_after.0.len() as u64,
             0,
@@ -2830,7 +2832,7 @@ fn test_childkey_take_drain() {
 
             // Add network, register hotkeys, and setup network parameters
             add_network(netuid, subnet_tempo, 0);
-            mock::setup_reserves(netuid, stake * 10, stake * 10);
+            mock::setup_reserves(netuid, stake * 10_000, stake * 10_000);
             register_ok_neuron(netuid, child_hotkey, child_coldkey, 0);
             register_ok_neuron(netuid, parent_hotkey, parent_coldkey, 1);
             register_ok_neuron(netuid, miner_hotkey, miner_coldkey, 1);
@@ -3056,7 +3058,7 @@ fn test_parent_child_chain_emission() {
         PendingEmission::<Test>::insert(netuid, 0);
 
         // Run epoch with emission value
-        SubtensorModule::run_coinbase(emission).unwrap();
+        SubtensorModule::run_coinbase(emission);
 
         // Log new stake
         let stake_a_new: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_a);

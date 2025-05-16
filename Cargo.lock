@@ -6393,6 +6393,7 @@ dependencies = [
  "sp-weights",
  "substrate-fixed",
  "subtensor-macros",
+ "subtensor-swap-interface",
 ]
 
 [[package]]

@@ -1,6 +1,6 @@
 use super::*;
 use substrate_fixed::types::I96F32;
-use subtensor_swap_interface::SwapHandler;
+use subtensor_swap_interface::{SwapHandler, OrderType};
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic add_stake: Adds stake to a hotkey account.
@@ -184,44 +184,12 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // Corner case: SubnetAlphaIn is zero. Staking can't happen, so max amount is zero.
-        let alpha_in = SubnetAlphaIn::<T>::get(netuid);
-        if alpha_in == 0 {
-            return 0;
-        }
-        let alpha_in_u128 = alpha_in as u128;
-
-        // Corner case: SubnetTAO is zero. Staking can't happen, so max amount is zero.
-        let tao_reserve = SubnetTAO::<T>::get(netuid);
-        if tao_reserve == 0 {
-            return 0;
-        }
-        let tao_reserve_u128 = tao_reserve as u128;
-
-        // Corner case: limit_price < current_price (price cannot decrease with staking)
-        let tao = 1_000_000_000_u128;
-        let limit_price_u128 = limit_price as u128;
-        if (limit_price_u128
-            < T::SwapInterface::current_alpha_price(netuid)
-                .saturating_to_num::<u128>()
-                .saturating_mul(tao))
-            || (limit_price == 0u64)
-        {
-            return 0;
-        }
-
-        // Main case: return limit_price * SubnetAlphaIn - SubnetTAO
-        // Non overflowing calculation: limit_price * alpha_in <= u64::MAX * u64::MAX <= u128::MAX
-        // May overflow result, then it will be capped at u64::MAX, which is OK because that matches balance u64 size.
-        let result = limit_price_u128
-            .saturating_mul(alpha_in_u128)
-            .checked_div(tao)
-            .unwrap_or(0)
-            .saturating_sub(tao_reserve_u128);
-        if result < u64::MAX as u128 {
-            result as u64
+        // Use reverting swap to estimate max limit amount
+        if let Ok(swap_result) = T::SwapInterface::swap(netuid, OrderType::Buy, u64::MAX, limit_price, true) {
+            swap_result.amount_paid_in.saturating_add(swap_result.fee_paid)
         } else {
-            u64::MAX
+            0
         }
     }
 }
+

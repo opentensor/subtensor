@@ -864,39 +864,56 @@ pub(crate) fn setup_reserves(netuid: u16, tao: u64, alpha: u64) {
 }
 
 pub(crate) fn swap_tao_to_alpha(netuid: u16, tao: u64) -> (u64, u64) {
-    let result = <Test as pallet::Config>::SwapInterface::swap(
-        netuid,
-        OrderType::Buy,
-        tao,
-        <Test as pallet::Config>::SwapInterface::max_price(),
-        true,
-    );
-
-    assert_ok!(&result);
-
-    let result = result.unwrap();
-
-    // we don't want to have silent 0 comparissons in tests
-    assert!(result.amount_paid_out > 0);
-
-    (result.amount_paid_out, result.fee_paid)
+    match netuid {
+        0 => {
+            (tao, 0)
+        },
+        _ => {
+            let result = <Test as pallet::Config>::SwapInterface::swap(
+                netuid,
+                OrderType::Buy,
+                tao,
+                <Test as pallet::Config>::SwapInterface::max_price(),
+                true,
+            );
+        
+            assert_ok!(&result);
+        
+            let result = result.unwrap();
+        
+            // we don't want to have silent 0 comparissons in tests
+            assert!(result.amount_paid_out > 0);
+        
+            (result.amount_paid_out, result.fee_paid)
+        }        
+    }
 }
 
 pub(crate) fn swap_alpha_to_tao(netuid: u16, alpha: u64) -> (u64, u64) {
-    let result = <Test as pallet::Config>::SwapInterface::swap(
-        netuid,
-        OrderType::Sell,
-        alpha,
-        <Test as pallet::Config>::SwapInterface::max_price(),
-        true,
-    );
+    match netuid {
+        0 => {
+            (alpha, 0)
+        },
+        _ => {
 
-    assert_ok!(&result);
+            println!("<Test as pallet::Config>::SwapInterface::min_price() = {:?}", <Test as pallet::Config>::SwapInterface::min_price());
 
-    let result = result.unwrap();
+            let result = <Test as pallet::Config>::SwapInterface::swap(
+                netuid,
+                OrderType::Sell,
+                alpha,
+                <Test as pallet::Config>::SwapInterface::min_price(),
+                true,
+            );
 
-    // we don't want to have silent 0 comparissons in tests
-    assert!(result.amount_paid_out > 0);
+            assert_ok!(&result);
 
-    (result.amount_paid_out, result.fee_paid)
+            let result = result.unwrap();
+
+            // we don't want to have silent 0 comparissons in tests
+            assert!(result.amount_paid_out > 0);
+
+            (result.amount_paid_out, result.fee_paid)
+        }
+    }
 }

@@ -1,5 +1,5 @@
 use super::*;
-use subtensor_swap_interface::SwapHandler;
+use subtensor_swap_interface::{SwapHandler, OrderType};
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
@@ -47,6 +47,8 @@ impl<T: Config> Pallet<T> {
             alpha_unstaked
         );
 
+        // println!("alpha to be unstaked = {:?}", alpha_unstaked);
+
         // 2. Validate the user input
         Self::validate_remove_stake(
             &coldkey,
@@ -63,14 +65,16 @@ impl<T: Config> Pallet<T> {
             &coldkey,
             netuid,
             alpha_unstaked,
-            T::SwapInterface::max_price(),
+            T::SwapInterface::min_price(),
         )?;
+
+        // println!("tao_unstaked = {:?}, alpha_unstaked = {:?}", tao_unstaked, alpha_unstaked);
 
         // 4. We add the balance to the coldkey. If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 
         // 5. If the stake is below the minimum, we clear the nomination from storage.
-        Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid)?;
+        Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
 
         // 6. Check if stake lowered below MinStake and remove Pending children if it did
         if Self::get_total_stake_for_hotkey(&hotkey) < StakeThreshold::<T>::get() {
@@ -161,7 +165,7 @@ impl<T: Config> Pallet<T> {
                 Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 
                 // If the stake is below the minimum, we clear the nomination from storage.
-                Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid)?;
+                Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
             }
         }
 
@@ -250,7 +254,7 @@ impl<T: Config> Pallet<T> {
                     total_tao_unstaked = total_tao_unstaked.saturating_add(tao_unstaked);
 
                     // If the stake is below the minimum, we clear the nomination from storage.
-                    Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid)?;
+                    Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
                 }
             }
         }
@@ -354,7 +358,7 @@ impl<T: Config> Pallet<T> {
         Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 
         // 6. If the stake is below the minimum, we clear the nomination from storage.
-        Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid)?;
+        Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
 
         // 7. Check if stake lowered below MinStake and remove Pending children if it did
         if Self::get_total_stake_for_hotkey(&hotkey) < StakeThreshold::<T>::get() {
@@ -380,53 +384,11 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // Corner case: SubnetAlphaIn is zero. Staking can't happen, so max amount is zero.
-        let alpha_in = SubnetAlphaIn::<T>::get(netuid);
-        if alpha_in == 0 {
-            return 0;
-        }
-        let alpha_in_u128 = alpha_in as u128;
-
-        // Corner case: SubnetTAO is zero. Staking can't happen, so max amount is zero.
-        let tao_reserve = SubnetTAO::<T>::get(netuid);
-        if tao_reserve == 0 {
-            return 0;
-        }
-        let tao_reserve_u128 = tao_reserve as u128;
-
-        // Corner case: limit_price == 0 (because there's division by limit price)
-        // => can sell all
-        if limit_price == 0 {
-            return u64::MAX;
-        }
-
-        // Corner case: limit_price >= current_price (price cannot increase with unstaking)
-        // No overflows: alpha_price * tao <= u64::MAX * u64::MAX
-        // Alpha price is U96F32 size, but it is calculated as u64/u64, so it never uses all 96 bits.
-        let limit_price_u128 = limit_price as u128;
-        let tao = 1_000_000_000_u128;
-        if limit_price_u128
-            >= tao_reserve_u128
-                .saturating_mul(tao)
-                .checked_div(alpha_in_u128)
-                .unwrap_or(0)
-        {
-            return 0;
-        }
-
-        // Main case: SubnetTAO / limit_price - SubnetAlphaIn
-        // Non overflowing calculation: tao_reserve * tao <= u64::MAX * u64::MAX <= u128::MAX
-        // May overflow result, then it will be capped at u64::MAX, which is OK because that matches Alpha u64 size.
-        let result = tao_reserve_u128
-            .saturating_mul(tao)
-            .checked_div(limit_price_u128)
-            .unwrap_or(0)
-            .saturating_sub(alpha_in_u128);
-
-        if result < u64::MAX as u128 {
-            result as u64
+        // Use reverting swap to estimate max limit amount
+        if let Ok(swap_result) = T::SwapInterface::swap(netuid, OrderType::Sell, u64::MAX, limit_price, true) {
+            swap_result.amount_paid_in.saturating_add(swap_result.fee_paid)
         } else {
-            u64::MAX
+            0
         }
     }
 }
