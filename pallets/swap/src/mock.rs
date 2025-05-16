@@ -1,6 +1,7 @@
 use core::num::NonZeroU64;
 
 use frame_support::construct_runtime;
+use frame_support::pallet_prelude::*;
 use frame_support::{
     PalletId, parameter_types,
     traits::{ConstU32, Everything},
@@ -11,7 +12,7 @@ use sp_runtime::{
     BuildStorage,
     traits::{BlakeTwo256, IdentityLookup},
 };
-use subtensor_swap_interface::LiquidityDataProvider;
+use subtensor_swap_interface::{BalanceOps, LiquidityDataProvider};
 
 construct_runtime!(
     pub enum Test {
@@ -88,6 +89,14 @@ impl LiquidityDataProvider<AccountId> for MockLiquidityProvider {
         }
     }
 
+    fn subnet_exist(_netuid: u16) -> bool {
+        true
+    }
+}
+
+pub struct MockBalanceOps;
+
+impl BalanceOps<AccountId> for MockBalanceOps {
     fn tao_balance(account_id: &AccountId) -> u64 {
         if *account_id == OK_COLDKEY_ACCOUNT_ID {
             100_000_000_000_000
@@ -105,12 +114,34 @@ impl LiquidityDataProvider<AccountId> for MockLiquidityProvider {
             1_000_000_000
         }
     }
+
+    fn increase_balance(_coldkey: &AccountId, _tao: u64) {}
+    fn decrease_balance(_coldkey: &AccountId, _tao: u64) -> Result<u64, DispatchError> {
+        Ok(0)
+    }
+    fn increase_stake(
+        _coldkey: &AccountId,
+        _hotkey: &AccountId,
+        _netuid: u16,
+        _alpha: u64,
+    ) -> Result<(), DispatchError> {
+        Ok(())
+    }
+    fn decrease_stake(
+        _coldkey: &AccountId,
+        _hotkey: &AccountId,
+        _netuid: u16,
+        _alpha: u64,
+    ) -> Result<u64, DispatchError> {
+        Ok(0)
+    }
 }
 
 impl crate::pallet::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type AdminOrigin = EnsureRoot<AccountId>;
     type LiquidityDataProvider = MockLiquidityProvider;
+    type BalanceOps = MockBalanceOps;
     type ProtocolId = SwapProtocolId;
     type MaxFeeRate = MaxFeeRate;
     type MaxPositions = MaxPositions;
