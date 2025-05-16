@@ -7,7 +7,6 @@ use core::marker::PhantomData;
 use frame_support::{
     dispatch::{GetDispatchInfo, PostDispatchInfo},
     pallet_prelude::Decode,
-    traits::ConstU32,
 };
 use pallet_evm::{
     AddressMapping, IsPrecompileResult, Precompile, PrecompileHandle, PrecompileResult,
@@ -30,6 +29,7 @@ use crate::extensions::*;
 use crate::metagraph::*;
 use crate::neuron::*;
 use crate::staking::*;
+use crate::storage_query::*;
 use crate::subnet::*;
 use crate::uid_lookup::*;
 
@@ -39,9 +39,9 @@ mod extensions;
 mod metagraph;
 mod neuron;
 mod staking;
+mod storage_query;
 mod subnet;
 mod uid_lookup;
-
 pub struct Precompiles<R>(PhantomData<R>);
 
 impl<R> Default for Precompiles<R>
@@ -91,13 +91,14 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 14] {
+    pub fn used_addresses() -> [H160; 16] {
         [
             hash(1),
             hash(2),
             hash(3),
             hash(4),
             hash(5),
+            hash(6),
             hash(1024),
             hash(1025),
             hash(Ed25519Verify::<R::AccountId>::INDEX),
@@ -107,6 +108,7 @@ where
             hash(MetagraphPrecompile::<R>::INDEX),
             hash(NeuronPrecompile::<R>::INDEX),
             hash(StakingPrecompileV2::<R>::INDEX),
+            hash(StorageQueryPrecompile::<R>::INDEX),
         ]
     }
 }
@@ -171,6 +173,9 @@ where
             }
             a if a == hash(UidLookupPrecompile::<R>::INDEX) => {
                 UidLookupPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::UidLookup)
+            }
+            a if a == hash(StorageQueryPrecompile::<R>::INDEX) => {
+                Some(StorageQueryPrecompile::<R>::execute(handle))
             }
             _ => None,
         }

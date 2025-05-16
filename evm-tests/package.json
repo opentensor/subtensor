@@ -1,11 +1,12 @@
 {
   "scripts": {
-    "test": "mocha --timeout 999999 --retries 3 --file src/setup.ts --require ts-node/register test/*test.ts"
+    "test": "mocha --timeout 999999 --file src/setup.ts --require ts-node/register test/runtime*test.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@polkadot-api/descriptors": "file:.papi/descriptors",
     "@polkadot-labs/hdkd": "^0.0.10",
     "@polkadot-labs/hdkd-helpers": "^0.0.11",
     "@polkadot/api": "15.1.1",
