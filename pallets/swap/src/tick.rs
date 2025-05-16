@@ -1028,36 +1028,6 @@ fn get_tick_at_sqrt_ratio(sqrt_price_x_96: U256) -> Result<i32, TickMathError> {
     Ok(tick)
 }
 
-/// Convert U256 to U64F64
-///
-/// # Arguments
-/// * `value` - The U256 value in Q64.96 format
-///
-/// # Returns
-/// * `Result<U64F64, TickMathError>` - Converted value or error if too large
-fn u256_to_u64f64(value: U256, source_fractional_bits: u32) -> Result<U64F64, TickMathError> {
-    if value > U256::from(u128::MAX) {
-        return Err(TickMathError::ConversionError);
-    }
-
-    let mut value: u128 = value
-        .try_into()
-        .map_err(|_| TickMathError::ConversionError)?;
-
-    // Adjust to 64 fractional bits (U64F64 format)
-    if source_fractional_bits < 64 {
-        // Shift left to add more fractional bits
-        value = value
-            .checked_shl(64 - source_fractional_bits)
-            .ok_or(TickMathError::Overflow)?;
-    } else if source_fractional_bits > 64 {
-        // Shift right to remove excess fractional bits
-        value = value >> (source_fractional_bits - 64);
-    }
-
-    Ok(U64F64::from_bits(value))
-}
-
 // Convert U64F64 to U256 in Q64.96 format (Uniswap's sqrt price format)
 fn u64f64_to_u256_q64_96(value: U64F64) -> U256 {
     u64f64_to_u256(value, 96)
@@ -1321,20 +1291,6 @@ mod tests {
         // Round trip back to U256 Q64.96
         let back_to_u256 = u64f64_to_u256_q64_96(fixed_price);
         assert_eq!(back_to_u256, tick0_sqrt_price);
-    }
-
-    #[test]
-    fn test_u256_with_other_formats() {
-        // Test with a value that has 32 fractional bits
-        let value_32frac = U256::from(123456789u128 << 32); // 123456789.0 in Q96.32
-        let fixed_value = u256_to_u64f64(value_32frac, 32).unwrap();
-
-        // Should be 123456789.0 in U64F64
-        assert_eq!(fixed_value, U64F64::from_num(123456789.0));
-
-        // Round trip back to U256 with 32 fractional bits
-        let back_to_u256 = u64f64_to_u256(fixed_value, 32);
-        assert_eq!(back_to_u256, value_32frac);
     }
 
     #[test]
