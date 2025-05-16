@@ -3,7 +3,7 @@ use core::num::NonZeroU64;
 use frame_support::{PalletId, pallet_prelude::*, traits::Get};
 use frame_system::pallet_prelude::*;
 use substrate_fixed::types::U64F64;
-use subtensor_swap_interface::LiquidityDataProvider;
+use subtensor_swap_interface::{BalanceOps, LiquidityDataProvider};
 
 use crate::{
     NetUid,
@@ -36,6 +36,10 @@ mod pallet {
         /// Implementor of
         /// [`LiquidityDataProvider`](subtensor_swap_interface::LiquidityDataProvider).
         type LiquidityDataProvider: LiquidityDataProvider<Self::AccountId>;
+
+        /// Implementor of
+        /// [`BalanceOps`](subtensor_swap_interface::BalanceOps).
+        type BalanceOps: BalanceOps<Self::AccountId>;
 
         /// This type is used to derive protocol accoun ID.
         #[pallet::constant]
@@ -135,6 +139,42 @@ mod pallet {
     pub enum Event<T: Config> {
         /// Event emitted when the fee rate has been updated for a subnet
         FeeRateSet { netuid: NetUid, rate: u16 },
+
+        /// Event emitted when liquidity is added to a subnet's liquidity pool.
+        LiquidityAdded {
+            /// The coldkey account that owns the position
+            coldkey: T::AccountId,
+            /// The hotkey account associated with the position
+            hotkey: T::AccountId,
+            /// The subnet identifier
+            netuid: u16,
+            /// Unique identifier for the liquidity position
+            position_id: u128,
+            /// The amount of liquidity added to the position
+            liquidity: u64,
+            /// The amount of TAO tokens committed to the position
+            tao: u64,
+            /// The amount of Alpha tokens committed to the position
+            alpha: u64,
+        },
+
+        /// Event emitted when liquidity is removed from a subnet's liquidity pool.
+        LiquidityRemoved {
+            /// The coldkey account that owns the position
+            coldkey: T::AccountId,
+            /// The subnet identifier
+            netuid: u16,
+            /// Unique identifier for the liquidity position
+            position_id: u128,
+            /// The amount of TAO tokens returned to the user
+            tao: u64,
+            /// The amount of Alpha tokens returned to the user
+            alpha: u64,
+            /// The amount of TAO fees earned from the position
+            fee_tao: u64,
+            /// The amount of Alpha fees earned from the position
+            fee_alpha: u64,
+        },
     }
 
     #[pallet::error]
@@ -172,6 +212,9 @@ mod pallet {
 
         /// Reserves too low for operation.
         ReservesTooLow,
+
+        /// The subnet does not exist.
+        SubNetworkDoesNotExist,
     }
 
     #[pallet::call]
@@ -185,6 +228,12 @@ mod pallet {
         pub fn set_fee_rate(origin: OriginFor<T>, netuid: u16, rate: u16) -> DispatchResult {
             T::AdminOrigin::ensure_origin(origin)?;
 
+            // Ensure that the subnet exists.
+            ensure!(
+                T::LiquidityDataProvider::subnet_exist(netuid),
+                Error::<T>::SubNetworkDoesNotExist
+            );
+
             // using u16 for compatibility
             let netuid = netuid.into();
 
@@ -193,6 +242,219 @@ mod pallet {
             FeeRate::<T>::insert(netuid, rate);
 
             Self::deposit_event(Event::FeeRateSet { netuid, rate });
+
+            Ok(())
+        }
+
+        /// Add liquidity to a specific price range for a subnet.
+        ///
+        /// Parameters:
+        /// - origin: The origin of the transaction
+        /// - netuid: Subnet ID
+        /// - tick_low: Lower bound of the price range
+        /// - tick_high: Upper bound of the price range
+        /// - liquidity: Amount of liquidity to add
+        ///
+        /// Emits `Event::LiquidityAdded` on success
+        #[pallet::call_index(1)]
+        #[pallet::weight((
+		Weight::from_parts(50_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(4)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn add_liquidity(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: u16,
+            tick_low: i32,
+            tick_high: i32,
+            liquidity: u64,
+        ) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+
+            // Ensure that the subnet exists.
+            ensure!(
+                T::LiquidityDataProvider::subnet_exist(netuid),
+                Error::<T>::SubNetworkDoesNotExist
+            );
+
+            let tick_low = TickIndex::new(tick_low).map_err(|_| Error::<T>::InvalidTickRange)?;
+            let tick_high = TickIndex::new(tick_high).map_err(|_| Error::<T>::InvalidTickRange)?;
+            let (position_id, tao, alpha) = Self::do_add_liquidity(
+                netuid.into(),
+                &coldkey,
+                &hotkey,
+                tick_low,
+                tick_high,
+                liquidity,
+            )?;
+
+            // Remove TAO and Alpha balances or fail transaction if they can't be removed exactly
+            let tao_provided = T::BalanceOps::decrease_balance(&coldkey, tao)?;
+            ensure!(tao_provided == tao, Error::<T>::InsufficientBalance);
+
+            let alpha_provided = T::BalanceOps::decrease_stake(&coldkey, &hotkey, netuid, alpha)?;
+            ensure!(alpha_provided == alpha, Error::<T>::InsufficientBalance);
+
+            // Emit an event
+            Self::deposit_event(Event::LiquidityAdded {
+                coldkey,
+                hotkey,
+                netuid,
+                position_id: position_id.into(),
+                liquidity,
+                tao,
+                alpha,
+            });
+
+            Ok(())
+        }
+
+        /// Remove liquidity from a specific position.
+        ///
+        /// Parameters:
+        /// - origin: The origin of the transaction
+        /// - netuid: Subnet ID
+        /// - position_id: ID of the position to remove
+        ///
+        /// Emits `Event::LiquidityRemoved` on success
+        #[pallet::call_index(2)]
+        #[pallet::weight((
+		Weight::from_parts(50_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(4)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn remove_liquidity(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: u16,
+            position_id: u128,
+        ) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+
+            // Ensure that the subnet exists.
+            ensure!(
+                T::LiquidityDataProvider::subnet_exist(netuid),
+                Error::<T>::SubNetworkDoesNotExist
+            );
+
+            // Remove liquidity
+            let result = Self::do_remove_liquidity(netuid.into(), &coldkey, position_id.into())?;
+
+            // Credit the returned tao and alpha to the account
+            T::BalanceOps::increase_balance(&coldkey, result.tao.saturating_add(result.fee_tao));
+            T::BalanceOps::increase_stake(
+                &coldkey,
+                &hotkey,
+                netuid,
+                result.alpha.saturating_add(result.fee_alpha),
+            )?;
+
+            // Emit an event
+            Self::deposit_event(Event::LiquidityRemoved {
+                coldkey,
+                netuid: netuid.into(),
+                position_id,
+                tao: result.tao,
+                alpha: result.alpha,
+                fee_tao: result.fee_tao,
+                fee_alpha: result.fee_alpha,
+            });
+
+            Ok(())
+        }
+
+        /// Modify a liquidity position.
+        ///
+        /// Parameters:
+        /// - origin: The origin of the transaction
+        /// - netuid: Subnet ID
+        /// - position_id: ID of the position to remove
+        /// - liquidity_delta: Liquidity to add (if positive) or remove (if negative)
+        ///
+        /// Emits `Event::LiquidityRemoved` on success
+        #[pallet::call_index(3)]
+        #[pallet::weight((
+		Weight::from_parts(50_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(4)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn modify_position(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: u16,
+            position_id: u128,
+            liquidity_delta: i64,
+        ) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+
+            // Ensure that the subnet exists.
+            ensure!(
+                T::LiquidityDataProvider::subnet_exist(netuid),
+                Error::<T>::SubNetworkDoesNotExist
+            );
+
+            // Add or remove liquidity
+            let result = Self::do_modify_position(
+                netuid.into(),
+                &coldkey,
+                &hotkey,
+                position_id.into(),
+                liquidity_delta,
+            )?;
+
+            if liquidity_delta > 0 {
+                // Remove TAO and Alpha balances or fail transaction if they can't be removed exactly
+                let tao_provided = T::BalanceOps::decrease_balance(&coldkey, result.tao)?;
+                ensure!(tao_provided == result.tao, Error::<T>::InsufficientBalance);
+
+                let alpha_provided =
+                    T::BalanceOps::decrease_stake(&coldkey, &hotkey, netuid, result.alpha)?;
+                ensure!(
+                    alpha_provided == result.alpha,
+                    Error::<T>::InsufficientBalance
+                );
+
+                // Emit an event
+                Self::deposit_event(Event::LiquidityAdded {
+                    coldkey,
+                    hotkey,
+                    netuid,
+                    position_id,
+                    liquidity: liquidity_delta as u64,
+                    tao: result.tao,
+                    alpha: result.alpha,
+                });
+            } else {
+                // Credit the returned tao and alpha to the account
+                T::BalanceOps::increase_balance(
+                    &coldkey,
+                    result.tao.saturating_add(result.fee_tao),
+                );
+                T::BalanceOps::increase_stake(
+                    &coldkey,
+                    &hotkey,
+                    netuid,
+                    result.alpha.saturating_add(result.fee_alpha),
+                )?;
+
+                // Emit an event
+                Self::deposit_event(Event::LiquidityRemoved {
+                    coldkey,
+                    netuid: netuid.into(),
+                    position_id,
+                    tao: result.tao,
+                    alpha: result.alpha,
+                    fee_tao: result.fee_tao,
+                    fee_alpha: result.fee_alpha,
+                });
+            }
 
             Ok(())
         }

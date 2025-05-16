@@ -17,26 +17,6 @@ pub trait SwapHandler<AccountId> {
         price_limit: u64,
         should_rollback: bool,
     ) -> Result<SwapResult, DispatchError>;
-    fn add_liquidity(
-        netuid: u16,
-        coldkey_account_id: &AccountId,
-        hotkey_account_id: &AccountId,
-        tick_low: i32,
-        tick_high: i32,
-        liquidity: u64,
-    ) -> Result<(u128, u64, u64), DispatchError>;
-    fn remove_liquidity(
-        netuid: u16,
-        coldkey_account_id: &AccountId,
-        position_id: u128,
-    ) -> Result<UpdateLiquidityResult, DispatchError>;
-    fn modify_position(
-        netuid: u16,
-        coldkey_account_id: &AccountId,
-        hotkey_account_id: &AccountId,
-        position_id: u128,
-        liquidity_delta: i64,
-    ) -> Result<UpdateLiquidityResult, DispatchError>;
     fn approx_fee_amount(netuid: u16, amount: u64) -> u64;
     fn current_alpha_price(netuid: u16) -> U96F32;
     fn max_price() -> u64;
@@ -64,11 +44,25 @@ pub struct UpdateLiquidityResult {
 pub trait LiquidityDataProvider<AccountId> {
     fn tao_reserve(netuid: u16) -> u64;
     fn alpha_reserve(netuid: u16) -> u64;
+    fn subnet_exist(netuid: u16) -> bool;
+    fn subnet_mechanism(netuid: u16) -> u16;    
+}
+
+pub trait BalanceOps<AccountId> {
     fn tao_balance(account_id: &AccountId) -> u64;
-    fn alpha_balance(
+    fn alpha_balance(netuid: u16, coldkey: &AccountId, hotkey: &AccountId) -> u64;
+    fn increase_balance(coldkey: &AccountId, tao: u64);
+    fn decrease_balance(coldkey: &AccountId, tao: u64) -> Result<u64, DispatchError>;
+    fn increase_stake(
+        coldkey: &AccountId,
+        hotkey: &AccountId,
         netuid: u16,
-        coldkey_account_id: &AccountId,
-        hotkey_account_id: &AccountId,
-    ) -> u64;
-    fn subnet_mechanism(netuid: u16) -> u16;
+        alpha: u64,
+    ) -> Result<(), DispatchError>;
+    fn decrease_stake(
+        coldkey: &AccountId,
+        hotkey: &AccountId,
+        netuid: u16,
+        alpha: u64,
+    ) -> Result<u64, DispatchError>;
 }
