@@ -108,6 +108,8 @@ pub mod pallet {
         Metagraph,
         /// Enum for neuron precompile
         Neuron,
+        /// Enum for alpha precompile
+        Alpha,
     }
 
     #[pallet::type_value]

@@ -22,10 +22,13 @@ export async function getClient(url: ClientUrlType) {
     return client
 }
 
-export async function getDevnetApi() {
+export async function getDevnetApi(): Promise<TypedApi<typeof devnet>> {
     if (api === undefined) {
         let client = await getClient('ws://localhost:9944')
         api = client.getTypedApi(devnet)
+    }
+    if (api === undefined) {
+        throw new Error("Failed to initialize API");
     }
     return api
 }
@@ -88,7 +91,7 @@ export async function getNonceChangePromise(api: TypedApi<typeof devnet>, ss58Ad
     const initValue = await api.query.System.Account.getValue(ss58Address);
     return new Promise<void>((resolve, reject) => {
         const subscription = api.query.System.Account.watchValue(ss58Address).subscribe({
-            next(value) {
+            next(value: any) {
                 if (value.nonce > initValue.nonce) {
                     subscription.unsubscribe();
                     // Resolve the promise when the transaction is finalized
@@ -116,14 +119,15 @@ export async function getNonceChangePromise(api: TypedApi<typeof devnet>, ss58Ad
     })
 }
 
-export function convertPublicKeyToMultiAddress(publicKey: Uint8Array, ss58Format: number = SS58_PREFIX): MultiAddress {
+export function convertPublicKeyToMultiAddress(publicKey: Uint8Array, ss58Format: number = SS58_PREFIX): any {
     // Create a keyring instance
     const keyring = new Keyring({ type: 'sr25519', ss58Format });
 
     // Add the public key to the keyring
     const address = keyring.encodeAddress(publicKey);
 
-    return MultiAddress.Id(address);
+    // Use the MultiAddress type from the imported namespace
+    return { Id: address };
 }
 
 
@@ -148,7 +152,7 @@ export async function getTransactionWatchPromise(tx: Transaction<{}, string, str
         // store the txHash, then use it in timeout. easier to know which tx is not finalized in time
         let txHash = ""
         const subscription = tx.signSubmitAndWatch(signer).subscribe({
-            next(value) {
+            next(value: any) {
                 console.log("Event:", value);
                 txHash = value.txHash
 
@@ -161,7 +165,7 @@ export async function getTransactionWatchPromise(tx: Transaction<{}, string, str
 
                 }
             },
-            error(err) {
+            error(err: any) {
                 console.error("Transaction failed:", err);
                 subscription.unsubscribe();
                 // Reject the promise in case of an error
@@ -224,7 +228,7 @@ export async function waitForTransactionCompletion2(api: TypedApi<typeof devnet>
     const tx = await api.txFromCallData(raw);
     return new Promise<void>((resolve, reject) => {
         const subscription = tx.signSubmitAndWatch(signer).subscribe({
-            next(value) {
+            next(value: any) {
                 console.log("Event:", value);
 
                 if (value.type === "txBestBlocksState") {

@@ -27,7 +27,7 @@ sp-core = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 subtensor-runtime-common = { workspace = true }
-
+substrate-fixed = { workspace = true }
 pallet-subtensor = { workspace = true }
 pallet-admin-utils = { workspace = true }
 

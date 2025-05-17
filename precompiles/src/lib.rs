@@ -19,6 +19,7 @@ use subtensor_runtime_common::ProxyType;
 
 use pallet_admin_utils::PrecompileEnum;
 
+use crate::alpha::*;
 use crate::balance_transfer::*;
 use crate::ed25519::*;
 use crate::extensions::*;
@@ -26,7 +27,7 @@ use crate::metagraph::*;
 use crate::neuron::*;
 use crate::staking::*;
 use crate::subnet::*;
-
+mod alpha;
 mod balance_transfer;
 mod ed25519;
 mod extensions;
@@ -34,7 +35,6 @@ mod metagraph;
 mod neuron;
 mod staking;
 mod subnet;
-
 pub struct Precompiles<R>(PhantomData<R>);
 
 impl<R> Default for Precompiles<R>
@@ -84,7 +84,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 14] {
+    pub fn used_addresses() -> [H160; 15] {
         [
             hash(1),
             hash(2),
@@ -100,6 +100,7 @@ where
             hash(MetagraphPrecompile::<R>::INDEX),
             hash(NeuronPrecompile::<R>::INDEX),
             hash(StakingPrecompileV2::<R>::INDEX),
+            hash(AlphaPrecompile::<R>::INDEX),
         ]
     }
 }
