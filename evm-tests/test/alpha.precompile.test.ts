@@ -65,7 +65,7 @@ describe("Test Alpha Precompile", () => {
         subnetId = totalNetworks - 1
 
         // Register a neuron on the subnet if needed
-        let uid_count = await api.query.SubtensorModule.SubnetworkN.getValue(subnetId)
+        let uid_count = await api.query.SubtensorModule.SubnetworkN.getValue(subnetId.toString())
         if (uid_count === 0) {
             const tx = api.tx.SubtensorModule.burned_register({ hotkey: convertPublicKeyToSs58(hotkey.publicKey), netuid: subnetId })
             await waitForTransactionCompletion(api, tx, signer)
@@ -74,7 +74,7 @@ describe("Test Alpha Precompile", () => {
         }
     })
 
-    it("Alpha price data via precompile contract is accessible", async () => {
+    it("Basic Alpha price data via precompile contract is accessible", async () => {
         // Test getAlphaPrice
         const alphaPrice = await publicClient.readContract({
             abi: IAlphaABI,
@@ -107,6 +107,112 @@ describe("Test Alpha Precompile", () => {
         assert.ok(alphaInPool !== undefined, "Alpha in pool should be defined");
     });
 
+    it("Extended Alpha precompile functions are accessible", async () => {
+        // Test getMovingAlphaPrice
+        const movingAlphaPrice = await publicClient.readContract({
+            abi: IAlphaABI,
+            address: toViemAddress(IALPHA_ADDRESS),
+            functionName: "getMovingAlphaPrice",
+            args: [subnetId]
+        })
+        assert.ok(movingAlphaPrice !== undefined, "Moving alpha price should be defined");
+
+        // Test getAlphaOutPool
+        const alphaOutPool = await publicClient.readContract({
+            abi: IAlphaABI,
+            address: toViemAddress(IALPHA_ADDRESS),
+            functionName: "getAlphaOutPool",
+            args: [subnetId]
+        })
+        assert.ok(alphaOutPool !== undefined, "Alpha out pool should be defined");
+
+        // Test getAlphaIssuance
+        const alphaIssuance = await publicClient.readContract({
+            abi: IAlphaABI,
+            address: toViemAddress(IALPHA_ADDRESS),
+            functionName: "getAlphaIssuance",
+            args: [subnetId]
+        })
+        assert.ok(alphaIssuance !== undefined, "Alpha issuance should be defined");
+
+        // Test getTaoWeight
+        const taoWeight = await publicClient.readContract({
+            abi: IAlphaABI,
+            address: toViemAddress(IALPHA_ADDRESS),
+            functionName: "getTaoWeight",
+            args: []
+        })
+        assert.ok(taoWeight !== undefined, "TAO weight should be defined");
+    });
+
+    it("Swap simulation functions work correctly", async () => {
+        // Test simSwapTaoForAlpha
+        const taoAmount = BigInt(1000000000); // 1 RAO
+        const simulatedAlpha = await publicClient.readContract({
+            abi: IAlphaABI,
+            address: toViemAddress(IALPHA_ADDRESS),
+            functionName: "simSwapTaoForAlpha",
+            args: [subnetId, taoAmount]
+        })
+        assert.ok(simulatedAlpha !== undefined, "Simulated alpha should be defined");
+
+        // Test simSwapAlphaForTao
+        if (simulatedAlpha > 0) {
+            const simulatedTao = await publicClient.readContract({
+                abi: IAlphaABI,
+                address: toViemAddress(IALPHA_ADDRESS),
+                functionName: "simSwapAlphaForTao",
+                args: [subnetId, simulatedAlpha]
+            })
+            assert.ok(simulatedTao !== undefined, "Simulated tao should be defined");
+
+            // Check if simulated values are reasonably close (allowing for some rounding)
+            if (Number(simulatedAlpha) > 0 && simulatedTao > BigInt(0)) {
+                const ratio = Number(taoAmount) / Number(simulatedTao);
+                assert.ok(ratio > 0.9 && ratio < 1.1, "Swap simulation should be roughly symmetric");
+            }
+        }
+    });
+
+    it("Subnet configuration data is accessible", async () => {
+        // Test getSubnetMechanism
+        const mechanism = await publicClient.readContract({
+            abi: IAlphaABI,
+            address: toViemAddress(IALPHA_ADDRESS),
+            functionName: "getSubnetMechanism",
+            args: [subnetId]
+        })
+        assert.ok(mechanism !== undefined, "Subnet mechanism should be defined");
+
+        // Test getMinimumPoolLiquidity
+        const minLiquidity = await publicClient.readContract({
+            abi: IAlphaABI,
+            address: toViemAddress(IALPHA_ADDRESS),
+            functionName: "getMinimumPoolLiquidity",
+            args: []
+        })
+        assert.ok(minLiquidity !== undefined, "Minimum pool liquidity should be defined");
+
+        // Test getRootNetuid
+        const rootNetuid = await publicClient.readContract({
+            abi: IAlphaABI,
+            address: toViemAddress(IALPHA_ADDRESS),
+            functionName: "getRootNetuid",
+            args: []
+        })
+        assert.ok(rootNetuid !== undefined, "Root netuid should be defined");
+        assert.ok(rootNetuid === 0, "Root netuid should be 0");
+
+        // Test getEMAPriceHalvingBlocks
+        const halvingBlocks = await publicClient.readContract({
+            abi: IAlphaABI,
+            address: toViemAddress(IALPHA_ADDRESS),
+            functionName: "getEMAPriceHalvingBlocks",
+            args: [subnetId]
+        })
+        assert.ok(halvingBlocks !== undefined, "EMA price halving blocks should be defined");
+    });
+
     it("Alpha precompile data is consistent with pallet values", async () => {
         // Get alpha price from precompile
         const alphaPrice = await publicClient.readContract({
@@ -117,7 +223,7 @@ describe("Test Alpha Precompile", () => {
         })
 
         // Get alpha price directly from the pallet
-        const alphaPriceFromPallet = await api.query.SubtensorModule.AlphaFRatio.getValue(subnetId);
+        const alphaPriceFromPallet = await api.query.SubtensorModule.AlphaFRatio.getValue(subnetId.toString());
 
         // Convert to same units and validate
         // Note: The precompile converts U96F32 to u64 so we just check it's reasonable,
@@ -133,7 +239,7 @@ describe("Test Alpha Precompile", () => {
         })
 
         // Get TAO in pool directly from the pallet
-        const taoInPoolFromPallet = await api.query.SubtensorModule.SubnetTAO.getValue(subnetId);
+        const taoInPoolFromPallet = await api.query.SubtensorModule.SubnetTAO.getValue(subnetId.toString());
 
         // Compare values
         assert.strictEqual(BigInt(taoInPool), taoInPoolFromPallet, "TAO in pool values should match");
@@ -147,9 +253,23 @@ describe("Test Alpha Precompile", () => {
         })
 
         // Get Alpha in pool directly from the pallet
-        const alphaInPoolFromPallet = await api.query.SubtensorModule.SubnetAlphaIn.getValue(subnetId);
+        const alphaInPoolFromPallet = await api.query.SubtensorModule.SubnetAlphaIn.getValue(subnetId.toString());
 
         // Compare values
         assert.strictEqual(BigInt(alphaInPool), alphaInPoolFromPallet, "Alpha in pool values should match");
+
+        // Get Alpha out pool from precompile
+        const alphaOutPool = await publicClient.readContract({
+            abi: IAlphaABI,
+            address: toViemAddress(IALPHA_ADDRESS),
+            functionName: "getAlphaOutPool",
+            args: [subnetId]
+        })
+
+        // Get Alpha out pool directly from the pallet
+        const alphaOutPoolFromPallet = await api.query.SubtensorModule.SubnetAlphaOut.getValue(subnetId.toString());
+
+        // Compare values
+        assert.strictEqual(BigInt(alphaOutPool), alphaOutPoolFromPallet, "Alpha out pool values should match");
     });
 });

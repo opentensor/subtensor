@@ -159,6 +159,9 @@ where
             a if a == hash(NeuronPrecompile::<R>::INDEX) => {
                 NeuronPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Neuron)
             }
+            a if a == hash(AlphaPrecompile::<R>::INDEX) => {
+                AlphaPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Alpha)
+            }
             _ => None,
         }
     }
