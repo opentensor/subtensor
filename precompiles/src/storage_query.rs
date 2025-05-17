@@ -36,7 +36,7 @@ where
 {
     fn execute(handle: &mut impl PrecompileHandle) -> fp_evm::PrecompileResult {
         let input = handle.input();
-        let data = sp_io::storage::get(&input[..]);
+        let data = sp_io::storage::get(input);
 
         match data {
             Some(value) => {
