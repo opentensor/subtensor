@@ -345,8 +345,6 @@ export async function startCall(api: TypedApi<typeof devnet>, netuid: number, ke
     assert.notEqual(callStarted, undefined);
 }
 
-// sudo_set_max_childkey_take
-
 export async function setMaxChildkeyTake(api: TypedApi<typeof devnet>, take: number) {
     const alice = getAliceSigner()
     const internalCall = api.tx.SubtensorModule.sudo_set_max_childkey_take({ take })
