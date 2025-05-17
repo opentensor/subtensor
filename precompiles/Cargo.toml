@@ -46,6 +46,7 @@ std = [
 	"log/std",
 	"pallet-admin-utils/std",
 	"pallet-balances/std",
+	"pallet-evm-precompile-dispatch/std",
 	"pallet-evm-precompile-modexp/std",
 	"pallet-evm-precompile-sha3fips/std",
 	"pallet-evm-precompile-simple/std",
