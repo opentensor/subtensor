@@ -209,7 +209,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 269,
+    spec_version: 271,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -675,18 +675,18 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(
                         pallet_subtensor::Call::remove_stake_limit { .. }
                     )
-                    | RuntimeCall::SubtensorModule(
-                        pallet_subtensor::Call::add_stake_aggregate { .. }
-                    )
-                    | RuntimeCall::SubtensorModule(
-                        pallet_subtensor::Call::add_stake_limit_aggregate { .. }
-                    )
-                    | RuntimeCall::SubtensorModule(
-                        pallet_subtensor::Call::remove_stake_aggregate { .. }
-                    )
-                    | RuntimeCall::SubtensorModule(
-                        pallet_subtensor::Call::remove_stake_limit_aggregate { .. }
-                    )
+                    // | RuntimeCall::SubtensorModule(
+                    //     pallet_subtensor::Call::add_stake_aggregate { .. }
+                    // )
+                    // | RuntimeCall::SubtensorModule(
+                    //     pallet_subtensor::Call::add_stake_limit_aggregate { .. }
+                    // )
+                    // | RuntimeCall::SubtensorModule(
+                    //     pallet_subtensor::Call::remove_stake_aggregate { .. }
+                    // )
+                    // | RuntimeCall::SubtensorModule(
+                    //     pallet_subtensor::Call::remove_stake_limit_aggregate { .. }
+                    // )
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::unstake_all { .. })
                     | RuntimeCall::SubtensorModule(
                         pallet_subtensor::Call::unstake_all_alpha { .. }
@@ -767,19 +767,18 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake_limit { .. })
                     | RuntimeCall::SubtensorModule(
                         pallet_subtensor::Call::remove_stake_limit { .. }
-                    )
-                    | RuntimeCall::SubtensorModule(
-                        pallet_subtensor::Call::add_stake_aggregate { .. }
-                    )
-                    | RuntimeCall::SubtensorModule(
-                        pallet_subtensor::Call::add_stake_limit_aggregate { .. }
-                    )
-                    | RuntimeCall::SubtensorModule(
-                        pallet_subtensor::Call::remove_stake_aggregate { .. }
-                    )
-                    | RuntimeCall::SubtensorModule(
-                        pallet_subtensor::Call::remove_stake_limit_aggregate { .. }
-                    )
+                    ) // | RuntimeCall::SubtensorModule(
+                      //     pallet_subtensor::Call::add_stake_aggregate { .. }
+                      // )
+                      // | RuntimeCall::SubtensorModule(
+                      //     pallet_subtensor::Call::add_stake_limit_aggregate { .. }
+                      // )
+                      // | RuntimeCall::SubtensorModule(
+                      //     pallet_subtensor::Call::remove_stake_aggregate { .. }
+                      // )
+                      // | RuntimeCall::SubtensorModule(
+                      //     pallet_subtensor::Call::remove_stake_limit_aggregate { .. }
+                      // )
             ),
             ProxyType::Registration => matches!(
                 c,
@@ -954,7 +953,7 @@ impl pallet_registry::Config for Runtime {
 }
 
 parameter_types! {
-    pub const MaxCommitFieldsInner: u32 = 2;
+    pub const MaxCommitFieldsInner: u32 = 3;
     pub const CommitmentInitialDeposit: Balance = 0; // Free
     pub const CommitmentFieldDeposit: Balance = 0; // Free
 }

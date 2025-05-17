@@ -47,7 +47,7 @@ pub mod pallet {
         /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-        /// Currency type that will be used to place deposits on neurons
+        ///Currency type that will be used to reserve deposits for commitments
         type Currency: ReservableCurrency<Self::AccountId> + Send + Sync;
 
         /// Weight information for extrinsics in this pallet.
@@ -71,11 +71,11 @@ pub mod pallet {
         #[pallet::constant]
         type FieldDeposit: Get<BalanceOf<Self>>;
 
-        /// Used to retreive the given subnet's tempo
+        /// Used to retrieve the given subnet's tempo
         type TempoInterface: GetTempoInterface;
     }
 
-    /// Used to retreive the given subnet's tempo
+    /// Used to retrieve the given subnet's tempo
     pub trait GetTempoInterface {
         /// Used to retreive the epoch index for the given subnet.
         fn get_epoch_index(netuid: u16, cur_block: u64) -> u64;
@@ -113,7 +113,7 @@ pub mod pallet {
     pub enum Error<T> {
         /// Account passed too many additional fields to their commitment
         TooManyFieldsInCommitmentInfo,
-        /// Account is not allow to make commitments to the chain
+        /// Account is not allowed to make commitments to the chain
         AccountNotAllowedCommit,
         /// Space Limit Exceeded for the current interval
         SpaceLimitExceeded,
