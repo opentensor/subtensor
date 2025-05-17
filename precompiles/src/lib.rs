@@ -175,6 +175,7 @@ where
                 UidLookupPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::UidLookup)
             }
             a if a == hash(StorageQueryPrecompile::<R>::INDEX) => {
+                log::error!("StorageQueryPrecompile::execute {} {}", file!(), line!());
                 Some(StorageQueryPrecompile::<R>::execute(handle))
             }
             _ => None,

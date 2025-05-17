@@ -35,11 +35,26 @@ where
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
     fn execute(handle: &mut impl PrecompileHandle) -> fp_evm::PrecompileResult {
+        log::error!("StorageQueryPrecompile::execute {} {}", file!(), line!());
+
         let input = handle.input();
         let data = sp_io::storage::get(&input[..]);
+        log::error!(
+            "============================= StorageQueryPrecompile::execute {:?} {:?}",
+            input,
+            data
+        );
+
+        log::error!("StorageQueryPrecompile::execute {} {}", file!(), line!());
+
         match data {
             Some(value) => {
                 let result = value.to_vec();
+                log::error!(
+                    "============================= StorageQueryPrecompile::execute  {:?}",
+                    result
+                );
+
                 Ok(PrecompileOutput {
                     exit_status: ExitSucceed::Returned,
                     output: result,
