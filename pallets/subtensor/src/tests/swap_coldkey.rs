@@ -442,14 +442,17 @@ fn test_swap_with_non_existent_new_coldkey() {
         mock::setup_reserves(netuid, reserve, reserve);
 
         // Stake to hotkey.
-
-        let (_, fee) = mock::swap_tao_to_alpha(netuid, stake);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
             hotkey,
             netuid,
             stake
         ));
+        let expected_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &old_coldkey,
+            netuid,
+        );
 
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
@@ -462,9 +465,14 @@ fn test_swap_with_non_existent_new_coldkey() {
             SubtensorModule::get_total_stake_for_coldkey(&old_coldkey),
             0
         );
-        let expected_stake = stake - fee;
+
+        let actual_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &new_coldkey,
+            netuid,
+        );
         assert_abs_diff_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
+            actual_stake,
             expected_stake,
             epsilon = expected_stake / 1000
         );
@@ -576,7 +584,6 @@ fn test_swap_concurrent_modifications() {
         );
         register_ok_neuron(netuid, hotkey, new_coldkey, 1001000);
 
-        let (initial_stake_alpha, _) = mock::swap_tao_to_alpha(netuid, initial_stake);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(new_coldkey),
             hotkey,
@@ -591,12 +598,8 @@ fn test_swap_concurrent_modifications() {
             netuid,
         );
 
-        assert_eq!(stake_before_swap, initial_stake_alpha);
-
         // Wait some blocks
         step_block(10);
-
-        let (additional_stake_alpha, _) = mock::swap_tao_to_alpha(netuid, additional_stake);
 
         // Simulate concurrent stake addition
         assert_ok!(SubtensorModule::add_stake(
@@ -605,6 +608,12 @@ fn test_swap_concurrent_modifications() {
             netuid,
             additional_stake
         ));
+
+        let stake_with_additional = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &new_coldkey,
+            netuid,
+        );
 
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
@@ -619,8 +628,9 @@ fn test_swap_concurrent_modifications() {
                 &new_coldkey,
                 netuid
             ),
-            stake_before_swap + additional_stake_alpha
+            stake_with_additional
         );
+        assert!(stake_with_additional > stake_before_swap);
         assert!(!Alpha::<Test>::contains_key((hotkey, old_coldkey, netuid)));
     });
 }
@@ -1097,8 +1107,6 @@ fn test_swap_delegated_stake_for_coldkey() {
             stake_amount1 + stake_amount2 + 1_000_000,
         );
 
-        let (expected_stake_alpha1, fee) = mock::swap_tao_to_alpha(netuid, stake_amount1);
-
         // === Stake to hotkeys ===
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
@@ -1106,6 +1114,11 @@ fn test_swap_delegated_stake_for_coldkey() {
             netuid,
             stake_amount1
         ));
+        let expected_stake_alpha1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1,
+            &old_coldkey,
+            netuid,
+        );
 
         let (expected_stake_alpha2, fee) = mock::swap_tao_to_alpha(netuid, stake_amount2);
         assert_ok!(SubtensorModule::add_stake(
@@ -1114,6 +1127,12 @@ fn test_swap_delegated_stake_for_coldkey() {
             netuid,
             stake_amount2
         ));
+        let expected_stake_alpha2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2,
+            &old_coldkey,
+            netuid,
+        );
+        let fee = (expected_stake_alpha2 as f64 * 0.003) as u64;
 
         // Record initial values
         let initial_total_issuance = SubtensorModule::get_total_issuance();

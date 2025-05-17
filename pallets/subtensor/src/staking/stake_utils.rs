@@ -772,6 +772,12 @@ impl<T: Config> Pallet<T> {
         // Swap the alpha for TAO.
         let swap_result = Self::swap_alpha_for_tao(netuid, actual_alpha_decrease, price_limit)?;
 
+        // Refund the unused alpha (in case if limit price is hit)
+        let refund = actual_alpha_decrease.saturating_sub(
+            swap_result.amount_paid_in.saturating_add(swap_result.fee_paid)
+        );
+        Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, refund);
+
         // Step 3: Update StakingHotkeys if the hotkey's total alpha, across all subnets, is zero
         // TODO const: fix.
         // if Self::get_stake(hotkey, coldkey) == 0 {

@@ -158,7 +158,7 @@ impl<T: Config> Pallet<T> {
                     &coldkey,
                     netuid,
                     alpha_unstaked,
-                    T::SwapInterface::max_price(),
+                    T::SwapInterface::min_price(),
                 )?;
 
                 // Add the balance to the coldkey. If the above fails we will not credit this coldkey.
@@ -247,7 +247,7 @@ impl<T: Config> Pallet<T> {
                         &coldkey,
                         netuid,
                         alpha_unstaked,
-                        T::SwapInterface::max_price(),
+                        T::SwapInterface::min_price(),
                     )?;
 
                     // Increment total
@@ -351,7 +351,7 @@ impl<T: Config> Pallet<T> {
             &coldkey,
             netuid,
             possible_alpha,
-            T::SwapInterface::max_price(),
+            limit_price,
         )?;
 
         // 5. We add the balance to the coldkey. If the above fails we will not credit this coldkey.

@@ -115,6 +115,7 @@ impl<T: Config> SwapStep<T> {
             self.action = SwapStepAction::Stop;
             self.final_price = self.sqrt_price_target;
             self.delta_in = self.possible_delta_in;
+            // println!("Case 1. Delta in = {:?}", self.delta_in);
         } else if self.price_is_closer(&self.sqrt_price_limit, &self.sqrt_price_target)
             && self.price_is_closer(&self.sqrt_price_limit, &self.sqrt_price_edge)
         {

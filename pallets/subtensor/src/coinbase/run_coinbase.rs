@@ -192,7 +192,6 @@ impl<T: Config> Pallet<T> {
             let pending_alpha: U96F32 = alpha_out_i.saturating_sub(root_alpha);
             log::debug!("pending_alpha: {:?}", pending_alpha);
             // Sell root emission through the pool.
-
             let swap_result = Self::swap_alpha_for_tao(
                 *netuid_i,
                 tou64!(root_alpha),
