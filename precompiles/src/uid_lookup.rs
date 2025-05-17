@@ -1,10 +1,13 @@
-use crate::PrecompileExt;
 use core::marker::PhantomData;
+
 use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 use pallet_evm::PrecompileHandle;
 use precompile_utils::{EvmResult, prelude::Address};
 use sp_runtime::traits::{Dispatchable, StaticLookup};
 use sp_std::vec::Vec;
+
+use crate::PrecompileExt;
+
 pub(crate) struct UidLookupPrecompile<R>(PhantomData<R>);
 
 impl<R> PrecompileExt<R::AccountId> for UidLookupPrecompile<R>
