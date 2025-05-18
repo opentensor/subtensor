@@ -7,6 +7,8 @@ import { hexToNumber, PublicClient } from "viem";
 import { PolkadotSigner, TypedApi } from "polkadot-api";
 import { convertPublicKeyToSs58 } from "../src/address-utils"
 import { forceSetBalanceToEthAddress, setMaxChildkeyTake } from "../src/subtensor";
+import { xxhashAsU8a } from '@polkadot/util-crypto';
+import { u8aToHex } from '@polkadot/util';
 
 describe("Test the dispatch precompile", () => {
     let publicClient: PublicClient;
@@ -38,20 +40,22 @@ describe("Test the dispatch precompile", () => {
         assert.equal(aliceBalance + transferAmount, aliceBalanceAfterTransfer)
     })
 
-    
 
     it("Storage query call via precompile contract works correctly", async () => {
+        const palletPrefixBytes = xxhashAsU8a("SubtensorModule", 128);
+        const storageItemPrefixBytes = xxhashAsU8a("MaxChildkeyTake", 128);
+        const fullStorageKeyBytes = new Uint8Array([...palletPrefixBytes, ...storageItemPrefixBytes]);
+        // 0x658faa385070e074c85bf6b568cf0555dba018859cab7e989f77669457b394be
+        // key for max child key take
+        const fullStorageKeyHex = u8aToHex(fullStorageKeyBytes);
+
         let maxChildkeyTake = 257;
         await setMaxChildkeyTake(api, maxChildkeyTake)
-        // 0x658faa385070e074c85bf6b568cf0555f14f14d903e9994045ff1902b3e513dc
-        // key for min child key take
-
-        const storageQuery = "0x658faa385070e074c85bf6b568cf0555dba018859cab7e989f77669457b394be"
 
         api.query.SubtensorModule.MaxChildkeyTake.getValue();
         const rawCallResponse = await publicClient.call({
             to: ISTORAGE_QUERY_ADDRESS,
-            data: storageQuery,
+            data: fullStorageKeyHex,
         })
         const rawResultData = rawCallResponse.data;
         if (rawResultData === undefined) {
