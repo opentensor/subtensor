@@ -2,7 +2,7 @@ import * as assert from "assert";
 import { getAliceSigner, getDevnetApi } from "../src/substrate"
 import {  generateRandomEthersWallet, getPublicClient } from "../src/utils";
 import { IDISPATCH_ADDRESS, ISTORAGE_QUERY_ADDRESS, ETH_LOCAL_URL } from "../src/config";
-import { devnet } from "@polkadot-api/descriptors"
+import { devnet, MultiAddress } from "@polkadot-api/descriptors"
 import { hexToNumber, PublicClient } from "viem";
 import { PolkadotSigner, TypedApi } from "polkadot-api";
 import { convertPublicKeyToSs58 } from "../src/address-utils"
@@ -24,10 +24,18 @@ describe("Test the dispatch precompile", () => {
     })
 
     it("Dispatch transfer call via precompile contract works correctly", async () => {
-        // 0x050300d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d02286bee
         // call for transfer 1 token to alice
         const transferAmount = BigInt(1000000000);
-        const transferCall = "0x050300d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d02286bee"
+
+        const unsignedTx = api.tx.Balances.transfer_keep_alive({
+            dest: MultiAddress.Id(convertPublicKeyToSs58(alice.publicKey)),
+            value: transferAmount,
+        });
+        const encodedCallDataBytes = await unsignedTx.getEncodedData();
+
+        // encoded call should be 0x050300d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d02286bee
+        const transferCall = encodedCallDataBytes.asHex()
+
         const aliceBalance =  (await api.query.System.Account.getValue( convertPublicKeyToSs58(alice.publicKey))).data.free
         const txResponse = await wallet1.sendTransaction({
             to: IDISPATCH_ADDRESS,
