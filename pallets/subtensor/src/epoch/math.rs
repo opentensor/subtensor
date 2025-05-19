@@ -246,6 +246,22 @@ pub fn is_topk(vector: &[I32F32], k: usize) -> Vec<bool> {
     result
 }
 
+// Returns a bool vector where an item is true if the vector item is in topk values and is non-zero.
+#[allow(dead_code, clippy::indexing_slicing)]
+pub fn is_topk_nonzero(vector: &[I32F32], k: usize) -> Vec<bool> {
+    let n: usize = vector.len();
+    let mut result: Vec<bool> = vector.iter().map(|&elem| elem != I32F32::from(0)).collect();
+    if n < k {
+        return result;
+    }
+    let mut idxs: Vec<usize> = (0..n).collect();
+    idxs.sort_by_key(|&idx| &vector[idx]); // ascending stable sort
+    for &idx in idxs.iter().take(n.saturating_sub(k)) {
+        result[idx] = false;
+    }
+    result
+}
+
 // Returns a normalized (sum to 1 except 0) copy of the input vector.
 #[allow(dead_code)]
 pub fn normalize(x: &[I32F32]) -> Vec<I32F32> {
