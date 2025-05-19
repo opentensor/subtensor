@@ -240,7 +240,6 @@ fn test_subtoken_enable() {
 }
 
 // cargo test --package pallet-subtensor --lib -- tests::subnet::test_subtoken_enable_reject_trading_before_enable --exact --show-output
-
 #[test]
 fn test_subtoken_enable_reject_trading_before_enable() {
     // ensure_subtoken_enabled
@@ -252,23 +251,11 @@ fn test_subtoken_enable_reject_trading_before_enable() {
         let hotkey_account_2_id: U256 = U256::from(3);
         let amount = DefaultMinStake::<Test>::get() * 10;
 
-        let burn_cost = 1000;
-        // Set the burn cost
-        SubtensorModule::set_burn(netuid, burn_cost);
         add_network_disable_subtoken(netuid, 10, 0);
         add_network_disable_subtoken(netuid2, 10, 0);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, burn_cost + 10_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10_000);
 
         // all trading extrinsic should be rejected.
-        assert_noop!(
-            SubtensorModule::burned_register(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-                netuid,
-                hotkey_account_id
-            ),
-            Error::<Test>::SubtokenDisabled
-        );
-
         assert_noop!(
             SubtensorModule::add_stake(
                 RuntimeOrigin::signed(coldkey_account_id),
@@ -347,7 +334,6 @@ fn test_subtoken_enable_reject_trading_before_enable() {
 }
 
 // cargo test --package pallet-subtensor --lib -- tests::subnet::test_subtoken_enable_trading_ok_with_enable --exact --show-output
-
 #[test]
 fn test_subtoken_enable_trading_ok_with_enable() {
     new_test_ext(1).execute_with(|| {
@@ -361,29 +347,11 @@ fn test_subtoken_enable_trading_ok_with_enable() {
         // unstake, transfer, swap just very little
         let unstake_amount = DefaultMinStake::<Test>::get() * 10;
 
-        let burn_cost = 1000;
-        // Set the burn cost
-        SubtensorModule::set_burn(netuid, burn_cost);
         add_network(netuid, 10, 0);
         add_network(netuid2, 10, 0);
-        SubtensorModule::add_balance_to_coldkey_account(
-            &coldkey_account_id,
-            burn_cost * 2 + stake_amount * 10,
-        );
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, stake_amount * 10);
 
-        // all trading extrinsic should be rejected.
-        assert_ok!(SubtensorModule::burned_register(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            netuid,
-            hotkey_account_id
-        ));
-
-        assert_ok!(SubtensorModule::burned_register(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            netuid2,
-            hotkey_account_2_id
-        ));
-
+        // all trading extrinsic should be possible now that subtoken is enabled.
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
@@ -467,6 +435,41 @@ fn test_subtoken_enable_trading_ok_with_enable() {
         assert_ok!(SubtensorModule::unstake_all_alpha(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
+        ));
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::subnet::test_subtoken_enable_ok_for_burn_register_before_enable --exact --show-output
+#[test]
+fn test_subtoken_enable_ok_for_burn_register_before_enable() {
+    // ensure_subtoken_enabled
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let netuid2: u16 = 2;
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id = U256::from(2);
+        let hotkey_account_2_id: U256 = U256::from(3);
+
+        let burn_cost = 1000;
+        // Set the burn cost
+        SubtensorModule::set_burn(netuid, burn_cost);
+        // Add the networks with subtoken disabled
+        add_network_disable_subtoken(netuid, 10, 0);
+        add_network_disable_subtoken(netuid2, 10, 0);
+        // Give enough to burned register
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, burn_cost * 2 + 5_000);
+
+        // Should be possible to burned register before enable is activated
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            netuid,
+            hotkey_account_id
+        ));
+
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            netuid2,
+            hotkey_account_2_id
         ));
     });
 }
