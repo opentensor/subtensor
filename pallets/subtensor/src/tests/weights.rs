@@ -211,17 +211,22 @@ fn test_commit_weights_validate() {
         let reserve = min_stake * 1000;
         mock::setup_reserves(netuid, reserve, reserve);
 
-        let (_, fee) = mock::swap_tao_to_alpha(netuid, min_stake);
+        // Stake some TAO and read what get_total_stake_for_hotkey it gets
+        // It will be a different value due to the slippage
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(hotkey),
+            hotkey,
+            netuid,
+            min_stake
+        ));
+        let min_stake_with_slippage = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
 
-        // Set the minimum stake
-        SubtensorModule::set_stake_threshold(min_stake);
+        // Set the minimum stake above what hotkey has
+        SubtensorModule::set_stake_threshold(min_stake_with_slippage + 1);
 
-        // Verify stake is less than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-        let info = crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
         // Submit to the signed extension validate function
+        let info = crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = crate::SubtensorSignedExtension::<Test>::new();
         let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
         // Should fail
         assert_err!(
@@ -230,19 +235,8 @@ fn test_commit_weights_validate() {
             crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(1))
         );
 
-        // Increase the stake to be equal to the minimum
-        assert_ok!(SubtensorModule::do_add_stake(
-            RuntimeOrigin::signed(hotkey),
-            hotkey,
-            netuid,
-            min_stake + fee
-        ));
-
-        // Verify stake is equal to minimum
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            min_stake
-        );
+        // Set the minimum stake equal to what hotkey has
+        SubtensorModule::set_stake_threshold(min_stake_with_slippage);
 
         // Submit to the signed extension validate function
         let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
@@ -258,7 +252,7 @@ fn test_commit_weights_validate() {
         ));
 
         // Verify stake is more than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
+        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake_with_slippage);
 
         let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
         // The call should still pass
@@ -321,6 +315,7 @@ fn test_set_weights_validate() {
         SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
 
         let min_stake = 500_000_000_000;
+
         // Set the minimum stake
         SubtensorModule::set_stake_threshold(min_stake);
 
@@ -340,7 +335,7 @@ fn test_set_weights_validate() {
             ))
         );
 
-        // Increase the stake to be equal to the minimum
+        // Increase the stake and make it to be equal to the minimum threshold
         let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(netuid, min_stake);
         assert_ok!(SubtensorModule::do_add_stake(
             RuntimeOrigin::signed(hotkey),
@@ -348,12 +343,10 @@ fn test_set_weights_validate() {
             netuid,
             min_stake + fee
         ));
+        let min_stake_with_slippage = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
 
-        // Verify stake is equal to minimum
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            min_stake
-        );
+        // Set the minimum stake to what the hotkey has
+        SubtensorModule::set_stake_threshold(min_stake_with_slippage);
 
         // Submit to the signed extension validate function
         let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
