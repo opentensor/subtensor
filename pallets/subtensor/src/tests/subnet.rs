@@ -253,6 +253,13 @@ fn test_subtoken_enable_reject_trading_before_enable() {
 
         add_network_disable_subtoken(netuid, 10, 0);
         add_network_disable_subtoken(netuid2, 10, 0);
+
+        // Register so staking *could* work
+        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 0);
+        register_ok_neuron(netuid2, hotkey_account_id, coldkey_account_id, 100);
+        register_ok_neuron(netuid, hotkey_account_2_id, coldkey_account_id, 0);
+        register_ok_neuron(netuid2, hotkey_account_2_id, coldkey_account_id, 100);
+
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10_000);
 
         // all trading extrinsic should be rejected.
@@ -349,6 +356,12 @@ fn test_subtoken_enable_trading_ok_with_enable() {
 
         add_network(netuid, 10, 0);
         add_network(netuid2, 10, 0);
+        // Register so staking works
+        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 0);
+        register_ok_neuron(netuid2, hotkey_account_id, coldkey_account_id, 100);
+        register_ok_neuron(netuid, hotkey_account_2_id, coldkey_account_id, 0);
+        register_ok_neuron(netuid2, hotkey_account_2_id, coldkey_account_id, 100);
+
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, stake_amount * 10);
 
         // all trading extrinsic should be possible now that subtoken is enabled.
