@@ -1,4 +1,5 @@
 use core::marker::PhantomData;
+use core::ops::Neg;
 
 use frame_support::storage::{TransactionOutcome, transactional};
 use frame_support::{ensure, pallet_prelude::DispatchError, traits::Get};
@@ -777,7 +778,7 @@ impl<T: Config> Pallet<T> {
             netuid,
             position.tick_low,
             position.tick_high,
-            -(position.liquidity as i128),
+            (position.liquidity as i128).neg(),
         );
 
         // Remove user position
@@ -821,7 +822,7 @@ impl<T: Config> Pallet<T> {
             liquidity_delta.abs() >= T::MinimumLiquidity::get() as i64,
             Error::<T>::InvalidLiquidityValue
         );
-        let mut delta_liquidity_abs = liquidity_delta.abs() as u64;
+        let mut delta_liquidity_abs = liquidity_delta.unsigned_abs();
 
         // Determine the effective price for token calculations
         let current_price = AlphaSqrtPrice::<T>::get(netuid);
@@ -923,7 +924,7 @@ impl<T: Config> Pallet<T> {
     fn add_liquidity_at_index(netuid: NetUid, tick_index: TickIndex, liquidity: u64, upper: bool) {
         // Convert liquidity to signed value, negating it for upper bounds
         let net_liquidity_change = if upper {
-            -(liquidity as i128)
+            (liquidity as i128).neg()
         } else {
             liquidity as i128
         };
@@ -956,7 +957,7 @@ impl<T: Config> Pallet<T> {
     ) {
         // Calculate net liquidity addition
         let net_reduction = if upper {
-            -(liquidity as i128)
+            (liquidity as i128).neg()
         } else {
             liquidity as i128
         };
@@ -1006,7 +1007,7 @@ impl<T: Config> Pallet<T> {
     /// Clamps the subnet's sqrt price when tick index is outside of valid bounds
     fn clamp_sqrt_price(netuid: NetUid, tick_index: TickIndex) {
         if tick_index >= TickIndex::MAX || tick_index <= TickIndex::MIN {
-            let corrected_price = tick_index.to_sqrt_price_bounded();
+            let corrected_price = tick_index.as_sqrt_price_bounded();
             AlphaSqrtPrice::<T>::set(netuid, corrected_price);
         }
     }
@@ -1361,7 +1362,7 @@ mod tests {
                     );
 
                     let position =
-                        Positions::<Test>::get(&(netuid, OK_COLDKEY_ACCOUNT_ID, position_id))
+                        Positions::<Test>::get((netuid, OK_COLDKEY_ACCOUNT_ID, position_id))
                             .unwrap();
                     assert_eq!(position.liquidity, liquidity);
                     assert_eq!(position.tick_low, tick_low);
@@ -1671,7 +1672,7 @@ mod tests {
                     &OK_COLDKEY_ACCOUNT_ID,
                     &OK_HOTKEY_ACCOUNT_ID,
                     position_id,
-                    -1_i64 * ((liquidity / 10) as i64),
+                    -((liquidity / 10) as i64),
                 )
                 .unwrap();
                 assert_abs_diff_eq!(modify_result.alpha, alpha / 10, epsilon = alpha / 1000);
@@ -1689,7 +1690,7 @@ mod tests {
 
                 // Position liquidity is reduced
                 let position =
-                    Positions::<Test>::get(&(netuid, OK_COLDKEY_ACCOUNT_ID, position_id)).unwrap();
+                    Positions::<Test>::get((netuid, OK_COLDKEY_ACCOUNT_ID, position_id)).unwrap();
                 assert_eq!(position.liquidity, liquidity * 9 / 10);
                 assert_eq!(position.tick_low, tick_low);
                 assert_eq!(position.tick_high, tick_high);
@@ -1700,7 +1701,7 @@ mod tests {
                     &OK_COLDKEY_ACCOUNT_ID,
                     &OK_HOTKEY_ACCOUNT_ID,
                     position_id,
-                    -1_i64 * ((liquidity / 100) as i64),
+                    -((liquidity / 100) as i64),
                 )
                 .unwrap();
 
@@ -2081,9 +2082,8 @@ mod tests {
 
                         // Expected fee amount
                         let fee_rate = FeeRate::<Test>::get(netuid) as f64 / u16::MAX as f64;
-                        let expected_fee = (order_liquidity as f64
-                            - order_liquidity as f64 / (1.0 + fee_rate))
-                            as u64;
+                        let expected_fee =
+                            (order_liquidity - order_liquidity / (1.0 + fee_rate)) as u64;
 
                         // Global fees should be updated
                         let actual_global_fee = ((match order_type {
@@ -2337,7 +2337,7 @@ mod tests {
             // Setup swap
             assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
 
-            let current_price = SqrtPrice::from_num(0.50000051219212275465);
+            let current_price = SqrtPrice::from_num(0.500_000_512_192_122_7);
             let tick = TickIndex::try_from_sqrt_price(current_price).unwrap();
 
             let round_trip_price = TickIndex::try_to_sqrt_price(&tick).unwrap();
@@ -2365,34 +2365,34 @@ mod tests {
                     3000000000000,
                 ),
                 (
-                    TickIndex::MIN.to_sqrt_price_bounded(),
+                    TickIndex::MIN.as_sqrt_price_bounded(),
                     1,
                     18406523739291577836,
                     465,
                 ),
-                (TickIndex::MIN.to_sqrt_price_bounded(), 10000, u64::MAX, 465),
+                (TickIndex::MIN.as_sqrt_price_bounded(), 10000, u64::MAX, 465),
                 (
-                    TickIndex::MIN.to_sqrt_price_bounded(),
+                    TickIndex::MIN.as_sqrt_price_bounded(),
                     1000000,
                     u64::MAX,
                     465,
                 ),
                 (
-                    TickIndex::MIN.to_sqrt_price_bounded(),
+                    TickIndex::MIN.as_sqrt_price_bounded(),
                     u64::MAX,
                     u64::MAX,
                     464,
                 ),
                 (
-                    TickIndex::MAX.to_sqrt_price_bounded(),
+                    TickIndex::MAX.as_sqrt_price_bounded(),
                     1,
                     0,
                     18406523745214495085,
                 ),
-                (TickIndex::MAX.to_sqrt_price_bounded(), 10000, 0, u64::MAX),
-                (TickIndex::MAX.to_sqrt_price_bounded(), 1000000, 0, u64::MAX),
+                (TickIndex::MAX.as_sqrt_price_bounded(), 10000, 0, u64::MAX),
+                (TickIndex::MAX.as_sqrt_price_bounded(), 1000000, 0, u64::MAX),
                 (
-                    TickIndex::MAX.to_sqrt_price_bounded(),
+                    TickIndex::MAX.as_sqrt_price_bounded(),
                     u64::MAX,
                     2000000000000,
                     u64::MAX,

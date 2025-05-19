@@ -607,16 +607,13 @@ impl<T: Config> Pallet<T> {
         let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
         // Step 2: Simulate swapping tao and attain alpha
         if mechanism_id == 1 {
-            let swap_result = T::SwapInterface::swap(
+            T::SwapInterface::swap(
                 netuid,
                 OrderType::Buy,
                 tao,
                 T::SwapInterface::max_price(),
                 true,
             )
-            .map_err(|_| Error::<T>::InsufficientLiquidity)?;
-
-            Ok(swap_result)
         } else {
             // Step 3.b.1: Stable mechanism, just return the value 1:1
             Ok(SwapResult {
@@ -640,16 +637,13 @@ impl<T: Config> Pallet<T> {
         let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
         // Step 2: Simulate swapping alpha and attain tao
         if mechanism_id == 1 {
-            let swap_result = T::SwapInterface::swap(
+            T::SwapInterface::swap(
                 netuid,
                 OrderType::Sell,
                 alpha,
                 T::SwapInterface::min_price(),
                 true,
             )
-            .map_err(|_| Error::<T>::InsufficientLiquidity)?;
-
-            Ok(swap_result)
         } else {
             // Step 3.b.1: Stable mechanism, just return the value 1:1
             Ok(SwapResult {

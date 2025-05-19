@@ -120,9 +120,11 @@ impl BalanceOps<AccountId> for MockBalanceOps {
     }
 
     fn increase_balance(_coldkey: &AccountId, _tao: u64) {}
-    fn decrease_balance(_coldkey: &AccountId, _tao: u64) -> Result<u64, DispatchError> {
-        Ok(0)
+
+    fn decrease_balance(_coldkey: &AccountId, tao: u64) -> Result<u64, DispatchError> {
+        Ok(tao)
     }
+
     fn increase_stake(
         _coldkey: &AccountId,
         _hotkey: &AccountId,
@@ -131,13 +133,14 @@ impl BalanceOps<AccountId> for MockBalanceOps {
     ) -> Result<(), DispatchError> {
         Ok(())
     }
+
     fn decrease_stake(
         _coldkey: &AccountId,
         _hotkey: &AccountId,
         _netuid: u16,
-        _alpha: u64,
+        alpha: u64,
     ) -> Result<u64, DispatchError> {
-        Ok(0)
+        Ok(alpha)
     }
 }
 
