@@ -80,10 +80,26 @@ impl<T: Config> Pallet<T> {
         log::trace!("hotkeys: {:?}", &hotkeys);
 
         // Access network stake as normalized vector.
-        let (mut total_stake, _alpha_stake, _tao_stake): (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) =
+        let (total_stake, _alpha_stake, _tao_stake): (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) =
             Self::get_stake_weights_for_network(netuid);
-        inplace_normalize_64(&mut total_stake);
-        let stake: Vec<I32F32> = vec_fixed64_to_fixed32(total_stake);
+
+        // Get the minimum stake required.
+        let min_stake = Self::get_stake_threshold();
+
+        // Set stake of validators that doesn't meet the staking threshold to 0 as filter.
+        let mut filtered_stake: Vec<I64F64> = total_stake
+            .iter()
+            .map(|&s| {
+                if fixed64_to_u64(s) < min_stake {
+                    return I64F64::from(0);
+                }
+                s
+            })
+            .collect();
+        log::debug!("Filtered stake: {:?}", &filtered_stake);
+
+        inplace_normalize_64(&mut filtered_stake);
+        let stake: Vec<I32F32> = vec_fixed64_to_fixed32(filtered_stake);
         log::trace!("S: {:?}", &stake);
 
         // =======================
@@ -102,7 +118,8 @@ impl<T: Config> Pallet<T> {
         log::trace!("max_allowed_validators: {:?}", max_allowed_validators);
 
         // Get new validator permits.
-        let new_validator_permits: Vec<bool> = is_topk(&stake, max_allowed_validators as usize);
+        let new_validator_permits: Vec<bool> =
+            is_topk_nonzero(&stake, max_allowed_validators as usize);
         log::trace!("new_validator_permits: {:?}", new_validator_permits);
 
         // ==================
@@ -470,10 +487,26 @@ impl<T: Config> Pallet<T> {
         log::debug!("hotkeys: {:?}", &hotkeys);
 
         // Access network stake as normalized vector.
-        let (mut total_stake, _alpha_stake, _tao_stake): (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) =
+        let (total_stake, _alpha_stake, _tao_stake): (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) =
             Self::get_stake_weights_for_network(netuid);
-        inplace_normalize_64(&mut total_stake);
-        let stake: Vec<I32F32> = vec_fixed64_to_fixed32(total_stake);
+
+        // Get the minimum stake required.
+        let min_stake = Self::get_stake_threshold();
+
+        // Set stake of validators that doesn't meet the staking threshold to 0 as filter.
+        let mut filtered_stake: Vec<I64F64> = total_stake
+            .iter()
+            .map(|&s| {
+                if fixed64_to_u64(s) < min_stake {
+                    return I64F64::from(0);
+                }
+                s
+            })
+            .collect();
+        log::debug!("Filtered stake: {:?}", &filtered_stake);
+
+        inplace_normalize_64(&mut filtered_stake);
+        let stake: Vec<I32F32> = vec_fixed64_to_fixed32(filtered_stake);
         log::debug!("Normalised Stake: {:?}", &stake);
 
         // =======================
@@ -492,7 +525,8 @@ impl<T: Config> Pallet<T> {
         log::trace!("max_allowed_validators: {:?}", max_allowed_validators);
 
         // Get new validator permits.
-        let new_validator_permits: Vec<bool> = is_topk(&stake, max_allowed_validators as usize);
+        let new_validator_permits: Vec<bool> =
+            is_topk_nonzero(&stake, max_allowed_validators as usize);
         log::trace!("new_validator_permits: {:?}", new_validator_permits);
 
         // ==================
