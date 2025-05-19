@@ -45,7 +45,7 @@ pub trait LiquidityDataProvider<AccountId> {
     fn tao_reserve(netuid: u16) -> u64;
     fn alpha_reserve(netuid: u16) -> u64;
     fn subnet_exist(netuid: u16) -> bool;
-    fn subnet_mechanism(netuid: u16) -> u16;    
+    fn subnet_mechanism(netuid: u16) -> u16;
 }
 
 pub trait BalanceOps<AccountId> {

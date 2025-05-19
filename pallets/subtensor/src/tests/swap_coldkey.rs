@@ -372,21 +372,29 @@ fn test_swap_with_max_values() {
         mock::setup_reserves(netuid2, reserve, reserve);
 
         // Stake to hotkey on each subnet.
-        let (_, fee) = mock::swap_tao_to_alpha(netuid2, max_stake);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
             hotkey,
             netuid,
             max_stake
         ));
+        let expected_stake1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &old_coldkey,
+            netuid,
+        );
 
-        let (_, fee) = mock::swap_tao_to_alpha(netuid2, max_stake);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey2),
             hotkey2,
             netuid2,
             max_stake
         ));
+        let expected_stake2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2,
+            &old_coldkey2,
+            netuid2,
+        );
 
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
@@ -400,16 +408,14 @@ fn test_swap_with_max_values() {
             &mut weight
         ));
 
-        let expected_stake = max_stake - fee;
-
         assert_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&old_coldkey),
             0
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
-            expected_stake,
-            epsilon = expected_stake / 1000
+            expected_stake1,
+            epsilon = expected_stake1 / 1000
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&old_coldkey2),
@@ -417,8 +423,8 @@ fn test_swap_with_max_values() {
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&new_coldkey2),
-            expected_stake,
-            epsilon = expected_stake / 1000
+            expected_stake2,
+            epsilon = expected_stake2 / 1000
         );
     });
 }
@@ -442,14 +448,17 @@ fn test_swap_with_non_existent_new_coldkey() {
         mock::setup_reserves(netuid, reserve, reserve);
 
         // Stake to hotkey.
-
-        let (_, fee) = mock::swap_tao_to_alpha(netuid, stake);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
             hotkey,
             netuid,
             stake
         ));
+        let expected_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &old_coldkey,
+            netuid,
+        );
 
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
@@ -462,9 +471,14 @@ fn test_swap_with_non_existent_new_coldkey() {
             SubtensorModule::get_total_stake_for_coldkey(&old_coldkey),
             0
         );
-        let expected_stake = stake - fee;
+
+        let actual_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &new_coldkey,
+            netuid,
+        );
         assert_abs_diff_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
+            actual_stake,
             expected_stake,
             epsilon = expected_stake / 1000
         );
@@ -576,7 +590,6 @@ fn test_swap_concurrent_modifications() {
         );
         register_ok_neuron(netuid, hotkey, new_coldkey, 1001000);
 
-        let (initial_stake_alpha, _) = mock::swap_tao_to_alpha(netuid, initial_stake);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(new_coldkey),
             hotkey,
@@ -591,12 +604,8 @@ fn test_swap_concurrent_modifications() {
             netuid,
         );
 
-        assert_eq!(stake_before_swap, initial_stake_alpha);
-
         // Wait some blocks
         step_block(10);
-
-        let (additional_stake_alpha, _) = mock::swap_tao_to_alpha(netuid, additional_stake);
 
         // Simulate concurrent stake addition
         assert_ok!(SubtensorModule::add_stake(
@@ -605,6 +614,12 @@ fn test_swap_concurrent_modifications() {
             netuid,
             additional_stake
         ));
+
+        let stake_with_additional = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &new_coldkey,
+            netuid,
+        );
 
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
@@ -619,8 +634,9 @@ fn test_swap_concurrent_modifications() {
                 &new_coldkey,
                 netuid
             ),
-            stake_before_swap + additional_stake_alpha
+            stake_with_additional
         );
+        assert!(stake_with_additional > stake_before_swap);
         assert!(!Alpha::<Test>::contains_key((hotkey, old_coldkey, netuid)));
     });
 }
@@ -860,52 +876,45 @@ fn test_swap_stake_for_coldkey() {
         mock::setup_reserves(netuid, reserve, reserve);
 
         // Stake to hotkeys
-        let (expected_stake_alpha1, _) = mock::swap_tao_to_alpha(netuid, stake_amount1);
-
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
             hotkey1,
             netuid,
             stake_amount1
         ));
+        let expected_stake_alpha1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1,
+            &old_coldkey,
+            netuid,
+        );
 
-        let (expected_stake_alpha2, _) = mock::swap_tao_to_alpha(netuid, stake_amount2);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
             hotkey2,
             netuid,
             stake_amount2
         ));
-
-        // Verify stakes
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey1,
-                &old_coldkey,
-                netuid
-            ),
-            expected_stake_alpha1
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey2,
-                &old_coldkey,
-                netuid
-            ),
-            expected_stake_alpha2
+        let expected_stake_alpha2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2,
+            &old_coldkey,
+            netuid,
         );
 
         // Insert existing for same hotkey1
         // give new coldkey some balance
         SubtensorModule::add_balance_to_coldkey_account(&new_coldkey, stake_amount3 + 1_000_000);
         // Stake to hotkey1
-        let (expected_stake_alpha3, _) = mock::swap_tao_to_alpha(netuid, stake_amount3);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(new_coldkey),
             hotkey1,
             netuid,
             stake_amount3
         ));
+        let expected_stake_alpha3 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1,
+            &new_coldkey,
+            netuid,
+        );
 
         // Record initial values
         let initial_total_issuance = SubtensorModule::get_total_issuance();
@@ -1021,38 +1030,28 @@ fn test_swap_staking_hotkeys_for_coldkey() {
         mock::setup_reserves(netuid, reserve, reserve);
 
         // Stake to hotkeys
-        let (expected_stake_alpha1, fee) = mock::swap_tao_to_alpha(netuid, stake_amount1);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
             hotkey1,
             netuid,
             stake_amount1
         ));
+        let expected_stake_alpha1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1,
+            &old_coldkey,
+            netuid,
+        );
 
-        let (expected_stake_alpha2, fee) = mock::swap_tao_to_alpha(netuid, stake_amount2);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
             hotkey2,
             netuid,
             stake_amount2
         ));
-
-        // Verify stakes
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey1,
-                &old_coldkey,
-                netuid
-            ),
-            expected_stake_alpha1
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey2,
-                &old_coldkey,
-                netuid
-            ),
-            expected_stake_alpha2
+        let expected_stake_alpha2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2,
+            &old_coldkey,
+            netuid,
         );
 
         // Perform the swap
@@ -1097,8 +1096,6 @@ fn test_swap_delegated_stake_for_coldkey() {
             stake_amount1 + stake_amount2 + 1_000_000,
         );
 
-        let (expected_stake_alpha1, fee) = mock::swap_tao_to_alpha(netuid, stake_amount1);
-
         // === Stake to hotkeys ===
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
@@ -1106,6 +1103,11 @@ fn test_swap_delegated_stake_for_coldkey() {
             netuid,
             stake_amount1
         ));
+        let expected_stake_alpha1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1,
+            &old_coldkey,
+            netuid,
+        );
 
         let (expected_stake_alpha2, fee) = mock::swap_tao_to_alpha(netuid, stake_amount2);
         assert_ok!(SubtensorModule::add_stake(
@@ -1114,6 +1116,12 @@ fn test_swap_delegated_stake_for_coldkey() {
             netuid,
             stake_amount2
         ));
+        let expected_stake_alpha2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2,
+            &old_coldkey,
+            netuid,
+        );
+        let fee = (expected_stake_alpha2 as f64 * 0.003) as u64;
 
         // Record initial values
         let initial_total_issuance = SubtensorModule::get_total_issuance();

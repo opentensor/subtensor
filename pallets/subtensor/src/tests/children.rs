@@ -2223,9 +2223,13 @@ fn test_do_remove_stake_clears_pending_childkeys() {
             StakeThreshold::<Test>::get() * 2
         ));
 
-        let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        let alpha =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
 
-        println!("StakeThreshold::<Test>::get() = {:?}", StakeThreshold::<Test>::get());
+        println!(
+            "StakeThreshold::<Test>::get() = {:?}",
+            StakeThreshold::<Test>::get()
+        );
         println!("alpha                         = {:?}", alpha);
 
         // Attempt to set child

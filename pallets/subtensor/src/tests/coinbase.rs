@@ -478,11 +478,7 @@ fn test_pending_swapped() {
             1_000_000_000 - 125000000,
             epsilon = 1
         ); // 1 - swapped.
-        assert_abs_diff_eq!(
-            PendingRootDivs::<Test>::get(netuid),
-            125000000,
-            epsilon = 1
-        ); // swapped * (price = 1)
+        assert_abs_diff_eq!(PendingRootDivs::<Test>::get(netuid), 125000000, epsilon = 1); // swapped * (price = 1)
     });
 }
 

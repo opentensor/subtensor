@@ -70,17 +70,14 @@ impl<T: Config> Pallet<T> {
                         let alpha_stake = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
                             hotkey, coldkey, netuid,
                         );
-                        Self::sim_swap_alpha_for_tao(
-                            netuid,
-                            alpha_stake,
-                        )
-                        .map(|r| {
-                            let fee: u64 = U96F32::saturating_from_num(r.fee_paid)
-                                .saturating_mul(T::SwapInterface::current_alpha_price(netuid))
-                                .saturating_to_num();
-                            r.amount_paid_out.saturating_add(fee)
-                        })
-                        .unwrap_or_default()
+                        Self::sim_swap_alpha_for_tao(netuid, alpha_stake)
+                            .map(|r| {
+                                let fee: u64 = U96F32::saturating_from_num(r.fee_paid)
+                                    .saturating_mul(T::SwapInterface::current_alpha_price(netuid))
+                                    .saturating_to_num();
+                                r.amount_paid_out.saturating_add(fee)
+                            })
+                            .unwrap_or_default()
                     })
                     .sum::<u64>()
             })
@@ -199,8 +196,11 @@ impl<T: Config> Pallet<T> {
                     Self::add_balance_to_coldkey_account(coldkey, cleared_stake);
                 } else {
                     // Just clear small alpha
-                    let alpha = Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
-                    Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
+                    let alpha =
+                        Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
+                    Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                        hotkey, coldkey, netuid, alpha,
+                    );
                 }
             }
         }
