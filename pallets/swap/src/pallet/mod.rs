@@ -257,13 +257,7 @@ mod pallet {
         ///
         /// Emits `Event::LiquidityAdded` on success
         #[pallet::call_index(1)]
-        #[pallet::weight((
-		Weight::from_parts(50_000_000, 0)
-			.saturating_add(T::DbWeight::get().reads(5))
-			.saturating_add(T::DbWeight::get().writes(4)),
-            DispatchClass::Operational,
-            Pays::Yes
-        ))]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::add_liquidity())]
         pub fn add_liquidity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -321,13 +315,7 @@ mod pallet {
         ///
         /// Emits `Event::LiquidityRemoved` on success
         #[pallet::call_index(2)]
-        #[pallet::weight((
-		Weight::from_parts(50_000_000, 0)
-			.saturating_add(T::DbWeight::get().reads(4))
-			.saturating_add(T::DbWeight::get().writes(4)),
-            DispatchClass::Operational,
-            Pays::Yes
-        ))]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::remove_liquidity())]
         pub fn remove_liquidity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -378,13 +366,7 @@ mod pallet {
         ///
         /// Emits `Event::LiquidityRemoved` on success
         #[pallet::call_index(3)]
-        #[pallet::weight((
-		Weight::from_parts(50_000_000, 0)
-			.saturating_add(T::DbWeight::get().reads(4))
-			.saturating_add(T::DbWeight::get().writes(4)),
-            DispatchClass::Operational,
-            Pays::Yes
-        ))]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::modify_position())]
         pub fn modify_position(
             origin: OriginFor<T>,
             hotkey: T::AccountId,

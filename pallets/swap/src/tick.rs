@@ -1,4 +1,5 @@
 //! The math is adapted from github.com/0xKitsune/uniswap-v3-math
+use core::cmp::Ordering;
 use core::convert::TryFrom;
 use core::error::Error;
 use core::fmt;
@@ -114,6 +115,7 @@ pub struct TickIndex(i32);
 impl Add<TickIndex> for TickIndex {
     type Output = Self;
 
+    #[allow(clippy::arithmetic_side_effects)]
     fn add(self, rhs: Self) -> Self::Output {
         // Note: This assumes the result is within bounds.
         // For a safer implementation, consider using checked_add.
@@ -124,6 +126,7 @@ impl Add<TickIndex> for TickIndex {
 impl Sub<TickIndex> for TickIndex {
     type Output = Self;
 
+    #[allow(clippy::arithmetic_side_effects)]
     fn sub(self, rhs: Self) -> Self::Output {
         // Note: This assumes the result is within bounds.
         // For a safer implementation, consider using checked_sub.
@@ -132,12 +135,14 @@ impl Sub<TickIndex> for TickIndex {
 }
 
 impl AddAssign<TickIndex> for TickIndex {
+    #[allow(clippy::arithmetic_side_effects)]
     fn add_assign(&mut self, rhs: Self) {
         *self = Self::new_unchecked(self.get() + rhs.get());
     }
 }
 
 impl SubAssign<TickIndex> for TickIndex {
+    #[allow(clippy::arithmetic_side_effects)]
     fn sub_assign(&mut self, rhs: Self) {
         *self = Self::new_unchecked(self.get() - rhs.get());
     }
@@ -178,12 +183,12 @@ impl TickIndex {
     /// Minimum value of the tick index
     /// The tick_math library uses different bitness, so we have to divide by 2.
     /// It's unsafe to change this value to something else.
-    pub const MIN: Self = Self(MIN_TICK / 2);
+    pub const MIN: Self = Self(MIN_TICK.saturating_div(2));
 
     /// Maximum value of the tick index
     /// The tick_math library uses different bitness, so we have to divide by 2.
     /// It's unsafe to change this value to something else.
-    pub const MAX: Self = Self(MAX_TICK / 2);
+    pub const MAX: Self = Self(MAX_TICK.saturating_div(2));
 
     /// All tick indexes are offset by this value for storage needs
     /// so that tick indexes are positive, which simplifies bit logic
@@ -195,6 +200,7 @@ impl TickIndex {
     }
 
     /// The MAX sqrt price, which is calculated at Self::MAX
+    #[allow(clippy::excessive_precision)]
     pub fn max_sqrt_price() -> SqrtPrice {
         SqrtPrice::saturating_from_num(4294886577.20989222513899790805)
     }
@@ -272,7 +278,7 @@ impl TickIndex {
         match Self::try_from_sqrt_price(sqrt_price) {
             Ok(index) => index,
             Err(_) => {
-                let max_price = Self::MAX.to_sqrt_price_bounded();
+                let max_price = Self::MAX.as_sqrt_price_bounded();
 
                 if sqrt_price > max_price {
                     Self::MAX
@@ -290,7 +296,7 @@ impl TickIndex {
     ///
     /// # Returns
     /// * `SqrtPrice` - A sqrt price that is guaranteed to be a valid value
-    pub fn to_sqrt_price_bounded(&self) -> SqrtPrice {
+    pub fn as_sqrt_price_bounded(&self) -> SqrtPrice {
         self.try_to_sqrt_price().unwrap_or_else(|_| {
             if *self >= Self::MAX {
                 Self::max_sqrt_price()
@@ -328,28 +334,29 @@ impl TickIndex {
     /// # Returns
     /// * `Result<TickIndex, TickMathError>` - The corresponding TickIndex if within valid bounds
     pub fn from_offset_index(offset_index: u32) -> Result<Self, TickMathError> {
-        let signed_index = (offset_index as i64 - Self::OFFSET.get() as i64) as i32;
+        // while it's safe, we use saturating math to mute the linter and just in case
+        let signed_index = ((offset_index as i64).saturating_sub(Self::OFFSET.get() as i64)) as i32;
         Self::new(signed_index)
     }
 
     /// Get the next tick index (incrementing by 1)
     pub fn next(&self) -> Result<Self, TickMathError> {
-        Self::new(self.0 + 1)
+        Self::new(self.0.saturating_add(1))
     }
 
     /// Get the previous tick index (decrementing by 1)
     pub fn prev(&self) -> Result<Self, TickMathError> {
-        Self::new(self.0 - 1)
+        Self::new(self.0.saturating_sub(1))
     }
 
     /// Add a value to this tick index with bounds checking
     pub fn checked_add(&self, value: i32) -> Result<Self, TickMathError> {
-        Self::new(self.0 + value)
+        Self::new(self.0.saturating_add(value))
     }
 
     /// Subtract a value from this tick index with bounds checking
     pub fn checked_sub(&self, value: i32) -> Result<Self, TickMathError> {
-        Self::new(self.0 - value)
+        Self::new(self.0.saturating_sub(value))
     }
 
     /// Add a value to this tick index, saturating at the bounds instead of overflowing
@@ -381,11 +388,12 @@ impl TickIndex {
     }
 
     /// Divide the tick index by a value with bounds checking
+    #[allow(clippy::arithmetic_side_effects)]
     pub fn checked_div(&self, value: i32) -> Result<Self, TickMathError> {
         if value == 0 {
             return Err(TickMathError::DivisionByZero);
         }
-        Self::new(self.0 / value)
+        Self::new(self.0.saturating_div(value))
     }
 
     /// Divide the tick index by a value, saturating at the bounds
@@ -452,12 +460,12 @@ impl TickIndex {
         // post‑verification, *both* directions
         let price_at_tick = get_sqrt_ratio_at_tick(tick)?;
         if price_at_tick > price_x96 {
-            tick -= 1; // estimate was too high
+            tick = tick.saturating_sub(1); // estimate was too high
         } else {
             // it may still be one too low
-            let price_at_tick_plus = get_sqrt_ratio_at_tick(tick + 1)?;
+            let price_at_tick_plus = get_sqrt_ratio_at_tick(tick.saturating_add(1))?;
             if price_at_tick_plus <= price_x96 {
-                tick += 1; // step up when required
+                tick = tick.saturating_add(1); // step up when required
             }
         }
 
@@ -621,12 +629,10 @@ impl ActiveTickIndexManager {
             let word1_index = TickIndexBitmap::layer_to_index(BitmapLayer::new(0, *closest_bit_l0));
 
             // Layer 1 words are different, shift the bit to the word edge
-            let start_from_l1_bit = if word1_index < layer1_word {
-                127
-            } else if word1_index > layer1_word {
-                0
-            } else {
-                layer1_bit
+            let start_from_l1_bit = match word1_index.cmp(&layer1_word) {
+                Ordering::Less => 127,
+                Ordering::Greater => 0,
+                _ => layer1_bit,
             };
             let word1_value =
                 TickIndexBitmapWords::<T>::get((netuid, LayerLevel::Middle, word1_index));
@@ -643,12 +649,10 @@ impl ActiveTickIndexManager {
                     TickIndexBitmap::layer_to_index(BitmapLayer::new(word1_index, *closest_bit_l1));
 
                 // Layer 2 words are different, shift the bit to the word edge
-                let start_from_l2_bit = if word2_index < layer2_word {
-                    127
-                } else if word2_index > layer2_word {
-                    0
-                } else {
-                    layer2_bit
+                let start_from_l2_bit = match word2_index.cmp(&layer2_word) {
+                    Ordering::Less => 127,
+                    Ordering::Greater => 0,
+                    _ => layer2_bit,
                 };
 
                 let word2_value =
@@ -660,11 +664,13 @@ impl ActiveTickIndexManager {
                     lower,
                 );
 
-                if closest_bits_l2.len() > 0 {
+                if !closest_bits_l2.is_empty() {
                     // The active tick is found, restore its full index and return
                     let offset_found_index = TickIndexBitmap::layer_to_index(BitmapLayer::new(
                         word2_index,
-                        closest_bits_l2[0],
+                        // it's safe to unwrap, because the len is > 0, but to prevent errors in
+                        // refactoring, we use default fallback here for extra safety
+                        closest_bits_l2.first().copied().unwrap_or_default(),
                     ));
 
                     if lower {
@@ -830,6 +836,7 @@ impl From<TickIndex> for TickIndexBitmap {
     }
 }
 
+#[allow(clippy::arithmetic_side_effects)]
 fn get_sqrt_ratio_at_tick(tick: i32) -> Result<U256, TickMathError> {
     let abs_tick = if tick < 0 {
         U256::from(tick.neg())
@@ -848,80 +855,168 @@ fn get_sqrt_ratio_at_tick(tick: i32) -> Result<U256, TickMathError> {
     };
 
     if !(abs_tick & U256_2).is_zero() {
-        ratio = (ratio * U256::from_limbs([6459403834229662010, 18444899583751176498, 0, 0])) >> 128
+        ratio = (ratio.saturating_mul(U256::from_limbs([
+            6459403834229662010,
+            18444899583751176498,
+            0,
+            0,
+        ]))) >> 128
     }
     if !(abs_tick & U256_4).is_zero() {
-        ratio =
-            (ratio * U256::from_limbs([17226890335427755468, 18443055278223354162, 0, 0])) >> 128
+        ratio = (ratio.saturating_mul(U256::from_limbs([
+            17226890335427755468,
+            18443055278223354162,
+            0,
+            0,
+        ]))) >> 128
     }
     if !(abs_tick & U256_8).is_zero() {
-        ratio = (ratio * U256::from_limbs([2032852871939366096, 18439367220385604838, 0, 0])) >> 128
+        ratio = (ratio.saturating_mul(U256::from_limbs([
+            2032852871939366096,
+            18439367220385604838,
+            0,
+            0,
+        ]))) >> 128
     }
     if !(abs_tick & U256_16).is_zero() {
-        ratio =
-            (ratio * U256::from_limbs([14545316742740207172, 18431993317065449817, 0, 0])) >> 128
+        ratio = (ratio.saturating_mul(U256::from_limbs([
+            14545316742740207172,
+            18431993317065449817,
+            0,
+            0,
+        ]))) >> 128
     }
     if !(abs_tick & U256_32).is_zero() {
-        ratio = (ratio * U256::from_limbs([5129152022828963008, 18417254355718160513, 0, 0])) >> 128
+        ratio = (ratio.saturating_mul(U256::from_limbs([
+            5129152022828963008,
+            18417254355718160513,
+            0,
+            0,
+        ]))) >> 128
     }
     if !(abs_tick & U256_64).is_zero() {
-        ratio = (ratio * U256::from_limbs([4894419605888772193, 18387811781193591352, 0, 0])) >> 128
+        ratio = (ratio.saturating_mul(U256::from_limbs([
+            4894419605888772193,
+            18387811781193591352,
+            0,
+            0,
+        ]))) >> 128
     }
     if !(abs_tick & U256_128).is_zero() {
-        ratio = (ratio * U256::from_limbs([1280255884321894483, 18329067761203520168, 0, 0])) >> 128
+        ratio = (ratio.saturating_mul(U256::from_limbs([
+            1280255884321894483,
+            18329067761203520168,
+            0,
+            0,
+        ]))) >> 128
     }
     if !(abs_tick & U256_256).is_zero() {
-        ratio =
-            (ratio * U256::from_limbs([15924666964335305636, 18212142134806087854, 0, 0])) >> 128
+        ratio = (ratio.saturating_mul(U256::from_limbs([
+            15924666964335305636,
+            18212142134806087854,
+            0,
+            0,
+        ]))) >> 128
     }
     if !(abs_tick & U256_512).is_zero() {
-        ratio = (ratio * U256::from_limbs([8010504389359918676, 17980523815641551639, 0, 0])) >> 128
+        ratio = (ratio.saturating_mul(U256::from_limbs([
+            8010504389359918676,
+            17980523815641551639,
+            0,
+            0,
+        ]))) >> 128
     }
     if !(abs_tick & U256_1024).is_zero() {
-        ratio =
-            (ratio * U256::from_limbs([10668036004952895731, 17526086738831147013, 0, 0])) >> 128
+        ratio = (ratio.saturating_mul(U256::from_limbs([
+            10668036004952895731,
+            17526086738831147013,
+            0,
+            0,
+        ]))) >> 128
     }
     if !(abs_tick & U256_2048).is_zero() {
-        ratio = (ratio * U256::from_limbs([4878133418470705625, 16651378430235024244, 0, 0])) >> 128
+        ratio = (ratio.saturating_mul(U256::from_limbs([
+            4878133418470705625,
+            16651378430235024244,
+            0,
+            0,
+        ]))) >> 128
     }
     if !(abs_tick & U256_4096).is_zero() {
-        ratio = (ratio * U256::from_limbs([9537173718739605541, 15030750278693429944, 0, 0])) >> 128
+        ratio = (ratio.saturating_mul(U256::from_limbs([
+            9537173718739605541,
+            15030750278693429944,
+            0,
+            0,
+        ]))) >> 128
     }
     if !(abs_tick & U256_8192).is_zero() {
-        ratio = (ratio * U256::from_limbs([9972618978014552549, 12247334978882834399, 0, 0])) >> 128
+        ratio = (ratio.saturating_mul(U256::from_limbs([
+            9972618978014552549,
+            12247334978882834399,
+            0,
+            0,
+        ]))) >> 128
     }
     if !(abs_tick & U256_16384).is_zero() {
-        ratio = (ratio * U256::from_limbs([10428997489610666743, 8131365268884726200, 0, 0])) >> 128
+        ratio = (ratio.saturating_mul(U256::from_limbs([
+            10428997489610666743,
+            8131365268884726200,
+            0,
+            0,
+        ]))) >> 128
     }
     if !(abs_tick & U256_32768).is_zero() {
-        ratio = (ratio * U256::from_limbs([9305304367709015974, 3584323654723342297, 0, 0])) >> 128
+        ratio = (ratio.saturating_mul(U256::from_limbs([
+            9305304367709015974,
+            3584323654723342297,
+            0,
+            0,
+        ]))) >> 128
     }
     if !(abs_tick & U256_65536).is_zero() {
-        ratio = (ratio * U256::from_limbs([14301143598189091785, 696457651847595233, 0, 0])) >> 128
+        ratio = (ratio.saturating_mul(U256::from_limbs([
+            14301143598189091785,
+            696457651847595233,
+            0,
+            0,
+        ]))) >> 128
     }
     if !(abs_tick & U256_131072).is_zero() {
-        ratio = (ratio * U256::from_limbs([7393154844743099908, 26294789957452057, 0, 0])) >> 128
+        ratio = (ratio.saturating_mul(U256::from_limbs([
+            7393154844743099908,
+            26294789957452057,
+            0,
+            0,
+        ]))) >> 128
     }
     if !(abs_tick & U256_262144).is_zero() {
-        ratio = (ratio * U256::from_limbs([2209338891292245656, 37481735321082, 0, 0])) >> 128
+        ratio = (ratio.saturating_mul(U256::from_limbs([
+            2209338891292245656,
+            37481735321082,
+            0,
+            0,
+        ]))) >> 128
     }
     if !(abs_tick & U256_524288).is_zero() {
-        ratio = (ratio * U256::from_limbs([10518117631919034274, 76158723, 0, 0])) >> 128
+        ratio =
+            (ratio.saturating_mul(U256::from_limbs([10518117631919034274, 76158723, 0, 0]))) >> 128
     }
 
     if tick > 0 {
         ratio = U256::MAX / ratio;
     }
 
-    let shifted = ratio >> 32;
+    let shifted: U256 = ratio >> 32;
     let ceil = if ratio & U256::from((1u128 << 32) - 1) != U256::ZERO {
-        shifted + U256_1
+        shifted.saturating_add(U256_1)
     } else {
         shifted
     };
     Ok(ceil)
 }
 
+#[allow(clippy::arithmetic_side_effects)]
 fn get_tick_at_sqrt_ratio(sqrt_price_x_96: U256) -> Result<i32, TickMathError> {
     if !(sqrt_price_x_96 >= MIN_SQRT_RATIO && sqrt_price_x_96 < MAX_SQRT_RATIO) {
         return Err(TickMathError::SqrtPriceOutOfBounds);
@@ -992,12 +1087,13 @@ fn get_tick_at_sqrt_ratio(sqrt_price_x_96: U256) -> Result<i32, TickMathError> {
     msb = msb.bitor(f);
 
     r = if msb >= U256_128 {
-        ratio.shr(msb - U256_127)
+        ratio.shr(msb.saturating_sub(U256_127))
     } else {
-        ratio.shl(U256_127 - msb)
+        ratio.shl(U256_127.saturating_sub(msb))
     };
 
-    let mut log_2: I256 = (I256::from_raw(msb) - I256::from_limbs([128, 0, 0, 0])).shl(64);
+    let mut log_2: I256 =
+        (I256::from_raw(msb).saturating_sub(I256::from_limbs([128, 0, 0, 0]))).shl(64);
 
     for i in (51..=63).rev() {
         r = r.overflowing_mul(r).0.shr(U256_127);
@@ -1013,9 +1109,9 @@ fn get_tick_at_sqrt_ratio(sqrt_price_x_96: U256) -> Result<i32, TickMathError> {
 
     let log_sqrt10001 = log_2.wrapping_mul(SQRT_10001);
 
-    let tick_low = ((log_sqrt10001 - TICK_LOW) >> 128_u8).low_i32();
+    let tick_low = (log_sqrt10001.saturating_sub(TICK_LOW) >> 128_u8).low_i32();
 
-    let tick_high = ((log_sqrt10001 + TICK_HIGH) >> 128_u8).low_i32();
+    let tick_high = (log_sqrt10001.saturating_add(TICK_HIGH) >> 128_u8).low_i32();
 
     let tick = if tick_low == tick_high {
         tick_low
@@ -1026,36 +1122,6 @@ fn get_tick_at_sqrt_ratio(sqrt_price_x_96: U256) -> Result<i32, TickMathError> {
     };
 
     Ok(tick)
-}
-
-/// Convert U256 to U64F64
-///
-/// # Arguments
-/// * `value` - The U256 value in Q64.96 format
-///
-/// # Returns
-/// * `Result<U64F64, TickMathError>` - Converted value or error if too large
-fn u256_to_u64f64(value: U256, source_fractional_bits: u32) -> Result<U64F64, TickMathError> {
-    if value > U256::from(u128::MAX) {
-        return Err(TickMathError::ConversionError);
-    }
-
-    let mut value: u128 = value
-        .try_into()
-        .map_err(|_| TickMathError::ConversionError)?;
-
-    // Adjust to 64 fractional bits (U64F64 format)
-    if source_fractional_bits < 64 {
-        // Shift left to add more fractional bits
-        value = value
-            .checked_shl(64 - source_fractional_bits)
-            .ok_or(TickMathError::Overflow)?;
-    } else if source_fractional_bits > 64 {
-        // Shift right to remove excess fractional bits
-        value = value >> (source_fractional_bits - 64);
-    }
-
-    Ok(U64F64::from_bits(value))
 }
 
 // Convert U64F64 to U256 in Q64.96 format (Uniswap's sqrt price format)
@@ -1071,20 +1137,15 @@ fn u64f64_to_u256_q64_96(value: U64F64) -> U256 {
 ///
 /// # Returns
 /// * `U256` - Converted value
+#[allow(clippy::arithmetic_side_effects)]
 fn u64f64_to_u256(value: U64F64, target_fractional_bits: u32) -> U256 {
-    let mut bits = value.to_bits();
+    let raw = U256::from(value.to_bits());
 
-    // Adjust to target fractional bits
-    if target_fractional_bits < 64 {
-        // Shift right to remove excess fractional bits
-        bits = bits >> (64 - target_fractional_bits);
-    } else if target_fractional_bits > 64 {
-        // Shift left to add more fractional bits
-        bits = bits << (target_fractional_bits - 64);
+    match target_fractional_bits.cmp(&64) {
+        Ordering::Less => raw >> (64 - target_fractional_bits),
+        Ordering::Greater => raw.saturating_shl((target_fractional_bits - 64) as usize),
+        Ordering::Equal => raw,
     }
-
-    // Create U256
-    U256::from(bits)
 }
 
 /// Convert U256 in Q64.96 format (Uniswap's sqrt price format) to U64F64
@@ -1092,20 +1153,21 @@ fn u256_q64_96_to_u64f64(value: U256) -> Result<U64F64, TickMathError> {
     q_to_u64f64(value, 96)
 }
 
+#[allow(clippy::arithmetic_side_effects)]
 fn q_to_u64f64(x: U256, frac_bits: u32) -> Result<U64F64, TickMathError> {
-    let diff = frac_bits.checked_sub(64).unwrap_or(0);
+    let diff = frac_bits.saturating_sub(64) as usize;
 
     // 1. shift right diff bits
     let shifted = if diff != 0 { x >> diff } else { x };
 
     // 2. **round up** if we threw away any 1‑bits
     let mask = if diff != 0 {
-        (U256_1 << diff) - U256_1
+        (U256_1.saturating_shl(diff)).saturating_sub(U256_1)
     } else {
         U256::ZERO
     };
     let rounded = if diff != 0 && (x & mask) != U256::ZERO {
-        shifted + U256_1
+        shifted.saturating_add(U256_1)
     } else {
         shifted
     };
@@ -1142,8 +1204,8 @@ impl Error for TickMathError {}
 
 #[cfg(test)]
 mod tests {
-    use std::{ops::Sub, str::FromStr};
     use safe_math::FixedExt;
+    use std::{ops::Sub, str::FromStr};
 
     use super::*;
     use crate::mock::*;
@@ -1324,20 +1386,6 @@ mod tests {
     }
 
     #[test]
-    fn test_u256_with_other_formats() {
-        // Test with a value that has 32 fractional bits
-        let value_32frac = U256::from(123456789u128 << 32); // 123456789.0 in Q96.32
-        let fixed_value = u256_to_u64f64(value_32frac, 32).unwrap();
-
-        // Should be 123456789.0 in U64F64
-        assert_eq!(fixed_value, U64F64::from_num(123456789.0));
-
-        // Round trip back to U256 with 32 fractional bits
-        let back_to_u256 = u64f64_to_u256(fixed_value, 32);
-        assert_eq!(back_to_u256, value_32frac);
-    }
-
-    #[test]
     fn test_tick_index_to_sqrt_price() {
         let tick_spacing = SqrtPrice::from_num(1.0001);
 
@@ -1354,13 +1402,13 @@ mod tests {
 
         assert!(
             TickIndex::MAX.try_to_sqrt_price().unwrap().abs_diff(
-                TickIndex::new_unchecked(TickIndex::MAX.get() + 1).to_sqrt_price_bounded()
+                TickIndex::new_unchecked(TickIndex::MAX.get() + 1).as_sqrt_price_bounded()
             ) < SqrtPrice::from_num(1e-6)
         );
 
         assert!(
             TickIndex::MIN.try_to_sqrt_price().unwrap().abs_diff(
-                TickIndex::new_unchecked(TickIndex::MIN.get() - 1).to_sqrt_price_bounded()
+                TickIndex::new_unchecked(TickIndex::MIN.get() - 1).as_sqrt_price_bounded()
             ) < SqrtPrice::from_num(1e-6)
         );
 
@@ -1397,7 +1445,7 @@ mod tests {
         let epsilon = SqrtPrice::from_num(0.0000000000000001);
         assert!(
             TickIndex::new_unchecked(2)
-                .to_sqrt_price_bounded()
+                .as_sqrt_price_bounded()
                 .abs_diff(tick_spacing)
                 < epsilon
         );
@@ -1406,7 +1454,7 @@ mod tests {
         let sqrt_price = tick_spacing * tick_spacing;
         assert!(
             TickIndex::new_unchecked(4)
-                .to_sqrt_price_bounded()
+                .as_sqrt_price_bounded()
                 .abs_diff(sqrt_price)
                 < epsilon
         );
@@ -1415,7 +1463,7 @@ mod tests {
         let sqrt_price = tick_spacing.checked_pow(5).unwrap();
         assert!(
             TickIndex::new_unchecked(10)
-                .to_sqrt_price_bounded()
+                .as_sqrt_price_bounded()
                 .abs_diff(sqrt_price)
                 < epsilon
         );
@@ -1502,12 +1550,12 @@ mod tests {
     #[test]
     fn test_to_sqrt_price_bounded() {
         assert_eq!(
-            TickIndex::MAX.to_sqrt_price_bounded(),
+            TickIndex::MAX.as_sqrt_price_bounded(),
             TickIndex::MAX.try_to_sqrt_price().unwrap()
         );
 
         assert_eq!(
-            TickIndex::MIN.to_sqrt_price_bounded(),
+            TickIndex::MIN.as_sqrt_price_bounded(),
             TickIndex::MIN.try_to_sqrt_price().unwrap()
         );
     }
