@@ -26,6 +26,7 @@ use crate::metagraph::*;
 use crate::neuron::*;
 use crate::staking::*;
 use crate::subnet::*;
+use crate::uid_lookup::*;
 
 mod balance_transfer;
 mod ed25519;
@@ -34,6 +35,7 @@ mod metagraph;
 mod neuron;
 mod staking;
 mod subnet;
+mod uid_lookup;
 
 pub struct Precompiles<R>(PhantomData<R>);
 
@@ -157,6 +159,9 @@ where
             }
             a if a == hash(NeuronPrecompile::<R>::INDEX) => {
                 NeuronPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Neuron)
+            }
+            a if a == hash(UidLookupPrecompile::<R>::INDEX) => {
+                UidLookupPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::UidLookup)
             }
             _ => None,
         }

@@ -317,15 +317,19 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidChildkeyTake
         );
 
-        // Ensure the hotkey passes the rate limit.
-        ensure!(
-            Self::passes_rate_limit_on_subnet(
-                &TransactionType::SetChildkeyTake, // Set childkey take.
-                &hotkey,                           // Specific to a hotkey.
-                netuid,                            // Specific to a subnet.
-            ),
-            Error::<T>::TxChildkeyTakeRateLimitExceeded
-        );
+        let current_take = Self::get_childkey_take(&hotkey, netuid);
+        // Check the rate limit for increasing childkey take case
+        if take > current_take {
+            // Ensure the hotkey passes the rate limit.
+            ensure!(
+                Self::passes_rate_limit_on_subnet(
+                    &TransactionType::SetChildkeyTake, // Set childkey take.
+                    &hotkey,                           // Specific to a hotkey.
+                    netuid,                            // Specific to a subnet.
+                ),
+                Error::<T>::TxChildkeyTakeRateLimitExceeded
+            );
+        }
 
         // Set last transaction block
         let current_block = Self::get_current_block_as_u64();

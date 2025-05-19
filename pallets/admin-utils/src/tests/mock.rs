@@ -80,6 +80,7 @@ parameter_types! {
     pub const TransactionByteFee: Balance = 100;
     pub const SDebug:u64 = 1;
     pub const InitialRho: u16 = 30;
+    pub const InitialAlphaSigmoidSteepness: u16 = 10;
     pub const InitialKappa: u16 = 32_767;
     pub const InitialTempo: u16 = 0;
     pub const SelfOwnership: u64 = 2;
@@ -87,6 +88,7 @@ parameter_types! {
     pub const InitialMaxAllowedUids: u16 = 2;
     pub const InitialBondsMovingAverage: u64 = 900_000;
     pub const InitialBondsPenalty: u16 = u16::MAX;
+    pub const InitialBondsResetOn: bool = false;
     pub const InitialStakePruningMin: u16 = 0;
     pub const InitialFoundationDistribution: u64 = 0;
     pub const InitialDefaultDelegateTake: u16 = 11_796; // 18% honest number.
@@ -129,6 +131,7 @@ parameter_types! {
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
+    pub const InitialYuma3On: bool = false; // Default value for Yuma3On
     // pub const InitialHotkeyEmissionTempo: u64 = 1; // (DEPRECATED)
     // pub const InitialNetworkMaxStake: u64 = u64::MAX; // (DEPRECATED)
     pub const InitialColdkeySwapScheduleDuration: u64 = 5 * 24 * 60 * 60 / 12; // 5 days
@@ -158,6 +161,7 @@ impl pallet_subtensor::Config for Test {
     type InitialAdjustmentAlpha = InitialAdjustmentAlpha;
     type InitialTargetRegistrationsPerInterval = InitialTargetRegistrationsPerInterval;
     type InitialRho = InitialRho;
+    type InitialAlphaSigmoidSteepness = InitialAlphaSigmoidSteepness;
     type InitialKappa = InitialKappa;
     type InitialMaxAllowedUids = InitialMaxAllowedUids;
     type InitialValidatorPruneLen = InitialValidatorPruneLen;
@@ -168,6 +172,7 @@ impl pallet_subtensor::Config for Test {
     type InitialPruningScore = InitialPruningScore;
     type InitialBondsMovingAverage = InitialBondsMovingAverage;
     type InitialBondsPenalty = InitialBondsPenalty;
+    type InitialBondsResetOn = InitialBondsResetOn;
     type InitialMaxAllowedValidators = InitialMaxAllowedValidators;
     type InitialDefaultDelegateTake = InitialDefaultDelegateTake;
     type InitialMinDelegateTake = InitialMinDelegateTake;
@@ -196,6 +201,7 @@ impl pallet_subtensor::Config for Test {
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;
+    type Yuma3On = InitialYuma3On;
     type Preimages = ();
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialColdkeySwapRescheduleDuration = InitialColdkeySwapRescheduleDuration;
@@ -287,7 +293,6 @@ impl crate::Config for Test {
     type Aura = ();
     type Grandpa = GrandpaInterfaceImpl;
     type Balance = Balance;
-    type WeightInfo = ();
 }
 
 parameter_types! {
@@ -313,7 +318,6 @@ impl pallet_scheduler::Config for Test {
 impl pallet_evm_chain_id::Config for Test {}
 impl pallet_drand::Config for Test {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = pallet_drand::weights::SubstrateWeight<Test>;
     type AuthorityId = TestAuthId;
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;

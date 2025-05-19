@@ -1,10 +1,26 @@
 use super::*;
 
+use alloc::string::ToString;
 use frame_support::ensure;
 use frame_system::ensure_signed;
 use sp_core::{H160, ecdsa::Signature, hashing::keccak_256};
+use sp_std::vec::Vec;
+
+const MESSAGE_PREFIX: &str = "\x19Ethereum Signed Message:\n";
 
 impl<T: Config> Pallet<T> {
+    pub(crate) fn hash_message_eip191<M: AsRef<[u8]>>(message: M) -> [u8; 32] {
+        let msg_len = message.as_ref().len().to_string();
+        keccak_256(
+            &[
+                MESSAGE_PREFIX.as_bytes(),
+                msg_len.as_bytes(),
+                message.as_ref(),
+            ]
+            .concat(),
+        )
+    }
+
     /// Associate an EVM key with a hotkey.
     ///
     /// This function accepts a Signature, which is a signed message containing the hotkey concatenated with
@@ -30,7 +46,7 @@ impl<T: Config> Pallet<T> {
         hotkey: T::AccountId,
         evm_key: H160,
         block_number: u64,
-        signature: Signature,
+        mut signature: Signature,
     ) -> dispatch::DispatchResult {
         let coldkey = ensure_signed(origin)?;
 
@@ -39,15 +55,18 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NonAssociatedColdKey
         );
 
+        // Normalize the v value to 0 or 1
+        if signature.0[64] >= 27 {
+            signature.0[64] = signature.0[64].saturating_sub(27);
+        }
+
         let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey)?;
 
-        let mut message = [0u8; 64];
         let block_hash = keccak_256(block_number.encode().as_ref());
-        message[..32].copy_from_slice(&hotkey.encode()[..]);
-        message[32..].copy_from_slice(block_hash.as_ref());
+        let message = [hotkey.encode().as_ref(), block_hash.as_ref()].concat();
         let public = signature
-            .recover_prehashed(&keccak_256(message.as_ref()))
-            .ok_or(Error::<T>::UnableToRecoverPublicKey)?;
+            .recover_prehashed(&Self::hash_message_eip191(message))
+            .ok_or(Error::<T>::InvalidIdentity)?;
         let secp_pubkey = libsecp256k1::PublicKey::parse_compressed(&public.0)
             .map_err(|_| Error::<T>::UnableToRecoverPublicKey)?;
         let uncompressed = secp_pubkey.serialize();
@@ -70,5 +89,20 @@ impl<T: Config> Pallet<T> {
         });
 
         Ok(())
+    }
+
+    pub fn uid_lookup(netuid: u16, evm_key: H160, limit: u16) -> Vec<(u16, u64)> {
+        let mut ret_val = AssociatedEvmAddress::<T>::iter_prefix(netuid)
+            .take(limit as usize)
+            .filter_map(|(uid, (stored_evm_key, block_associated))| {
+                if stored_evm_key != evm_key {
+                    return None;
+                }
+
+                Some((uid, block_associated))
+            })
+            .collect::<Vec<(u16, u64)>>();
+        ret_val.sort_by(|(_, block1), (_, block2)| block1.cmp(block2));
+        ret_val
     }
 }

@@ -7,7 +7,7 @@
 
 extern crate alloc;
 
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::{boxed::Box, vec};
 use codec::{Decode, Encode};
 use frame_support::{
     PalletId,
@@ -25,6 +25,7 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use scale_info::TypeInfo;
 use sp_runtime::traits::CheckedSub;
+use sp_std::vec::Vec;
 use weights::WeightInfo;
 
 pub use pallet::*;
@@ -33,6 +34,7 @@ use subtensor_macros::freeze_struct;
 pub type CrowdloanId = u32;
 
 mod benchmarking;
+mod migrations;
 mod mock;
 mod tests;
 pub mod weights;
@@ -42,11 +44,14 @@ pub type CurrencyOf<T> = <T as Config>::Currency;
 pub type BalanceOf<T> =
     <CurrencyOf<T> as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
+// Define a maximum length for the migration key
+type MigrationKeyMaxLen = ConstU32<128>;
+
 pub type BoundedCallOf<T> =
     Bounded<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hashing>;
 
 /// A struct containing the information about a crowdloan.
-#[freeze_struct("6b86ccf70fc1b8f1")]
+#[freeze_struct("5db9538284491545")]
 #[derive(Encode, Decode, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct CrowdloanInfo<AccountId, Balance, BlockNumber, Call> {
     /// The creator of the crowdloan.
@@ -71,6 +76,8 @@ pub struct CrowdloanInfo<AccountId, Balance, BlockNumber, Call> {
     pub call: Option<Call>,
     /// Whether the crowdloan has been finalized.
     pub finalized: bool,
+    /// The number of contributors to the crowdloan.
+    pub contributors_count: u32,
 }
 
 pub type CrowdloanInfoOf<T> = CrowdloanInfo<
@@ -134,6 +141,10 @@ pub mod pallet {
         /// The maximum number of contributors that can be refunded in a single refund.
         #[pallet::constant]
         type RefundContributorsLimit: Get<u32>;
+
+        // The maximum number of contributors that can contribute to a crowdloan.
+        #[pallet::constant]
+        type MaxContributors: Get<u32>;
     }
 
     /// A map of crowdloan ids to their information.
@@ -161,6 +172,11 @@ pub mod pallet {
     /// temporarily accessible to the dispatched call.
     #[pallet::storage]
     pub type CurrentCrowdloanId<T: Config> = StorageValue<_, CrowdloanId, OptionQuery>;
+
+    /// Storage for the migration run status.
+    #[pallet::storage]
+    pub type HasMigrationRun<T: Config> =
+        StorageMap<_, Identity, BoundedVec<u8, MigrationKeyMaxLen>, bool, ValueQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -253,6 +269,21 @@ pub mod pallet {
         NotReadyToDissolve,
         /// The deposit cannot be withdrawn from the crowdloan.
         DepositCannotBeWithdrawn,
+        /// The maximum number of contributors has been reached.
+        MaxContributorsReached,
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            let mut weight = frame_support::weights::Weight::from_parts(0, 0);
+
+            weight = weight
+                // Add the contributors count for each crowdloan
+                .saturating_add(migrations::migrate_add_contributors_count::<T>());
+
+            weight
+        }
     }
 
     #[pallet::call]
@@ -342,6 +373,7 @@ pub mod pallet {
                 target_address,
                 call,
                 finalized: false,
+                contributors_count: 1,
             };
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
 
@@ -398,6 +430,12 @@ pub mod pallet {
                 Error::<T>::ContributionTooLow
             );
 
+            // Ensure the crowdloan has not reached the maximum number of contributors
+            ensure!(
+                crowdloan.contributors_count < T::MaxContributors::get(),
+                Error::<T>::MaxContributorsReached
+            );
+
             // Ensure contribution does not overflow the actual raised amount
             // and it does not exceed the cap
             let left_to_raise = crowdloan
@@ -415,11 +453,21 @@ pub mod pallet {
                 .checked_add(amount)
                 .ok_or(Error::<T>::Overflow)?;
 
-            // Compute the new total contribution and ensure it does not overflow.
-            let contribution = Contributions::<T>::get(crowdloan_id, &contributor)
-                .unwrap_or(Zero::zero())
-                .checked_add(amount)
-                .ok_or(Error::<T>::Overflow)?;
+            // Compute the new total contribution and ensure it does not overflow, we
+            // also increment the contributor count if the contribution is new.
+            let contribution =
+                if let Some(contribution) = Contributions::<T>::get(crowdloan_id, &contributor) {
+                    contribution
+                        .checked_add(amount)
+                        .ok_or(Error::<T>::Overflow)?
+                } else {
+                    // We have a new contribution
+                    crowdloan.contributors_count = crowdloan
+                        .contributors_count
+                        .checked_add(1)
+                        .ok_or(Error::<T>::Overflow)?;
+                    amount
+                };
 
             // Ensure contributor has enough balance to pay
             ensure!(
@@ -476,6 +524,10 @@ pub mod pallet {
                 Contributions::<T>::insert(crowdloan_id, &who, crowdloan.deposit);
             } else {
                 Contributions::<T>::remove(crowdloan_id, &who);
+                crowdloan.contributors_count = crowdloan
+                    .contributors_count
+                    .checked_sub(1)
+                    .ok_or(Error::<T>::Underflow)?;
             }
 
             CurrencyOf::<T>::transfer(
@@ -625,6 +677,10 @@ pub mod pallet {
                 refund_count = refund_count.checked_add(1).ok_or(Error::<T>::Overflow)?;
             }
 
+            crowdloan.contributors_count = crowdloan
+                .contributors_count
+                .checked_sub(refund_count)
+                .ok_or(Error::<T>::Underflow)?;
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
 
             // Clear refunded contributors
@@ -682,6 +738,7 @@ pub mod pallet {
                 creator_contribution,
                 Preservation::Expendable,
             )?;
+            Contributions::<T>::remove(crowdloan_id, &crowdloan.creator);
 
             // Clear the call from the preimage storage
             if let Some(call) = crowdloan.call {
