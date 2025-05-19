@@ -1142,8 +1142,8 @@ impl Error for TickMathError {}
 
 #[cfg(test)]
 mod tests {
-    use std::{ops::Sub, str::FromStr};
     use safe_math::FixedExt;
+    use std::{ops::Sub, str::FromStr};
 
     use super::*;
     use crate::mock::*;

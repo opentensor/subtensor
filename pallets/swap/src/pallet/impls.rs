@@ -1065,17 +1065,15 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
                 let sqrt_price = AlphaSqrtPrice::<T>::get(NetUid::from(netuid));
                 let tao_reserve = T::LiquidityDataProvider::tao_reserve(netuid);
                 let alpha_reserve = T::LiquidityDataProvider::alpha_reserve(netuid);
-        
+
                 if sqrt_price == 0 && tao_reserve > 0 && alpha_reserve > 0 {
                     U96F32::saturating_from_num(tao_reserve)
                         .saturating_div(U96F32::saturating_from_num(alpha_reserve))
                 } else {
                     U96F32::saturating_from_num(sqrt_price.saturating_mul(sqrt_price))
                 }
-            },
-            _ => {
-                U96F32::saturating_from_num(1)
             }
+            _ => U96F32::saturating_from_num(1),
         }
     }
 
@@ -1544,9 +1542,12 @@ mod tests {
                 .unwrap();
 
                 // Remove liquidity
-                let remove_result =
-                    Pallet::<Test>::do_remove_liquidity(netuid, &OK_COLDKEY_ACCOUNT_ID, position_id)
-                        .unwrap();
+                let remove_result = Pallet::<Test>::do_remove_liquidity(
+                    netuid,
+                    &OK_COLDKEY_ACCOUNT_ID,
+                    position_id,
+                )
+                .unwrap();
                 assert_abs_diff_eq!(remove_result.tao, tao, epsilon = tao / 1000);
                 assert_abs_diff_eq!(remove_result.alpha, alpha, epsilon = alpha / 1000);
                 assert_eq!(remove_result.fee_tao, 0);

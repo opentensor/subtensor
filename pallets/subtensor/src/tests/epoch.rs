@@ -563,7 +563,10 @@ fn test_1_graph() {
         let stake_amount: u64 = 1_000_000_000;
         add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
         SubtensorModule::set_max_allowed_uids(netuid, 1);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_amount + ExistentialDeposit::get());
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey,
+            stake_amount + ExistentialDeposit::get(),
+        );
         register_ok_neuron(netuid, hotkey, coldkey, 1);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 

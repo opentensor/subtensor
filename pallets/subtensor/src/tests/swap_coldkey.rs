@@ -381,7 +381,7 @@ fn test_swap_with_max_values() {
         let expected_stake1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &old_coldkey,
-            netuid
+            netuid,
         );
 
         assert_ok!(SubtensorModule::add_stake(
@@ -393,7 +393,7 @@ fn test_swap_with_max_values() {
         let expected_stake2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey2,
             &old_coldkey2,
-            netuid2
+            netuid2,
         );
 
         let mut weight = Weight::zero();
@@ -885,7 +885,7 @@ fn test_swap_stake_for_coldkey() {
         let expected_stake_alpha1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey1,
             &old_coldkey,
-            netuid
+            netuid,
         );
 
         assert_ok!(SubtensorModule::add_stake(
@@ -897,7 +897,7 @@ fn test_swap_stake_for_coldkey() {
         let expected_stake_alpha2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey2,
             &old_coldkey,
-            netuid
+            netuid,
         );
 
         // Insert existing for same hotkey1
@@ -913,7 +913,7 @@ fn test_swap_stake_for_coldkey() {
         let expected_stake_alpha3 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey1,
             &new_coldkey,
-            netuid
+            netuid,
         );
 
         // Record initial values
@@ -1039,7 +1039,7 @@ fn test_swap_staking_hotkeys_for_coldkey() {
         let expected_stake_alpha1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey1,
             &old_coldkey,
-            netuid
+            netuid,
         );
 
         assert_ok!(SubtensorModule::add_stake(
@@ -1051,7 +1051,7 @@ fn test_swap_staking_hotkeys_for_coldkey() {
         let expected_stake_alpha2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey2,
             &old_coldkey,
-            netuid
+            netuid,
         );
 
         // Perform the swap

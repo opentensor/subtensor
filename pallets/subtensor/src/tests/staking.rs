@@ -2904,7 +2904,7 @@ fn test_max_amount_add_dynamic() {
             150_000_000_000,
         ),
         // Miscellaneous overflows and underflows
-        (u64::MAX/2, u64::MAX, u64::MAX, u64::MAX),
+        (u64::MAX / 2, u64::MAX, u64::MAX, u64::MAX),
         // (150_000_000_000, 100_000_000_000, u64::MAX / 2, u64::MAX),
         // (1_000_000, 1_000_000_000_000_000_000_u64, 1, 999_000_000),
         // (1_000_000, 1_000_000_000_000_000_000_u64, 2, 1_999_000_000),
@@ -2957,22 +2957,19 @@ fn test_max_amount_add_dynamic() {
             let subnet_owner_coldkey = U256::from(1001);
             let subnet_owner_hotkey = U256::from(1002);
             let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        
+
             // Forse-set alpha in and tao reserve to achieve relative price of subnets
             SubnetTAO::<Test>::insert(netuid, tao_in);
             SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
 
             // Force the swap to initialize
-            SubtensorModule::swap_tao_for_alpha(
-                netuid,
-                0,
-                1_000_000_000_000
-            ).unwrap();
+            SubtensorModule::swap_tao_for_alpha(netuid, 0, 1_000_000_000_000).unwrap();
 
             if alpha_in != 0 {
                 let expected_price = U96F32::from_num(tao_in) / U96F32::from_num(alpha_in);
                 assert_abs_diff_eq!(
-                    <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid).to_num::<f64>(),
+                    <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid)
+                        .to_num::<f64>(),
                     expected_price.to_num::<f64>(),
                     epsilon = expected_price.to_num::<f64>() / 1_000_000_000_f64
                 );
@@ -3068,7 +3065,7 @@ fn test_max_amount_remove_dynamic() {
             (0, 1_000_000_000, 100, 0),
             (1_000_000_000, 0, 100, 0),
             (10_000_000_000, 10_000_000_000, 0, u64::MAX),
-            // Low bounds (numbers are empirical, it is only important that result 
+            // Low bounds (numbers are empirical, it is only important that result
             // is sharply decreasing when limit price increases)
             (1_000, 1_000, 0, 0),
             (1_001, 1_001, 0, 4_307_770_117),
@@ -3135,12 +3132,7 @@ fn test_max_amount_remove_dynamic() {
                 999_999_999,
                 10_500_000,
             ),
-            (
-                21_000_000_000_000_000,
-                21_000_000_000_000_000,
-                0,
-                u64::MAX,
-            ),
+            (21_000_000_000_000_000, 21_000_000_000_000_000, 0, u64::MAX),
         ]
         .iter()
         .for_each(|&(tao_in, alpha_in, limit_price, expected_max_swappable)| {
@@ -3156,7 +3148,8 @@ fn test_max_amount_remove_dynamic() {
                 );
             }
 
-            let expected = expected_max_swappable.saturating_add((expected_max_swappable as f64 * 0.003) as u64);
+            let expected = expected_max_swappable
+                .saturating_add((expected_max_swappable as f64 * 0.003) as u64);
             assert_abs_diff_eq!(
                 SubtensorModule::get_max_amount_remove(netuid, limit_price),
                 expected,
@@ -3656,7 +3649,7 @@ fn test_add_stake_limit_ok() {
             limit_price,
             true
         ));
-        
+
         // Check if stake has increased only by 75 Alpha
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -3669,7 +3662,10 @@ fn test_add_stake_limit_ok() {
         );
 
         // Check that 450 TAO less fees balance still remains free on coldkey
-        let fee = <tests::mock::Test as pallet::Config>::SwapInterface::approx_fee_amount(netuid, amount / 2) as f64;
+        let fee = <tests::mock::Test as pallet::Config>::SwapInterface::approx_fee_amount(
+            netuid,
+            amount / 2,
+        ) as f64;
         assert_abs_diff_eq!(
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             amount / 2 - fee as u64,
@@ -3750,7 +3746,10 @@ fn test_remove_stake_limit_ok() {
 
         // add network
         let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, stake_amount + ExistentialDeposit::get());
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey_account_id,
+            stake_amount + ExistentialDeposit::get(),
+        );
 
         // Forse-set sufficient reserves
         let tao_reserve: U96F32 = U96F32::from_num(100_000_000_000_u64);
@@ -4313,20 +4312,26 @@ fn test_unstake_all_alpha_hits_liquidity_min() {
         // Setup the pool so that removing all the TAO will bring liqudity below the minimum
         let remaining_tao = I96F32::from_num(u64::from(mock::SwapMinimumReserve::get()) - 1)
             .saturating_sub(I96F32::from(1));
-        let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        let alpha =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
         let alpha_reserves = I110F18::from(alpha + 10_000_000);
 
         let k = I110F18::from_fixed(remaining_tao)
             .saturating_mul(alpha_reserves.saturating_add(I110F18::from(alpha)));
         let tao_reserves = k.safe_div(alpha_reserves);
 
-        mock::setup_reserves(netuid, tao_reserves.to_num::<u64>() / 100_u64, alpha_reserves.to_num());
+        mock::setup_reserves(
+            netuid,
+            tao_reserves.to_num::<u64>() / 100_u64,
+            alpha_reserves.to_num(),
+        );
 
         // Try to unstake, but we reduce liquidity too far
 
-        assert_ok!(
-            SubtensorModule::unstake_all_alpha(RuntimeOrigin::signed(coldkey), hotkey)
-        );
+        assert_ok!(SubtensorModule::unstake_all_alpha(
+            RuntimeOrigin::signed(coldkey),
+            hotkey
+        ));
 
         // Expect nothing to be unstaked
         let new_alpha =

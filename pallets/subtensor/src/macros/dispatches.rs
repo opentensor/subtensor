@@ -2023,5 +2023,5 @@ mod dispatches {
         ) -> DispatchResult {
             Self::do_burn_alpha(origin, hotkey, amount, netuid)
         }
-	}
+    }
 }

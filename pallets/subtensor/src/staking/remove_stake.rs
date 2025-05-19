@@ -1,5 +1,5 @@
 use super::*;
-use subtensor_swap_interface::{SwapHandler, OrderType};
+use subtensor_swap_interface::{OrderType, SwapHandler};
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
@@ -346,13 +346,8 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // 4. Swap the alpha to tao and update counters for this subnet.
-        let tao_unstaked = Self::unstake_from_subnet(
-            &hotkey,
-            &coldkey,
-            netuid,
-            possible_alpha,
-            limit_price,
-        )?;
+        let tao_unstaked =
+            Self::unstake_from_subnet(&hotkey, &coldkey, netuid, possible_alpha, limit_price)?;
 
         // 5. We add the balance to the coldkey. If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
@@ -385,8 +380,12 @@ impl<T: Config> Pallet<T> {
         }
 
         // Use reverting swap to estimate max limit amount
-        if let Ok(swap_result) = T::SwapInterface::swap(netuid, OrderType::Sell, u64::MAX, limit_price, true) {
-            swap_result.amount_paid_in.saturating_add(swap_result.fee_paid)
+        if let Ok(swap_result) =
+            T::SwapInterface::swap(netuid, OrderType::Sell, u64::MAX, limit_price, true)
+        {
+            swap_result
+                .amount_paid_in
+                .saturating_add(swap_result.fee_paid)
         } else {
             0
         }
