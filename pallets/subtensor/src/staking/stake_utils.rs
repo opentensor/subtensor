@@ -384,7 +384,7 @@ impl<T: Config> Pallet<T> {
             return 0;
         }
 
-        let total_stake = StakeDeltaSinceLastEmissionDrain::<T>::get(netuid, hotkey).total();
+        let total_stake = StakeDeltaSinceLastEmissionDrain::<T>::get(netuid, hotkey);
 
         // We only care about positive stake delta
         total_stake.max(0).saturated_into()
@@ -838,8 +838,8 @@ impl<T: Config> Pallet<T> {
             Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
 
         // Track this substraction in the stake delta.
-        StakeDeltaSinceLastEmissionDrain::<T>::mutate(&netuid, &hotkey, |stake_delta| {
-            stake_delta.remove_stake(coldkey, actual_alpha_decrease);
+        StakeDeltaSinceLastEmissionDrain::<T>::mutate(netuid, hotkey, |stake_delta| {
+            *stake_delta = stake_delta.saturating_sub(actual_alpha_decrease.into());
         });
 
         // Step 2: Swap the alpha for TAO.
@@ -920,8 +920,8 @@ impl<T: Config> Pallet<T> {
             }
 
             // Track this addition in the stake delta.
-            StakeDeltaSinceLastEmissionDrain::<T>::mutate(&netuid, &hotkey, |stake_delta| {
-                stake_delta.add_stake(coldkey, actual_alpha);
+            StakeDeltaSinceLastEmissionDrain::<T>::mutate(netuid, hotkey, |stake_delta| {
+                *stake_delta = stake_delta.saturating_add(actual_alpha.into());
             });
         }
 

@@ -7,7 +7,6 @@
 
 use frame_system::{self as system, ensure_signed};
 pub use pallet::*;
-use sp_std::collections::btree_map::BTreeMap;
 
 use frame_support::{
     dispatch::{self, DispatchInfo, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo},
@@ -68,7 +67,6 @@ pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 #[frame_support::pallet]
 pub mod pallet {
     use crate::RateLimitKey;
-    use crate::StakeDeltaMap;
     use crate::migrations;
     use frame_support::{
         BoundedVec,
@@ -899,8 +897,8 @@ pub mod pallet {
 
     #[pallet::type_value]
     /// Default stake delta.
-    pub fn DefaultStakeDeltaMap<T: Config>() -> StakeDeltaMap<T::AccountId> {
-        StakeDeltaMap::new()
+    pub fn DefaultStakeDeltaMap() -> i128 {
+        0
     }
 
     #[pallet::type_value]
@@ -1184,9 +1182,9 @@ pub mod pallet {
         u16,
         Identity,
         T::AccountId,
-        StakeDeltaMap<T::AccountId>,
+        i128,
         ValueQuery,
-        DefaultStakeDeltaMap<T>,
+        DefaultStakeDeltaMap,
     >;
 
     #[pallet::storage]
@@ -2677,41 +2675,4 @@ impl<T, H, P> CollectiveInterface<T, H, P> for () {
 pub enum RateLimitKey {
     // The setting sn owner hotkey operation is rate limited per netuid
     SetSNOwnerHotkey(u16),
-}
-
-#[crate::freeze_struct("3fc6b1c8c6969dac")]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
-pub struct StakeDeltaMap<AccountId> {
-    coldkey_stake_deltas: BTreeMap<AccountId, i128>,
-}
-
-impl<AccountId: Ord + Clone> Default for StakeDeltaMap<AccountId> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<AccountId: Ord + Clone> StakeDeltaMap<AccountId> {
-    pub fn new() -> Self {
-        StakeDeltaMap {
-            coldkey_stake_deltas: BTreeMap::new(),
-        }
-    }
-
-    pub fn total(&self) -> i128 {
-        self.coldkey_stake_deltas.values().sum()
-    }
-    pub fn add_stake(&mut self, coldkey: &AccountId, stake_value: u64) {
-        self.coldkey_stake_deltas
-            .entry(coldkey.clone())
-            .and_modify(|stake| *stake = stake.saturating_add(stake_value.into()))
-            .or_insert(stake_value.into());
-    }
-    pub fn remove_stake(&mut self, coldkey: &AccountId, stake_value: u64) {
-        let converted_stake: i128 = stake_value.into();
-        self.coldkey_stake_deltas
-            .entry(coldkey.clone())
-            .and_modify(|stake| *stake = stake.saturating_sub(converted_stake))
-            .or_insert(0_i128.saturating_sub(converted_stake)); // clippy warning mitigation
-    }
 }
