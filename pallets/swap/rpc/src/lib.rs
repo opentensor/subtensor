@@ -10,14 +10,13 @@ use jsonrpsee::{
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
-use substrate_fixed::types::U96F32;
 
 pub use pallet_subtensor_swap_runtime_api::SwapRuntimeApi;
 
 #[rpc(client, server)]
 pub trait SwapRpcApi<BlockHash> {
     #[method(name = "swap_currentAlphaPrice")]
-    fn current_alpha_price(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<U96F32>;
+    fn current_alpha_price(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<u64>;
 }
 
 /// Error type of this RPC api.
@@ -68,7 +67,7 @@ where
         &self,
         netuid: u16,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<U96F32> {
+    ) -> RpcResult<u64> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 

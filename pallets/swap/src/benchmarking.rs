@@ -1,6 +1,6 @@
 //! Benchmarking setup for pallet-subtensor-swap
-#![cfg(feature = "runtime-benchmarks")]
-#![allow(clippy::arithmetic_side_effects)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::multiple_bound_locations)]
 
 use frame_benchmarking::v2::*;
 use frame_support::traits::Get;
