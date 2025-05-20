@@ -6,7 +6,7 @@ use alloc::collections::BTreeMap;
 use approx::assert_abs_diff_eq;
 use codec::{Decode, Encode};
 use frame_support::{
-    StorageHasher, Twox64Concat, assert_ok,
+    StorageDoubleMap, StorageHasher, Twox64Concat, assert_ok,
     storage::unhashed::{get, get_raw, put, put_raw},
     traits::{StorageInstance, StoredMap},
     weights::Weight,
@@ -816,6 +816,125 @@ fn test_migrate_remove_commitments_rate_limit() {
             get_raw(&key).is_none(),
             "RateLimit storage should have been cleared"
         );
+
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+    });
+}
+
+#[test]
+fn test_migrate_clear_root_epoch_values() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // Step 1: Simulate Old Storage Entry
+        // ------------------------------
+        const MIGRATION_NAME: &str = "migrate_clear_root_epoch_values";
+
+        let root_netuid = Pallet::<Test>::get_root_netuid();
+
+        SubnetworkN::<Test>::insert(root_netuid, 0);
+        Tempo::<Test>::insert(root_netuid, 0);
+        ActivityCutoff::<Test>::insert(root_netuid, 0);
+        MaxAllowedValidators::<Test>::insert(root_netuid, 0);
+        SubnetOwnerHotkey::<Test>::insert(root_netuid, U256::from(1));
+
+        Kappa::<Test>::insert(root_netuid, 0);
+        BondsPenalty::<Test>::insert(root_netuid, 0);
+        Yuma3On::<Test>::insert(root_netuid, false);
+        Rank::<Test>::insert(root_netuid, Vec::<u16>::new());
+        Trust::<Test>::insert(root_netuid, Vec::<u16>::new());
+
+        Active::<Test>::insert(root_netuid, Vec::<bool>::new());
+        Emission::<Test>::insert(root_netuid, Vec::<u64>::new());
+        Consensus::<Test>::insert(root_netuid, Vec::<u16>::new());
+        Incentive::<Test>::insert(root_netuid, Vec::<u16>::new());
+        Dividends::<Test>::insert(root_netuid, Vec::<u16>::new());
+
+        LastUpdate::<Test>::insert(root_netuid, Vec::<u64>::new());
+        PruningScores::<Test>::insert(root_netuid, Vec::<u16>::new());
+        ValidatorTrust::<Test>::insert(root_netuid, Vec::<u16>::new());
+        ValidatorPermit::<Test>::insert(root_netuid, Vec::<bool>::new());
+        StakeWeight::<Test>::insert(root_netuid, Vec::<u16>::new());
+
+        Bonds::<Test>::insert(root_netuid, root_netuid, Vec::<(u16, u16)>::new());
+        Keys::<Test>::insert(root_netuid, root_netuid, U256::from(1));
+        BlockAtRegistration::<Test>::insert(root_netuid, root_netuid, 0);
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        assert!(SubnetworkN::<Test>::contains_key(root_netuid));
+        assert!(Tempo::<Test>::contains_key(root_netuid));
+        assert!(ActivityCutoff::<Test>::contains_key(root_netuid));
+        assert!(MaxAllowedValidators::<Test>::contains_key(root_netuid));
+        assert!(SubnetOwnerHotkey::<Test>::contains_key(root_netuid));
+
+        assert!(Kappa::<Test>::contains_key(root_netuid));
+        assert!(BondsPenalty::<Test>::contains_key(root_netuid));
+        assert!(Yuma3On::<Test>::contains_key(root_netuid));
+        assert!(Rank::<Test>::contains_key(root_netuid));
+        assert!(Trust::<Test>::contains_key(root_netuid));
+
+        assert!(Active::<Test>::contains_key(root_netuid));
+        assert!(Emission::<Test>::contains_key(root_netuid));
+        assert!(Consensus::<Test>::contains_key(root_netuid));
+        assert!(Incentive::<Test>::contains_key(root_netuid));
+        assert!(Dividends::<Test>::contains_key(root_netuid));
+
+        assert!(LastUpdate::<Test>::contains_key(root_netuid));
+        assert!(PruningScores::<Test>::contains_key(root_netuid));
+        assert!(ValidatorTrust::<Test>::contains_key(root_netuid));
+        assert!(ValidatorPermit::<Test>::contains_key(root_netuid));
+        assert!(StakeWeight::<Test>::contains_key(root_netuid));
+
+        assert!(Bonds::<Test>::contains_prefix(root_netuid));
+        assert!(Keys::<Test>::contains_prefix(root_netuid));
+        assert!(BlockAtRegistration::<Test>::contains_prefix(root_netuid));
+
+        // ------------------------------
+        // Step 2: Run the Migration
+        // ------------------------------
+        let weight =
+            crate::migrations::migrate_clear_root_epoch_values::migrate_clear_root_epoch_values::<
+                Test,
+            >();
+
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as completed"
+        );
+
+        // ------------------------------
+        // Step 3: Verify Migration Effects
+        // ------------------------------
+        assert!(!SubnetworkN::<Test>::contains_key(root_netuid));
+        assert!(!Tempo::<Test>::contains_key(root_netuid));
+        assert!(!ActivityCutoff::<Test>::contains_key(root_netuid));
+        assert!(!MaxAllowedValidators::<Test>::contains_key(root_netuid));
+        assert!(!SubnetOwnerHotkey::<Test>::contains_key(root_netuid));
+
+        assert!(!Kappa::<Test>::contains_key(root_netuid));
+        assert!(!BondsPenalty::<Test>::contains_key(root_netuid));
+        assert!(!Yuma3On::<Test>::contains_key(root_netuid));
+        assert!(!Rank::<Test>::contains_key(root_netuid));
+        assert!(!Trust::<Test>::contains_key(root_netuid));
+
+        assert!(!Active::<Test>::contains_key(root_netuid));
+        assert!(!Emission::<Test>::contains_key(root_netuid));
+        assert!(!Consensus::<Test>::contains_key(root_netuid));
+        assert!(!Incentive::<Test>::contains_key(root_netuid));
+        assert!(!Dividends::<Test>::contains_key(root_netuid));
+
+        assert!(!LastUpdate::<Test>::contains_key(root_netuid));
+        assert!(!PruningScores::<Test>::contains_key(root_netuid));
+        assert!(!ValidatorTrust::<Test>::contains_key(root_netuid));
+        assert!(!ValidatorPermit::<Test>::contains_key(root_netuid));
+        assert!(!StakeWeight::<Test>::contains_key(root_netuid));
+
+        assert!(!Bonds::<Test>::contains_prefix(root_netuid));
+        assert!(!Keys::<Test>::contains_prefix(root_netuid));
+        assert!(!BlockAtRegistration::<Test>::contains_prefix(root_netuid));
 
         assert!(!weight.is_zero(), "Migration weight should be non-zero");
     });
