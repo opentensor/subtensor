@@ -2140,6 +2140,12 @@ impl_runtime_apis! {
             SubtensorModule::get_network_lock_cost()
         }
     }
+
+    impl pallet_subtensor_swap_runtime_api::SwapRuntimeApi<Block> for Runtime {
+        fn current_alpha_price(netuid: u16) -> substrate_fixed::types::U96F32 {
+            pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into())
+        }
+    }
 }
 
 #[test]

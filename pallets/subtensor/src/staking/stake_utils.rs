@@ -980,9 +980,10 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
-        let tao_equivalent = T::SwapInterface::sim_swap(origin_netuid, OrderType::Sell, alpha_amount)
-            .map(|res| res.amount_paid_out)
-            .map_err(|_| Error::<T>::InsufficientLiquidity)?;
+        let tao_equivalent =
+            T::SwapInterface::sim_swap(origin_netuid, OrderType::Sell, alpha_amount)
+                .map(|res| res.amount_paid_out)
+                .map_err(|_| Error::<T>::InsufficientLiquidity)?;
         ensure!(
             tao_equivalent > DefaultMinStake::<T>::get(),
             Error::<T>::AmountTooLow

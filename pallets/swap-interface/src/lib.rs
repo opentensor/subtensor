@@ -17,11 +17,7 @@ pub trait SwapHandler<AccountId> {
         price_limit: u64,
         should_rollback: bool,
     ) -> Result<SwapResult, DispatchError>;
-    fn sim_swap(
-        netuid: u16,
-        order_t: OrderType,
-        amount: u64,
-    ) -> Result<SwapResult, DispatchError>;
+    fn sim_swap(netuid: u16, order_t: OrderType, amount: u64) -> Result<SwapResult, DispatchError>;
     fn approx_fee_amount(netuid: u16, amount: u64) -> u64;
     fn current_alpha_price(netuid: u16) -> U96F32;
     fn max_price() -> u64;

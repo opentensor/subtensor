@@ -241,6 +241,24 @@ impl<T: Config> SwapStep<T> {
 }
 
 impl<T: Config> Pallet<T> {
+    pub fn current_price(netuid: NetUid) -> U96F32 {
+        match T::SubnetInfo::mechanism(netuid.into()) {
+            1 => {
+                let sqrt_price = AlphaSqrtPrice::<T>::get(NetUid::from(netuid));
+                let tao_reserve = T::SubnetInfo::tao_reserve(netuid.into());
+                let alpha_reserve = T::SubnetInfo::alpha_reserve(netuid.into());
+
+                if sqrt_price == 0 && tao_reserve > 0 && alpha_reserve > 0 {
+                    U96F32::saturating_from_num(tao_reserve)
+                        .saturating_div(U96F32::saturating_from_num(alpha_reserve))
+                } else {
+                    U96F32::saturating_from_num(sqrt_price.saturating_mul(sqrt_price))
+                }
+            }
+            _ => U96F32::saturating_from_num(1),
+        }
+    }
+
     // initializes V3 swap for a subnet if needed
     fn maybe_initialize_v3(netuid: NetUid) -> Result<(), Error<T>> {
         if SwapV3Initialized::<T>::get(netuid) {
@@ -1080,21 +1098,7 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
     }
 
     fn current_alpha_price(netuid: u16) -> U96F32 {
-        match T::SubnetInfo::mechanism(netuid) {
-            1 => {
-                let sqrt_price = AlphaSqrtPrice::<T>::get(NetUid::from(netuid));
-                let tao_reserve = T::SubnetInfo::tao_reserve(netuid);
-                let alpha_reserve = T::SubnetInfo::alpha_reserve(netuid);
-
-                if sqrt_price == 0 && tao_reserve > 0 && alpha_reserve > 0 {
-                    U96F32::saturating_from_num(tao_reserve)
-                        .saturating_div(U96F32::saturating_from_num(alpha_reserve))
-                } else {
-                    U96F32::saturating_from_num(sqrt_price.saturating_mul(sqrt_price))
-                }
-            }
-            _ => U96F32::saturating_from_num(1),
-        }
+        Self::current_price(netuid.into())
     }
 
     fn min_price() -> u64 {
