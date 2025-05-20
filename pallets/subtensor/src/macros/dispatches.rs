@@ -925,7 +925,7 @@ mod dispatches {
         /// User register a new subnetwork via burning token
         #[pallet::call_index(7)]
         #[pallet::weight((Weight::from_parts(219_400_000, 0)
-		.saturating_add(T::DbWeight::get().reads(34))
+		.saturating_add(T::DbWeight::get().reads(33))
 		.saturating_add(T::DbWeight::get().writes(29)), DispatchClass::Normal, Pays::No))]
         pub fn burned_register(
             origin: OriginFor<T>,
