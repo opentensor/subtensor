@@ -106,7 +106,7 @@ mod benchmarks {
             (netuid, caller.clone(), id),
             Position {
                 id,
-                netuid: netuid,
+                netuid,
                 tick_low: TickIndex::new(-10000).unwrap(),
                 tick_high: TickIndex::new(10000).unwrap(),
                 liquidity: 10000,
