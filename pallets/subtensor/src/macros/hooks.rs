@@ -118,13 +118,13 @@ mod hooks {
             // fix storage version for subtensor pallet
             use frame_support::traits::{GetStorageVersion, StorageVersion};
             let current_version = <Pallet<T> as GetStorageVersion>::on_chain_storage_version();
-            let target_version = StorageVersion::new(7);
-            if current_version == target_version - 1 {
-                target_version.put::<Pallet<T>>();
-            } else if current_version != target_version {
+            let v7 = StorageVersion::new(7);
+            if current_version == StorageVersion::new(6) {
+                v7.put::<Pallet<T>>();
+            } else if current_version != v7 {
                 panic!(
                     "Storage version mismatch: expected {:?}, found {:?}",
-                    target_version, current_version
+                    v7, current_version
                 );
             }
 
