@@ -12,7 +12,7 @@ use sp_runtime::{
     BuildStorage,
     traits::{BlakeTwo256, IdentityLookup},
 };
-use subtensor_swap_interface::{BalanceOps, LiquidityDataProvider};
+use subtensor_swap_interface::{BalanceOps, SubnetInfo};
 
 construct_runtime!(
     pub enum Test {
@@ -71,10 +71,10 @@ parameter_types! {
     pub const MinimumReserves: NonZeroU64 = NonZeroU64::new(1).unwrap();
 }
 
-// Mock implementor of LiquidityDataProvider trait
+// Mock implementor of SubnetInfo trait
 pub struct MockLiquidityProvider;
 
-impl LiquidityDataProvider<AccountId> for MockLiquidityProvider {
+impl SubnetInfo<AccountId> for MockLiquidityProvider {
     fn tao_reserve(netuid: u16) -> u64 {
         match netuid {
             123 => 10_000,
@@ -89,11 +89,11 @@ impl LiquidityDataProvider<AccountId> for MockLiquidityProvider {
         }
     }
 
-    fn subnet_exist(_netuid: u16) -> bool {
+    fn exists(_netuid: u16) -> bool {
         true
     }
 
-    fn subnet_mechanism(netuid: u16) -> u16 {
+    fn mechanism(netuid: u16) -> u16 {
         if netuid == 0 { 0 } else { 1 }
     }
 }
@@ -147,7 +147,7 @@ impl BalanceOps<AccountId> for MockBalanceOps {
 impl crate::pallet::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type AdminOrigin = EnsureRoot<AccountId>;
-    type LiquidityDataProvider = MockLiquidityProvider;
+    type SubnetInfo = MockLiquidityProvider;
     type BalanceOps = MockBalanceOps;
     type ProtocolId = SwapProtocolId;
     type MaxFeeRate = MaxFeeRate;

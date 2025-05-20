@@ -41,11 +41,11 @@ pub struct UpdateLiquidityResult {
     pub fee_alpha: u64,
 }
 
-pub trait LiquidityDataProvider<AccountId> {
+pub trait SubnetInfo<AccountId> {
     fn tao_reserve(netuid: u16) -> u64;
     fn alpha_reserve(netuid: u16) -> u64;
-    fn subnet_exist(netuid: u16) -> bool;
-    fn subnet_mechanism(netuid: u16) -> u16;
+    fn exists(netuid: u16) -> bool;
+    fn mechanism(netuid: u16) -> u16;
 }
 
 pub trait BalanceOps<AccountId> {

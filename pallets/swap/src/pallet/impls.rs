@@ -8,7 +8,7 @@ use sp_arithmetic::helpers_128bit;
 use sp_runtime::traits::AccountIdConversion;
 use substrate_fixed::types::{U64F64, U96F32};
 use subtensor_swap_interface::{
-    BalanceOps, LiquidityDataProvider, SwapHandler, SwapResult, UpdateLiquidityResult,
+    BalanceOps, SubnetInfo, SwapHandler, SwapResult, UpdateLiquidityResult,
 };
 
 use super::pallet::*;
@@ -249,8 +249,8 @@ impl<T: Config> Pallet<T> {
 
         // Initialize the v3:
         // Reserves are re-purposed, nothing to set, just query values for liquidity and price calculation
-        let tao_reserve = <T as Config>::LiquidityDataProvider::tao_reserve(netuid.into());
-        let alpha_reserve = <T as Config>::LiquidityDataProvider::alpha_reserve(netuid.into());
+        let tao_reserve = <T as Config>::SubnetInfo::tao_reserve(netuid.into());
+        let alpha_reserve = <T as Config>::SubnetInfo::alpha_reserve(netuid.into());
 
         // Set price
         let price = U64F64::saturating_from_num(tao_reserve)
@@ -319,9 +319,8 @@ impl<T: Config> Pallet<T> {
         sqrt_price_limit: SqrtPrice,
     ) -> Result<SwapResult, Error<T>> {
         ensure!(
-            T::LiquidityDataProvider::tao_reserve(netuid.into()) >= T::MinimumReserve::get().get()
-                && T::LiquidityDataProvider::alpha_reserve(netuid.into())
-                    >= T::MinimumReserve::get().get(),
+            T::SubnetInfo::tao_reserve(netuid.into()) >= T::MinimumReserve::get().get()
+                && T::SubnetInfo::alpha_reserve(netuid.into()) >= T::MinimumReserve::get().get(),
             Error::<T>::ReservesTooLow
         );
 
@@ -363,8 +362,8 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        let tao_reserve = T::LiquidityDataProvider::tao_reserve(netuid.into());
-        let alpha_reserve = T::LiquidityDataProvider::alpha_reserve(netuid.into());
+        let tao_reserve = T::SubnetInfo::tao_reserve(netuid.into());
+        let alpha_reserve = T::SubnetInfo::alpha_reserve(netuid.into());
 
         let checked_reserve = match order_type {
             OrderType::Buy => alpha_reserve,
@@ -1061,11 +1060,11 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
     }
 
     fn current_alpha_price(netuid: u16) -> U96F32 {
-        match T::LiquidityDataProvider::subnet_mechanism(netuid) {
+        match T::SubnetInfo::mechanism(netuid) {
             1 => {
                 let sqrt_price = AlphaSqrtPrice::<T>::get(NetUid::from(netuid));
-                let tao_reserve = T::LiquidityDataProvider::tao_reserve(netuid);
-                let alpha_reserve = T::LiquidityDataProvider::alpha_reserve(netuid);
+                let tao_reserve = T::SubnetInfo::tao_reserve(netuid);
+                let alpha_reserve = T::SubnetInfo::alpha_reserve(netuid);
 
                 if sqrt_price == 0 && tao_reserve > 0 && alpha_reserve > 0 {
                     U96F32::saturating_from_num(tao_reserve)

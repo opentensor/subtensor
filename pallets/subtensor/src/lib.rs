@@ -2422,7 +2422,7 @@ impl<T, H, P> CollectiveInterface<T, H, P> for () {
 }
 
 impl<T: Config + pallet_balances::Config<Balance = u64>>
-    subtensor_swap_interface::LiquidityDataProvider<T::AccountId> for Pallet<T>
+    subtensor_swap_interface::SubnetInfo<T::AccountId> for Pallet<T>
 {
     fn tao_reserve(netuid: u16) -> u64 {
         SubnetTAO::<T>::get(netuid)
@@ -2432,11 +2432,11 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
         SubnetAlphaIn::<T>::get(netuid)
     }
 
-    fn subnet_exist(netuid: u16) -> bool {
+    fn exists(netuid: u16) -> bool {
         Self::if_subnet_exist(netuid)
     }
 
-    fn subnet_mechanism(netuid: u16) -> u16 {
+    fn mechanism(netuid: u16) -> u16 {
         SubnetMechanism::<T>::get(netuid)
     }
 }
