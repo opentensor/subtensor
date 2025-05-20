@@ -1055,6 +1055,26 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
         .map_err(Into::into)
     }
 
+    fn sim_swap(netuid: u16, order_t: OrderType, amount: u64) -> Result<SwapResult, DispatchError> {
+        match T::SubnetInfo::mechanism(netuid) {
+            1 => {
+                let price_limit = match order_t {
+                    OrderType::Buy => Self::max_price(),
+                    OrderType::Sell => Self::min_price(),
+                };
+
+                Self::swap(netuid, order_t, amount, price_limit, true)
+            }
+            _ => Ok(SwapResult {
+                amount_paid_in: amount,
+                amount_paid_out: amount,
+                fee_paid: 0,
+                new_tao_reserve: 0,
+                new_alpha_reserve: 0,
+            }),
+        }
+    }
+
     fn approx_fee_amount(netuid: u16, amount: u64) -> u64 {
         Self::calculate_fee_amount(netuid.into(), amount)
     }

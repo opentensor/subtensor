@@ -2453,11 +2453,11 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
     }
 
     fn increase_balance(coldkey: &T::AccountId, tao: u64) {
-        Self::add_balance_to_coldkey_account(&coldkey, tao)
+        Self::add_balance_to_coldkey_account(coldkey, tao)
     }
 
     fn decrease_balance(coldkey: &T::AccountId, tao: u64) -> Result<u64, DispatchError> {
-        Self::remove_balance_from_coldkey_account(&coldkey, tao)
+        Self::remove_balance_from_coldkey_account(coldkey, tao)
     }
 
     fn increase_stake(
@@ -2467,11 +2467,11 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
         alpha: u64,
     ) -> Result<(), DispatchError> {
         ensure!(
-            Self::hotkey_account_exists(&hotkey),
+            Self::hotkey_account_exists(hotkey),
             Error::<T>::HotKeyAccountNotExists
         );
 
-        Self::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid, alpha);
+        Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
 
         Ok(())
     }
@@ -2483,12 +2483,12 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
         alpha: u64,
     ) -> Result<u64, DispatchError> {
         ensure!(
-            Self::hotkey_account_exists(&hotkey),
+            Self::hotkey_account_exists(hotkey),
             Error::<T>::HotKeyAccountNotExists
         );
 
         Ok(Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey, &coldkey, netuid, alpha,
+            hotkey, coldkey, netuid, alpha,
         ))
     }
 }
