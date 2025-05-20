@@ -121,9 +121,9 @@ mod hooks {
             let v7 = StorageVersion::new(7);
             if current_version == StorageVersion::new(6) {
                 v7.put::<Pallet<T>>();
-            } else if current_version != v7 {
+            } else if current_version < v7 {
                 panic!(
-                    "Storage version mismatch: expected {:?}, found {:?}",
+                    "Storage version mismatch: expected at least {:?}, found {:?}",
                     v7, current_version
                 );
             }
