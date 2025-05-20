@@ -102,7 +102,7 @@ mod hooks {
                 // Remove all entries in TotalHotkeyColdkeyStakesThisInterval
                 .saturating_add(migrations::migrate_remove_total_hotkey_coldkey_stakes_this_interval::migrate_remove_total_hotkey_coldkey_stakes_this_interval::<T>())
                 // Wipe the deprecated RateLimit storage item in the commitments pallet
-                .saturating_add(migrations::migrate_remove_commitments_rate_limit::migrate_remove_commitments_rate_limit::<T>());
+                .saturating_add(migrations::migrate_remove_commitments_rate_limit::migrate_remove_commitments_rate_limit::<T>())
                 // Remove all entries in orphaned storage items
                 .saturating_add(
                     migrations::migrate_orphaned_storage_items::migrate_orphaned_storage_items::<T>(
@@ -114,6 +114,20 @@ mod hooks {
                 .saturating_add(migrations::migrate_reset_max_burn::migrate_reset_max_burn::<T>())
                 // Migrate ColdkeySwapScheduled structure to new format
                 .saturating_add(migrations::migrate_coldkey_swap_scheduled::migrate_coldkey_swap_scheduled::<T>());
+
+            // fix storage version for subtensor pallet
+            use frame_support::traits::{GetStorageVersion, StorageVersion};
+            let current_version = <Pallet<T> as GetStorageVersion>::on_chain_storage_version();
+            let target_version = StorageVersion::new(7);
+            if current_version == target_version - 1 {
+                target_version.put::<Pallet<T>>();
+            } else if current_version != target_version {
+                panic!(
+                    "Storage version mismatch: expected {:?}, found {:?}",
+                    target_version, current_version
+                );
+            }
+
             weight
         }
 
