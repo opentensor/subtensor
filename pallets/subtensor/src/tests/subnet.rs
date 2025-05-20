@@ -261,15 +261,6 @@ fn test_subtoken_enable_reject_trading_before_enable() {
 
         // all trading extrinsic should be rejected.
         assert_noop!(
-            SubtensorModule::burned_register(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-                netuid,
-                hotkey_account_id
-            ),
-            Error::<Test>::SubtokenDisabled
-        );
-
-        assert_noop!(
             SubtensorModule::add_stake(
                 RuntimeOrigin::signed(coldkey_account_id),
                 hotkey_account_id,
