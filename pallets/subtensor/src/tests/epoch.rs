@@ -2095,13 +2095,14 @@ fn test_deregistered_miner_bonds() {
     });
 }
 
-// Test that epoch assigns validator permits to highest stake uids, varies uid interleaving and stake values.
+// Test that epoch assigns validator permits to highest stake uids that are over the stake threshold, varies uid interleaving and stake values.
 #[test]
 fn test_validator_permits() {
     let netuid: u16 = 1;
     let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
     for interleave in 0..3 {
         for (network_n, validators_n) in [(2, 1), (4, 2), (8, 4)] {
+            let min_stake = validators_n as u64;
             for assignment in 0..=1 {
                 let (validators, servers) =
                     distribute_nodes(validators_n as usize, network_n, interleave as usize);
@@ -2132,6 +2133,7 @@ fn test_validator_permits() {
                         netuid,
                         network_n as u16,
                     );
+                    SubtensorModule::set_stake_threshold(min_stake);
 
                     // === Register [validator1, validator2, server1, server2]
                     for key in 0..network_n as u64 {
@@ -2173,7 +2175,7 @@ fn test_validator_permits() {
                     SubtensorModule::epoch(netuid, 1_000_000_000); // run first epoch to set allowed validators
                     for validator in &validators {
                         assert_eq!(
-                            correct,
+                            stake[*validator as usize] >= min_stake,
                             SubtensorModule::get_validator_permit_for_uid(netuid, *validator)
                         );
                     }
@@ -2211,7 +2213,7 @@ fn test_validator_permits() {
                     }
                     for server in &servers {
                         assert_eq!(
-                            correct,
+                            (stake[*server as usize] + (2 * network_n as u64)) >= min_stake,
                             SubtensorModule::get_validator_permit_for_uid(netuid, *server)
                         );
                     }
