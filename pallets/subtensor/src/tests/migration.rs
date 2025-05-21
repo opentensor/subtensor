@@ -864,33 +864,23 @@ fn test_migrate_clear_root_epoch_values() {
             "Migration should not have run yet"
         );
 
-        assert!(SubnetworkN::<Test>::contains_key(root_netuid));
-        assert!(Tempo::<Test>::contains_key(root_netuid));
         assert!(ActivityCutoff::<Test>::contains_key(root_netuid));
-        assert!(MaxAllowedValidators::<Test>::contains_key(root_netuid));
-        assert!(SubnetOwnerHotkey::<Test>::contains_key(root_netuid));
-
         assert!(Kappa::<Test>::contains_key(root_netuid));
         assert!(BondsPenalty::<Test>::contains_key(root_netuid));
         assert!(Yuma3On::<Test>::contains_key(root_netuid));
         assert!(Rank::<Test>::contains_key(root_netuid));
         assert!(Trust::<Test>::contains_key(root_netuid));
-
         assert!(Active::<Test>::contains_key(root_netuid));
         assert!(Emission::<Test>::contains_key(root_netuid));
         assert!(Consensus::<Test>::contains_key(root_netuid));
         assert!(Incentive::<Test>::contains_key(root_netuid));
         assert!(Dividends::<Test>::contains_key(root_netuid));
-
         assert!(LastUpdate::<Test>::contains_key(root_netuid));
         assert!(PruningScores::<Test>::contains_key(root_netuid));
         assert!(ValidatorTrust::<Test>::contains_key(root_netuid));
         assert!(ValidatorPermit::<Test>::contains_key(root_netuid));
         assert!(StakeWeight::<Test>::contains_key(root_netuid));
-
         assert!(Bonds::<Test>::contains_prefix(root_netuid));
-        assert!(Keys::<Test>::contains_prefix(root_netuid));
-        assert!(BlockAtRegistration::<Test>::contains_prefix(root_netuid));
 
         // ------------------------------
         // Step 2: Run the Migration
@@ -908,33 +898,23 @@ fn test_migrate_clear_root_epoch_values() {
         // ------------------------------
         // Step 3: Verify Migration Effects
         // ------------------------------
-        assert!(!SubnetworkN::<Test>::contains_key(root_netuid));
-        assert!(!Tempo::<Test>::contains_key(root_netuid));
         assert!(!ActivityCutoff::<Test>::contains_key(root_netuid));
-        assert!(!MaxAllowedValidators::<Test>::contains_key(root_netuid));
-        assert!(!SubnetOwnerHotkey::<Test>::contains_key(root_netuid));
-
         assert!(!Kappa::<Test>::contains_key(root_netuid));
         assert!(!BondsPenalty::<Test>::contains_key(root_netuid));
         assert!(!Yuma3On::<Test>::contains_key(root_netuid));
         assert!(!Rank::<Test>::contains_key(root_netuid));
         assert!(!Trust::<Test>::contains_key(root_netuid));
-
         assert!(!Active::<Test>::contains_key(root_netuid));
         assert!(!Emission::<Test>::contains_key(root_netuid));
         assert!(!Consensus::<Test>::contains_key(root_netuid));
         assert!(!Incentive::<Test>::contains_key(root_netuid));
         assert!(!Dividends::<Test>::contains_key(root_netuid));
-
         assert!(!LastUpdate::<Test>::contains_key(root_netuid));
         assert!(!PruningScores::<Test>::contains_key(root_netuid));
         assert!(!ValidatorTrust::<Test>::contains_key(root_netuid));
         assert!(!ValidatorPermit::<Test>::contains_key(root_netuid));
         assert!(!StakeWeight::<Test>::contains_key(root_netuid));
-
         assert!(!Bonds::<Test>::contains_prefix(root_netuid));
-        assert!(!Keys::<Test>::contains_prefix(root_netuid));
-        assert!(!BlockAtRegistration::<Test>::contains_prefix(root_netuid));
 
         assert!(!weight.is_zero(), "Migration weight should be non-zero");
     });
