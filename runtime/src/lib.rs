@@ -1601,7 +1601,7 @@ impl_runtime_apis! {
             use frame_support::traits::ExtrinsicCall;
             let encoded = tx.call().encode();
             if RuntimeCall::decode_all_with_depth_limit(8, &mut encoded.as_slice()).is_err() {
-                log::warn!("failed to decde with depth limit of 8");
+                log::warn!("failed to decode with depth limit of 8");
                 return Err(TransactionValidityError::Invalid(InvalidTransaction::Call));
             }
             Executive::validate_transaction(source, tx, block_hash)
