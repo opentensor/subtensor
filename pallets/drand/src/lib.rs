@@ -293,7 +293,7 @@ pub mod pallet {
                     signature,
                 } => {
                     // Blacklist stale pulses in the txpool that can stall finalization.
-                    if payload.block_number < BlockNumberFor::<T>::from(5612400u32) {
+                    if payload.block_number < BlockNumberFor::<T>::from(5612500u32) {
                         return InvalidTransaction::Stale.into();
                     }
                     let signature = signature.as_ref().ok_or(InvalidTransaction::BadSigner)?;
