@@ -218,5 +218,7 @@ mod errors {
         ZeroMaxStakeAmount,
         /// Invalid netuid duplication
         SameNetuid,
+        /// Stake is locked
+        StakeLocked,
     }
 }

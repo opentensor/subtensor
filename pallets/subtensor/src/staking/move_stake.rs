@@ -49,6 +49,7 @@ impl<T: Config> Pallet<T> {
             None,
             None,
             false,
+            true,
         )?;
 
         // Log the event.
@@ -119,6 +120,9 @@ impl<T: Config> Pallet<T> {
         // Ensure the extrinsic is signed by the origin_coldkey.
         let coldkey = ensure_signed(origin)?;
 
+        // Prevent DoS attacks
+        let set_lock = coldkey == destination_coldkey;
+
         // Validate input and move stake
         let tao_moved = Self::transition_stake_internal(
             &coldkey,
@@ -131,6 +135,7 @@ impl<T: Config> Pallet<T> {
             None,
             None,
             true,
+            set_lock,
         )?;
 
         // 9. Emit an event for logging/monitoring.
@@ -201,6 +206,7 @@ impl<T: Config> Pallet<T> {
             None,
             None,
             false,
+            true,
         )?;
 
         // Emit an event for logging.
@@ -273,6 +279,7 @@ impl<T: Config> Pallet<T> {
             Some(limit_price),
             Some(allow_partial),
             false,
+            true,
         )?;
 
         // Emit an event for logging.
@@ -309,6 +316,7 @@ impl<T: Config> Pallet<T> {
         maybe_limit_price: Option<u64>,
         maybe_allow_partial: Option<bool>,
         check_transfer_toggle: bool,
+        set_lock: bool,
     ) -> Result<u64, DispatchError> {
         // Calculate the maximum amount that can be executed
         let max_amount = if let Some(limit_price) = maybe_limit_price {
@@ -361,6 +369,7 @@ impl<T: Config> Pallet<T> {
                 destination_netuid,
                 tao_unstaked,
                 T::SwapInterface::max_price(),
+                set_lock,
             )?;
         }
 

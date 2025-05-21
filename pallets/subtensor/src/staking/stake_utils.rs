@@ -1,6 +1,7 @@
 use super::*;
 use safe_math::*;
 use share_pool::{SharePool, SharePoolDataOperations};
+use sp_runtime::Saturating;
 use sp_std::ops::Neg;
 use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
 use subtensor_swap_interface::{OrderType, SwapHandler, SwapResult};
@@ -788,6 +789,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         tao: u64,
         price_limit: u64,
+        set_lock: bool,
     ) -> Result<u64, DispatchError> {
         // Swap the tao to alpha.
         let swap_result = Self::swap_tao_for_alpha(netuid, tao, price_limit)?;
@@ -824,6 +826,10 @@ impl<T: Config> Pallet<T> {
 
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
+        if set_lock {
+            Self::set_stake_lock(hotkey, coldkey, netuid);
+        }
+
         // Deposit and log the staking event.
         Self::deposit_event(Event::StakeAdded(
             coldkey.clone(),
@@ -845,6 +851,32 @@ impl<T: Config> Pallet<T> {
         );
 
         Ok(swap_result.amount_paid_out)
+    }
+
+    pub fn set_stake_lock(hotkey: &T::AccountId, coldkey: &T::AccountId, netuid: u16) {
+        let subnet_tempo = Tempo::<T>::get(netuid);
+        let current_block_number = <frame_system::Pallet<T>>::block_number();
+
+        let stake_lock = current_block_number.saturating_add(subnet_tempo.into());
+
+        StakeLocks::<T>::insert((hotkey, coldkey, netuid), stake_lock);
+    }
+
+    pub fn ensure_stake_is_unlocked(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        netuid: u16,
+    ) -> Result<(), Error<T>> {
+        if !StakeLocks::<T>::contains_key((hotkey, coldkey, netuid)) {
+            return Ok(());
+        }
+
+        let stake_lock = StakeLocks::<T>::get((hotkey, coldkey, netuid));
+        let current_block_number = <frame_system::Pallet<T>>::block_number();
+
+        ensure!(current_block_number > stake_lock, Error::<T>::StakeLocked);
+
+        Ok(())
     }
 
     pub fn get_alpha_share_pool(
@@ -932,6 +964,8 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), Error<T>> {
         // Ensure that the subnet exists.
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+
+        Self::ensure_stake_is_unlocked(hotkey, coldkey, netuid)?;
 
         // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
         match T::SwapInterface::sim_swap(netuid.into(), OrderType::Sell, alpha_unstaked) {

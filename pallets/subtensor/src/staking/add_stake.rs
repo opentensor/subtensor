@@ -76,6 +76,7 @@ impl<T: Config> Pallet<T> {
             netuid,
             tao_staked.saturating_to_num::<u64>(),
             T::SwapInterface::max_price(),
+            true,
         )?;
 
         // Ok and return.
@@ -167,7 +168,7 @@ impl<T: Config> Pallet<T> {
 
         // 6. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
-        Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked, limit_price)?;
+        Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked, limit_price, true)?;
 
         // Ok and return.
         Ok(())
