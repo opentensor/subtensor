@@ -1005,10 +1005,6 @@ impl<T: Config> Pallet<T> {
 
         let mut unstaking_any = false;
         for netuid in subnets.iter() {
-            if !SubtokenEnabled::<T>::get(netuid) {
-                continue;
-            }
-
             if only_alpha && (*netuid == Self::get_root_netuid()) {
                 continue;
             }
