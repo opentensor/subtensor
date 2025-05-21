@@ -1597,10 +1597,10 @@ impl_runtime_apis! {
             block_hash: <Block as BlockT>::Hash,
         ) -> TransactionValidity {
             use codec::DecodeLimit;
-            use frame_support::pallet_prelude::{ValidateUnsigned, InvalidTransaction, TransactionValidityError};
+            use frame_support::pallet_prelude::{InvalidTransaction, TransactionValidityError};
             use frame_support::traits::ExtrinsicCall;
             let encoded = tx.call().encode();
-            if <Runtime as ValidateUnsigned>::Call::decode_all_with_depth_limit(200, &mut encoded.as_slice()).is_err() {
+            if RuntimeCall::decode_all_with_depth_limit(200, &mut encoded.as_slice()).is_err() {
                 log::warn!("failed to decde with depth limit of 200");
                 return Err(TransactionValidityError::Invalid(InvalidTransaction::Call));
             }
