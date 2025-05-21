@@ -2,7 +2,7 @@
 use crate::utils::rate_limiting::TransactionType;
 use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
-use frame_support::traits::{Contains, InsideBoth, Everything};
+use frame_support::traits::{Contains, Everything, InsideBoth};
 use frame_support::weights::Weight;
 use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{
