@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use core::num::NonZeroU64;
 
 use frame_support::construct_runtime;

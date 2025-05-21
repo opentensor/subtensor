@@ -1132,6 +1132,9 @@ pub enum SwapStepAction {
 }
 
 // cargo test --package pallet-subtensor-swap --lib -- pallet::impls::tests --show-output
+#[allow(clippy::unwrap_used)]
+#[allow(clippy::indexing_slicing)]
+#[allow(clippy::arithmetic_side_effects)]
 #[cfg(test)]
 mod tests {
     use approx::assert_abs_diff_eq;

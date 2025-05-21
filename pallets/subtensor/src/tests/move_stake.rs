@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_core::{Get, U256};
