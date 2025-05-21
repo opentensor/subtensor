@@ -995,6 +995,47 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Validate if unstake_all can be executed
+    ///
+    pub fn validate_unstake_all(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+        only_alpha: bool,
+    ) -> Result<(), Error<T>> {
+        // Get all netuids (filter out root)
+        let subnets: Vec<u16> = Self::get_all_subnet_netuids();
+
+        // Ensure that the hotkey account exists this is only possible through registration.
+        ensure!(
+            Self::hotkey_account_exists(hotkey),
+            Error::<T>::HotKeyAccountNotExists
+        );
+
+        let mut unstaking_any = false;
+        for netuid in subnets.iter() {
+            if !SubtokenEnabled::<T>::get(netuid) {
+                continue;
+            }
+
+            if only_alpha && (*netuid == Self::get_root_netuid()) {
+                continue;
+            }
+
+            // Get user's stake in this subnet
+            let alpha = Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, *netuid);
+
+            if Self::validate_remove_stake(coldkey, hotkey, *netuid, alpha, alpha, false).is_ok()
+            {
+                unstaking_any = true;
+            }
+        }
+
+        // If no unstaking happens, return error
+        ensure!(unstaking_any, Error::<T>::AmountTooLow);
+
+        Ok(())
+    }
+
     /// Validate stake transition user input
     /// That works for move_stake, transfer_stake, and swap_stake
     ///
