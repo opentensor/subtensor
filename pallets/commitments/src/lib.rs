@@ -47,7 +47,7 @@ pub mod pallet {
         /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-        /// Currency type that will be used to place deposits on neurons
+        ///Currency type that will be used to reserve deposits for commitments
         type Currency: ReservableCurrency<Self::AccountId> + Send + Sync;
 
         /// Weight information for extrinsics in this pallet.
@@ -55,6 +55,9 @@ pub mod pallet {
 
         /// Interface to access-limit metadata commitments
         type CanCommit: CanCommit<Self::AccountId>;
+
+        /// Interface to trigger other pallets when metadata is committed
+        type OnMetadataCommitment: OnMetadataCommitment<Self::AccountId>;
 
         /// The maximum number of additional fields that can be added to a commitment
         #[pallet::constant]
@@ -68,15 +71,11 @@ pub mod pallet {
         #[pallet::constant]
         type FieldDeposit: Get<BalanceOf<Self>>;
 
-        /// The rate limit for commitments
-        #[pallet::constant]
-        type DefaultRateLimit: Get<BlockNumberFor<Self>>;
-
-        /// Used to retreive the given subnet's tempo
+        /// Used to retrieve the given subnet's tempo
         type TempoInterface: GetTempoInterface;
     }
 
-    /// Used to retreive the given subnet's tempo  
+    /// Used to retrieve the given subnet's tempo
     pub trait GetTempoInterface {
         /// Used to retreive the epoch index for the given subnet.
         fn get_epoch_index(netuid: u16, cur_block: u64) -> u64;
@@ -114,25 +113,13 @@ pub mod pallet {
     pub enum Error<T> {
         /// Account passed too many additional fields to their commitment
         TooManyFieldsInCommitmentInfo,
-        /// Account is not allow to make commitments to the chain
+        /// Account is not allowed to make commitments to the chain
         AccountNotAllowedCommit,
-        /// Account is trying to commit data too fast, rate limit exceeded
-        CommitmentSetRateLimitExceeded,
         /// Space Limit Exceeded for the current interval
         SpaceLimitExceeded,
         /// Indicates that unreserve returned a leftover, which is unexpected.
         UnexpectedUnreserveLeftover,
     }
-
-    #[pallet::type_value]
-    /// *DEPRECATED* Default value for commitment rate limit.
-    pub fn DefaultRateLimit<T: Config>() -> BlockNumberFor<T> {
-        T::DefaultRateLimit::get()
-    }
-
-    /// *DEPRECATED* The rate limit for commitments
-    #[pallet::storage]
-    pub type RateLimit<T> = StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultRateLimit<T>>;
 
     /// Tracks all CommitmentOf that have at least one timelocked field.
     #[pallet::storage]
@@ -164,6 +151,19 @@ pub mod pallet {
         BlockNumberFor<T>,
         OptionQuery,
     >;
+
+    #[pallet::storage]
+    #[pallet::getter(fn last_bonds_reset)]
+    pub(super) type LastBondsReset<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        u16,
+        Twox64Concat,
+        T::AccountId,
+        BlockNumberFor<T>,
+        OptionQuery,
+    >;
+
     #[pallet::storage]
     #[pallet::getter(fn revealed_commitments)]
     pub(super) type RevealedCommitments<T: Config> = StorageDoubleMap<
@@ -198,7 +198,9 @@ pub mod pallet {
         /// Set the commitment for a given netuid
         #[pallet::call_index(0)]
         #[pallet::weight((
-            <T as pallet::Config>::WeightInfo::set_commitment(),
+            Weight::from_parts(38_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(5_u64))
+			.saturating_add(T::DbWeight::get().writes(4_u64)),
             DispatchClass::Operational,
             Pays::No
         ))]
@@ -207,7 +209,7 @@ pub mod pallet {
             netuid: u16,
             info: Box<CommitmentInfo<T::MaxFields>>,
         ) -> DispatchResult {
-            let who = ensure_signed(origin)?;
+            let who = ensure_signed(origin.clone())?;
             ensure!(
                 T::CanCommit::can_commit(netuid, &who),
                 Error::<T>::AccountNotAllowedCommit
@@ -236,6 +238,16 @@ pub mod pallet {
             if usage.last_epoch != current_epoch {
                 usage.last_epoch = current_epoch;
                 usage.used_space = 0;
+            }
+
+            // check if ResetBondsFlag is set in the fields
+            for field in info.fields.iter() {
+                if let Data::ResetBondsFlag = field {
+                    // track when bonds reset was last triggered
+                    <LastBondsReset<T>>::insert(netuid, &who, cur_block);
+                    T::OnMetadataCommitment::on_metadata_commitment(netuid, &who);
+                    break;
+                }
             }
 
             let max_allowed = MaxSpace::<T>::get() as u64;
@@ -306,23 +318,27 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Sudo-set the commitment rate limit
+        /// *DEPRECATED* Sudo-set the commitment rate limit
         #[pallet::call_index(1)]
         #[pallet::weight((
-            <T as pallet::Config>::WeightInfo::set_rate_limit(),
-			DispatchClass::Operational,
-			Pays::No
-		))]
-        pub fn set_rate_limit(origin: OriginFor<T>, rate_limit_blocks: u32) -> DispatchResult {
+            Weight::from_parts(3_596_000, 0)
+        	.saturating_add(T::DbWeight::get().reads(0_u64))
+        	.saturating_add(T::DbWeight::get().writes(1_u64)),
+        	DispatchClass::Operational,
+        	Pays::No
+        ))]
+        pub fn set_rate_limit(origin: OriginFor<T>, _rate_limit_blocks: u32) -> DispatchResult {
             ensure_root(origin)?;
-            RateLimit::<T>::set(rate_limit_blocks.into());
+            // RateLimit::<T>::set(rate_limit_blocks.into());
             Ok(())
         }
 
         /// Sudo-set MaxSpace
         #[pallet::call_index(2)]
         #[pallet::weight((
-            <T as pallet::Config>::WeightInfo::set_rate_limit(),
+            Weight::from_parts(3_556_000, 0)
+			.saturating_add(T::DbWeight::get().reads(0_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
             Pays::No
         ))]
@@ -357,6 +373,14 @@ impl<A> CanCommit<A> for () {
     fn can_commit(_: u16, _: &A) -> bool {
         false
     }
+}
+
+pub trait OnMetadataCommitment<AccountId> {
+    fn on_metadata_commitment(netuid: u16, account: &AccountId);
+}
+
+impl<A> OnMetadataCommitment<A> for () {
+    fn on_metadata_commitment(_: u16, _: &A) {}
 }
 
 /************************************************************

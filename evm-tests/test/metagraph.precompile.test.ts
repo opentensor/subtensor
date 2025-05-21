@@ -1,15 +1,15 @@
 import * as assert from "assert";
 
-import { getAliceSigner, getClient, getDevnetApi, waitForTransactionCompletion, convertPublicKeyToMultiAddress, getRandomSubstrateKeypair, getSignerFromKeypair } from "../src/substrate"
+import { getAliceSigner, getDevnetApi, convertPublicKeyToMultiAddress, getRandomSubstrateKeypair, getSignerFromKeypair, waitForTransactionWithRetry } from "../src/substrate"
 import { getPublicClient, } from "../src/utils";
-import { ETH_LOCAL_URL, SUB_LOCAL_URL, } from "../src/config";
+import { ETH_LOCAL_URL } from "../src/config";
 import { devnet } from "@polkadot-api/descriptors"
 import { PublicClient } from "viem";
 import { PolkadotSigner, TypedApi } from "polkadot-api";
 import { toViemAddress, convertPublicKeyToSs58 } from "../src/address-utils"
 import { IMetagraphABI, IMETAGRAPH_ADDRESS } from "../src/contracts/metagraph"
 
-describe("Test the EVM chain ID", () => {
+describe("Test the Metagraph precompile", () => {
     // init substrate part
     const hotkey = getRandomSubstrateKeypair();
     const coldkey = getRandomSubstrateKeypair();
@@ -26,7 +26,6 @@ describe("Test the EVM chain ID", () => {
     before(async () => {
         // init variables got from await and async
         publicClient = await getPublicClient(ETH_LOCAL_URL)
-        const subClient = await getClient(SUB_LOCAL_URL)
         api = await getDevnetApi()
         alice = await getAliceSigner();
 
@@ -35,7 +34,7 @@ describe("Test the EVM chain ID", () => {
             const internalCall = api.tx.Balances.force_set_balance({ who: multiAddress, new_free: BigInt(1e12) })
             const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
-            await waitForTransactionCompletion(api, tx, alice)
+            await waitForTransactionWithRetry(api, tx, alice)
                 .then(() => { })
                 .catch((error) => { console.log(`transaction error ${error}`) });
         }
@@ -45,14 +44,14 @@ describe("Test the EVM chain ID", () => {
             const internalCall = api.tx.Balances.force_set_balance({ who: multiAddress, new_free: BigInt(1e12) })
             const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
-            await waitForTransactionCompletion(api, tx, alice)
+            await waitForTransactionWithRetry(api, tx, alice)
                 .then(() => { })
                 .catch((error) => { console.log(`transaction error ${error}`) });
         }
 
         const signer = getSignerFromKeypair(coldkey)
         const registerNetworkTx = api.tx.SubtensorModule.register_network({ hotkey: convertPublicKeyToSs58(hotkey.publicKey) })
-        await waitForTransactionCompletion(api, registerNetworkTx, signer)
+        await waitForTransactionWithRetry(api, registerNetworkTx, signer)
             .then(() => { })
             .catch((error) => { console.log(`transaction error ${error}`) });
 
@@ -64,7 +63,7 @@ describe("Test the EVM chain ID", () => {
             await api.query.SubtensorModule.SubnetworkN.getValue(subnetId)
         if (uid_count === 0) {
             const tx = api.tx.SubtensorModule.burned_register({ hotkey: convertPublicKeyToSs58(hotkey.publicKey), netuid: subnetId })
-            await waitForTransactionCompletion(api, tx, signer)
+            await waitForTransactionWithRetry(api, tx, signer)
                 .then(() => { })
                 .catch((error) => { console.log(`transaction error ${error}`) });
         }

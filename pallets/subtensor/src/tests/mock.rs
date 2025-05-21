@@ -155,6 +155,7 @@ parameter_types! {
     pub const TransactionByteFee: Balance = 100;
     pub const SDebug:u64 = 1;
     pub const InitialRho: u16 = 30;
+    pub const InitialAlphaSigmoidSteepness: u16 = 10;
     pub const InitialKappa: u16 = 32_767;
     pub const InitialTempo: u16 = 360;
     pub const SelfOwnership: u64 = 2;
@@ -162,6 +163,7 @@ parameter_types! {
     pub const InitialMaxAllowedUids: u16 = 2;
     pub const InitialBondsMovingAverage: u64 = 900_000;
     pub const InitialBondsPenalty:u16 = u16::MAX;
+    pub const InitialBondsResetOn: bool = false;
     pub const InitialStakePruningMin: u16 = 0;
     pub const InitialFoundationDistribution: u64 = 0;
     pub const InitialDefaultDelegateTake: u16 = 11_796; // 18%, same as in production
@@ -203,8 +205,10 @@ parameter_types! {
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
+    pub const InitialYuma3On: bool = false; // Default value for Yuma3On
     // pub const InitialNetworkMaxStake: u64 = u64::MAX; // (DEPRECATED)
     pub const InitialColdkeySwapScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
+    pub const InitialColdkeySwapRescheduleDuration: u64 = 24 * 60 * 60 / 12; // Default as 1 day
     pub const InitialDissolveNetworkScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
     pub const InitialTaoWeight: u64 = 0; // 100% global weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
@@ -389,6 +393,7 @@ impl crate::Config for Test {
     type InitialAdjustmentAlpha = InitialAdjustmentAlpha;
     type InitialTargetRegistrationsPerInterval = InitialTargetRegistrationsPerInterval;
     type InitialRho = InitialRho;
+    type InitialAlphaSigmoidSteepness = InitialAlphaSigmoidSteepness;
     type InitialKappa = InitialKappa;
     type InitialMaxAllowedUids = InitialMaxAllowedUids;
     type InitialValidatorPruneLen = InitialValidatorPruneLen;
@@ -399,6 +404,7 @@ impl crate::Config for Test {
     type InitialPruningScore = InitialPruningScore;
     type InitialBondsMovingAverage = InitialBondsMovingAverage;
     type InitialBondsPenalty = InitialBondsPenalty;
+    type InitialBondsResetOn = InitialBondsResetOn;
     type InitialMaxAllowedValidators = InitialMaxAllowedValidators;
     type InitialDefaultDelegateTake = InitialDefaultDelegateTake;
     type InitialMinDelegateTake = InitialMinDelegateTake;
@@ -427,8 +433,10 @@ impl crate::Config for Test {
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;
+    type Yuma3On = InitialYuma3On;
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
+    type InitialColdkeySwapRescheduleDuration = InitialColdkeySwapRescheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
@@ -528,7 +536,6 @@ where
 
 impl pallet_drand::Config for Test {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = pallet_drand::weights::SubstrateWeight<Test>;
     type AuthorityId = TestAuthId;
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;
@@ -602,16 +609,23 @@ pub(crate) fn step_block(n: u16) {
 
 #[allow(dead_code)]
 pub(crate) fn run_to_block(n: u64) {
+    run_to_block_ext(n, false)
+}
+
+#[allow(dead_code)]
+pub(crate) fn run_to_block_ext(n: u64, enable_events: bool) {
     while System::block_number() < n {
         Scheduler::on_finalize(System::block_number());
         SubtensorModule::on_finalize(System::block_number());
         System::on_finalize(System::block_number());
         System::set_block_number(System::block_number() + 1);
         System::on_initialize(System::block_number());
-        System::events().iter().for_each(|event| {
-            log::info!("Event: {:?}", event.event);
-        });
-        System::reset_events();
+        if !enable_events {
+            System::events().iter().for_each(|event| {
+                log::info!("Event: {:?}", event.event);
+            });
+            System::reset_events();
+        }
         SubtensorModule::on_initialize(System::block_number());
         Scheduler::on_initialize(System::block_number());
     }
@@ -712,6 +726,7 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
     FirstEmissionBlockNumber::<Test>::insert(netuid, 1);
+    SubtokenEnabled::<Test>::insert(netuid, true);
 }
 
 #[allow(dead_code)]
@@ -719,6 +734,14 @@ pub fn add_network_without_emission_block(netuid: u16, tempo: u16, _modality: u1
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+}
+
+#[allow(dead_code)]
+pub fn add_network_disable_subtoken(netuid: u16, tempo: u16, _modality: u16) {
+    SubtensorModule::init_new_network(netuid, tempo);
+    SubtensorModule::set_network_registration_allowed(netuid, true);
+    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+    SubtokenEnabled::<Test>::insert(netuid, false);
 }
 
 #[allow(dead_code)]
@@ -734,6 +757,7 @@ pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> u16 {
     NetworkRegistrationAllowed::<Test>::insert(netuid, true);
     NetworkPowRegistrationAllowed::<Test>::insert(netuid, true);
     FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
+    SubtokenEnabled::<Test>::insert(netuid, true);
     netuid
 }
 

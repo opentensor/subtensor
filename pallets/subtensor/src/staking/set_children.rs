@@ -317,15 +317,19 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidChildkeyTake
         );
 
-        // Ensure the hotkey passes the rate limit.
-        ensure!(
-            Self::passes_rate_limit_on_subnet(
-                &TransactionType::SetChildkeyTake, // Set childkey take.
-                &hotkey,                           // Specific to a hotkey.
-                netuid,                            // Specific to a subnet.
-            ),
-            Error::<T>::TxChildkeyTakeRateLimitExceeded
-        );
+        let current_take = Self::get_childkey_take(&hotkey, netuid);
+        // Check the rate limit for increasing childkey take case
+        if take > current_take {
+            // Ensure the hotkey passes the rate limit.
+            ensure!(
+                Self::passes_rate_limit_on_subnet(
+                    &TransactionType::SetChildkeyTake, // Set childkey take.
+                    &hotkey,                           // Specific to a hotkey.
+                    netuid,                            // Specific to a subnet.
+                ),
+                Error::<T>::TxChildkeyTakeRateLimitExceeded
+            );
+        }
 
         // Set last transaction block
         let current_block = Self::get_current_block_as_u64();
@@ -363,12 +367,12 @@ impl<T: Config> Pallet<T> {
     /// If no specific take value has been set, it returns the default childkey take.
     ///
     /// # Arguments:
-    /// * `hotkey` (&T::AccountId):
-    ///     - The hotkey for which to retrieve the childkey take.
+    /// * `hotkey` (&T::AccountId): The hotkey for which to retrieve the childkey take.
     ///
     /// # Returns:
-    /// * `u16` - The childkey take value. This is a percentage represented as a value between 0 and 10000,
-    ///           where 10000 represents 100%.
+    /// * `u16`
+    ///     - The childkey take value. This is a percentage represented as a value between 0
+    ///       and 10000, where 10000 represents 100%.
     pub fn get_childkey_take(hotkey: &T::AccountId, netuid: u16) -> u16 {
         ChildkeyTake::<T>::get(hotkey, netuid)
     }

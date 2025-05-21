@@ -327,10 +327,32 @@ where
         Ok(pallet_subtensor::Rho::<R>::get(netuid))
     }
 
+    #[precompile::public("getAlphaSigmoidSteepness(uint16)")]
+    #[precompile::view]
+    fn get_alpha_sigmoid_steepness(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
+        Ok(pallet_subtensor::AlphaSigmoidSteepness::<R>::get(netuid))
+    }
+
     #[precompile::public("setRho(uint16,uint16)")]
     #[precompile::payable]
     fn set_rho(handle: &mut impl PrecompileHandle, netuid: u16, rho: u16) -> EvmResult<()> {
         let call = pallet_admin_utils::Call::<R>::sudo_set_rho { netuid, rho };
+
+        handle.try_dispatch_runtime_call::<R, _>(
+            call,
+            RawOrigin::Signed(handle.caller_account_id::<R>()),
+        )
+    }
+
+    #[precompile::public("setAlphaSigmoidSteepness(uint16,uint16)")]
+    #[precompile::payable]
+    fn set_alpha_sigmoid_steepness(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+        steepness: u16,
+    ) -> EvmResult<()> {
+        let call =
+            pallet_admin_utils::Call::<R>::sudo_set_alpha_sigmoid_steepness { netuid, steepness };
 
         handle.try_dispatch_runtime_call::<R, _>(
             call,
@@ -446,16 +468,12 @@ where
     #[precompile::public("setMaxBurn(uint16,uint64)")]
     #[precompile::payable]
     fn set_max_burn(
-        handle: &mut impl PrecompileHandle,
-        netuid: u16,
-        max_burn: u64,
+        _handle: &mut impl PrecompileHandle,
+        _netuid: u16,
+        _max_burn: u64,
     ) -> EvmResult<()> {
-        let call = pallet_admin_utils::Call::<R>::sudo_set_max_burn { netuid, max_burn };
-
-        handle.try_dispatch_runtime_call::<R, _>(
-            call,
-            RawOrigin::Signed(handle.caller_account_id::<R>()),
-        )
+        // DEPRECATED. The subnet owner cannot set the max burn anymore.
+        Ok(())
     }
 
     #[precompile::public("getDifficulty(uint16)")]
@@ -546,6 +564,27 @@ where
         enabled: bool,
     ) -> EvmResult<()> {
         let call = pallet_admin_utils::Call::<R>::sudo_set_liquid_alpha_enabled { netuid, enabled };
+
+        handle.try_dispatch_runtime_call::<R, _>(
+            call,
+            RawOrigin::Signed(handle.caller_account_id::<R>()),
+        )
+    }
+
+    #[precompile::public("getYuma3Enabled(uint16)")]
+    #[precompile::view]
+    fn get_yuma3_enabled(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<bool> {
+        Ok(pallet_subtensor::Yuma3On::<R>::get(netuid))
+    }
+
+    #[precompile::public("setYuma3Enabled(uint16,bool)")]
+    #[precompile::payable]
+    fn set_yuma3_enabled(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+        enabled: bool,
+    ) -> EvmResult<()> {
+        let call = pallet_admin_utils::Call::<R>::sudo_set_yuma3_enabled { netuid, enabled };
 
         handle.try_dispatch_runtime_call::<R, _>(
             call,

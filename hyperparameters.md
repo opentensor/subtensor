@@ -7,6 +7,7 @@ TxRateLimit: u64 = 1; // [1 @ 64,888]
 ### netuid 1 (text_prompting)
 ```rust
 Rho: u16 = 10;
+AlphaSigmoidSteepness: u16 = 10.0
 Kappa: u16 = 32_767; // 0.5 = 65535/2
 MaxAllowedUids: u16 = 1024;
 Issuance: u64 = 0;
@@ -33,6 +34,7 @@ MaxRegistrationsPerBlock: u16 = 1;
 PruningScore : u16 = u16::MAX;
 BondsMovingAverage: u64 = 900_000;
 BondsPenalty: u16 = 0;
+BondsResetOn: bool = false;
 WeightsVersionKey: u64 = 1020;
 MinDifficulty: u64 = 10_000_000;
 MaxDifficulty: u64 = u64::MAX / 4;
@@ -46,6 +48,7 @@ WeightsSetRateLimit: u64 = 100;
 ### netuid 3 (causallmnext)
 ```rust
 Rho: u16 = 10;
+AlphaSigmoidSteepness: u16 = 10.0
 Kappa: u16 = 32_767; // 0.5 = 65535/2
 MaxAllowedUids: u16 = 4096;
 Issuance: u64 = 0;
@@ -72,6 +75,7 @@ MaxRegistrationsPerBlock: u16 = 1;
 PruningScore : u16 = u16::MAX;
 BondsMovingAverage: u64 = 900_000;
 BondsPenalty: u16 = 0;
+BondsResetOn: bool = false;
 WeightsVersionKey: u64 = 400;
 MinDifficulty: u64 = 10_000_000;
 MaxDifficulty: u64 = u64::MAX / 4;

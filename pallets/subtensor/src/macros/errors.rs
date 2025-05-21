@@ -4,6 +4,7 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod errors {
+    #[derive(PartialEq)]
     #[pallet::error]
     pub enum Error<T> {
         /// The subnet does not exist.
@@ -207,5 +208,11 @@ mod errors {
         UnableToRecoverPublicKey,
         /// Recovered public key is invalid.
         InvalidRecoveredPublicKey,
+        /// SubToken disabled now
+        SubtokenDisabled,
+        /// Zero max stake amount
+        ZeroMaxStakeAmount,
+        /// Invalid netuid duplication
+        SameNetuid,
     }
 }

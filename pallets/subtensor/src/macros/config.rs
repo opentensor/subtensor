@@ -96,12 +96,18 @@ mod config {
         /// Initial bonds penalty.
         #[pallet::constant]
         type InitialBondsPenalty: Get<u16>;
+        /// Initial bonds reset.
+        #[pallet::constant]
+        type InitialBondsResetOn: Get<bool>;
         /// Initial target registrations per interval.
         #[pallet::constant]
         type InitialTargetRegistrationsPerInterval: Get<u16>;
         /// Rho constant.
         #[pallet::constant]
         type InitialRho: Get<u16>;
+        /// AlphaSigmoidSteepness constant.
+        #[pallet::constant]
+        type InitialAlphaSigmoidSteepness: Get<u16>;
         /// Kappa constant.
         #[pallet::constant]
         type InitialKappa: Get<u16>;
@@ -195,12 +201,17 @@ mod config {
         /// A flag to indicate if Liquid Alpha is enabled.
         #[pallet::constant]
         type LiquidAlphaOn: Get<bool>;
+        /// A flag to indicate if Yuma3 is enabled.
+        type Yuma3On: Get<bool>;
         // /// Initial hotkey emission tempo.
         // #[pallet::constant]
         // type InitialHotkeyEmissionTempo: Get<u64>;
         /// Coldkey swap schedule duartion.
         #[pallet::constant]
         type InitialColdkeySwapScheduleDuration: Get<BlockNumberFor<Self>>;
+        /// Coldkey swap reschedule duration.
+        #[pallet::constant]
+        type InitialColdkeySwapRescheduleDuration: Get<BlockNumberFor<Self>>;
         /// Dissolve network schedule duration
         #[pallet::constant]
         type InitialDissolveNetworkScheduleDuration: Get<BlockNumberFor<Self>>;
