@@ -836,6 +836,12 @@ pub mod pallet {
         50400
     }
 
+    #[pallet::type_value]
+    /// Default value for block number
+    pub fn DefaultBlockNumber<T: Config>() -> BlockNumberFor<T> {
+        0u32.into()
+    }
+
     #[pallet::storage]
     pub type MinActivityCutoff<T: Config> =
         StorageValue<_, u16, ValueQuery, DefaultMinActivityCutoff<T>>;
@@ -1087,6 +1093,19 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> token_symbol | Returns the token symbol for a subnet.
     pub type TokenSymbol<T: Config> =
         StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
+
+    #[pallet::storage]
+    /// DMAP ( hot, netuid ) --> lock until block number | Returns the block number of the stake lock
+    pub type StakeLocks<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        u16,
+        BlockNumberFor<T>,
+        ValueQuery,
+        DefaultBlockNumber<T>,
+    >;
 
     /// ============================
     /// ==== Global Parameters =====

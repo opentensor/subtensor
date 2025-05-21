@@ -1,6 +1,7 @@
 use super::*;
 use safe_math::*;
 use share_pool::{SharePool, SharePoolDataOperations};
+use sp_runtime::Saturating;
 use sp_std::ops::Neg;
 use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32, U110F18};
 
@@ -865,6 +866,8 @@ impl<T: Config> Pallet<T> {
         });
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
+        Self::set_stake_lock(hotkey, netuid);
+
         // Step 5. Deposit and log the staking event.
         Self::deposit_event(Event::StakeAdded(
             coldkey.clone(),
@@ -886,6 +889,28 @@ impl<T: Config> Pallet<T> {
 
         // Step 6: Return the amount of alpha staked
         actual_alpha
+    }
+
+    pub fn set_stake_lock(hotkey: &T::AccountId, netuid: u16) {
+        let subnet_tempo = Tempo::<T>::get(netuid);
+        let current_block_number = <frame_system::Pallet<T>>::block_number();
+
+        let stake_lock = current_block_number.saturating_add(subnet_tempo.into());
+
+        StakeLocks::<T>::insert(hotkey, netuid, stake_lock);
+    }
+
+    pub fn ensure_stake_is_unlocked(hotkey: &T::AccountId, netuid: u16) -> Result<(), Error<T>> {
+        if !StakeLocks::<T>::contains_key(hotkey, netuid) {
+            return Ok(());
+        }
+
+        let stake_lock = StakeLocks::<T>::get(hotkey, netuid);
+        let current_block_number = <frame_system::Pallet<T>>::block_number();
+
+        ensure!(current_block_number > stake_lock, Error::<T>::StakeLocked);
+
+        Ok(())
     }
 
     pub fn get_alpha_share_pool(
@@ -961,6 +986,8 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), Error<T>> {
         // Ensure that the subnet exists.
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+
+        Self::ensure_stake_is_unlocked(hotkey, netuid)?;
 
         // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
         if let Some(tao_equivalent) = Self::sim_swap_alpha_for_tao(netuid, alpha_unstaked) {
