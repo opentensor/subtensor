@@ -20,6 +20,7 @@ sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 substrate-fixed = { workspace = true }
 
+pallet-subtensor-swap-runtime-api = { workspace = true }
 subtensor-swap-interface = { workspace = true }
 subtensor-macros = { workspace = true }
 
@@ -34,6 +35,7 @@ std = [
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
+	"pallet-subtensor-swap-runtime-api/std",
 	"safe-math/std",
 	"scale-info/std",
 	"serde/std",
@@ -49,4 +51,5 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]

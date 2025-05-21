@@ -3,7 +3,7 @@ use core::num::NonZeroU64;
 use frame_support::{PalletId, pallet_prelude::*, traits::Get};
 use frame_system::pallet_prelude::*;
 use substrate_fixed::types::U64F64;
-use subtensor_swap_interface::{BalanceOps, LiquidityDataProvider};
+use subtensor_swap_interface::{BalanceOps, SubnetInfo};
 
 use crate::{
     NetUid,
@@ -34,8 +34,8 @@ mod pallet {
         type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
         /// Implementor of
-        /// [`LiquidityDataProvider`](subtensor_swap_interface::LiquidityDataProvider).
-        type LiquidityDataProvider: LiquidityDataProvider<Self::AccountId>;
+        /// [`SubnetInfo`](subtensor_swap_interface::SubnetInfo).
+        type SubnetInfo: SubnetInfo<Self::AccountId>;
 
         /// Implementor of
         /// [`BalanceOps`](subtensor_swap_interface::BalanceOps).
@@ -230,7 +230,7 @@ mod pallet {
 
             // Ensure that the subnet exists.
             ensure!(
-                T::LiquidityDataProvider::subnet_exist(netuid),
+                T::SubnetInfo::exists(netuid),
                 Error::<T>::SubNetworkDoesNotExist
             );
 
@@ -270,7 +270,7 @@ mod pallet {
 
             // Ensure that the subnet exists.
             ensure!(
-                T::LiquidityDataProvider::subnet_exist(netuid),
+                T::SubnetInfo::exists(netuid),
                 Error::<T>::SubNetworkDoesNotExist
             );
 
@@ -326,7 +326,7 @@ mod pallet {
 
             // Ensure that the subnet exists.
             ensure!(
-                T::LiquidityDataProvider::subnet_exist(netuid),
+                T::SubnetInfo::exists(netuid),
                 Error::<T>::SubNetworkDoesNotExist
             );
 
@@ -378,7 +378,7 @@ mod pallet {
 
             // Ensure that the subnet exists.
             ensure!(
-                T::LiquidityDataProvider::subnet_exist(netuid),
+                T::SubnetInfo::exists(netuid),
                 Error::<T>::SubNetworkDoesNotExist
             );
 

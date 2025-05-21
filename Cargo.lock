@@ -5932,6 +5932,8 @@ dependencies = [
  "num-traits",
  "pallet-commitments",
  "pallet-drand",
+ "pallet-subtensor-swap-rpc",
+ "pallet-subtensor-swap-runtime-api",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
@@ -6032,6 +6034,7 @@ dependencies = [
  "pallet-scheduler",
  "pallet-subtensor",
  "pallet-subtensor-swap",
+ "pallet-subtensor-swap-runtime-api",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -6059,6 +6062,7 @@ dependencies = [
  "sp-tracing 17.0.1",
  "sp-transaction-pool",
  "sp-version",
+ "substrate-fixed",
  "substrate-wasm-builder",
  "subtensor-custom-rpc-runtime-api",
  "subtensor-macros",
@@ -6890,6 +6894,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "pallet-subtensor-swap-runtime-api",
  "parity-scale-codec",
  "safe-math",
  "scale-info",
@@ -6902,6 +6907,28 @@ dependencies = [
  "substrate-fixed",
  "subtensor-macros",
  "subtensor-swap-interface",
+]
+
+[[package]]
+name = "pallet-subtensor-swap-rpc"
+version = "1.0.0"
+dependencies = [
+ "jsonrpsee",
+ "pallet-subtensor-swap-runtime-api",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-subtensor-swap-runtime-api"
+version = "1.0.0"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api",
+ "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409)",
 ]
 
 [[package]]

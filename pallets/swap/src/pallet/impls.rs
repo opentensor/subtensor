@@ -8,7 +8,7 @@ use sp_arithmetic::helpers_128bit;
 use sp_runtime::traits::AccountIdConversion;
 use substrate_fixed::types::{U64F64, U96F32};
 use subtensor_swap_interface::{
-    BalanceOps, LiquidityDataProvider, SwapHandler, SwapResult, UpdateLiquidityResult,
+    BalanceOps, SubnetInfo, SwapHandler, SwapResult, UpdateLiquidityResult,
 };
 
 use super::pallet::*;
@@ -241,6 +241,24 @@ impl<T: Config> SwapStep<T> {
 }
 
 impl<T: Config> Pallet<T> {
+    pub fn current_price(netuid: NetUid) -> U96F32 {
+        match T::SubnetInfo::mechanism(netuid.into()) {
+            1 => {
+                let sqrt_price = AlphaSqrtPrice::<T>::get(NetUid::from(netuid));
+                let tao_reserve = T::SubnetInfo::tao_reserve(netuid.into());
+                let alpha_reserve = T::SubnetInfo::alpha_reserve(netuid.into());
+
+                if sqrt_price == 0 && tao_reserve > 0 && alpha_reserve > 0 {
+                    U96F32::saturating_from_num(tao_reserve)
+                        .saturating_div(U96F32::saturating_from_num(alpha_reserve))
+                } else {
+                    U96F32::saturating_from_num(sqrt_price.saturating_mul(sqrt_price))
+                }
+            }
+            _ => U96F32::saturating_from_num(1),
+        }
+    }
+
     // initializes V3 swap for a subnet if needed
     fn maybe_initialize_v3(netuid: NetUid) -> Result<(), Error<T>> {
         if SwapV3Initialized::<T>::get(netuid) {
@@ -249,8 +267,8 @@ impl<T: Config> Pallet<T> {
 
         // Initialize the v3:
         // Reserves are re-purposed, nothing to set, just query values for liquidity and price calculation
-        let tao_reserve = <T as Config>::LiquidityDataProvider::tao_reserve(netuid.into());
-        let alpha_reserve = <T as Config>::LiquidityDataProvider::alpha_reserve(netuid.into());
+        let tao_reserve = <T as Config>::SubnetInfo::tao_reserve(netuid.into());
+        let alpha_reserve = <T as Config>::SubnetInfo::alpha_reserve(netuid.into());
 
         // Set price
         let price = U64F64::saturating_from_num(tao_reserve)
@@ -319,9 +337,8 @@ impl<T: Config> Pallet<T> {
         sqrt_price_limit: SqrtPrice,
     ) -> Result<SwapResult, Error<T>> {
         ensure!(
-            T::LiquidityDataProvider::tao_reserve(netuid.into()) >= T::MinimumReserve::get().get()
-                && T::LiquidityDataProvider::alpha_reserve(netuid.into())
-                    >= T::MinimumReserve::get().get(),
+            T::SubnetInfo::tao_reserve(netuid.into()) >= T::MinimumReserve::get().get()
+                && T::SubnetInfo::alpha_reserve(netuid.into()) >= T::MinimumReserve::get().get(),
             Error::<T>::ReservesTooLow
         );
 
@@ -363,8 +380,8 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        let tao_reserve = T::LiquidityDataProvider::tao_reserve(netuid.into());
-        let alpha_reserve = T::LiquidityDataProvider::alpha_reserve(netuid.into());
+        let tao_reserve = T::SubnetInfo::tao_reserve(netuid.into());
+        let alpha_reserve = T::SubnetInfo::alpha_reserve(netuid.into());
 
         let checked_reserve = match order_type {
             OrderType::Buy => alpha_reserve,
@@ -1056,26 +1073,32 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
         .map_err(Into::into)
     }
 
+    fn sim_swap(netuid: u16, order_t: OrderType, amount: u64) -> Result<SwapResult, DispatchError> {
+        match T::SubnetInfo::mechanism(netuid) {
+            1 => {
+                let price_limit = match order_t {
+                    OrderType::Buy => Self::max_price(),
+                    OrderType::Sell => Self::min_price(),
+                };
+
+                Self::swap(netuid, order_t, amount, price_limit, true)
+            }
+            _ => Ok(SwapResult {
+                amount_paid_in: amount,
+                amount_paid_out: amount,
+                fee_paid: 0,
+                new_tao_reserve: 0,
+                new_alpha_reserve: 0,
+            }),
+        }
+    }
+
     fn approx_fee_amount(netuid: u16, amount: u64) -> u64 {
         Self::calculate_fee_amount(netuid.into(), amount)
     }
 
     fn current_alpha_price(netuid: u16) -> U96F32 {
-        match T::LiquidityDataProvider::subnet_mechanism(netuid) {
-            1 => {
-                let sqrt_price = AlphaSqrtPrice::<T>::get(NetUid::from(netuid));
-                let tao_reserve = T::LiquidityDataProvider::tao_reserve(netuid);
-                let alpha_reserve = T::LiquidityDataProvider::alpha_reserve(netuid);
-
-                if sqrt_price == 0 && tao_reserve > 0 && alpha_reserve > 0 {
-                    U96F32::saturating_from_num(tao_reserve)
-                        .saturating_div(U96F32::saturating_from_num(alpha_reserve))
-                } else {
-                    U96F32::saturating_from_num(sqrt_price.saturating_mul(sqrt_price))
-                }
-            }
-            _ => U96F32::saturating_from_num(1),
-        }
+        Self::current_price(netuid.into())
     }
 
     fn min_price() -> u64 {
@@ -1109,6 +1132,9 @@ pub enum SwapStepAction {
 }
 
 // cargo test --package pallet-subtensor-swap --lib -- pallet::impls::tests --show-output
+#[allow(clippy::unwrap_used)]
+#[allow(clippy::indexing_slicing)]
+#[allow(clippy::arithmetic_side_effects)]
 #[cfg(test)]
 mod tests {
     use approx::assert_abs_diff_eq;

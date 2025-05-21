@@ -1,6 +1,6 @@
 //! Benchmarking setup for pallet-subtensor-swap
-#![cfg(feature = "runtime-benchmarks")]
-#![allow(clippy::arithmetic_side_effects)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::multiple_bound_locations)]
 
 use frame_benchmarking::v2::*;
 use frame_support::traits::Get;
@@ -106,7 +106,7 @@ mod benchmarks {
             (netuid, caller.clone(), id),
             Position {
                 id,
-                netuid: netuid,
+                netuid,
                 tick_low: TickIndex::new(-10000).unwrap(),
                 tick_high: TickIndex::new(10000).unwrap(),
                 liquidity: 10000,

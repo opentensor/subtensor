@@ -1202,6 +1202,7 @@ impl fmt::Display for TickMathError {
 
 impl Error for TickMathError {}
 
+#[allow(clippy::unwrap_used)]
 #[cfg(test)]
 mod tests {
     use safe_math::FixedExt;

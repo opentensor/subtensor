@@ -52,6 +52,8 @@ pallet-commitments = { default-features = false, path = "pallets/commitments" }
 pallet-registry = { default-features = false, path = "pallets/registry" }
 pallet-subtensor = { default-features = false, path = "pallets/subtensor" }
 pallet-subtensor-swap = { default-features = false, path = "pallets/swap" }
+pallet-subtensor-swap-runtime-api = { default-features = false, path = "pallets/swap/runtime-api" }
+pallet-subtensor-swap-rpc = { default-features = false, path = "pallets/swap/rpc" }
 safe-math = { default-features = false, path = "primitives/safe-math" }
 subtensor-custom-rpc = { default-features = false, path = "pallets/subtensor/rpc" }
 subtensor-custom-rpc-runtime-api = { default-features = false, path = "pallets/subtensor/runtime-api" }

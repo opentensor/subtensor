@@ -2762,7 +2762,7 @@ fn test_unstake_low_liquidity_validate() {
         let subnet_owner_hotkey = U256::from(1002);
         let hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let amount_staked = DefaultMinStake::<Test>::get() * 10 + 0; // FIXME: DefaultStakingFee is deprecated
+        let amount_staked = DefaultMinStake::<Test>::get() * 10; // FIXME: DefaultStakingFee is deprecated
 
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);

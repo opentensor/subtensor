@@ -1125,13 +1125,14 @@ parameter_types! {
     pub const SwapMaxFeeRate: u16 = 10000; // 15.26%
     pub const SwapMaxPositions: u32 = 100;
     pub const SwapMinimumLiquidity: u64 = 1_000;
-    pub const SwapMinimumReserve: NonZeroU64 = NonZeroU64::new(1_000_000).unwrap();
+    pub const SwapMinimumReserve: NonZeroU64 = NonZeroU64::new(1_000_000)
+        .expect("1_000_000 fits NonZeroU64");
 }
 
 impl pallet_subtensor_swap::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type AdminOrigin = EnsureRoot<AccountId>;
-    type LiquidityDataProvider = SubtensorModule;
+    type SubnetInfo = SubtensorModule;
     type BalanceOps = SubtensorModule;
     type ProtocolId = SwapProtocolId;
     type MaxFeeRate = SwapMaxFeeRate;
@@ -2138,6 +2139,17 @@ impl_runtime_apis! {
     impl subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block> for Runtime {
         fn get_network_registration_cost() -> u64 {
             SubtensorModule::get_network_lock_cost()
+        }
+    }
+
+
+    impl pallet_subtensor_swap_runtime_api::SwapRuntimeApi<Block> for Runtime {
+        fn current_alpha_price(netuid: u16) -> u64 {
+            use substrate_fixed::types::U96F32;
+
+            pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into())
+                .saturating_mul(U96F32::from_num(1_000_000_000))
+                .saturating_to_num()
         }
     }
 }

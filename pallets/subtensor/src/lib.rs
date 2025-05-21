@@ -2422,7 +2422,7 @@ impl<T, H, P> CollectiveInterface<T, H, P> for () {
 }
 
 impl<T: Config + pallet_balances::Config<Balance = u64>>
-    subtensor_swap_interface::LiquidityDataProvider<T::AccountId> for Pallet<T>
+    subtensor_swap_interface::SubnetInfo<T::AccountId> for Pallet<T>
 {
     fn tao_reserve(netuid: u16) -> u64 {
         SubnetTAO::<T>::get(netuid)
@@ -2432,11 +2432,11 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
         SubnetAlphaIn::<T>::get(netuid)
     }
 
-    fn subnet_exist(netuid: u16) -> bool {
+    fn exists(netuid: u16) -> bool {
         Self::if_subnet_exist(netuid)
     }
 
-    fn subnet_mechanism(netuid: u16) -> u16 {
+    fn mechanism(netuid: u16) -> u16 {
         SubnetMechanism::<T>::get(netuid)
     }
 }
@@ -2453,11 +2453,11 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
     }
 
     fn increase_balance(coldkey: &T::AccountId, tao: u64) {
-        Self::add_balance_to_coldkey_account(&coldkey, tao)
+        Self::add_balance_to_coldkey_account(coldkey, tao)
     }
 
     fn decrease_balance(coldkey: &T::AccountId, tao: u64) -> Result<u64, DispatchError> {
-        Self::remove_balance_from_coldkey_account(&coldkey, tao)
+        Self::remove_balance_from_coldkey_account(coldkey, tao)
     }
 
     fn increase_stake(
@@ -2467,11 +2467,11 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
         alpha: u64,
     ) -> Result<(), DispatchError> {
         ensure!(
-            Self::hotkey_account_exists(&hotkey),
+            Self::hotkey_account_exists(hotkey),
             Error::<T>::HotKeyAccountNotExists
         );
 
-        Self::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid, alpha);
+        Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
 
         Ok(())
     }
@@ -2483,12 +2483,12 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
         alpha: u64,
     ) -> Result<u64, DispatchError> {
         ensure!(
-            Self::hotkey_account_exists(&hotkey),
+            Self::hotkey_account_exists(hotkey),
             Error::<T>::HotKeyAccountNotExists
         );
 
         Ok(Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey, &coldkey, netuid, alpha,
+            hotkey, coldkey, netuid, alpha,
         ))
     }
 }

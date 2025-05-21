@@ -1,8 +1,3 @@
-use super::*;
-use safe_math::*;
-use substrate_fixed::types::U96F32;
-use subtensor_swap_interface::SwapHandler;
-
 use frame_support::traits::{
     Imbalance,
     tokens::{
@@ -10,6 +5,11 @@ use frame_support::traits::{
         fungible::{Balanced as _, Inspect as _},
     },
 };
+use safe_math::*;
+use substrate_fixed::types::U96F32;
+use subtensor_swap_interface::{OrderType, SwapHandler};
+
+use super::*;
 
 impl<T: Config> Pallet<T> {
     // Returns true if the passed hotkey allow delegative staking.
@@ -70,7 +70,7 @@ impl<T: Config> Pallet<T> {
                         let alpha_stake = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
                             hotkey, coldkey, netuid,
                         );
-                        Self::sim_swap_alpha_for_tao(netuid, alpha_stake)
+                        T::SwapInterface::sim_swap(netuid, OrderType::Sell, alpha_stake)
                             .map(|r| {
                                 let fee: u64 = U96F32::saturating_from_num(r.fee_paid)
                                     .saturating_mul(T::SwapInterface::current_alpha_price(netuid))
