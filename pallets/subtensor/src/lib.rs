@@ -2045,6 +2045,20 @@ where
                     Self::get_priority_staking(who, hotkey, *amount_unstaked),
                 )
             }
+            Some(Call::unstake_all { hotkey }) => {
+                // Fully validate the user input
+                Self::result_to_validity(
+                    Pallet::<T>::validate_unstake_all(who, hotkey, false),
+                    Self::get_priority_vanilla(),
+                )
+            }
+            Some(Call::unstake_all_alpha { hotkey }) => {
+                // Fully validate the user input
+                Self::result_to_validity(
+                    Pallet::<T>::validate_unstake_all(who, hotkey, true),
+                    Self::get_priority_vanilla(),
+                )
+            }
             Some(Call::move_stake {
                 origin_hotkey,
                 destination_hotkey,
