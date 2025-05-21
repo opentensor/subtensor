@@ -1596,6 +1596,12 @@ impl_runtime_apis! {
             tx: <Block as BlockT>::Extrinsic,
             block_hash: <Block as BlockT>::Hash,
         ) -> TransactionValidity {
+            use codec::DecodeLimit;
+            use frame_support::pallet_prelude::{ValidateUnsigned, InvalidTransaction, TransactionValidityError};
+            let encoded = tx.encode();
+            if let Err(_) = <Runtime as ValidateUnsigned>::Call::decode_all_with_depth_limit(200, &mut encoded.as_slice()) {
+                return Err(TransactionValidityError::Invalid(InvalidTransaction::Call));
+            }
             Executive::validate_transaction(source, tx, block_hash)
         }
     }
