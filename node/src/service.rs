@@ -266,6 +266,20 @@ where
     }
 
     async fn import_block(&self, block: BlockImportParams<B>) -> Result<ImportResult, Self::Error> {
+        // Filter blocks from before safe block
+        let hash = block.post_hash();
+        let hash_str = format!("{:?}", hash);
+        if hash_str.starts_with("0xe2fb") {
+            log::warn!("🚫 Rejecting known bad block with hash prefix 0xe2fb");
+            return Err(ConsensusError::ClientImport(format!(
+                "Rejected known bad block: {}",
+                hash_str
+            )));
+        }
+        if block.header.number().clone().into() < sp_core::U256::from(5_614_089) {
+            log::warn!("🛡️ Rejecting block #{} below safe height", 5_614_089);
+            return Err(ConsensusError::ClientImport("Block number below safe block".into()));
+        }
         // Import like Frontier, but fallback to grandpa import for errors
         match ensure_log(block.header.digest()).map_err(Error::from) {
             Ok(()) => self.inner.import_block(block).await.map_err(Into::into),
