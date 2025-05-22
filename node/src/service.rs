@@ -9,8 +9,10 @@ use sc_consensus::{
     BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxBlockImport, ImportResult,
 };
 use sc_consensus_grandpa::BlockNumberOps;
+use sc_consensus_grandpa::{self, FinalityProofProvider as GrandpaFinalityProofProvider};
 use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
 use sc_network_sync::strategy::warp::{WarpSyncConfig, WarpSyncProvider};
+use sc_rpc::SubscriptionTaskExecutor;
 use sc_service::{Configuration, PartialComponents, TaskManager, error::Error as ServiceError};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, log};
 use sc_transaction_pool::FullPool;
@@ -31,6 +33,7 @@ use crate::ethereum::{
     StorageOverride, StorageOverrideHandler, db_config_dir, new_frontier_partial,
     spawn_frontier_tasks,
 };
+use crate::rpc::GrandpaDeps;
 
 /// The minimum period of blocks on which justifications will be
 /// imported and generated.
@@ -58,6 +61,7 @@ pub fn new_partial<BIQ>(
             GrandpaLinkHalf,
             FrontierBackend,
             Arc<dyn StorageOverride<Block>>,
+            // sc_consensus_grandpa::SharedVoterState,
         ),
     >,
     ServiceError,
@@ -494,6 +498,7 @@ where
     // for ethereum-compatibility rpc.
     config.rpc.id_provider = Some(Box::new(fc_rpc::EthereumSubIdProvider));
 
+    let shared_voter_state = sc_consensus_grandpa::SharedVoterState::empty();
     let rpc_builder = {
         let client = client.clone();
         let pool = transaction_pool.clone();
@@ -532,47 +537,66 @@ where
             Ok((slot, timestamp))
         };
 
-        Box::new(move |subscription_task_executor| {
-            let eth_deps = crate::rpc::EthDeps {
-                client: client.clone(),
-                pool: pool.clone(),
-                graph: pool.pool().clone(),
-                converter: Some(TransactionConverter::<Block>::default()),
-                is_authority,
-                enable_dev_signer,
-                network: network.clone(),
-                sync: sync_service.clone(),
-                frontier_backend: match &*frontier_backend {
-                    fc_db::Backend::KeyValue(b) => b.clone(),
-                    fc_db::Backend::Sql(b) => b.clone(),
-                },
-                storage_override: storage_override.clone(),
-                block_data_cache: block_data_cache.clone(),
-                filter_pool: filter_pool.clone(),
-                max_past_logs,
-                fee_history_cache: fee_history_cache.clone(),
-                fee_history_cache_limit,
-                execute_gas_limit_multiplier,
-                forced_parent_hashes: None,
-                pending_create_inherent_data_providers,
-            };
-            let deps = crate::rpc::FullDeps {
-                client: client.clone(),
-                pool: pool.clone(),
-                command_sink: if sealing.is_some() {
-                    Some(command_sink.clone())
-                } else {
-                    None
-                },
-                eth: eth_deps,
-            };
-            crate::rpc::create_full(
-                deps,
-                subscription_task_executor,
-                pubsub_notification_sinks.clone(),
-            )
-            .map_err(Into::into)
-        })
+        let justification_stream = grandpa_link.justification_stream();
+        let shared_authority_set = grandpa_link.shared_authority_set().clone();
+        let finality_proof_provider = GrandpaFinalityProofProvider::new_for_service(
+            backend.clone(),
+            Some(shared_authority_set.clone()),
+        );
+        let backend = backend.clone();
+        let shared_voter_state = shared_voter_state.clone();
+
+        Box::new(
+            move |subscription_task_executor: SubscriptionTaskExecutor| {
+                let eth_deps = crate::rpc::EthDeps {
+                    client: client.clone(),
+                    pool: pool.clone(),
+                    graph: pool.pool().clone(),
+                    converter: Some(TransactionConverter::<Block>::default()),
+                    is_authority,
+                    enable_dev_signer,
+                    network: network.clone(),
+                    sync: sync_service.clone(),
+                    frontier_backend: match &*frontier_backend {
+                        fc_db::Backend::KeyValue(b) => b.clone(),
+                        fc_db::Backend::Sql(b) => b.clone(),
+                    },
+                    storage_override: storage_override.clone(),
+                    block_data_cache: block_data_cache.clone(),
+                    filter_pool: filter_pool.clone(),
+                    max_past_logs,
+                    fee_history_cache: fee_history_cache.clone(),
+                    fee_history_cache_limit,
+                    execute_gas_limit_multiplier,
+                    forced_parent_hashes: None,
+                    pending_create_inherent_data_providers,
+                };
+                let deps = crate::rpc::FullDeps {
+                    client: client.clone(),
+                    pool: pool.clone(),
+                    command_sink: if sealing.is_some() {
+                        Some(command_sink.clone())
+                    } else {
+                        None
+                    },
+                    backend: backend.clone(),
+                    eth: eth_deps,
+                    grandpa: GrandpaDeps {
+                        shared_voter_state: shared_voter_state.clone(),
+                        shared_authority_set: shared_authority_set.clone(),
+                        justification_stream: justification_stream.clone(),
+                        subscription_executor: subscription_task_executor.clone(),
+                        finality_provider: finality_proof_provider.clone(),
+                    },
+                };
+                crate::rpc::create_full(
+                    deps,
+                    subscription_task_executor,
+                    pubsub_notification_sinks.clone(),
+                )
+                .map_err(Into::into)
+            },
+        )
     };
 
     let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
@@ -704,7 +728,7 @@ where
                 notification_service: grandpa_notification_service,
                 voting_rule: sc_consensus_grandpa::VotingRulesBuilder::default().build(),
                 prometheus_registry,
-                shared_voter_state: sc_consensus_grandpa::SharedVoterState::empty(),
+                shared_voter_state,
                 telemetry: telemetry.as_ref().map(|x| x.handle()),
                 offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool),
             })?;

@@ -14,6 +14,10 @@ pub use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
 use fc_storage::StorageOverride;
 use jsonrpsee::RpcModule;
 use node_subtensor_runtime::opaque::Block;
+use sc_consensus_grandpa::{FinalityProofProvider, GrandpaJustificationStream};
+use sc_consensus_grandpa::{SharedAuthoritySet, SharedVoterState};
+use sc_consensus_grandpa_rpc::Grandpa;
+use sc_consensus_grandpa_rpc::GrandpaApiServer;
 use sc_consensus_manual_seal::EngineCommand;
 use sc_network::service::traits::NetworkService;
 use sc_network_sync::SyncingService;
@@ -23,6 +27,7 @@ use sc_transaction_pool_api::TransactionPool;
 use sp_core::H256;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::Block as BlockT;
+use subtensor_runtime_common::BlockNumber;
 use subtensor_runtime_common::Hash;
 
 use crate::{
@@ -83,8 +88,22 @@ impl fc_rpc::EthConfig<Block, FullClient> for DefaultEthConfig {
     >;
 }
 
+/// Extra dependencies for GRANDPA
+pub struct GrandpaDeps<B> {
+    /// Voting round info.
+    pub shared_voter_state: SharedVoterState,
+    /// Authority set info.
+    pub shared_authority_set: SharedAuthoritySet<Hash, BlockNumber>,
+    /// Receives notifications about justification events from Grandpa.
+    pub justification_stream: GrandpaJustificationStream<Block>,
+    /// Executor to drive the subscription manager in the Grandpa RPC handler.
+    pub subscription_executor: SubscriptionTaskExecutor,
+    /// Finality proof provider.
+    pub finality_provider: Arc<FinalityProofProvider<B, Block>>,
+}
+
 /// Full client dependencies.
-pub struct FullDeps<P, A: ChainApi, CT, CIDP> {
+pub struct FullDeps<P, A: ChainApi, CT, CIDP, B> {
     /// The client instance to use.
     pub client: Arc<FullClient>,
     /// Transaction pool instance.
@@ -93,11 +112,15 @@ pub struct FullDeps<P, A: ChainApi, CT, CIDP> {
     pub command_sink: Option<mpsc::Sender<EngineCommand<Hash>>>,
     /// Ethereum-compatibility specific dependencies.
     pub eth: EthDeps<P, A, CT, CIDP>,
+    /// GRANDPA specific dependencies.
+    pub grandpa: GrandpaDeps<B>,
+    /// The backend used by the node.
+    pub backend: Arc<B>,
 }
 
 /// Instantiate all full RPC extensions.
-pub fn create_full<P, A, CT, CIDP>(
-    deps: FullDeps<P, A, CT, CIDP>,
+pub fn create_full<P, A, CT, CIDP, B>(
+    deps: FullDeps<P, A, CT, CIDP, B>,
     subscription_task_executor: SubscriptionTaskExecutor,
     pubsub_notification_sinks: Arc<
         fc_mapping_sync::EthereumBlockNotificationSinks<
@@ -110,6 +133,8 @@ where
     A: ChainApi<Block = Block> + 'static,
     CIDP: CreateInherentDataProviders<Block, ()> + Send + Clone + 'static,
     CT: fp_rpc::ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + Clone + 'static,
+    B: sc_client_api::Backend<Block> + Send + Sync + 'static,
+    B::State: sc_client_api::backend::StateBackend<sp_runtime::traits::HashingFor<Block>>,
 {
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
     use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
@@ -122,13 +147,32 @@ where
         pool,
         command_sink,
         eth,
+        grandpa,
+        backend: _backend,
     } = deps;
+    let GrandpaDeps {
+        shared_voter_state,
+        shared_authority_set,
+        justification_stream,
+        subscription_executor,
+        finality_provider,
+    } = grandpa;
 
     // Custom RPC methods for Paratensor
     module.merge(SubtensorCustom::new(client.clone()).into_rpc())?;
 
     module.merge(System::new(client.clone(), pool.clone()).into_rpc())?;
     module.merge(TransactionPayment::new(client).into_rpc())?;
+    module.merge(
+        Grandpa::new(
+            subscription_executor,
+            shared_authority_set.clone(),
+            shared_voter_state,
+            justification_stream,
+            finality_provider,
+        )
+        .into_rpc(),
+    )?;
 
     // Extend this RPC with a custom API by using the following syntax.
     // `YourRpcStruct` should have a reference to a client, which is needed
