@@ -16,6 +16,8 @@ use sp_runtime::{
 };
 use subtensor_swap_interface::{BalanceOps, SubnetInfo};
 
+use crate::{NetUid, pallet::EnabledUserLiquidity};
+
 construct_runtime!(
     pub enum Test {
         System: frame_system = 0,
@@ -27,6 +29,7 @@ pub type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = u32;
 pub const OK_COLDKEY_ACCOUNT_ID: AccountId = 1;
 pub const OK_HOTKEY_ACCOUNT_ID: AccountId = 1000;
+pub const NON_EXISTENT_NETUID: u16 = 999;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -91,7 +94,10 @@ impl SubnetInfo<AccountId> for MockLiquidityProvider {
         }
     }
 
-    fn exists(_netuid: u16) -> bool {
+    fn exists(netuid: u16) -> bool {
+        if netuid == NON_EXISTENT_NETUID {
+            return false;
+        }
         true
     }
 
@@ -165,6 +171,13 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
         .build_storage()
         .unwrap();
     let mut ext = sp_io::TestExternalities::new(storage);
-    ext.execute_with(|| System::set_block_number(1));
+    ext.execute_with(|| {
+        System::set_block_number(1);
+
+        for netuid in 0u16..=100 {
+            // enable V3 for this range of netuids
+            EnabledUserLiquidity::<Test>::set(NetUid::from(netuid), true);
+        }
+    });
     ext
 }

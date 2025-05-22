@@ -103,6 +103,12 @@ mod pallet {
     #[pallet::storage]
     pub type CurrentLiquidity<T> = StorageMap<_, Twox64Concat, NetUid, u64, ValueQuery>;
 
+    /// Indicates whether a subnet has been switched to V3 swap from V2.
+    /// If `true`, the subnet is permanently on V3 swap mode allowing add/remove liquidity
+    /// operations. Once set to `true` for a subnet, it cannot be changed back to `false`.
+    #[pallet::storage]
+    pub type EnabledUserLiquidity<T> = StorageMap<_, Twox64Concat, NetUid, bool, ValueQuery>;
+
     /// Storage for user positions, using subnet ID and account ID as keys
     /// The value is a bounded vector of Position structs with details about the liquidity positions
     #[pallet::storage]
@@ -139,6 +145,10 @@ mod pallet {
     pub enum Event<T: Config> {
         /// Event emitted when the fee rate has been updated for a subnet
         FeeRateSet { netuid: NetUid, rate: u16 },
+
+        /// Event emitted when user liquidity operations are enabled for a subnet.
+        /// This indicates a permanent switch from V2 to V3 swap.
+        UserLiquidityEnabled { netuid: NetUid },
 
         /// Event emitted when liquidity is added to a subnet's liquidity pool.
         LiquidityAdded {
@@ -215,6 +225,9 @@ mod pallet {
 
         /// The subnet does not exist.
         SubNetworkDoesNotExist,
+
+        /// User liquidity operations are disabled for this subnet
+        UserLiquidityDisabled,
     }
 
     #[pallet::call]
@@ -242,6 +255,29 @@ mod pallet {
             FeeRate::<T>::insert(netuid, rate);
 
             Self::deposit_event(Event::FeeRateSet { netuid, rate });
+
+            Ok(())
+        }
+
+        /// Enable user liquidity operations for a specific subnet. This permanently switches the
+        /// subnet from V2 to V3 swap mode. Once enabled, it cannot be disabled.
+        ///
+        /// Only callable by the admin origin
+        #[pallet::call_index(4)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_enabled_user_liquidity())]
+        pub fn set_enabled_user_liquidity(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
+            T::AdminOrigin::ensure_origin(origin)?;
+
+            ensure!(
+                T::SubnetInfo::exists(netuid),
+                Error::<T>::SubNetworkDoesNotExist
+            );
+
+            let netuid = netuid.into();
+
+            EnabledUserLiquidity::<T>::insert(netuid, true);
+
+            Self::deposit_event(Event::UserLiquidityEnabled { netuid });
 
             Ok(())
         }
@@ -445,12 +481,14 @@ mod pallet {
 
 #[cfg(test)]
 mod tests {
+    use frame_support::{assert_noop, assert_ok};
+    use sp_runtime::DispatchError;
+
     use crate::{
         NetUid,
         mock::*,
-        pallet::{Error, FeeRate, Pallet as SwapModule},
+        pallet::{EnabledUserLiquidity, Error, FeeRate},
     };
-    use frame_support::{assert_noop, assert_ok};
 
     #[test]
     fn test_set_fee_rate() {
@@ -460,11 +498,7 @@ mod tests {
             let fee_rate = 500; // 0.76% fee
 
             // Set fee rate (requires admin/root origin)
-            assert_ok!(SwapModule::<Test>::set_fee_rate(
-                RuntimeOrigin::root(),
-                netuid,
-                fee_rate
-            ));
+            assert_ok!(Swap::set_fee_rate(RuntimeOrigin::root(), netuid, fee_rate));
 
             // Check that fee rate was set correctly
             let netuid_struct = NetUid::from(netuid);
@@ -473,8 +507,34 @@ mod tests {
             // Verify fee rate validation - should fail if too high
             let too_high_fee = MaxFeeRate::get() + 1;
             assert_noop!(
-                SwapModule::<Test>::set_fee_rate(RuntimeOrigin::root(), netuid, too_high_fee),
+                Swap::set_fee_rate(RuntimeOrigin::root(), netuid, too_high_fee),
                 Error::<Test>::FeeRateTooHigh
+            );
+        });
+    }
+
+    #[test]
+    fn test_set_enabled_user_liquidity() {
+        new_test_ext().execute_with(|| {
+            let netuid = NetUid::from(101);
+
+            assert!(!EnabledUserLiquidity::<Test>::get(netuid));
+
+            assert_ok!(Swap::set_enabled_user_liquidity(
+                RuntimeOrigin::root(),
+                netuid.into()
+            ));
+
+            assert!(EnabledUserLiquidity::<Test>::get(netuid));
+
+            assert_noop!(
+                Swap::set_enabled_user_liquidity(RuntimeOrigin::signed(1), netuid.into()),
+                DispatchError::BadOrigin
+            );
+
+            assert_noop!(
+                Swap::set_enabled_user_liquidity(RuntimeOrigin::root(), NON_EXISTENT_NETUID),
+                Error::<Test>::SubNetworkDoesNotExist
             );
         });
     }
