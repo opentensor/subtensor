@@ -61,7 +61,6 @@ pub fn new_partial<BIQ>(
             GrandpaLinkHalf,
             FrontierBackend,
             Arc<dyn StorageOverride<Block>>,
-            // sc_consensus_grandpa::SharedVoterState,
         ),
     >,
     ServiceError,
