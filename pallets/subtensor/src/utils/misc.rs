@@ -353,11 +353,16 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_serving_rate_limit(netuid: u16) -> u64 {
-        ServingRateLimit::<T>::get(netuid)
+        let limit_key = RateLimitKey::ServingRateLimit(netuid);
+        Self::get_rate_limited_last_block(&limit_key)
     }
-    pub fn set_serving_rate_limit(netuid: u16, serving_rate_limit: u64) {
-        ServingRateLimit::<T>::insert(netuid, serving_rate_limit);
-        Self::deposit_event(Event::ServingRateLimitSet(netuid, serving_rate_limit));
+    pub fn set_serving_rate_limit(netuid: u16, serving_rate_limit: u64, skip_event: bool) {
+        let limit_key = RateLimitKey::ServingRateLimit(netuid);
+        Self::set_rate_limited_last_block(&limit_key, serving_rate_limit);
+
+        if !skip_event {
+            Self::deposit_event(Event::ServingRateLimitSet(netuid, serving_rate_limit));
+        }
     }
 
     pub fn get_min_difficulty(netuid: u16) -> u64 {

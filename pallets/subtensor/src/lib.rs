@@ -57,6 +57,7 @@ extern crate alloc;
 
 pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 
+#[allow(deprecated)]
 #[deny(missing_docs)]
 #[import_section(errors::errors)]
 #[import_section(events::events)]
@@ -1323,6 +1324,8 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> subnet_owner_hotkey
     pub type SubnetOwnerHotkey<T: Config> =
         StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
+
+    #[deprecated]
     #[pallet::storage]
     /// --- MAP ( netuid ) --> serving_rate_limit
     pub type ServingRateLimit<T> =
@@ -2699,4 +2702,6 @@ impl<T, H, P> CollectiveInterface<T, H, P> for () {
 pub enum RateLimitKey {
     // The setting sn owner hotkey operation is rate limited per netuid
     SetSNOwnerHotkey(u16),
+    // An axon or prometheus serving rate limit for a registered neuron.
+    ServingRateLimit(u16),
 }

@@ -196,7 +196,11 @@ pub mod pallet {
         ) -> DispatchResult {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
 
-            pallet_subtensor::Pallet::<T>::set_serving_rate_limit(netuid, serving_rate_limit);
+            pallet_subtensor::Pallet::<T>::set_serving_rate_limit(
+                netuid,
+                serving_rate_limit,
+                false,
+            );
             log::debug!(
                 "ServingRateLimitSet( serving_rate_limit: {:?} ) ",
                 serving_rate_limit

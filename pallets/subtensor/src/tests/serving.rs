@@ -283,7 +283,7 @@ fn test_axon_serving_rate_limit_exceeded() {
             placeholder1,
             placeholder2
         ));
-        SubtensorModule::set_serving_rate_limit(netuid, 2);
+        SubtensorModule::set_serving_rate_limit(netuid, 2, false);
         run_to_block(2); // Go to block 2
         // Needs to be 2 blocks apart, we are only 1 block apart
         assert_eq!(
@@ -485,7 +485,7 @@ fn test_prometheus_serving_rate_limit_exceeded() {
             port,
             ip_type
         ));
-        SubtensorModule::set_serving_rate_limit(netuid, 1);
+        SubtensorModule::set_serving_rate_limit(netuid, 1, false);
         // Same block, need 1 block to pass
         assert_eq!(
             SubtensorModule::serve_prometheus(

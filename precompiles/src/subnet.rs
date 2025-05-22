@@ -98,7 +98,7 @@ where
     #[precompile::public("getServingRateLimit(uint16)")]
     #[precompile::view]
     fn get_serving_rate_limit(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::ServingRateLimit::<R>::get(netuid))
+        Ok(pallet_subtensor::pallet::Pallet::<R>::get_serving_rate_limit(netuid))
     }
 
     #[precompile::public("setServingRateLimit(uint16,uint64)")]
