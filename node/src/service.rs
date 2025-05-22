@@ -1,5 +1,6 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
+use sp_core::U256;
 use fp_consensus::{FindLogError, ensure_log};
 use fp_rpc::EthereumRuntimeRPCApi;
 use futures::{FutureExt, channel::mpsc, future};
@@ -269,6 +270,8 @@ where
         // Filter blocks from before safe block
         let hash = block.post_hash();
         let hash_str = format!("{:?}", hash);
+        let block_number: U256 = block.header.number().clone().into();
+        log::warn!( "check import_block: hash: {:?}, number: {:?}", hash_str, block_number );
         if hash_str.starts_with("0xe2fb") {
             log::warn!("🚫 Rejecting known bad block with hash prefix 0xe2fb");
             return Err(ConsensusError::ClientImport(format!(
