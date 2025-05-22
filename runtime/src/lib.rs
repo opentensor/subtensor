@@ -209,7 +209,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 271,
+    spec_version: 273,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1709,6 +1709,14 @@ impl_runtime_apis! {
             tx: <Block as BlockT>::Extrinsic,
             block_hash: <Block as BlockT>::Hash,
         ) -> TransactionValidity {
+            use codec::DecodeLimit;
+            use frame_support::pallet_prelude::{InvalidTransaction, TransactionValidityError};
+            use frame_support::traits::ExtrinsicCall;
+            let encoded = tx.call().encode();
+            if RuntimeCall::decode_all_with_depth_limit(200, &mut encoded.as_slice()).is_err() {
+                log::warn!("failed to decde with depth limit of 200");
+                return Err(TransactionValidityError::Invalid(InvalidTransaction::Call));
+            }
             Executive::validate_transaction(source, tx, block_hash)
         }
     }

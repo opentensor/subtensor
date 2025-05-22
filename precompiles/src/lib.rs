@@ -86,7 +86,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 14] {
+    pub fn used_addresses() -> [H160; 15] {
         [
             hash(1),
             hash(2),
@@ -102,6 +102,7 @@ where
             hash(MetagraphPrecompile::<R>::INDEX),
             hash(NeuronPrecompile::<R>::INDEX),
             hash(StakingPrecompileV2::<R>::INDEX),
+            hash(UidLookupPrecompile::<R>::INDEX),
         ]
     }
 }
