@@ -52,7 +52,7 @@ pub fn migrate_obsolete_rate_limiting_maps<T: Config>() -> Weight {
 
             clear(&full_key);
         }
-
+        
         weight = weight.saturating_add(T::DbWeight::get().writes(2));
         weight = weight.saturating_add(T::DbWeight::get().reads(1));
     }
