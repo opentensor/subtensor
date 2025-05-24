@@ -26,7 +26,7 @@ impl<T: Config> Pallet<T> {
     ///     -  Thrown if the coldkey does not own the hotkey we are unstaking from.
     ///
     /// * 'NotEnoughStakeToWithdraw':
-    ///     -  Thrown if there is not enough stake on the hotkey to withdwraw this amount.
+    ///     -  Thrown if there is not enough stake on the hotkey to withdraw this amount.
     ///
     /// * 'TxRateLimitExceeded':
     ///     -  Thrown if key has hit transaction rate limit
@@ -57,7 +57,7 @@ impl<T: Config> Pallet<T> {
             false,
         )?;
 
-        // 3. Swap the alpba to tao and update counters for this subnet.
+        // 3. Swap the alpha to tao and update counters for this subnet.
         let fee = Self::calculate_staking_fee(
             Some((&hotkey, netuid)),
             &coldkey,
@@ -312,7 +312,7 @@ impl<T: Config> Pallet<T> {
     ///     - Thrown if the coldkey does not own the hotkey we are unstaking from.
     ///
     /// * 'NotEnoughStakeToWithdraw':
-    ///     - Thrown if there is not enough stake on the hotkey to withdwraw this amount.
+    ///     - Thrown if there is not enough stake on the hotkey to withdraw this amount.
     ///
     pub fn do_remove_stake_limit(
         origin: T::RuntimeOrigin,
