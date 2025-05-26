@@ -20,6 +20,7 @@ mod impls;
 #[frame_support::pallet]
 mod pallet {
     use super::*;
+    use frame_system::{ensure_root, ensure_signed};
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
@@ -29,9 +30,6 @@ mod pallet {
     pub trait Config: frame_system::Config {
         /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
-        /// The origin which may configure the swap parameters
-        type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
         /// Implementor of
         /// [`SubnetInfo`](subtensor_swap_interface::SubnetInfo).
@@ -239,7 +237,13 @@ mod pallet {
         #[pallet::call_index(0)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::set_fee_rate())]
         pub fn set_fee_rate(origin: OriginFor<T>, netuid: u16, rate: u16) -> DispatchResult {
-            T::AdminOrigin::ensure_origin(origin)?;
+            if ensure_root(origin.clone()).is_err() {
+                let account_id: T::AccountId = ensure_signed(origin)?;
+                ensure!(
+                    T::SubnetInfo::is_owner(&account_id, netuid),
+                    DispatchError::BadOrigin
+                );
+            }
 
             // Ensure that the subnet exists.
             ensure!(
@@ -266,7 +270,13 @@ mod pallet {
         #[pallet::call_index(4)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::set_enabled_user_liquidity())]
         pub fn set_enabled_user_liquidity(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
-            T::AdminOrigin::ensure_origin(origin)?;
+            if ensure_root(origin.clone()).is_err() {
+                let account_id: T::AccountId = ensure_signed(origin)?;
+                ensure!(
+                    T::SubnetInfo::is_owner(&account_id, netuid),
+                    DispatchError::BadOrigin
+                );
+            }
 
             ensure!(
                 T::SubnetInfo::exists(netuid),
@@ -493,16 +503,26 @@ mod tests {
     #[test]
     fn test_set_fee_rate() {
         new_test_ext().execute_with(|| {
-            // Create a test subnet
             let netuid = 1u16;
             let fee_rate = 500; // 0.76% fee
 
-            // Set fee rate (requires admin/root origin)
+            assert_noop!(
+                Swap::set_fee_rate(RuntimeOrigin::signed(666), netuid.into(), fee_rate),
+                DispatchError::BadOrigin
+            );
+
             assert_ok!(Swap::set_fee_rate(RuntimeOrigin::root(), netuid, fee_rate));
 
             // Check that fee rate was set correctly
-            let netuid_struct = NetUid::from(netuid);
-            assert_eq!(FeeRate::<Test>::get(netuid_struct), fee_rate);
+            assert_eq!(FeeRate::<Test>::get(NetUid::from(netuid)), fee_rate);
+
+            let fee_rate = fee_rate * 2;
+            assert_ok!(Swap::set_fee_rate(
+                RuntimeOrigin::signed(1),
+                netuid,
+                fee_rate
+            ));
+            assert_eq!(FeeRate::<Test>::get(NetUid::from(netuid)), fee_rate);
 
             // Verify fee rate validation - should fail if too high
             let too_high_fee = MaxFeeRate::get() + 1;
@@ -528,9 +548,14 @@ mod tests {
             assert!(EnabledUserLiquidity::<Test>::get(netuid));
 
             assert_noop!(
-                Swap::set_enabled_user_liquidity(RuntimeOrigin::signed(1), netuid.into()),
+                Swap::set_enabled_user_liquidity(RuntimeOrigin::signed(666), netuid.into()),
                 DispatchError::BadOrigin
             );
+
+            assert_ok!(Swap::set_enabled_user_liquidity(
+                RuntimeOrigin::signed(1),
+                netuid.into()
+            ));
 
             assert_noop!(
                 Swap::set_enabled_user_liquidity(RuntimeOrigin::root(), NON_EXISTENT_NETUID),

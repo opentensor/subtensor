@@ -8,7 +8,7 @@ use frame_support::{
     PalletId, parameter_types,
     traits::{ConstU32, Everything},
 };
-use frame_system::{self as system, EnsureRoot};
+use frame_system::{self as system};
 use sp_core::H256;
 use sp_runtime::{
     BuildStorage,
@@ -29,6 +29,7 @@ pub type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = u32;
 pub const OK_COLDKEY_ACCOUNT_ID: AccountId = 1;
 pub const OK_HOTKEY_ACCOUNT_ID: AccountId = 1000;
+pub const NOT_SUBNET_OWNER: AccountId = 666;
 pub const NON_EXISTENT_NETUID: u16 = 999;
 
 parameter_types! {
@@ -95,14 +96,15 @@ impl SubnetInfo<AccountId> for MockLiquidityProvider {
     }
 
     fn exists(netuid: u16) -> bool {
-        if netuid == NON_EXISTENT_NETUID {
-            return false;
-        }
-        true
+        netuid != NON_EXISTENT_NETUID
     }
 
     fn mechanism(netuid: u16) -> u16 {
         if netuid == 0 { 0 } else { 1 }
+    }
+
+    fn is_owner(account_id: &AccountId, _netuid: u16) -> bool {
+        *account_id != NOT_SUBNET_OWNER
     }
 }
 
@@ -154,7 +156,6 @@ impl BalanceOps<AccountId> for MockBalanceOps {
 
 impl crate::pallet::Config for Test {
     type RuntimeEvent = RuntimeEvent;
-    type AdminOrigin = EnsureRoot<AccountId>;
     type SubnetInfo = MockLiquidityProvider;
     type BalanceOps = MockBalanceOps;
     type ProtocolId = SwapProtocolId;
