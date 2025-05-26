@@ -558,6 +558,12 @@ fn test_serving_is_valid_ip_address_ipv4() {
             test::ipv4(8, 8, 8, 8),
             false
         ));
+
+        assert!(SubtensorModule::is_valid_ip_address(
+            4,
+            test::ipv4(0, 0, 0, 0),
+            true
+        ));
     });
 }
 
@@ -573,6 +579,11 @@ fn test_serving_is_valid_ip_address_ipv6() {
             6,
             test::ipv6(1, 2, 3, 4, 5, 6, 7, 8),
             false
+        ));
+        assert!(SubtensorModule::is_valid_ip_address(
+            6,
+            test::ipv6(0, 0, 0, 0, 0, 0, 0, 0),
+            true
         ));
     });
 }
@@ -600,6 +611,21 @@ fn test_serving_is_invalid_ipv4_address() {
             test::ipv6(0xffff, 2, 3, 4, 5, 6, 7, 8),
             false
         ));
+        assert!(!SubtensorModule::is_valid_ip_address(
+            4,
+            test::ipv4(255, 255, 255, 255),
+            true
+        ));
+        assert!(!SubtensorModule::is_valid_ip_address(
+            4,
+            test::ipv4(127, 0, 0, 1),
+            true
+        ));
+        assert!(!SubtensorModule::is_valid_ip_address(
+            4,
+            test::ipv6(0xffff, 2, 3, 4, 5, 6, 7, 8),
+            true
+        ));
     });
 }
 
@@ -617,6 +643,13 @@ fn test_serving_is_invalid_ipv6_address() {
                 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff
             ),
             false
+        ));
+        assert!(!SubtensorModule::is_valid_ip_address(
+            4,
+            test::ipv6(
+                0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff
+            ),
+            true
         ));
     });
 }
