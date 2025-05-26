@@ -7,6 +7,7 @@ use safe_math::SafeDiv;
 use substrate_fixed::traits::FromFixed;
 
 use super::mock::*;
+use crate::staking::remove_stake::MAX_SUBNETS;
 use crate::*;
 use approx::assert_abs_diff_eq;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
@@ -5752,6 +5753,7 @@ fn test_unstake_all_hits_liquidity_min() {
         assert_ok!(SubtensorModule::unstake_all(
             RuntimeOrigin::signed(coldkey),
             hotkey,
+            None,
         ));
 
         // Expect nothing to be unstaked
@@ -5997,6 +5999,7 @@ fn test_unstake_all_works() {
         assert_ok!(SubtensorModule::unstake_all(
             RuntimeOrigin::signed(coldkey),
             hotkey,
+            None,
         ));
 
         let new_alpha =
@@ -6004,6 +6007,110 @@ fn test_unstake_all_works() {
         assert_abs_diff_eq!(new_alpha, 0, epsilon = 1_000,);
         let new_balance = SubtensorModule::get_coldkey_balance(&coldkey);
         assert!(new_balance > 100_000);
+    });
+}
+#[test]
+fn test_unstake_all_works_with_specified_subnets() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+
+        let stake_amount = 190_000_000_000; // 190 Alpha
+
+        let netuid1: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid2: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        register_ok_neuron(netuid1, hotkey, coldkey, 192213123);
+        register_ok_neuron(netuid2, hotkey, coldkey, 192213124);
+
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid1,
+            stake_amount,
+        );
+
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid2,
+            stake_amount,
+        );
+
+        // Setup the Alpha pool so that removing all the Alpha will keep liq above min
+        let remaining_tao: I96F32 =
+            DefaultMinimumPoolLiquidity::<Test>::get().saturating_add(I96F32::from(10_000_000));
+        let alpha_reserves: I110F18 = I110F18::from(stake_amount + 10_000_000);
+        let alpha = stake_amount;
+
+        let k: I110F18 = I110F18::from_fixed(remaining_tao)
+            .saturating_mul(alpha_reserves.saturating_add(I110F18::from(alpha)));
+        let tao_reserves: I110F18 = k.safe_div(alpha_reserves);
+
+        SubnetTAO::<Test>::insert(netuid1, tao_reserves.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid1, alpha_reserves.to_num::<u64>());
+
+        SubnetTAO::<Test>::insert(netuid2, tao_reserves.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid2, alpha_reserves.to_num::<u64>());
+
+        let stake_1_before =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid1);
+        let stake_2_before =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid2);
+
+        assert_ne!(stake_1_before, 0);
+
+        assert_ok!(SubtensorModule::unstake_all(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            Some(vec![netuid1]),
+        ));
+
+        let stake_1_after =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid1);
+        let stake_2_after =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid2);
+
+        assert_eq!(stake_1_after, 0);
+        assert_eq!(stake_2_before, stake_2_after);
+    });
+}
+
+#[test]
+fn test_unstake_all_fails_with_incorrect_subnet_number() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+
+        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(netuid, hotkey, coldkey, 192213123);
+
+        // Empty vector provided
+        assert_err!(
+            SubtensorModule::unstake_all(RuntimeOrigin::signed(coldkey), hotkey, Some(vec![])),
+            Error::<Test>::InvalidSubnetNumber
+        );
+
+        // Too many subnets specified
+        let large_vector = (0..=MAX_SUBNETS)
+            .into_iter()
+            .map(|val| u16::try_from(val).unwrap())
+            .collect::<Vec<_>>();
+
+        assert_err!(
+            SubtensorModule::unstake_all(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                Some(large_vector)
+            ),
+            Error::<Test>::InvalidSubnetNumber
+        );
     });
 }
 

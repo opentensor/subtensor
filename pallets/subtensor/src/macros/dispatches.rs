@@ -1554,6 +1554,8 @@ mod dispatches {
         ///
         /// * `hotkey` (T::AccountId):
         ///     - The associated hotkey account.
+        /// * 'subnets' (Option<Vec<u16>>):
+        ///     -  Optional specific subnets to unstake from
         ///
         /// # Event:
         /// * StakeRemoved;
@@ -1575,8 +1577,12 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(36_200_000, 0)
         .saturating_add(T::DbWeight::get().reads(6))
         .saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Operational, Pays::No))]
-        pub fn unstake_all(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-            Self::do_unstake_all(origin, hotkey)
+        pub fn unstake_all(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            subnets: Option<Vec<u16>>,
+        ) -> DispatchResult {
+            Self::do_unstake_all(origin, hotkey, subnets)
         }
 
         /// ---- The implementation for the extrinsic unstake_all: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.

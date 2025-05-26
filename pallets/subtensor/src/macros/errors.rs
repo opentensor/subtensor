@@ -214,5 +214,7 @@ mod errors {
         ZeroMaxStakeAmount,
         /// Invalid netuid duplication
         SameNetuid,
+        /// Invalid subnet number specified
+        InvalidSubnetNumber,
     }
 }

@@ -1473,7 +1473,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::create_account_if_non_existent(&coldkey, &hotkey);
 
         #[extrinsic_call]
-        _(RawOrigin::Signed(coldkey.clone()), hotkey.clone());
+        _(RawOrigin::Signed(coldkey.clone()), hotkey.clone(), None);
     }
 
     #[benchmark]

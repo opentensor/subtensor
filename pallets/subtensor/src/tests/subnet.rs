@@ -443,6 +443,7 @@ fn test_subtoken_enable_trading_ok_with_enable() {
         assert_ok!(SubtensorModule::unstake_all(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
+            None,
         ));
 
         assert_ok!(SubtensorModule::unstake_all_alpha(

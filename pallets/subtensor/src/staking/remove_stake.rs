@@ -1,6 +1,9 @@
 use super::*;
 use substrate_fixed::types::U96F32;
 
+// Used in `do_unstake_all` function to determine maximum number of subnets to process.
+pub(crate) const MAX_SUBNETS: usize = 30;
+
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
     ///
@@ -165,7 +168,10 @@ impl<T: Config> Pallet<T> {
     ///     -  The signature of the caller's coldkey.
     ///
     /// * 'hotkey' (T::AccountId):
-    ///     -  The associated hotkey account.
+    ///     -  The associated hotkey account.    
+    ///
+    /// * 'subnets' (Option<Vec<u16>>):
+    ///     -  Optional specific subnets to unstake from
     ///
     /// # Event:
     /// * StakeRemoved;
@@ -187,6 +193,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_unstake_all(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
+        subnets: Option<Vec<u16>>,
     ) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
@@ -198,12 +205,25 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyAccountNotExists
         );
 
-        // 3. Get all netuids.
-        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
-        log::debug!("All subnet netuids: {:?}", netuids);
+        // 3. Get netuids.
+        let actual_netuids = if let Some(provided_subnets) = subnets {
+            ensure!(
+                provided_subnets.len() <= MAX_SUBNETS && !provided_subnets.is_empty(),
+                Error::<T>::InvalidSubnetNumber
+            );
+
+            provided_subnets
+        } else {
+            let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
+            log::debug!("All subnet netuids: {:?}", all_netuids);
+
+            all_netuids
+        };
+
+        log::debug!("Actual subnet netuids: {:?}", actual_netuids);
 
         // 4. Iterate through all subnets and remove stake.
-        for netuid in netuids.into_iter() {
+        for netuid in actual_netuids.into_iter() {
             if !SubtokenEnabled::<T>::get(netuid) {
                 continue;
             }
@@ -270,6 +290,7 @@ impl<T: Config> Pallet<T> {
             Self::do_unstake_all(
                 crate::dispatch::RawOrigin::Signed(coldkey.clone()).into(),
                 hotkey.clone(),
+                None,
             )?;
         }
 
