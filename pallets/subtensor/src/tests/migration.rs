@@ -820,3 +820,67 @@ fn test_migrate_remove_commitments_rate_limit() {
         assert!(!weight.is_zero(), "Migration weight should be non-zero");
     });
 }
+
+#[test]
+fn test_migrate_serving_rate_limit() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // Step 1: Simulate Old Storage Entry
+        // ------------------------------
+        const MIGRATION_NAME: &str = "migrate_obsolete_rate_limiting_maps";
+
+        let pallet_name = "SubtensorModule";
+        let storage_name = "ServingRateLimit";
+        let pallet_name_hash = twox_128(pallet_name.as_bytes());
+        let storage_name_hash = twox_128(storage_name.as_bytes());
+        let prefix = [pallet_name_hash, storage_name_hash].concat();
+
+        let netuid = 1u16;
+        add_network(netuid, 1, 0);
+        let mut encoded_netuid = netuid.encode();
+        let mut full_key = prefix.clone();
+
+        full_key.append(&mut encoded_netuid);
+
+        let original_value: u64 = 123;
+        put_raw(&full_key, &original_value.encode());
+
+        let stored_before = get_raw(&full_key).expect("Expected RateLimit to exist");
+        assert_eq!(
+            u64::decode(&mut &stored_before[..]).expect("Failed to decode RateLimit"),
+            original_value
+        );
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // ------------------------------
+        // Step 2: Run the Migration
+        // ------------------------------
+        let weight = crate::migrations::migrate_obsolete_rate_limiting_maps::
+        migrate_obsolete_rate_limiting_maps::<Test>();
+
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as completed"
+        );
+
+        // ------------------------------
+        // Step 3: Verify Migration Effects
+        // ------------------------------
+
+        assert_eq!(
+            SubtensorModule::get_serving_rate_limit(netuid),
+            original_value
+        );
+        assert_eq!(
+            get_raw(&full_key),
+            None,
+            "RateLimit storage should have been cleared"
+        );
+
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+    });
+}
