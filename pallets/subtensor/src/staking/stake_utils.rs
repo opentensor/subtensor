@@ -840,6 +840,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         tao: u64,
         fee: u64,
+        set_lock: bool,
     ) -> u64 {
         // Step 1. Reduce tao amount by staking fee and credit this fee to SubnetTAO
         // At this point tao was already withdrawn from the user balance and is considered
@@ -866,7 +867,9 @@ impl<T: Config> Pallet<T> {
         });
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
-        Self::set_stake_lock(hotkey, netuid);
+        if set_lock {
+            Self::set_stake_lock(hotkey, netuid);
+        }
 
         // Step 5. Deposit and log the staking event.
         Self::deposit_event(Event::StakeAdded(

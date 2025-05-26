@@ -281,6 +281,7 @@ impl<T: Config> Pallet<T> {
             Self::get_root_netuid(),
             total_tao_unstaked,
             0, // no fee for restaking
+            false,
         );
 
         // 5. Done and ok.

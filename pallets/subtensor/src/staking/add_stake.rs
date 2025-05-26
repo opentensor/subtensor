@@ -75,6 +75,7 @@ impl<T: Config> Pallet<T> {
             netuid,
             tao_staked.saturating_to_num::<u64>(),
             fee,
+            true,
         );
 
         // Ok and return.
@@ -174,6 +175,7 @@ impl<T: Config> Pallet<T> {
             netuid,
             tao_staked.saturating_to_num::<u64>(),
             fee,
+            true,
         );
 
         // Ok and return.
