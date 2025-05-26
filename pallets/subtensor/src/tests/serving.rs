@@ -555,7 +555,8 @@ fn test_serving_is_valid_ip_address_ipv4() {
     new_test_ext(1).execute_with(|| {
         assert!(SubtensorModule::is_valid_ip_address(
             4,
-            test::ipv4(8, 8, 8, 8)
+            test::ipv4(8, 8, 8, 8),
+            false
         ));
     });
 }
@@ -565,11 +566,13 @@ fn test_serving_is_valid_ip_address_ipv6() {
     new_test_ext(1).execute_with(|| {
         assert!(SubtensorModule::is_valid_ip_address(
             6,
-            test::ipv6(1, 2, 3, 4, 5, 6, 7, 8)
+            test::ipv6(1, 2, 3, 4, 5, 6, 7, 8),
+            false
         ));
         assert!(SubtensorModule::is_valid_ip_address(
             6,
-            test::ipv6(1, 2, 3, 4, 5, 6, 7, 8)
+            test::ipv6(1, 2, 3, 4, 5, 6, 7, 8),
+            false
         ));
     });
 }
@@ -579,19 +582,23 @@ fn test_serving_is_invalid_ipv4_address() {
     new_test_ext(1).execute_with(|| {
         assert!(!SubtensorModule::is_valid_ip_address(
             4,
-            test::ipv4(0, 0, 0, 0)
+            test::ipv4(0, 0, 0, 0),
+            false
         ));
         assert!(!SubtensorModule::is_valid_ip_address(
             4,
-            test::ipv4(255, 255, 255, 255)
+            test::ipv4(255, 255, 255, 255),
+            false
         ));
         assert!(!SubtensorModule::is_valid_ip_address(
             4,
-            test::ipv4(127, 0, 0, 1)
+            test::ipv4(127, 0, 0, 1),
+            false
         ));
         assert!(!SubtensorModule::is_valid_ip_address(
             4,
-            test::ipv6(0xffff, 2, 3, 4, 5, 6, 7, 8)
+            test::ipv6(0xffff, 2, 3, 4, 5, 6, 7, 8),
+            false
         ));
     });
 }
@@ -601,13 +608,15 @@ fn test_serving_is_invalid_ipv6_address() {
     new_test_ext(1).execute_with(|| {
         assert!(!SubtensorModule::is_valid_ip_address(
             6,
-            test::ipv6(0, 0, 0, 0, 0, 0, 0, 0)
+            test::ipv6(0, 0, 0, 0, 0, 0, 0, 0),
+            false
         ));
         assert!(!SubtensorModule::is_valid_ip_address(
             4,
             test::ipv6(
                 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff
-            )
+            ),
+            false
         ));
     });
 }

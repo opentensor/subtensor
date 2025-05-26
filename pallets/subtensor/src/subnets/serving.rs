@@ -172,7 +172,7 @@ impl<T: Config> Pallet<T> {
         // Check the ip signature validity.
         ensure!(Self::is_valid_ip_type(ip_type), Error::<T>::InvalidIpType);
         ensure!(
-            Self::is_valid_ip_address(ip_type, ip),
+            Self::is_valid_ip_address(ip_type, ip, false),
             Error::<T>::InvalidIpAddress
         );
 
@@ -276,17 +276,11 @@ impl<T: Config> Pallet<T> {
     }
 
     // @todo (Parallax 2-1-2021) : Implement exclusion of private IP ranges
-    pub fn is_valid_ip_address(ip_type: u8, addr: u128) -> bool {
-        if !Self::is_valid_ip_type(ip_type) {
-            return false;
-        }
-        if addr == 0 {
+    pub fn is_valid_ip_address(ip_type: u8, addr: u128, allow_zero: bool) -> bool {
+        if !allow_zero && addr == 0 {
             return false;
         }
         if ip_type == 4 {
-            if addr == 0 {
-                return false;
-            }
             if addr >= u32::MAX as u128 {
                 return false;
             }
@@ -295,9 +289,6 @@ impl<T: Config> Pallet<T> {
             } // Localhost
         }
         if ip_type == 6 {
-            if addr == 0x0 {
-                return false;
-            }
             if addr == u128::MAX {
                 return false;
             }
@@ -346,7 +337,8 @@ impl<T: Config> Pallet<T> {
         // Check the ip signature validity.
         ensure!(Self::is_valid_ip_type(ip_type), Error::<T>::InvalidIpType);
         ensure!(
-            Self::is_valid_ip_address(ip_type, ip),
+            // allow axon to be served with a zero ip address for testing purposes
+            Self::is_valid_ip_address(ip_type, ip, true),
             Error::<T>::InvalidIpAddress
         );
 
