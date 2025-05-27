@@ -12,7 +12,7 @@ pub mod check_nonce;
 mod migrations;
 
 use codec::{Compact, Decode, Encode};
-use frame_support::traits::Imbalance;
+use frame_support::traits::{Imbalance, InsideBoth};
 use frame_support::{
     PalletId,
     dispatch::DispatchResultWithPostInfo,
@@ -209,7 +209,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 271,
+    spec_version: 272,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -244,11 +244,33 @@ parameter_types! {
     pub const SS58Prefix: u8 = 42;
 }
 
+pub struct NoNestingCallFilter;
+
+impl Contains<RuntimeCall> for NoNestingCallFilter {
+    fn contains(call: &RuntimeCall) -> bool {
+        match call {
+            RuntimeCall::Utility(inner) => {
+                let calls = match inner {
+                    pallet_utility::Call::force_batch { calls } => calls,
+                    pallet_utility::Call::batch { calls } => calls,
+                    pallet_utility::Call::batch_all { calls } => calls,
+                    _ => &Vec::new(),
+                };
+
+                !calls.iter().any(|call| {
+					matches!(call, RuntimeCall::Utility(inner) if matches!(inner, pallet_utility::Call::force_batch { .. } | pallet_utility::Call::batch_all { .. } | pallet_utility::Call::batch { .. }))
+				})
+            }
+            _ => true,
+        }
+    }
+}
+
 // Configure FRAME pallets to include in runtime.
 
 impl frame_system::Config for Runtime {
     // The basic call filter to use in dispatchable.
-    type BaseCallFilter = SafeMode;
+    type BaseCallFilter = InsideBoth<SafeMode, NoNestingCallFilter>;
     // Block & extrinsics weights: base values and limits.
     type BlockWeights = BlockWeights;
     // The maximum length of a block (in bytes).
@@ -1709,6 +1731,14 @@ impl_runtime_apis! {
             tx: <Block as BlockT>::Extrinsic,
             block_hash: <Block as BlockT>::Hash,
         ) -> TransactionValidity {
+            use codec::DecodeLimit;
+            use frame_support::pallet_prelude::{InvalidTransaction, TransactionValidityError};
+            use frame_support::traits::ExtrinsicCall;
+            let encoded = tx.call().encode();
+            if RuntimeCall::decode_all_with_depth_limit(8, &mut encoded.as_slice()).is_err() {
+                log::warn!("failed to decode with depth limit of 8");
+                return Err(TransactionValidityError::Invalid(InvalidTransaction::Call));
+            }
             Executive::validate_transaction(source, tx, block_hash)
         }
     }
