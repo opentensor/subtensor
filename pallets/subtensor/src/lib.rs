@@ -2439,6 +2439,10 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
     fn mechanism(netuid: u16) -> u16 {
         SubnetMechanism::<T>::get(netuid)
     }
+
+    fn is_owner(account_id: &T::AccountId, netuid: u16) -> bool {
+        SubnetOwner::<T>::get(netuid) == *account_id
+    }
 }
 
 impl<T: Config + pallet_balances::Config<Balance = u64>>

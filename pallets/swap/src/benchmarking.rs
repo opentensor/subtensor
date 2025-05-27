@@ -10,8 +10,8 @@ use substrate_fixed::types::U64F64;
 use crate::{
     NetUid,
     pallet::{
-        AlphaSqrtPrice, Call, Config, CurrentLiquidity, CurrentTick, Pallet, Positions,
-        SwapV3Initialized,
+        AlphaSqrtPrice, Call, Config, CurrentLiquidity, CurrentTick, EnabledUserLiquidity, Pallet,
+        Positions, SwapV3Initialized,
     },
     position::{Position, PositionId},
     tick::TickIndex,
@@ -123,6 +123,18 @@ mod benchmarks {
             id.into(),
             -5000,
         );
+    }
+
+    #[benchmark]
+    fn set_enabled_user_liquidity() {
+        let netuid = NetUid::from(101);
+
+        assert!(!EnabledUserLiquidity::<T>::get(netuid));
+
+        #[extrinsic_call]
+        set_enabled_user_liquidity(RawOrigin::Root, netuid.into());
+
+        assert!(EnabledUserLiquidity::<T>::get(netuid));
     }
 
     impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

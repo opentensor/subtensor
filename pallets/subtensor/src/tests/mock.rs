@@ -430,7 +430,6 @@ parameter_types! {
 
 impl pallet_subtensor_swap::Config for Test {
     type RuntimeEvent = RuntimeEvent;
-    type AdminOrigin = EnsureRoot<AccountId>;
     type SubnetInfo = SubtensorModule;
     type BalanceOps = SubtensorModule;
     type ProtocolId = SwapProtocolId;
