@@ -1684,7 +1684,7 @@ pub mod pallet {
         ///
         /// # Weight
         /// Weight is handled by the `#[pallet::weight]` attribute.
-        #[pallet::call_index(67)]
+        #[pallet::call_index(70)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_liquidity_scale_max(
             origin: OriginFor<T>,
