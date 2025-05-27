@@ -154,18 +154,11 @@ impl<T: Config> Pallet<T> {
         }
 
         // 5. Ensure the remove operation from the coldkey is a success.
-        let tao_staked: I96F32 =
-            Self::remove_balance_from_coldkey_account(&coldkey, possible_stake)?.into();
+        let tao_staked: u64 = Self::remove_balance_from_coldkey_account(&coldkey, possible_stake)?;
 
         // 6. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
-        Self::stake_into_subnet(
-            &hotkey,
-            &coldkey,
-            netuid,
-            tao_staked.saturating_to_num::<u64>(),
-            limit_price,
-        )?;
+        Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked, limit_price)?;
 
         // Ok and return.
         Ok(())

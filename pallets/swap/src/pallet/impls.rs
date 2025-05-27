@@ -38,6 +38,7 @@ struct SwapStep<T: frame_system::Config> {
     action: SwapStepAction,
     delta_in: u64,
     final_price: SqrtPrice,
+    fee: u64,
 
     // Phantom data to use T
     _phantom: PhantomData<T>,
@@ -55,8 +56,8 @@ impl<T: Config> SwapStep<T> {
         let current_liquidity = Pallet::<T>::current_liquidity_safe(netuid);
         let sqrt_price_edge = Pallet::<T>::sqrt_price_edge(netuid, current_price, order_type);
 
-        let possible_delta_in = amount_remaining
-            .saturating_sub(Pallet::<T>::calculate_fee_amount(netuid, amount_remaining));
+        let fee = Pallet::<T>::calculate_fee_amount(netuid, amount_remaining);
+        let possible_delta_in = amount_remaining.saturating_sub(fee);
 
         // println!("SwapStep::new order_type = {:?}", order_type);
         // println!("SwapStep::new sqrt_price_limit = {:?}", sqrt_price_limit);
@@ -81,6 +82,7 @@ impl<T: Config> SwapStep<T> {
             action: SwapStepAction::Stop,
             delta_in: 0,
             final_price: sqrt_price_target,
+            fee,
             _phantom: PhantomData,
         }
     }
@@ -91,7 +93,7 @@ impl<T: Config> SwapStep<T> {
         self.process_swap()
     }
 
-    /// Returns True is price1 is closer to the current price than price2
+    /// Returns True if price1 is closer to the current price than price2
     /// in terms of order direction.
     ///    For buying:  price1 <= price2
     ///    For selling: price1 >= price2
@@ -105,9 +107,10 @@ impl<T: Config> SwapStep<T> {
 
     /// Determine the appropriate action for this swap step
     fn determine_action(&mut self) {
+        let mut recalculate_fee = false;
+
         // Calculate the stopping price: The price at which we either reach the limit price,
         // exchange the full amount, or reach the edge price.
-
         if self.price_is_closer(&self.sqrt_price_target, &self.sqrt_price_limit)
             && self.price_is_closer(&self.sqrt_price_target, &self.sqrt_price_edge)
         {
@@ -130,6 +133,7 @@ impl<T: Config> SwapStep<T> {
                 self.current_price,
                 self.sqrt_price_limit,
             );
+            recalculate_fee = true;
             // println!("Case 2. Delta in = {:?}", self.delta_in);
             // println!("Case 2. sqrt_price_limit = {:?}", self.sqrt_price_limit);
         } else {
@@ -143,7 +147,19 @@ impl<T: Config> SwapStep<T> {
                 self.sqrt_price_edge,
             );
             self.final_price = self.sqrt_price_edge;
+            recalculate_fee = true;
             // println!("Case 3. Delta in = {:?}", self.delta_in);
+        }
+
+        // Because on step creation we calculate fee off the total amount, we might need to recalculate it
+        // in case if we hit the limit price or the edge price.
+        if recalculate_fee {
+            let u16_max = U64F64::saturating_from_num(u16::MAX);
+            let fee_rate = U64F64::saturating_from_num(FeeRate::<T>::get(self.netuid));
+            let delta_fixed = U64F64::saturating_from_num(self.delta_in);
+            self.fee = delta_fixed
+                .saturating_mul(fee_rate.safe_div(u16_max.saturating_sub(fee_rate)))
+                .saturating_to_num::<u64>();
         }
 
         // Now correct the action if we stopped exactly at the edge no matter what was the case above
@@ -165,20 +181,11 @@ impl<T: Config> SwapStep<T> {
 
     /// Process a single step of a swap
     fn process_swap(&self) -> Result<SwapStepResult, Error<T>> {
-        // total_cost = delta_in / (1 - self.fee_size)
-        let fee_rate = U64F64::saturating_from_num(FeeRate::<T>::get(self.netuid));
-        let u16_max = U64F64::saturating_from_num(u16::MAX);
-        let delta_fixed = U64F64::saturating_from_num(self.delta_in);
-        let total_cost =
-            delta_fixed.saturating_mul(u16_max.safe_div(u16_max.saturating_sub(fee_rate)));
-
         // println!("Executing swap step. order_type = {:?}", self.order_type);
         // println!("Executing swap step. delta_in = {:?}", self.delta_in);
 
         // Hold the fees
-        let fee =
-            Pallet::<T>::calculate_fee_amount(self.netuid, total_cost.saturating_to_num::<u64>());
-        Pallet::<T>::add_fees(self.netuid, self.order_type, fee);
+        Pallet::<T>::add_fees(self.netuid, self.order_type, self.fee);
         let delta_out = Pallet::<T>::convert_deltas(self.netuid, self.order_type, self.delta_in);
 
         // Get current tick
@@ -211,8 +218,8 @@ impl<T: Config> SwapStep<T> {
         CurrentTick::<T>::set(self.netuid, new_current_tick);
 
         Ok(SwapStepResult {
-            amount_to_take: total_cost.saturating_to_num::<u64>(),
-            fee_paid: fee,
+            amount_to_take: self.delta_in.saturating_add(self.fee),
+            fee_paid: self.fee,
             delta_in: self.delta_in,
             delta_out,
         })
@@ -319,8 +326,14 @@ impl<T: Config> Pallet<T> {
         should_rollback: bool,
     ) -> Result<SwapResult, DispatchError> {
         transactional::with_transaction(|| {
-            let result =
-                Self::swap_inner(netuid, order_type, amount, sqrt_price_limit).map_err(Into::into);
+            let result = Self::swap_inner(
+                netuid,
+                order_type,
+                amount,
+                sqrt_price_limit,
+                should_rollback,
+            )
+            .map_err(Into::into);
 
             if should_rollback || result.is_err() {
                 TransactionOutcome::Rollback(result)
@@ -335,6 +348,7 @@ impl<T: Config> Pallet<T> {
         order_type: OrderType,
         amount: u64,
         sqrt_price_limit: SqrtPrice,
+        simulate: bool,
     ) -> Result<SwapResult, Error<T>> {
         ensure!(
             T::SubnetInfo::tao_reserve(netuid.into()) >= T::MinimumReserve::get().get()
@@ -382,26 +396,29 @@ impl<T: Config> Pallet<T> {
 
         let tao_reserve = T::SubnetInfo::tao_reserve(netuid.into());
         let alpha_reserve = T::SubnetInfo::alpha_reserve(netuid.into());
+        let (new_tao_reserve, new_alpha_reserve) = if !simulate {
+            let checked_reserve = match order_type {
+                OrderType::Buy => alpha_reserve,
+                OrderType::Sell => tao_reserve,
+            };
 
-        let checked_reserve = match order_type {
-            OrderType::Buy => alpha_reserve,
-            OrderType::Sell => tao_reserve,
-        };
+            ensure!(
+                checked_reserve >= amount_paid_out,
+                Error::<T>::InsufficientLiquidity
+            );
 
-        ensure!(
-            checked_reserve >= amount_paid_out,
-            Error::<T>::InsufficientLiquidity
-        );
-
-        let (new_tao_reserve, new_alpha_reserve) = match order_type {
-            OrderType::Buy => (
-                tao_reserve.saturating_add(in_acc),
-                alpha_reserve.saturating_sub(amount_paid_out),
-            ),
-            OrderType::Sell => (
-                tao_reserve.saturating_sub(amount_paid_out),
-                alpha_reserve.saturating_add(in_acc),
-            ),
+            match order_type {
+                OrderType::Buy => (
+                    tao_reserve.saturating_add(in_acc),
+                    alpha_reserve.saturating_sub(amount_paid_out),
+                ),
+                OrderType::Sell => (
+                    tao_reserve.saturating_sub(amount_paid_out),
+                    alpha_reserve.saturating_add(in_acc),
+                ),
+            }
+        } else {
+            (tao_reserve, alpha_reserve)
         };
 
         Ok(SwapResult {
@@ -2499,6 +2516,65 @@ mod tests {
                 &OK_COLDKEY_ACCOUNT_ID,
                 position_id,
             ));
+        });
+    }
+
+    /// Test correctness of swap fees:
+    ///   1. Fees are distribued to (concentrated) liquidity providers
+    ///
+    #[test]
+    fn test_swap_fee_correctness() {
+        new_test_ext().execute_with(|| {
+            let min_price = tick_to_price(TickIndex::MIN);
+            let max_price = tick_to_price(TickIndex::MAX);
+            let netuid = NetUid::from(1);
+
+            // Provide very spread liquidity at the range from min to max that matches protocol liquidity
+            let liquidity = 2_000_000_000_000_u64; // 1x of protocol liquidity
+
+            assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+
+            // Calculate ticks
+            let tick_low = price_to_tick(min_price);
+            let tick_high = price_to_tick(max_price);
+
+            // Add user liquidity
+            let (position_id, _tao, _alpha) = Pallet::<Test>::do_add_liquidity(
+                netuid,
+                &OK_COLDKEY_ACCOUNT_ID,
+                &OK_HOTKEY_ACCOUNT_ID,
+                tick_low,
+                tick_high,
+                liquidity,
+            )
+            .unwrap();
+
+            // Swap buy and swap sell
+            Pallet::<Test>::do_swap(
+                netuid,
+                OrderType::Buy,
+                liquidity / 10,
+                u64::MAX.into(),
+                false,
+            )
+            .unwrap();
+            Pallet::<Test>::do_swap(netuid, OrderType::Sell, liquidity / 10, 0_u64.into(), false)
+                .unwrap();
+
+            // Get user position
+            let mut position =
+                Positions::<Test>::get((netuid, OK_COLDKEY_ACCOUNT_ID, position_id)).unwrap();
+            assert_eq!(position.liquidity, liquidity);
+            assert_eq!(position.tick_low, tick_low);
+            assert_eq!(position.tick_high, tick_high);
+
+            // Check that 50% of fees were credited to the position
+            let fee_rate = FeeRate::<Test>::get(NetUid::from(netuid)) as f64 / u16::MAX as f64;
+            let (actual_fee_tao, actual_fee_alpha) = position.collect_fees::<Test>();
+            let expected_fee = (fee_rate * (liquidity / 10) as f64 * 0.5) as u64;
+
+            assert_abs_diff_eq!(actual_fee_tao, expected_fee, epsilon = 1,);
+            assert_abs_diff_eq!(actual_fee_alpha, expected_fee, epsilon = 1,);
         });
     }
 }
