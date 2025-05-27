@@ -627,6 +627,9 @@ impl<T: Config> Pallet<T> {
     pub fn get_network_immunity_period() -> u64 {
         NetworkImmunityPeriod::<T>::get()
     }
+    pub fn get_network_activation_deadline() -> u64 {
+        NetworkActivationDeadline::<T>::get()
+    }
     pub fn set_network_immunity_period(net_immunity_period: u64) {
         NetworkImmunityPeriod::<T>::set(net_immunity_period);
         Self::deposit_event(Event::NetworkImmunityPeriodSet(net_immunity_period));

@@ -455,22 +455,31 @@ impl<T: Config> Pallet<T> {
         let mut candidate_timestamp = u64::MAX;
 
         for netuid in 1..=total_networks {
-            // Exclude disabled subnets
-            let first_emission_block = match FirstEmissionBlockNumber::<T>::get(netuid) {
+            let registered_at = NetworkRegisteredAt::<T>::get(netuid);
+
+            let start_block = match FirstEmissionBlockNumber::<T>::get(netuid) {
                 Some(block) => block,
-                None => continue,
+                None => {
+                    // Not enabled yet. If still within ActivationDeadline, skip pruning this subnet.
+                    if current_block
+                        < registered_at.saturating_add(Self::get_network_activation_deadline())
+                    {
+                        continue;
+                    }
+                    // Otherwise, we treat it as if it started at its registered time
+                    registered_at
+                }
             };
 
             // Check if the subnet's immunity period is expired.
             let immunity_period = Self::get_network_immunity_period();
-            if current_block < first_emission_block.saturating_add(immunity_period as u64) {
+            if current_block < start_block.saturating_add(immunity_period as u64) {
                 continue;
             }
 
             // We want total emission across all UIDs in this subnet:
             let emission_vec = Emission::<T>::get(netuid);
             let total_emission = emission_vec.iter().sum::<u64>();
-            let registered_at = NetworkRegisteredAt::<T>::get(netuid);
 
             // If tie on total_emission, earliest registration wins
             if total_emission < candidate_emission
