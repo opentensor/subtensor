@@ -441,6 +441,11 @@ impl<T: Config> Pallet<T> {
         FirstEmissionBlockNumber::<T>::get(netuid).is_some()
     }
 
+    /// Select a subnet to prune:
+    ///  - Only consider subnets that are Enabled.
+    ///  - Exclude subnets still within `ImmunityPeriod`.
+    ///  - Pick the one with the lowest total emission
+    ///  - In the case of a tie, pick the earliest registered.
     pub fn get_network_to_prune() -> Option<u16> {
         let current_block: u64 = Self::get_current_block_as_u64();
         let total_networks: u16 = TotalNetworks::<T>::get();
@@ -450,19 +455,22 @@ impl<T: Config> Pallet<T> {
         let mut candidate_timestamp = u64::MAX;
 
         for netuid in 1..=total_networks {
-            if FirstEmissionBlockNumber::<T>::get(netuid).is_none() {
-                continue;
-            }
+            // Exclude disabled subnets
+            let first_emission_block = match FirstEmissionBlockNumber::<T>::get(netuid) {
+                Some(block) => block,
+                None => continue,
+            };
 
-            let registered_at = NetworkRegisteredAt::<T>::get(netuid);
+            // Check if the subnet's immunity period is expired.
             let immunity_period = Self::get_network_immunity_period();
-            if current_block < registered_at.saturating_add(immunity_period as u64) {
+            if current_block < first_emission_block.saturating_add(immunity_period as u64) {
                 continue;
             }
 
             // We want total emission across all UIDs in this subnet:
             let emission_vec = Emission::<T>::get(netuid);
             let total_emission = emission_vec.iter().sum::<u64>();
+            let registered_at = NetworkRegisteredAt::<T>::get(netuid);
 
             // If tie on total_emission, earliest registration wins
             if total_emission < candidate_emission
