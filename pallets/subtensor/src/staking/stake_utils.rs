@@ -764,6 +764,8 @@ impl<T: Config> Pallet<T> {
         // Swap the tao to alpha.
         let swap_result = Self::swap_tao_for_alpha(netuid, tao, price_limit)?;
 
+        ensure!(swap_result.amount_paid_out > 0, Error::<T>::AmountTooLow);
+
         ensure!(
             Self::try_increase_stake_for_hotkey_and_coldkey_on_subnet(
                 hotkey,

@@ -8,7 +8,7 @@ use subtensor_swap_interface::OrderType;
 
 pub mod pallet;
 mod position;
-mod tick;
+pub mod tick;
 pub mod weights;
 
 pub use pallet::*;
