@@ -676,6 +676,11 @@ impl<T: Config> Pallet<T> {
         tick_high: TickIndex,
         liquidity: u64,
     ) -> Result<(PositionId, u64, u64), Error<T>> {
+        ensure!(
+            EnabledUserLiquidity::<T>::get(netuid),
+            Error::<T>::UserLiquidityDisabled
+        );
+
         let (position, tao, alpha) = Self::add_liquidity_not_insert(
             netuid,
             coldkey_account_id,
@@ -747,22 +752,6 @@ impl<T: Config> Pallet<T> {
         let current_price = AlphaSqrtPrice::<T>::get(netuid);
         let (tao, alpha) = position.to_token_amounts(current_price)?;
 
-        // If this is a user transaction, withdraw balances and update reserves
-        // TODO this should be returned (tao, alpha) from this function to prevent
-        // mutation of outside storage - the logic should be passed to the user of
-        // subtensor_swap_interface
-        // if !protocol {
-        //     let current_price = self.state_ops.get_alpha_sqrt_price();
-        //     let (tao, alpha) = position.to_token_amounts(current_price)?;
-        //     self.state_ops.withdraw_balances(coldkey_account_id, tao, alpha)?;
-
-        //     // Update reserves
-        //     let new_tao_reserve = self.state_ops.get_tao_reserve().saturating_add(tao);
-        //     self.state_ops.set_tao_reserve(new_tao_reserve);
-        //     let new_alpha_reserve = self.state_ops.get_alpha_reserve().saturating_add(alpha);
-        //     self.state_ops.set_alpha_reserve(new_alpha_reserve);
-        // }
-
         SwapV3Initialized::<T>::set(netuid, true);
 
         Ok((position, tao, alpha))
@@ -776,6 +765,11 @@ impl<T: Config> Pallet<T> {
         coldkey_account_id: &T::AccountId,
         position_id: PositionId,
     ) -> Result<UpdateLiquidityResult, Error<T>> {
+        ensure!(
+            EnabledUserLiquidity::<T>::get(netuid),
+            Error::<T>::UserLiquidityDisabled
+        );
+
         let Some(mut position) = Positions::<T>::get((netuid, coldkey_account_id, position_id))
         else {
             return Err(Error::<T>::LiquidityNotFound);
@@ -801,18 +795,6 @@ impl<T: Config> Pallet<T> {
         // Remove user position
         Positions::<T>::remove((netuid, coldkey_account_id, position_id));
 
-        {
-            // TODO we move this logic to the outside depender to prevent mutating its state
-            //     // Deposit balances
-            //     self.state_ops.deposit_balances(account_id, tao, alpha);
-
-            //     // Update reserves
-            //     let new_tao_reserve = self.state_ops.get_tao_reserve().saturating_sub(tao);
-            //     self.state_ops.set_tao_reserve(new_tao_reserve);
-            //     let new_alpha_reserve = self.state_ops.get_alpha_reserve().saturating_sub(alpha);
-            //     self.state_ops.set_alpha_reserve(new_alpha_reserve);
-        }
-
         Ok(UpdateLiquidityResult {
             tao,
             alpha,
@@ -828,6 +810,11 @@ impl<T: Config> Pallet<T> {
         position_id: PositionId,
         liquidity_delta: i64,
     ) -> Result<UpdateLiquidityResult, Error<T>> {
+        ensure!(
+            EnabledUserLiquidity::<T>::get(netuid),
+            Error::<T>::UserLiquidityDisabled
+        );
+
         // Find the position
         let Some(mut position) = Positions::<T>::get((netuid, coldkey_account_id, position_id))
         else {
@@ -1138,7 +1125,7 @@ pub enum SwapStepAction {
 #[cfg(test)]
 mod tests {
     use approx::assert_abs_diff_eq;
-    use frame_support::{assert_err, assert_ok};
+    use frame_support::{assert_err, assert_noop, assert_ok};
     use sp_arithmetic::helpers_128bit;
 
     use super::*;
@@ -2439,6 +2426,79 @@ mod tests {
                     );
                 }
             }
+        });
+    }
+
+    #[test]
+    fn test_user_liquidity_disabled() {
+        new_test_ext().execute_with(|| {
+            // Use a netuid above 100 since our mock enables liquidity for 0-100
+            let netuid = NetUid::from(101);
+            let tick_low = TickIndex::new_unchecked(-1000);
+            let tick_high = TickIndex::new_unchecked(1000);
+            let position_id = 1;
+            let liquidity = 1_000_000_000;
+            let liquidity_delta = 500_000_000;
+
+            assert!(!EnabledUserLiquidity::<Test>::get(netuid));
+
+            assert_noop!(
+                Swap::do_add_liquidity(
+                    netuid,
+                    &OK_COLDKEY_ACCOUNT_ID,
+                    &OK_HOTKEY_ACCOUNT_ID,
+                    tick_low,
+                    tick_high,
+                    liquidity
+                ),
+                Error::<Test>::UserLiquidityDisabled
+            );
+
+            assert_noop!(
+                Swap::do_remove_liquidity(netuid, &OK_COLDKEY_ACCOUNT_ID, position_id.into()),
+                Error::<Test>::UserLiquidityDisabled
+            );
+
+            assert_noop!(
+                Swap::modify_position(
+                    RuntimeOrigin::signed(OK_COLDKEY_ACCOUNT_ID),
+                    OK_HOTKEY_ACCOUNT_ID,
+                    netuid.into(),
+                    position_id,
+                    liquidity_delta
+                ),
+                Error::<Test>::UserLiquidityDisabled
+            );
+
+            assert_ok!(Swap::set_enabled_user_liquidity(
+                RuntimeOrigin::root(),
+                netuid.into()
+            ));
+
+            let position_id = Swap::do_add_liquidity(
+                netuid,
+                &OK_COLDKEY_ACCOUNT_ID,
+                &OK_HOTKEY_ACCOUNT_ID,
+                tick_low,
+                tick_high,
+                liquidity,
+            )
+            .unwrap()
+            .0;
+
+            assert_ok!(Swap::do_modify_position(
+                netuid.into(),
+                &OK_COLDKEY_ACCOUNT_ID,
+                &OK_HOTKEY_ACCOUNT_ID,
+                position_id,
+                liquidity_delta,
+            ));
+
+            assert_ok!(Swap::do_remove_liquidity(
+                netuid.into(),
+                &OK_COLDKEY_ACCOUNT_ID,
+                position_id,
+            ));
         });
     }
 }

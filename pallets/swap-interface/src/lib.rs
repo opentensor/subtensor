@@ -47,6 +47,7 @@ pub trait SubnetInfo<AccountId> {
     fn alpha_reserve(netuid: u16) -> u64;
     fn exists(netuid: u16) -> bool;
     fn mechanism(netuid: u16) -> u16;
+    fn is_owner(account_id: &AccountId, netuid: u16) -> bool;
 }
 
 pub trait BalanceOps<AccountId> {
