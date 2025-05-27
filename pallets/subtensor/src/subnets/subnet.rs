@@ -455,7 +455,7 @@ impl<T: Config> Pallet<T> {
             }
 
             let registered_at = NetworkRegisteredAt::<T>::get(netuid);
-            let immunity_period = ImmunityPeriod::<T>::get(netuid);
+            let immunity_period = Self::get_network_immunity_period();
             if current_block < registered_at.saturating_add(immunity_period as u64) {
                 continue;
             }
