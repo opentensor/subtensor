@@ -54,5 +54,6 @@ std = [
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"substrate-fixed/std",
 	"subtensor-runtime-common/std",
 ]

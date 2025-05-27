@@ -75,10 +75,7 @@ where
         tao: u64,
     ) -> EvmResult<U256> {
         let alpha_option = pallet_subtensor::Pallet::<R>::sim_swap_tao_for_alpha(netuid, tao);
-        let result = match alpha_option {
-            Some(alpha) => alpha,
-            None => 0,
-        };
+        let result = alpha_option.unwrap_or(0);
         Ok(U256::from(result))
     }
 
@@ -90,10 +87,7 @@ where
         alpha: u64,
     ) -> EvmResult<U256> {
         let tao_option = pallet_subtensor::Pallet::<R>::sim_swap_alpha_for_tao(netuid, alpha);
-        let result = match tao_option {
-            Some(tao) => tao,
-            None => 0,
-        };
+        let result = tao_option.unwrap_or(0);
         Ok(U256::from(result))
     }
 
