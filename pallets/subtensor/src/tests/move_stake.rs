@@ -1450,13 +1450,16 @@ fn test_do_swap_same_subnet() {
 
         let (tao_equivalent, _) = mock::swap_alpha_to_tao(netuid, alpha_before);
         let (expected_alpha, _) = mock::swap_tao_to_alpha(netuid, tao_equivalent);
-        assert_eq!(SubtensorModule::do_swap_stake(
-            RuntimeOrigin::signed(coldkey),
-            hotkey,
-            netuid,
-            netuid,
-            alpha_before
-        ), Err(Error::<Test>::SameNetuid.into()));
+        assert_eq!(
+            SubtensorModule::do_swap_stake(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                netuid,
+                alpha_before
+            ),
+            Err(Error::<Test>::SameNetuid.into())
+        );
 
         let alpha_after =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);

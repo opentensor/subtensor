@@ -334,12 +334,12 @@ impl<T: Config> Pallet<T> {
         }
 
         // Use reverting swap to estimate max limit amount
-         let swap_result =
-            T::SwapInterface::swap(netuid, OrderType::Buy, u64::MAX, limit_price, true).map_err(|_| Error::ZeroMaxStakeAmount)?;
+        let swap_result =
+            T::SwapInterface::swap(netuid, OrderType::Buy, u64::MAX, limit_price, true)
+                .map_err(|_| Error::ZeroMaxStakeAmount)?;
 
-		 Ok(
-            swap_result
-                .amount_paid_in
-                .saturating_add(swap_result.fee_paid))
+        Ok(swap_result
+            .amount_paid_in
+            .saturating_add(swap_result.fee_paid))
     }
 }

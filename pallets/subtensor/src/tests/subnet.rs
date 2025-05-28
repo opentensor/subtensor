@@ -60,7 +60,6 @@ fn test_do_start_call_fail_not_owner() {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let coldkey_account_id = U256::from(0);
-        let hotkey_account_id = U256::from(1);
         let wrong_owner_account_id = U256::from(2);
         let burn_cost = 1000;
         //add network
@@ -92,7 +91,6 @@ fn test_do_start_call_fail_with_cannot_start_call_now() {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let coldkey_account_id = U256::from(0);
-        let hotkey_account_id = U256::from(1);
         let burn_cost = 1000;
         //add network
         SubtensorModule::set_burn(netuid, burn_cost);

@@ -14,7 +14,7 @@ use substrate_fixed::types::I32F32;
 use subtensor_swap_interface::SwapHandler;
 
 use super::mock::*;
-use crate::epoch::math::{safe_exp, fixed, u16_proportion_to_fixed};
+use crate::epoch::math::{fixed, u16_proportion_to_fixed};
 use crate::*;
 
 // Normalizes (sum to 1 except 0) the input vector directly in-place.

@@ -3834,17 +3834,11 @@ fn test_unstake_all_validate() {
         // Simulate stake for hotkey
         SubnetTAO::<Test>::insert(netuid, u64::MAX / 1000);
         SubnetAlphaIn::<Test>::insert(netuid, u64::MAX / 1000);
-        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, amount_staked, 0);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, amount_staked, 0).unwrap();
 
         // Set the liquidity at lowest possible value so that all staking requests fail
-        SubnetTAO::<Test>::insert(
-            netuid,
-            DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>(),
-        );
-        SubnetAlphaIn::<Test>::insert(
-            netuid,
-            DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>(),
-        );
+        SubnetTAO::<Test>::insert(netuid, mock::SwapMinimumLiquidity::get());
+        SubnetAlphaIn::<Test>::insert(netuid, mock::SwapMinimumLiquidity::get());
 
         // unstake_all call
         let call = RuntimeCall::SubtensorModule(SubtensorCall::unstake_all { hotkey });
@@ -3945,36 +3939,71 @@ fn test_max_amount_add_dynamic() {
     // tao_in, alpha_in, limit_price, expected_max_swappable
     [
         // Zero handling (no panics)
-        (1_000_000_000, 1_000_000_000, 0, 0),
+        (
+            1_000_000_000,
+            1_000_000_000,
+            0,
+            Err(Error::<Test>::ZeroMaxStakeAmount),
+        ),
         // Low bounds
-        (100, 100, 1_100_000_000, 0),
-        (1_000, 1_000, 1_100_000_000, 0),
-        (10_000, 10_000, 1_100_000_000, 440),
+        (
+            100,
+            100,
+            1_100_000_000,
+            Err(Error::<Test>::ZeroMaxStakeAmount),
+        ),
+        (
+            1_000,
+            1_000,
+            1_100_000_000,
+            Err(Error::<Test>::ZeroMaxStakeAmount),
+        ),
+        (10_000, 10_000, 1_100_000_000, Ok(440)),
         // Basic math
-        (1_000_000, 1_000_000, 4_000_000_000, 1_000_000),
-        (1_000_000, 1_000_000, 9_000_000_000, 2_000_000),
-        (1_000_000, 1_000_000, 16_000_000_000, 3_000_000),
+        (1_000_000, 1_000_000, 4_000_000_000, Ok(1_000_000)),
+        (1_000_000, 1_000_000, 9_000_000_000, Ok(2_000_000)),
+        (1_000_000, 1_000_000, 16_000_000_000, Ok(3_000_000)),
         (
             1_000_000_000_000,
             1_000_000_000_000,
             16_000_000_000,
-            3_000_000_000_000,
+            Ok(3_000_000_000_000),
         ),
         // Normal range values with edge cases
-        (150_000_000_000, 100_000_000_000, 0, 0),
-        (150_000_000_000, 100_000_000_000, 100_000_000, 0),
-        (150_000_000_000, 100_000_000_000, 500_000_000, 0),
-        (150_000_000_000, 100_000_000_000, 1_499_999_999, 0),
-        (150_000_000_000, 100_000_000_000, 1_500_000_000, 5),
-        (150_000_000_000, 100_000_000_000, 1_500_000_001, 51),
+        (
+            150_000_000_000,
+            100_000_000_000,
+            0,
+            Err(Error::<Test>::ZeroMaxStakeAmount),
+        ),
+        (
+            150_000_000_000,
+            100_000_000_000,
+            100_000_000,
+            Err(Error::<Test>::ZeroMaxStakeAmount),
+        ),
+        (
+            150_000_000_000,
+            100_000_000_000,
+            500_000_000,
+            Err(Error::<Test>::ZeroMaxStakeAmount),
+        ),
+        (
+            150_000_000_000,
+            100_000_000_000,
+            1_499_999_999,
+            Err(Error::<Test>::ZeroMaxStakeAmount),
+        ),
+        (150_000_000_000, 100_000_000_000, 1_500_000_000, Ok(5)),
+        (150_000_000_000, 100_000_000_000, 1_500_000_001, Ok(51)),
         (
             150_000_000_000,
             100_000_000_000,
             6_000_000_000,
-            150_000_000_000,
+            Ok(150_000_000_000),
         ),
         // Miscellaneous overflows and underflows
-        (u64::MAX / 2, u64::MAX, u64::MAX, u64::MAX),
+        (u64::MAX / 2, u64::MAX, u64::MAX, Ok(u64::MAX)),
         // (150_000_000_000, 100_000_000_000, u64::MAX / 2, u64::MAX),
         // (1_000_000, 1_000_000_000_000_000_000_u64, 1, 999_000_000),
         // (1_000_000, 1_000_000_000_000_000_000_u64, 2, 1_999_000_000),
@@ -4021,8 +4050,8 @@ fn test_max_amount_add_dynamic() {
         //     21_000_000_000_000_000,
         // ),
     ]
-    .iter()
-    .for_each(|&(tao_in, alpha_in, limit_price, expected_max_swappable)| {
+    .into_iter()
+    .for_each(|(tao_in, alpha_in, limit_price, expected_max_swappable)| {
         new_test_ext(0).execute_with(|| {
             let subnet_owner_coldkey = U256::from(1001);
             let subnet_owner_hotkey = U256::from(1002);
@@ -4045,11 +4074,14 @@ fn test_max_amount_add_dynamic() {
                 );
             }
 
-            assert_abs_diff_eq!(
-                SubtensorModule::get_max_amount_add(netuid, limit_price),
-                expected_max_swappable,
-                epsilon = expected_max_swappable / 100
-            );
+            match expected_max_swappable {
+                Err(e) => assert_err!(SubtensorModule::get_max_amount_add(netuid, limit_price), e,),
+                Ok(v) => assert_abs_diff_eq!(
+                    SubtensorModule::get_max_amount_add(netuid, limit_price).unwrap(),
+                    v,
+                    epsilon = v / 100
+                ),
+            }
         });
     });
 }
@@ -4141,8 +4173,18 @@ fn test_max_amount_remove_dynamic() {
         // tao_in, alpha_in, limit_price, expected_max_swappable
         [
             // Zero handling (no panics)
-            (0, 1_000_000_000, 100, Err(Error::<Test>::ZeroMaxStakeAmount)),
-            (1_000_000_000, 0, 100, Err(Error::<Test>::ZeroMaxStakeAmount)),
+            (
+                0,
+                1_000_000_000,
+                100,
+                Err(Error::<Test>::ZeroMaxStakeAmount),
+            ),
+            (
+                1_000_000_000,
+                0,
+                100,
+                Err(Error::<Test>::ZeroMaxStakeAmount),
+            ),
             (10_000_000_000, 10_000_000_000, 0, Ok(u64::MAX)),
             // Low bounds (numbers are empirical, it is only important that result
             // is sharply decreasing when limit price increases)
@@ -4158,7 +4200,7 @@ fn test_max_amount_remove_dynamic() {
                 1_000_000_000_000,
                 1_000_000_000_000,
                 62_500_000,
-                3_000_000_000_000,
+                Ok(3_000_000_000_000),
             ),
             // Normal range values with edge cases and sanity checks
             (200_000_000_000, 100_000_000_000, 0, Ok(u64::MAX)),
@@ -4172,10 +4214,20 @@ fn test_max_amount_remove_dynamic() {
                 200_000_000_000,
                 100_000_000_000,
                 125_000_000,
-                300_000_000_000,
+                Ok(300_000_000_000),
             ),
-            (200_000_000_000, 100_000_000_000, 2_000_000_000, Err(Error::<Test>::ZeroMaxStakeAmount)),
-            (200_000_000_000, 100_000_000_000, 2_000_000_001, Err(Error::<Test>::ZeroMaxStakeAmount)),
+            (
+                200_000_000_000,
+                100_000_000_000,
+                2_000_000_000,
+                Err(Error::<Test>::ZeroMaxStakeAmount),
+            ),
+            (
+                200_000_000_000,
+                100_000_000_000,
+                2_000_000_001,
+                Err(Error::<Test>::ZeroMaxStakeAmount),
+            ),
             (200_000_000_000, 100_000_000_000, 1_999_999_999, Ok(24)),
             (200_000_000_000, 100_000_000_000, 1_999_999_990, Ok(252)),
             // Miscellaneous overflows and underflows
@@ -4185,7 +4237,7 @@ fn test_max_amount_remove_dynamic() {
                 21_000_000_000_000_000,
                 Ok(30_700_000),
             ),
-            (21_000_000_000_000_000, 1_000_000, u64::MAX, 67_164),
+            (21_000_000_000_000_000, 1_000_000, u64::MAX, Ok(67_164)),
             (
                 21_000_000_000_000_000,
                 1_000_000_000_000_000_000,
@@ -4204,7 +4256,12 @@ fn test_max_amount_remove_dynamic() {
                 999_999_999,
                 Ok(10_500_000),
             ),
-            (21_000_000_000_000_000, 21_000_000_000_000_000, 0, Ok(u64::MAX)),
+            (
+                21_000_000_000_000_000,
+                21_000_000_000_000_000,
+                0,
+                Ok(u64::MAX),
+            ),
         ]
         .iter()
         .for_each(
@@ -4213,22 +4270,31 @@ fn test_max_amount_remove_dynamic() {
                 SubnetTAO::<Test>::insert(netuid, tao_in);
                 SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
 
-            if alpha_in != 0 {
-                let expected_price = I96F32::from_num(tao_in) / I96F32::from_num(alpha_in);
-                assert_eq!(
-                    <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid),
-                    expected_price
-                );
-            }
+                if alpha_in != 0 {
+                    let expected_price = I96F32::from_num(tao_in) / I96F32::from_num(alpha_in);
+                    assert_eq!(
+                        <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid),
+                        expected_price
+                    );
+                }
 
-            let expected = expected_max_swappable
-                .saturating_add((expected_max_swappable as f64 * 0.003) as u64);
-            assert_abs_diff_eq!(
-                SubtensorModule::get_max_amount_remove(netuid, limit_price),
-                expected,
-                epsilon = expected / 100
-            );
-        });
+                match expected_max_swappable {
+                    Err(_) => assert_err!(
+                        SubtensorModule::get_max_amount_remove(netuid, limit_price),
+                        Error::<Test>::ZeroMaxStakeAmount
+                    ),
+                    Ok(v) => {
+                        let expected = v.saturating_add((*v as f64 * 0.003) as u64);
+
+                        assert_abs_diff_eq!(
+                            SubtensorModule::get_max_amount_remove(netuid, limit_price).unwrap(),
+                            expected,
+                            epsilon = expected / 100
+                        );
+                    }
+                }
+            },
+        );
     });
 }
 
@@ -4361,7 +4427,8 @@ fn test_max_amount_move_stable_dynamic() {
         // 2x price => max is 1x TAO
         let tao_reserve_u64 = tao_reserve.to_num::<u64>();
         assert_abs_diff_eq!(
-            SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 500_000_000).unwrap(),
+            SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 500_000_000)
+                .unwrap(),
             tao_reserve_u64 + (tao_reserve_u64 as f64 * 0.003) as u64,
             epsilon = tao_reserve_u64 / 100,
         );
@@ -4448,7 +4515,8 @@ fn test_max_amount_move_dynamic_stable() {
         // 1/4 price => max is 1x Alpha
         let alpha_in_u64 = alpha_in.to_num::<u64>();
         assert_abs_diff_eq!(
-            SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, 375_000_000).unwrap(),
+            SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, 375_000_000)
+                .unwrap(),
             alpha_in_u64 + (alpha_in_u64 as f64 * 0.003) as u64,
             epsilon = alpha_in_u64 / 1000,
         );
