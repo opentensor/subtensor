@@ -311,7 +311,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<u64, Error<T>> {
         // Calculate the maximum amount that can be executed
         let max_amount = if let Some(limit_price) = maybe_limit_price {
-            Self::get_max_amount_move(origin_netuid, destination_netuid, limit_price)
+            Self::get_max_amount_move(origin_netuid, destination_netuid, limit_price)?
         } else {
             alpha_amount
         };
@@ -401,7 +401,7 @@ impl<T: Config> Pallet<T> {
         origin_netuid: u16,
         destination_netuid: u16,
         limit_price: u64,
-    ) -> u64 {
+    ) -> Result<u64, Error<T>> {
         let tao: U64F64 = U64F64::saturating_from_num(1_000_000_000);
 
         // Corner case: both subnet IDs are root or stao
@@ -413,9 +413,9 @@ impl<T: Config> Pallet<T> {
                 || (SubnetMechanism::<T>::get(destination_netuid)) == 0)
         {
             if limit_price > tao.saturating_to_num::<u64>() {
-                return 0;
+                return Err(Error::ZeroMaxStakeAmount);
             } else {
-                return u64::MAX;
+                return Ok(u64::MAX);
             }
         }
 
@@ -426,7 +426,7 @@ impl<T: Config> Pallet<T> {
             && ((SubnetMechanism::<T>::get(destination_netuid)) == 1)
         {
             if limit_price == 0 {
-                return u64::MAX;
+                return Ok(u64::MAX);
             } else {
                 // The destination price is reverted because the limit_price is origin_price / destination_price
                 let destination_subnet_price = tao
@@ -450,7 +450,7 @@ impl<T: Config> Pallet<T> {
         let subnet_tao_1 = SubnetTAO::<T>::get(origin_netuid);
         let subnet_tao_2 = SubnetTAO::<T>::get(destination_netuid);
         if (subnet_tao_1 == 0) || (subnet_tao_2 == 0) {
-            return 0;
+            return Err(Error::ZeroMaxStakeAmount);
         }
         let subnet_tao_1_float: U64F64 = U64F64::saturating_from_num(subnet_tao_1);
         let subnet_tao_2_float: U64F64 = U64F64::saturating_from_num(subnet_tao_2);
@@ -459,7 +459,7 @@ impl<T: Config> Pallet<T> {
         let alpha_in_1 = SubnetAlphaIn::<T>::get(origin_netuid);
         let alpha_in_2 = SubnetAlphaIn::<T>::get(destination_netuid);
         if (alpha_in_1 == 0) || (alpha_in_2 == 0) {
-            return 0;
+            return Err(Error::ZeroMaxStakeAmount);
         }
         let alpha_in_1_float: U64F64 = U64F64::saturating_from_num(alpha_in_1);
         let alpha_in_2_float: U64F64 = U64F64::saturating_from_num(alpha_in_2);
@@ -474,12 +474,12 @@ impl<T: Config> Pallet<T> {
         let current_price = Self::get_alpha_price(origin_netuid)
             .safe_div(Self::get_alpha_price(destination_netuid));
         if limit_price_float > current_price {
-            return 0;
+            return Err(Error::ZeroMaxStakeAmount);
         }
 
         // Corner case: limit_price is zero
         if limit_price == 0 {
-            return u64::MAX;
+            return Ok(u64::MAX);
         }
 
         // Main case
@@ -491,10 +491,16 @@ impl<T: Config> Pallet<T> {
         let t1_over_sum: U64F64 = subnet_tao_1_float.safe_div(tao_sum);
         let t2_over_sum: U64F64 = subnet_tao_2_float.safe_div(tao_sum);
 
-        alpha_in_2_float
+        let final_result = alpha_in_2_float
             .saturating_mul(t1_over_sum)
             .safe_div(limit_price_float)
             .saturating_sub(alpha_in_1_float.saturating_mul(t2_over_sum))
-            .saturating_to_num::<u64>()
+            .saturating_to_num::<u64>();
+
+        if final_result != 0 {
+            Ok(final_result)
+        } else {
+            Err(Error::ZeroMaxStakeAmount)
+        }
     }
 }

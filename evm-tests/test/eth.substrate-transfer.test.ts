@@ -1,6 +1,6 @@
 import * as assert from "assert";
 
-import { getDevnetApi, waitForTransactionCompletion, getRandomSubstrateSigner, } from "../src/substrate"
+import { getDevnetApi, waitForTransactionCompletion, getRandomSubstrateSigner, waitForTransactionWithRetry} from "../src/substrate"
 import { getPublicClient } from "../src/utils";
 import { ETH_LOCAL_URL, IBALANCETRANSFER_ADDRESS, IBalanceTransferABI } from "../src/config";
 import { devnet, MultiAddress } from "@polkadot-api/descriptors"
@@ -66,10 +66,7 @@ describe("Balance transfers between substrate and EVM", () => {
         const transferBalance = tao(1)
 
         const tx = api.tx.Balances.transfer_keep_alive({ value: transferBalance, dest: MultiAddress.Id(ss58Address) })
-        await waitForTransactionCompletion(api, tx, signer)
-            .then(() => { })
-            .catch((error) => { console.log(`transaction error ${error}`) });
-
+        await waitForTransactionWithRetry(api, tx, signer)
 
         const senderBalanceAfterTransfer = (await api.query.System.Account.getValue(ss58Address)).data.free
         const receiverBalanceAfterTranser = await publicClient.getBalance({ address: toViemAddress(wallet.address) })
@@ -112,9 +109,7 @@ describe("Balance transfers between substrate and EVM", () => {
         const tx = api.tx.EVM.withdraw({ address: ethAddresss, value: tao(1) })
         const txFee = (await tx.getPaymentInfo(ss58Address)).partial_fee
 
-        await waitForTransactionCompletion(api, tx, signer)
-            .then(() => { })
-            .catch((error) => { console.log(`transaction error ${error}`) });
+        await waitForTransactionWithRetry(api, tx, signer)
 
         const senderBalanceAfterWithdraw = (await api.query.System.Account.getValue(ss58Address)).data.free
 
@@ -155,10 +150,7 @@ describe("Balance transfers between substrate and EVM", () => {
         // txFee not accurate
         const txFee = (await tx.getPaymentInfo(ss58Address)).partial_fee
 
-        await waitForTransactionCompletion(api, tx, signer)
-            .then(() => { })
-            .catch((error) => { console.log(`transaction error ${error}`) });
-
+        await waitForTransactionWithRetry(api, tx, signer)
 
         const receiverBalanceAfterCall = await publicClient.getBalance({ address: toViemAddress(wallet.address) })
         assert.equal(receiverBalanceAfterCall, receiverBalance + raoToEth(tao(1)))

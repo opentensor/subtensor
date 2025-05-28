@@ -37,7 +37,7 @@ fn test_registration_subscribe_ok_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                weight: frame_support::weights::Weight::from_parts(2_992_000_000, 0),
+                weight: frame_support::weights::Weight::from_parts(3_166_200_000, 0),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
             }
