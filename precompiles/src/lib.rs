@@ -26,6 +26,7 @@ use crate::metagraph::*;
 use crate::neuron::*;
 use crate::staking::*;
 use crate::subnet::*;
+use crate::uid_lookup::*;
 
 mod balance_transfer;
 mod ed25519;
@@ -34,6 +35,7 @@ mod metagraph;
 mod neuron;
 mod staking;
 mod subnet;
+mod uid_lookup;
 
 pub struct Precompiles<R>(PhantomData<R>);
 
@@ -84,7 +86,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 14] {
+    pub fn used_addresses() -> [H160; 15] {
         [
             hash(1),
             hash(2),
@@ -100,6 +102,7 @@ where
             hash(MetagraphPrecompile::<R>::INDEX),
             hash(NeuronPrecompile::<R>::INDEX),
             hash(StakingPrecompileV2::<R>::INDEX),
+            hash(UidLookupPrecompile::<R>::INDEX),
         ]
     }
 }
@@ -157,6 +160,9 @@ where
             }
             a if a == hash(NeuronPrecompile::<R>::INDEX) => {
                 NeuronPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Neuron)
+            }
+            a if a == hash(UidLookupPrecompile::<R>::INDEX) => {
+                UidLookupPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::UidLookup)
             }
             _ => None,
         }

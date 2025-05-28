@@ -1941,6 +1941,71 @@ fn test_schedule_swap_coldkey_with_pending_swap() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap_coldkey -- test_schedule_swap_coldkey_failure_and_reschedule --exact --nocapture
+#[test]
+fn test_schedule_swap_coldkey_failure_and_reschedule() {
+    new_test_ext(1).execute_with(|| {
+        let old_coldkey = U256::from(1);
+        let new_coldkey1 = U256::from(2);
+        let new_coldkey2 = U256::from(3);
+
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+
+        // Two swaps
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, swap_cost + 1_000 * 2);
+
+        assert_ok!(SubtensorModule::schedule_swap_coldkey(
+            <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+            new_coldkey1
+        ));
+
+        let current_block = <frame_system::Pallet<Test>>::block_number();
+        let duration = ColdkeySwapScheduleDuration::<Test>::get();
+        let when = current_block.saturating_add(duration);
+
+        // Setup first key to fail
+        // -- will fail if the new coldkey is already a hotkey (has an Owner)
+        Owner::<Test>::insert(new_coldkey1, U256::from(4));
+
+        // First swap fails
+        run_to_block(when - 1);
+        next_block();
+
+        // Check the failure
+        next_block(); // Still in the scheduled-swap map
+        assert!(ColdkeySwapScheduled::<Test>::contains_key(old_coldkey));
+
+        // Try to schedule the second swap
+        assert_noop!(
+            SubtensorModule::schedule_swap_coldkey(
+                <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+                new_coldkey2
+            ),
+            Error::<Test>::SwapAlreadyScheduled
+        );
+
+        // Wait for correct duration after first swap fails
+        let fail_duration = ColdkeySwapRescheduleDuration::<Test>::get();
+        run_to_block(when + fail_duration);
+
+        // Schedule the second swap
+        assert_ok!(SubtensorModule::schedule_swap_coldkey(
+            <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+            new_coldkey2
+        ));
+
+        let current_block = <frame_system::Pallet<Test>>::block_number();
+        let duration = ColdkeySwapScheduleDuration::<Test>::get();
+        let when = current_block.saturating_add(duration);
+        run_to_block(when - 1);
+        next_block();
+
+        // Check the success
+        next_block(); // Now in the scheduled-swap map
+        assert!(!ColdkeySwapScheduled::<Test>::contains_key(old_coldkey));
+    });
+}
+
 #[test]
 fn test_coldkey_swap_delegate_identity_updated() {
     new_test_ext(1).execute_with(|| {

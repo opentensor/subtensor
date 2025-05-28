@@ -35,7 +35,6 @@ mod benchmarks {
 
     #[benchmark]
     fn set_commitment() {
-        // The target user
         let netuid = 1;
         let caller: T::AccountId = whitelisted_caller();
         let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
@@ -54,6 +53,16 @@ mod benchmarks {
             }
             .into(),
         );
+    }
+
+    #[benchmark]
+    fn set_max_space() {
+        let new_space: u32 = 1_000;
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, new_space);
+
+        assert_eq!(MaxSpace::<T>::get(), new_space);
     }
 
     //impl_benchmark_test_suite!(Commitments, crate::tests::new_test_ext(), crate::tests::Test);
