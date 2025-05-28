@@ -4819,6 +4819,7 @@ fn test_swap_fees_tao_correctness() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, user_balance_before);
         let fee_rate = pallet_subtensor_swap::FeeRate::<Test>::get(NetUid::from(netuid)) as f64
             / u16::MAX as f64;
+        pallet_subtensor_swap::EnabledUserLiquidity::<Test>::insert(NetUid::from(netuid), true);
 
         // Forse-set alpha in and tao reserve to make price equal 0.25
         let tao_reserve = U96F32::from_num(100_000_000_000_u64);
