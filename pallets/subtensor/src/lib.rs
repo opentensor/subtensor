@@ -2704,4 +2704,6 @@ pub enum RateLimitKey {
     SetSNOwnerHotkey(u16),
     // An axon or prometheus serving rate limit for a registered neuron.
     ServingRateLimit(u16),
+    // Limits transaction number
+    TxRateLimit,
 }
