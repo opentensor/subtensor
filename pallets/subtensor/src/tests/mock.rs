@@ -2,11 +2,12 @@
 use crate::utils::rate_limiting::TransactionType;
 use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
+use frame_support::traits::{Contains, Everything, InsideBoth};
 use frame_support::weights::Weight;
 use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{
     assert_ok, parameter_types,
-    traits::{Everything, Hooks, PrivilegeCmp},
+    traits::{Hooks, PrivilegeCmp},
 };
 use frame_system as system;
 use frame_system::{EnsureNever, EnsureRoot, RawOrigin, limits};
@@ -88,9 +89,31 @@ impl pallet_balances::Config for Test {
     type MaxFreezes = ();
 }
 
+pub struct NoNestingCallFilter;
+
+impl Contains<RuntimeCall> for NoNestingCallFilter {
+    fn contains(call: &RuntimeCall) -> bool {
+        match call {
+            RuntimeCall::Utility(inner) => {
+                let calls = match inner {
+                    pallet_utility::Call::force_batch { calls } => calls,
+                    pallet_utility::Call::batch { calls } => calls,
+                    pallet_utility::Call::batch_all { calls } => calls,
+                    _ => &Vec::new(),
+                };
+
+                !calls.iter().any(|call| {
+					matches!(call, RuntimeCall::Utility(inner) if matches!(inner, pallet_utility::Call::force_batch { .. } | pallet_utility::Call::batch_all { .. } | pallet_utility::Call::batch { .. }))
+				})
+            }
+            _ => true,
+        }
+    }
+}
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for Test {
-    type BaseCallFilter = Everything;
+    type BaseCallFilter = InsideBoth<Everything, NoNestingCallFilter>;
     type BlockWeights = BlockWeights;
     type BlockLength = ();
     type DbWeight = RocksDbWeight;
