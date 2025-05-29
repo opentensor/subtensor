@@ -47,7 +47,7 @@ fn it_can_submit_valid_pulse_when_beacon_config_exists() {
         let p: Pulse = u_p.try_into_pulse().unwrap();
 
         let alice = sp_keyring::Sr25519Keyring::Alice;
-        let block_number = 1;
+        let block_number = 100_000_000;
         System::set_block_number(block_number);
 
         // Set the beacon config
@@ -91,7 +91,7 @@ fn it_can_submit_valid_pulse_when_beacon_config_exists() {
 fn it_rejects_invalid_pulse_due_to_bad_signature() {
     new_test_ext().execute_with(|| {
         let alice = sp_keyring::Sr25519Keyring::Alice;
-        let block_number = 1;
+		let block_number = 100_000_000;
         System::set_block_number(block_number);
 
         // Set the beacon config using Root origin
@@ -139,7 +139,7 @@ fn it_rejects_invalid_pulse_due_to_bad_signature() {
 #[test]
 fn it_rejects_pulses_with_non_incremental_round_numbers() {
     new_test_ext().execute_with(|| {
-        let block_number = 1;
+        let block_number = 100_000_000;
         let alice = sp_keyring::Sr25519Keyring::Alice;
         System::set_block_number(block_number);
 
@@ -189,7 +189,7 @@ fn it_rejects_pulses_with_non_incremental_round_numbers() {
 #[test]
 fn it_blocks_non_root_from_submit_beacon_info() {
     new_test_ext().execute_with(|| {
-        let block_number = 1;
+        let block_number = 100_000_000;
         let alice = sp_keyring::Sr25519Keyring::Alice;
         System::set_block_number(block_number);
 
@@ -239,7 +239,7 @@ fn it_blocks_non_root_from_submit_beacon_info() {
 #[test]
 fn signed_cannot_submit_beacon_info() {
     new_test_ext().execute_with(|| {
-        let block_number = 1;
+        let block_number = 100_000_000;
         let alice = sp_keyring::Sr25519Keyring::Alice;
         System::set_block_number(block_number);
 
@@ -268,7 +268,7 @@ fn signed_cannot_submit_beacon_info() {
 #[test]
 fn test_validate_unsigned_write_pulse() {
     new_test_ext().execute_with(|| {
-        let block_number = 1;
+        let block_number = 100_000_000;
         let alice = sp_keyring::Sr25519Keyring::Alice;
         System::set_block_number(block_number);
         let pulses_payload = PulsesPayload {
@@ -293,7 +293,7 @@ fn test_validate_unsigned_write_pulse() {
 #[test]
 fn test_not_validate_unsigned_write_pulse_with_bad_proof() {
     new_test_ext().execute_with(|| {
-        let block_number = 1;
+        let block_number = 100_000_000;
         let alice = sp_keyring::Sr25519Keyring::Alice;
         System::set_block_number(block_number);
         let pulses_payload = PulsesPayload {
@@ -319,7 +319,7 @@ fn test_not_validate_unsigned_write_pulse_with_bad_proof() {
 #[test]
 fn test_not_validate_unsigned_write_pulse_with_no_payload_signature() {
     new_test_ext().execute_with(|| {
-        let block_number = 1;
+        let block_number = 100_000_000;
         let alice = sp_keyring::Sr25519Keyring::Alice;
         System::set_block_number(block_number);
         let pulses_payload = PulsesPayload {
@@ -388,8 +388,8 @@ fn can_execute_and_handle_valid_http_responses() {
 #[test]
 fn validate_unsigned_rejects_future_block_number() {
     new_test_ext().execute_with(|| {
-        let block_number = 1;
-        let future_block_number = 100;
+        let block_number = 100_000_000;
+        let future_block_number = 100_000_100;
         let alice = sp_keyring::Sr25519Keyring::Alice;
         System::set_block_number(block_number);
         let pulses_payload = PulsesPayload {
