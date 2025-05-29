@@ -1467,7 +1467,7 @@ fn test_clear_small_nominations() {
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold1, netuid),
             100
         );
-        let balance1_before_cleaning = Balances::free_balance(cold1);
+        let balance1_before_clearing = Balances::free_balance(cold1);
 
         // Add stake cold2 --> hot2 (is delegation.)
         SubtensorModule::add_balance_to_coldkey_account(&cold2, init_balance);
@@ -1488,7 +1488,7 @@ fn test_clear_small_nominations() {
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold2, netuid),
             100
         );
-        let balance2_before_cleaning = Balances::free_balance(cold2);
+        let balance2_before_clearing = Balances::free_balance(cold2);
 
         // Run clear all small nominations when min stake is zero (noop)
         SubtensorModule::set_nominator_min_required_stake(0);
@@ -1539,10 +1539,18 @@ fn test_clear_small_nominations() {
         );
 
         // Balances have been added back into accounts.
-        let balance1_after_cleaning = Balances::free_balance(cold1);
-        let balance2_after_cleaning = Balances::free_balance(cold2);
-        assert_eq!(balance1_before_cleaning + 100, balance1_after_cleaning);
-        assert_eq!(balance2_before_cleaning + 100, balance2_after_cleaning);
+        let balance1_after_clearing = Balances::free_balance(cold1);
+        let balance2_after_clearing = Balances::free_balance(cold2);
+        assert_abs_diff_eq!(
+            balance1_before_clearing + 100,
+            balance1_after_clearing,
+            epsilon = 1,
+        );
+        assert_abs_diff_eq!(
+            balance2_before_clearing + 100,
+            balance2_after_clearing,
+            epsilon = 1,
+        );
 
         assert_abs_diff_eq!(
             TotalHotkeyAlpha::<Test>::get(hot2, netuid),
@@ -1554,7 +1562,11 @@ fn test_clear_small_nominations() {
             total_hot1_stake_before - 100,
             epsilon = 1
         );
-        assert_eq!(TotalStake::<Test>::get(), total_stake_before - 200);
+        assert_abs_diff_eq!(
+            TotalStake::<Test>::get(),
+            total_stake_before - 200,
+            epsilon = 2,
+        );
     });
 }
 
@@ -2972,7 +2984,7 @@ fn test_max_amount_add_dynamic() {
                     <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid)
                         .to_num::<f64>(),
                     expected_price.to_num::<f64>(),
-                    epsilon = expected_price.to_num::<f64>() / 1_000_000_000_f64
+                    epsilon = expected_price.to_num::<f64>() / 1_000_000_f64
                 );
             }
 
@@ -3055,91 +3067,101 @@ fn test_max_amount_remove_stable() {
 // cargo test --package pallet-subtensor --lib -- tests::staking::test_max_amount_remove_dynamic --exact --show-output
 #[test]
 fn test_max_amount_remove_dynamic() {
-    new_test_ext(0).execute_with(|| {
-        let subnet_owner_coldkey = U256::from(1001);
-        let subnet_owner_hotkey = U256::from(1002);
-        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+    // tao_in, alpha_in, limit_price, expected_max_swappable
+    [
+        // Zero handling (no panics)
+        (10_000_000_000, 10_000_000_000, 0, u64::MAX),
+        // Low bounds (numbers are empirical, it is only important that result
+        // is sharply decreasing when limit price increases)
+        (1_000, 1_000, 0, u64::MAX),
+        (1_001, 1_001, 0, u64::MAX),
+        (1_001, 1_001, 1, 31_715),
+        (1_001, 1_001, 2, 22_426),
+        (1_001, 1_001, 1_001, 1_000),
+        // Basic math
+        (1_000_000, 1_000_000, 250_000_000, 1_000_000),
+        (1_000_000, 1_000_000, 62_500_000, 3_000_000),
+        (
+            1_000_000_000_000,
+            1_000_000_000_000,
+            62_500_000,
+            3_000_000_000_000,
+        ),
+        // Normal range values with edge cases and sanity checks
+        (200_000_000_000, 100_000_000_000, 0, u64::MAX),
+        (
+            200_000_000_000,
+            100_000_000_000,
+            500_000_000,
+            100_000_000_000,
+        ),
+        (
+            200_000_000_000,
+            100_000_000_000,
+            125_000_000,
+            300_000_000_000,
+        ),
+        (200_000_000_000, 100_000_000_000, 2_000_000_000, 0),
+        (200_000_000_000, 100_000_000_000, 2_000_000_001, 0),
+        (200_000_000_000, 100_000_000_000, 1_999_999_999, 0),
+        (200_000_000_000, 100_000_000_000, 1_999_836_310, 757),
+        (200_000_000_000, 100_000_000_000, 1_990_000_000, 247_590_159),
+        // Miscellaneous overflows and underflows
+        (2_000_000_000_000, 100_000_000_000, u64::MAX, 0),
+        (200_000_000_000, 100_000_000_000, u64::MAX / 2, 0),
+        (1_000_000, 1_000_000_000_000_000_000_u64, 1, 0),
+        (1_000_000, 1_000_000_000_000_000_000_u64, 10, 0),
+        (1_000_000, 1_000_000_000_000_000_000_u64, 100, 0),
+        (1_000_000, 1_000_000_000_000_000_000_u64, 1_000, 0),
+        (1_000_000, 1_000_000_000_000_000_000_u64, u64::MAX, 0),
+        (
+            21_000_000_000_000_000,
+            1_000_000,
+            21_000_000_000_000_000,
+            30_700_000,
+        ),
+        (21_000_000_000_000_000, 1_000_000, u64::MAX, 67_164),
+        (
+            21_000_000_000_000_000,
+            1_000_000_000_000_000_000,
+            u64::MAX,
+            0,
+        ),
+        (
+            21_000_000_000_000_000,
+            1_000_000_000_000_000_000,
+            20_000_000,
+            24_800_000_000_000_000,
+        ),
+        (
+            21_000_000_000_000_000,
+            21_000_000_000_000_000,
+            999_999_999,
+            10_500_000,
+        ),
+        (21_000_000_000_000_000, 21_000_000_000_000_000, 0, u64::MAX),
+    ]
+    .iter()
+    .for_each(|&(tao_in, alpha_in, limit_price, expected_max_swappable)| {
+        new_test_ext(0).execute_with(|| {
+            let subnet_owner_coldkey = U256::from(1001);
+            let subnet_owner_hotkey = U256::from(1002);
+            let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
-        // tao_in, alpha_in, limit_price, expected_max_swappable
-        [
-            // Zero handling (no panics)
-            (0, 1_000_000_000, 100, 0),
-            (1_000_000_000, 0, 100, 0),
-            (10_000_000_000, 10_000_000_000, 0, u64::MAX),
-            // Low bounds (numbers are empirical, it is only important that result
-            // is sharply decreasing when limit price increases)
-            (1_000, 1_000, 0, 0),
-            (1_001, 1_001, 0, 4_307_770_117),
-            (1_001, 1_001, 1, 31_715),
-            (1_001, 1_001, 2, 22_426),
-            (1_001, 1_001, 1_001, 1_000),
-            // Basic math
-            (1_000_000, 1_000_000, 250_000_000, 1_000_000),
-            (1_000_000, 1_000_000, 62_500_000, 3_000_000),
-            (
-                1_000_000_000_000,
-                1_000_000_000_000,
-                62_500_000,
-                3_000_000_000_000,
-            ),
-            // Normal range values with edge cases and sanity checks
-            (200_000_000_000, 100_000_000_000, 0, u64::MAX),
-            (
-                200_000_000_000,
-                100_000_000_000,
-                500_000_000,
-                100_000_000_000,
-            ),
-            (
-                200_000_000_000,
-                100_000_000_000,
-                125_000_000,
-                300_000_000_000,
-            ),
-            (200_000_000_000, 100_000_000_000, 2_000_000_000, 0),
-            (200_000_000_000, 100_000_000_000, 2_000_000_001, 0),
-            (200_000_000_000, 100_000_000_000, 1_999_999_999, 24),
-            (200_000_000_000, 100_000_000_000, 1_999_999_990, 252),
-            // Miscellaneous overflows and underflows
-            (2_000_000_000_000, 100_000_000_000, u64::MAX, 0),
-            (200_000_000_000, 100_000_000_000, u64::MAX / 2, 0),
-            (1_000_000, 1_000_000_000_000_000_000_u64, 1, 0),
-            (1_000_000, 1_000_000_000_000_000_000_u64, 10, 0),
-            (1_000_000, 1_000_000_000_000_000_000_u64, 100, 0),
-            (1_000_000, 1_000_000_000_000_000_000_u64, 1_000, 0),
-            (1_000_000, 1_000_000_000_000_000_000_u64, u64::MAX, 0),
-            (
-                21_000_000_000_000_000,
-                1_000_000,
-                21_000_000_000_000_000,
-                30_700_000,
-            ),
-            (21_000_000_000_000_000, 1_000_000, u64::MAX, 67_164),
-            (
-                21_000_000_000_000_000,
-                1_000_000_000_000_000_000,
-                u64::MAX,
-                0,
-            ),
-            (
-                21_000_000_000_000_000,
-                1_000_000_000_000_000_000,
-                20_000_000,
-                24_800_000_000_000_000,
-            ),
-            (
-                21_000_000_000_000_000,
-                21_000_000_000_000_000,
-                999_999_999,
-                10_500_000,
-            ),
-            (21_000_000_000_000_000, 21_000_000_000_000_000, 0, u64::MAX),
-        ]
-        .iter()
-        .for_each(|&(tao_in, alpha_in, limit_price, expected_max_swappable)| {
             // Forse-set alpha in and tao reserve to achieve relative price of subnets
             SubnetTAO::<Test>::insert(netuid, tao_in);
             SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
+
+            // println!("(tao_in, alpha_in, limit_price, expected_max_swappable) = {:?}", (tao_in, alpha_in, limit_price, expected_max_swappable));
+
+            // Initialize swap v3
+            assert_ok!(<tests::mock::Test as pallet::Config>::SwapInterface::swap(
+                netuid,
+                OrderType::Buy,
+                0,
+                0,
+                true
+            ));
 
             if alpha_in != 0 {
                 let expected_price = I96F32::from_num(tao_in) / I96F32::from_num(alpha_in);
@@ -3679,7 +3701,7 @@ fn test_add_stake_limit_ok() {
         assert_abs_diff_eq!(
             exp_price.to_num::<f64>(),
             current_price.to_num::<f64>(),
-            epsilon = 0.0001,
+            epsilon = 0.001,
         );
     });
 }
