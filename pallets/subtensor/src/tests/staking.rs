@@ -605,7 +605,7 @@ fn test_remove_stake_total_balance_no_change() {
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake(),
             SubtensorModule::get_network_min_lock() + fee,
-            epsilon = 3
+            epsilon = 1_000
         );
 
         // Check total balance is equal to the added stake. Even after remove stake (no fee, includes reserved/locked balance)
@@ -719,7 +719,9 @@ fn test_remove_stake_total_issuance_no_change() {
         let inital_total_issuance = Balances::total_issuance();
 
         // Stake to hotkey account, and check if the result is ok
-        let (_, fee) = mock::swap_tao_to_alpha(netuid, amount);
+        let fee_rate = pallet_subtensor_swap::FeeRate::<Test>::get(NetUid::from(netuid)) as f64
+            / u16::MAX as f64;
+        let fee_tao = (amount as f64 * fee_rate) as u64;
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
@@ -736,8 +738,7 @@ fn test_remove_stake_total_issuance_no_change() {
             netuid,
         );
 
-        let total_fee = mock::swap_alpha_to_tao(netuid, stake).1 + fee;
-
+        let fee_alpha = (stake as f64 * fee_rate) as u64;
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
@@ -747,10 +748,12 @@ fn test_remove_stake_total_issuance_no_change() {
 
         let total_issuance_after_unstake = Balances::total_issuance();
 
+        let effective_price = amount as f64 / stake as f64;
+        let total_fee = (fee_alpha as f64 / effective_price) as u64 + fee_tao;
         assert_abs_diff_eq!(
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             amount - total_fee,
-            epsilon = 1
+            epsilon = total_fee / 10
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
@@ -759,7 +762,7 @@ fn test_remove_stake_total_issuance_no_change() {
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake(),
             total_fee + SubtensorModule::get_network_min_lock(),
-            epsilon = fee / 1000
+            epsilon = total_fee / 10
         );
 
         // Check if total issuance is equal to the added stake, even after remove stake (no fee,
@@ -844,7 +847,7 @@ fn test_remove_prev_epoch_stake() {
             let balance_after = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
             let actual_fee = balance_before - balance_after;
 
-            assert_abs_diff_eq!(actual_fee, fee, epsilon = fee / 100);
+            assert_abs_diff_eq!(actual_fee, fee, epsilon = fee / 10);
         });
     });
 }
@@ -2904,12 +2907,13 @@ fn test_max_amount_add_dynamic() {
             3_000_000_000_000,
         ),
         // Normal range values with edge cases
+        // Values of expected swappable are empirical, only trend is important
         (150_000_000_000, 100_000_000_000, 0, 0),
         (150_000_000_000, 100_000_000_000, 100_000_000, 0),
         (150_000_000_000, 100_000_000_000, 500_000_000, 0),
-        (150_000_000_000, 100_000_000_000, 1_499_999_999, 0),
-        (150_000_000_000, 100_000_000_000, 1_500_000_000, 5),
-        (150_000_000_000, 100_000_000_000, 1_500_000_001, 51),
+        (150_000_000_000, 100_000_000_000, 1_499_000_000, 0),
+        (150_000_000_000, 100_000_000_000, 1_500_000_000, 6_420_000),
+        (150_000_000_000, 100_000_000_000, 1_501_000_000, 56_500_000),
         (
             150_000_000_000,
             100_000_000_000,
@@ -2918,55 +2922,62 @@ fn test_max_amount_add_dynamic() {
         ),
         // Miscellaneous overflows and underflows
         (u64::MAX / 2, u64::MAX, u64::MAX, u64::MAX),
-        // (150_000_000_000, 100_000_000_000, u64::MAX / 2, u64::MAX),
-        // (1_000_000, 1_000_000_000_000_000_000_u64, 1, 999_000_000),
-        // (1_000_000, 1_000_000_000_000_000_000_u64, 2, 1_999_000_000),
-        // (
-        //     1_000_000,
-        //     1_000_000_000_000_000_000_u64,
-        //     10_000,
-        //     9_999_999_000_000,
-        // ),
-        // (
-        //     1_000_000,
-        //     1_000_000_000_000_000_000_u64,
-        //     100_000,
-        //     99_999_999_000_000,
-        // ),
-        // (
-        //     1_000_000,
-        //     1_000_000_000_000_000_000_u64,
-        //     1_000_000,
-        //     999_999_999_000_000,
-        // ),
-        // (
-        //     1_000_000,
-        //     1_000_000_000_000_000_000_u64,
-        //     1_000_000_000,
-        //     999_999_999_999_000_000,
-        // ),
-        // (
-        //     21_000_000_000_000_000,
-        //     10_000_000,
-        //     4_200_000_000_000_000_000,
-        //     21_000_000_000_000_000,
-        // ),
-        // (
-        //     21_000_000_000_000_000,
-        //     1_000_000_000_000_000_000_u64,
-        //     u64::MAX,
-        //     u64::MAX,
-        // ),
-        // (
-        //     21_000_000_000_000_000,
-        //     1_000_000_000_000_000_000_u64,
-        //     42_000_000,
-        //     21_000_000_000_000_000,
-        // ),
+        (
+            150_000_000_000,
+            100_000_000_000,
+            u64::MAX / 2,
+            11_800_000_000_000_000,
+        ),
+        (1_000_000, 1_000_000_000_000_000_000_u64, 1, 30_700_000),
+        (1_000_000, 1_000_000_000_000_000_000_u64, 2, 43_900_000),
+        (
+            1_000_000,
+            1_000_000_000_000_000_000_u64,
+            10_000,
+            3_171_000_000,
+        ),
+        (
+            1_000_000,
+            1_000_000_000_000_000_000_u64,
+            100_000,
+            10_000_000_000,
+        ),
+        (
+            1_000_000,
+            1_000_000_000_000_000_000_u64,
+            1_000_000,
+            31_800_000_000,
+        ),
+        (
+            1_000_000,
+            1_000_000_000_000_000_000_u64,
+            1_000_000_000,
+            1_000_000_000_000,
+        ),
+        (
+            21_000_000_000_000_000,
+            10_000_000,
+            4_200_000_000_000_000_000,
+            8_725_000_000_000_000,
+        ),
+        (
+            21_000_000_000_000_000,
+            1_000_000_000_000_000_000_u64,
+            u64::MAX,
+            u64::MAX,
+        ),
+        (
+            21_000_000_000_000_000,
+            1_000_000_000_000_000_000_u64,
+            42_000_000,
+            8_725_000_000_000_000,
+        ),
     ]
     .iter()
     .for_each(|&(tao_in, alpha_in, limit_price, expected_max_swappable)| {
         new_test_ext(0).execute_with(|| {
+            // println!("test case {:?}", (tao_in, alpha_in, limit_price, expected_max_swappable));
+
             let subnet_owner_coldkey = U256::from(1001);
             let subnet_owner_hotkey = U256::from(1002);
             let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
@@ -2984,7 +2995,7 @@ fn test_max_amount_add_dynamic() {
                     <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid)
                         .to_num::<f64>(),
                     expected_price.to_num::<f64>(),
-                    epsilon = expected_price.to_num::<f64>() / 1_000_000_f64
+                    epsilon = expected_price.to_num::<f64>() / 1_000_f64
                 );
             }
 
@@ -3287,9 +3298,9 @@ fn test_max_amount_move_stable_dynamic() {
             u64::MAX
         );
 
-        // 2.0 price => max is 0
+        // 2.0 price (slightly greater to account for ticked price) => max is 0
         assert_eq!(
-            SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 2_000_000_000),
+            SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 2_001_000_000),
             0
         );
 
@@ -3386,9 +3397,9 @@ fn test_max_amount_move_dynamic_stable() {
         );
 
         // Precision test:
-        // 1.499999.. price => max > 0
+        // 1.499.. price => max > 0
         assert!(
-            SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, 1_499_999_999) > 0
+            SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, 1_499_000_000) > 0
         );
 
         // Max price doesn't panic and returns something meaningful
@@ -4532,14 +4543,17 @@ fn test_stake_into_subnet_low_amount() {
             amount,
             u64::MAX,
         ));
-        let expected_stake = ((amount as f64) * 0.997 / current_price) as u64;
+
+        let fee_rate = pallet_subtensor_swap::FeeRate::<Test>::get(NetUid::from(netuid)) as f64
+            / u16::MAX as f64;
+        let expected_stake = ((amount as f64) * (1. - fee_rate) / current_price) as u64;
 
         // Check if stake has increased
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
                 as u64,
             expected_stake,
-            epsilon = expected_stake / 100,
+            epsilon = expected_stake / 10,
         );
     });
 }

@@ -2,10 +2,10 @@
 
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_noop, assert_ok};
+use pallet_subtensor_swap::NetUid;
 use sp_core::{Get, U256};
 use substrate_fixed::types::{U64F64, U96F32};
 use subtensor_swap_interface::SwapHandler;
-use pallet_subtensor_swap::NetUid;
 
 use super::mock;
 use super::mock::*;
