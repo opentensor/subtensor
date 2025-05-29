@@ -1,4 +1,4 @@
-use substrate_fixed::types::{I96F32, U96F32};
+use substrate_fixed::types::I96F32;
 use subtensor_swap_interface::{OrderType, SwapHandler};
 
 use super::*;

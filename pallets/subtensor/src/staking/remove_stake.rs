@@ -1,4 +1,3 @@
-use substrate_fixed::types::U96F32;
 use subtensor_swap_interface::{OrderType, SwapHandler};
 
 use super::*;
@@ -212,7 +211,6 @@ impl<T: Config> Pallet<T> {
             // Ensure that the hotkey has enough stake to withdraw.
             let alpha_unstaked =
                 Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
-			dbg!(alpha_unstaked);
 
             if Self::validate_remove_stake(
                 &coldkey,

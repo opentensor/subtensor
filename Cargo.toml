@@ -43,6 +43,7 @@ type_complexity = "allow"
 unwrap-used = "deny"
 manual_inspect = "allow"
 useless_conversion = "allow"     # until polkadot is patched
+result_large_err = "allow"
 
 [workspace.dependencies]
 node-subtensor-runtime = { default-features = false, path = "runtime" }
