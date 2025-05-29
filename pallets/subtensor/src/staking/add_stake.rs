@@ -1,6 +1,7 @@
-use super::*;
-use substrate_fixed::types::I96F32;
+use substrate_fixed::types::{I96F32, U96F32};
 use subtensor_swap_interface::{OrderType, SwapHandler};
+
+use super::*;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic add_stake: Adds stake to a hotkey account.
@@ -334,12 +335,14 @@ impl<T: Config> Pallet<T> {
         }
 
         // Use reverting swap to estimate max limit amount
-        let swap_result =
-            T::SwapInterface::swap(netuid, OrderType::Buy, u64::MAX, limit_price, true)
-                .map_err(|_| Error::ZeroMaxStakeAmount)?;
+        let result = T::SwapInterface::swap(netuid, OrderType::Buy, u64::MAX, limit_price, true)
+            .map(|r| r.amount_paid_in.saturating_add(r.fee_paid))
+            .map_err(|_| Error::ZeroMaxStakeAmount)?;
 
-        Ok(swap_result
-            .amount_paid_in
-            .saturating_add(swap_result.fee_paid))
+        if result != 0 {
+            Ok(result)
+        } else {
+            Err(Error::ZeroMaxStakeAmount)
+        }
     }
 }

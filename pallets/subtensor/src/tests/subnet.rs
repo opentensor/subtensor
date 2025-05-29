@@ -389,6 +389,12 @@ fn test_subtoken_enable_trading_ok_with_enable() {
 
         add_network(netuid, 10, 0);
         add_network(netuid2, 10, 0);
+
+        let reserve = 1_000_000_000_000_000;
+        mock::setup_reserves(0, reserve, reserve);
+        mock::setup_reserves(netuid, reserve, reserve);
+        mock::setup_reserves(netuid2, reserve, reserve);
+
         // Register so staking works
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 0);
         register_ok_neuron(netuid2, hotkey_account_id, coldkey_account_id, 100);

@@ -4004,51 +4004,6 @@ fn test_max_amount_add_dynamic() {
         ),
         // Miscellaneous overflows and underflows
         (u64::MAX / 2, u64::MAX, u64::MAX, Ok(u64::MAX)),
-        // (150_000_000_000, 100_000_000_000, u64::MAX / 2, u64::MAX),
-        // (1_000_000, 1_000_000_000_000_000_000_u64, 1, 999_000_000),
-        // (1_000_000, 1_000_000_000_000_000_000_u64, 2, 1_999_000_000),
-        // (
-        //     1_000_000,
-        //     1_000_000_000_000_000_000_u64,
-        //     10_000,
-        //     9_999_999_000_000,
-        // ),
-        // (
-        //     1_000_000,
-        //     1_000_000_000_000_000_000_u64,
-        //     100_000,
-        //     99_999_999_000_000,
-        // ),
-        // (
-        //     1_000_000,
-        //     1_000_000_000_000_000_000_u64,
-        //     1_000_000,
-        //     999_999_999_000_000,
-        // ),
-        // (
-        //     1_000_000,
-        //     1_000_000_000_000_000_000_u64,
-        //     1_000_000_000,
-        //     999_999_999_999_000_000,
-        // ),
-        // (
-        //     21_000_000_000_000_000,
-        //     10_000_000,
-        //     4_200_000_000_000_000_000,
-        //     21_000_000_000_000_000,
-        // ),
-        // (
-        //     21_000_000_000_000_000,
-        //     1_000_000_000_000_000_000_u64,
-        //     u64::MAX,
-        //     u64::MAX,
-        // ),
-        // (
-        //     21_000_000_000_000_000,
-        //     1_000_000_000_000_000_000_u64,
-        //     42_000_000,
-        //     21_000_000_000_000_000,
-        // ),
     ]
     .into_iter()
     .for_each(|(tao_in, alpha_in, limit_price, expected_max_swappable)| {
@@ -6193,10 +6148,10 @@ fn test_stake_into_subnet_prohibitive_limit() {
                 owner_hotkey,
                 netuid,
                 amount,
-                u64::MIN,
+                0,
                 true,
             ),
-            Error::<Test>::AmountTooLow
+            Error::<Test>::ZeroMaxStakeAmount
         );
 
         // Check if stake has NOT increased
@@ -6257,14 +6212,17 @@ fn test_unstake_from_subnet_prohibitive_limit() {
             &coldkey,
             netuid,
         );
-        assert_ok!(SubtensorModule::remove_stake_limit(
-            RuntimeOrigin::signed(coldkey),
-            owner_hotkey,
-            netuid,
-            alpha,
-            u64::MAX,
-            true,
-        ));
+        assert_err!(
+            SubtensorModule::remove_stake_limit(
+                RuntimeOrigin::signed(coldkey),
+                owner_hotkey,
+                netuid,
+                alpha,
+                u64::MAX,
+                true,
+            ),
+            Error::<Test>::ZeroMaxStakeAmount
+        );
 
         // Check if stake has NOT decreased
         assert_eq!(
