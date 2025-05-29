@@ -3834,11 +3834,18 @@ fn test_unstake_all_validate() {
         // Simulate stake for hotkey
         SubnetTAO::<Test>::insert(netuid, u64::MAX / 1000);
         SubnetAlphaIn::<Test>::insert(netuid, u64::MAX / 1000);
-        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, amount_staked, 0).unwrap();
+        SubtensorModule::stake_into_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            amount_staked,
+            <Test as pallet::Config>::SwapInterface::max_price(),
+        )
+        .unwrap();
 
         // Set the liquidity at lowest possible value so that all staking requests fail
-        SubnetTAO::<Test>::insert(netuid, mock::SwapMinimumLiquidity::get());
-        SubnetAlphaIn::<Test>::insert(netuid, mock::SwapMinimumLiquidity::get());
+        let reserve = u64::from(mock::SwapMinimumReserve::get()) - 1;
+        mock::setup_reserves(netuid, reserve, reserve);
 
         // unstake_all call
         let call = RuntimeCall::SubtensorModule(SubtensorCall::unstake_all { hotkey });
@@ -6360,6 +6367,7 @@ fn test_swap_fees_tao_correctness() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, user_balance_before);
         let fee_rate = pallet_subtensor_swap::FeeRate::<Test>::get(NetUid::from(netuid)) as f64
             / u16::MAX as f64;
+        pallet_subtensor_swap::EnabledUserLiquidity::<Test>::insert(NetUid::from(netuid), true);
 
         // Forse-set alpha in and tao reserve to make price equal 0.25
         let tao_reserve = U96F32::from_num(100_000_000_000_u64);
@@ -6582,5 +6590,67 @@ fn test_increase_stake_for_hotkey_and_coldkey_on_subnet_adds_to_staking_hotkeys_
         assert!(StakingHotkeys::<Test>::contains_key(coldkey1));
         // check entry has hotkey
         assert!(StakingHotkeys::<Test>::get(coldkey1).contains(&hotkey));
+    });
+}
+
+/// This test verifies that minimum stake amount is sufficient to move price and apply
+/// non-zero staking fees
+#[test]
+fn test_default_min_stake_sufficiency() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+        let coldkey = U256::from(4);
+        let min_tao_stake = DefaultMinStake::<Test>::get() * 2;
+        let amount = min_tao_stake;
+        let owner_balance_before = amount * 10;
+        let user_balance_before = amount * 100;
+
+        // add network
+        let netuid: u16 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, owner_balance_before);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, user_balance_before);
+        let fee_rate = pallet_subtensor_swap::FeeRate::<Test>::get(NetUid::from(netuid)) as f64
+            / u16::MAX as f64;
+
+        // Set some extreme, but realistic TAO and Alpha reserves to minimize slippage
+        // 1% of TAO max supply
+        // 0.01 Alpha price
+        let tao_reserve = U96F32::from_num(210_000_000_000_000_u64);
+        let alpha_in = U96F32::from_num(21_000_000_000_000_000_u64);
+        mock::setup_reserves(netuid, tao_reserve.to_num(), alpha_in.to_num());
+        let current_price_before =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid);
+
+        // Stake and unstake
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            owner_hotkey,
+            netuid,
+            amount,
+        ));
+        let fee_stake = (fee_rate * amount as f64) as u64;
+        let current_price_after_stake =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid);
+
+        let user_alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &owner_hotkey,
+            &coldkey,
+            netuid,
+        );
+        assert_ok!(SubtensorModule::remove_stake(
+            RuntimeOrigin::signed(coldkey),
+            owner_hotkey,
+            netuid,
+            user_alpha,
+        ));
+        let fee_unstake = (fee_rate * user_alpha as f64) as u64;
+        let current_price_after_unstake =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid);
+
+        assert!(fee_stake > 0);
+        assert!(fee_unstake > 0);
+        assert!(current_price_after_stake > current_price_before);
+        assert!(current_price_after_stake > current_price_after_unstake);
     });
 }

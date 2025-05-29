@@ -212,6 +212,7 @@ impl<T: Config> Pallet<T> {
             // Ensure that the hotkey has enough stake to withdraw.
             let alpha_unstaked =
                 Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+			dbg!(alpha_unstaked);
 
             if Self::validate_remove_stake(
                 &coldkey,
