@@ -10,8 +10,8 @@ use substrate_fixed::types::U64F64;
 use crate::{
     NetUid,
     pallet::{
-        AlphaSqrtPrice, Call, Config, CurrentLiquidity, CurrentTick, EnabledUserLiquidity, Pallet,
-        Positions, SwapV3Initialized,
+        Call, Config, CurrentLiquidity, CurrentTick, EnabledUserLiquidity, Pallet, Positions,
+        SwapV3Initialized,
     },
     position::{Position, PositionId},
     tick::TickIndex,
@@ -36,7 +36,6 @@ mod benchmarks {
 
         if !SwapV3Initialized::<T>::get(netuid) {
             SwapV3Initialized::<T>::insert(netuid, true);
-            AlphaSqrtPrice::<T>::insert(netuid, U64F64::from_num(1));
             CurrentTick::<T>::insert(netuid, TickIndex::new(0).unwrap());
             CurrentLiquidity::<T>::insert(netuid, T::MinimumLiquidity::get());
         }
@@ -61,7 +60,6 @@ mod benchmarks {
 
         if !SwapV3Initialized::<T>::get(netuid) {
             SwapV3Initialized::<T>::insert(netuid, true);
-            AlphaSqrtPrice::<T>::insert(netuid, U64F64::from_num(1));
             CurrentTick::<T>::insert(netuid, TickIndex::new(0).unwrap());
             CurrentLiquidity::<T>::insert(netuid, T::MinimumLiquidity::get());
         }
@@ -93,7 +91,6 @@ mod benchmarks {
 
         if !SwapV3Initialized::<T>::get(netuid) {
             SwapV3Initialized::<T>::insert(netuid, true);
-            AlphaSqrtPrice::<T>::insert(netuid, U64F64::from_num(1));
             CurrentTick::<T>::insert(netuid, TickIndex::new(0).unwrap());
             CurrentLiquidity::<T>::insert(netuid, T::MinimumLiquidity::get());
         }
