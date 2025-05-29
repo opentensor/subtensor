@@ -1012,7 +1012,7 @@ impl<T: Config> Pallet<T> {
         liquidity: i128,
     ) {
         let current_tick_index = TickIndex::current_bounded::<T>(netuid);
-        if (tick_low <= current_tick_index) && (current_tick_index <= tick_high) {
+        if (tick_low <= current_tick_index) && (current_tick_index < tick_high) {
             CurrentLiquidity::<T>::mutate(netuid, |current_liquidity| {
                 let is_neg = liquidity.is_negative();
                 let liquidity = liquidity.abs().min(u64::MAX as i128) as u64;
@@ -2575,6 +2575,72 @@ mod tests {
 
             assert_abs_diff_eq!(actual_fee_tao, expected_fee, epsilon = 1,);
             assert_abs_diff_eq!(actual_fee_alpha, expected_fee, epsilon = 1,);
+        });
+    }
+
+    #[test]
+    fn test_current_liquidity_updates() {
+        let netuid = NetUid::from(1);
+        let liquidity = 1_000_000_000;
+
+        // Get current price
+        let (current_price, current_price_low, current_price_high) =
+            new_test_ext().execute_with(|| {
+                assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+                let sqrt_current_price = AlphaSqrtPrice::<Test>::get(netuid);
+                let current_price = (sqrt_current_price * sqrt_current_price).to_num::<f64>();
+                let (current_price_low, current_price_high) =
+                    get_ticked_prices_around_current_price();
+                (current_price, current_price_low, current_price_high)
+            });
+
+        // Test case: (price_low, price_high, expect_to_update)
+        [
+            // Current price is out of position range (lower), no current lq update
+            (current_price * 2., current_price * 3., false),
+            // Current price is out of position range (higher), no current lq update
+            (current_price / 3., current_price / 2., false),
+            // Current price is just below position range, no current lq update
+            (current_price_high, current_price * 3., false),
+            // Position lower edge is just below the current price, current lq updates
+            (current_price_low, current_price * 3., true),
+            // Current price is exactly at lower edge of position range, current lq updates
+            (current_price, current_price * 3., true),
+            // Current price is exactly at higher edge of position range, no current lq update
+            (current_price / 2., current_price, false),
+        ]
+        .into_iter()
+        .for_each(|(price_low, price_high, expect_to_update)| {
+            new_test_ext().execute_with(|| {
+                assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+
+                // Calculate ticks (assuming tick math is tested separately)
+                let tick_low = price_to_tick(price_low);
+                let tick_high = price_to_tick(price_high);
+                let liquidity_before = CurrentLiquidity::<Test>::get(netuid);
+
+                // Add liquidity
+                assert_ok!(Pallet::<Test>::do_add_liquidity(
+                    netuid,
+                    &OK_COLDKEY_ACCOUNT_ID,
+                    &OK_HOTKEY_ACCOUNT_ID,
+                    tick_low,
+                    tick_high,
+                    liquidity,
+                ));
+
+                // Current liquidity is updated only when price range includes the current price
+                let expected_liquidity =
+                    if (price_high > current_price) && (price_low <= current_price) {
+                        assert!(expect_to_update);
+                        liquidity_before + liquidity
+                    } else {
+                        assert!(!expect_to_update);
+                        liquidity_before
+                    };
+
+                assert_eq!(CurrentLiquidity::<Test>::get(netuid), expected_liquidity)
+            });
         });
     }
 }
