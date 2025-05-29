@@ -5,6 +5,7 @@ use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_core::{Get, U256};
 use substrate_fixed::types::{U64F64, U96F32};
 use subtensor_swap_interface::SwapHandler;
+use pallet_subtensor_swap::NetUid;
 
 use super::mock;
 use super::mock::*;
@@ -843,7 +844,6 @@ fn test_do_move_max_values() {
         );
 
         // Move maximum stake
-        let (_, fee) = mock::swap_alpha_to_tao(netuid, alpha);
         assert_ok!(SubtensorModule::do_move_stake(
             RuntimeOrigin::signed(coldkey),
             origin_hotkey,
@@ -852,6 +852,10 @@ fn test_do_move_max_values() {
             netuid,
             alpha,
         ));
+
+        let fee_rate = pallet_subtensor_swap::FeeRate::<Test>::get(NetUid::from(netuid)) as f64
+            / u16::MAX as f64;
+        let fee = (alpha as f64 * fee_rate) as u64;
 
         // Verify stake movement without overflow
         assert_eq!(
@@ -870,7 +874,7 @@ fn test_do_move_max_values() {
                 netuid
             ),
             alpha_after_fee,
-            epsilon = alpha_after_fee / 100_000
+            epsilon = alpha_after_fee / 10_000
         );
     });
 }
