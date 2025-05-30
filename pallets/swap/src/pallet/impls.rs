@@ -311,33 +311,61 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Perform a swap
+    /// Executes a token swap on the specified subnet.
     ///
-    /// Returns a tuple (amount_paid_out, refund), where amount_paid_out is the resulting paid out
-    /// amount and refund is any unswapped amount returned to the caller
+    /// # Parameters
+    /// - `netuid`: The identifier of the subnet on which the swap is performed.
+    /// - `order_type`: The type of the swap (e.g., Buy or Sell).
+    /// - `amount`: The amount of tokens to swap.
+    /// - `sqrt_price_limit`: A price limit (expressed as a square root) to bound the swap.
+    /// - `simulate`: If `true`, the function runs in simulation mode and does not persist any changes.
     ///
-    /// The function can be used without writing into the storage by setting `should_rollback` to
-    /// `true`.
+    /// # Returns
+    /// Returns a [`Result`] with a [`SwapResult`] on success, or a [`DispatchError`] on failure.
+    /// 
+    /// The [`SwapResult`] contains:
+    /// - `amount_paid_out`: The amount of tokens received from the swap.
+    /// - `refund`: Any unswapped portion of the input amount, refunded to the caller.
+    ///
+    /// # Simulation Mode
+    /// When `simulate` is set to `true`, the function:
+    /// 1. Executes all logic without persisting any state changes (i.e., performs a dry run).
+    /// 2. Skips reserve checks — it may return an `amount_paid_out` greater than the available reserve.
+    ///
+    /// Use simulation mode to preview the outcome of a swap without modifying the blockchain state.
     pub fn do_swap(
         netuid: NetUid,
         order_type: OrderType,
         amount: u64,
         sqrt_price_limit: SqrtPrice,
-        should_rollback: bool,
+        simulate: bool,
     ) -> Result<SwapResult, DispatchError> {
         transactional::with_transaction(|| {
-            let result = Self::swap_inner(
-                netuid,
-                order_type,
-                amount,
-                sqrt_price_limit,
-                should_rollback,
-            )
-            .map_err(Into::into);
+            // Read alpha and tao reserves before transaction
+            let tao_reserve = T::SubnetInfo::tao_reserve(netuid.into());
+            let alpha_reserve = T::SubnetInfo::alpha_reserve(netuid.into());
 
-            if should_rollback || result.is_err() {
+            let mut result =
+                Self::swap_inner(netuid, order_type, amount, sqrt_price_limit).map_err(Into::into);
+
+            if simulate || result.is_err() {
+                // Simulation only
                 TransactionOutcome::Rollback(result)
             } else {
+                // Should persist changes
+
+                // Check if reserves are overused
+                if let Ok(ref swap_result) = result {
+                    let checked_reserve = match order_type {
+                        OrderType::Buy => alpha_reserve,
+                        OrderType::Sell => tao_reserve,
+                    };
+
+                    if checked_reserve < swap_result.amount_paid_out {
+                        result = Err(Error::<T>::InsufficientLiquidity.into());
+                    }
+                }
+
                 TransactionOutcome::Commit(result)
             }
         })
@@ -348,7 +376,6 @@ impl<T: Config> Pallet<T> {
         order_type: OrderType,
         amount: u64,
         sqrt_price_limit: SqrtPrice,
-        simulate: bool,
     ) -> Result<SwapResult, Error<T>> {
         ensure!(
             T::SubnetInfo::tao_reserve(netuid.into()) >= T::MinimumReserve::get().get()
@@ -396,29 +423,15 @@ impl<T: Config> Pallet<T> {
 
         let tao_reserve = T::SubnetInfo::tao_reserve(netuid.into());
         let alpha_reserve = T::SubnetInfo::alpha_reserve(netuid.into());
-        let (new_tao_reserve, new_alpha_reserve) = if !simulate {
-            let checked_reserve = match order_type {
-                OrderType::Buy => alpha_reserve,
-                OrderType::Sell => tao_reserve,
-            };
-
-            ensure!(
-                checked_reserve >= amount_paid_out,
-                Error::<T>::InsufficientLiquidity
-            );
-
-            match order_type {
-                OrderType::Buy => (
-                    tao_reserve.saturating_add(in_acc),
-                    alpha_reserve.saturating_sub(amount_paid_out),
-                ),
-                OrderType::Sell => (
-                    tao_reserve.saturating_sub(amount_paid_out),
-                    alpha_reserve.saturating_add(in_acc),
-                ),
-            }
-        } else {
-            (tao_reserve, alpha_reserve)
+        let (new_tao_reserve, new_alpha_reserve) = match order_type {
+            OrderType::Buy => (
+                tao_reserve.saturating_add(in_acc),
+                alpha_reserve.saturating_sub(amount_paid_out),
+            ),
+            OrderType::Sell => (
+                tao_reserve.saturating_sub(amount_paid_out),
+                alpha_reserve.saturating_add(in_acc),
+            ),
         };
 
         Ok(SwapResult {
