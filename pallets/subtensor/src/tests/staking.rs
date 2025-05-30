@@ -3842,6 +3842,57 @@ fn test_unstake_low_liquidity_validate() {
 }
 
 #[test]
+fn test_unstake_all_validate() {
+    // Testing the signed extension validate function
+    // correctly filters the `unstake_all` transaction.
+
+    new_test_ext(0).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let amount_staked = DefaultMinStake::<Test>::get() * 10 + DefaultStakingFee::<Test>::get();
+
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount_staked);
+
+        // Simulate stake for hotkey
+        SubnetTAO::<Test>::insert(netuid, u64::MAX / 1000);
+        SubnetAlphaIn::<Test>::insert(netuid, u64::MAX / 1000);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, amount_staked, 0);
+
+        // Set the liquidity at lowest possible value so that all staking requests fail
+        SubnetTAO::<Test>::insert(
+            netuid,
+            DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>(),
+        );
+        SubnetAlphaIn::<Test>::insert(
+            netuid,
+            DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>(),
+        );
+
+        // unstake_all call
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::unstake_all { hotkey });
+
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+
+        let extension = SubtensorSignedExtension::<Test>::new();
+        // Submit to the signed extension validate function
+        let result_no_stake = extension.validate(&coldkey, &call.clone(), &info, 10);
+
+        // Should fail due to insufficient stake
+        assert_err!(
+            result_no_stake,
+            TransactionValidityError::Invalid(InvalidTransaction::Custom(
+                CustomTransactionError::StakeAmountTooLow.into()
+            ))
+        );
+    });
+}
+
+#[test]
 fn test_max_amount_add_root() {
     new_test_ext(0).execute_with(|| {
         // 0 price on root => max is 0
