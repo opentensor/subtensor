@@ -2643,4 +2643,18 @@ mod tests {
             });
         });
     }
+
+    #[test]
+    fn test_rollback_works() {
+        new_test_ext().execute_with(|| {
+            let netuid = NetUid::from(1);
+
+            assert_eq!(
+                Pallet::<Test>::do_swap(netuid, OrderType::Buy, 1_000_000, u64::MAX.into(), true)
+                    .unwrap(),
+                Pallet::<Test>::do_swap(netuid, OrderType::Buy, 1_000_000, u64::MAX.into(), false)
+                    .unwrap()
+            );
+        })
+    }
 }
