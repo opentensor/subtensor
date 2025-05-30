@@ -208,6 +208,7 @@ pallet-base-fee = { git = "https://github.com/opentensor/frontier", rev = "cd6bc
 pallet-dynamic-fee = { git = "https://github.com/opentensor/frontier", rev = "cd6bca14a3", default-features = false }
 pallet-ethereum = { git = "https://github.com/opentensor/frontier", rev = "cd6bca14a3", default-features = false }
 pallet-evm = { git = "https://github.com/opentensor/frontier", rev = "cd6bca14a3", default-features = false }
+pallet-evm-precompile-dispatch = { git = "https://github.com/opentensor/frontier", rev = "cd6bca14a3", default-features = false }
 pallet-evm-chain-id = { git = "https://github.com/opentensor/frontier", rev = "cd6bca14a3", default-features = false }
 pallet-evm-precompile-modexp = { git = "https://github.com/opentensor/frontier", rev = "cd6bca14a3", default-features = false }
 pallet-evm-precompile-sha3fips = { git = "https://github.com/opentensor/frontier", rev = "cd6bca14a3", default-features = false }
