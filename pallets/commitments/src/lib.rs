@@ -411,7 +411,8 @@ pub struct CommitmentsSignedExtension<T: Config + Send + Sync + TypeInfo>(pub Ph
 
 impl<T: Config + Send + Sync + TypeInfo> Default for CommitmentsSignedExtension<T>
 where
-    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as frame_system::Config>::RuntimeCall:
+        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
     fn default() -> Self {
@@ -421,7 +422,8 @@ where
 
 impl<T: Config + Send + Sync + TypeInfo> CommitmentsSignedExtension<T>
 where
-    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as frame_system::Config>::RuntimeCall:
+        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
     pub fn new() -> Self {
@@ -443,13 +445,14 @@ impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for CommitmentsSigne
 
 impl<T: Config + Send + Sync + TypeInfo> SignedExtension for CommitmentsSignedExtension<T>
 where
-    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as frame_system::Config>::RuntimeCall:
+        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
     const IDENTIFIER: &'static str = "CommitmentsSignedExtension";
 
     type AccountId = T::AccountId;
-    type Call = T::RuntimeCall;
+    type Call = <T as frame_system::Config>::RuntimeCall;
     type AdditionalSigned = ();
     type Pre = (CallType, u64, Self::AccountId);
 
