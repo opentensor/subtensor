@@ -336,11 +336,14 @@ impl<T: Config> Pallet<T> {
         MinChildkeyTake::<T>::get()
     }
     pub fn get_tx_childkey_take_rate_limit() -> u64 {
-        TxChildkeyTakeRateLimit::<T>::get()
+        LastRateLimitedBlock::<T>::get(RateLimitKey::TxChildkeyTakeRateLimit)
     }
-    pub fn set_tx_childkey_take_rate_limit(tx_rate_limit: u64) {
-        TxChildkeyTakeRateLimit::<T>::put(tx_rate_limit);
-        Self::deposit_event(Event::TxChildKeyTakeRateLimitSet(tx_rate_limit));
+    pub fn set_tx_childkey_take_rate_limit(tx_rate_limit: u64, skip_event: bool) {
+        LastRateLimitedBlock::<T>::insert(RateLimitKey::TxChildkeyTakeRateLimit, tx_rate_limit);
+
+        if !skip_event {
+            Self::deposit_event(Event::TxChildKeyTakeRateLimitSet(tx_rate_limit));
+        }
     }
     pub fn set_min_childkey_take(take: u16) {
         MinChildkeyTake::<T>::put(take);

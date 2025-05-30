@@ -934,11 +934,11 @@ fn test_childkey_take_rate_limiting() {
 
         // Set a rate limit for childkey take changes
         let rate_limit: u64 = 100;
-        SubtensorModule::set_tx_childkey_take_rate_limit(rate_limit);
+        SubtensorModule::set_tx_childkey_take_rate_limit(rate_limit, false);
 
         log::info!(
             "Set TxChildkeyTakeRateLimit: {:?}",
-            TxChildkeyTakeRateLimit::<Test>::get()
+            SubtensorModule::get_tx_childkey_take_rate_limit()
         );
 
         // Helper function to log rate limit information

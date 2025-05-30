@@ -1045,17 +1045,17 @@ mod dispatches {
         #[pallet::call_index(69)]
         #[pallet::weight((
             Weight::from_parts(6_873_000, 0)
-        .saturating_add(T::DbWeight::get().reads(0))
-        .saturating_add(T::DbWeight::get().writes(1)),
-    DispatchClass::Operational,
-    Pays::No
-))]
+                .saturating_add(T::DbWeight::get().reads(0))
+                .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
         pub fn sudo_set_tx_childkey_take_rate_limit(
             origin: OriginFor<T>,
             tx_rate_limit: u64,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            Self::set_tx_childkey_take_rate_limit(tx_rate_limit);
+            Self::set_tx_childkey_take_rate_limit(tx_rate_limit, false);
             Ok(())
         }
 

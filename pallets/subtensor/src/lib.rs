@@ -2712,4 +2712,6 @@ pub enum RateLimitKey {
     NetworkRateLimit,
     // Rate limit for delegate take transactions
     TxDelegateRateLimit,
+    // Rate limit for delegate childkey take transactions
+    TxChildkeyTakeRateLimit,
 }
