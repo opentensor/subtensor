@@ -57,7 +57,6 @@ extern crate alloc;
 
 pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 
-#[allow(deprecated)]
 #[deny(missing_docs)]
 #[import_section(errors::errors)]
 #[import_section(events::events)]
@@ -582,14 +581,6 @@ pub mod pallet {
         T::InitialSubnetOwnerCut::get()
     }
     #[pallet::type_value]
-    /// Default value for network rate limit.
-    pub fn DefaultNetworkRateLimit<T: Config>() -> u64 {
-        if cfg!(feature = "pow-faucet") {
-            return 0;
-        }
-        T::InitialNetworkRateLimit::get()
-    }
-    #[pallet::type_value]
     /// Default value for weights version key rate limit.
     /// In units of tempos.
     pub fn DefaultWeightsVersionKeyRateLimit<T: Config>() -> u64 {
@@ -625,11 +616,6 @@ pub mod pallet {
     /// Default value for network tempo
     pub fn DefaultTempo<T: Config>() -> u16 {
         T::InitialTempo::get()
-    }
-    #[pallet::type_value]
-    /// Default value for weights set rate limit.
-    pub fn DefaultWeightsSetRateLimit<T: Config>() -> u64 {
-        100
     }
     #[pallet::type_value]
     /// Default block number at registration.
@@ -771,29 +757,9 @@ pub mod pallet {
     //     T::InitialHotkeyEmissionTempo::get()
     // } (DEPRECATED)
     #[pallet::type_value]
-    /// Default value for rate limiting
-    pub fn DefaultTxRateLimit<T: Config>() -> u64 {
-        T::InitialTxRateLimit::get()
-    }
-    #[pallet::type_value]
-    /// Default value for delegate take rate limiting
-    pub fn DefaultTxDelegateTakeRateLimit<T: Config>() -> u64 {
-        T::InitialTxDelegateTakeRateLimit::get()
-    }
-    #[pallet::type_value]
-    /// Default value for chidlkey take rate limiting
-    pub fn DefaultTxChildKeyTakeRateLimit<T: Config>() -> u64 {
-        T::InitialTxChildKeyTakeRateLimit::get()
-    }
-    #[pallet::type_value]
     /// Default value for last extrinsic block.
     pub fn DefaultLastTxBlock<T: Config>() -> u64 {
         0
-    }
-    #[pallet::type_value]
-    /// Default value for serving rate limit.
-    pub fn DefaultServingRateLimit<T: Config>() -> u64 {
-        T::InitialServingRateLimit::get()
     }
     #[pallet::type_value]
     /// Default value for weight commit/reveal enabled.
@@ -1212,9 +1178,6 @@ pub mod pallet {
     #[pallet::storage]
     /// ITEM( subnet_owner_cut )
     pub type SubnetOwnerCut<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetOwnerCut<T>>;
-    #[pallet::storage]
-    /// ITEM( network_rate_limit )
-    pub type NetworkRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkRateLimit<T>>;
     #[pallet::storage] // --- ITEM( nominator_min_required_stake )
     pub type NominatorMinRequiredStake<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage]
@@ -1325,11 +1288,6 @@ pub mod pallet {
     pub type SubnetOwnerHotkey<T: Config> =
         StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
 
-    #[deprecated]
-    #[pallet::storage]
-    /// --- MAP ( netuid ) --> serving_rate_limit
-    pub type ServingRateLimit<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultServingRateLimit<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Rho
     pub type Rho<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultRho<T>>;
@@ -1395,10 +1353,6 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> bonds_reset
     pub type BondsResetOn<T> =
         StorageMap<_, Identity, u16, bool, ValueQuery, DefaultBondsResetOn<T>>;
-    /// --- MAP ( netuid ) --> weights_set_rate_limit
-    #[pallet::storage]
-    pub type WeightsSetRateLimit<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultWeightsSetRateLimit<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> validator_prune_len
     pub type ValidatorPruneLen<T> =
@@ -1455,17 +1409,6 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> global_RAO_recycled_for_registration
     pub type RAORecycledForRegistration<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultRAORecycledForRegistration<T>>;
-    #[pallet::storage]
-    /// --- ITEM ( tx_rate_limit )
-    pub type TxRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultTxRateLimit<T>>;
-    #[pallet::storage]
-    /// --- ITEM ( tx_delegate_take_rate_limit )
-    pub type TxDelegateTakeRateLimit<T> =
-        StorageValue<_, u64, ValueQuery, DefaultTxDelegateTakeRateLimit<T>>;
-    #[pallet::storage]
-    /// --- ITEM ( tx_childkey_take_rate_limit )
-    pub type TxChildkeyTakeRateLimit<T> =
-        StorageValue<_, u64, ValueQuery, DefaultTxChildKeyTakeRateLimit<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Whether or not Liquid Alpha is enabled
     pub type LiquidAlphaOn<T> =

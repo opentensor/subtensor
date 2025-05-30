@@ -94,7 +94,12 @@ impl<T: Config> Pallet<T> {
     }
     /// Gets the network rate limit
     pub fn get_network_rate_limit() -> u64 {
-        LastRateLimitedBlock::<T>::get(RateLimitKey::NetworkRateLimit)
+        let limit_key = RateLimitKey::NetworkRateLimit;
+        if !LastRateLimitedBlock::<T>::contains_key(&limit_key) {
+            return T::InitialNetworkRateLimit::get();
+        }
+
+        LastRateLimitedBlock::<T>::get(limit_key)
     }
 
     /// Checks if registrations are allowed for a given subnet.

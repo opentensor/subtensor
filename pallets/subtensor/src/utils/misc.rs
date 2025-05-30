@@ -293,7 +293,12 @@ impl<T: Config> Pallet<T> {
 
     // Configure tx rate limiting
     pub fn get_tx_rate_limit() -> u64 {
-        LastRateLimitedBlock::<T>::get(RateLimitKey::TxRateLimit)
+        let limit_key = RateLimitKey::TxRateLimit;
+        if !LastRateLimitedBlock::<T>::contains_key(&limit_key) {
+            return T::InitialTxRateLimit::get();
+        }
+
+        LastRateLimitedBlock::<T>::get(limit_key)
     }
     pub fn set_tx_rate_limit(tx_rate_limit: u64, skip_event: bool) {
         LastRateLimitedBlock::<T>::set(RateLimitKey::TxRateLimit, tx_rate_limit);
@@ -303,7 +308,12 @@ impl<T: Config> Pallet<T> {
         }
     }
     pub fn get_tx_delegate_take_rate_limit() -> u64 {
-        LastRateLimitedBlock::<T>::get(RateLimitKey::TxDelegateRateLimit)
+        let limit_key = RateLimitKey::TxDelegateRateLimit;
+        if !LastRateLimitedBlock::<T>::contains_key(&limit_key) {
+            return T::InitialTxDelegateTakeRateLimit::get();
+        }
+
+        LastRateLimitedBlock::<T>::get(limit_key)
     }
     pub fn set_tx_delegate_take_rate_limit(tx_rate_limit: u64, skip_event: bool) {
         LastRateLimitedBlock::<T>::set(RateLimitKey::TxDelegateRateLimit, tx_rate_limit);
@@ -336,7 +346,12 @@ impl<T: Config> Pallet<T> {
         MinChildkeyTake::<T>::get()
     }
     pub fn get_tx_childkey_take_rate_limit() -> u64 {
-        LastRateLimitedBlock::<T>::get(RateLimitKey::TxChildkeyTakeRateLimit)
+        let limit_key = RateLimitKey::TxChildkeyTakeRateLimit;
+        if !LastRateLimitedBlock::<T>::contains_key(&limit_key) {
+            return T::InitialTxChildKeyTakeRateLimit::get();
+        }
+
+        LastRateLimitedBlock::<T>::get(limit_key)
     }
     pub fn set_tx_childkey_take_rate_limit(tx_rate_limit: u64, skip_event: bool) {
         LastRateLimitedBlock::<T>::insert(RateLimitKey::TxChildkeyTakeRateLimit, tx_rate_limit);
@@ -363,6 +378,10 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_serving_rate_limit(netuid: u16) -> u64 {
         let limit_key = RateLimitKey::ServingRateLimit(netuid);
+        if !LastRateLimitedBlock::<T>::contains_key(&limit_key) {
+            return T::InitialServingRateLimit::get();
+        }
+
         Self::get_rate_limited_last_block(&limit_key)
     }
     pub fn set_serving_rate_limit(netuid: u16, serving_rate_limit: u64, skip_event: bool) {
@@ -399,7 +418,13 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_weights_set_rate_limit(netuid: u16) -> u64 {
+        const DEFAULT: u64 = 100;
         let limit_key = RateLimitKey::SetWeightsRateLimit(netuid);
+
+        if !LastRateLimitedBlock::<T>::contains_key(&limit_key) {
+            return DEFAULT;
+        }
+
         LastRateLimitedBlock::<T>::get(&limit_key)
     }
     pub fn set_weights_set_rate_limit(netuid: u16, weights_set_rate_limit: u64, skip_event: bool) {

@@ -1,5 +1,6 @@
 use core::marker::PhantomData;
 
+use crate::{PrecompileExt, PrecompileHandleExt};
 use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 use frame_support::traits::ConstU32;
 use frame_system::RawOrigin;
@@ -7,8 +8,6 @@ use pallet_evm::{AddressMapping, PrecompileHandle};
 use precompile_utils::{EvmResult, prelude::BoundedString};
 use sp_core::H256;
 use sp_runtime::traits::Dispatchable;
-
-use crate::{PrecompileExt, PrecompileHandleExt};
 
 pub struct SubnetPrecompile<R>(PhantomData<R>);
 
@@ -194,7 +193,7 @@ where
     #[precompile::public("getWeightsSetRateLimit(uint16)")]
     #[precompile::view]
     fn get_weights_set_rate_limit(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::WeightsSetRateLimit::<R>::get(netuid))
+        Ok(pallet_subtensor::pallet::Pallet::<R>::get_weights_set_rate_limit(netuid))
     }
 
     #[precompile::public("setWeightsSetRateLimit(uint16,uint64)")]
