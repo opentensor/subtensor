@@ -251,6 +251,8 @@ fn test_subtoken_enable_reject_trading_before_enable() {
         let hotkey_account_2_id: U256 = U256::from(3);
         let amount = DefaultMinStake::<Test>::get() * 10;
 
+        let limit_price = 1000; // not important
+
         add_network_disable_subtoken(netuid, 10, 0);
         add_network_disable_subtoken(netuid2, 10, 0);
 
@@ -269,6 +271,46 @@ fn test_subtoken_enable_reject_trading_before_enable() {
                 hotkey_account_id,
                 netuid,
                 amount
+            ),
+            Error::<Test>::SubtokenDisabled
+        );
+
+        assert_noop!(
+            SubtensorModule::add_stake_limit(
+                RuntimeOrigin::signed(coldkey_account_id),
+                hotkey_account_id,
+                netuid,
+                amount,
+                limit_price,
+                false
+            ),
+            Error::<Test>::SubtokenDisabled
+        );
+
+        assert_noop!(
+            SubtensorModule::unstake_all(
+                RuntimeOrigin::signed(coldkey_account_id),
+                hotkey_account_id
+            ),
+            Error::<Test>::SubtokenDisabled
+        );
+
+        assert_noop!(
+            SubtensorModule::unstake_all_alpha(
+                RuntimeOrigin::signed(coldkey_account_id),
+                hotkey_account_id
+            ),
+            Error::<Test>::SubtokenDisabled
+        );
+
+        assert_noop!(
+            SubtensorModule::remove_stake_limit(
+                RuntimeOrigin::signed(coldkey_account_id),
+                hotkey_account_id,
+                netuid,
+                amount,
+                limit_price,
+                false
             ),
             Error::<Test>::SubtokenDisabled
         );
