@@ -311,19 +311,34 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Perform a swap
+    /// Executes a token swap on the specified subnet.
     ///
-    /// Returns a tuple (amount_paid_out, refund), where amount_paid_out is the resulting paid out
-    /// amount and refund is any unswapped amount returned to the caller
+    /// # Parameters
+    /// - `netuid`: The identifier of the subnet on which the swap is performed.
+    /// - `order_type`: The type of the swap (e.g., Buy or Sell).
+    /// - `amount`: The amount of tokens to swap.
+    /// - `sqrt_price_limit`: A price limit (expressed as a square root) to bound the swap.
+    /// - `simulate`: If `true`, the function runs in simulation mode and does not persist any changes.
     ///
-    /// The function can be used without writing into the storage by setting `should_rollback` to
-    /// `true`.
+    /// # Returns
+    /// Returns a [`Result`] with a [`SwapResult`] on success, or a [`DispatchError`] on failure.
+    /// 
+    /// The [`SwapResult`] contains:
+    /// - `amount_paid_out`: The amount of tokens received from the swap.
+    /// - `refund`: Any unswapped portion of the input amount, refunded to the caller.
+    ///
+    /// # Simulation Mode
+    /// When `simulate` is set to `true`, the function:
+    /// 1. Executes all logic without persisting any state changes (i.e., performs a dry run).
+    /// 2. Skips reserve checks — it may return an `amount_paid_out` greater than the available reserve.
+    ///
+    /// Use simulation mode to preview the outcome of a swap without modifying the blockchain state.
     pub fn do_swap(
         netuid: NetUid,
         order_type: OrderType,
         amount: u64,
         sqrt_price_limit: SqrtPrice,
-        should_rollback: bool,
+        simulate: bool,
     ) -> Result<SwapResult, DispatchError> {
         transactional::with_transaction(|| {
             // Read alpha and tao reserves before transaction
@@ -333,7 +348,7 @@ impl<T: Config> Pallet<T> {
             let mut result =
                 Self::swap_inner(netuid, order_type, amount, sqrt_price_limit).map_err(Into::into);
 
-            if should_rollback || result.is_err() {
+            if simulate || result.is_err() {
                 // Simulation only
                 TransactionOutcome::Rollback(result)
             } else {
