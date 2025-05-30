@@ -393,14 +393,19 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_weights_set_rate_limit(netuid: u16) -> u64 {
-        WeightsSetRateLimit::<T>::get(netuid)
+        let limit_key = RateLimitKey::SetWeightsRateLimit(netuid);
+        LastRateLimitedBlock::<T>::get(&limit_key)
     }
-    pub fn set_weights_set_rate_limit(netuid: u16, weights_set_rate_limit: u64) {
-        WeightsSetRateLimit::<T>::insert(netuid, weights_set_rate_limit);
-        Self::deposit_event(Event::WeightsSetRateLimitSet(
-            netuid,
-            weights_set_rate_limit,
-        ));
+    pub fn set_weights_set_rate_limit(netuid: u16, weights_set_rate_limit: u64, skip_event: bool) {
+        let limit_key = RateLimitKey::SetWeightsRateLimit(netuid);
+        LastRateLimitedBlock::<T>::insert(&limit_key, weights_set_rate_limit);
+
+        if !skip_event {
+            Self::deposit_event(Event::WeightsSetRateLimitSet(
+                netuid,
+                weights_set_rate_limit,
+            ));
+        }
     }
 
     pub fn get_adjustment_interval(netuid: u16) -> u16 {

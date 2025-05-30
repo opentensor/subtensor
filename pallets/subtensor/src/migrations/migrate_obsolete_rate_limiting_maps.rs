@@ -9,7 +9,9 @@ use sp_io::hashing::twox_128;
 use sp_io::storage::{clear, get};
 
 pub fn migrate_obsolete_rate_limiting_maps<T: Config>() -> Weight {
-    migrate_serving_rate_limits::<T>().saturating_add(migrate_tx_rate_limits::<T>())
+    migrate_serving_rate_limits::<T>()
+        .saturating_add(migrate_tx_rate_limits::<T>())
+        .saturating_add(migrate_set_weights_rate_limits::<T>())
 }
 
 pub fn migrate_tx_rate_limits<T: Config>() -> Weight {
@@ -34,6 +36,22 @@ pub fn migrate_serving_rate_limits<T: Config>() -> Weight {
         |netuid| netuid.encode(),
         |netuid, limit| {
             Pallet::<T>::set_serving_rate_limit(netuid, limit, true);
+        },
+    )
+}
+
+pub fn migrate_set_weights_rate_limits<T: Config>() -> Weight {
+    let migration_name = b"migrate_set_weights_rate_limits".to_vec();
+    let pallet_name = "SubtensorModule";
+    let storage_name = "WeightsSetRateLimit";
+
+    migrate_limit_map_netuids::<T, _, _>(
+        migration_name,
+        pallet_name,
+        storage_name,
+        |netuid| netuid.encode(),
+        |netuid, limit| {
+            Pallet::<T>::set_weights_set_rate_limit(netuid, limit, true);
         },
     )
 }

@@ -2706,4 +2706,6 @@ pub enum RateLimitKey {
     ServingRateLimit(u16),
     // Limits transaction number
     TxRateLimit,
+    // Limits set_weights operation
+    SetWeightsRateLimit(u16),
 }

@@ -333,6 +333,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::set_weights_set_rate_limit(
                 netuid,
                 weights_set_rate_limit,
+                false,
             );
             log::debug!(
                 "WeightsSetRateLimitSet( netuid: {:?} weights_set_rate_limit: {:?} ) ",

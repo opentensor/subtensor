@@ -2625,7 +2625,7 @@ fn test_childkey_set_weights_single_parent() {
             1_000_000,
         );
 
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0, false);
 
         // Set parent-child relationship
         mock_set_children_no_epochs(netuid, &parent, &[(u64::MAX, child)]);
@@ -2720,7 +2720,7 @@ fn test_set_weights_no_parent() {
             stake_to_give_child,
         );
 
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0, false);
 
         // Has stake and no parent
         step_block(7200 + 1);
@@ -2824,7 +2824,7 @@ fn test_childkey_take_drain() {
                 &nominator,
                 stake + ExistentialDeposit::get(),
             );
-            SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+            SubtensorModule::set_weights_set_rate_limit(netuid, 0, false);
             SubtensorModule::set_max_allowed_validators(netuid, 2);
             step_block(subnet_tempo);
             SubnetOwnerCut::<Test>::set(0);
@@ -3575,7 +3575,7 @@ fn test_dynamic_parent_child_relationships() {
         let version_key = SubtensorModule::get_weights_version_key(netuid);
 
         // Ensure we can set weights without rate limiting
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0, false);
 
         assert_ok!(SubtensorModule::set_weights(
             origin,

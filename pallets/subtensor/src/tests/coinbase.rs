@@ -1902,7 +1902,7 @@ fn test_drain_pending_emission_zero_emission() {
         let tempo = 2;
         SubtensorModule::set_tempo(netuid, tempo);
         // Set weight-set limit to 0.
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0, false);
 
         register_ok_neuron(netuid, hotkey, coldkey, 0);
         register_ok_neuron(netuid, miner_hk, miner_ck, 0);
@@ -1975,7 +1975,7 @@ fn test_run_coinbase_not_started() {
         let tempo = 2;
         SubtensorModule::set_tempo(netuid, tempo);
         // Set weight-set limit to 0.
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0, false);
 
         register_ok_neuron(netuid, hotkey, coldkey, 0);
         register_ok_neuron(netuid, miner_hk, miner_ck, 0);
@@ -2057,7 +2057,7 @@ fn test_run_coinbase_not_started_start_after() {
         let tempo = 2;
         SubtensorModule::set_tempo(netuid, tempo);
         // Set weight-set limit to 0.
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0, false);
 
         register_ok_neuron(netuid, hotkey, coldkey, 0);
         register_ok_neuron(netuid, miner_hk, miner_ck, 0);
