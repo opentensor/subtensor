@@ -451,8 +451,8 @@ mod pallet {
 
                 // Emit an event
                 Self::deposit_event(Event::LiquidityAdded {
-                    coldkey,
-                    hotkey,
+                    coldkey: coldkey.clone(),
+                    hotkey: hotkey.clone(),
                     netuid,
                     position_id,
                     liquidity: liquidity_delta as u64,
@@ -461,20 +461,12 @@ mod pallet {
                 });
             } else {
                 // Credit the returned tao and alpha to the account
-                T::BalanceOps::increase_balance(
-                    &coldkey,
-                    result.tao.saturating_add(result.fee_tao),
-                );
-                T::BalanceOps::increase_stake(
-                    &coldkey,
-                    &hotkey,
-                    netuid,
-                    result.alpha.saturating_add(result.fee_alpha),
-                )?;
+                T::BalanceOps::increase_balance(&coldkey, result.tao);
+                T::BalanceOps::increase_stake(&coldkey, &hotkey, netuid, result.alpha)?;
 
                 // Emit an event
                 Self::deposit_event(Event::LiquidityRemoved {
-                    coldkey,
+                    coldkey: coldkey.clone(),
                     netuid: netuid.into(),
                     position_id,
                     tao: result.tao,
@@ -482,6 +474,14 @@ mod pallet {
                     fee_tao: result.fee_tao,
                     fee_alpha: result.fee_alpha,
                 });
+            }
+
+            // Credit accrued fees to user account (no matter if liquidity is added or removed)
+            if result.fee_tao > 0 {
+                T::BalanceOps::increase_balance(&coldkey, result.fee_tao);
+            }
+            if result.fee_alpha > 0 {
+                T::BalanceOps::increase_stake(&coldkey, &hotkey.clone(), netuid, result.fee_alpha)?;
             }
 
             Ok(())

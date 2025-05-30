@@ -322,7 +322,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     /// Returns a [`Result`] with a [`SwapResult`] on success, or a [`DispatchError`] on failure.
-    /// 
+    ///
     /// The [`SwapResult`] contains:
     /// - `amount_paid_out`: The amount of tokens received from the swap.
     /// - `refund`: Any unswapped portion of the input amount, refunded to the caller.
