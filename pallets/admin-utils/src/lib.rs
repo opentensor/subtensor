@@ -177,7 +177,7 @@ pub mod pallet {
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_tx_rate_limit(origin: OriginFor<T>, tx_rate_limit: u64) -> DispatchResult {
             ensure_root(origin)?;
-            pallet_subtensor::Pallet::<T>::set_tx_rate_limit(tx_rate_limit);
+            pallet_subtensor::Pallet::<T>::set_tx_rate_limit(tx_rate_limit, false);
             log::debug!("TxRateLimitSet( tx_rate_limit: {:?} ) ", tx_rate_limit);
             Ok(())
         }

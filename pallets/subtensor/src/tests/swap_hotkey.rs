@@ -729,7 +729,7 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
         log::info!("current_tx_rate_limit: {:?}", current_tx_rate_limit);
 
         // Set the transaction rate limit
-        SubtensorModule::set_tx_rate_limit(tx_rate_limit);
+        SubtensorModule::set_tx_rate_limit(tx_rate_limit, false);
         // assert the rate limit is set to 1000 blocks
         assert_eq!(SubtensorModule::get_tx_rate_limit(), tx_rate_limit);
 

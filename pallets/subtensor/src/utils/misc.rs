@@ -295,10 +295,12 @@ impl<T: Config> Pallet<T> {
     pub fn get_tx_rate_limit() -> u64 {
         LastRateLimitedBlock::<T>::get(RateLimitKey::TxRateLimit)
     }
-    pub fn set_tx_rate_limit(tx_rate_limit: u64) {
+    pub fn set_tx_rate_limit(tx_rate_limit: u64, skip_event: bool) {
         LastRateLimitedBlock::<T>::set(RateLimitKey::TxRateLimit, tx_rate_limit);
 
-        Self::deposit_event(Event::TxRateLimitSet(tx_rate_limit));
+        if !skip_event {
+            Self::deposit_event(Event::TxRateLimitSet(tx_rate_limit));
+        }
     }
     pub fn get_tx_delegate_take_rate_limit() -> u64 {
         TxDelegateTakeRateLimit::<T>::get()
