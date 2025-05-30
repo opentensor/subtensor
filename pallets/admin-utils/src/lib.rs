@@ -913,7 +913,7 @@ pub mod pallet {
             rate_limit: u64,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            pallet_subtensor::Pallet::<T>::set_network_rate_limit(rate_limit);
+            pallet_subtensor::Pallet::<T>::set_network_rate_limit(rate_limit, false);
             log::debug!("NetworkRateLimit( rate_limit: {:?} ) ", rate_limit);
             Ok(())
         }

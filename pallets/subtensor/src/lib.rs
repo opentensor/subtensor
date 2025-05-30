@@ -2708,4 +2708,6 @@ pub enum RateLimitKey {
     TxRateLimit,
     // Limits set_weights operation
     SetWeightsRateLimit(u16),
+    // Network rate limits
+    NetworkRateLimit,
 }

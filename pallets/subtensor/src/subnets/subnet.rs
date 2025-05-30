@@ -85,9 +85,16 @@ impl<T: Config> Pallet<T> {
 
     /// Sets the network rate limit and emit the `NetworkRateLimitSet` event
     ///
-    pub fn set_network_rate_limit(limit: u64) {
-        NetworkRateLimit::<T>::set(limit);
-        Self::deposit_event(Event::NetworkRateLimitSet(limit));
+    pub fn set_network_rate_limit(limit: u64, skip_event: bool) {
+        LastRateLimitedBlock::<T>::insert(RateLimitKey::NetworkRateLimit, limit);
+
+        if !skip_event {
+            Self::deposit_event(Event::NetworkRateLimitSet(limit));
+        }
+    }
+    /// Gets the network rate limit
+    pub fn get_network_rate_limit() -> u64 {
+        LastRateLimitedBlock::<T>::get(RateLimitKey::NetworkRateLimit)
     }
 
     /// Checks if registrations are allowed for a given subnet.
@@ -147,7 +154,7 @@ impl<T: Config> Pallet<T> {
         let current_block = Self::get_current_block_as_u64();
         let last_lock_block = Self::get_network_last_lock_block();
         ensure!(
-            current_block.saturating_sub(last_lock_block) >= NetworkRateLimit::<T>::get(),
+            current_block.saturating_sub(last_lock_block) >= Self::get_network_rate_limit(),
             Error::<T>::NetworkTxRateLimitExceeded
         );
 

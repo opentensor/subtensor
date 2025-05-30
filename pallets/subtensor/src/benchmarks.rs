@@ -451,7 +451,7 @@ mod pallet_benchmarks {
         let coldkey: T::AccountId = account("Test", 0, seed);
         let hotkey: T::AccountId = account("TestHotkey", 0, seed);
 
-        Subtensor::<T>::set_network_rate_limit(1);
+        Subtensor::<T>::set_network_rate_limit(1, false);
         let amount: u64 = 100_000_000_000_000u64.saturating_mul(2);
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, amount);
 
@@ -1303,7 +1303,7 @@ mod pallet_benchmarks {
         let identity: Option<SubnetIdentityOfV2> = None;
 
         Subtensor::<T>::set_network_registration_allowed(1, true);
-        Subtensor::<T>::set_network_rate_limit(1);
+        Subtensor::<T>::set_network_rate_limit(1, false);
         let amount: u64 = 9_999_999_999_999;
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, amount);
 
