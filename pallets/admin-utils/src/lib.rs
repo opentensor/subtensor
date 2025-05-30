@@ -1098,7 +1098,7 @@ pub mod pallet {
             tx_rate_limit: u64,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            pallet_subtensor::Pallet::<T>::set_tx_delegate_take_rate_limit(tx_rate_limit);
+            pallet_subtensor::Pallet::<T>::set_tx_delegate_take_rate_limit(tx_rate_limit, false);
             log::debug!(
                 "TxRateLimitDelegateTakeSet( tx_delegate_take_rate_limit: {:?} ) ",
                 tx_rate_limit

@@ -13,8 +13,18 @@ pub fn migrate_obsolete_rate_limiting_maps<T: Config>() -> Weight {
         .saturating_add(migrate_tx_rate_limits::<T>())
         .saturating_add(migrate_set_weights_rate_limits::<T>())
         .saturating_add(migrate_network_rate_limits::<T>())
+        .saturating_add(migrate_tx_delegate_take_rate_limits::<T>())
 }
 
+pub fn migrate_tx_delegate_take_rate_limits<T: Config>() -> Weight {
+    let migration_name = b"migrate_tx_delegate_take_rate_limits".to_vec();
+    let pallet_name = "SubtensorModule";
+    let storage_name = "TxDelegateTakeRateLimit";
+
+    migrate_value::<T, _>(migration_name, pallet_name, storage_name, |limit| {
+        Pallet::<T>::set_tx_delegate_take_rate_limit(limit, true);
+    })
+}
 pub fn migrate_network_rate_limits<T: Config>() -> Weight {
     let migration_name = b"migrate_network_rate_limits".to_vec();
     let pallet_name = "SubtensorModule";

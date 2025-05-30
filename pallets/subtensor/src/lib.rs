@@ -2710,4 +2710,6 @@ pub enum RateLimitKey {
     SetWeightsRateLimit(u16),
     // Network rate limits
     NetworkRateLimit,
+    // Rate limit for delegate take transactions
+    TxDelegateRateLimit,
 }
