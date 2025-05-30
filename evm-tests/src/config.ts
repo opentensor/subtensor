@@ -36,3 +36,7 @@ export const IBalanceTransferABI = [
         type: "function",
     },
 ];
+
+export const IDISPATCH_ADDRESS = "0x0000000000000000000000000000000000000006";
+
+export const ISTORAGE_QUERY_ADDRESS = "0x0000000000000000000000000000000000000807";
