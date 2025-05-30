@@ -53,7 +53,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn set_rate_limit() -> Weight {
 		Weight::from_parts(10_000_000, 2000)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
-	}	
+	}
 }
 
 // For backwards compatibility and tests.
@@ -76,5 +76,5 @@ impl WeightInfo for () {
 	fn set_rate_limit() -> Weight {
 		Weight::from_parts(10_000_000, 2000)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
-	}	
+	}
 }

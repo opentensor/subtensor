@@ -781,8 +781,8 @@ impl TickIndexBitmap {
     /// # Arguments
     /// * `word` - The bitmap word to search within
     /// * `bit` - The bit position to start searching from
-    /// * `lower` - If true, search for lower bits (decreasing bit position),
-    ///             if false, search for higher bits (increasing bit position)
+    /// * `lower` - If true, search for lower bits (decreasing bit position), if false, search for
+    ///   higher bits (increasing bit position)
     ///
     /// # Returns
     /// * Exact match: Vec with [next_bit, bit]

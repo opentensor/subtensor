@@ -14,7 +14,7 @@ pub mod check_nonce;
 mod migrations;
 
 use codec::{Compact, Decode, Encode};
-use frame_support::traits::Imbalance;
+use frame_support::traits::{Imbalance, InsideBoth};
 use frame_support::{
     PalletId,
     dispatch::DispatchResultWithPostInfo,
@@ -28,7 +28,7 @@ use frame_support::{
     },
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
-use pallet_commitments::CanCommit;
+use pallet_commitments::{CanCommit, OnMetadataCommitment};
 use pallet_grandpa::{
     AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList, fg_primitives,
 };
@@ -97,12 +97,13 @@ use scale_info::TypeInfo;
 // Frontier
 use fp_rpc::TransactionStatus;
 use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
-use pallet_evm::{Account as EVMAccount, BalanceConverter, FeeCalculator, Runner};
+use pallet_evm::{
+    Account as EVMAccount, BalanceConverter, EvmBalance, FeeCalculator, Runner, SubstrateBalance,
+};
 
 // Drand
 impl pallet_drand::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = pallet_drand::weights::SubstrateWeight<Runtime>;
     type AuthorityId = pallet_drand::crypto::TestAuthId;
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;
@@ -210,7 +211,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 260,
+    spec_version: 273,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -245,11 +246,33 @@ parameter_types! {
     pub const SS58Prefix: u8 = 42;
 }
 
+pub struct NoNestingCallFilter;
+
+impl Contains<RuntimeCall> for NoNestingCallFilter {
+    fn contains(call: &RuntimeCall) -> bool {
+        match call {
+            RuntimeCall::Utility(inner) => {
+                let calls = match inner {
+                    pallet_utility::Call::force_batch { calls } => calls,
+                    pallet_utility::Call::batch { calls } => calls,
+                    pallet_utility::Call::batch_all { calls } => calls,
+                    _ => &Vec::new(),
+                };
+
+                !calls.iter().any(|call| {
+					matches!(call, RuntimeCall::Utility(inner) if matches!(inner, pallet_utility::Call::force_batch { .. } | pallet_utility::Call::batch_all { .. } | pallet_utility::Call::batch { .. }))
+				})
+            }
+            _ => true,
+        }
+    }
+}
+
 // Configure FRAME pallets to include in runtime.
 
 impl frame_system::Config for Runtime {
     // The basic call filter to use in dispatchable.
-    type BaseCallFilter = SafeMode;
+    type BaseCallFilter = InsideBoth<SafeMode, NoNestingCallFilter>;
     // Block & extrinsics weights: base values and limits.
     type BlockWeights = BlockWeights;
     // The maximum length of a block (in bytes).
@@ -676,6 +699,18 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(
                         pallet_subtensor::Call::remove_stake_limit { .. }
                     )
+                    // | RuntimeCall::SubtensorModule(
+                    //     pallet_subtensor::Call::add_stake_aggregate { .. }
+                    // )
+                    // | RuntimeCall::SubtensorModule(
+                    //     pallet_subtensor::Call::add_stake_limit_aggregate { .. }
+                    // )
+                    // | RuntimeCall::SubtensorModule(
+                    //     pallet_subtensor::Call::remove_stake_aggregate { .. }
+                    // )
+                    // | RuntimeCall::SubtensorModule(
+                    //     pallet_subtensor::Call::remove_stake_limit_aggregate { .. }
+                    // )
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::unstake_all { .. })
                     | RuntimeCall::SubtensorModule(
                         pallet_subtensor::Call::unstake_all_alpha { .. }
@@ -713,7 +748,15 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 }) => *alpha_amount < SMALL_TRANSFER_LIMIT,
                 _ => false,
             },
-            ProxyType::Owner => matches!(c, RuntimeCall::AdminUtils(..)),
+            ProxyType::Owner => {
+                matches!(c, RuntimeCall::AdminUtils(..))
+                    && !matches!(
+                        c,
+                        RuntimeCall::AdminUtils(
+                            pallet_admin_utils::Call::sudo_set_sn_owner_hotkey { .. }
+                        )
+                    )
+            }
             ProxyType::NonCritical => !matches!(
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::dissolve_network { .. })
@@ -748,7 +791,18 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake_limit { .. })
                     | RuntimeCall::SubtensorModule(
                         pallet_subtensor::Call::remove_stake_limit { .. }
-                    )
+                    ) // | RuntimeCall::SubtensorModule(
+                      //     pallet_subtensor::Call::add_stake_aggregate { .. }
+                      // )
+                      // | RuntimeCall::SubtensorModule(
+                      //     pallet_subtensor::Call::add_stake_limit_aggregate { .. }
+                      // )
+                      // | RuntimeCall::SubtensorModule(
+                      //     pallet_subtensor::Call::remove_stake_aggregate { .. }
+                      // )
+                      // | RuntimeCall::SubtensorModule(
+                      //     pallet_subtensor::Call::remove_stake_limit_aggregate { .. }
+                      // )
             ),
             ProxyType::Registration => matches!(
                 c,
@@ -923,10 +977,9 @@ impl pallet_registry::Config for Runtime {
 }
 
 parameter_types! {
-    pub const MaxCommitFieldsInner: u32 = 1;
+    pub const MaxCommitFieldsInner: u32 = 3;
     pub const CommitmentInitialDeposit: Balance = 0; // Free
     pub const CommitmentFieldDeposit: Balance = 0; // Free
-    pub const CommitmentRateLimit: BlockNumber = 100; // Allow commitment every 100 blocks
 }
 
 #[subtensor_macros::freeze_struct("7c76bd954afbb54e")]
@@ -952,17 +1005,28 @@ impl CanCommit<AccountId> for AllowCommitments {
     }
 }
 
+pub struct ResetBondsOnCommit;
+impl OnMetadataCommitment<AccountId> for ResetBondsOnCommit {
+    #[cfg(not(feature = "runtime-benchmarks"))]
+    fn on_metadata_commitment(netuid: u16, address: &AccountId) {
+        let _ = SubtensorModule::do_reset_bonds(netuid, address);
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn on_metadata_commitment(_: u16, _: &AccountId) {}
+}
+
 impl pallet_commitments::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type WeightInfo = pallet_commitments::weights::SubstrateWeight<Runtime>;
 
     type CanCommit = AllowCommitments;
+    type OnMetadataCommitment = ResetBondsOnCommit;
 
     type MaxFields = MaxCommitFields;
     type InitialDeposit = CommitmentInitialDeposit;
     type FieldDeposit = CommitmentFieldDeposit;
-    type DefaultRateLimit = CommitmentRateLimit;
     type TempoInterface = TempoInterface;
 }
 
@@ -994,6 +1058,7 @@ pub const INITIAL_CHILDKEY_TAKE_RATELIMIT: u64 = 5;
 // Configure the pallet subtensor.
 parameter_types! {
     pub const SubtensorInitialRho: u16 = 10;
+    pub const SubtensorInitialAlphaSigmoidSteepness: u16 = 1000;
     pub const SubtensorInitialKappa: u16 = 32_767; // 0.5 = 65535/2
     pub const SubtensorInitialMaxAllowedUids: u16 = 4096;
     pub const SubtensorInitialIssuance: u64 = 0;
@@ -1014,6 +1079,7 @@ parameter_types! {
     pub const SubtensorInitialPruningScore : u16 = u16::MAX;
     pub const SubtensorInitialBondsMovingAverage: u64 = 900_000;
     pub const SubtensorInitialBondsPenalty: u16 = u16::MAX;
+    pub const SubtensorInitialBondsResetOn: bool = false;
     pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
     pub const SubtensorInitialMinDelegateTake: u16 = 0; // Allow 0% delegate take
     pub const SubtensorInitialDefaultChildKeyTake: u16 = 0; // Allow 0% childkey take
@@ -1042,8 +1108,10 @@ parameter_types! {
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
+    pub const InitialYuma3On: bool = false; // Default value for Yuma3On
     // pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // (DEPRECATED)
     pub const InitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
+    pub const InitialColdkeySwapRescheduleDuration: BlockNumber = 24 * 60 * 60 / 12; // 1 day
     pub const InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const SubtensorInitialTaoWeight: u64 = 971_718_665_099_567_868; // 0.05267697438728329% tao weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
@@ -1064,10 +1132,12 @@ impl pallet_subtensor::Config for Runtime {
     type TriumvirateInterface = TriumvirateVotes;
     type Scheduler = Scheduler;
     type InitialRho = SubtensorInitialRho;
+    type InitialAlphaSigmoidSteepness = SubtensorInitialAlphaSigmoidSteepness;
     type InitialKappa = SubtensorInitialKappa;
     type InitialMaxAllowedUids = SubtensorInitialMaxAllowedUids;
     type InitialBondsMovingAverage = SubtensorInitialBondsMovingAverage;
     type InitialBondsPenalty = SubtensorInitialBondsPenalty;
+    type InitialBondsResetOn = SubtensorInitialBondsResetOn;
     type InitialIssuance = SubtensorInitialIssuance;
     type InitialMinAllowedWeights = SubtensorInitialMinAllowedWeights;
     type InitialEmissionValue = SubtensorInitialEmissionValue;
@@ -1111,9 +1181,11 @@ impl pallet_subtensor::Config for Runtime {
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;
+    type Yuma3On = InitialYuma3On;
     type InitialTaoWeight = SubtensorInitialTaoWeight;
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
+    type InitialColdkeySwapRescheduleDuration = InitialColdkeySwapRescheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
@@ -1168,7 +1240,6 @@ impl pallet_admin_utils::Config for Runtime {
     type Aura = AuraPalletIntrf;
     type Grandpa = GrandpaInterfaceImpl;
     type Balance = Balance;
-    type WeightInfo = pallet_admin_utils::weights::SubstrateWeight<Runtime>;
 }
 
 /// Define the ChainId
@@ -1231,11 +1302,12 @@ pub struct SubtensorEvmBalanceConverter;
 
 impl BalanceConverter for SubtensorEvmBalanceConverter {
     /// Convert from Substrate balance (u64) to EVM balance (U256)
-    fn into_evm_balance(value: U256) -> Option<U256> {
+    fn into_evm_balance(value: SubstrateBalance) -> Option<EvmBalance> {
+        let value = value.into_u256();
         if let Some(evm_value) = value.checked_mul(U256::from(EVM_TO_SUBSTRATE_DECIMALS)) {
             // Ensure the result fits within the maximum U256 value
             if evm_value <= U256::MAX {
-                Some(evm_value)
+                Some(EvmBalance::new(evm_value))
             } else {
                 // Log value too large
                 log::debug!(
@@ -1255,11 +1327,12 @@ impl BalanceConverter for SubtensorEvmBalanceConverter {
     }
 
     /// Convert from EVM balance (U256) to Substrate balance (u64)
-    fn into_substrate_balance(value: U256) -> Option<U256> {
+    fn into_substrate_balance(value: EvmBalance) -> Option<SubstrateBalance> {
+        let value = value.into_u256();
         if let Some(substrate_value) = value.checked_div(U256::from(EVM_TO_SUBSTRATE_DECIMALS)) {
             // Ensure the result fits within the TAO balance type (u64)
             if substrate_value <= U256::from(u64::MAX) {
-                Some(substrate_value)
+                Some(SubstrateBalance::new(substrate_value))
             } else {
                 // Log value too large
                 log::debug!(
@@ -1423,6 +1496,40 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
     }
 }
 
+// Crowdloan
+parameter_types! {
+    pub const CrowdloanPalletId: PalletId = PalletId(*b"bt/cloan");
+    pub const MinimumDeposit: Balance = 10_000_000_000; // 10 TAO
+    pub const AbsoluteMinimumContribution: Balance = 100_000_000; // 0.1 TAO
+    pub const MinimumBlockDuration: BlockNumber = if cfg!(feature = "fast-blocks") {
+        50
+    } else {
+        50400 // 7 days minimum (7 * 24 * 60 * 60 / 12)
+    };
+    pub const MaximumBlockDuration: BlockNumber = if cfg!(feature = "fast-blocks") {
+       20000
+    } else {
+        432000 // 60 days maximum (60 * 24 * 60 * 60 / 12)
+    };
+    pub const RefundContributorsLimit: u32 = 50;
+    pub const MaxContributors: u32 = 500;
+}
+
+impl pallet_crowdloan::Config for Runtime {
+    type PalletId = CrowdloanPalletId;
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type Currency = Balances;
+    type WeightInfo = pallet_crowdloan::weights::SubstrateWeight<Runtime>;
+    type Preimages = Preimage;
+    type MinimumDeposit = MinimumDeposit;
+    type AbsoluteMinimumContribution = AbsoluteMinimumContribution;
+    type MinimumBlockDuration = MinimumBlockDuration;
+    type MaximumBlockDuration = MaximumBlockDuration;
+    type RefundContributorsLimit = RefundContributorsLimit;
+    type MaxContributors = MaxContributors;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
     pub struct Runtime
@@ -1457,7 +1564,8 @@ construct_runtime!(
         BaseFee: pallet_base_fee = 25,
 
         Drand: pallet_drand = 26,
-        Swap: pallet_subtensor_swap = 27,
+        Crowdloan: pallet_crowdloan = 27,
+        Swap: pallet_subtensor_swap = 28,
     }
 );
 
@@ -1527,7 +1635,47 @@ mod benches {
         [pallet_admin_utils, AdminUtils]
         [pallet_subtensor, SubtensorModule]
         [pallet_drand, Drand]
+        [pallet_crowdloan, Crowdloan]
     );
+}
+
+fn generate_genesis_json() -> Vec<u8> {
+    let json_str = r#"{
+      "aura": {
+        "authorities": [
+          "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+        ]
+      },
+      "balances": {
+        "balances": [
+          [
+            "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+            1000000000000000
+          ],
+          [
+            "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
+            1000000000000000
+          ]
+        ]
+      },
+      "grandpa": {
+        "authorities": [
+          [
+            "5FA9nQDVg267DEd8m1ZypXLBnvN7SFxYwV7ndqSYGiN9TTpu",
+            1
+          ]
+        ]
+      },
+      "sudo": {
+        "key": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+      },
+      "subtensorModule": {
+        "balancesIssuance": 0,
+        "stakes": []
+      }
+    }"#;
+
+    json_str.as_bytes().to_vec()
 }
 
 impl_runtime_apis! {
@@ -1586,11 +1734,18 @@ impl_runtime_apis! {
         }
 
         fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
-            get_preset::<RuntimeGenesisConfig>(id, |_| None)
+            get_preset::<RuntimeGenesisConfig>(id, |preset_id| {
+                let benchmark_id: sp_genesis_builder::PresetId = "benchmark".into();
+                if *preset_id == benchmark_id {
+                    Some(generate_genesis_json())
+                } else {
+                    None
+                }
+            })
         }
 
         fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-            vec![]
+            vec!["benchmark".into()]
         }
     }
 
@@ -1600,6 +1755,14 @@ impl_runtime_apis! {
             tx: <Block as BlockT>::Extrinsic,
             block_hash: <Block as BlockT>::Hash,
         ) -> TransactionValidity {
+            use codec::DecodeLimit;
+            use frame_support::pallet_prelude::{InvalidTransaction, TransactionValidityError};
+            use frame_support::traits::ExtrinsicCall;
+            let encoded = tx.call().encode();
+            if RuntimeCall::decode_all_with_depth_limit(8, &mut encoded.as_slice()).is_err() {
+                log::warn!("failed to decode with depth limit of 8");
+                return Err(TransactionValidityError::Invalid(InvalidTransaction::Call));
+            }
             Executive::validate_transaction(source, tx, block_hash)
         }
     }
@@ -2179,8 +2342,8 @@ fn check_whitelist() {
 #[test]
 fn test_into_substrate_balance_valid() {
     // Valid conversion within u64 range
-    let evm_balance = U256::from(1_000_000_000_000_000_000u128); // 1 TAO in EVM
-    let expected_substrate_balance = U256::from(1_000_000_000u128); // 1 TAO in Substrate
+    let evm_balance: EvmBalance = 1_000_000_000_000_000_000u128.into(); // 1 TAO in EVM
+    let expected_substrate_balance: SubstrateBalance = 1_000_000_000u128.into(); // 1 TAO in Substrate
 
     let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
     assert_eq!(result, Some(expected_substrate_balance));
@@ -2189,8 +2352,8 @@ fn test_into_substrate_balance_valid() {
 #[test]
 fn test_into_substrate_balance_large_value() {
     // Maximum valid balance for u64
-    let evm_balance = U256::from(u64::MAX) * U256::from(EVM_TO_SUBSTRATE_DECIMALS); // Max u64 TAO in EVM
-    let expected_substrate_balance = U256::from(u64::MAX);
+    let evm_balance = EvmBalance::new(U256::from(u64::MAX) * U256::from(EVM_TO_SUBSTRATE_DECIMALS)); // Max u64 TAO in EVM
+    let expected_substrate_balance = SubstrateBalance::new(U256::from(u64::MAX));
 
     let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
     assert_eq!(result, Some(expected_substrate_balance));
@@ -2199,8 +2362,9 @@ fn test_into_substrate_balance_large_value() {
 #[test]
 fn test_into_substrate_balance_exceeds_u64() {
     // EVM balance that exceeds u64 after conversion
-    let evm_balance =
-        (U256::from(u64::MAX) + U256::from(1)) * U256::from(EVM_TO_SUBSTRATE_DECIMALS);
+    let evm_balance = EvmBalance::new(
+        (U256::from(u64::MAX) + U256::from(1)) * U256::from(EVM_TO_SUBSTRATE_DECIMALS),
+    );
 
     let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
     assert_eq!(result, None); // Exceeds u64, should return None
@@ -2209,8 +2373,8 @@ fn test_into_substrate_balance_exceeds_u64() {
 #[test]
 fn test_into_substrate_balance_precision_loss() {
     // EVM balance with precision loss
-    let evm_balance = U256::from(1_000_000_000_123_456_789u128); // 1 TAO + extra precision in EVM
-    let expected_substrate_balance = U256::from(1_000_000_000u128); // Truncated to 1 TAO in Substrate
+    let evm_balance = EvmBalance::new(U256::from(1_000_000_000_123_456_789u128)); // 1 TAO + extra precision in EVM
+    let expected_substrate_balance = SubstrateBalance::new(U256::from(1_000_000_000u128)); // Truncated to 1 TAO in Substrate
 
     let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
     assert_eq!(result, Some(expected_substrate_balance));
@@ -2219,8 +2383,8 @@ fn test_into_substrate_balance_precision_loss() {
 #[test]
 fn test_into_substrate_balance_zero_value() {
     // Zero balance should convert to zero
-    let evm_balance = U256::from(0);
-    let expected_substrate_balance = U256::from(0);
+    let evm_balance = EvmBalance::new(U256::from(0));
+    let expected_substrate_balance = SubstrateBalance::new(U256::from(0));
 
     let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
     assert_eq!(result, Some(expected_substrate_balance));
@@ -2229,8 +2393,8 @@ fn test_into_substrate_balance_zero_value() {
 #[test]
 fn test_into_evm_balance_valid() {
     // Valid conversion from Substrate to EVM
-    let substrate_balance = U256::from(1_000_000_000u128); // 1 TAO in Substrate
-    let expected_evm_balance = U256::from(1_000_000_000_000_000_000u128); // 1 TAO in EVM
+    let substrate_balance: SubstrateBalance = 1_000_000_000u128.into(); // 1 TAO in Substrate
+    let expected_evm_balance = EvmBalance::new(U256::from(1_000_000_000_000_000_000u128)); // 1 TAO in EVM
 
     let result = SubtensorEvmBalanceConverter::into_evm_balance(substrate_balance);
     assert_eq!(result, Some(expected_evm_balance));
@@ -2239,8 +2403,9 @@ fn test_into_evm_balance_valid() {
 #[test]
 fn test_into_evm_balance_overflow() {
     // Substrate balance larger than u64::MAX but valid within U256
-    let substrate_balance = U256::from(u64::MAX) + U256::from(1); // Large balance
-    let expected_evm_balance = substrate_balance * U256::from(EVM_TO_SUBSTRATE_DECIMALS);
+    let substrate_balance = SubstrateBalance::new(U256::from(u64::MAX) + U256::from(1)); // Large balance
+    let expected_evm_balance =
+        EvmBalance::new(substrate_balance.into_u256() * U256::from(EVM_TO_SUBSTRATE_DECIMALS));
 
     let result = SubtensorEvmBalanceConverter::into_evm_balance(substrate_balance);
     assert_eq!(result, Some(expected_evm_balance)); // Should return the scaled value
