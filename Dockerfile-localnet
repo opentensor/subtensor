@@ -15,6 +15,7 @@ LABEL ai.opentensor.image.authors="operations@opentensor.ai" \
 # Set up Rust environment
 ENV RUST_BACKTRACE=1
 
+RUN sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirrors.edge.kernel.org/ubuntu|g' /etc/apt/sources.list
 RUN apt-get update
 RUN apt-get install -y curl build-essential protobuf-compiler clang git pkg-config libssl-dev llvm libudev-dev
 
