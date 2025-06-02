@@ -209,7 +209,7 @@ impl TickIndex {
     pub fn fees_above<T: Config>(&self, netuid: NetUid, quote: bool) -> U64F64 {
         let current_tick = Self::current_bounded::<T>(netuid);
 
-        let Some(tick_index) = ActiveTickIndexManager::find_closest_lower::<T>(netuid, *self)
+        let Some(tick_index) = ActiveTickIndexManager::<T>::find_closest_lower(netuid, *self)
         else {
             return U64F64::from_num(0);
         };
@@ -232,7 +232,7 @@ impl TickIndex {
     pub fn fees_below<T: Config>(&self, netuid: NetUid, quote: bool) -> U64F64 {
         let current_tick = Self::current_bounded::<T>(netuid);
 
-        let Some(tick_index) = ActiveTickIndexManager::find_closest_lower::<T>(netuid, *self)
+        let Some(tick_index) = ActiveTickIndexManager::<T>::find_closest_lower(netuid, *self)
         else {
             return U64F64::saturating_from_num(0);
         };
@@ -473,10 +473,10 @@ impl TickIndex {
     }
 }
 
-pub struct ActiveTickIndexManager;
+pub struct ActiveTickIndexManager<T: Config>(PhantomData<T>);
 
-impl ActiveTickIndexManager {
-    pub fn insert<T: Config>(netuid: NetUid, index: TickIndex) {
+impl<T: Config> ActiveTickIndexManager<T> {
+    pub fn insert(netuid: NetUid, index: TickIndex) {
         // Check the range
         if (index < TickIndex::MIN) || (index > TickIndex::MAX) {
             return;
@@ -530,7 +530,7 @@ impl ActiveTickIndexManager {
         );
     }
 
-    pub fn remove<T: Config>(netuid: NetUid, index: TickIndex) {
+    pub fn remove(netuid: NetUid, index: TickIndex) {
         // Check the range
         if (index < TickIndex::MIN) || (index > TickIndex::MAX) {
             return;
@@ -588,15 +588,15 @@ impl ActiveTickIndexManager {
         }
     }
 
-    pub fn find_closest_lower<T: Config>(netuid: NetUid, index: TickIndex) -> Option<TickIndex> {
-        Self::find_closest::<T>(netuid, index, true)
+    pub fn find_closest_lower(netuid: NetUid, index: TickIndex) -> Option<TickIndex> {
+        Self::find_closest(netuid, index, true)
     }
 
-    pub fn find_closest_higher<T: Config>(netuid: NetUid, index: TickIndex) -> Option<TickIndex> {
-        Self::find_closest::<T>(netuid, index, false)
+    pub fn find_closest_higher(netuid: NetUid, index: TickIndex) -> Option<TickIndex> {
+        Self::find_closest(netuid, index, false)
     }
 
-    fn find_closest<T: Config>(netuid: NetUid, index: TickIndex, lower: bool) -> Option<TickIndex> {
+    fn find_closest(netuid: NetUid, index: TickIndex, lower: bool) -> Option<TickIndex> {
         // Check the range
         if (index < TickIndex::MIN) || (index > TickIndex::MAX) {
             return None;
@@ -1570,20 +1570,20 @@ mod tests {
             new_test_ext().execute_with(|| {
                 let netuid = NetUid::from(1);
 
-                ActiveTickIndexManager::insert::<Test>(netuid, TickIndex::MIN);
+                ActiveTickIndexManager::<Test>::insert(netuid, TickIndex::MIN);
 
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_lower::<Test>(netuid, TickIndex::MIN)
+                    ActiveTickIndexManager::<Test>::find_closest_lower(netuid, TickIndex::MIN)
                         .unwrap(),
                     TickIndex::MIN
                 );
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_lower::<Test>(netuid, TickIndex::MAX)
+                    ActiveTickIndexManager::<Test>::find_closest_lower(netuid, TickIndex::MAX)
                         .unwrap(),
                     TickIndex::MIN
                 );
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_lower::<Test>(
+                    ActiveTickIndexManager::<Test>::find_closest_lower(
                         netuid,
                         TickIndex::MAX.saturating_div(2)
                     )
@@ -1591,7 +1591,7 @@ mod tests {
                     TickIndex::MIN
                 );
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_lower::<Test>(
+                    ActiveTickIndexManager::<Test>::find_closest_lower(
                         netuid,
                         TickIndex::MAX.prev().unwrap()
                     )
@@ -1599,7 +1599,7 @@ mod tests {
                     TickIndex::MIN
                 );
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_lower::<Test>(
+                    ActiveTickIndexManager::<Test>::find_closest_lower(
                         netuid,
                         TickIndex::MIN.next().unwrap()
                     )
@@ -1608,50 +1608,50 @@ mod tests {
                 );
 
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_higher::<Test>(netuid, TickIndex::MIN)
+                    ActiveTickIndexManager::<Test>::find_closest_higher(netuid, TickIndex::MIN)
                         .unwrap(),
                     TickIndex::MIN
                 );
                 assert!(
-                    ActiveTickIndexManager::find_closest_higher::<Test>(netuid, TickIndex::MAX)
+                    ActiveTickIndexManager::<Test>::find_closest_higher(netuid, TickIndex::MAX)
                         .is_none()
                 );
                 assert!(
-                    ActiveTickIndexManager::find_closest_higher::<Test>(
+                    ActiveTickIndexManager::<Test>::find_closest_higher(
                         netuid,
                         TickIndex::MAX.saturating_div(2)
                     )
                     .is_none()
                 );
                 assert!(
-                    ActiveTickIndexManager::find_closest_higher::<Test>(
+                    ActiveTickIndexManager::<Test>::find_closest_higher(
                         netuid,
                         TickIndex::MAX.prev().unwrap()
                     )
                     .is_none()
                 );
                 assert!(
-                    ActiveTickIndexManager::find_closest_higher::<Test>(
+                    ActiveTickIndexManager::<Test>::find_closest_higher(
                         netuid,
                         TickIndex::MIN.next().unwrap()
                     )
                     .is_none()
                 );
 
-                ActiveTickIndexManager::insert::<Test>(netuid, TickIndex::MAX);
+                ActiveTickIndexManager::<Test>::insert(netuid, TickIndex::MAX);
 
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_lower::<Test>(netuid, TickIndex::MIN)
+                    ActiveTickIndexManager::<Test>::find_closest_lower(netuid, TickIndex::MIN)
                         .unwrap(),
                     TickIndex::MIN
                 );
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_lower::<Test>(netuid, TickIndex::MAX)
+                    ActiveTickIndexManager::<Test>::find_closest_lower(netuid, TickIndex::MAX)
                         .unwrap(),
                     TickIndex::MAX
                 );
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_lower::<Test>(
+                    ActiveTickIndexManager::<Test>::find_closest_lower(
                         netuid,
                         TickIndex::MAX.saturating_div(2)
                     )
@@ -1659,7 +1659,7 @@ mod tests {
                     TickIndex::MIN
                 );
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_lower::<Test>(
+                    ActiveTickIndexManager::<Test>::find_closest_lower(
                         netuid,
                         TickIndex::MAX.prev().unwrap()
                     )
@@ -1667,7 +1667,7 @@ mod tests {
                     TickIndex::MIN
                 );
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_lower::<Test>(
+                    ActiveTickIndexManager::<Test>::find_closest_lower(
                         netuid,
                         TickIndex::MIN.next().unwrap()
                     )
@@ -1683,15 +1683,15 @@ mod tests {
                 let active_index = TickIndex::MIN.saturating_add(10);
                 let netuid = NetUid::from(1);
 
-                ActiveTickIndexManager::insert::<Test>(netuid, active_index);
+                ActiveTickIndexManager::<Test>::insert(netuid, active_index);
 
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_lower::<Test>(netuid, active_index)
+                    ActiveTickIndexManager::<Test>::find_closest_lower(netuid, active_index)
                         .unwrap(),
                     active_index
                 );
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_lower::<Test>(
+                    ActiveTickIndexManager::<Test>::find_closest_lower(
                         netuid,
                         TickIndex::MIN.saturating_add(11)
                     )
@@ -1699,7 +1699,7 @@ mod tests {
                     active_index
                 );
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_lower::<Test>(
+                    ActiveTickIndexManager::<Test>::find_closest_lower(
                         netuid,
                         TickIndex::MIN.saturating_add(12)
                     )
@@ -1707,11 +1707,11 @@ mod tests {
                     active_index
                 );
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_lower::<Test>(netuid, TickIndex::MIN),
+                    ActiveTickIndexManager::<Test>::find_closest_lower(netuid, TickIndex::MIN),
                     None
                 );
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_lower::<Test>(
+                    ActiveTickIndexManager::<Test>::find_closest_lower(
                         netuid,
                         TickIndex::MIN.saturating_add(9)
                     ),
@@ -1719,31 +1719,31 @@ mod tests {
                 );
 
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_higher::<Test>(netuid, active_index)
+                    ActiveTickIndexManager::<Test>::find_closest_higher(netuid, active_index)
                         .unwrap(),
                     active_index
                 );
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_higher::<Test>(
+                    ActiveTickIndexManager::<Test>::find_closest_higher(
                         netuid,
                         TickIndex::MIN.saturating_add(11)
                     ),
                     None
                 );
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_higher::<Test>(
+                    ActiveTickIndexManager::<Test>::find_closest_higher(
                         netuid,
                         TickIndex::MIN.saturating_add(12)
                     ),
                     None
                 );
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_higher::<Test>(netuid, TickIndex::MIN)
+                    ActiveTickIndexManager::<Test>::find_closest_higher(netuid, TickIndex::MIN)
                         .unwrap(),
                     active_index
                 );
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_higher::<Test>(
+                    ActiveTickIndexManager::<Test>::find_closest_higher(
                         netuid,
                         TickIndex::MIN.saturating_add(9)
                     )
@@ -1759,7 +1759,7 @@ mod tests {
                 let netuid = NetUid::from(1);
 
                 (0..1000).for_each(|i| {
-                    ActiveTickIndexManager::insert::<Test>(
+                    ActiveTickIndexManager::<Test>::insert(
                         netuid,
                         TickIndex::MIN.saturating_add(i),
                     );
@@ -1768,12 +1768,12 @@ mod tests {
                 for i in 0..1000 {
                     let test_index = TickIndex::MIN.saturating_add(i);
                     assert_eq!(
-                        ActiveTickIndexManager::find_closest_lower::<Test>(netuid, test_index)
+                        ActiveTickIndexManager::<Test>::find_closest_lower(netuid, test_index)
                             .unwrap(),
                         test_index
                     );
                     assert_eq!(
-                        ActiveTickIndexManager::find_closest_higher::<Test>(netuid, test_index)
+                        ActiveTickIndexManager::<Test>::find_closest_higher(netuid, test_index)
                             .unwrap(),
                         test_index
                     );
@@ -1788,7 +1788,7 @@ mod tests {
                 let count = 1000;
 
                 for i in 0..=count {
-                    ActiveTickIndexManager::insert::<Test>(
+                    ActiveTickIndexManager::<Test>::insert(
                         netuid,
                         TickIndex::new_unchecked(i * 10),
                     );
@@ -1797,11 +1797,11 @@ mod tests {
                 for i in 1..count {
                     let tick = TickIndex::new_unchecked(i * 10);
                     assert_eq!(
-                        ActiveTickIndexManager::find_closest_lower::<Test>(netuid, tick).unwrap(),
+                        ActiveTickIndexManager::<Test>::find_closest_lower(netuid, tick).unwrap(),
                         tick
                     );
                     assert_eq!(
-                        ActiveTickIndexManager::find_closest_higher::<Test>(netuid, tick).unwrap(),
+                        ActiveTickIndexManager::<Test>::find_closest_higher(netuid, tick).unwrap(),
                         tick
                     );
                     for j in 1..=9 {
@@ -1810,17 +1810,17 @@ mod tests {
                         let prev_tick = TickIndex::new_unchecked((i - 1) * 10);
                         let next_tick = TickIndex::new_unchecked((i + 1) * 10);
                         assert_eq!(
-                            ActiveTickIndexManager::find_closest_lower::<Test>(netuid, before_tick)
+                            ActiveTickIndexManager::<Test>::find_closest_lower(netuid, before_tick)
                                 .unwrap(),
                             prev_tick
                         );
                         assert_eq!(
-                            ActiveTickIndexManager::find_closest_lower::<Test>(netuid, after_tick)
+                            ActiveTickIndexManager::<Test>::find_closest_lower(netuid, after_tick)
                                 .unwrap(),
                             tick
                         );
                         assert_eq!(
-                            ActiveTickIndexManager::find_closest_higher::<Test>(
+                            ActiveTickIndexManager::<Test>::find_closest_higher(
                                 netuid,
                                 before_tick
                             )
@@ -1828,7 +1828,7 @@ mod tests {
                             tick
                         );
                         assert_eq!(
-                            ActiveTickIndexManager::find_closest_higher::<Test>(netuid, after_tick)
+                            ActiveTickIndexManager::<Test>::find_closest_higher(netuid, after_tick)
                                 .unwrap(),
                             next_tick
                         );
@@ -1844,7 +1844,7 @@ mod tests {
                 let count = 1000;
 
                 for i in (0..=count).rev() {
-                    ActiveTickIndexManager::insert::<Test>(
+                    ActiveTickIndexManager::<Test>::insert(
                         netuid,
                         TickIndex::new_unchecked(i * 10),
                     );
@@ -1853,11 +1853,11 @@ mod tests {
                 for i in 1..count {
                     let tick = TickIndex::new_unchecked(i * 10);
                     assert_eq!(
-                        ActiveTickIndexManager::find_closest_lower::<Test>(netuid, tick).unwrap(),
+                        ActiveTickIndexManager::<Test>::find_closest_lower(netuid, tick).unwrap(),
                         tick
                     );
                     assert_eq!(
-                        ActiveTickIndexManager::find_closest_higher::<Test>(netuid, tick).unwrap(),
+                        ActiveTickIndexManager::<Test>::find_closest_higher(netuid, tick).unwrap(),
                         tick
                     );
                     for j in 1..=9 {
@@ -1867,17 +1867,17 @@ mod tests {
                         let next_tick = TickIndex::new_unchecked((i + 1) * 10);
 
                         assert_eq!(
-                            ActiveTickIndexManager::find_closest_lower::<Test>(netuid, before_tick)
+                            ActiveTickIndexManager::<Test>::find_closest_lower(netuid, before_tick)
                                 .unwrap(),
                             prev_tick
                         );
                         assert_eq!(
-                            ActiveTickIndexManager::find_closest_lower::<Test>(netuid, after_tick)
+                            ActiveTickIndexManager::<Test>::find_closest_lower(netuid, after_tick)
                                 .unwrap(),
                             tick
                         );
                         assert_eq!(
-                            ActiveTickIndexManager::find_closest_higher::<Test>(
+                            ActiveTickIndexManager::<Test>::find_closest_higher(
                                 netuid,
                                 before_tick
                             )
@@ -1885,7 +1885,7 @@ mod tests {
                             tick
                         );
                         assert_eq!(
-                            ActiveTickIndexManager::find_closest_higher::<Test>(netuid, after_tick)
+                            ActiveTickIndexManager::<Test>::find_closest_higher(netuid, after_tick)
                                 .unwrap(),
                             next_tick
                         );
@@ -1903,18 +1903,18 @@ mod tests {
                 for _ in 0..10 {
                     for i in 0..=count {
                         let tick = TickIndex::new_unchecked(i * 10);
-                        ActiveTickIndexManager::insert::<Test>(netuid, tick);
+                        ActiveTickIndexManager::<Test>::insert(netuid, tick);
                     }
 
                     for i in 1..count {
                         let tick = TickIndex::new_unchecked(i * 10);
                         assert_eq!(
-                            ActiveTickIndexManager::find_closest_lower::<Test>(netuid, tick)
+                            ActiveTickIndexManager::<Test>::find_closest_lower(netuid, tick)
                                 .unwrap(),
                             tick
                         );
                         assert_eq!(
-                            ActiveTickIndexManager::find_closest_higher::<Test>(netuid, tick)
+                            ActiveTickIndexManager::<Test>::find_closest_higher(netuid, tick)
                                 .unwrap(),
                             tick
                         );
@@ -1925,7 +1925,7 @@ mod tests {
                             let next_tick = TickIndex::new_unchecked((i + 1) * 10);
 
                             assert_eq!(
-                                ActiveTickIndexManager::find_closest_lower::<Test>(
+                                ActiveTickIndexManager::<Test>::find_closest_lower(
                                     netuid,
                                     before_tick
                                 )
@@ -1933,14 +1933,14 @@ mod tests {
                                 prev_tick
                             );
                             assert_eq!(
-                                ActiveTickIndexManager::find_closest_lower::<Test>(
+                                ActiveTickIndexManager::<Test>::find_closest_lower(
                                     netuid, after_tick
                                 )
                                 .unwrap(),
                                 tick
                             );
                             assert_eq!(
-                                ActiveTickIndexManager::find_closest_higher::<Test>(
+                                ActiveTickIndexManager::<Test>::find_closest_higher(
                                     netuid,
                                     before_tick
                                 )
@@ -1948,7 +1948,7 @@ mod tests {
                                 tick
                             );
                             assert_eq!(
-                                ActiveTickIndexManager::find_closest_higher::<Test>(
+                                ActiveTickIndexManager::<Test>::find_closest_higher(
                                     netuid, after_tick
                                 )
                                 .unwrap(),
@@ -1970,7 +1970,7 @@ mod tests {
 
                 for i in 0..=count {
                     let index = TickIndex::MIN.saturating_add(i * step);
-                    ActiveTickIndexManager::insert::<Test>(netuid, index);
+                    ActiveTickIndexManager::<Test>::insert(netuid, index);
                 }
                 for i in 1..count {
                     let index = TickIndex::MIN.saturating_add(i * step);
@@ -1979,49 +1979,49 @@ mod tests {
                     let next_minus_one = TickIndex::new_unchecked(index.get() + step - 1);
 
                     assert_eq!(
-                        ActiveTickIndexManager::find_closest_lower::<Test>(netuid, prev_index)
+                        ActiveTickIndexManager::<Test>::find_closest_lower(netuid, prev_index)
                             .unwrap(),
                         prev_index
                     );
                     assert_eq!(
-                        ActiveTickIndexManager::find_closest_lower::<Test>(netuid, index).unwrap(),
+                        ActiveTickIndexManager::<Test>::find_closest_lower(netuid, index).unwrap(),
                         index
                     );
                     assert_eq!(
-                        ActiveTickIndexManager::find_closest_lower::<Test>(netuid, next_minus_one)
+                        ActiveTickIndexManager::<Test>::find_closest_lower(netuid, next_minus_one)
                             .unwrap(),
                         index
                     );
 
                     let mid_next = TickIndex::new_unchecked(index.get() + step / 2);
                     assert_eq!(
-                        ActiveTickIndexManager::find_closest_lower::<Test>(netuid, mid_next)
+                        ActiveTickIndexManager::<Test>::find_closest_lower(netuid, mid_next)
                             .unwrap(),
                         index
                     );
 
                     assert_eq!(
-                        ActiveTickIndexManager::find_closest_higher::<Test>(netuid, index).unwrap(),
+                        ActiveTickIndexManager::<Test>::find_closest_higher(netuid, index).unwrap(),
                         index
                     );
 
                     let next_index = TickIndex::new_unchecked(index.get() + step);
                     assert_eq!(
-                        ActiveTickIndexManager::find_closest_higher::<Test>(netuid, next_index)
+                        ActiveTickIndexManager::<Test>::find_closest_higher(netuid, next_index)
                             .unwrap(),
                         next_index
                     );
 
                     let mid_next = TickIndex::new_unchecked(index.get() + step / 2);
                     assert_eq!(
-                        ActiveTickIndexManager::find_closest_higher::<Test>(netuid, mid_next)
+                        ActiveTickIndexManager::<Test>::find_closest_higher(netuid, mid_next)
                             .unwrap(),
                         next_index
                     );
 
                     let next_minus_1 = TickIndex::new_unchecked(index.get() + step - 1);
                     assert_eq!(
-                        ActiveTickIndexManager::find_closest_higher::<Test>(netuid, next_minus_1)
+                        ActiveTickIndexManager::<Test>::find_closest_higher(netuid, next_minus_1)
                             .unwrap(),
                         next_index
                     );
@@ -2030,7 +2030,7 @@ mod tests {
                         let after_index = TickIndex::new_unchecked(index.get() + j);
 
                         assert_eq!(
-                            ActiveTickIndexManager::find_closest_lower::<Test>(
+                            ActiveTickIndexManager::<Test>::find_closest_lower(
                                 netuid,
                                 before_index
                             )
@@ -2038,12 +2038,12 @@ mod tests {
                             prev_index
                         );
                         assert_eq!(
-                            ActiveTickIndexManager::find_closest_lower::<Test>(netuid, after_index)
+                            ActiveTickIndexManager::<Test>::find_closest_lower(netuid, after_index)
                                 .unwrap(),
                             index
                         );
                         assert_eq!(
-                            ActiveTickIndexManager::find_closest_higher::<Test>(
+                            ActiveTickIndexManager::<Test>::find_closest_higher(
                                 netuid,
                                 before_index
                             )
@@ -2051,7 +2051,7 @@ mod tests {
                             index
                         );
                         assert_eq!(
-                            ActiveTickIndexManager::find_closest_higher::<Test>(
+                            ActiveTickIndexManager::<Test>::find_closest_higher(
                                 netuid,
                                 after_index
                             )
@@ -2068,22 +2068,22 @@ mod tests {
             new_test_ext().execute_with(|| {
                 let netuid = NetUid::from(1);
 
-                ActiveTickIndexManager::insert::<Test>(netuid, TickIndex::MIN);
-                ActiveTickIndexManager::insert::<Test>(netuid, TickIndex::MAX);
-                ActiveTickIndexManager::remove::<Test>(netuid, TickIndex::MAX);
+                ActiveTickIndexManager::<Test>::insert(netuid, TickIndex::MIN);
+                ActiveTickIndexManager::<Test>::insert(netuid, TickIndex::MAX);
+                ActiveTickIndexManager::<Test>::remove(netuid, TickIndex::MAX);
 
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_lower::<Test>(netuid, TickIndex::MIN)
+                    ActiveTickIndexManager::<Test>::find_closest_lower(netuid, TickIndex::MIN)
                         .unwrap(),
                     TickIndex::MIN
                 );
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_lower::<Test>(netuid, TickIndex::MAX)
+                    ActiveTickIndexManager::<Test>::find_closest_lower(netuid, TickIndex::MAX)
                         .unwrap(),
                     TickIndex::MIN
                 );
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_lower::<Test>(
+                    ActiveTickIndexManager::<Test>::find_closest_lower(
                         netuid,
                         TickIndex::MAX.saturating_div(2)
                     )
@@ -2091,7 +2091,7 @@ mod tests {
                     TickIndex::MIN
                 );
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_lower::<Test>(
+                    ActiveTickIndexManager::<Test>::find_closest_lower(
                         netuid,
                         TickIndex::MAX.prev().unwrap()
                     )
@@ -2099,7 +2099,7 @@ mod tests {
                     TickIndex::MIN
                 );
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_lower::<Test>(
+                    ActiveTickIndexManager::<Test>::find_closest_lower(
                         netuid,
                         TickIndex::MIN.next().unwrap()
                     )
@@ -2108,30 +2108,30 @@ mod tests {
                 );
 
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_higher::<Test>(netuid, TickIndex::MIN)
+                    ActiveTickIndexManager::<Test>::find_closest_higher(netuid, TickIndex::MIN)
                         .unwrap(),
                     TickIndex::MIN
                 );
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_higher::<Test>(netuid, TickIndex::MAX),
+                    ActiveTickIndexManager::<Test>::find_closest_higher(netuid, TickIndex::MAX),
                     None
                 );
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_higher::<Test>(
+                    ActiveTickIndexManager::<Test>::find_closest_higher(
                         netuid,
                         TickIndex::MAX.saturating_div(2)
                     ),
                     None
                 );
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_higher::<Test>(
+                    ActiveTickIndexManager::<Test>::find_closest_higher(
                         netuid,
                         TickIndex::MAX.prev().unwrap()
                     ),
                     None
                 );
                 assert_eq!(
-                    ActiveTickIndexManager::find_closest_higher::<Test>(
+                    ActiveTickIndexManager::<Test>::find_closest_higher(
                         netuid,
                         TickIndex::MIN.next().unwrap()
                     ),
@@ -2152,14 +2152,14 @@ mod tests {
                 // Insert ticks
                 for i in 0..=count {
                     let index = TickIndex::MIN.saturating_add(i * step);
-                    ActiveTickIndexManager::insert::<Test>(netuid, index);
+                    ActiveTickIndexManager::<Test>::insert(netuid, index);
                 }
 
                 // Remove some ticks
                 for i in 1..count {
                     if i % remove_frequency == 0 {
                         let index = TickIndex::MIN.saturating_add(i * step);
-                        ActiveTickIndexManager::remove::<Test>(netuid, index);
+                        ActiveTickIndexManager::<Test>::remove(netuid, index);
                     }
                 }
 
@@ -2169,19 +2169,19 @@ mod tests {
 
                     if i % remove_frequency == 0 {
                         let lower =
-                            ActiveTickIndexManager::find_closest_lower::<Test>(netuid, index);
+                            ActiveTickIndexManager::<Test>::find_closest_lower(netuid, index);
                         let higher =
-                            ActiveTickIndexManager::find_closest_higher::<Test>(netuid, index);
+                            ActiveTickIndexManager::<Test>::find_closest_higher(netuid, index);
                         assert!(lower != Some(index));
                         assert!(higher != Some(index));
                     } else {
                         assert_eq!(
-                            ActiveTickIndexManager::find_closest_lower::<Test>(netuid, index)
+                            ActiveTickIndexManager::<Test>::find_closest_lower(netuid, index)
                                 .unwrap(),
                             index
                         );
                         assert_eq!(
-                            ActiveTickIndexManager::find_closest_higher::<Test>(netuid, index)
+                            ActiveTickIndexManager::<Test>::find_closest_higher(netuid, index)
                                 .unwrap(),
                             index
                         );

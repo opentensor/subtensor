@@ -1,10 +1,12 @@
+use core::marker::PhantomData;
+
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
 use safe_math::*;
 use substrate_fixed::types::U64F64;
 use subtensor_macros::freeze_struct;
 
-use crate::pallet::{Config, Error, FeeGlobalAlpha, FeeGlobalTao, NextPositionId};
+use crate::pallet::{Config, Error, FeeGlobalAlpha, FeeGlobalTao, LastPositionId};
 use crate::tick::TickIndex;
 use crate::{NetUid, SqrtPrice};
 
@@ -18,9 +20,10 @@ use crate::{NetUid, SqrtPrice};
 /// liquidity - position liquidity
 /// fees_tao - fees accrued by the position in quote currency (TAO)
 /// fees_alpha - fees accrued by the position in base currency (Alpha)
-#[freeze_struct("1a4924d76eb084f1")]
+#[freeze_struct("1b4be598fdbdca93")]
 #[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen, Default)]
-pub struct Position {
+#[scale_info(skip_type_params(T))]
+pub struct Position<T: Config> {
     pub id: PositionId,
     pub netuid: NetUid,
     pub tick_low: TickIndex,
@@ -28,9 +31,10 @@ pub struct Position {
     pub liquidity: u64,
     pub fees_tao: U64F64,
     pub fees_alpha: U64F64,
+    pub _phantom: PhantomData<T>,
 }
 
-impl Position {
+impl<T: Config> Position<T> {
     /// Converts position to token amounts
     ///
     /// returns tuple of (TAO, Alpha)
@@ -46,21 +50,18 @@ impl Position {
     ///         tao = L * (self.sqrt_price_curr - sqrt_pa)
     ///         alpha = L * (1 / self.sqrt_price_curr - 1 / sqrt_pb)
     ///
-    pub fn to_token_amounts<T: Config>(
-        &self,
-        sqrt_price_curr: SqrtPrice,
-    ) -> Result<(u64, u64), Error<T>> {
+    pub fn to_token_amounts(&self, sqrt_price_curr: SqrtPrice) -> Result<(u64, u64), Error<T>> {
         let one = U64F64::saturating_from_num(1);
 
-        let sqrt_pa: SqrtPrice = self
+        let sqrt_pa = self
             .tick_low
             .try_to_sqrt_price()
             .map_err(|_| Error::<T>::InvalidTickRange)?;
-        let sqrt_pb: SqrtPrice = self
+        let sqrt_pb = self
             .tick_high
             .try_to_sqrt_price()
             .map_err(|_| Error::<T>::InvalidTickRange)?;
-        let liquidity_fixed: U64F64 = U64F64::saturating_from_num(self.liquidity);
+        let liquidity_fixed = U64F64::saturating_from_num(self.liquidity);
 
         Ok(if sqrt_price_curr < sqrt_pa {
             (
@@ -93,9 +94,9 @@ impl Position {
 
     /// Collect fees for a position
     /// Updates the position
-    pub fn collect_fees<T: Config>(&mut self) -> (u64, u64) {
-        let fee_tao_agg = self.fees_in_range::<T>(true);
-        let fee_alpha_agg = self.fees_in_range::<T>(false);
+    pub fn collect_fees(&mut self) -> (u64, u64) {
+        let fee_tao_agg = self.fees_in_range(true);
+        let fee_alpha_agg = self.fees_in_range(false);
 
         let mut fee_tao = fee_tao_agg.saturating_sub(self.fees_tao);
         let mut fee_alpha = fee_alpha_agg.saturating_sub(self.fees_alpha);
@@ -116,7 +117,7 @@ impl Position {
     /// Get fees in a position's range
     ///
     /// If quote flag is true, Tao is returned, otherwise alpha.
-    fn fees_in_range<T: Config>(&self, quote: bool) -> U64F64 {
+    fn fees_in_range(&self, quote: bool) -> U64F64 {
         if quote {
             FeeGlobalTao::<T>::get(self.netuid)
         } else {
@@ -136,8 +137,8 @@ pub struct PositionId(u128);
 impl PositionId {
     /// Create a new position ID
     pub fn new<T: Config>() -> Self {
-        let new = NextPositionId::<T>::get().saturating_add(1);
-        NextPositionId::<T>::put(new);
+        let new = LastPositionId::<T>::get().saturating_add(1);
+        LastPositionId::<T>::put(new);
 
         Self(new)
     }
