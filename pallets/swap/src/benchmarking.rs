@@ -2,6 +2,8 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::multiple_bound_locations)]
 
+use core::marker::PhantomData;
+
 use frame_benchmarking::v2::*;
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
@@ -80,6 +82,7 @@ mod benchmarks {
                 liquidity: 1000,
                 fees_tao: U64F64::from_num(0),
                 fees_alpha: U64F64::from_num(0),
+                _phantom: PhantomData,
             },
         );
 
@@ -112,6 +115,7 @@ mod benchmarks {
                 liquidity: 10000,
                 fees_tao: U64F64::from_num(0),
                 fees_alpha: U64F64::from_num(0),
+                _phantom: PhantomData,
             },
         );
 

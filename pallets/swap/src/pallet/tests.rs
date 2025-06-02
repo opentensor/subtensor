@@ -1482,7 +1482,7 @@ fn test_swap_fee_correctness() {
 
         // Check that 50% of fees were credited to the position
         let fee_rate = FeeRate::<Test>::get(NetUid::from(netuid)) as f64 / u16::MAX as f64;
-        let (actual_fee_tao, actual_fee_alpha) = position.collect_fees::<Test>();
+        let (actual_fee_tao, actual_fee_alpha) = position.collect_fees();
         let expected_fee = (fee_rate * (liquidity / 10) as f64 * 0.5) as u64;
 
         assert_abs_diff_eq!(actual_fee_tao, expected_fee, epsilon = 1,);

@@ -751,7 +751,7 @@ impl<T: Config> Pallet<T> {
         tick_low: TickIndex,
         tick_high: TickIndex,
         liquidity: u64,
-    ) -> Result<(Position, u64, u64), Error<T>> {
+    ) -> Result<(Position<T>, u64, u64), Error<T>> {
         ensure!(
             Self::count_positions(netuid, coldkey_account_id) <= T::MaxPositions::get() as usize,
             Error::<T>::MaxPositionsExceeded
@@ -777,6 +777,7 @@ impl<T: Config> Pallet<T> {
             liquidity,
             fees_tao: U64F64::saturating_from_num(0),
             fees_alpha: U64F64::saturating_from_num(0),
+            _phantom: PhantomData,
         };
 
         let current_price = AlphaSqrtPrice::<T>::get(netuid);
@@ -806,7 +807,7 @@ impl<T: Config> Pallet<T> {
         };
 
         // Collect fees and get tao and alpha amounts
-        let (fee_tao, fee_alpha) = position.collect_fees::<T>();
+        let (fee_tao, fee_alpha) = position.collect_fees();
         let current_price = AlphaSqrtPrice::<T>::get(netuid);
         let (tao, alpha) = position.to_token_amounts(current_price)?;
 
@@ -912,7 +913,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // Collect fees
-        let (fee_tao, fee_alpha) = position.collect_fees::<T>();
+        let (fee_tao, fee_alpha) = position.collect_fees();
 
         // If delta brings the position liquidity below MinimumLiquidity, eliminate position and withdraw full amounts
         if (liquidity_delta < 0)

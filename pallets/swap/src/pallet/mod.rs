@@ -119,13 +119,13 @@ mod pallet {
             NMapKey<Twox64Concat, T::AccountId>, // Account ID
             NMapKey<Twox64Concat, PositionId>,   // Position ID
         ),
-        Position,
+        Position<T>,
         OptionQuery,
     >;
 
     /// Position ID counter.
     #[pallet::storage]
-    pub type NextPositionId<T> = StorageValue<_, u128, ValueQuery>;
+    pub type LastPositionId<T> = StorageValue<_, u128, ValueQuery>;
 
     /// Tick index bitmap words storage
     #[pallet::storage]
