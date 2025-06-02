@@ -15,6 +15,8 @@ use crate::{
 pub use pallet::*;
 
 mod impls;
+#[cfg(test)]
+mod tests;
 
 #[allow(clippy::module_inception)]
 #[frame_support::pallet]
@@ -486,81 +488,5 @@ mod pallet {
 
             Ok(())
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use frame_support::{assert_noop, assert_ok};
-    use sp_runtime::DispatchError;
-
-    use crate::{
-        NetUid,
-        mock::*,
-        pallet::{EnabledUserLiquidity, Error, FeeRate},
-    };
-
-    #[test]
-    fn test_set_fee_rate() {
-        new_test_ext().execute_with(|| {
-            let netuid = 1u16;
-            let fee_rate = 500; // 0.76% fee
-
-            assert_noop!(
-                Swap::set_fee_rate(RuntimeOrigin::signed(666), netuid.into(), fee_rate),
-                DispatchError::BadOrigin
-            );
-
-            assert_ok!(Swap::set_fee_rate(RuntimeOrigin::root(), netuid, fee_rate));
-
-            // Check that fee rate was set correctly
-            assert_eq!(FeeRate::<Test>::get(NetUid::from(netuid)), fee_rate);
-
-            let fee_rate = fee_rate * 2;
-            assert_ok!(Swap::set_fee_rate(
-                RuntimeOrigin::signed(1),
-                netuid,
-                fee_rate
-            ));
-            assert_eq!(FeeRate::<Test>::get(NetUid::from(netuid)), fee_rate);
-
-            // Verify fee rate validation - should fail if too high
-            let too_high_fee = MaxFeeRate::get() + 1;
-            assert_noop!(
-                Swap::set_fee_rate(RuntimeOrigin::root(), netuid, too_high_fee),
-                Error::<Test>::FeeRateTooHigh
-            );
-        });
-    }
-
-    #[test]
-    fn test_set_enabled_user_liquidity() {
-        new_test_ext().execute_with(|| {
-            let netuid = NetUid::from(101);
-
-            assert!(!EnabledUserLiquidity::<Test>::get(netuid));
-
-            assert_ok!(Swap::set_enabled_user_liquidity(
-                RuntimeOrigin::root(),
-                netuid.into()
-            ));
-
-            assert!(EnabledUserLiquidity::<Test>::get(netuid));
-
-            assert_noop!(
-                Swap::set_enabled_user_liquidity(RuntimeOrigin::signed(666), netuid.into()),
-                DispatchError::BadOrigin
-            );
-
-            assert_ok!(Swap::set_enabled_user_liquidity(
-                RuntimeOrigin::signed(1),
-                netuid.into()
-            ));
-
-            assert_noop!(
-                Swap::set_enabled_user_liquidity(RuntimeOrigin::root(), NON_EXISTENT_NETUID),
-                Error::<Test>::SubNetworkDoesNotExist
-            );
-        });
     }
 }
