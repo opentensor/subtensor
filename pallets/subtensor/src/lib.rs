@@ -834,7 +834,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for applying pending items (e.g. childkeys).
     pub fn DefaultPendingCooldown<T: Config>() -> u64 {
-        if cfg!(feature = "fast-blocks") {
+        if cfg!(feature = "fast-runtime") {
             return 15;
         }
 
@@ -1220,6 +1220,9 @@ pub mod pallet {
     /// ITEM( weights_version_key_rate_limit ) --- Rate limit in tempos.
     pub type WeightsVersionKeyRateLimit<T> =
         StorageValue<_, u64, ValueQuery, DefaultWeightsVersionKeyRateLimit<T>>;
+    #[pallet::storage]
+    /// ITEM ( pending_node_validator_emission )
+    pub type PendingNodeValidatorEmissions<T> = StorageValue<_, u64, ValueQuery>;
 
     /// ============================
     /// ==== Rate Limiting =====

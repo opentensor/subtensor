@@ -1,6 +1,7 @@
 use super::*;
 use alloc::collections::BTreeMap;
 use safe_math::*;
+use sp_runtime::Saturating;
 use substrate_fixed::types::U96F32;
 use tle::stream_ciphers::AESGCMStreamCipherProvider;
 use tle::tlock::tld;
@@ -31,11 +32,29 @@ macro_rules! tou64 {
     };
 }
 
+const SUBNET_EMISSION_PART: f32 = 0.98;
+const NODE_VALIDATOR_EMISSION_PART: f32 = 0.02;
+
 impl<T: Config> Pallet<T> {
-    pub fn run_coinbase(block_emission: U96F32) {
+    pub fn run_coinbase(total_block_emission: U96F32) {
         // --- 0. Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
         log::debug!("Current block: {:?}", current_block);
+
+        let subnet_block_emission =
+            total_block_emission.saturating_mul(U96F32::from_num(SUBNET_EMISSION_PART));
+        let node_validator_block_emission =
+            total_block_emission.saturating_mul(U96F32::from_num(NODE_VALIDATOR_EMISSION_PART));
+        PendingNodeValidatorEmissions::<T>::mutate(|cur| {
+            cur.saturating_accrue(node_validator_block_emission.to_num::<u64>());
+        });
+
+        log::debug!("total_block_emission:\n{:?}\n", total_block_emission);
+        log::debug!(
+            "node_validator_block_emission:\n{:?}\n",
+            node_validator_block_emission
+        );
+        log::debug!("subnetwork_block_emission:\n{:?}\n", subnet_block_emission);
 
         // --- 1. Get all netuids (filter out root)
         let subnets: Vec<u16> = Self::get_all_subnet_netuids()
@@ -75,7 +94,7 @@ impl<T: Config> Pallet<T> {
             let moving_price_i: U96F32 = Self::get_moving_alpha_price(*netuid_i);
             log::debug!("moving_price_i: {:?}", moving_price_i);
             // Emission is price over total.
-            let mut tao_in_i: U96F32 = block_emission
+            let mut tao_in_i: U96F32 = subnet_block_emission
                 .saturating_mul(moving_price_i)
                 .checked_div(total_moving_prices)
                 .unwrap_or(asfloat!(0.0));

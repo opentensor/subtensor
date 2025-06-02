@@ -3952,11 +3952,7 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
 fn test_pending_cooldown_one_day() {
     let curr_block = 1;
 
-    let expected_cooldown = if cfg!(feature = "fast-blocks") {
-        15
-    } else {
-        7_200
-    };
+	let expected_cooldown = prod_or_fast!(7_200, 10);
 
     new_test_ext(curr_block).execute_with(|| {
         let coldkey = U256::from(1);
