@@ -46,10 +46,8 @@ fn get_ticked_prices_around_current_price() -> (f64, f64) {
     // Low and high prices that match to a lower and higher tick that doesn't contain the current price
     let current_price_low_sqrt = current_tick.as_sqrt_price_bounded();
     let current_price_high_sqrt = current_tick.next().unwrap().as_sqrt_price_bounded();
-    let current_price_low =
-        U96F32::saturating_from_num(current_price_low_sqrt * current_price_low_sqrt);
-    let current_price_high =
-        U96F32::saturating_from_num(current_price_high_sqrt * current_price_high_sqrt);
+    let current_price_low = U96F32::from_num(current_price_low_sqrt * current_price_low_sqrt);
+    let current_price_high = U96F32::from_num(current_price_high_sqrt * current_price_high_sqrt);
 
     (
         current_price_low.to_num::<f64>(),

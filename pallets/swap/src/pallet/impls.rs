@@ -462,7 +462,7 @@ impl<T: Config> Pallet<T> {
         match order_type {
             OrderType::Buy => {
                 let higher_tick =
-                    ActiveTickIndexManager::find_closest_higher::<T>(netuid, current_price_tick)
+                    ActiveTickIndexManager::<T>::find_closest_higher(netuid, current_tick)
                         .unwrap_or(TickIndex::MAX);
                 if higher_tick < TickIndex::MAX {
                     higher_tick.saturating_add(1)
@@ -472,15 +472,10 @@ impl<T: Config> Pallet<T> {
             }
             OrderType::Sell => {
                 let mut lower_tick =
-                    ActiveTickIndexManager::find_closest_lower::<T>(netuid, current_price_tick)
+                    ActiveTickIndexManager::<T>::find_closest_lower(netuid, current_tick)
                         .unwrap_or(TickIndex::MIN);
-
-                if current_price == roundtrip_current_price {
-                    lower_tick = ActiveTickIndexManager::find_closest_lower::<T>(
-                        netuid,
-                        lower_tick.prev().unwrap_or(TickIndex::MIN),
-                    )
-                    .unwrap_or(TickIndex::MIN);
+                if lower_tick == current_tick {
+                    lower_tick = lower_tick.prev().unwrap_or(TickIndex::MIN);
                 }
                 lower_tick
             }
@@ -791,7 +786,7 @@ impl<T: Config> Pallet<T> {
         };
 
         // Collect fees and get tao and alpha amounts
-        let (fee_tao, fee_alpha) = position.collect_fees::<T>();
+        let (fee_tao, fee_alpha) = position.collect_fees();
         let current_price = AlphaSqrtPrice::<T>::get(netuid);
         let (tao, alpha) = position.to_token_amounts(current_price)?;
 
