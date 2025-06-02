@@ -39,6 +39,7 @@ arithmetic-side-effects = "deny"
 type_complexity = "allow"
 unwrap-used = "deny"
 manual_inspect = "allow"
+result_large_err = "allow"
 useless_conversion = "allow"     # until polkadot is patched
 
 [workspace.dependencies]
