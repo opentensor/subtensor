@@ -16,10 +16,6 @@ describe("Verfication of sr25519 signature", () => {
         const keyring = new Keyring({ type: "sr25519" });
         const alice = keyring.addFromUri("//Alice");
 
-        // Use this example: https://github.com/gztensor/evm-demo/blob/main/docs/sr25519verify-precompile.md
-        // const keyring = new Keyring({ type: "sr25519" });
-        // const myAccount = keyring.addFromUri("//Alice");
-
         //////////////////////////////////////////////////////////////////////
         // Generate a signature
 

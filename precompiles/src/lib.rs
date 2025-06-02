@@ -4,6 +4,7 @@ extern crate alloc;
 
 use core::marker::PhantomData;
 
+use fp_evm::{ExitError, PrecompileFailure};
 use frame_support::{
     dispatch::{GetDispatchInfo, PostDispatchInfo},
     pallet_prelude::Decode,
@@ -198,4 +199,26 @@ where
 
 fn hash(a: u64) -> H160 {
     H160::from_low_u64_be(a)
+}
+
+/*
+ *
+ * This is used to parse a slice from bytes with PrecompileFailure as Error
+ *
+ */
+fn parse_slice(data: &[u8], from: usize, to: usize) -> Result<&[u8], PrecompileFailure> {
+    let maybe_slice = data.get(from..to);
+    if let Some(slice) = maybe_slice {
+        Ok(slice)
+    } else {
+        log::error!(
+            "fail to get slice from data, {:?}, from {}, to {}",
+            &data,
+            from,
+            to
+        );
+        Err(PrecompileFailure::Error {
+            exit_status: ExitError::InvalidRange,
+        })
+    }
 }
