@@ -172,7 +172,7 @@ parameter_types! {
     pub const InitialMaxDifficulty: u64 = u64::MAX;
     pub const InitialRAORecycledForRegistration: u64 = 0;
     pub const InitialSenateRequiredStakePercentage: u64 = 2; // 2 percent of total stake
-    pub const InitialNetworkImmunityPeriod: u64 = 7200 * 7;
+    pub const InitialNetworkImmunityPeriod: u64 = 1_296_000;
     pub const InitialNetworkMinAllowedUids: u16 = 128;
     pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
     pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.

@@ -1073,7 +1073,7 @@ parameter_types! {
     pub const SubtensorInitialTxChildKeyTakeRateLimit: u64 = INITIAL_CHILDKEY_TAKE_RATELIMIT;
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
     pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
-    pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
+    pub const SubtensorInitialNetworkImmunity: u64 = 1_296_000;
     pub const SubtensorInitialMinAllowedUids: u16 = 128;
     pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
