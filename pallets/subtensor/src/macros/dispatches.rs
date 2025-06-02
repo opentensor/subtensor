@@ -1231,7 +1231,7 @@ mod dispatches {
             netuid: u16,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            Self::user_remove_network(coldkey, netuid)
+            Self::do_dissolve_network(netuid)
         }
 
         /// Set a single child for a given hotkey on a specified network.
