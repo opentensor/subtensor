@@ -344,3 +344,11 @@ export async function startCall(api: TypedApi<typeof devnet>, netuid: number, ke
         .getValue(netuid);
     assert.notEqual(callStarted, undefined);
 }
+
+export async function setMaxChildkeyTake(api: TypedApi<typeof devnet>, take: number) {
+    const alice = getAliceSigner()
+    const internalCall = api.tx.SubtensorModule.sudo_set_max_childkey_take({ take })
+    const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
+
+    await waitForTransactionWithRetry(api, tx, alice)
+}
