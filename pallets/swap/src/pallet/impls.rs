@@ -476,7 +476,7 @@ impl<T: Config> Pallet<T> {
         (match order_type {
             OrderType::Buy => {
                 let higher_tick =
-                    ActiveTickIndexManager::find_closest_higher::<T>(netuid, current_price_tick)
+                    ActiveTickIndexManager::<T>::find_closest_higher(netuid, current_price_tick)
                         .unwrap_or(TickIndex::MAX);
                 if higher_tick < TickIndex::MAX {
                     higher_tick.saturating_add(1)
@@ -486,11 +486,11 @@ impl<T: Config> Pallet<T> {
             }
             OrderType::Sell => {
                 let mut lower_tick =
-                    ActiveTickIndexManager::find_closest_lower::<T>(netuid, current_price_tick)
+                    ActiveTickIndexManager::<T>::find_closest_lower(netuid, current_price_tick)
                         .unwrap_or(TickIndex::MIN);
 
                 if current_price == roundtrip_current_price {
-                    lower_tick = ActiveTickIndexManager::find_closest_lower::<T>(
+                    lower_tick = ActiveTickIndexManager::<T>::find_closest_lower(
                         netuid,
                         lower_tick.prev().unwrap_or(TickIndex::MIN),
                     )
@@ -653,12 +653,12 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn find_closest_lower_active_tick(netuid: NetUid, index: TickIndex) -> Option<Tick> {
-        ActiveTickIndexManager::find_closest_lower::<T>(netuid, index)
+        ActiveTickIndexManager::<T>::find_closest_lower(netuid, index)
             .and_then(|ti| Ticks::<T>::get(netuid, ti))
     }
 
     pub fn find_closest_higher_active_tick(netuid: NetUid, index: TickIndex) -> Option<Tick> {
-        ActiveTickIndexManager::find_closest_higher::<T>(netuid, index)
+        ActiveTickIndexManager::<T>::find_closest_higher(netuid, index)
             .and_then(|ti| Ticks::<T>::get(netuid, ti))
     }
 
@@ -915,7 +915,8 @@ impl<T: Config> Pallet<T> {
         // Collect fees
         let (fee_tao, fee_alpha) = position.collect_fees();
 
-        // If delta brings the position liquidity below MinimumLiquidity, eliminate position and withdraw full amounts
+        // If delta brings the position liquidity below MinimumLiquidity, eliminate position and
+        // withdraw full amounts
         if (liquidity_delta < 0)
             && (position.liquidity.saturating_sub(delta_liquidity_abs) < T::MinimumLiquidity::get())
         {
@@ -980,7 +981,7 @@ impl<T: Config> Pallet<T> {
         });
 
         // Update active ticks
-        ActiveTickIndexManager::insert::<T>(netuid, tick_index);
+        ActiveTickIndexManager::<T>::insert(netuid, tick_index);
     }
 
     /// Remove liquidity at tick index.
@@ -1007,7 +1008,7 @@ impl<T: Config> Pallet<T> {
                     *maybe_tick = None;
 
                     // Update active ticks: Final liquidity is zero, remove this tick from active.
-                    ActiveTickIndexManager::remove::<T>(netuid, tick_index);
+                    ActiveTickIndexManager::<T>::remove(netuid, tick_index);
                 }
             }
         });
