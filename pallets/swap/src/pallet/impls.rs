@@ -462,7 +462,7 @@ impl<T: Config> Pallet<T> {
         match order_type {
             OrderType::Buy => {
                 let higher_tick =
-                    ActiveTickIndexManager::find_closest_higher::<T>(netuid, current_tick)
+                    ActiveTickIndexManager::find_closest_higher::<T>(netuid, current_price_tick)
                         .unwrap_or(TickIndex::MAX);
                 if higher_tick < TickIndex::MAX {
                     higher_tick.saturating_add(1)
@@ -472,10 +472,15 @@ impl<T: Config> Pallet<T> {
             }
             OrderType::Sell => {
                 let mut lower_tick =
-                    ActiveTickIndexManager::find_closest_lower::<T>(netuid, current_tick)
+                    ActiveTickIndexManager::find_closest_lower::<T>(netuid, current_price_tick)
                         .unwrap_or(TickIndex::MIN);
-                if lower_tick == current_tick {
-                    lower_tick = lower_tick.prev().unwrap_or(TickIndex::MIN);
+
+                if current_price == roundtrip_current_price {
+                    lower_tick = ActiveTickIndexManager::find_closest_lower::<T>(
+                        netuid,
+                        lower_tick.prev().unwrap_or(TickIndex::MIN),
+                    )
+                    .unwrap_or(TickIndex::MIN);
                 }
                 lower_tick
             }
@@ -632,12 +637,12 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn find_closest_lower_active_tick(netuid: NetUid, index: TickIndex) -> Option<Tick> {
-        ActiveTickIndexManager::find_closest_lower::<T>(netuid, index)
+        ActiveTickIndexManager::<T>::find_closest_lower(netuid, index)
             .and_then(|ti| Ticks::<T>::get(netuid, ti))
     }
 
     pub fn find_closest_higher_active_tick(netuid: NetUid, index: TickIndex) -> Option<Tick> {
-        ActiveTickIndexManager::find_closest_higher::<T>(netuid, index)
+        ActiveTickIndexManager::<T>::find_closest_higher(netuid, index)
             .and_then(|ti| Ticks::<T>::get(netuid, ti))
     }
 
@@ -730,7 +735,7 @@ impl<T: Config> Pallet<T> {
         tick_low: TickIndex,
         tick_high: TickIndex,
         liquidity: u64,
-    ) -> Result<(Position, u64, u64), Error<T>> {
+    ) -> Result<(Position<T>, u64, u64), Error<T>> {
         ensure!(
             Self::count_positions(netuid, coldkey_account_id) <= T::MaxPositions::get() as usize,
             Error::<T>::MaxPositionsExceeded
@@ -756,6 +761,7 @@ impl<T: Config> Pallet<T> {
             liquidity,
             fees_tao: U64F64::saturating_from_num(0),
             fees_alpha: U64F64::saturating_from_num(0),
+            _phantom: PhantomData,
         };
 
         let current_price_sqrt = Pallet::<T>::current_price_sqrt(netuid);
@@ -786,8 +792,8 @@ impl<T: Config> Pallet<T> {
 
         // Collect fees and get tao and alpha amounts
         let (fee_tao, fee_alpha) = position.collect_fees::<T>();
-        let current_price_sqrt = Pallet::<T>::current_price_sqrt(netuid);
-        let (tao, alpha) = position.to_token_amounts(current_price_sqrt)?;
+        let current_price = AlphaSqrtPrice::<T>::get(netuid);
+        let (tao, alpha) = position.to_token_amounts(current_price)?;
 
         // Update liquidity at position ticks
         Self::remove_liquidity_at_index(netuid, position.tick_low, position.liquidity, false);
@@ -891,9 +897,10 @@ impl<T: Config> Pallet<T> {
         }
 
         // Collect fees
-        let (fee_tao, fee_alpha) = position.collect_fees::<T>();
+        let (fee_tao, fee_alpha) = position.collect_fees();
 
-        // If delta brings the position liquidity below MinimumLiquidity, eliminate position and withdraw full amounts
+        // If delta brings the position liquidity below MinimumLiquidity, eliminate position and
+        // withdraw full amounts
         if (liquidity_delta < 0)
             && (position.liquidity.saturating_sub(delta_liquidity_abs) < T::MinimumLiquidity::get())
         {
@@ -958,7 +965,7 @@ impl<T: Config> Pallet<T> {
         });
 
         // Update active ticks
-        ActiveTickIndexManager::insert::<T>(netuid, tick_index);
+        ActiveTickIndexManager::<T>::insert(netuid, tick_index);
     }
 
     /// Remove liquidity at tick index.
@@ -985,7 +992,7 @@ impl<T: Config> Pallet<T> {
                     *maybe_tick = None;
 
                     // Update active ticks: Final liquidity is zero, remove this tick from active.
-                    ActiveTickIndexManager::remove::<T>(netuid, tick_index);
+                    ActiveTickIndexManager::<T>::remove(netuid, tick_index);
                 }
             }
         });
