@@ -556,11 +556,6 @@ pub mod pallet {
         T::InitialNetworkImmunityPeriod::get()
     }
     #[pallet::type_value]
-    /// Default value for network activation deadline.
-    pub fn DefaultNetworkActivationDeadline<T: Config>() -> u64 {
-        1_296_000
-    }
-    #[pallet::type_value]
     /// Default value for network last registered.
     pub fn DefaultNetworkLastRegistered<T: Config>() -> u64 {
         0
@@ -1198,10 +1193,6 @@ pub mod pallet {
     /// ITEM( network_immunity_period )
     pub type NetworkImmunityPeriod<T> =
         StorageValue<_, u64, ValueQuery, DefaultNetworkImmunityPeriod<T>>;
-    #[pallet::storage]
-    /// ITEM( network_activation_deadline )
-    pub type NetworkActivationDeadline<T> =
-        StorageValue<_, u64, ValueQuery, DefaultNetworkActivationDeadline<T>>;
     #[pallet::storage]
     /// ITEM( network_last_registered_block )
     pub type NetworkLastRegistered<T> =

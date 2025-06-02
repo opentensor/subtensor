@@ -21,10 +21,10 @@ use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::weights::Weight;
 use safe_math::*;
 use sp_core::Get;
-use sp_std::vec;
-use sp_runtime::Perbill;
-use substrate_fixed::types::{I64F64, U96F32};
 use sp_runtime::PerThing;
+use sp_runtime::Perbill;
+use sp_std::vec;
+use substrate_fixed::types::{I64F64, U96F32};
 
 impl<T: Config> Pallet<T> {
     /// Fetches the total count of root network validators
@@ -434,7 +434,10 @@ impl<T: Config> Pallet<T> {
         Self::destroy_alpha_in_out_stakes(netuid)?;
 
         // --- Finally, remove the network entirely.
-        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubNetworkDoesNotExist);
+        ensure!(
+            Self::if_subnet_exist(netuid),
+            Error::<T>::SubNetworkDoesNotExist
+        );
         Self::remove_network(netuid);
 
         // --- Emit event.
@@ -489,7 +492,7 @@ impl<T: Config> Pallet<T> {
             Weights::<T>::insert(Self::get_root_netuid(), uid_i, modified_weights);
         }
 
-        // --- 10. Remove various network-related parameters and data.
+        // --- 10. Remove network-related parameters and data.
         Rank::<T>::remove(netuid);
         Trust::<T>::remove(netuid);
         Active::<T>::remove(netuid);
@@ -505,8 +508,6 @@ impl<T: Config> Pallet<T> {
         for (_uid, key) in keys {
             IsNetworkMember::<T>::remove(key, netuid);
         }
-
-        // --- 11. Erase network parameters.
         Tempo::<T>::remove(netuid);
         Kappa::<T>::remove(netuid);
         Difficulty::<T>::remove(netuid);
@@ -518,8 +519,6 @@ impl<T: Config> Pallet<T> {
         RegistrationsThisInterval::<T>::remove(netuid);
         POWRegistrationsThisInterval::<T>::remove(netuid);
         BurnRegistrationsThisInterval::<T>::remove(netuid);
-
-        // --- 12. Remove additional dTao-related storages if applicable.
         SubnetTAO::<T>::remove(netuid);
         SubnetAlphaInEmission::<T>::remove(netuid);
         SubnetAlphaOutEmission::<T>::remove(netuid);
@@ -527,7 +526,6 @@ impl<T: Config> Pallet<T> {
         SubnetVolume::<T>::remove(netuid);
         SubnetMovingPrice::<T>::remove(netuid);
 
-        // --- 13. Remove subnet identity if it exists.
         if SubnetIdentitiesV2::<T>::contains_key(netuid) {
             SubnetIdentitiesV2::<T>::remove(netuid);
             Self::deposit_event(Event::SubnetIdentityRemoved(netuid));
@@ -598,9 +596,6 @@ impl<T: Config> Pallet<T> {
     pub fn get_network_immunity_period() -> u64 {
         NetworkImmunityPeriod::<T>::get()
     }
-    pub fn get_network_activation_deadline() -> u64 {
-        NetworkActivationDeadline::<T>::get()
-    }
     pub fn set_network_immunity_period(net_immunity_period: u64) {
         NetworkImmunityPeriod::<T>::set(net_immunity_period);
         Self::deposit_event(Event::NetworkImmunityPeriodSet(net_immunity_period));
@@ -648,26 +643,29 @@ impl<T: Config> Pallet<T> {
 
     fn destroy_alpha_in_out_stakes(netuid: u16) -> DispatchResult {
         // 1. Ensure the subnet exists.
-        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubNetworkDoesNotExist);
-    
+        ensure!(
+            Self::if_subnet_exist(netuid),
+            Error::<T>::SubNetworkDoesNotExist
+        );
+
         // 2. Gather relevant info.
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
         let lock_cost: u64 = Self::get_subnet_locked_balance(netuid);
-    
+
         // (Optional) Grab total emission in Tao.
         let emission_vec = Emission::<T>::get(netuid);
         let total_emission: u64 = emission_vec.iter().sum();
-    
+
         // The portion the owner received is total_emission * owner_cut (stored as fraction in U96F32).
         let owner_fraction = Self::get_float_subnet_owner_cut();
         let owner_received_emission = (U96F32::from_num(total_emission) * owner_fraction)
             .floor()
             .saturating_to_num::<u64>();
-    
+
         // 3. Destroy α stakes and distribute remaining subnet Tao to α-out stakers (pro rata).
         let mut total_alpha_out: u128 = 0;
         let mut stakers_data = Vec::new();
-    
+
         // (A) First pass: sum total alpha-out for this netuid.
         for ((hotkey, coldkey, this_netuid), alpha_shares) in Alpha::<T>::iter() {
             if this_netuid == netuid {
@@ -677,54 +675,54 @@ impl<T: Config> Pallet<T> {
                 stakers_data.push((hotkey, coldkey, alpha_as_u128));
             }
         }
-    
+
         // (B) Second pass: distribute the subnet’s Tao among those stakers.
         let subnet_tao = SubnetTAO::<T>::get(netuid);
-    
+
         if total_alpha_out > 0 {
             let accuracy_as_u128 = u128::from(Perbill::ACCURACY);
-    
+
             for (hotkey, coldkey, alpha_amount) in stakers_data {
                 let scaled = alpha_amount
                     .saturating_mul(accuracy_as_u128)
                     .checked_div(total_alpha_out)
                     .unwrap_or(0);
-    
+
                 // Clamp to avoid overflow beyond the Perbill limit (which is a 1.0 fraction).
                 let clamped = if scaled > accuracy_as_u128 {
                     Perbill::ACCURACY
                 } else {
                     scaled as u32
                 };
-    
+
                 // Construct a Perbill from these parts
                 let fraction = Perbill::from_parts(clamped);
-    
+
                 // Multiply fraction by subnet_tao to get the staker’s share (u64).
                 let tao_share = fraction * subnet_tao;
-    
+
                 // Credit the coldkey (or hotkey, depending on your design).
                 Self::add_balance_to_coldkey_account(&coldkey, tao_share);
-    
+
                 // Remove these alpha shares.
                 Alpha::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
             }
         }
-    
+
         // Clear any leftover alpha in/out accumulations.
         SubnetAlphaIn::<T>::insert(netuid, 0);
         SubnetAlphaOut::<T>::insert(netuid, 0);
-    
+
         // 4. Calculate partial refund = max(0, lock_cost - owner_received_emission).
         let final_refund = lock_cost.saturating_sub(owner_received_emission).max(0);
-    
+
         // 5. Set the locked balance on this subnet to 0, then credit the final_refund.
         Self::set_subnet_locked_balance(netuid, 0);
-    
+
         if final_refund > 0 {
             Self::add_balance_to_coldkey_account(&owner_coldkey, final_refund);
         }
-    
+
         Ok(())
     }
 
@@ -739,23 +737,8 @@ impl<T: Config> Pallet<T> {
         for netuid in 1..=total_networks {
             let registered_at = NetworkRegisteredAt::<T>::get(netuid);
 
-            let start_block = match FirstEmissionBlockNumber::<T>::get(netuid) {
-                Some(block) => block,
-                None => {
-                    // Not enabled yet. If still within ActivationDeadline, skip pruning this subnet.
-                    if current_block
-                        < registered_at.saturating_add(Self::get_network_activation_deadline())
-                    {
-                        continue;
-                    }
-                    // Otherwise, we treat it as if it started at its registered time
-                    registered_at
-                }
-            };
-
-            // Check if the subnet's immunity period is expired.
-            let immunity_period = Self::get_network_immunity_period();
-            if current_block < start_block.saturating_add(immunity_period as u64) {
+            // Skip immune networks
+            if current_block < registered_at.saturating_add(Self::get_network_immunity_period()) {
                 continue;
             }
 
@@ -774,5 +757,5 @@ impl<T: Config> Pallet<T> {
         }
 
         candidate_netuid
-    }        
+    }
 }

@@ -32,9 +32,7 @@ fn test_registration_ok() {
             coldkey_account_id
         ));
 
-        assert_ok!(SubtensorModule::do_dissolve_network(
-            netuid
-        ));
+        assert_ok!(SubtensorModule::do_dissolve_network(netuid));
 
         assert!(!SubtensorModule::if_subnet_exist(netuid))
     })
