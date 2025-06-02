@@ -527,14 +527,20 @@ impl<T: Config> Pallet<T> {
         let fee_global_alpha = FeeGlobalAlpha::<T>::get(netuid);
         let fee_fixed = U64F64::saturating_from_num(fee);
 
+        println!("Adding fees. fee = {:?}", fee);
+
         match order_type {
             OrderType::Sell => {
+                println!("Alpha fees added: {:?}", fee_fixed.safe_div(liquidity_curr));
+
                 FeeGlobalAlpha::<T>::set(
                     netuid,
                     fee_global_alpha.saturating_add(fee_fixed.safe_div(liquidity_curr)),
                 );
             }
             OrderType::Buy => {
+                println!("TAO fees added: {:?}", fee_fixed.safe_div(liquidity_curr));
+
                 FeeGlobalTao::<T>::set(
                     netuid,
                     fee_global_tao.saturating_add(fee_fixed.safe_div(liquidity_curr)),
@@ -913,6 +919,8 @@ impl<T: Config> Pallet<T> {
 
         // Collect fees
         let (fee_tao, fee_alpha) = position.collect_fees::<T>();
+
+        println!("Fees collected: {:?}", (fee_tao, fee_alpha));
 
         // If delta brings the position liquidity below MinimumLiquidity, eliminate position and withdraw full amounts
         if (liquidity_delta < 0)
