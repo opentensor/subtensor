@@ -794,7 +794,7 @@ fn test_swap_basic() {
 }
 
 // In this test the swap starts and ends within one (large liquidity) position
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor-swap --lib -- pallet::impls::tests::test_swap_single_position --exact --show-output --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor-swap --lib -- pallet::tests::test_swap_single_position --exact --show-output
 #[test]
 fn test_swap_single_position() {
     let min_price = tick_to_price(TickIndex::MIN);

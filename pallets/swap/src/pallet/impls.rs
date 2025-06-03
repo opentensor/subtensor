@@ -25,6 +25,7 @@ struct SwapStep<T: frame_system::Config> {
     // Input parameters
     netuid: NetUid,
     order_type: OrderType,
+    first_step: bool,
 
     // Computed values
     current_liquidity: U64F64,
@@ -56,6 +57,7 @@ impl<T: Config> SwapStep<T> {
         order_type: OrderType,
         amount_remaining: u64,
         limit_sqrt_price: SqrtPrice,
+        first_step: bool,
     ) -> Self {
         // Calculate prices and ticks
         let current_tick = CurrentTick::<T>::get(netuid);
@@ -80,6 +82,7 @@ impl<T: Config> SwapStep<T> {
         Self {
             netuid,
             order_type,
+            first_step,
             target_sqrt_price,
             limit_sqrt_price,
             current_sqrt_price,
@@ -99,7 +102,7 @@ impl<T: Config> SwapStep<T> {
 
     /// Execute the swap step and return the result
     fn execute(&mut self) -> Result<SwapStepResult, Error<T>> {
-        self.determine_action();
+        self.determine_action()?;
         self.process_swap()
     }
 
@@ -116,8 +119,24 @@ impl<T: Config> SwapStep<T> {
     }
 
     /// Determine the appropriate action for this swap step
-    fn determine_action(&mut self) {
+    fn determine_action(&mut self) -> Result<(), Error<T>> {
         let mut recalculate_fee = false;
+
+        // For sell orders: If the current price matches the edge price, then cross the tick first,
+        // and then move the edge price to one active tick lower.
+        // Also, if this is the first swap step, cross the tick.
+        if (self.edge_sqrt_price == self.current_sqrt_price) && (self.order_type == OrderType::Sell)
+        {
+            if self.first_step {
+                self.cross_tick()?;
+            }
+            self.edge_tick = ActiveTickIndexManager::<T>::find_closest_lower(
+                self.netuid,
+                self.edge_tick.prev().unwrap_or(TickIndex::MIN),
+            )
+            .unwrap_or(TickIndex::MIN);
+            self.edge_sqrt_price = self.edge_tick.as_sqrt_price_bounded();
+        }
 
         // Calculate the stopping price: The price at which we either reach the limit price,
         // exchange the full amount, or reach the edge price.
@@ -182,6 +201,31 @@ impl<T: Config> SwapStep<T> {
                 OrderType::Sell => SwapStepAction::Stop,
             };
         }
+
+        Ok(())
+    }
+
+    fn cross_tick(&self) -> Result<(), Error<T>> {
+        // Get current tick
+        let current_tick_index = TickIndex::current_bounded::<T>(self.netuid);
+
+        let mut tick = match self.order_type {
+            OrderType::Sell => {
+                Pallet::<T>::find_closest_lower_active_tick(self.netuid, current_tick_index)
+            }
+            OrderType::Buy => {
+                Pallet::<T>::find_closest_higher_active_tick(self.netuid, current_tick_index)
+            }
+        }
+        .ok_or(Error::<T>::InsufficientLiquidity)?;
+
+        tick.fees_out_tao = FeeGlobalTao::<T>::get(self.netuid).saturating_sub(tick.fees_out_tao);
+        tick.fees_out_alpha =
+            FeeGlobalAlpha::<T>::get(self.netuid).saturating_sub(tick.fees_out_alpha);
+        Pallet::<T>::update_liquidity_at_crossing(self.netuid, self.order_type)?;
+        Ticks::<T>::insert(self.netuid, current_tick_index, tick);
+
+        Ok(())
     }
 
     /// Process a single step of a swap
@@ -190,26 +234,8 @@ impl<T: Config> SwapStep<T> {
         Pallet::<T>::add_fees(self.netuid, self.order_type, self.fee);
         let delta_out = Pallet::<T>::convert_deltas(self.netuid, self.order_type, self.delta_in);
 
-        // Get current tick
-        let current_tick_index = TickIndex::current_bounded::<T>(self.netuid);
-
         if self.action == SwapStepAction::Crossing {
-            let mut tick = match self.order_type {
-                OrderType::Sell => {
-                    Pallet::<T>::find_closest_lower_active_tick(self.netuid, current_tick_index)
-                }
-                OrderType::Buy => {
-                    Pallet::<T>::find_closest_higher_active_tick(self.netuid, current_tick_index)
-                }
-            }
-            .ok_or(Error::<T>::InsufficientLiquidity)?;
-
-            tick.fees_out_tao =
-                FeeGlobalTao::<T>::get(self.netuid).saturating_sub(tick.fees_out_tao);
-            tick.fees_out_alpha =
-                FeeGlobalAlpha::<T>::get(self.netuid).saturating_sub(tick.fees_out_alpha);
-            Pallet::<T>::update_liquidity_at_crossing(self.netuid, self.order_type)?;
-            Ticks::<T>::insert(self.netuid, current_tick_index, tick);
+            self.cross_tick()?;
         }
 
         // Update current price
@@ -403,8 +429,13 @@ impl<T: Config> Pallet<T> {
         // Swap one tick at a time until we reach one of the stop conditions
         while amount_remaining > 0 {
             // Create and execute a swap step
-            let mut swap_step =
-                SwapStep::<T>::new(netuid, order_type, amount_remaining, sqrt_price_limit);
+            let mut swap_step = SwapStep::<T>::new(
+                netuid,
+                order_type,
+                amount_remaining,
+                sqrt_price_limit,
+                iteration_counter == 0,
+            );
 
             let swap_result = swap_step.execute()?;
 
@@ -471,13 +502,8 @@ impl<T: Config> Pallet<T> {
                 }
             }
             OrderType::Sell => {
-                let mut lower_tick =
-                    ActiveTickIndexManager::<T>::find_closest_lower(netuid, current_tick)
-                        .unwrap_or(TickIndex::MIN);
-                if lower_tick == current_tick {
-                    lower_tick = lower_tick.prev().unwrap_or(TickIndex::MIN);
-                }
-                lower_tick
+                ActiveTickIndexManager::<T>::find_closest_lower(netuid, current_tick)
+                    .unwrap_or(TickIndex::MIN)
             }
         }
     }
