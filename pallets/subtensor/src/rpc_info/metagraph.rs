@@ -6,12 +6,13 @@ use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I64F64;
 use substrate_fixed::types::I96F32;
 use subtensor_macros::freeze_struct;
+use subtensor_runtime_common::NetUid;
 
-#[freeze_struct("cb3ff125c0c35c9e")]
+#[freeze_struct("ea9ff0b8daeaa5ed")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     // Subnet index
-    netuid: Compact<u16>,
+    netuid: Compact<NetUid>,
 
     // Name and symbol
     name: Vec<Compact<u8>>,              // name
@@ -107,11 +108,11 @@ pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     alpha_dividends_per_hotkey: Vec<(AccountId, Compact<u64>)>, // List of dividend payout in alpha via subnet.
 }
 
-#[freeze_struct("182c7375fee9db7b")]
+#[freeze_struct("5f0b0167abaff1b9")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode + Clone> {
     // Subnet index
-    netuid: Compact<u16>,
+    netuid: Compact<NetUid>,
 
     // Name and symbol
     name: Option<Vec<Compact<u8>>>,              // name
@@ -373,7 +374,7 @@ where
 {
     fn default() -> Self {
         Self {
-            netuid: 0.into(),
+            netuid: NetUid::ROOT.into(),
             name: None,
             symbol: None,
             identity: None,
@@ -604,7 +605,7 @@ impl SelectiveMetagraphIndex {
     }
 }
 impl<T: Config> Pallet<T> {
-    pub fn get_metagraph(netuid: u16) -> Option<Metagraph<T::AccountId>> {
+    pub fn get_metagraph(netuid: NetUid) -> Option<Metagraph<T::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }
@@ -780,7 +781,7 @@ impl<T: Config> Pallet<T> {
         })
     }
     pub fn get_all_metagraphs() -> Vec<Option<Metagraph<T::AccountId>>> {
-        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
+        let netuids = Self::get_all_subnet_netuids();
         let mut metagraphs = Vec::<Option<Metagraph<T::AccountId>>>::new();
         for netuid in netuids.clone().iter() {
             metagraphs.push(Self::get_metagraph(*netuid));
@@ -789,7 +790,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_selective_metagraph(
-        netuid: u16,
+        netuid: NetUid,
         metagraph_indexes: Vec<u16>,
     ) -> Option<SelectiveMetagraph<T::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
@@ -805,7 +806,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn get_single_selective_metagraph(
-        netuid: u16,
+        netuid: NetUid,
         metagraph_index: u16,
     ) -> SelectiveMetagraph<T::AccountId> {
         match SelectiveMetagraphIndex::from_index(metagraph_index as usize) {

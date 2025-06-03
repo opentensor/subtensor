@@ -82,7 +82,7 @@ mod dispatches {
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn set_weights(
             origin: OriginFor<T>,
-            netuid: u16,
+            netuid: NetUid,
             dests: Vec<u16>,
             weights: Vec<u16>,
             version_key: u64,
@@ -125,7 +125,7 @@ mod dispatches {
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn batch_set_weights(
             origin: OriginFor<T>,
-            netuids: Vec<Compact<u16>>,
+            netuids: Vec<Compact<NetUid>>,
             weights: Vec<Vec<(Compact<u16>, Compact<u16>)>>,
             version_keys: Vec<Compact<u64>>,
         ) -> DispatchResult {
@@ -157,7 +157,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_weights(
             origin: T::RuntimeOrigin,
-            netuid: u16,
+            netuid: NetUid,
             commit_hash: H256,
         ) -> DispatchResult {
             Self::do_commit_weights(origin, netuid, commit_hash)
@@ -191,7 +191,7 @@ mod dispatches {
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn batch_commit_weights(
             origin: OriginFor<T>,
-            netuids: Vec<Compact<u16>>,
+            netuids: Vec<Compact<NetUid>>,
             commit_hashes: Vec<H256>,
         ) -> DispatchResult {
             Self::do_batch_commit_weights(origin, netuids, commit_hashes)
@@ -240,7 +240,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn reveal_weights(
             origin: T::RuntimeOrigin,
-            netuid: u16,
+            netuid: NetUid,
             uids: Vec<u16>,
             values: Vec<u16>,
             salt: Vec<u16>,
@@ -284,7 +284,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_crv3_weights(
             origin: T::RuntimeOrigin,
-            netuid: u16,
+            netuid: NetUid,
             commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
             reveal_round: u64,
         ) -> DispatchResult {
@@ -336,7 +336,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn batch_reveal_weights(
             origin: T::RuntimeOrigin,
-            netuid: u16,
+            netuid: NetUid,
             uids_list: Vec<Vec<u16>>,
             values_list: Vec<Vec<u16>>,
             salts_list: Vec<Vec<u16>>,
@@ -418,7 +418,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Normal, Pays::No))]
         pub fn set_tao_weights(
             _origin: OriginFor<T>,
-            _netuid: u16,
+            _netuid: NetUid,
             _hotkey: T::AccountId,
             _dests: Vec<u16>,
             _weights: Vec<u16>,
@@ -591,7 +591,7 @@ mod dispatches {
         pub fn add_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
-            netuid: u16,
+            netuid: NetUid,
             amount_staked: u64,
         ) -> DispatchResult {
             Self::do_add_stake(origin, hotkey, netuid, amount_staked)
@@ -635,7 +635,7 @@ mod dispatches {
         pub fn remove_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
-            netuid: u16,
+            netuid: NetUid,
             amount_unstaked: u64,
         ) -> DispatchResult {
             Self::do_remove_stake(origin, hotkey, netuid, amount_unstaked)
@@ -698,7 +698,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_axon(
             origin: OriginFor<T>,
-            netuid: u16,
+            netuid: NetUid,
             version: u32,
             ip: u128,
             port: u16,
@@ -782,7 +782,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_axon_tls(
             origin: OriginFor<T>,
-            netuid: u16,
+            netuid: NetUid,
             version: u32,
             ip: u128,
             port: u16,
@@ -832,7 +832,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_prometheus(
             origin: OriginFor<T>,
-            netuid: u16,
+            netuid: NetUid,
             version: u32,
             ip: u128,
             port: u16,
@@ -894,7 +894,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(23)), DispatchClass::Normal, Pays::No))]
         pub fn register(
             origin: OriginFor<T>,
-            netuid: u16,
+            netuid: NetUid,
             block_number: u64,
             nonce: u64,
             work: Vec<u8>,
@@ -929,7 +929,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(29)), DispatchClass::Normal, Pays::No))]
         pub fn burned_register(
             origin: OriginFor<T>,
-            netuid: u16,
+            netuid: NetUid,
             hotkey: T::AccountId,
         ) -> DispatchResult {
             Self::do_burned_registration(origin, netuid, hotkey)
@@ -1020,7 +1020,7 @@ mod dispatches {
         pub fn set_childkey_take(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
-            netuid: u16,
+            netuid: NetUid,
             take: u16,
         ) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
@@ -1228,7 +1228,7 @@ mod dispatches {
         pub fn dissolve_network(
             origin: OriginFor<T>,
             coldkey: T::AccountId,
-            netuid: u16,
+            netuid: NetUid,
         ) -> DispatchResult {
             ensure_root(origin)?;
             Self::user_remove_network(coldkey, netuid)
@@ -1286,7 +1286,7 @@ mod dispatches {
         pub fn set_children(
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
-            netuid: u16,
+            netuid: NetUid,
             children: Vec<(u64, T::AccountId)>,
         ) -> DispatchResultWithPostInfo {
             Self::do_schedule_children(origin, hotkey, netuid, children)?;
@@ -1406,7 +1406,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
         pub fn schedule_dissolve_network(
             _origin: OriginFor<T>,
-            _netuid: u16,
+            _netuid: NetUid,
         ) -> DispatchResultWithPostInfo {
             Err(Error::<T>::CallDisabled.into())
 
@@ -1511,7 +1511,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::Yes))]
         pub fn set_subnet_identity(
             origin: OriginFor<T>,
-            netuid: u16,
+            netuid: NetUid,
             subnet_name: Vec<u8>,
             github_repo: Vec<u8>,
             subnet_contact: Vec<u8>,
@@ -1641,8 +1641,8 @@ mod dispatches {
             origin: T::RuntimeOrigin,
             origin_hotkey: T::AccountId,
             destination_hotkey: T::AccountId,
-            origin_netuid: u16,
-            destination_netuid: u16,
+            origin_netuid: NetUid,
+            destination_netuid: NetUid,
             alpha_amount: u64,
         ) -> DispatchResult {
             Self::do_move_stake(
@@ -1684,8 +1684,8 @@ mod dispatches {
             origin: T::RuntimeOrigin,
             destination_coldkey: T::AccountId,
             hotkey: T::AccountId,
-            origin_netuid: u16,
-            destination_netuid: u16,
+            origin_netuid: NetUid,
+            destination_netuid: NetUid,
             alpha_amount: u64,
         ) -> DispatchResult {
             Self::do_transfer_stake(
@@ -1728,8 +1728,8 @@ mod dispatches {
         pub fn swap_stake(
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
-            origin_netuid: u16,
-            destination_netuid: u16,
+            origin_netuid: NetUid,
+            destination_netuid: NetUid,
             alpha_amount: u64,
         ) -> DispatchResult {
             Self::do_swap_stake(
@@ -1790,7 +1790,7 @@ mod dispatches {
         pub fn add_stake_limit(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
-            netuid: u16,
+            netuid: NetUid,
             amount_staked: u64,
             limit_price: u64,
             allow_partial: bool,
@@ -1854,7 +1854,7 @@ mod dispatches {
         pub fn remove_stake_limit(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
-            netuid: u16,
+            netuid: NetUid,
             amount_unstaked: u64,
             limit_price: u64,
             allow_partial: bool,
@@ -1901,8 +1901,8 @@ mod dispatches {
         pub fn swap_stake_limit(
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
-            origin_netuid: u16,
-            destination_netuid: u16,
+            origin_netuid: NetUid,
+            destination_netuid: NetUid,
             alpha_amount: u64,
             limit_price: u64,
             allow_partial: bool,
@@ -1957,7 +1957,7 @@ mod dispatches {
             DispatchClass::Operational,
             Pays::Yes
         ))]
-        pub fn start_call(origin: T::RuntimeOrigin, netuid: u16) -> DispatchResult {
+        pub fn start_call(origin: T::RuntimeOrigin, netuid: NetUid) -> DispatchResult {
             Self::do_start_call(origin, netuid)?;
             Ok(())
         }
@@ -1997,7 +1997,7 @@ mod dispatches {
         ))]
         pub fn associate_evm_key(
             origin: T::RuntimeOrigin,
-            netuid: u16,
+            netuid: NetUid,
             hotkey: T::AccountId,
             evm_key: H160,
             block_number: u64,
@@ -2026,7 +2026,7 @@ mod dispatches {
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
             amount: u64,
-            netuid: u16,
+            netuid: NetUid,
         ) -> DispatchResult {
             Self::do_recycle_alpha(origin, hotkey, amount, netuid)
         }
@@ -2051,7 +2051,7 @@ mod dispatches {
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
             amount: u64,
-            netuid: u16,
+            netuid: NetUid,
         ) -> DispatchResult {
             Self::do_burn_alpha(origin, hotkey, amount, netuid)
         }
@@ -2100,7 +2100,7 @@ mod dispatches {
         // pub fn add_stake_aggregate(
         //     origin: OriginFor<T>,
         //     hotkey: T::AccountId,
-        //     netuid: u16,
+        //     netuid: NetUid,
         //     amount_staked: u64,
         // ) -> DispatchResult {
         //     Self::do_add_stake_aggregate(origin, hotkey, netuid, amount_staked)
@@ -2150,7 +2150,7 @@ mod dispatches {
         // pub fn remove_stake_aggregate(
         //     origin: OriginFor<T>,
         //     hotkey: T::AccountId,
-        //     netuid: u16,
+        //     netuid: NetUid,
         //     amount_unstaked: u64,
         // ) -> DispatchResult {
         //     Self::do_remove_stake_aggregate(origin, hotkey, netuid, amount_unstaked)
@@ -2207,7 +2207,7 @@ mod dispatches {
         // pub fn add_stake_limit_aggregate(
         //     origin: OriginFor<T>,
         //     hotkey: T::AccountId,
-        //     netuid: u16,
+        //     netuid: Netuid,
         //     amount_staked: u64,
         //     limit_price: u64,
         //     allow_partial: bool,
@@ -2273,7 +2273,7 @@ mod dispatches {
         // pub fn remove_stake_limit_aggregate(
         //     origin: OriginFor<T>,
         //     hotkey: T::AccountId,
-        //     netuid: u16,
+        //     netuid: NetUid,
         //     amount_unstaked: u64,
         //     limit_price: u64,
         //     allow_partial: bool,

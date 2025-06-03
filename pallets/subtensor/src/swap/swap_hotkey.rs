@@ -227,7 +227,7 @@ impl<T: Config> Pallet<T> {
         // (DEPRECATED.)
 
         // 10. Swap all subnet specific info.
-        let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
+        let all_netuids = Self::get_all_subnet_netuids();
         all_netuids.iter().for_each(|netuid| {
             // 10.1 Remove the previous hotkey and insert the new hotkey from membership.
             // IsNetworkMember( hotkey, netuid ) -> bool -- is the hotkey a subnet member.
@@ -312,7 +312,7 @@ impl<T: Config> Pallet<T> {
 
         // 11. Swap Alpha
         // Alpha( hotkey, coldkey, netuid ) -> alpha
-        let old_alpha_values: Vec<((T::AccountId, u16), U64F64)> =
+        let old_alpha_values: Vec<((T::AccountId, NetUid), U64F64)> =
             Alpha::<T>::iter_prefix((old_hotkey,)).collect();
         // Clear the entire old prefix here.
         let _ = Alpha::<T>::clear_prefix((old_hotkey,), old_alpha_values.len() as u32, None);

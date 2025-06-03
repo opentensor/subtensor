@@ -1,5 +1,6 @@
 use super::*;
 use crate::{Error, system::ensure_signed};
+use subtensor_runtime_common::NetUid;
 
 impl<T: Config> Pallet<T> {
     /// Recycles alpha from a cold/hot key pair, reducing AlphaOut on a subnet
@@ -18,7 +19,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
         amount: u64,
-        netuid: u16,
+        netuid: NetUid,
     ) -> DispatchResult {
         let coldkey: T::AccountId = ensure_signed(origin)?;
 
@@ -28,7 +29,7 @@ impl<T: Config> Pallet<T> {
         );
 
         ensure!(
-            netuid != Self::get_root_netuid(),
+            !netuid.is_root(),
             Error::<T>::CannotBurnOrRecycleOnRootSubnet
         );
 
@@ -87,7 +88,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
         amount: u64,
-        netuid: u16,
+        netuid: NetUid,
     ) -> DispatchResult {
         let coldkey = ensure_signed(origin)?;
 
@@ -97,7 +98,7 @@ impl<T: Config> Pallet<T> {
         );
 
         ensure!(
-            netuid != Self::get_root_netuid(),
+            !netuid.is_root(),
             Error::<T>::CannotBurnOrRecycleOnRootSubnet
         );
 

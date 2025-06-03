@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+use core::fmt::{self, Display, Formatter};
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Compact, CompactAs, Decode, Encode, Error as CodecError, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -33,17 +34,57 @@ pub type Nonce = u32;
 /// Transfers below SMALL_TRANSFER_LIMIT are considered small transfers
 pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
 
-#[freeze_struct("2a62496e31bbcddc")]
+#[freeze_struct("45dfe0bb8f7886a9")]
+#[repr(transparent)]
 #[derive(
-    Clone, Copy, Decode, Default, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo,
+    Clone,
+    Copy,
+    Decode,
+    Default,
+    Encode,
+    Eq,
+    MaxEncodedLen,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    RuntimeDebug,
+    TypeInfo,
 )]
 pub struct NetUid(u16);
 
 impl NetUid {
-    pub const ROOT: NetUid = NetUid(0);
+    pub const ROOT: NetUid = Self(0);
 
     pub fn is_root(&self) -> bool {
         *self == Self::ROOT
+    }
+
+    pub fn next(&self) -> NetUid {
+        Self(self.0.saturating_add(1))
+    }
+}
+
+impl Display for NetUid {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+impl CompactAs for NetUid {
+    type As = u16;
+
+    fn encode_as(&self) -> &Self::As {
+        &self.0
+    }
+
+    fn decode_from(v: Self::As) -> Result<Self, CodecError> {
+        Ok(Self(v))
+    }
+}
+
+impl From<Compact<NetUid>> for NetUid {
+    fn from(c: Compact<NetUid>) -> Self {
+        c.0
     }
 }
 

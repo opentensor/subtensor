@@ -11,41 +11,38 @@ mod genesis {
             // Set initial total issuance from balances
             TotalIssuance::<T>::put(self.balances_issuance);
 
-            // Get the root network uid.
-            let root_netuid: u16 = 0;
-
             // Set the root network as added.
-            NetworksAdded::<T>::insert(root_netuid, true);
+            NetworksAdded::<T>::insert(NetUid::ROOT, true);
 
             // Increment the number of total networks.
             TotalNetworks::<T>::mutate(|n| *n = n.saturating_add(1));
 
             // Set the number of validators to 1.
-            SubnetworkN::<T>::insert(root_netuid, 0);
+            SubnetworkN::<T>::insert(NetUid::ROOT, 0);
 
             // Set the maximum number to the number of senate members.
-            MaxAllowedUids::<T>::insert(root_netuid, 64u16);
+            MaxAllowedUids::<T>::insert(NetUid::ROOT, 64u16);
 
             // Set the maximum number to the number of validators to all members.
-            MaxAllowedValidators::<T>::insert(root_netuid, 64u16);
+            MaxAllowedValidators::<T>::insert(NetUid::ROOT, 64u16);
 
             // Set the min allowed weights to zero, no weights restrictions.
-            MinAllowedWeights::<T>::insert(root_netuid, 0);
+            MinAllowedWeights::<T>::insert(NetUid::ROOT, 0);
 
             // Set the max weight limit to infitiy, no weight restrictions.
-            MaxWeightsLimit::<T>::insert(root_netuid, u16::MAX);
+            MaxWeightsLimit::<T>::insert(NetUid::ROOT, u16::MAX);
 
             // Add default root tempo.
-            Tempo::<T>::insert(root_netuid, 100);
+            Tempo::<T>::insert(NetUid::ROOT, 100);
 
             // Set the root network as open.
-            NetworkRegistrationAllowed::<T>::insert(root_netuid, true);
+            NetworkRegistrationAllowed::<T>::insert(NetUid::ROOT, true);
 
             // Set target registrations for validators as 1 per block.
-            TargetRegistrationsPerInterval::<T>::insert(root_netuid, 1);
+            TargetRegistrationsPerInterval::<T>::insert(NetUid::ROOT, 1);
 
             for net in 1..2 {
-                let netuid: u16 = net as u16;
+                let netuid = NetUid::from(net);
                 let hotkey = DefaultAccount::<T>::get();
                 SubnetMechanism::<T>::insert(netuid, 1); // Make dynamic.
                 Owner::<T>::insert(hotkey.clone(), hotkey.clone());
@@ -83,8 +80,7 @@ mod genesis {
                 }
 
                 let block_number = Pallet::<T>::get_current_block_as_u64();
-                for next_uid_s in 0..1 {
-                    let next_uid: u16 = next_uid_s as u16;
+                for next_uid in 0u16..1 {
                     SubnetworkN::<T>::insert(netuid, next_uid.saturating_add(1));
                     Rank::<T>::mutate(netuid, |v| v.push(0));
                     Trust::<T>::mutate(netuid, |v| v.push(0));
