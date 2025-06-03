@@ -914,7 +914,7 @@ pub(crate) fn swap_tao_to_alpha(netuid: u16, tao: u64) -> (u64, u64) {
         0 => (tao, 0),
         _ => {
             let result = <Test as pallet::Config>::SwapInterface::swap(
-                netuid,
+                netuid.into(),
                 OrderType::Buy,
                 tao,
                 <Test as pallet::Config>::SwapInterface::max_price(),
@@ -943,7 +943,7 @@ pub(crate) fn swap_alpha_to_tao(netuid: u16, alpha: u64) -> (u64, u64) {
             );
 
             let result = <Test as pallet::Config>::SwapInterface::swap(
-                netuid,
+                netuid.into(),
                 OrderType::Sell,
                 alpha,
                 <Test as pallet::Config>::SwapInterface::min_price(),

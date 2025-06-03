@@ -7,9 +7,10 @@ use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_arithmetic::helpers_128bit;
 use sp_runtime::DispatchError;
 use substrate_fixed::types::U96F32;
+use subtensor_runtime_common::NetUid;
 
 use super::*;
-use crate::{NetUid, OrderType, SqrtPrice, mock::*};
+use crate::{OrderType, SqrtPrice, mock::*};
 
 // this function is used to convert price (NON-SQRT price!) to TickIndex. it's only utility for
 // testing, all the implementation logic is based on sqrt prices
@@ -78,18 +79,18 @@ mod dispatchables {
     #[test]
     fn test_set_fee_rate() {
         new_test_ext().execute_with(|| {
-            let netuid = 1u16;
+            let netuid = NetUid::from(1);
             let fee_rate = 500; // 0.76% fee
 
             assert_noop!(
-                Swap::set_fee_rate(RuntimeOrigin::signed(666), netuid.into(), fee_rate),
+                Swap::set_fee_rate(RuntimeOrigin::signed(666), netuid, fee_rate),
                 DispatchError::BadOrigin
             );
 
             assert_ok!(Swap::set_fee_rate(RuntimeOrigin::root(), netuid, fee_rate));
 
             // Check that fee rate was set correctly
-            assert_eq!(FeeRate::<Test>::get(NetUid::from(netuid)), fee_rate);
+            assert_eq!(FeeRate::<Test>::get(netuid), fee_rate);
 
             let fee_rate = fee_rate * 2;
             assert_ok!(Swap::set_fee_rate(
@@ -97,7 +98,7 @@ mod dispatchables {
                 netuid,
                 fee_rate
             ));
-            assert_eq!(FeeRate::<Test>::get(NetUid::from(netuid)), fee_rate);
+            assert_eq!(FeeRate::<Test>::get(netuid), fee_rate);
 
             // Verify fee rate validation - should fail if too high
             let too_high_fee = MaxFeeRate::get() + 1;
@@ -133,7 +134,7 @@ mod dispatchables {
             ));
 
             assert_noop!(
-                Swap::set_enabled_user_liquidity(RuntimeOrigin::root(), NON_EXISTENT_NETUID),
+                Swap::set_enabled_user_liquidity(RuntimeOrigin::root(), NON_EXISTENT_NETUID.into()),
                 Error::<Test>::SubNetworkDoesNotExist
             );
         });
@@ -800,7 +801,7 @@ fn test_swap_single_position() {
     let min_price = tick_to_price(TickIndex::MIN);
     let max_price = tick_to_price(TickIndex::MAX);
     let max_tick = price_to_tick(max_price);
-    let netuid = NetUid(1);
+    let netuid = NetUid::from(1);
     assert_eq!(max_tick, TickIndex::MAX);
 
     let mut current_price_low = 0_f64;
@@ -1059,7 +1060,7 @@ fn test_swap_multiple_positions() {
         let min_price = tick_to_price(TickIndex::MIN);
         let max_price = tick_to_price(TickIndex::MAX);
         let max_tick = price_to_tick(max_price);
-        let netuid = NetUid(1);
+        let netuid = NetUid::from(1);
         assert_eq!(max_tick, TickIndex::MAX);
 
         //////////////////////////////////////////////
@@ -1348,7 +1349,7 @@ fn test_user_liquidity_disabled() {
         let netuid = NetUid::from(101);
         let tick_low = TickIndex::new_unchecked(-1000);
         let tick_high = TickIndex::new_unchecked(1000);
-        let position_id = 1;
+        let position_id = PositionId::from(1);
         let liquidity = 1_000_000_000;
         let liquidity_delta = 500_000_000;
 
@@ -1367,7 +1368,7 @@ fn test_user_liquidity_disabled() {
         );
 
         assert_noop!(
-            Swap::do_remove_liquidity(netuid, &OK_COLDKEY_ACCOUNT_ID, position_id.into()),
+            Swap::do_remove_liquidity(netuid, &OK_COLDKEY_ACCOUNT_ID, position_id),
             Error::<Test>::UserLiquidityDisabled
         );
 
@@ -1375,7 +1376,7 @@ fn test_user_liquidity_disabled() {
             Swap::modify_position(
                 RuntimeOrigin::signed(OK_COLDKEY_ACCOUNT_ID),
                 OK_HOTKEY_ACCOUNT_ID,
-                netuid.into(),
+                netuid,
                 position_id,
                 liquidity_delta
             ),
@@ -1384,7 +1385,7 @@ fn test_user_liquidity_disabled() {
 
         assert_ok!(Swap::set_enabled_user_liquidity(
             RuntimeOrigin::root(),
-            netuid.into()
+            netuid
         ));
 
         let position_id = Swap::do_add_liquidity(
@@ -1407,7 +1408,7 @@ fn test_user_liquidity_disabled() {
         ));
 
         assert_ok!(Swap::do_remove_liquidity(
-            netuid.into(),
+            netuid,
             &OK_COLDKEY_ACCOUNT_ID,
             position_id,
         ));

@@ -12,7 +12,8 @@ use frame_system::{Config, RawOrigin};
 use sp_core::{Get, H256, U256};
 use sp_runtime::DispatchError;
 use substrate_fixed::types::U96F32;
-use subtensor_swap_interface::{OrderType, SubnetInfo, SwapHandler};
+use subtensor_runtime_common::SubnetInfo;
+use subtensor_swap_interface::{OrderType, SwapHandler};
 
 use super::mock;
 use super::mock::*;
