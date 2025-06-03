@@ -6535,6 +6535,7 @@ dependencies = [
  "sp-version",
  "substrate-fixed",
  "subtensor-macros",
+ "subtensor-runtime-common",
  "tle",
  "w3f-bls",
 ]
@@ -11105,6 +11106,7 @@ dependencies = [
  "scale-info",
  "sp-core",
  "sp-runtime",
+ "subtensor-macros",
 ]
 
 [[package]]

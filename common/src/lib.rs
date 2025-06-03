@@ -1,11 +1,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
 use sp_runtime::{
     MultiSignature,
     traits::{IdentifyAccount, Verify},
 };
+use subtensor_macros::freeze_struct;
 
 /// Balance of an account.
 pub type Balance = u64;
@@ -30,6 +32,32 @@ pub type Nonce = u32;
 
 /// Transfers below SMALL_TRANSFER_LIMIT are considered small transfers
 pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
+
+#[freeze_struct("2a62496e31bbcddc")]
+#[derive(
+    Clone, Copy, Decode, Default, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo,
+)]
+pub struct NetUid(u16);
+
+impl NetUid {
+    pub const ROOT: NetUid = NetUid(0);
+
+    pub fn is_root(&self) -> bool {
+        *self == Self::ROOT
+    }
+}
+
+impl From<NetUid> for u16 {
+    fn from(val: NetUid) -> Self {
+        val.0
+    }
+}
+
+impl From<u16> for NetUid {
+    fn from(value: u16) -> Self {
+        Self(value)
+    }
+}
 
 #[derive(
     Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, MaxEncodedLen, TypeInfo,
