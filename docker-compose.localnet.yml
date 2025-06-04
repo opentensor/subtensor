@@ -27,22 +27,18 @@ services:
     volumes:
       - subtensor-alice:/tmp/blockchain
     command:
-      - /bin/bash
-      - -c
-      - |
-        node-subtensor \
-          --base-path /tmp/blockchain \
-          --chain localnet.json \
-          --rpc-external \
-          --rpc-methods=unsafe \
-          --alice \
-          --port 30334 \
-          --rpc-port 9944 \
-          --validator \
-          --rpc-cors=all \
-          --allow-private-ipv4 \
-          --discover-local \
-          --unsafe-force-node-key-generation
+      - --base-path=/tmp/blockchain
+      - --chain=/localnet.json
+      - --rpc-external
+      - --rpc-methods=unsafe
+      - --alice
+      - --port=30334
+      - --rpc-port=9944
+      - --validator
+      - --rpc-cors=all
+      - --allow-private-ipv4
+      - --discover-local
+      - --unsafe-force-node-key-generation
 
   bob:
     <<: *common
@@ -56,19 +52,15 @@ services:
     volumes:
       - subtensor-bob:/tmp/blockchain
     command:
-      - /bin/bash
-      - -c
-      - |
-        node-subtensor \
-          --base-path /tmp/blockchain \
-          --chain localnet.json \
-          --bob \
-          --rpc-methods=unsafe \
-          --rpc-external \
-          --port 30335 \
-          --rpc-port 9945 \
-          --validator \
-          --rpc-cors=all \
-          --allow-private-ipv4 \
-          --discover-local \
-          --unsafe-force-node-key-generation
+      - --base-path=/tmp/blockchain
+      - --chain=/localnet.json
+      - --rpc-external
+      - --rpc-methods=unsafe
+      - --bob
+      - --port=30335
+      - --rpc-port=9945
+      - --validator
+      - --rpc-cors=all
+      - --allow-private-ipv4
+      - --discover-local
+      - --unsafe-force-node-key-generation
