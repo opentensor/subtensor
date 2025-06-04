@@ -556,11 +556,6 @@ pub mod pallet {
         T::InitialNetworkImmunityPeriod::get()
     }
     #[pallet::type_value]
-    /// Default value for network last registered.
-    pub fn DefaultNetworkLastRegistered<T: Config>() -> u64 {
-        0
-    }
-    #[pallet::type_value]
     /// Default value for network min allowed UIDs.
     pub fn DefaultNetworkMinAllowedUids<T: Config>() -> u16 {
         T::InitialNetworkMinAllowedUids::get()
@@ -1193,10 +1188,6 @@ pub mod pallet {
     /// ITEM( network_immunity_period )
     pub type NetworkImmunityPeriod<T> =
         StorageValue<_, u64, ValueQuery, DefaultNetworkImmunityPeriod<T>>;
-    #[pallet::storage]
-    /// ITEM( network_last_registered_block )
-    pub type NetworkLastRegistered<T> =
-        StorageValue<_, u64, ValueQuery, DefaultNetworkLastRegistered<T>>;
     #[pallet::storage]
     /// ITEM( min_network_lock_cost )
     pub type NetworkMinLockCost<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkMinLockCost<T>>;
@@ -2713,4 +2704,6 @@ impl<T, H, P> CollectiveInterface<T, H, P> for () {
 pub enum RateLimitKey {
     // The setting sn owner hotkey operation is rate limited per netuid
     SetSNOwnerHotkey(u16),
+    // Last registered network limit
+    NetworkLastRegistered,
 }

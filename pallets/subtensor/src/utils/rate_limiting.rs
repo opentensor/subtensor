@@ -117,14 +117,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Set the block number of the last transaction for a specific key, and transaction type
-    pub fn set_last_transaction_block(key: &T::AccountId, tx_type: &TransactionType, block: u64) {
-        match tx_type {
-            TransactionType::RegisterNetwork => Self::set_network_last_lock_block(block),
-            _ => Self::set_last_transaction_block_on_subnet(key, 0, tx_type, block),
-        }
-    }
-
     /// Set the block number of the last transaction for a specific hotkey, network, and transaction type
     pub fn set_last_transaction_block_on_subnet(
         key: &T::AccountId,

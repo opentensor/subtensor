@@ -1,0 +1,75 @@
+use crate::Vec;
+use crate::{Config, HasMigrationRun, Pallet};
+use alloc::string::String;
+use codec::Decode;
+use frame_support::traits::Get;
+use frame_support::weights::Weight;
+use sp_io::hashing::twox_128;
+use sp_io::storage::{clear, get};
+
+pub fn migrate_obsolete_rate_limiting_last_blocks_storage<T: Config>() -> Weight {
+    migrate_network_last_registered::<T>()
+}
+
+pub fn migrate_network_last_registered<T: Config>() -> Weight {
+    let migration_name = b"migrate_network_last_registered".to_vec();
+    let pallet_name = "SubtensorModule";
+    let storage_name = "NetworkLastRegistered";
+
+    migrate_value::<T, _>(migration_name, pallet_name, storage_name, |limit| {
+        Pallet::<T>::set_network_last_lock_block(limit);
+    })
+}
+fn migrate_value<T, SetValueFunction>(
+    migration_name: Vec<u8>,
+    pallet_name: &str,
+    storage_name: &str,
+    set_value: SetValueFunction,
+) -> Weight
+where
+    T: Config,
+    SetValueFunction: Fn(u64 /*limit in blocks*/),
+{
+    // Initialize the weight with one read operation.
+    let mut weight = T::DbWeight::get().reads(1);
+
+    // Check if the migration has already run
+    if HasMigrationRun::<T>::get(&migration_name) {
+        log::info!(
+            "Migration '{:?}' has already run. Skipping.",
+            migration_name
+        );
+        return weight;
+    }
+    log::info!(
+        "Running migration '{}'",
+        String::from_utf8_lossy(&migration_name)
+    );
+
+    let pallet_name_hash = twox_128(pallet_name.as_bytes());
+    let storage_name_hash = twox_128(storage_name.as_bytes());
+    let full_key = [pallet_name_hash, storage_name_hash].concat();
+
+    if let Some(value_bytes) = get(&full_key) {
+        if let Ok(rate_limit) = Decode::decode(&mut &value_bytes[..]) {
+            set_value(rate_limit);
+        }
+
+        clear(&full_key);
+    }
+
+    weight = weight.saturating_add(T::DbWeight::get().writes(2));
+    weight = weight.saturating_add(T::DbWeight::get().reads(1));
+
+    // Mark the migration as completed
+    HasMigrationRun::<T>::insert(&migration_name, true);
+    weight = weight.saturating_add(T::DbWeight::get().writes(1));
+
+    log::info!(
+        "Migration '{:?}' completed.",
+        String::from_utf8_lossy(&migration_name)
+    );
+
+    // Return the migration weight.
+    weight
+}

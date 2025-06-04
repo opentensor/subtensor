@@ -645,10 +645,10 @@ impl<T: Config> Pallet<T> {
         NetworkLastLockCost::<T>::get()
     }
     pub fn get_network_last_lock_block() -> u64 {
-        NetworkLastRegistered::<T>::get()
+        Self::get_rate_limited_last_block(&RateLimitKey::NetworkLastRegistered)
     }
     pub fn set_network_last_lock_block(block: u64) {
-        NetworkLastRegistered::<T>::set(block);
+        Self::set_rate_limited_last_block(&RateLimitKey::NetworkLastRegistered, block);
     }
     pub fn set_lock_reduction_interval(interval: u64) {
         NetworkLockReductionInterval::<T>::set(interval);
