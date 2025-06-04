@@ -1474,6 +1474,8 @@ parameter_types! {
     pub const SubtensorInitialTaoWeight: u64 = 971_718_665_099_567_868; // 0.05267697438728329% tao weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
     pub const DurationOfStartCall: u64 = prod_or_fast!(7 * 24 * 60 * 60 / 12, 10); // 7 days or 10 blocks
+    pub const SubtensorInitialKeySwapOnSubnetCost: u64 = 1_000_000; // 0.001 TAO
+    pub const HotkeySwapOnSubnetInterval : BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1543,6 +1545,8 @@ impl pallet_subtensor::Config for Runtime {
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
+    type KeySwapOnSubnetCost = SubtensorInitialKeySwapOnSubnetCost;
+    type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
 }
 
 pub struct GrandpaInterfaceImpl;
