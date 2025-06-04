@@ -693,6 +693,10 @@ impl<T: Config> ActiveTickIndexManager<T> {
         // Convert the result offset_index back to a tick index
         TickIndex::from_offset_index(result).ok()
     }
+
+    pub fn tick_is_active(netuid: NetUid, tick: TickIndex) -> bool {
+        Self::find_closest_lower(netuid, tick).unwrap_or(TickIndex::MAX) == tick
+    }
 }
 
 /// Represents the three layers in the Uniswap V3 bitmap structure
