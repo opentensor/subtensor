@@ -458,4 +458,18 @@ impl<T: Config> Pallet<T> {
             Ok(u64::MAX)
         }
     }
+
+    pub fn do_remove_stake_full_limit(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+        netuid: NetUid,
+        limit_price: u64,
+    ) -> DispatchResult {
+        let coldkey = ensure_signed(origin.clone())?;
+
+        let alpha_unstaked =
+            Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+
+        Self::do_remove_stake_limit(origin, hotkey, netuid, alpha_unstaked, limit_price, false)
+    }
 }

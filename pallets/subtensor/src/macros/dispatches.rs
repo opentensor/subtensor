@@ -2056,5 +2056,21 @@ mod dispatches {
         ) -> DispatchResult {
             Self::do_burn_alpha(origin, hotkey, amount, netuid)
         }
+
+        /// Removes all stake from a hotkey on a subnet with a price limit.
+        /// This extrinsic allows to specify the limit price for alpha token
+        /// at which or better (higher) the staking should execute.
+        #[pallet::call_index(103)]
+        #[pallet::weight((Weight::from_parts(192_600_000, 0)
+		.saturating_add(T::DbWeight::get().reads(18))
+		.saturating_add(T::DbWeight::get().writes(10)), DispatchClass::Normal, Pays::No))]
+        pub fn remove_stake_full_limit(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            limit_price: u64,
+        ) -> DispatchResult {
+            Self::do_remove_stake_full_limit(origin, hotkey, netuid, limit_price)
+        }
     }
 }
