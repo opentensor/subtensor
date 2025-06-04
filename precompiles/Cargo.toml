@@ -18,12 +18,14 @@ frame-system = { workspace = true }
 log = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-evm = { workspace = true }
+pallet-evm-precompile-dispatch = { workspace = true }
 pallet-evm-precompile-modexp = { workspace = true }
 pallet-evm-precompile-sha3fips = { workspace = true }
 pallet-evm-precompile-simple = { workspace = true }
 pallet-proxy = { workspace = true }
 precompile-utils = { workspace = true }
 sp-core = { workspace = true }
+sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 subtensor-runtime-common = { workspace = true }
@@ -44,6 +46,7 @@ std = [
 	"log/std",
 	"pallet-admin-utils/std",
 	"pallet-balances/std",
+	"pallet-evm-precompile-dispatch/std",
 	"pallet-evm-precompile-modexp/std",
 	"pallet-evm-precompile-sha3fips/std",
 	"pallet-evm-precompile-simple/std",
@@ -52,6 +55,7 @@ std = [
 	"pallet-subtensor/std",
 	"precompile-utils/std",
 	"sp-core/std",
+	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"substrate-fixed/std",
