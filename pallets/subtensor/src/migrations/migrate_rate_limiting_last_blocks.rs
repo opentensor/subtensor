@@ -20,6 +20,20 @@ pub fn migrate_network_last_registered<T: Config>() -> Weight {
         Pallet::<T>::set_network_last_lock_block(limit);
     })
 }
+
+#[allow(deprecated)]
+pub fn migrate_last_tx_block<T: Config>() -> Weight {
+    let migration_name = b"migrate_last_tx_block".to_vec();
+
+    migrate_last_block_map::<T, _, _>(
+        migration_name,
+        || crate::LastTxBlock::<T>::iter().collect::<Vec<_>>(),
+        |account, block| {
+            Pallet::<T>::set_last_tx_block(&account, block);
+        },
+    )
+}
+
 fn migrate_value<T, SetValueFunction>(
     migration_name: Vec<u8>,
     pallet_name: &str,
@@ -60,6 +74,55 @@ where
 
     weight = weight.saturating_add(T::DbWeight::get().writes(2));
     weight = weight.saturating_add(T::DbWeight::get().reads(1));
+
+    // Mark the migration as completed
+    HasMigrationRun::<T>::insert(&migration_name, true);
+    weight = weight.saturating_add(T::DbWeight::get().writes(1));
+
+    log::info!(
+        "Migration '{:?}' completed.",
+        String::from_utf8_lossy(&migration_name)
+    );
+
+    // Return the migration weight.
+    weight
+}
+
+fn migrate_last_block_map<T, GetValuesFunction, SetValueFunction>(
+    migration_name: Vec<u8>,
+    get_values: GetValuesFunction,
+    set_value: SetValueFunction,
+) -> Weight
+where
+    T: Config,
+    GetValuesFunction: Fn() -> Vec<(T::AccountId, u64)>, // (account, limit in blocks)
+    SetValueFunction: Fn(T::AccountId, u64),
+{
+    // Initialize the weight with one read operation.
+    let mut weight = T::DbWeight::get().reads(1);
+
+    // Check if the migration has already run
+    if HasMigrationRun::<T>::get(&migration_name) {
+        log::info!(
+            "Migration '{:?}' has already run. Skipping.",
+            migration_name
+        );
+        return weight;
+    }
+    log::info!(
+        "Running migration '{}'",
+        String::from_utf8_lossy(&migration_name)
+    );
+
+    let key_values = get_values();
+    weight = weight.saturating_add(T::DbWeight::get().reads(key_values.len() as u64));
+
+    for (account, block) in key_values.into_iter() {
+        set_value(account, block);
+
+        weight = weight.saturating_add(T::DbWeight::get().writes(2));
+        weight = weight.saturating_add(T::DbWeight::get().reads(1));
+    }
 
     // Mark the migration as completed
     HasMigrationRun::<T>::insert(&migration_name, true);

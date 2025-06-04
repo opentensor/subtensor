@@ -57,6 +57,7 @@ extern crate alloc;
 
 pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 
+#[allow(deprecated)]
 #[deny(missing_docs)]
 #[import_section(errors::errors)]
 #[import_section(events::events)]
@@ -1219,7 +1220,7 @@ pub mod pallet {
     #[pallet::storage]
     /// --- MAP ( RateLimitKey ) --> Block number in which the last rate limited operation occured
     pub type LastRateLimitedBlock<T: Config> =
-        StorageMap<_, Identity, RateLimitKey, u64, ValueQuery, DefaultZeroU64<T>>;
+        StorageMap<_, Identity, RateLimitKey<T::AccountId>, u64, ValueQuery, DefaultZeroU64<T>>;
 
     /// ============================
     /// ==== Subnet Locks =====
@@ -1621,6 +1622,7 @@ pub mod pallet {
         u64,
         ValueQuery,
     >;
+    #[deprecated]
     #[pallet::storage]
     /// --- MAP ( key ) --> last_block
     pub type LastTxBlock<T: Config> =
@@ -2701,9 +2703,11 @@ impl<T, H, P> CollectiveInterface<T, H, P> for () {
 /// Enum that defines types of rate limited operations for
 /// storing last block when this operation occured
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
-pub enum RateLimitKey {
+pub enum RateLimitKey<AccountId> {
     // The setting sn owner hotkey operation is rate limited per netuid
     SetSNOwnerHotkey(u16),
     // Last registered network limit
     NetworkLastRegistered,
+    // Last tx block limit
+    LastTxBlock(AccountId),
 }

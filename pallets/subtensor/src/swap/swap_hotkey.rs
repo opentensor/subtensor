@@ -187,10 +187,9 @@ impl<T: Config> Pallet<T> {
             });
 
         // 5. Swap LastTxBlock
-        // LastTxBlock( hotkey ) --> u64 -- the last transaction block for the hotkey.
-        let last_tx_block: u64 = LastTxBlock::<T>::get(old_hotkey);
-        LastTxBlock::<T>::remove(old_hotkey);
-        LastTxBlock::<T>::insert(new_hotkey, last_tx_block);
+        let last_tx_block: u64 = Self::get_last_tx_block(old_hotkey);
+        Self::remove_last_tx_block(old_hotkey);
+        Self::set_last_tx_block(new_hotkey, last_tx_block);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
         // 6. Swap LastTxBlockDelegateTake
