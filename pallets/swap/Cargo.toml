@@ -10,6 +10,7 @@ codec = { workspace = true }
 frame-benchmarking = { workspace = true, optional = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+log = { workspace = true }
 safe-math = { workspace = true }
 scale-info = { workspace = true }
 serde = { workspace = true, optional = true }
