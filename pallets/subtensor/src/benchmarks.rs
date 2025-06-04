@@ -1454,7 +1454,12 @@ mod pallet_benchmarks {
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, cost);
 
         #[extrinsic_call]
-        _(RawOrigin::Signed(coldkey.clone()), old.clone(), new.clone());
+        _(
+            RawOrigin::Signed(coldkey.clone()),
+            old.clone(),
+            new.clone(),
+            None,
+        );
     }
 
     #[benchmark]
