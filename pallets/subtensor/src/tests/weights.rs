@@ -336,7 +336,8 @@ fn test_set_weights_validate() {
         );
 
         // Increase the stake and make it to be equal to the minimum threshold
-        let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(netuid, min_stake);
+        let fee =
+            <Test as pallet::Config>::SwapInterface::approx_fee_amount(netuid.into(), min_stake);
         assert_ok!(SubtensorModule::do_add_stake(
             RuntimeOrigin::signed(hotkey),
             hotkey,

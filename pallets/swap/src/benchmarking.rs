@@ -8,9 +8,9 @@ use frame_benchmarking::v2::*;
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use substrate_fixed::types::U64F64;
+use subtensor_runtime_common::NetUid;
 
 use crate::{
-    NetUid,
     pallet::{
         AlphaSqrtPrice, Call, Config, CurrentLiquidity, CurrentTick, EnabledUserLiquidity, Pallet,
         Positions, SwapV3Initialized,
@@ -25,7 +25,7 @@ mod benchmarks {
 
     #[benchmark]
     fn set_fee_rate() {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let rate: u16 = 100; // Some arbitrary fee rate value
 
         #[extrinsic_call]
@@ -45,14 +45,16 @@ mod benchmarks {
 
         let caller: T::AccountId = whitelisted_caller();
         let hotkey: T::AccountId = account("hotkey", 0, 0);
+        let tick_low = TickIndex::new_unchecked(-1000);
+        let tick_high = TickIndex::new_unchecked(1000);
 
         #[extrinsic_call]
         add_liquidity(
             RawOrigin::Signed(caller),
             hotkey,
-            netuid.into(),
-            -10000,
-            10000,
+            netuid,
+            tick_low,
+            tick_high,
             1000,
         );
     }

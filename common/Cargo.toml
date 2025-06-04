@@ -16,6 +16,7 @@ frame-support = { workspace = true }
 scale-info = { workspace = true }
 sp-runtime = { workspace = true }
 sp-core = { workspace = true }
+subtensor-macros = { workspace = true }
 
 [lints]
 workspace = true

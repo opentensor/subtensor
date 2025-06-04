@@ -5,10 +5,11 @@ use frame_support::pallet_prelude::*;
 use safe_math::*;
 use substrate_fixed::types::U64F64;
 use subtensor_macros::freeze_struct;
+use subtensor_runtime_common::NetUid;
 
+use crate::SqrtPrice;
 use crate::pallet::{Config, Error, FeeGlobalAlpha, FeeGlobalTao, LastPositionId};
 use crate::tick::TickIndex;
-use crate::{NetUid, SqrtPrice};
 
 /// Position designates one liquidity position.
 ///
