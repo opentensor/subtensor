@@ -157,27 +157,26 @@ impl<T: Config> SwapStep<T> {
             recalculate_fee = true;
         }
 
-        // println!("\tAction           : {:?}", self.action);
-        // println!(
-        //     "\tCurrent Price    : {}",
-        //     self.current_sqrt_price * self.current_sqrt_price
-        // );
-        // println!(
-        //     "\tTarget Price     : {}",
-        //     self.target_sqrt_price * self.target_sqrt_price
-        // );
-        // println!(
-        //     "\tLimit Price      : {}",
-        //     self.limit_sqrt_price * self.limit_sqrt_price
-        // );
-        // println!(
-        //     "\tEdge Price       : {}",
-        //     self.edge_sqrt_price * self.edge_sqrt_price
-        // );
-        // println!(
-        //     "\t{}",
-        //     format!("Delta In         : {}", self.delta_in).yellow()
-        // );
+        log::info!("\tAction           : {:?}", self.action);
+        log::info!(
+            "\tCurrent Price    : {}",
+            self.current_sqrt_price
+                .saturating_mul(self.current_sqrt_price)
+        );
+        log::info!(
+            "\tTarget Price     : {}",
+            self.target_sqrt_price
+                .saturating_mul(self.target_sqrt_price)
+        );
+        log::info!(
+            "\tLimit Price      : {}",
+            self.limit_sqrt_price.saturating_mul(self.limit_sqrt_price)
+        );
+        log::info!(
+            "\tEdge Price       : {}",
+            self.edge_sqrt_price.saturating_mul(self.edge_sqrt_price)
+        );
+        log::info!("\tDelta In         : {}", self.delta_in);
 
         // Because on step creation we calculate fee off the total amount, we might need to recalculate it
         // in case if we hit the limit price or the edge price.
@@ -211,7 +210,7 @@ impl<T: Config> SwapStep<T> {
         // Hold the fees
         Pallet::<T>::add_fees(self.netuid, self.order_type, self.fee);
         let delta_out = Pallet::<T>::convert_deltas(self.netuid, self.order_type, self.delta_in);
-        // println!("\t{}", format!("Delta Out        : {}", delta_out).green());
+        log::info!("\tDelta Out        : {:?}", delta_out);
 
         // Get current tick
         let current_tick_index = TickIndex::current_bounded::<T>(self.netuid);
@@ -423,16 +422,16 @@ impl<T: Config> Pallet<T> {
         let mut in_acc: u64 = 0;
         let mut fee_acc: u64 = 0;
 
-        // println!("======== Start Swap ========");
-        // println!("Amount Remaining: {}", amount_remaining);
+        log::info!("======== Start Swap ========");
+        log::info!("Amount Remaining: {}", amount_remaining);
 
         // Swap one tick at a time until we reach one of the stop conditions
         while amount_remaining > 0 {
-            // println!("\nIteration: {}", iteration_counter);
-            // println!(
-            //     "\tCurrent Liquidity: {}",
-            //     CurrentLiquidity::<T>::get(netuid)
-            // );
+            log::info!("\nIteration: {}", iteration_counter);
+            log::info!(
+                "\tCurrent Liquidity: {}",
+                CurrentLiquidity::<T>::get(netuid)
+            );
 
             // Create and execute a swap step
             let mut swap_step =
@@ -462,8 +461,8 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        // println!("\nAmount Paid Out: {}", amount_paid_out);
-        // println!("======== End Swap ========");
+        log::info!("\nAmount Paid Out: {}", amount_paid_out);
+        log::info!("======== End Swap ========");
 
         let tao_reserve = T::SubnetInfo::tao_reserve(netuid.into());
         let alpha_reserve = T::SubnetInfo::alpha_reserve(netuid.into());
@@ -505,7 +504,7 @@ impl<T: Config> Pallet<T> {
                 let current_tick_price = current_tick.as_sqrt_price_bounded();
                 let is_active = ActiveTickIndexManager::<T>::tick_is_active(netuid, current_tick);
 
-                let lower_tick = if is_active && current_price > current_tick_price {
+                if is_active && current_price > current_tick_price {
                     ActiveTickIndexManager::<T>::find_closest_lower(netuid, current_tick)
                         .unwrap_or(TickIndex::MIN)
                 } else {
@@ -514,8 +513,7 @@ impl<T: Config> Pallet<T> {
                         current_tick.prev().unwrap_or(TickIndex::MIN),
                     )
                     .unwrap_or(TickIndex::MIN)
-                };
-                lower_tick
+                }
             }
         }
     }

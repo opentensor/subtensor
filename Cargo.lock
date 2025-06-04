@@ -6930,6 +6930,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-subtensor-swap-runtime-api",
  "parity-scale-codec",
  "safe-math",
