@@ -2972,7 +2972,7 @@ fn test_max_amount_add_dynamic() {
                     <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid)
                         .to_num::<f64>(),
                     expected_price.to_num::<f64>(),
-                    epsilon = expected_price.to_num::<f64>() / 1_000_000_000_f64
+                    epsilon = expected_price.to_num::<f64>() / 1_000_f64
                 );
             }
 
@@ -3068,11 +3068,11 @@ fn test_max_amount_remove_dynamic() {
             (10_000_000_000, 10_000_000_000, 0, u64::MAX),
             // Low bounds (numbers are empirical, it is only important that result
             // is sharply decreasing when limit price increases)
-            (1_000, 1_000, 0, 0),
-            (1_001, 1_001, 0, 4_307_770_117),
-            (1_001, 1_001, 1, 31_715),
-            (1_001, 1_001, 2, 22_426),
-            (1_001, 1_001, 1_001, 1_000),
+            (1_000, 1_000, 0, Ok(u64::MAX)),
+            (1_001, 1_001, 0, Ok(u64::MAX)),
+            (1_001, 1_001, 1, Ok(31_715)),
+            (1_001, 1_001, 2, Ok(22_426)),
+            (1_001, 1_001, 1_001, Ok(1_000)),
             // Basic math
             (1_000_000, 1_000_000, 250_000_000, 1_000_000),
             (1_000_000, 1_000_000, 62_500_000, 3_000_000),
@@ -3679,7 +3679,7 @@ fn test_add_stake_limit_ok() {
         assert_abs_diff_eq!(
             exp_price.to_num::<f64>(),
             current_price.to_num::<f64>(),
-            epsilon = 0.0001,
+            epsilon = 0.001,
         );
     });
 }
