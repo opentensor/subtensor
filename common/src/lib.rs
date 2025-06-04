@@ -1,11 +1,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
 use sp_runtime::{
     MultiSignature,
     traits::{IdentifyAccount, Verify},
 };
+
+use subtensor_macros::freeze_struct;
 
 /// Balance of an account.
 pub type Balance = u64;
@@ -30,6 +33,24 @@ pub type Nonce = u32;
 
 /// Transfers below SMALL_TRANSFER_LIMIT are considered small transfers
 pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
+
+#[freeze_struct("2a62496e31bbcddc")]
+#[derive(
+    Clone, Copy, Decode, Default, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo,
+)]
+pub struct NetUid(u16);
+
+impl From<NetUid> for u16 {
+    fn from(val: NetUid) -> Self {
+        val.0
+    }
+}
+
+impl From<u16> for NetUid {
+    fn from(value: u16) -> Self {
+        Self(value)
+    }
+}
 
 #[derive(
     Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, MaxEncodedLen, TypeInfo,
@@ -57,6 +78,33 @@ impl Default for ProxyType {
     fn default() -> Self {
         Self::Any
     }
+}
+
+pub trait SubnetInfo<AccountId> {
+    fn tao_reserve(netuid: NetUid) -> u64;
+    fn alpha_reserve(netuid: NetUid) -> u64;
+    fn exists(netuid: NetUid) -> bool;
+    fn mechanism(netuid: NetUid) -> u16;
+    fn is_owner(account_id: &AccountId, netuid: NetUid) -> bool;
+}
+
+pub trait BalanceOps<AccountId> {
+    fn tao_balance(account_id: &AccountId) -> u64;
+    fn alpha_balance(netuid: NetUid, coldkey: &AccountId, hotkey: &AccountId) -> u64;
+    fn increase_balance(coldkey: &AccountId, tao: u64);
+    fn decrease_balance(coldkey: &AccountId, tao: u64) -> Result<u64, DispatchError>;
+    fn increase_stake(
+        coldkey: &AccountId,
+        hotkey: &AccountId,
+        netuid: NetUid,
+        alpha: u64,
+    ) -> Result<(), DispatchError>;
+    fn decrease_stake(
+        coldkey: &AccountId,
+        hotkey: &AccountId,
+        netuid: NetUid,
+        alpha: u64,
+    ) -> Result<u64, DispatchError>;
 }
 
 pub mod time {

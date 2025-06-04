@@ -3,10 +3,9 @@ use core::num::NonZeroU64;
 use frame_support::{PalletId, pallet_prelude::*, traits::Get};
 use frame_system::pallet_prelude::*;
 use substrate_fixed::types::U64F64;
-use subtensor_swap_interface::{BalanceOps, SubnetInfo};
+use subtensor_runtime_common::{BalanceOps, NetUid, SubnetInfo};
 
 use crate::{
-    NetUid,
     position::{Position, PositionId},
     tick::{LayerLevel, Tick, TickIndex},
     weights::WeightInfo,
@@ -15,6 +14,8 @@ use crate::{
 pub use pallet::*;
 
 mod impls;
+#[cfg(test)]
+mod tests;
 
 #[allow(clippy::module_inception)]
 #[frame_support::pallet]
@@ -155,9 +156,9 @@ mod pallet {
             /// The hotkey account associated with the position
             hotkey: T::AccountId,
             /// The subnet identifier
-            netuid: u16,
+            netuid: NetUid,
             /// Unique identifier for the liquidity position
-            position_id: u128,
+            position_id: PositionId,
             /// The amount of liquidity added to the position
             liquidity: u64,
             /// The amount of TAO tokens committed to the position
@@ -171,9 +172,9 @@ mod pallet {
             /// The coldkey account that owns the position
             coldkey: T::AccountId,
             /// The subnet identifier
-            netuid: u16,
+            netuid: NetUid,
             /// Unique identifier for the liquidity position
-            position_id: u128,
+            position_id: PositionId,
             /// The amount of TAO tokens returned to the user
             tao: u64,
             /// The amount of Alpha tokens returned to the user
@@ -236,23 +237,20 @@ mod pallet {
         /// Only callable by the admin origin
         #[pallet::call_index(0)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::set_fee_rate())]
-        pub fn set_fee_rate(origin: OriginFor<T>, netuid: u16, rate: u16) -> DispatchResult {
+        pub fn set_fee_rate(origin: OriginFor<T>, netuid: NetUid, rate: u16) -> DispatchResult {
             if ensure_root(origin.clone()).is_err() {
                 let account_id: T::AccountId = ensure_signed(origin)?;
                 ensure!(
-                    T::SubnetInfo::is_owner(&account_id, netuid),
+                    T::SubnetInfo::is_owner(&account_id, netuid.into()),
                     DispatchError::BadOrigin
                 );
             }
 
             // Ensure that the subnet exists.
             ensure!(
-                T::SubnetInfo::exists(netuid),
+                T::SubnetInfo::exists(netuid.into()),
                 Error::<T>::SubNetworkDoesNotExist
             );
-
-            // using u16 for compatibility
-            let netuid = netuid.into();
 
             ensure!(rate <= T::MaxFeeRate::get(), Error::<T>::FeeRateTooHigh);
 
@@ -269,21 +267,19 @@ mod pallet {
         /// Only callable by the admin origin
         #[pallet::call_index(4)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::set_enabled_user_liquidity())]
-        pub fn set_enabled_user_liquidity(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
+        pub fn set_enabled_user_liquidity(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
             if ensure_root(origin.clone()).is_err() {
                 let account_id: T::AccountId = ensure_signed(origin)?;
                 ensure!(
-                    T::SubnetInfo::is_owner(&account_id, netuid),
+                    T::SubnetInfo::is_owner(&account_id, netuid.into()),
                     DispatchError::BadOrigin
                 );
             }
 
             ensure!(
-                T::SubnetInfo::exists(netuid),
+                T::SubnetInfo::exists(netuid.into()),
                 Error::<T>::SubNetworkDoesNotExist
             );
-
-            let netuid = netuid.into();
 
             EnabledUserLiquidity::<T>::insert(netuid, true);
 
@@ -307,21 +303,19 @@ mod pallet {
         pub fn add_liquidity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
-            netuid: u16,
-            tick_low: i32,
-            tick_high: i32,
+            netuid: NetUid,
+            tick_low: TickIndex,
+            tick_high: TickIndex,
             liquidity: u64,
         ) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
 
             // Ensure that the subnet exists.
             ensure!(
-                T::SubnetInfo::exists(netuid),
+                T::SubnetInfo::exists(netuid.into()),
                 Error::<T>::SubNetworkDoesNotExist
             );
 
-            let tick_low = TickIndex::new(tick_low).map_err(|_| Error::<T>::InvalidTickRange)?;
-            let tick_high = TickIndex::new(tick_high).map_err(|_| Error::<T>::InvalidTickRange)?;
             let (position_id, tao, alpha) = Self::do_add_liquidity(
                 netuid.into(),
                 &coldkey,
@@ -335,7 +329,8 @@ mod pallet {
             let tao_provided = T::BalanceOps::decrease_balance(&coldkey, tao)?;
             ensure!(tao_provided == tao, Error::<T>::InsufficientBalance);
 
-            let alpha_provided = T::BalanceOps::decrease_stake(&coldkey, &hotkey, netuid, alpha)?;
+            let alpha_provided =
+                T::BalanceOps::decrease_stake(&coldkey, &hotkey, netuid.into(), alpha)?;
             ensure!(alpha_provided == alpha, Error::<T>::InsufficientBalance);
 
             // Emit an event
@@ -343,7 +338,7 @@ mod pallet {
                 coldkey,
                 hotkey,
                 netuid,
-                position_id: position_id.into(),
+                position_id,
                 liquidity,
                 tao,
                 alpha,
@@ -365,26 +360,26 @@ mod pallet {
         pub fn remove_liquidity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
-            netuid: u16,
-            position_id: u128,
+            netuid: NetUid,
+            position_id: PositionId,
         ) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
 
             // Ensure that the subnet exists.
             ensure!(
-                T::SubnetInfo::exists(netuid),
+                T::SubnetInfo::exists(netuid.into()),
                 Error::<T>::SubNetworkDoesNotExist
             );
 
             // Remove liquidity
-            let result = Self::do_remove_liquidity(netuid.into(), &coldkey, position_id.into())?;
+            let result = Self::do_remove_liquidity(netuid, &coldkey, position_id)?;
 
             // Credit the returned tao and alpha to the account
             T::BalanceOps::increase_balance(&coldkey, result.tao.saturating_add(result.fee_tao));
             T::BalanceOps::increase_stake(
                 &coldkey,
                 &hotkey,
-                netuid,
+                netuid.into(),
                 result.alpha.saturating_add(result.fee_alpha),
             )?;
 
@@ -416,26 +411,21 @@ mod pallet {
         pub fn modify_position(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
-            netuid: u16,
-            position_id: u128,
+            netuid: NetUid,
+            position_id: PositionId,
             liquidity_delta: i64,
         ) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
 
             // Ensure that the subnet exists.
             ensure!(
-                T::SubnetInfo::exists(netuid),
+                T::SubnetInfo::exists(netuid.into()),
                 Error::<T>::SubNetworkDoesNotExist
             );
 
             // Add or remove liquidity
-            let result = Self::do_modify_position(
-                netuid.into(),
-                &coldkey,
-                &hotkey,
-                position_id.into(),
-                liquidity_delta,
-            )?;
+            let result =
+                Self::do_modify_position(netuid, &coldkey, &hotkey, position_id, liquidity_delta)?;
 
             if liquidity_delta > 0 {
                 // Remove TAO and Alpha balances or fail transaction if they can't be removed exactly
@@ -443,7 +433,7 @@ mod pallet {
                 ensure!(tao_provided == result.tao, Error::<T>::InsufficientBalance);
 
                 let alpha_provided =
-                    T::BalanceOps::decrease_stake(&coldkey, &hotkey, netuid, result.alpha)?;
+                    T::BalanceOps::decrease_stake(&coldkey, &hotkey, netuid.into(), result.alpha)?;
                 ensure!(
                     alpha_provided == result.alpha,
                     Error::<T>::InsufficientBalance
@@ -451,8 +441,8 @@ mod pallet {
 
                 // Emit an event
                 Self::deposit_event(Event::LiquidityAdded {
-                    coldkey,
-                    hotkey,
+                    coldkey: coldkey.clone(),
+                    hotkey: hotkey.clone(),
                     netuid,
                     position_id,
                     liquidity: liquidity_delta as u64,
@@ -461,21 +451,13 @@ mod pallet {
                 });
             } else {
                 // Credit the returned tao and alpha to the account
-                T::BalanceOps::increase_balance(
-                    &coldkey,
-                    result.tao.saturating_add(result.fee_tao),
-                );
-                T::BalanceOps::increase_stake(
-                    &coldkey,
-                    &hotkey,
-                    netuid,
-                    result.alpha.saturating_add(result.fee_alpha),
-                )?;
+                T::BalanceOps::increase_balance(&coldkey, result.tao);
+                T::BalanceOps::increase_stake(&coldkey, &hotkey, netuid.into(), result.alpha)?;
 
                 // Emit an event
                 Self::deposit_event(Event::LiquidityRemoved {
-                    coldkey,
-                    netuid: netuid.into(),
+                    coldkey: coldkey.clone(),
+                    netuid,
                     position_id,
                     tao: result.tao,
                     alpha: result.alpha,
@@ -484,83 +466,20 @@ mod pallet {
                 });
             }
 
+            // Credit accrued fees to user account (no matter if liquidity is added or removed)
+            if result.fee_tao > 0 {
+                T::BalanceOps::increase_balance(&coldkey, result.fee_tao);
+            }
+            if result.fee_alpha > 0 {
+                T::BalanceOps::increase_stake(
+                    &coldkey,
+                    &hotkey.clone(),
+                    netuid.into(),
+                    result.fee_alpha,
+                )?;
+            }
+
             Ok(())
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use frame_support::{assert_noop, assert_ok};
-    use sp_runtime::DispatchError;
-
-    use crate::{
-        NetUid,
-        mock::*,
-        pallet::{EnabledUserLiquidity, Error, FeeRate},
-    };
-
-    #[test]
-    fn test_set_fee_rate() {
-        new_test_ext().execute_with(|| {
-            let netuid = 1u16;
-            let fee_rate = 500; // 0.76% fee
-
-            assert_noop!(
-                Swap::set_fee_rate(RuntimeOrigin::signed(666), netuid.into(), fee_rate),
-                DispatchError::BadOrigin
-            );
-
-            assert_ok!(Swap::set_fee_rate(RuntimeOrigin::root(), netuid, fee_rate));
-
-            // Check that fee rate was set correctly
-            assert_eq!(FeeRate::<Test>::get(NetUid::from(netuid)), fee_rate);
-
-            let fee_rate = fee_rate * 2;
-            assert_ok!(Swap::set_fee_rate(
-                RuntimeOrigin::signed(1),
-                netuid,
-                fee_rate
-            ));
-            assert_eq!(FeeRate::<Test>::get(NetUid::from(netuid)), fee_rate);
-
-            // Verify fee rate validation - should fail if too high
-            let too_high_fee = MaxFeeRate::get() + 1;
-            assert_noop!(
-                Swap::set_fee_rate(RuntimeOrigin::root(), netuid, too_high_fee),
-                Error::<Test>::FeeRateTooHigh
-            );
-        });
-    }
-
-    #[test]
-    fn test_set_enabled_user_liquidity() {
-        new_test_ext().execute_with(|| {
-            let netuid = NetUid::from(101);
-
-            assert!(!EnabledUserLiquidity::<Test>::get(netuid));
-
-            assert_ok!(Swap::set_enabled_user_liquidity(
-                RuntimeOrigin::root(),
-                netuid.into()
-            ));
-
-            assert!(EnabledUserLiquidity::<Test>::get(netuid));
-
-            assert_noop!(
-                Swap::set_enabled_user_liquidity(RuntimeOrigin::signed(666), netuid.into()),
-                DispatchError::BadOrigin
-            );
-
-            assert_ok!(Swap::set_enabled_user_liquidity(
-                RuntimeOrigin::signed(1),
-                netuid.into()
-            ));
-
-            assert_noop!(
-                Swap::set_enabled_user_liquidity(RuntimeOrigin::root(), NON_EXISTENT_NETUID),
-                Error::<Test>::SubNetworkDoesNotExist
-            );
-        });
     }
 }

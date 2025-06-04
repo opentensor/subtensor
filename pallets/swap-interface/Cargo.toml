@@ -8,6 +8,7 @@ codec = { workspace = true }
 frame-support = { workspace = true }
 scale-info = { workspace = true }
 substrate-fixed = { workspace = true }
+subtensor-runtime-common = { workspace = true }
 
 [lints]
 workspace = true
@@ -19,4 +20,5 @@ std = [
 	"frame-support/std",
 	"scale-info/std",
 	"substrate-fixed/std",
+	"subtensor-runtime-common/std",
 ]

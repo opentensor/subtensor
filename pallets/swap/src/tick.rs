@@ -7,18 +7,19 @@ use core::hash::Hash;
 use core::ops::{Add, AddAssign, BitOr, Deref, Neg, Shl, Shr, Sub, SubAssign};
 
 use alloy_primitives::{I256, U256};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode, Error as CodecError, Input, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
 use safe_math::*;
 use sp_std::vec;
 use sp_std::vec::Vec;
 use substrate_fixed::types::U64F64;
 use subtensor_macros::freeze_struct;
+use subtensor_runtime_common::NetUid;
 
+use crate::SqrtPrice;
 use crate::pallet::{
     Config, CurrentTick, FeeGlobalAlpha, FeeGlobalTao, TickIndexBitmapWords, Ticks,
 };
-use crate::{NetUid, SqrtPrice};
 
 const U256_1: U256 = U256::from_limbs([1, 0, 0, 0]);
 const U256_2: U256 = U256::from_limbs([2, 0, 0, 0]);
@@ -94,14 +95,13 @@ impl Tick {
 }
 
 /// Struct representing a tick index
-#[freeze_struct("cdd46795662dcc43")]
+#[freeze_struct("31577b3ad1f55092")]
 #[derive(
     Debug,
     Default,
     Clone,
     Copy,
     Encode,
-    Decode,
     TypeInfo,
     MaxEncodedLen,
     PartialEq,
@@ -111,6 +111,13 @@ impl Tick {
     Hash,
 )]
 pub struct TickIndex(i32);
+
+impl Decode for TickIndex {
+    fn decode<I: Input>(input: &mut I) -> Result<Self, CodecError> {
+        let raw = i32::decode(input)?;
+        TickIndex::new(raw).map_err(|_| "TickIndex out of bounds".into())
+    }
+}
 
 impl Add<TickIndex> for TickIndex {
     type Output = Self;
@@ -781,8 +788,8 @@ impl TickIndexBitmap {
     /// # Arguments
     /// * `word` - The bitmap word to search within
     /// * `bit` - The bit position to start searching from
-    /// * `lower` - If true, search for lower bits (decreasing bit position),
-    ///             if false, search for higher bits (increasing bit position)
+    /// * `lower` - If true, search for lower bits (decreasing bit position), if false, search for
+    ///   higher bits (increasing bit position)
     ///
     /// # Returns
     /// * Exact match: Vec with [next_bit, bit]

@@ -21,6 +21,14 @@ fn public_to_evm_key(pubkey: &ecdsa::Public) -> H160 {
     H160::from(address)
 }
 
+fn sign_evm_message<M: AsRef<[u8]>>(pair: &ecdsa::Pair, message: M) -> ecdsa::Signature {
+    let hash = SubtensorModule::hash_message_eip191(message);
+    let mut sig = pair.sign_prehashed(&hash);
+    // Adjust the v value to either 27 or 28
+    sig.0[64] += 27;
+    sig
+}
+
 #[test]
 fn test_associate_evm_key_success() {
     new_test_ext(1).execute_with(|| {
@@ -47,8 +55,7 @@ fn test_associate_evm_key_success() {
         let mut message = [0u8; 64];
         message[..32].copy_from_slice(hotkey_bytes.as_ref());
         message[32..].copy_from_slice(hashed_block_number.as_ref());
-        let hashed_message = keccak_256(message.as_ref());
-        let signature = pair.sign_prehashed(&hashed_message);
+        let signature = sign_evm_message(&pair, message);
 
         assert_ok!(SubtensorModule::associate_evm_key(
             RuntimeOrigin::signed(coldkey),
@@ -94,11 +101,8 @@ fn test_associate_evm_key_different_block_number_success() {
         let hashed_block_number = keccak_256(block_number.encode().as_ref());
         let hotkey_bytes = hotkey.encode();
 
-        let mut message = [0u8; 64];
-        message[..32].copy_from_slice(hotkey_bytes.as_ref());
-        message[32..].copy_from_slice(hashed_block_number.as_ref());
-        let hashed_message = keccak_256(message.as_ref());
-        let signature = pair.sign_prehashed(&hashed_message);
+        let message = [hotkey_bytes.as_ref(), hashed_block_number.as_ref()].concat();
+        let signature = sign_evm_message(&pair, message);
 
         assert_ok!(SubtensorModule::associate_evm_key(
             RuntimeOrigin::signed(coldkey),
@@ -141,11 +145,8 @@ fn test_associate_evm_key_coldkey_does_not_own_hotkey() {
         let hashed_block_number = keccak_256(block_number.encode().as_ref());
         let hotkey_bytes = hotkey.encode();
 
-        let mut message = [0u8; 64];
-        message[..32].copy_from_slice(hotkey_bytes.as_ref());
-        message[32..].copy_from_slice(hashed_block_number.as_ref());
-        let hashed_message = keccak_256(message.as_ref());
-        let signature = pair.sign_prehashed(&hashed_message);
+        let message = [hotkey_bytes.as_ref(), hashed_block_number.as_ref()].concat();
+        let signature = sign_evm_message(&pair, message);
 
         assert_err!(
             SubtensorModule::associate_evm_key(
@@ -182,11 +183,8 @@ fn test_associate_evm_key_hotkey_not_registered_in_subnet() {
         let hashed_block_number = keccak_256(block_number.encode().as_ref());
         let hotkey_bytes = hotkey.encode();
 
-        let mut message = [0u8; 64];
-        message[..32].copy_from_slice(hotkey_bytes.as_ref());
-        message[32..].copy_from_slice(hashed_block_number.as_ref());
-        let hashed_message = keccak_256(message.as_ref());
-        let signature = pair.sign_prehashed(&hashed_message);
+        let message = [hotkey_bytes.as_ref(), hashed_block_number.as_ref()].concat();
+        let signature = sign_evm_message(&pair, message);
 
         assert_err!(
             SubtensorModule::associate_evm_key(
@@ -225,9 +223,7 @@ fn test_associate_evm_key_using_wrong_hash_function() {
         let hashed_block_number = keccak_256(block_number.encode().as_ref());
         let hotkey_bytes = hotkey.encode();
 
-        let mut message = [0u8; 64];
-        message[..32].copy_from_slice(hotkey_bytes.as_ref());
-        message[32..].copy_from_slice(hashed_block_number.as_ref());
+        let message = [hotkey_bytes.as_ref(), hashed_block_number.as_ref()].concat();
         let hashed_message = blake2_256(message.as_ref());
         let signature = pair.sign_prehashed(&hashed_message);
 

@@ -408,6 +408,7 @@ fn test_senate_leave_vote_removal() {
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, stake);
+        SubtokenEnabled::<Test>::insert(netuid, true);
 
         let reserve = stake * 1000;
         mock::setup_reserves(netuid, reserve, reserve);
@@ -498,6 +499,8 @@ fn test_senate_leave_vote_removal() {
         let reserve = 1_000_000_000_000;
         mock::setup_reserves(other_netuid, reserve, reserve);
         mock::setup_reserves(root_netuid, reserve, reserve);
+        SubtokenEnabled::<Test>::insert(root_netuid, true);
+        SubtokenEnabled::<Test>::insert(other_netuid, true);
 
         for i in 0..200 {
             let hot = U256::from(i + 100);
@@ -720,8 +723,10 @@ fn test_adjust_senate_events() {
         let max_senate_size: u16 = SenateMaxMembers::get() as u16;
         let stake_threshold = {
             let default_stake = DefaultMinStake::<Test>::get();
-            let fee =
-                <Test as pallet::Config>::SwapInterface::approx_fee_amount(netuid, default_stake);
+            let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
+                netuid.into(),
+                default_stake,
+            );
             default_stake + fee
         };
 
@@ -743,6 +748,8 @@ fn test_adjust_senate_events() {
         SubtensorModule::set_target_registrations_per_interval(netuid, max_senate_size + 1);
         SubtensorModule::set_max_registrations_per_block(root_netuid, max_senate_size + 1);
         SubtensorModule::set_target_registrations_per_interval(root_netuid, max_senate_size + 1);
+        SubtokenEnabled::<Test>::insert(netuid, true);
+        SubtokenEnabled::<Test>::insert(root_netuid, true);
 
         let reserve = 100_000_000_000_000;
         mock::setup_reserves(netuid, reserve, reserve);

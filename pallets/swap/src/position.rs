@@ -5,10 +5,11 @@ use frame_support::pallet_prelude::*;
 use safe_math::*;
 use substrate_fixed::types::U64F64;
 use subtensor_macros::freeze_struct;
+use subtensor_runtime_common::NetUid;
 
+use crate::SqrtPrice;
 use crate::pallet::{Config, Error, FeeGlobalAlpha, FeeGlobalTao, LastPositionId};
 use crate::tick::TickIndex;
-use crate::{NetUid, SqrtPrice};
 
 /// Position designates one liquidity position.
 ///
@@ -97,9 +98,6 @@ impl<T: Config> Position<T> {
     pub fn collect_fees(&mut self) -> (u64, u64) {
         let fee_tao_agg = self.fees_in_range(true);
         let fee_alpha_agg = self.fees_in_range(false);
-
-        println!("fee_tao_agg = {:?}", fee_tao_agg);
-        println!("fee_alpha_agg = {:?}", fee_alpha_agg);
 
         let mut fee_tao = fee_tao_agg.saturating_sub(self.fees_tao);
         let mut fee_alpha = fee_alpha_agg.saturating_sub(self.fees_alpha);
