@@ -7,13 +7,12 @@ use safe_math::*;
 use sp_arithmetic::helpers_128bit;
 use sp_runtime::traits::AccountIdConversion;
 use substrate_fixed::types::{U64F64, U96F32};
-use subtensor_swap_interface::{
-    BalanceOps, SubnetInfo, SwapHandler, SwapResult, UpdateLiquidityResult,
-};
+use subtensor_runtime_common::{BalanceOps, NetUid, SubnetInfo};
+use subtensor_swap_interface::{SwapHandler, SwapResult, UpdateLiquidityResult};
 
 use super::pallet::*;
 use crate::{
-    NetUid, OrderType, SqrtPrice,
+    OrderType, SqrtPrice,
     position::{Position, PositionId},
     tick::{ActiveTickIndexManager, Tick, TickIndex},
 };
@@ -902,11 +901,8 @@ impl<T: Config> Pallet<T> {
             // Check that user has enough balances
             ensure!(
                 T::BalanceOps::tao_balance(coldkey_account_id) >= tao
-                    && T::BalanceOps::alpha_balance(
-                        netuid.into(),
-                        coldkey_account_id,
-                        hotkey_account_id
-                    ) >= alpha,
+                    && T::BalanceOps::alpha_balance(netuid, coldkey_account_id, hotkey_account_id)
+                        >= alpha,
                 Error::<T>::InsufficientBalance
             );
         } else {
@@ -1076,7 +1072,7 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
     fn swap(
-        netuid: u16,
+        netuid: NetUid,
         order_t: OrderType,
         amount: u64,
         price_limit: u64,
@@ -1097,7 +1093,11 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
         .map_err(Into::into)
     }
 
-    fn sim_swap(netuid: u16, order_t: OrderType, amount: u64) -> Result<SwapResult, DispatchError> {
+    fn sim_swap(
+        netuid: NetUid,
+        order_t: OrderType,
+        amount: u64,
+    ) -> Result<SwapResult, DispatchError> {
         match T::SubnetInfo::mechanism(netuid) {
             1 => {
                 let price_limit = match order_t {
@@ -1117,11 +1117,11 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
         }
     }
 
-    fn approx_fee_amount(netuid: u16, amount: u64) -> u64 {
+    fn approx_fee_amount(netuid: NetUid, amount: u64) -> u64 {
         Self::calculate_fee_amount(netuid.into(), amount)
     }
 
-    fn current_alpha_price(netuid: u16) -> U96F32 {
+    fn current_alpha_price(netuid: NetUid) -> U96F32 {
         Self::current_price(netuid.into())
     }
 

@@ -30,7 +30,7 @@ fn test_do_move_success() {
         SubtensorModule::stake_into_subnet(
             &origin_hotkey,
             &coldkey,
-            netuid,
+            netuid.into(),
             stake_amount,
             <Test as Config>::SwapInterface::max_price(),
         )
@@ -128,7 +128,8 @@ fn test_do_move_different_subnets() {
             ),
             0
         );
-        let fee = <Test as Config>::SwapInterface::approx_fee_amount(destination_netuid, alpha);
+        let fee =
+            <Test as Config>::SwapInterface::approx_fee_amount(destination_netuid.into(), alpha);
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &destination_hotkey,
@@ -358,7 +359,7 @@ fn test_do_move_all_stake() {
             ),
             0
         );
-        let fee = <Test as Config>::SwapInterface::approx_fee_amount(netuid, alpha);
+        let fee = <Test as Config>::SwapInterface::approx_fee_amount(netuid.into(), alpha);
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &destination_hotkey,
@@ -420,7 +421,7 @@ fn test_do_move_half_stake() {
             alpha / 2,
             epsilon = alpha / 1000
         );
-        let fee = <Test as Config>::SwapInterface::approx_fee_amount(netuid, alpha);
+        let fee = <Test as Config>::SwapInterface::approx_fee_amount(netuid.into(), alpha);
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &destination_hotkey,
@@ -1704,9 +1705,9 @@ fn test_swap_stake_limit_validate() {
 
         // Setup limit price so that it doesn't allow much slippage at all
         let limit_price =
-            ((<Test as pallet::Config>::SwapInterface::current_alpha_price(origin_netuid)
+            ((<Test as pallet::Config>::SwapInterface::current_alpha_price(origin_netuid.into())
                 / <Test as pallet::Config>::SwapInterface::current_alpha_price(
-                    destination_netuid,
+                    destination_netuid.into(),
                 ))
                 * U96F32::from_num(1_000_000_000))
             .to_num::<u64>()

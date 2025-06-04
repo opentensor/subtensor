@@ -14,9 +14,9 @@ use sp_runtime::{
     BuildStorage,
     traits::{BlakeTwo256, IdentityLookup},
 };
-use subtensor_swap_interface::{BalanceOps, SubnetInfo};
+use subtensor_runtime_common::{BalanceOps, NetUid, SubnetInfo};
 
-use crate::{NetUid, pallet::EnabledUserLiquidity};
+use crate::pallet::EnabledUserLiquidity;
 
 construct_runtime!(
     pub enum Test {
@@ -81,29 +81,29 @@ parameter_types! {
 pub struct MockLiquidityProvider;
 
 impl SubnetInfo<AccountId> for MockLiquidityProvider {
-    fn tao_reserve(netuid: u16) -> u64 {
-        match netuid {
-            123 => 10_000,
+    fn tao_reserve(netuid: NetUid) -> u64 {
+        match netuid.into() {
+            123u16 => 10_000,
             _ => 1_000_000_000_000,
         }
     }
 
-    fn alpha_reserve(netuid: u16) -> u64 {
-        match netuid {
-            123 => 10_000,
+    fn alpha_reserve(netuid: NetUid) -> u64 {
+        match netuid.into() {
+            123u16 => 10_000,
             _ => 4_000_000_000_000,
         }
     }
 
-    fn exists(netuid: u16) -> bool {
-        netuid != NON_EXISTENT_NETUID
+    fn exists(netuid: NetUid) -> bool {
+        netuid != NON_EXISTENT_NETUID.into()
     }
 
-    fn mechanism(netuid: u16) -> u16 {
-        if netuid == 0 { 0 } else { 1 }
+    fn mechanism(netuid: NetUid) -> u16 {
+        if netuid == NetUid::from(0) { 0 } else { 1 }
     }
 
-    fn is_owner(account_id: &AccountId, _netuid: u16) -> bool {
+    fn is_owner(account_id: &AccountId, _netuid: NetUid) -> bool {
         *account_id != NOT_SUBNET_OWNER
     }
 }
@@ -119,7 +119,11 @@ impl BalanceOps<AccountId> for MockBalanceOps {
         }
     }
 
-    fn alpha_balance(_: u16, coldkey_account_id: &AccountId, hotkey_account_id: &AccountId) -> u64 {
+    fn alpha_balance(
+        _: NetUid,
+        coldkey_account_id: &AccountId,
+        hotkey_account_id: &AccountId,
+    ) -> u64 {
         if (*coldkey_account_id == OK_COLDKEY_ACCOUNT_ID)
             && (*hotkey_account_id == OK_HOTKEY_ACCOUNT_ID)
         {
@@ -138,7 +142,7 @@ impl BalanceOps<AccountId> for MockBalanceOps {
     fn increase_stake(
         _coldkey: &AccountId,
         _hotkey: &AccountId,
-        _netuid: u16,
+        _netuid: NetUid,
         _alpha: u64,
     ) -> Result<(), DispatchError> {
         Ok(())
@@ -147,7 +151,7 @@ impl BalanceOps<AccountId> for MockBalanceOps {
     fn decrease_stake(
         _coldkey: &AccountId,
         _hotkey: &AccountId,
-        _netuid: u16,
+        _netuid: NetUid,
         alpha: u64,
     ) -> Result<u64, DispatchError> {
         Ok(alpha)
