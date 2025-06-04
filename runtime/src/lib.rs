@@ -613,53 +613,6 @@ parameter_types! {
     pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 }
 
-/// Custom version of `runtime_commong::era_payout` somewhat tailored for Polkadot's crowdloan
-/// unlock history. The only tweak should be
-///
-/// ```diff
-/// - let auction_proportion = Perquintill::from_rational(auctioned_slots.min(60), 200u64);
-/// + let auction_proportion = Perquintill::from_rational(auctioned_slots.min(60), 300u64);
-/// ```
-///
-/// See <https://forum.polkadot.network/t/adjusting-polkadots-ideal-staking-rate-calculation/3897>.
-// fn polkadot_era_payout(
-//     _total_staked: Balance,
-//     _total_stakable: Balance,
-//     _max_annual_inflation: Perquintill,
-//     _period_fraction: Perquintill,
-//     _auctioned_slots: u64,
-// ) -> (Balance, Balance) {
-//     todo!()
-
-// let min_annual_inflation = Perquintill::from_rational(25u64, 1000u64);
-// let delta_annual_inflation = max_annual_inflation.saturating_sub(min_annual_inflation);
-//
-// // 20% reserved for up to 60 slots.
-// let auction_proportion = Perquintill::from_rational(auctioned_slots.min(60), 300u64);
-//
-// // Therefore the ideal amount at stake (as a percentage of total issuance) is 75% less the
-// // amount that we expect to be taken up with auctions.
-// let ideal_stake = Perquintill::from_percent(75).saturating_sub(auction_proportion);
-//
-// let stake = Perquintill::from_rational(total_staked, total_stakable);
-// let falloff = Perquintill::from_percent(5);
-// let adjustment = compute_inflation(stake, ideal_stake, falloff);
-// let staking_inflation =
-//     min_annual_inflation.saturating_add(delta_annual_inflation * adjustment);
-//
-// let max_payout = period_fraction * max_annual_inflation * total_stakable;
-// let staking_payout = (period_fraction * staking_inflation) * total_stakable;
-// let rest = max_payout.saturating_sub(staking_payout);
-//
-// let other_issuance = total_stakable.saturating_sub(total_staked);
-// if total_staked > other_issuance {
-//     let _cap_rest = Perquintill::from_rational(other_issuance, total_staked) * staking_payout;
-//     // We don't do anything with this, but if we wanted to, we could introduce a cap on the
-//     // treasury amount with: `rest = rest.min(cap_rest);`
-// }
-// (staking_payout, rest)
-// }
-
 pub struct EraPayout;
 impl pallet_staking::EraPayout<Balance> for EraPayout {
     fn era_payout(
@@ -667,26 +620,8 @@ impl pallet_staking::EraPayout<Balance> for EraPayout {
         _total_issuance: Balance,
         _era_duration_millis: u64,
     ) -> (Balance, Balance) {
-        todo!()
-
-        // all para-ids that are not active.
-        // let auctioned_slots = Paras::parachains()
-        //     .into_iter()
-        //     // all active para-ids that do not belong to a system chain is the number
-        //     // of parachains that we should take into account for inflation.
-        //     .filter(|i| *i >= LOWEST_PUBLIC_ID)
-        //     .count() as u64;
-        //
-        // const MAX_ANNUAL_INFLATION: Perquintill = Perquintill::from_percent(10);
-        // const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
-        //
-        // polkadot_era_payout(
-        //     total_staked,
-        //     total_issuance,
-        //     MAX_ANNUAL_INFLATION,
-        //     Perquintill::from_rational(era_duration_millis, MILLISECONDS_PER_YEAR),
-        //     auctioned_slots,
-        // )
+        let era_emissions = pallet_subtensor::PendingNodeValidatorEmissions::<Runtime>::take();
+        (era_emissions, 0u64)
     }
 }
 
