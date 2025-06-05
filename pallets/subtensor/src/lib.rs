@@ -1632,6 +1632,7 @@ pub mod pallet {
     /// --- MAP ( key ) --> last_tx_block_childkey_take
     pub type LastTxBlockChildKeyTake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
+    #[deprecated]
     #[pallet::storage]
     /// --- MAP ( key ) --> last_tx_block_delegate_take
     pub type LastTxBlockDelegateTake<T: Config> =
@@ -2709,8 +2710,10 @@ pub enum RateLimitKey<AccountId> {
     SetSNOwnerHotkey(u16),
     // Subnet registration rate limit
     NetworkLastRegistered,
-    // Last tx block limit
+    // Last tx block limit per account ID
     LastTxBlock(AccountId),
-    // Last tx block child key limit
+    // Last tx block child key limit per account ID
     LastTxBlockChildKeyTake(AccountId),
+    // Last tx block delegate key limit per account ID
+    LastTxBlockDelegateTake(AccountId),
 }

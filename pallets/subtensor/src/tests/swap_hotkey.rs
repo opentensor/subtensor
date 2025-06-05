@@ -1375,7 +1375,7 @@ fn test_swap_hotkey_swap_rate_limits() {
         // Set the last tx block for the old hotkey
         SubtensorModule::set_last_tx_block(&old_hotkey, last_tx_block);
         // Set the last delegate take block for the old hotkey
-        LastTxBlockDelegateTake::<Test>::insert(old_hotkey, delegate_take_block);
+        SubtensorModule::set_last_tx_block_delegate_take(&old_hotkey, delegate_take_block);
         // Set last childkey take block for the old hotkey
         SubtensorModule::set_last_tx_block_childkey(&old_hotkey, child_key_take_block);
 
@@ -1388,7 +1388,7 @@ fn test_swap_hotkey_swap_rate_limits() {
             last_tx_block
         );
         assert_eq!(
-            LastTxBlockDelegateTake::<Test>::get(new_hotkey),
+            SubtensorModule::get_last_tx_block_delegate_take(&new_hotkey),
             delegate_take_block
         );
         assert_eq!(

@@ -145,11 +145,18 @@ impl<T: Config> Pallet<T> {
     pub fn get_last_tx_block(key: &T::AccountId) -> u64 {
         Self::get_rate_limited_last_block(&RateLimitKey::LastTxBlock(key.clone()))
     }
+
+    pub fn remove_last_tx_block_delegate_take(key: &T::AccountId) {
+        Self::remove_rate_limited_last_block(&RateLimitKey::LastTxBlockDelegateTake(key.clone()))
+    }
     pub fn set_last_tx_block_delegate_take(key: &T::AccountId, block: u64) {
-        LastTxBlockDelegateTake::<T>::insert(key, block)
+        Self::set_rate_limited_last_block(
+            &RateLimitKey::LastTxBlockDelegateTake(key.clone()),
+            block,
+        );
     }
     pub fn get_last_tx_block_delegate_take(key: &T::AccountId) -> u64 {
-        LastTxBlockDelegateTake::<T>::get(key)
+        Self::get_rate_limited_last_block(&RateLimitKey::LastTxBlockDelegateTake(key.clone()))
     }
     pub fn get_last_tx_block_childkey_take(key: &T::AccountId) -> u64 {
         Self::get_rate_limited_last_block(&RateLimitKey::LastTxBlockChildKeyTake(key.clone()))
