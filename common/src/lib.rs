@@ -35,6 +35,7 @@ pub type Nonce = u32;
 pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
 
 #[freeze_struct("2a62496e31bbcddc")]
+#[repr(transparent)]
 #[derive(
     Clone, Copy, Decode, Default, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo,
 )]
