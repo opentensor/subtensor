@@ -1,8 +1,9 @@
 use super::mock::*;
 use crate::*;
-use frame_support::assert_ok;
+use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
+use substrate_fixed::types::U64F64;
 
 #[test]
 fn test_registration_ok() {
@@ -37,6 +38,296 @@ fn test_registration_ok() {
         assert!(!SubtensorModule::if_subnet_exist(netuid))
     })
 }
+
+#[test]
+fn dissolve_no_stakers_no_alpha_no_emission() {
+    new_test_ext(0).execute_with(|| {
+        let cold = U256::from(1);
+        let hot  = U256::from(2);
+        let net  = add_dynamic_network(&hot, &cold);
+
+        SubtensorModule::set_subnet_locked_balance(net, 0);
+        SubnetTAO::<Test>::insert(net, 0);
+        Emission::<Test>::insert(net, Vec::<u64>::new());
+
+        let before = SubtensorModule::get_coldkey_balance(&cold);
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+        let after  = SubtensorModule::get_coldkey_balance(&cold);
+
+        // Balance should be unchanged (whatever the network-lock bookkeeping left there)
+        assert_eq!(after, before);
+        assert!(!SubtensorModule::if_subnet_exist(net));
+    });
+}
+
+#[test]
+fn dissolve_refunds_full_lock_cost_when_no_emission() {
+    new_test_ext(0).execute_with(|| {
+        let cold = U256::from(3);
+        let hot  = U256::from(4);
+        let net  = add_dynamic_network(&hot, &cold);
+
+        let lock = 1_000_000u64;
+        SubtensorModule::set_subnet_locked_balance(net, lock);
+        SubnetTAO::<Test>::insert(net, 0);
+        Emission::<Test>::insert(net, Vec::<u64>::new());
+
+        let before = SubtensorModule::get_coldkey_balance(&cold);
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+        let after  = SubtensorModule::get_coldkey_balance(&cold);
+
+        assert_eq!(after, before + lock);
+    });
+}
+
+#[test]
+fn dissolve_single_alpha_out_staker_gets_all_tao() {
+    new_test_ext(0).execute_with(|| {
+        let owner_cold = U256::from(10);
+        let owner_hot  = U256::from(20);
+        let net        = add_dynamic_network(&owner_hot, &owner_cold);
+
+        let s_hot  = U256::from(100);
+        let s_cold = U256::from(200);
+
+        Alpha::<Test>::insert((s_hot, s_cold, net), U64F64::from_num(5_000u128));
+        SubnetTAO::<Test>::insert(net, 99_999);
+        SubtensorModule::set_subnet_locked_balance(net, 0);
+        Emission::<Test>::insert(net, Vec::<u64>::new());
+
+        let before = SubtensorModule::get_coldkey_balance(&s_cold);
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+        let after  = SubtensorModule::get_coldkey_balance(&s_cold);
+
+        assert_eq!(after, before + 99_999);
+        assert!(Alpha::<Test>::iter().count() == 0);
+    });
+}
+
+#[test]
+fn dissolve_two_stakers_pro_rata_distribution() {
+    new_test_ext(0).execute_with(|| {
+        let oc = U256::from(50);
+        let oh = U256::from(51);
+        let net = add_dynamic_network(&oh, &oc);
+
+        // stakers α-out
+        let (s1_hot, s1_cold, a1) = (U256::from(201), U256::from(301), 300u128);
+        let (s2_hot, s2_cold, a2) = (U256::from(202), U256::from(302), 700u128);
+
+        Alpha::<Test>::insert((s1_hot, s1_cold, net), U64F64::from_num(a1));
+        Alpha::<Test>::insert((s2_hot, s2_cold, net), U64F64::from_num(a2));
+
+        SubnetTAO::<Test>::insert(net, 10_000);
+        SubtensorModule::set_subnet_locked_balance(net, 5_000);
+        Emission::<Test>::insert(net, Vec::<u64>::new());
+
+        let b1 = SubtensorModule::get_coldkey_balance(&s1_cold);
+        let b2 = SubtensorModule::get_coldkey_balance(&s2_cold);
+        let bo = SubtensorModule::get_coldkey_balance(&oc);
+
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+
+        let total = a1 + a2;
+        let share1: u64 = (10_000u128 * a1 / total) as u64;
+        let share2: u64 = (10_000u128 * a2 / total) as u64;
+
+        assert_eq!(SubtensorModule::get_coldkey_balance(&s1_cold), b1 + share1);
+        assert_eq!(SubtensorModule::get_coldkey_balance(&s2_cold), b2 + share2);
+        assert_eq!(SubtensorModule::get_coldkey_balance(&oc),      bo + 5_000);
+    });
+}
+
+#[test]
+fn dissolve_owner_cut_refund_logic() {
+    new_test_ext(0).execute_with(|| {
+        let oc = U256::from(70);
+        let oh = U256::from(71);
+        let net = add_dynamic_network(&oh, &oc);
+
+        // staker
+        let sh  = U256::from(77);
+        let sc  = U256::from(88);
+        Alpha::<Test>::insert((sh, sc, net), U64F64::from_num(100u128));
+        SubnetTAO::<Test>::insert(net, 1_000);
+
+        // lock & emission
+        let lock = 2_000;
+        SubtensorModule::set_subnet_locked_balance(net, lock);
+        Emission::<Test>::insert(net, vec![200u64, 600]);
+
+        // 18 % owner-cut
+        SubnetOwnerCut::<Test>::put(11_796u16);
+        let frac  = 11_796f64 / 65_535f64;
+        let owner_em = (800f64 * frac).floor() as u64;
+        let expect   = lock.saturating_sub(owner_em);
+
+        let before = SubtensorModule::get_coldkey_balance(&oc);
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+        let after  = SubtensorModule::get_coldkey_balance(&oc);
+
+        assert_eq!(after, before + expect);
+    });
+}
+
+#[test]
+fn dissolve_zero_refund_when_emission_exceeds_lock() {
+    new_test_ext(0).execute_with(|| {
+        let oc = U256::from(1_000);
+        let oh = U256::from(2_000);
+        let net = add_dynamic_network(&oh, &oc);
+
+        SubtensorModule::set_subnet_locked_balance(net, 1_000);
+        SubnetOwnerCut::<Test>::put(u16::MAX); // 100 %
+        Emission::<Test>::insert(net, vec![2_000u64]);
+
+        let before = SubtensorModule::get_coldkey_balance(&oc);
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+        let after  = SubtensorModule::get_coldkey_balance(&oc);
+
+        assert_eq!(after, before); // no refund
+    });
+}
+
+#[test]
+fn dissolve_nonexistent_subnet_fails() {
+    new_test_ext(0).execute_with(|| {
+        assert_err!(
+            SubtensorModule::do_dissolve_network(9_999),
+            Error::<Test>::SubNetworkDoesNotExist
+        );
+    });
+}
+
+#[test]
+fn dissolve_clears_all_per_subnet_storages() {
+    new_test_ext(0).execute_with(|| {
+
+        let owner_cold = U256::from(123);
+        let owner_hot  = U256::from(456);
+        let net        = add_dynamic_network(&owner_hot, &owner_cold);
+
+        // ------------------------------------------------------------------
+        // Populate each storage item with a minimal value of the CORRECT type
+        // ------------------------------------------------------------------
+        SubnetOwner::<Test>::insert(net, owner_cold);
+        SubnetworkN::<Test>::insert(net, 0u16);
+        NetworkModality::<Test>::insert(net, 0u16);
+        NetworksAdded::<Test>::insert(net, true);
+        NetworkRegisteredAt::<Test>::insert(net, 0u64);
+
+        Rank::<Test>::insert(net, vec![1u16]);
+        Trust::<Test>::insert(net, vec![1u16]);
+        Active::<Test>::insert(net, vec![true]);
+        Emission::<Test>::insert(net, vec![1u64]);
+        Incentive::<Test>::insert(net, vec![1u16]);
+        Consensus::<Test>::insert(net, vec![1u16]);
+        Dividends::<Test>::insert(net, vec![1u16]);
+        PruningScores::<Test>::insert(net, vec![1u16]);
+        LastUpdate::<Test>::insert(net, vec![0u64]);
+
+        ValidatorPermit::<Test>::insert(net, vec![true]);
+        ValidatorTrust::<Test>::insert(net, vec![1u16]);
+
+        Tempo::<Test>::insert(net, 1u16);
+        Kappa::<Test>::insert(net, 1u16);
+        Difficulty::<Test>::insert(net, 1u64);
+
+        MaxAllowedUids::<Test>::insert(net, 1u16);
+        ImmunityPeriod::<Test>::insert(net, 1u16);
+        ActivityCutoff::<Test>::insert(net, 1u16);
+        MaxWeightsLimit::<Test>::insert(net, 1u16);
+        MinAllowedWeights::<Test>::insert(net, 1u16);
+
+        RegistrationsThisInterval::<Test>::insert(net, 1u16);
+        POWRegistrationsThisInterval::<Test>::insert(net, 1u16);
+        BurnRegistrationsThisInterval::<Test>::insert(net, 1u16);
+
+        SubnetTAO::<Test>::insert(net, 1u64);
+        SubnetAlphaInEmission::<Test>::insert(net, 1u64);
+        SubnetAlphaOutEmission::<Test>::insert(net, 1u64);
+        SubnetTaoInEmission::<Test>::insert(net, 1u64);
+        SubnetVolume::<Test>::insert(net, 1u128);
+
+        // Fields that will be ZEROED (not removed)
+        SubnetAlphaIn::<Test>::insert(net, 2u64);
+        SubnetAlphaOut::<Test>::insert(net, 3u64);
+
+        // Prefix / double-map collections
+        Keys::<Test>::insert(net, 0u16, owner_hot);
+        Bonds::<Test>::insert(net, 0u16, vec![(0u16, 1u16)]);
+        Weights::<Test>::insert(net, 0u16, vec![(1u16, 1u16)]);
+        IsNetworkMember::<Test>::insert(owner_cold, net, true);
+
+        // ------------------------------------------------------------------
+        // Dissolve
+        // ------------------------------------------------------------------
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+
+        // ------------------------------------------------------------------
+        // Items that must be COMPLETELY REMOVED
+        // ------------------------------------------------------------------
+        assert!(!SubnetOwner::<Test>::contains_key(net));
+        assert!(!SubnetworkN::<Test>::contains_key(net));
+        assert!(!NetworkModality::<Test>::contains_key(net));
+        assert!(!NetworksAdded::<Test>::contains_key(net));
+        assert!(!NetworkRegisteredAt::<Test>::contains_key(net));
+
+        assert!(!Rank::<Test>::contains_key(net));
+        assert!(!Trust::<Test>::contains_key(net));
+        assert!(!Active::<Test>::contains_key(net));
+        assert!(!Emission::<Test>::contains_key(net));
+        assert!(!Incentive::<Test>::contains_key(net));
+        assert!(!Consensus::<Test>::contains_key(net));
+        assert!(!Dividends::<Test>::contains_key(net));
+        assert!(!PruningScores::<Test>::contains_key(net));
+        assert!(!LastUpdate::<Test>::contains_key(net));
+
+        assert!(!ValidatorPermit::<Test>::contains_key(net));
+        assert!(!ValidatorTrust::<Test>::contains_key(net));
+
+        assert!(!Tempo::<Test>::contains_key(net));
+        assert!(!Kappa::<Test>::contains_key(net));
+        assert!(!Difficulty::<Test>::contains_key(net));
+
+        assert!(!MaxAllowedUids::<Test>::contains_key(net));
+        assert!(!ImmunityPeriod::<Test>::contains_key(net));
+        assert!(!ActivityCutoff::<Test>::contains_key(net));
+        assert!(!MaxWeightsLimit::<Test>::contains_key(net));
+        assert!(!MinAllowedWeights::<Test>::contains_key(net));
+
+        assert!(!RegistrationsThisInterval::<Test>::contains_key(net));
+        assert!(!POWRegistrationsThisInterval::<Test>::contains_key(net));
+        assert!(!BurnRegistrationsThisInterval::<Test>::contains_key(net));
+
+        assert!(!SubnetTAO::<Test>::contains_key(net));
+        assert!(!SubnetAlphaInEmission::<Test>::contains_key(net));
+        assert!(!SubnetAlphaOutEmission::<Test>::contains_key(net));
+        assert!(!SubnetTaoInEmission::<Test>::contains_key(net));
+        assert!(!SubnetVolume::<Test>::contains_key(net));
+
+        // ------------------------------------------------------------------
+        // Items expected to be PRESENT but ZERO
+        // ------------------------------------------------------------------
+        assert_eq!(SubnetAlphaIn::<Test>::get(net), 0);
+        assert_eq!(SubnetAlphaOut::<Test>::get(net), 0);
+
+        // ------------------------------------------------------------------
+        // Collections fully cleared
+        // ------------------------------------------------------------------
+        assert!(Keys::<Test>::iter_prefix(net).next().is_none());
+        assert!(Bonds::<Test>::iter_prefix(net).next().is_none());
+        assert!(Weights::<Test>::iter_prefix(net).next().is_none());
+        assert!(!IsNetworkMember::<Test>::contains_key(owner_hot, net));
+
+        // ------------------------------------------------------------------
+        // Final subnet removal confirmation
+        // ------------------------------------------------------------------
+        assert!(!SubtensorModule::if_subnet_exist(net));
+    });
+}
+
+
 
 // #[test]
 // fn test_schedule_dissolve_network_execution() {
