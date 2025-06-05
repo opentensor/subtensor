@@ -2706,7 +2706,7 @@ impl<T, H, P> CollectiveInterface<T, H, P> for () {
 pub enum RateLimitKey<AccountId> {
     // The setting sn owner hotkey operation is rate limited per netuid
     SetSNOwnerHotkey(u16),
-    // Last registered network limit
+    // Subnet registration rate limit
     NetworkLastRegistered,
     // Last tx block limit
     LastTxBlock(AccountId),
