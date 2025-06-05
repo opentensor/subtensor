@@ -1370,7 +1370,7 @@ impl<T: Config> Pallet<T> {
 fn test_selective_metagraph() {
     let mut metagraph = SelectiveMetagraph::<u32>::default();
     let expected = SelectiveMetagraph::<u32> {
-        netuid: 0_u16.into(),
+        netuid: NetUid::ROOT.into(),
         name: None,
         symbol: None,
         identity: None,
@@ -1449,7 +1449,7 @@ fn test_selective_metagraph() {
 
     let wrong_index: usize = 100;
     let metagraph_name = SelectiveMetagraph::<u32> {
-        netuid: 0_u16.into(),
+        netuid: NetUid::ROOT.into(),
         name: Some(vec![1_u8].into_iter().map(Compact).collect()),
         ..Default::default()
     };
@@ -1464,7 +1464,7 @@ fn test_selective_metagraph() {
 
     let alph_low_index: usize = 50;
     let metagraph_alpha_low = SelectiveMetagraph::<u32> {
-        netuid: 0_u16.into(),
+        netuid: NetUid::ROOT.into(),
         alpha_low: Some(0_u16.into()),
         ..Default::default()
     };

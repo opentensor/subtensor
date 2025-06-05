@@ -422,7 +422,7 @@ fn test_recycle_errors() {
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 100_000,
-                99 // non-existent subnet
+                99.into() // non-existent subnet
             ),
             Error::<Test>::SubNetworkDoesNotExist
         );
@@ -432,7 +432,7 @@ fn test_recycle_errors() {
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 100_000,
-                SubtensorModule::get_root_netuid(),
+                NetUid::ROOT,
             ),
             Error::<Test>::CannotBurnOrRecycleOnRootSubnet
         );
@@ -504,7 +504,7 @@ fn test_burn_errors() {
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 100_000,
-                99 // non-existent subnet
+                99.into() // non-existent subnet
             ),
             Error::<Test>::SubNetworkDoesNotExist
         );
@@ -514,7 +514,7 @@ fn test_burn_errors() {
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 100_000,
-                SubtensorModule::get_root_netuid(),
+                NetUid::ROOT,
             ),
             Error::<Test>::CannotBurnOrRecycleOnRootSubnet
         );

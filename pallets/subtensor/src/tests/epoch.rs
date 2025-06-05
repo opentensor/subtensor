@@ -111,7 +111,7 @@ fn distribute_nodes(
 }
 
 #[allow(dead_code)]
-fn uid_stats(netuid: u16, uid: u16) {
+fn uid_stats(netuid: NetUid, uid: u16) {
     log::info!(
         "stake: {:?}",
         SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid)))
@@ -141,7 +141,7 @@ fn uid_stats(netuid: u16, uid: u16) {
 
 #[allow(clippy::too_many_arguments)]
 fn init_run_epochs(
-    netuid: u16,
+    netuid: NetUid,
     n: u16,
     validators: &[u16],
     servers: &[u16],
@@ -402,7 +402,7 @@ fn init_run_epochs(
 // Test consensus guarantees with an epoch on a graph with 4096 nodes, of which the first 128 are validators, the graph is split into a major and minor set, each setting specific weight on itself and the complement on the other. Asserts that the major emission ratio >= major stake ratio.
 // #[test]
 // fn test_consensus_guarantees() {
-//     let netuid: u16 = 0;
+//     let netuid = NetUid::from(0);
 //     let network_n: u16 = 512;
 //     let validators_n: u16 = 64;
 //     let epochs: u16 = 1;
@@ -493,7 +493,7 @@ fn init_run_epochs(
 // fn test_overflow() {
 //     new_test_ext(1).execute_with(|| {
 //         log::info!("test_overflow:");
-//         let netuid: u16 = 1;
+//         let netuid = NetUid::from(1);
 //         add_network(netuid, 1,  0);
 //         SubtensorModule::set_max_allowed_uids(netuid, 3);
 //         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
@@ -557,7 +557,7 @@ fn init_run_epochs(
 fn test_1_graph() {
     new_test_ext(1).execute_with(|| {
         log::info!("test_1_graph:");
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let coldkey = U256::from(0);
         let hotkey = U256::from(0);
         let uid: u16 = 0;
@@ -603,7 +603,7 @@ fn test_10_graph() {
     new_test_ext(1).execute_with(|| {
         log::info!("test_10_graph");
         // Function for adding a nodes to the graph.
-        pub fn add_node(netuid: u16, coldkey: U256, hotkey: U256, uid: u16, stake_amount: u64) {
+        pub fn add_node(netuid: NetUid, coldkey: U256, hotkey: U256, uid: u16, stake_amount: u64) {
             log::info!(
                 "+Add net:{:?} coldkey:{:?} hotkey:{:?} uid:{:?} stake_amount: {:?} subn: {:?}",
                 netuid,
@@ -625,7 +625,7 @@ fn test_10_graph() {
         // Build the graph with 10 items
         // each with 1 stake and self weights.
         let n: usize = 10;
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
         SubtensorModule::set_max_allowed_uids(netuid, n as u16);
         for i in 0..10 {
@@ -667,7 +667,7 @@ fn test_10_graph() {
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::epoch::test_512_graph --exact --show-output --nocapture
 #[test]
 fn test_512_graph() {
-    let netuid: u16 = 1;
+    let netuid = NetUid::from(1);
     let network_n: u16 = 512;
     let validators_n: u16 = 64;
     let max_stake_per_validator: u64 = 328_125_000_000_000; // 21_000_000_000_000_000 / 64
@@ -740,7 +740,7 @@ fn test_512_graph() {
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::epoch::test_512_graph_random_weights --exact --show-output --nocapture
 #[test]
 fn test_512_graph_random_weights() {
-    let netuid: u16 = 1;
+    let netuid = NetUid::from(1);
     let network_n: u16 = 512;
     let validators_n: u16 = 64;
     let epochs: u16 = 1;
@@ -846,7 +846,7 @@ fn test_512_graph_random_weights() {
 // Test an epoch on a graph with 4096 nodes, of which the first 256 are validators setting non-self weights, and the rest servers setting only self-weights.
 // #[test]
 // fn test_4096_graph() {
-//     let netuid: u16 = 1;
+//     let netuid = NetUid::from(1);
 //     let network_n: u16 = 4096;
 //     let validators_n: u16 = 256;
 //     let epochs: u16 = 1;
@@ -923,7 +923,7 @@ fn test_512_graph_random_weights() {
 // #[test]
 // fn test_16384_graph_sparse() {
 //     new_test_ext(1).execute_with(|| {
-//         let netuid: u16 = 1;
+//         let netuid = NetUid::from(1);
 //         let n: u16 = 16384;
 //         let validators_n: u16 = 512;
 //         let validators: Vec<u16> = (0..validators_n).collect();
@@ -989,7 +989,7 @@ fn test_bonds() {
     new_test_ext(1).execute_with(|| {
 		let sparse: bool = true;
 		let n: u16 = 8;
-		let netuid: u16 = 1;
+		let netuid = NetUid::from(1);
 		let tempo: u16 = 1;
 		let max_stake: u64 = 4;
 		let stakes: Vec<u64> = vec![1, 2, 3, 4, 0, 0, 0, 0];
@@ -1333,7 +1333,7 @@ fn test_active_stake() {
         System::set_block_number(0);
         let sparse: bool = true;
         let n: u16 = 4;
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 1;
         let block_number: u64 = System::block_number();
         let stake: u64 = 1;
@@ -1540,7 +1540,7 @@ fn test_outdated_weights() {
     new_test_ext(1).execute_with(|| {
         let sparse: bool = true;
         let n: u16 = 4;
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 0;
         let mut block_number: u64 = System::block_number();
         let stake: u64 = 1;
@@ -1727,7 +1727,7 @@ fn test_zero_weights() {
     new_test_ext(1).execute_with(|| {
         let sparse: bool = true;
         let n: u16 = 2;
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
         let mut block_number: u64 = 0;
         let stake: u64 = 1;
@@ -1921,7 +1921,7 @@ fn test_deregistered_miner_bonds() {
     new_test_ext(1).execute_with(|| {
         let sparse: bool = true;
         let n: u16 = 4;
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let high_tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
 
         let stake: u64 = 1;
@@ -2098,7 +2098,7 @@ fn test_deregistered_miner_bonds() {
 // Test that epoch assigns validator permits to highest stake uids that are over the stake threshold, varies uid interleaving and stake values.
 #[test]
 fn test_validator_permits() {
-    let netuid: u16 = 1;
+    let netuid = NetUid::from(1);
     let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
     for interleave in 0..3 {
         for (network_n, validators_n) in [(2, 1), (4, 2), (8, 4)] {
@@ -2226,7 +2226,7 @@ fn test_validator_permits() {
 #[test]
 fn test_get_set_alpha() {
     new_test_ext(1).execute_with(|| {
-        let netuid = 1;
+        let netuid = NetUid::from(1);
         let alpha_low: u16 = 12_u16;
         let alpha_high: u16 = u16::MAX - 10;
 
@@ -2377,7 +2377,7 @@ fn test_blocks_since_last_step() {
     new_test_ext(1).execute_with(|| {
         System::set_block_number(0);
 
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 7200;
         add_network(netuid, tempo, 0);
 
@@ -2478,7 +2478,7 @@ fn test_can_set_self_weight_as_subnet_owner() {
 #[test]
 fn test_epoch_outputs_single_staker_registered_no_weights() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let high_tempo: u16 = u16::MAX - 1; // Don't run automatically.
         add_network(netuid, high_tempo, 0);
 
@@ -2553,7 +2553,7 @@ fn test_epoch_outputs_single_staker_registered_no_weights() {
 // ```
 // #[test]
 // fn _map_consensus_guarantees() {
-//     let netuid: u16 = 1;
+//     let netuid = NetUid::from(1);
 //     let network_n: u16 = 512;
 //     let validators_n: u16 = 64;
 //     let epochs: u16 = 1;
@@ -2630,7 +2630,7 @@ pub fn assert_approx_eq(left: I32F32, right: I32F32, epsilon: I32F32) {
 }
 
 // test Yuma 3 scenarios over a sequence of epochs.
-fn setup_yuma_3_scenario(netuid: u16, n: u16, sparse: bool, max_stake: u64, stakes: Vec<u64>) {
+fn setup_yuma_3_scenario(netuid: NetUid, n: u16, sparse: bool, max_stake: u64, stakes: Vec<u64>) {
     let block_number = System::block_number();
     let tempo: u16 = 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
     add_network(netuid, tempo, 0);
@@ -2690,7 +2690,7 @@ fn setup_yuma_3_scenario(netuid: u16, n: u16, sparse: bool, max_stake: u64, stak
     run_epoch(netuid, sparse);
 }
 
-fn run_epoch(netuid: u16, sparse: bool) {
+fn run_epoch(netuid: NetUid, sparse: bool) {
     next_block_no_epoch(netuid);
     if sparse {
         SubtensorModule::epoch(netuid, 1_000_000_000);
@@ -2700,7 +2700,7 @@ fn run_epoch(netuid: u16, sparse: bool) {
 }
 
 fn run_epoch_and_check_bonds_dividends(
-    netuid: u16,
+    netuid: NetUid,
     sparse: bool,
     target_bonds: &[Vec<f32>],
     target_dividends: &[f32],
@@ -2727,7 +2727,7 @@ fn run_epoch_and_check_bonds_dividends(
     }
 }
 
-fn set_yuma_3_weights(netuid: u16, weights: Vec<Vec<u16>>, indices: Vec<u16>) {
+fn set_yuma_3_weights(netuid: NetUid, weights: Vec<Vec<u16>>, indices: Vec<u16>) {
     for (uid, weight) in weights.iter().enumerate() {
         assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(U256::from(uid as u64)),
@@ -2744,7 +2744,7 @@ fn test_yuma_3_kappa_moves_first() {
     for sparse in [true, false].iter() {
         new_test_ext(1).execute_with(|| {
             let n: u16 = 5; // 3 validators, 2 servers
-            let netuid: u16 = 1;
+            let netuid = NetUid::from(1);
             let max_stake: u64 = 8;
 
             // Validator A: kappa / Big validator (0.8) - moves first
@@ -2847,7 +2847,7 @@ fn test_yuma_3_kappa_moves_second() {
     for sparse in [true, false].iter() {
         new_test_ext(1).execute_with(|| {
             let n: u16 = 5; // 3 validators, 2 servers
-            let netuid: u16 = 1;
+            let netuid = NetUid::from(1);
             let max_stake: u64 = 8;
 
             // Validator A: kappa / Big validator (0.8) - moves second
@@ -2949,7 +2949,7 @@ fn test_yuma_3_kappa_moves_last() {
     for sparse in [true, false].iter() {
         new_test_ext(1).execute_with(|| {
             let n: u16 = 5; // 3 validators, 2 servers
-            let netuid: u16 = 1;
+            let netuid = NetUid::from(1);
             let max_stake: u64 = 8;
 
             // Validator A: kappa / Big validator (0.8) - moves last
@@ -3051,7 +3051,7 @@ fn test_yuma_3_one_epoch_switch() {
     for sparse in [true, false].iter() {
         new_test_ext(1).execute_with(|| {
             let n: u16 = 5; // 3 validators, 2 servers
-            let netuid: u16 = 1;
+            let netuid = NetUid::from(1);
             let max_stake: u64 = 8;
 
             // Equal stake validators
@@ -3136,7 +3136,7 @@ fn test_yuma_3_one_epoch_switch() {
 fn test_yuma_3_liquid_alpha_disabled() {
     for sparse in [true, false].iter() {
         new_test_ext(1).execute_with(|| {
-            let netuid: u16 = 1;
+            let netuid = NetUid::from(1);
             let n: u16 = 5; // 3 validators, 2 servers
             let max_stake: u64 = 8;
 
@@ -3225,7 +3225,7 @@ fn test_yuma_3_liquid_alpha_disabled() {
 fn test_yuma_3_stable_miner() {
     for sparse in [true, false].iter() {
         new_test_ext(1).execute_with(|| {
-            let netuid: u16 = 1;
+            let netuid = NetUid::from(1);
             let n: u16 = 6; // 3 validators, 3 servers
             let max_stake: u64 = 8;
 
@@ -3340,7 +3340,7 @@ fn test_yuma_3_bonds_reset() {
     new_test_ext(1).execute_with(|| {
         let sparse: bool = true;
         let n: u16 = 5; // 3 validators, 2 servers
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let max_stake: u64 = 8;
 
         // "Case 8 - big vali moves late, then late"
