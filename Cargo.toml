@@ -270,3 +270,6 @@ runtime-benchmarks = [
 ]
 metadata-hash = ["node-subtensor-runtime/metadata-hash"]
 pow-faucet = []
+
+[patch."https://github.com/paritytech/polkadot-sdk.git"]
+sc-consensus-grandpa = { git = "https://github.com/opentensor/grandpa.git", rev = "9fb32b1a18b69ab38b1027afc5f5f4371ecf6485" }

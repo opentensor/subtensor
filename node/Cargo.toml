@@ -111,6 +111,10 @@ subtensor-runtime-common = { workspace = true, features = ["std"] }
 subtensor-custom-rpc = { workspace = true, features = ["std"] }
 subtensor-custom-rpc-runtime-api = { workspace = true, features = ["std"] }
 
+# Warp-sync patch dependencies
+subxt = { version = "0.42.1", default-features = true } # temp dependency to get API
+rustls-webpki = "0.102" # a dependency for linux version of subxt framework
+
 [build-dependencies]
 substrate-build-script-utils = { workspace = true }
 
@@ -125,6 +129,7 @@ rocksdb = [
 	"fc-rpc/rocksdb",
 ]
 txpool = ["fc-rpc/txpool", "fc-rpc-core/txpool"]
+warp-sync-patch = []
 
 # Dependencies that are only required if runtime benchmarking should be build.
 runtime-benchmarks = [
