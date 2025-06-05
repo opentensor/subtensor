@@ -935,17 +935,18 @@ mod dispatches {
             Self::do_burned_registration(origin, netuid, hotkey)
         }
 
-        /// The extrinsic for user to change its hotkey
+        /// The extrinsic for user to change its hotkey in subnet or all subnets.
         #[pallet::call_index(70)]
-        #[pallet::weight((Weight::from_parts(240_600_000, 0)
-        .saturating_add(T::DbWeight::get().reads(31))
-        .saturating_add(T::DbWeight::get().writes(23)), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(285_900_000, 0)
+        .saturating_add(T::DbWeight::get().reads(47))
+        .saturating_add(T::DbWeight::get().writes(37)), DispatchClass::Operational, Pays::No))]
         pub fn swap_hotkey(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
             new_hotkey: T::AccountId,
+            netuid: Option<u16>,
         ) -> DispatchResultWithPostInfo {
-            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey)
+            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey, netuid)
         }
 
         /// The extrinsic for user to change the coldkey associated with their account.

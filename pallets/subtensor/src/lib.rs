@@ -937,6 +937,19 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
+    /// --- DMap ( netuid, coldkey ) --> blocknumber | last hotkey swap on network.
+    pub type LastHotkeySwapOnNetuid<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        u16,
+        Blake2_128Concat,
+        T::AccountId,
+        u64,
+        ValueQuery,
+        DefaultZeroU64<T>,
+    >;
+
+    #[pallet::storage]
     /// Ensures unique IDs for StakeJobs storage map
     pub type NextStakeJobId<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
 
