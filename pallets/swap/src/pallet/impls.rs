@@ -34,9 +34,6 @@ struct SwapStep<T: frame_system::Config> {
     limit_sqrt_price: SqrtPrice,
     current_sqrt_price: SqrtPrice,
     edge_sqrt_price: SqrtPrice,
-    target_tick: TickIndex,
-    limit_tick: TickIndex,
-    edge_tick: TickIndex,
 
     // Result values
     action: SwapStepAction,
@@ -73,8 +70,6 @@ impl<T: Config> SwapStep<T> {
             current_sqrt_price,
             possible_delta_in,
         );
-        let target_tick = TickIndex::from_sqrt_price_bounded(target_sqrt_price);
-        let limit_tick = TickIndex::from_sqrt_price_bounded(limit_sqrt_price);
 
         Self {
             netuid,
@@ -83,9 +78,6 @@ impl<T: Config> SwapStep<T> {
             limit_sqrt_price,
             current_sqrt_price,
             edge_sqrt_price,
-            target_tick,
-            limit_tick,
-            edge_tick,
             possible_delta_in,
             current_liquidity,
             action: SwapStepAction::Stop,
@@ -102,15 +94,15 @@ impl<T: Config> SwapStep<T> {
         self.process_swap()
     }
 
-    /// Returns True if tick1 is closer to the current tick than tick2
+    /// Returns True if sq_price1 is closer to the current price than sq_price2
     /// in terms of order direction.
-    ///    For buying:  tick1 <= tick2
-    ///    For selling: tick1 >= tick2
+    ///    For buying:  sq_price1 <= sq_price2
+    ///    For selling: sq_price1 >= sq_price2
     ///
-    fn tick_is_closer(&self, tick1: &TickIndex, tick2: &TickIndex) -> bool {
+    fn price_is_closer(&self, sq_price1: &SqrtPrice, sq_price2: &SqrtPrice) -> bool {
         match self.order_type {
-            OrderType::Buy => tick1 <= tick2,
-            OrderType::Sell => tick1 >= tick2,
+            OrderType::Buy => sq_price1 <= sq_price2,
+            OrderType::Sell => sq_price1 >= sq_price2,
         }
     }
 
@@ -120,16 +112,16 @@ impl<T: Config> SwapStep<T> {
 
         // Calculate the stopping price: The price at which we either reach the limit price,
         // exchange the full amount, or reach the edge price.
-        if self.tick_is_closer(&self.target_tick, &self.limit_tick)
-            && self.tick_is_closer(&self.target_tick, &self.edge_tick)
+        if self.price_is_closer(&self.target_sqrt_price, &self.limit_sqrt_price)
+            && self.price_is_closer(&self.target_sqrt_price, &self.edge_sqrt_price)
         {
             // Case 1. target_quantity is the lowest
             // The trade completely happens within one tick, no tick crossing happens.
             self.action = SwapStepAction::Stop;
             self.final_price = self.target_sqrt_price;
             self.delta_in = self.possible_delta_in;
-        } else if self.tick_is_closer(&self.limit_tick, &self.target_tick)
-            && self.tick_is_closer(&self.limit_tick, &self.edge_tick)
+        } else if self.price_is_closer(&self.limit_sqrt_price, &self.target_sqrt_price)
+            && self.price_is_closer(&self.limit_sqrt_price, &self.edge_sqrt_price)
         {
             // Case 2. lim_quantity is the lowest
             // The trade also completely happens within one tick, no tick crossing happens.
@@ -191,12 +183,13 @@ impl<T: Config> SwapStep<T> {
         // Now correct the action if we stopped exactly at the edge no matter what was the case above
         // Because order type buy moves the price up and tick semi-open interval doesn't include its right
         // point, we cross on buys and stop on sells.
-        let natural_reason_stop_tick = if self.tick_is_closer(&self.limit_tick, &self.target_tick) {
-            self.limit_tick
-        } else {
-            self.target_tick
-        };
-        if natural_reason_stop_tick == self.edge_tick {
+        let natural_reason_stop_price =
+            if self.price_is_closer(&self.limit_sqrt_price, &self.target_sqrt_price) {
+                self.limit_sqrt_price
+            } else {
+                self.target_sqrt_price
+            };
+        if natural_reason_stop_price == self.edge_sqrt_price {
             self.action = match self.order_type {
                 OrderType::Buy => SwapStepAction::Crossing,
                 OrderType::Sell => SwapStepAction::Stop,

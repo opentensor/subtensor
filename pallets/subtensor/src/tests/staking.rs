@@ -4157,8 +4157,8 @@ fn test_max_amount_remove_dynamic() {
             (10_000_000_000, 10_000_000_000, 0, Ok(u64::MAX)),
             // Low bounds (numbers are empirical, it is only important that result
             // is sharply decreasing when limit price increases)
-            (1_000, 1_000, 0, Ok(u64::MAX)),
-            (1_001, 1_001, 0, Ok(u64::MAX)),
+            (1_000, 1_000, 0, Err(Error::<Test>::ZeroMaxStakeAmount)),
+            (1_001, 1_001, 0, Ok(4_307_770_117)),
             (1_001, 1_001, 1, Ok(31_715)),
             (1_001, 1_001, 2, Ok(22_426)),
             (1_001, 1_001, 1_001, Ok(1_000)),
