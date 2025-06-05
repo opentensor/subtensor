@@ -279,6 +279,7 @@ where
     }
 
     #[precompile::public("addStakeLimit(bytes32,uint256,uint256,bool,uint256)")]
+	#[precompile::payable]
     fn add_stake_limit(
         handle: &mut impl PrecompileHandle,
         address: H256,
