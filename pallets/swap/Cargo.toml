@@ -10,6 +10,7 @@ codec = { workspace = true }
 frame-benchmarking = { workspace = true, optional = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+log = { workspace = true }
 safe-math = { workspace = true }
 scale-info = { workspace = true }
 serde = { workspace = true, optional = true }
@@ -21,8 +22,9 @@ sp-std = { workspace = true }
 substrate-fixed = { workspace = true }
 
 pallet-subtensor-swap-runtime-api = { workspace = true }
-subtensor-swap-interface = { workspace = true }
 subtensor-macros = { workspace = true }
+subtensor-runtime-common = {workspace = true}
+subtensor-swap-interface = { workspace = true }
 
 [lints]
 workspace = true
@@ -45,6 +47,7 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 	"substrate-fixed/std",
+	"subtensor-runtime-common/std",
 	"subtensor-swap-interface/std",
 ]
 runtime-benchmarks = [

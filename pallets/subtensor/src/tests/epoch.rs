@@ -1306,7 +1306,7 @@ fn test_set_alpha_disabled() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
         let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
-            netuid,
+            netuid.into(),
             DefaultMinStake::<Test>::get(),
         );
         assert_ok!(SubtensorModule::add_stake(
@@ -2259,7 +2259,7 @@ fn test_get_set_alpha() {
         SubtokenEnabled::<Test>::insert(netuid, true);
 
         let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
-            netuid,
+            netuid.into(),
             DefaultMinStake::<Test>::get(),
         );
 

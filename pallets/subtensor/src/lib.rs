@@ -28,6 +28,7 @@ use sp_runtime::{
     transaction_validity::{TransactionValidity, TransactionValidityError},
 };
 use sp_std::marker::PhantomData;
+use subtensor_runtime_common::NetUid;
 
 // ============================
 //	==== Benchmark Imports =====
@@ -926,6 +927,19 @@ pub mod pallet {
         u64, // second key: unique job ID
         StakeJob<T::AccountId>,
         OptionQuery,
+    >;
+
+    #[pallet::storage]
+    /// --- DMap ( netuid, coldkey ) --> blocknumber | last hotkey swap on network.
+    pub type LastHotkeySwapOnNetuid<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        u16,
+        Blake2_128Concat,
+        T::AccountId,
+        u64,
+        ValueQuery,
+        DefaultZeroU64<T>,
     >;
 
     #[pallet::storage]
@@ -2696,38 +2710,38 @@ impl<T, H, P> CollectiveInterface<T, H, P> for () {
 }
 
 impl<T: Config + pallet_balances::Config<Balance = u64>>
-    subtensor_swap_interface::SubnetInfo<T::AccountId> for Pallet<T>
+    subtensor_runtime_common::SubnetInfo<T::AccountId> for Pallet<T>
 {
-    fn tao_reserve(netuid: u16) -> u64 {
-        SubnetTAO::<T>::get(netuid)
+    fn tao_reserve(netuid: NetUid) -> u64 {
+        SubnetTAO::<T>::get(u16::from(netuid))
     }
 
-    fn alpha_reserve(netuid: u16) -> u64 {
-        SubnetAlphaIn::<T>::get(netuid)
+    fn alpha_reserve(netuid: NetUid) -> u64 {
+        SubnetAlphaIn::<T>::get(u16::from(netuid))
     }
 
-    fn exists(netuid: u16) -> bool {
-        Self::if_subnet_exist(netuid)
+    fn exists(netuid: NetUid) -> bool {
+        Self::if_subnet_exist(u16::from(netuid))
     }
 
-    fn mechanism(netuid: u16) -> u16 {
-        SubnetMechanism::<T>::get(netuid)
+    fn mechanism(netuid: NetUid) -> u16 {
+        SubnetMechanism::<T>::get(u16::from(netuid))
     }
 
-    fn is_owner(account_id: &T::AccountId, netuid: u16) -> bool {
-        SubnetOwner::<T>::get(netuid) == *account_id
+    fn is_owner(account_id: &T::AccountId, netuid: NetUid) -> bool {
+        SubnetOwner::<T>::get(u16::from(netuid)) == *account_id
     }
 }
 
 impl<T: Config + pallet_balances::Config<Balance = u64>>
-    subtensor_swap_interface::BalanceOps<T::AccountId> for Pallet<T>
+    subtensor_runtime_common::BalanceOps<T::AccountId> for Pallet<T>
 {
     fn tao_balance(account_id: &T::AccountId) -> u64 {
         pallet_balances::Pallet::<T>::free_balance(account_id)
     }
 
-    fn alpha_balance(netuid: u16, coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
-        Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid)
+    fn alpha_balance(netuid: NetUid, coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
+        Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid.into())
     }
 
     fn increase_balance(coldkey: &T::AccountId, tao: u64) {
@@ -2741,7 +2755,7 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
     fn increase_stake(
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
-        netuid: u16,
+        netuid: NetUid,
         alpha: u64,
     ) -> Result<(), DispatchError> {
         ensure!(
@@ -2749,7 +2763,12 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
             Error::<T>::HotKeyAccountNotExists
         );
 
-        Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
+        Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            hotkey,
+            coldkey,
+            netuid.into(),
+            alpha,
+        );
 
         Ok(())
     }
@@ -2757,7 +2776,7 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
     fn decrease_stake(
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
-        netuid: u16,
+        netuid: NetUid,
         alpha: u64,
     ) -> Result<u64, DispatchError> {
         ensure!(
@@ -2766,7 +2785,10 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
         );
 
         Ok(Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-            hotkey, coldkey, netuid, alpha,
+            hotkey,
+            coldkey,
+            netuid.into(),
+            alpha,
         ))
     }
 }

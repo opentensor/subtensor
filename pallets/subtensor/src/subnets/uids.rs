@@ -187,4 +187,10 @@ impl<T: Config> Pallet<T> {
         }
         false
     }
+
+    /// Return true if a hotkey is registered on specific network.
+    ///
+    pub fn is_hotkey_registered_on_specific_network(hotkey: &T::AccountId, netuid: u16) -> bool {
+        IsNetworkMember::<T>::contains_key(hotkey, netuid)
+    }
 }

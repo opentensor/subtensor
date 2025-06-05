@@ -2,6 +2,7 @@
 
 use frame_support::pallet_prelude::*;
 use substrate_fixed::types::U96F32;
+use subtensor_runtime_common::NetUid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OrderType {
@@ -11,15 +12,19 @@ pub enum OrderType {
 
 pub trait SwapHandler<AccountId> {
     fn swap(
-        netuid: u16,
+        netuid: NetUid,
         order_t: OrderType,
         amount: u64,
         price_limit: u64,
         should_rollback: bool,
     ) -> Result<SwapResult, DispatchError>;
-    fn sim_swap(netuid: u16, order_t: OrderType, amount: u64) -> Result<SwapResult, DispatchError>;
-    fn approx_fee_amount(netuid: u16, amount: u64) -> u64;
-    fn current_alpha_price(netuid: u16) -> U96F32;
+    fn sim_swap(
+        netuid: NetUid,
+        order_t: OrderType,
+        amount: u64,
+    ) -> Result<SwapResult, DispatchError>;
+    fn approx_fee_amount(netuid: NetUid, amount: u64) -> u64;
+    fn current_alpha_price(netuid: NetUid) -> U96F32;
     fn max_price() -> u64;
     fn min_price() -> u64;
 }
@@ -40,31 +45,4 @@ pub struct UpdateLiquidityResult {
     pub alpha: u64,
     pub fee_tao: u64,
     pub fee_alpha: u64,
-}
-
-pub trait SubnetInfo<AccountId> {
-    fn tao_reserve(netuid: u16) -> u64;
-    fn alpha_reserve(netuid: u16) -> u64;
-    fn exists(netuid: u16) -> bool;
-    fn mechanism(netuid: u16) -> u16;
-    fn is_owner(account_id: &AccountId, netuid: u16) -> bool;
-}
-
-pub trait BalanceOps<AccountId> {
-    fn tao_balance(account_id: &AccountId) -> u64;
-    fn alpha_balance(netuid: u16, coldkey: &AccountId, hotkey: &AccountId) -> u64;
-    fn increase_balance(coldkey: &AccountId, tao: u64);
-    fn decrease_balance(coldkey: &AccountId, tao: u64) -> Result<u64, DispatchError>;
-    fn increase_stake(
-        coldkey: &AccountId,
-        hotkey: &AccountId,
-        netuid: u16,
-        alpha: u64,
-    ) -> Result<(), DispatchError>;
-    fn decrease_stake(
-        coldkey: &AccountId,
-        hotkey: &AccountId,
-        netuid: u16,
-        alpha: u64,
-    ) -> Result<u64, DispatchError>;
 }

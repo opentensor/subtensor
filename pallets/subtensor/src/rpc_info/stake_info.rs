@@ -124,6 +124,6 @@ impl<T: Config> Pallet<T> {
         amount: u64,
     ) -> u64 {
         let netuid = destination.or(origin).map(|v| v.1).unwrap_or_default();
-        T::SwapInterface::approx_fee_amount(netuid, amount)
+        T::SwapInterface::approx_fee_amount(netuid.into(), amount)
     }
 }

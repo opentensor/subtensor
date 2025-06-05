@@ -50,8 +50,9 @@ impl<T: Config> Pallet<T> {
                 let alpha = U96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(
                     hotkey, netuid,
                 ));
-                let alpha_price =
-                    U96F32::saturating_from_num(T::SwapInterface::current_alpha_price(netuid));
+                let alpha_price = U96F32::saturating_from_num(
+                    T::SwapInterface::current_alpha_price(netuid.into()),
+                );
                 alpha.saturating_mul(alpha_price)
             })
             .sum::<U96F32>()
@@ -70,10 +71,12 @@ impl<T: Config> Pallet<T> {
                         let alpha_stake = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
                             hotkey, coldkey, netuid,
                         );
-                        T::SwapInterface::sim_swap(netuid, OrderType::Sell, alpha_stake)
+                        T::SwapInterface::sim_swap(netuid.into(), OrderType::Sell, alpha_stake)
                             .map(|r| {
                                 let fee: u64 = U96F32::saturating_from_num(r.fee_paid)
-                                    .saturating_mul(T::SwapInterface::current_alpha_price(netuid))
+                                    .saturating_mul(T::SwapInterface::current_alpha_price(
+                                        netuid.into(),
+                                    ))
                                     .saturating_to_num();
                                 r.amount_paid_out.saturating_add(fee)
                             })
