@@ -152,7 +152,16 @@ impl<T: Config> Pallet<T> {
         LastTxBlockDelegateTake::<T>::get(key)
     }
     pub fn get_last_tx_block_childkey_take(key: &T::AccountId) -> u64 {
-        LastTxBlockChildKeyTake::<T>::get(key)
+        Self::get_rate_limited_last_block(&RateLimitKey::LastTxBlockChildKeyTake(key.clone()))
+    }
+    pub fn remove_last_tx_block_childkey(key: &T::AccountId) {
+        Self::remove_rate_limited_last_block(&RateLimitKey::LastTxBlockChildKeyTake(key.clone()))
+    }
+    pub fn set_last_tx_block_childkey(key: &T::AccountId, block: u64) {
+        Self::set_rate_limited_last_block(
+            &RateLimitKey::LastTxBlockChildKeyTake(key.clone()),
+            block,
+        );
     }
     pub fn exceeds_tx_rate_limit(prev_tx_block: u64, current_block: u64) -> bool {
         let rate_limit: u64 = Self::get_tx_rate_limit();

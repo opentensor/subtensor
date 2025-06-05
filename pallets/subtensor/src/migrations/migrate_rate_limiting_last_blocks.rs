@@ -8,7 +8,9 @@ use sp_io::hashing::twox_128;
 use sp_io::storage::{clear, get};
 
 pub fn migrate_obsolete_rate_limiting_last_blocks_storage<T: Config>() -> Weight {
-    migrate_network_last_registered::<T>().saturating_add(migrate_last_tx_block::<T>())
+    migrate_network_last_registered::<T>()
+        .saturating_add(migrate_last_tx_block::<T>())
+        .saturating_add(migrate_last_tx_block_childkey_take::<T>())
 }
 
 pub fn migrate_network_last_registered<T: Config>() -> Weight {
@@ -30,6 +32,19 @@ pub fn migrate_last_tx_block<T: Config>() -> Weight {
         || crate::LastTxBlock::<T>::drain().collect::<Vec<_>>(),
         |account, block| {
             Pallet::<T>::set_last_tx_block(&account, block);
+        },
+    )
+}
+
+#[allow(deprecated)]
+pub fn migrate_last_tx_block_childkey_take<T: Config>() -> Weight {
+    let migration_name = b"migrate_last_tx_block_childkey_take".to_vec();
+
+    migrate_last_block_map::<T, _, _>(
+        migration_name,
+        || crate::LastTxBlockChildKeyTake::<T>::drain().collect::<Vec<_>>(),
+        |account, block| {
+            Pallet::<T>::set_last_tx_block_childkey(&account, block);
         },
     )
 }

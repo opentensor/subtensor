@@ -892,7 +892,7 @@ fn test_migrate_last_block_tx() {
         let test_account: U256 = U256::from(1);
         let original_value: u64 = 123;
 
-        LastTxBlock::<Test>::insert(test_account.clone(), original_value);
+        LastTxBlock::<Test>::insert(test_account, original_value);
 
         assert!(
             !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
@@ -919,7 +919,54 @@ fn test_migrate_last_block_tx() {
             original_value
         );
         assert!(
-            !LastTxBlock::<Test>::contains_key(&test_account),
+            !LastTxBlock::<Test>::contains_key(test_account),
+            "RateLimit storage should have been cleared"
+        );
+
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+    });
+}
+
+#[allow(deprecated)]
+#[test]
+fn test_migrate_last_tx_block_childkey_take() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // Step 1: Simulate Old Storage Entry
+        // ------------------------------
+        const MIGRATION_NAME: &str = "migrate_last_tx_block_childkey_take";
+
+        let test_account: U256 = U256::from(1);
+        let original_value: u64 = 123;
+
+        LastTxBlockChildKeyTake::<Test>::insert(test_account, original_value);
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // ------------------------------
+        // Step 2: Run the Migration
+        // ------------------------------
+        let weight = crate::migrations::migrate_rate_limiting_last_blocks::
+        migrate_obsolete_rate_limiting_last_blocks_storage::<Test>();
+
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as completed"
+        );
+
+        // ------------------------------
+        // Step 3: Verify Migration Effects
+        // ------------------------------
+
+        assert_eq!(
+            SubtensorModule::get_last_tx_block_childkey_take(&test_account),
+            original_value
+        );
+        assert!(
+            !LastTxBlockChildKeyTake::<Test>::contains_key(test_account),
             "RateLimit storage should have been cleared"
         );
 

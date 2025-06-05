@@ -1627,6 +1627,7 @@ pub mod pallet {
     /// --- MAP ( key ) --> last_block
     pub type LastTxBlock<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
+    #[deprecated]
     #[pallet::storage]
     /// --- MAP ( key ) --> last_tx_block_childkey_take
     pub type LastTxBlockChildKeyTake<T: Config> =
@@ -2710,4 +2711,6 @@ pub enum RateLimitKey<AccountId> {
     NetworkLastRegistered,
     // Last tx block limit
     LastTxBlock(AccountId),
+    // Last tx block child key limit
+    LastTxBlockChildKeyTake(AccountId),
 }

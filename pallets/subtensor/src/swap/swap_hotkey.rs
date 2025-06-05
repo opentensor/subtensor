@@ -200,10 +200,9 @@ impl<T: Config> Pallet<T> {
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
         // 7. Swap LastTxBlockChildKeyTake
-        // LastTxBlockChildKeyTake( hotkey ) --> u64 -- the last transaction block for the hotkey child key take.
-        let last_tx_block_child_key_take: u64 = LastTxBlockChildKeyTake::<T>::get(old_hotkey);
-        LastTxBlockChildKeyTake::<T>::remove(old_hotkey);
-        LastTxBlockChildKeyTake::<T>::insert(new_hotkey, last_tx_block_child_key_take);
+        let last_tx_block_child_key_take: u64 = Self::get_last_tx_block_childkey_take(old_hotkey);
+        Self::remove_last_tx_block_childkey(old_hotkey);
+        Self::set_last_tx_block_childkey(new_hotkey, last_tx_block_child_key_take);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
         // 8. Swap Senate members.
