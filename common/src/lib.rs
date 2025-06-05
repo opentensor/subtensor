@@ -34,7 +34,7 @@ pub type Nonce = u32;
 /// Transfers below SMALL_TRANSFER_LIMIT are considered small transfers
 pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
 
-#[freeze_struct("2a62496e31bbcddc")]
+#[freeze_struct("bd904a1df2f6cadb")]
 #[repr(transparent)]
 #[derive(
     Clone, Copy, Decode, Default, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo,
