@@ -43,8 +43,8 @@ fn test_registration_ok() {
 fn dissolve_no_stakers_no_alpha_no_emission() {
     new_test_ext(0).execute_with(|| {
         let cold = U256::from(1);
-        let hot  = U256::from(2);
-        let net  = add_dynamic_network(&hot, &cold);
+        let hot = U256::from(2);
+        let net = add_dynamic_network(&hot, &cold);
 
         SubtensorModule::set_subnet_locked_balance(net, 0);
         SubnetTAO::<Test>::insert(net, 0);
@@ -52,7 +52,7 @@ fn dissolve_no_stakers_no_alpha_no_emission() {
 
         let before = SubtensorModule::get_coldkey_balance(&cold);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
-        let after  = SubtensorModule::get_coldkey_balance(&cold);
+        let after = SubtensorModule::get_coldkey_balance(&cold);
 
         // Balance should be unchanged (whatever the network-lock bookkeeping left there)
         assert_eq!(after, before);
@@ -64,8 +64,8 @@ fn dissolve_no_stakers_no_alpha_no_emission() {
 fn dissolve_refunds_full_lock_cost_when_no_emission() {
     new_test_ext(0).execute_with(|| {
         let cold = U256::from(3);
-        let hot  = U256::from(4);
-        let net  = add_dynamic_network(&hot, &cold);
+        let hot = U256::from(4);
+        let net = add_dynamic_network(&hot, &cold);
 
         let lock = 1_000_000u64;
         SubtensorModule::set_subnet_locked_balance(net, lock);
@@ -74,7 +74,7 @@ fn dissolve_refunds_full_lock_cost_when_no_emission() {
 
         let before = SubtensorModule::get_coldkey_balance(&cold);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
-        let after  = SubtensorModule::get_coldkey_balance(&cold);
+        let after = SubtensorModule::get_coldkey_balance(&cold);
 
         assert_eq!(after, before + lock);
     });
@@ -84,10 +84,10 @@ fn dissolve_refunds_full_lock_cost_when_no_emission() {
 fn dissolve_single_alpha_out_staker_gets_all_tao() {
     new_test_ext(0).execute_with(|| {
         let owner_cold = U256::from(10);
-        let owner_hot  = U256::from(20);
-        let net        = add_dynamic_network(&owner_hot, &owner_cold);
+        let owner_hot = U256::from(20);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
 
-        let s_hot  = U256::from(100);
+        let s_hot = U256::from(100);
         let s_cold = U256::from(200);
 
         Alpha::<Test>::insert((s_hot, s_cold, net), U64F64::from_num(5_000u128));
@@ -97,7 +97,7 @@ fn dissolve_single_alpha_out_staker_gets_all_tao() {
 
         let before = SubtensorModule::get_coldkey_balance(&s_cold);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
-        let after  = SubtensorModule::get_coldkey_balance(&s_cold);
+        let after = SubtensorModule::get_coldkey_balance(&s_cold);
 
         assert_eq!(after, before + 99_999);
         assert!(Alpha::<Test>::iter().count() == 0);
@@ -134,7 +134,7 @@ fn dissolve_two_stakers_pro_rata_distribution() {
 
         assert_eq!(SubtensorModule::get_coldkey_balance(&s1_cold), b1 + share1);
         assert_eq!(SubtensorModule::get_coldkey_balance(&s2_cold), b2 + share2);
-        assert_eq!(SubtensorModule::get_coldkey_balance(&oc),      bo + 5_000);
+        assert_eq!(SubtensorModule::get_coldkey_balance(&oc), bo + 5_000);
     });
 }
 
@@ -146,8 +146,8 @@ fn dissolve_owner_cut_refund_logic() {
         let net = add_dynamic_network(&oh, &oc);
 
         // staker
-        let sh  = U256::from(77);
-        let sc  = U256::from(88);
+        let sh = U256::from(77);
+        let sc = U256::from(88);
         Alpha::<Test>::insert((sh, sc, net), U64F64::from_num(100u128));
         SubnetTAO::<Test>::insert(net, 1_000);
 
@@ -158,13 +158,13 @@ fn dissolve_owner_cut_refund_logic() {
 
         // 18 % owner-cut
         SubnetOwnerCut::<Test>::put(11_796u16);
-        let frac  = 11_796f64 / 65_535f64;
+        let frac = 11_796f64 / 65_535f64;
         let owner_em = (800f64 * frac).floor() as u64;
-        let expect   = lock.saturating_sub(owner_em);
+        let expect = lock.saturating_sub(owner_em);
 
         let before = SubtensorModule::get_coldkey_balance(&oc);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
-        let after  = SubtensorModule::get_coldkey_balance(&oc);
+        let after = SubtensorModule::get_coldkey_balance(&oc);
 
         assert_eq!(after, before + expect);
     });
@@ -183,7 +183,7 @@ fn dissolve_zero_refund_when_emission_exceeds_lock() {
 
         let before = SubtensorModule::get_coldkey_balance(&oc);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
-        let after  = SubtensorModule::get_coldkey_balance(&oc);
+        let after = SubtensorModule::get_coldkey_balance(&oc);
 
         assert_eq!(after, before); // no refund
     });
@@ -202,10 +202,9 @@ fn dissolve_nonexistent_subnet_fails() {
 #[test]
 fn dissolve_clears_all_per_subnet_storages() {
     new_test_ext(0).execute_with(|| {
-
         let owner_cold = U256::from(123);
-        let owner_hot  = U256::from(456);
-        let net        = add_dynamic_network(&owner_hot, &owner_cold);
+        let owner_hot = U256::from(456);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
 
         // ------------------------------------------------------------------
         // Populate each storage item with a minimal value of the CORRECT type
@@ -326,8 +325,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         assert!(!SubtensorModule::if_subnet_exist(net));
     });
 }
-
-
 
 // #[test]
 // fn test_schedule_dissolve_network_execution() {
