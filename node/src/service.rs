@@ -345,6 +345,52 @@ pub fn build_manual_seal_import_queue(
     ))
 }
 
+fn get_block_header_5714909()
+-> sp_runtime::generic::Header<NumberFor<Block>, sp_runtime::traits::BlakeTwo256> {
+    use sp_consensus_aura::AURA_ENGINE_ID;
+    use sp_core::H256;
+    use sp_runtime::traits::BlakeTwo256;
+    use sp_runtime::{Digest, DigestItem};
+    use std::str::FromStr;
+
+    fn str_to_h256_array(s: &str) -> Result<H256, String> {
+        let s = s.strip_prefix("0x").unwrap_or(s);
+        let h256 = H256::from_str(s).map_err(|e| e.to_string())?;
+        Ok(h256)
+    }
+
+    let parent_hash =
+        str_to_h256_array("0x16ac81dfd895aa46d053e729d023665988ec28df8aaeabcc7e8a04c464d906e4")
+            .expect("Can't parse parent hash.");
+    let number = NumberFor::<Block>::from(5714909u32);
+    let state_root =
+        str_to_h256_array("0x5d21518b4cb0127eff8f72d243f89cbaeb5777a0acb4a6e7c1bbca301faf92cc")
+            .expect("Can't parse state root.");
+    let extrinsics_root =
+        str_to_h256_array("0x8d737206fafe5e38e507c2bcd958d282127babbb1397bbc16689f9f3db76be53")
+            .expect("Can't parse extrinsic root.");
+    let preruntime_data: Vec<u8> =
+        hex::decode("4523b00800000000").expect("Can't decode preruntime data");
+    let preruntime = DigestItem::PreRuntime(AURA_ENGINE_ID, preruntime_data);
+    let consensus_data: Vec<u8> =
+        hex::decode("01ac20b1e5392e71301a76769285279d626cbb11819fc7ca1b47e268d000f5eacf00")
+            .expect("Can't decode consensus data");
+    let engine_id = [102, 114, 111, 110];
+    let consensus = DigestItem::Consensus(engine_id, consensus_data);
+    let seal_data: Vec<u8> = hex::decode("ca473497137a25da24803cc2eaa10a73d26570269c075ad8801dbe55830209093916866699c9c4709c22579b8a079a3ae8508e3b1cd3fe2f3506cd0ad7415b81").expect("Can't decode seal data");
+    let seal = DigestItem::Seal(AURA_ENGINE_ID, seal_data);
+    let logs = vec![preruntime, consensus, seal];
+    let digest = Digest { logs };
+
+    sp_runtime::generic::Header::<NumberFor<Block>, BlakeTwo256>::new(
+        number,
+        extrinsics_root,
+        state_root,
+        parent_hash,
+        digest,
+    )
+}
+
 /// Builds a new service for a full client.
 pub async fn new_full<NB>(
     mut config: Configuration,
@@ -402,13 +448,17 @@ where
         None
     } else {
         net_config.add_notification_protocol(grandpa_protocol_config);
-        let warp_sync: Arc<dyn WarpSyncProvider<Block>> =
+        let _warp_sync: Arc<dyn WarpSyncProvider<Block>> =
             Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
                 backend.clone(),
                 grandpa_link.shared_authority_set().clone(),
                 Vec::new(),
             ));
-        Some(WarpSyncConfig::WithProvider(warp_sync))
+
+        let warp_sync_header = get_block_header_5714909();
+
+        Some(WarpSyncConfig::WithTarget(warp_sync_header))
+        //    Some(WarpSyncConfig::WithProvider(warp_sync))
     };
 
     let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
