@@ -1,6 +1,6 @@
 pragma solidity ^0.8.0;
 
-address constant IALPHA_ADDRESS = 0x0000000000000000000000000000000000000807;
+address constant IALPHA_ADDRESS = 0x0000000000000000000000000000000000000808;
 
 interface IAlpha {
     /// @dev Returns the current alpha price for a subnet.
