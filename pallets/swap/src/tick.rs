@@ -222,6 +222,9 @@ impl TickIndex {
         };
 
         let tick = Ticks::<T>::get(netuid, tick_index).unwrap_or_default();
+
+        println!("fees_above tick = {:?}", tick);
+
         if tick_index <= current_tick {
             if quote {
                 FeeGlobalTao::<T>::get(netuid).saturating_sub(tick.fees_out_tao)
@@ -245,6 +248,8 @@ impl TickIndex {
         };
 
         let tick = Ticks::<T>::get(netuid, tick_index).unwrap_or_default();
+
+        println!("fees_below tick = {:?}", tick);
 
         if tick_index <= current_tick {
             if quote {

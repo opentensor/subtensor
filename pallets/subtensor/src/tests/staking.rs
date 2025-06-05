@@ -6703,10 +6703,10 @@ fn test_update_position_fees() {
 
         // Add owner coldkey Alpha as concentrated liquidity
         // between current price current price + 0.01
-        let current_price = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid)
+        let current_price = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into())
             .to_num::<f64>()
-            + 0.0001;
-        let limit_price = current_price + 0.01;
+            - 0.0001;
+        let limit_price = current_price + 0.001 ;
         let tick_low = price_to_tick(current_price);
         let tick_high = price_to_tick(limit_price);
         let liquidity = amount;
@@ -6755,7 +6755,7 @@ fn test_update_position_fees() {
         assert_ok!(Swap::modify_position(
             RuntimeOrigin::signed(owner_coldkey),
             owner_hotkey,
-            netuid,
+            netuid.into(),
             position_id.into(),
             delta as i64,
         ));

@@ -99,8 +99,13 @@ impl<T: Config> Position<T> {
         let fee_tao_agg = self.fees_in_range(true);
         let fee_alpha_agg = self.fees_in_range(false);
 
+        println!("fee_tao_agg = {:?}", fee_tao_agg);
+
         let mut fee_tao = fee_tao_agg.saturating_sub(self.fees_tao);
         let mut fee_alpha = fee_alpha_agg.saturating_sub(self.fees_alpha);
+
+        println!("fee_tao = {:?}", fee_tao);
+
 
         self.fees_tao = fee_tao_agg;
         self.fees_alpha = fee_alpha_agg;
@@ -120,6 +125,7 @@ impl<T: Config> Position<T> {
     /// If quote flag is true, Tao is returned, otherwise alpha.
     fn fees_in_range(&self, quote: bool) -> U64F64 {
         if quote {
+            println!("FeeGlobalTao::<T>::get(self.netuid) = {:?}", FeeGlobalTao::<T>::get(self.netuid));
             FeeGlobalTao::<T>::get(self.netuid)
         } else {
             FeeGlobalAlpha::<T>::get(self.netuid)

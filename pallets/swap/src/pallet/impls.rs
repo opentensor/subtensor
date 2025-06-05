@@ -229,6 +229,8 @@ impl<T: Config> SwapStep<T> {
                 FeeGlobalTao::<T>::get(self.netuid).saturating_sub(tick.fees_out_tao);
             tick.fees_out_alpha =
                 FeeGlobalAlpha::<T>::get(self.netuid).saturating_sub(tick.fees_out_alpha);
+            println!("Tick after processing step: {:?}", tick);
+
             Pallet::<T>::update_liquidity_at_crossing(self.netuid, self.order_type)?;
             Ticks::<T>::insert(self.netuid, current_tick_index, tick);
         }
