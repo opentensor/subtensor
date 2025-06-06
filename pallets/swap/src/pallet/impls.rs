@@ -34,9 +34,6 @@ struct SwapStep<T: frame_system::Config> {
     limit_sqrt_price: SqrtPrice,
     current_sqrt_price: SqrtPrice,
     edge_sqrt_price: SqrtPrice,
-    target_tick: TickIndex,
-    limit_tick: TickIndex,
-    edge_tick: TickIndex,
 
     // Result values
     action: SwapStepAction,
@@ -73,8 +70,6 @@ impl<T: Config> SwapStep<T> {
             current_sqrt_price,
             possible_delta_in,
         );
-        let target_tick = TickIndex::from_sqrt_price_bounded(target_sqrt_price);
-        let limit_tick = TickIndex::from_sqrt_price_bounded(limit_sqrt_price);
 
         Self {
             netuid,
@@ -83,9 +78,6 @@ impl<T: Config> SwapStep<T> {
             limit_sqrt_price,
             current_sqrt_price,
             edge_sqrt_price,
-            target_tick,
-            limit_tick,
-            edge_tick,
             possible_delta_in,
             current_liquidity,
             action: SwapStepAction::Stop,
@@ -102,15 +94,15 @@ impl<T: Config> SwapStep<T> {
         self.process_swap()
     }
 
-    /// Returns True if tick1 is closer to the current tick than tick2
+    /// Returns True if sq_price1 is closer to the current price than sq_price2
     /// in terms of order direction.
-    ///    For buying:  tick1 <= tick2
-    ///    For selling: tick1 >= tick2
+    ///    For buying:  sq_price1 <= sq_price2
+    ///    For selling: sq_price1 >= sq_price2
     ///
-    fn tick_is_closer(&self, tick1: &TickIndex, tick2: &TickIndex) -> bool {
+    fn price_is_closer(&self, sq_price1: &SqrtPrice, sq_price2: &SqrtPrice) -> bool {
         match self.order_type {
-            OrderType::Buy => tick1 <= tick2,
-            OrderType::Sell => tick1 >= tick2,
+            OrderType::Buy => sq_price1 <= sq_price2,
+            OrderType::Sell => sq_price1 >= sq_price2,
         }
     }
 
@@ -120,16 +112,16 @@ impl<T: Config> SwapStep<T> {
 
         // Calculate the stopping price: The price at which we either reach the limit price,
         // exchange the full amount, or reach the edge price.
-        if self.tick_is_closer(&self.target_tick, &self.limit_tick)
-            && self.tick_is_closer(&self.target_tick, &self.edge_tick)
+        if self.price_is_closer(&self.target_sqrt_price, &self.limit_sqrt_price)
+            && self.price_is_closer(&self.target_sqrt_price, &self.edge_sqrt_price)
         {
             // Case 1. target_quantity is the lowest
             // The trade completely happens within one tick, no tick crossing happens.
             self.action = SwapStepAction::Stop;
             self.final_price = self.target_sqrt_price;
             self.delta_in = self.possible_delta_in;
-        } else if self.tick_is_closer(&self.limit_tick, &self.target_tick)
-            && self.tick_is_closer(&self.limit_tick, &self.edge_tick)
+        } else if self.price_is_closer(&self.limit_sqrt_price, &self.target_sqrt_price)
+            && self.price_is_closer(&self.limit_sqrt_price, &self.edge_sqrt_price)
         {
             // Case 2. lim_quantity is the lowest
             // The trade also completely happens within one tick, no tick crossing happens.
@@ -156,26 +148,26 @@ impl<T: Config> SwapStep<T> {
             recalculate_fee = true;
         }
 
-        log::info!("\tAction           : {:?}", self.action);
-        log::info!(
+        log::trace!("\tAction           : {:?}", self.action);
+        log::trace!(
             "\tCurrent Price    : {}",
             self.current_sqrt_price
                 .saturating_mul(self.current_sqrt_price)
         );
-        log::info!(
+        log::trace!(
             "\tTarget Price     : {}",
             self.target_sqrt_price
                 .saturating_mul(self.target_sqrt_price)
         );
-        log::info!(
+        log::trace!(
             "\tLimit Price      : {}",
             self.limit_sqrt_price.saturating_mul(self.limit_sqrt_price)
         );
-        log::info!(
+        log::trace!(
             "\tEdge Price       : {}",
             self.edge_sqrt_price.saturating_mul(self.edge_sqrt_price)
         );
-        log::info!("\tDelta In         : {}", self.delta_in);
+        log::trace!("\tDelta In         : {}", self.delta_in);
 
         // Because on step creation we calculate fee off the total amount, we might need to recalculate it
         // in case if we hit the limit price or the edge price.
@@ -191,12 +183,13 @@ impl<T: Config> SwapStep<T> {
         // Now correct the action if we stopped exactly at the edge no matter what was the case above
         // Because order type buy moves the price up and tick semi-open interval doesn't include its right
         // point, we cross on buys and stop on sells.
-        let natural_reason_stop_tick = if self.tick_is_closer(&self.limit_tick, &self.target_tick) {
-            self.limit_tick
-        } else {
-            self.target_tick
-        };
-        if natural_reason_stop_tick == self.edge_tick {
+        let natural_reason_stop_price =
+            if self.price_is_closer(&self.limit_sqrt_price, &self.target_sqrt_price) {
+                self.limit_sqrt_price
+            } else {
+                self.target_sqrt_price
+            };
+        if natural_reason_stop_price == self.edge_sqrt_price {
             self.action = match self.order_type {
                 OrderType::Buy => SwapStepAction::Crossing,
                 OrderType::Sell => SwapStepAction::Stop,
@@ -209,7 +202,7 @@ impl<T: Config> SwapStep<T> {
         // Hold the fees
         Pallet::<T>::add_fees(self.netuid, self.order_type, self.fee);
         let delta_out = Pallet::<T>::convert_deltas(self.netuid, self.order_type, self.delta_in);
-        log::info!("\tDelta Out        : {:?}", delta_out);
+        log::trace!("\tDelta Out        : {:?}", delta_out);
 
         // Get current tick
         let current_tick_index = TickIndex::current_bounded::<T>(self.netuid);
@@ -423,13 +416,13 @@ impl<T: Config> Pallet<T> {
         let mut in_acc: u64 = 0;
         let mut fee_acc: u64 = 0;
 
-        log::info!("======== Start Swap ========");
-        log::info!("Amount Remaining: {}", amount_remaining);
+        log::trace!("======== Start Swap ========");
+        log::trace!("Amount Remaining: {}", amount_remaining);
 
         // Swap one tick at a time until we reach one of the stop conditions
         while amount_remaining > 0 {
-            log::info!("\nIteration: {}", iteration_counter);
-            log::info!(
+            log::trace!("\nIteration: {}", iteration_counter);
+            log::trace!(
                 "\tCurrent Liquidity: {}",
                 CurrentLiquidity::<T>::get(netuid)
             );
@@ -462,28 +455,20 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        log::info!("\nAmount Paid Out: {}", amount_paid_out);
-        log::info!("======== End Swap ========");
+        log::trace!("\nAmount Paid Out: {}", amount_paid_out);
+        log::trace!("======== End Swap ========");
 
-        let tao_reserve = T::SubnetInfo::tao_reserve(netuid.into());
-        let alpha_reserve = T::SubnetInfo::alpha_reserve(netuid.into());
-        let (new_tao_reserve, new_alpha_reserve) = match order_type {
-            OrderType::Buy => (
-                tao_reserve.saturating_add(in_acc),
-                alpha_reserve.saturating_sub(amount_paid_out),
-            ),
-            OrderType::Sell => (
-                tao_reserve.saturating_sub(amount_paid_out),
-                alpha_reserve.saturating_add(in_acc),
-            ),
+        let (tao_reserve_delta, alpha_reserve_delta) = match order_type {
+            OrderType::Buy => (in_acc as i64, (amount_paid_out as i64).neg()),
+            OrderType::Sell => ((amount_paid_out as i64).neg(), in_acc as i64),
         };
 
         Ok(SwapResult {
             amount_paid_in: in_acc,
             amount_paid_out,
             fee_paid: fee_acc,
-            new_tao_reserve,
-            new_alpha_reserve,
+            tao_reserve_delta,
+            alpha_reserve_delta,
         })
     }
 
@@ -1157,8 +1142,8 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
                 amount_paid_in: amount,
                 amount_paid_out: amount,
                 fee_paid: 0,
-                new_tao_reserve: 0,
-                new_alpha_reserve: 0,
+                tao_reserve_delta: 0,
+                alpha_reserve_delta: 0,
             }),
         }
     }

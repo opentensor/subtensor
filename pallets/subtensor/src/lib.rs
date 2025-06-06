@@ -1097,6 +1097,9 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> tao_in_subnet | Returns the amount of TAO in the subnet.
     pub type SubnetTAO<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage] // --- MAP ( netuid ) --> tao_in_user_subnet | Returns the amount of TAO in the subnet reserve provided by users as liquidity.
+    pub type SubnetTAOProvided<T: Config> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> alpha_in_emission | Returns the amount of alph in  emission into the pool per block.
     pub type SubnetAlphaInEmission<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
@@ -1109,7 +1112,12 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the pool.
     pub type SubnetAlphaIn<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
+    #[pallet::storage] // --- MAP ( netuid ) --> alpha_supply_user_in_pool | Returns the amount of alpha in the pool provided by users as liquidity.
+    pub type SubnetAlphaInProvided<T: Config> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
+    /// TODO: Deprecate, not accurate and not used in v3 anymore
     pub type SubnetAlphaOut<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
@@ -2714,10 +2722,12 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
 {
     fn tao_reserve(netuid: NetUid) -> u64 {
         SubnetTAO::<T>::get(u16::from(netuid))
+            .saturating_add(SubnetTAOProvided::<T>::get(u16::from(netuid)))
     }
 
     fn alpha_reserve(netuid: NetUid) -> u64 {
         SubnetAlphaIn::<T>::get(u16::from(netuid))
+            .saturating_add(SubnetAlphaInProvided::<T>::get(u16::from(netuid)))
     }
 
     fn exists(netuid: NetUid) -> bool {
@@ -2790,6 +2800,22 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
             netuid.into(),
             alpha,
         ))
+    }
+
+    fn increase_provided_tao_reserve(netuid: NetUid, tao: u64) {
+        Self::increase_provided_tao_reserve(netuid, tao);
+    }
+
+    fn decrease_provided_tao_reserve(netuid: NetUid, tao: u64) {
+        Self::decrease_provided_tao_reserve(netuid, tao);
+    }
+
+    fn increase_provided_alpha_reserve(netuid: NetUid, alpha: u64) {
+        Self::increase_provided_alpha_reserve(netuid, alpha);
+    }
+
+    fn decrease_provided_alpha_reserve(netuid: NetUid, alpha: u64) {
+        Self::decrease_provided_alpha_reserve(netuid, alpha);
     }
 }
 

@@ -156,6 +156,11 @@ impl BalanceOps<AccountId> for MockBalanceOps {
     ) -> Result<u64, DispatchError> {
         Ok(alpha)
     }
+
+    fn increase_provided_tao_reserve(_netuid: NetUid, _tao: u64) {}
+    fn decrease_provided_tao_reserve(_netuid: NetUid, _tao: u64) {}
+    fn increase_provided_alpha_reserve(_netuid: NetUid, _alpha: u64) {}
+    fn decrease_provided_alpha_reserve(_netuid: NetUid, _alpha: u64) {}
 }
 
 impl crate::pallet::Config for Test {

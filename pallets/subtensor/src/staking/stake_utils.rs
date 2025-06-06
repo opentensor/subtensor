@@ -621,16 +621,27 @@ impl<T: Config> Pallet<T> {
             let swap_result =
                 T::SwapInterface::swap(netuid.into(), OrderType::Buy, tao, price_limit, false)?;
 
-            // update Alpha reserves.
-            SubnetAlphaIn::<T>::set(netuid, swap_result.new_alpha_reserve);
+            // Decrease Alpha reserves.
+            Self::decrease_provided_alpha_reserve(
+                netuid.into(),
+                swap_result
+                    .alpha_reserve_delta
+                    .abs()
+                    .try_into()
+                    .unwrap_or(0),
+            );
 
             // Increase Alpha outstanding.
             SubnetAlphaOut::<T>::mutate(netuid, |total| {
                 *total = total.saturating_add(swap_result.amount_paid_out);
             });
 
-            // update Tao reserves.
-            SubnetTAO::<T>::set(netuid, swap_result.new_tao_reserve);
+            // Increase only the protocol TAO reserve. We only use the sum of
+            // (SubnetTAO + SubnetTAOProvided) in tao_reserve(), so it is irrelevant
+            // which one to increase.
+            SubnetTAO::<T>::mutate(netuid, |total| {
+                *total = total.saturating_add(swap_result.tao_reserve_delta as u64);
+            });
 
             // Increase Total Tao reserves.
             TotalStake::<T>::mutate(|total| *total = total.saturating_add(tao));
@@ -648,8 +659,8 @@ impl<T: Config> Pallet<T> {
                 amount_paid_in: tao,
                 amount_paid_out: tao,
                 fee_paid: 0,
-                new_tao_reserve: 0,
-                new_alpha_reserve: 0,
+                tao_reserve_delta: 0,
+                alpha_reserve_delta: 0,
             })
         }
     }
@@ -669,16 +680,24 @@ impl<T: Config> Pallet<T> {
             let swap_result =
                 T::SwapInterface::swap(netuid.into(), OrderType::Sell, alpha, price_limit, false)?;
 
-            // Increase Alpha reserves.
-            SubnetAlphaIn::<T>::set(netuid, swap_result.new_alpha_reserve);
+            // Increase only the protocol Alpha reserve. We only use the sum of
+            // (SubnetAlphaIn + SubnetAlphaInProvided) in alpha_reserve(), so it is irrelevant
+            // which one to increase.
+            SubnetAlphaIn::<T>::mutate(netuid, |total| {
+                *total = total.saturating_add(swap_result.alpha_reserve_delta as u64);
+            });
 
             // Decrease Alpha outstanding.
+            // TODO: Deprecate, not accurate in v3 anymore
             SubnetAlphaOut::<T>::mutate(netuid, |total| {
                 *total = total.saturating_sub(alpha);
             });
 
             // Decrease tao reserves.
-            SubnetTAO::<T>::set(netuid, swap_result.new_tao_reserve);
+            Self::decrease_provided_tao_reserve(
+                netuid.into(),
+                swap_result.tao_reserve_delta.abs().try_into().unwrap_or(0),
+            );
 
             // Reduce total TAO reserves.
             TotalStake::<T>::mutate(|total| {
@@ -698,8 +717,8 @@ impl<T: Config> Pallet<T> {
                 amount_paid_in: alpha,
                 amount_paid_out: alpha,
                 fee_paid: 0,
-                new_tao_reserve: 0,
-                new_alpha_reserve: 0,
+                tao_reserve_delta: 0,
+                alpha_reserve_delta: 0,
             })
         }
     }
@@ -1078,6 +1097,50 @@ impl<T: Config> Pallet<T> {
         }
 
         Ok(())
+    }
+
+    pub fn increase_provided_tao_reserve(netuid: NetUid, tao: u64) {
+        let netuid_u16: u16 = netuid.into();
+        SubnetTAOProvided::<T>::mutate(netuid_u16, |total| {
+            *total = total.saturating_add(tao);
+        });
+    }
+
+    pub fn decrease_provided_tao_reserve(netuid: NetUid, tao: u64) {
+        // First, decrease SubnetTAOProvided, then deduct the rest from SubnetTAO
+        let netuid_u16: u16 = netuid.into();
+        let subnet_tao = SubnetTAO::<T>::get(netuid_u16);
+        let subnet_tao_provided = SubnetTAOProvided::<T>::get(netuid_u16);
+        let remainder = subnet_tao_provided.saturating_sub(tao);
+        let carry_over = tao.saturating_sub(subnet_tao_provided);
+        if carry_over == 0 {
+            SubnetTAOProvided::<T>::set(netuid_u16, remainder);
+        } else {
+            SubnetTAOProvided::<T>::set(netuid_u16, 0_u64);
+            SubnetTAO::<T>::set(netuid_u16, subnet_tao.saturating_sub(carry_over));
+        }
+    }
+
+    pub fn increase_provided_alpha_reserve(netuid: NetUid, alpha: u64) {
+        let netuid_u16: u16 = netuid.into();
+        SubnetAlphaInProvided::<T>::mutate(netuid_u16, |total| {
+            *total = total.saturating_add(alpha);
+        });
+    }
+
+    pub fn decrease_provided_alpha_reserve(netuid: NetUid, alpha: u64) {
+        // First, decrease SubnetAlphaInProvided, then deduct the rest from SubnetAlphaIn
+        let netuid_u16: u16 = netuid.into();
+        let subnet_alpha = SubnetAlphaIn::<T>::get(netuid_u16);
+        let subnet_alpha_provided = SubnetAlphaInProvided::<T>::get(netuid_u16);
+        let remainder = subnet_alpha_provided.saturating_sub(alpha);
+        let carry_over = alpha.saturating_sub(subnet_alpha_provided);
+        if carry_over == 0 {
+            SubnetAlphaInProvided::<T>::set(netuid_u16, remainder);
+        } else {
+            SubnetAlphaInProvided::<T>::set(netuid_u16, 0_u64);
+            SubnetAlphaIn::<T>::set(netuid_u16, subnet_alpha.saturating_sub(carry_over));
+        }
     }
 }
 

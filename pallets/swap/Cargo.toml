@@ -37,6 +37,7 @@ std = [
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
 	"pallet-subtensor-swap-runtime-api/std",
 	"safe-math/std",
 	"scale-info/std",
