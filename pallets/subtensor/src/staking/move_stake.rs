@@ -440,8 +440,10 @@ impl<T: Config> Pallet<T> {
         }
 
         // Corner case: SubnetTAO for any of two subnets is zero
-        let subnet_tao_1 = SubnetTAO::<T>::get(origin_netuid);
-        let subnet_tao_2 = SubnetTAO::<T>::get(destination_netuid);
+        let subnet_tao_1 = SubnetTAO::<T>::get(origin_netuid)
+            .saturating_add(SubnetTAOProvided::<T>::get(origin_netuid));
+        let subnet_tao_2 = SubnetTAO::<T>::get(destination_netuid)
+            .saturating_add(SubnetTAOProvided::<T>::get(destination_netuid));
         if (subnet_tao_1 == 0) || (subnet_tao_2 == 0) {
             return Err(Error::ZeroMaxStakeAmount);
         }
@@ -449,8 +451,10 @@ impl<T: Config> Pallet<T> {
         let subnet_tao_2_float: U64F64 = U64F64::saturating_from_num(subnet_tao_2);
 
         // Corner case: SubnetAlphaIn for any of two subnets is zero
-        let alpha_in_1 = SubnetAlphaIn::<T>::get(origin_netuid);
-        let alpha_in_2 = SubnetAlphaIn::<T>::get(destination_netuid);
+        let alpha_in_1 = SubnetAlphaIn::<T>::get(origin_netuid)
+            .saturating_add(SubnetAlphaInProvided::<T>::get(origin_netuid));
+        let alpha_in_2 = SubnetAlphaIn::<T>::get(destination_netuid)
+            .saturating_add(SubnetAlphaInProvided::<T>::get(destination_netuid));
         if (alpha_in_1 == 0) || (alpha_in_2 == 0) {
             return Err(Error::ZeroMaxStakeAmount);
         }

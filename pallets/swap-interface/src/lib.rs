@@ -34,9 +34,9 @@ pub struct SwapResult {
     pub amount_paid_in: u64,
     pub amount_paid_out: u64,
     pub fee_paid: u64,
-    // calculated new tao/alpha reserves
-    pub new_tao_reserve: u64,
-    pub new_alpha_reserve: u64,
+    // For calculation of new tao/alpha reserves
+    pub tao_reserve_delta: i64,
+    pub alpha_reserve_delta: i64,
 }
 
 #[derive(Debug, PartialEq)]

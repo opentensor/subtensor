@@ -106,6 +106,10 @@ pub trait BalanceOps<AccountId> {
         netuid: NetUid,
         alpha: u64,
     ) -> Result<u64, DispatchError>;
+    fn increase_provided_tao_reserve(netuid: NetUid, tao: u64);
+    fn decrease_provided_tao_reserve(netuid: NetUid, tao: u64);
+    fn increase_provided_alpha_reserve(netuid: NetUid, alpha: u64);
+    fn decrease_provided_alpha_reserve(netuid: NetUid, alpha: u64);
 }
 
 pub mod time {

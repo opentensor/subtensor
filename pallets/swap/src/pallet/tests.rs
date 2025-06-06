@@ -701,26 +701,20 @@ fn test_swap_basic() {
                     epsilon = output_amount / 100
                 );
 
-                let (tao_expected, alpha_expected) = match order_type {
-                    OrderType::Buy => (
-                        MockLiquidityProvider::tao_reserve(netuid.into()) + liquidity,
-                        MockLiquidityProvider::alpha_reserve(netuid.into()) - output_amount,
-                    ),
-                    OrderType::Sell => (
-                        MockLiquidityProvider::tao_reserve(netuid.into()) + output_amount,
-                        MockLiquidityProvider::alpha_reserve(netuid.into()) - liquidity,
-                    ),
+                let (tao_delta_expected, alpha_delta_expected) = match order_type {
+                    OrderType::Buy => (liquidity as i64, -(output_amount as i64)),
+                    OrderType::Sell => (-(output_amount as i64), liquidity as i64),
                 };
 
                 assert_abs_diff_eq!(
-                    swap_result.new_alpha_reserve,
-                    alpha_expected,
-                    epsilon = alpha_expected / 100
+                    swap_result.alpha_reserve_delta,
+                    alpha_delta_expected,
+                    epsilon = alpha_delta_expected.abs() / 10
                 );
                 assert_abs_diff_eq!(
-                    swap_result.new_tao_reserve,
-                    tao_expected,
-                    epsilon = tao_expected / 100
+                    swap_result.tao_reserve_delta,
+                    tao_delta_expected,
+                    epsilon = tao_delta_expected.abs() / 10
                 );
 
                 // Check that low and high ticks' fees were updated properly, and liquidity values were not updated
@@ -953,27 +947,19 @@ fn test_swap_single_position() {
                     );
 
                     if order_liquidity_fraction <= 0.001 {
-                        let tao_reserve_f64 = tao_reserve as f64;
-                        let alpha_reserve_f64 = alpha_reserve as f64;
-                        let (tao_expected, alpha_expected) = match order_type {
-                            OrderType::Buy => (
-                                tao_reserve_f64 + order_liquidity,
-                                alpha_reserve_f64 - output_amount,
-                            ),
-                            OrderType::Sell => (
-                                tao_reserve_f64 - output_amount,
-                                alpha_reserve_f64 + order_liquidity,
-                            ),
+                        let (tao_delta_expected, alpha_delta_expected) = match order_type {
+                            OrderType::Buy => (order_liquidity as i64, -(output_amount as i64)),
+                            OrderType::Sell => (-(output_amount as i64), order_liquidity as i64),
                         };
                         assert_abs_diff_eq!(
-                            swap_result.new_alpha_reserve as f64,
-                            alpha_expected,
-                            epsilon = alpha_expected / 10.0
+                            swap_result.alpha_reserve_delta,
+                            alpha_delta_expected,
+                            epsilon = alpha_delta_expected.abs() / 10
                         );
                         assert_abs_diff_eq!(
-                            swap_result.new_tao_reserve as f64,
-                            tao_expected,
-                            epsilon = tao_expected / 10.0
+                            swap_result.tao_reserve_delta,
+                            tao_delta_expected,
+                            epsilon = tao_delta_expected.abs() / 10
                         );
                     }
 
@@ -1190,23 +1176,19 @@ fn test_swap_multiple_positions() {
             assert!(output_amount > 0);
 
             if alpha_reserve > order_liquidity && tao_reserve > order_liquidity {
-                let (tao_expected, alpha_expected) = match order_type {
-                    OrderType::Buy => {
-                        (tao_reserve + order_liquidity, alpha_reserve - output_amount)
-                    }
-                    OrderType::Sell => {
-                        (tao_reserve - output_amount, alpha_reserve + order_liquidity)
-                    }
+                let (tao_delta_expected, alpha_delta_expected) = match order_type {
+                    OrderType::Buy => (order_liquidity as i64, -(output_amount as i64)),
+                    OrderType::Sell => (-(output_amount as i64), order_liquidity as i64),
                 };
                 assert_abs_diff_eq!(
-                    swap_result.new_alpha_reserve,
-                    alpha_expected,
-                    epsilon = alpha_expected / 100
+                    swap_result.alpha_reserve_delta,
+                    alpha_delta_expected,
+                    epsilon = alpha_delta_expected.abs() / 100
                 );
                 assert_abs_diff_eq!(
-                    swap_result.new_tao_reserve,
-                    tao_expected,
-                    epsilon = tao_expected / 100
+                    swap_result.tao_reserve_delta,
+                    tao_delta_expected,
+                    epsilon = tao_delta_expected.abs() / 100
                 );
             }
 

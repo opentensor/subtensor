@@ -456,25 +456,17 @@ impl<T: Config> Pallet<T> {
         log::info!("\nAmount Paid Out: {}", amount_paid_out);
         log::info!("======== End Swap ========");
 
-        let tao_reserve = T::SubnetInfo::tao_reserve(netuid.into());
-        let alpha_reserve = T::SubnetInfo::alpha_reserve(netuid.into());
-        let (new_tao_reserve, new_alpha_reserve) = match order_type {
-            OrderType::Buy => (
-                tao_reserve.saturating_add(in_acc),
-                alpha_reserve.saturating_sub(amount_paid_out),
-            ),
-            OrderType::Sell => (
-                tao_reserve.saturating_sub(amount_paid_out),
-                alpha_reserve.saturating_add(in_acc),
-            ),
+        let (tao_reserve_delta, alpha_reserve_delta) = match order_type {
+            OrderType::Buy => (in_acc as i64, (amount_paid_out as i64).neg()),
+            OrderType::Sell => ((amount_paid_out as i64).neg(), in_acc as i64),
         };
 
         Ok(SwapResult {
             amount_paid_in: in_acc,
             amount_paid_out,
             fee_paid: fee_acc,
-            new_tao_reserve,
-            new_alpha_reserve,
+            tao_reserve_delta,
+            alpha_reserve_delta,
         })
     }
 
@@ -1140,8 +1132,8 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
                 amount_paid_in: amount,
                 amount_paid_out: amount,
                 fee_paid: 0,
-                new_tao_reserve: 0,
-                new_alpha_reserve: 0,
+                tao_reserve_delta: 0,
+                alpha_reserve_delta: 0,
             }),
         }
     }

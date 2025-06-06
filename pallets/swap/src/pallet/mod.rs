@@ -333,6 +333,10 @@ mod pallet {
                 T::BalanceOps::decrease_stake(&coldkey, &hotkey, netuid.into(), alpha)?;
             ensure!(alpha_provided == alpha, Error::<T>::InsufficientBalance);
 
+            // Add provided liquidity to user-provided reserves
+            T::BalanceOps::increase_provided_tao_reserve(netuid.into(), tao_provided);
+            T::BalanceOps::increase_provided_alpha_reserve(netuid.into(), alpha_provided);
+
             // Emit an event
             Self::deposit_event(Event::LiquidityAdded {
                 coldkey,
@@ -382,6 +386,10 @@ mod pallet {
                 netuid.into(),
                 result.alpha.saturating_add(result.fee_alpha),
             )?;
+
+            // Remove withdrawn liquidity from user-provided reserves
+            T::BalanceOps::decrease_provided_tao_reserve(netuid.into(), result.tao);
+            T::BalanceOps::decrease_provided_alpha_reserve(netuid.into(), result.alpha);
 
             // Emit an event
             Self::deposit_event(Event::LiquidityRemoved {
