@@ -148,26 +148,26 @@ impl<T: Config> SwapStep<T> {
             recalculate_fee = true;
         }
 
-        log::info!("\tAction           : {:?}", self.action);
-        log::info!(
+        log::trace!("\tAction           : {:?}", self.action);
+        log::trace!(
             "\tCurrent Price    : {}",
             self.current_sqrt_price
                 .saturating_mul(self.current_sqrt_price)
         );
-        log::info!(
+        log::trace!(
             "\tTarget Price     : {}",
             self.target_sqrt_price
                 .saturating_mul(self.target_sqrt_price)
         );
-        log::info!(
+        log::trace!(
             "\tLimit Price      : {}",
             self.limit_sqrt_price.saturating_mul(self.limit_sqrt_price)
         );
-        log::info!(
+        log::trace!(
             "\tEdge Price       : {}",
             self.edge_sqrt_price.saturating_mul(self.edge_sqrt_price)
         );
-        log::info!("\tDelta In         : {}", self.delta_in);
+        log::trace!("\tDelta In         : {}", self.delta_in);
 
         // Because on step creation we calculate fee off the total amount, we might need to recalculate it
         // in case if we hit the limit price or the edge price.
@@ -202,7 +202,7 @@ impl<T: Config> SwapStep<T> {
         // Hold the fees
         Pallet::<T>::add_fees(self.netuid, self.order_type, self.fee);
         let delta_out = Pallet::<T>::convert_deltas(self.netuid, self.order_type, self.delta_in);
-        log::info!("\tDelta Out        : {:?}", delta_out);
+        log::trace!("\tDelta Out        : {:?}", delta_out);
 
         // Get current tick
         let current_tick_index = TickIndex::current_bounded::<T>(self.netuid);
@@ -414,13 +414,13 @@ impl<T: Config> Pallet<T> {
         let mut in_acc: u64 = 0;
         let mut fee_acc: u64 = 0;
 
-        log::info!("======== Start Swap ========");
-        log::info!("Amount Remaining: {}", amount_remaining);
+        log::trace!("======== Start Swap ========");
+        log::trace!("Amount Remaining: {}", amount_remaining);
 
         // Swap one tick at a time until we reach one of the stop conditions
         while amount_remaining > 0 {
-            log::info!("\nIteration: {}", iteration_counter);
-            log::info!(
+            log::trace!("\nIteration: {}", iteration_counter);
+            log::trace!(
                 "\tCurrent Liquidity: {}",
                 CurrentLiquidity::<T>::get(netuid)
             );
@@ -453,8 +453,8 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        log::info!("\nAmount Paid Out: {}", amount_paid_out);
-        log::info!("======== End Swap ========");
+        log::trace!("\nAmount Paid Out: {}", amount_paid_out);
+        log::trace!("======== End Swap ========");
 
         let tao_reserve = T::SubnetInfo::tao_reserve(netuid.into());
         let alpha_reserve = T::SubnetInfo::alpha_reserve(netuid.into());
