@@ -29,7 +29,6 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 ] }
 scale-info = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["alloc"] }
-pallet-aura = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-subtensor = { workspace = true }
 frame-support = { workspace = true }
@@ -44,7 +43,6 @@ frame-executive = { workspace = true }
 frame-metadata-hash-extension = { workspace = true }
 sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
-sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
 sp-storage = { workspace = true }
 sp-genesis-builder = { workspace = true }
@@ -176,7 +174,6 @@ std = [
 	"frame-system/std",
 	"frame-try-runtime/std",
 	"pallet-subtensor/std",
-	"pallet-aura/std",
 	"pallet-balances/std",
 	"pallet-grandpa/std",
 	"pallet-insecure-randomness-collective-flip/std",
@@ -194,7 +191,6 @@ std = [
 	"precompile-utils/std",
 	"sp-api/std",
 	"sp-block-builder/std",
-	"sp-consensus-aura/std",
 	"sp-core/std",
 	"sp-inherents/std",
 	"sp-offchain/std",
@@ -306,7 +302,6 @@ try-runtime = [
 	"frame-executive/try-runtime",
 	"frame-system/try-runtime",
 	"frame-support/try-runtime",
-	"pallet-aura/try-runtime",
 	"pallet-sudo/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-grandpa/try-runtime",

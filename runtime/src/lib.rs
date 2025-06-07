@@ -53,14 +53,12 @@ use runtime_common::prod_or_fast;
 use scale_info::TypeInfo;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{
     H160, H256, OpaqueMetadata, U256,
     crypto::{ByteArray, KeyTypeId},
 };
 use sp_runtime::Percent;
 use sp_runtime::SaturatedConversion;
-use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::generic::Era;
 use sp_runtime::traits::OpaqueKeys;
 use sp_runtime::transaction_validity::TransactionPriority;
@@ -571,22 +569,6 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
     type Score = sp_npos_elections::VoteWeight;
 }
 
-// TODO #6469: This shouldn't be static, but a lazily cached value, not built unless needed, and
-// re-built in case input parameters have changed. The `ideal_stake` should be determined by the
-// amount of parachain slots being bid on: this should be around `(75 - 25.min(slots / 4))%`.
-pallet_staking_reward_curve::build! {
-    const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
-        min_inflation: 0_025_000,
-        max_inflation: 0_100_000,
-        // 3:2:1 staked : parachains : float.
-        // while there's no parachains, then this is 75% staked : 25% float.
-        ideal_stake: 0_750_000,
-        falloff: 0_050_000,
-        max_piece_count: 40,
-        test_precision: 0_005_000,
-    );
-}
-
 parameter_types! {
     // Six sessions in an era (24 hours).
     pub const SessionsPerEra: SessionIndex = prod_or_fast!(6, 1);
@@ -602,7 +584,6 @@ parameter_types! {
         27,
         "DOT_SLASH_DEFER_DURATION"
     );
-    pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const MaxExposurePageSize: u32 = 512;
     // Note: this is not really correct as Max Nominators is (MaxExposurePageSize * page_count) but
     // this is an unbounded number. We just set it to a reasonably high value, 1 full page
@@ -1853,7 +1834,6 @@ construct_runtime!(
         System: frame_system = 0,
         RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip = 1,
         Timestamp: pallet_timestamp = 2,
-        // Aura: pallet_aura = 3,
         Grandpa: pallet_grandpa = 4,
         Balances: pallet_balances = 5,
         TransactionPayment: pallet_transaction_payment = 6,
@@ -1973,11 +1953,6 @@ mod benches {
 
 fn generate_genesis_json() -> Vec<u8> {
     let json_str = r#"{
-      "aura": {
-        "authorities": [
-          "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
-        ]
-      },
       "balances": {
         "balances": [
           [
@@ -2600,18 +2575,6 @@ impl_runtime_apis! {
             SubtensorModule::get_selective_metagraph(netuid, metagraph_indexes)
         }
 
-    }
-
-    impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
-        fn slot_duration() -> sp_consensus_aura::SlotDuration {
-            unimplemented!()
-            // sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration())
-        }
-
-        fn authorities() -> Vec<AuraId> {
-            unimplemented!()
-            // pallet_aura::Authorities::<Runtime>::get().into_inner()
-        }
     }
 
     impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {
