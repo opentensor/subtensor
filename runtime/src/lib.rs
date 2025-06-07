@@ -577,12 +577,12 @@ parameter_types! {
     pub BondingDuration: sp_staking::EraIndex = prod_or_fast!(
         28,
         28,
-        "DOT_BONDING_DURATION"
+        "BONDING_DURATION"
     );
     pub SlashDeferDuration: sp_staking::EraIndex = prod_or_fast!(
         27,
         27,
-        "DOT_SLASH_DEFER_DURATION"
+        "SLASH_DEFER_DURATION"
     );
     pub const MaxExposurePageSize: u32 = 512;
     // Note: this is not really correct as Max Nominators is (MaxExposurePageSize * page_count) but
