@@ -683,6 +683,102 @@ fn prune_tie_on_emission_earlier_registration_wins() {
     });
 }
 
+#[test]
+fn register_network_under_limit_success() {
+    new_test_ext(0).execute_with(|| {
+        SubnetLimit::<Test>::put(32u16);
+
+        let total_before = TotalNetworks::<Test>::get();
+
+        let cold = U256::from(10);
+        let hot = U256::from(11);
+
+        let lock_now = SubtensorModule::get_network_lock_cost();
+        SubtensorModule::add_balance_to_coldkey_account(&cold, lock_now.saturating_mul(10));
+
+        assert_ok!(SubtensorModule::do_register_network(
+            RuntimeOrigin::signed(cold),
+            &hot,
+            1,
+            None,
+        ));
+
+        assert_eq!(TotalNetworks::<Test>::get(), total_before + 1);
+        let new_id = TotalNetworks::<Test>::get();
+        assert_eq!(SubnetOwner::<Test>::get(new_id), cold);
+        assert_eq!(SubnetOwnerHotkey::<Test>::get(new_id), hot);
+    });
+}
+
+#[test]
+fn register_network_prunes_and_recycles_netuid() {
+    new_test_ext(0).execute_with(|| {
+        SubnetLimit::<Test>::put(2u16);
+
+        let n1_cold = U256::from(21);
+        let n1_hot = U256::from(22);
+        let n1 = add_dynamic_network(&n1_hot, &n1_cold);
+
+        let n2_cold = U256::from(23);
+        let n2_hot = U256::from(24);
+        let n2 = add_dynamic_network(&n2_hot, &n2_cold);
+
+        let imm = SubtensorModule::get_network_immunity_period();
+        System::set_block_number(imm + 100);
+
+        Emission::<Test>::insert(n1, vec![1u64]);
+        Emission::<Test>::insert(n2, vec![1_000u64]);
+
+        let new_cold = U256::from(30);
+        let new_hot = U256::from(31);
+        let needed = SubtensorModule::get_network_lock_cost();
+        SubtensorModule::add_balance_to_coldkey_account(&new_cold, needed.saturating_mul(10));
+
+        assert_ok!(SubtensorModule::do_register_network(
+            RuntimeOrigin::signed(new_cold),
+            &new_hot,
+            1,
+            None,
+        ));
+
+        assert_eq!(TotalNetworks::<Test>::get(), 2);
+        assert_eq!(SubnetOwner::<Test>::get(n1), new_cold);
+        assert_eq!(SubnetOwnerHotkey::<Test>::get(n1), new_hot);
+        assert_eq!(SubnetOwner::<Test>::get(n2), n2_cold);
+    });
+}
+
+#[test]
+fn register_network_fails_before_prune_keeps_existing() {
+    new_test_ext(0).execute_with(|| {
+        SubnetLimit::<Test>::put(1u16);
+
+        let n_cold = U256::from(41);
+        let n_hot = U256::from(42);
+        let net = add_dynamic_network(&n_hot, &n_cold);
+
+        let imm = SubtensorModule::get_network_immunity_period();
+        System::set_block_number(imm + 50);
+        Emission::<Test>::insert(net, vec![10u64]);
+
+        let caller_cold = U256::from(50);
+        let caller_hot = U256::from(51);
+
+        assert_err!(
+            SubtensorModule::do_register_network(
+                RuntimeOrigin::signed(caller_cold),
+                &caller_hot,
+                1,
+                None,
+            ),
+            Error::<Test>::NotEnoughBalanceToStake
+        );
+
+        assert!(SubtensorModule::if_subnet_exist(net));
+        assert_eq!(TotalNetworks::<Test>::get(), 1);
+    });
+}
+
 // #[test]
 // fn test_schedule_dissolve_network_execution() {
 //     new_test_ext(1).execute_with(|| {
