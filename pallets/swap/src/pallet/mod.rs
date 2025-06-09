@@ -435,8 +435,6 @@ mod pallet {
             let result =
                 Self::do_modify_position(netuid, &coldkey, &hotkey, position_id, liquidity_delta)?;
 
-            println!("modify result = {:?}", result);
-
             if liquidity_delta > 0 {
                 // Remove TAO and Alpha balances or fail transaction if they can't be removed exactly
                 let tao_provided = T::BalanceOps::decrease_balance(&coldkey, result.tao)?;
