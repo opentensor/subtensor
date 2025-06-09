@@ -326,6 +326,82 @@ fn dissolve_clears_all_per_subnet_storages() {
     });
 }
 
+#[test]
+fn dissolve_alpha_out_but_zero_tao_no_rewards() {
+    new_test_ext(0).execute_with(|| {
+        let oc = U256::from(21);
+        let oh = U256::from(22);
+        let net = add_dynamic_network(&oh, &oc);
+
+        let sh = U256::from(23);
+        let sc = U256::from(24);
+
+        Alpha::<Test>::insert((sh, sc, net), U64F64::from_num(1_000u128));
+        SubnetTAO::<Test>::insert(net, 0u64); // zero TAO
+        SubtensorModule::set_subnet_locked_balance(net, 0);
+        Emission::<Test>::insert(net, Vec::<u64>::new());
+
+        let before = SubtensorModule::get_coldkey_balance(&sc);
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+        let after = SubtensorModule::get_coldkey_balance(&sc);
+
+        // No reward distributed, α-out cleared.
+        assert_eq!(after, before);
+        assert!(Alpha::<Test>::iter().next().is_none());
+    });
+}
+
+#[test]
+fn dissolve_decrements_total_networks() {
+    new_test_ext(0).execute_with(|| {
+        let total_before = TotalNetworks::<Test>::get();
+
+        let cold = U256::from(41);
+        let hot = U256::from(42);
+        let net = add_dynamic_network(&hot, &cold);
+
+        // Sanity: adding network increments the counter.
+        assert_eq!(TotalNetworks::<Test>::get(), total_before + 1);
+
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+        assert_eq!(TotalNetworks::<Test>::get(), total_before);
+    });
+}
+
+#[test]
+fn dissolve_rounding_remainder_distribution() {
+    new_test_ext(0).execute_with(|| {
+        let oc  = U256::from(61);
+        let oh  = U256::from(62);
+        let net = add_dynamic_network(&oh, &oc);
+
+        // α-out stakes
+        let (s1h, s1c, a1) = (U256::from(63), U256::from(64), 3u128);
+        let (s2h, s2c, a2) = (U256::from(65), U256::from(66), 2u128);
+
+        Alpha::<Test>::insert((s1h, s1c, net), U64F64::from_num(a1));
+        Alpha::<Test>::insert((s2h, s2c, net), U64F64::from_num(a2));
+
+        // TAO pot = 1
+        SubnetTAO::<Test>::insert(net, 1u64);
+        SubtensorModule::set_subnet_locked_balance(net, 0);
+        Emission::<Test>::insert(net, Vec::<u64>::new());
+
+        let b1 = SubtensorModule::get_coldkey_balance(&s1c);
+        let b2 = SubtensorModule::get_coldkey_balance(&s2c);
+
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+
+        // s1 (larger remainder) receives the single Tao.
+        assert_eq!(SubtensorModule::get_coldkey_balance(&s1c), b1 + 1);
+        assert_eq!(SubtensorModule::get_coldkey_balance(&s2c), b2);
+
+        // α-records cleared; TAO storage gone.
+        assert!(Alpha::<Test>::iter().next().is_none());
+        assert!(!SubnetTAO::<Test>::contains_key(net));
+    });
+}
+
 // #[test]
 // fn test_schedule_dissolve_network_execution() {
 //     new_test_ext(1).execute_with(|| {
