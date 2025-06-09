@@ -21,8 +21,6 @@ use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::weights::Weight;
 use safe_math::*;
 use sp_core::Get;
-use sp_runtime::PerThing;
-use sp_runtime::Perbill;
 use sp_std::vec;
 use substrate_fixed::types::{I64F64, U96F32};
 
@@ -641,86 +639,72 @@ impl<T: Config> Pallet<T> {
         LastRateLimitedBlock::<T>::set(rate_limit_key, block);
     }
 
-    fn destroy_alpha_in_out_stakes(netuid: u16) -> DispatchResult {
+    pub fn destroy_alpha_in_out_stakes(netuid: u16) -> DispatchResult {
         // 1. Ensure the subnet exists.
         ensure!(
             Self::if_subnet_exist(netuid),
             Error::<T>::SubNetworkDoesNotExist
         );
 
-        // 2. Gather relevant info.
+        // 2. Gather basic info.
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
         let lock_cost: u64 = Self::get_subnet_locked_balance(netuid);
 
-        // (Optional) Grab total emission in Tao.
-        let emission_vec = Emission::<T>::get(netuid);
-        let total_emission: u64 = emission_vec.iter().sum();
-
-        // The portion the owner received is total_emission * owner_cut (stored as fraction in U96F32).
+        // How much Tao the subnet has emitted and what the owner already earned.
+        let total_emission: u64 = Emission::<T>::get(netuid).iter().sum();
         let owner_fraction = Self::get_float_subnet_owner_cut();
         let owner_received_emission = (U96F32::from_num(total_emission) * owner_fraction)
             .floor()
             .saturating_to_num::<u64>();
 
-        // 3. Destroy α stakes and distribute remaining subnet Tao to α-out stakers (pro rata).
+        // 3. Collect α-out staker data.
         let mut total_alpha_out: u128 = 0;
-        let mut stakers_data = Vec::new();
+        let mut stakers = Vec::new();
 
-        // (A) First pass: sum total alpha-out for this netuid.
         for ((hotkey, coldkey, this_netuid), alpha_shares) in Alpha::<T>::iter() {
             if this_netuid == netuid {
-                // alpha_shares is U64F64; convert to u128 for ratio math
-                let alpha_as_u128 = alpha_shares.saturating_to_num::<u128>();
-                total_alpha_out = total_alpha_out.saturating_add(alpha_as_u128);
-                stakers_data.push((hotkey, coldkey, alpha_as_u128));
+                let amount = alpha_shares.saturating_to_num::<u128>();
+                total_alpha_out = total_alpha_out.saturating_add(amount);
+                stakers.push((hotkey, coldkey, amount));
             }
         }
 
-        // (B) Second pass: distribute the subnet’s Tao among those stakers.
-        let subnet_tao = SubnetTAO::<T>::get(netuid);
+        // 4. Distribute the subnet’s Tao pro-rata.
+        let subnet_tao_u128 = SubnetTAO::<T>::get(netuid) as u128;
 
-        if total_alpha_out > 0 {
-            let accuracy_as_u128 = u128::from(Perbill::ACCURACY);
-
-            for (hotkey, coldkey, alpha_amount) in stakers_data {
-                let scaled = alpha_amount
-                    .saturating_mul(accuracy_as_u128)
+        if total_alpha_out > 0 && subnet_tao_u128 > 0 {
+            for (hotkey, coldkey, alpha_amount) in &stakers {
+                // tao_share = subnet_tao * α / Σα
+                let share_u128 = subnet_tao_u128
+                    .saturating_mul(*alpha_amount)
                     .checked_div(total_alpha_out)
                     .unwrap_or(0);
 
-                // Clamp to avoid overflow beyond the Perbill limit (which is a 1.0 fraction).
-                let clamped = if scaled > accuracy_as_u128 {
-                    Perbill::ACCURACY
-                } else {
-                    scaled as u32
-                };
+                let share_u64 = share_u128.min(u64::MAX as u128) as u64;
 
-                // Construct a Perbill from these parts
-                let fraction = Perbill::from_parts(clamped);
+                if share_u64 > 0 {
+                    Self::add_balance_to_coldkey_account(coldkey, share_u64);
+                }
 
-                // Multiply fraction by subnet_tao to get the staker’s share (u64).
-                let tao_share = fraction * subnet_tao;
-
-                // Credit the coldkey (or hotkey, depending on your design).
-                Self::add_balance_to_coldkey_account(&coldkey, tao_share);
-
-                // Remove these alpha shares.
+                Alpha::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
+            }
+        } else {
+            // No α-out stakers: just clear any lingering records.
+            for (hotkey, coldkey, _) in &stakers {
                 Alpha::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
             }
         }
 
-        // Clear any leftover alpha in/out accumulations.
+        // 5. Reset α in/out accumulations.
         SubnetAlphaIn::<T>::insert(netuid, 0);
         SubnetAlphaOut::<T>::insert(netuid, 0);
 
-        // 4. Calculate partial refund = max(0, lock_cost - owner_received_emission).
-        let final_refund = lock_cost.saturating_sub(owner_received_emission).max(0);
-
-        // 5. Set the locked balance on this subnet to 0, then credit the final_refund.
+        // 6. Refund any remaining lock (lock_cost − owner_cut already paid out).
+        let refund = lock_cost.saturating_sub(owner_received_emission);
         Self::set_subnet_locked_balance(netuid, 0);
 
-        if final_refund > 0 {
-            Self::add_balance_to_coldkey_account(&owner_coldkey, final_refund);
+        if refund > 0 {
+            Self::add_balance_to_coldkey_account(&owner_coldkey, refund);
         }
 
         Ok(())
