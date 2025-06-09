@@ -645,7 +645,7 @@ fn prune_ignores_immune_network_even_if_lower_emission() {
         let n1 = add_dynamic_network(&U256::from(22), &U256::from(11));
 
         let imm = SubtensorModule::get_network_immunity_period();
-        System::set_block_number(imm + 5);        // advance → n1 now mature
+        System::set_block_number(imm + 5); // advance → n1 now mature
 
         // create second network n2 *inside* immunity
         let n2 = add_dynamic_network(&U256::from(44), &U256::from(33));
@@ -654,7 +654,7 @@ fn prune_ignores_immune_network_even_if_lower_emission() {
         Emission::<Test>::insert(n1, vec![50u64]);
         Emission::<Test>::insert(n2, vec![1u64]);
 
-        System::set_block_number(imm + 10);       // still immune for n2
+        System::set_block_number(imm + 10); // still immune for n2
         assert_eq!(SubtensorModule::get_network_to_prune(), Some(n1));
     });
 }
