@@ -38,7 +38,7 @@ libsecp256k1 = { workspace = true }
 log = { workspace = true }
 substrate-fixed = { workspace = true }
 pallet-transaction-payment = { workspace = true }
-pallet-utility = { workspace = true }
+pallet-utility-opentensor = { workspace = true }
 ndarray = { workspace = true }
 hex = { workspace = true }
 share-pool = { default-features = false, path = "../../primitives/share-pool" }
@@ -84,7 +84,7 @@ std = [
 	"pallet-preimage/std",
 	"pallet-scheduler/std",
 	"pallet-transaction-payment/std",
-	"pallet-utility/std",
+	"pallet-utility-opentensor/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
@@ -117,7 +117,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
-	"pallet-utility/runtime-benchmarks",
+	"pallet-utility-opentensor/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
@@ -132,7 +132,7 @@ try-runtime = [
 	"pallet-preimage/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-transaction-payment/try-runtime",
-	"pallet-utility/try-runtime",
+	"pallet-utility-opentensor/try-runtime",
 	"sp-runtime/try-runtime",
 	"pallet-collective/try-runtime",
 	"pallet-drand/try-runtime"

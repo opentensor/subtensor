@@ -7,7 +7,6 @@ use frame_support::{
 };
 use frame_system as system;
 use frame_system::{EnsureNever, EnsureRoot, limits};
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityList as GrandpaAuthorityList;
 use sp_core::U256;
 use sp_core::{ConstU64, H256};
@@ -292,9 +291,6 @@ impl crate::GrandpaInterface<Test> for GrandpaInterfaceImpl {
 
 impl crate::Config for Test {
     type RuntimeEvent = RuntimeEvent;
-    type AuthorityId = AuraId;
-    type MaxAuthorities = ConstU32<32>;
-    type Aura = ();
     type Grandpa = GrandpaInterfaceImpl;
     type Balance = Balance;
 }

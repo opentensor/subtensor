@@ -11,7 +11,6 @@ use node_subtensor_runtime::{Block, WASM_BINARY};
 use sc_chain_spec_derive::ChainSpecExtension;
 use sc_service::ChainType;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::crypto::Ss58Codec;
 use sp_core::{H256, Pair, Public, bounded_vec, sr25519};
@@ -55,30 +54,83 @@ where
     AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
 
-/// Generates authority keys.
-pub fn authority_keys_from_seed(s: &str) -> (AccountId, GrandpaId, BabeId, AuthorityDiscoveryId) {
-    (
-        get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", s)),
-        get_from_seed::<GrandpaId>(s),
-        get_from_seed::<BabeId>(s),
-        get_from_seed::<AuthorityDiscoveryId>(s),
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct AuthorityKeys {
+    stash: AccountId,
+    controller: AccountId,
+    babe: BabeId,
+    grandpa: GrandpaId,
+    authority_discovery: AuthorityDiscoveryId,
+}
+
+impl AuthorityKeys {
+    pub fn new(
+        stash: AccountId,
+        controller: AccountId,
+        babe: BabeId,
+        grandpa: GrandpaId,
+        authority_discovery: AuthorityDiscoveryId,
+    ) -> Self {
+        Self {
+            stash,
+            controller,
+            babe,
+            grandpa,
+            authority_discovery,
+        }
+    }
+
+    pub fn stash(&self) -> &AccountId {
+        &self.stash
+    }
+
+    pub fn controller(&self) -> &AccountId {
+        &self.controller
+    }
+
+    pub fn babe(&self) -> &BabeId {
+        &self.babe
+    }
+
+    pub fn grandpa(&self) -> &GrandpaId {
+        &self.grandpa
+    }
+
+    pub fn authority_discovery(&self) -> &AuthorityDiscoveryId {
+        &self.authority_discovery
+    }
+}
+
+/// Helper function to generate stash, controller and session key from seed
+fn get_authority_keys_from_seed(seed: &str) -> AuthorityKeys {
+    AuthorityKeys::new(
+        get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
+        get_account_id_from_seed::<sr25519::Public>(seed),
+        get_from_seed::<BabeId>(seed),
+        get_from_seed::<GrandpaId>(seed),
+        get_from_seed::<AuthorityDiscoveryId>(seed),
     )
 }
 
-pub fn authority_keys_from_ss58(s_aura: &str, s_grandpa: &str) -> (AuraId, GrandpaId) {
-    (
-        get_aura_from_ss58_addr(s_aura),
-        get_grandpa_from_ss58_addr(s_grandpa),
-    )
-}
-
-pub fn get_aura_from_ss58_addr(s: &str) -> AuraId {
-    Ss58Codec::from_ss58check(s).unwrap()
-}
-
-pub fn get_grandpa_from_ss58_addr(s: &str) -> GrandpaId {
-    Ss58Codec::from_ss58check(s).unwrap()
-}
+// pub fn get_authority_keys_from_ss58(
+//     stash: &str,
+//     controller: &str,
+//     babe: &str,
+//     grandpa: &str,
+//     authority_discovery: &str,
+// ) -> AuthorityKeys {
+//     AuthorityKeys::new(
+//         AccountId32::from_str(stash).unwrap(),
+//         AccountId32::from_str(controller).unwrap(),
+//         get_from_ss58_addr::<BabeId>(babe),
+//         get_from_ss58_addr::<GrandpaId>(grandpa),
+//         get_from_ss58_addr::<AuthorityDiscoveryId>(authority_discovery),
+//     )
+// }
+//
+// pub fn get_from_ss58_addr<TPublic: Public>(addr: &str) -> <TPublic::Pair as Pair>::Public {
+//     Ss58Codec::from_ss58check(addr).unwrap()
+// }
 
 // Includes for nakamoto genesis
 use serde::{Deserialize, Serialize};

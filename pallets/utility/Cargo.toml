@@ -1,5 +1,5 @@
 [package]
-name = "pallet-utility"
+name = "pallet-utility-opentensor"
 version = "38.0.0"
 edition = "2021"
 license = "Apache-2.0"

@@ -36,6 +36,7 @@ use pallet_election_provider_multi_phase::GeometricDepositBase;
 use pallet_grandpa::{
     AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList, fg_primitives,
 };
+use pallet_proxy_opentensor as pallet_proxy;
 use pallet_registry::CanRegisterIdentity;
 use pallet_session::historical as session_historical;
 use pallet_staking::UseValidatorsMap;
@@ -48,6 +49,7 @@ use pallet_subtensor::rpc_info::{
     stake_info::StakeInfo,
     subnet_info::{SubnetHyperparams, SubnetInfo, SubnetInfov2},
 };
+use pallet_utility_opentensor as pallet_utility;
 use polkadot_core_primitives::Moment;
 use runtime_common::prod_or_fast;
 use scale_info::TypeInfo;
@@ -683,14 +685,11 @@ parameter_types! {
 
 impl pallet_grandpa::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-
     type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
-
     type WeightInfo = ();
     type MaxAuthorities = MaxAuthorities;
     type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
     type MaxNominators = MaxNominators;
-
     type EquivocationReportSystem =
         pallet_grandpa::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
@@ -1871,13 +1870,11 @@ construct_runtime!(
         Offences: pallet_offences = 32,
         Historical: session_historical = 33,
         Session: pallet_session = 34,
-        AuthorityDiscovery: pallet_authority_discovery = 35,
-        Babe: pallet_babe = 36,
-        ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 37,
-        VoterList: pallet_bags_list::<Instance1> = 38,
-        FastUnstake: pallet_fast_unstake = 39,
-        // TODO: Evaluate if we need nomination pools.
-        // NominationPools: pallet_nomination_pools = 40,
+        AuthorityDiscovery: pallet_authority_discovery = 36,
+        Babe: pallet_babe = 37,
+        ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 38,
+        VoterList: pallet_bags_list::<Instance1> = 39,
+        FastUnstake: pallet_fast_unstake = 40,
     }
 );
 
@@ -2044,6 +2041,7 @@ impl_runtime_apis! {
             get_preset::<RuntimeGenesisConfig>(id, |preset_id| {
                 let benchmark_id: sp_genesis_builder::PresetId = "benchmark".into();
                 if *preset_id == benchmark_id {
+                    // None
                     Some(generate_genesis_json())
                 } else {
                     None

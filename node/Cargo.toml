@@ -41,8 +41,8 @@ sc-transaction-pool = { workspace = true }
 sc-transaction-pool-api = { workspace = true }
 sc-offchain = { workspace = true }
 sc-network = { workspace = true }
-sc-consensus-aura = { workspace = true }
-sp-consensus-aura = { workspace = true }
+sc-consensus-babe = { workspace = true }
+babe-primitives = { workspace = true }
 sp-consensus = { workspace = true }
 sc-consensus = { workspace = true }
 sc-consensus-grandpa = { workspace = true }
@@ -52,9 +52,7 @@ sp-authority-discovery = { workspace = true }
 sc-chain-spec-derive = { workspace = true }
 sc-chain-spec = { workspace = true }
 sc-consensus-slots = { workspace = true }
-sc-consensus-babe = { workspace = true }
 sc-consensus-babe-rpc = { workspace = true, default-features = true }
-babe-primitives = { workspace = true }
 sc-client-api = { workspace = true }
 sp-runtime = { workspace = true }
 sp-io = { workspace = true }
@@ -107,7 +105,7 @@ fc-api = { workspace = true }
 fc-rpc = { workspace = true }
 fc-rpc-core = { workspace = true }
 fp-rpc = { workspace = true }
-fc-aura = { workspace = true }
+fc-babe = { workspace = true }
 fc-mapping-sync = { workspace = true }
 fp-consensus = { workspace = true }
 thiserror = { workspace = true }

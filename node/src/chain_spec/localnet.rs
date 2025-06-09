@@ -1,11 +1,8 @@
 // Allowed since it's actually better to panic during chain setup when there is an error
 #![allow(clippy::unwrap_used)]
 
-use babe_primitives::AuthorityId as BabeId;
-use node_subtensor_runtime::{opaque::SessionKeys, BABE_GENESIS_EPOCH_CONFIG, UNITS};
+use node_subtensor_runtime::{BABE_GENESIS_EPOCH_CONFIG, UNITS};
 use pallet_staking::Forcing;
-use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
-use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::Perbill;
 use sp_staking::StakerStatus;
 
@@ -42,11 +39,11 @@ pub fn localnet_config(single_authority: bool) -> Result<ChainSpec, String> {
         // aura | grandpa
         if single_authority {
             // single authority allows you to run the network using a single node
-            vec![authority_keys_from_seed("Alice")]
+            vec![get_authority_keys_from_seed("Alice")]
         } else {
             vec![
-                authority_keys_from_seed("Alice"),
-                authority_keys_from_seed("Bob"),
+                get_authority_keys_from_seed("Alice"),
+                // get_authority_keys_from_seed("Bob"),
             ]
         },
         // Pre-funded accounts
@@ -57,7 +54,7 @@ pub fn localnet_config(single_authority: bool) -> Result<ChainSpec, String> {
 }
 
 fn localnet_genesis(
-    initial_authorities: Vec<(AccountId, GrandpaId, BabeId, AuthorityDiscoveryId)>,
+    initial_authorities: Vec<AuthorityKeys>,
     _enable_println: bool,
 ) -> serde_json::Value {
     let mut balances = vec![
@@ -99,7 +96,7 @@ fn localnet_genesis(
     ];
 
     for a in initial_authorities.iter() {
-        balances.push((a.0.clone(), 2000000000000u128));
+        balances.push((a.stash().clone(), 2000000000000u128));
     }
 
     // Check if the environment variable is set
@@ -131,12 +128,12 @@ fn localnet_genesis(
                 .iter()
                 .map(|x| {
                     (
-                        x.0.clone(),
-                        x.0.clone(),
-                        SessionKeys {
-                            grandpa: x.1.clone(),
-                            babe: x.2.clone(),
-                            authority_discovery: x.3.clone(),
+                        x.stash().clone(),
+                        x.stash().clone(),
+                        node_subtensor_runtime::opaque::SessionKeys {
+                            babe: x.babe().clone(),
+                            grandpa: x.grandpa().clone(),
+                            authority_discovery: x.authority_discovery().clone(),
                         },
                     )
                 })
@@ -147,13 +144,15 @@ fn localnet_genesis(
             "validatorCount": initial_authorities.len() as u32,
             "stakers": initial_authorities
                 .iter()
-                .map(|x| (x.0.clone(), x.0.clone(), STAKE, StakerStatus::<AccountId>::Validator))
+                .map(|x| (x.stash().clone(), x.stash().clone(), STAKE, StakerStatus::<AccountId>::Validator))
                 .collect::<Vec<_>>(),
-            "invulnerables": initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
+            "invulnerables": initial_authorities.iter().map(|x| x.stash().clone()).collect::<Vec<_>>(),
             "forceEra": Forcing::NotForcing,
             "slashRewardFraction": Perbill::from_percent(10),
         },
-        "babe": { "epochConfig": BABE_GENESIS_EPOCH_CONFIG },
+        "babe": {
+            "epochConfig": BABE_GENESIS_EPOCH_CONFIG,
+        },
         "sudo": {
             "key": Some(get_account_id_from_seed::<sr25519::Public>("Alice"))
         },
@@ -168,3 +167,4 @@ fn localnet_genesis(
         },
     })
 }
+// "grandpa": { "authorities": initial_authorities.iter().map(|x| (x.grandpa().clone(), 1u64)).collect::<Vec<_>>() },
