@@ -735,11 +735,9 @@ pub async fn build_full(
         Some(sc_network::config::NetworkBackendType::Litep2p) => {
             new_full::<sc_network::NetworkWorker<_, _>>(config, eth_config, sealing).await
         }
-        _ => {
-            Err(ServiceError::Other(
-                "Network backend not supported".to_string(),
-            ))
-        }
+        _ => Err(ServiceError::Other(
+            "Network backend not supported".to_string(),
+        )),
     }
 }
 

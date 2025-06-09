@@ -339,7 +339,10 @@ fn as_derivative_handles_weight_refund() {
         let result = call.dispatch(RuntimeOrigin::signed(1));
         assert_ok!(result);
         // Diff is refunded
-        assert_eq!(extract_actual_weight(&result, &info), info.call_weight - diff);
+        assert_eq!(
+            extract_actual_weight(&result, &info),
+            info.call_weight - diff
+        );
 
         // Full weight when err
         let inner_call = call_foobar(true, start_weight, None);
@@ -729,7 +732,9 @@ fn batch_all_does_not_nest() {
             Utility::batch_all(RuntimeOrigin::signed(1), vec![batch_all.clone()]),
             DispatchErrorWithPostInfo {
                 post_info: PostDispatchInfo {
-                    actual_weight: Some(<Test as Config>::WeightInfo::batch_all(1) + info.call_weight),
+                    actual_weight: Some(
+                        <Test as Config>::WeightInfo::batch_all(1) + info.call_weight
+                    ),
                     pays_fee: Pays::Yes
                 },
                 error: frame_system::Error::<Test>::CallFiltered.into(),

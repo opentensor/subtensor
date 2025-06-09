@@ -193,7 +193,12 @@ where
         let dummy_raw = [0u8; 64];
         let dummy_signature = sp_core::sr25519::Signature::from(dummy_raw);
         let signature = test_crypto::Signature::from(dummy_signature);
-        Some(UncheckedExtrinsic::new_signed(call, nonce.into(), signature, ()))
+        Some(UncheckedExtrinsic::new_signed(
+            call,
+            nonce.into(),
+            signature,
+            (),
+        ))
     }
 }
 

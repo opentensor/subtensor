@@ -49,9 +49,9 @@ use sp_core::{
 };
 use sp_runtime::generic::Era;
 use sp_runtime::{
-traits::transaction_extension::AsTransactionExtension,
     AccountId32, ApplyExtrinsicResult, ConsensusEngineId, create_runtime_str, generic,
     impl_opaque_keys,
+    traits::transaction_extension::AsTransactionExtension,
     traits::{
         AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, NumberFor,
         One, PostDispatchInfoOf, UniqueSaturatedInto, Verify,
