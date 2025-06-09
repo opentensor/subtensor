@@ -15,7 +15,7 @@ use crate::tick::TickIndex;
 ///
 /// Alpha price is expressed in rao units per one 10^9 unit. For example,
 /// price 1_000_000 is equal to 0.001 TAO per Alpha.
-#[freeze_struct("1b4be598fdbdca93")]
+#[freeze_struct("64d56db027265714")]
 #[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen, Default)]
 #[scale_info(skip_type_params(T))]
 pub struct Position<T: Config> {
