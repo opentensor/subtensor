@@ -72,8 +72,6 @@ impl<T: Config> Pallet<T> {
             T::SwapInterface::min_price(),
         )?;
 
-        // println!("tao_unstaked = {:?}, alpha_unstaked = {:?}", tao_unstaked, alpha_unstaked);
-
         // 4. We add the balance to the coldkey. If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 
