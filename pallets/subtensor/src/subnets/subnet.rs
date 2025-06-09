@@ -111,19 +111,25 @@ impl<T: Config> Pallet<T> {
 
     /// Facilitates user registration of a new subnetwork.
     ///
-    /// # Args:
-    /// * 'origin': ('T::RuntimeOrigin'): The calling origin. Must be signed.
-    /// * `identity` (`Option<SubnetIdentityOf>`): Optional identity to be associated with the new subnetwork.
+    /// ### Args
+    /// * **`origin`** – `T::RuntimeOrigin` &nbsp;Must be **signed** by the coldkey.  
+    /// * **`hotkey`** – `&T::AccountId` &nbsp;First neuron of the new subnet.  
+    /// * **`mechid`** – `u16` &nbsp;Only the dynamic mechanism (`1`) is currently supported.  
+    /// * **`identity`** – `Option<SubnetIdentityOfV2>` &nbsp;Optional metadata for the subnet.
     ///
-    /// # Event:
-    /// * 'NetworkAdded': Emitted when a new network is successfully added.
+    /// ### Events
+    /// * `NetworkAdded(netuid, mechid)` – always.  
+    /// * `SubnetIdentitySet(netuid)`   – when a custom identity is supplied.  
+    /// * `NetworkRemoved(netuid)`      – when a subnet is pruned to make room.
     ///
-    /// # Raises:
-    /// * 'TxRateLimitExceeded': If the rate limit for network registration is exceeded.
-    /// * 'NotEnoughBalanceToStake': If there isn't enough balance to stake for network registration.
-    /// * 'BalanceWithdrawalError': If an error occurs during balance withdrawal for network registration.
-    /// * `SubnetIdentitySet(netuid)`: Emitted when a custom identity is set for a new subnetwork.
-    /// * `SubnetIdentityRemoved(netuid)`: Emitted when the identity of a removed network is also deleted.
+    /// ### Errors
+    /// * `NonAssociatedColdKey`            – `hotkey` already belongs to another coldkey.  
+    /// * `MechanismDoesNotExist`           – unsupported `mechid`.  
+    /// * `NetworkTxRateLimitExceeded`      – caller hit the register-network rate limit.  
+    /// * `SubnetLimitReached`              – limit hit **and** no eligible subnet to prune.  
+    /// * `NotEnoughBalanceToStake`         – caller lacks the lock cost.  
+    /// * `BalanceWithdrawalError`          – failed to lock balance.  
+    /// * `InvalidIdentity`                 – supplied `identity` failed validation.
     ///
     pub fn do_register_network(
         origin: T::RuntimeOrigin,
