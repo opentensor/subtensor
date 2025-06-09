@@ -599,6 +599,89 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
     });
 }
 
+#[test]
+fn prune_none_with_no_networks() {
+    new_test_ext(0).execute_with(|| {
+        assert_eq!(SubtensorModule::get_network_to_prune(), None);
+    });
+}
+
+#[test]
+fn prune_none_when_all_networks_immune() {
+    new_test_ext(0).execute_with(|| {
+        // two fresh networks → still inside immunity window
+        let n1 = add_dynamic_network(&U256::from(2), &U256::from(1));
+        let _n2 = add_dynamic_network(&U256::from(4), &U256::from(3));
+
+        // emissions don’t matter while immune
+        Emission::<Test>::insert(n1, vec![10u64]);
+
+        assert_eq!(SubtensorModule::get_network_to_prune(), None);
+    });
+}
+
+#[test]
+fn prune_selects_network_with_lowest_emission() {
+    new_test_ext(0).execute_with(|| {
+        let n1 = add_dynamic_network(&U256::from(20), &U256::from(10));
+        let n2 = add_dynamic_network(&U256::from(40), &U256::from(30));
+
+        // make both networks eligible (past immunity)
+        let imm = SubtensorModule::get_network_immunity_period();
+        System::set_block_number(imm + 10);
+
+        // n1 has lower total emission
+        Emission::<Test>::insert(n1, vec![5u64]);
+        Emission::<Test>::insert(n2, vec![100u64]);
+
+        assert_eq!(SubtensorModule::get_network_to_prune(), Some(n1));
+    });
+}
+
+#[test]
+fn prune_ignores_immune_network_even_if_lower_emission() {
+    new_test_ext(0).execute_with(|| {
+        // create mature network n1 first
+        let n1 = add_dynamic_network(&U256::from(22), &U256::from(11));
+
+        let imm = SubtensorModule::get_network_immunity_period();
+        System::set_block_number(imm + 5);        // advance → n1 now mature
+
+        // create second network n2 *inside* immunity
+        let n2 = add_dynamic_network(&U256::from(44), &U256::from(33));
+
+        // emissions: n1 bigger, n2 smaller but immune
+        Emission::<Test>::insert(n1, vec![50u64]);
+        Emission::<Test>::insert(n2, vec![1u64]);
+
+        System::set_block_number(imm + 10);       // still immune for n2
+        assert_eq!(SubtensorModule::get_network_to_prune(), Some(n1));
+    });
+}
+
+#[test]
+fn prune_tie_on_emission_earlier_registration_wins() {
+    new_test_ext(0).execute_with(|| {
+        // n1 registered first
+        let n1 = add_dynamic_network(&U256::from(66), &U256::from(55));
+
+        // advance 1 block, then register n2 (later timestamp)
+        System::set_block_number(1);
+        let n2 = add_dynamic_network(&U256::from(88), &U256::from(77));
+
+        // push past immunity for both
+        let imm = SubtensorModule::get_network_immunity_period();
+        System::set_block_number(imm + 20);
+
+        // identical emissions → tie
+        Emission::<Test>::insert(n1, vec![123u64]);
+        Emission::<Test>::insert(n2, vec![123u64]);
+
+        // earlier (n1) must be chosen
+        assert_eq!(SubtensorModule::get_network_to_prune(), Some(n1));
+    });
+}
+
 // #[test]
 // fn test_schedule_dissolve_network_execution() {
 //     new_test_ext(1).execute_with(|| {
