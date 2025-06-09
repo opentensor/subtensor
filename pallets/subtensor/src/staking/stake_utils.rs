@@ -663,7 +663,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Swaps a subnet's Alpba token for TAO.
+    /// Swaps a subnet's Alpha token for TAO.
     ///
     /// Updates TaoIn, AlphaIn, and AlphaOut
     pub fn swap_alpha_for_tao(
