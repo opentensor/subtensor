@@ -216,13 +216,8 @@ impl TickIndex {
     pub fn fees_above<T: Config>(&self, netuid: NetUid, quote: bool) -> U64F64 {
         let current_tick = Self::current_bounded::<T>(netuid);
 
-        let Some(tick_index) = ActiveTickIndexManager::<T>::find_closest_lower(netuid, *self)
-        else {
-            return U64F64::from_num(0);
-        };
-
-        let tick = Ticks::<T>::get(netuid, tick_index).unwrap_or_default();
-        if tick_index <= current_tick {
+        let tick = Ticks::<T>::get(netuid, *self).unwrap_or_default();
+        if *self <= current_tick {
             if quote {
                 FeeGlobalTao::<T>::get(netuid).saturating_sub(tick.fees_out_tao)
             } else {
@@ -239,14 +234,8 @@ impl TickIndex {
     pub fn fees_below<T: Config>(&self, netuid: NetUid, quote: bool) -> U64F64 {
         let current_tick = Self::current_bounded::<T>(netuid);
 
-        let Some(tick_index) = ActiveTickIndexManager::<T>::find_closest_lower(netuid, *self)
-        else {
-            return U64F64::saturating_from_num(0);
-        };
-
-        let tick = Ticks::<T>::get(netuid, tick_index).unwrap_or_default();
-
-        if tick_index <= current_tick {
+        let tick = Ticks::<T>::get(netuid, *self).unwrap_or_default();
+        if *self <= current_tick {
             if quote {
                 tick.fees_out_tao
             } else {

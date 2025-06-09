@@ -4930,7 +4930,7 @@ fn test_swap_fees_tao_correctness() {
             netuid,
             user_alpha,
         ));
-        // Do not add fees because selling feels are in alpha
+        // Do not add fees because selling fees are in alpha
 
         // Check ending "total TAO"
         let owner_balance_after = SubtensorModule::get_coldkey_balance(&owner_coldkey);
@@ -5049,5 +5049,137 @@ fn test_default_min_stake_sufficiency() {
         assert!(fee_unstake > 0);
         assert!(current_price_after_stake > current_price_before);
         assert!(current_price_after_stake > current_price_after_unstake);
+    });
+}
+
+/// Test that modify_position always credits fees
+///
+#[test]
+fn test_update_position_fees() {
+    // Test cases: add or remove liquidity during modification
+    [false, true].into_iter().for_each(|add| {
+        new_test_ext(1).execute_with(|| {
+            let owner_hotkey = U256::from(1);
+            let owner_coldkey = U256::from(2);
+            let coldkey = U256::from(4);
+            let amount = 1_000_000_000;
+
+            // add network
+            let netuid: u16 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+            SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, amount * 10);
+            SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount * 100);
+            pallet_subtensor_swap::EnabledUserLiquidity::<Test>::insert(NetUid::from(netuid), true);
+
+            // Forse-set alpha in and tao reserve to make price equal 0.25
+            let tao_reserve = U96F32::from_num(100_000_000_000_u64);
+            let alpha_in = U96F32::from_num(400_000_000_000_u64);
+            mock::setup_reserves(netuid, tao_reserve.to_num(), alpha_in.to_num());
+
+            // Get alpha for owner
+            assert_ok!(SubtensorModule::add_stake(
+                RuntimeOrigin::signed(owner_coldkey),
+                owner_hotkey,
+                netuid,
+                amount,
+            ));
+
+            // Add owner coldkey Alpha as concentrated liquidity
+            // between current price current price + 0.01
+            let current_price =
+                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into())
+                    .to_num::<f64>()
+                    + 0.0001;
+            let limit_price = current_price + 0.001;
+            let tick_low = price_to_tick(current_price);
+            let tick_high = price_to_tick(limit_price);
+            let liquidity = amount;
+
+            let (position_id, _, _) = <Test as pallet::Config>::SwapInterface::do_add_liquidity(
+                NetUid::from(netuid),
+                &owner_coldkey,
+                &owner_hotkey,
+                tick_low,
+                tick_high,
+                liquidity,
+            )
+            .unwrap();
+
+            // Buy and then sell all alpha for user to hit owner liquidity
+            assert_ok!(SubtensorModule::add_stake(
+                RuntimeOrigin::signed(coldkey),
+                owner_hotkey,
+                netuid,
+                amount,
+            ));
+
+            let user_alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &owner_hotkey,
+                &coldkey,
+                netuid,
+            );
+            assert_ok!(SubtensorModule::remove_stake(
+                RuntimeOrigin::signed(coldkey),
+                owner_hotkey,
+                netuid,
+                user_alpha,
+            ));
+
+            // Modify position - fees should be collected and paid to the owner
+            let owner_tao_before = SubtensorModule::get_coldkey_balance(&owner_coldkey);
+            let owner_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &owner_hotkey,
+                &owner_coldkey,
+                netuid,
+            );
+
+            // Make small modification
+            let delta =
+                <tests::mock::Test as pallet_subtensor_swap::Config>::MinimumLiquidity::get()
+                    as i64
+                    * (if add { 1 } else { -1 });
+            assert_ok!(Swap::modify_position(
+                RuntimeOrigin::signed(owner_coldkey),
+                owner_hotkey,
+                netuid.into(),
+                position_id.into(),
+                delta,
+            ));
+
+            // Check ending owner TAO and alpha
+            let owner_tao_after_add = SubtensorModule::get_coldkey_balance(&owner_coldkey);
+            let owner_alpha_after_add = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &owner_hotkey,
+                &owner_coldkey,
+                netuid,
+            );
+
+            assert!(owner_tao_after_add > owner_tao_before);
+            assert!(owner_alpha_after_add > owner_alpha_before); // always greater because of claimed fees
+
+            // Make small modification again - should not claim more fees
+            assert_ok!(Swap::modify_position(
+                RuntimeOrigin::signed(owner_coldkey),
+                owner_hotkey,
+                netuid.into(),
+                position_id.into(),
+                delta,
+            ));
+
+            // Check ending owner TAO and alpha
+            let owner_tao_after_repeat = SubtensorModule::get_coldkey_balance(&owner_coldkey);
+            let owner_alpha_after_repeat =
+                SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    &owner_hotkey,
+                    &owner_coldkey,
+                    netuid,
+                );
+
+            assert!(owner_tao_after_add == owner_tao_after_repeat);
+            if add {
+                assert!(owner_alpha_after_add > owner_alpha_after_repeat);
+            } else {
+                assert!(owner_alpha_after_add < owner_alpha_after_repeat);
+            }
+        });
     });
 }

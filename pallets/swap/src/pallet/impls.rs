@@ -34,6 +34,7 @@ struct SwapStep<T: frame_system::Config> {
     limit_sqrt_price: SqrtPrice,
     current_sqrt_price: SqrtPrice,
     edge_sqrt_price: SqrtPrice,
+    edge_tick: TickIndex,
 
     // Result values
     action: SwapStepAction,
@@ -78,6 +79,7 @@ impl<T: Config> SwapStep<T> {
             limit_sqrt_price,
             current_sqrt_price,
             edge_sqrt_price,
+            edge_tick,
             possible_delta_in,
             current_liquidity,
             action: SwapStepAction::Stop,
@@ -204,26 +206,14 @@ impl<T: Config> SwapStep<T> {
         let delta_out = Pallet::<T>::convert_deltas(self.netuid, self.order_type, self.delta_in);
         log::trace!("\tDelta Out        : {:?}", delta_out);
 
-        // Get current tick
-        let current_tick_index = TickIndex::current_bounded::<T>(self.netuid);
-
         if self.action == SwapStepAction::Crossing {
-            let mut tick = match self.order_type {
-                OrderType::Sell => {
-                    Pallet::<T>::find_closest_lower_active_tick(self.netuid, current_tick_index)
-                }
-                OrderType::Buy => {
-                    Pallet::<T>::find_closest_higher_active_tick(self.netuid, current_tick_index)
-                }
-            }
-            .ok_or(Error::<T>::InsufficientLiquidity)?;
-
+            let mut tick = Ticks::<T>::get(self.netuid, self.edge_tick).unwrap_or_default();
             tick.fees_out_tao =
                 FeeGlobalTao::<T>::get(self.netuid).saturating_sub(tick.fees_out_tao);
             tick.fees_out_alpha =
                 FeeGlobalAlpha::<T>::get(self.netuid).saturating_sub(tick.fees_out_alpha);
             Pallet::<T>::update_liquidity_at_crossing(self.netuid, self.order_type)?;
-            Ticks::<T>::insert(self.netuid, current_tick_index, tick);
+            Ticks::<T>::insert(self.netuid, self.edge_tick, tick);
         }
 
         // Update current price

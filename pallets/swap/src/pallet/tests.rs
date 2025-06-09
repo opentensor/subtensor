@@ -557,6 +557,7 @@ fn test_remove_liquidity_nonexisting_position() {
     });
 }
 
+// cargo test --package pallet-subtensor-swap --lib -- pallet::tests::test_modify_position_basic --exact --show-output
 #[test]
 fn test_modify_position_basic() {
     new_test_ext().execute_with(|| {
@@ -564,7 +565,7 @@ fn test_modify_position_basic() {
         let max_tick = price_to_tick(max_price);
         let limit_price = 1000.0_f64;
         assert_eq!(max_tick, TickIndex::MAX);
-        let (_current_price_low, current_price_high) = get_ticked_prices_around_current_price();
+        let (current_price_low, _current_price_high) = get_ticked_prices_around_current_price();
 
         // As a user add liquidity with all possible corner cases
         //   - Initial price is 0.25
@@ -573,7 +574,7 @@ fn test_modify_position_basic() {
         [
             // Repeat the protocol liquidity at current to max range: Expect the same alpha
             (
-                current_price_high,
+                current_price_low,
                 max_price,
                 2_000_000_000_u64,
                 4_000_000_000,
