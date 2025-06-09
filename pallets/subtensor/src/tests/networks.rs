@@ -495,6 +495,7 @@ fn destroy_alpha_out_multiple_stakers_pro_rata() {
     });
 }
 
+#[allow(clippy::indexing_slicing)]
 #[test]
 fn destroy_alpha_out_many_stakers_complex_distribution() {
     new_test_ext(0).execute_with(|| {
