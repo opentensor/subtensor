@@ -635,7 +635,7 @@ impl<T: Config> Pallet<T> {
             });
 
             // Increase only the protocol TAO reserve. We only use the sum of
-            // (SubnetTAO + SubnetTAOProvided) in tao_reserve(), so it is irrelevant
+            // (SubnetTAO + SubnetTaoProvided) in tao_reserve(), so it is irrelevant
             // which one to increase.
             SubnetTAO::<T>::mutate(netuid, |total| {
                 *total = total.saturating_add(swap_result.tao_reserve_delta as u64);
@@ -1099,22 +1099,22 @@ impl<T: Config> Pallet<T> {
 
     pub fn increase_provided_tao_reserve(netuid: NetUid, tao: u64) {
         let netuid_u16: u16 = netuid.into();
-        SubnetTAOProvided::<T>::mutate(netuid_u16, |total| {
+        SubnetTaoProvided::<T>::mutate(netuid_u16, |total| {
             *total = total.saturating_add(tao);
         });
     }
 
     pub fn decrease_provided_tao_reserve(netuid: NetUid, tao: u64) {
-        // First, decrease SubnetTAOProvided, then deduct the rest from SubnetTAO
+        // First, decrease SubnetTaoProvided, then deduct the rest from SubnetTAO
         let netuid_u16: u16 = netuid.into();
         let subnet_tao = SubnetTAO::<T>::get(netuid_u16);
-        let subnet_tao_provided = SubnetTAOProvided::<T>::get(netuid_u16);
+        let subnet_tao_provided = SubnetTaoProvided::<T>::get(netuid_u16);
         let remainder = subnet_tao_provided.saturating_sub(tao);
         let carry_over = tao.saturating_sub(subnet_tao_provided);
         if carry_over == 0 {
-            SubnetTAOProvided::<T>::set(netuid_u16, remainder);
+            SubnetTaoProvided::<T>::set(netuid_u16, remainder);
         } else {
-            SubnetTAOProvided::<T>::set(netuid_u16, 0_u64);
+            SubnetTaoProvided::<T>::set(netuid_u16, 0_u64);
             SubnetTAO::<T>::set(netuid_u16, subnet_tao.saturating_sub(carry_over));
         }
     }

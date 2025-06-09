@@ -1014,7 +1014,7 @@ pub mod pallet {
     pub type SubnetTAO<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> tao_in_user_subnet | Returns the amount of TAO in the subnet reserve provided by users as liquidity.
-    pub type SubnetTAOProvided<T: Config> =
+    pub type SubnetTaoProvided<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> alpha_in_emission | Returns the amount of alph in  emission into the pool per block.
     pub type SubnetAlphaInEmission<T: Config> =
@@ -2532,7 +2532,7 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
 {
     fn tao_reserve(netuid: NetUid) -> u64 {
         SubnetTAO::<T>::get(u16::from(netuid))
-            .saturating_add(SubnetTAOProvided::<T>::get(u16::from(netuid)))
+            .saturating_add(SubnetTaoProvided::<T>::get(u16::from(netuid)))
     }
 
     fn alpha_reserve(netuid: NetUid) -> u64 {
