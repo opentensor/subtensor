@@ -639,14 +639,6 @@ impl<T: Config> Pallet<T> {
         LastRateLimitedBlock::<T>::set(rate_limit_key, block);
     }
 
-    /// Burns **nothing**: every Tao in `SubnetTAO` is now paid out to
-    /// α-out stakers, including any units that would previously have been
-    /// lost to flooring.
-    ///
-    /// Rounding strategy  
-    /// 1.  First pass – give each staker `floor(T * α / Σα)` Tao.  
-    /// 2.  Second pass – distribute the *left-over* ( < #stakers ) one-by-one
-    ///     to the stakers with the largest fractional remainders.
     pub fn destroy_alpha_in_out_stakes(netuid: u16) -> DispatchResult {
         // 1. Ensure the subnet exists.
         ensure!(
