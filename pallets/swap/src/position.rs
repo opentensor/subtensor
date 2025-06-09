@@ -15,23 +15,25 @@ use crate::tick::TickIndex;
 ///
 /// Alpha price is expressed in rao units per one 10^9 unit. For example,
 /// price 1_000_000 is equal to 0.001 TAO per Alpha.
-///
-/// tick_low - tick index for lower boundary of price
-/// tick_high - tick index for higher boundary of price
-/// liquidity - position liquidity
-/// fees_tao - fees accrued by the position in quote currency (TAO)
-/// fees_alpha - fees accrued by the position in base currency (Alpha)
 #[freeze_struct("1b4be598fdbdca93")]
 #[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen, Default)]
 #[scale_info(skip_type_params(T))]
 pub struct Position<T: Config> {
+    /// Unique ID of the position
     pub id: PositionId,
+    /// Network identifier
     pub netuid: NetUid,
+    /// Tick index for lower boundary of price
     pub tick_low: TickIndex,
+    /// Tick index for higher boundary of price
     pub tick_high: TickIndex,
+    /// Position liquidity
     pub liquidity: u64,
+    /// Fees accrued by the position in quote currency (TAO)
     pub fees_tao: U64F64,
+    /// Fees accrued by the position in base currency (Alpha)
     pub fees_alpha: U64F64,
+    /// Phantom marker for generic Config type
     pub _phantom: PhantomData<T>,
 }
 
