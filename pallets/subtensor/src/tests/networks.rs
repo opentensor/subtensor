@@ -410,15 +410,15 @@ fn destroy_alpha_out_multiple_stakers_pro_rata() {
         // --------------------------------------------------
         let owner_cold = U256::from(10);
         let owner_hot = U256::from(20);
-        let net = add_dynamic_network(&owner_hot, &owner_cold);
+        let netuid = add_dynamic_network(&owner_hot, &owner_cold);
 
         // --------------------------------------------------
         // 2. Two stakers – register hotkeys on the subnet
         // --------------------------------------------------
         let (c1, h1) = (U256::from(111), U256::from(211));
         let (c2, h2) = (U256::from(222), U256::from(333));
-        register_ok_neuron(net, h1, c1, 0);
-        register_ok_neuron(net, h2, c2, 0);
+        register_ok_neuron(netuid, h1, c1, 0);
+        register_ok_neuron(netuid, h2, c2, 0);
 
         // --------------------------------------------------
         // 3. Discover protocol-minimum amount (stake + fee)
@@ -439,30 +439,30 @@ fn destroy_alpha_out_multiple_stakers_pro_rata() {
         assert_ok!(SubtensorModule::do_add_stake(
             RuntimeOrigin::signed(c1),
             h1,
-            net,
+            netuid,
             s1
         ));
         assert_ok!(SubtensorModule::do_add_stake(
             RuntimeOrigin::signed(c2),
             h2,
-            net,
+            netuid,
             s2
         ));
 
         // --------------------------------------------------
         // 5. α snapshot
         // --------------------------------------------------
-        let a1: u128 = Alpha::<Test>::get((h1, c1, net)).saturating_to_num();
-        let a2: u128 = Alpha::<Test>::get((h2, c2, net)).saturating_to_num();
+        let a1: u128 = Alpha::<Test>::get((h1, c1, netuid)).saturating_to_num();
+        let a2: u128 = Alpha::<Test>::get((h2, c2, netuid)).saturating_to_num();
         let atotal = a1 + a2;
 
         // --------------------------------------------------
         // 6. TAO pot + subnet lock
         // --------------------------------------------------
         let tao_pot: u64 = 10_000;
-        SubnetTAO::<Test>::insert(net, tao_pot);
-        SubtensorModule::set_subnet_locked_balance(net, 5_000);
-        Emission::<Test>::insert(net, Vec::<u64>::new()); // owner earned nothing
+        SubnetTAO::<Test>::insert(netuid, tao_pot);
+        SubtensorModule::set_subnet_locked_balance(netuid, 5_000);
+        Emission::<Test>::insert(netuid, Vec::<u64>::new());
 
         // --------------------------------------------------
         // 7. Balances before distribution
@@ -474,7 +474,7 @@ fn destroy_alpha_out_multiple_stakers_pro_rata() {
         // --------------------------------------------------
         // 8. Execute payout logic
         // --------------------------------------------------
-        assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(net));
+        assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(netuid));
 
         // --------------------------------------------------
         // 9. Expected shares
@@ -492,6 +492,110 @@ fn destroy_alpha_out_multiple_stakers_pro_rata() {
             bo + 5_000
         );
         assert!(Alpha::<Test>::iter().next().is_none());
+    });
+}
+
+#[test]
+fn destroy_alpha_out_many_stakers_complex_distribution() {
+    new_test_ext(0).execute_with(|| {
+        let owner_cold = U256::from(1_000);
+        let owner_hot = U256::from(2_000);
+        let netuid = add_dynamic_network(&owner_hot, &owner_cold);
+        SubtensorModule::set_max_registrations_per_block(netuid, 1000u16);
+        SubtensorModule::set_target_registrations_per_interval(netuid, 1000u16);
+
+        let min_total =
+            DefaultMinStake::<Test>::get().saturating_add(DefaultStakingFee::<Test>::get());
+
+        const N: usize = 20;
+        let mut cold = [U256::zero(); N];
+        let mut hot = [U256::zero(); N];
+        let mut stake = [0u64; N];
+
+        for i in 0..N {
+            cold[i] = U256::from(10_000 + 2 * i as u32);
+            hot[i] = U256::from(10_001 + 2 * i as u32);
+            stake[i] = (i as u64 + 1) * min_total;
+
+            register_ok_neuron(netuid, hot[i], cold[i], 0);
+            SubtensorModule::add_balance_to_coldkey_account(&cold[i], stake[i] + 100_000);
+
+            assert_ok!(SubtensorModule::do_add_stake(
+                RuntimeOrigin::signed(cold[i]),
+                hot[i],
+                netuid,
+                stake[i]
+            ));
+        }
+
+        let mut alpha = [0u128; N];
+        let mut a_sum: u128 = 0;
+        for i in 0..N {
+            alpha[i] = Alpha::<Test>::get((hot[i], cold[i], netuid)).saturating_to_num();
+            a_sum += alpha[i];
+        }
+
+        let tao_pot: u64 = 123_456;
+        let lock: u64 = 30_000;
+
+        SubnetTAO::<Test>::insert(netuid, tao_pot);
+        SubtensorModule::set_subnet_locked_balance(netuid, lock);
+
+        // prior emissions (owner already earned some)
+        Emission::<Test>::insert(netuid, vec![1_000u64, 2_000, 1_500]);
+
+        // owner-cut = 50 % exactly
+        SubnetOwnerCut::<Test>::put(32_768);
+
+        let mut before = [0u64; N];
+        for i in 0..N {
+            before[i] = SubtensorModule::get_coldkey_balance(&cold[i]);
+        }
+        let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
+
+        let owner_em: u64 = (4_500u128 * 32_768u128 / 65_535u128) as u64;
+        let expected_refund = lock.saturating_sub(owner_em);
+
+        // Compute expected shares per pallet algorithm
+        let mut share = [0u64; N];
+        let mut rem = [0u128; N];
+        let mut paid: u128 = 0;
+
+        for i in 0..N {
+            let prod = tao_pot as u128 * alpha[i];
+            share[i] = (prod / a_sum) as u64;
+            rem[i] = prod % a_sum;
+            paid += share[i] as u128;
+        }
+        let leftover = tao_pot as u128 - paid;
+        // distribute +1 Tao to stakers with largest remainders
+        let mut idx: Vec<_> = (0..N).collect();
+        idx.sort_by_key(|i| std::cmp::Reverse(rem[*i]));
+        for i in 0..leftover as usize {
+            share[idx[i]] += 1;
+        }
+
+        assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(netuid));
+
+        // Assertions
+        for i in 0..N {
+            assert_eq!(
+                SubtensorModule::get_coldkey_balance(&cold[i]),
+                before[i] + share[i],
+                "staker {} incorrect payout",
+                i + 1
+            );
+        }
+        // b) owner refund is correct
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&owner_cold),
+            owner_before + expected_refund
+        );
+        // c) α cleared and counters reset
+        assert!(Alpha::<Test>::iter().next().is_none());
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid), 0);
+        assert_eq!(SubnetAlphaOut::<Test>::get(netuid), 0);
+        assert_eq!(SubtensorModule::get_subnet_locked_balance(netuid), 0);
     });
 }
 
