@@ -151,7 +151,20 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NetworkTxRateLimitExceeded
         );
 
-        // --- 5. Calculate and lock the required tokens.
+        // --- 5. Check if we need to prune a subnet (if at SubnetLimit).
+        //         But do not prune yet; we only do it after all checks pass.
+        let subnet_limit = Self::get_max_subnets();
+        let current_count = TotalNetworks::<T>::get();
+        let mut recycle_netuid: Option<u16> = None;
+        if current_count >= subnet_limit {
+            if let Some(netuid) = Self::get_network_to_prune() {
+                recycle_netuid = Some(netuid);
+            } else {
+                return Err(Error::<T>::SubnetLimitReached.into());
+            }
+        }
+
+        // --- 6. Calculate and lock the required tokens.
         let lock_amount: u64 = Self::get_network_lock_cost();
         log::debug!("network lock_amount: {:?}", lock_amount);
         ensure!(
@@ -159,23 +172,31 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotEnoughBalanceToStake
         );
 
-        // --- 5. Determine the netuid to register.
-        let netuid_to_register: u16 = Self::get_next_netuid();
-
-        // --- 6. Perform the lock operation.
+        // --- 7. Perform the lock operation.
         let actual_tao_lock_amount: u64 =
             Self::remove_balance_from_coldkey_account(&coldkey, lock_amount)?;
         log::debug!("actual_tao_lock_amount: {:?}", actual_tao_lock_amount);
 
-        // --- 7. Set the lock amount for use to determine pricing.
+        // --- 8. Set the lock amount for use to determine pricing.
         Self::set_network_last_lock(actual_tao_lock_amount);
 
-        // --- 8. Set initial and custom parameters for the network.
+        // --- 9. If we identified a subnet to prune, do it now.
+        if let Some(prune_netuid) = recycle_netuid {
+            Self::do_dissolve_network(prune_netuid)?;
+        }
+
+        // --- 10. Determine netuid to register. If we pruned a subnet, reuse that netuid.
+        let netuid_to_register: u16 = match recycle_netuid {
+            Some(prune_netuid) => prune_netuid,
+            None => Self::get_next_netuid(),
+        };
+
+        // --- 11. Set initial and custom parameters for the network.
         let default_tempo = DefaultTempo::<T>::get();
         Self::init_new_network(netuid_to_register, default_tempo);
         log::debug!("init_new_network: {:?}", netuid_to_register);
 
-        // --- 9 . Add the caller to the neuron set.
+        // --- 12. Add the caller to the neuron set.
         Self::create_account_if_non_existent(&coldkey, hotkey);
         Self::append_neuron(netuid_to_register, hotkey, current_block);
         log::debug!(
@@ -184,7 +205,7 @@ impl<T: Config> Pallet<T> {
             hotkey
         );
 
-        // --- 10. Set the mechanism.
+        // --- 13. Set the mechanism.
         SubnetMechanism::<T>::insert(netuid_to_register, mechid);
         log::debug!(
             "SubnetMechanism for netuid {:?} set to: {:?}",
@@ -192,11 +213,11 @@ impl<T: Config> Pallet<T> {
             mechid
         );
 
-        // --- 11. Set the creation terms.
+        // --- 14. Set the creation terms.
         NetworkLastRegistered::<T>::set(current_block);
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
 
-        // --- 14. Init the pool by putting the lock as the initial alpha.
+        // --- 15. Init the pool by putting the lock as the initial alpha.
         TokenSymbol::<T>::insert(
             netuid_to_register,
             Self::get_symbol_for_subnet(netuid_to_register),
@@ -221,7 +242,7 @@ impl<T: Config> Pallet<T> {
             Self::increase_total_stake(pool_initial_tao);
         }
 
-        // --- 15. Add the identity if it exists
+        // --- 16. Add the identity if it exists
         if let Some(identity_value) = identity {
             ensure!(
                 Self::is_valid_subnet_identity(&identity_value),
@@ -232,7 +253,7 @@ impl<T: Config> Pallet<T> {
             Self::deposit_event(Event::SubnetIdentitySet(netuid_to_register));
         }
 
-        // --- 16. Emit the NetworkAdded event.
+        // --- 17. Emit the NetworkAdded event.
         log::info!(
             "NetworkAdded( netuid:{:?}, mechanism:{:?} )",
             netuid_to_register,
@@ -240,7 +261,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::NetworkAdded(netuid_to_register, mechid));
 
-        // --- 17. Return success.
+        // --- 19. Return success.
         Ok(())
     }
 
