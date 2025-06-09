@@ -371,8 +371,8 @@ fn dissolve_decrements_total_networks() {
 #[test]
 fn dissolve_rounding_remainder_distribution() {
     new_test_ext(0).execute_with(|| {
-        let oc  = U256::from(61);
-        let oh  = U256::from(62);
+        let oc = U256::from(61);
+        let oh = U256::from(62);
         let net = add_dynamic_network(&oh, &oc);
 
         // α-out stakes
@@ -399,6 +399,99 @@ fn dissolve_rounding_remainder_distribution() {
         // α-records cleared; TAO storage gone.
         assert!(Alpha::<Test>::iter().next().is_none());
         assert!(!SubnetTAO::<Test>::contains_key(net));
+    });
+}
+
+#[test]
+fn destroy_alpha_out_multiple_stakers_pro_rata() {
+    new_test_ext(0).execute_with(|| {
+        // --------------------------------------------------
+        // 1. Subnet owner + subnet creation
+        // --------------------------------------------------
+        let owner_cold = U256::from(10);
+        let owner_hot = U256::from(20);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
+
+        // --------------------------------------------------
+        // 2. Two stakers – register hotkeys on the subnet
+        // --------------------------------------------------
+        let (c1, h1) = (U256::from(111), U256::from(211));
+        let (c2, h2) = (U256::from(222), U256::from(333));
+        register_ok_neuron(net, h1, c1, 0);
+        register_ok_neuron(net, h2, c2, 0);
+
+        // --------------------------------------------------
+        // 3. Discover protocol-minimum amount (stake + fee)
+        // --------------------------------------------------
+        let min_stake_total =
+            DefaultMinStake::<Test>::get().saturating_add(DefaultStakingFee::<Test>::get());
+
+        // target α-ratio 30 : 70
+        let s1 = 3 * min_stake_total;
+        let s2 = 7 * min_stake_total;
+
+        // --------------------------------------------------
+        // 4. Fund coldkeys sufficiently, then stake via extrinsic
+        // --------------------------------------------------
+        SubtensorModule::add_balance_to_coldkey_account(&c1, s1 + 50_000);
+        SubtensorModule::add_balance_to_coldkey_account(&c2, s2 + 50_000);
+
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(c1),
+            h1,
+            net,
+            s1
+        ));
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(c2),
+            h2,
+            net,
+            s2
+        ));
+
+        // --------------------------------------------------
+        // 5. α snapshot
+        // --------------------------------------------------
+        let a1: u128 = Alpha::<Test>::get((h1, c1, net)).saturating_to_num();
+        let a2: u128 = Alpha::<Test>::get((h2, c2, net)).saturating_to_num();
+        let atotal = a1 + a2;
+
+        // --------------------------------------------------
+        // 6. TAO pot + subnet lock
+        // --------------------------------------------------
+        let tao_pot: u64 = 10_000;
+        SubnetTAO::<Test>::insert(net, tao_pot);
+        SubtensorModule::set_subnet_locked_balance(net, 5_000);
+        Emission::<Test>::insert(net, Vec::<u64>::new()); // owner earned nothing
+
+        // --------------------------------------------------
+        // 7. Balances before distribution
+        // --------------------------------------------------
+        let b1 = SubtensorModule::get_coldkey_balance(&c1);
+        let b2 = SubtensorModule::get_coldkey_balance(&c2);
+        let bo = SubtensorModule::get_coldkey_balance(&owner_cold);
+
+        // --------------------------------------------------
+        // 8. Execute payout logic
+        // --------------------------------------------------
+        assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(net));
+
+        // --------------------------------------------------
+        // 9. Expected shares
+        // --------------------------------------------------
+        let share1: u64 = (tao_pot as u128 * a1 / atotal) as u64;
+        let share2: u64 = tao_pot - share1;
+
+        // --------------------------------------------------
+        // 10. Assertions
+        // --------------------------------------------------
+        assert_eq!(SubtensorModule::get_coldkey_balance(&c1), b1 + share1);
+        assert_eq!(SubtensorModule::get_coldkey_balance(&c2), b2 + share2);
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&owner_cold),
+            bo + 5_000
+        );
+        assert!(Alpha::<Test>::iter().next().is_none());
     });
 }
 
