@@ -37,7 +37,7 @@ sp-consensus-grandpa = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-tracing = { workspace = true }
-sp-consensus-aura = { workspace = true }
+# sp-consensus-aura = { workspace = true } # No longer needed after BABE migration
 pallet-balances = { workspace = true, features = ["std"] }
 pallet-scheduler = { workspace = true }
 pallet-grandpa = { workspace = true }
@@ -58,7 +58,6 @@ std = [
 	"pallet-scheduler/std",
 	"pallet-subtensor/std",
 	"scale-info/std",
-	"sp-consensus-aura/std",
 	"sp-consensus-grandpa/std",
 	"sp-core/std",
 	"sp-io/std",

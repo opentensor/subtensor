@@ -39,7 +39,7 @@ frame_support::construct_runtime!(
         System: frame_system = 1,
         Balances: pallet_balances = 2,
         Proxy: proxy = 3,
-        Utility: pallet_utility = 4,
+        Utility: pallet_utility_opentensor = 4,
     }
 );
 
@@ -56,7 +56,7 @@ impl pallet_balances::Config for Test {
     type AccountStore = System;
 }
 
-impl pallet_utility::Config for Test {
+impl pallet_utility_opentensor::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
@@ -132,7 +132,7 @@ impl Config for Test {
 use super::{Call as ProxyCall, Event as ProxyEvent};
 use frame_system::Call as SystemCall;
 use pallet_balances::{Call as BalancesCall, Event as BalancesEvent};
-use pallet_utility::{Call as UtilityCall, Event as UtilityEvent};
+use pallet_utility_opentensor::{Call as UtilityCall, Event as UtilityEvent};
 
 type SystemError = frame_system::Error<Test>;
 

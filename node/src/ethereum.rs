@@ -1,4 +1,3 @@
-use fc_aura::AuraConsensusDataProvider;
 pub use fc_consensus::FrontierBlockImport;
 use fc_rpc::{
     Debug, DebugApiServer, Eth, EthApiServer, EthConfig, EthDevSigner, EthFilter,
@@ -229,7 +228,7 @@ where
             deps.execute_gas_limit_multiplier,
             deps.forced_parent_hashes.clone(),
             deps.pending_create_inherent_data_providers.clone(),
-            Some(Box::new(AuraConsensusDataProvider::new(
+            Some(Box::new(fc_babe::BabeConsensusDataProvider::new(
                 deps.client.clone(),
             ))),
         )

@@ -35,7 +35,7 @@ frame_support::construct_runtime!(
         Senate: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 5,
         SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 6,
         SubtensorModule: crate::{Pallet, Call, Storage, Event<T>} = 7,
-        Utility: pallet_utility::{Pallet, Call, Storage, Event} = 8,
+        Utility: pallet_utility_opentensor::{Pallet, Call, Storage, Event} = 8,
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 9,
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 10,
         Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 11,
@@ -96,14 +96,14 @@ impl Contains<RuntimeCall> for NoNestingCallFilter {
         match call {
             RuntimeCall::Utility(inner) => {
                 let calls = match inner {
-                    pallet_utility::Call::force_batch { calls } => calls,
-                    pallet_utility::Call::batch { calls } => calls,
-                    pallet_utility::Call::batch_all { calls } => calls,
+                    pallet_utility_opentensor::Call::force_batch { calls } => calls,
+                    pallet_utility_opentensor::Call::batch { calls } => calls,
+                    pallet_utility_opentensor::Call::batch_all { calls } => calls,
                     _ => &Vec::new(),
                 };
 
                 !calls.iter().any(|call| {
-					matches!(call, RuntimeCall::Utility(inner) if matches!(inner, pallet_utility::Call::force_batch { .. } | pallet_utility::Call::batch_all { .. } | pallet_utility::Call::batch { .. }))
+					matches!(call, RuntimeCall::Utility(inner) if matches!(inner, pallet_utility_opentensor::Call::force_batch { .. } | pallet_utility_opentensor::Call::batch_all { .. } | pallet_utility_opentensor::Call::batch { .. }))
 				})
             }
             _ => true,
@@ -476,11 +476,11 @@ impl pallet_scheduler::Config for Test {
     type Preimages = Preimage;
 }
 
-impl pallet_utility::Config for Test {
+impl pallet_utility_opentensor::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
-    type WeightInfo = pallet_utility::weights::SubstrateWeight<Test>;
+    type WeightInfo = pallet_utility_opentensor::weights::SubstrateWeight<Test>;
 }
 
 parameter_types! {

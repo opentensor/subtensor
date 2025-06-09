@@ -43,13 +43,13 @@ fn test_cant_nest_batch_txs() {
     let charlie = U256::from(2);
 
     new_test_ext(1).execute_with(|| {
-        let call = RuntimeCall::Utility(pallet_utility::Call::batch {
+        let call = RuntimeCall::Utility(pallet_utility_opentensor::Call::batch {
             calls: vec![
                 RuntimeCall::Balances(BalanceCall::transfer_allow_death {
                     dest: bob,
                     value: 1_000_000_000,
                 }),
-                RuntimeCall::Utility(pallet_utility::Call::batch {
+                RuntimeCall::Utility(pallet_utility_opentensor::Call::batch {
                     calls: vec![RuntimeCall::Balances(BalanceCall::transfer_allow_death {
                         dest: charlie,
                         value: 1_000_000_000,
@@ -67,7 +67,7 @@ fn test_can_batch_txs() {
     let bob = U256::from(1);
 
     new_test_ext(1).execute_with(|| {
-        let call = RuntimeCall::Utility(pallet_utility::Call::batch {
+        let call = RuntimeCall::Utility(pallet_utility_opentensor::Call::batch {
             calls: vec![RuntimeCall::Balances(BalanceCall::transfer_allow_death {
                 dest: bob,
                 value: 1_000_000_000,
@@ -83,35 +83,41 @@ fn test_cant_nest_batch_diff_batch_txs() {
     let charlie = U256::from(2);
 
     new_test_ext(1).execute_with(|| {
-        let call = RuntimeCall::Utility(pallet_utility::Call::batch {
-            calls: vec![RuntimeCall::Utility(pallet_utility::Call::force_batch {
-                calls: vec![RuntimeCall::Balances(BalanceCall::transfer_allow_death {
-                    dest: charlie,
-                    value: 1_000_000_000,
-                })],
-            })],
+        let call = RuntimeCall::Utility(pallet_utility_opentensor::Call::batch {
+            calls: vec![RuntimeCall::Utility(
+                pallet_utility_opentensor::Call::force_batch {
+                    calls: vec![RuntimeCall::Balances(BalanceCall::transfer_allow_death {
+                        dest: charlie,
+                        value: 1_000_000_000,
+                    })],
+                },
+            )],
         });
 
         assert!(!<Test as Config>::BaseCallFilter::contains(&call));
 
-        let call2 = RuntimeCall::Utility(pallet_utility::Call::batch_all {
-            calls: vec![RuntimeCall::Utility(pallet_utility::Call::batch {
-                calls: vec![RuntimeCall::Balances(BalanceCall::transfer_allow_death {
-                    dest: charlie,
-                    value: 1_000_000_000,
-                })],
-            })],
+        let call2 = RuntimeCall::Utility(pallet_utility_opentensor::Call::batch_all {
+            calls: vec![RuntimeCall::Utility(
+                pallet_utility_opentensor::Call::batch {
+                    calls: vec![RuntimeCall::Balances(BalanceCall::transfer_allow_death {
+                        dest: charlie,
+                        value: 1_000_000_000,
+                    })],
+                },
+            )],
         });
 
         assert!(!<Test as Config>::BaseCallFilter::contains(&call2));
 
-        let call3 = RuntimeCall::Utility(pallet_utility::Call::force_batch {
-            calls: vec![RuntimeCall::Utility(pallet_utility::Call::batch_all {
-                calls: vec![RuntimeCall::Balances(BalanceCall::transfer_allow_death {
-                    dest: charlie,
-                    value: 1_000_000_000,
-                })],
-            })],
+        let call3 = RuntimeCall::Utility(pallet_utility_opentensor::Call::force_batch {
+            calls: vec![RuntimeCall::Utility(
+                pallet_utility_opentensor::Call::batch_all {
+                    calls: vec![RuntimeCall::Balances(BalanceCall::transfer_allow_death {
+                        dest: charlie,
+                        value: 1_000_000_000,
+                    })],
+                },
+            )],
         });
 
         assert!(!<Test as Config>::BaseCallFilter::contains(&call3));

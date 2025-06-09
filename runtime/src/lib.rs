@@ -305,14 +305,14 @@ impl Contains<RuntimeCall> for NoNestingCallFilter {
         match call {
             RuntimeCall::Utility(inner) => {
                 let calls = match inner {
-                    pallet_utility::Call::force_batch { calls } => calls,
-                    pallet_utility::Call::batch { calls } => calls,
-                    pallet_utility::Call::batch_all { calls } => calls,
+                    pallet_utility_opentensor::Call::force_batch { calls } => calls,
+                    pallet_utility_opentensor::Call::batch { calls } => calls,
+                    pallet_utility_opentensor::Call::batch_all { calls } => calls,
                     _ => &Vec::new(),
                 };
 
                 !calls.iter().any(|call| {
-					matches!(call, RuntimeCall::Utility(inner) if matches!(inner, pallet_utility::Call::force_batch { .. } | pallet_utility::Call::batch_all { .. } | pallet_utility::Call::batch { .. }))
+					matches!(call, RuntimeCall::Utility(inner) if matches!(inner, pallet_utility_opentensor::Call::force_batch { .. } | pallet_utility_opentensor::Call::batch_all { .. } | pallet_utility_opentensor::Call::batch { .. }))
 				})
             }
             _ => true,
@@ -683,14 +683,11 @@ parameter_types! {
 
 impl pallet_grandpa::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-
     type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
-
     type WeightInfo = ();
     type MaxAuthorities = MaxAuthorities;
     type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
     type MaxNominators = MaxNominators;
-
     type EquivocationReportSystem =
         pallet_grandpa::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
@@ -703,11 +700,11 @@ impl pallet_timestamp::Config for Runtime {
     type WeightInfo = ();
 }
 
-impl pallet_utility::Config for Runtime {
+impl pallet_utility_opentensor::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
-    type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
+    type WeightInfo = pallet_utility_opentensor::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -1196,7 +1193,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
     }
 }
 
-impl pallet_proxy::Config for Runtime {
+impl pallet_proxy_opentensor::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
@@ -1204,7 +1201,7 @@ impl pallet_proxy::Config for Runtime {
     type ProxyDepositBase = ProxyDepositBase;
     type ProxyDepositFactor = ProxyDepositFactor;
     type MaxProxies = MaxProxies;
-    type WeightInfo = pallet_proxy::weights::SubstrateWeight<Runtime>;
+    type WeightInfo = pallet_proxy_opentensor::weights::SubstrateWeight<Runtime>;
     type MaxPending = MaxPending;
     type CallHasher = BlakeTwo256;
     type AnnouncementDepositBase = AnnouncementDepositBase;
@@ -1834,19 +1831,18 @@ construct_runtime!(
         System: frame_system = 0,
         RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip = 1,
         Timestamp: pallet_timestamp = 2,
-        Grandpa: pallet_grandpa = 4,
         Balances: pallet_balances = 5,
         TransactionPayment: pallet_transaction_payment = 6,
         SubtensorModule: pallet_subtensor = 7,
         Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 8,
         TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 9,
         SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 10,
-        Utility: pallet_utility = 11,
+        Utility: pallet_utility_opentensor = 11,
         Sudo: pallet_sudo = 12,
         Multisig: pallet_multisig = 13,
         Preimage: pallet_preimage = 14,
         Scheduler: pallet_scheduler = 15,
-        Proxy: pallet_proxy = 16,
+        Proxy: pallet_proxy_opentensor = 16,
         Registry: pallet_registry = 17,
         Commitments: pallet_commitments = 18,
         AdminUtils: pallet_admin_utils = 19,
@@ -1871,13 +1867,12 @@ construct_runtime!(
         Offences: pallet_offences = 32,
         Historical: session_historical = 33,
         Session: pallet_session = 34,
-        AuthorityDiscovery: pallet_authority_discovery = 35,
-        Babe: pallet_babe = 36,
-        ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 37,
-        VoterList: pallet_bags_list::<Instance1> = 38,
-        FastUnstake: pallet_fast_unstake = 39,
-        // TODO: Evaluate if we need nomination pools.
-        // NominationPools: pallet_nomination_pools = 40,
+        Grandpa: pallet_grandpa = 35,
+        AuthorityDiscovery: pallet_authority_discovery = 36,
+        Babe: pallet_babe = 37,
+        ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 38,
+        VoterList: pallet_bags_list::<Instance1> = 39,
+        FastUnstake: pallet_fast_unstake = 40,
     }
 );
 

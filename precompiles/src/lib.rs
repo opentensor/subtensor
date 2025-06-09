@@ -16,7 +16,7 @@ use pallet_evm_precompile_dispatch::Dispatch;
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;
 use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripemd160, Sha256};
-use sp_core::{H160, U256, crypto::ByteArray};
+use sp_core::{crypto::ByteArray, H160, U256};
 use sp_runtime::traits::Dispatchable;
 use sp_runtime::traits::StaticLookup;
 use subtensor_runtime_common::ProxyType;
@@ -51,10 +51,10 @@ where
         + pallet_balances::Config
         + pallet_admin_utils::Config
         + pallet_subtensor::Config
-        + pallet_proxy::Config<ProxyType = ProxyType>,
+        + pallet_proxy_opentensor::Config<ProxyType = ProxyType>,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
-        + From<pallet_proxy::Call<R>>
+        + From<pallet_proxy_opentensor::Call<R>>
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
         + GetDispatchInfo
@@ -75,10 +75,10 @@ where
         + pallet_balances::Config
         + pallet_admin_utils::Config
         + pallet_subtensor::Config
-        + pallet_proxy::Config<ProxyType = ProxyType>,
+        + pallet_proxy_opentensor::Config<ProxyType = ProxyType>,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
-        + From<pallet_proxy::Call<R>>
+        + From<pallet_proxy_opentensor::Call<R>>
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
         + GetDispatchInfo
@@ -120,10 +120,10 @@ where
         + pallet_balances::Config
         + pallet_admin_utils::Config
         + pallet_subtensor::Config
-        + pallet_proxy::Config<ProxyType = ProxyType>,
+        + pallet_proxy_opentensor::Config<ProxyType = ProxyType>,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
-        + From<pallet_proxy::Call<R>>
+        + From<pallet_proxy_opentensor::Call<R>>
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
         + GetDispatchInfo

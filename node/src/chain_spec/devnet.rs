@@ -24,30 +24,10 @@ pub fn devnet_config() -> Result<ChainSpec, String> {
     .with_id("bittensor")
     .with_chain_type(ChainType::Development)
     .with_genesis_config_patch(devnet_genesis(
-        // Initial PoA authorities (Validators)
-        // aura | grandpa
         vec![
-            // Keys for debug
-            authority_keys_from_ss58(
-                "5D5ABUyMsdmJdH7xrsz9vREq5eGXr5pXhHxix2dENQR62dEo",
-                "5H3qMjQjoeZxZ98jzDmoCwbz2sugd5fDN1wrr8Phf49zemKL",
-            ),
-            authority_keys_from_ss58(
-                "5GbRc5sNDdhcPAU9suV2g9P5zyK1hjAQ9JHeeadY1mb8kXoM",
-                "5GbkysfaCjK3cprKPhi3CUwaB5xWpBwcfrkzs6FmqHxej8HZ",
-            ),
-            authority_keys_from_ss58(
-                "5CoVWwBwXz2ndEChGcS46VfSTb3RMUZzZzAYdBKo263zDhEz",
-                "5HTLp4BvPp99iXtd8YTBZA1sMfzo8pd4mZzBJf7HYdCn2boU",
-            ),
-            authority_keys_from_ss58(
-                "5EekcbqupwbgWqF8hWGY4Pczsxp9sbarjDehqk7bdyLhDCwC",
-                "5GAemcU4Pzyfe8DwLwDFx3aWzyg3FuqYUCCw2h4sdDZhyFvE",
-            ),
-            authority_keys_from_ss58(
-                "5GgdEQyS5DZzUwKuyucEPEZLxFKGmasUFm1mqM3sx1MRC5RV",
-                "5EibpMomXmgekxcfs25SzFBpGWUsG9Lc8ALNjXN3TYH5Tube",
-            ),
+            get_authority_keys_from_seed("Alice"),
+            get_authority_keys_from_seed("Bob"),
+            get_authority_keys_from_seed("Charlie"),
         ],
         // Sudo account
         Ss58Codec::from_ss58check("5GpzQgpiAKHMWNSH3RN4GLf96GVTDct9QxYEFAY7LWcVzTbx").unwrap(),
@@ -65,7 +45,7 @@ pub fn devnet_config() -> Result<ChainSpec, String> {
 // Configure initial storage state for FRAME modules.
 #[allow(clippy::too_many_arguments)]
 fn devnet_genesis(
-    initial_authorities: Vec<(AuraId, GrandpaId)>,
+    initial_authorities: Vec<AuthorityKeys>,
     root_key: AccountId,
     _endowed_accounts: Vec<AccountId>,
     _enable_println: bool,
@@ -77,13 +57,20 @@ fn devnet_genesis(
         "balances": {
             "balances": vec![(root_key.clone(), 1_000_000_000_000u128)],
         },
-        "aura": {
-            "authorities": initial_authorities.iter().map(|x| (x.0.clone())).collect::<Vec<_>>(),
-        },
-        "grandpa": {
-            "authorities": initial_authorities
+        "session": {
+            "keys": initial_authorities
                 .iter()
-                .map(|x| (x.1.clone(), 1))
+                .map(|x| {
+                    (
+                        x.stash(),
+                        x.controller(),
+                        node_subtensor_runtime::opaque::SessionKeys {
+                            babe: x.babe().clone(),
+                            grandpa: x.grandpa().clone(),
+                            authority_discovery: x.authority_discovery().clone(),
+                        },
+                    )
+                })
                 .collect::<Vec<_>>(),
         },
         "sudo": {

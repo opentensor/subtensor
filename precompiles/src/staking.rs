@@ -53,10 +53,10 @@ where
     R: frame_system::Config
         + pallet_evm::Config
         + pallet_subtensor::Config
-        + pallet_proxy::Config<ProxyType = ProxyType>,
+        + pallet_proxy_opentensor::Config<ProxyType = ProxyType>,
     R::AccountId: From<[u8; 32]> + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
-        + From<pallet_proxy::Call<R>>
+        + From<pallet_proxy_opentensor::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
@@ -71,10 +71,10 @@ where
     R: frame_system::Config
         + pallet_evm::Config
         + pallet_subtensor::Config
-        + pallet_proxy::Config<ProxyType = ProxyType>,
+        + pallet_proxy_opentensor::Config<ProxyType = ProxyType>,
     R::AccountId: From<[u8; 32]> + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
-        + From<pallet_proxy::Call<R>>
+        + From<pallet_proxy_opentensor::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
@@ -255,7 +255,7 @@ where
         let account_id = handle.caller_account_id::<R>();
         let delegate = R::AccountId::from(delegate.0);
         let delegate = <R as frame_system::Config>::Lookup::unlookup(delegate);
-        let call = pallet_proxy::Call::<R>::add_proxy {
+        let call = pallet_proxy_opentensor::Call::<R>::add_proxy {
             delegate,
             proxy_type: ProxyType::Staking,
             delay: 0u32.into(),
@@ -269,7 +269,7 @@ where
         let account_id = handle.caller_account_id::<R>();
         let delegate = R::AccountId::from(delegate.0);
         let delegate = <R as frame_system::Config>::Lookup::unlookup(delegate);
-        let call = pallet_proxy::Call::<R>::remove_proxy {
+        let call = pallet_proxy_opentensor::Call::<R>::remove_proxy {
             delegate,
             proxy_type: ProxyType::Staking,
             delay: 0u32.into(),
@@ -337,11 +337,11 @@ where
     R: frame_system::Config
         + pallet_evm::Config
         + pallet_subtensor::Config
-        + pallet_proxy::Config<ProxyType = ProxyType>
+        + pallet_proxy_opentensor::Config<ProxyType = ProxyType>
         + pallet_balances::Config,
     R::AccountId: From<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
-        + From<pallet_proxy::Call<R>>
+        + From<pallet_proxy_opentensor::Call<R>>
         + From<pallet_balances::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
@@ -358,11 +358,11 @@ where
     R: frame_system::Config
         + pallet_evm::Config
         + pallet_subtensor::Config
-        + pallet_proxy::Config<ProxyType = ProxyType>
+        + pallet_proxy_opentensor::Config<ProxyType = ProxyType>
         + pallet_balances::Config,
     R::AccountId: From<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
-        + From<pallet_proxy::Call<R>>
+        + From<pallet_proxy_opentensor::Call<R>>
         + From<pallet_balances::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
@@ -481,7 +481,7 @@ where
         let account_id = handle.caller_account_id::<R>();
         let delegate = R::AccountId::from(delegate.0);
         let delegate = <R as frame_system::Config>::Lookup::unlookup(delegate);
-        let call = pallet_proxy::Call::<R>::add_proxy {
+        let call = pallet_proxy_opentensor::Call::<R>::add_proxy {
             delegate,
             proxy_type: ProxyType::Staking,
             delay: 0u32.into(),
@@ -495,7 +495,7 @@ where
         let account_id = handle.caller_account_id::<R>();
         let delegate = R::AccountId::from(delegate.0);
         let delegate = <R as frame_system::Config>::Lookup::unlookup(delegate);
-        let call = pallet_proxy::Call::<R>::remove_proxy {
+        let call = pallet_proxy_opentensor::Call::<R>::remove_proxy {
             delegate,
             proxy_type: ProxyType::Staking,
             delay: 0u32.into(),

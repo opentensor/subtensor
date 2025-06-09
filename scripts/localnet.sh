@@ -20,21 +20,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 # The base directory of the subtensor project
 BASE_DIR="$SCRIPT_DIR/.."
 
-# get parameters
-# Get the value of fast_runtime from the first argument
-fast_runtime=${1:-"True"}
+# Get the value of fast_blocks from the first argument
+fast_blocks=${1:-"True"}
 
-# Check the value of fast_runtime
-if [ "$fast_runtime" == "False" ]; then
-  # Block of code to execute if fast_runtime is False
-  echo "fast_runtime is Off"
+# Define the target directory for compilation
+if [ "$fast_blocks" == "False" ]; then
+  # Block of code to execute if fast_blocks is False
+  echo "fast_blocks is Off"
   : "${CHAIN:=local}"
   : "${BUILD_BINARY:=1}"
   : "${FEATURES:="pow-faucet"}"
-  BUILD_DIR="$BASE_DIR/target/non-fast-blocks"
+  BUILD_DIR="$BASE_DIR/target/non-fast-runtime"
 else
-  # Block of code to execute if fast_runtime is not False
-  echo "fast_runtime is On"
+  # Block of code to execute if fast_blocks is not False
+  echo "fast_blocks is On"
   : "${CHAIN:=local}"
   : "${BUILD_BINARY:=1}"
   : "${FEATURES:="pow-faucet fast-runtime"}"
@@ -68,84 +67,58 @@ echo "*** Chainspec built and output to file"
 # Generate node keys
 "$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/alice
 "$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/bob
-"$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/charlie
-"$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/dave
 
 if [ $NO_PURGE -eq 1 ]; then
   echo "*** Purging previous state skipped..."
 else
   echo "*** Purging previous state..."
-  "$BASE_DIR/target/release/node-subtensor" purge-chain -y --base-path /tmp/bob --chain="$FULL_PATH" >/dev/null 2>&1
-  "$BASE_DIR/target/release/node-subtensor" purge-chain -y --base-path /tmp/alice --chain="$FULL_PATH" >/dev/null 2>&1
-  "$BASE_DIR/target/release/node-subtensor" purge-chain -y --base-path /tmp/charlie --chain="$FULL_PATH" >/dev/null 2>&1
-  "$BASE_DIR/target/release/node-subtensor" purge-chain -y --base-path /tmp/dave --chain="$FULL_PATH" >/dev/null 2>&1
+  "$BUILD_DIR/release/node-subtensor" purge-chain -y --base-path /tmp/bob --chain="$FULL_PATH" >/dev/null 2>&1
+  "$BUILD_DIR/release/node-subtensor" purge-chain -y --base-path /tmp/alice --chain="$FULL_PATH" >/dev/null 2>&1
   echo "*** Previous chainstate purged"
 fi
 
-echo "*** Starting localnet nodes..."
-alice_start=(
-  "$BASE_DIR/target/release/node-subtensor"
-  --base-path /tmp/alice
-  --chain="$FULL_PATH"
-  --alice
-  --port 30334
-  --rpc-port 9944
-  --validator
-  --rpc-cors=all
-  --allow-private-ipv4
-  --discover-local
-  --unsafe-force-node-key-generation
-)
+if [ $BUILD_ONLY -eq 0 ]; then
+  echo "*** Starting localnet nodes..."
 
-bob_start=(
-  "$BASE_DIR"/target/release/node-subtensor
-  --base-path /tmp/bob
-  --chain="$FULL_PATH"
-  --bob
-  --port 30335
-  --rpc-port 9945
-  --validator
-  --rpc-cors=all
-  --allow-private-ipv4
-  --discover-local
-  --unsafe-force-node-key-generation
-  #  --offchain-worker=Never
-)
+  alice_start=(
+    "$BUILD_DIR/release/node-subtensor"
+    --base-path /tmp/alice
+    --chain="$FULL_PATH"
+    --alice
+    --port 30334
+    --rpc-port 9944
+    --validator
+    --rpc-cors=all
+    --allow-private-ipv4
+    --discover-local
+    --unsafe-force-node-key-generation
+  )
 
-charlie_start=(
-  "$BASE_DIR"/target/release/node-subtensor
-  --base-path /tmp/charlie
-  --chain="$FULL_PATH"
-  --charlie
-  --port 30335
-  --rpc-port 9944
-  --validator
-  --rpc-cors=all
-  --allow-private-ipv4
-  --discover-local
-  --unsafe-force-node-key-generation
-)
+  bob_start=(
+    "$BUILD_DIR/release/node-subtensor"
+    --base-path /tmp/bob
+    --chain="$FULL_PATH"
+    --bob
+    --port 30335
+    --rpc-port 9945
+    --validator
+    --rpc-cors=all
+    --allow-private-ipv4
+    --discover-local
+    --unsafe-force-node-key-generation
+  )
 
-dave_start=(
-  "$BASE_DIR"/target/release/node-subtensor
-  --base-path /tmp/dave
-  --chain="$FULL_PATH"
-  --dave
-  --port 30335
-  --rpc-port 9943
-  --validator
-  --rpc-cors=all
-  --allow-private-ipv4
-  --discover-local
-  --unsafe-force-node-key-generation
-)
+  # Provide RUN_IN_DOCKER local environment variable if run script in the docker image
+  if [ "${RUN_IN_DOCKER}" == "1" ]; then
+    alice_start+=(--unsafe-rpc-external)
+    bob_start+=(--unsafe-rpc-external)
+  fi
 
-trap 'pkill -P $$' EXIT SIGINT SIGTERM
+  trap 'pkill -P $$' EXIT SIGINT SIGTERM
 
-(
-  # ("${alice_start[@]}" 2>&1) &
-  ("${bob_start[@]}" 2>&1) &
-  ("${charlie_start[@]}" 2>&1) &
-  ("${dave_start[@]}" 2>&1)
-  wait
-)
+  (
+    ("${alice_start[@]}" 2>&1) &
+    # ("${bob_start[@]}" 2>&1)
+    wait
+  )
+fi

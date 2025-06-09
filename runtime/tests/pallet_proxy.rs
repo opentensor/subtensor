@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used)]
 
 use codec::Encode;
-use frame_support::{BoundedVec, assert_ok, traits::InstanceFilter};
+use frame_support::{assert_ok, traits::InstanceFilter, BoundedVec};
 use node_subtensor_runtime::{
     BalancesCall, BuildStorage, Proxy, Runtime, RuntimeCall, RuntimeEvent, RuntimeGenesisConfig,
     RuntimeOrigin, SubtensorModule, System, SystemCall,
@@ -154,7 +154,7 @@ fn verify_call_with_proxy_type(proxy_type: &ProxyType, call: &RuntimeCall) {
         Box::new(call.clone()),
     ));
 
-    let filtered_event: RuntimeEvent = pallet_proxy::Event::ProxyExecuted {
+    let filtered_event: RuntimeEvent = pallet_proxy_opentensor::Event::ProxyExecuted {
         result: Err(SystemError::CallFiltered.into()),
     }
     .into();
@@ -232,7 +232,7 @@ fn test_non_transfer_cannot_transfer() {
         ));
 
         System::assert_last_event(
-            pallet_proxy::Event::ProxyExecuted {
+            pallet_proxy_opentensor::Event::ProxyExecuted {
                 result: Err(SystemError::CallFiltered.into()),
             }
             .into(),
@@ -259,7 +259,7 @@ fn test_owner_type_cannot_set_sn_owner_hotkey() {
         ));
 
         System::assert_last_event(
-            pallet_proxy::Event::ProxyExecuted {
+            pallet_proxy_opentensor::Event::ProxyExecuted {
                 result: Err(SystemError::CallFiltered.into()),
             }
             .into(),

@@ -2,7 +2,7 @@ use super::*;
 use proc_macro2::TokenStream as TokenStream2;
 use procedural_fork::exports::construct_runtime::parse::RuntimeDeclaration;
 use quote::ToTokens;
-use syn::{File, visit::Visit};
+use syn::{visit::Visit, File};
 
 pub struct RequireExplicitPalletIndex;
 
@@ -163,7 +163,7 @@ mod tests {
                 System : frame_system = 0,
                 RandomnessCollectiveFlip : pallet_insecure_randomness_collective_flip = 1,
                 Timestamp : pallet_timestamp = 2,
-                Aura : pallet_aura = 3,
+                // Aura : pallet_aura = 3, // REMOVED - Migrated to BABE
                 Grandpa : pallet_grandpa = 4,
                 Balances : pallet_balances = 5,
                 TransactionPayment : pallet_transaction_payment = 6,
@@ -171,12 +171,12 @@ mod tests {
                 Triumvirate : pallet_collective::<Instance1>::{ Pallet, Call, Storage, Origin<T>, Event<T>, Config<T> } = 8,
                 TriumvirateMembers : pallet_membership::<Instance1>::{ Pallet, Call, Storage, Event<T>, Config<T> } = 9,
                 SenateMembers : pallet_membership::<Instance2>::{ Pallet, Call, Storage, Event<T>, Config<T> } = 10,
-                Utility : pallet_utility = 11,
+                Utility : pallet_utility_opentensor = 11,
                 Sudo : pallet_sudo = 12,
                 Multisig : pallet_multisig = 13,
                 Preimage : pallet_preimage = 14,
                 Scheduler : pallet_scheduler = 15,
-                Proxy : pallet_proxy = 16,
+                Proxy : pallet_proxy_opentensor = 16,
                 Registry : pallet_registry = 17,
                 Commitments : pallet_commitments = 18,
                 AdminUtils : pallet_admin_utils = 19,
@@ -200,7 +200,7 @@ mod tests {
                 Senate: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
                 SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
                 SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>},
-                Utility: pallet_utility::{Pallet, Call, Storage, Event},
+                Utility: pallet_utility_opentensor::{Pallet, Call, Storage, Event},
                 Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
                 Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
             }
@@ -218,7 +218,7 @@ mod tests {
                 System: frame_system = 0,
                 RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip = 1,
                 Timestamp: pallet_timestamp,
-                Aura: pallet_aura,
+                // Aura: pallet_aura, // REMOVED - Migrated to BABE
                 Grandpa: pallet_grandpa,
                 Balances: pallet_balances,
                 TransactionPayment: pallet_transaction_payment
@@ -289,7 +289,7 @@ mod tests {
                 Senate: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 5,
                 SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 6,
                 SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>} = 7,
-                Utility: pallet_utility::{Pallet, Call, Storage, Event} = 8,
+                Utility: pallet_utility_opentensor::{Pallet, Call, Storage, Event} = 8,
                 Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 9,
                 Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 10,
             }
