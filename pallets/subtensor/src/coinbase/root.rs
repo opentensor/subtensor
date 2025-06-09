@@ -639,6 +639,14 @@ impl<T: Config> Pallet<T> {
         LastRateLimitedBlock::<T>::set(rate_limit_key, block);
     }
 
+    /// Burns **nothing**: every Tao in `SubnetTAO` is now paid out to
+    /// α-out stakers, including any units that would previously have been
+    /// lost to flooring.
+    ///
+    /// Rounding strategy  
+    /// 1.  First pass – give each staker `floor(T * α / Σα)` Tao.  
+    /// 2.  Second pass – distribute the *left-over* ( < #stakers ) one-by-one
+    ///     to the stakers with the largest fractional remainders.
     pub fn destroy_alpha_in_out_stakes(netuid: u16) -> DispatchResult {
         // 1. Ensure the subnet exists.
         ensure!(
@@ -646,63 +654,86 @@ impl<T: Config> Pallet<T> {
             Error::<T>::SubNetworkDoesNotExist
         );
 
-        // 2. Gather basic info.
+        // 2. Basic info.
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
         let lock_cost: u64 = Self::get_subnet_locked_balance(netuid);
 
-        // How much Tao the subnet has emitted and what the owner already earned.
+        // Owner-cut already received from emissions.
         let total_emission: u64 = Emission::<T>::get(netuid).iter().sum();
         let owner_fraction = Self::get_float_subnet_owner_cut();
         let owner_received_emission = (U96F32::from_num(total_emission) * owner_fraction)
             .floor()
             .saturating_to_num::<u64>();
 
-        // 3. Collect α-out staker data.
+        // 3. Gather α-out stakers.
         let mut total_alpha_out: u128 = 0;
-        let mut stakers = Vec::new();
+        let mut stakers: Vec<(T::AccountId, T::AccountId, u128)> = Vec::new();
 
-        for ((hotkey, coldkey, this_netuid), alpha_shares) in Alpha::<T>::iter() {
+        for ((hot, cold, this_netuid), alpha) in Alpha::<T>::iter() {
             if this_netuid == netuid {
-                let amount = alpha_shares.saturating_to_num::<u128>();
-                total_alpha_out = total_alpha_out.saturating_add(amount);
-                stakers.push((hotkey, coldkey, amount));
+                let a = alpha.saturating_to_num::<u128>();
+                total_alpha_out = total_alpha_out.saturating_add(a);
+                stakers.push((hot, cold, a));
             }
         }
 
-        // 4. Distribute the subnet’s Tao pro-rata.
-        let subnet_tao_u128 = SubnetTAO::<T>::get(netuid) as u128;
+        // 4. Pro-rata distribution WITH remainder handling.
+        let subnet_tao: u128 = SubnetTAO::<T>::get(netuid) as u128;
 
-        if total_alpha_out > 0 && subnet_tao_u128 > 0 {
-            for (hotkey, coldkey, alpha_amount) in &stakers {
-                // tao_share = subnet_tao * α / Σα
-                let share_u128 = subnet_tao_u128
-                    .saturating_mul(*alpha_amount)
-                    .checked_div(total_alpha_out)
-                    .unwrap_or(0);
+        if total_alpha_out > 0 && subnet_tao > 0 && !stakers.is_empty() {
+            struct Portion<A, C> {
+                hot: A,
+                cold: C,
+                share: u64,
+                rem: u128,
+            }
+            let mut portions: Vec<Portion<_, _>> = Vec::with_capacity(stakers.len());
+            let mut distributed: u128 = 0;
 
+            for (hot, cold, a) in &stakers {
+                let prod = subnet_tao.saturating_mul(*a);
+                let share_u128 = prod / total_alpha_out;
                 let share_u64 = share_u128.min(u64::MAX as u128) as u64;
+                distributed = distributed.saturating_add(share_u64 as u128);
 
-                if share_u64 > 0 {
-                    Self::add_balance_to_coldkey_account(coldkey, share_u64);
+                portions.push(Portion {
+                    hot: hot.clone(),
+                    cold: cold.clone(),
+                    share: share_u64,
+                    rem: prod % total_alpha_out,
+                });
+            }
+
+            // Left-over units ( < stakers.len() ).
+            let leftover = subnet_tao.saturating_sub(distributed);
+            if leftover > 0 {
+                portions.sort_by(|a, b| b.rem.cmp(&a.rem));
+                for p in portions.iter_mut().take(leftover as usize) {
+                    p.share = p.share.saturating_add(1);
                 }
+            }
 
-                Alpha::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
+            // Final crediting and α-record cleanup.
+            for p in portions {
+                if p.share > 0 {
+                    Self::add_balance_to_coldkey_account(&p.cold, p.share);
+                }
+                Alpha::<T>::remove((&p.hot, &p.cold, netuid));
             }
         } else {
-            // No α-out stakers: just clear any lingering records.
-            for (hotkey, coldkey, _) in &stakers {
-                Alpha::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
+            // No α-out or no Tao – just clear α-records.
+            for (hot, cold, _) in &stakers {
+                Alpha::<T>::remove((hot.clone(), cold.clone(), netuid));
             }
         }
 
-        // 5. Reset α in/out accumulations.
+        // 5. Reset α-in/out accumulations.
         SubnetAlphaIn::<T>::insert(netuid, 0);
         SubnetAlphaOut::<T>::insert(netuid, 0);
 
-        // 6. Refund any remaining lock (lock_cost − owner_cut already paid out).
+        // 6. Refund remaining lock.
         let refund = lock_cost.saturating_sub(owner_received_emission);
         Self::set_subnet_locked_balance(netuid, 0);
-
         if refund > 0 {
             Self::add_balance_to_coldkey_account(&owner_coldkey, refund);
         }
