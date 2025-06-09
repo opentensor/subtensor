@@ -909,6 +909,12 @@ pub mod pallet {
         50400
     }
 
+    #[pallet::type_value]
+    /// Default value for subnet limit.
+    pub fn DefaultSubnetLimit<T: Config>() -> u16 {
+        256
+    }
+
     #[pallet::storage]
     pub type MinActivityCutoff<T: Config> =
         StorageValue<_, u16, ValueQuery, DefaultMinActivityCutoff<T>>;
@@ -1080,6 +1086,9 @@ pub mod pallet {
     ///
     /// Eventually, Bittensor should migrate to using Holds afterwhich time we will not require this
     /// separate accounting.
+
+    #[pallet::storage] // --- ITEM ( maximum_number_of_networks )
+    pub type SubnetLimit<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetLimit<T>>;
     #[pallet::storage] // --- ITEM ( total_issuance )
     pub type TotalIssuance<T> = StorageValue<_, u64, ValueQuery, DefaultTotalIssuance<T>>;
     #[pallet::storage] // --- ITEM ( total_stake )

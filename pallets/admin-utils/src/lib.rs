@@ -1003,8 +1003,10 @@ pub mod pallet {
 			DispatchClass::Operational,
 			Pays::No
 		))]
-        pub fn sudo_set_subnet_limit(origin: OriginFor<T>, _max_subnets: u16) -> DispatchResult {
+        pub fn sudo_set_subnet_limit(origin: OriginFor<T>, max_subnets: u16) -> DispatchResult {
             ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_max_subnets(max_subnets);
+            log::debug!("MaxSubnets ( max_subnets: {:?} ) ", max_subnets);
             Ok(())
         }
 

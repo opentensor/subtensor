@@ -772,4 +772,19 @@ impl<T: Config> Pallet<T> {
             Err(_) => None,
         }
     }
+
+    /// Fetches the max number of subnet
+    ///
+    /// # Returns:
+    /// * 'u16': The max number of subnet
+    ///
+    pub fn get_max_subnets() -> u16 {
+        SubnetLimit::<T>::get()
+    }
+
+    /// Sets the max number of subnet
+    pub fn set_max_subnets(limit: u16) {
+        SubnetLimit::<T>::put(limit);
+        Self::deposit_event(Event::SubnetLimitSet(limit));
+    }
 }
