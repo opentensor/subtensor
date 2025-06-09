@@ -1,5 +1,6 @@
 use codec::Encode;
 use sp_std::prelude::*;
+use subtensor_runtime_common::NetUid;
 
 #[cfg(test)]
 use crate::{
@@ -126,15 +127,15 @@ fn set_commitment_works() {
 
         assert_ok!(Pallet::<Test>::set_commitment(
             RuntimeOrigin::signed(1),
-            1,
+            1.into(),
             info.clone()
         ));
 
-        let commitment = Pallet::<Test>::commitment_of(1, 1).expect("Expected not to panic");
+        let commitment = Pallet::<Test>::commitment_of(NetUid::from(1), 1).expect("Expected not to panic");
         let initial_deposit: u64 = <Test as Config>::InitialDeposit::get();
         assert_eq!(commitment.deposit, initial_deposit);
         assert_eq!(commitment.block, 1);
-        assert_eq!(Pallet::<Test>::last_commitment(1, 1), Some(1));
+        assert_eq!(Pallet::<Test>::last_commitment(NetUid::from(1), 1), Some(1));
     });
 }
 
@@ -151,7 +152,7 @@ fn set_commitment_too_many_fields_panics() {
         });
 
         // We never get here, because the constructor panics above.
-        let _ = Pallet::<Test>::set_commitment(frame_system::RawOrigin::Signed(1).into(), 1, info);
+        let _ = Pallet::<Test>::set_commitment(frame_system::RawOrigin::Signed(1).into(), 1.into(), info);
     });
 }
 
@@ -170,14 +171,14 @@ fn set_commitment_updates_deposit() {
 
         assert_ok!(Pallet::<Test>::set_commitment(
             RuntimeOrigin::signed(1),
-            1,
+            1.into(),
             info1
         ));
         let initial_deposit: u64 = <Test as Config>::InitialDeposit::get();
         let field_deposit: u64 = <Test as Config>::FieldDeposit::get();
         let expected_deposit1: u64 = initial_deposit + 2u64 * field_deposit;
         assert_eq!(
-            Pallet::<Test>::commitment_of(1, 1)
+            Pallet::<Test>::commitment_of(NetUid::from(1), 1)
                 .expect("Expected not to panic")
                 .deposit,
             expected_deposit1
@@ -185,12 +186,12 @@ fn set_commitment_updates_deposit() {
 
         assert_ok!(Pallet::<Test>::set_commitment(
             RuntimeOrigin::signed(1),
-            1,
+            1.into(),
             info2
         ));
         let expected_deposit2: u64 = initial_deposit + 3u64 * field_deposit;
         assert_eq!(
-            Pallet::<Test>::commitment_of(1, 1)
+            Pallet::<Test>::commitment_of(NetUid::from(1), 1)
                 .expect("Expected not to panic")
                 .deposit,
             expected_deposit2
@@ -208,14 +209,14 @@ fn event_emission_works() {
 
         assert_ok!(Pallet::<Test>::set_commitment(
             RuntimeOrigin::signed(1),
-            1,
+            1.into(),
             info
         ));
 
         let events = System::<Test>::events();
         assert!(events.iter().any(|e| matches!(
             &e.event,
-            RuntimeEvent::Commitments(Event::Commitment { netuid: 1, who: 1 })
+            RuntimeEvent::Commitments(Event::Commitment { netuid: NetUid::from(1), who: 1 })
         )));
     });
 }
@@ -256,7 +257,7 @@ fn happy_path_timelock_commitments() {
         };
 
         let who = 123;
-        let netuid = 42;
+        let netuid = NetUid::from(42);
         System::<Test>::set_block_number(1);
 
         assert_ok!(Pallet::<Test>::set_commitment(
@@ -539,7 +540,7 @@ fn reveal_timelocked_multiple_fields_only_correct_ones_removed() {
 
         // 5) Insert the commitment
         let who = 123;
-        let netuid = 999;
+        let netuid = NetUid::from(999);
         System::<Test>::set_block_number(1);
         assert_ok!(Pallet::<Test>::set_commitment(
             RuntimeOrigin::signed(who),
@@ -1845,7 +1846,7 @@ fn multiple_timelocked_commitments_reveal_works() {
         let netuid = 999;
 
         // -------------------------------------------
-        // 2) Create multiple TLE fields referencing 
+        // 2) Create multiple TLE fields referencing
         //    two known valid Drand rounds: 1000, 2000
         // -------------------------------------------
 

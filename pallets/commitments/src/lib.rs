@@ -27,6 +27,7 @@ use tle::{
     tlock::{TLECiphertext, tld},
 };
 use w3f_bls::EngineBLS;
+use subtensor_runtime_common::NetUid;
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -78,7 +79,7 @@ pub mod pallet {
     /// Used to retrieve the given subnet's tempo
     pub trait GetTempoInterface {
         /// Used to retreive the epoch index for the given subnet.
-        fn get_epoch_index(netuid: u16, cur_block: u64) -> u64;
+        fn get_epoch_index(netuid: NetUid, cur_block: u64) -> u64;
     }
 
     #[pallet::event]
@@ -87,14 +88,14 @@ pub mod pallet {
         /// A commitment was set
         Commitment {
             /// The netuid of the commitment
-            netuid: u16,
+            netuid: NetUid,
             /// The account
             who: T::AccountId,
         },
         /// A timelock-encrypted commitment was set
         TimelockCommitment {
             /// The netuid of the commitment
-            netuid: u16,
+            netuid: NetUid,
             /// The account
             who: T::AccountId,
             /// The drand round to reveal
@@ -103,7 +104,7 @@ pub mod pallet {
         /// A timelock-encrypted commitment was auto-revealed
         CommitmentRevealed {
             /// The netuid of the commitment
-            netuid: u16,
+            netuid: NetUid,
             /// The account
             who: T::AccountId,
         },
@@ -125,7 +126,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn timelocked_index)]
     pub type TimelockedIndex<T: Config> =
-        StorageValue<_, BTreeSet<(u16, T::AccountId)>, ValueQuery>;
+        StorageValue<_, BTreeSet<(NetUid, T::AccountId)>, ValueQuery>;
 
     /// Identity data by account
     #[pallet::storage]
@@ -133,7 +134,7 @@ pub mod pallet {
     pub(super) type CommitmentOf<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        u16,
+        NetUid,
         Twox64Concat,
         T::AccountId,
         Registration<BalanceOf<T>, T::MaxFields, BlockNumberFor<T>>,
@@ -145,7 +146,7 @@ pub mod pallet {
     pub(super) type LastCommitment<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        u16,
+        NetUid,
         Twox64Concat,
         T::AccountId,
         BlockNumberFor<T>,
@@ -157,7 +158,7 @@ pub mod pallet {
     pub(super) type LastBondsReset<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        u16,
+        NetUid,
         Twox64Concat,
         T::AccountId,
         BlockNumberFor<T>,
@@ -169,7 +170,7 @@ pub mod pallet {
     pub(super) type RevealedCommitments<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        u16,
+        NetUid,
         Twox64Concat,
         T::AccountId,
         Vec<(Vec<u8>, u64)>, // Reveals<(Data, RevealBlock)>
@@ -181,7 +182,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn used_space_of)]
     pub type UsedSpaceOf<T: Config> =
-        StorageDoubleMap<_, Identity, u16, Twox64Concat, T::AccountId, UsageTracker, OptionQuery>;
+        StorageDoubleMap<_, Identity, NetUid, Twox64Concat, T::AccountId, UsageTracker, OptionQuery>;
 
     #[pallet::type_value]
     /// The default Maximum Space
@@ -206,7 +207,7 @@ pub mod pallet {
         ))]
         pub fn set_commitment(
             origin: OriginFor<T>,
-            netuid: u16,
+            netuid: NetUid,
             info: Box<CommitmentInfo<T::MaxFields>>,
         ) -> DispatchResult {
             let who = ensure_signed(origin.clone())?;
@@ -366,21 +367,21 @@ pub mod pallet {
 
 // Interfaces to interact with other pallets
 pub trait CanCommit<AccountId> {
-    fn can_commit(netuid: u16, who: &AccountId) -> bool;
+    fn can_commit(netuid: NetUid, who: &AccountId) -> bool;
 }
 
 impl<A> CanCommit<A> for () {
-    fn can_commit(_: u16, _: &A) -> bool {
+    fn can_commit(_: NetUid, _: &A) -> bool {
         false
     }
 }
 
 pub trait OnMetadataCommitment<AccountId> {
-    fn on_metadata_commitment(netuid: u16, account: &AccountId);
+    fn on_metadata_commitment(netuid: NetUid, account: &AccountId);
 }
 
 impl<A> OnMetadataCommitment<A> for () {
-    fn on_metadata_commitment(_: u16, _: &A) {}
+    fn on_metadata_commitment(_: NetUid, _: &A) {}
 }
 
 /************************************************************

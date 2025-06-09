@@ -5,6 +5,7 @@ use fp_evm::{ExitError, PrecompileFailure, PrecompileHandle};
 use pallet_subtensor::AxonInfo as SubtensorModuleAxonInfo;
 use precompile_utils::{EvmResult, solidity::Codec};
 use sp_core::{ByteArray, H256};
+use subtensor_runtime_common::NetUid;
 
 use crate::PrecompileExt;
 
@@ -27,13 +28,13 @@ where
     #[precompile::public("getUidCount(uint16)")]
     #[precompile::view]
     fn get_uid_count(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
-        Ok(pallet_subtensor::SubnetworkN::<R>::get(netuid))
+        Ok(pallet_subtensor::SubnetworkN::<R>::get(NetUid::from(netuid)))
     }
 
     #[precompile::public("getStake(uint16,uint16)")]
     #[precompile::view]
     fn get_stake(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u64> {
-        let hotkey = pallet_subtensor::Pallet::<R>::get_hotkey_for_net_and_uid(netuid, uid)
+        let hotkey = pallet_subtensor::Pallet::<R>::get_hotkey_for_net_and_uid(netuid.into(), uid)
             .map_err(|_| PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
             })?;
@@ -46,14 +47,14 @@ where
     #[precompile::public("getRank(uint16,uint16)")]
     #[precompile::view]
     fn get_rank(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u16> {
-        Ok(pallet_subtensor::Pallet::<R>::get_rank_for_uid(netuid, uid))
+        Ok(pallet_subtensor::Pallet::<R>::get_rank_for_uid(netuid.into(), uid))
     }
 
     #[precompile::public("getTrust(uint16,uint16)")]
     #[precompile::view]
     fn get_trust(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u16> {
         Ok(pallet_subtensor::Pallet::<R>::get_trust_for_uid(
-            netuid, uid,
+            netuid.into(), uid,
         ))
     }
 
@@ -61,7 +62,7 @@ where
     #[precompile::view]
     fn get_consensus(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u16> {
         Ok(pallet_subtensor::Pallet::<R>::get_consensus_for_uid(
-            netuid, uid,
+            netuid.into(), uid,
         ))
     }
 
@@ -69,7 +70,7 @@ where
     #[precompile::view]
     fn get_incentive(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u16> {
         Ok(pallet_subtensor::Pallet::<R>::get_incentive_for_uid(
-            netuid, uid,
+            netuid.into(), uid,
         ))
     }
 
@@ -77,7 +78,7 @@ where
     #[precompile::view]
     fn get_dividends(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u16> {
         Ok(pallet_subtensor::Pallet::<R>::get_dividends_for_uid(
-            netuid, uid,
+            netuid.into(), uid,
         ))
     }
 
@@ -85,7 +86,7 @@ where
     #[precompile::view]
     fn get_emission(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u64> {
         Ok(pallet_subtensor::Pallet::<R>::get_emission_for_uid(
-            netuid, uid,
+            netuid.into(), uid,
         ))
     }
 
@@ -93,7 +94,7 @@ where
     #[precompile::view]
     fn get_vtrust(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u16> {
         Ok(pallet_subtensor::Pallet::<R>::get_validator_trust_for_uid(
-            netuid, uid,
+            netuid.into(), uid,
         ))
     }
 
@@ -105,7 +106,7 @@ where
         uid: u16,
     ) -> EvmResult<bool> {
         Ok(pallet_subtensor::Pallet::<R>::get_validator_permit_for_uid(
-            netuid, uid,
+            netuid.into(), uid,
         ))
     }
 
@@ -113,7 +114,7 @@ where
     #[precompile::view]
     fn get_last_update(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u64> {
         Ok(pallet_subtensor::Pallet::<R>::get_last_update_for_uid(
-            netuid, uid,
+            netuid.into(), uid,
         ))
     }
 
@@ -121,25 +122,25 @@ where
     #[precompile::view]
     fn get_is_active(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<bool> {
         Ok(pallet_subtensor::Pallet::<R>::get_active_for_uid(
-            netuid, uid,
+            netuid.into(), uid,
         ))
     }
 
     #[precompile::public("getAxon(uint16,uint16)")]
     #[precompile::view]
     fn get_axon(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<AxonInfo> {
-        let hotkey = pallet_subtensor::Pallet::<R>::get_hotkey_for_net_and_uid(netuid, uid)
+        let hotkey = pallet_subtensor::Pallet::<R>::get_hotkey_for_net_and_uid(netuid.into(), uid)
             .map_err(|_| PrecompileFailure::Error {
                 exit_status: ExitError::Other("hotkey not found".into()),
             })?;
 
-        Ok(pallet_subtensor::Pallet::<R>::get_axon_info(netuid, &hotkey).into())
+        Ok(pallet_subtensor::Pallet::<R>::get_axon_info(netuid.into(), &hotkey).into())
     }
 
     #[precompile::public("getHotkey(uint16,uint16)")]
     #[precompile::view]
     fn get_hotkey(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<H256> {
-        pallet_subtensor::Pallet::<R>::get_hotkey_for_net_and_uid(netuid, uid)
+        pallet_subtensor::Pallet::<R>::get_hotkey_for_net_and_uid(netuid.into(), uid)
             .map(|acc| H256::from_slice(acc.as_slice()))
             .map_err(|_| PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
@@ -149,7 +150,7 @@ where
     #[precompile::public("getColdkey(uint16,uint16)")]
     #[precompile::view]
     fn get_coldkey(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<H256> {
-        let hotkey = pallet_subtensor::Pallet::<R>::get_hotkey_for_net_and_uid(netuid, uid)
+        let hotkey = pallet_subtensor::Pallet::<R>::get_hotkey_for_net_and_uid(netuid.into(), uid)
             .map_err(|_| PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
             })?;
