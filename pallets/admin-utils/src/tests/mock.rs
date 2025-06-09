@@ -18,6 +18,7 @@ use sp_runtime::{
 };
 use sp_std::cmp::Ordering;
 use sp_weights::Weight;
+use subtensor_runtime_common::NetUid;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -412,7 +413,7 @@ pub(crate) fn run_to_block(n: u64) {
 
 #[allow(dead_code)]
 pub fn register_ok_neuron(
-    netuid: u16,
+    netuid: NetUid,
     hotkey_account_id: U256,
     coldkey_account_id: U256,
     start_nonce: u64,
@@ -443,7 +444,7 @@ pub fn register_ok_neuron(
 }
 
 #[allow(dead_code)]
-pub fn add_network(netuid: u16, tempo: u16) {
+pub fn add_network(netuid: NetUid, tempo: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
