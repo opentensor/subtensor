@@ -1227,7 +1227,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
         pub fn dissolve_network(
             origin: OriginFor<T>,
-            coldkey: T::AccountId,
+            _coldkey: T::AccountId,
             netuid: u16,
         ) -> DispatchResult {
             ensure_root(origin)?;
