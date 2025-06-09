@@ -736,9 +736,9 @@ pub async fn build_full(
             new_full::<sc_network::NetworkWorker<_, _>>(config, eth_config, sealing).await
         }
         _ => {
-            return Err(ServiceError::Other(
+            Err(ServiceError::Other(
                 "Network backend not supported".to_string(),
-            ));
+            ))
         }
     }
 }
