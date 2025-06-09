@@ -1053,6 +1053,8 @@ impl<T: Config> Pallet<T> {
             ensure!(origin_netuid != destination_netuid, Error::<T>::SameNetuid);
         }
 
+        Self::ensure_stake_is_unlocked(origin_hotkey, origin_coldkey, origin_netuid)?;
+
         // Ensure that both subnets exist.
         ensure!(
             Self::if_subnet_exist(origin_netuid),

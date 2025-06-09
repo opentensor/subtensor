@@ -2402,6 +2402,8 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             ))
         );
 
+        remove_stake_lock_for_tests(&hotkey, &coldkey, netuid);
+
         // Remove stake
         let call = RuntimeCall::SubtensorModule(SubtensorCall::remove_stake {
             hotkey,

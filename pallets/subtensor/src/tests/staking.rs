@@ -671,6 +671,7 @@ fn test_remove_stake_insufficient_liquidity() {
             netuid,
             amount_staked,
             <Test as Config>::SwapInterface::max_price(),
+            false,
         )
         .unwrap();
 
@@ -749,6 +750,8 @@ fn test_remove_stake_total_issuance_no_change() {
             &coldkey_account_id,
             netuid,
         );
+
+        remove_stake_lock_for_tests(&hotkey_account_id, &coldkey_account_id, netuid);
 
         let total_fee = mock::swap_alpha_to_tao(netuid, stake).1 + fee;
 
@@ -845,6 +848,8 @@ fn test_remove_prev_epoch_stake() {
                 &coldkey_account_id,
                 netuid,
             );
+
+            remove_stake_lock_for_tests(&hotkey_account_id, &coldkey_account_id, netuid);
 
             let fee = mock::swap_alpha_to_tao(netuid, stake).1 + fee;
             assert_ok!(SubtensorModule::remove_stake(
@@ -1430,6 +1435,9 @@ fn test_clear_small_nominations() {
             netuid,
             amount + fee
         ));
+
+        remove_stake_lock_for_tests(&hot1, &cold1, netuid);
+
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(cold1),
             hot1,
@@ -1450,6 +1458,7 @@ fn test_clear_small_nominations() {
             netuid,
             amount + fee
         ));
+        remove_stake_lock_for_tests(&hot1, &cold2, netuid);
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(cold2),
             hot1,
@@ -1470,6 +1479,7 @@ fn test_clear_small_nominations() {
             netuid,
             amount + fee
         ));
+        remove_stake_lock_for_tests(&hot2, &cold1, netuid);
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(cold1),
             hot2,
@@ -1491,6 +1501,8 @@ fn test_clear_small_nominations() {
             netuid,
             amount + fee
         ));
+
+        remove_stake_lock_for_tests(&hot2, &cold2, netuid);
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(cold2),
             hot2,
@@ -1989,6 +2001,8 @@ fn test_get_total_delegated_stake_after_unstaking() {
             initial_stake - existential_deposit - fee,
             epsilon = initial_stake / 1000,
         );
+
+        remove_stake_lock_for_tests(&delegate_hotkey, &delegator, netuid);
 
         // Unstake part of the delegation
         assert_ok!(SubtensorModule::remove_stake(
@@ -2798,6 +2812,7 @@ fn test_unstake_low_liquidity_validate() {
             netuid,
             amount_staked,
             <Test as Config>::SwapInterface::max_price(),
+            false,
         )
         .unwrap();
 
@@ -2853,6 +2868,7 @@ fn test_unstake_all_validate() {
             netuid,
             amount_staked,
             <Test as pallet::Config>::SwapInterface::max_price(),
+            false,
         )
         .unwrap();
 
@@ -3955,6 +3971,8 @@ fn test_remove_stake_limit_ok() {
         let expected_alpha_reduction = (0.00138 * alpha_in.to_num::<f64>()) as u64;
         let fee: u64 = (expected_alpha_reduction as f64 * 0.003) as u64;
 
+        remove_stake_lock_for_tests(&hotkey_account_id, &coldkey_account_id, netuid);
+
         // Remove stake with slippage safety
         assert_ok!(SubtensorModule::remove_stake_limit(
             RuntimeOrigin::signed(coldkey_account_id),
@@ -4140,6 +4158,8 @@ fn test_remove_99_9991_per_cent_stake_removes_all() {
             amount
         ));
 
+        remove_stake_lock_for_tests(&hotkey_account_id, &coldkey_account_id, netuid);
+
         // Remove 99.9991% stake
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_account_id,
@@ -4198,6 +4218,8 @@ fn test_remove_99_9989_per_cent_stake_leaves_a_little() {
             netuid,
             amount
         ));
+
+        remove_stake_lock_for_tests(&hotkey_account_id, &coldkey_account_id, netuid);
 
         // Remove 99.9989% stake
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -4422,6 +4444,8 @@ fn test_unstake_all_alpha_works() {
             stake_amount
         ));
 
+        remove_stake_lock_for_tests(&hotkey, &coldkey, netuid);
+
         // Setup the pool so that removing all the TAO will keep liq above min
         mock::setup_reserves(netuid, stake_amount * 10, stake_amount * 100);
 
@@ -4464,6 +4488,8 @@ fn test_unstake_all_works() {
             netuid,
             stake_amount
         ));
+
+        remove_stake_lock_for_tests(&hotkey, &coldkey, netuid);
 
         // Setup the pool so that removing all the TAO will keep liq above min
         mock::setup_reserves(netuid, stake_amount * 10, stake_amount * 100);
@@ -4518,6 +4544,7 @@ fn test_stake_into_subnet_ok() {
             netuid,
             amount,
             u64::MAX,
+            false,
         ));
         let expected_stake = (amount as f64) * 0.997 / current_price;
 
@@ -4567,6 +4594,7 @@ fn test_stake_into_subnet_low_amount() {
             netuid,
             amount,
             u64::MAX,
+            false,
         ));
         let expected_stake = ((amount as f64) * 0.997 / current_price) as u64;
 
@@ -4613,6 +4641,7 @@ fn test_unstake_from_subnet_low_amount() {
             netuid,
             amount,
             u64::MAX,
+            false,
         ));
 
         // Remove stake
@@ -4722,6 +4751,7 @@ fn test_unstake_from_subnet_prohibitive_limit() {
             netuid,
             amount,
             u64::MAX,
+            false,
         ));
 
         // Remove stake
@@ -4795,6 +4825,7 @@ fn test_unstake_full_amount() {
             netuid,
             amount,
             u64::MAX,
+            false,
         ));
 
         // Remove stake
@@ -4931,6 +4962,8 @@ fn test_swap_fees_tao_correctness() {
         ));
         fees += (fee_rate * amount as f64) as u64;
 
+        remove_stake_lock_for_tests(&owner_hotkey, &coldkey, netuid);
+
         let user_alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &owner_hotkey,
             &coldkey,
@@ -5041,6 +5074,8 @@ fn test_default_min_stake_sufficiency() {
         let fee_stake = (fee_rate * amount as f64) as u64;
         let current_price_after_stake =
             <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+
+        remove_stake_lock_for_tests(&owner_hotkey, &coldkey, netuid);
 
         let user_alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &owner_hotkey,

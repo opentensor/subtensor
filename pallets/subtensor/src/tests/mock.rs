@@ -890,8 +890,13 @@ pub fn increase_stake_on_coldkey_hotkey_account(
         netuid,
         tao_staked,
         <Test as Config>::SwapInterface::max_price(),
+        false,
     )
     .unwrap();
+}
+
+pub(crate) fn remove_stake_lock_for_tests(hotkey: &U256, coldkey: &U256, netuid: u16) {
+    StakeLocks::<Test>::remove((hotkey, coldkey, netuid));
 }
 
 /// Increases the stake on the hotkey account under its owning coldkey.
