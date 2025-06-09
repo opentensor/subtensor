@@ -5,6 +5,7 @@ use node_subtensor_runtime::{BABE_GENESIS_EPOCH_CONFIG, UNITS};
 use pallet_staking::Forcing;
 use sp_runtime::Perbill;
 use sp_staking::StakerStatus;
+use std::collections::HashMap;
 
 use super::*;
 
@@ -57,7 +58,7 @@ fn localnet_genesis(
     initial_authorities: Vec<AuthorityKeys>,
     _enable_println: bool,
 ) -> serde_json::Value {
-    let mut balances = vec![
+    let mut balances: HashMap<AccountId, u128> = vec![
         (
             get_account_id_from_seed::<sr25519::Public>("Alice"),
             1000000000000000u128,
@@ -93,16 +94,18 @@ fn localnet_genesis(
             AccountId::from_str("5GeqNhKWj1KG78VHzbmo3ZjZgUTrCuWeamdgiA114XHGdaEr").unwrap(),
             2000000000000u128,
         ),
-    ];
+    ]
+    .into_iter()
+    .collect();
 
     for a in initial_authorities.iter() {
-        balances.push((a.stash().clone(), 2000000000000u128));
+        balances.insert(a.account().clone(), 2000000000000u128);
     }
 
     // Check if the environment variable is set
     if let Ok(bt_wallet) = env::var("BT_DEFAULT_TOKEN_WALLET") {
         if let Ok(decoded_wallet) = Ss58Codec::from_ss58check(&bt_wallet) {
-            balances.push((decoded_wallet, 1_000_000_000_000_000u128));
+            balances.insert(decoded_wallet, 1_000_000_000_000_000u128);
         } else {
             eprintln!("Invalid format for BT_DEFAULT_TOKEN_WALLET.");
         }
@@ -122,14 +125,14 @@ fn localnet_genesis(
 
     const STAKE: u64 = 1000 * UNITS;
     serde_json::json!({
-        "balances": { "balances": balances },
+        "balances": { "balances": balances.into_iter().collect::<Vec<_>>() },
         "session": {
             "keys": initial_authorities
                 .iter()
                 .map(|x| {
                     (
-                        x.stash().clone(),
-                        x.stash().clone(),
+                        x.account().clone(),
+                        x.account().clone(),
                         node_subtensor_runtime::opaque::SessionKeys {
                             babe: x.babe().clone(),
                             grandpa: x.grandpa().clone(),
@@ -144,9 +147,9 @@ fn localnet_genesis(
             "validatorCount": initial_authorities.len() as u32,
             "stakers": initial_authorities
                 .iter()
-                .map(|x| (x.stash().clone(), x.stash().clone(), STAKE, StakerStatus::<AccountId>::Validator))
+                .map(|x| (x.account().clone(), x.account().clone(), STAKE, StakerStatus::<AccountId>::Validator))
                 .collect::<Vec<_>>(),
-            "invulnerables": initial_authorities.iter().map(|x| x.stash().clone()).collect::<Vec<_>>(),
+            "invulnerables": initial_authorities.iter().map(|x| x.account().clone()).collect::<Vec<_>>(),
             "forceEra": Forcing::NotForcing,
             "slashRewardFraction": Perbill::from_percent(10),
         },

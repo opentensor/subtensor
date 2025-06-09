@@ -56,8 +56,7 @@ where
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct AuthorityKeys {
-    stash: AccountId,
-    controller: AccountId,
+    account: AccountId,
     babe: BabeId,
     grandpa: GrandpaId,
     authority_discovery: AuthorityDiscoveryId,
@@ -65,27 +64,21 @@ pub struct AuthorityKeys {
 
 impl AuthorityKeys {
     pub fn new(
-        stash: AccountId,
-        controller: AccountId,
+        account: AccountId,
         babe: BabeId,
         grandpa: GrandpaId,
         authority_discovery: AuthorityDiscoveryId,
     ) -> Self {
         Self {
-            stash,
-            controller,
+            account,
             babe,
             grandpa,
             authority_discovery,
         }
     }
 
-    pub fn stash(&self) -> &AccountId {
-        &self.stash
-    }
-
-    pub fn controller(&self) -> &AccountId {
-        &self.controller
+    pub fn account(&self) -> &AccountId {
+        &self.account
     }
 
     pub fn babe(&self) -> &BabeId {
@@ -101,10 +94,8 @@ impl AuthorityKeys {
     }
 }
 
-/// Helper function to generate stash, controller and session key from seed
 fn get_authority_keys_from_seed(seed: &str) -> AuthorityKeys {
     AuthorityKeys::new(
-        get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
         get_account_id_from_seed::<sr25519::Public>(seed),
         get_from_seed::<BabeId>(seed),
         get_from_seed::<GrandpaId>(seed),
@@ -113,15 +104,13 @@ fn get_authority_keys_from_seed(seed: &str) -> AuthorityKeys {
 }
 
 // pub fn get_authority_keys_from_ss58(
-//     stash: &str,
-//     controller: &str,
+//     account: &str,
 //     babe: &str,
 //     grandpa: &str,
 //     authority_discovery: &str,
 // ) -> AuthorityKeys {
 //     AuthorityKeys::new(
-//         AccountId32::from_str(stash).unwrap(),
-//         AccountId32::from_str(controller).unwrap(),
+//         AccountId32::from_str(account).unwrap(),
 //         get_from_ss58_addr::<BabeId>(babe),
 //         get_from_ss58_addr::<GrandpaId>(grandpa),
 //         get_from_ss58_addr::<AuthorityDiscoveryId>(authority_discovery),

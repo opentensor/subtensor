@@ -62,8 +62,8 @@ fn devnet_genesis(
                 .iter()
                 .map(|x| {
                     (
-                        x.stash(),
-                        x.controller(),
+                        x.account(),
+                        x.account(),
                         node_subtensor_runtime::opaque::SessionKeys {
                             babe: x.babe().clone(),
                             grandpa: x.grandpa().clone(),
