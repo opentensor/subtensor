@@ -653,7 +653,8 @@ impl<T: Config> Pallet<T> {
         // Owner-cut already received from emissions.
         let total_emission: u64 = Emission::<T>::get(netuid).iter().sum();
         let owner_fraction = Self::get_float_subnet_owner_cut();
-        let owner_received_emission = (U96F32::from_num(total_emission) * owner_fraction)
+        let owner_received_emission = U96F32::from_num(total_emission)
+            .saturating_mul(owner_fraction)
             .floor()
             .saturating_to_num::<u64>();
 
@@ -684,15 +685,16 @@ impl<T: Config> Pallet<T> {
 
             for (hot, cold, a) in &stakers {
                 let prod = subnet_tao.saturating_mul(*a);
-                let share_u128 = prod / total_alpha_out;
+                let share_u128 = prod.checked_div(total_alpha_out).unwrap_or_default();
                 let share_u64 = share_u128.min(u64::MAX as u128) as u64;
                 distributed = distributed.saturating_add(share_u64 as u128);
 
+                let rem = prod.checked_rem(total_alpha_out).unwrap_or_default();
                 portions.push(Portion {
                     hot: hot.clone(),
                     cold: cold.clone(),
                     share: share_u64,
-                    rem: prod % total_alpha_out,
+                    rem,
                 });
             }
 
