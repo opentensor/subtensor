@@ -83,7 +83,7 @@ pub struct SubnetHyperparams {
     liquid_alpha_enabled: bool,
 }
 
-#[freeze_struct("7dfa98f279500b4b")]
+#[freeze_struct("cb67d7ada314398e")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetHyperparamsV2 {
     rho: Compact<u16>,
@@ -113,7 +113,7 @@ pub struct SubnetHyperparamsV2 {
     alpha_high: Compact<u16>,
     alpha_low: Compact<u16>,
     liquid_alpha_enabled: bool,
-    yuma3_enabled: bool,
+    yuma_version: Compact<u16>,
 }
 
 impl<T: Config> Pallet<T> {
@@ -352,7 +352,10 @@ impl<T: Config> Pallet<T> {
         let commit_reveal_weights_enabled = Self::get_commit_reveal_weights_enabled(netuid);
         let liquid_alpha_enabled = Self::get_liquid_alpha_enabled(netuid);
         let (alpha_low, alpha_high): (u16, u16) = Self::get_alpha_values(netuid);
-        let yuma3_enabled = Self::get_yuma3_enabled(netuid);
+        let yuma_version: u16 = match Self::get_yuma3_enabled(netuid) {
+            true => 3u16,
+            false => 2u16,
+        };
 
         Some(SubnetHyperparamsV2 {
             rho: rho.into(),
@@ -382,7 +385,7 @@ impl<T: Config> Pallet<T> {
             alpha_high: alpha_high.into(),
             alpha_low: alpha_low.into(),
             liquid_alpha_enabled,
-            yuma3_enabled,
+            yuma_version: yuma_version.into(),
         })
     }
 }
