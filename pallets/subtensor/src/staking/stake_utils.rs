@@ -965,10 +965,10 @@ impl<T: Config> Pallet<T> {
         allow_partial: bool,
     ) -> Result<(), Error<T>> {
         // Ensure that the subnet exists.
-        // ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
         // Ensure that the subnet is enabled.
-        Self::ensure_subtoken_enabled(netuid)?;
+        // Self::ensure_subtoken_enabled(netuid)?;
 
         // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
         if let Some(tao_equivalent) = Self::sim_swap_alpha_for_tao(netuid, alpha_unstaked) {
