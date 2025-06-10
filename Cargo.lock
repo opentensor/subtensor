@@ -7221,6 +7221,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-evm-precompile-dispatch"
+version = "2.0.0-dev"
+source = "git+https://github.com/opentensor/frontier?rev=cd6bca14a3#cd6bca14a366cc7cb1c3b1b1d7bc8213667e4126"
+dependencies = [
+ "fp-evm",
+ "frame-support",
+ "pallet-evm",
+ "parity-scale-codec",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-evm-precompile-modexp"
 version = "2.0.0-dev"
 source = "git+https://github.com/opentensor/frontier?rev=2dec35b654c077d076350a39d3f063dd9b838518#2dec35b654c077d076350a39d3f063dd9b838518"
@@ -12696,6 +12708,7 @@ dependencies = [
  "pallet-admin-utils",
  "pallet-balances",
  "pallet-evm",
+ "pallet-evm-precompile-dispatch",
  "pallet-evm-precompile-modexp",
  "pallet-evm-precompile-sha3fips",
  "pallet-evm-precompile-simple",
@@ -12703,6 +12716,7 @@ dependencies = [
  "pallet-subtensor",
  "precompile-utils",
  "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2412-6)",
  "subtensor-runtime-common",

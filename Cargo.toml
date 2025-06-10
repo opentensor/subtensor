@@ -39,6 +39,7 @@ arithmetic-side-effects = "deny"
 type_complexity = "allow"
 unwrap-used = "deny"
 manual_inspect = "allow"
+result_large_err = "allow"
 useless_conversion = "allow"     # until polkadot is patched
 
 [workspace.dependencies]
@@ -208,6 +209,7 @@ pallet-base-fee = { git = "https://github.com/opentensor/frontier", rev = "2dec3
 pallet-dynamic-fee = { git = "https://github.com/opentensor/frontier", rev = "2dec35b654c077d076350a39d3f063dd9b838518", default-features = false }
 pallet-ethereum = { git = "https://github.com/opentensor/frontier", rev = "2dec35b654c077d076350a39d3f063dd9b838518", default-features = false }
 pallet-evm = { git = "https://github.com/opentensor/frontier", rev = "2dec35b654c077d076350a39d3f063dd9b838518", default-features = false }
+pallet-evm-precompile-dispatch = { git = "https://github.com/opentensor/frontier", rev = "2dec35b654c077d076350a39d3f063dd9b838518", default-features = false }
 pallet-evm-chain-id = { git = "https://github.com/opentensor/frontier", rev = "2dec35b654c077d076350a39d3f063dd9b838518", default-features = false }
 pallet-evm-precompile-modexp = { git = "https://github.com/opentensor/frontier", rev = "2dec35b654c077d076350a39d3f063dd9b838518", default-features = false }
 pallet-evm-precompile-sha3fips = { git = "https://github.com/opentensor/frontier", rev = "2dec35b654c077d076350a39d3f063dd9b838518", default-features = false }
