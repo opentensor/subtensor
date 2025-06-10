@@ -1786,8 +1786,10 @@ fn test_sudo_set_bonds_reset_enabled() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: bool = true;
+        let sn_owner = U256::from(1);
         add_network(netuid, 10);
         let init_value: bool = SubtensorModule::get_bonds_reset(netuid);
+
         assert_eq!(
             AdminUtils::sudo_set_bonds_reset_enabled(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -1796,6 +1798,7 @@ fn test_sudo_set_bonds_reset_enabled() {
             ),
             Err(DispatchError::BadOrigin)
         );
+
         assert_ok!(AdminUtils::sudo_set_bonds_reset_enabled(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
@@ -1803,6 +1806,15 @@ fn test_sudo_set_bonds_reset_enabled() {
         ));
         assert_eq!(SubtensorModule::get_bonds_reset(netuid), to_be_set);
         assert_ne!(SubtensorModule::get_bonds_reset(netuid), init_value);
+
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, sn_owner);
+
+        assert_ok!(AdminUtils::sudo_set_bonds_reset_enabled(
+            <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+            netuid,
+            !to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_bonds_reset(netuid), !to_be_set);
     });
 }
 
@@ -1811,8 +1823,10 @@ fn test_sudo_set_yuma3_enabled() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: bool = true;
+        let sn_owner = U256::from(1);
         add_network(netuid, 10);
         let init_value: bool = SubtensorModule::get_yuma3_enabled(netuid);
+
         assert_eq!(
             AdminUtils::sudo_set_yuma3_enabled(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -1821,6 +1835,7 @@ fn test_sudo_set_yuma3_enabled() {
             ),
             Err(DispatchError::BadOrigin)
         );
+
         assert_ok!(AdminUtils::sudo_set_yuma3_enabled(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
@@ -1828,5 +1843,14 @@ fn test_sudo_set_yuma3_enabled() {
         ));
         assert_eq!(SubtensorModule::get_yuma3_enabled(netuid), to_be_set);
         assert_ne!(SubtensorModule::get_yuma3_enabled(netuid), init_value);
+
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, sn_owner);
+
+        assert_ok!(AdminUtils::sudo_set_yuma3_enabled(
+            <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+            netuid,
+            !to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_yuma3_enabled(netuid), !to_be_set);
     });
 }
