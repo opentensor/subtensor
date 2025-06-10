@@ -88,6 +88,8 @@ where
         amount_rao: U256,
         netuid: U256,
     ) -> EvmResult<()> {
+        log::error!("====== {} {}", file!(), line!());
+
         let account_id = handle.caller_account_id::<R>();
         let amount_staked = amount_rao.unique_saturated_into();
         let hotkey = R::AccountId::from(address.0);
@@ -287,11 +289,13 @@ where
         allow_partial: bool,
         netuid: U256,
     ) -> EvmResult<()> {
+        log::error!("====== {} {}", file!(), line!());
         let account_id = handle.caller_account_id::<R>();
         let amount_staked = amount_rao.unique_saturated_into();
         let limit_price = limit_price_rao.unique_saturated_into();
         let hotkey = R::AccountId::from(address.0);
         let netuid = try_u16_from_u256(netuid)?;
+        log::error!("====== {} {}", file!(), line!());
         let call = pallet_subtensor::Call::<R>::add_stake_limit {
             hotkey,
             netuid,
@@ -373,6 +377,8 @@ where
     #[precompile::public("addStake(bytes32,uint256)")]
     #[precompile::payable]
     fn add_stake(handle: &mut impl PrecompileHandle, address: H256, netuid: U256) -> EvmResult<()> {
+        log::error!("====== {} {}", file!(), line!());
+
         let account_id = handle.caller_account_id::<R>();
         let amount = handle.context().apparent_value;
 

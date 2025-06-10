@@ -136,6 +136,12 @@ where
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
     fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<PrecompileResult> {
+        log::error!(
+            "====== {} {} {:?}",
+            file!(),
+            line!(),
+            &handle.code_address()
+        );
         match handle.code_address() {
             // Ethereum precompiles :
             a if a == hash(1) => Some(ECRecover::execute(handle)),
@@ -158,9 +164,11 @@ where
                 )
             }
             a if a == hash(StakingPrecompile::<R>::INDEX) => {
+                log::error!("====== {} {}", file!(), line!());
                 StakingPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Staking)
             }
             a if a == hash(StakingPrecompileV2::<R>::INDEX) => {
+                log::error!("====== {} {}", file!(), line!());
                 StakingPrecompileV2::<R>::try_execute::<R>(handle, PrecompileEnum::Staking)
             }
             a if a == hash(SubnetPrecompile::<R>::INDEX) => {
