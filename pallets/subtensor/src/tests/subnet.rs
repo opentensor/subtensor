@@ -239,7 +239,9 @@ fn test_subtoken_enable() {
     });
 }
 
-// cargo test --package pallet-subtensor --lib -- tests::subnet::test_subtoken_enable_reject_trading_before_enable --exact --show-output
+// cargo test --package pallet-subtensor --lib --
+// tests::subnet::test_subtoken_enable_reject_trading_before_enable --exact --show-output
+#[allow(clippy::unwrap_used)]
 #[test]
 fn test_subtoken_enable_reject_trading_before_enable() {
     // ensure_subtoken_enabled
@@ -340,17 +342,15 @@ fn test_subtoken_enable_reject_trading_before_enable() {
             stake_bal
         );
 
-        assert_noop!(
-            SubtensorModule::remove_stake_limit(
-                RuntimeOrigin::signed(coldkey_account_id),
-                hotkey_account_id,
-                netuid,
-                amount,
-                limit_price,
-                false
-            ),
-            Error::<Test>::SubtokenDisabled
-        );
+        SubtensorModule::remove_stake_limit(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            amount,
+            limit_price,
+            false,
+        )
+        .unwrap();
 
         assert_noop!(
             SubtensorModule::remove_stake(
