@@ -132,6 +132,8 @@ impl<T: Config> Pallet<T> {
             )?;
         }
 
+        Self::ensure_subtoken_enabled(netuid)?;
+
         // Save the staking job for the on_finalize
         let stake_job = StakeJob::AddStake {
             hotkey,
@@ -211,6 +213,8 @@ impl<T: Config> Pallet<T> {
             )?;
         }
 
+        Self::ensure_subtoken_enabled(netuid)?;
+
         let stake_job = StakeJob::AddStakeLimit {
             hotkey,
             coldkey,
@@ -286,6 +290,8 @@ impl<T: Config> Pallet<T> {
             netuid,
             stake_to_be_added
         );
+
+        Self::ensure_subtoken_enabled(netuid)?;
 
         // 2. Calculate the maximum amount that can be executed with price limit
         let max_amount = Self::get_max_amount_add(netuid, limit_price)?;
