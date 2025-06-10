@@ -107,7 +107,10 @@ where
     ) -> EvmResult<()> {
         let coldkey = handle.caller_account_id::<R>();
         let hotkey = R::AccountId::from(hotkey.0);
-        let call = pallet_subtensor::Call::<R>::burned_register { netuid: netuid.into(), hotkey };
+        let call = pallet_subtensor::Call::<R>::burned_register {
+            netuid: netuid.into(),
+            hotkey,
+        };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(coldkey))
     }

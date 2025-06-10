@@ -37,7 +37,7 @@ use precompile_utils::EvmResult;
 use sp_core::{H256, U256};
 use sp_runtime::traits::{Dispatchable, StaticLookup, UniqueSaturatedInto};
 use sp_std::vec;
-use subtensor_runtime_common::{ProxyType, NetUid};
+use subtensor_runtime_common::{NetUid, ProxyType};
 
 use crate::{PrecompileExt, PrecompileHandleExt};
 
@@ -209,7 +209,9 @@ where
         let coldkey = R::AccountId::from(coldkey.0);
         let netuid = try_u16_from_u256(netuid)?;
         let stake = pallet_subtensor::Pallet::<R>::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey, &coldkey, netuid.into(),
+            &hotkey,
+            &coldkey,
+            netuid.into(),
         );
 
         Ok(stake.into())
@@ -245,7 +247,8 @@ where
     ) -> EvmResult<U256> {
         let hotkey = R::AccountId::from(hotkey.0);
         let netuid = try_u16_from_u256(netuid)?;
-        let stake = pallet_subtensor::Pallet::<R>::get_stake_for_hotkey_on_subnet(&hotkey, netuid.into());
+        let stake =
+            pallet_subtensor::Pallet::<R>::get_stake_for_hotkey_on_subnet(&hotkey, netuid.into());
 
         Ok(stake.into())
     }
@@ -466,7 +469,9 @@ where
         let coldkey = R::AccountId::from(coldkey.0);
         let netuid = try_u16_from_u256(netuid)?;
         let stake = pallet_subtensor::Pallet::<R>::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey, &coldkey, netuid.into(),
+            &hotkey,
+            &coldkey,
+            netuid.into(),
         );
         let stake: SubstrateBalance = stake.into();
         let stake = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(stake)

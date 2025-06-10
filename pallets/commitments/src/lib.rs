@@ -21,13 +21,13 @@ use scale_info::prelude::collections::BTreeSet;
 use sp_runtime::SaturatedConversion;
 use sp_runtime::{Saturating, traits::Zero};
 use sp_std::{boxed::Box, vec::Vec};
+use subtensor_runtime_common::NetUid;
 use tle::{
     curves::drand::TinyBLS381,
     stream_ciphers::AESGCMStreamCipherProvider,
     tlock::{TLECiphertext, tld},
 };
 use w3f_bls::EngineBLS;
-use subtensor_runtime_common::NetUid;
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -181,8 +181,15 @@ pub mod pallet {
     /// in the RateLimit window
     #[pallet::storage]
     #[pallet::getter(fn used_space_of)]
-    pub type UsedSpaceOf<T: Config> =
-        StorageDoubleMap<_, Identity, NetUid, Twox64Concat, T::AccountId, UsageTracker, OptionQuery>;
+    pub type UsedSpaceOf<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        NetUid,
+        Twox64Concat,
+        T::AccountId,
+        UsageTracker,
+        OptionQuery,
+    >;
 
     #[pallet::type_value]
     /// The default Maximum Space

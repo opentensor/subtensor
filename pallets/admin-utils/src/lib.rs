@@ -31,7 +31,7 @@ pub mod pallet {
     use pallet_subtensor::utils::rate_limiting::TransactionType;
     use sp_runtime::BoundedVec;
     use substrate_fixed::types::I96F32;
-	use subtensor_runtime_common::NetUid;
+    use subtensor_runtime_common::NetUid;
 
     /// The main data structure of the module.
     #[pallet::pallet]

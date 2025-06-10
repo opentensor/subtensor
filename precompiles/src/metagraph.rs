@@ -28,7 +28,9 @@ where
     #[precompile::public("getUidCount(uint16)")]
     #[precompile::view]
     fn get_uid_count(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
-        Ok(pallet_subtensor::SubnetworkN::<R>::get(NetUid::from(netuid)))
+        Ok(pallet_subtensor::SubnetworkN::<R>::get(NetUid::from(
+            netuid,
+        )))
     }
 
     #[precompile::public("getStake(uint16,uint16)")]
@@ -47,14 +49,18 @@ where
     #[precompile::public("getRank(uint16,uint16)")]
     #[precompile::view]
     fn get_rank(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u16> {
-        Ok(pallet_subtensor::Pallet::<R>::get_rank_for_uid(netuid.into(), uid))
+        Ok(pallet_subtensor::Pallet::<R>::get_rank_for_uid(
+            netuid.into(),
+            uid,
+        ))
     }
 
     #[precompile::public("getTrust(uint16,uint16)")]
     #[precompile::view]
     fn get_trust(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u16> {
         Ok(pallet_subtensor::Pallet::<R>::get_trust_for_uid(
-            netuid.into(), uid,
+            netuid.into(),
+            uid,
         ))
     }
 
@@ -62,7 +68,8 @@ where
     #[precompile::view]
     fn get_consensus(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u16> {
         Ok(pallet_subtensor::Pallet::<R>::get_consensus_for_uid(
-            netuid.into(), uid,
+            netuid.into(),
+            uid,
         ))
     }
 
@@ -70,7 +77,8 @@ where
     #[precompile::view]
     fn get_incentive(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u16> {
         Ok(pallet_subtensor::Pallet::<R>::get_incentive_for_uid(
-            netuid.into(), uid,
+            netuid.into(),
+            uid,
         ))
     }
 
@@ -78,7 +86,8 @@ where
     #[precompile::view]
     fn get_dividends(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u16> {
         Ok(pallet_subtensor::Pallet::<R>::get_dividends_for_uid(
-            netuid.into(), uid,
+            netuid.into(),
+            uid,
         ))
     }
 
@@ -86,7 +95,8 @@ where
     #[precompile::view]
     fn get_emission(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u64> {
         Ok(pallet_subtensor::Pallet::<R>::get_emission_for_uid(
-            netuid.into(), uid,
+            netuid.into(),
+            uid,
         ))
     }
 
@@ -94,7 +104,8 @@ where
     #[precompile::view]
     fn get_vtrust(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u16> {
         Ok(pallet_subtensor::Pallet::<R>::get_validator_trust_for_uid(
-            netuid.into(), uid,
+            netuid.into(),
+            uid,
         ))
     }
 
@@ -106,7 +117,8 @@ where
         uid: u16,
     ) -> EvmResult<bool> {
         Ok(pallet_subtensor::Pallet::<R>::get_validator_permit_for_uid(
-            netuid.into(), uid,
+            netuid.into(),
+            uid,
         ))
     }
 
@@ -114,7 +126,8 @@ where
     #[precompile::view]
     fn get_last_update(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u64> {
         Ok(pallet_subtensor::Pallet::<R>::get_last_update_for_uid(
-            netuid.into(), uid,
+            netuid.into(),
+            uid,
         ))
     }
 
@@ -122,7 +135,8 @@ where
     #[precompile::view]
     fn get_is_active(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<bool> {
         Ok(pallet_subtensor::Pallet::<R>::get_active_for_uid(
-            netuid.into(), uid,
+            netuid.into(),
+            uid,
         ))
     }
 

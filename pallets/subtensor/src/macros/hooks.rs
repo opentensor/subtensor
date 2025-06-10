@@ -147,7 +147,8 @@ mod hooks {
             if let Some(slot) = block_number.checked_rem(hotkey_swap_on_subnet_interval) {
                 // only handle the subnet with the same residue as current block number by HotkeySwapOnSubnetInterval
                 for netuid in netuids.iter().filter(|netuid| {
-                    (u16::from(**netuid) as u64).checked_rem(hotkey_swap_on_subnet_interval) == Some(slot)
+                    (u16::from(**netuid) as u64).checked_rem(hotkey_swap_on_subnet_interval)
+                        == Some(slot)
                 }) {
                     // Iterate over all the coldkeys in the subnet
                     for (coldkey, swap_block_number) in
