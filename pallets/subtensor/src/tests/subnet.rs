@@ -251,8 +251,19 @@ fn test_subtoken_enable_reject_trading_before_enable() {
         let hotkey_account_2_id: U256 = U256::from(3);
         let amount = DefaultMinStake::<Test>::get() * 10;
 
+        let stake_bal = 10_000_000_000; // 10 Alpha
+
+        let limit_price = 1_000_000_000; // not important
+
         add_network_disable_subtoken(netuid, 10, 0);
         add_network_disable_subtoken(netuid2, 10, 0);
+
+        assert!(!SubtokenEnabled::<Test>::get(netuid));
+        assert!(!SubtokenEnabled::<Test>::get(netuid2));
+
+        // Set liq high enough to not trigger other errors
+        SubnetTAO::<Test>::set(netuid, 20_000_000_000);
+        SubnetAlphaIn::<Test>::set(netuid, 20_000_000_000);
 
         // Register so staking *could* work
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 0);
@@ -262,6 +273,14 @@ fn test_subtoken_enable_reject_trading_before_enable() {
 
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10_000);
 
+        // Give some stake
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+            stake_bal,
+        );
+
         // all trading extrinsic should be rejected.
         assert_noop!(
             SubtensorModule::add_stake(
@@ -269,6 +288,66 @@ fn test_subtoken_enable_reject_trading_before_enable() {
                 hotkey_account_id,
                 netuid,
                 amount
+            ),
+            Error::<Test>::SubtokenDisabled
+        );
+
+        assert_noop!(
+            SubtensorModule::add_stake_limit(
+                RuntimeOrigin::signed(coldkey_account_id),
+                hotkey_account_id,
+                netuid,
+                amount,
+                limit_price,
+                false
+            ),
+            Error::<Test>::SubtokenDisabled
+        );
+
+        // For unstake_all and unstake_all_alpha, the result is Ok, but the
+        // operation is not performed.
+        assert_ok!(
+            SubtensorModule::unstake_all(
+                RuntimeOrigin::signed(coldkey_account_id),
+                hotkey_account_id
+            ),
+            ()
+        );
+        // Check that the stake is still the same
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey_account_id,
+                &coldkey_account_id,
+                netuid
+            ),
+            stake_bal
+        );
+
+        assert_ok!(
+            SubtensorModule::unstake_all_alpha(
+                RuntimeOrigin::signed(coldkey_account_id),
+                hotkey_account_id
+            ),
+            ()
+        );
+        // Check that the stake is still the same
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey_account_id,
+                &coldkey_account_id,
+                netuid
+            ),
+            stake_bal
+        );
+
+        assert_noop!(
+            SubtensorModule::remove_stake_limit(
+                RuntimeOrigin::signed(coldkey_account_id),
+                hotkey_account_id,
+                netuid,
+                amount,
+                limit_price,
+                false
             ),
             Error::<Test>::SubtokenDisabled
         );
