@@ -159,6 +159,14 @@ interface ISubnet {
         bool yuma3Enabled
     ) external payable;
 
+    function getBondsResetEnabled(uint16 netuid) external view returns (bool);
+
+    function setBondsResetEnabled(
+        uint16 netuid, 
+        bool bondsResetEnabled
+    ) external payable;
+
+
     function getAlphaValues(
         uint16 netuid
     ) external view returns (uint16, uint16);

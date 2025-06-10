@@ -577,6 +577,12 @@ where
         Ok(pallet_subtensor::Yuma3On::<R>::get(netuid))
     }
 
+    #[precompile::public("getBondsResetEnabled(uint16)")]
+    #[precompile::view]
+    fn get_bonds_reset_enabled(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<bool> {
+        Ok(pallet_subtensor::BondsResetOn::<R>::get(netuid))
+    }
+
     #[precompile::public("setYuma3Enabled(uint16,bool)")]
     #[precompile::payable]
     fn set_yuma3_enabled(
@@ -585,6 +591,21 @@ where
         enabled: bool,
     ) -> EvmResult<()> {
         let call = pallet_admin_utils::Call::<R>::sudo_set_yuma3_enabled { netuid, enabled };
+
+        handle.try_dispatch_runtime_call::<R, _>(
+            call,
+            RawOrigin::Signed(handle.caller_account_id::<R>()),
+        )
+    }
+
+    #[precompile::public("setBondsResetEnabled(uint16,bool)")]
+    #[precompile::payable]
+    fn set_bonds_reset_enabled(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+        enabled: bool,
+    ) -> EvmResult<()> {
+        let call = pallet_admin_utils::Call::<R>::sudo_set_bonds_reset_enabled { netuid, enabled };
 
         handle.try_dispatch_runtime_call::<R, _>(
             call,
