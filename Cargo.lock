@@ -11039,6 +11039,7 @@ dependencies = [
  "sp-rpc",
  "sp-runtime",
  "subtensor-custom-rpc-runtime-api",
+ "subtensor-runtime-common",
 ]
 
 [[package]]
@@ -11051,6 +11052,7 @@ dependencies = [
  "serde",
  "sp-api",
  "sp-runtime",
+ "subtensor-runtime-common",
 ]
 
 [[package]]
@@ -11107,6 +11109,7 @@ dependencies = [
  "parity-scale-codec",
  "precompile-utils",
  "scale-info",
+ "serde",
  "sp-core",
  "sp-runtime",
  "subtensor-macros",

@@ -4,6 +4,7 @@ use core::fmt::{self, Display, Formatter};
 use codec::{Compact, CompactAs, Decode, Encode, Error as CodecError, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_runtime::{
     MultiSignature,
     traits::{IdentifyAccount, Verify},
@@ -34,16 +35,18 @@ pub type Nonce = u32;
 /// Transfers below SMALL_TRANSFER_LIMIT are considered small transfers
 pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
 
-#[freeze_struct("3a97f3950116ef68")]
+#[freeze_struct("f1746d0b1911967")]
 #[repr(transparent)]
 #[derive(
-    Hash,
+    Deserialize,
+    Serialize,
     Clone,
     Copy,
     Decode,
     Default,
     Encode,
     Eq,
+    Hash,
     MaxEncodedLen,
     Ord,
     PartialEq,

@@ -943,7 +943,7 @@ impl CanRegisterIdentity<AccountId> for AllowIdentityReg {
     fn can_register(address: &AccountId, identified: &AccountId) -> bool {
         if address != identified {
             SubtensorModule::coldkey_owns_hotkey(address, identified)
-                && SubtensorModule::is_hotkey_registered_on_network(0, identified)
+                && SubtensorModule::is_hotkey_registered_on_network(NetUid::ROOT, identified)
         } else {
             SubtensorModule::is_subnet_owner(address)
         }
@@ -993,12 +993,12 @@ impl Get<u32> for MaxCommitFields {
 pub struct AllowCommitments;
 impl CanCommit<AccountId> for AllowCommitments {
     #[cfg(not(feature = "runtime-benchmarks"))]
-    fn can_commit(netuid: u16, address: &AccountId) -> bool {
+    fn can_commit(netuid: NetUid, address: &AccountId) -> bool {
         SubtensorModule::is_hotkey_registered_on_network(netuid, address)
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn can_commit(_: u16, _: &AccountId) -> bool {
+    fn can_commit(_: NetUid, _: &AccountId) -> bool {
         true
     }
 }
@@ -1006,12 +1006,12 @@ impl CanCommit<AccountId> for AllowCommitments {
 pub struct ResetBondsOnCommit;
 impl OnMetadataCommitment<AccountId> for ResetBondsOnCommit {
     #[cfg(not(feature = "runtime-benchmarks"))]
-    fn on_metadata_commitment(netuid: u16, address: &AccountId) {
+    fn on_metadata_commitment(netuid: NetUid, address: &AccountId) {
         let _ = SubtensorModule::do_reset_bonds(netuid, address);
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn on_metadata_commitment(_: u16, _: &AccountId) {}
+    fn on_metadata_commitment(_: NetUid, _: &AccountId) {}
 }
 
 impl pallet_commitments::Config for Runtime {
@@ -2190,31 +2190,31 @@ impl_runtime_apis! {
             SubtensorModule::get_delegate(delegate_account)
         }
 
-        fn get_delegated(delegatee_account: AccountId32) -> Vec<(DelegateInfo<AccountId32>, (Compact<u16>, Compact<u64>))> {
+        fn get_delegated(delegatee_account: AccountId32) -> Vec<(DelegateInfo<AccountId32>, (Compact<NetUid>, Compact<u64>))> {
             SubtensorModule::get_delegated(delegatee_account)
         }
     }
 
     impl subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<Block> for Runtime {
-        fn get_neurons_lite(netuid: u16) -> Vec<NeuronInfoLite<AccountId32>> {
+        fn get_neurons_lite(netuid: NetUid) -> Vec<NeuronInfoLite<AccountId32>> {
             SubtensorModule::get_neurons_lite(netuid)
         }
 
-        fn get_neuron_lite(netuid: u16, uid: u16) -> Option<NeuronInfoLite<AccountId32>> {
+        fn get_neuron_lite(netuid: NetUid, uid: u16) -> Option<NeuronInfoLite<AccountId32>> {
             SubtensorModule::get_neuron_lite(netuid, uid)
         }
 
-        fn get_neurons(netuid: u16) -> Vec<NeuronInfo<AccountId32>> {
+        fn get_neurons(netuid: NetUid) -> Vec<NeuronInfo<AccountId32>> {
             SubtensorModule::get_neurons(netuid)
         }
 
-        fn get_neuron(netuid: u16, uid: u16) -> Option<NeuronInfo<AccountId32>> {
+        fn get_neuron(netuid: NetUid, uid: u16) -> Option<NeuronInfo<AccountId32>> {
             SubtensorModule::get_neuron(netuid, uid)
         }
     }
 
     impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
-        fn get_subnet_info(netuid: u16) -> Option<SubnetInfo<AccountId32>> {
+        fn get_subnet_info(netuid: NetUid) -> Option<SubnetInfo<AccountId32>> {
             SubtensorModule::get_subnet_info(netuid)
         }
 
@@ -2222,7 +2222,7 @@ impl_runtime_apis! {
             SubtensorModule::get_subnets_info()
         }
 
-        fn get_subnet_info_v2(netuid: u16) -> Option<SubnetInfov2<AccountId32>> {
+        fn get_subnet_info_v2(netuid: NetUid) -> Option<SubnetInfov2<AccountId32>> {
             SubtensorModule::get_subnet_info_v2(netuid)
         }
 
@@ -2230,19 +2230,19 @@ impl_runtime_apis! {
             SubtensorModule::get_subnets_info_v2()
         }
 
-        fn get_subnet_hyperparams(netuid: u16) -> Option<SubnetHyperparams> {
+        fn get_subnet_hyperparams(netuid: NetUid) -> Option<SubnetHyperparams> {
             SubtensorModule::get_subnet_hyperparams(netuid)
         }
 
-        fn get_dynamic_info(netuid: u16) -> Option<DynamicInfo<AccountId32>> {
+        fn get_dynamic_info(netuid: NetUid) -> Option<DynamicInfo<AccountId32>> {
             SubtensorModule::get_dynamic_info(netuid)
         }
 
-        fn get_metagraph(netuid: u16) -> Option<Metagraph<AccountId32>> {
+        fn get_metagraph(netuid: NetUid) -> Option<Metagraph<AccountId32>> {
             SubtensorModule::get_metagraph(netuid)
         }
 
-        fn get_subnet_state(netuid: u16) -> Option<SubnetState<AccountId32>> {
+        fn get_subnet_state(netuid: NetUid) -> Option<SubnetState<AccountId32>> {
             SubtensorModule::get_subnet_state(netuid)
         }
 
@@ -2254,7 +2254,7 @@ impl_runtime_apis! {
             SubtensorModule::get_all_dynamic_info()
         }
 
-        fn get_selective_metagraph(netuid: u16, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
+        fn get_selective_metagraph(netuid: NetUid, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
             SubtensorModule::get_selective_metagraph(netuid, metagraph_indexes)
         }
 
@@ -2269,11 +2269,11 @@ impl_runtime_apis! {
             SubtensorModule::get_stake_info_for_coldkeys( coldkey_accounts )
         }
 
-        fn get_stake_info_for_hotkey_coldkey_netuid( hotkey_account: AccountId32, coldkey_account: AccountId32, netuid: u16 ) -> Option<StakeInfo<AccountId32>> {
+        fn get_stake_info_for_hotkey_coldkey_netuid( hotkey_account: AccountId32, coldkey_account: AccountId32, netuid: NetUid ) -> Option<StakeInfo<AccountId32>> {
             SubtensorModule::get_stake_info_for_hotkey_coldkey_netuid( hotkey_account, coldkey_account, netuid )
         }
 
-        fn get_stake_fee( origin: Option<(AccountId32, u16)>, origin_coldkey_account: AccountId32, destination: Option<(AccountId32, u16)>, destination_coldkey_account: AccountId32, amount: u64 ) -> u64 {
+        fn get_stake_fee( origin: Option<(AccountId32, NetUid)>, origin_coldkey_account: AccountId32, destination: Option<(AccountId32, NetUid)>, destination_coldkey_account: AccountId32, amount: u64 ) -> u64 {
             SubtensorModule::get_stake_fee( origin, origin_coldkey_account, destination, destination_coldkey_account, amount )
         }
     }

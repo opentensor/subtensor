@@ -15,6 +15,7 @@ codec = { workspace = true }
 frame-support = { workspace = true }
 precompile-utils = { workspace = true }
 scale-info = { workspace = true }
+serde = { workspace = true }
 sp-core = { workspace = true }
 sp-runtime = { workspace = true }
 subtensor-macros = { workspace = true }
@@ -30,6 +31,7 @@ std = [
 	"frame-support/std",
 	"precompile-utils/std",
 	"scale-info/std",
+	"serde/std",
 	"sp-core/std",
 	"sp-runtime/std",
 ]
