@@ -170,4 +170,3 @@ fn localnet_genesis(
         },
     })
 }
-// "grandpa": { "authorities": initial_authorities.iter().map(|x| (x.grandpa().clone(), 1u64)).collect::<Vec<_>>() },
