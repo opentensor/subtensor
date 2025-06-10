@@ -1896,6 +1896,8 @@ impl_runtime_apis! {
             estimate: bool,
             access_list: Option<Vec<(H160, Vec<H256>)>>,
         ) -> Result<pallet_evm::CallInfo, sp_runtime::DispatchError> {
+            log::error!("===================== {:?} {:?} {:?}", &from, &to, &data);
+            log::error!("===================== {} {}", file!(), line!());
             use pallet_evm::GasWeightMapping as _;
 
             let config = if estimate {
@@ -1946,6 +1948,9 @@ impl_runtime_apis! {
                     _ => (None, None),
                 };
 
+                log::error!("===================== {} {}", file!(), line!());
+
+                log::error!("===================== {:?} {:?} {:?}", &from, &to, &data);
             <Runtime as pallet_evm::Config>::Runner::call(
                 from,
                 to,
