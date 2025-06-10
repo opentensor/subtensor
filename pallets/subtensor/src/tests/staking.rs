@@ -5328,3 +5328,50 @@ fn test_stake_locks() {
         );
     });
 }
+
+#[test]
+fn test_stake_lock_clear() {
+    new_test_ext(0).execute_with(|| {
+        // Create subnet and accounts.
+        let subnet_owner_coldkey = U256::from(10);
+        let subnet_owner_hotkey = U256::from(20);
+        let hot1 = U256::from(1);
+        let cold1 = U256::from(3);
+        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let amount = DefaultMinStake::<Test>::get() * 10;
+        let fee: u64 = DefaultMinStake::<Test>::get();
+        let init_balance = amount + fee + ExistentialDeposit::get();
+
+        register_ok_neuron(netuid, hot1, cold1, 0);
+        Delegates::<Test>::insert(hot1, SubtensorModule::get_min_delegate_take());
+        assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot1), cold1);
+
+        SubtensorModule::add_balance_to_coldkey_account(&cold1, init_balance);
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(cold1),
+            hot1,
+            netuid,
+            amount + fee
+        ));
+
+        assert_err!(
+            SubtensorModule::remove_stake(RuntimeOrigin::signed(cold1), hot1, netuid, amount),
+            Error::<Test>::StakeLocked
+        );
+
+        assert!(StakeLocks::<Test>::contains_key((hot1, cold1, netuid)));
+
+        let tempo = InitialTempo::get();
+
+        run_to_block((tempo + 2).into()); // tempo + starting block + 1
+
+        assert_ok!(SubtensorModule::remove_stake(
+            RuntimeOrigin::signed(cold1),
+            hot1,
+            netuid,
+            amount
+        ),);
+
+        assert!(!StakeLocks::<Test>::contains_key((hot1, cold1, netuid)));
+    });
+}

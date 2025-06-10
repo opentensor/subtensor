@@ -876,6 +876,8 @@ impl<T: Config> Pallet<T> {
 
         ensure!(current_block_number > stake_lock, Error::<T>::StakeLocked);
 
+        StakeLocks::<T>::remove((hotkey, coldkey, netuid));
+
         Ok(())
     }
 
