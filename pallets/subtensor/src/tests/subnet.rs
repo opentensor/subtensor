@@ -239,7 +239,9 @@ fn test_subtoken_enable() {
     });
 }
 
-// cargo test --package pallet-subtensor --lib -- tests::subnet::test_subtoken_enable_reject_trading_before_enable --exact --show-output
+// cargo test --package pallet-subtensor --lib --
+// tests::subnet::test_subtoken_enable_reject_trading_before_enable --exact --show-output
+#[allow(clippy::unwrap_used)]
 #[test]
 fn test_subtoken_enable_reject_trading_before_enable() {
     // ensure_subtoken_enabled
