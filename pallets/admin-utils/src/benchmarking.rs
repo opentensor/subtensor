@@ -200,6 +200,14 @@ mod benchmarks {
     }
 
     #[benchmark]
+    fn sudo_set_bonds_reset() {
+        pallet_subtensor::Pallet::<T>::init_new_network(1u16 /*netuid*/, 1u16 /*tempo*/);
+
+        #[extrinsic_call]
+		_(RawOrigin::Root, 1u16/*netuid*/, true/*bonds_reset*/)/*sudo_set_bonds_reset*/;
+    }
+
+    #[benchmark]
     fn sudo_set_max_registrations_per_block() {
         pallet_subtensor::Pallet::<T>::init_new_network(1u16 /*netuid*/, 1u16 /*tempo*/);
 

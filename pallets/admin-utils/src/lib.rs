@@ -840,6 +840,33 @@ pub mod pallet {
             Ok(())
         }
 
+        /// The extrinsic sets the bonds reset for a subnet.
+        /// It is only callable by the root account or subnet owner.
+        /// The extrinsic will call the Subtensor pallet to set the bonds reset.
+        #[pallet::call_index(70)]
+        #[pallet::weight(Weight::from_parts(20_030_000, 0)
+        .saturating_add(T::DbWeight::get().reads(1_u64))
+        .saturating_add(T::DbWeight::get().writes(1_u64)))]
+        pub fn sudo_set_bonds_reset(
+            origin: OriginFor<T>,
+            netuid: u16,
+            bonds_reset: bool,
+        ) -> DispatchResult {
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+            pallet_subtensor::Pallet::<T>::set_bonds_reset(netuid, bonds_reset);
+            log::debug!(
+                "BondsReset( netuid: {:?} bonds_reset: {:?} ) ",
+                netuid,
+                bonds_reset
+            );
+            Ok(())
+        }
+
         /// The extrinsic sets the maximum registrations per block for a subnet.
         /// It is only callable by the root account.
         /// The extrinsic will call the Subtensor pallet to set the maximum registrations per block.
