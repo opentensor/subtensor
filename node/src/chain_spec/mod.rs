@@ -10,7 +10,6 @@ use babe_primitives::AuthorityId as BabeId;
 use node_subtensor_runtime::{Block, WASM_BINARY};
 use sc_chain_spec_derive::ChainSpecExtension;
 use sc_service::ChainType;
-use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::crypto::Ss58Codec;
 use sp_core::{H256, Pair, Public, bounded_vec, sr25519};
@@ -59,21 +58,14 @@ pub struct AuthorityKeys {
     account: AccountId,
     babe: BabeId,
     grandpa: GrandpaId,
-    authority_discovery: AuthorityDiscoveryId,
 }
 
 impl AuthorityKeys {
-    pub fn new(
-        account: AccountId,
-        babe: BabeId,
-        grandpa: GrandpaId,
-        authority_discovery: AuthorityDiscoveryId,
-    ) -> Self {
+    pub fn new(account: AccountId, babe: BabeId, grandpa: GrandpaId) -> Self {
         Self {
             account,
             babe,
             grandpa,
-            authority_discovery,
         }
     }
 
@@ -88,10 +80,6 @@ impl AuthorityKeys {
     pub fn grandpa(&self) -> &GrandpaId {
         &self.grandpa
     }
-
-    pub fn authority_discovery(&self) -> &AuthorityDiscoveryId {
-        &self.authority_discovery
-    }
 }
 
 fn get_authority_keys_from_seed(seed: &str) -> AuthorityKeys {
@@ -99,7 +87,6 @@ fn get_authority_keys_from_seed(seed: &str) -> AuthorityKeys {
         get_account_id_from_seed::<sr25519::Public>(seed),
         get_from_seed::<BabeId>(seed),
         get_from_seed::<GrandpaId>(seed),
-        get_from_seed::<AuthorityDiscoveryId>(seed),
     )
 }
 
@@ -107,13 +94,11 @@ fn get_authority_keys_from_seed(seed: &str) -> AuthorityKeys {
 //     account: &str,
 //     babe: &str,
 //     grandpa: &str,
-//     authority_discovery: &str,
 // ) -> AuthorityKeys {
 //     AuthorityKeys::new(
 //         AccountId32::from_str(account).unwrap(),
 //         get_from_ss58_addr::<BabeId>(babe),
 //         get_from_ss58_addr::<GrandpaId>(grandpa),
-//         get_from_ss58_addr::<AuthorityDiscoveryId>(authority_discovery),
 //     )
 // }
 //

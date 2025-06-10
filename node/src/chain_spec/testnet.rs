@@ -104,7 +104,6 @@ fn testnet_genesis(
                         node_subtensor_runtime::opaque::SessionKeys {
                             babe: x.babe().clone(),
                             grandpa: x.grandpa().clone(),
-                            authority_discovery: x.authority_discovery().clone(),
                         },
                     )
                 })

@@ -241,7 +241,6 @@ pub mod opaque {
         pub struct SessionKeys {
             pub grandpa: Grandpa,
             pub babe: Babe,
-            pub authority_discovery: AuthorityDiscovery,
         }
     }
 }
@@ -665,10 +664,6 @@ parameter_types! {
     pub const MaxAuthorities: u32 = 32;
     pub NposSolutionPriority: TransactionPriority =
         Perbill::from_percent(90) * TransactionPriority::max_value();
-}
-
-impl pallet_authority_discovery::Config for Runtime {
-    type MaxAuthorities = MaxAuthorities;
 }
 
 parameter_types! {
@@ -1870,11 +1865,10 @@ construct_runtime!(
         Offences: pallet_offences = 32,
         Historical: session_historical = 33,
         Session: pallet_session = 34,
-        AuthorityDiscovery: pallet_authority_discovery = 36,
-        Babe: pallet_babe = 37,
-        ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 38,
-        VoterList: pallet_bags_list::<Instance1> = 39,
-        FastUnstake: pallet_fast_unstake = 40,
+        Babe: pallet_babe = 36,
+        ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 37,
+        VoterList: pallet_bags_list::<Instance1> = 38,
+        FastUnstake: pallet_fast_unstake = 39,
     }
 );
 
