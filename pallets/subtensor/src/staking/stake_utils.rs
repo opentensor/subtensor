@@ -965,7 +965,7 @@ impl<T: Config> Pallet<T> {
         allow_partial: bool,
     ) -> Result<(), Error<T>> {
         // Ensure that the subnet exists.
-        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+        // ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
         // Ensure that the subnet is enabled.
         Self::ensure_subtoken_enabled(netuid)?;
