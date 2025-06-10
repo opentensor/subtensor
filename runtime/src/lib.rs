@@ -381,7 +381,7 @@ impl frame_system::Config for Runtime {
 parameter_types! {
     pub EpochDuration: u64 = prod_or_fast!(
         EPOCH_DURATION_IN_SLOTS as u64,
-        2 * MINUTES as u64,
+        MINUTES as u64 / 2u64,
         "TAO_EPOCH_DURATION"
     );
     pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
@@ -577,12 +577,12 @@ parameter_types! {
     // 28 eras for unbonding (28 days).
     pub BondingDuration: sp_staking::EraIndex = prod_or_fast!(
         28,
-        28,
+        1,
         "BONDING_DURATION"
     );
     pub SlashDeferDuration: sp_staking::EraIndex = prod_or_fast!(
         27,
-        27,
+        1,
         "SLASH_DEFER_DURATION"
     );
     pub const MaxExposurePageSize: u32 = 512;
