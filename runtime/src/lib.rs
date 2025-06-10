@@ -12,7 +12,7 @@ pub mod check_nonce;
 mod migrations;
 
 use codec::{Compact, Decode, Encode};
-use frame_support::traits::Imbalance;
+use frame_support::traits::{Imbalance, InsideBoth};
 use frame_support::{
     PalletId,
     dispatch::DispatchResultWithPostInfo,
@@ -209,7 +209,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 272,
+    spec_version: 274,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -244,11 +244,33 @@ parameter_types! {
     pub const SS58Prefix: u8 = 42;
 }
 
+pub struct NoNestingCallFilter;
+
+impl Contains<RuntimeCall> for NoNestingCallFilter {
+    fn contains(call: &RuntimeCall) -> bool {
+        match call {
+            RuntimeCall::Utility(inner) => {
+                let calls = match inner {
+                    pallet_utility::Call::force_batch { calls } => calls,
+                    pallet_utility::Call::batch { calls } => calls,
+                    pallet_utility::Call::batch_all { calls } => calls,
+                    _ => &Vec::new(),
+                };
+
+                !calls.iter().any(|call| {
+					matches!(call, RuntimeCall::Utility(inner) if matches!(inner, pallet_utility::Call::force_batch { .. } | pallet_utility::Call::batch_all { .. } | pallet_utility::Call::batch { .. }))
+				})
+            }
+            _ => true,
+        }
+    }
+}
+
 // Configure FRAME pallets to include in runtime.
 
 impl frame_system::Config for Runtime {
     // The basic call filter to use in dispatchable.
-    type BaseCallFilter = SafeMode;
+    type BaseCallFilter = InsideBoth<SafeMode, NoNestingCallFilter>;
     // Block & extrinsics weights: base values and limits.
     type BlockWeights = BlockWeights;
     // The maximum length of a block (in bytes).
@@ -1065,7 +1087,7 @@ parameter_types! {
     pub const SubtensorInitialMinDifficulty: u64 = 10_000_000;
     pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX / 4;
     pub const SubtensorInitialServingRateLimit: u64 = 50;
-    pub const SubtensorInitialBurn: u64 = 1_000_000_000; // 1 tao
+    pub const SubtensorInitialBurn: u64 = 100_000_000; // 0.1 tao
     pub const SubtensorInitialMinBurn: u64 = 500_000; // 500k RAO
     pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
@@ -1096,6 +1118,8 @@ parameter_types! {
     } else {
         7 * 24 * 60 * 60 / 12 // 7 days
     };
+    pub const SubtensorInitialKeySwapOnSubnetCost: u64 = 1_000_000; // 0.001 TAO
+    pub const HotkeySwapOnSubnetInterval : BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1165,6 +1189,8 @@ impl pallet_subtensor::Config for Runtime {
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
+    type KeySwapOnSubnetCost = SubtensorInitialKeySwapOnSubnetCost;
+    type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
 }
 
 use sp_runtime::BoundedVec;
@@ -1713,8 +1739,8 @@ impl_runtime_apis! {
             use frame_support::pallet_prelude::{InvalidTransaction, TransactionValidityError};
             use frame_support::traits::ExtrinsicCall;
             let encoded = tx.call().encode();
-            if RuntimeCall::decode_all_with_depth_limit(200, &mut encoded.as_slice()).is_err() {
-                log::warn!("failed to decde with depth limit of 200");
+            if RuntimeCall::decode_all_with_depth_limit(8, &mut encoded.as_slice()).is_err() {
+                log::warn!("failed to decode with depth limit of 8");
                 return Err(TransactionValidityError::Invalid(InvalidTransaction::Call));
             }
             Executive::validate_transaction(source, tx, block_hash)

@@ -210,6 +210,8 @@ mod errors {
         InvalidRecoveredPublicKey,
         /// SubToken disabled now
         SubtokenDisabled,
+        /// Too frequent hotkey swap on subnet
+        HotKeySwapOnSubnetIntervalNotPassed,
         /// Zero max stake amount
         ZeroMaxStakeAmount,
         /// Invalid netuid duplication

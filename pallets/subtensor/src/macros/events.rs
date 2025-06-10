@@ -17,30 +17,6 @@ mod events {
         StakeAdded(T::AccountId, T::AccountId, u64, u64, u16, u64),
         /// stake has been removed from the hotkey staking account onto the coldkey account.
         StakeRemoved(T::AccountId, T::AccountId, u64, u64, u16, u64),
-        /// stake has been transferred from the coldkey account onto the hotkey staking account (at the end of the block)
-        AggregatedStakeAdded(T::AccountId, T::AccountId, u16, u64),
-        /// adding aggregated stake has failed
-        FailedToAddAggregatedStake(T::AccountId, T::AccountId, u16, u64),
-        /// limited stake has been transferred from the coldkey account onto the hotkey staking account (at the end of the block)
-        AggregatedLimitedStakeAdded(T::AccountId, T::AccountId, u16, u64, u64, bool),
-        /// adding limited aggregated stake has failed
-        FailedToAddAggregatedLimitedStake(T::AccountId, T::AccountId, u16, u64, u64, bool),
-        /// stake has been removed from the hotkey staking account into the coldkey account (at the end of the block).
-        AggregatedStakeRemoved(T::AccountId, T::AccountId, u16, u64),
-        /// removing aggregated stake has failed
-        FailedToRemoveAggregatedStake(T::AccountId, T::AccountId, u16, u64),
-        /// aggregated limited stake has been removed from the hotkey staking account into the coldkey account (at the end of the block).
-        AggregatedLimitedStakeRemoved(T::AccountId, T::AccountId, u16, u64, u64, bool),
-        /// removing limited aggregated stake has failed
-        FailedToRemoveAggregatedLimitedStake(T::AccountId, T::AccountId, u16, u64, u64, bool),
-        ///  aggregated unstake_all operation has succeeded
-        AggregatedUnstakeAllSucceeded(T::AccountId, T::AccountId),
-        /// aggregated unstake_all operation has failed
-        AggregatedUnstakeAllFailed(T::AccountId, T::AccountId),
-        ///  aggregated unstake_all_alpha operation has succeeded
-        AggregatedUnstakeAllAlphaSucceeded(T::AccountId, T::AccountId),
-        /// aggregated unstake_all_alpha operation has failed
-        AggregatedUnstakeAllAlphaFailed(T::AccountId, T::AccountId),
         /// stake has been moved from origin (hotkey, subnet ID) to destination (hotkey, subnet ID) of this amount (in TAO).
         StakeMoved(T::AccountId, T::AccountId, u16, T::AccountId, u16, u64),
         /// a caller successfully sets their weights on a subnetwork.
@@ -351,5 +327,17 @@ mod events {
         /// - **netuid**: The network identifier.
         /// - **Enabled**: Is Commit-Reveal enabled.
         CommitRevealEnabled(u16, bool),
+
+        /// the hotkey is swapped
+        HotkeySwappedOnSubnet {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of old hotkey
+            old_hotkey: T::AccountId,
+            /// the account ID of new hotkey
+            new_hotkey: T::AccountId,
+            /// the subnet ID
+            netuid: u16,
+        },
     }
 }

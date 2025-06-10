@@ -270,79 +270,6 @@ pub mod pallet {
         pub additional: Vec<u8>,
     }
 
-    /// Data structure for stake related jobs.
-    #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
-    pub enum StakeJob<AccountId> {
-        /// Represents a job for "add_stake" operation
-        AddStake {
-            /// Hotkey account
-            hotkey: AccountId,
-            /// Coldkey account
-            coldkey: AccountId,
-            /// Subnet ID
-            netuid: u16,
-            /// The amount of stake to be added to the hotkey staking account.
-            stake_to_be_added: u64,
-        },
-        /// Represents a job for "remove_stake" operation
-        RemoveStake {
-            /// Hotkey account
-            hotkey: AccountId,
-            /// Coldkey account
-            coldkey: AccountId,
-            /// Subnet ID
-            netuid: u16,
-            /// Alpha value
-            alpha_unstaked: u64,
-        },
-        /// Represents a job for "add_stake_limit" operation
-        AddStakeLimit {
-            /// Coldkey account
-            coldkey: AccountId,
-            /// Hotkey account
-            hotkey: AccountId,
-            /// Subnet ID
-            netuid: u16,
-            /// The amount of stake to be added to the hotkey staking account.
-            stake_to_be_added: u64,
-            /// The limit price expressed in units of RAO per one Alpha.
-            limit_price: u64,
-            /// Allows partial execution of the amount. If set to false, this becomes
-            /// fill or kill type or order.
-            allow_partial: bool,
-        },
-        /// Represents a job for "remove_stake_limit" operation
-        RemoveStakeLimit {
-            /// Coldkey account
-            coldkey: AccountId,
-            /// Hotkey account
-            hotkey: AccountId,
-            /// Subnet ID
-            netuid: u16,
-            /// The amount of stake to be added to the hotkey staking account.
-            alpha_unstaked: u64,
-            /// The limit price
-            limit_price: u64,
-            /// Allows partial execution of the amount. If set to false, this becomes
-            /// fill or kill type or order.
-            allow_partial: bool,
-        },
-        /// Represents a job for "unstake_all" operation
-        UnstakeAll {
-            /// Coldkey account
-            coldkey: AccountId,
-            /// Hotkey account
-            hotkey: AccountId,
-        },
-        /// Represents a job for "unstake_all_alpha" operation
-        UnstakeAllAlpha {
-            /// Coldkey account
-            coldkey: AccountId,
-            /// Hotkey account
-            hotkey: AccountId,
-        },
-    }
-
     /// ============================
     /// ==== Staking + Accounts ====
     /// ============================
@@ -936,14 +863,16 @@ pub mod pallet {
         StorageValue<_, u64, ValueQuery, DefaultSenateRequiredStakePercentage<T>>;
 
     #[pallet::storage]
-    pub type StakeJobs<T: Config> = StorageDoubleMap<
+    /// --- DMap ( netuid, coldkey ) --> blocknumber | last hotkey swap on network.
+    pub type LastHotkeySwapOnNetuid<T: Config> = StorageDoubleMap<
         _,
+        Identity,
+        u16,
         Blake2_128Concat,
-        BlockNumberFor<T>, // first key: current block number
-        Twox64Concat,
-        u64, // second key: unique job ID
-        StakeJob<T::AccountId>,
-        OptionQuery,
+        T::AccountId,
+        u64,
+        ValueQuery,
+        DefaultZeroU64<T>,
     >;
 
     #[pallet::storage]
@@ -2203,112 +2132,20 @@ where
                     Self::get_priority_staking(who, hotkey, *amount_unstaked),
                 )
             }
-            // Some(Call::add_stake_aggregate {
-            //     hotkey,
-            //     netuid,
-            //     amount_staked,
-            // }) => {
-            //     if ColdkeySwapScheduled::<T>::contains_key(who) {
-            //         return InvalidTransaction::Custom(
-            //             CustomTransactionError::ColdkeyInSwapSchedule.into(),
-            //         )
-            //         .into();
-            //     }
-            //     // Fully validate the user input
-            //     Self::result_to_validity(
-            //         Pallet::<T>::validate_add_stake(
-            //             who,
-            //             hotkey,
-            //             *netuid,
-            //             *amount_staked,
-            //             *amount_staked,
-            //             false,
-            //         ),
-            //         Self::get_priority_staking(who, hotkey, *amount_staked),
-            //     )
-            // }
-            // Some(Call::add_stake_limit_aggregate {
-            //     hotkey,
-            //     netuid,
-            //     amount_staked,
-            //     limit_price,
-            //     allow_partial,
-            // }) => {
-            //     if ColdkeySwapScheduled::<T>::contains_key(who) {
-            //         return InvalidTransaction::Custom(
-            //             CustomTransactionError::ColdkeyInSwapSchedule.into(),
-            //         )
-            //         .into();
-            //     }
-            //
-            //     // Calculate the maximum amount that can be executed with price limit
-            //     let Ok(max_amount) = Pallet::<T>::get_max_amount_add(*netuid, *limit_price) else {
-            //         return InvalidTransaction::Custom(
-            //             CustomTransactionError::ZeroMaxAmount.into(),
-            //         )
-            //         .into();
-            //     };
-            //
-            //     // Fully validate the user input
-            //     Self::result_to_validity(
-            //         Pallet::<T>::validate_add_stake(
-            //             who,
-            //             hotkey,
-            //             *netuid,
-            //             *amount_staked,
-            //             max_amount,
-            //             *allow_partial,
-            //         ),
-            //         Self::get_priority_staking(who, hotkey, *amount_staked),
-            //     )
-            // }
-            // Some(Call::remove_stake_aggregate {
-            //     hotkey,
-            //     netuid,
-            //     amount_unstaked,
-            // }) => {
-            //     // Fully validate the user input
-            //     Self::result_to_validity(
-            //         Pallet::<T>::validate_remove_stake(
-            //             who,
-            //             hotkey,
-            //             *netuid,
-            //             *amount_unstaked,
-            //             *amount_unstaked,
-            //             false,
-            //         ),
-            //         Self::get_priority_staking(who, hotkey, *amount_unstaked),
-            //     )
-            // }
-            // Some(Call::remove_stake_limit_aggregate {
-            //     hotkey,
-            //     netuid,
-            //     amount_unstaked,
-            //     limit_price,
-            //     allow_partial,
-            // }) => {
-            //     // Calculate the maximum amount that can be executed with price limit
-            //     let Ok(max_amount) = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price)
-            //     else {
-            //         return InvalidTransaction::Custom(
-            //             CustomTransactionError::ZeroMaxAmount.into(),
-            //         )
-            //         .into();
-            //     };
-            //
-            //     // Fully validate the user input
-            //     Self::result_to_validity(
-            //         Pallet::<T>::validate_remove_stake(
-            //             who,
-            //             hotkey,
-            //             *netuid,
-            //             *amount_unstaked,
-            //             max_amount,
-            //             *allow_partial,
-            //         ),
-            //         Self::get_priority_staking(who, hotkey, *amount_unstaked),
-            //     )
-            // }
+            Some(Call::unstake_all { hotkey }) => {
+                // Fully validate the user input
+                Self::result_to_validity(
+                    Pallet::<T>::validate_unstake_all(who, hotkey, false),
+                    Self::get_priority_vanilla(),
+                )
+            }
+            Some(Call::unstake_all_alpha { hotkey }) => {
+                // Fully validate the user input
+                Self::result_to_validity(
+                    Pallet::<T>::validate_unstake_all(who, hotkey, true),
+                    Self::get_priority_vanilla(),
+                )
+            }
             Some(Call::move_stake {
                 origin_hotkey,
                 destination_hotkey,
