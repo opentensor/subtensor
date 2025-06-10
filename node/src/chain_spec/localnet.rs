@@ -44,7 +44,7 @@ pub fn localnet_config(single_authority: bool) -> Result<ChainSpec, String> {
         } else {
             vec![
                 get_authority_keys_from_seed("Alice"),
-                // get_authority_keys_from_seed("Bob"),
+                get_authority_keys_from_seed("Bob"),
             ]
         },
         // Pre-funded accounts

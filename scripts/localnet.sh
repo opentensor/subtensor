@@ -118,7 +118,7 @@ if [ $BUILD_ONLY -eq 0 ]; then
 
   (
     ("${alice_start[@]}" 2>&1) &
-    # ("${bob_start[@]}" 2>&1)
+    ("${bob_start[@]}" 2>&1)
     wait
   )
 fi
