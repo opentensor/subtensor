@@ -1214,7 +1214,8 @@ impl pallet_subtensor_swap::Config for Runtime {
     type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
     type MinimumReserve = SwapMinimumReserve;
-    type WeightInfo = ();
+    // TODO: set measured weights when the pallet been benchmarked and the type is generated
+    type WeightInfo = pallet_subtensor_swap::weights::DefaultWeight<Runtime>;
 }
 
 use sp_runtime::BoundedVec;
