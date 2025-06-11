@@ -136,7 +136,6 @@ pub fn create_benchmark_extrinsic(
         frame_system::CheckWeight::<runtime::Runtime>::new(),
         pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
         pallet_subtensor::SubtensorTransactionExtension::<runtime::Runtime>::new().into(),
-        pallet_commitments::CommitmentsSignedExtension::<runtime::Runtime>::new().into(),
         frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(true),
     );
 
