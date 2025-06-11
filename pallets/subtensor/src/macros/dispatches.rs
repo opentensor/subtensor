@@ -551,11 +551,11 @@ mod dispatches {
             Self::do_increase_take(origin, hotkey, take)
         }
 
-        /// --- Adds stake to a hotkey. The call is made from the
-        /// coldkey account linked in the hotkey.
-        /// Only the associated coldkey is allowed to make staking and
-        /// unstaking requests. This protects the neuron against
-        /// attacks on its hotkey running in production code.
+        /// --- Adds stake to a hotkey. The call is made from a coldkey account.
+        /// This delegates stake to the hotkey.
+        ///
+        /// Note: the coldkey account may own the hotkey, in which case they are
+        /// delegating to themselves.
         ///
         /// # Args:
         ///  * 'origin': (<T as frame_system::Config>Origin):

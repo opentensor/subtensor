@@ -11723,12 +11723,15 @@ dependencies = [
  "pallet-evm-precompile-simple",
  "pallet-proxy 38.0.0",
  "pallet-subtensor",
+ "pallet-subtensor-swap",
  "precompile-utils",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409-7)",
+ "substrate-fixed",
  "subtensor-runtime-common",
+ "subtensor-swap-interface",
 ]
 
 [[package]]
