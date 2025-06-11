@@ -19,6 +19,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
 };
 use sp_std::cmp::Ordering;
+use subtensor_runtime_common::NetUid;
 
 use crate::*;
 
@@ -646,7 +647,7 @@ pub(crate) fn run_to_block_ext(n: u64, enable_events: bool) {
 }
 
 #[allow(dead_code)]
-pub(crate) fn next_block_no_epoch(netuid: u16) -> u64 {
+pub(crate) fn next_block_no_epoch(netuid: NetUid) -> u64 {
     // high tempo to skip automatic epochs in on_initialize
     let high_tempo: u16 = u16::MAX - 1;
     let old_tempo: u16 = SubtensorModule::get_tempo(netuid);
@@ -659,7 +660,7 @@ pub(crate) fn next_block_no_epoch(netuid: u16) -> u64 {
 }
 
 #[allow(dead_code)]
-pub(crate) fn run_to_block_no_epoch(netuid: u16, n: u64) {
+pub(crate) fn run_to_block_no_epoch(netuid: NetUid, n: u64) {
     // high tempo to skip automatic epochs in on_initialize
     let high_tempo: u16 = u16::MAX - 1;
     let old_tempo: u16 = SubtensorModule::get_tempo(netuid);
@@ -670,7 +671,7 @@ pub(crate) fn run_to_block_no_epoch(netuid: u16, n: u64) {
 }
 
 #[allow(dead_code)]
-pub(crate) fn step_epochs(count: u16, netuid: u16) {
+pub(crate) fn step_epochs(count: u16, netuid: NetUid) {
     for _ in 0..count {
         let blocks_to_next_epoch = SubtensorModule::blocks_until_next_epoch(
             netuid,
@@ -704,7 +705,7 @@ pub(crate) fn next_block() -> u64 {
 
 #[allow(dead_code)]
 pub fn register_ok_neuron(
-    netuid: u16,
+    netuid: NetUid,
     hotkey_account_id: U256,
     coldkey_account_id: U256,
     start_nonce: u64,
@@ -735,7 +736,7 @@ pub fn register_ok_neuron(
 }
 
 #[allow(dead_code)]
-pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
+pub fn add_network(netuid: NetUid, tempo: u16, _modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
@@ -744,14 +745,14 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
 }
 
 #[allow(dead_code)]
-pub fn add_network_without_emission_block(netuid: u16, tempo: u16, _modality: u16) {
+pub fn add_network_without_emission_block(netuid: NetUid, tempo: u16, _modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
 }
 
 #[allow(dead_code)]
-pub fn add_network_disable_subtoken(netuid: u16, tempo: u16, _modality: u16) {
+pub fn add_network_disable_subtoken(netuid: NetUid, tempo: u16, _modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
@@ -759,7 +760,7 @@ pub fn add_network_disable_subtoken(netuid: u16, tempo: u16, _modality: u16) {
 }
 
 #[allow(dead_code)]
-pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> u16 {
+pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
     let netuid = SubtensorModule::get_next_netuid();
     let lock_cost = SubtensorModule::get_network_lock_cost();
     SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost);
@@ -776,7 +777,7 @@ pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> u16 {
 }
 
 #[allow(dead_code)]
-pub fn add_dynamic_network_without_emission_block(hotkey: &U256, coldkey: &U256) -> u16 {
+pub fn add_dynamic_network_without_emission_block(hotkey: &U256, coldkey: &U256) -> NetUid {
     let netuid = SubtensorModule::get_next_netuid();
     let lock_cost = SubtensorModule::get_network_lock_cost();
     SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost);
@@ -792,20 +793,20 @@ pub fn add_dynamic_network_without_emission_block(hotkey: &U256, coldkey: &U256)
 
 // Helper function to set up a neuron with stake
 #[allow(dead_code)]
-pub fn setup_neuron_with_stake(netuid: u16, hotkey: U256, coldkey: U256, stake: u64) {
+pub fn setup_neuron_with_stake(netuid: NetUid, hotkey: U256, coldkey: U256, stake: u64) {
     register_ok_neuron(netuid, hotkey, coldkey, stake);
     increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake, netuid);
 }
 
 #[allow(dead_code)]
-pub fn wait_set_pending_children_cooldown(netuid: u16) {
+pub fn wait_set_pending_children_cooldown(netuid: NetUid) {
     let cooldown = DefaultPendingCooldown::<Test>::get();
     step_block(cooldown as u16); // Wait for cooldown to pass
     step_epochs(1, netuid); // Run next epoch
 }
 
 #[allow(dead_code)]
-pub fn wait_and_set_pending_children(netuid: u16) {
+pub fn wait_and_set_pending_children(netuid: NetUid) {
     let original_block = System::block_number();
     wait_set_pending_children_cooldown(netuid);
     SubtensorModule::do_set_pending_children(netuid);
@@ -816,7 +817,7 @@ pub fn wait_and_set_pending_children(netuid: u16) {
 pub fn mock_schedule_children(
     coldkey: &U256,
     parent: &U256,
-    netuid: u16,
+    netuid: NetUid,
     child_vec: &[(u64, U256)],
 ) {
     // Set minimum stake for setting children
@@ -832,13 +833,13 @@ pub fn mock_schedule_children(
 }
 
 #[allow(dead_code)]
-pub fn mock_set_children(coldkey: &U256, parent: &U256, netuid: u16, child_vec: &[(u64, U256)]) {
+pub fn mock_set_children(coldkey: &U256, parent: &U256, netuid: NetUid, child_vec: &[(u64, U256)]) {
     mock_schedule_children(coldkey, parent, netuid, child_vec);
     wait_and_set_pending_children(netuid);
 }
 
 #[allow(dead_code)]
-pub fn mock_set_children_no_epochs(netuid: u16, parent: &U256, child_vec: &[(u64, U256)]) {
+pub fn mock_set_children_no_epochs(netuid: NetUid, parent: &U256, child_vec: &[(u64, U256)]) {
     let backup_block = SubtensorModule::get_current_block_as_u64();
     PendingChildKeys::<Test>::insert(netuid, parent, (child_vec, 0));
     System::set_block_number(1);
@@ -848,7 +849,7 @@ pub fn mock_set_children_no_epochs(netuid: u16, parent: &U256, child_vec: &[(u64
 
 // Helper function to wait for the rate limit
 #[allow(dead_code)]
-pub fn step_rate_limit(transaction_type: &TransactionType, netuid: u16) {
+pub fn step_rate_limit(transaction_type: &TransactionType, netuid: NetUid) {
     // Check rate limit
     let limit = SubtensorModule::get_rate_limit_on_subnet(transaction_type, netuid);
 
@@ -863,7 +864,7 @@ pub fn increase_stake_on_coldkey_hotkey_account(
     coldkey: &U256,
     hotkey: &U256,
     tao_staked: u64,
-    netuid: u16,
+    netuid: NetUid,
 ) {
     let fee = 0;
     SubtensorModule::stake_into_subnet(hotkey, coldkey, netuid, tao_staked, fee);
@@ -875,7 +876,7 @@ pub fn increase_stake_on_coldkey_hotkey_account(
 /// * `hotkey` - The hotkey account ID.
 /// * `increment` - The amount to be incremented.
 #[allow(dead_code)]
-pub fn increase_stake_on_hotkey_account(hotkey: &U256, increment: u64, netuid: u16) {
+pub fn increase_stake_on_hotkey_account(hotkey: &U256, increment: u64, netuid: NetUid) {
     increase_stake_on_coldkey_hotkey_account(
         &SubtensorModule::get_owning_coldkey_for_hotkey(hotkey),
         hotkey,

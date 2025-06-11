@@ -1,5 +1,6 @@
 use super::*;
 use sp_core::Get;
+use subtensor_runtime_common::NetUid;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic do_set_child_singular: Sets a single child.
@@ -36,7 +37,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_schedule_children(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
-        netuid: u16,
+        netuid: NetUid,
         children: Vec<(u64, T::AccountId)>,
     ) -> DispatchResult {
         // Check that the caller has signed the transaction. (the coldkey of the pairing)
@@ -61,7 +62,7 @@ impl<T: Config> Pallet<T> {
 
         // Check that this delegation is not on the root network. Child hotkeys are not valid on root.
         ensure!(
-            netuid != Self::get_root_netuid(),
+            !netuid.is_root(),
             Error::<T>::RegistrationNotPermittedOnRootSubnet
         );
 
@@ -170,7 +171,7 @@ impl<T: Config> Pallet<T> {
     /// 1. **Old Children Cleanup**: Removes the hotkey from the parent list of its old children.
     /// 2. **New Children Assignment**: Assigns the new child to the hotkey and updates the parent list for the new child.
     ///
-    pub fn do_set_pending_children(netuid: u16) {
+    pub fn do_set_pending_children(netuid: NetUid) {
         let current_block = Self::get_current_block_as_u64();
 
         // Iterate over all pending children of this subnet and set as needed
@@ -251,7 +252,7 @@ impl<T: Config> Pallet<T> {
     /// ```
     /// let children = SubtensorModule::get_children(&hotkey, netuid);
      */
-    pub fn get_children(hotkey: &T::AccountId, netuid: u16) -> Vec<(u64, T::AccountId)> {
+    pub fn get_children(hotkey: &T::AccountId, netuid: NetUid) -> Vec<(u64, T::AccountId)> {
         ChildKeys::<T>::get(hotkey, netuid)
     }
 
@@ -268,7 +269,7 @@ impl<T: Config> Pallet<T> {
     /// ```
     /// let parents = SubtensorModule::get_parents(&child, netuid);
      */
-    pub fn get_parents(child: &T::AccountId, netuid: u16) -> Vec<(u64, T::AccountId)> {
+    pub fn get_parents(child: &T::AccountId, netuid: NetUid) -> Vec<(u64, T::AccountId)> {
         ParentKeys::<T>::get(child, netuid)
     }
 
@@ -302,7 +303,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_set_childkey_take(
         coldkey: T::AccountId,
         hotkey: T::AccountId,
-        netuid: u16,
+        netuid: NetUid,
         take: u16,
     ) -> DispatchResult {
         // Ensure the coldkey owns the hotkey
@@ -373,7 +374,7 @@ impl<T: Config> Pallet<T> {
     /// * `u16`
     ///     - The childkey take value. This is a percentage represented as a value between 0
     ///       and 10000, where 10000 represents 100%.
-    pub fn get_childkey_take(hotkey: &T::AccountId, netuid: u16) -> u16 {
+    pub fn get_childkey_take(hotkey: &T::AccountId, netuid: NetUid) -> u16 {
         ChildkeyTake::<T>::get(hotkey, netuid)
     }
 }

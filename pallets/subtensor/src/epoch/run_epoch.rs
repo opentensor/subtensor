@@ -4,12 +4,13 @@ use frame_support::IterableStorageDoubleMap;
 use safe_math::*;
 use sp_std::vec;
 use substrate_fixed::types::{I32F32, I64F64, I96F32};
+use subtensor_runtime_common::NetUid;
 
 impl<T: Config> Pallet<T> {
     /// Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.
     /// (Dense version used only for testing purposes.)
     #[allow(clippy::indexing_slicing)]
-    pub fn epoch_dense(netuid: u16, rao_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
+    pub fn epoch_dense(netuid: NetUid, rao_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
         // Get subnetwork size.
         let n: u16 = Self::get_subnetwork_n(netuid);
         log::trace!("n: {:?}", n);
@@ -75,7 +76,7 @@ impl<T: Config> Pallet<T> {
         // ===========
 
         let hotkeys: Vec<(u16, T::AccountId)> =
-            <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(netuid)
+            <Keys<T> as IterableStorageDoubleMap<NetUid, u16, T::AccountId>>::iter_prefix(netuid)
                 .collect();
         log::trace!("hotkeys: {:?}", &hotkeys);
 
@@ -438,7 +439,7 @@ impl<T: Config> Pallet<T> {
     ///     - Print debugging outputs.
     ///
     #[allow(clippy::indexing_slicing)]
-    pub fn epoch(netuid: u16, rao_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
+    pub fn epoch(netuid: NetUid, rao_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
         // Get subnetwork size.
         let n: u16 = Self::get_subnetwork_n(netuid);
         log::trace!("Number of Neurons in Network: {:?}", n);
@@ -482,7 +483,7 @@ impl<T: Config> Pallet<T> {
         // ===========
 
         let hotkeys: Vec<(u16, T::AccountId)> =
-            <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(netuid)
+            <Keys<T> as IterableStorageDoubleMap<NetUid, u16, T::AccountId>>::iter_prefix(netuid)
                 .collect();
         log::debug!("hotkeys: {:?}", &hotkeys);
 
@@ -879,19 +880,19 @@ impl<T: Config> Pallet<T> {
             .collect()
     }
 
-    pub fn get_float_rho(netuid: u16) -> I32F32 {
+    pub fn get_float_rho(netuid: NetUid) -> I32F32 {
         I32F32::saturating_from_num(Self::get_rho(netuid))
     }
-    pub fn get_float_kappa(netuid: u16) -> I32F32 {
+    pub fn get_float_kappa(netuid: NetUid) -> I32F32 {
         I32F32::saturating_from_num(Self::get_kappa(netuid))
             .safe_div(I32F32::saturating_from_num(u16::MAX))
     }
-    pub fn get_float_bonds_penalty(netuid: u16) -> I32F32 {
+    pub fn get_float_bonds_penalty(netuid: NetUid) -> I32F32 {
         I32F32::saturating_from_num(Self::get_bonds_penalty(netuid))
             .safe_div(I32F32::saturating_from_num(u16::MAX))
     }
 
-    pub fn get_block_at_registration(netuid: u16) -> Vec<u64> {
+    pub fn get_block_at_registration(netuid: NetUid) -> Vec<u64> {
         let n = Self::get_subnetwork_n(netuid);
         let block_at_registration: Vec<u64> = (0..n)
             .map(|neuron_uid| {
@@ -906,12 +907,14 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Output unnormalized sparse weights, input weights are assumed to be row max-upscaled in u16.
-    pub fn get_weights_sparse(netuid: u16) -> Vec<Vec<(u16, I32F32)>> {
-        let n: usize = Self::get_subnetwork_n(netuid) as usize;
+    pub fn get_weights_sparse(netuid: NetUid) -> Vec<Vec<(u16, I32F32)>> {
+        let n = Self::get_subnetwork_n(netuid) as usize;
         let mut weights: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
         for (uid_i, weights_i) in
-            <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid)
-                .filter(|(uid_i, _)| *uid_i < n as u16)
+            <Weights<T> as IterableStorageDoubleMap<NetUid, u16, Vec<(u16, u16)>>>::iter_prefix(
+                netuid,
+            )
+            .filter(|(uid_i, _)| *uid_i < n as u16)
         {
             for (uid_j, weight_ij) in weights_i.iter().filter(|(uid_j, _)| *uid_j < n as u16) {
                 weights
@@ -924,12 +927,14 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Output unnormalized weights in [n, n] matrix, input weights are assumed to be row max-upscaled in u16.
-    pub fn get_weights(netuid: u16) -> Vec<Vec<I32F32>> {
-        let n: usize = Self::get_subnetwork_n(netuid) as usize;
+    pub fn get_weights(netuid: NetUid) -> Vec<Vec<I32F32>> {
+        let n = Self::get_subnetwork_n(netuid) as usize;
         let mut weights: Vec<Vec<I32F32>> = vec![vec![I32F32::saturating_from_num(0.0); n]; n];
         for (uid_i, weights_vec) in
-            <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid)
-                .filter(|(uid_i, _)| *uid_i < n as u16)
+            <Weights<T> as IterableStorageDoubleMap<NetUid, u16, Vec<(u16, u16)>>>::iter_prefix(
+                netuid,
+            )
+            .filter(|(uid_i, _)| *uid_i < n as u16)
         {
             for (uid_j, weight_ij) in weights_vec
                 .into_iter()
@@ -947,12 +952,14 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Output unnormalized sparse bonds, input bonds are assumed to be column max-upscaled in u16.
-    pub fn get_bonds_sparse(netuid: u16) -> Vec<Vec<(u16, I32F32)>> {
-        let n: usize = Self::get_subnetwork_n(netuid) as usize;
+    pub fn get_bonds_sparse(netuid: NetUid) -> Vec<Vec<(u16, I32F32)>> {
+        let n = Self::get_subnetwork_n(netuid) as usize;
         let mut bonds: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
         for (uid_i, bonds_vec) in
-            <Bonds<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid)
-                .filter(|(uid_i, _)| *uid_i < n as u16)
+            <Bonds<T> as IterableStorageDoubleMap<NetUid, u16, Vec<(u16, u16)>>>::iter_prefix(
+                netuid,
+            )
+            .filter(|(uid_i, _)| *uid_i < n as u16)
         {
             for (uid_j, bonds_ij) in bonds_vec {
                 bonds
@@ -965,12 +972,14 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Output unnormalized bonds in [n, n] matrix, input bonds are assumed to be column max-upscaled in u16.
-    pub fn get_bonds(netuid: u16) -> Vec<Vec<I32F32>> {
+    pub fn get_bonds(netuid: NetUid) -> Vec<Vec<I32F32>> {
         let n: usize = Self::get_subnetwork_n(netuid) as usize;
         let mut bonds: Vec<Vec<I32F32>> = vec![vec![I32F32::saturating_from_num(0.0); n]; n];
         for (uid_i, bonds_vec) in
-            <Bonds<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid)
-                .filter(|(uid_i, _)| *uid_i < n as u16)
+            <Bonds<T> as IterableStorageDoubleMap<NetUid, u16, Vec<(u16, u16)>>>::iter_prefix(
+                netuid,
+            )
+            .filter(|(uid_i, _)| *uid_i < n as u16)
         {
             for (uid_j, bonds_ij) in bonds_vec.into_iter().filter(|(uid_j, _)| *uid_j < n as u16) {
                 *bonds
@@ -984,7 +993,7 @@ impl<T: Config> Pallet<T> {
         bonds
     }
 
-    pub fn get_bonds_fixed_proportion(netuid: u16) -> Vec<Vec<I32F32>> {
+    pub fn get_bonds_fixed_proportion(netuid: NetUid) -> Vec<Vec<I32F32>> {
         let mut bonds = Self::get_bonds(netuid);
         bonds.iter_mut().for_each(|bonds_row| {
             bonds_row
@@ -994,7 +1003,7 @@ impl<T: Config> Pallet<T> {
         bonds
     }
 
-    pub fn get_bonds_sparse_fixed_proportion(netuid: u16) -> Vec<Vec<(u16, I32F32)>> {
+    pub fn get_bonds_sparse_fixed_proportion(netuid: NetUid) -> Vec<Vec<(u16, I32F32)>> {
         let mut bonds = Self::get_bonds_sparse(netuid);
         bonds.iter_mut().for_each(|bonds_row| {
             bonds_row
@@ -1016,7 +1025,7 @@ impl<T: Config> Pallet<T> {
     pub fn compute_ema_bonds_normal_sparse(
         bonds_delta: &[Vec<(u16, I32F32)>],
         bonds: &[Vec<(u16, I32F32)>],
-        netuid: u16,
+        netuid: NetUid,
     ) -> Vec<Vec<(u16, I32F32)>> {
         // Retrieve the bonds moving average for the given network ID and scale it down.
         let bonds_moving_average: I64F64 =
@@ -1050,7 +1059,7 @@ impl<T: Config> Pallet<T> {
     pub fn compute_ema_bonds_normal(
         bonds_delta: &[Vec<I32F32>],
         bonds: &[Vec<I32F32>],
-        netuid: u16,
+        netuid: NetUid,
     ) -> Vec<Vec<I32F32>> {
         // Retrieve the bonds moving average for the given network ID and scale it down.
         let bonds_moving_average: I64F64 =
@@ -1084,7 +1093,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns:
     /// A vector of EMA bonds.
     pub fn compute_bonds(
-        netuid: u16,
+        netuid: NetUid,
         weights: &[Vec<I32F32>], // weights_for_bonds
         bonds: &[Vec<I32F32>],
         consensus: &[I32F32],
@@ -1124,7 +1133,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns:
     /// A vector of EMA bonds.
     pub fn compute_bonds_sparse(
-        netuid: u16,
+        netuid: NetUid,
         weights: &[Vec<(u16, I32F32)>],
         bonds: &[Vec<(u16, I32F32)>],
         consensus: &[I32F32],
@@ -1164,7 +1173,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns:
     /// A matrix of alphas
     pub fn compute_liquid_alpha_values(
-        netuid: u16,
+        netuid: NetUid,
         weights: &[Vec<I32F32>], // current epoch weights
         bonds: &[Vec<I32F32>],   // previous epoch bonds
         consensus: &[I32F32],    // previous epoch consensus weights
@@ -1210,7 +1219,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns:
     /// A dense matrix of alphas
     pub fn compute_liquid_alpha_values_sparse(
-        netuid: u16,
+        netuid: NetUid,
         weights: &[Vec<(u16, I32F32)>], // current epoch weights
         bonds: &[Vec<(u16, I32F32)>],   // previous epoch bonds
         consensus: &[I32F32],           // previous epoch consensus weights
@@ -1301,7 +1310,7 @@ impl<T: Config> Pallet<T> {
         clamp_value(alpha, alpha_low, alpha_high)
     }
 
-    pub fn compute_disabled_liquid_alpha(netuid: u16) -> I32F32 {
+    pub fn compute_disabled_liquid_alpha(netuid: NetUid) -> I32F32 {
         // Retrieve the bonds moving average for the given network ID and scale it down.
         let bonds_moving_average: I64F64 = I64F64::from_num(Self::get_bonds_moving_average(netuid))
             .saturating_div(I64F64::from_num(1_000_000));
@@ -1315,7 +1324,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn do_set_alpha_values(
         origin: T::RuntimeOrigin,
-        netuid: u16,
+        netuid: NetUid,
         alpha_low: u16,
         alpha_high: u16,
     ) -> Result<(), DispatchError> {
@@ -1354,7 +1363,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn do_reset_bonds(netuid: u16, account_id: &T::AccountId) -> Result<(), DispatchError> {
+    pub fn do_reset_bonds(netuid: NetUid, account_id: &T::AccountId) -> Result<(), DispatchError> {
         // check bonds reset enabled for this subnet
         let bonds_reset_enabled: bool = Self::get_bonds_reset(netuid);
         if !bonds_reset_enabled {
@@ -1362,11 +1371,7 @@ impl<T: Config> Pallet<T> {
         }
 
         if let Ok(uid) = Self::get_uid_for_net_and_hotkey(netuid, account_id) {
-            for (i, bonds_vec) in
-                <Bonds<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(
-                    netuid,
-                )
-            {
+            for (i, bonds_vec) in Bonds::<T>::iter_prefix(netuid) {
                 Bonds::<T>::insert(
                     netuid,
                     i,
