@@ -1,4 +1,4 @@
-#![allow(clippy::unwrap-used)]
+#![allow(clippy::unwrap_used)]
 
 use super::mock::*;
 use crate::*;
