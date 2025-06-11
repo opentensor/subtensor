@@ -12,6 +12,7 @@ pub mod check_nonce;
 mod migrations;
 
 use codec::{Compact, Decode, Encode};
+use scale_info::prelude::string;
 use frame_support::traits::{Imbalance, InsideBoth};
 use frame_support::{
     PalletId,
