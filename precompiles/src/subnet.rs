@@ -621,7 +621,9 @@ where
     #[precompile::public("getBondsResetEnabled(uint16)")]
     #[precompile::view]
     fn get_bonds_reset_enabled(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<bool> {
-        Ok(pallet_subtensor::BondsResetOn::<R>::get(NetUid::from(netuid)))
+        Ok(pallet_subtensor::BondsResetOn::<R>::get(NetUid::from(
+            netuid,
+        )))
     }
 
     #[precompile::public("setYuma3Enabled(uint16,bool)")]
