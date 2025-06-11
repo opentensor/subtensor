@@ -97,22 +97,25 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 15] {
+    pub fn used_addresses() -> [H160; 18] {
         [
             hash(1),
             hash(2),
             hash(3),
             hash(4),
             hash(5),
+            hash(6),
             hash(1024),
             hash(1025),
             hash(Ed25519Verify::<R::AccountId>::INDEX),
+            hash(Sr25519Verify::<R::AccountId>::INDEX),
             hash(BalanceTransferPrecompile::<R>::INDEX),
             hash(StakingPrecompile::<R>::INDEX),
             hash(SubnetPrecompile::<R>::INDEX),
             hash(MetagraphPrecompile::<R>::INDEX),
             hash(NeuronPrecompile::<R>::INDEX),
             hash(StakingPrecompileV2::<R>::INDEX),
+            hash(StorageQueryPrecompile::<R>::INDEX),
             hash(UidLookupPrecompile::<R>::INDEX),
         ]
     }
