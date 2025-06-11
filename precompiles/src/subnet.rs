@@ -621,7 +621,7 @@ where
     #[precompile::public("getBondsResetEnabled(uint16)")]
     #[precompile::view]
     fn get_bonds_reset_enabled(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<bool> {
-        Ok(pallet_subtensor::BondsResetOn::<R>::get(netuid))
+        Ok(pallet_subtensor::BondsResetOn::<R>::get(NetUid::from(netuid)))
     }
 
     #[precompile::public("setYuma3Enabled(uint16,bool)")]
@@ -649,7 +649,10 @@ where
         netuid: u16,
         enabled: bool,
     ) -> EvmResult<()> {
-        let call = pallet_admin_utils::Call::<R>::sudo_set_bonds_reset_enabled { netuid, enabled };
+        let call = pallet_admin_utils::Call::<R>::sudo_set_bonds_reset_enabled {
+            netuid: netuid.into(),
+            enabled,
+        };
 
         handle.try_dispatch_runtime_call::<R, _>(
             call,
