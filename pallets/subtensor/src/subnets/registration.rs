@@ -2,12 +2,13 @@ use super::*;
 use sp_core::{H256, U256};
 use sp_io::hashing::{keccak_256, sha2_256};
 use sp_runtime::Saturating;
+use subtensor_runtime_common::NetUid;
 use system::pallet_prelude::BlockNumberFor;
 
 const LOG_TARGET: &str = "runtime::subtensor::registration";
 
 impl<T: Config> Pallet<T> {
-    pub fn register_neuron(netuid: u16, hotkey: &T::AccountId) -> u16 {
+    pub fn register_neuron(netuid: NetUid, hotkey: &T::AccountId) -> u16 {
         // Init param
         let neuron_uid: u16;
         let block_number: u64 = Self::get_current_block_as_u64();
@@ -64,7 +65,7 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn do_burned_registration(
         origin: T::RuntimeOrigin,
-        netuid: u16,
+        netuid: NetUid,
         hotkey: T::AccountId,
     ) -> DispatchResult {
         // --- 1. Check that the caller has signed the transaction. (the coldkey of the pairing)
@@ -78,7 +79,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Ensure the passed network is valid.
         ensure!(
-            netuid != Self::get_root_netuid(),
+            !netuid.is_root(),
             Error::<T>::RegistrationNotPermittedOnRootSubnet
         );
         ensure!(
@@ -213,7 +214,7 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn do_registration(
         origin: T::RuntimeOrigin,
-        netuid: u16,
+        netuid: NetUid,
         block_number: u64,
         nonce: u64,
         work: Vec<u8>,
@@ -237,7 +238,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Ensure the passed network is valid.
         ensure!(
-            netuid != Self::get_root_netuid(),
+            !netuid.is_root(),
             Error::<T>::RegistrationNotPermittedOnRootSubnet
         );
         ensure!(
@@ -411,7 +412,7 @@ impl<T: Config> Pallet<T> {
     /// If all neurons are in immunity period, the neuron with the lowest pruning score is pruned. If there is a tie for
     /// the lowest pruning score, the immune neuron registered earliest is pruned.
     /// Ties for earliest registration are broken by the neuron with the lowest uid.
-    pub fn get_neuron_to_prune(netuid: u16) -> u16 {
+    pub fn get_neuron_to_prune(netuid: NetUid) -> u16 {
         let mut min_score: u16 = u16::MAX;
         let mut min_score_in_immunity: u16 = u16::MAX;
         let mut earliest_registration: u64 = u64::MAX;
@@ -589,7 +590,7 @@ impl<T: Config> Pallet<T> {
 
     /// Helper function for creating nonce and work.
     pub fn create_work_for_block_number(
-        netuid: u16,
+        netuid: NetUid,
         block_number: u64,
         start_nonce: u64,
         hotkey: &T::AccountId,

@@ -7,6 +7,7 @@ use pallet_evm::{AddressMapping, PrecompileHandle};
 use precompile_utils::{EvmResult, prelude::BoundedString};
 use sp_core::H256;
 use sp_runtime::traits::Dispatchable;
+use subtensor_runtime_common::NetUid;
 
 use crate::{PrecompileExt, PrecompileHandleExt};
 
@@ -98,7 +99,9 @@ where
     #[precompile::public("getServingRateLimit(uint16)")]
     #[precompile::view]
     fn get_serving_rate_limit(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::ServingRateLimit::<R>::get(netuid))
+        Ok(pallet_subtensor::ServingRateLimit::<R>::get(NetUid::from(
+            netuid,
+        )))
     }
 
     #[precompile::public("setServingRateLimit(uint16,uint64)")]
@@ -109,7 +112,7 @@ where
         serving_rate_limit: u64,
     ) -> EvmResult<()> {
         let call = pallet_admin_utils::Call::<R>::sudo_set_serving_rate_limit {
-            netuid,
+            netuid: netuid.into(),
             serving_rate_limit,
         };
 
@@ -122,7 +125,9 @@ where
     #[precompile::public("getMinDifficulty(uint16)")]
     #[precompile::view]
     fn get_min_difficulty(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::MinDifficulty::<R>::get(netuid))
+        Ok(pallet_subtensor::MinDifficulty::<R>::get(NetUid::from(
+            netuid,
+        )))
     }
 
     #[precompile::public("setMinDifficulty(uint16,uint64)")]
@@ -133,7 +138,7 @@ where
         min_difficulty: u64,
     ) -> EvmResult<()> {
         let call = pallet_admin_utils::Call::<R>::sudo_set_min_difficulty {
-            netuid,
+            netuid: netuid.into(),
             min_difficulty,
         };
 
@@ -146,7 +151,9 @@ where
     #[precompile::public("getMaxDifficulty(uint16)")]
     #[precompile::view]
     fn get_max_difficulty(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::MaxDifficulty::<R>::get(netuid))
+        Ok(pallet_subtensor::MaxDifficulty::<R>::get(NetUid::from(
+            netuid,
+        )))
     }
 
     #[precompile::public("setMaxDifficulty(uint16,uint64)")]
@@ -157,7 +164,7 @@ where
         max_difficulty: u64,
     ) -> EvmResult<()> {
         let call = pallet_admin_utils::Call::<R>::sudo_set_max_difficulty {
-            netuid,
+            netuid: netuid.into(),
             max_difficulty,
         };
 
@@ -170,7 +177,9 @@ where
     #[precompile::public("getWeightsVersionKey(uint16)")]
     #[precompile::view]
     fn get_weights_version_key(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::WeightsVersionKey::<R>::get(netuid))
+        Ok(pallet_subtensor::WeightsVersionKey::<R>::get(NetUid::from(
+            netuid,
+        )))
     }
 
     #[precompile::public("setWeightsVersionKey(uint16,uint64)")]
@@ -181,7 +190,7 @@ where
         weights_version_key: u64,
     ) -> EvmResult<()> {
         let call = pallet_admin_utils::Call::<R>::sudo_set_weights_version_key {
-            netuid,
+            netuid: netuid.into(),
             weights_version_key,
         };
 
@@ -194,7 +203,9 @@ where
     #[precompile::public("getWeightsSetRateLimit(uint16)")]
     #[precompile::view]
     fn get_weights_set_rate_limit(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::WeightsSetRateLimit::<R>::get(netuid))
+        Ok(pallet_subtensor::WeightsSetRateLimit::<R>::get(
+            NetUid::from(netuid),
+        ))
     }
 
     #[precompile::public("setWeightsSetRateLimit(uint16,uint64)")]
@@ -211,7 +222,9 @@ where
     #[precompile::public("getAdjustmentAlpha(uint16)")]
     #[precompile::view]
     fn get_adjustment_alpha(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::AdjustmentAlpha::<R>::get(netuid))
+        Ok(pallet_subtensor::AdjustmentAlpha::<R>::get(NetUid::from(
+            netuid,
+        )))
     }
 
     #[precompile::public("setAdjustmentAlpha(uint16,uint64)")]
@@ -222,7 +235,7 @@ where
         adjustment_alpha: u64,
     ) -> EvmResult<()> {
         let call = pallet_admin_utils::Call::<R>::sudo_set_adjustment_alpha {
-            netuid,
+            netuid: netuid.into(),
             adjustment_alpha,
         };
 
@@ -235,7 +248,9 @@ where
     #[precompile::public("getMaxWeightLimit(uint16)")]
     #[precompile::view]
     fn get_max_weight_limit(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
-        Ok(pallet_subtensor::MaxWeightsLimit::<R>::get(netuid))
+        Ok(pallet_subtensor::MaxWeightsLimit::<R>::get(NetUid::from(
+            netuid,
+        )))
     }
 
     #[precompile::public("setMaxWeightLimit(uint16,uint16)")]
@@ -246,7 +261,7 @@ where
         max_weight_limit: u16,
     ) -> EvmResult<()> {
         let call = pallet_admin_utils::Call::<R>::sudo_set_max_weight_limit {
-            netuid,
+            netuid: netuid.into(),
             max_weight_limit,
         };
 
@@ -259,7 +274,9 @@ where
     #[precompile::public("getImmunityPeriod(uint16)")]
     #[precompile::view]
     fn get_immunity_period(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
-        Ok(pallet_subtensor::ImmunityPeriod::<R>::get(netuid))
+        Ok(pallet_subtensor::ImmunityPeriod::<R>::get(NetUid::from(
+            netuid,
+        )))
     }
 
     #[precompile::public("setImmunityPeriod(uint16,uint16)")]
@@ -270,7 +287,7 @@ where
         immunity_period: u16,
     ) -> EvmResult<()> {
         let call = pallet_admin_utils::Call::<R>::sudo_set_immunity_period {
-            netuid,
+            netuid: netuid.into(),
             immunity_period,
         };
 
@@ -283,7 +300,9 @@ where
     #[precompile::public("getMinAllowedWeights(uint16)")]
     #[precompile::view]
     fn get_min_allowed_weights(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
-        Ok(pallet_subtensor::MinAllowedWeights::<R>::get(netuid))
+        Ok(pallet_subtensor::MinAllowedWeights::<R>::get(NetUid::from(
+            netuid,
+        )))
     }
 
     #[precompile::public("setMinAllowedWeights(uint16,uint16)")]
@@ -294,7 +313,7 @@ where
         min_allowed_weights: u16,
     ) -> EvmResult<()> {
         let call = pallet_admin_utils::Call::<R>::sudo_set_min_allowed_weights {
-            netuid,
+            netuid: netuid.into(),
             min_allowed_weights,
         };
 
@@ -307,13 +326,16 @@ where
     #[precompile::public("getKappa(uint16)")]
     #[precompile::view]
     fn get_kappa(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
-        Ok(pallet_subtensor::Kappa::<R>::get(netuid))
+        Ok(pallet_subtensor::Kappa::<R>::get(NetUid::from(netuid)))
     }
 
     #[precompile::public("setKappa(uint16,uint16)")]
     #[precompile::payable]
     fn set_kappa(handle: &mut impl PrecompileHandle, netuid: u16, kappa: u16) -> EvmResult<()> {
-        let call = pallet_admin_utils::Call::<R>::sudo_set_kappa { netuid, kappa };
+        let call = pallet_admin_utils::Call::<R>::sudo_set_kappa {
+            netuid: netuid.into(),
+            kappa,
+        };
 
         handle.try_dispatch_runtime_call::<R, _>(
             call,
@@ -324,19 +346,24 @@ where
     #[precompile::public("getRho(uint16)")]
     #[precompile::view]
     fn get_rho(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
-        Ok(pallet_subtensor::Rho::<R>::get(netuid))
+        Ok(pallet_subtensor::Rho::<R>::get(NetUid::from(netuid)))
     }
 
     #[precompile::public("getAlphaSigmoidSteepness(uint16)")]
     #[precompile::view]
     fn get_alpha_sigmoid_steepness(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
-        Ok(pallet_subtensor::AlphaSigmoidSteepness::<R>::get(netuid))
+        Ok(pallet_subtensor::AlphaSigmoidSteepness::<R>::get(
+            NetUid::from(netuid),
+        ))
     }
 
     #[precompile::public("setRho(uint16,uint16)")]
     #[precompile::payable]
     fn set_rho(handle: &mut impl PrecompileHandle, netuid: u16, rho: u16) -> EvmResult<()> {
-        let call = pallet_admin_utils::Call::<R>::sudo_set_rho { netuid, rho };
+        let call = pallet_admin_utils::Call::<R>::sudo_set_rho {
+            netuid: netuid.into(),
+            rho,
+        };
 
         handle.try_dispatch_runtime_call::<R, _>(
             call,
@@ -351,8 +378,10 @@ where
         netuid: u16,
         steepness: u16,
     ) -> EvmResult<()> {
-        let call =
-            pallet_admin_utils::Call::<R>::sudo_set_alpha_sigmoid_steepness { netuid, steepness };
+        let call = pallet_admin_utils::Call::<R>::sudo_set_alpha_sigmoid_steepness {
+            netuid: netuid.into(),
+            steepness,
+        };
 
         handle.try_dispatch_runtime_call::<R, _>(
             call,
@@ -363,7 +392,9 @@ where
     #[precompile::public("getActivityCutoff(uint16)")]
     #[precompile::view]
     fn get_activity_cutoff(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
-        Ok(pallet_subtensor::ActivityCutoff::<R>::get(netuid))
+        Ok(pallet_subtensor::ActivityCutoff::<R>::get(NetUid::from(
+            netuid,
+        )))
     }
 
     #[precompile::public("setActivityCutoff(uint16,uint16)")]
@@ -374,7 +405,7 @@ where
         activity_cutoff: u16,
     ) -> EvmResult<()> {
         let call = pallet_admin_utils::Call::<R>::sudo_set_activity_cutoff {
-            netuid,
+            netuid: netuid.into(),
             activity_cutoff,
         };
 
@@ -391,7 +422,7 @@ where
         netuid: u16,
     ) -> EvmResult<bool> {
         Ok(pallet_subtensor::NetworkRegistrationAllowed::<R>::get(
-            netuid,
+            NetUid::from(netuid),
         ))
     }
 
@@ -403,7 +434,7 @@ where
         registration_allowed: bool,
     ) -> EvmResult<()> {
         let call = pallet_admin_utils::Call::<R>::sudo_set_network_registration_allowed {
-            netuid,
+            netuid: netuid.into(),
             registration_allowed,
         };
 
@@ -420,7 +451,7 @@ where
         netuid: u16,
     ) -> EvmResult<bool> {
         Ok(pallet_subtensor::NetworkPowRegistrationAllowed::<R>::get(
-            netuid,
+            NetUid::from(netuid),
         ))
     }
 
@@ -432,7 +463,7 @@ where
         registration_allowed: bool,
     ) -> EvmResult<()> {
         let call = pallet_admin_utils::Call::<R>::sudo_set_network_pow_registration_allowed {
-            netuid,
+            netuid: netuid.into(),
             registration_allowed,
         };
 
@@ -445,7 +476,7 @@ where
     #[precompile::public("getMinBurn(uint16)")]
     #[precompile::view]
     fn get_min_burn(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::MinBurn::<R>::get(netuid))
+        Ok(pallet_subtensor::MinBurn::<R>::get(NetUid::from(netuid)))
     }
 
     #[precompile::public("setMinBurn(uint16,uint64)")]
@@ -462,7 +493,7 @@ where
     #[precompile::public("getMaxBurn(uint16)")]
     #[precompile::view]
     fn get_max_burn(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::MaxBurn::<R>::get(netuid))
+        Ok(pallet_subtensor::MaxBurn::<R>::get(NetUid::from(netuid)))
     }
 
     #[precompile::public("setMaxBurn(uint16,uint64)")]
@@ -479,7 +510,7 @@ where
     #[precompile::public("getDifficulty(uint16)")]
     #[precompile::view]
     fn get_difficulty(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::Difficulty::<R>::get(netuid))
+        Ok(pallet_subtensor::Difficulty::<R>::get(NetUid::from(netuid)))
     }
 
     #[precompile::public("setDifficulty(uint16,uint64)")]
@@ -489,7 +520,10 @@ where
         netuid: u16,
         difficulty: u64,
     ) -> EvmResult<()> {
-        let call = pallet_admin_utils::Call::<R>::sudo_set_difficulty { netuid, difficulty };
+        let call = pallet_admin_utils::Call::<R>::sudo_set_difficulty {
+            netuid: netuid.into(),
+            difficulty,
+        };
 
         handle.try_dispatch_runtime_call::<R, _>(
             call,
@@ -500,7 +534,9 @@ where
     #[precompile::public("getBondsMovingAverage(uint16)")]
     #[precompile::view]
     fn get_bonds_moving_average(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::BondsMovingAverage::<R>::get(netuid))
+        Ok(pallet_subtensor::BondsMovingAverage::<R>::get(
+            NetUid::from(netuid),
+        ))
     }
 
     #[precompile::public("setBondsMovingAverage(uint16,uint64)")]
@@ -511,7 +547,7 @@ where
         bonds_moving_average: u64,
     ) -> EvmResult<()> {
         let call = pallet_admin_utils::Call::<R>::sudo_set_bonds_moving_average {
-            netuid,
+            netuid: netuid.into(),
             bonds_moving_average,
         };
 
@@ -528,7 +564,7 @@ where
         netuid: u16,
     ) -> EvmResult<bool> {
         Ok(pallet_subtensor::CommitRevealWeightsEnabled::<R>::get(
-            netuid,
+            NetUid::from(netuid),
         ))
     }
 
@@ -540,7 +576,7 @@ where
         enabled: bool,
     ) -> EvmResult<()> {
         let call = pallet_admin_utils::Call::<R>::sudo_set_commit_reveal_weights_enabled {
-            netuid,
+            netuid: netuid.into(),
             enabled,
         };
 
@@ -553,7 +589,9 @@ where
     #[precompile::public("getLiquidAlphaEnabled(uint16)")]
     #[precompile::view]
     fn get_liquid_alpha_enabled(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<bool> {
-        Ok(pallet_subtensor::LiquidAlphaOn::<R>::get(netuid))
+        Ok(pallet_subtensor::LiquidAlphaOn::<R>::get(NetUid::from(
+            netuid,
+        )))
     }
 
     #[precompile::public("setLiquidAlphaEnabled(uint16,bool)")]
@@ -563,7 +601,10 @@ where
         netuid: u16,
         enabled: bool,
     ) -> EvmResult<()> {
-        let call = pallet_admin_utils::Call::<R>::sudo_set_liquid_alpha_enabled { netuid, enabled };
+        let call = pallet_admin_utils::Call::<R>::sudo_set_liquid_alpha_enabled {
+            netuid: netuid.into(),
+            enabled,
+        };
 
         handle.try_dispatch_runtime_call::<R, _>(
             call,
@@ -574,7 +615,15 @@ where
     #[precompile::public("getYuma3Enabled(uint16)")]
     #[precompile::view]
     fn get_yuma3_enabled(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<bool> {
-        Ok(pallet_subtensor::Yuma3On::<R>::get(netuid))
+        Ok(pallet_subtensor::Yuma3On::<R>::get(NetUid::from(netuid)))
+    }
+
+    #[precompile::public("getBondsResetEnabled(uint16)")]
+    #[precompile::view]
+    fn get_bonds_reset_enabled(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<bool> {
+        Ok(pallet_subtensor::BondsResetOn::<R>::get(NetUid::from(
+            netuid,
+        )))
     }
 
     #[precompile::public("setYuma3Enabled(uint16,bool)")]
@@ -584,7 +633,28 @@ where
         netuid: u16,
         enabled: bool,
     ) -> EvmResult<()> {
-        let call = pallet_admin_utils::Call::<R>::sudo_set_yuma3_enabled { netuid, enabled };
+        let call = pallet_admin_utils::Call::<R>::sudo_set_yuma3_enabled {
+            netuid: netuid.into(),
+            enabled,
+        };
+
+        handle.try_dispatch_runtime_call::<R, _>(
+            call,
+            RawOrigin::Signed(handle.caller_account_id::<R>()),
+        )
+    }
+
+    #[precompile::public("setBondsResetEnabled(uint16,bool)")]
+    #[precompile::payable]
+    fn set_bonds_reset_enabled(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+        enabled: bool,
+    ) -> EvmResult<()> {
+        let call = pallet_admin_utils::Call::<R>::sudo_set_bonds_reset_enabled {
+            netuid: netuid.into(),
+            enabled,
+        };
 
         handle.try_dispatch_runtime_call::<R, _>(
             call,
@@ -595,7 +665,9 @@ where
     #[precompile::public("getAlphaValues(uint16)")]
     #[precompile::view]
     fn get_alpha_values(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<(u16, u16)> {
-        Ok(pallet_subtensor::AlphaValues::<R>::get(netuid))
+        Ok(pallet_subtensor::AlphaValues::<R>::get(NetUid::from(
+            netuid,
+        )))
     }
 
     #[precompile::public("setAlphaValues(uint16,uint16,uint16)")]
@@ -607,7 +679,7 @@ where
         alpha_high: u16,
     ) -> EvmResult<()> {
         let call = pallet_admin_utils::Call::<R>::sudo_set_alpha_values {
-            netuid,
+            netuid: netuid.into(),
             alpha_low,
             alpha_high,
         };
@@ -624,7 +696,9 @@ where
         _: &mut impl PrecompileHandle,
         netuid: u16,
     ) -> EvmResult<u64> {
-        Ok(pallet_subtensor::RevealPeriodEpochs::<R>::get(netuid))
+        Ok(pallet_subtensor::RevealPeriodEpochs::<R>::get(
+            NetUid::from(netuid),
+        ))
     }
 
     #[precompile::public("setCommitRevealWeightsInterval(uint16,uint64)")]
@@ -635,7 +709,7 @@ where
         interval: u64,
     ) -> EvmResult<()> {
         let call = pallet_admin_utils::Call::<R>::sudo_set_commit_reveal_weights_interval {
-            netuid,
+            netuid: netuid.into(),
             interval,
         };
 
@@ -652,7 +726,10 @@ where
         netuid: u16,
         toggle: bool,
     ) -> EvmResult<()> {
-        let call = pallet_admin_utils::Call::<R>::sudo_set_toggle_transfer { netuid, toggle };
+        let call = pallet_admin_utils::Call::<R>::sudo_set_toggle_transfer {
+            netuid: netuid.into(),
+            toggle,
+        };
 
         handle.try_dispatch_runtime_call::<R, _>(
             call,

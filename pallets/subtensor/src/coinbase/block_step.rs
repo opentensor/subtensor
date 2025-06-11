@@ -1,7 +1,7 @@
 use super::*;
-use frame_support::storage::IterableStorageMap;
 use safe_math::*;
 use substrate_fixed::types::{U96F32, U110F18};
+use subtensor_runtime_common::NetUid;
 
 impl<T: Config + pallet_drand::Config> Pallet<T> {
     /// Executes the necessary operations for each block.
@@ -23,8 +23,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
     }
 
     fn try_set_pending_children(block_number: u64) {
-        let subnets: Vec<u16> = Self::get_all_subnet_netuids();
-        for &netuid in subnets.iter() {
+        for netuid in Self::get_all_subnet_netuids() {
             if Self::should_run_epoch(netuid, block_number) {
                 // Set pending children on the epoch.
                 Self::do_set_pending_children(netuid);
@@ -38,7 +37,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         log::debug!("adjust_registration_terms_for_networks");
 
         // --- 1. Iterate through each network.
-        for (netuid, _) in <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter() {
+        for (netuid, _) in NetworksAdded::<T>::iter() {
             // --- 2. Pull counters for network difficulty.
             let last_adjustment_block: u64 = Self::get_last_adjustment_block(netuid);
             let adjustment_interval: u16 = Self::get_adjustment_interval(netuid);
@@ -194,7 +193,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
     /// We use U110F18 to avoid any overflows on u64. Also min_difficulty and max_difficulty bound the range.
     ///
     pub fn upgraded_difficulty(
-        netuid: u16,
+        netuid: NetUid,
         current_difficulty: u64,
         registrations_this_interval: u16,
         target_registrations_per_interval: u16,
@@ -228,7 +227,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
     /// We use U110F18 to avoid any overflows on u64. Also min_burn and max_burn bound the range.
     ///
     pub fn upgraded_burn(
-        netuid: u16,
+        netuid: NetUid,
         current_burn: u64,
         registrations_this_interval: u16,
         target_registrations_per_interval: u16,

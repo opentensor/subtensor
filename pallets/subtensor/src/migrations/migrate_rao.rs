@@ -25,7 +25,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
         String::from_utf8_lossy(&migration_name)
     );
 
-    let netuids: Vec<u16> = <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter()
+    let netuids: Vec<NetUid> = <NetworksAdded<T> as IterableStorageMap<NetUid, bool>>::iter()
         .map(|(netuid, _)| netuid)
         .collect();
     weight = weight.saturating_add(T::DbWeight::get().reads_writes(netuids.len() as u64, 0));
@@ -62,12 +62,12 @@ pub fn migrate_rao<T: Config>() -> Weight {
     NetworkMinLockCost::<T>::set(1_000_000_000);
     // Set tao weight.
     TaoWeight::<T>::set(3_320_413_933_267_719_290);
-    for netuid in netuids.iter().clone() {
-        if *netuid == 0 {
+    for netuid in netuids.iter() {
+        if netuid.is_root() {
             // Give root a single RAO in pool to avoid any catestrophic division by zero.
             SubnetAlphaIn::<T>::insert(netuid, 1_000_000_000);
             SubnetMechanism::<T>::insert(netuid, 0); // Set to zero mechanism.
-            TokenSymbol::<T>::insert(netuid, Pallet::<T>::get_symbol_for_subnet(0));
+            TokenSymbol::<T>::insert(netuid, Pallet::<T>::get_symbol_for_subnet(NetUid::ROOT));
             continue;
         }
         let owner = SubnetOwner::<T>::get(netuid);

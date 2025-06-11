@@ -38,7 +38,7 @@ use precompile_utils::EvmResult;
 use sp_core::{H256, U256};
 use sp_runtime::traits::{Dispatchable, StaticLookup, UniqueSaturatedInto};
 use sp_std::vec;
-use subtensor_runtime_common::ProxyType;
+use subtensor_runtime_common::{NetUid, ProxyType};
 
 use crate::{PrecompileExt, PrecompileHandleExt};
 
@@ -95,7 +95,7 @@ where
         let netuid = try_u16_from_u256(netuid)?;
         let call = pallet_subtensor::Call::<R>::add_stake {
             hotkey,
-            netuid,
+            netuid: netuid.into(),
             amount_staked,
         };
 
@@ -115,7 +115,7 @@ where
         let amount_unstaked = amount_alpha.unique_saturated_into();
         let call = pallet_subtensor::Call::<R>::remove_stake {
             hotkey,
-            netuid,
+            netuid: netuid.into(),
             amount_unstaked,
         };
 
@@ -140,8 +140,8 @@ where
         let call = pallet_subtensor::Call::<R>::move_stake {
             origin_hotkey,
             destination_hotkey,
-            origin_netuid,
-            destination_netuid,
+            origin_netuid: origin_netuid.into(),
+            destination_netuid: destination_netuid.into(),
             alpha_amount,
         };
 
@@ -166,8 +166,8 @@ where
         let call = pallet_subtensor::Call::<R>::transfer_stake {
             destination_coldkey,
             hotkey,
-            origin_netuid,
-            destination_netuid,
+            origin_netuid: origin_netuid.into(),
+            destination_netuid: destination_netuid.into(),
             alpha_amount,
         };
 
@@ -210,7 +210,9 @@ where
         let coldkey = R::AccountId::from(coldkey.0);
         let netuid = try_u16_from_u256(netuid)?;
         let stake = pallet_subtensor::Pallet::<R>::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey, &coldkey, netuid,
+            &hotkey,
+            &coldkey,
+            netuid.into(),
         );
 
         Ok(stake.into())
@@ -225,7 +227,7 @@ where
     ) -> EvmResult<Vec<H256>> {
         let hotkey = R::AccountId::from(hotkey.0);
         let mut coldkeys: Vec<H256> = vec![];
-        let netuid = try_u16_from_u256(netuid)?;
+        let netuid = NetUid::from(try_u16_from_u256(netuid)?);
         for ((coldkey, netuid_in_alpha), _) in pallet_subtensor::Alpha::<R>::iter_prefix((hotkey,))
         {
             if netuid == netuid_in_alpha {
@@ -246,7 +248,8 @@ where
     ) -> EvmResult<U256> {
         let hotkey = R::AccountId::from(hotkey.0);
         let netuid = try_u16_from_u256(netuid)?;
-        let stake = pallet_subtensor::Pallet::<R>::get_stake_for_hotkey_on_subnet(&hotkey, netuid);
+        let stake =
+            pallet_subtensor::Pallet::<R>::get_stake_for_hotkey_on_subnet(&hotkey, netuid.into());
 
         Ok(stake.into())
     }
@@ -295,7 +298,7 @@ where
         let netuid = try_u16_from_u256(netuid)?;
         let call = pallet_subtensor::Call::<R>::add_stake_limit {
             hotkey,
-            netuid,
+            netuid: netuid.into(),
             amount_staked,
             limit_price,
             allow_partial,
@@ -320,7 +323,7 @@ where
         let limit_price = limit_price_rao.unique_saturated_into();
         let call = pallet_subtensor::Call::<R>::remove_stake_limit {
             hotkey,
-            netuid,
+            netuid: netuid.into(),
             amount_unstaked,
             limit_price,
             allow_partial,
@@ -386,7 +389,7 @@ where
         let netuid = try_u16_from_u256(netuid)?;
         let call = pallet_subtensor::Call::<R>::add_stake {
             hotkey,
-            netuid,
+            netuid: netuid.into(),
             amount_staked: amount_sub.unique_saturated_into(),
         };
 
@@ -410,7 +413,7 @@ where
                 .ok_or(ExitError::OutOfFund)?;
         let call = pallet_subtensor::Call::<R>::remove_stake {
             hotkey,
-            netuid,
+            netuid: netuid.into(),
             amount_unstaked,
         };
 
@@ -467,7 +470,9 @@ where
         let coldkey = R::AccountId::from(coldkey.0);
         let netuid = try_u16_from_u256(netuid)?;
         let stake = pallet_subtensor::Pallet::<R>::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey, &coldkey, netuid,
+            &hotkey,
+            &coldkey,
+            netuid.into(),
         );
         let stake: SubstrateBalance = stake.into();
         let stake = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(stake)

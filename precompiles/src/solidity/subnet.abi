@@ -88,6 +88,25 @@
 				"type": "uint16"
 			}
 		],
+		"name": "getBondsResetEnabled",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint16",
+				"name": "netuid",
+				"type": "uint16"
+			}
+		],
 		"name": "getCommitRevealWeightsEnabled",
 		"outputs": [
 			{
@@ -575,6 +594,24 @@
 			}
 		],
 		"name": "setBondsMovingAverage",
+		"outputs": [],
+		"stateMutability": "payable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint16",
+				"name": "netuid",
+				"type": "uint16"
+			},
+			{
+				"internalType": "bool",
+				"name": "bondsResetEnabled",
+				"type": "bool"
+			}
+		],
+		"name": "setBondsResetEnabled",
 		"outputs": [],
 		"stateMutability": "payable",
 		"type": "function"

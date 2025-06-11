@@ -29,7 +29,7 @@ sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 subtensor-runtime-common = { workspace = true }
-
+substrate-fixed = { workspace = true }
 pallet-subtensor = { workspace = true }
 pallet-admin-utils = { workspace = true }
 
@@ -58,5 +58,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"substrate-fixed/std",
 	"subtensor-runtime-common/std",
 ]

@@ -32,7 +32,7 @@ fn sign_evm_message<M: AsRef<[u8]>>(pair: &ecdsa::Pair, message: M) -> ecdsa::Si
 #[test]
 fn test_associate_evm_key_success() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         let tempo: u16 = 2;
         let modality: u16 = 2;
@@ -81,7 +81,7 @@ fn test_associate_evm_key_success() {
 #[test]
 fn test_associate_evm_key_different_block_number_success() {
     new_test_ext(100).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         let tempo: u16 = 2;
         let modality: u16 = 2;
@@ -128,7 +128,7 @@ fn test_associate_evm_key_different_block_number_success() {
 #[test]
 fn test_associate_evm_key_coldkey_does_not_own_hotkey() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         let tempo: u16 = 2;
         let modality: u16 = 2;
@@ -165,7 +165,7 @@ fn test_associate_evm_key_coldkey_does_not_own_hotkey() {
 #[test]
 fn test_associate_evm_key_hotkey_not_registered_in_subnet() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         let tempo: u16 = 2;
         let modality: u16 = 2;
@@ -203,7 +203,7 @@ fn test_associate_evm_key_hotkey_not_registered_in_subnet() {
 #[test]
 fn test_associate_evm_key_using_wrong_hash_function() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         let tempo: u16 = 2;
         let modality: u16 = 2;

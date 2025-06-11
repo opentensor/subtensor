@@ -118,7 +118,7 @@ fn distribute_nodes(
 }
 
 #[allow(dead_code)]
-fn uid_stats(netuid: u16, uid: u16) {
+fn uid_stats(netuid: NetUid, uid: u16) {
     log::info!(
         "stake: {:?}",
         SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid)))
@@ -148,7 +148,7 @@ fn uid_stats(netuid: u16, uid: u16) {
 
 #[allow(clippy::too_many_arguments)]
 fn init_run_epochs(
-    netuid: u16,
+    netuid: NetUid,
     n: u16,
     validators: &[u16],
     servers: &[u16],
@@ -401,7 +401,7 @@ fn split_graph(
 // Test consensus guarantees with an epoch on a graph with 4096 nodes, of which the first 128 are validators, the graph is split into a major and minor set, each setting specific weight on itself and the complement on the other. Asserts that the major emission ratio >= major stake ratio.
 // #[test]
 // fn test_consensus_guarantees() {
-//     let netuid: u16 = 0;
+//     let netuid = NetUid::from(0);
 //     let network_n: u16 = 512;
 //     let validators_n: u16 = 64;
 //     let epochs: u16 = 1;
@@ -486,7 +486,7 @@ fn split_graph(
 #[test]
 #[ignore] // Not an automated test!
 fn map_consensus_guarantees() {
-    let netuid: u16 = 1;
+    let netuid = NetUid::from(1);
     let network_n: u16 = 512;
     let validators_n: u16 = 64;
     let epochs: u16 = 1;
