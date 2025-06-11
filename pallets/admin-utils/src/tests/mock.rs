@@ -3,7 +3,6 @@
 use frame_support::{
     assert_ok, derive_impl, parameter_types,
     traits::{Everything, Hooks, InherentBuilder, PrivilegeCmp},
-    weights,
 };
 use frame_system::{self as system, offchain::CreateTransactionBase};
 use frame_system::{EnsureNever, EnsureRoot, limits};
@@ -74,7 +73,10 @@ parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
     pub const InitialEmissionValue: u16 = 0;
     pub const InitialMaxWeightsLimit: u16 = u16::MAX;
-    pub BlockWeights: limits::BlockWeights = limits::BlockWeights::simple_max(weights::Weight::from_parts(1024, 0));
+    pub BlockWeights: limits::BlockWeights = limits::BlockWeights::with_sensible_defaults(
+        Weight::from_parts(2_000_000_000_000, u64::MAX),
+        Perbill::from_percent(75),
+    );
     pub const ExistentialDeposit: Balance = 1;
     pub const TransactionByteFee: Balance = 100;
     pub const SDebug:u64 = 1;
