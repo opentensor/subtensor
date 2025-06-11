@@ -11,6 +11,8 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 pub mod check_nonce;
 mod migrations;
 
+extern crate alloc;
+
 use codec::{Compact, Decode, Encode};
 use frame_support::traits::{Imbalance, InsideBoth};
 use frame_support::{
