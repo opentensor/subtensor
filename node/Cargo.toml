@@ -105,6 +105,7 @@ fp-consensus = { workspace = true }
 thiserror = { workspace = true }
 num-traits = { version = "0.2", features = ["std"] }
 subxt = { version = "0.42.1", default-features = true } # temp dependency to get API
+rustls-webpki = "0.102"
 
 # Local Dependencies
 node-subtensor-runtime = { workspace = true, features = ["std"] }
