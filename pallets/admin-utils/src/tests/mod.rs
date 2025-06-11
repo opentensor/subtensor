@@ -1785,7 +1785,7 @@ fn test_set_sn_owner_hotkey_root() {
 #[test]
 fn test_sudo_set_bonds_reset_enabled() {
     new_test_ext().execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let to_be_set: bool = true;
         let sn_owner = U256::from(1);
         add_network(netuid, 10);
@@ -1822,7 +1822,7 @@ fn test_sudo_set_bonds_reset_enabled() {
 #[test]
 fn test_sudo_set_yuma3_enabled() {
     new_test_ext().execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let to_be_set: bool = true;
         let sn_owner = U256::from(1);
         add_network(netuid, 10);
