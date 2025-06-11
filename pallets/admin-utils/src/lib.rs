@@ -1625,7 +1625,7 @@ pub mod pallet {
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_bonds_reset_enabled(
             origin: OriginFor<T>,
-            netuid: u16,
+            netuid: NetUid,
             enabled: bool,
         ) -> DispatchResult {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
