@@ -90,7 +90,7 @@ pub use sp_runtime::{Perbill, Permill};
 
 use core::marker::PhantomData;
 
-use scale_info::TypeInfo;
+use scale_info::{TypeInfo, prelude::string};
 
 // Frontier
 use fp_rpc::TransactionStatus;
@@ -2146,7 +2146,7 @@ impl_runtime_apis! {
 
         fn dispatch_benchmark(
             config: frame_benchmarking::BenchmarkConfig
-        ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, parity_scale_codec::alloc::string::String> {
+        ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, string::String> {
             use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch};
             use sp_storage::TrackedStorageKey;
 
