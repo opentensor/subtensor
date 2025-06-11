@@ -73,6 +73,28 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Toggles the atomic alpha transfers for a specific subnet.
+    ///
+    /// # Arguments
+    /// * `netuid` - The network ID (subnet) for which the transfer functionality is being toggled.
+    /// * `toggle` - A boolean value indicating whether to enable (true) or disable (false) transfers.
+    ///
+    /// # Returns
+    /// * `DispatchResult` - Indicates success or failure of the operation.
+    ///
+    /// # Events
+    /// Emits a `TransferToggle` event upon successful completion.
+    pub fn toggle_transfer(netuid: NetUid, toggle: bool) -> dispatch::DispatchResult {
+        TransferToggle::<T>::insert(netuid, toggle);
+        log::debug!(
+            "TransferToggle( netuid: {:?}, toggle: {:?} ) ",
+            netuid,
+            toggle
+        );
+        Self::deposit_event(Event::TransferToggle(netuid, toggle));
+        Ok(())
+    }
+
     /// Transfers stake from one coldkey to another, optionally moving from one subnet to another,
     /// while keeping the same hotkey.
     ///
@@ -98,16 +120,6 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Events
     /// Emits a `StakeTransferred` event upon successful completion of the transfer.
-    pub fn toggle_transfer(netuid: NetUid, toggle: bool) -> dispatch::DispatchResult {
-        TransferToggle::<T>::insert(netuid, toggle);
-        log::debug!(
-            "TransferToggle( netuid: {:?}, toggle: {:?} ) ",
-            netuid,
-            toggle
-        );
-        Self::deposit_event(Event::TransferToggle(netuid, toggle));
-        Ok(())
-    }
     pub fn do_transfer_stake(
         origin: T::RuntimeOrigin,
         destination_coldkey: T::AccountId,
