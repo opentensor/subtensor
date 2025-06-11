@@ -1415,7 +1415,7 @@ pub mod pallet {
             T::Grandpa::schedule_change(next_authorities, in_blocks, forced)
         }
 
-        /// Enables or disables all stake moving related extrinsics for a given subnet.
+        /// Enable or disable atomic alpha transfers for a given subnet.
         ///
         /// # Parameters
         /// - `origin`: The origin of the call, which must be the root account or subnet owner.

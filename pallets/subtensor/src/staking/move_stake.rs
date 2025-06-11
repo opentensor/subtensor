@@ -72,7 +72,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Toggles the stake moving functionality for a specific subnet.
+    /// Toggles the atomic alpha transfers for a specific subnet.
     ///
     /// # Arguments
     /// * `netuid` - The network ID (subnet) for which the transfer functionality is being toggled.
