@@ -20,6 +20,7 @@ pub mod migrate_remove_stake_map;
 pub mod migrate_remove_total_hotkey_coldkey_stakes_this_interval;
 pub mod migrate_remove_unused_maps_and_values;
 pub mod migrate_remove_zero_total_hotkey_alpha;
+pub mod migrate_reset_adjustment_alpha;
 pub mod migrate_reset_bonds_moving_average;
 pub mod migrate_reset_max_burn;
 pub mod migrate_set_first_emission_block_number;
