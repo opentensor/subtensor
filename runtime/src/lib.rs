@@ -149,7 +149,7 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
             check_nonce::CheckNonce::<Runtime>::from(nonce).into(),
             frame_system::CheckWeight::<Runtime>::new(),
             pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
-            pallet_subtensor::SubtensorSignedExtension::<Runtime>::new().into(),
+            pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
             pallet_commitments::CommitmentsSignedExtension::<Runtime>::new().into(),
             frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
         );
@@ -1581,7 +1581,7 @@ pub type SignedExtra = (
     AsTransactionExtension<check_nonce::CheckNonce<Runtime>>,
     frame_system::CheckWeight<Runtime>,
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-    AsTransactionExtension<pallet_subtensor::SubtensorSignedExtension<Runtime>>,
+    pallet_subtensor::SubtensorTransactionExtension<Runtime>,
     AsTransactionExtension<pallet_commitments::CommitmentsSignedExtension<Runtime>>,
     frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
