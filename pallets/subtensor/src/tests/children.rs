@@ -4,6 +4,7 @@
 use super::mock::*;
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_noop, assert_ok};
+use runtime_common::prod_or_fast;
 use substrate_fixed::types::{I64F64, I96F32, U96F32};
 
 use crate::{utils::rate_limiting::TransactionType, *};
@@ -3956,7 +3957,7 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
 fn test_pending_cooldown_one_day() {
     let curr_block = 1;
 
-	let expected_cooldown = prod_or_fast!(7_200, 10);
+    let expected_cooldown = prod_or_fast!(7_200, 10);
 
     new_test_ext(curr_block).execute_with(|| {
         let coldkey = U256::from(1);

@@ -7084,6 +7084,7 @@ dependencies = [
  "pallet-utility-opentensor",
  "parity-scale-codec",
  "parity-util-mem",
+ "polkadot-runtime-common",
  "rand",
  "rand_chacha",
  "safe-math",

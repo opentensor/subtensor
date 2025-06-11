@@ -59,6 +59,7 @@ w3f-bls = { workspace = true, default-features = false }
 sha2 = { workspace = true }
 rand_chacha = { workspace = true }
 subtensor-runtime-common = { workspace = true }
+runtime-common = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
@@ -113,6 +114,7 @@ std = [
 	"subtensor-runtime-common/std",
 	"tle/std",
 	"w3f-bls/std",
+	"runtime-common/std"
 ]
 default = ["std"]
 runtime-benchmarks = [
@@ -127,6 +129,7 @@ runtime-benchmarks = [
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
+	"runtime-common/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -140,6 +143,7 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 	"pallet-collective/try-runtime",
 	"pallet-drand/try-runtime",
+	"runtime-common/try-runtime"
 ]
 pow-faucet = []
 fast-runtime = [

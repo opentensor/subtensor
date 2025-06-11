@@ -82,7 +82,7 @@ impl AuthorityKeys {
     }
 }
 
-fn get_authority_keys_from_seed(seed: &str) -> AuthorityKeys {
+pub fn get_authority_keys_from_seed(seed: &str) -> AuthorityKeys {
     AuthorityKeys::new(
         get_account_id_from_seed::<sr25519::Public>(seed),
         get_from_seed::<BabeId>(seed),
