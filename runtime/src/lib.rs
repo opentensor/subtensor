@@ -13,7 +13,6 @@ mod migrations;
 
 use codec::{Compact, Decode, Encode};
 use frame_support::traits::{Imbalance, InsideBoth};
-use sp_runtime::Cow;
 use frame_support::{
     PalletId,
     dispatch::DispatchResultWithPostInfo,
@@ -48,10 +47,10 @@ use sp_core::{
     H160, H256, OpaqueMetadata, U256,
     crypto::{ByteArray, KeyTypeId},
 };
+use sp_runtime::Cow;
 use sp_runtime::generic::Era;
 use sp_runtime::{
-    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, generic,
-    impl_opaque_keys,
+    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, generic, impl_opaque_keys,
     traits::{
         AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, NumberFor,
         One, PostDispatchInfoOf, UniqueSaturatedInto, Verify,

@@ -2178,16 +2178,15 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             netuid,
             amount_staked: 100_000_000_000,
         });
-        let result =
-            extension.validate(
-                RawOrigin::Signed(who).into(), 
-                &call.clone(), 
-                &info, 
-                10,
-                (),
-                &TxBaseImplication(()),
-                TransactionSource::External,
-            );
+        let result = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Should fail
         assert_eq!(
             // Should get an invalid transaction error
@@ -2204,9 +2203,9 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             allow_partial: false,
         });
         let result = extension.validate(
-            RawOrigin::Signed(who).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -2227,9 +2226,9 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             alpha_amount: 100_000_000_000,
         });
         let result = extension.validate(
-            RawOrigin::Signed(who).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -2252,9 +2251,9 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             allow_partial: false,
         });
         let result = extension.validate(
-            RawOrigin::Signed(who).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -2276,9 +2275,9 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             alpha_amount: 100_000_000_000,
         });
         let result = extension.validate(
-            RawOrigin::Signed(who).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -2300,9 +2299,9 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             alpha_amount: 100_000_000_000,
         });
         let result = extension.validate(
-            RawOrigin::Signed(who).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -2321,9 +2320,9 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             keep_alive: false,
         });
         let result = extension.validate(
-            RawOrigin::Signed(who).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -2342,9 +2341,9 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             value: 100_000_000_000,
         });
         let result = extension.validate(
-            RawOrigin::Signed(who).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -2363,9 +2362,9 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             value: 100_000_000_000,
         });
         let result = extension.validate(
-            RawOrigin::Signed(who).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -2381,9 +2380,9 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
         // Burned register
         let call = RuntimeCall::SubtensorModule(SubtensorCall::burned_register { netuid, hotkey });
         let result = extension.validate(
-            RawOrigin::Signed(who).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -2403,9 +2402,9 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             amount_unstaked: 1_000_000,
         });
         let result = extension.validate(
-            RawOrigin::Signed(who).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -2423,9 +2422,9 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             allow_partial: true,
         });
         let result = extension.validate(
-            RawOrigin::Signed(who).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -2493,16 +2492,15 @@ fn test_coldkey_in_swap_schedule_prevents_critical_calls() {
         // Dissolve network
         let call =
             RuntimeCall::SubtensorModule(SubtensorCall::dissolve_network { netuid, coldkey });
-        let result =
-            extension.validate(
-                RawOrigin::Signed(who).into(), 
-                &call.clone(), 
-                &info, 
-                10,
-                (),
-                &TxBaseImplication(()),
-                TransactionSource::External,
-            );
+        let result = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Should fail
         assert_eq!(
             // Should get an invalid transaction error

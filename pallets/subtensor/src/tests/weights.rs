@@ -102,9 +102,9 @@ fn test_set_rootweights_validate() {
         let extension = crate::SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(
-            RawOrigin::Signed(who).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -133,9 +133,9 @@ fn test_set_rootweights_validate() {
 
         // Submit to the signed extension validate function
         let result_min_stake = extension.validate(
-            RawOrigin::Signed(who).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -156,9 +156,9 @@ fn test_set_rootweights_validate() {
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
 
         let result_more_stake = extension.validate(
-            RawOrigin::Signed(who).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -241,9 +241,9 @@ fn test_commit_weights_validate() {
         let extension = crate::SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(
-            RawOrigin::Signed(who).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -272,9 +272,9 @@ fn test_commit_weights_validate() {
 
         // Submit to the signed extension validate function
         let result_min_stake = extension.validate(
-            RawOrigin::Signed(who).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -295,9 +295,9 @@ fn test_commit_weights_validate() {
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
 
         let result_more_stake = extension.validate(
-            RawOrigin::Signed(who).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -374,9 +374,9 @@ fn test_set_weights_validate() {
         let extension = crate::SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(
-            RawOrigin::Signed(who).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -404,9 +404,9 @@ fn test_set_weights_validate() {
 
         // Submit to the signed extension validate function
         let result_min_stake = extension.validate(
-            RawOrigin::Signed(who).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -463,9 +463,9 @@ fn test_reveal_weights_validate() {
         let extension = crate::SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(
-            RawOrigin::Signed(who).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -494,9 +494,9 @@ fn test_reveal_weights_validate() {
 
         // Submit to the signed extension validate function
         let result_min_stake = extension.validate(
-            RawOrigin::Signed(who).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -517,9 +517,9 @@ fn test_reveal_weights_validate() {
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
 
         let result_more_stake = extension.validate(
-            RawOrigin::Signed(who).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),

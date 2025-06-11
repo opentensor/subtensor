@@ -2006,7 +2006,8 @@ where
                         false,
                     ),
                     Self::get_priority_staking(who, hotkey, *amount_staked),
-                ).map(|validity| (validity, Some(who.clone()), origin.clone()))
+                )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::add_stake_limit {
                 hotkey,
@@ -2035,7 +2036,8 @@ where
                         *allow_partial,
                     ),
                     Self::get_priority_staking(who, hotkey, *amount_staked),
-                ).map(|validity| (validity, Some(who.clone()), origin.clone()))
+                )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::remove_stake {
                 hotkey,
@@ -2053,7 +2055,8 @@ where
                         false,
                     ),
                     Self::get_priority_staking(who, hotkey, *amount_unstaked),
-                ).map(|validity| (validity, Some(who.clone()), origin.clone()))
+                )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::remove_stake_limit {
                 hotkey,
@@ -2079,21 +2082,24 @@ where
                         *allow_partial,
                     ),
                     Self::get_priority_staking(who, hotkey, *amount_unstaked),
-                ).map(|validity| (validity, Some(who.clone()), origin.clone()))
+                )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::unstake_all { hotkey }) => {
                 // Fully validate the user input
                 Self::result_to_validity(
                     Pallet::<T>::validate_unstake_all(who, hotkey, false),
                     Self::get_priority_vanilla(),
-                ).map(|validity| (validity, Some(who.clone()), origin.clone()))
+                )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::unstake_all_alpha { hotkey }) => {
                 // Fully validate the user input
                 Self::result_to_validity(
                     Pallet::<T>::validate_unstake_all(who, hotkey, true),
                     Self::get_priority_vanilla(),
-                ).map(|validity| (validity, Some(who.clone()), origin.clone()))
+                )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::move_stake {
                 origin_hotkey,
@@ -2121,7 +2127,8 @@ where
                         false,
                     ),
                     Self::get_priority_staking(who, origin_hotkey, *alpha_amount),
-                ).map(|validity| (validity, Some(who.clone()), origin.clone()))
+                )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::transfer_stake {
                 destination_coldkey,
@@ -2149,7 +2156,8 @@ where
                         true,
                     ),
                     Self::get_priority_staking(who, hotkey, *alpha_amount),
-                ).map(|validity| (validity, Some(who.clone()), origin.clone()))
+                )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::swap_stake {
                 hotkey,
@@ -2176,7 +2184,8 @@ where
                         false,
                     ),
                     Self::get_priority_staking(who, hotkey, *alpha_amount),
-                ).map(|validity| (validity, Some(who.clone()), origin.clone()))
+                )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::swap_stake_limit {
                 hotkey,
@@ -2214,7 +2223,8 @@ where
                         false,
                     ),
                     Self::get_priority_staking(who, hotkey, *alpha_amount),
-                ).map(|validity| (validity, Some(who.clone()), origin.clone()))
+                )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
@@ -2279,7 +2289,8 @@ where
                         *placeholder2,
                     ),
                     Self::get_priority_vanilla(),
-                ).map(|validity| (validity, Some(who.clone()), origin.clone()))
+                )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             _ => {
                 if let Some(
@@ -2316,36 +2327,16 @@ where
         }
 
         match call.is_sub_type() {
-            Some(Call::add_stake { .. }) => {
-                Ok(Some(CallType::AddStake))
-            }
-            Some(Call::remove_stake { .. }) => {
-                Ok(Some(CallType::RemoveStake))
-            }
-            Some(Call::set_weights { .. }) => {
-                Ok(Some(CallType::SetWeights))
-            }
-            Some(Call::commit_weights { .. }) => {
-                Ok(Some(CallType::SetWeights))
-            }
-            Some(Call::reveal_weights { .. }) => {
-                Ok(Some(CallType::SetWeights))
-            }
-            Some(Call::register { .. }) => {
-                Ok(Some(CallType::Register))
-            }
-            Some(Call::serve_axon { .. }) => {
-                Ok(Some(CallType::Serve))
-            }
-            Some(Call::serve_axon_tls { .. }) => {
-                Ok(Some(CallType::Serve))
-            }
-            Some(Call::register_network { .. }) => {
-                Ok(Some(CallType::RegisterNetwork))
-            }
-            _ => {
-                Ok(Some(CallType::Other))
-            }
+            Some(Call::add_stake { .. }) => Ok(Some(CallType::AddStake)),
+            Some(Call::remove_stake { .. }) => Ok(Some(CallType::RemoveStake)),
+            Some(Call::set_weights { .. }) => Ok(Some(CallType::SetWeights)),
+            Some(Call::commit_weights { .. }) => Ok(Some(CallType::SetWeights)),
+            Some(Call::reveal_weights { .. }) => Ok(Some(CallType::SetWeights)),
+            Some(Call::register { .. }) => Ok(Some(CallType::Register)),
+            Some(Call::serve_axon { .. }) => Ok(Some(CallType::Serve)),
+            Some(Call::serve_axon_tls { .. }) => Ok(Some(CallType::Serve)),
+            Some(Call::register_network { .. }) => Ok(Some(CallType::RegisterNetwork)),
+            _ => Ok(Some(CallType::Other)),
         }
     }
 

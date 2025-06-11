@@ -2,8 +2,8 @@ use super::mock::*;
 
 use crate::Error;
 use crate::*;
-use frame_support::pallet_prelude::Weight;
 use frame_support::assert_noop;
+use frame_support::pallet_prelude::Weight;
 use frame_support::{
     assert_ok,
     dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays},
@@ -1340,9 +1340,9 @@ fn test_serve_axon_validate() {
         let extension = crate::SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_bad = extension.validate(
-            RawOrigin::Signed(hotkey).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(hotkey).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -1362,9 +1362,9 @@ fn test_serve_axon_validate() {
 
         // Submit to the signed extension validate function
         let result_ok = extension.validate(
-            RawOrigin::Signed(hotkey).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(hotkey).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),

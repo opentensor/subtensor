@@ -10,7 +10,7 @@ use frame_support::sp_runtime::{DispatchError, transaction_validity::Transaction
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::{Config, RawOrigin};
 use sp_core::U256;
-use sp_runtime::traits::{DispatchInfoOf, TxBaseImplication, TransactionExtension};
+use sp_runtime::traits::{DispatchInfoOf, TransactionExtension, TxBaseImplication};
 
 /********************************************
     subscribing::subscribe() tests
@@ -222,9 +222,9 @@ fn test_registration_under_limit() {
         let extension = SubtensorTransactionExtension::<Test>::new();
         //does not actually call register
         let result = extension.validate(
-            RawOrigin::Signed(who).into(), 
-            &call.into(), 
-            &info, 
+            RawOrigin::Signed(who).into(),
+            &call.into(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -282,9 +282,9 @@ fn test_registration_rate_limit_exceeded() {
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
         let extension = SubtensorTransactionExtension::<Test>::new();
         let result = extension.validate(
-            RawOrigin::Signed(who).into(), 
-            &call.into(), 
-            &info, 
+            RawOrigin::Signed(who).into(),
+            &call.into(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -334,16 +334,15 @@ fn test_burned_registration_under_limit() {
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
         let extension = SubtensorTransactionExtension::<Test>::new();
         //does not actually call register
-        let burned_register_result =
-            extension.validate(
-                RawOrigin::Signed(who).into(), 
-                &call_burned_register.into(), 
-                &info, 
-                10,
-                (),
-                &TxBaseImplication(()),
-                TransactionSource::External,
-            );
+        let burned_register_result = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call_burned_register.into(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         assert_ok!(burned_register_result);
 
         //actually call register
@@ -381,16 +380,15 @@ fn test_burned_registration_rate_limit_exceeded() {
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
         let extension = SubtensorTransactionExtension::<Test>::new();
-        let burned_register_result =
-            extension.validate(
-                RawOrigin::Signed(who).into(), 
-                &call_burned_register.into(), 
-                &info, 
-                10,
-                (),
-                &TxBaseImplication(()),
-                TransactionSource::External,
-            );
+        let burned_register_result = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call_burned_register.into(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
 
         // Expectation: The transaction should be rejected
         assert_eq!(
@@ -435,16 +433,15 @@ fn test_burned_registration_rate_allows_burn_adjustment() {
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
         let extension = SubtensorTransactionExtension::<Test>::new();
         //does not actually call register
-        let burned_register_result =
-            extension.validate(
-                RawOrigin::Signed(who).into(), 
-                &call_burned_register.into(), 
-                &info, 
-                10,
-                (),
-                &TxBaseImplication(()),
-                TransactionSource::External,
-            );
+        let burned_register_result = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call_burned_register.into(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         assert_ok!(burned_register_result);
 
         //actually call register

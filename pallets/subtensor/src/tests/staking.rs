@@ -10,7 +10,9 @@ use super::mock::*;
 use crate::*;
 use approx::assert_abs_diff_eq;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
-use frame_support::sp_runtime::{DispatchError, transaction_validity::TransactionSource, traits::TxBaseImplication};
+use frame_support::sp_runtime::{
+    DispatchError, traits::TxBaseImplication, transaction_validity::TransactionSource,
+};
 use sp_core::{Get, H256, U256};
 use substrate_fixed::types::{I96F32, I110F18, U64F64, U96F32};
 /***********************************************************
@@ -2535,9 +2537,9 @@ fn test_stake_below_min_validate() {
         let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(
-            RawOrigin::Signed(coldkey).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(coldkey).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -2560,9 +2562,9 @@ fn test_stake_below_min_validate() {
 
         // Submit to the signed extension validate function
         let result_low_balance = extension.validate(
-            RawOrigin::Signed(coldkey).into(), 
-            &call_2.clone(), 
-            &info, 
+            RawOrigin::Signed(coldkey).into(),
+            &call_2.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -2580,9 +2582,9 @@ fn test_stake_below_min_validate() {
 
         // Submit to the signed extension validate function
         let result_min_stake = extension.validate(
-            RawOrigin::Signed(coldkey).into(), 
-            &call_2.clone(), 
-            &info, 
+            RawOrigin::Signed(coldkey).into(),
+            &call_2.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -2638,9 +2640,9 @@ fn test_add_stake_limit_validate() {
         let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(
-            RawOrigin::Signed(coldkey).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(coldkey).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -2704,9 +2706,9 @@ fn test_remove_stake_limit_validate() {
         let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(
-            RawOrigin::Signed(coldkey).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(coldkey).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -2803,9 +2805,9 @@ fn test_stake_low_liquidity_validate() {
         let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(
-            RawOrigin::Signed(coldkey).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(coldkey).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -2864,9 +2866,9 @@ fn test_unstake_low_liquidity_validate() {
         let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(
-            RawOrigin::Signed(coldkey).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(coldkey).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -2921,9 +2923,9 @@ fn test_unstake_all_validate() {
         let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(
-            RawOrigin::Signed(coldkey).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(coldkey).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),

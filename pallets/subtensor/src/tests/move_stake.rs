@@ -3,8 +3,8 @@ use crate::*;
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::RawOrigin;
-use sp_runtime::traits::TxBaseImplication;
 use sp_core::{Get, U256};
+use sp_runtime::traits::TxBaseImplication;
 use substrate_fixed::types::{U64F64, U96F32};
 
 // 1. test_do_move_success
@@ -1567,8 +1567,9 @@ fn test_swap_stake_limit_validate() {
         let extension = crate::SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(
-            RawOrigin::Signed(coldkey).into(), &call.clone(), 
-            &info, 
+            RawOrigin::Signed(coldkey).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -1623,9 +1624,9 @@ fn test_stake_transfers_disabled_validate() {
 
         // Submit to the signed extension validate function
         let result1 = extension.validate(
-            RawOrigin::Signed(coldkey).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(coldkey).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -1642,9 +1643,9 @@ fn test_stake_transfers_disabled_validate() {
 
         // Submit to the signed extension validate function
         let result2 = extension.validate(
-            RawOrigin::Signed(coldkey).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(coldkey).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
@@ -1661,9 +1662,9 @@ fn test_stake_transfers_disabled_validate() {
 
         // Submit to the signed extension validate function
         let result3 = extension.validate(
-            RawOrigin::Signed(coldkey).into(), 
-            &call.clone(), 
-            &info, 
+            RawOrigin::Signed(coldkey).into(),
+            &call.clone(),
+            &info,
             10,
             (),
             &TxBaseImplication(()),
