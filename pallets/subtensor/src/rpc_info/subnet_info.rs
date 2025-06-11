@@ -394,10 +394,10 @@ impl<T: Config> Pallet<T> {
             alpha_high: alpha_high.into(),
             alpha_low: alpha_low.into(),
             liquid_alpha_enabled,
-            alpha_sigmoid_steepness: alpha_sigmoid_steepness,
+            alpha_sigmoid_steepness,
             yuma_version: yuma_version.into(),
-            subnet_token_enabled: subnet_token_enabled,
-            transfers_enabled: transfers_enabled,
+            subnet_token_enabled,
+            transfers_enabled,
             bonds_reset_enabled: bonds_reset,
         })
     }
