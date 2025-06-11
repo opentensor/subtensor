@@ -40,6 +40,7 @@ sha2 = { workspace = true }
 log = { workspace = true }
 
 pallet-subtensor = { path = "../subtensor", default-features = false }
+subtensor-runtime-common = { workspace = true }
 
 [dev-dependencies]
 sp-core = { workspace = true }
@@ -49,26 +50,27 @@ pallet-balances = { workspace = true }
 [features]
 default = ["std"]
 std = [
+	"ark-serialize/std",
 	"codec/std",
+	"enumflags2/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
-	"scale-info/std",
-	"sp-std/std",
-	"sp-runtime/std",
-	"enumflags2/std",
+	"hex/std",
+	"log/std",
 	"pallet-balances/std",
+	"pallet-drand/std",
+	"pallet-subtensor/std",
+	"rand_chacha/std",
+	"scale-info/std",
+	"sha2/std",
 	"sp-core/std",
 	"sp-io/std",
-	"ark-serialize/std",
-	"log/std",
-	"pallet-drand/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"subtensor-runtime-common/std",
 	"tle/std",
 	"w3f-bls/std",
-	"hex/std",
-	"rand_chacha/std",
-	"sha2/std",
-	"pallet-subtensor/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

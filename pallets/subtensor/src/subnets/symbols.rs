@@ -1,8 +1,9 @@
 use super::*;
+use subtensor_runtime_common::NetUid;
 
 /// Returns the Unicode symbol as a Vec<u8> for a given netuid.
 impl<T: Config> Pallet<T> {
-    pub fn get_name_for_subnet(netuid: u16) -> Vec<u8> {
+    pub fn get_name_for_subnet(netuid: NetUid) -> Vec<u8> {
         SubnetIdentitiesV2::<T>::try_get(netuid)
             .and_then(|identity| {
                 if !identity.subnet_name.is_empty() {
@@ -12,7 +13,7 @@ impl<T: Config> Pallet<T> {
                 }
             })
             .unwrap_or_else(|_| {
-                match netuid {
+                match u16::from(netuid) {
                     0 => b"root".to_vec(),          // Τ (Upper case Tau)
                     1 => b"apex".to_vec(),          // α (Alpha)
                     2 => b"omron".to_vec(),         // β (Beta)
@@ -457,8 +458,8 @@ impl<T: Config> Pallet<T> {
             })
     }
 
-    pub fn get_symbol_for_subnet(netuid: u16) -> Vec<u8> {
-        match netuid {
+    pub fn get_symbol_for_subnet(netuid: NetUid) -> Vec<u8> {
+        match u16::from(netuid) {
             // Greek Alphabet (Lowercase)
             0 => b"\xCE\xA4".to_vec(),  // Τ (Upper case Tau)
             1 => b"\xCE\xB1".to_vec(),  // α (Alpha)
