@@ -38,7 +38,7 @@ fn test_add_stake_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                weight: frame_support::weights::Weight::from_parts(2_245_500_000, 0),
+                weight: frame_support::weights::Weight::from_parts(2_395_500_000, 0),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
             }

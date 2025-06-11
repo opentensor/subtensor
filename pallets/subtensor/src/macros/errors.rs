@@ -208,8 +208,6 @@ mod errors {
         UnableToRecoverPublicKey,
         /// Recovered public key is invalid.
         InvalidRecoveredPublicKey,
-        /// The caller does not have enough balance for the operation.
-        InsufficientBalance,
         /// SubToken disabled now
         SubtokenDisabled,
         /// Too frequent hotkey swap on subnet
@@ -218,5 +216,7 @@ mod errors {
         ZeroMaxStakeAmount,
         /// Invalid netuid duplication
         SameNetuid,
+        /// The caller does not have enough balance for the operation.
+        InsufficientBalance,
     }
 }
