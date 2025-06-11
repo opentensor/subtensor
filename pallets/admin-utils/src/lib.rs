@@ -113,6 +113,8 @@ pub mod pallet {
         Neuron,
         /// Enum for UID lookup precompile
         UidLookup,
+        /// Enum for alpha precompile
+        Alpha,
     }
 
     #[pallet::type_value]
