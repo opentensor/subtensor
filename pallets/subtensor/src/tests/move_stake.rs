@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap-used)]
+
 use super::mock::*;
 use crate::*;
 use approx::assert_abs_diff_eq;

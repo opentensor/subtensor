@@ -90,7 +90,7 @@ pub use sp_runtime::{Perbill, Permill};
 
 use core::marker::PhantomData;
 
-use scale_info::{TypeInfo, prelude::string};
+use scale_info::TypeInfo;
 
 // Frontier
 use fp_rpc::TransactionStatus;
