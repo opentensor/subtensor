@@ -1780,3 +1780,55 @@ fn test_set_sn_owner_hotkey_root() {
         assert_eq!(actual_hotkey, hotkey);
     });
 }
+
+#[test]
+fn test_sudo_set_liquidity_scale_max() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u64 = 1_234;
+        // install a subnet with owner = 10
+        add_network(netuid, 10);
+
+        // read the default
+        let before: u64 = pallet_subtensor::LiquidityScaleMax::<Test>::get(netuid);
+
+        // 1) wrong signed account → BadOrigin, no change
+        assert_eq!(
+            AdminUtils::sudo_set_liquidity_scale_max(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        assert_eq!(
+            pallet_subtensor::LiquidityScaleMax::<Test>::get(netuid),
+            before
+        );
+
+        // 2) subnet owner but not root → still BadOrigin
+        let owner = U256::from(10);
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, owner);
+        assert_eq!(
+            AdminUtils::sudo_set_liquidity_scale_max(
+                <<Test as Config>::RuntimeOrigin>::signed(owner),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        assert_eq!(
+            pallet_subtensor::LiquidityScaleMax::<Test>::get(netuid),
+            before
+        );
+
+        // 3) root origin → Ok, value updated
+        assert_ok!(AdminUtils::sudo_set_liquidity_scale_max(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+        let after: u64 = pallet_subtensor::LiquidityScaleMax::<Test>::get(netuid);
+        assert_eq!(after, to_be_set);
+    });
+}

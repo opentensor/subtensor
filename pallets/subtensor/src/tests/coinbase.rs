@@ -174,62 +174,108 @@ fn test_coinbase_tao_issuance_different_prices() {
     });
 }
 
+// Test dynamic alpha curve computation
+// This test verifies that:
+// - The dynamic alpha curve is computed correctly for various liquidity levels
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_moving_prices --exact --show-output --nocapture
+#[test]
+fn test_ema_alpha_calculation() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+
+        let ls: [u64; 6] = [200, 600, 1400, 1700, 1900, 2500];
+        let ema_alphas: [f64; 6] = [0.0000001, 0.00001, 0.0001, 0.001, 0.01, 1.0];
+
+        let liquidity_scale_max = crate::LiquidityScaleMax::<Test>::get(netuid);
+
+        for i in 0..6 {
+            let l = U96F32::from_num(ls[i]);
+            let lsm = U96F32::from_num(liquidity_scale_max);
+            let alpha = SubtensorModule::compute_alpha_for_ema(l, lsm);
+            let expected_alpha = I96F32::from_num(ema_alphas[i]);
+
+            assert_abs_diff_eq!(
+                alpha.to_num::<f64>(),
+                expected_alpha.to_num::<f64>(),
+                epsilon = 0.000000001,
+            );
+        }
+    });
+}
+
 // Test moving price updates with different alpha values.
 // This test verifies that:
-// - Moving price stays constant when alpha is 1.0
-// - Moving price converges to real price at expected rate with alpha 0.1
-// - Moving price updates correctly over multiple iterations
+// - Moving price is correct at low liquidity (with low alpha)
+// - Moving price is correct at medium liquidity (with medium alpha)
+// - Moving price is correct at high liquidity (with alpha = 1.0, beyond EMA falloff)
+// - Moving price takes minimum of current price and moving price
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_moving_prices --exact --show-output --nocapture
 #[test]
 fn test_coinbase_moving_prices() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         add_network(netuid, 1, 0);
-        // Set price to 1.0
+
+        // check 1: moving alpha price close to zero when liquidity is extremely low
         SubnetTAO::<Test>::insert(netuid, 1_000_000);
         SubnetAlphaIn::<Test>::insert(netuid, 1_000_000);
         SubnetMechanism::<Test>::insert(netuid, 1);
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(1));
         FirstEmissionBlockNumber::<Test>::insert(netuid, 1);
 
-        // Updating the moving price keeps it the same.
         assert_eq!(
             SubtensorModule::get_moving_alpha_price(netuid),
             I96F32::from_num(1)
         );
-        // Skip some blocks so that EMA price is not slowed down
-        System::set_block_number(7_200_000);
 
         SubtensorModule::update_moving_price(netuid);
         assert_eq!(
             SubtensorModule::get_moving_alpha_price(netuid),
             I96F32::from_num(1)
         );
-        // Check alpha of 1.
-        // Set price to zero.
+
+        // check 2: medium liquidity (relative to falloff)
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0));
-        SubnetMovingAlpha::<Test>::set(I96F32::from_num(1.0));
-        // Run moving 1 times.
         SubtensorModule::update_moving_price(netuid);
-        // Assert price is ~ 100% of the real price.
-        assert!(U96F32::from_num(1.0) - SubtensorModule::get_moving_alpha_price(netuid) < 0.05);
-        // Set price to zero.
+        assert_eq!(SubtensorModule::get_moving_alpha_price(netuid), 0.0);
+
+        SubnetTAO::<Test>::insert(netuid, 1_500_000_000_000);
+        SubnetAlphaIn::<Test>::insert(netuid, 1_500_000_000_000);
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0));
-        SubnetMovingAlpha::<Test>::set(I96F32::from_num(0.1));
 
-        // EMA price 28 days after registration
-        System::set_block_number(7_200 * 28);
+        SubtensorModule::update_moving_price(netuid);
 
-        // Run moving 14 times.
-        for _ in 0..14 {
-            SubtensorModule::update_moving_price(netuid);
-        }
-
-        // Assert price is > 50% of the real price.
         assert_abs_diff_eq!(
-            0.512325,
-            SubtensorModule::get_moving_alpha_price(netuid).to_num::<f64>(),
-            epsilon = 0.001
+            SubnetMovingPrice::<Test>::get(netuid).to_num::<f64>(),
+            0.0001,
+            epsilon = 0.00000001
+        );
+
+        // check 3: high liquidity, check no EMA applied
+        SubnetTAO::<Test>::insert(netuid, 2_500_000_000_000);
+        SubnetAlphaIn::<Test>::insert(netuid, 2_500_000_000_000);
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0));
+
+        SubtensorModule::update_moving_price(netuid);
+
+        assert_abs_diff_eq!(
+            SubnetMovingPrice::<Test>::get(netuid).to_num::<f64>(),
+            1.0,
+            epsilon = 0.00000001
+        );
+
+        // check 4: minimum case, i.e. current_price of 1.0 and moving_price > current_price
+        SubnetTAO::<Test>::insert(netuid, 2_500_000_000_000);
+        SubnetTAO::<Test>::insert(netuid, 2_500_000_000_000);
+        SubnetAlphaIn::<Test>::insert(netuid, 2_500_000_000_000);
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(1.5));
+        SubtensorModule::update_moving_price(netuid);
+
+        assert_abs_diff_eq!(
+            SubnetMovingPrice::<Test>::get(netuid).to_num::<f64>(),
+            1.0,
+            epsilon = 0.00000001
         );
     });
 }
@@ -256,31 +302,6 @@ fn test_update_moving_price_initial() {
 
         let new_price = SubnetMovingPrice::<Test>::get(netuid);
         assert!(new_price.to_num::<f64>() < 0.001);
-    });
-}
-
-// Test moving price updates slow down at the beginning.
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_update_moving_price_after_time --exact --show-output --nocapture
-#[test]
-fn test_update_moving_price_after_time() {
-    new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
-        add_network(netuid, 1, 0);
-        // Set current price to 1.0
-        SubnetTAO::<Test>::insert(netuid, 1_000_000);
-        SubnetAlphaIn::<Test>::insert(netuid, 1_000_000);
-        SubnetMechanism::<Test>::insert(netuid, 1);
-        SubnetMovingAlpha::<Test>::set(I96F32::from_num(0.5));
-        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0));
-
-        // Registered long time ago
-        System::set_block_number(144_000_500);
-        FirstEmissionBlockNumber::<Test>::insert(netuid, 500);
-
-        SubtensorModule::update_moving_price(netuid);
-
-        let new_price = SubnetMovingPrice::<Test>::get(netuid);
-        assert!((new_price.to_num::<f64>() - 0.5).abs() < 0.001);
     });
 }
 
@@ -729,7 +750,8 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         assert_abs_diff_eq!(expected_root1.to_num::<u64>(), root_after1, epsilon = 10); // Registered gets 2/3 tao emission
         let expected_root2 = I96F32::from_num(stake_before)
             + I96F32::from_num(pending_tao) * I96F32::from_num(1.0 / 3.0);
-        assert_abs_diff_eq!(expected_root2.to_num::<u64>(), root_after2, epsilon = 10); // Registered gets 1/3 tao emission
+        assert_abs_diff_eq!(expected_root2.to_num::<u64>(), root_after2, epsilon = 10);
+        // Registered gets 1/3 tao emission
     });
 }
 
