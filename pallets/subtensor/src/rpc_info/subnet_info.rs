@@ -3,6 +3,7 @@ use frame_support::pallet_prelude::{Decode, Encode};
 use frame_support::storage::IterableStorageMap;
 extern crate alloc;
 use codec::Compact;
+use substrate_fixed::types::I32F32;
 
 #[freeze_struct("1eee6f3911800c6b")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
@@ -83,7 +84,7 @@ pub struct SubnetHyperparams {
     liquid_alpha_enabled: bool,
 }
 
-#[freeze_struct("cb67d7ada314398e")]
+#[freeze_struct("34ec2962181256c6")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetHyperparamsV2 {
     rho: Compact<u16>,
@@ -113,7 +114,11 @@ pub struct SubnetHyperparamsV2 {
     alpha_high: Compact<u16>,
     alpha_low: Compact<u16>,
     liquid_alpha_enabled: bool,
+    alpha_sigmoid_steepness: I32F32,
     yuma_version: Compact<u16>,
+    subnet_token_enabled: bool,
+    transfers_enabled: bool,
+    bonds_reset_enabled: bool,
 }
 
 impl<T: Config> Pallet<T> {
@@ -352,10 +357,14 @@ impl<T: Config> Pallet<T> {
         let commit_reveal_weights_enabled = Self::get_commit_reveal_weights_enabled(netuid);
         let liquid_alpha_enabled = Self::get_liquid_alpha_enabled(netuid);
         let (alpha_low, alpha_high): (u16, u16) = Self::get_alpha_values(netuid);
+        let alpha_sigmoid_steepness = Self::get_alpha_sigmoid_steepness(netuid);
         let yuma_version: u16 = match Self::get_yuma3_enabled(netuid) {
             true => 3u16,
             false => 2u16,
         };
+        let subnet_token_enabled = Self::get_subtoken_enabled(netuid);
+        let transfers_enabled = Self::get_transfer_toggle(netuid);
+        let bonds_reset = Self::get_bonds_reset(netuid);
 
         Some(SubnetHyperparamsV2 {
             rho: rho.into(),
@@ -385,7 +394,11 @@ impl<T: Config> Pallet<T> {
             alpha_high: alpha_high.into(),
             alpha_low: alpha_low.into(),
             liquid_alpha_enabled,
+            alpha_sigmoid_steepness: alpha_sigmoid_steepness,
             yuma_version: yuma_version.into(),
+            subnet_token_enabled: subnet_token_enabled,
+            transfers_enabled: transfers_enabled,
+            bonds_reset_enabled: bonds_reset,
         })
     }
 }

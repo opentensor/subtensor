@@ -719,6 +719,14 @@ impl<T: Config> Pallet<T> {
         Yuma3On::<T>::get(netuid)
     }
 
+    pub fn get_subtoken_enabled(netuid: u16) -> bool {
+        SubtokenEnabled::<T>::get(netuid)
+    }
+
+    pub fn get_transfer_toggle(netuid: u16) -> bool {
+        TransferToggle::<T>::get(netuid)
+    }
+
     /// Set the duration for coldkey swap
     ///
     /// # Arguments
