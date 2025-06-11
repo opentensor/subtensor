@@ -123,7 +123,7 @@ pub fn create_benchmark_extrinsic(
         .checked_next_power_of_two()
         .map(|c| c / 2)
         .unwrap_or(2) as u64;
-    let extra: runtime::SignedExtra = (
+    let extra: runtime::TransactionExtensions = (
         frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
         frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
         frame_system::CheckTxVersion::<runtime::Runtime>::new(),
@@ -132,10 +132,10 @@ pub fn create_benchmark_extrinsic(
             period,
             best_block.saturated_into(),
         )),
-        check_nonce::CheckNonce::<runtime::Runtime>::from(nonce).into(),
+        check_nonce::CheckNonce::<runtime::Runtime>::from(nonce),
         frame_system::CheckWeight::<runtime::Runtime>::new(),
         pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
-        pallet_subtensor::SubtensorTransactionExtension::<runtime::Runtime>::new().into(),
+        pallet_subtensor::SubtensorTransactionExtension::<runtime::Runtime>::new(),
         frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(true),
     );
 

@@ -52,7 +52,6 @@ use sp_runtime::generic::Era;
 use sp_runtime::{
     AccountId32, ApplyExtrinsicResult, ConsensusEngineId, generic,
     impl_opaque_keys,
-    traits::transaction_extension::AsTransactionExtension,
     traits::{
         AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, NumberFor,
         One, PostDispatchInfoOf, UniqueSaturatedInto, Verify,
@@ -141,7 +140,7 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
         use sp_runtime::traits::StaticLookup;
 
         let address = <Runtime as frame_system::Config>::Lookup::unlookup(account.clone());
-        let extra: SignedExtra = (
+        let extra: TransactionExtensions = (
             frame_system::CheckNonZeroSender::<Runtime>::new(),
             frame_system::CheckSpecVersion::<Runtime>::new(),
             frame_system::CheckTxVersion::<Runtime>::new(),
@@ -1571,14 +1570,14 @@ pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 // Block type as expected by this runtime.
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
-// The SignedExtension to the basic transaction logic.
-pub type SignedExtra = (
+// The extensions to the basic transaction logic.
+pub type TransactionExtensions = (
     frame_system::CheckNonZeroSender<Runtime>,
     frame_system::CheckSpecVersion<Runtime>,
     frame_system::CheckTxVersion<Runtime>,
     frame_system::CheckGenesis<Runtime>,
     frame_system::CheckEra<Runtime>,
-    AsTransactionExtension<check_nonce::CheckNonce<Runtime>>,
+    check_nonce::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
     pallet_subtensor::SubtensorTransactionExtension<Runtime>,
@@ -1595,14 +1594,14 @@ type Migrations = (
 
 // Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
-    fp_self_contained::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+    fp_self_contained::UncheckedExtrinsic<Address, RuntimeCall, Signature, TransactionExtensions>;
 
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic =
-    fp_self_contained::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra, H160>;
+    fp_self_contained::CheckedExtrinsic<AccountId, RuntimeCall, TransactionExtensions, H160>;
 
 // The payload being signed in transactions.
-pub type SignedPayload = generic::SignedPayload<RuntimeCall, SignedExtra>;
+pub type SignedPayload = generic::SignedPayload<RuntimeCall, TransactionExtensions>;
 // Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
     Runtime,
