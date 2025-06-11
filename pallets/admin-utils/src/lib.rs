@@ -88,7 +88,7 @@ pub mod pallet {
         /// Event emitted when Bonds Reset is toggled.
         BondsResetToggled {
             /// The network identifier.
-            netuid: u16,
+            netuid: NetUid,
             /// Indicates if the Bonds Reset was enabled or disabled.
             enabled: bool,
         },
