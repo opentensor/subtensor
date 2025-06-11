@@ -152,7 +152,7 @@ pub fn create_benchmark_extrinsic(
             (),
             (),
             (),
-            (),
+            None,
         ),
     );
     let signature = raw_payload.using_encoded(|e| sender.sign(e));
