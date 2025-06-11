@@ -1902,6 +1902,7 @@ where
         _inherited_implication: &impl Implication,
         _source: TransactionSource,
     ) -> ValidateResult<Self::Val, <T as frame_system::Config>::RuntimeCall> {
+        // Ensure the transaction is signed, else we just skip the extension.
         let Some(who) = origin.as_system_origin_signer() else {
             return Ok((Default::default(), None, origin));
         };
@@ -2309,15 +2310,11 @@ where
         _info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
         _len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
-        let who = match val {
-            Some(who) => who,
-            None => return Ok(None),
-        };
+        // The transaction is not signed, given val is None, so we just skip this step.
+        if let None = val {
+            return Ok(None);
+        }
 
-        // We need to perform same checks as Self::validate so that
-        // the validation is performed during Executive::apply_extrinsic as well.
-        // this prevents inclusion of invalid tx in a block by malicious block author.
-        // self.validate(who, call, info, len)?;
         match call.is_sub_type() {
             Some(Call::add_stake { .. }) => {
                 Ok(Some(CallType::AddStake))
@@ -2359,6 +2356,7 @@ where
         _len: usize,
         _result: &dispatch::DispatchResult,
     ) -> Result<(), TransactionValidityError> {
+        // Skip this step if the transaction is not signed, meaning pre is None.
         let call_type = match pre {
             Some(call_type) => call_type,
             None => return Ok(()),
