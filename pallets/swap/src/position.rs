@@ -56,39 +56,39 @@ impl<T: Config> Position<T> {
     pub fn to_token_amounts(&self, sqrt_price_curr: SqrtPrice) -> Result<(u64, u64), Error<T>> {
         let one = U64F64::saturating_from_num(1);
 
-        let sqrt_pa = self
+        let sqrt_price_low = self
             .tick_low
             .try_to_sqrt_price()
             .map_err(|_| Error::<T>::InvalidTickRange)?;
-        let sqrt_pb = self
+        let sqrt_price_high = self
             .tick_high
             .try_to_sqrt_price()
             .map_err(|_| Error::<T>::InvalidTickRange)?;
         let liquidity_fixed = U64F64::saturating_from_num(self.liquidity);
 
-        Ok(if sqrt_price_curr < sqrt_pa {
+        Ok(if sqrt_price_curr < sqrt_price_low {
             (
                 0,
                 liquidity_fixed
-                    .saturating_mul(one.safe_div(sqrt_pa).saturating_sub(one.safe_div(sqrt_pb)))
+                    .saturating_mul(one.safe_div(sqrt_price_low).saturating_sub(one.safe_div(sqrt_price_high)))
                     .saturating_to_num::<u64>(),
             )
-        } else if sqrt_price_curr > sqrt_pb {
+        } else if sqrt_price_curr > sqrt_price_high {
             (
                 liquidity_fixed
-                    .saturating_mul(sqrt_pb.saturating_sub(sqrt_pa))
+                    .saturating_mul(sqrt_price_high.saturating_sub(sqrt_price_low))
                     .saturating_to_num::<u64>(),
                 0,
             )
         } else {
             (
                 liquidity_fixed
-                    .saturating_mul(sqrt_price_curr.saturating_sub(sqrt_pa))
+                    .saturating_mul(sqrt_price_curr.saturating_sub(sqrt_price_low))
                     .saturating_to_num::<u64>(),
                 liquidity_fixed
                     .saturating_mul(
                         one.safe_div(sqrt_price_curr)
-                            .saturating_sub(one.safe_div(sqrt_pb)),
+                            .saturating_sub(one.safe_div(sqrt_price_high)),
                     )
                     .saturating_to_num::<u64>(),
             )
