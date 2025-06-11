@@ -2246,7 +2246,7 @@ where
             }
             Some(Call::dissolve_network { .. }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
+                    Err(CustomTransactionError::ColdkeyInSwapSchedule.into())
                 } else {
                     let validity = ValidTransaction {
                         priority: Self::get_priority_vanilla(),
@@ -2311,7 +2311,7 @@ where
         _len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
         // The transaction is not signed, given val is None, so we just skip this step.
-        if let None = val {
+        if val.is_none() {
             return Ok(None);
         }
 
