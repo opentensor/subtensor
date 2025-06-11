@@ -23,6 +23,7 @@ use subtensor_runtime_common::ProxyType;
 
 use pallet_admin_utils::PrecompileEnum;
 
+use crate::alpha::*;
 use crate::balance_transfer::*;
 use crate::ed25519::*;
 use crate::extensions::*;
@@ -33,6 +34,7 @@ use crate::storage_query::*;
 use crate::subnet::*;
 use crate::uid_lookup::*;
 
+mod alpha;
 mod balance_transfer;
 mod ed25519;
 mod extensions;
@@ -91,7 +93,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 17] {
+    pub fn used_addresses() -> [H160; 18] {
         [
             hash(1),
             hash(2),
@@ -110,6 +112,7 @@ where
             hash(StakingPrecompileV2::<R>::INDEX),
             hash(StorageQueryPrecompile::<R>::INDEX),
             hash(UidLookupPrecompile::<R>::INDEX),
+            hash(AlphaPrecompile::<R>::INDEX),
         ]
     }
 }
@@ -177,6 +180,9 @@ where
             }
             a if a == hash(StorageQueryPrecompile::<R>::INDEX) => {
                 Some(StorageQueryPrecompile::<R>::execute(handle))
+            }
+            a if a == hash(AlphaPrecompile::<R>::INDEX) => {
+                AlphaPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Alpha)
             }
             _ => None,
         }

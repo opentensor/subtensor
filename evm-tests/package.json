@@ -16,7 +16,8 @@
     "mocha": "^11.1.0",
     "polkadot-api": "^1.9.5",
     "scale-ts": "^1.6.1",
-    "viem": "2.23.4"
+    "viem": "2.23.4",
+    "ws": "^8.18.2"
   },
   "devDependencies": {
     "@types/bun": "^1.1.13",

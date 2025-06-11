@@ -909,6 +909,9 @@ impl<T: Config> Pallet<T> {
         // Ensure that the subnet exists.
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
+        // Ensure that the subnet is enabled.
+        Self::ensure_subtoken_enabled(netuid)?;
+
         // Get the minimum balance (and amount) that satisfies the transaction
         let min_amount = DefaultMinStake::<T>::get().saturating_add(DefaultStakingFee::<T>::get());
 
@@ -961,6 +964,9 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), Error<T>> {
         // Ensure that the subnet exists.
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+
+        // Ensure that the subnet is enabled.
+        // Self::ensure_subtoken_enabled(netuid)?;
 
         // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
         if let Some(tao_equivalent) = Self::sim_swap_alpha_for_tao(netuid, alpha_unstaked) {

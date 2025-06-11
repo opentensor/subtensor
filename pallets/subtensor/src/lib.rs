@@ -1718,7 +1718,7 @@ pub mod pallet {
         }
 
         /// Ensure subtoken enalbed
-        pub fn ensure_subtoken_enabled(subnet: u16) -> DispatchResult {
+        pub fn ensure_subtoken_enabled(subnet: u16) -> Result<(), Error<T>> {
             ensure!(
                 SubtokenEnabled::<T>::get(subnet),
                 Error::<T>::SubtokenDisabled
