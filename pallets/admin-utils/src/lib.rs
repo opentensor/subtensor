@@ -84,6 +84,13 @@ pub mod pallet {
             /// Indicates if the Yuma3 enable was enabled or disabled.
             enabled: bool,
         },
+        /// Event emitted when Bonds Reset is toggled.
+        BondsResetToggled {
+            /// The network identifier.
+            netuid: u16,
+            /// Indicates if the Bonds Reset was enabled or disabled.
+            enabled: bool,
+        },
     }
 
     // Errors inform users that something went wrong.
@@ -1598,6 +1605,34 @@ pub mod pallet {
             Self::deposit_event(Event::Yuma3EnableToggled { netuid, enabled });
             log::debug!(
                 "Yuma3EnableToggled( netuid: {:?}, Enabled: {:?} ) ",
+                netuid,
+                enabled
+            );
+            Ok(())
+        }
+
+        /// Enables or disables Bonds Reset for a given subnet.
+        ///
+        /// # Parameters
+        /// - `origin`: The origin of the call, which must be the root account or subnet owner.
+        /// - `netuid`: The unique identifier for the subnet.
+        /// - `enabled`: A boolean flag to enable or disable Bonds Reset.
+        ///
+        /// # Weight
+        /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
+        #[pallet::call_index(70)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_bonds_reset_enabled(
+            origin: OriginFor<T>,
+            netuid: u16,
+            enabled: bool,
+        ) -> DispatchResult {
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            pallet_subtensor::Pallet::<T>::set_bonds_reset(netuid, enabled);
+
+            Self::deposit_event(Event::BondsResetToggled { netuid, enabled });
+            log::debug!(
+                "BondsResetToggled( netuid: {:?} bonds_reset: {:?} ) ",
                 netuid,
                 enabled
             );

@@ -1780,3 +1780,77 @@ fn test_set_sn_owner_hotkey_root() {
         assert_eq!(actual_hotkey, hotkey);
     });
 }
+
+#[test]
+fn test_sudo_set_bonds_reset_enabled() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: bool = true;
+        let sn_owner = U256::from(1);
+        add_network(netuid, 10);
+        let init_value: bool = SubtensorModule::get_bonds_reset(netuid);
+
+        assert_eq!(
+            AdminUtils::sudo_set_bonds_reset_enabled(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+
+        assert_ok!(AdminUtils::sudo_set_bonds_reset_enabled(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_bonds_reset(netuid), to_be_set);
+        assert_ne!(SubtensorModule::get_bonds_reset(netuid), init_value);
+
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, sn_owner);
+
+        assert_ok!(AdminUtils::sudo_set_bonds_reset_enabled(
+            <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+            netuid,
+            !to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_bonds_reset(netuid), !to_be_set);
+    });
+}
+
+#[test]
+fn test_sudo_set_yuma3_enabled() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: bool = true;
+        let sn_owner = U256::from(1);
+        add_network(netuid, 10);
+        let init_value: bool = SubtensorModule::get_yuma3_enabled(netuid);
+
+        assert_eq!(
+            AdminUtils::sudo_set_yuma3_enabled(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+
+        assert_ok!(AdminUtils::sudo_set_yuma3_enabled(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_yuma3_enabled(netuid), to_be_set);
+        assert_ne!(SubtensorModule::get_yuma3_enabled(netuid), init_value);
+
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, sn_owner);
+
+        assert_ok!(AdminUtils::sudo_set_yuma3_enabled(
+            <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+            netuid,
+            !to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_yuma3_enabled(netuid), !to_be_set);
+    });
+}
