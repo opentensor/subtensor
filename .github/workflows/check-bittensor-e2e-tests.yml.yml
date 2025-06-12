@@ -23,6 +23,7 @@ env:
   VERBOSE: ${{ github.event.inputs.verbose }}
 
 jobs:
+  # I want tot check this logic
   apply-label-to-new-pr:
     runs-on: ubuntu-latest
     if: ${{ github.event.pull_request.draft == false }}
