@@ -59,7 +59,7 @@ where
     }
 
     #[precompile::public(
-        "registerNetwork(bytes32,string,string,string,string,string,string,string)"
+        "registerNetwork(bytes32,string,string,string,string,string,string,string,string)"
     )]
     #[precompile::payable]
     #[allow(clippy::too_many_arguments)]
@@ -73,15 +73,17 @@ where
         discord: BoundedString<ConstU32<256>>,
         description: BoundedString<ConstU32<1024>>,
         additional: BoundedString<ConstU32<1024>>,
+        logo_url: BoundedString<ConstU32<1024>>,
     ) -> EvmResult<()> {
         let hotkey = R::AccountId::from(hotkey.0);
-        let identity = pallet_subtensor::SubnetIdentityOfV2 {
+        let identity = pallet_subtensor::SubnetIdentityOfV3 {
             subnet_name: subnet_name.into(),
             github_repo: github_repo.into(),
             subnet_contact: subnet_contact.into(),
             subnet_url: subnet_url.into(),
             discord: discord.into(),
             description: description.into(),
+            logo_url: logo_url.into(),
             additional: additional.into(),
         };
 
