@@ -35,7 +35,7 @@ pub type Nonce = u32;
 /// Transfers below SMALL_TRANSFER_LIMIT are considered small transfers
 pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
 
-#[freeze_struct("f1746d0b1911967")]
+#[freeze_struct("9b6be98fb98e9b17")]
 #[repr(transparent)]
 #[derive(
     Deserialize,
@@ -52,8 +52,8 @@ pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
     PartialEq,
     PartialOrd,
     RuntimeDebug,
-    TypeInfo,
 )]
+#[serde(transparent)]
 pub struct NetUid(u16);
 
 impl NetUid {
@@ -101,6 +101,13 @@ impl From<NetUid> for u16 {
 impl From<u16> for NetUid {
     fn from(value: u16) -> Self {
         Self(value)
+    }
+}
+
+impl TypeInfo for NetUid {
+    type Identity = <u16 as TypeInfo>::Identity;
+    fn type_info() -> scale_info::Type {
+        <u16 as TypeInfo>::type_info()
     }
 }
 
