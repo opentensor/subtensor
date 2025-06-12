@@ -149,9 +149,9 @@ pub mod pallet {
         /// It is only callable by the root account.
         /// The extrinsic will call the Aura pallet to change the authorities.
         #[pallet::call_index(0)]
-        #[pallet::weight(Weight::from_parts(6_265_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(2_u64)))]
+        #[pallet::weight(Weight::from_parts(5_062_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn swap_authorities(
             origin: OriginFor<T>,
             new_authorities: BoundedVec<<T as Config>::AuthorityId, T::MaxAuthorities>,
@@ -1411,7 +1411,7 @@ pub mod pallet {
         /// No change should be signaled while any change is pending. Returns an error if a change
         /// is already pending.
         #[pallet::call_index(59)]
-        #[pallet::weight(Weight::from_parts(11_550_000, 0)
+        #[pallet::weight(Weight::from_parts(9_060_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn schedule_grandpa_change(
