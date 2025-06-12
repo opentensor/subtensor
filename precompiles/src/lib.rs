@@ -96,7 +96,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 18] {
+    pub fn used_addresses() -> [H160; 19] {
         [
             hash(1),
             hash(2),
