@@ -1786,7 +1786,7 @@ mod dispatches {
         ///
         #[pallet::call_index(88)]
         #[pallet::weight((Weight::from_parts(402_800_000, 0)
-		.saturating_add(T::DbWeight::get().reads(25))
+		.saturating_add(T::DbWeight::get().reads(26))
 		.saturating_add(T::DbWeight::get().writes(14)), DispatchClass::Normal, Pays::No))]
         pub fn add_stake_limit(
             origin: OriginFor<T>,
