@@ -30,7 +30,7 @@ fn test_do_set_child_singular_success() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -54,7 +54,7 @@ fn test_do_set_child_singular_network_does_not_exist() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 999; // Non-existent network
+        let netuid = NetUid::from(999); // Non-existent network
         let proportion: u64 = 1000;
 
         // Attempt to set child
@@ -77,7 +77,7 @@ fn test_do_set_child_singular_invalid_child() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -107,7 +107,7 @@ fn test_do_set_child_singular_non_associated_coldkey() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey with a different coldkey
@@ -135,7 +135,7 @@ fn test_do_set_child_singular_root_network() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = SubtensorModule::get_root_netuid(); // Root network
+        let netuid = NetUid::ROOT; // Root network
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -169,7 +169,7 @@ fn test_do_set_child_singular_old_children_cleanup() {
         let hotkey = U256::from(2);
         let old_child = U256::from(3);
         let new_child = U256::from(4);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -207,7 +207,7 @@ fn test_do_set_child_singular_new_children_assignment() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -240,7 +240,7 @@ fn test_do_set_child_singular_proportion_edge_cases() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -281,7 +281,7 @@ fn test_do_set_child_singular_multiple_children() {
         let hotkey = U256::from(2);
         let child1 = U256::from(3);
         let child2 = U256::from(4);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion1: u64 = 500;
         let proportion2: u64 = 500;
 
@@ -320,7 +320,7 @@ fn test_do_set_child_singular_multiple_children() {
 #[test]
 fn test_add_singular_child() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let child = U256::from(1);
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
@@ -373,7 +373,7 @@ fn test_add_singular_child() {
 #[test]
 fn test_get_stake_for_hotkey_on_subnet() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let parent = U256::from(1);
         let child = U256::from(2);
         let coldkey1 = U256::from(3);
@@ -425,7 +425,7 @@ fn test_do_revoke_child_singular_success() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -454,7 +454,7 @@ fn test_do_set_empty_children_network_does_not_exist() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid: u16 = 999; // Non-existent network
+        let netuid = NetUid::from(999); // Non-existent network
         // Attempt to revoke child
         assert_err!(
             SubtensorModule::do_schedule_children(
@@ -479,7 +479,7 @@ fn test_do_revoke_child_singular_non_associated_coldkey() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         // Add network and register hotkey with a different coldkey
         add_network(netuid, 13, 0);
@@ -510,7 +510,7 @@ fn test_do_revoke_child_singular_child_not_associated() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -541,7 +541,7 @@ fn test_do_schedule_children_multiple_success() {
         let hotkey = U256::from(2);
         let child1 = U256::from(3);
         let child2 = U256::from(4);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion1: u64 = 1000;
         let proportion2: u64 = 2000;
 
@@ -581,7 +581,7 @@ fn test_do_schedule_children_multiple_network_does_not_exist() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child1 = U256::from(3);
-        let netuid: u16 = 999; // Non-existent network
+        let netuid = NetUid::from(999); // Non-existent network
         let proportion: u64 = 1000;
 
         // Attempt to set children
@@ -608,7 +608,7 @@ fn test_do_schedule_children_multiple_invalid_child() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -640,7 +640,7 @@ fn test_do_schedule_children_multiple_non_associated_coldkey() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey with a different coldkey
@@ -672,7 +672,7 @@ fn test_do_schedule_children_multiple_root_network() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = SubtensorModule::get_root_netuid(); // Root network
+        let netuid = NetUid::ROOT; // Root network
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -707,7 +707,7 @@ fn test_do_schedule_children_multiple_old_children_cleanup() {
         let old_child = U256::from(3);
         let new_child1 = U256::from(4);
         let new_child2 = U256::from(5);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -753,7 +753,7 @@ fn test_do_schedule_children_multiple_proportion_edge_cases() {
         let hotkey = U256::from(2);
         let child1 = U256::from(3);
         let child2 = U256::from(4);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -794,7 +794,7 @@ fn test_do_schedule_children_multiple_overwrite_existing() {
         let child1 = U256::from(3);
         let child2 = U256::from(4);
         let child3 = U256::from(5);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -852,7 +852,7 @@ fn test_childkey_take_functionality() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -928,7 +928,7 @@ fn test_childkey_take_rate_limiting() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -1032,6 +1032,7 @@ fn test_multiple_networks_childkey_take() {
 
         // Create 10 networks and set up neurons (skip network 0)
         for netuid in 1..NUM_NETWORKS {
+            let netuid = NetUid::from(netuid);
             // Add network
             add_network(netuid, 13, 0);
 
@@ -1039,7 +1040,7 @@ fn test_multiple_networks_childkey_take() {
             register_ok_neuron(netuid, hotkey, coldkey, 0);
 
             // Set a unique childkey take value for each network
-            let take_value = (netuid + 1) * 100; // Values will be 200, 300, ..., 1000
+            let take_value = u16::from(netuid.next()) * 100; // Values will be 200, 300, ..., 1000
             assert_ok!(SubtensorModule::set_childkey_take(
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
@@ -1062,8 +1063,8 @@ fn test_multiple_networks_childkey_take() {
         // Verify all networks have different childkey take values
         for i in 1..NUM_NETWORKS {
             for j in (i + 1)..NUM_NETWORKS {
-                let take_i = SubtensorModule::get_childkey_take(&hotkey, i);
-                let take_j = SubtensorModule::get_childkey_take(&hotkey, j);
+                let take_i = SubtensorModule::get_childkey_take(&hotkey, i.into());
+                let take_j = SubtensorModule::get_childkey_take(&hotkey, j.into());
                 assert_ne!(
                     take_i, take_j,
                     "Childkey take values should be different for networks {} and {}",
@@ -1073,8 +1074,12 @@ fn test_multiple_networks_childkey_take() {
         }
 
         // Attempt to set childkey take again (should fail due to rate limit)
-        let result =
-            SubtensorModule::set_childkey_take(RuntimeOrigin::signed(coldkey), hotkey, 1, 1100);
+        let result = SubtensorModule::set_childkey_take(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            1.into(),
+            1100,
+        );
         assert_noop!(result, Error::<Test>::TxChildkeyTakeRateLimitExceeded);
 
         // Advance blocks to bypass rate limit
@@ -1084,12 +1089,12 @@ fn test_multiple_networks_childkey_take() {
         assert_ok!(SubtensorModule::set_childkey_take(
             RuntimeOrigin::signed(coldkey),
             hotkey,
-            1,
+            1.into(),
             1100
         ));
 
         // Verify the new take value
-        let new_take = SubtensorModule::get_childkey_take(&hotkey, 1);
+        let new_take = SubtensorModule::get_childkey_take(&hotkey, 1.into());
         assert_eq!(new_take, 1100, "Childkey take not updated after rate limit");
     });
 }
@@ -1105,7 +1110,7 @@ fn test_do_schedule_children_multiple_empty_list() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -1135,7 +1140,7 @@ fn test_do_revoke_children_multiple_success() {
         let hotkey = U256::from(2);
         let child1 = U256::from(3);
         let child2 = U256::from(4);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion1: u64 = 1000;
         let proportion2: u64 = 2000;
 
@@ -1181,7 +1186,7 @@ fn test_do_revoke_children_multiple_network_does_not_exist() {
         let hotkey = U256::from(2);
         let child1 = U256::from(3);
         let child2 = U256::from(4);
-        let netuid: u16 = 999; // Non-existent network
+        let netuid = NetUid::from(999); // Non-existent network
         // Attempt to revoke children
         assert_err!(
             SubtensorModule::do_schedule_children(
@@ -1208,7 +1213,7 @@ fn test_do_revoke_children_multiple_non_associated_coldkey() {
         let hotkey = U256::from(2);
         let child1 = U256::from(3);
         let child2 = U256::from(4);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         // Add network and register hotkey with a different coldkey
         add_network(netuid, 13, 0);
@@ -1243,7 +1248,7 @@ fn test_do_revoke_children_multiple_partial_revocation() {
         let child1 = U256::from(3);
         let child2 = U256::from(4);
         let child3 = U256::from(5);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -1300,7 +1305,7 @@ fn test_do_revoke_children_multiple_non_existent_children() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child1 = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -1336,7 +1341,7 @@ fn test_do_revoke_children_multiple_empty_list() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -1367,7 +1372,7 @@ fn test_do_revoke_children_multiple_complex_scenario() {
         let child1 = U256::from(3);
         let child2 = U256::from(4);
         let child3 = U256::from(5);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion1: u64 = 1000;
         let proportion2: u64 = 2000;
         let proportion3: u64 = 3000;
@@ -1436,7 +1441,7 @@ fn test_children_stake_values() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -1509,7 +1514,7 @@ fn test_children_stake_values() {
 #[test]
 fn test_get_parents_chain() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let coldkey = U256::from(1);
         let num_keys: usize = 5;
         let proportion = u64::MAX / 2; // 50% stake allocation
@@ -1653,7 +1658,7 @@ fn test_get_parents_chain() {
 #[test]
 fn test_get_stake_for_hotkey_on_subnet_basic() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
 
@@ -1678,7 +1683,7 @@ fn test_get_stake_for_hotkey_on_subnet_basic() {
 #[test]
 fn test_get_stake_for_hotkey_on_subnet_multiple_coldkeys() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey = U256::from(1);
         let coldkey1 = U256::from(2);
         let coldkey2 = U256::from(3);
@@ -1716,7 +1721,7 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_child() {
         let parent = U256::from(1);
         let child = U256::from(2);
         let coldkey = U256::from(3);
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, parent, coldkey, 0);
         register_ok_neuron(netuid, child, coldkey, 0);
 
@@ -1753,7 +1758,7 @@ fn test_get_stake_for_hotkey_on_subnet_multiple_parents_single_child() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
         let parent1 = U256::from(1);
         let parent2 = U256::from(2);
@@ -1808,7 +1813,7 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_multiple_children() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
         let parent = U256::from(1);
         let child1 = U256::from(2);
@@ -1872,7 +1877,7 @@ fn test_get_stake_for_hotkey_on_subnet_edge_cases() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
         let parent = U256::from(1);
         let child1 = U256::from(2);
@@ -1936,7 +1941,7 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
         let parent = U256::from(1);
         let child1 = U256::from(2);
@@ -2130,8 +2135,8 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
 #[test]
 fn test_get_stake_for_hotkey_on_subnet_multiple_networks() {
     new_test_ext(1).execute_with(|| {
-        let netuid1: u16 = 1;
-        let netuid2: u16 = 2;
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
 
@@ -2167,7 +2172,7 @@ fn test_do_set_child_below_min_stake() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -2202,7 +2207,7 @@ fn test_do_remove_stake_clears_pending_childkeys() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -2275,7 +2280,7 @@ fn test_do_set_child_cooldown_period() {
         let coldkey = U256::from(1);
         let parent = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -2348,7 +2353,7 @@ fn test_do_set_pending_children_runs_in_epoch() {
         let coldkey = U256::from(1);
         let parent = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -2413,27 +2418,26 @@ fn test_revoke_child_no_min_stake_check() {
         let coldkey = U256::from(1);
         let parent = U256::from(2);
         let child = U256::from(3);
-        let root: u16 = 0;
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
-        add_network(root, 13, 0);
+        add_network(NetUid::ROOT, 13, 0);
         add_network(netuid, 13, 0);
         register_ok_neuron(netuid, parent, coldkey, 0);
 
         let reserve = 1_000_000_000_000_000;
         mock::setup_reserves(netuid, reserve, reserve);
-        mock::setup_reserves(root, reserve, reserve);
+        mock::setup_reserves(NetUid::ROOT, reserve, reserve);
 
         // Set minimum stake for setting children
         StakeThreshold::<Test>::put(1_000_000_000_000);
 
-        let (_, fee) = mock::swap_tao_to_alpha(root, StakeThreshold::<Test>::get());
+        let (_, fee) = mock::swap_tao_to_alpha(NetUid::ROOT, StakeThreshold::<Test>::get());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &parent,
             &coldkey,
-            root,
+            NetUid::ROOT,
             StakeThreshold::<Test>::get() + fee,
         );
 
@@ -2453,7 +2457,7 @@ fn test_revoke_child_no_min_stake_check() {
         SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &parent,
             &coldkey,
-            root,
+            NetUid::ROOT,
             StakeThreshold::<Test>::get() + fee,
         );
 
@@ -2493,7 +2497,7 @@ fn test_do_set_child_registration_disabled() {
         let coldkey = U256::from(1);
         let parent = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -2555,7 +2559,7 @@ fn test_set_children_rate_limit_fail_then_succeed() {
         let hotkey = U256::from(2);
         let child = U256::from(3);
         let child2 = U256::from(4);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo = 13;
 
         // Add network and register hotkey
@@ -2610,7 +2614,7 @@ fn test_childkey_set_weights_single_parent() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         Tempo::<Test>::insert(netuid, 1);
 
         // Define hotkeys
@@ -2719,7 +2723,7 @@ fn test_set_weights_no_parent() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
         let hotkey: U256 = U256::from(2);
         let spare_hk: U256 = U256::from(3);
@@ -2829,7 +2833,7 @@ fn test_childkey_take_drain() {
             let miner_coldkey = U256::from(5);
             let miner_hotkey = U256::from(6);
             let nominator = U256::from(7);
-            let netuid: u16 = 1;
+            let netuid = NetUid::from(1);
             let subnet_tempo = 10;
             let stake = 100_000_000_000;
             let proportion: u64 = u64::MAX / 2;
@@ -2946,7 +2950,7 @@ fn test_parent_child_chain_emission() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         Tempo::<Test>::insert(netuid, 1);
 
         // Setup large LPs to prevent slippage
@@ -3160,7 +3164,7 @@ fn test_parent_child_chain_emission() {
 #[test]
 fn test_parent_child_chain_epoch() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         add_network(netuid, 1, 0);
         // Set owner cut to 0
         SubtensorModule::set_subnet_owner_cut(0_u16);
@@ -3298,7 +3302,7 @@ fn test_parent_child_chain_epoch() {
 #[test]
 fn test_dividend_distribution_with_children() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         add_network(netuid, 1, 0);
         mock::setup_reserves(netuid, 1_000_000_000_000_000, 1_000_000_000_000_000);
         // Set owner cut to 0
@@ -3523,7 +3527,7 @@ fn test_dividend_distribution_with_children() {
 #[test]
 fn test_dynamic_parent_child_relationships() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         add_network(netuid, 1, 0);
 
         // Define hotkeys and coldkeys
@@ -3780,7 +3784,7 @@ fn test_do_set_child_as_sn_owner_not_enough_stake() {
 
         let proportion: u64 = 1000;
 
-        let netuid: u16 = add_dynamic_network(&sn_owner_hotkey, &coldkey);
+        let netuid = add_dynamic_network(&sn_owner_hotkey, &coldkey);
         register_ok_neuron(netuid, child_hotkey, child_coldkey, 0);
 
         // Verify stake of sn_owner_hotkey is NOT enough
@@ -3825,7 +3829,7 @@ fn test_do_set_child_as_sn_owner_not_enough_stake() {
 #[test]
 fn test_dividend_distribution_with_children_same_coldkey_owner() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         add_network(netuid, 1, 0);
         // Set SN owner cut to 0
         SubtensorModule::set_subnet_owner_cut(0_u16);
@@ -4001,7 +4005,7 @@ fn test_pending_cooldown_one_day() {
         let hotkey = U256::from(2);
         let child1 = U256::from(3);
         let child2 = U256::from(4);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let proportion1: u64 = 1000;
         let proportion2: u64 = 2000;
 
@@ -4033,7 +4037,7 @@ fn test_do_set_childkey_take_success() {
         // Setup
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let take = 5000;
 
         // Add network and register hotkey
@@ -4062,7 +4066,7 @@ fn test_do_set_childkey_take_non_associated_coldkey() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let hotkey2 = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let take = 5000;
 
         // Add network and register hotkey
@@ -4083,7 +4087,7 @@ fn test_do_set_childkey_take_invalid_take_value() {
         // Setup
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let take = SubtensorModule::get_max_childkey_take() + 1;
 
         // Add network and register hotkey
@@ -4104,7 +4108,7 @@ fn test_do_set_childkey_take_rate_limit_exceeded() {
         // Setup
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let initial_take = 3000;
         let higher_take = 5000;
         let lower_take = 1000;

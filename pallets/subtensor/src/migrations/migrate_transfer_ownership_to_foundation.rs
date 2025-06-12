@@ -65,13 +65,13 @@ pub fn migrate_transfer_ownership_to_foundation<T: Config>(coldkey: [u8; 32]) ->
         weight.saturating_accrue(T::DbWeight::get().reads(1));
 
         // Transfer ownership of subnets 1 and 11 to the foundation
-        SubnetOwner::<T>::insert(1, coldkey_account.clone());
-        SubnetOwner::<T>::insert(11, coldkey_account);
+        SubnetOwner::<T>::insert(NetUid::from(1), coldkey_account.clone());
+        SubnetOwner::<T>::insert(NetUid::from(11), coldkey_account);
 
         // Set the registration time for subnet 1 to extend immunity period
-        NetworkRegisteredAt::<T>::insert(1, current_block.saturating_add(13 * 7200));
+        NetworkRegisteredAt::<T>::insert(NetUid::from(1), current_block.saturating_add(13 * 7200));
         // Set the registration time for subnet 11 to the current block
-        NetworkRegisteredAt::<T>::insert(11, current_block);
+        NetworkRegisteredAt::<T>::insert(NetUid::from(11), current_block);
 
         weight.saturating_accrue(T::DbWeight::get().writes(4));
 

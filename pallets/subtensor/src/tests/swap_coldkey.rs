@@ -57,7 +57,7 @@ fn test_swap_subnet_owner() {
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
-        let netuid = 1u16;
+        let netuid = NetUid::from(1u16);
 
         add_network(netuid, 1, 0);
         SubnetOwner::<Test>::insert(netuid, old_coldkey);
@@ -84,7 +84,7 @@ fn test_swap_total_coldkey_stake() {
         let other_hotkey = U256::from(5);
         let stake = DefaultMinStake::<Test>::get() * 10;
 
-        let netuid = 1u16;
+        let netuid = NetUid::from(1u16);
         add_network(netuid, 1, 0);
         SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, stake * 2 + 1_000);
         register_ok_neuron(netuid, hotkey, old_coldkey, 1001000);
@@ -249,8 +249,8 @@ fn test_swap_with_multiple_subnets() {
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
-        let netuid1 = 1u16;
-        let netuid2 = 2u16;
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
 
         add_network(netuid1, 1, 0);
         add_network(netuid2, 1, 0);
@@ -295,7 +295,7 @@ fn test_swap_idempotency() {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
         let hotkey = U256::from(3);
-        let netuid = 1u16;
+        let netuid = NetUid::from(1u16);
         let stake = DefaultMinStake::<Test>::get() * 10;
         let reserve = stake * 10;
 
@@ -350,8 +350,8 @@ fn test_swap_with_max_values() {
         let hotkey = U256::from(5);
         let hotkey2 = U256::from(6);
         let other_coldkey = U256::from(7);
-        let netuid = 1u16;
-        let netuid2 = 2u16;
+        let netuid = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
         let stake = 10_000;
         let max_stake = 21_000_000_000_000_000; // 21 Million TAO; max possible balance.
 
@@ -438,7 +438,7 @@ fn test_swap_with_non_existent_new_coldkey() {
         let new_coldkey = U256::from(2);
         let hotkey = U256::from(3);
         let stake = DefaultMinStake::<Test>::get() * 10;
-        let netuid = 1u16;
+        let netuid = NetUid::from(1);
 
         add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey, old_coldkey, 1001000);
@@ -576,7 +576,7 @@ fn test_swap_concurrent_modifications() {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
         let hotkey = U256::from(3);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let initial_stake = 1_000_000_000_000;
         let additional_stake = 500_000_000_000;
 
@@ -648,7 +648,7 @@ fn test_swap_with_invalid_subnet_ownership() {
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
-        let netuid = 1u16;
+        let netuid = NetUid::from(1u16);
 
         SubnetOwner::<Test>::insert(netuid, old_coldkey);
 
@@ -675,7 +675,7 @@ fn test_do_swap_coldkey_success() {
         let new_coldkey = U256::from(2);
         let hotkey1 = U256::from(3);
         let hotkey2 = U256::from(4);
-        let netuid = 1u16;
+        let netuid = NetUid::from(1u16);
         let stake_amount1 = DefaultMinStake::<Test>::get() * 10;
         let stake_amount2 = DefaultMinStake::<Test>::get() * 20;
         let swap_cost = SubtensorModule::get_key_swap_cost();
@@ -861,7 +861,7 @@ fn test_swap_stake_for_coldkey() {
 
         // Setup initial state
         // Add a network
-        let netuid = 1u16;
+        let netuid = NetUid::from(1u16);
         add_network(netuid, 1, 0);
 
         // Register hotkeys
@@ -1017,7 +1017,7 @@ fn test_swap_staking_hotkeys_for_coldkey() {
 
         // Setup initial state
         // Add a network
-        let netuid = 1u16;
+        let netuid = NetUid::from(1u16);
         add_network(netuid, 1, 0);
         // Give some balance to old coldkey
         SubtensorModule::add_balance_to_coldkey_account(
@@ -1079,7 +1079,7 @@ fn test_swap_delegated_stake_for_coldkey() {
         let stake_amount1 = DefaultMinStake::<Test>::get() * 10;
         let stake_amount2 = DefaultMinStake::<Test>::get() * 20;
         let mut weight = Weight::zero();
-        let netuid = 1u16;
+        let netuid = NetUid::from(1);
 
         // Setup initial state
         add_network(netuid, 1, 0);
@@ -1218,8 +1218,8 @@ fn test_swap_subnet_owner_for_coldkey() {
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
-        let netuid1 = 1u16;
-        let netuid2 = 2u16;
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
         let mut weight = Weight::zero();
 
         // Initialize SubnetOwner for old_coldkey
@@ -1247,7 +1247,7 @@ fn test_do_swap_coldkey_with_subnet_ownership() {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
         let hotkey = U256::from(3);
-        let netuid = 1u16;
+        let netuid = NetUid::from(1u16);
         let stake_amount: u64 = 1000u64;
         let swap_cost = SubtensorModule::get_key_swap_cost();
 
@@ -1281,7 +1281,7 @@ fn test_coldkey_has_associated_hotkeys() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid = 1u16;
+        let netuid = NetUid::from(1u16);
 
         // Setup initial state
         add_network(netuid, 13, 0);
@@ -1304,9 +1304,9 @@ fn test_coldkey_swap_total() {
         let hotkey1 = U256::from(2);
         let hotkey2 = U256::from(3);
         let hotkey3 = U256::from(4);
-        let netuid1 = 1u16;
-        let netuid2 = 2u16;
-        let netuid3 = 3u16;
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
+        let netuid3 = NetUid::from(3);
         let stake = DefaultMinStake::<Test>::get() * 10;
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake * 6);
         SubtensorModule::add_balance_to_coldkey_account(&delegate1, stake * 2);
@@ -1659,8 +1659,8 @@ fn test_coldkey_delegations() {
         let owner = U256::from(1);
         let coldkey = U256::from(4);
         let delegate = U256::from(2);
-        let netuid = 0u16; // Stake to 0
-        let netuid2 = 1u16; // Stake to 1
+        let netuid = NetUid::from(0); // Stake to 0
+        let netuid2 = NetUid::from(1); // Stake to 1
         let stake = DefaultMinStake::<Test>::get() * 10;
         let reserve = stake * 1000;
 
@@ -1806,7 +1806,7 @@ fn test_schedule_swap_coldkey_execution() {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
         let hotkey = U256::from(3);
-        let netuid = 1u16;
+        let netuid = NetUid::from(1u16);
         let stake_amount = DefaultMinStake::<Test>::get() * 10;
         let reserve = stake_amount * 10;
 
@@ -2013,7 +2013,7 @@ fn test_coldkey_swap_delegate_identity_updated() {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
 
-        let netuid = 1;
+        let netuid = NetUid::from(1);
         let burn_cost = 10;
         let tempo = 1;
 
@@ -2066,7 +2066,7 @@ fn test_coldkey_swap_no_identity_no_changes() {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
 
-        let netuid = 1;
+        let netuid = NetUid::from(1);
         let burn_cost = 10;
         let tempo = 1;
 
@@ -2104,7 +2104,7 @@ fn test_coldkey_swap_no_identity_no_changes_newcoldkey_exists() {
         let old_coldkey = U256::from(3);
         let new_coldkey = U256::from(4);
 
-        let netuid = 1;
+        let netuid = NetUid::from(1);
         let burn_cost = 10;
         let tempo = 1;
 
@@ -2175,7 +2175,7 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
     // while a coldkey swap is scheduled.
 
     new_test_ext(0).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let version_key: u64 = 0;
         let coldkey = U256::from(0);
         let new_coldkey = U256::from(1);
@@ -2434,7 +2434,7 @@ fn test_coldkey_in_swap_schedule_prevents_critical_calls() {
     // while a coldkey swap is scheduled.
 
     new_test_ext(0).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let version_key: u64 = 0;
         let coldkey = U256::from(0);
         let new_coldkey = U256::from(1);

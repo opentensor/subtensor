@@ -33,6 +33,7 @@ pallet-evm-chain-id = { workspace = true }
 pallet-drand = { workspace = true, default-features = false }
 sp-consensus-grandpa = { workspace = true }
 subtensor-swap-interface = { workspace = true }
+subtensor-runtime-common = { workspace = true }
 
 [dev-dependencies]
 sp-core = { workspace = true }
@@ -71,6 +72,7 @@ std = [
 	"sp-weights/std",
 	"substrate-fixed/std",
 	"subtensor-swap-interface/std",
+	"subtensor-runtime-common/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

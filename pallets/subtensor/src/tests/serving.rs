@@ -32,7 +32,7 @@ mod test {
 #[test]
 fn test_serving_subscribe_ok_dispatch_info_ok() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let version: u32 = 2;
         let ip: u128 = 1676056785;
         let port: u16 = 128;
@@ -65,7 +65,7 @@ fn test_serving_subscribe_ok_dispatch_info_ok() {
 fn test_serving_ok() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let version: u32 = 2;
         let ip: u128 = 1676056785;
@@ -103,7 +103,7 @@ fn test_serving_ok() {
 fn test_serving_tls_ok() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let version: u32 = 2;
         let ip: u128 = 1676056785;
@@ -161,7 +161,7 @@ fn test_serving_tls_ok() {
 fn test_serving_set_metadata_update() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let version: u32 = 2;
         let ip: u128 = 1676056785;
@@ -225,7 +225,7 @@ fn test_serving_set_metadata_update() {
 fn test_axon_serving_rate_limit_exceeded() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let version: u32 = 2;
         let ip: u128 = 1676056785;
@@ -307,7 +307,7 @@ fn test_axon_serving_rate_limit_exceeded() {
 fn test_axon_invalid_port() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let version: u32 = 2;
         let ip: u128 = 1676056785;
@@ -340,7 +340,7 @@ fn test_axon_invalid_port() {
 #[test]
 fn test_prometheus_serving_subscribe_ok_dispatch_info_ok() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let version: u32 = 2;
         let ip: u128 = 1676056785;
         let port: u16 = 128;
@@ -367,7 +367,7 @@ fn test_prometheus_serving_subscribe_ok_dispatch_info_ok() {
 fn test_prometheus_serving_ok() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let version: u32 = 2;
         let ip: u128 = 1676056785;
@@ -396,7 +396,7 @@ fn test_prometheus_serving_ok() {
 fn test_prometheus_serving_set_metadata_update() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let version: u32 = 2;
         let ip: u128 = 1676056785;
@@ -442,7 +442,7 @@ fn test_prometheus_serving_set_metadata_update() {
 fn test_prometheus_serving_rate_limit_exceeded() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let version: u32 = 2;
         let ip: u128 = 1676056785;
@@ -505,7 +505,7 @@ fn test_prometheus_serving_rate_limit_exceeded() {
 fn test_prometheus_invalid_port() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let version: u32 = 2;
         let ip: u128 = 1676056785;
@@ -660,7 +660,7 @@ fn test_do_set_identity() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid = 1;
+        let netuid = NetUid::from(1);
 
         // Register a hotkey for the coldkey
         add_network(netuid, 13, 0);
@@ -847,7 +847,7 @@ fn test_set_and_get_identity() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid = 1;
+        let netuid = NetUid::from(1);
 
         // Register a hotkey for the coldkey
         add_network(netuid, 13, 0);
@@ -989,7 +989,7 @@ fn test_migrate_identities_to_v2() {
         let old_subnet_contact = b"subnet@example".to_vec();
 
         SubnetIdentities::<Test>::insert(
-            42u16,
+            NetUid::from(42),
             SubnetIdentity {
                 subnet_name: old_subnet_name.clone(),
                 github_repo: old_github_repo.clone(),
@@ -999,7 +999,7 @@ fn test_migrate_identities_to_v2() {
 
         assert!(Identities::<Test>::get(account_id_1).is_some());
         assert!(Identities::<Test>::get(account_id_2).is_some());
-        assert!(SubnetIdentities::<Test>::get(42u16).is_some());
+        assert!(SubnetIdentities::<Test>::get(NetUid::from(42)).is_some());
         assert!(!HasMigrationRun::<Test>::get(
             b"migrate_identities_to_v2".to_vec()
         ));
@@ -1012,7 +1012,7 @@ fn test_migrate_identities_to_v2() {
         );
         assert!(Identities::<Test>::get(account_id_1).is_none());
         assert!(Identities::<Test>::get(account_id_2).is_none());
-        assert!(SubnetIdentities::<Test>::get(42u16).is_none());
+        assert!(SubnetIdentities::<Test>::get(NetUid::from(42)).is_none());
 
         let new_identity_1 = IdentitiesV2::<Test>::get(account_id_1)
             .expect("ChainOne should be migrated to IdentitiesV2");
@@ -1032,7 +1032,7 @@ fn test_migrate_identities_to_v2() {
         assert_eq!(new_identity_2.url, chaintwo_url);
         assert_eq!(new_identity_2.github_repo, b"".to_vec());
 
-        let new_subnet_identity = SubnetIdentitiesV2::<Test>::get(42u16)
+        let new_subnet_identity = SubnetIdentitiesV2::<Test>::get(NetUid::from(42))
             .expect("SubnetExample should be migrated to SubnetIdentitiesV2");
 
         let expected_subnet_url = b"".to_vec();
@@ -1061,7 +1061,7 @@ fn test_do_set_subnet_identity() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid = 1;
+        let netuid = NetUid::from(1);
 
         // Register a hotkey for the coldkey
         add_network(netuid, 13, 0);
@@ -1243,7 +1243,7 @@ fn test_is_valid_subnet_identity() {
 fn test_set_identity_for_non_existent_subnet() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
-        let netuid = 999; // Non-existent subnet ID
+        let netuid = NetUid::from(999); // Non-existent subnet ID
 
         // Subnet identity data
         let subnet_name = b"Non-existent Subnet".to_vec();
@@ -1275,7 +1275,7 @@ fn test_set_identity_for_non_existent_subnet() {
 #[test]
 fn test_set_subnet_identity_dispatch_info_ok() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let subnet_name: Vec<u8> = b"JesusSubnet".to_vec();
         let github_repo: Vec<u8> = b"bible.com".to_vec();
         let subnet_contact: Vec<u8> = b"https://www.vatican.va".to_vec();
@@ -1310,7 +1310,7 @@ fn test_serve_axon_validate() {
 
     new_test_ext(0).execute_with(|| {
         let hotkey = U256::from(1);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let version: u32 = 2;
         let ip: u128 = 1676056785;
         let port: u16 = 128;

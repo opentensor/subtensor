@@ -7,6 +7,7 @@ use frame_support::traits::{
 };
 use safe_math::*;
 use substrate_fixed::types::U96F32;
+use subtensor_runtime_common::NetUid;
 use subtensor_swap_interface::{OrderType, SwapHandler};
 
 use super::*;
@@ -173,7 +174,7 @@ impl<T: Config> Pallet<T> {
     pub fn clear_small_nomination_if_required(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
-        netuid: u16,
+        netuid: NetUid,
     ) {
         // Verify if the account is a nominator account by checking ownership of the hotkey by the coldkey.
         if !Self::coldkey_owns_hotkey(coldkey, hotkey) {

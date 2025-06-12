@@ -176,7 +176,7 @@ fn test_swap_subnet_membership() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let netuid = 0u16;
+        let netuid = NetUid::from(0u16);
         let mut weight = Weight::zero();
 
         add_network(netuid, 1, 1);
@@ -200,7 +200,7 @@ fn test_swap_uids_and_keys() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let netuid = 0u16;
+        let netuid = NetUid::from(0u16);
         let uid = 5u16;
         let mut weight = Weight::zero();
 
@@ -229,7 +229,7 @@ fn test_swap_prometheus() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let netuid = 0u16;
+        let netuid = NetUid::from(0u16);
         let prometheus_info = PrometheusInfo::default();
         let mut weight = Weight::zero();
 
@@ -259,7 +259,7 @@ fn test_swap_axons() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let netuid = 0u16;
+        let netuid = NetUid::from(0u16);
         let axon_info = AxonInfo::default();
         let mut weight = Weight::zero();
 
@@ -286,7 +286,7 @@ fn test_swap_certificates() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let netuid = 0u16;
+        let netuid = NetUid::from(0u16);
         let certificate = NeuronCertificate::try_from(vec![1, 2, 3]).unwrap();
         let mut weight = Weight::zero();
 
@@ -318,7 +318,7 @@ fn test_swap_weight_commits() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let netuid = 0u16;
+        let netuid = NetUid::from(0u16);
         let mut weight_commits: VecDeque<(H256, u64, u64, u64)> = VecDeque::new();
         weight_commits.push_back((H256::from_low_u64_be(100), 200, 1, 1));
         let mut weight = Weight::zero();
@@ -349,7 +349,7 @@ fn test_swap_loaded_emission() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let netuid = 0u16;
+        let netuid = NetUid::from(0u16);
         let server_emission = 1000u64;
         let validator_emission = 1000u64;
         let mut weight = Weight::zero();
@@ -389,6 +389,7 @@ fn test_swap_staking_hotkeys() {
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
         let mut weight = Weight::zero();
+        let netuid = NetUid::from(1);
 
         StakingHotkeys::<Test>::insert(coldkey, vec![old_hotkey]);
         Alpha::<Test>::insert((old_hotkey, coldkey, netuid), U64F64::from_num(100));
@@ -475,8 +476,8 @@ fn test_swap_hotkey_with_multiple_subnets() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let netuid1 = 0;
-        let netuid2 = 1;
+        let netuid1 = NetUid::from(0);
+        let netuid2 = NetUid::from(1);
         let mut weight = Weight::zero();
 
         add_network(netuid1, 1, 1);
@@ -602,8 +603,8 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
         let new_hotkey = U256::from(2);
         let coldkey1 = U256::from(3);
         let coldkey2 = U256::from(4);
-        let netuid1 = 1;
-        let netuid2 = 2;
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
         let stake = DefaultMinStake::<Test>::get() * 10;
         let mut weight = Weight::zero();
 
@@ -730,7 +731,7 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
 #[test]
 fn test_swap_hotkey_tx_rate_limit_exceeded() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let old_hotkey = U256::from(1);
         let new_hotkey_1 = U256::from(2);
@@ -788,7 +789,7 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
 #[test]
 fn test_do_swap_hotkey_err_not_owner() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
@@ -951,6 +952,7 @@ fn test_swap_stake_old_hotkey_not_exist() {
 
         let alpha_share = U64F64::from_num(1234);
         let mut weight = Weight::zero();
+        let netuid = NetUid::from(1);
 
         // Initialize Stake for old_hotkey
         Alpha::<Test>::insert((old_hotkey, coldkey, netuid), alpha_share);
@@ -1040,7 +1042,7 @@ fn test_swap_hotkey_error_cases() {
         );
 
         // Test new hotkey already registered
-        IsNetworkMember::<Test>::insert(new_hotkey, 0, true);
+        IsNetworkMember::<Test>::insert(new_hotkey, NetUid::ROOT, true);
         assert_noop!(
             SubtensorModule::do_swap_hotkey(
                 RuntimeOrigin::signed(coldkey),
@@ -1050,7 +1052,7 @@ fn test_swap_hotkey_error_cases() {
             ),
             Error::<Test>::HotKeyAlreadyRegisteredInSubNet
         );
-        IsNetworkMember::<Test>::remove(new_hotkey, 0);
+        IsNetworkMember::<Test>::remove(new_hotkey, NetUid::ROOT);
 
         // Test non-associated coldkey
         assert_noop!(
@@ -1083,7 +1085,7 @@ fn test_swap_child_keys() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let netuid = 0u16;
+        let netuid = NetUid::from(0u16);
         let children = vec![(100u64, U256::from(4)), (200u64, U256::from(5))];
         let mut weight = Weight::zero();
 
@@ -1112,7 +1114,7 @@ fn test_swap_parent_keys() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let netuid = 0u16;
+        let netuid = NetUid::from(0u16);
         let parents = vec![(100u64, U256::from(4)), (200u64, U256::from(5))];
         let mut weight = Weight::zero();
 
@@ -1155,8 +1157,8 @@ fn test_swap_multiple_subnets() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let netuid1 = 0u16;
-        let netuid2 = 1u16;
+        let netuid1 = NetUid::from(0);
+        let netuid2 = NetUid::from(1);
         let children1 = vec![(100u64, U256::from(4)), (200u64, U256::from(5))];
         let children2 = vec![(300u64, U256::from(6))];
         let mut weight = Weight::zero();
@@ -1191,7 +1193,7 @@ fn test_swap_complex_parent_child_structure() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let netuid = 0u16;
+        let netuid = NetUid::from(0u16);
         let parent1 = U256::from(4);
         let parent2 = U256::from(5);
         let child1 = U256::from(6);
@@ -1255,7 +1257,7 @@ fn test_swap_complex_parent_child_structure() {
 #[test]
 fn test_swap_parent_hotkey_childkey_maps() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let parent_old = U256::from(1);
         let coldkey = U256::from(2);
         let child = U256::from(3);
@@ -1310,7 +1312,7 @@ fn test_swap_parent_hotkey_childkey_maps() {
 #[test]
 fn test_swap_child_hotkey_childkey_maps() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let parent = U256::from(1);
         let coldkey = U256::from(2);
         let child_old = U256::from(3);
@@ -1396,7 +1398,7 @@ fn test_swap_hotkey_swap_rate_limits() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let netuid: u16 = add_dynamic_network(&old_hotkey, &coldkey);
+        let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
         let last_tx_block = 123;

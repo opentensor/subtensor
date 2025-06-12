@@ -70,7 +70,10 @@ impl<T: Config> Position<T> {
             (
                 0,
                 liquidity_fixed
-                    .saturating_mul(one.safe_div(sqrt_price_low).saturating_sub(one.safe_div(sqrt_price_high)))
+                    .saturating_mul(
+                        one.safe_div(sqrt_price_low)
+                            .saturating_sub(one.safe_div(sqrt_price_high)),
+                    )
                     .saturating_to_num::<u64>(),
             )
         } else if sqrt_price_curr > sqrt_price_high {
