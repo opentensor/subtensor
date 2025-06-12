@@ -340,15 +340,12 @@ fn test_subtoken_enable_reject_trading_before_enable() {
             Error::<Test>::SubtokenDisabled
         );
 
-        // For unstake_all and unstake_all_alpha, the result is Ok, but the
+        // For unstake_all the result is Ok, but the
         // operation is not performed.
-        assert_ok!(
-            SubtensorModule::unstake_all(
-                RuntimeOrigin::signed(coldkey_account_id),
-                hotkey_account_id
-            ),
-            ()
-        );
+        assert_ok!(SubtensorModule::unstake_all(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id
+        ));
         // Check that the stake is still the same
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -359,12 +356,13 @@ fn test_subtoken_enable_reject_trading_before_enable() {
             stake_bal
         );
 
-        assert_ok!(
+        // For unstake_all_alpha, the result is AmountTooLow because no re-staking happens.
+        assert_noop!(
             SubtensorModule::unstake_all_alpha(
                 RuntimeOrigin::signed(coldkey_account_id),
                 hotkey_account_id
             ),
-            ()
+            Error::<Test>::AmountTooLow
         );
         // Check that the stake is still the same
         assert_eq!(
