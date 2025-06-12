@@ -11,6 +11,8 @@ use sp_runtime::{
 };
 use subtensor_macros::freeze_struct;
 
+mod currency;
+
 /// Balance of an account.
 pub type Balance = u64;
 
