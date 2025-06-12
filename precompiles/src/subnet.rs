@@ -7,6 +7,7 @@ use pallet_evm::{AddressMapping, PrecompileHandle};
 use precompile_utils::{EvmResult, prelude::BoundedString};
 use sp_core::H256;
 use sp_runtime::traits::Dispatchable;
+use sp_std::vec;
 use subtensor_runtime_common::NetUid;
 
 use crate::{PrecompileExt, PrecompileHandleExt};
