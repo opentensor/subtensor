@@ -164,3 +164,13 @@ pub mod time {
     pub const HOURS: BlockNumber = MINUTES * 60;
     pub const DAYS: BlockNumber = HOURS * 24;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn netuid_has_u16_bin_repr() {
+        assert_eq!(NetUid(5).encode(), 5u16.encode());
+    }
+}
