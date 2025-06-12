@@ -136,6 +136,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"pallet-commitments/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 ]
 pow-faucet = []
 
