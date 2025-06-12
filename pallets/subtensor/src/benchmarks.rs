@@ -1321,4 +1321,58 @@ mod pallet_benchmarks {
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey.clone()), hotkey.clone());
     }
+
+    #[benchmark]
+    fn remove_stake_full_limit() {
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 1;
+        let seed: u32 = 1;
+
+        // Set our total stake to 1000 TAO
+        Subtensor::<T>::increase_total_stake(1_000_000_000_000);
+
+        Subtensor::<T>::init_new_network(netuid, tempo);
+        Subtensor::<T>::set_network_registration_allowed(netuid, true);
+        SubtokenEnabled::<T>::insert(netuid, true);
+
+        Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
+        assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
+
+        let coldkey: T::AccountId = account("Test", 0, seed);
+        let hotkey: T::AccountId = account("Alice", 0, seed);
+        Subtensor::<T>::set_burn(netuid, 1);
+
+        let limit: u64 = 1_000_000_000;
+        let tao_reserve = 150_000_000_000_u64;
+        let alpha_in = 100_000_000_000_u64;
+        SubnetTAO::<T>::insert(netuid, tao_reserve);
+        SubnetAlphaIn::<T>::insert(netuid, alpha_in);
+
+        let wallet_bal = 1000000u32.into();
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), wallet_bal);
+
+        assert_ok!(Subtensor::<T>::do_burned_registration(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            netuid,
+            hotkey.clone()
+        ));
+
+        let u64_staked_amt = 100_000_000_000;
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), u64_staked_amt);
+
+        assert_ok!(Subtensor::<T>::add_stake(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            hotkey.clone(),
+            netuid,
+            u64_staked_amt
+        ));
+
+        #[extrinsic_call]
+        _(
+            RawOrigin::Signed(coldkey.clone()),
+            hotkey.clone(),
+            netuid,
+            limit,
+        );
+    }
 }
