@@ -343,7 +343,7 @@ pub mod pallet {
         /// Sudo-set MaxSpace
         #[pallet::call_index(2)]
         #[pallet::weight((
-            Weight::from_parts(3_556_000, 0)
+            Weight::from_parts(2_965_000, 0)
 			.saturating_add(T::DbWeight::get().reads(0_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
