@@ -64,7 +64,7 @@ impl<T: Config> SwapStep<T> {
         let possible_delta_in = amount_remaining.saturating_sub(fee);
 
         // Target price and quantities
-        let current_liquidity = Pallet::<T>::current_liquidity_safe(netuid);
+        let current_liquidity = U64F64::saturating_from_num(CurrentLiquidity::<T>::get(netuid));
         let target_sqrt_price = Pallet::<T>::sqrt_price_target(
             order_type,
             current_liquidity,

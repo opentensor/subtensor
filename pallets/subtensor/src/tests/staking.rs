@@ -2966,19 +2966,9 @@ fn test_max_amount_add_dynamic() {
             Err(Error::<Test>::ZeroMaxStakeAmount),
         ),
         // Low bounds
-        (
-            100,
-            100,
-            1_100_000_000,
-            Err(Error::<Test>::ZeroMaxStakeAmount),
-        ),
-        (
-            1_000,
-            1_000,
-            1_100_000_000,
-            Err(Error::<Test>::ZeroMaxStakeAmount),
-        ),
-        (10_000, 10_000, 1_100_000_000, Ok(440)),
+        (100, 100, 1_100_000_000, Ok(4)),
+        (1_000, 1_000, 1_100_000_000, Ok(48)),
+        (10_000, 10_000, 1_100_000_000, Ok(489)),
         // Basic math
         (1_000_000, 1_000_000, 4_000_000_000, Ok(1_000_000)),
         (1_000_000, 1_000_000, 9_000_000_000, Ok(2_000_000)),
@@ -3050,7 +3040,7 @@ fn test_max_amount_add_dynamic() {
             }
 
             match expected_max_swappable {
-                Err(e) => assert_err!(SubtensorModule::get_max_amount_add(netuid, limit_price), e,),
+                Err(e) => assert_err!(SubtensorModule::get_max_amount_add(netuid, limit_price), e),
                 Ok(v) => assert_abs_diff_eq!(
                     SubtensorModule::get_max_amount_add(netuid, limit_price).unwrap(),
                     v,
@@ -3166,11 +3156,13 @@ fn test_max_amount_remove_dynamic() {
             (10_000_000_000, 10_000_000_000, 0, Ok(u64::MAX)),
             // Low bounds (numbers are empirical, it is only important that result
             // is sharply decreasing when limit price increases)
-            (1_000, 1_000, 0, Err(Error::<Test>::ZeroMaxStakeAmount)),
-            (1_001, 1_001, 0, Ok(4_307_770_117)),
-            (1_001, 1_001, 1, Ok(31_715)),
-            (1_001, 1_001, 2, Ok(22_426)),
-            (1_001, 1_001, 1_001, Ok(1_000)),
+            (1_000, 1_000, 0, Ok(4_308_000_000_000)),
+            (1_001, 1_001, 0, Ok(4_310_000_000_000)),
+            (1_001, 1_001, 1, Ok(31_750_000)),
+            (1_001, 1_001, 2, Ok(22_500_000)),
+            (1_001, 1_001, 1_001, Ok(1_000_000)),
+            (1_001, 1_001, 10_000, Ok(316_000)),
+            (1_001, 1_001, 100_000, Ok(100_000)),
             // Basic math
             (1_000_000, 1_000_000, 250_000_000, Ok(1_000_000)),
             (1_000_000, 1_000_000, 62_500_000, Ok(3_000_000)),
