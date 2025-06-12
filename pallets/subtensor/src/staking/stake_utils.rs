@@ -747,7 +747,9 @@ impl<T: Config> Pallet<T> {
                 .amount_paid_in
                 .saturating_add(swap_result.fee_paid),
         );
-        Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, refund);
+        if refund > 0 {
+            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, refund);
+        }
 
         // Step 3: Update StakingHotkeys if the hotkey's total alpha, across all subnets, is zero
         // TODO const: fix.
