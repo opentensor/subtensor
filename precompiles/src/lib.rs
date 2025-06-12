@@ -97,7 +97,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 18] {
+    pub fn used_addresses() -> [H160; 19] {
         [
             hash(1),
             hash(2),
@@ -117,6 +117,7 @@ where
             hash(StakingPrecompileV2::<R>::INDEX),
             hash(StorageQueryPrecompile::<R>::INDEX),
             hash(UidLookupPrecompile::<R>::INDEX),
+            hash(AlphaPrecompile::<R>::INDEX),
         ]
     }
 }
