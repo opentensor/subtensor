@@ -1235,6 +1235,7 @@ mod pallet_benchmarks {
         let url = vec![];
         let disc = vec![];
         let descr = vec![];
+        let logo_url = vec![];
         let add = vec![];
 
         SubnetOwner::<T>::insert(netuid, coldkey.clone());
@@ -1250,6 +1251,7 @@ mod pallet_benchmarks {
             url.clone(),
             disc.clone(),
             descr.clone(),
+            logo_url.clone(),
             add.clone(),
         );
     }
