@@ -6492,6 +6492,7 @@ version = "4.0.0-dev"
 dependencies = [
  "async-trait",
  "clap",
+ "cumulus-primitives-proof-size-hostfunction",
  "fc-api",
  "fc-aura",
  "fc-consensus",
