@@ -136,6 +136,11 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
 
+      - name: Patch non-fast-block node
+        run: |
+          chmod +x ./scripts/localnet_patch.sh
+          ./scripts/localnet_patch.sh
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
