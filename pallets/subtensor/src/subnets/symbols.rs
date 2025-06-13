@@ -4,7 +4,7 @@ use subtensor_runtime_common::NetUid;
 /// Returns the Unicode symbol as a Vec<u8> for a given netuid.
 impl<T: Config> Pallet<T> {
     pub fn get_name_for_subnet(netuid: NetUid) -> Vec<u8> {
-        SubnetIdentitiesV2::<T>::try_get(netuid)
+        SubnetIdentitiesV3::<T>::try_get(netuid)
             .and_then(|identity| {
                 if !identity.subnet_name.is_empty() {
                     Ok(identity.subnet_name)

@@ -7,6 +7,7 @@ use pallet_evm::{AddressMapping, PrecompileHandle};
 use precompile_utils::{EvmResult, prelude::BoundedString};
 use sp_core::H256;
 use sp_runtime::traits::Dispatchable;
+use sp_std::vec;
 use subtensor_runtime_common::NetUid;
 
 use crate::{PrecompileExt, PrecompileHandleExt};
@@ -75,13 +76,54 @@ where
         additional: BoundedString<ConstU32<1024>>,
     ) -> EvmResult<()> {
         let hotkey = R::AccountId::from(hotkey.0);
-        let identity = pallet_subtensor::SubnetIdentityOfV2 {
+        let identity = pallet_subtensor::SubnetIdentityOfV3 {
             subnet_name: subnet_name.into(),
             github_repo: github_repo.into(),
             subnet_contact: subnet_contact.into(),
             subnet_url: subnet_url.into(),
             discord: discord.into(),
             description: description.into(),
+            logo_url: vec![],
+            additional: additional.into(),
+        };
+
+        let call = pallet_subtensor::Call::<R>::register_network_with_identity {
+            hotkey,
+            identity: Some(identity),
+        };
+
+        handle.try_dispatch_runtime_call::<R, _>(
+            call,
+            RawOrigin::Signed(handle.caller_account_id::<R>()),
+        )
+    }
+
+    #[precompile::public(
+        "registerNetwork(bytes32,string,string,string,string,string,string,string,string)"
+    )]
+    #[precompile::payable]
+    #[allow(clippy::too_many_arguments)]
+    fn register_network_with_identity_v2(
+        handle: &mut impl PrecompileHandle,
+        hotkey: H256,
+        subnet_name: BoundedString<ConstU32<256>>,
+        github_repo: BoundedString<ConstU32<1024>>,
+        subnet_contact: BoundedString<ConstU32<1024>>,
+        subnet_url: BoundedString<ConstU32<1024>>,
+        discord: BoundedString<ConstU32<256>>,
+        description: BoundedString<ConstU32<1024>>,
+        additional: BoundedString<ConstU32<1024>>,
+        logo_url: BoundedString<ConstU32<1024>>,
+    ) -> EvmResult<()> {
+        let hotkey = R::AccountId::from(hotkey.0);
+        let identity = pallet_subtensor::SubnetIdentityOfV3 {
+            subnet_name: subnet_name.into(),
+            github_repo: github_repo.into(),
+            subnet_contact: subnet_contact.into(),
+            subnet_url: subnet_url.into(),
+            discord: discord.into(),
+            description: description.into(),
+            logo_url: logo_url.into(),
             additional: additional.into(),
         };
 

@@ -5,6 +5,7 @@
 **/*.rs.bk
 
 **/*.lock
+!evm-tests/yarn.lock
 
 *.ipynb
 
