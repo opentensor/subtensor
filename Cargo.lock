@@ -6023,7 +6023,6 @@ dependencies = [
  "sp-weights",
  "substrate-fixed",
  "subtensor-macros",
- "subtensor-runtime-common",
 ]
 
 [[package]]
@@ -6124,7 +6123,6 @@ dependencies = [
  "sp-runtime",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409-7)",
  "subtensor-macros",
- "subtensor-runtime-common",
  "tle",
  "w3f-bls",
 ]
@@ -6537,7 +6535,6 @@ dependencies = [
  "sp-version",
  "substrate-fixed",
  "subtensor-macros",
- "subtensor-runtime-common",
  "tle",
  "w3f-bls",
 ]
@@ -11039,7 +11036,6 @@ dependencies = [
  "sp-rpc",
  "sp-runtime",
  "subtensor-custom-rpc-runtime-api",
- "subtensor-runtime-common",
 ]
 
 [[package]]
@@ -11052,7 +11048,6 @@ dependencies = [
  "serde",
  "sp-api",
  "sp-runtime",
- "subtensor-runtime-common",
 ]
 
 [[package]]
@@ -11108,12 +11103,9 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
- "precompile-utils",
  "scale-info",
- "serde",
  "sp-core",
  "sp-runtime",
- "subtensor-macros",
 ]
 
 [[package]]

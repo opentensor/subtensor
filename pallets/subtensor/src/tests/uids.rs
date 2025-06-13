@@ -18,7 +18,7 @@ use sp_core::U256;
 fn test_replace_neuron() {
     new_test_ext(1).execute_with(|| {
         let block_number: u64 = 0;
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(1);
         let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
@@ -149,7 +149,7 @@ fn test_replace_neuron() {
 fn test_bonds_cleared_on_replace() {
     new_test_ext(1).execute_with(|| {
         let block_number: u64 = 0;
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(1);
         let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
@@ -216,8 +216,8 @@ fn test_bonds_cleared_on_replace() {
 fn test_replace_neuron_multiple_subnets() {
     new_test_ext(1).execute_with(|| {
         let block_number: u64 = 0;
-        let netuid = NetUid::from(1);
-        let netuid1 = NetUid::from(2);
+        let netuid: u16 = 1;
+        let netuid1: u16 = 2;
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(1);
         let new_hotkey_account_id = U256::from(2);

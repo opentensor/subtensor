@@ -3,7 +3,6 @@ use safe_math::*;
 use share_pool::{SharePool, SharePoolDataOperations};
 use sp_std::ops::Neg;
 use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32, U110F18};
-use subtensor_runtime_common::NetUid;
 
 impl<T: Config> Pallet<T> {
     /// Retrieves the total alpha issuance for a given subnet.
@@ -16,7 +15,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     /// * `u64` - The total alpha issuance for the specified subnet.
-    pub fn get_alpha_issuance(netuid: NetUid) -> u64 {
+    pub fn get_alpha_issuance(netuid: u16) -> u64 {
         SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaOut::<T>::get(netuid))
     }
 
@@ -31,8 +30,8 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     /// * `I96F32` - The price of alpha for the specified subnet.
-    pub fn get_alpha_price(netuid: NetUid) -> U96F32 {
-        if netuid.is_root() {
+    pub fn get_alpha_price(netuid: u16) -> U96F32 {
+        if netuid == Self::get_root_netuid() {
             return U96F32::saturating_from_num(1.0); // Root.
         }
         if SubnetMechanism::<T>::get(netuid) == 0 {
@@ -46,9 +45,9 @@ impl<T: Config> Pallet<T> {
                 .unwrap_or(U96F32::saturating_from_num(0))
         }
     }
-    pub fn get_moving_alpha_price(netuid: NetUid) -> U96F32 {
+    pub fn get_moving_alpha_price(netuid: u16) -> U96F32 {
         let one = U96F32::saturating_from_num(1.0);
-        if netuid.is_root() {
+        if netuid == Self::get_root_netuid() {
             // Root.
             one
         } else if SubnetMechanism::<T>::get(netuid) == 0 {
@@ -59,7 +58,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn update_moving_price(netuid: NetUid) {
+    pub fn update_moving_price(netuid: u16) {
         let blocks_since_start_call = U96F32::saturating_from_num({
             // We expect FirstEmissionBlockNumber to be set earlier, and we take the block when
             // `start_call` was called (first block before FirstEmissionBlockNumber).
@@ -145,7 +144,7 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn get_stake_weights_for_hotkey_on_subnet(
         hotkey: &T::AccountId,
-        netuid: NetUid,
+        netuid: u16,
     ) -> (I64F64, I64F64, I64F64) {
         // Retrieve the global tao weight.
         let tao_weight = I64F64::saturating_from_num(Self::get_tao_weight());
@@ -171,9 +170,7 @@ impl<T: Config> Pallet<T> {
 
     /// Calculates the weighted combination of alpha and global tao for hotkeys on a subnet.
     ///
-    pub fn get_stake_weights_for_network(
-        netuid: NetUid,
-    ) -> (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) {
+    pub fn get_stake_weights_for_network(netuid: u16) -> (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) {
         // Retrieve the global tao weight.
         let tao_weight: I64F64 = I64F64::saturating_from_num(Self::get_tao_weight());
         log::debug!("tao_weight: {:?}", tao_weight);
@@ -251,9 +248,10 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Note
     /// This function uses saturating arithmetic to prevent overflows.
-    pub fn get_tao_inherited_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: NetUid) -> u64 {
-        let initial_tao: U96F32 =
-            U96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, NetUid::ROOT));
+    pub fn get_tao_inherited_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
+        let initial_tao: U96F32 = U96F32::saturating_from_num(
+            Self::get_stake_for_hotkey_on_subnet(hotkey, Self::get_root_netuid()),
+        );
 
         // Initialize variables to track alpha allocated to children and inherited from parents.
         let mut tao_to_children: U96F32 = U96F32::saturating_from_num(0);
@@ -298,10 +296,9 @@ impl<T: Config> Pallet<T> {
         // Step 4: Calculate the total tao inherited from parents.
         for (proportion, parent) in parents {
             // Retrieve the parent's total stake on this subnet.
-            let parent_tao = U96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(
-                &parent,
-                NetUid::ROOT,
-            ));
+            let parent_tao: U96F32 = U96F32::saturating_from_num(
+                Self::get_stake_for_hotkey_on_subnet(&parent, Self::get_root_netuid()),
+            );
             log::trace!(
                 "Parent tao for parent {:?} on subnet {}: {:?}",
                 parent,
@@ -310,7 +307,7 @@ impl<T: Config> Pallet<T> {
             );
 
             // Convert the proportion to a normalized value between 0 and 1.
-            let normalized_proportion = U96F32::saturating_from_num(proportion)
+            let normalized_proportion: U96F32 = U96F32::saturating_from_num(proportion)
                 .safe_div(U96F32::saturating_from_num(u64::MAX));
             log::trace!(
                 "Normalized proportion from parent: {:?}",
@@ -345,7 +342,7 @@ impl<T: Config> Pallet<T> {
         finalized_tao.saturating_to_num::<u64>()
     }
 
-    pub fn get_inherited_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: NetUid) -> u64 {
+    pub fn get_inherited_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
         // Step 1: Retrieve the initial total stake (alpha) for the hotkey on the specified subnet.
         let initial_alpha: U96F32 =
             U96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
@@ -355,7 +352,7 @@ impl<T: Config> Pallet<T> {
             netuid,
             initial_alpha
         );
-        if netuid.is_root() {
+        if netuid == 0 {
             return initial_alpha.saturating_to_num::<u64>();
         }
 
@@ -470,7 +467,7 @@ impl<T: Config> Pallet<T> {
     pub fn has_enough_stake_on_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
-        netuid: NetUid,
+        netuid: u16,
         decrement: u64,
     ) -> bool {
         // Retrieve the current stake for this hotkey-coldkey pair on the subnet
@@ -502,7 +499,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_stake_for_hotkey_and_coldkey_on_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
-        netuid: NetUid,
+        netuid: u16,
     ) -> u64 {
         let alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
         alpha_share_pool.try_get_value(coldkey).unwrap_or(0)
@@ -522,7 +519,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Note
     /// This function returns the cumulative stake across all coldkeys associated with this hotkey on the subnet.
-    pub fn get_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: NetUid) -> u64 {
+    pub fn get_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
         // Retrieve and return the total alpha this hotkey owns on this subnet.
         // This value represents the sum of stakes from all coldkeys associated with this hotkey.
         TotalHotkeyAlpha::<T>::get(hotkey, netuid)
@@ -537,7 +534,7 @@ impl<T: Config> Pallet<T> {
     /// * `netuid` - The unique identifier of the subnet.
     /// * `amount` - The amount of alpha to be added.
     ///
-    pub fn increase_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: NetUid, amount: u64) {
+    pub fn increase_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16, amount: u64) {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
         alpha_share_pool.update_value_for_all(amount as i64);
     }
@@ -551,7 +548,7 @@ impl<T: Config> Pallet<T> {
     /// * `netuid` - The unique identifier of the subnet.
     /// * `amount` - The amount of alpha to be added.
     ///
-    pub fn decrease_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: NetUid, amount: u64) {
+    pub fn decrease_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16, amount: u64) {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
         alpha_share_pool.update_value_for_all((amount as i64).neg());
     }
@@ -569,7 +566,7 @@ impl<T: Config> Pallet<T> {
     pub fn increase_stake_for_hotkey_and_coldkey_on_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
-        netuid: NetUid,
+        netuid: u16,
         amount: u64,
     ) -> u64 {
         if amount > 0 {
@@ -591,7 +588,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn try_increase_stake_for_hotkey_and_coldkey_on_subnet(
         hotkey: &T::AccountId,
-        netuid: NetUid,
+        netuid: u16,
         amount: u64,
     ) -> bool {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
@@ -611,7 +608,7 @@ impl<T: Config> Pallet<T> {
     pub fn decrease_stake_for_hotkey_and_coldkey_on_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
-        netuid: NetUid,
+        netuid: u16,
         amount: u64,
     ) -> u64 {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
@@ -637,7 +634,7 @@ impl<T: Config> Pallet<T> {
     /// If new alpha_reserve is about to drop below DefaultMinimumPoolLiquidity,
     /// then don't do it.
     ///
-    pub fn sim_swap_tao_for_alpha(netuid: NetUid, tao: u64) -> Option<u64> {
+    pub fn sim_swap_tao_for_alpha(netuid: u16, tao: u64) -> Option<u64> {
         // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
         let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
         // Step 2: Initialized vars.
@@ -676,7 +673,7 @@ impl<T: Config> Pallet<T> {
     /// If new tao_reserve is about to drop below DefaultMinimumPoolLiquidity,
     /// then don't do it.
     ///
-    pub fn sim_swap_alpha_for_tao(netuid: NetUid, alpha: u64) -> Option<u64> {
+    pub fn sim_swap_alpha_for_tao(netuid: u16, alpha: u64) -> Option<u64> {
         // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
         let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
         // Step 2: Swap alpha and attain tao
@@ -713,7 +710,7 @@ impl<T: Config> Pallet<T> {
     /// Swaps TAO for the alpha token on the subnet.
     ///
     /// Updates TaoIn, AlphaIn, and AlphaOut
-    pub fn swap_tao_for_alpha(netuid: NetUid, tao: u64) -> u64 {
+    pub fn swap_tao_for_alpha(netuid: u16, tao: u64) -> u64 {
         if let Some(alpha) = Self::sim_swap_tao_for_alpha(netuid, tao) {
             // Step 4. Decrease Alpha reserves.
             SubnetAlphaIn::<T>::mutate(netuid, |total| {
@@ -745,7 +742,7 @@ impl<T: Config> Pallet<T> {
     /// Swaps a subnet's Alpba token for TAO.
     ///
     /// Updates TaoIn, AlphaIn, and AlphaOut
-    pub fn swap_alpha_for_tao(netuid: NetUid, alpha: u64) -> u64 {
+    pub fn swap_alpha_for_tao(netuid: u16, alpha: u64) -> u64 {
         if let Some(tao) = Self::sim_swap_alpha_for_tao(netuid, alpha) {
             // Step 4: Increase Alpha reserves.
             SubnetAlphaIn::<T>::mutate(netuid, |total| {
@@ -780,7 +777,7 @@ impl<T: Config> Pallet<T> {
     pub fn unstake_from_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
-        netuid: NetUid,
+        netuid: u16,
         alpha: u64,
         fee: u64,
     ) -> u64 {
@@ -839,7 +836,7 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn stake_into_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
-        netuid: NetUid,
+        netuid: u16,
         tao: u64,
         fee: u64,
     ) -> u64 {
@@ -893,7 +890,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_alpha_share_pool(
         hotkey: <T as frame_system::Config>::AccountId,
-        netuid: NetUid,
+        netuid: u16,
     ) -> SharePool<AlphaShareKey<T>, HotkeyAlphaSharePoolDataOperations<T>> {
         let ops = HotkeyAlphaSharePoolDataOperations::new(hotkey, netuid);
         SharePool::<AlphaShareKey<T>, HotkeyAlphaSharePoolDataOperations<T>>::new(ops)
@@ -904,7 +901,7 @@ impl<T: Config> Pallet<T> {
     pub fn validate_add_stake(
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
-        netuid: NetUid,
+        netuid: u16,
         stake_to_be_added: u64,
         max_amount: u64,
         allow_partial: bool,
@@ -960,7 +957,7 @@ impl<T: Config> Pallet<T> {
     pub fn validate_remove_stake(
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
-        netuid: NetUid,
+        netuid: u16,
         alpha_unstaked: u64,
         max_amount: u64,
         allow_partial: bool,
@@ -1010,7 +1007,7 @@ impl<T: Config> Pallet<T> {
         only_alpha: bool,
     ) -> Result<(), Error<T>> {
         // Get all netuids (filter out root)
-        let subnets = Self::get_all_subnet_netuids();
+        let subnets: Vec<u16> = Self::get_all_subnet_netuids();
 
         // Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
@@ -1020,7 +1017,7 @@ impl<T: Config> Pallet<T> {
 
         let mut unstaking_any = false;
         for netuid in subnets.iter() {
-            if only_alpha && netuid.is_root() {
+            if only_alpha && (*netuid == Self::get_root_netuid()) {
                 continue;
             }
 
@@ -1046,8 +1043,8 @@ impl<T: Config> Pallet<T> {
         destination_coldkey: &T::AccountId,
         origin_hotkey: &T::AccountId,
         destination_hotkey: &T::AccountId,
-        origin_netuid: NetUid,
-        destination_netuid: NetUid,
+        origin_netuid: u16,
+        destination_netuid: u16,
         alpha_amount: u64,
         max_amount: u64,
         maybe_allow_partial: Option<bool>,
@@ -1150,9 +1147,9 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn calculate_staking_fee(
-        origin: Option<(&T::AccountId, NetUid)>,
+        origin: Option<(&T::AccountId, u16)>,
         _origin_coldkey: &T::AccountId,
-        destination: Option<(&T::AccountId, NetUid)>,
+        destination: Option<(&T::AccountId, u16)>,
         _destination_coldkey: &T::AccountId,
         alpha_estimate: U96F32,
     ) -> u64 {
@@ -1167,7 +1164,9 @@ impl<T: Config> Pallet<T> {
                     }
                 }
 
-                if origin_netuid.is_root() || SubnetMechanism::<T>::get(origin_netuid) == 0 {
+                if origin_netuid == Self::get_root_netuid()
+                    || SubnetMechanism::<T>::get(origin_netuid) == 0
+                {
                     // If the origin netuid is root, or the subnet mechanism is 0, use the default fee
                     DefaultStakingFee::<T>::get()
                 } else {
@@ -1217,13 +1216,13 @@ impl<T: Config> Pallet<T> {
 
 #[derive(Debug)]
 pub struct HotkeyAlphaSharePoolDataOperations<T: frame_system::Config> {
-    netuid: NetUid,
+    netuid: u16,
     hotkey: <T as frame_system::Config>::AccountId,
     _marker: sp_std::marker::PhantomData<T>,
 }
 
 impl<T: Config> HotkeyAlphaSharePoolDataOperations<T> {
-    fn new(hotkey: <T as frame_system::Config>::AccountId, netuid: NetUid) -> Self {
+    fn new(hotkey: <T as frame_system::Config>::AccountId, netuid: u16) -> Self {
         HotkeyAlphaSharePoolDataOperations {
             netuid,
             hotkey,

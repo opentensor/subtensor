@@ -13,7 +13,7 @@ fn test_do_move_success() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
-        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         let coldkey = U256::from(1);
         let origin_hotkey = U256::from(2);
         let destination_hotkey = U256::from(3);
@@ -141,7 +141,7 @@ fn test_do_move_nonexistent_subnet() {
         let coldkey = U256::from(1);
         let origin_hotkey = U256::from(2);
         let destination_hotkey = U256::from(3);
-        let nonexistent_netuid = NetUid::from(99); // Assuming this subnet doesn't exist
+        let nonexistent_netuid = 99; // Assuming this subnet doesn't exist
         let stake_amount = 1_000_000;
         let fee = 0;
 
@@ -240,7 +240,7 @@ fn test_do_move_nonexistent_destination_hotkey() {
         let coldkey = U256::from(1);
         let origin_hotkey = U256::from(2);
         let nonexistent_destination_hotkey = U256::from(99); // Assuming this hotkey doesn't exist
-        let netuid = NetUid::from(1);
+        let netuid = 1;
         let stake_amount = 1_000_000;
         let fee = 0;
 
@@ -518,7 +518,7 @@ fn test_do_move_wrong_origin() {
         let wrong_coldkey = U256::from(99);
         let origin_hotkey = U256::from(2);
         let destination_hotkey = U256::from(3);
-        let netuid = NetUid::from(1);
+        let netuid = 1;
         let stake_amount = DefaultMinStake::<Test>::get() * 10;
         let fee = 0;
 
@@ -738,7 +738,7 @@ fn test_do_move_max_values() {
         let origin_hotkey = U256::from(2);
         let destination_hotkey = U256::from(3);
         let max_stake = u64::MAX;
-        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         let fee = 0;
 
         // Set up initial stake with maximum value
@@ -797,8 +797,8 @@ fn test_moving_too_little_unstakes() {
         let fee = DefaultStakingFee::<Test>::get();
 
         //add network
-        let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
-        let netuid2 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+        let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+        let netuid2: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
 
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount + fee);
@@ -886,7 +886,7 @@ fn test_do_transfer_nonexistent_subnet() {
         let origin_coldkey = U256::from(1);
         let destination_coldkey = U256::from(2);
         let hotkey = U256::from(3);
-        let nonexistent_netuid = NetUid::from(9999);
+        let nonexistent_netuid = 9999;
         let stake_amount = DefaultMinStake::<Test>::get() * 5;
 
         assert_noop!(
@@ -1153,8 +1153,8 @@ fn test_do_swap_nonexistent_subnet() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let nonexistent_netuid1 = NetUid::from(9998);
-        let nonexistent_netuid2 = NetUid::from(9999);
+        let nonexistent_netuid1: u16 = 9998;
+        let nonexistent_netuid2: u16 = 9999;
         let stake_amount = 1_000_000;
 
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
@@ -1666,9 +1666,9 @@ fn test_move_stake_specific_stake_into_subnet_fail() {
         let tao_staked = 200_000_000;
 
         //add network
-        let netuid = add_dynamic_network(&sn_owner_coldkey, &sn_owner_coldkey);
+        let netuid: u16 = add_dynamic_network(&sn_owner_coldkey, &sn_owner_coldkey);
 
-        let origin_netuid = add_dynamic_network(&sn_owner_coldkey, &sn_owner_coldkey);
+        let origin_netuid: u16 = add_dynamic_network(&sn_owner_coldkey, &sn_owner_coldkey);
 
         // Register hotkey on netuid
         register_ok_neuron(netuid, hotkey_account_id, hotkey_owner_account_id, 0);

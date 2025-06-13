@@ -11,7 +11,6 @@ use pallet_subtensor::Event;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{Pair, U256, ed25519};
 use substrate_fixed::types::I96F32;
-use subtensor_runtime_common::NetUid;
 
 use crate::Error;
 use crate::pallet::PrecompileEnable;
@@ -43,7 +42,7 @@ fn test_sudo_set_default_take() {
 #[test]
 fn test_sudo_set_serving_rate_limit() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(3);
+        let netuid: u16 = 3;
         let to_be_set: u64 = 10;
         let init_value: u64 = SubtensorModule::get_serving_rate_limit(netuid);
         assert_eq!(
@@ -67,7 +66,7 @@ fn test_sudo_set_serving_rate_limit() {
 #[test]
 fn test_sudo_set_min_difficulty() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
         let init_value: u64 = SubtensorModule::get_min_difficulty(netuid);
@@ -82,7 +81,7 @@ fn test_sudo_set_min_difficulty() {
         assert_eq!(
             AdminUtils::sudo_set_min_difficulty(
                 <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
+                netuid + 1,
                 to_be_set
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
@@ -100,7 +99,7 @@ fn test_sudo_set_min_difficulty() {
 #[test]
 fn test_sudo_set_max_difficulty() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
         let init_value: u64 = SubtensorModule::get_max_difficulty(netuid);
@@ -115,7 +114,7 @@ fn test_sudo_set_max_difficulty() {
         assert_eq!(
             AdminUtils::sudo_set_max_difficulty(
                 <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
+                netuid + 1,
                 to_be_set
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
@@ -133,7 +132,7 @@ fn test_sudo_set_max_difficulty() {
 #[test]
 fn test_sudo_set_weights_version_key() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
         let init_value: u64 = SubtensorModule::get_weights_version_key(netuid);
@@ -148,7 +147,7 @@ fn test_sudo_set_weights_version_key() {
         assert_eq!(
             AdminUtils::sudo_set_weights_version_key(
                 <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
+                netuid + 1,
                 to_be_set
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
@@ -166,7 +165,7 @@ fn test_sudo_set_weights_version_key() {
 #[test]
 fn test_sudo_set_weights_version_key_rate_limit() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: u64 = 10;
 
         let sn_owner = U256::from(1);
@@ -229,7 +228,7 @@ fn test_sudo_set_weights_version_key_rate_limit() {
 fn test_sudo_set_weights_version_key_rate_limit_root() {
     // root should not be effected by rate limit
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: u64 = 10;
 
         let sn_owner = U256::from(1);
@@ -267,7 +266,7 @@ fn test_sudo_set_weights_version_key_rate_limit_root() {
 #[test]
 fn test_sudo_set_weights_set_rate_limit() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
         let init_value: u64 = SubtensorModule::get_weights_set_rate_limit(netuid);
@@ -282,7 +281,7 @@ fn test_sudo_set_weights_set_rate_limit() {
         assert_eq!(
             AdminUtils::sudo_set_weights_set_rate_limit(
                 <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
+                netuid + 1,
                 to_be_set
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
@@ -306,7 +305,7 @@ fn test_sudo_set_weights_set_rate_limit() {
 #[test]
 fn test_sudo_set_adjustment_interval() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
         let init_value: u16 = SubtensorModule::get_adjustment_interval(netuid);
@@ -321,7 +320,7 @@ fn test_sudo_set_adjustment_interval() {
         assert_eq!(
             AdminUtils::sudo_set_adjustment_interval(
                 <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
+                netuid + 1,
                 to_be_set
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
@@ -339,7 +338,7 @@ fn test_sudo_set_adjustment_interval() {
 #[test]
 fn test_sudo_set_adjustment_alpha() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
         let init_value: u64 = SubtensorModule::get_adjustment_alpha(netuid);
@@ -354,7 +353,7 @@ fn test_sudo_set_adjustment_alpha() {
         assert_eq!(
             AdminUtils::sudo_set_adjustment_alpha(
                 <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
+                netuid + 1,
                 to_be_set
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
@@ -393,7 +392,7 @@ fn test_sudo_subnet_owner_cut() {
 #[test]
 fn test_sudo_set_max_weight_limit() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
         let init_value: u16 = SubtensorModule::get_max_weight_limit(netuid);
@@ -408,7 +407,7 @@ fn test_sudo_set_max_weight_limit() {
         assert_eq!(
             AdminUtils::sudo_set_max_weight_limit(
                 <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
+                netuid + 1,
                 to_be_set
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
@@ -445,7 +444,7 @@ fn test_sudo_set_issuance() {
 #[test]
 fn test_sudo_set_immunity_period() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
         let init_value: u16 = SubtensorModule::get_immunity_period(netuid);
@@ -460,7 +459,7 @@ fn test_sudo_set_immunity_period() {
         assert_eq!(
             AdminUtils::sudo_set_immunity_period(
                 <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
+                netuid + 1,
                 to_be_set
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
@@ -478,7 +477,7 @@ fn test_sudo_set_immunity_period() {
 #[test]
 fn test_sudo_set_min_allowed_weights() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
         let init_value: u16 = SubtensorModule::get_min_allowed_weights(netuid);
@@ -493,7 +492,7 @@ fn test_sudo_set_min_allowed_weights() {
         assert_eq!(
             AdminUtils::sudo_set_min_allowed_weights(
                 <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
+                netuid + 1,
                 to_be_set
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
@@ -511,7 +510,7 @@ fn test_sudo_set_min_allowed_weights() {
 #[test]
 fn test_sudo_set_max_allowed_uids() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
         let init_value: u16 = SubtensorModule::get_max_allowed_uids(netuid);
@@ -526,7 +525,7 @@ fn test_sudo_set_max_allowed_uids() {
         assert_eq!(
             AdminUtils::sudo_set_max_allowed_uids(
                 <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
+                netuid + 1,
                 to_be_set
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
@@ -544,7 +543,7 @@ fn test_sudo_set_max_allowed_uids() {
 #[test]
 fn test_sudo_set_and_decrease_max_allowed_uids() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
         let init_value: u16 = SubtensorModule::get_max_allowed_uids(netuid);
@@ -559,7 +558,7 @@ fn test_sudo_set_and_decrease_max_allowed_uids() {
         assert_eq!(
             AdminUtils::sudo_set_max_allowed_uids(
                 <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
+                netuid + 1,
                 to_be_set
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
@@ -581,7 +580,7 @@ fn test_sudo_set_and_decrease_max_allowed_uids() {
 #[test]
 fn test_sudo_set_kappa() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
         let init_value: u16 = SubtensorModule::get_kappa(netuid);
@@ -596,7 +595,7 @@ fn test_sudo_set_kappa() {
         assert_eq!(
             AdminUtils::sudo_set_kappa(
                 <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
+                netuid + 1,
                 to_be_set
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
@@ -614,7 +613,7 @@ fn test_sudo_set_kappa() {
 #[test]
 fn test_sudo_set_rho() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
         let init_value: u16 = SubtensorModule::get_rho(netuid);
@@ -629,7 +628,7 @@ fn test_sudo_set_rho() {
         assert_eq!(
             AdminUtils::sudo_set_rho(
                 <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
+                netuid + 1,
                 to_be_set
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
@@ -647,7 +646,7 @@ fn test_sudo_set_rho() {
 #[test]
 fn test_sudo_set_activity_cutoff() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: u16 = pallet_subtensor::MinActivityCutoff::<Test>::get();
         add_network(netuid, 10);
         let init_value: u16 = SubtensorModule::get_activity_cutoff(netuid);
@@ -662,7 +661,7 @@ fn test_sudo_set_activity_cutoff() {
         assert_eq!(
             AdminUtils::sudo_set_activity_cutoff(
                 <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
+                netuid + 1,
                 to_be_set
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
@@ -680,7 +679,7 @@ fn test_sudo_set_activity_cutoff() {
 #[test]
 fn test_sudo_set_target_registrations_per_interval() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
         let init_value: u16 = SubtensorModule::get_target_registrations_per_interval(netuid);
@@ -695,7 +694,7 @@ fn test_sudo_set_target_registrations_per_interval() {
         assert_eq!(
             AdminUtils::sudo_set_target_registrations_per_interval(
                 <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
+                netuid + 1,
                 to_be_set
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
@@ -719,7 +718,7 @@ fn test_sudo_set_target_registrations_per_interval() {
 #[test]
 fn test_sudo_set_difficulty() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
         let init_value: u64 = SubtensorModule::get_difficulty_as_u64(netuid);
@@ -734,7 +733,7 @@ fn test_sudo_set_difficulty() {
         assert_eq!(
             AdminUtils::sudo_set_difficulty(
                 <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
+                netuid + 1,
                 to_be_set
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
@@ -764,7 +763,7 @@ fn test_sudo_set_difficulty() {
 #[test]
 fn test_sudo_set_max_allowed_validators() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
         let init_value: u16 = SubtensorModule::get_max_allowed_validators(netuid);
@@ -779,7 +778,7 @@ fn test_sudo_set_max_allowed_validators() {
         assert_eq!(
             AdminUtils::sudo_set_max_allowed_validators(
                 <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
+                netuid + 1,
                 to_be_set
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
@@ -824,7 +823,7 @@ fn test_sudo_set_stake_threshold() {
 #[test]
 fn test_sudo_set_bonds_moving_average() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
         let init_value: u64 = SubtensorModule::get_bonds_moving_average(netuid);
@@ -839,7 +838,7 @@ fn test_sudo_set_bonds_moving_average() {
         assert_eq!(
             AdminUtils::sudo_set_bonds_moving_average(
                 <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
+                netuid + 1,
                 to_be_set
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
@@ -860,7 +859,7 @@ fn test_sudo_set_bonds_moving_average() {
 #[test]
 fn test_sudo_set_bonds_penalty() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
         let init_value: u16 = SubtensorModule::get_bonds_penalty(netuid);
@@ -875,7 +874,7 @@ fn test_sudo_set_bonds_penalty() {
         assert_eq!(
             AdminUtils::sudo_set_bonds_penalty(
                 <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
+                netuid + 1,
                 to_be_set
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
@@ -893,7 +892,7 @@ fn test_sudo_set_bonds_penalty() {
 #[test]
 fn test_sudo_set_rao_recycled() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
         let init_value: u64 = SubtensorModule::get_rao_recycled(netuid);
@@ -912,7 +911,7 @@ fn test_sudo_set_rao_recycled() {
         assert_eq!(
             AdminUtils::sudo_set_rao_recycled(
                 <<Test as Config>::RuntimeOrigin>::root(),
-                netuid.next(),
+                netuid + 1,
                 to_be_set
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
@@ -955,7 +954,7 @@ fn test_sudo_set_rao_recycled() {
 #[test]
 fn test_sudo_set_network_lock_reduction_interval() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: u64 = 7200;
         add_network(netuid, 10);
 
@@ -979,7 +978,7 @@ fn test_sudo_set_network_lock_reduction_interval() {
 #[test]
 fn test_sudo_set_network_pow_registration_allowed() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: bool = true;
         add_network(netuid, 10);
 
@@ -1109,7 +1108,7 @@ fn test_sudo_set_min_delegate_take() {
 #[test]
 fn test_sudo_set_commit_reveal_weights_enabled() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         add_network(netuid, 10);
 
         let to_be_set: bool = true;
@@ -1132,7 +1131,7 @@ fn test_sudo_set_commit_reveal_weights_enabled() {
 #[test]
 fn test_sudo_set_liquid_alpha_enabled() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let enabled: bool = true;
         assert_eq!(!enabled, SubtensorModule::get_liquid_alpha_enabled(netuid));
 
@@ -1149,7 +1148,7 @@ fn test_sudo_set_liquid_alpha_enabled() {
 #[test]
 fn test_set_alpha_values_dispatch_info_ok() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let alpha_low: u16 = 12_u16;
         let alpha_high: u16 = u16::MAX - 10;
         let call = RuntimeCall::AdminUtils(crate::Call::sudo_set_alpha_values {
@@ -1168,7 +1167,7 @@ fn test_set_alpha_values_dispatch_info_ok() {
 #[test]
 fn test_sudo_get_set_alpha() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let alpha_low: u16 = 12_u16;
         let alpha_high: u16 = u16::MAX - 10;
 
@@ -1386,7 +1385,7 @@ fn test_sudo_set_dissolve_network_schedule_duration() {
 #[test]
 fn sudo_set_commit_reveal_weights_interval() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         add_network(netuid, 10);
 
         let to_be_set = 55;
@@ -1566,7 +1565,7 @@ fn test_sets_a_lower_value_clears_small_nominations() {
         assert!(to_stake < nominator_min_required_stake_1); // Should be removed when set
 
         // Create network
-        let netuid = NetUid::from(2);
+        let netuid = 2;
         add_network(netuid, 10);
 
         // Register a neuron
@@ -1631,7 +1630,7 @@ fn test_sets_a_lower_value_clears_small_nominations() {
 #[test]
 fn test_sudo_set_subnet_owner_hotkey() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
 
         let coldkey: U256 = U256::from(1);
         let hotkey: U256 = U256::from(2);
@@ -1675,7 +1674,7 @@ fn test_sudo_set_subnet_owner_hotkey() {
 #[test]
 fn test_sudo_set_ema_halving() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
 
@@ -1717,7 +1716,7 @@ fn test_sudo_set_ema_halving() {
 #[test]
 fn test_set_sn_owner_hotkey_owner() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let hotkey: U256 = U256::from(3);
         let bad_origin_coldkey: U256 = U256::from(4);
         add_network(netuid, 10);
@@ -1762,7 +1761,7 @@ fn test_set_sn_owner_hotkey_owner() {
 #[test]
 fn test_set_sn_owner_hotkey_root() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let hotkey: U256 = U256::from(3);
         add_network(netuid, 10);
 
@@ -1785,7 +1784,7 @@ fn test_set_sn_owner_hotkey_root() {
 #[test]
 fn test_sudo_set_bonds_reset_enabled() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid = 1;
         let to_be_set: bool = true;
         let sn_owner = U256::from(1);
         add_network(netuid, 10);
@@ -1822,7 +1821,7 @@ fn test_sudo_set_bonds_reset_enabled() {
 #[test]
 fn test_sudo_set_yuma3_enabled() {
     new_test_ext().execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid = 1;
         let to_be_set: bool = true;
         let sn_owner = U256::from(1);
         add_network(netuid, 10);

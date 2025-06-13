@@ -6,17 +6,16 @@ use substrate_fixed::types::U64F64;
 extern crate alloc;
 use alloc::collections::BTreeMap;
 use codec::Compact;
-use subtensor_runtime_common::NetUid;
 
-#[freeze_struct("1fafc4fcf28cba7a")]
+#[freeze_struct("7cd21f57627d2d0d")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct DelegateInfo<AccountId: TypeInfo + Encode + Decode> {
     pub delegate_ss58: AccountId,
     pub take: Compact<u16>,
-    pub nominators: Vec<(AccountId, Vec<(Compact<NetUid>, Compact<u64>)>)>, // map of nominator_ss58 to netuid and stake amount
+    pub nominators: Vec<(AccountId, Vec<(Compact<u16>, Compact<u64>)>)>, // map of nominator_ss58 to netuid and stake amount
     pub owner_ss58: AccountId,
-    pub registrations: Vec<Compact<NetUid>>, // Vec of netuid this delegate is registered on
-    pub validator_permits: Vec<Compact<NetUid>>, // Vec of netuid this delegate has validator permit on
+    pub registrations: Vec<Compact<u16>>, // Vec of netuid this delegate is registered on
+    pub validator_permits: Vec<Compact<u16>>, // Vec of netuid this delegate has validator permit on
     pub return_per_1000: Compact<u64>, // Delegators current daily return per 1000 TAO staked minus take fee
     pub total_daily_return: Compact<u64>, // Delegators current daily return
 }
@@ -54,9 +53,8 @@ impl<T: Config> Pallet<T> {
         delegate: AccountIdOf<T>,
         skip_nominators: bool,
     ) -> DelegateInfo<T::AccountId> {
-        let mut nominators = Vec::<(T::AccountId, Vec<(Compact<NetUid>, Compact<u64>)>)>::new();
-        let mut nominator_map =
-            BTreeMap::<T::AccountId, Vec<(Compact<NetUid>, Compact<u64>)>>::new();
+        let mut nominators = Vec::<(T::AccountId, Vec<(Compact<u16>, Compact<u64>)>)>::new();
+        let mut nominator_map = BTreeMap::<T::AccountId, Vec<(Compact<u16>, Compact<u64>)>>::new();
 
         if !skip_nominators {
             let mut alpha_share_pools = vec![];
@@ -70,7 +68,7 @@ impl<T: Config> Pallet<T> {
                     continue;
                 }
 
-                if let Some(alpha_share_pool) = alpha_share_pools.get(u16::from(netuid) as usize) {
+                if let Some(alpha_share_pool) = alpha_share_pools.get(netuid as usize) {
                     let coldkey_stake = alpha_share_pool.get_value_from_shares(alpha_stake);
 
                     nominator_map
@@ -86,7 +84,7 @@ impl<T: Config> Pallet<T> {
         }
 
         let registrations = Self::get_registered_networks_for_hotkey(&delegate.clone());
-        let mut validator_permits = Vec::<Compact<NetUid>>::new();
+        let mut validator_permits = Vec::<Compact<u16>>::new();
         let mut emissions_per_day: U64F64 = U64F64::saturating_from_num(0);
 
         for netuid in registrations.iter() {
@@ -110,7 +108,7 @@ impl<T: Config> Pallet<T> {
         let take: Compact<u16> = <Delegates<T>>::get(delegate.clone()).into();
 
         let total_stake: U64F64 =
-            Self::get_stake_for_hotkey_on_subnet(&delegate.clone(), NetUid::ROOT).into();
+            Self::get_stake_for_hotkey_on_subnet(&delegate.clone(), Self::get_root_netuid()).into();
 
         let return_per_1000: U64F64 =
             Self::return_per_1000_tao(take, total_stake, emissions_per_day);
@@ -153,8 +151,8 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn get_delegated(
         delegatee: T::AccountId,
-    ) -> Vec<(DelegateInfo<T::AccountId>, (Compact<NetUid>, Compact<u64>))> {
-        let mut delegates: Vec<(DelegateInfo<T::AccountId>, (Compact<NetUid>, Compact<u64>))> =
+    ) -> Vec<(DelegateInfo<T::AccountId>, (Compact<u16>, Compact<u64>))> {
+        let mut delegates: Vec<(DelegateInfo<T::AccountId>, (Compact<u16>, Compact<u64>))> =
             Vec::new();
         for delegate in <Delegates<T> as IterableStorageMap<T::AccountId, u16>>::iter_keys() {
             // Staked to this delegate, so add to list

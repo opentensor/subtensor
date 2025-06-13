@@ -27,7 +27,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         old_hotkey: &T::AccountId,
         new_hotkey: &T::AccountId,
-        netuid: Option<NetUid>,
+        netuid: Option<u16>,
     ) -> DispatchResultWithPostInfo {
         // 1. Ensure the origin is signed and get the coldkey
         let coldkey = ensure_signed(origin)?;
@@ -163,7 +163,7 @@ impl<T: Config> Pallet<T> {
         weight: &mut Weight,
     ) -> DispatchResult {
         // 1. keep the old hotkey alpha values for the case where hotkey staked by multiple coldkeys.
-        let old_alpha_values: Vec<((T::AccountId, NetUid), U64F64)> =
+        let old_alpha_values: Vec<((T::AccountId, u16), U64F64)> =
             Alpha::<T>::iter_prefix((old_hotkey,)).collect();
         weight.saturating_accrue(T::DbWeight::get().reads(old_alpha_values.len() as u64));
 
@@ -261,7 +261,7 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         old_hotkey: &T::AccountId,
         new_hotkey: &T::AccountId,
-        netuid: NetUid,
+        netuid: u16,
         init_weight: Weight,
     ) -> DispatchResultWithPostInfo {
         // 1. Ensure coldkey not swap hotkey too frequently
@@ -343,7 +343,7 @@ impl<T: Config> Pallet<T> {
         old_hotkey: &T::AccountId,
         new_hotkey: &T::AccountId,
         weight: &mut Weight,
-        netuid: NetUid,
+        netuid: u16,
     ) {
         // 1. Swap total hotkey alpha for all subnets it exists on.
         // TotalHotkeyAlpha( hotkey, netuid ) -> alpha -- the total alpha that the hotkey has on a specific subnet.
@@ -564,7 +564,7 @@ impl<T: Config> Pallet<T> {
 
         // 9. Swap Alpha
         // Alpha( hotkey, coldkey, netuid ) -> alpha
-        let old_alpha_values: Vec<((T::AccountId, NetUid), U64F64)> =
+        let old_alpha_values: Vec<((T::AccountId, u16), U64F64)> =
             Alpha::<T>::iter_prefix((old_hotkey,)).collect();
         weight.saturating_accrue(T::DbWeight::get().reads(old_alpha_values.len() as u64));
         weight.saturating_accrue(T::DbWeight::get().writes(old_alpha_values.len() as u64));

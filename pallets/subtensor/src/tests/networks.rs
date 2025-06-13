@@ -8,7 +8,7 @@ use sp_core::U256;
 fn test_registration_ok() {
     new_test_ext(1).execute_with(|| {
         let block_number: u64 = 0;
-        let netuid = NetUid::from(2);
+        let netuid: u16 = 2;
         let tempo: u16 = 13;
         let hotkey_account_id: U256 = U256::from(1);
         let coldkey_account_id = U256::from(0); // Neighbour of the beast, har har
@@ -45,7 +45,7 @@ fn test_registration_ok() {
 // fn test_schedule_dissolve_network_execution() {
 //     new_test_ext(1).execute_with(|| {
 //         let block_number: u64 = 0;
-//         let netuid = NetUid::from(2);
+//         let netuid: u16 = 2;
 //         let tempo: u16 = 13;
 //         let hotkey_account_id: U256 = U256::from(1);
 //         let coldkey_account_id = U256::from(0); // Neighbour of the beast, har har
@@ -97,7 +97,7 @@ fn test_registration_ok() {
 // fn test_non_owner_schedule_dissolve_network_execution() {
 //     new_test_ext(1).execute_with(|| {
 //         let block_number: u64 = 0;
-//         let netuid = NetUid::from(2);
+//         let netuid: u16 = 2;
 //         let tempo: u16 = 13;
 //         let hotkey_account_id: U256 = U256::from(1);
 //         let coldkey_account_id = U256::from(0); // Neighbour of the beast, har har
@@ -151,7 +151,7 @@ fn test_registration_ok() {
 // fn test_new_owner_schedule_dissolve_network_execution() {
 //     new_test_ext(1).execute_with(|| {
 //         let block_number: u64 = 0;
-//         let netuid = NetUid::from(2);
+//         let netuid: u16 = 2;
 //         let tempo: u16 = 13;
 //         let hotkey_account_id: U256 = U256::from(1);
 //         let coldkey_account_id = U256::from(0); // Neighbour of the beast, har har
@@ -209,7 +209,7 @@ fn test_registration_ok() {
 // fn test_schedule_dissolve_network_execution_with_coldkey_swap() {
 //     new_test_ext(1).execute_with(|| {
 //         let block_number: u64 = 0;
-//         let netuid = NetUid::from(2);
+//         let netuid: u16 = 2;
 //         let tempo: u16 = 13;
 //         let hotkey_account_id: U256 = U256::from(1);
 //         let coldkey_account_id = U256::from(0); // Neighbour of the beast, har har
@@ -294,7 +294,7 @@ fn test_register_subnet_low_lock_cost() {
 
         let subnet_owner_coldkey = U256::from(1);
         let subnet_owner_hotkey = U256::from(2);
-        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         assert!(SubtensorModule::if_subnet_exist(netuid));
 
         // Ensure that both Subnet TAO and Subnet Alpha In equal to (actual) lock_cost
@@ -317,7 +317,7 @@ fn test_register_subnet_high_lock_cost() {
 
         let subnet_owner_coldkey = U256::from(1);
         let subnet_owner_hotkey = U256::from(2);
-        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         assert!(SubtensorModule::if_subnet_exist(netuid));
 
         // Ensure that both Subnet TAO and Subnet Alpha In equal to 100 TAO

@@ -12,7 +12,7 @@ use substrate_fixed::types::{I96F32, U96F32};
 #[test]
 fn test_stake_base_case() {
     new_test_ext(1).execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid = 1;
         let tao_to_swap = 1_000_000_000; // 1 TAO
 
         // Set up the subnet with dynamic mechanism
@@ -78,7 +78,7 @@ fn test_stake_base_case() {
 #[test]
 fn test_share_based_staking() {
     new_test_ext(1).execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid = 1;
         let primary_hotkey = U256::from(1);
         let primary_coldkey = U256::from(2);
         let stake_amount = 1_000_000_000; // 1 TAO
@@ -403,7 +403,7 @@ fn test_share_based_staking_denominator_precision() {
     .iter()
     .for_each(|test_case| {
         new_test_ext(1).execute_with(|| {
-            let netuid = NetUid::from(1);
+            let netuid = 1;
             let hotkey1 = U256::from(1);
             let coldkey1 = U256::from(2);
             let stake_amount = test_case.0;
@@ -457,7 +457,7 @@ fn test_share_based_staking_stake_unstake_inject() {
     .iter()
     .for_each(|test_case| {
         new_test_ext(1).execute_with(|| {
-            let netuid = NetUid::from(1);
+            let netuid = 1;
             let hotkey1 = U256::from(1);
             let coldkey1 = U256::from(2);
             let coldkey2 = U256::from(3);
@@ -527,7 +527,7 @@ fn test_share_based_staking_stake_inject_stake_new() {
     .iter()
     .for_each(|test_case| {
         new_test_ext(1).execute_with(|| {
-            let netuid = NetUid::from(1);
+            let netuid = 1;
             let hotkey1 = U256::from(1);
             let coldkey1 = U256::from(2);
             let coldkey2 = U256::from(3);
@@ -633,9 +633,9 @@ fn test_stake_fee_api() {
         let hotkey2 = U256::from(3);
         let coldkey2 = U256::from(4);
 
-        let netuid0 = NetUid::from(1);
-        let netuid1 = NetUid::from(2);
-        let root_netuid = NetUid::ROOT;
+        let netuid0 = 1;
+        let netuid1 = 2;
+        let root_netuid = SubtensorModule::get_root_netuid();
 
         let alpha_divs = 100_000_000_000;
         let total_hotkey_alpha = 100_000_000_000;
@@ -823,9 +823,9 @@ fn test_stake_fee_calculation() {
         let hotkey2 = U256::from(3);
         let coldkey2 = U256::from(4);
 
-        let netuid0 = NetUid::from(1);
-        let netuid1 = NetUid::from(2);
-        let root_netuid = NetUid::ROOT;
+        let netuid0 = 1;
+        let netuid1 = 2;
+        let root_netuid = SubtensorModule::get_root_netuid();
         // Set SubnetMechanism to 1 (Dynamic)
         SubnetMechanism::<Test>::insert(netuid0, 1);
         SubnetMechanism::<Test>::insert(netuid1, 1);

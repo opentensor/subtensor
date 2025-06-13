@@ -23,7 +23,6 @@ use safe_math::*;
 use sp_core::Get;
 use sp_std::vec;
 use substrate_fixed::types::I64F64;
-use subtensor_runtime_common::NetUid;
 
 impl<T: Config> Pallet<T> {
     /// Fetches the total count of root network validators
@@ -34,7 +33,7 @@ impl<T: Config> Pallet<T> {
     /// * 'u16': The total number of root network validators
     ///
     pub fn get_num_root_validators() -> u16 {
-        Self::get_subnetwork_n(NetUid::ROOT)
+        Self::get_subnetwork_n(Self::get_root_netuid())
     }
 
     /// Fetches the max validators count of root network.
@@ -45,7 +44,7 @@ impl<T: Config> Pallet<T> {
     /// * 'u16': The max validators count of root network.
     ///
     pub fn get_max_root_validators() -> u16 {
-        Self::get_max_allowed_uids(NetUid::ROOT)
+        Self::get_max_allowed_uids(Self::get_root_netuid())
     }
 
     /// Checks for any UIDs in the given list that are either equal to the root netuid or exceed the total number of subnets.
@@ -58,7 +57,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns:
     /// * 'bool': 'true' if any of the UIDs are invalid, 'false' otherwise.
     ///
-    pub fn contains_invalid_root_uids(netuids: &[NetUid]) -> bool {
+    pub fn contains_invalid_root_uids(netuids: &[u16]) -> bool {
         for netuid in netuids {
             if !Self::if_subnet_exist(*netuid) {
                 log::debug!(
@@ -80,11 +79,11 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn get_root_weights() -> Vec<Vec<I64F64>> {
         // --- 0. The number of validators on the root network.
-        let n = Self::get_num_root_validators() as usize;
+        let n: usize = Self::get_num_root_validators() as usize;
 
         // --- 1 The number of subnets to validate.
         log::debug!("subnet size before cast: {:?}", Self::get_num_subnets());
-        let k = Self::get_num_subnets() as usize;
+        let k: usize = Self::get_num_subnets() as usize;
         log::debug!("n: {:?} k: {:?}", n, k);
 
         // --- 2. Initialize a 2D vector with zeros to store the weights. The dimensions are determined
@@ -96,8 +95,8 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Iterate over stored weights and fill the matrix.
         for (uid_i, weights_i) in
-            <Weights<T> as IterableStorageDoubleMap<NetUid, u16, Vec<(u16, u16)>>>::iter_prefix(
-                NetUid::ROOT,
+            <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(
+                Self::get_root_netuid(),
             )
         {
             // --- 4. Iterate over each weight entry in `weights_i` to update the corresponding value in the
@@ -109,7 +108,7 @@ impl<T: Config> Pallet<T> {
                     if let Some((w, _)) = weight
                         .iter_mut()
                         .zip(&subnet_list)
-                        .find(|(_, subnet)| *subnet == &NetUid::from(*netuid))
+                        .find(|(_, subnet)| *subnet == netuid)
                     {
                         *w = I64F64::saturating_from_num(*weight_ij);
                     }
@@ -135,9 +134,10 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn do_root_register(origin: T::RuntimeOrigin, hotkey: T::AccountId) -> DispatchResult {
         // --- 0. Get the unique identifier (UID) for the root network.
+        let root_netuid: u16 = Self::get_root_netuid();
         let current_block_number: u64 = Self::get_current_block_as_u64();
         ensure!(
-            Self::if_subnet_exist(NetUid::ROOT),
+            Self::if_subnet_exist(root_netuid),
             Error::<T>::RootNetworkDoesNotExist
         );
 
@@ -151,21 +151,21 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Ensure that the number of registrations in this block doesn't exceed the allowed limit.
         ensure!(
-            Self::get_registrations_this_block(NetUid::ROOT)
-                < Self::get_max_registrations_per_block(NetUid::ROOT),
+            Self::get_registrations_this_block(root_netuid)
+                < Self::get_max_registrations_per_block(root_netuid),
             Error::<T>::TooManyRegistrationsThisBlock
         );
 
         // --- 3. Ensure that the number of registrations in this interval doesn't exceed thrice the target limit.
         ensure!(
-            Self::get_registrations_this_interval(NetUid::ROOT)
-                < Self::get_target_registrations_per_interval(NetUid::ROOT).saturating_mul(3),
+            Self::get_registrations_this_interval(root_netuid)
+                < Self::get_target_registrations_per_interval(root_netuid).saturating_mul(3),
             Error::<T>::TooManyRegistrationsThisInterval
         );
 
         // --- 4. Check if the hotkey is already registered. If so, error out.
         ensure!(
-            !Uids::<T>::contains_key(NetUid::ROOT, &hotkey),
+            !Uids::<T>::contains_key(root_netuid, &hotkey),
             Error::<T>::HotKeyAlreadyRegisteredInSubNet
         );
 
@@ -185,7 +185,7 @@ impl<T: Config> Pallet<T> {
             subnetwork_uid = current_num_root_validators;
 
             // --- 12.1.2 Add the new account and make them a member of the Senate.
-            Self::append_neuron(NetUid::ROOT, &hotkey, current_block_number);
+            Self::append_neuron(root_netuid, &hotkey, current_block_number);
             log::debug!("add new neuron: {:?} on uid {:?}", hotkey, subnetwork_uid);
         } else {
             // --- 13.1.1 The network is full. Perform replacement.
@@ -194,8 +194,12 @@ impl<T: Config> Pallet<T> {
             let mut lowest_uid: u16 = 0;
 
             // Iterate over all keys in the root network to find the neuron with the lowest stake.
-            for (uid_i, hotkey_i) in Keys::<T>::iter_prefix(NetUid::ROOT) {
-                let stake_i = Self::get_stake_for_hotkey_on_subnet(&hotkey_i, NetUid::ROOT);
+            for (uid_i, hotkey_i) in
+                <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(
+                    root_netuid,
+                )
+            {
+                let stake_i: u64 = Self::get_stake_for_hotkey_on_subnet(&hotkey_i, 0);
                 if stake_i < lowest_stake {
                     lowest_stake = stake_i;
                     lowest_uid = uid_i;
@@ -203,17 +207,17 @@ impl<T: Config> Pallet<T> {
             }
             subnetwork_uid = lowest_uid;
             let replaced_hotkey: T::AccountId =
-                Self::get_hotkey_for_net_and_uid(NetUid::ROOT, subnetwork_uid)?;
+                Self::get_hotkey_for_net_and_uid(root_netuid, subnetwork_uid)?;
 
             // --- 13.1.2 The new account has a higher stake than the one being replaced.
             ensure!(
-                lowest_stake < Self::get_stake_for_hotkey_on_subnet(&hotkey, NetUid::ROOT),
+                lowest_stake < Self::get_stake_for_hotkey_on_subnet(&hotkey, 0),
                 Error::<T>::StakeTooLowForRoot
             );
 
             // --- 13.1.3 The new account has a higher stake than the one being replaced.
             // Replace the neuron account with new information.
-            Self::replace_neuron(NetUid::ROOT, lowest_uid, &hotkey, current_block_number);
+            Self::replace_neuron(root_netuid, lowest_uid, &hotkey, current_block_number);
 
             log::debug!(
                 "replace neuron: {:?} with {:?} on uid {:?}",
@@ -235,23 +239,19 @@ impl<T: Config> Pallet<T> {
         // --- 15. Update the registration counters for both the block and interval.
         #[allow(clippy::arithmetic_side_effects)]
         // note this RA + clippy false positive is a known substrate issue
-        RegistrationsThisInterval::<T>::mutate(NetUid::ROOT, |val| *val += 1);
+        RegistrationsThisInterval::<T>::mutate(root_netuid, |val| *val += 1);
         #[allow(clippy::arithmetic_side_effects)]
         // note this RA + clippy false positive is a known substrate issue
-        RegistrationsThisBlock::<T>::mutate(NetUid::ROOT, |val| *val += 1);
+        RegistrationsThisBlock::<T>::mutate(root_netuid, |val| *val += 1);
 
         // --- 16. Log and announce the successful registration.
         log::debug!(
             "RootRegistered(netuid:{:?} uid:{:?} hotkey:{:?})",
-            NetUid::ROOT,
+            root_netuid,
             subnetwork_uid,
             hotkey
         );
-        Self::deposit_event(Event::NeuronRegistered(
-            NetUid::ROOT,
-            subnetwork_uid,
-            hotkey,
-        ));
+        Self::deposit_event(Event::NeuronRegistered(root_netuid, subnetwork_uid, hotkey));
 
         // --- 17. Finish and return success.
         Ok(())
@@ -270,8 +270,10 @@ impl<T: Config> Pallet<T> {
     // * 'DispatchResult': A result type indicating success or failure of the registration.
     //
     pub fn do_adjust_senate(origin: T::RuntimeOrigin, hotkey: T::AccountId) -> DispatchResult {
+        // --- 0. Get the unique identifier (UID) for the root network.
+        let root_netuid: u16 = Self::get_root_netuid();
         ensure!(
-            Self::if_subnet_exist(NetUid::ROOT),
+            Self::if_subnet_exist(root_netuid),
             Error::<T>::RootNetworkDoesNotExist
         );
 
@@ -285,7 +287,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Check if the hotkey is already registered to the root network. If not, error out.
         ensure!(
-            Uids::<T>::contains_key(NetUid::ROOT, &hotkey),
+            Uids::<T>::contains_key(root_netuid, &hotkey),
             Error::<T>::HotKeyNotRegisteredInSubNet
         );
 
@@ -330,9 +332,12 @@ impl<T: Config> Pallet<T> {
     // * 'Result<Option<&T::AccountId>, Error<T>>': A result containing the replaced member, if any.
     //
     fn join_senate_if_eligible(hotkey: &T::AccountId) -> Result<Option<&T::AccountId>, Error<T>> {
+        // Get the root network UID.
+        let root_netuid: u16 = Self::get_root_netuid();
+
         // --- 1. Check the hotkey is registered in the root network.
         ensure!(
-            Uids::<T>::contains_key(NetUid::ROOT, hotkey),
+            Uids::<T>::contains_key(root_netuid, hotkey),
             Error::<T>::HotKeyNotRegisteredInSubNet
         );
 
@@ -343,7 +348,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 3. Grab the hotkey's stake.
-        let current_stake = Self::get_stake_for_hotkey_on_subnet(hotkey, NetUid::ROOT);
+        let current_stake = Self::get_stake_for_hotkey_on_subnet(hotkey, Self::get_root_netuid());
 
         // Add the hotkey to the Senate.
         // If we're full, we'll swap out the lowest stake member.
@@ -352,14 +357,15 @@ impl<T: Config> Pallet<T> {
         if (members.len() as u32) == T::SenateMembers::max_members() {
             let mut sorted_members = members.clone();
             sorted_members.sort_by(|a, b| {
-                let a_stake = Self::get_stake_for_hotkey_on_subnet(a, NetUid::ROOT);
-                let b_stake = Self::get_stake_for_hotkey_on_subnet(b, NetUid::ROOT);
+                let a_stake = Self::get_stake_for_hotkey_on_subnet(a, Self::get_root_netuid());
+                let b_stake = Self::get_stake_for_hotkey_on_subnet(b, Self::get_root_netuid());
 
                 b_stake.cmp(&a_stake)
             });
 
             if let Some(last) = sorted_members.last() {
-                let last_stake = Self::get_stake_for_hotkey_on_subnet(last, NetUid::ROOT);
+                let last_stake =
+                    Self::get_stake_for_hotkey_on_subnet(last, Self::get_root_netuid());
 
                 if last_stake < current_stake {
                     // Swap the member with the lowest stake.
@@ -434,7 +440,7 @@ impl<T: Config> Pallet<T> {
     /// * 'SubNetworkDoesNotExist': If the specified network does not exist.
     /// * 'NotSubnetOwner': If the caller does not own the specified subnet.
     ///
-    pub fn user_remove_network(coldkey: T::AccountId, netuid: NetUid) -> dispatch::DispatchResult {
+    pub fn user_remove_network(coldkey: T::AccountId, netuid: u16) -> dispatch::DispatchResult {
         // --- 1. Ensure this subnet exists.
         ensure!(
             Self::if_subnet_exist(netuid),
@@ -475,7 +481,7 @@ impl<T: Config> Pallet<T> {
     /// # Note:
     /// This function does not emit any events, nor does it raise any errors. It silently
     /// returns if any internal checks fail.
-    pub fn remove_network(netuid: NetUid) {
+    pub fn remove_network(netuid: u16) {
         // --- 1. Return balance to subnet owner.
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
         let reserved_amount: u64 = Self::get_subnet_locked_balance(netuid);
@@ -506,20 +512,20 @@ impl<T: Config> Pallet<T> {
 
         // --- 9. Iterate over stored weights and fill the matrix.
         for (uid_i, weights_i) in
-            <Weights<T> as IterableStorageDoubleMap<NetUid, u16, Vec<(u16, u16)>>>::iter_prefix(
-                NetUid::ROOT,
+            <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(
+                Self::get_root_netuid(),
             )
         {
             // Create a new vector to hold modified weights.
-            let mut modified_weights = weights_i.clone();
+            let mut modified_weights: Vec<(u16, u16)> = weights_i.clone();
             // Iterate over each weight entry to potentially update it.
             for (subnet_id, weight) in modified_weights.iter_mut() {
-                if subnet_id == &u16::from(netuid) {
+                if subnet_id == &netuid {
                     // If the condition matches, modify the weight
                     *weight = 0; // Set weight to 0 for the matching subnet_id.
                 }
             }
-            Weights::<T>::insert(NetUid::ROOT, uid_i, modified_weights);
+            Weights::<T>::insert(Self::get_root_netuid(), uid_i, modified_weights);
         }
 
         // --- 10. Remove various network-related parameters.
@@ -615,7 +621,7 @@ impl<T: Config> Pallet<T> {
         lock_cost
     }
 
-    pub fn get_network_registered_block(netuid: NetUid) -> u64 {
+    pub fn get_network_registered_block(netuid: u16) -> u64 {
         NetworkRegisteredAt::<T>::get(netuid)
     }
     pub fn get_network_immunity_period() -> u64 {

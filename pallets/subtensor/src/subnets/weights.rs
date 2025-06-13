@@ -8,7 +8,6 @@ use sp_runtime::{
     traits::{BlakeTwo256, Hash},
 };
 use sp_std::{collections::vec_deque::VecDeque, vec};
-use subtensor_runtime_common::NetUid;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for committing weight hashes.
@@ -41,7 +40,7 @@ impl<T: Config> Pallet<T> {
     ///   - Emitted upon successfully storing the weight hash.
     pub fn do_commit_weights(
         origin: T::RuntimeOrigin,
-        netuid: NetUid,
+        netuid: u16,
         commit_hash: H256,
     ) -> DispatchResult {
         // 1. Verify the caller's signature (hotkey).
@@ -139,7 +138,7 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn do_batch_commit_weights(
         origin: T::RuntimeOrigin,
-        netuids: Vec<Compact<NetUid>>,
+        netuids: Vec<Compact<u16>>,
         commit_hashes: Vec<H256>,
     ) -> dispatch::DispatchResult {
         // --- 1. Check the caller's signature. This is the hotkey of a registered account.
@@ -229,7 +228,7 @@ impl<T: Config> Pallet<T> {
     ///   - Emitted upon successfully storing the weight hash.
     pub fn do_commit_crv3_weights(
         origin: T::RuntimeOrigin,
-        netuid: NetUid,
+        netuid: u16,
         commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
         reveal_round: u64,
     ) -> DispatchResult {
@@ -339,7 +338,7 @@ impl<T: Config> Pallet<T> {
     ///   - The revealed hash does not match any committed hash.
     pub fn do_reveal_weights(
         origin: T::RuntimeOrigin,
-        netuid: NetUid,
+        netuid: u16,
         uids: Vec<u16>,
         values: Vec<u16>,
         salt: Vec<u16>,
@@ -480,7 +479,7 @@ impl<T: Config> Pallet<T> {
     ///   - The input vectors are of mismatched lengths.
     pub fn do_batch_reveal_weights(
         origin: T::RuntimeOrigin,
-        netuid: NetUid,
+        netuid: u16,
         uids_list: Vec<Vec<u16>>,
         values_list: Vec<Vec<u16>>,
         salts_list: Vec<Vec<u16>>,
@@ -676,7 +675,7 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn do_set_weights(
         origin: T::RuntimeOrigin,
-        netuid: NetUid,
+        netuid: u16,
         uids: Vec<u16>,
         values: Vec<u16>,
         version_key: u64,
@@ -692,7 +691,10 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- Check that the netuid is not the root network.
-        ensure!(!netuid.is_root(), Error::<T>::CanNotSetRootNetworkWeights);
+        ensure!(
+            netuid != Self::get_root_netuid(),
+            Error::<T>::CanNotSetRootNetworkWeights
+        );
 
         // --- 2. Check that the length of uid list and value list are equal for this network.
         ensure!(
@@ -827,7 +829,7 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn do_batch_set_weights(
         origin: T::RuntimeOrigin,
-        netuids: Vec<Compact<NetUid>>,
+        netuids: Vec<Compact<u16>>,
         weights: Vec<Vec<(Compact<u16>, Compact<u16>)>>,
         version_keys: Vec<Compact<u64>>,
     ) -> dispatch::DispatchResult {
@@ -899,7 +901,7 @@ impl<T: Config> Pallet<T> {
 
     /// Returns true if version_key is up-to-date.
     ///
-    pub fn check_version_key(netuid: NetUid, version_key: u64) -> bool {
+    pub fn check_version_key(netuid: u16, version_key: u64) -> bool {
         let network_version_key: u64 = WeightsVersionKey::<T>::get(netuid);
         log::debug!(
             "check_version_key( network_version_key:{:?}, version_key:{:?} )",
@@ -911,7 +913,7 @@ impl<T: Config> Pallet<T> {
 
     /// Checks if the neuron has set weights within the weights_set_rate_limit.
     ///
-    pub fn check_rate_limit(netuid: NetUid, neuron_uid: u16, current_block: u64) -> bool {
+    pub fn check_rate_limit(netuid: u16, neuron_uid: u16, current_block: u64) -> bool {
         if Self::is_uid_exist_on_network(netuid, neuron_uid) {
             // --- 1. Ensure that the diff between current and last_set weights is greater than limit.
             let last_set_weights: u64 = Self::get_last_update_for_uid(netuid, neuron_uid);
@@ -926,7 +928,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Checks for any invalid uids on this network.
-    pub fn contains_invalid_uids(netuid: NetUid, uids: &[u16]) -> bool {
+    pub fn contains_invalid_uids(netuid: u16, uids: &[u16]) -> bool {
         for uid in uids {
             if !Self::is_uid_exist_on_network(netuid, *uid) {
                 log::debug!(
@@ -958,7 +960,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Returns True if setting self-weight or has validator permit.
-    pub fn check_validator_permit(netuid: NetUid, uid: u16, uids: &[u16], weights: &[u16]) -> bool {
+    pub fn check_validator_permit(netuid: u16, uid: u16, uids: &[u16], weights: &[u16]) -> bool {
         // Check self weight. Allowed to set single value for self weight.
         if Self::is_self_weight(uid, uids, weights) {
             return true;
@@ -968,7 +970,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Returns True if the uids and weights are have a valid length for uid on network.
-    pub fn check_length(netuid: NetUid, uid: u16, uids: &[u16], weights: &[u16]) -> bool {
+    pub fn check_length(netuid: u16, uid: u16, uids: &[u16], weights: &[u16]) -> bool {
         let subnet_n: usize = Self::get_subnetwork_n(netuid) as usize;
         let min_allowed_length: usize = Self::get_min_allowed_weights(netuid) as usize;
         let min_allowed: usize = {
@@ -981,7 +983,7 @@ impl<T: Config> Pallet<T> {
 
         // Check self weight. Allowed to set single value for self weight.
         // Or check that this is the root netuid.
-        if !netuid.is_root() && Self::is_self_weight(uid, uids, weights) {
+        if netuid != Self::get_root_netuid() && Self::is_self_weight(uid, uids, weights) {
             return true;
         }
         // Check if number of weights exceeds min.
@@ -1006,7 +1008,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Returns False if the weights exceed the max_weight_limit for this network.
-    pub fn max_weight_limited(netuid: NetUid, uid: u16, uids: &[u16], weights: &[u16]) -> bool {
+    pub fn max_weight_limited(netuid: u16, uid: u16, uids: &[u16], weights: &[u16]) -> bool {
         // Allow self weights to exceed max weight limit.
         if Self::is_self_weight(uid, uids, weights) {
             return true;
@@ -1037,13 +1039,13 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Returns False is the number of uids exceeds the allowed number of uids for this network.
-    pub fn check_len_uids_within_allowed(netuid: NetUid, uids: &[u16]) -> bool {
+    pub fn check_len_uids_within_allowed(netuid: u16, uids: &[u16]) -> bool {
         let subnetwork_n: u16 = Self::get_subnetwork_n(netuid);
         // we should expect at most subnetwork_n uids.
         uids.len() <= subnetwork_n as usize
     }
 
-    pub fn is_reveal_block_range(netuid: NetUid, commit_block: u64) -> bool {
+    pub fn is_reveal_block_range(netuid: u16, commit_block: u64) -> bool {
         let current_block: u64 = Self::get_current_block_as_u64();
         let commit_epoch: u64 = Self::get_epoch_index(netuid, commit_block);
         let current_epoch: u64 = Self::get_epoch_index(netuid, current_block);
@@ -1053,16 +1055,16 @@ impl<T: Config> Pallet<T> {
         current_epoch == commit_epoch.saturating_add(reveal_period)
     }
 
-    pub fn get_epoch_index(netuid: NetUid, block_number: u64) -> u64 {
+    pub fn get_epoch_index(netuid: u16, block_number: u64) -> u64 {
         let tempo: u64 = Self::get_tempo(netuid) as u64;
         let tempo_plus_one: u64 = tempo.saturating_add(1);
-        let netuid_plus_one: u64 = (u16::from(netuid) as u64).saturating_add(1);
+        let netuid_plus_one: u64 = (netuid as u64).saturating_add(1);
         let block_with_offset: u64 = block_number.saturating_add(netuid_plus_one);
 
         block_with_offset.checked_div(tempo_plus_one).unwrap_or(0)
     }
 
-    pub fn is_commit_expired(netuid: NetUid, commit_block: u64) -> bool {
+    pub fn is_commit_expired(netuid: u16, commit_block: u64) -> bool {
         let current_block: u64 = Self::get_current_block_as_u64();
         let current_epoch: u64 = Self::get_epoch_index(netuid, current_block);
         let commit_epoch: u64 = Self::get_epoch_index(netuid, commit_block);
@@ -1071,11 +1073,11 @@ impl<T: Config> Pallet<T> {
         current_epoch > commit_epoch.saturating_add(reveal_period)
     }
 
-    pub fn get_reveal_blocks(netuid: NetUid, commit_block: u64) -> (u64, u64) {
+    pub fn get_reveal_blocks(netuid: u16, commit_block: u64) -> (u64, u64) {
         let reveal_period: u64 = Self::get_reveal_period(netuid);
         let tempo: u64 = Self::get_tempo(netuid) as u64;
         let tempo_plus_one: u64 = tempo.saturating_add(1);
-        let netuid_plus_one: u64 = (u16::from(netuid) as u64).saturating_add(1);
+        let netuid_plus_one: u64 = (netuid as u64).saturating_add(1);
 
         let commit_epoch: u64 = Self::get_epoch_index(netuid, commit_block);
         let reveal_epoch: u64 = commit_epoch.saturating_add(reveal_period);
@@ -1088,11 +1090,11 @@ impl<T: Config> Pallet<T> {
         (first_reveal_block, last_reveal_block)
     }
 
-    pub fn set_reveal_period(netuid: NetUid, reveal_period: u64) {
+    pub fn set_reveal_period(netuid: u16, reveal_period: u64) {
         RevealPeriodEpochs::<T>::insert(netuid, reveal_period);
         Self::deposit_event(Event::CommitRevealPeriodsSet(netuid, reveal_period));
     }
-    pub fn get_reveal_period(netuid: NetUid) -> u64 {
+    pub fn get_reveal_period(netuid: u16) -> u64 {
         RevealPeriodEpochs::<T>::get(netuid)
     }
 }

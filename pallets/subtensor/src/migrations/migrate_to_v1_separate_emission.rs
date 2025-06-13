@@ -72,7 +72,7 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
 
         // Translate old storage values to new format
         LoadedEmission::<T>::translate::<Vec<(AccountIdOf<T>, u64)>, _>(
-            |netuid: NetUid,
+            |netuid: u16,
              netuid_emissions: Vec<(AccountIdOf<T>, u64)>|
              -> Option<Vec<(AccountIdOf<T>, u64, u64)>> {
                 info!(target: LOG_TARGET, "     Do migration of netuid: {:?}...", netuid);

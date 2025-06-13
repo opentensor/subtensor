@@ -11,7 +11,7 @@ use sp_core::U256;
 #[test]
 fn test_do_start_call_ok() {
     new_test_ext(0).execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let tempo: u16 = 13;
         let coldkey_account_id = U256::from(0);
 
@@ -39,7 +39,7 @@ fn test_do_start_call_ok() {
 #[test]
 fn test_do_start_call_fail_with_not_existed_subnet() {
     new_test_ext(0).execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let coldkey_account_id = U256::from(0);
         assert_noop!(
             SubtensorModule::start_call(
@@ -54,7 +54,7 @@ fn test_do_start_call_fail_with_not_existed_subnet() {
 #[test]
 fn test_do_start_call_fail_not_owner() {
     new_test_ext(0).execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let tempo: u16 = 13;
         let coldkey_account_id = U256::from(0);
         let wrong_owner_account_id = U256::from(1);
@@ -78,7 +78,7 @@ fn test_do_start_call_fail_not_owner() {
 #[test]
 fn test_do_start_call_fail_with_cannot_start_call_now() {
     new_test_ext(0).execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let tempo: u16 = 13;
         let coldkey_account_id = U256::from(0);
 
@@ -99,7 +99,7 @@ fn test_do_start_call_fail_with_cannot_start_call_now() {
 #[test]
 fn test_do_start_call_fail_for_set_again() {
     new_test_ext(0).execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let tempo: u16 = 13;
         let coldkey_account_id = U256::from(0);
 
@@ -129,7 +129,7 @@ fn test_do_start_call_fail_for_set_again() {
 #[test]
 fn test_do_start_call_ok_with_same_block_number_after_coinbase() {
     new_test_ext(0).execute_with(|| {
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         let tempo: u16 = 13;
         let coldkey_account_id = U256::from(0);
 
@@ -205,7 +205,6 @@ fn test_no_duplicates_in_get_symbol_for_subnet() {
 
     let mut seen = HashSet::new();
     for netuid in 0u16..=438 {
-        let netuid = NetUid::from(netuid);
         let symbol = Pallet::<Test>::get_symbol_for_subnet(netuid);
         assert!(
             seen.insert(symbol.clone()),
@@ -223,7 +222,7 @@ fn test_subtoken_enable() {
     // ensure_subtoken_enabled
     new_test_ext(1).execute_with(|| {
         let account = U256::from(0);
-        let netuid = NetUid::from(1);
+        let netuid: u16 = 1;
         // let to_be_set: u64 = 10
         add_network_disable_subtoken(netuid, 10, 0);
         assert!(!SubtokenEnabled::<Test>::get(netuid));
@@ -247,8 +246,8 @@ fn test_subtoken_enable() {
 fn test_subtoken_enable_reject_trading_before_enable() {
     // ensure_subtoken_enabled
     new_test_ext(1).execute_with(|| {
-        let netuid = NetUid::from(1);
-        let netuid2 = NetUid::from(2);
+        let netuid: u16 = 1;
+        let netuid2: u16 = 2;
         let hotkey_account_id: U256 = U256::from(1);
         let coldkey_account_id = U256::from(2);
         let hotkey_account_2_id: U256 = U256::from(3);
@@ -424,8 +423,8 @@ fn test_subtoken_enable_reject_trading_before_enable() {
 #[test]
 fn test_subtoken_enable_trading_ok_with_enable() {
     new_test_ext(1).execute_with(|| {
-        let netuid = NetUid::from(1);
-        let netuid2 = NetUid::from(2);
+        let netuid: u16 = 1;
+        let netuid2: u16 = 2;
         let hotkey_account_id: U256 = U256::from(1);
         let coldkey_account_id = U256::from(2);
         let hotkey_account_2_id: U256 = U256::from(3);
@@ -537,8 +536,8 @@ fn test_subtoken_enable_trading_ok_with_enable() {
 fn test_subtoken_enable_ok_for_burn_register_before_enable() {
     // ensure_subtoken_enabled
     new_test_ext(1).execute_with(|| {
-        let netuid = NetUid::from(1);
-        let netuid2 = NetUid::from(2);
+        let netuid: u16 = 1;
+        let netuid2: u16 = 2;
         let hotkey_account_id: U256 = U256::from(1);
         let coldkey_account_id = U256::from(2);
         let hotkey_account_2_id: U256 = U256::from(3);

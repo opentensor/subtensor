@@ -2,7 +2,6 @@ use super::*;
 use frame_support::ensure;
 use frame_system::ensure_signed;
 use sp_std::vec::Vec;
-use subtensor_runtime_common::NetUid;
 
 impl<T: Config> Pallet<T> {
     /// Sets the identity for a coldkey.
@@ -97,7 +96,7 @@ impl<T: Config> Pallet<T> {
     /// Returns `Ok(())` if the subnet identity is successfully set, otherwise returns an error.
     pub fn do_set_subnet_identity(
         origin: T::RuntimeOrigin,
-        netuid: NetUid,
+        netuid: u16,
         subnet_name: Vec<u8>,
         github_repo: Vec<u8>,
         subnet_contact: Vec<u8>,

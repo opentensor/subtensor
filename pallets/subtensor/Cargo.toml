@@ -49,16 +49,13 @@ pallet-collective = { version = "4.0.0-dev", default-features = false, path = ".
 pallet-drand = { path = "../drand", default-features = false }
 pallet-membership = { workspace = true }
 hex-literal = { workspace = true }
-num-traits = { version = "0.2.19", default-features = false, features = [
-	"libm",
-] }
+num-traits = { version = "0.2.19", default-features = false, features = ["libm"] }
 tle = { workspace = true, default-features = false }
 ark-bls12-381 = { workspace = true, default-features = false }
 ark-serialize = { workspace = true, default-features = false }
 w3f-bls = { workspace = true, default-features = false }
 sha2 = { workspace = true }
 rand_chacha = { workspace = true }
-subtensor-runtime-common = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
@@ -73,48 +70,47 @@ sp-std = { workspace = true }
 pallet-preimage = { workspace = true }
 
 [features]
+default = ["std"]
 std = [
-	"ark-bls12-381/std",
-	"ark-serialize/std",
 	"codec/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"hex/std",
-	"libsecp256k1/std",
-	"log/std",
-	"ndarray/std",
-	"num-traits/std",
-	"pallet-balances/std",
+	"scale-info/std",
 	"pallet-collective/std",
-	"pallet-drand/std",
 	"pallet-membership/std",
+	"substrate-fixed/std",
+	"pallet-balances/std",
 	"pallet-preimage/std",
 	"pallet-scheduler/std",
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
-	"rand_chacha/std",
-	"safe-math/std",
-	"scale-info/std",
-	"serde/std",
-	"serde_bytes/std",
-	"serde_json/std",
-	"serde_with/std",
-	"sha2/std",
-	"share-pool/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"sp-tracing/std",
 	"sp-version/std",
+	"hex/std",
+	"libsecp256k1/std",
+	"log/std",
+	"ndarray/std",
+	"serde/std",
+	"serde_bytes/std",
+	"serde_with/std",
 	"substrate-fixed/std",
-	"substrate-fixed/std",
-	"subtensor-runtime-common/std",
+	"num-traits/std",
+	"serde_json/std",
 	"tle/std",
+	"pallet-drand/std",
+	"ark-bls12-381/std",
+	"ark-serialize/std",
 	"w3f-bls/std",
+	"rand_chacha/std",
+	"safe-math/std",
+	"sha2/std",
+	"share-pool/std"
 ]
-default = ["std"]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
@@ -126,7 +122,7 @@ runtime-benchmarks = [
 	"pallet-collective/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
-	"pallet-drand/runtime-benchmarks",
+	"pallet-drand/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -139,7 +135,7 @@ try-runtime = [
 	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",
 	"pallet-collective/try-runtime",
-	"pallet-drand/try-runtime",
+	"pallet-drand/try-runtime"
 ]
 pow-faucet = []
 fast-blocks = []

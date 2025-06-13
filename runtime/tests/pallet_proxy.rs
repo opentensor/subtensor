@@ -6,7 +6,7 @@ use node_subtensor_runtime::{
     BalancesCall, BuildStorage, Proxy, Runtime, RuntimeCall, RuntimeEvent, RuntimeGenesisConfig,
     RuntimeOrigin, SubtensorModule, System, SystemCall,
 };
-use subtensor_runtime_common::{AccountId, NetUid, ProxyType};
+use subtensor_runtime_common::{AccountId, ProxyType};
 
 const ACCOUNT: [u8; 32] = [1_u8; 32];
 const DELEGATE: [u8; 32] = [2_u8; 32];
@@ -60,7 +60,7 @@ fn call_remark() -> RuntimeCall {
 
 // owner call
 fn call_owner_util() -> RuntimeCall {
-    let netuid = NetUid::from(1);
+    let netuid = 1;
     let serving_rate_limit = 2;
     RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_serving_rate_limit {
         netuid,
@@ -70,7 +70,7 @@ fn call_owner_util() -> RuntimeCall {
 
 // sn owner hotkey call
 fn call_sn_owner_hotkey() -> RuntimeCall {
-    let netuid = NetUid::from(1);
+    let netuid = 1;
     RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_sn_owner_hotkey {
         netuid,
         hotkey: AccountId::from(ACCOUNT).into(),
@@ -112,7 +112,7 @@ fn call_senate() -> RuntimeCall {
 
 // staking call
 fn call_add_stake() -> RuntimeCall {
-    let netuid = NetUid::from(1);
+    let netuid = 1;
     let amount_staked = 100;
     RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake {
         hotkey: AccountId::from(DELEGATE),
@@ -124,7 +124,7 @@ fn call_add_stake() -> RuntimeCall {
 // register call, account as hotkey, delegate as coldkey
 fn call_register() -> RuntimeCall {
     let block_number: u64 = 1;
-    let netuid = NetUid::from(2);
+    let netuid: u16 = 2;
 
     // lower diff first
     SubtensorModule::set_difficulty(netuid, 100);

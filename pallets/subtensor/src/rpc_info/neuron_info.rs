@@ -2,15 +2,14 @@ use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
 use codec::Compact;
-use subtensor_runtime_common::NetUid;
 
-#[freeze_struct("3bddc0abfa5445a6")]
+#[freeze_struct("d6da7340b3350951")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct NeuronInfo<AccountId: TypeInfo + Encode + Decode> {
     hotkey: AccountId,
     coldkey: AccountId,
     uid: Compact<u16>,
-    netuid: Compact<NetUid>,
+    netuid: Compact<u16>,
     active: bool,
     axon_info: AxonInfo,
     prometheus_info: PrometheusInfo,
@@ -29,13 +28,13 @@ pub struct NeuronInfo<AccountId: TypeInfo + Encode + Decode> {
     pruning_score: Compact<u16>,
 }
 
-#[freeze_struct("e2a6a95696a82c4f")]
+#[freeze_struct("3e9eed057f379b3b")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct NeuronInfoLite<AccountId: TypeInfo + Encode + Decode> {
     hotkey: AccountId,
     coldkey: AccountId,
     uid: Compact<u16>,
-    netuid: Compact<NetUid>,
+    netuid: Compact<u16>,
     active: bool,
     axon_info: AxonInfo,
     prometheus_info: PrometheusInfo,
@@ -54,7 +53,7 @@ pub struct NeuronInfoLite<AccountId: TypeInfo + Encode + Decode> {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn get_neurons(netuid: NetUid) -> Vec<NeuronInfo<T::AccountId>> {
+    pub fn get_neurons(netuid: u16) -> Vec<NeuronInfo<T::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
             return Vec::new();
         }
@@ -72,7 +71,7 @@ impl<T: Config> Pallet<T> {
         neurons
     }
 
-    fn get_neuron_subnet_exists(netuid: NetUid, uid: u16) -> Option<NeuronInfo<T::AccountId>> {
+    fn get_neuron_subnet_exists(netuid: u16, uid: u16) -> Option<NeuronInfo<T::AccountId>> {
         let hotkey = match Self::get_hotkey_for_net_and_uid(netuid, uid) {
             Ok(h) => h,
             Err(_) => return None,
@@ -96,10 +95,10 @@ impl<T: Config> Pallet<T> {
         let last_update = Self::get_last_update_for_uid(netuid, uid);
         let validator_permit = Self::get_validator_permit_for_uid(netuid, uid);
 
-        let weights = Weights::<T>::get(netuid, uid)
-            .into_iter()
+        let weights = <Weights<T>>::get(netuid, uid)
+            .iter()
             .filter_map(|(i, w)| {
-                if w > 0 {
+                if *w > 0 {
                     Some((i.into(), w.into()))
                 } else {
                     None
@@ -147,7 +146,7 @@ impl<T: Config> Pallet<T> {
         Some(neuron)
     }
 
-    pub fn get_neuron(netuid: NetUid, uid: u16) -> Option<NeuronInfo<T::AccountId>> {
+    pub fn get_neuron(netuid: u16, uid: u16) -> Option<NeuronInfo<T::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }
@@ -156,7 +155,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn get_neuron_lite_subnet_exists(
-        netuid: NetUid,
+        netuid: u16,
         uid: u16,
     ) -> Option<NeuronInfoLite<T::AccountId>> {
         let hotkey = match Self::get_hotkey_for_net_and_uid(netuid, uid) {
@@ -211,7 +210,7 @@ impl<T: Config> Pallet<T> {
         Some(neuron)
     }
 
-    pub fn get_neurons_lite(netuid: NetUid) -> Vec<NeuronInfoLite<T::AccountId>> {
+    pub fn get_neurons_lite(netuid: u16) -> Vec<NeuronInfoLite<T::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
             return Vec::new();
         }
@@ -229,7 +228,7 @@ impl<T: Config> Pallet<T> {
         neurons
     }
 
-    pub fn get_neuron_lite(netuid: NetUid, uid: u16) -> Option<NeuronInfoLite<T::AccountId>> {
+    pub fn get_neuron_lite(netuid: u16, uid: u16) -> Option<NeuronInfoLite<T::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }

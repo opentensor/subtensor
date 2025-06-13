@@ -4,12 +4,11 @@ use crate::epoch::math::*;
 use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I64F64;
-use subtensor_runtime_common::NetUid;
 
-#[freeze_struct("11f58860434dd863")]
+#[freeze_struct("7954f39fd0755b28")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetState<AccountId: TypeInfo + Encode + Decode> {
-    netuid: Compact<NetUid>,
+    netuid: Compact<u16>,
     hotkeys: Vec<AccountId>,
     coldkeys: Vec<AccountId>,
     active: Vec<bool>,
@@ -80,7 +79,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `Option<SubnetState<T::AccountId>>` - An optional `SubnetState` struct containing the collected data for the subnet.
     ///   Returns `None` if the subnet does not exist.
-    pub fn get_subnet_state(netuid: NetUid) -> Option<SubnetState<T::AccountId>> {
+    pub fn get_subnet_state(netuid: u16) -> Option<SubnetState<T::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }

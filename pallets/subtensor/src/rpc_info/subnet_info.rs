@@ -3,12 +3,11 @@ use frame_support::pallet_prelude::{Decode, Encode};
 use frame_support::storage::IterableStorageMap;
 extern crate alloc;
 use codec::Compact;
-use subtensor_runtime_common::NetUid;
 
-#[freeze_struct("dd2293544ffd8f2e")]
+#[freeze_struct("1eee6f3911800c6b")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetInfo<AccountId: TypeInfo + Encode + Decode> {
-    netuid: Compact<NetUid>,
+    netuid: Compact<u16>,
     rho: Compact<u16>,
     kappa: Compact<u16>,
     difficulty: Compact<u64>,
@@ -28,10 +27,10 @@ pub struct SubnetInfo<AccountId: TypeInfo + Encode + Decode> {
     owner: AccountId,
 }
 
-#[freeze_struct("42d9a1f1761c3b31")]
+#[freeze_struct("a86ee623525247cc")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetInfov2<AccountId: TypeInfo + Encode + Decode> {
-    netuid: Compact<NetUid>,
+    netuid: Compact<u16>,
     rho: Compact<u16>,
     kappa: Compact<u16>,
     difficulty: Compact<u64>,
@@ -85,7 +84,7 @@ pub struct SubnetHyperparams {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn get_subnet_info(netuid: NetUid) -> Option<SubnetInfo<T::AccountId>> {
+    pub fn get_subnet_info(netuid: u16) -> Option<SubnetInfo<T::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }
@@ -133,28 +132,28 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_subnets_info() -> Vec<Option<SubnetInfo<T::AccountId>>> {
-        let mut subnet_netuids = Vec::<NetUid>::new();
+        let mut subnet_netuids = Vec::<u16>::new();
         let mut max_netuid: u16 = 0;
-        for (netuid, added) in <NetworksAdded<T> as IterableStorageMap<NetUid, bool>>::iter() {
+        for (netuid, added) in <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter() {
             if added {
                 subnet_netuids.push(netuid);
-                if u16::from(netuid) > max_netuid {
-                    max_netuid = u16::from(netuid);
+                if netuid > max_netuid {
+                    max_netuid = netuid;
                 }
             }
         }
 
         let mut subnets_info = Vec::<Option<SubnetInfo<T::AccountId>>>::new();
         for netuid_ in 0..=max_netuid {
-            if subnet_netuids.contains(&netuid_.into()) {
-                subnets_info.push(Self::get_subnet_info(netuid_.into()));
+            if subnet_netuids.contains(&netuid_) {
+                subnets_info.push(Self::get_subnet_info(netuid_));
             }
         }
 
         subnets_info
     }
 
-    pub fn get_subnet_info_v2(netuid: NetUid) -> Option<SubnetInfov2<T::AccountId>> {
+    pub fn get_subnet_info_v2(netuid: u16) -> Option<SubnetInfov2<T::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }
@@ -205,28 +204,28 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_subnets_info_v2() -> Vec<Option<SubnetInfov2<T::AccountId>>> {
-        let mut subnet_netuids = Vec::<NetUid>::new();
+        let mut subnet_netuids = Vec::<u16>::new();
         let mut max_netuid: u16 = 0;
-        for (netuid, added) in <NetworksAdded<T> as IterableStorageMap<NetUid, bool>>::iter() {
+        for (netuid, added) in <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter() {
             if added {
                 subnet_netuids.push(netuid);
-                if u16::from(netuid) > max_netuid {
-                    max_netuid = u16::from(netuid);
+                if netuid > max_netuid {
+                    max_netuid = netuid;
                 }
             }
         }
 
         let mut subnets_info = Vec::<Option<SubnetInfov2<T::AccountId>>>::new();
         for netuid_ in 0..=max_netuid {
-            if subnet_netuids.contains(&netuid_.into()) {
-                subnets_info.push(Self::get_subnet_info_v2(netuid_.into()));
+            if subnet_netuids.contains(&netuid_) {
+                subnets_info.push(Self::get_subnet_info_v2(netuid_));
             }
         }
 
         subnets_info
     }
 
-    pub fn get_subnet_hyperparams(netuid: NetUid) -> Option<SubnetHyperparams> {
+    pub fn get_subnet_hyperparams(netuid: u16) -> Option<SubnetHyperparams> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }
