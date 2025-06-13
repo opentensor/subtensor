@@ -32,7 +32,7 @@ env:
 jobs:
   apply-label-to-new-pr:
     runs-on: ubuntu-latest
-    if: ${{ github.event.pull_request.draft == false }}
+    # if: ${{ github.event.pull_request.draft == false }}
     outputs:
       should_continue: ${{ steps.check.outputs.should_continue }}
     steps:
