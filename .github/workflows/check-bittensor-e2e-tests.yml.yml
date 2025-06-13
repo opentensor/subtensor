@@ -218,6 +218,9 @@ jobs:
       - name: Load Docker Image
         run: docker load -i subtensor-localnet.tar
 
+      - name: Retag Docker Image
+        run: docker tag localnet ghcr.io/opentensor/subtensor-localnet:devnet-ready
+
 #      - name: Run tests
 #        working-directory: ${{ github.workspace }}/btcli
 #        run: |
@@ -310,6 +313,9 @@ jobs:
 
       - name: Load Docker Image
         run: docker load -i subtensor-localnet.tar
+
+      - name: Retag Docker Image
+        run: docker tag localnet ghcr.io/opentensor/subtensor-localnet:devnet-ready
 
 #      - name: Run tests
 #        working-directory: ${{ github.workspace }}/bittensor
