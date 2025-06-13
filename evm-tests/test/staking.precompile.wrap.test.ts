@@ -57,8 +57,6 @@ describe("Test staking precompile add remove limit methods", () => {
       netuid,
     );
 
-    console.log("========= deployed : ")
-
     const contractFactory = new ethers.ContractFactory(abi, bytecode, wallet1)
     const contract = await contractFactory.deploy()
     await contract.waitForDeployment()
@@ -66,10 +64,10 @@ describe("Test staking precompile add remove limit methods", () => {
     console.log("========= deployed address: ", contract.target.toString())
 
 
-    const ethTransfer = {
-      to: contract.target.toString(),
-      value: raoToEth(tao(2)).toString()
-    }
+    // const ethTransfer = {
+    //   to: contract.target.toString(),
+    //   value: raoToEth(tao(2)).toString()
+    // }
 
     // const txResponse = await wallet1.sendTransaction(ethTransfer)
     // await txResponse.wait();
@@ -92,15 +90,6 @@ describe("Test staking precompile add remove limit methods", () => {
     );
     await tx.wait();
 
-    const alpha2 = await api.query.SubtensorModule.Alpha.getValue(
-      convertPublicKeyToSs58(hotkey.publicKey),
-      ss58Address,
-      netuid,
-    );
-
-    console.log("========= deployed : ", alpha2)
-
   });
-
 
 });
