@@ -697,18 +697,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(
                         pallet_subtensor::Call::remove_stake_limit { .. }
                     )
-                    // | RuntimeCall::SubtensorModule(
-                    //     pallet_subtensor::Call::add_stake_aggregate { .. }
-                    // )
-                    // | RuntimeCall::SubtensorModule(
-                    //     pallet_subtensor::Call::add_stake_limit_aggregate { .. }
-                    // )
-                    // | RuntimeCall::SubtensorModule(
-                    //     pallet_subtensor::Call::remove_stake_aggregate { .. }
-                    // )
-                    // | RuntimeCall::SubtensorModule(
-                    //     pallet_subtensor::Call::remove_stake_limit_aggregate { .. }
-                    // )
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::remove_stake_full_limit { .. }
+                    )
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::unstake_all { .. })
                     | RuntimeCall::SubtensorModule(
                         pallet_subtensor::Call::unstake_all_alpha { .. }
@@ -789,18 +780,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake_limit { .. })
                     | RuntimeCall::SubtensorModule(
                         pallet_subtensor::Call::remove_stake_limit { .. }
-                    ) // | RuntimeCall::SubtensorModule(
-                      //     pallet_subtensor::Call::add_stake_aggregate { .. }
-                      // )
-                      // | RuntimeCall::SubtensorModule(
-                      //     pallet_subtensor::Call::add_stake_limit_aggregate { .. }
-                      // )
-                      // | RuntimeCall::SubtensorModule(
-                      //     pallet_subtensor::Call::remove_stake_aggregate { .. }
-                      // )
-                      // | RuntimeCall::SubtensorModule(
-                      //     pallet_subtensor::Call::remove_stake_limit_aggregate { .. }
-                      // )
+                    )
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::remove_stake_full_limit { .. }
+                    )
             ),
             ProxyType::Registration => matches!(
                 c,
