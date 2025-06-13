@@ -268,7 +268,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // Stake into root. Ignore AmountTooLow error here.
+        // Stake into root.
         Self::stake_into_subnet(
             &hotkey,
             &coldkey,

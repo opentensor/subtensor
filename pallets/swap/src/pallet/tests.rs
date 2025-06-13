@@ -1399,7 +1399,7 @@ fn test_user_liquidity_disabled() {
 }
 
 /// Test correctness of swap fees:
-///   1. Fees are distribued to (concentrated) liquidity providers
+///   - Fees are distribued to (concentrated) liquidity providers
 ///
 #[test]
 fn test_swap_fee_correctness() {
@@ -1534,4 +1534,72 @@ fn test_rollback_works() {
                 .unwrap()
         );
     })
+}
+
+/// Test correctness of swap fees:
+///   - New LP is not eligible to previously accrued fees
+///
+/// cargo test --package pallet-subtensor-swap --lib -- pallet::tests::test_new_lp_doesnt_get_old_fees --exact --show-output
+#[test]
+fn test_new_lp_doesnt_get_old_fees() {
+    new_test_ext().execute_with(|| {
+        let min_price = tick_to_price(TickIndex::MIN);
+        let max_price = tick_to_price(TickIndex::MAX);
+        let netuid = NetUid::from(1);
+
+        // Provide very spread liquidity at the range from min to max that matches protocol liquidity
+        let liquidity = 2_000_000_000_000_u64; // 1x of protocol liquidity
+
+        assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+
+        // Calculate ticks
+        let tick_low = price_to_tick(min_price);
+        let tick_high = price_to_tick(max_price);
+
+        // Add user liquidity
+        Pallet::<Test>::do_add_liquidity(
+            netuid,
+            &OK_COLDKEY_ACCOUNT_ID,
+            &OK_HOTKEY_ACCOUNT_ID,
+            tick_low,
+            tick_high,
+            liquidity,
+        )
+        .unwrap();
+
+        // Swap buy and swap sell
+        Pallet::<Test>::do_swap(
+            netuid,
+            OrderType::Buy,
+            liquidity / 10,
+            u64::MAX.into(),
+            false,
+        )
+        .unwrap();
+        Pallet::<Test>::do_swap(netuid, OrderType::Sell, liquidity / 10, 0_u64.into(), false)
+            .unwrap();
+
+        // Add liquidity from a different user to a new tick
+        let (position_id_2, _tao, _alpha) = Pallet::<Test>::do_add_liquidity(
+            netuid,
+            &OK_COLDKEY_ACCOUNT_ID_2,
+            &OK_HOTKEY_ACCOUNT_ID_2,
+            tick_low.next().unwrap(),
+            tick_high.prev().unwrap(),
+            liquidity,
+        )
+        .unwrap();
+
+        // Get user position
+        let mut position =
+            Positions::<Test>::get((netuid, OK_COLDKEY_ACCOUNT_ID_2, position_id_2)).unwrap();
+        assert_eq!(position.liquidity, liquidity);
+        assert_eq!(position.tick_low, tick_low.next().unwrap());
+        assert_eq!(position.tick_high, tick_high.prev().unwrap());
+
+        // Check that collected fees are 0
+        let (actual_fee_tao, actual_fee_alpha) = position.collect_fees();
+        assert_abs_diff_eq!(actual_fee_tao, 0, epsilon = 1);
+        assert_abs_diff_eq!(actual_fee_alpha, 0, epsilon = 1);
+    });
 }

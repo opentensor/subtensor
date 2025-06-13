@@ -29,6 +29,8 @@ pub type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = u32;
 pub const OK_COLDKEY_ACCOUNT_ID: AccountId = 1;
 pub const OK_HOTKEY_ACCOUNT_ID: AccountId = 1000;
+pub const OK_COLDKEY_ACCOUNT_ID_2: AccountId = 2;
+pub const OK_HOTKEY_ACCOUNT_ID_2: AccountId = 1001;
 pub const NOT_SUBNET_OWNER: AccountId = 666;
 pub const NON_EXISTENT_NETUID: u16 = 999;
 
@@ -112,10 +114,10 @@ pub struct MockBalanceOps;
 
 impl BalanceOps<AccountId> for MockBalanceOps {
     fn tao_balance(account_id: &AccountId) -> u64 {
-        if *account_id == OK_COLDKEY_ACCOUNT_ID {
-            100_000_000_000_000
-        } else {
-            1_000_000_000
+        match *account_id {
+            OK_COLDKEY_ACCOUNT_ID => 100_000_000_000_000,
+            OK_COLDKEY_ACCOUNT_ID_2 => 100_000_000_000_000,
+            _ => 1_000_000_000,
         }
     }
 
@@ -124,12 +126,10 @@ impl BalanceOps<AccountId> for MockBalanceOps {
         coldkey_account_id: &AccountId,
         hotkey_account_id: &AccountId,
     ) -> u64 {
-        if (*coldkey_account_id == OK_COLDKEY_ACCOUNT_ID)
-            && (*hotkey_account_id == OK_HOTKEY_ACCOUNT_ID)
-        {
-            100_000_000_000_000
-        } else {
-            1_000_000_000
+        match (coldkey_account_id, hotkey_account_id) {
+            (&OK_COLDKEY_ACCOUNT_ID, &OK_HOTKEY_ACCOUNT_ID) => 100_000_000_000_000,
+            (&OK_COLDKEY_ACCOUNT_ID_2, &OK_HOTKEY_ACCOUNT_ID_2) => 100_000_000_000_000,
+            _ => 1_000_000_000,
         }
     }
 
