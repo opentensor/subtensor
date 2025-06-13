@@ -2061,7 +2061,7 @@ mod dispatches {
         /// This extrinsic allows to specify the limit price for alpha token
         /// at which or better (higher) the staking should execute.
         #[pallet::call_index(103)]
-        #[pallet::weight((Weight::from_parts(147_000_000, 10142)
+        #[pallet::weight((Weight::from_parts(206_700_000, 10142)
 			.saturating_add(T::DbWeight::get().reads(18_u64))
 			.saturating_add(T::DbWeight::get().writes(10_u64)), DispatchClass::Normal, Pays::No))]
         pub fn remove_stake_full_limit(
