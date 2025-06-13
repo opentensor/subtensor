@@ -983,11 +983,24 @@ impl<T: Config> Pallet<T> {
                 tick.liquidity_gross = tick.liquidity_gross.saturating_add(liquidity);
             }
             None => {
+                let current_tick = TickIndex::current_bounded::<T>(netuid);
+
+                let (fees_out_tao, fees_out_alpha) = if tick_index > current_tick {
+                    (
+                        FeeGlobalTao::<T>::get(netuid),
+                        FeeGlobalAlpha::<T>::get(netuid),
+                    )
+                } else {
+                    (
+                        U64F64::saturating_from_num(0),
+                        U64F64::saturating_from_num(0),
+                    )
+                };
                 *maybe_tick = Some(Tick {
                     liquidity_net: net_liquidity_change,
                     liquidity_gross: liquidity,
-                    fees_out_tao: U64F64::from_num(0),
-                    fees_out_alpha: U64F64::from_num(0),
+                    fees_out_tao,
+                    fees_out_alpha,
                 });
             }
         });
