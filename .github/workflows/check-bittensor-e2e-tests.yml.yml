@@ -199,10 +199,6 @@ jobs:
           uv run --active pip install '.[dev]'
           uv run --active pip install pytest
 
-      - name: Install uv dependencies
-        working-directory: ${{ github.workspace }}/btcli
-        run: uv sync --all-extras --dev
-
       - name: Download Cached Docker Image
         uses: actions/download-artifact@v4
         with:
@@ -293,10 +289,6 @@ jobs:
           uv run --active pip install --upgrade pip
           uv run --active pip install '.[dev]'
           uv run --active pip install pytest
-
-      - name: Install uv dependencies
-        working-directory: ${{ github.workspace }}/bittensor
-        run: uv sync --all-extras --dev
 
       - name: Download Cached Docker Image
         uses: actions/download-artifact@v4
