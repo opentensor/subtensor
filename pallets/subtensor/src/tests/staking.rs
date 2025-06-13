@@ -4636,7 +4636,7 @@ fn test_remove_stake_full_limit_ok() {
             limit_price,
         ));
 
-        // Check if stake has decreased only by
+        // Check if stake has decreased to zero
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey_account_id,
