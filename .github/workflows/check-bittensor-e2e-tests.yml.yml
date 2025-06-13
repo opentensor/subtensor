@@ -231,6 +231,7 @@ jobs:
         working-directory: ${{ github.workspace }}/btcli
         run: |
           source ${{ github.workspace }}/venv/bin/activate
+          export SKIP_PULL=1
           set +e
           for i in 1 2; do
             echo "🔁 Attempt $i: Running tests"
@@ -327,6 +328,7 @@ jobs:
         working-directory: ${{ github.workspace }}/bittensor
         run: |
           source ${{ github.workspace }}/venv/bin/activate
+          export SKIP_PULL=1
           set +e
           for i in 1 2; do
             echo "🔁 Attempt $i: Running tests"
