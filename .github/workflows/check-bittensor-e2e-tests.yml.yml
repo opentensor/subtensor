@@ -133,6 +133,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
