@@ -21,11 +21,11 @@ fi
 
 cd evm-tests
 
-yarn
-
 bash get-metadata.sh
 
 sleep 5
+
+yarn
 
 yarn run test
 TEST_EXIT_CODE=$?
