@@ -18,6 +18,13 @@ on:
       - main
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
+  workflow_dispatch:
+    inputs:
+      verbose:
+        description: "Output more information when triggered manually"
+        required: false
+        default: ""
+
 env:
   CARGO_TERM_COLOR: always
   VERBOSE: ${{ github.event.inputs.verbose }}
@@ -25,7 +32,6 @@ env:
 jobs:
   apply-label-to-new-pr:
     runs-on: ubuntu-latest
-    if: ${{ github.event.pull_request.draft == false }}
     outputs:
       should_continue: ${{ steps.check.outputs.should_continue }}
     steps:
@@ -63,11 +69,9 @@ jobs:
           LABELS=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
           echo "Current labels: $LABELS"
           if echo "$LABELS" | grep -q "run-bittensor-e2e-tests"; then
-            echo "run-bittensor-e2e-tests=true" >> $GITHUB_ENV
-            echo "::set-output name=run-bittensor-e2e-tests::true"
+            echo "run-bittensor-e2e-tests=true" >> $GITHUB_OUTPUT
           else
-            echo "run-bittensor-e2e-tests=false" >> $GITHUB_ENV
-            echo "::set-output name=run-bittensor-e2e-tests::false"
+            echo "run-bittensor-e2e-tests=false" >> $GITHUB_OUTPUT
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -94,7 +98,7 @@ jobs:
         id: get-btcli-tests
         run: |
           test_files=$(find ${{ github.workspace }}/btcli/tests/e2e_tests -name "test*.py" | jq -R -s -c 'split("\n") | map(select(. != ""))')
-          echo "::set-output name=test-files::$test_files"
+          echo "test-files=$test_files" >> $GITHUB_OUTPUT
         shell: bash
 
   find-sdk-e2e-tests:
@@ -119,7 +123,7 @@ jobs:
         id: get-sdk-tests
         run: |
           test_files=$(find ${{ github.workspace }}/bittensor/tests/e2e_tests -name "test*.py" | jq -R -s -c 'split("\n") | map(select(. != ""))')
-          echo "::set-output name=test-files::$test_files"
+          echo "test-files=$test_files" >> $GITHUB_OUTPUT
         shell: bash
 
   build-image-with-current-branch:
@@ -128,6 +132,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Patch non-fast-block node
+        run: |
+          chmod +x ./scripts/localnet_patch.sh
+          ./scripts/localnet_patch.sh
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -182,6 +193,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: 'false'
 
       - name: Create Python virtual environment
         working-directory: ${{ github.workspace }}
@@ -201,10 +214,6 @@ jobs:
           uv run --active pip install '.[dev]'
           uv run --active pip install pytest
 
-      - name: Install uv dependencies
-        working-directory: ${{ github.workspace }}/btcli
-        run: uv sync --all-extras --dev
-
       - name: Download Cached Docker Image
         uses: actions/download-artifact@v4
         with:
@@ -212,6 +221,9 @@ jobs:
 
       - name: Load Docker Image
         run: docker load -i subtensor-localnet.tar
+
+      - name: Retag Docker Image
+        run: docker tag localnet ghcr.io/opentensor/subtensor-localnet:devnet-ready
 
 #      - name: Run tests
 #        working-directory: ${{ github.workspace }}/btcli
@@ -223,6 +235,7 @@ jobs:
         working-directory: ${{ github.workspace }}/btcli
         run: |
           source ${{ github.workspace }}/venv/bin/activate
+          export SKIP_PULL=1
           set +e
           for i in 1 2; do
             echo "🔁 Attempt $i: Running tests"
@@ -277,6 +290,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: 'false'
 
       - name: Create Python virtual environment
         working-directory: ${{ github.workspace }}
@@ -296,10 +311,6 @@ jobs:
           uv run --active pip install '.[dev]'
           uv run --active pip install pytest
 
-      - name: Install uv dependencies
-        working-directory: ${{ github.workspace }}/bittensor
-        run: uv sync --all-extras --dev
-
       - name: Download Cached Docker Image
         uses: actions/download-artifact@v4
         with:
@@ -307,6 +318,9 @@ jobs:
 
       - name: Load Docker Image
         run: docker load -i subtensor-localnet.tar
+
+      - name: Retag Docker Image
+        run: docker tag localnet ghcr.io/opentensor/subtensor-localnet:devnet-ready
 
 #      - name: Run tests
 #        working-directory: ${{ github.workspace }}/bittensor
@@ -318,6 +332,7 @@ jobs:
         working-directory: ${{ github.workspace }}/bittensor
         run: |
           source ${{ github.workspace }}/venv/bin/activate
+          export SKIP_PULL=1
           set +e
           for i in 1 2; do
             echo "🔁 Attempt $i: Running tests"
