@@ -829,6 +829,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 }
                 _ => false,
             },
+            ProxyType::SwapHotkey => matches!(
+                c,
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey { .. })
+            ),
         }
     }
     fn is_superset(&self, o: &Self) -> bool {
