@@ -1151,7 +1151,8 @@ fn test_swap_multiple_subnets() {
     new_test_ext(1).execute_with(|| {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
+        let new_hotkey_2 = U256::from(3);
+        let coldkey = U256::from(4);
         let netuid1 = add_dynamic_network(&old_hotkey, &coldkey);
         let netuid2 = add_dynamic_network(&old_hotkey, &coldkey);
 
@@ -1177,13 +1178,13 @@ fn test_swap_multiple_subnets() {
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
-            &new_hotkey,
+            &new_hotkey_2,
             Some(netuid2)
         ),);
 
         // Verify the swap for both subnets
         assert_eq!(ChildKeys::<Test>::get(new_hotkey, netuid1), children1);
-        assert_eq!(ChildKeys::<Test>::get(new_hotkey, netuid2), children2);
+        assert_eq!(ChildKeys::<Test>::get(new_hotkey_2, netuid2), children2);
         assert!(ChildKeys::<Test>::get(old_hotkey, netuid1).is_empty());
         assert!(ChildKeys::<Test>::get(old_hotkey, netuid2).is_empty());
     });
