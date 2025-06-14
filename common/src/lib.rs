@@ -50,6 +50,7 @@ pub enum ProxyType {
     RootWeights,
     ChildKeys,
     SudoUncheckedSetCode,
+    SwapHotkey,
 }
 
 impl Default for ProxyType {
