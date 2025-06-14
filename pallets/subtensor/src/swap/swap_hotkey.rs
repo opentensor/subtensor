@@ -55,35 +55,36 @@ impl<T: Config> Pallet<T> {
 
         weight.saturating_accrue(T::DbWeight::get().reads(2));
 
-        // 7. Swap LastTxBlock
-        // LastTxBlock( hotkey ) --> u64 -- the last transaction block for the hotkey.
-        let last_tx_block: u64 = LastTxBlock::<T>::get(old_hotkey);
-        LastTxBlock::<T>::insert(new_hotkey, last_tx_block);
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-
-        // 8. Swap LastTxBlockDelegateTake
-        // LastTxBlockDelegateTake( hotkey ) --> u64 -- the last transaction block for the hotkey delegate take.
-        let last_tx_block_delegate_take: u64 = LastTxBlockDelegateTake::<T>::get(old_hotkey);
-        LastTxBlockDelegateTake::<T>::insert(new_hotkey, last_tx_block_delegate_take);
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-
-        // 9. Swap LastTxBlockChildKeyTake
-        // LastTxBlockChildKeyTake( hotkey ) --> u64 -- the last transaction block for the hotkey child key take.
-        let last_tx_block_child_key_take: u64 = LastTxBlockChildKeyTake::<T>::get(old_hotkey);
-        LastTxBlockChildKeyTake::<T>::insert(new_hotkey, last_tx_block_child_key_take);
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-
-        // Start to do everything for swap hotkey on all subnets case
-        // 10. Ensure the new hotkey is not already registered on any network
+        // 7. Ensure the new hotkey is not already registered on any network
         ensure!(
             !Self::is_hotkey_registered_on_any_network(new_hotkey),
             Error::<T>::HotKeyAlreadyRegisteredInSubNet
         );
 
+        // 8. Swap LastTxBlock
+        // LastTxBlock( hotkey ) --> u64 -- the last transaction block for the hotkey.
+        let last_tx_block: u64 = LastTxBlock::<T>::get(old_hotkey);
+        LastTxBlock::<T>::insert(new_hotkey, last_tx_block);
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+
+        // 9. Swap LastTxBlockDelegateTake
+        // LastTxBlockDelegateTake( hotkey ) --> u64 -- the last transaction block for the hotkey delegate take.
+        let last_tx_block_delegate_take: u64 = LastTxBlockDelegateTake::<T>::get(old_hotkey);
+        LastTxBlockDelegateTake::<T>::insert(new_hotkey, last_tx_block_delegate_take);
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+
+        // 10. Swap LastTxBlockChildKeyTake
+        // LastTxBlockChildKeyTake( hotkey ) --> u64 -- the last transaction block for the hotkey child key take.
+        let last_tx_block_child_key_take: u64 = LastTxBlockChildKeyTake::<T>::get(old_hotkey);
+        LastTxBlockChildKeyTake::<T>::insert(new_hotkey, last_tx_block_child_key_take);
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+
         // 11. fork for swap hotkey on a specific subnet case after do the common check
         if let Some(netuid) = netuid {
             return Self::swap_hotkey_on_subnet(&coldkey, old_hotkey, new_hotkey, netuid, weight);
         };
+
+        // ==== Start to do everything for swap hotkey on all subnets case ====
 
         // 12. Get the cost for swapping the key
         let swap_cost = Self::get_key_swap_cost();
