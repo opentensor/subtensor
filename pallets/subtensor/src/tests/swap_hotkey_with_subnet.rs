@@ -497,7 +497,8 @@ fn test_swap_hotkey_with_multiple_subnets() {
     new_test_ext(1).execute_with(|| {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
+        let new_hotkey_2 = U256::from(3);
+        let coldkey = U256::from(4);
 
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
@@ -519,12 +520,12 @@ fn test_swap_hotkey_with_multiple_subnets() {
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
-            &new_hotkey,
+            &new_hotkey_2,
             Some(netuid2)
         ));
 
         assert!(IsNetworkMember::<Test>::get(new_hotkey, netuid1));
-        assert!(IsNetworkMember::<Test>::get(new_hotkey, netuid2));
+        assert!(IsNetworkMember::<Test>::get(new_hotkey_2, netuid2));
         assert!(!IsNetworkMember::<Test>::get(old_hotkey, netuid1));
         assert!(!IsNetworkMember::<Test>::get(old_hotkey, netuid2));
     });
