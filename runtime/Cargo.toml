@@ -101,6 +101,7 @@ pallet-commitments = { workspace = true }
 frame-election-provider-support = { workspace = true }
 pallet-authority-discovery = { workspace = true }
 pallet-babe = { workspace = true }
+pallet-aura = { workspace = true }
 pallet-bags-list = { workspace = true }
 pallet-staking = { workspace = true }
 pallet-staking-runtime-api = { workspace = true }
@@ -115,6 +116,7 @@ pallet-staking-reward-fn = { workspace = true }
 pallet-staking-reward-curve = { workspace = true }
 sp-staking = { workspace = true }
 sp-npos-elections = { workspace = true }
+sp-consensus-aura = { workspace = true }
 
 # Frontier
 fp-evm = { workspace = true }
@@ -256,6 +258,7 @@ std = [
 	"rand_chacha/std",
 	"sha2/std",
 	"w3f-bls/std",
+	"pallet-aura/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -343,5 +346,6 @@ try-runtime = [
 	"pallet-evm/try-runtime",
 	"pallet-evm-chain-id/try-runtime",
 	"pallet-drand/try-runtime",
+	"pallet-aura/try-runtime"
 ]
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]

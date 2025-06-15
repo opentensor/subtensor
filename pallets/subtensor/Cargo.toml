@@ -47,6 +47,8 @@ approx = { workspace = true }
 
 pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../collective" }
 pallet-drand = { path = "../drand", default-features = false }
+pallet-babe = { workspace = true }
+pallet-aura = { workspace = true }
 pallet-membership = { workspace = true }
 hex-literal = { workspace = true }
 num-traits = { version = "0.2.19", default-features = false, features = [
@@ -60,6 +62,8 @@ sha2 = { workspace = true }
 rand_chacha = { workspace = true }
 subtensor-runtime-common = { workspace = true }
 runtime-common = { workspace = true }
+babe-primitives = { workspace = true }
+sp-consensus-aura = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
@@ -114,7 +118,10 @@ std = [
 	"subtensor-runtime-common/std",
 	"tle/std",
 	"w3f-bls/std",
-	"runtime-common/std"
+	"runtime-common/std",
+	"pallet-aura/std",
+	"pallet-babe/std",
+	"babe-primitives/std"
 ]
 default = ["std"]
 runtime-benchmarks = [
@@ -129,7 +136,8 @@ runtime-benchmarks = [
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
-	"runtime-common/runtime-benchmarks"
+	"runtime-common/runtime-benchmarks",
+	"pallet-babe/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -143,7 +151,9 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 	"pallet-collective/try-runtime",
 	"pallet-drand/try-runtime",
-	"runtime-common/try-runtime"
+	"runtime-common/try-runtime",
+	"pallet-aura/try-runtime",
+	"pallet-babe/try-runtime"
 ]
 pow-faucet = []
 fast-runtime = [

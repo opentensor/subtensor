@@ -40,6 +40,7 @@ use pallet_proxy_opentensor as pallet_proxy;
 use pallet_registry::CanRegisterIdentity;
 use pallet_session::historical as session_historical;
 use pallet_staking::UseValidatorsMap;
+use pallet_subtensor::migrations::migrate_aura_to_babe::BABE_GENESIS_EPOCH_CONFIG;
 use pallet_subtensor::rpc_info::{
     delegate_info::DelegateInfo,
     dynamic_info::DynamicInfo,
@@ -55,6 +56,7 @@ use runtime_common::prod_or_fast;
 use scale_info::TypeInfo;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
+use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{
     H160, H256, OpaqueMetadata, U256,
     crypto::{ByteArray, KeyTypeId},
@@ -209,12 +211,6 @@ parameter_types! {
         .get(DispatchClass::Normal);
 }
 
-/// 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
-/// The choice of is done in accordance to the slot duration and expected target
-/// block time, for safely resisting network delays of maximum two seconds.
-/// <https://research.web3.foundation/en/latest/polkadot/BABE/Babe/#6-practical-results>
-pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
-
 /// RAO per TAO
 pub const UNITS: Balance = 1_000_000_000;
 
@@ -239,8 +235,8 @@ pub mod opaque {
 
     impl_opaque_keys! {
         pub struct SessionKeys {
-            pub grandpa: Grandpa,
             pub babe: Babe,
+            pub grandpa: Grandpa,
         }
     }
 }
@@ -257,19 +253,12 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 276,
+    spec_version: 300,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
     state_version: 1,
 };
-
-/// The BABE epoch configuration at genesis.
-pub const BABE_GENESIS_EPOCH_CONFIG: babe_primitives::BabeEpochConfiguration =
-    babe_primitives::BabeEpochConfiguration {
-        c: PRIMARY_PROBABILITY,
-        allowed_slots: babe_primitives::AllowedSlots::PrimaryAndSecondaryVRFSlots,
-    };
 
 pub const MAXIMUM_BLOCK_WEIGHT: Weight =
     Weight::from_parts(4u64 * WEIGHT_REF_TIME_PER_SECOND, u64::MAX);
@@ -1821,6 +1810,15 @@ impl pallet_crowdloan::Config for Runtime {
     type MaxContributors = MaxContributors;
 }
 
+// Leave here for migration purposes
+impl pallet_aura::Config for Runtime {
+    type AuthorityId = AuraId;
+    type DisabledValidators = ();
+    type MaxAuthorities = ConstU32<32>;
+    type AllowMultipleBlocksPerSlot = ConstBool<false>;
+    type SlotDuration = pallet_aura::MinimumPeriodTimesTwo<Runtime>;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
     pub struct Runtime
@@ -1828,6 +1826,7 @@ construct_runtime!(
         System: frame_system = 0,
         RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip = 1,
         Timestamp: pallet_timestamp = 2,
+        Aura: pallet_aura = 3,
         Grandpa: pallet_grandpa = 4,
         Balances: pallet_balances = 5,
         TransactionPayment: pallet_transaction_payment = 6,
@@ -1899,6 +1898,7 @@ type Migrations = (
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
         Runtime,
     >,
+    pallet_subtensor::migrations::migrate_aura_to_babe::aura_to_babe::Migration<Runtime>,
 );
 
 // Unchecked extrinsic type as expected by this runtime.

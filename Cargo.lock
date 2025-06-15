@@ -5889,6 +5889,7 @@ dependencies = [
  "hex",
  "log",
  "pallet-admin-utils",
+ "pallet-aura",
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-babe",
@@ -5943,6 +5944,7 @@ dependencies = [
  "sp-api",
  "sp-authority-discovery",
  "sp-block-builder",
+ "sp-consensus-aura",
  "sp-consensus-babe",
  "sp-core",
  "sp-genesis-builder",
@@ -6327,6 +6329,22 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-aura"
+version = "37.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409-7#0c9644766f02c872f51e5b72adf1051189fe9126"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-application-crypto",
+ "sp-consensus-aura",
  "sp-runtime",
 ]
 
@@ -7074,6 +7092,8 @@ dependencies = [
  "log",
  "ndarray",
  "num-traits",
+ "pallet-aura",
+ "pallet-babe",
  "pallet-balances",
  "pallet-collective",
  "pallet-drand",
@@ -7096,6 +7116,8 @@ dependencies = [
  "serde_with",
  "sha2 0.10.9",
  "share-pool",
+ "sp-consensus-aura",
+ "sp-consensus-babe",
  "sp-core",
  "sp-io",
  "sp-runtime",
