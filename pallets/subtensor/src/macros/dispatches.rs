@@ -2057,6 +2057,18 @@ mod dispatches {
             Self::do_burn_alpha(origin, hotkey, amount, netuid)
         }
 
+        /// Sets the pending childkey cooldown (in blocks). Root only.
+        #[pallet::call_index(109)]
+        #[pallet::weight((Weight::from_parts(10_000, 0), DispatchClass::Operational, Pays::No))]
+        pub fn set_pending_childkey_cooldown(
+            origin: OriginFor<T>,
+            cooldown: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            PendingChildKeyCooldown::<T>::put(cooldown);
+            Ok(())
+        }
+
         // /// --- Adds stake to a hotkey on a subnet with a price limit.
         // /// This extrinsic allows to specify the limit price for alpha token
         // /// at which or better (lower) the staking should execute.
