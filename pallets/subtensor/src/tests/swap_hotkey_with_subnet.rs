@@ -155,7 +155,6 @@ fn test_swap_delegates() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
@@ -180,7 +179,6 @@ fn test_swap_subnet_membership() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
@@ -206,7 +204,6 @@ fn test_swap_uids_and_keys() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
@@ -238,7 +235,6 @@ fn test_swap_prometheus() {
         let coldkey = U256::from(3);
 
         let prometheus_info = PrometheusInfo::default();
-
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
@@ -271,7 +267,6 @@ fn test_swap_axons() {
         let coldkey = U256::from(3);
 
         let axon_info = AxonInfo::default();
-
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
@@ -301,7 +296,6 @@ fn test_swap_certificates() {
         let coldkey = U256::from(3);
 
         let certificate = NeuronCertificate::try_from(vec![1, 2, 3]).unwrap();
-
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
@@ -337,7 +331,6 @@ fn test_swap_weight_commits() {
 
         let mut weight_commits: VecDeque<(H256, u64, u64, u64)> = VecDeque::new();
         weight_commits.push_back((H256::from_low_u64_be(100), 200, 1, 1));
-
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
@@ -371,7 +364,6 @@ fn test_swap_loaded_emission() {
 
         let server_emission = 1000u64;
         let validator_emission = 1000u64;
-
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
@@ -497,7 +489,8 @@ fn test_swap_hotkey_with_multiple_subnets() {
     new_test_ext(1).execute_with(|| {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
+        let new_hotkey_2 = U256::from(3);
+        let coldkey = U256::from(4);
 
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
@@ -519,12 +512,12 @@ fn test_swap_hotkey_with_multiple_subnets() {
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
-            &new_hotkey,
+            &new_hotkey_2,
             Some(netuid2)
         ));
 
         assert!(IsNetworkMember::<Test>::get(new_hotkey, netuid1));
-        assert!(IsNetworkMember::<Test>::get(new_hotkey, netuid2));
+        assert!(IsNetworkMember::<Test>::get(new_hotkey_2, netuid2));
         assert!(!IsNetworkMember::<Test>::get(old_hotkey, netuid1));
         assert!(!IsNetworkMember::<Test>::get(old_hotkey, netuid2));
     });
@@ -628,8 +621,9 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
     new_test_ext(1).execute_with(|| {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
-        let coldkey1 = U256::from(3);
-        let coldkey2 = U256::from(4);
+        let new_hotkey_2 = U256::from(3);
+        let coldkey1 = U256::from(4);
+        let coldkey2 = U256::from(5);
         let netuid1 = NetUid::from(1);
         let netuid2 = NetUid::from(2);
         let stake = DefaultMinStake::<Test>::get() * 10;
@@ -687,7 +681,7 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey1),
             &old_hotkey,
-            &new_hotkey,
+            &new_hotkey_2,
             Some(netuid2)
         ));
 
@@ -697,6 +691,11 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
             coldkey1
         );
         assert!(!SubtensorModule::get_owned_hotkeys(&coldkey2).contains(&new_hotkey));
+        assert_eq!(
+            SubtensorModule::get_owning_coldkey_for_hotkey(&new_hotkey_2),
+            coldkey1
+        );
+        assert!(!SubtensorModule::get_owned_hotkeys(&coldkey2).contains(&new_hotkey_2));
 
         // Check stake transfer
         assert_eq!(
@@ -709,7 +708,7 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
         );
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &new_hotkey,
+                &new_hotkey_2,
                 &coldkey2,
                 netuid2
             ),
@@ -739,7 +738,7 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
         ));
         assert!(SubtensorModule::is_hotkey_registered_on_network(
             netuid2,
-            &new_hotkey
+            &new_hotkey_2
         ));
         assert!(!SubtensorModule::is_hotkey_registered_on_network(
             netuid1,
@@ -752,7 +751,8 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
 
         // Check total stake transfer
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&new_hotkey),
+            SubtensorModule::get_total_stake_for_hotkey(&new_hotkey)
+                + SubtensorModule::get_total_stake_for_hotkey(&new_hotkey_2),
             total_hk_stake
         );
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&old_hotkey), 0);
@@ -764,7 +764,7 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
 fn test_swap_hotkey_tx_rate_limit_exceeded() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        let tempo: u16 = 13;
+        let tempo = 13;
         let old_hotkey = U256::from(1);
         let new_hotkey_1 = U256::from(2);
         let new_hotkey_2 = U256::from(4);
@@ -824,7 +824,7 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
 fn test_do_swap_hotkey_err_not_owner() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        let tempo: u16 = 13;
+        let tempo = 13;
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
@@ -1143,7 +1143,8 @@ fn test_swap_multiple_subnets() {
     new_test_ext(1).execute_with(|| {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
+        let new_hotkey_2 = U256::from(3);
+        let coldkey = U256::from(4);
         let netuid1 = add_dynamic_network(&old_hotkey, &coldkey);
         let netuid2 = add_dynamic_network(&old_hotkey, &coldkey);
 
@@ -1169,13 +1170,13 @@ fn test_swap_multiple_subnets() {
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
-            &new_hotkey,
+            &new_hotkey_2,
             Some(netuid2)
         ),);
 
         // Verify the swap for both subnets
         assert_eq!(ChildKeys::<Test>::get(new_hotkey, netuid1), children1);
-        assert_eq!(ChildKeys::<Test>::get(new_hotkey, netuid2), children2);
+        assert_eq!(ChildKeys::<Test>::get(new_hotkey_2, netuid2), children2);
         assert!(ChildKeys::<Test>::get(old_hotkey, netuid1).is_empty());
         assert!(ChildKeys::<Test>::get(old_hotkey, netuid2).is_empty());
     });
@@ -1442,7 +1443,6 @@ fn test_swap_owner_failed_interval_not_passed() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
         Owner::<Test>::insert(old_hotkey, coldkey);
@@ -1464,7 +1464,6 @@ fn test_swap_owner_check_swap_block_set() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
         Owner::<Test>::insert(old_hotkey, coldkey);
@@ -1490,7 +1489,6 @@ fn test_swap_owner_check_swap_record_clean_up() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
         Owner::<Test>::insert(old_hotkey, coldkey);
@@ -1508,9 +1506,45 @@ fn test_swap_owner_check_swap_record_clean_up() {
             new_block_number
         );
 
-        step_block((HotkeySwapOnSubnetInterval::get() as u16 + u16::from(netuid)) * 2);
+        let netuid_u16: u16 = netuid.into();
+
+        step_block((HotkeySwapOnSubnetInterval::get() as u16 + netuid_u16) * 2u16);
         assert!(!LastHotkeySwapOnNetuid::<Test>::contains_key(
             netuid, coldkey
         ));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey_with_subnet -- test_swap_hotkey_error_cases --exact --nocapture
+#[test]
+fn test_swap_hotkey_registered_on_other_subnet() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let wrong_coldkey = U256::from(4);
+        let netuid = add_dynamic_network(&old_hotkey, &coldkey);
+        let other_netuid = add_dynamic_network(&old_hotkey, &coldkey);
+
+        // Set up initial state
+        Owner::<Test>::insert(old_hotkey, coldkey);
+        TotalNetworks::<Test>::put(1);
+        LastTxBlock::<Test>::insert(coldkey, 0);
+
+        let initial_balance = SubtensorModule::get_key_swap_cost() + 1000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_balance);
+
+        // Test new hotkey already registered on other subnet
+        IsNetworkMember::<Test>::insert(new_hotkey, other_netuid, true);
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
+        assert_noop!(
+            SubtensorModule::do_swap_hotkey(
+                RuntimeOrigin::signed(coldkey),
+                &old_hotkey,
+                &new_hotkey,
+                Some(netuid)
+            ),
+            Error::<Test>::HotKeyAlreadyRegisteredInSubNet
+        );
     });
 }
