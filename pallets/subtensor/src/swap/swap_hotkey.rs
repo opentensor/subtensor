@@ -54,7 +54,7 @@ impl<T: Config> Pallet<T> {
         );
 
         weight.saturating_accrue(T::DbWeight::get().reads(2));
-        
+
         // Start to do everything for swap hotkey on all subnets case
         // 7. Ensure the new hotkey is not already registered on any network
         ensure!(
