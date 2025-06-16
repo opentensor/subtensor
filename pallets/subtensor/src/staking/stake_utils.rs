@@ -842,6 +842,7 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         tao: u64,
         fee: u64,
+        set_limit: bool,
     ) -> u64 {
         // Step 1. Reduce tao amount by staking fee and credit this fee to SubnetTAO
         // At this point tao was already withdrawn from the user balance and is considered
@@ -867,6 +868,10 @@ impl<T: Config> Pallet<T> {
             *total = total.saturating_add(actual_fee);
         });
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
+
+        if set_limit {
+            Self::set_stake_operation_limit(hotkey, coldkey, netuid.into());
+        }
 
         // Step 5. Deposit and log the staking event.
         Self::deposit_event(Event::StakeAdded(
@@ -968,6 +973,8 @@ impl<T: Config> Pallet<T> {
         // Ensure that the subnet exists.
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
+        Self::ensure_stake_operation_limit_not_exceeded(hotkey, coldkey, netuid.into())?;
+
         // Ensure that the subnet is enabled.
         // Self::ensure_subtoken_enabled(netuid)?;
 
@@ -1057,6 +1064,12 @@ impl<T: Config> Pallet<T> {
         if origin_coldkey == destination_coldkey && origin_hotkey == destination_hotkey {
             ensure!(origin_netuid != destination_netuid, Error::<T>::SameNetuid);
         }
+
+        Self::ensure_stake_operation_limit_not_exceeded(
+            origin_hotkey,
+            origin_coldkey,
+            origin_netuid.into(),
+        )?;
 
         // Ensure that both subnets exist.
         ensure!(
@@ -1209,6 +1222,25 @@ impl<T: Config> Pallet<T> {
             // If origin is not defined, we are adding stake; use default fee
             None => DefaultStakingFee::<T>::get(),
         }
+    }
+
+    pub fn set_stake_operation_limit(hotkey: &T::AccountId, coldkey: &T::AccountId, netuid: u16) {
+        let current_block_number = <frame_system::Pallet<T>>::block_number();
+
+        StakingOperationRateLimiter::<T>::insert((hotkey, coldkey, netuid), current_block_number);
+    }
+
+    pub fn ensure_stake_operation_limit_not_exceeded(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        netuid: u16,
+    ) -> Result<(), Error<T>> {
+        ensure!(
+            !StakingOperationRateLimiter::<T>::contains_key((hotkey, coldkey, netuid)),
+            Error::<T>::StakingOperationRateExceeded
+        );
+
+        Ok(())
     }
 }
 

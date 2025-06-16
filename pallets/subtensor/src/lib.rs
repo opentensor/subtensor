@@ -899,6 +899,12 @@ pub mod pallet {
     /// Ensures unique IDs for StakeJobs storage map
     pub type NextStakeJobId<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
 
+    #[pallet::type_value]
+    /// Default value for block number
+    pub fn DefaultBlockNumber<T: Config>() -> BlockNumberFor<T> {
+        0u32.into()
+    }
+
     /// ============================
     /// ==== Staking Variables ====
     /// ============================
@@ -1669,6 +1675,21 @@ pub mod pallet {
         T::AccountId,
         u64,
         OptionQuery,
+    >;
+
+    #[pallet::storage]
+    /// DMAP ( hot, cold, netuid ) --> rate limits for staking operations
+    /// Returns the block number of the last staking operation
+    pub type StakingOperationRateLimiter<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+            NMapKey<Identity, u16>,                  // subnet
+        ),
+        BlockNumberFor<T>,
+        ValueQuery,
+        DefaultBlockNumber<T>,
     >;
 
     /// =============================

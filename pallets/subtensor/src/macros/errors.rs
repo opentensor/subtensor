@@ -216,5 +216,7 @@ mod errors {
         ZeroMaxStakeAmount,
         /// Invalid netuid duplication
         SameNetuid,
+        /// Too frequent staking operations
+        StakingOperationRateExceeded,
     }
 }
