@@ -28,11 +28,14 @@ fi
 
 cd evm-tests
 
-yarn
+# required for papi in get-metadata.sh, but we cannot run yarn before papi as it adds the descriptors to the package.json which won't resolve
+npm i -g polkadot-api
 
 bash get-metadata.sh
 
 sleep 5
+
+yarn
 
 yarn run test
 TEST_EXIT_CODE=$?

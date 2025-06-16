@@ -16,6 +16,18 @@ interface ISubnet {
         string memory description,
         string memory additional
     ) external payable;
+    /// Registers a new network with specified subnet name, GitHub repository, contact information, and logo URL.
+    function registerNetwork(
+        bytes32 hotkey,
+        string memory subnetName,
+        string memory githubRepo,
+        string memory subnetContact,
+        string memory subnetUrl,
+        string memory discord,
+        string memory description,
+        string memory logoUrl,
+        string memory additional
+    ) external payable;
 
     function getServingRateLimit(uint16 netuid) external view returns (uint64);
 
