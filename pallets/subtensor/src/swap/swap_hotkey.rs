@@ -276,10 +276,6 @@ impl<T: Config> Pallet<T> {
         );
         weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 0));
 
-        println!("we get to here 2");
-        println!("in netuid: {}", netuid);
-        println!("in new_hotkey: {}", new_hotkey);
-        println!("in: {}", IsNetworkMember::<T>::get(new_hotkey, netuid));
         // 2. Ensure the hotkey not registered on the network before.
         ensure!(
             !Self::is_hotkey_registered_on_specific_network(new_hotkey, netuid),
