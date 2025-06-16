@@ -1,5 +1,4 @@
 use super::*;
-use sp_core::Get;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic do_set_child_singular: Sets a single child.
@@ -123,7 +122,7 @@ impl<T: Config> Pallet<T> {
 
         // Calculate cool-down block
         let cooldown_block =
-            Self::get_current_block_as_u64().saturating_add(DefaultPendingCooldown::<T>::get());
+            Self::get_current_block_as_u64().saturating_add(PendingChildKeyCooldown::<T>::get());
 
         // Insert or update PendingChildKeys
         PendingChildKeys::<T>::insert(netuid, hotkey.clone(), (children.clone(), cooldown_block));

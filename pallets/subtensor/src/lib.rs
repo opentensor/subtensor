@@ -1715,6 +1715,17 @@ pub mod pallet {
     #[pallet::storage] // --- Storage for migration run status
     pub type HasMigrationRun<T: Config> = StorageMap<_, Identity, Vec<u8>, bool, ValueQuery>;
 
+    #[pallet::type_value]
+    /// Default value for pending childkey cooldown (settable by root, default 0)
+    pub fn DefaultPendingChildKeyCooldown<T: Config>() -> u64 {
+        0
+    }
+
+    #[pallet::storage]
+    /// Storage value for pending childkey cooldown, settable by root.
+    pub type PendingChildKeyCooldown<T: Config> =
+        StorageValue<_, u64, ValueQuery, DefaultPendingChildKeyCooldown<T>>;
+
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         /// Stakes record in genesis.

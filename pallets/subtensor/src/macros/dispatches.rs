@@ -1786,7 +1786,7 @@ mod dispatches {
         ///
         #[pallet::call_index(88)]
         #[pallet::weight((Weight::from_parts(159_200_000, 0)
-		.saturating_add(T::DbWeight::get().reads(13))
+		.saturating_add(T::DbWeight::get().reads(14))
 		.saturating_add(T::DbWeight::get().writes(10)), DispatchClass::Normal, Pays::No))]
         pub fn add_stake_limit(
             origin: OriginFor<T>,
@@ -2055,6 +2055,18 @@ mod dispatches {
             netuid: u16,
         ) -> DispatchResult {
             Self::do_burn_alpha(origin, hotkey, amount, netuid)
+        }
+
+        /// Sets the pending childkey cooldown (in blocks). Root only.
+        #[pallet::call_index(109)]
+        #[pallet::weight((Weight::from_parts(10_000, 0), DispatchClass::Operational, Pays::No))]
+        pub fn set_pending_childkey_cooldown(
+            origin: OriginFor<T>,
+            cooldown: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            PendingChildKeyCooldown::<T>::put(cooldown);
+            Ok(())
         }
 
         // /// --- Adds stake to a hotkey on a subnet with a price limit.
