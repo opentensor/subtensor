@@ -71,6 +71,7 @@ pub(crate) fn populate_babe<
     pallet_babe::NextAuthorities::<T>::put(&bounded_authorities);
     pallet_babe::EpochConfig::<T>::put(BABE_GENESIS_EPOCH_CONFIG);
 
+    // Need to set plus 1 so the runtime upgrade block can be built with Aura code.
     let current_slot = pallet_aura::CurrentSlot::<T>::get();
     pallet_babe::CurrentSlot::<T>::put(current_slot.saturating_add(1u64));
 
