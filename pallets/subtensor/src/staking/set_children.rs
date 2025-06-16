@@ -1,5 +1,4 @@
 use super::*;
-use sp_core::Get;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic do_set_child_singular: Sets a single child.
