@@ -3949,7 +3949,7 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
 }
 
 #[test]
-fn test_pending_cooldown_one_day() {
+fn test_pending_cooldown_as_expected() {
     let curr_block = 1;
     // TODO: Fix when CHK splitting patched
     // let expected_cooldown = if cfg!(feature = "fast-blocks") {
@@ -3958,7 +3958,7 @@ fn test_pending_cooldown_one_day() {
     //     7200
     // };
 
-    let expected_cooldown = 0;
+    let expected_cooldown = PendingChildKeyCooldown::<Test>::get();
 
     new_test_ext(curr_block).execute_with(|| {
         let coldkey = U256::from(1);

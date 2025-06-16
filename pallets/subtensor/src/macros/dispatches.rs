@@ -1785,7 +1785,7 @@ mod dispatches {
         ///  	- Errors stemming from transaction pallet.
         ///
         #[pallet::call_index(88)]
-        #[pallet::weight((Weight::from_parts(159_200_000, 0)
+        #[pallet::weight((Weight::from_parts(159_400_000, 0)
 		.saturating_add(T::DbWeight::get().reads(13))
 		.saturating_add(T::DbWeight::get().writes(10)), DispatchClass::Normal, Pays::No))]
         pub fn add_stake_limit(
