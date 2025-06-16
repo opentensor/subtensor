@@ -1710,6 +1710,404 @@ pub mod pallet {
             Ok(())
         }
     }
+    /// Unified hyper-parameter payload for the `sudo_set_hyperparameter` call.
+    ///
+    /// Each variant bundles the exact arguments required by one of the standalone
+    /// governance setters.  Network-wide items are plain tuple variants; anything
+    /// that works **per-subnet** (or needs multiple inputs) is expressed as a
+    /// struct-like variant so we can document each field.
+    ///
+    /// * `T` — Runtime’s `Config` so that `AccountId` / `BlockNumberFor<T>` can be
+    ///   embedded where necessary.
+    #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    pub enum HyperParam<T: Config> {
+        /*────────────────────  NETWORK-WIDE  ────────────────────*/
+        /// Set the default delegate-take (basis-points) for new delegations.
+        DefaultTake(u16),
+
+        /// Set the global transaction-rate limit (Tx ∙ s⁻¹ × 1000).
+        TxRateLimit(u64),
+
+        /// Set the chain-wide network-rate limit (operations · block⁻¹).
+        NetworkRateLimit(u64),
+
+        /// Manually override total TAO issuance (for migrations/forks).
+        TotalIssuance(u64),
+
+        /// Default immunity period (blocks) applied to future subnets.
+        NetworkImmunityPeriod(u64),
+
+        /// Minimum TAO lock-cost required when registering a subnet.
+        NetworkMinLockCost(u64),
+
+        /// Hard cap on the number of simultaneous subnets.
+        SubnetLimit(u16),
+
+        /// Block interval at which locked TAO is linearly released.
+        LockReductionInterval(u64),
+
+        /// Minimum stake miners must hold to submit weights.
+        StakeThreshold(u64),
+
+        /// Minimum stake a nominator must delegate.
+        NominatorMinRequiredStake(u64),
+
+        /// Cool-down (blocks) between successive `delegate_take` calls.
+        TxDelegateTakeRateLimit(u64),
+
+        /// Global floor for delegate-take (basis-points).
+        MinDelegateTake(u16),
+
+        /// Set the EVM chain-ID exposed by the precompile layer.
+        EvmChainId(u64),
+
+        /// Basis-points of emissions reserved for subnet owners.
+        SubnetOwnerCut(u16),
+
+        /// Moving-average α for subnet KPI smoothing (I96F32).
+        SubnetMovingAlpha(I96F32),
+
+        /// Duration (blocks) of the coldkey-swap schedule.
+        ColdkeySwapScheduleDuration(BlockNumberFor<T>),
+
+        /// Duration (blocks) of the dissolve-network schedule.
+        DissolveNetworkScheduleDuration(BlockNumberFor<T>),
+
+        /*────────────────────  CONSENSUS  ────────────────────*/
+        /// Schedule a change in GRANDPA authorities.
+        ScheduleGrandpaChange {
+            /// New weighted authority set.
+            next_authorities: AuthorityList,
+            /// Delay (blocks) before the change becomes active.
+            in_blocks: BlockNumberFor<T>,
+            /// Median last-finalised block used when `forced` replacement.
+            forced: Option<BlockNumberFor<T>>,
+        },
+
+        /*────────────────────  EVM PRECOMPILE GATE  ────────────────────*/
+        /// Enable or disable a specific EVM precompile.
+        ToggleEvmPrecompile {
+            /// Which precompile to toggle.
+            precompile_id: PrecompileEnum,
+            /// `true` → enable, `false` → disable.
+            enabled: bool,
+        },
+
+        /*────────────────────  SUBNET-SPECIFIC  ────────────────────*/
+        /// Set serving-rate limit (queries · block⁻¹).
+        ServingRateLimit {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Maximum queries per block.
+            limit: u64,
+        },
+
+        /// Minimum PoW difficulty allowed during registration.
+        MinDifficulty {
+            /// Target subnet.
+            netuid: NetUid,
+            /// New minimum difficulty.
+            value: u64,
+        },
+
+        /// Maximum PoW difficulty enforced during registration.
+        MaxDifficulty {
+            /// Target subnet.
+            netuid: NetUid,
+            /// New maximum difficulty.
+            value: u64,
+        },
+
+        /// Bump the weights-version key to invalidate stale weights.
+        WeightsVersionKey {
+            /// Target subnet.
+            netuid: NetUid,
+            /// New version key.
+            key: u64,
+        },
+
+        /// Cool-down (blocks) between weight-set extrinsics.
+        WeightsSetRateLimit {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Block interval.
+            limit: u64,
+        },
+
+        /// Epoch count between successive difficulty adjustments.
+        AdjustmentInterval {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Interval in epochs.
+            interval: u16,
+        },
+
+        /// α parameter for exponential difficulty adjustment.
+        AdjustmentAlpha {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Alpha value.
+            alpha: u64,
+        },
+
+        /// Hard cap on non-zero weights per submission.
+        MaxWeightLimit {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Maximum edges.
+            limit: u16,
+        },
+
+        /// Immunity period (epochs) before pruning is allowed.
+        ImmunityPeriod {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Period in epochs.
+            period: u16,
+        },
+
+        /// Minimum number of non-zero weights required.
+        MinAllowedWeights {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Minimum edges.
+            min: u16,
+        },
+
+        /// Maximum UID capacity for the subnet.
+        MaxAllowedUids {
+            /// Target subnet.
+            netuid: NetUid,
+            /// New UID cap.
+            max: u16,
+        },
+
+        /// Kappa parameter for incentive-decay curve.
+        Kappa {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Kappa value.
+            kappa: u16,
+        },
+
+        /// Rho parameter for incentive-decay curve.
+        Rho {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Rho value.
+            rho: u16,
+        },
+
+        /// Block-age threshold after which miners are inactive.
+        ActivityCutoff {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Cut-off in blocks.
+            cutoff: u16,
+        },
+
+        /// Toggle extrinsic-based registration for the subnet.
+        NetworkRegistrationAllowed {
+            /// Target subnet.
+            netuid: NetUid,
+            /// `true` → allow, `false` → block.
+            allowed: bool,
+        },
+
+        /// Toggle PoW-based registration for the subnet.
+        NetworkPowRegistrationAllowed {
+            /// Target subnet.
+            netuid: NetUid,
+            /// `true` → allow, `false` → block.
+            allowed: bool,
+        },
+
+        /// Target registrations per mining interval.
+        TargetRegistrationsPerInterval {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Registrations per interval.
+            target: u16,
+        },
+
+        /// Minimum TAO burned on registration.
+        MinBurn {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Minimum burn.
+            min: u64,
+        },
+
+        /// Maximum TAO burn allowed.
+        MaxBurn {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Maximum burn.
+            max: u64,
+        },
+
+        /// Directly set subnet PoW difficulty.
+        Difficulty {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Difficulty value.
+            value: u64,
+        },
+
+        /// Cap validator seats within the subnet.
+        MaxAllowedValidators {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Seat limit.
+            max: u16,
+        },
+
+        /// Window size for bonds moving-average (blocks).
+        BondsMovingAverage {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Window size.
+            ma: u64,
+        },
+
+        /// Penalty factor (%) applied to stale bonds.
+        BondsPenalty {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Penalty percent.
+            penalty: u16,
+        },
+
+        /// Hard cap on registrations per block.
+        MaxRegistrationsPerBlock {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Cap value.
+            max: u16,
+        },
+
+        /// Block tempo (epoch length) of the subnet.
+        Tempo {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Tempo in blocks.
+            tempo: u16,
+        },
+
+        /// TAO recycled back into rewards pool.
+        RaoRecycled {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Recycled amount.
+            recycled: u64,
+        },
+
+        /// Enable/disable commit-reveal weights.
+        CommitRevealWeightsEnabled {
+            /// Target subnet.
+            netuid: NetUid,
+            /// `true` → enable, `false` → disable.
+            enabled: bool,
+        },
+
+        /// Enable/disable Liquid Alpha staking.
+        LiquidAlphaEnabled {
+            /// Target subnet.
+            netuid: NetUid,
+            /// `true` → enable, `false` → disable.
+            enabled: bool,
+        },
+
+        /// Lower/upper α bounds for Liquid Alpha sigmoid.
+        AlphaValues {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Lower bound (basis-points).
+            low: u16,
+            /// Upper bound (basis-points).
+            high: u16,
+        },
+
+        /// Maximum stake (RAO) a single miner can bond.
+        NetworkMaxStake {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Stake cap.
+            max_stake: u64,
+        },
+
+        /// Reveal period (blocks) for committed weights.
+        CommitRevealWeightsInterval {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Interval in blocks.
+            interval: u64,
+        },
+
+        /// Allow or block α transfers between miners.
+        ToggleTransfer {
+            /// Target subnet.
+            netuid: NetUid,
+            /// `true` → enable, `false` → disable.
+            enabled: bool,
+        },
+
+        /// Force-set the owner hotkey (emergency only).
+        SubnetOwnerHotkey {
+            /// Target subnet.
+            netuid: NetUid,
+            /// New hotkey.
+            hotkey: T::AccountId,
+        },
+
+        /// Rate-limited variant of the above (honours schedule).
+        SNOwnerHotkey {
+            /// Target subnet.
+            netuid: NetUid,
+            /// New hotkey.
+            hotkey: T::AccountId,
+        },
+
+        /// EMA price halving period (blocks).
+        EMAPriceHalvingPeriod {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Period in blocks.
+            period: u64,
+        },
+
+        /// Steepness parameter of α-sigmoid emission curve.
+        AlphaSigmoidSteepness {
+            /// Target subnet.
+            netuid: NetUid,
+            /// Steepness value.
+            steepness: u16,
+        },
+
+        /// Enable/disable Yuma3 staking for the subnet.
+        Yuma3Enabled {
+            /// Target subnet.
+            netuid: NetUid,
+            /// `true` → enable, `false` → disable.
+            enabled: bool,
+        },
+
+        /// Enable/disable automatic bonds reset.
+        BondsResetEnabled {
+            /// Target subnet.
+            netuid: NetUid,
+            /// `true` → enable, `false` → disable.
+            enabled: bool,
+        },
+
+        /// Toggle internal sub-token.
+        SubtokenEnabled {
+            /// Target subnet.
+            netuid: NetUid,
+            /// `true` → enable, `false` → disable.
+            enabled: bool,
+        },
+    }
 }
 
 impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Pallet<T> {
