@@ -1147,6 +1147,65 @@ fn test_sudo_set_liquid_alpha_enabled() {
 }
 
 #[test]
+fn test_sudo_set_alpha_sigmoid_steepness() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        let to_be_set: i16 = 5000;
+        add_network(netuid, 10);
+        let init_value = SubtensorModule::get_alpha_sigmoid_steepness(netuid);
+        assert_eq!(
+            AdminUtils::sudo_set_alpha_sigmoid_steepness(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        assert_eq!(
+            AdminUtils::sudo_set_alpha_sigmoid_steepness(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid.next(),
+                to_be_set
+            ),
+            Err(Error::<Test>::SubnetDoesNotExist.into())
+        );
+
+        let owner = U256::from(10);
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, owner);
+        assert_eq!(
+            AdminUtils::sudo_set_alpha_sigmoid_steepness(
+                <<Test as Config>::RuntimeOrigin>::signed(owner),
+                netuid,
+                -to_be_set
+            ),
+            Err(Error::<Test>::NegativeSigmoidSteepness.into())
+        );
+        assert_eq!(
+            SubtensorModule::get_alpha_sigmoid_steepness(netuid),
+            init_value
+        );
+        assert_ok!(AdminUtils::sudo_set_alpha_sigmoid_steepness(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+        assert_eq!(
+            SubtensorModule::get_alpha_sigmoid_steepness(netuid),
+            to_be_set
+        );
+        assert_ok!(AdminUtils::sudo_set_alpha_sigmoid_steepness(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            -to_be_set
+        ));
+        assert_eq!(
+            SubtensorModule::get_alpha_sigmoid_steepness(netuid),
+            -to_be_set
+        );
+    });
+}
+
+#[test]
 fn test_set_alpha_values_dispatch_info_ok() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);

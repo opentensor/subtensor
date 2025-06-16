@@ -105,6 +105,8 @@ pub mod pallet {
         MaxAllowedUIdsLessThanCurrentUIds,
         /// The maximum value for bonds moving average is reached
         BondsMovingAverageMaxReached,
+        /// Only root can set negative sigmoid steepness values
+        NegativeSigmoidSteepness,
     }
     /// Enum for specifying the type of precompile operation.
     #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, Copy)]
@@ -1560,10 +1562,14 @@ pub mod pallet {
         /// # Arguments
         /// * `origin` - The origin of the call, which must be the root account.
         /// * `netuid` - The unique identifier for the subnet.
-        /// * `steepness` - The new steepness for the alpha sigmoid function.
+        /// * `steepness` - The Steepness for the alpha sigmoid function. (range is 0-int16::MAX,
+        /// negative values are reserved for future use)
         ///
         /// # Errors
         /// * `BadOrigin` - If the caller is not the root account.
+        /// * `SubnetDoesNotExist` - If the specified subnet does not exist.
+        /// * `NegativeSigmoidSteepness` - If the steepness is negative and the caller is
+        /// root.
         /// # Weight
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(68)]
@@ -1571,9 +1577,21 @@ pub mod pallet {
         pub fn sudo_set_alpha_sigmoid_steepness(
             origin: OriginFor<T>,
             netuid: NetUid,
-            steepness: u16,
+            steepness: i16,
         ) -> DispatchResult {
-            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
+
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+
+            let is_root = ensure_root(origin).is_ok();
+            ensure!(
+                is_root || steepness >= 0,
+                Error::<T>::NegativeSigmoidSteepness
+            );
+
             pallet_subtensor::Pallet::<T>::set_alpha_sigmoid_steepness(netuid, steepness);
 
             log::debug!(
