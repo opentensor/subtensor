@@ -643,6 +643,12 @@ impl<T: Config> Pallet<T> {
         let rao_recycled = curr_rao_recycled.saturating_add(inc_rao_recycled);
         Self::set_rao_recycled(netuid, rao_recycled);
     }
+    pub fn get_network_rate_limit() -> u64 {
+        NetworkRateLimit::<T>::get()
+    }
+    pub fn get_transfer_toggle(netuid: NetUid) -> bool {
+        TransferToggle::<T>::get(netuid)
+    }
 
     pub fn set_senate_required_stake_perc(required_percent: u64) {
         SenateRequiredStakePercentage::<T>::put(required_percent);
