@@ -155,6 +155,7 @@ fn test_swap_delegates() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
+
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
@@ -179,6 +180,7 @@ fn test_swap_subnet_membership() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
+
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
@@ -204,6 +206,7 @@ fn test_swap_uids_and_keys() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
+
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
@@ -235,6 +238,7 @@ fn test_swap_prometheus() {
         let coldkey = U256::from(3);
 
         let prometheus_info = PrometheusInfo::default();
+
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
@@ -267,6 +271,7 @@ fn test_swap_axons() {
         let coldkey = U256::from(3);
 
         let axon_info = AxonInfo::default();
+
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
@@ -296,6 +301,7 @@ fn test_swap_certificates() {
         let coldkey = U256::from(3);
 
         let certificate = NeuronCertificate::try_from(vec![1, 2, 3]).unwrap();
+
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
@@ -331,6 +337,7 @@ fn test_swap_weight_commits() {
 
         let mut weight_commits: VecDeque<(H256, u64, u64, u64)> = VecDeque::new();
         weight_commits.push_back((H256::from_low_u64_be(100), 200, 1, 1));
+
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
@@ -364,6 +371,7 @@ fn test_swap_loaded_emission() {
 
         let server_emission = 1000u64;
         let validator_emission = 1000u64;
+
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
@@ -764,7 +772,7 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
 fn test_swap_hotkey_tx_rate_limit_exceeded() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        let tempo = 13;
+        let tempo: u16 = 13;
         let old_hotkey = U256::from(1);
         let new_hotkey_1 = U256::from(2);
         let new_hotkey_2 = U256::from(4);
@@ -824,7 +832,7 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
 fn test_do_swap_hotkey_err_not_owner() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        let tempo = 13;
+        let tempo: u16 = 13;
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
@@ -1443,6 +1451,7 @@ fn test_swap_owner_failed_interval_not_passed() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
+
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
         Owner::<Test>::insert(old_hotkey, coldkey);
@@ -1464,6 +1473,7 @@ fn test_swap_owner_check_swap_block_set() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
+
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
         Owner::<Test>::insert(old_hotkey, coldkey);
@@ -1506,9 +1516,7 @@ fn test_swap_owner_check_swap_record_clean_up() {
             new_block_number
         );
 
-        let netuid_u16: u16 = netuid.into();
-
-        step_block((HotkeySwapOnSubnetInterval::get() as u16 + netuid_u16) * 2u16);
+        step_block((HotkeySwapOnSubnetInterval::get() as u16 + u16::from(netuid)) * 2);
         assert!(!LastHotkeySwapOnNetuid::<Test>::contains_key(
             netuid, coldkey
         ));
