@@ -1712,10 +1712,7 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Global setter that delegates to the same logic every individual
-        /// admin-extrinsic had before.  
-        /// Nothing has been dropped: every `ensure!`, rate-limit guard,
-        /// log line, and event remains intact.
+        /// Global hyperparameter setter.
         #[pallet::call_index(71)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_hyperparameter(
@@ -2407,9 +2404,7 @@ pub mod pallet {
     /// Unified payload for `sudo_set_hyperparameter`.
     ///
     /// * **Tuple-like variants** change *network-wide* parameters
-    ///   (there is only a single value to set).
     /// * **Struct-like variants** target a *specific subnet* or require
-    ///   multiple arguments; every field is documented for clarity.
     #[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
     #[scale_info(skip_type_params(T))]
     pub enum HyperParam<T: Config> {
