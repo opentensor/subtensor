@@ -55,7 +55,6 @@ impl<T: Config> Pallet<T> {
 
         weight.saturating_accrue(T::DbWeight::get().reads(2));
 
-        // Start to do everything for swap hotkey on all subnets case
         // 7. Ensure the new hotkey is not already registered on any network
         ensure!(
             !Self::is_hotkey_registered_on_any_network(new_hotkey),
@@ -85,6 +84,7 @@ impl<T: Config> Pallet<T> {
             return Self::swap_hotkey_on_subnet(&coldkey, old_hotkey, new_hotkey, netuid, weight);
         };
 
+        // Start to do everything for swap hotkey on all subnets case
         // 12. Get the cost for swapping the key
         let swap_cost = Self::get_key_swap_cost();
         log::debug!("Swap cost: {:?}", swap_cost);
