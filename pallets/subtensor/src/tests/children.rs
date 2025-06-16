@@ -3958,8 +3958,6 @@ fn test_pending_cooldown_as_expected() {
     //     7200
     // };
 
-    let expected_cooldown = PendingChildKeyCooldown::<Test>::get();
-
     new_test_ext(curr_block).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -3968,6 +3966,7 @@ fn test_pending_cooldown_as_expected() {
         let netuid: u16 = 1;
         let proportion1: u64 = 1000;
         let proportion2: u64 = 2000;
+        let expected_cooldown = PendingChildKeyCooldown::<Test>::get();
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
