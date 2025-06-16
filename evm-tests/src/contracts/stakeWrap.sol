@@ -2,7 +2,9 @@
 
 pragma solidity >=0.8.2 <0.9.0;
 
-abstract contract Staking {
+address constant ISTAKING_ADDRESS = 0x0000000000000000000000000000000000000805;
+
+interface Staking {
     function addStakeLimit(
         bytes32 hotkey,
         uint256 amount,
@@ -19,10 +21,13 @@ abstract contract Staking {
 }
 
 contract StakeWrap {
+    address ISUBNET_ADDRESS = 0x0000000000000000000000000000000000000805;
     constructor() {}
     receive() external payable {}
     function stake(bytes32 hotkey, uint256 netuid, uint256 amount) external {
-        address a = address(0x0000000000000000000000000000000000000805);
+        address precompile = address(
+            0x0000000000000000000000000000000000000805
+        );
         Staking(a).addStake(hotkey, amount, netuid);
     }
 
@@ -33,13 +38,16 @@ contract StakeWrap {
         uint256 amount,
         bool allowPartial
     ) external {
-        address a = address(0x0000000000000000000000000000000000000805);
-        Staking(a).addStakeLimit(
-            hotkey,
-            amount,
-            limitPrice,
-            allowPartial,
-            netuid
+        address precompile = address(
+            0x0000000000000000000000000000000000000805
         );
+        (bool success, ) = ISUBNET_ADDRESS.call{gas: gasleft()}(
+            abi.encodeWithSelector(
+                subnet.setMinDifficulty.selector,
+                netuid,
+                minDifficulty
+            )
+        );
+        require(success, "setMinDifficulty call failed");
     }
 }
