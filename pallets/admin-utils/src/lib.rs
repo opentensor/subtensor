@@ -29,6 +29,8 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
     use pallet_evm_chain_id::{self, ChainId};
     use pallet_subtensor::utils::rate_limiting::TransactionType;
+    use scale_info::TypeInfo;
+    use scale_info::prelude::fmt;
     use sp_runtime::BoundedVec;
     use substrate_fixed::types::I96F32;
     use subtensor_runtime_common::NetUid;
@@ -1709,102 +1711,794 @@ pub mod pallet {
             );
             Ok(())
         }
+
+        /// Global setter that delegates to the same logic every individual
+        /// admin-extrinsic had before.  
+        /// Nothing has been dropped: every `ensure!`, rate-limit guard,
+        /// log line, and event remains intact.
+        #[pallet::call_index(71)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_hyperparameter(
+            origin: OriginFor<T>,
+            param: HyperParam<T>,
+        ) -> DispatchResult {
+            match param {
+                /*────────── NETWORK-WIDE ──────────*/
+                HyperParam::DefaultTake(v) => {
+                    ensure_root(origin.clone())?;
+                    pallet_subtensor::Pallet::<T>::set_max_delegate_take(v);
+                    log::debug!("DefaultTakeSet( default_take: {:?} ) ", v);
+                    Ok(())
+                }
+
+                HyperParam::TxRateLimit(v) => {
+                    ensure_root(origin.clone())?;
+                    pallet_subtensor::Pallet::<T>::set_tx_rate_limit(v);
+                    log::debug!("TxRateLimitSet( tx_rate_limit: {:?} ) ", v);
+                    Ok(())
+                }
+
+                HyperParam::NetworkRateLimit(v) => {
+                    ensure_root(origin.clone())?;
+                    pallet_subtensor::Pallet::<T>::set_network_rate_limit(v);
+                    log::debug!("NetworkRateLimit( rate_limit: {:?} ) ", v);
+                    Ok(())
+                }
+
+                HyperParam::TotalIssuance(v) => {
+                    ensure_root(origin.clone())?;
+                    pallet_subtensor::Pallet::<T>::set_total_issuance(v);
+                    Ok(())
+                }
+
+                HyperParam::NetworkImmunityPeriod(v) => {
+                    ensure_root(origin.clone())?;
+                    pallet_subtensor::Pallet::<T>::set_network_immunity_period(v);
+                    log::debug!("NetworkImmunityPeriod( period: {:?} ) ", v);
+                    Ok(())
+                }
+
+                HyperParam::NetworkMinLockCost(v) => {
+                    ensure_root(origin.clone())?;
+                    pallet_subtensor::Pallet::<T>::set_network_min_lock(v);
+                    log::debug!("NetworkMinLockCost( lock_cost: {:?} ) ", v);
+                    Ok(())
+                }
+
+                HyperParam::SubnetLimit(_) => {
+                    ensure_root(origin)?;
+                    Ok(())
+                }
+
+                HyperParam::LockReductionInterval(v) => {
+                    ensure_root(origin.clone())?;
+                    pallet_subtensor::Pallet::<T>::set_lock_reduction_interval(v);
+                    log::debug!("NetworkLockReductionInterval( interval: {:?} ) ", v);
+                    Ok(())
+                }
+
+                HyperParam::StakeThreshold(v) => {
+                    ensure_root(origin.clone())?;
+                    pallet_subtensor::Pallet::<T>::set_stake_threshold(v);
+                    Ok(())
+                }
+
+                HyperParam::NominatorMinRequiredStake(v) => {
+                    ensure_root(origin.clone())?;
+                    let prev = pallet_subtensor::Pallet::<T>::get_nominator_min_required_stake();
+                    pallet_subtensor::Pallet::<T>::set_nominator_min_required_stake(v);
+                    if v > prev {
+                        log::trace!("Clearing small nominations");
+                        pallet_subtensor::Pallet::<T>::clear_small_nominations();
+                        log::trace!("Small nominations cleared");
+                    }
+                    Ok(())
+                }
+
+                HyperParam::TxDelegateTakeRateLimit(v) => {
+                    ensure_root(origin.clone())?;
+                    pallet_subtensor::Pallet::<T>::set_tx_delegate_take_rate_limit(v);
+                    log::debug!(
+                        "TxRateLimitDelegateTakeSet( tx_delegate_take_rate_limit: {:?} ) ",
+                        v
+                    );
+                    Ok(())
+                }
+
+                HyperParam::MinDelegateTake(v) => {
+                    ensure_root(origin.clone())?;
+                    pallet_subtensor::Pallet::<T>::set_min_delegate_take(v);
+                    log::debug!("TxMinDelegateTakeSet( tx_min_delegate_take: {:?} ) ", v);
+                    Ok(())
+                }
+
+                HyperParam::EvmChainId(v) => {
+                    ensure_root(origin.clone())?;
+                    pallet_evm_chain_id::ChainId::<T>::set(v);
+                    Ok(())
+                }
+
+                HyperParam::SubnetOwnerCut(v) => {
+                    ensure_root(origin.clone())?;
+                    pallet_subtensor::Pallet::<T>::set_subnet_owner_cut(v);
+                    log::debug!("SubnetOwnerCut( subnet_owner_cut: {:?} ) ", v);
+                    Ok(())
+                }
+
+                HyperParam::SubnetMovingAlpha(v) => {
+                    ensure_root(origin.clone())?;
+                    pallet_subtensor::SubnetMovingAlpha::<T>::set(v);
+                    log::debug!("SubnetMovingAlphaSet( alpha: {:?} )", v);
+                    Ok(())
+                }
+
+                HyperParam::ColdkeySwapScheduleDuration(d) => {
+                    ensure_root(origin.clone())?;
+                    pallet_subtensor::Pallet::<T>::set_coldkey_swap_schedule_duration(d);
+                    log::trace!("ColdkeySwapScheduleDurationSet( duration: {:?} )", d);
+                    Ok(())
+                }
+
+                HyperParam::DissolveNetworkScheduleDuration(d) => {
+                    ensure_root(origin.clone())?;
+                    pallet_subtensor::Pallet::<T>::set_dissolve_network_schedule_duration(d);
+                    log::trace!("DissolveNetworkScheduleDurationSet( duration: {:?} )", d);
+                    Ok(())
+                }
+
+                /*──────────── CONSENSUS ───────────*/
+                HyperParam::ScheduleGrandpaChange {
+                    next_authorities,
+                    in_blocks,
+                    forced,
+                } => {
+                    ensure_root(origin)?;
+                    T::Grandpa::schedule_change(next_authorities, in_blocks, forced)
+                }
+
+                /*──────── PRECOMPILE GATE ─────────*/
+                HyperParam::ToggleEvmPrecompile {
+                    precompile_id,
+                    enabled,
+                } => {
+                    ensure_root(origin)?;
+                    if PrecompileEnable::<T>::get(precompile_id) != enabled {
+                        PrecompileEnable::<T>::insert(precompile_id, enabled);
+                        Self::deposit_event(Event::PrecompileUpdated {
+                            precompile_id,
+                            enabled,
+                        });
+                    }
+                    Ok(())
+                }
+
+                /*────────── SUBNET-SPECIFIC ───────*/
+                HyperParam::ServingRateLimit { netuid, limit } => {
+                    pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+                    pallet_subtensor::Pallet::<T>::set_serving_rate_limit(netuid, limit);
+                    log::debug!("ServingRateLimitSet( serving_rate_limit: {:?} ) ", limit);
+                    Ok(())
+                }
+
+                HyperParam::MinDifficulty { netuid, value } => {
+                    ensure_root(origin.clone())?;
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                        Error::<T>::SubnetDoesNotExist
+                    );
+                    pallet_subtensor::Pallet::<T>::set_min_difficulty(netuid, value);
+                    log::debug!(
+                        "MinDifficultySet( netuid: {:?} min_difficulty: {:?} ) ",
+                        netuid,
+                        value
+                    );
+                    Ok(())
+                }
+
+                HyperParam::MaxDifficulty { netuid, value } => {
+                    pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(
+                        origin.clone(),
+                        netuid,
+                    )?;
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                        Error::<T>::SubnetDoesNotExist
+                    );
+                    pallet_subtensor::Pallet::<T>::set_max_difficulty(netuid, value);
+                    log::debug!(
+                        "MaxDifficultySet( netuid: {:?} max_difficulty: {:?} ) ",
+                        netuid,
+                        value
+                    );
+                    Ok(())
+                }
+
+                HyperParam::WeightsVersionKey { netuid, key } => {
+                    pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(
+                        origin.clone(),
+                        netuid,
+                    )?;
+
+                    // Extra rate-limit logic (unchanged)
+                    if let Ok(RawOrigin::Signed(who)) = origin.clone().into() {
+                        ensure!(
+                            pallet_subtensor::Pallet::<T>::passes_rate_limit_on_subnet(
+                                &TransactionType::SetWeightsVersionKey,
+                                &who,
+                                netuid,
+                            ),
+                            pallet_subtensor::Error::<T>::TxRateLimitExceeded
+                        );
+
+                        let block_now = pallet_subtensor::Pallet::<T>::get_current_block_as_u64();
+                        pallet_subtensor::Pallet::<T>::set_last_transaction_block_on_subnet(
+                            &who,
+                            netuid,
+                            &TransactionType::SetWeightsVersionKey,
+                            block_now,
+                        );
+                    }
+
+                    pallet_subtensor::Pallet::<T>::set_weights_version_key(netuid, key);
+                    log::debug!(
+                        "WeightsVersionKeySet( netuid: {:?} key: {:?} ) ",
+                        netuid,
+                        key
+                    );
+                    Ok(())
+                }
+
+                HyperParam::WeightsSetRateLimit { netuid, limit } => {
+                    ensure_root(origin)?;
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                        Error::<T>::SubnetDoesNotExist
+                    );
+                    pallet_subtensor::Pallet::<T>::set_weights_set_rate_limit(netuid, limit);
+                    log::debug!(
+                        "WeightsSetRateLimitSet( netuid: {:?} limit: {:?} ) ",
+                        netuid,
+                        limit
+                    );
+                    Ok(())
+                }
+
+                HyperParam::AdjustmentInterval { netuid, interval } => {
+                    ensure_root(origin)?;
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                        Error::<T>::SubnetDoesNotExist
+                    );
+                    pallet_subtensor::Pallet::<T>::set_adjustment_interval(netuid, interval);
+                    log::debug!(
+                        "AdjustmentIntervalSet( netuid: {:?} interval: {:?} ) ",
+                        netuid,
+                        interval
+                    );
+                    Ok(())
+                }
+
+                HyperParam::AdjustmentAlpha { netuid, alpha } => {
+                    pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                        Error::<T>::SubnetDoesNotExist
+                    );
+                    pallet_subtensor::Pallet::<T>::set_adjustment_alpha(netuid, alpha);
+                    log::debug!(
+                        "AdjustmentAlphaSet( netuid: {:?} alpha: {:?} ) ",
+                        netuid,
+                        alpha
+                    );
+                    Ok(())
+                }
+
+                HyperParam::MaxWeightLimit { netuid, limit } => {
+                    pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                        Error::<T>::SubnetDoesNotExist
+                    );
+                    pallet_subtensor::Pallet::<T>::set_max_weight_limit(netuid, limit);
+                    log::debug!(
+                        "MaxWeightLimitSet( netuid: {:?} limit: {:?} ) ",
+                        netuid,
+                        limit
+                    );
+                    Ok(())
+                }
+
+                HyperParam::ImmunityPeriod { netuid, period } => {
+                    pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                        Error::<T>::SubnetDoesNotExist
+                    );
+                    pallet_subtensor::Pallet::<T>::set_immunity_period(netuid, period);
+                    log::debug!(
+                        "ImmunityPeriodSet( netuid: {:?} immunity_period: {:?} ) ",
+                        netuid,
+                        period
+                    );
+                    Ok(())
+                }
+
+                HyperParam::MinAllowedWeights { netuid, min } => {
+                    pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                        Error::<T>::SubnetDoesNotExist
+                    );
+                    pallet_subtensor::Pallet::<T>::set_min_allowed_weights(netuid, min);
+                    log::debug!(
+                        "MinAllowedWeightSet( netuid: {:?} min_allowed_weights: {:?} ) ",
+                        netuid,
+                        min
+                    );
+                    Ok(())
+                }
+
+                HyperParam::MaxAllowedUids { netuid, max } => {
+                    ensure_root(origin.clone())?;
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                        Error::<T>::SubnetDoesNotExist
+                    );
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::get_subnetwork_n(netuid) < max,
+                        Error::<T>::MaxAllowedUIdsLessThanCurrentUIds
+                    );
+                    pallet_subtensor::Pallet::<T>::set_max_allowed_uids(netuid, max);
+                    log::debug!(
+                        "MaxAllowedUidsSet( netuid: {:?} max_allowed_uids: {:?} ) ",
+                        netuid,
+                        max
+                    );
+                    Ok(())
+                }
+
+                HyperParam::Kappa { netuid, kappa } => {
+                    pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                        Error::<T>::SubnetDoesNotExist
+                    );
+                    pallet_subtensor::Pallet::<T>::set_kappa(netuid, kappa);
+                    log::debug!("KappaSet( netuid: {:?} kappa: {:?} ) ", netuid, kappa);
+                    Ok(())
+                }
+
+                HyperParam::Rho { netuid, rho } => {
+                    pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                        Error::<T>::SubnetDoesNotExist
+                    );
+                    pallet_subtensor::Pallet::<T>::set_rho(netuid, rho);
+                    log::debug!("RhoSet( netuid: {:?} rho: {:?} ) ", netuid, rho);
+                    Ok(())
+                }
+
+                HyperParam::ActivityCutoff { netuid, cutoff } => {
+                    pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(
+                        origin.clone(),
+                        netuid,
+                    )?;
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                        Error::<T>::SubnetDoesNotExist
+                    );
+                    ensure!(
+                        cutoff >= pallet_subtensor::MinActivityCutoff::<T>::get(),
+                        pallet_subtensor::Error::<T>::ActivityCutoffTooLow
+                    );
+                    pallet_subtensor::Pallet::<T>::set_activity_cutoff(netuid, cutoff);
+                    log::debug!(
+                        "ActivityCutoffSet( netuid: {:?} cutoff: {:?} ) ",
+                        netuid,
+                        cutoff
+                    );
+                    Ok(())
+                }
+
+                HyperParam::NetworkRegistrationAllowed { netuid, allowed } => {
+                    pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+                    pallet_subtensor::Pallet::<T>::set_network_registration_allowed(
+                        netuid, allowed,
+                    );
+                    log::debug!(
+                        "NetworkRegistrationAllowed( registration_allowed: {:?} ) ",
+                        allowed
+                    );
+                    Ok(())
+                }
+
+                HyperParam::NetworkPowRegistrationAllowed { netuid, allowed } => {
+                    pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+                    pallet_subtensor::Pallet::<T>::set_network_pow_registration_allowed(
+                        netuid, allowed,
+                    );
+                    log::debug!(
+                        "NetworkPowRegistrationAllowed( registration_allowed: {:?} ) ",
+                        allowed
+                    );
+                    Ok(())
+                }
+
+                HyperParam::TargetRegistrationsPerInterval { netuid, target } => {
+                    ensure_root(origin.clone())?;
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                        Error::<T>::SubnetDoesNotExist
+                    );
+                    pallet_subtensor::Pallet::<T>::set_target_registrations_per_interval(
+                        netuid, target,
+                    );
+                    log::debug!(
+                        "RegistrationPerIntervalSet( netuid: {:?} target: {:?} ) ",
+                        netuid,
+                        target
+                    );
+                    Ok(())
+                }
+
+                HyperParam::MinBurn { netuid, min } => {
+                    ensure_root(origin.clone())?;
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                        Error::<T>::SubnetDoesNotExist
+                    );
+                    pallet_subtensor::Pallet::<T>::set_min_burn(netuid, min);
+                    log::debug!("MinBurnSet( netuid: {:?} min_burn: {:?} ) ", netuid, min);
+                    Ok(())
+                }
+
+                HyperParam::MaxBurn { netuid, max } => {
+                    ensure_root(origin.clone())?;
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                        Error::<T>::SubnetDoesNotExist
+                    );
+                    pallet_subtensor::Pallet::<T>::set_max_burn(netuid, max);
+                    log::debug!("MaxBurnSet( netuid: {:?} max_burn: {:?} ) ", netuid, max);
+                    Ok(())
+                }
+
+                HyperParam::Difficulty { netuid, value } => {
+                    ensure_root(origin.clone())?;
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                        Error::<T>::SubnetDoesNotExist
+                    );
+                    pallet_subtensor::Pallet::<T>::set_difficulty(netuid, value);
+                    log::debug!(
+                        "DifficultySet( netuid: {:?} difficulty: {:?} ) ",
+                        netuid,
+                        value
+                    );
+                    Ok(())
+                }
+
+                HyperParam::MaxAllowedValidators { netuid, max } => {
+                    ensure_root(origin.clone())?;
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                        Error::<T>::SubnetDoesNotExist
+                    );
+                    ensure!(
+                        max <= pallet_subtensor::Pallet::<T>::get_max_allowed_uids(netuid),
+                        Error::<T>::MaxValidatorsLargerThanMaxUIds
+                    );
+                    pallet_subtensor::Pallet::<T>::set_max_allowed_validators(netuid, max);
+                    log::debug!(
+                        "MaxAllowedValidatorsSet( netuid: {:?} max_allowed_validators: {:?} ) ",
+                        netuid,
+                        max
+                    );
+                    Ok(())
+                }
+
+                HyperParam::BondsMovingAverage { netuid, ma } => {
+                    pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(
+                        origin.clone(),
+                        netuid,
+                    )?;
+                    if pallet_subtensor::Pallet::<T>::ensure_subnet_owner(origin.clone(), netuid)
+                        .is_ok()
+                    {
+                        ensure!(ma <= 975_000, Error::<T>::BondsMovingAverageMaxReached);
+                    }
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                        Error::<T>::SubnetDoesNotExist
+                    );
+                    pallet_subtensor::Pallet::<T>::set_bonds_moving_average(netuid, ma);
+                    log::debug!(
+                        "BondsMovingAverageSet( netuid: {:?} ma: {:?} ) ",
+                        netuid,
+                        ma
+                    );
+                    Ok(())
+                }
+
+                HyperParam::BondsPenalty { netuid, penalty } => {
+                    pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                        Error::<T>::SubnetDoesNotExist
+                    );
+                    pallet_subtensor::Pallet::<T>::set_bonds_penalty(netuid, penalty);
+                    log::debug!(
+                        "BondsPenalty( netuid: {:?} bonds_penalty: {:?} ) ",
+                        netuid,
+                        penalty
+                    );
+                    Ok(())
+                }
+
+                HyperParam::MaxRegistrationsPerBlock { netuid, max } => {
+                    ensure_root(origin.clone())?;
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                        Error::<T>::SubnetDoesNotExist
+                    );
+                    pallet_subtensor::Pallet::<T>::set_max_registrations_per_block(netuid, max);
+                    log::debug!(
+                        "MaxRegistrationsPerBlock( netuid: {:?} max: {:?} ) ",
+                        netuid,
+                        max
+                    );
+                    Ok(())
+                }
+
+                HyperParam::Tempo { netuid, tempo } => {
+                    ensure_root(origin.clone())?;
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                        Error::<T>::SubnetDoesNotExist
+                    );
+                    pallet_subtensor::Pallet::<T>::set_tempo(netuid, tempo);
+                    log::debug!("TempoSet( netuid: {:?} tempo: {:?} ) ", netuid, tempo);
+                    Ok(())
+                }
+
+                HyperParam::RaoRecycled { netuid, recycled } => {
+                    ensure_root(origin.clone())?;
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                        Error::<T>::SubnetDoesNotExist
+                    );
+                    pallet_subtensor::Pallet::<T>::set_rao_recycled(netuid, recycled);
+                    Ok(())
+                }
+
+                HyperParam::CommitRevealWeightsEnabled { netuid, enabled } => {
+                    pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                        Error::<T>::SubnetDoesNotExist
+                    );
+                    pallet_subtensor::Pallet::<T>::set_commit_reveal_weights_enabled(
+                        netuid, enabled,
+                    );
+                    log::debug!("ToggleSetWeightsCommitReveal( netuid: {:?} ) ", netuid);
+                    Ok(())
+                }
+
+                HyperParam::LiquidAlphaEnabled { netuid, enabled } => {
+                    pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+                    pallet_subtensor::Pallet::<T>::set_liquid_alpha_enabled(netuid, enabled);
+                    log::debug!(
+                        "LiquidAlphaEnableToggled( netuid: {:?}, Enabled: {:?} ) ",
+                        netuid,
+                        enabled
+                    );
+                    Ok(())
+                }
+
+                HyperParam::AlphaValues { netuid, low, high } => {
+                    pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(
+                        origin.clone(),
+                        netuid,
+                    )?;
+                    pallet_subtensor::Pallet::<T>::do_set_alpha_values(origin, netuid, low, high)
+                }
+
+                HyperParam::NetworkMaxStake { .. } => {
+                    ensure_root(origin)?;
+                    Ok(())
+                }
+
+                HyperParam::CommitRevealWeightsInterval { netuid, interval } => {
+                    pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                        Error::<T>::SubnetDoesNotExist
+                    );
+                    pallet_subtensor::Pallet::<T>::set_reveal_period(netuid, interval);
+                    log::debug!(
+                        "SetWeightCommitInterval( netuid: {:?}, interval: {:?} ) ",
+                        netuid,
+                        interval
+                    );
+                    Ok(())
+                }
+
+                HyperParam::ToggleTransfer { netuid, enabled } => {
+                    pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+                    pallet_subtensor::Pallet::<T>::toggle_transfer(netuid, enabled)
+                }
+
+                HyperParam::SubnetOwnerHotkey { netuid, hotkey } => {
+                    // **owner only**, root may NOT call this one
+                    pallet_subtensor::Pallet::<T>::ensure_subnet_owner(origin.clone(), netuid)?;
+                    pallet_subtensor::Pallet::<T>::set_subnet_owner_hotkey(netuid, &hotkey);
+                    log::debug!(
+                        "SubnetOwnerHotkeySet( netuid: {:?}, hotkey: {:?} )",
+                        netuid,
+                        hotkey
+                    );
+                    Ok(())
+                }
+
+                HyperParam::SNOwnerHotkey { netuid, hotkey } => {
+                    pallet_subtensor::Pallet::<T>::do_set_sn_owner_hotkey(origin, netuid, &hotkey)
+                }
+
+                HyperParam::EMAPriceHalvingPeriod { netuid, period } => {
+                    ensure_root(origin.clone())?;
+                    pallet_subtensor::EMAPriceHalvingBlocks::<T>::set(netuid, period);
+                    log::debug!(
+                        "EMAPriceHalvingBlocks( netuid: {:?}, period: {:?} )",
+                        netuid,
+                        period
+                    );
+                    Ok(())
+                }
+
+                HyperParam::AlphaSigmoidSteepness { netuid, steepness } => {
+                    ensure_root(origin.clone())?;
+                    pallet_subtensor::Pallet::<T>::set_alpha_sigmoid_steepness(netuid, steepness);
+                    log::debug!(
+                        "AlphaSigmoidSteepnessSet( netuid: {:?}, steepness: {:?} )",
+                        netuid,
+                        steepness
+                    );
+                    Ok(())
+                }
+
+                HyperParam::Yuma3Enabled { netuid, enabled } => {
+                    pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+                    pallet_subtensor::Pallet::<T>::set_yuma3_enabled(netuid, enabled);
+                    Self::deposit_event(Event::Yuma3EnableToggled { netuid, enabled });
+                    log::debug!(
+                        "Yuma3EnableToggled( netuid: {:?}, Enabled: {:?} ) ",
+                        netuid,
+                        enabled
+                    );
+                    Ok(())
+                }
+
+                HyperParam::BondsResetEnabled { netuid, enabled } => {
+                    pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+                    pallet_subtensor::Pallet::<T>::set_bonds_reset(netuid, enabled);
+                    Self::deposit_event(Event::BondsResetToggled { netuid, enabled });
+                    log::debug!(
+                        "BondsResetToggled( netuid: {:?} bonds_reset: {:?} ) ",
+                        netuid,
+                        enabled
+                    );
+                    Ok(())
+                }
+
+                HyperParam::SubtokenEnabled { netuid, enabled } => {
+                    ensure_root(origin)?;
+                    pallet_subtensor::SubtokenEnabled::<T>::set(netuid, enabled);
+                    log::debug!(
+                        "SubtokenEnabled( netuid: {:?}, subtoken_enabled: {:?} )",
+                        netuid,
+                        enabled
+                    );
+                    Ok(())
+                }
+            }
+        }
     }
-    /// Unified hyper-parameter payload for the `sudo_set_hyperparameter` call.
+    /// Unified payload for `sudo_set_hyperparameter`.
     ///
-    /// Each variant bundles the exact arguments required by one of the standalone
-    /// governance setters.  Network-wide items are plain tuple variants; anything
-    /// that works **per-subnet** (or needs multiple inputs) is expressed as a
-    /// struct-like variant so we can document each field.
-    ///
-    /// * `T` — Runtime’s `Config` so that `AccountId` / `BlockNumberFor<T>` can be
-    ///   embedded where necessary.
-    #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    /// * **Tuple-like variants** change *network-wide* parameters
+    ///   (there is only a single value to set).
+    /// * **Struct-like variants** target a *specific subnet* or require
+    ///   multiple arguments; every field is documented for clarity.
+    #[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
+    #[scale_info(skip_type_params(T))]
     pub enum HyperParam<T: Config> {
-        /*────────────────────  NETWORK-WIDE  ────────────────────*/
-        /// Set the default delegate-take (basis-points) for new delegations.
+        /*─────────── NETWORK-WIDE ───────────*/
+        /// Default delegate-take applied (in basis-points) when a delegator
+        /// first bonds to a hotkey.
         DefaultTake(u16),
 
-        /// Set the global transaction-rate limit (Tx ∙ s⁻¹ × 1000).
+        /// Global, per-second extrinsic rate-limit
+        /// (`tx · s⁻¹ × 10³` to preserve precision).
         TxRateLimit(u64),
 
-        /// Set the chain-wide network-rate limit (operations · block⁻¹).
+        /// Chain-wide operations limit (applied per block).
         NetworkRateLimit(u64),
 
-        /// Manually override total TAO issuance (for migrations/forks).
+        /// Manually override the total TAO issuance in circulation.
         TotalIssuance(u64),
 
-        /// Default immunity period (blocks) applied to future subnets.
+        /// Default immunity period (in blocks) given to all future subnets.
         NetworkImmunityPeriod(u64),
 
-        /// Minimum TAO lock-cost required when registering a subnet.
+        /// Minimum TAO that must be locked to spin-up a subnet.
         NetworkMinLockCost(u64),
 
-        /// Hard cap on the number of simultaneous subnets.
+        /// Hard cap on the number of subnets that can exist at once.
         SubnetLimit(u16),
 
-        /// Block interval at which locked TAO is linearly released.
+        /// Interval (in blocks) at which locked TAO is linearly released.
         LockReductionInterval(u64),
 
-        /// Minimum stake miners must hold to submit weights.
+        /// Minimum self-stake a miner must hold before it can emit weights.
         StakeThreshold(u64),
 
-        /// Minimum stake a nominator must delegate.
+        /// Minimum stake a nominator must supply to back a hotkey.
         NominatorMinRequiredStake(u64),
 
-        /// Cool-down (blocks) between successive `delegate_take` calls.
+        /// Cool-down (in blocks) between successive `delegate_take` calls.
         TxDelegateTakeRateLimit(u64),
 
-        /// Global floor for delegate-take (basis-points).
+        /// Network-wide lower bound for delegate-take (basis-points).
         MinDelegateTake(u16),
 
-        /// Set the EVM chain-ID exposed by the precompile layer.
+        /// EVM chain-ID reported by the precompile layer.
         EvmChainId(u64),
 
-        /// Basis-points of emissions reserved for subnet owners.
+        /// Share of subnet emissions reserved for the subnet owner (b.p.).
         SubnetOwnerCut(u16),
 
-        /// Moving-average α for subnet KPI smoothing (I96F32).
+        /// Exponential moving-average α used for KPI smoothing.
         SubnetMovingAlpha(I96F32),
 
-        /// Duration (blocks) of the coldkey-swap schedule.
+        /// Duration (in blocks) of the coldkey-swap unbonding schedule.
         ColdkeySwapScheduleDuration(BlockNumberFor<T>),
 
-        /// Duration (blocks) of the dissolve-network schedule.
+        /// Duration (in blocks) of the dissolve-network schedule.
         DissolveNetworkScheduleDuration(BlockNumberFor<T>),
 
-        /*────────────────────  CONSENSUS  ────────────────────*/
-        /// Schedule a change in GRANDPA authorities.
+        /*──────────── CONSENSUS ────────────*/
+        /// Schedule a GRANDPA authority-set change.
         ScheduleGrandpaChange {
-            /// New weighted authority set.
+            /// New weighted authority list.
             next_authorities: AuthorityList,
-            /// Delay (blocks) before the change becomes active.
+            /// Delay (in blocks) before the change becomes active.
             in_blocks: BlockNumberFor<T>,
-            /// Median last-finalised block used when `forced` replacement.
+            /// Median last-finalised block for a *forced* replacement.
             forced: Option<BlockNumberFor<T>>,
         },
 
-        /*────────────────────  EVM PRECOMPILE GATE  ────────────────────*/
+        /*──────── EVM PRECOMPILE GATE ───────*/
         /// Enable or disable a specific EVM precompile.
         ToggleEvmPrecompile {
-            /// Which precompile to toggle.
+            /// Target precompile identifier.
             precompile_id: PrecompileEnum,
-            /// `true` → enable, `false` → disable.
+            /// `true` to enable, `false` to disable.
             enabled: bool,
         },
 
-        /*────────────────────  SUBNET-SPECIFIC  ────────────────────*/
-        /// Set serving-rate limit (queries · block⁻¹).
+        /*────────── SUBNET-SPECIFIC ─────────*/
+        /// Set the serving-rate limit (queries · block⁻¹).
         ServingRateLimit {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// Maximum queries per block.
+            /// Maximum queries allowed per block.
             limit: u64,
         },
 
-        /// Minimum PoW difficulty allowed during registration.
+        /// Minimum PoW difficulty accepted during registration.
         MinDifficulty {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
             /// New minimum difficulty.
             value: u64,
@@ -1812,15 +2506,15 @@ pub mod pallet {
 
         /// Maximum PoW difficulty enforced during registration.
         MaxDifficulty {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
             /// New maximum difficulty.
             value: u64,
         },
 
-        /// Bump the weights-version key to invalidate stale weights.
+        /// Bump the weights-version key to invalidate all cached weights.
         WeightsVersionKey {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
             /// New version key.
             key: u64,
@@ -1828,15 +2522,15 @@ pub mod pallet {
 
         /// Cool-down (blocks) between weight-set extrinsics.
         WeightsSetRateLimit {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// Block interval.
+            /// Minimum blocks between calls.
             limit: u64,
         },
 
-        /// Epoch count between successive difficulty adjustments.
+        /// Epoch count between automatic difficulty adjustments.
         AdjustmentInterval {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
             /// Interval in epochs.
             interval: u16,
@@ -1844,103 +2538,103 @@ pub mod pallet {
 
         /// α parameter for exponential difficulty adjustment.
         AdjustmentAlpha {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// Alpha value.
+            /// Alpha value (fixed-point, scaled ×10⁶).
             alpha: u64,
         },
 
         /// Hard cap on non-zero weights per submission.
         MaxWeightLimit {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// Maximum edges.
+            /// Maximum allowed weights.
             limit: u16,
         },
 
-        /// Immunity period (epochs) before pruning is allowed.
+        /// Immunity period (epochs) before pruning can occur.
         ImmunityPeriod {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// Period in epochs.
+            /// Period length.
             period: u16,
         },
 
-        /// Minimum number of non-zero weights required.
+        /// Minimum number of non-zero weights required in a submission.
         MinAllowedWeights {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// Minimum edges.
+            /// Minimum weights.
             min: u16,
         },
 
-        /// Maximum UID capacity for the subnet.
+        /// Maximum UID capacity of the subnet.
         MaxAllowedUids {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
             /// New UID cap.
             max: u16,
         },
 
-        /// Kappa parameter for incentive-decay curve.
+        /// κ (kappa) parameter for incentive-decay curve.
         Kappa {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
             /// Kappa value.
             kappa: u16,
         },
 
-        /// Rho parameter for incentive-decay curve.
+        /// ρ (rho) parameter for incentive-decay curve.
         Rho {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
             /// Rho value.
             rho: u16,
         },
 
-        /// Block-age threshold after which miners are inactive.
+        /// Block-age threshold after which miners are considered inactive.
         ActivityCutoff {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// Cut-off in blocks.
+            /// Cut-off (blocks).
             cutoff: u16,
         },
 
-        /// Toggle extrinsic-based registration for the subnet.
+        /// Toggle extrinsic-based (signature) registration.
         NetworkRegistrationAllowed {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// `true` → allow, `false` → block.
+            /// Whether registration is allowed.
             allowed: bool,
         },
 
-        /// Toggle PoW-based registration for the subnet.
+        /// Toggle PoW-based registration.
         NetworkPowRegistrationAllowed {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// `true` → allow, `false` → block.
+            /// Whether registration is allowed.
             allowed: bool,
         },
 
-        /// Target registrations per mining interval.
+        /// Target number of registrations per difficulty interval.
         TargetRegistrationsPerInterval {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// Registrations per interval.
+            /// Target registrations.
             target: u16,
         },
 
-        /// Minimum TAO burned on registration.
+        /// Minimum TAO to burn during registration.
         MinBurn {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
             /// Minimum burn.
             min: u64,
         },
 
-        /// Maximum TAO burn allowed.
+        /// Maximum TAO that can be burned.
         MaxBurn {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
             /// Maximum burn.
             max: u64,
@@ -1948,165 +2642,172 @@ pub mod pallet {
 
         /// Directly set subnet PoW difficulty.
         Difficulty {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// Difficulty value.
+            /// New difficulty.
             value: u64,
         },
 
-        /// Cap validator seats within the subnet.
+        /// Cap on validator seats in the subnet.
         MaxAllowedValidators {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
             /// Seat limit.
             max: u16,
         },
 
-        /// Window size for bonds moving-average (blocks).
+        /// Window size (blocks) for bonds moving-average.
         BondsMovingAverage {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// Window size.
+            /// Window length.
             ma: u64,
         },
 
         /// Penalty factor (%) applied to stale bonds.
         BondsPenalty {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// Penalty percent.
+            /// Penalty percentage.
             penalty: u16,
         },
 
         /// Hard cap on registrations per block.
         MaxRegistrationsPerBlock {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// Cap value.
+            /// Maximum per block.
             max: u16,
         },
 
-        /// Block tempo (epoch length) of the subnet.
+        /// Epoch length (tempo) of the subnet, in blocks.
         Tempo {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// Tempo in blocks.
+            /// Tempo (blocks).
             tempo: u16,
         },
 
         /// TAO recycled back into rewards pool.
         RaoRecycled {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
             /// Recycled amount.
             recycled: u64,
         },
 
-        /// Enable/disable commit-reveal weights.
+        /// Enable or disable commit-reveal weights scheme.
         CommitRevealWeightsEnabled {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// `true` → enable, `false` → disable.
+            /// Whether the feature is enabled.
             enabled: bool,
         },
 
-        /// Enable/disable Liquid Alpha staking.
+        /// Enable or disable Liquid Alpha staking.
         LiquidAlphaEnabled {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// `true` → enable, `false` → disable.
+            /// Whether Liquid Alpha is enabled.
             enabled: bool,
         },
 
-        /// Lower/upper α bounds for Liquid Alpha sigmoid.
+        /// Lower and upper α bounds for Liquid Alpha sigmoid.
         AlphaValues {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// Lower bound (basis-points).
+            /// Lower bound.
             low: u16,
-            /// Upper bound (basis-points).
+            /// Upper bound.
             high: u16,
         },
 
-        /// Maximum stake (RAO) a single miner can bond.
+        /// Maximum stake (RAO) a miner can bond.
         NetworkMaxStake {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// Stake cap.
+            /// Stake cap (RAO).
             max_stake: u64,
         },
 
-        /// Reveal period (blocks) for committed weights.
+        /// Reveal period (in blocks) for committed weights.
         CommitRevealWeightsInterval {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// Interval in blocks.
+            /// Reveal window length.
             interval: u64,
         },
 
-        /// Allow or block α transfers between miners.
+        /// Enable or block α transfers between miners.
         ToggleTransfer {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// `true` → enable, `false` → disable.
+            /// Transfer enabled?
             enabled: bool,
         },
 
         /// Force-set the owner hotkey (emergency only).
         SubnetOwnerHotkey {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// New hotkey.
+            /// New owner hotkey account.
             hotkey: T::AccountId,
         },
 
-        /// Rate-limited variant of the above (honours schedule).
+        /// Same as `SubnetOwnerHotkey` but rate-limited.
         SNOwnerHotkey {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// New hotkey.
+            /// New owner hotkey account.
             hotkey: T::AccountId,
         },
 
-        /// EMA price halving period (blocks).
+        /// EMA price-halving period (blocks).
         EMAPriceHalvingPeriod {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// Period in blocks.
+            /// Halving period.
             period: u64,
         },
 
-        /// Steepness parameter of α-sigmoid emission curve.
+        /// Steepness of the α-sigmoid emission curve.
         AlphaSigmoidSteepness {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// Steepness value.
+            /// Sigmoid steepness.
             steepness: u16,
         },
 
-        /// Enable/disable Yuma3 staking for the subnet.
+        /// Enable or disable Yuma3 staking.
         Yuma3Enabled {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// `true` → enable, `false` → disable.
+            /// Whether Yuma3 is enabled.
             enabled: bool,
         },
 
-        /// Enable/disable automatic bonds reset.
+        /// Enable or disable automatic bonds reset.
         BondsResetEnabled {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// `true` → enable, `false` → disable.
+            /// Whether reset is enabled.
             enabled: bool,
         },
 
-        /// Toggle internal sub-token.
+        /// Enable or disable the internal sub-token marketplace.
         SubtokenEnabled {
-            /// Target subnet.
+            /// Subnet identifier.
             netuid: NetUid,
-            /// `true` → enable, `false` → disable.
+            /// Whether trading is enabled.
             enabled: bool,
         },
+    }
+
+    /*──────────────  Stub Debug impl  ───────────────*/
+    impl<T: Config> fmt::Debug for HyperParam<T> {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("HyperParam(..)")
+        }
     }
 }
 
