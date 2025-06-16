@@ -1883,10 +1883,7 @@ fn test_sudo_set_hyperparameter_all_variants() {
             root_origin.clone(),
             HyperParam::<Test>::DefaultTake(before + 1)
         ));
-        assert_eq!(
-            SubtensorModule::get_default_delegate_take(),
-            before + 1
-        );
+        assert_eq!(SubtensorModule::get_default_delegate_take(), before + 1);
 
         // TxRateLimit
         let before = SubtensorModule::get_tx_rate_limit();
@@ -1902,10 +1899,7 @@ fn test_sudo_set_hyperparameter_all_variants() {
             root_origin.clone(),
             HyperParam::<Test>::NetworkRateLimit(before + 10)
         ));
-        assert_eq!(
-            SubtensorModule::get_network_rate_limit(),
-            before + 10
-        );
+        assert_eq!(SubtensorModule::get_network_rate_limit(), before + 10);
 
         // TotalIssuance
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
@@ -1919,10 +1913,7 @@ fn test_sudo_set_hyperparameter_all_variants() {
             root_origin.clone(),
             HyperParam::<Test>::NetworkImmunityPeriod(123)
         ));
-        assert_eq!(
-            SubtensorModule::get_network_immunity_period(),
-            123
-        );
+        assert_eq!(SubtensorModule::get_network_immunity_period(), 123);
 
         // NetworkMinLockCost
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
@@ -1942,10 +1933,7 @@ fn test_sudo_set_hyperparameter_all_variants() {
             root_origin.clone(),
             HyperParam::<Test>::LockReductionInterval(4_200)
         ));
-        assert_eq!(
-            SubtensorModule::get_lock_reduction_interval(),
-            4_200
-        );
+        assert_eq!(SubtensorModule::get_lock_reduction_interval(), 4_200);
 
         // StakeThreshold
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
@@ -1959,20 +1947,14 @@ fn test_sudo_set_hyperparameter_all_variants() {
             root_origin.clone(),
             HyperParam::<Test>::NominatorMinRequiredStake(22)
         ));
-        assert_eq!(
-            SubtensorModule::get_nominator_min_required_stake(),
-            22
-        );
+        assert_eq!(SubtensorModule::get_nominator_min_required_stake(), 22);
 
         // TxDelegateTakeRateLimit
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
             root_origin.clone(),
             HyperParam::<Test>::TxDelegateTakeRateLimit(777)
         ));
-        assert_eq!(
-            SubtensorModule::get_tx_delegate_take_rate_limit(),
-            777
-        );
+        assert_eq!(SubtensorModule::get_tx_delegate_take_rate_limit(), 777);
 
         // MinDelegateTake
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
@@ -1986,10 +1968,7 @@ fn test_sudo_set_hyperparameter_all_variants() {
             root_origin.clone(),
             HyperParam::<Test>::EvmChainId(31337)
         ));
-        assert_eq!(
-            pallet_evm_chain_id::ChainId::<Test>::get(),
-            31337
-        );
+        assert_eq!(pallet_evm_chain_id::ChainId::<Test>::get(), 31337);
 
         // SubnetOwnerCut
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
@@ -2004,10 +1983,7 @@ fn test_sudo_set_hyperparameter_all_variants() {
             root_origin.clone(),
             HyperParam::<Test>::SubnetMovingAlpha(alpha)
         ));
-        assert_eq!(
-            pallet_subtensor::SubnetMovingAlpha::<Test>::get(),
-            alpha
-        );
+        assert_eq!(pallet_subtensor::SubnetMovingAlpha::<Test>::get(), alpha);
 
         // ColdkeySwapScheduleDuration
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
@@ -2057,18 +2033,21 @@ fn test_sudo_set_hyperparameter_all_variants() {
         assert_eq!(
             AdminUtils::sudo_set_hyperparameter(
                 user_origin.clone(),
-                HyperParam::<Test>::ServingRateLimit { netuid, limit: before + 1 }
+                HyperParam::<Test>::ServingRateLimit {
+                    netuid,
+                    limit: before + 1
+                }
             ),
             Err(DispatchError::BadOrigin)
         );
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
             owner_origin.clone(),
-            HyperParam::<Test>::ServingRateLimit { netuid, limit: before + 1 }
+            HyperParam::<Test>::ServingRateLimit {
+                netuid,
+                limit: before + 1
+            }
         ));
-        assert_eq!(
-            SubtensorModule::get_serving_rate_limit(netuid),
-            before + 1
-        );
+        assert_eq!(SubtensorModule::get_serving_rate_limit(netuid), before + 1);
 
         // MinDifficulty (root only)
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
@@ -2096,20 +2075,17 @@ fn test_sudo_set_hyperparameter_all_variants() {
             root_origin.clone(),
             HyperParam::<Test>::WeightsSetRateLimit { netuid, limit: 77 }
         ));
-        assert_eq!(
-            SubtensorModule::get_weights_set_rate_limit(netuid),
-            77
-        );
+        assert_eq!(SubtensorModule::get_weights_set_rate_limit(netuid), 77);
 
         // AdjustmentInterval
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
             root_origin.clone(),
-            HyperParam::<Test>::AdjustmentInterval { netuid, interval: 9 }
+            HyperParam::<Test>::AdjustmentInterval {
+                netuid,
+                interval: 9
+            }
         ));
-        assert_eq!(
-            SubtensorModule::get_adjustment_interval(netuid),
-            9
-        );
+        assert_eq!(SubtensorModule::get_adjustment_interval(netuid), 9);
 
         // AdjustmentAlpha
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
@@ -2164,25 +2140,33 @@ fn test_sudo_set_hyperparameter_all_variants() {
         let min_cutoff = pallet_subtensor::MinActivityCutoff::<Test>::get();
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
             owner_origin.clone(),
-            HyperParam::<Test>::ActivityCutoff { netuid, cutoff: min_cutoff }
+            HyperParam::<Test>::ActivityCutoff {
+                netuid,
+                cutoff: min_cutoff
+            }
         ));
-        assert_eq!(
-            SubtensorModule::get_activity_cutoff(netuid),
-            min_cutoff
-        );
+        assert_eq!(SubtensorModule::get_activity_cutoff(netuid), min_cutoff);
 
         // Registration toggles
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
             root_origin.clone(),
-            HyperParam::<Test>::NetworkRegistrationAllowed { netuid, allowed: true }
+            HyperParam::<Test>::NetworkRegistrationAllowed {
+                netuid,
+                allowed: true
+            }
         ));
         assert!(SubtensorModule::get_network_registration_allowed(netuid));
 
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
             root_origin.clone(),
-            HyperParam::<Test>::NetworkPowRegistrationAllowed { netuid, allowed: true }
+            HyperParam::<Test>::NetworkPowRegistrationAllowed {
+                netuid,
+                allowed: true
+            }
         ));
-        assert!(SubtensorModule::get_network_pow_registration_allowed(netuid));
+        assert!(SubtensorModule::get_network_pow_registration_allowed(
+            netuid
+        ));
 
         // TargetRegistrationsPerInterval
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
@@ -2211,20 +2195,14 @@ fn test_sudo_set_hyperparameter_all_variants() {
             root_origin.clone(),
             HyperParam::<Test>::Difficulty { netuid, value: 101 }
         ));
-        assert_eq!(
-            SubtensorModule::get_difficulty_as_u64(netuid),
-            101
-        );
+        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 101);
 
         // MaxAllowedValidators
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
             root_origin.clone(),
             HyperParam::<Test>::MaxAllowedValidators { netuid, max: 8 }
         ));
-        assert_eq!(
-            SubtensorModule::get_max_allowed_validators(netuid),
-            8
-        );
+        assert_eq!(SubtensorModule::get_max_allowed_validators(netuid), 8);
 
         // BondsMovingAverage / BondsPenalty
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
@@ -2243,10 +2221,7 @@ fn test_sudo_set_hyperparameter_all_variants() {
             root_origin.clone(),
             HyperParam::<Test>::MaxRegistrationsPerBlock { netuid, max: 3 }
         ));
-        assert_eq!(
-            SubtensorModule::get_max_registrations_per_block(netuid),
-            3
-        );
+        assert_eq!(SubtensorModule::get_max_registrations_per_block(netuid), 3);
 
         // Tempo
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
@@ -2258,28 +2233,41 @@ fn test_sudo_set_hyperparameter_all_variants() {
         // RaoRecycled
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
             root_origin.clone(),
-            HyperParam::<Test>::RaoRecycled { netuid, recycled: 12 }
+            HyperParam::<Test>::RaoRecycled {
+                netuid,
+                recycled: 12
+            }
         ));
         assert_eq!(SubtensorModule::get_rao_recycled(netuid), 12);
 
         // CommitRevealWeightsEnabled
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
             root_origin.clone(),
-            HyperParam::<Test>::CommitRevealWeightsEnabled { netuid, enabled: true }
+            HyperParam::<Test>::CommitRevealWeightsEnabled {
+                netuid,
+                enabled: true
+            }
         ));
         assert!(SubtensorModule::get_commit_reveal_weights_enabled(netuid));
 
         // LiquidAlphaEnabled
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
             root_origin.clone(),
-            HyperParam::<Test>::LiquidAlphaEnabled { netuid, enabled: true }
+            HyperParam::<Test>::LiquidAlphaEnabled {
+                netuid,
+                enabled: true
+            }
         ));
         assert!(SubtensorModule::get_liquid_alpha_enabled(netuid));
 
         // AlphaValues
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
             owner_origin.clone(),
-            HyperParam::<Test>::AlphaValues { netuid, low: 100, high: 60000 }
+            HyperParam::<Test>::AlphaValues {
+                netuid,
+                low: 100,
+                high: 60000
+            }
         ));
         let (low, high) = SubtensorModule::get_alpha_values(netuid);
         assert_eq!(low, 100);
@@ -2288,20 +2276,29 @@ fn test_sudo_set_hyperparameter_all_variants() {
         // NetworkMaxStake – noop but must succeed
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
             root_origin.clone(),
-            HyperParam::<Test>::NetworkMaxStake { netuid, max_stake: 42 }
+            HyperParam::<Test>::NetworkMaxStake {
+                netuid,
+                max_stake: 42
+            }
         ));
 
         // CommitRevealWeightsInterval
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
             root_origin.clone(),
-            HyperParam::<Test>::CommitRevealWeightsInterval { netuid, interval: 55 }
+            HyperParam::<Test>::CommitRevealWeightsInterval {
+                netuid,
+                interval: 55
+            }
         ));
         assert_eq!(SubtensorModule::get_reveal_period(netuid), 55);
 
         // ToggleTransfer
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
             root_origin.clone(),
-            HyperParam::<Test>::ToggleTransfer { netuid, enabled: true }
+            HyperParam::<Test>::ToggleTransfer {
+                netuid,
+                enabled: true
+            }
         ));
         assert!(SubtensorModule::get_transfer_toggle(netuid));
 
@@ -2309,7 +2306,10 @@ fn test_sudo_set_hyperparameter_all_variants() {
         let new_hotkey = U256::from(777);
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
             owner_origin.clone(),
-            HyperParam::<Test>::SubnetOwnerHotkey { netuid, hotkey: new_hotkey }
+            HyperParam::<Test>::SubnetOwnerHotkey {
+                netuid,
+                hotkey: new_hotkey
+            }
         ));
         assert_eq!(
             pallet_subtensor::SubnetOwnerHotkey::<Test>::get(netuid),
@@ -2320,7 +2320,10 @@ fn test_sudo_set_hyperparameter_all_variants() {
         let sn_hotkey = U256::from(888);
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
             root_origin.clone(),
-            HyperParam::<Test>::SNOwnerHotkey { netuid, hotkey: sn_hotkey }
+            HyperParam::<Test>::SNOwnerHotkey {
+                netuid,
+                hotkey: sn_hotkey
+            }
         ));
         assert_eq!(
             pallet_subtensor::SubnetOwnerHotkey::<Test>::get(netuid),
@@ -2330,7 +2333,10 @@ fn test_sudo_set_hyperparameter_all_variants() {
         // EMAPriceHalvingPeriod
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
             root_origin.clone(),
-            HyperParam::<Test>::EMAPriceHalvingPeriod { netuid, period: 444 }
+            HyperParam::<Test>::EMAPriceHalvingPeriod {
+                netuid,
+                period: 444
+            }
         ));
         assert_eq!(
             pallet_subtensor::EMAPriceHalvingBlocks::<Test>::get(netuid),
@@ -2340,30 +2346,41 @@ fn test_sudo_set_hyperparameter_all_variants() {
         // AlphaSigmoidSteepness
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
             root_origin.clone(),
-            HyperParam::<Test>::AlphaSigmoidSteepness { netuid, steepness: 13 }
+            HyperParam::<Test>::AlphaSigmoidSteepness {
+                netuid,
+                steepness: 13
+            }
         ));
         assert_eq!(SubtensorModule::get_alpha_sigmoid_steepness(netuid), 13);
 
         // Yuma3Enabled
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
             root_origin.clone(),
-            HyperParam::<Test>::Yuma3Enabled { netuid, enabled: true }
+            HyperParam::<Test>::Yuma3Enabled {
+                netuid,
+                enabled: true
+            }
         ));
         assert!(SubtensorModule::get_yuma3_enabled(netuid));
 
         // BondsResetEnabled
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
             root_origin.clone(),
-            HyperParam::<Test>::BondsResetEnabled { netuid, enabled: true }
+            HyperParam::<Test>::BondsResetEnabled {
+                netuid,
+                enabled: true
+            }
         ));
         assert!(SubtensorModule::get_bonds_reset(netuid));
 
         // SubtokenEnabled
         assert_ok!(AdminUtils::sudo_set_hyperparameter(
             root_origin,
-            HyperParam::<Test>::SubtokenEnabled { netuid, enabled: true }
+            HyperParam::<Test>::SubtokenEnabled {
+                netuid,
+                enabled: true
+            }
         ));
         assert!(pallet_subtensor::SubtokenEnabled::<Test>::get(netuid));
     });
 }
-
