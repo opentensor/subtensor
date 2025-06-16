@@ -72,7 +72,7 @@ pub(crate) fn populate_babe<
     pallet_babe::EpochConfig::<T>::put(BABE_GENESIS_EPOCH_CONFIG);
 
     let current_slot = pallet_aura::CurrentSlot::<T>::get();
-    pallet_babe::CurrentSlot::<T>::put(current_slot);
+    pallet_babe::CurrentSlot::<T>::put(current_slot.saturating_add(1u64));
 
     weight
 }
