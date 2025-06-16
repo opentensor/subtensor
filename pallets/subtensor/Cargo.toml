@@ -59,6 +59,7 @@ ark-bls12-381 = { workspace = true, default-features = false }
 ark-serialize = { workspace = true, default-features = false }
 w3f-bls = { workspace = true, default-features = false }
 sha2 = { workspace = true }
+array-bytes = { workspace = true }
 rand_chacha = { workspace = true }
 subtensor-runtime-common = { workspace = true }
 runtime-common = { workspace = true }

@@ -7083,6 +7083,7 @@ dependencies = [
  "approx",
  "ark-bls12-381",
  "ark-serialize",
+ "array-bytes",
  "frame-benchmarking",
  "frame-support",
  "frame-system",

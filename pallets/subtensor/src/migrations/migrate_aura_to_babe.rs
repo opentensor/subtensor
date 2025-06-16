@@ -46,11 +46,17 @@ pub(crate) fn populate_babe<
         .map(|a| {
             // BabeAuthorityId and AuraId are both sr25519::Public, so can convert between with
             // Encode/Decode.
-            log::info!("Converting Aura authority {:?} to Babe authority", a);
             let encoded: Vec<u8> = a.encode();
+            log::info!(
+                "Converting Aura authority {:?} to Babe authority",
+                array_bytes::bytes2hex("", &a)
+            );
             let decoded: BabeAuthorityId =
                 BabeAuthorityId::decode(&mut &encoded[..]).expect("Failed to decode authority");
-            log::info!("Decoded Babe authority: {:?}", decoded);
+            log::info!(
+                "Decoded Babe authority: {:?}",
+                array_bytes::bytes2hex("", &decoded)
+            );
             (decoded, 1)
         })
         .collect::<Vec<_>>();
@@ -61,14 +67,12 @@ pub(crate) fn populate_babe<
         .expect("Initial number of authorities should be lower than T::MaxAuthorities");
 
     pallet_babe::SegmentIndex::<T>::put(0);
-    assert!(
-        pallet_babe::Authorities::<T>::get().is_empty(),
-        "Authorities are already initialized!"
-    );
     pallet_babe::Authorities::<T>::put(&bounded_authorities);
     pallet_babe::NextAuthorities::<T>::put(&bounded_authorities);
-
     pallet_babe::EpochConfig::<T>::put(BABE_GENESIS_EPOCH_CONFIG);
+
+    let current_slot = pallet_aura::CurrentSlot::<T>::get();
+    pallet_babe::CurrentSlot::<T>::put(current_slot.saturating_add(1u64));
 
     weight
 }
@@ -110,4 +114,3 @@ pub mod aura_to_babe {
         }
     }
 }
-
