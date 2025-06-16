@@ -10,12 +10,7 @@ concurrency:
 
 on:
   pull_request:
-    branches:
-      - devnet
-      - devnet-ready
-      - testnet
-      - testnet-ready
-      - main
+    branches: ["*"]
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
   workflow_dispatch:
@@ -30,35 +25,10 @@ env:
   VERBOSE: ${{ github.event.inputs.verbose }}
 
 jobs:
-  apply-label-to-new-pr:
-    runs-on: ubuntu-latest
-    outputs:
-      should_continue: ${{ steps.check.outputs.should_continue }}
-    steps:
-      - name: Check
-        id: check
-        run: |
-          ACTION="${{ github.event.action }}"
-          if [[ "$ACTION" == "opened" || "$ACTION" == "reopened" ]]; then
-            echo "should_continue=true" >> $GITHUB_OUTPUT
-          else
-            echo "should_continue=false" >> $GITHUB_OUTPUT
-          fi
-        shell: bash
-
-      - name: Add label
-        if: steps.check.outputs.should_continue == 'true'
-        uses: actions-ecosystem/action-add-labels@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          labels: run-bittensor-e2e-tests
-
   check-label:
-    needs: apply-label-to-new-pr
     runs-on: ubuntu-latest
-    if: always()
     outputs:
-      run-bittensor-e2e-tests: ${{ steps.get-labels.outputs.run-bittensor-e2e-tests }}
+      skip-bittensor-e2e-tests: ${{ steps.get-labels.outputs.skip-bittensor-e2e-tests }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -68,17 +38,17 @@ jobs:
         run: |
           LABELS=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
           echo "Current labels: $LABELS"
-          if echo "$LABELS" | grep -q "run-bittensor-e2e-tests"; then
-            echo "run-bittensor-e2e-tests=true" >> $GITHUB_OUTPUT
+          if echo "$LABELS" | grep -q "skip-bittensor-e2e-tests"; then
+            echo "skip-bittensor-e2e-tests=true" >> $GITHUB_OUTPUT
           else
-            echo "run-bittensor-e2e-tests=false" >> $GITHUB_OUTPUT
+            echo "skip-bittensor-e2e-tests=false" >> $GITHUB_OUTPUT
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   find-btcli-e2e-tests:
     needs: check-label
-    if: always() && needs.check-label.outputs.run-bittensor-e2e-tests == 'true'
+    if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
     runs-on: ubuntu-latest
     outputs:
       test-files: ${{ steps.get-btcli-tests.outputs.test-files }}
@@ -103,7 +73,7 @@ jobs:
 
   find-sdk-e2e-tests:
     needs: check-label
-    if: always() && needs.check-label.outputs.run-bittensor-e2e-tests == 'true'
+    if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
     runs-on: ubuntu-latest
     outputs:
       test-files: ${{ steps.get-sdk-tests.outputs.test-files }}
@@ -164,7 +134,7 @@ jobs:
       - check-label
       - find-btcli-e2e-tests
       - build-image-with-current-branch
-    if: always() && needs.check-label.outputs.run-bittensor-e2e-tests == 'true'
+    if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -261,7 +231,7 @@ jobs:
       - check-label
       - find-sdk-e2e-tests
       - build-image-with-current-branch
-    if: always() && needs.check-label.outputs.run-bittensor-e2e-tests == 'true'
+    if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
