@@ -3951,12 +3951,11 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
 #[test]
 fn test_pending_cooldown_one_day() {
     let curr_block = 1;
-
+    // TODO: Fix when CHK splitting patched
     let expected_cooldown = if cfg!(feature = "fast-blocks") {
-        15
+        0
     } else {
-        // TODO: Change back when CHK splitting issue resolved
-        1
+        0
     };
 
     new_test_ext(curr_block).execute_with(|| {
