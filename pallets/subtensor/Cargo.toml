@@ -122,7 +122,8 @@ std = [
 	"runtime-common/std",
 	"pallet-aura/std",
 	"pallet-babe/std",
-	"babe-primitives/std"
+	"babe-primitives/std",
+	"sp-consensus-aura/std"
 ]
 default = ["std"]
 runtime-benchmarks = [
