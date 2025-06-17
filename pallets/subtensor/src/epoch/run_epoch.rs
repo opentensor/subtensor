@@ -530,6 +530,18 @@ impl<T: Config> Pallet<T> {
             is_topk_nonzero(&stake, max_allowed_validators as usize);
         log::trace!("new_validator_permits: {:?}", new_validator_permits);
 
+        // remove bonds and weights from validators lost permits
+        validator_permits
+            .iter()
+            .enumerate()
+            .zip(new_validator_permits.iter())
+            .for_each(|((index, old), new)| {
+                if *old && !*new {
+                    Bonds::<T>::remove(netuid, index as u16);
+                    Weights::<T>::remove(netuid, index as u16);
+                }
+            });
+
         // ==================
         // == Active Stake ==
         // ==================
