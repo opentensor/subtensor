@@ -22,7 +22,7 @@ use sp_runtime::traits::Dispatchable;
 use sp_runtime::traits::StaticLookup;
 use subtensor_runtime_common::ProxyType;
 
-use pallet_admin_utils::PrecompileEnum;
+use pallet_admin_utils::types::PrecompileEnum;
 
 use crate::alpha::*;
 use crate::balance_transfer::*;

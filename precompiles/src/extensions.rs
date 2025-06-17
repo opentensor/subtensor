@@ -4,7 +4,7 @@ use alloc::format;
 
 use frame_support::dispatch::{GetDispatchInfo, Pays, PostDispatchInfo};
 use frame_system::RawOrigin;
-use pallet_admin_utils::{PrecompileEnable, PrecompileEnum};
+use pallet_admin_utils::{PrecompileEnable, types::PrecompileEnum};
 use pallet_evm::{
     AddressMapping, BalanceConverter, EvmBalance, ExitError, GasWeightMapping, Precompile,
     PrecompileFailure, PrecompileHandle, PrecompileResult,
