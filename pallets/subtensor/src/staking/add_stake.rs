@@ -1,5 +1,6 @@
 use super::*;
 use substrate_fixed::types::I96F32;
+use subtensor_runtime_common::NetUid;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic add_stake: Adds stake to a hotkey account.
@@ -37,7 +38,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_add_stake(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
-        netuid: u16,
+        netuid: NetUid,
         stake_to_be_added: u64,
     ) -> dispatch::DispatchResult {
         // 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
@@ -124,7 +125,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_add_stake_limit(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
-        netuid: u16,
+        netuid: NetUid,
         stake_to_be_added: u64,
         limit_price: u64,
         allow_partial: bool,
@@ -181,11 +182,11 @@ impl<T: Config> Pallet<T> {
     }
 
     // Returns the maximum amount of RAO that can be executed with price limit
-    pub fn get_max_amount_add(netuid: u16, limit_price: u64) -> Result<u64, Error<T>> {
+    pub fn get_max_amount_add(netuid: NetUid, limit_price: u64) -> Result<u64, Error<T>> {
         // Corner case: root and stao
         // There's no slippage for root or stable subnets, so if limit price is 1e9 rao or
         // higher, then max_amount equals u64::MAX, otherwise it is 0.
-        if (netuid == Self::get_root_netuid()) || (SubnetMechanism::<T>::get(netuid)) == 0 {
+        if netuid.is_root() || SubnetMechanism::<T>::get(netuid) == 0 {
             if limit_price >= 1_000_000_000 {
                 return Ok(u64::MAX);
             } else {

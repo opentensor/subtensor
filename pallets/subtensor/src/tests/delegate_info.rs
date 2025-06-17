@@ -5,6 +5,7 @@ use frame_support::assert_ok;
 use scale_info::prelude::collections::HashMap;
 use sp_core::U256;
 use substrate_fixed::types::U64F64;
+use subtensor_runtime_common::NetUid;
 
 #[test]
 fn test_return_per_1000_tao() {
@@ -110,7 +111,7 @@ fn test_get_delegated() {
             delegatee_4,
         ];
         let to_stakes = [to_stake_0, to_stake_1, to_stake_2, to_stake_3, to_stake_4];
-        let mut expected_stake_map: HashMap<U256, HashMap<U256, HashMap<u16, u64>>> =
+        let mut expected_stake_map: HashMap<U256, HashMap<U256, HashMap<NetUid, u64>>> =
             HashMap::new();
 
         for (i, to_stake) in to_stakes.iter().enumerate() {
@@ -147,15 +148,10 @@ fn test_get_delegated() {
                     if let Some(expected_under_delegate) =
                         coldkey_stakes_map.get(&delegate_info.delegate_ss58)
                     {
-                        if let Some(expected_stake) =
-                            expected_under_delegate.get(&u16::from(*netuid))
-                        {
+                        if let Some(expected_stake) = expected_under_delegate.get(&netuid.0) {
                             assert_eq!(u64::from(*staked), *expected_stake);
                         } else {
-                            panic!(
-                                "Netuid {} not found in expected stake map",
-                                u16::from(*netuid)
-                            );
+                            panic!("Netuid {} not found in expected stake map", netuid.0);
                         };
                     } else {
                         panic!(

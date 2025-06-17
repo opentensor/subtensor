@@ -4,6 +4,7 @@ extern crate alloc;
 
 use core::marker::PhantomData;
 
+use fp_evm::{ExitError, PrecompileFailure};
 use frame_support::{
     dispatch::{GetDispatchInfo, PostDispatchInfo},
     pallet_prelude::Decode,
@@ -23,21 +24,25 @@ use subtensor_runtime_common::ProxyType;
 
 use pallet_admin_utils::PrecompileEnum;
 
+use crate::alpha::*;
 use crate::balance_transfer::*;
 use crate::ed25519::*;
 use crate::extensions::*;
 use crate::metagraph::*;
 use crate::neuron::*;
+use crate::sr25519::*;
 use crate::staking::*;
 use crate::storage_query::*;
 use crate::subnet::*;
 use crate::uid_lookup::*;
 
+mod alpha;
 mod balance_transfer;
 mod ed25519;
 mod extensions;
 mod metagraph;
 mod neuron;
+mod sr25519;
 mod staking;
 mod storage_query;
 mod subnet;
@@ -91,7 +96,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 17] {
+    pub fn used_addresses() -> [H160; 19] {
         [
             hash(1),
             hash(2),
@@ -102,6 +107,7 @@ where
             hash(1024),
             hash(1025),
             hash(Ed25519Verify::<R::AccountId>::INDEX),
+            hash(Sr25519Verify::<R::AccountId>::INDEX),
             hash(BalanceTransferPrecompile::<R>::INDEX),
             hash(StakingPrecompile::<R>::INDEX),
             hash(SubnetPrecompile::<R>::INDEX),
@@ -110,6 +116,7 @@ where
             hash(StakingPrecompileV2::<R>::INDEX),
             hash(StorageQueryPrecompile::<R>::INDEX),
             hash(UidLookupPrecompile::<R>::INDEX),
+            hash(AlphaPrecompile::<R>::INDEX),
         ]
     }
 }
@@ -150,6 +157,9 @@ where
             a if a == hash(Ed25519Verify::<R::AccountId>::INDEX) => {
                 Some(Ed25519Verify::<R::AccountId>::execute(handle))
             }
+            a if a == hash(Sr25519Verify::<R::AccountId>::INDEX) => {
+                Some(Sr25519Verify::<R::AccountId>::execute(handle))
+            }
             // Subtensor specific precompiles :
             a if a == hash(BalanceTransferPrecompile::<R>::INDEX) => {
                 BalanceTransferPrecompile::<R>::try_execute::<R>(
@@ -178,6 +188,9 @@ where
             a if a == hash(StorageQueryPrecompile::<R>::INDEX) => {
                 Some(StorageQueryPrecompile::<R>::execute(handle))
             }
+            a if a == hash(AlphaPrecompile::<R>::INDEX) => {
+                AlphaPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Alpha)
+            }
             _ => None,
         }
     }
@@ -192,4 +205,26 @@ where
 
 fn hash(a: u64) -> H160 {
     H160::from_low_u64_be(a)
+}
+
+/*
+ *
+ * This is used to parse a slice from bytes with PrecompileFailure as Error
+ *
+ */
+fn parse_slice(data: &[u8], from: usize, to: usize) -> Result<&[u8], PrecompileFailure> {
+    let maybe_slice = data.get(from..to);
+    if let Some(slice) = maybe_slice {
+        Ok(slice)
+    } else {
+        log::error!(
+            "fail to get slice from data, {:?}, from {}, to {}",
+            &data,
+            from,
+            to
+        );
+        Err(PrecompileFailure::Error {
+            exit_status: ExitError::InvalidRange,
+        })
+    }
 }
