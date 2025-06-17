@@ -66,6 +66,14 @@ impl NetUid {
     pub fn next(&self) -> NetUid {
         Self(self.0.saturating_add(1))
     }
+
+    pub fn prev(&self) -> NetUid {
+        Self(self.0.saturating_sub(1))
+    }
+
+    pub fn inner(&self) -> u16 {
+        self.0
+    }
 }
 
 impl Display for NetUid {
@@ -130,6 +138,7 @@ pub enum ProxyType {
     RootWeights,
     ChildKeys,
     SudoUncheckedSetCode,
+    SwapHotkey,
 }
 
 impl Default for ProxyType {
