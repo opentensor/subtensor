@@ -39,7 +39,7 @@ jobs:
       - name: Get labels from PR
         id: get-labels
         run: |
-          LABELS=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          LABELS=$(gh pr -R ${{ github.repository }} view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
           echo "Current labels: $LABELS"
           if echo "$LABELS" | grep -q "skip-bittensor-e2e-tests"; then
             echo "skip-bittensor-e2e-tests=true" >> $GITHUB_OUTPUT
