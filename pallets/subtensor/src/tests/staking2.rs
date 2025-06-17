@@ -594,7 +594,7 @@ fn test_try_associate_hotkey() {
             RuntimeCall::SubtensorModule(crate::Call::try_associate_hotkey { hotkey: hotkey1 });
         let dispatch_info = call.get_dispatch_info();
         // Verify tx weight > 0
-        assert!(dispatch_info.weight.all_gte(Weight::from_all(0)));
+        assert!(dispatch_info.call_weight.all_gte(Weight::from_all(0)));
         // Verify pays Yes is set
         assert_eq!(dispatch_info.pays_fee, Pays::Yes);
 
