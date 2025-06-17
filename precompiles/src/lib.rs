@@ -164,11 +164,9 @@ where
                 )
             }
             a if a == hash(StakingPrecompile::<R>::INDEX) => {
-                log::error!("====== {} {}", file!(), line!());
                 StakingPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Staking)
             }
             a if a == hash(StakingPrecompileV2::<R>::INDEX) => {
-                log::error!("====== {} {}", file!(), line!());
                 StakingPrecompileV2::<R>::try_execute::<R>(handle, PrecompileEnum::Staking)
             }
             a if a == hash(SubnetPrecompile::<R>::INDEX) => {
