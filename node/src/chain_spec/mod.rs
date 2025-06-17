@@ -90,21 +90,21 @@ pub fn get_authority_keys_from_seed(seed: &str) -> AuthorityKeys {
     )
 }
 
-// pub fn get_authority_keys_from_ss58(
-//     account: &str,
-//     babe: &str,
-//     grandpa: &str,
-// ) -> AuthorityKeys {
-//     AuthorityKeys::new(
-//         AccountId32::from_str(account).unwrap(),
-//         get_from_ss58_addr::<BabeId>(babe),
-//         get_from_ss58_addr::<GrandpaId>(grandpa),
-//     )
-// }
-//
-// pub fn get_from_ss58_addr<TPublic: Public>(addr: &str) -> <TPublic::Pair as Pair>::Public {
-//     Ss58Codec::from_ss58check(addr).unwrap()
-// }
+pub fn get_authority_keys_from_ss58(
+    account: &str,
+    babe: &str,
+    grandpa: &str,
+) -> AuthorityKeys {
+    AuthorityKeys::new(
+        AccountId32::from_str(account).unwrap(),
+        get_from_ss58_addr::<BabeId>(babe),
+        get_from_ss58_addr::<GrandpaId>(grandpa),
+    )
+}
+
+fn get_from_ss58_addr<TPublic: Public>(addr: &str) -> <TPublic::Pair as Pair>::Public {
+    Ss58Codec::from_ss58check(addr).unwrap()
+}
 
 // Includes for nakamoto genesis
 use serde::{Deserialize, Serialize};

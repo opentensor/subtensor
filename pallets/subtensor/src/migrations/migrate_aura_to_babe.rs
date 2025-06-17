@@ -4,9 +4,12 @@ use babe_primitives::BabeAuthorityWeight;
 use frame_support::WeakBoundedVec;
 use frame_support::pallet_prelude::{Identity, OptionQuery, Weight};
 use frame_support::storage_alias;
+use num_traits::Zero as _;
 use pallet_aura;
 use pallet_babe;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_consensus_slots::Slot;
+use sp_runtime::SaturatedConversion;
 use sp_std::vec::Vec;
 
 /// 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
@@ -34,11 +37,21 @@ pub mod deprecated_loaded_emission_format {
 }
 
 pub(crate) fn populate_babe<
-    T: Config + pallet_babe::Config + pallet_aura::Config<AuthorityId = AuraId>,
+    T: Config
+        + pallet_babe::Config
+        + pallet_aura::Config<AuthorityId = AuraId>
+        + pallet_timestamp::Config,
 >() -> Weight {
     // Initialize weight counter
     // TODO: Compute weight correctly
     let weight = T::DbWeight::get().reads(1);
+
+    // Nothing to do if we have already migrated to Babe.
+    //
+    // This check is critical for the runtime upgrade to be idempotent!
+    if !pallet_babe::Authorities::<T>::get().len().is_zero() {
+        return weight;
+    }
 
     let authorities = pallet_aura::Authorities::<T>::get();
     let authorities: Vec<(BabeAuthorityId, BabeAuthorityWeight)> = authorities
@@ -66,14 +79,38 @@ pub(crate) fn populate_babe<
         )
         .expect("Initial number of authorities should be lower than T::MaxAuthorities");
 
+    log::info!("Set {} into bounded authorites", bounded_authorities.len());
     pallet_babe::SegmentIndex::<T>::put(0);
     pallet_babe::Authorities::<T>::put(&bounded_authorities);
     pallet_babe::NextAuthorities::<T>::put(&bounded_authorities);
     pallet_babe::EpochConfig::<T>::put(BABE_GENESIS_EPOCH_CONFIG);
 
-    // Need to set plus 1 so the runtime upgrade block can be built with Aura code.
-    let current_slot = pallet_aura::CurrentSlot::<T>::get();
-    pallet_babe::CurrentSlot::<T>::put(current_slot.saturating_add(1u64));
+    //     2025-06-17 13:11:31 panicked at /Users/liamaharon/grimoire/polkadot-sdk/substrate/frame/babe/src/lib.rs:938:3:
+    // assertion `left == right` failed: Timestamp slot must match `CurrentSlot`
+    //   left: Slot(7000490749) // current slot
+    //  right: Slot(7000490765) // timestamp slot
+
+    let now = pallet_timestamp::Now::<T>::get();
+    let slot_duration = pallet_babe::Pallet::<T>::slot_duration();
+    let timestamp_slot = now / slot_duration;
+    let timestamp_slot = Slot::from(timestamp_slot.saturated_into::<u64>());
+
+    log::info!(
+        "now: {:?}, slot_duration: {:?}, timestamp_slot: {:?}",
+        &now,
+        &slot_duration,
+        &timestamp_slot
+    );
+
+    // let current_slot = pallet_aura::CurrentSlot::<T>::get();
+    pallet_babe::CurrentSlot::<T>::put(timestamp_slot.saturating_add(1u64));
+
+    // TODO: Init session pallet
+
+    // TODO: Init Staking pallet
+
+    // Brick the Aura pallet so no new Aura blocks can be produced after this runtime upgrade.
+    let _ = pallet_aura::Authorities::<T>::take();
 
     weight
 }
@@ -89,8 +126,12 @@ pub mod aura_to_babe {
         PhantomData<T>,
     );
 
-    impl<T: Config + pallet_babe::Config + pallet_aura::Config<AuthorityId = AuraId>>
-        OnRuntimeUpgrade for Migration<T>
+    impl<
+        T: Config
+            + pallet_babe::Config
+            + pallet_aura::Config<AuthorityId = AuraId>
+            + pallet_timestamp::Config,
+    > OnRuntimeUpgrade for Migration<T>
     {
         /// Performs the migration to initialize and update the total issuance.
         ///
