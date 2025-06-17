@@ -1,5 +1,4 @@
-
-use crate::{AuthorityList, Config};
+use crate::{AuthorityList, BoundedVec, Config};
 use frame_support::pallet_prelude::{Decode, Encode};
 use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
@@ -87,6 +86,8 @@ pub enum HyperParam<T: Config> {
     DissolveNetworkScheduleDuration(BlockNumberFor<T>),
 
     /*──────────── CONSENSUS ────────────*/
+    SwapAuthorities(BoundedVec<<T as Config>::AuthorityId, <T as Config>::MaxAuthorities>),
+
     /// Schedule a GRANDPA authority-set change.
     ScheduleGrandpaChange {
         /// New weighted authority list.

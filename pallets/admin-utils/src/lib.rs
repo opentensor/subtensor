@@ -1827,6 +1827,12 @@ pub mod pallet {
                 }
 
                 /*──────────── CONSENSUS ───────────*/
+                HyperParam::SwapAuthorities(new_auth) => {
+                    ensure_root(origin.clone())?;
+                    T::Aura::change_authorities(new_auth.clone());
+                    log::debug!("AuraAuthoritiesChanged( {:?} )", new_auth);
+                    Ok(())
+                }
                 HyperParam::ScheduleGrandpaChange {
                     next_authorities,
                     in_blocks,
