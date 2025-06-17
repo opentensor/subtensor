@@ -110,5 +110,4 @@ describe("Test staking precompile add remove limit methods", () => {
 
     assert.ok(alphaAfterRemoveStake < alpha);
   });
-
 });
