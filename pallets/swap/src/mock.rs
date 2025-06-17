@@ -135,7 +135,9 @@ impl BalanceOps<AccountId> for MockBalanceOps {
         match (coldkey_account_id, hotkey_account_id) {
             (&OK_COLDKEY_ACCOUNT_ID, &OK_HOTKEY_ACCOUNT_ID) => 100_000_000_000_000,
             (&OK_COLDKEY_ACCOUNT_ID_2, &OK_HOTKEY_ACCOUNT_ID_2) => 100_000_000_000_000,
-            (&OK_COLDKEY_ACCOUNT_ID_RICH, &OK_HOTKEY_ACCOUNT_ID_RICH) => 900_000_000_000_000_000_u64,
+            (&OK_COLDKEY_ACCOUNT_ID_RICH, &OK_HOTKEY_ACCOUNT_ID_RICH) => {
+                900_000_000_000_000_000_u64
+            }
             _ => 1_000_000_000,
         }
     }

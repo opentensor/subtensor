@@ -4,7 +4,7 @@ use substrate_fixed::types::U64F64;
 use subtensor_swap_interface::OrderType;
 
 pub mod pallet;
-mod position;
+pub mod position;
 pub mod tick;
 pub mod weights;
 

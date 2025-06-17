@@ -6,6 +6,7 @@ use crate::*;
 use alloc::collections::BTreeMap;
 use approx::assert_abs_diff_eq;
 use frame_support::assert_ok;
+use pallet_subtensor_swap::position::PositionId;
 use sp_core::U256;
 use substrate_fixed::types::{I64F64, I96F32, U96F32};
 
@@ -2152,5 +2153,46 @@ fn test_run_coinbase_not_started_start_after() {
         // We expect the stake to remain unchanged.
         assert!(new_stake > init_stake);
         log::info!("new_stake: {}", new_stake);
+    });
+}
+
+/// Test that coinbase updates protocol position liquidity
+/// cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_v3_liquidity_update --exact --show-output
+#[test]
+fn test_coinbase_v3_liquidity_update() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+
+        // add network
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Force the swap to initialize
+        SubtensorModule::swap_tao_for_alpha(netuid, 0, 1_000_000_000_000).unwrap();
+
+        let protocol_account_id = pallet_subtensor_swap::Pallet::<Test>::protocol_account_id();
+        let position = pallet_subtensor_swap::Positions::<Test>::get((
+            netuid,
+            protocol_account_id,
+            PositionId::from(1),
+        ))
+        .unwrap();
+        let liquidity_before = position.liquidity;
+
+        // Enable emissions and run coinbase (which will increase position liquidity)
+        let emission: u64 = 1_234_567;
+        FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0.5));
+        SubtensorModule::run_coinbase(U96F32::from_num(emission));
+
+        let position_after = pallet_subtensor_swap::Positions::<Test>::get((
+            netuid,
+            protocol_account_id,
+            PositionId::from(1),
+        ))
+        .unwrap();
+        let liquidity_after = position_after.liquidity;
+
+        assert!(liquidity_before < liquidity_after);
     });
 }

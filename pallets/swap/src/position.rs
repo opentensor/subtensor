@@ -136,15 +136,8 @@ impl<T: Config> Position<T> {
 
         let liquidity_frac = I64F64::saturating_from_num(self.liquidity);
 
-        println!("liquidity_frac = {:?}", liquidity_frac);
-        println!("fee_tao = {:?}", fee_tao);
-        println!("fee_alpha = {:?}", fee_alpha);
-
         fee_tao = liquidity_frac.saturating_mul(fee_tao);
         fee_alpha = liquidity_frac.saturating_mul(fee_alpha);
-
-        println!("fee_tao = {:?}", fee_tao);
-        println!("fee_alpha = {:?}", fee_alpha);
 
         (
             fee_tao.saturating_to_num::<u64>(),

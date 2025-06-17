@@ -7,7 +7,7 @@ use core::marker::PhantomData;
 use frame_benchmarking::v2::*;
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
-use substrate_fixed::types::U64F64;
+use substrate_fixed::types::{I64F64, U64F64};
 use subtensor_runtime_common::NetUid;
 
 use crate::{
@@ -82,8 +82,8 @@ mod benchmarks {
                 tick_low: TickIndex::new(-10000).unwrap(),
                 tick_high: TickIndex::new(10000).unwrap(),
                 liquidity: 1000,
-                fees_tao: U64F64::from_num(0),
-                fees_alpha: U64F64::from_num(0),
+                fees_tao: I64F64::from_num(0),
+                fees_alpha: I64F64::from_num(0),
                 _phantom: PhantomData,
             },
         );
@@ -115,8 +115,8 @@ mod benchmarks {
                 tick_low: TickIndex::new(-10000).unwrap(),
                 tick_high: TickIndex::new(10000).unwrap(),
                 liquidity: 10000,
-                fees_tao: U64F64::from_num(0),
-                fees_alpha: U64F64::from_num(0),
+                fees_tao: I64F64::from_num(0),
+                fees_alpha: I64F64::from_num(0),
                 _phantom: PhantomData,
             },
         );

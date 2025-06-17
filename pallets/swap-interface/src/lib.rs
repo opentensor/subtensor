@@ -27,6 +27,7 @@ pub trait SwapHandler<AccountId> {
     fn current_alpha_price(netuid: NetUid) -> U96F32;
     fn max_price() -> u64;
     fn min_price() -> u64;
+    fn adjust_protocol_liquidity(netuid: NetUid);
 }
 
 #[derive(Debug, PartialEq)]
