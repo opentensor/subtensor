@@ -22,7 +22,7 @@ import { log } from "console";
 
 import { abi, bytecode } from "../src/contracts/stakeWrap";
 
-describe("Test staking precompile add remove limit methods", () => {
+describe("Test staking precompile add from deployed contract", () => {
   const hotkey = getRandomSubstrateKeypair();
   const coldkey = getRandomSubstrateKeypair();
   const wallet1 = generateRandomEthersWallet();
@@ -47,22 +47,48 @@ describe("Test staking precompile add remove limit methods", () => {
     console.log("will test in subnet: ", netuid);
   });
 
-  it("Staker add limit", async () => {
+  it("Staker add stake", async () => {
     let netuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1;
-    let ss58Address = convertH160ToSS58(wallet1.address);
-
-    const alpha = await api.query.SubtensorModule.Alpha.getValue(
-      convertPublicKeyToSs58(hotkey.publicKey),
-      ss58Address,
-      netuid,
-    );
-
 
     const contractFactory = new ethers.ContractFactory(abi, bytecode, wallet1)
     const contract = await contractFactory.deploy()
     await contract.waitForDeployment()
 
-    console.log("========= deployed address: ", contract.target.toString())
+
+    // stake will remove the balance from contract, need transfer token to deployed contract
+    const ethTransfer = {
+      to: contract.target.toString(),
+      value: raoToEth(tao(10000)).toString()
+    }
+
+    const txResponse = await wallet1.sendTransaction(ethTransfer)
+    await txResponse.wait();
+
+    const balance = await api.query.System.Account.getValue(convertH160ToSS58(contract.target.toString()))
+    console.log(" == balance is ", balance.data.free)
+
+    const deployedContract = new ethers.Contract(
+      contract.target.toString(),
+      abi,
+      wallet1,
+    );
+
+    const tx = await deployedContract.stake(
+      hotkey.publicKey,
+      netuid,
+      tao(2000),
+    );
+    await tx.wait();
+
+  });
+
+  it("Staker add stake limit", async () => {
+    let netuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1;
+    let ss58Address = convertH160ToSS58(wallet1.address);
+
+    const contractFactory = new ethers.ContractFactory(abi, bytecode, wallet1)
+    const contract = await contractFactory.deploy()
+    await contract.waitForDeployment()
 
 
     // stake will remove the balance from contract, need transfer token to deployed contract
@@ -92,10 +118,5 @@ describe("Test staking precompile add remove limit methods", () => {
     );
     await tx.wait();
 
-    const alphaAfterStakeLimit = await api.query.SubtensorModule.Alpha.getValue(
-      convertPublicKeyToSs58(hotkey.publicKey),
-      ss58Address,
-      netuid,
-    );
   });
 });

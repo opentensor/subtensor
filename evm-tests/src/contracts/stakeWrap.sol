@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 
-pragma solidity >=0.8.2 <0.9.0;
+pragma solidity >=0.8.0 <0.8.2;
 
 address constant ISTAKING_ADDRESS = 0x0000000000000000000000000000000000000805;
 
