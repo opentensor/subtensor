@@ -31,8 +31,11 @@ pub const OK_COLDKEY_ACCOUNT_ID: AccountId = 1;
 pub const OK_HOTKEY_ACCOUNT_ID: AccountId = 1000;
 pub const OK_COLDKEY_ACCOUNT_ID_2: AccountId = 2;
 pub const OK_HOTKEY_ACCOUNT_ID_2: AccountId = 1001;
+pub const OK_COLDKEY_ACCOUNT_ID_RICH: AccountId = 5;
+pub const OK_HOTKEY_ACCOUNT_ID_RICH: AccountId = 1005;
 pub const NOT_SUBNET_OWNER: AccountId = 666;
 pub const NON_EXISTENT_NETUID: u16 = 999;
+pub const WRAPPING_FEES_NETUID: u16 = 124;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -86,6 +89,7 @@ impl SubnetInfo<AccountId> for MockLiquidityProvider {
     fn tao_reserve(netuid: NetUid) -> u64 {
         match netuid.into() {
             123u16 => 10_000,
+            WRAPPING_FEES_NETUID => 100_000_000_000,
             _ => 1_000_000_000_000,
         }
     }
@@ -93,6 +97,7 @@ impl SubnetInfo<AccountId> for MockLiquidityProvider {
     fn alpha_reserve(netuid: NetUid) -> u64 {
         match netuid.into() {
             123u16 => 10_000,
+            WRAPPING_FEES_NETUID => 400_000_000_000,
             _ => 4_000_000_000_000,
         }
     }
@@ -117,6 +122,7 @@ impl BalanceOps<AccountId> for MockBalanceOps {
         match *account_id {
             OK_COLDKEY_ACCOUNT_ID => 100_000_000_000_000,
             OK_COLDKEY_ACCOUNT_ID_2 => 100_000_000_000_000,
+            OK_COLDKEY_ACCOUNT_ID_RICH => 900_000_000_000_000_000_u64,
             _ => 1_000_000_000,
         }
     }
@@ -129,6 +135,7 @@ impl BalanceOps<AccountId> for MockBalanceOps {
         match (coldkey_account_id, hotkey_account_id) {
             (&OK_COLDKEY_ACCOUNT_ID, &OK_HOTKEY_ACCOUNT_ID) => 100_000_000_000_000,
             (&OK_COLDKEY_ACCOUNT_ID_2, &OK_HOTKEY_ACCOUNT_ID_2) => 100_000_000_000_000,
+            (&OK_COLDKEY_ACCOUNT_ID_RICH, &OK_HOTKEY_ACCOUNT_ID_RICH) => 900_000_000_000_000_000_u64,
             _ => 1_000_000_000,
         }
     }
@@ -188,6 +195,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
             // enable V3 for this range of netuids
             EnabledUserLiquidity::<Test>::set(NetUid::from(netuid), true);
         }
+        EnabledUserLiquidity::<Test>::set(NetUid::from(WRAPPING_FEES_NETUID), true);
     });
     ext
 }

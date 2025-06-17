@@ -387,13 +387,13 @@ fn test_add_liquidity_out_of_bounds() {
 #[test]
 fn test_add_liquidity_over_balance() {
     new_test_ext().execute_with(|| {
-        let coldkey_account_id = 2;
-        let hotkey_account_id = 3;
+        let coldkey_account_id = 3;
+        let hotkey_account_id = 1002;
 
         [
-            // Lower than price (not enough alpha)
+            // Lower than price (not enough tao)
             (0.1, 0.2, 100_000_000_000_u64),
-            // Higher than price (not enough tao)
+            // Higher than price (not enough alpha)
             (0.3, 0.4, 100_000_000_000_u64),
             // Around the price (not enough both)
             (0.1, 0.4, 100_000_000_000_u64),
@@ -1601,5 +1601,128 @@ fn test_new_lp_doesnt_get_old_fees() {
         let (actual_fee_tao, actual_fee_alpha) = position.collect_fees();
         assert_abs_diff_eq!(actual_fee_tao, 0, epsilon = 1);
         assert_abs_diff_eq!(actual_fee_alpha, 0, epsilon = 1);
+    });
+}
+
+fn bbox(t: U64F64, a: U64F64, b: U64F64) -> U64F64 {
+    if t < a {
+        a
+    } else if t > b {
+        b
+    } else {
+        t
+    }
+}
+
+#[test]
+fn test_wrapping_fees() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(WRAPPING_FEES_NETUID);
+        let position_1_low_price = 0.20;
+        let position_1_high_price = 0.255;
+        let position_2_low_price = 0.255;
+        let position_2_high_price = 0.3;
+        assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+
+        Pallet::<Test>::do_add_liquidity(
+            netuid,
+            &OK_COLDKEY_ACCOUNT_ID_RICH,
+            &OK_COLDKEY_ACCOUNT_ID_RICH,
+            price_to_tick(position_1_low_price),
+            price_to_tick(position_1_high_price),
+            1_000_000_000_u64,
+        )
+        .unwrap();
+        let current_sqrt_price = Pallet::<Test>::current_price_sqrt(netuid).to_num::<f64>();
+        let current_price = current_sqrt_price * current_sqrt_price;
+        println!(
+            "Current price: {}",
+            format!("{:.6}", current_price)
+        );
+
+        let swap_amt = 800_000_000_u64;
+        let order_type = OrderType::Sell;
+        let sqrt_limit_price = SqrtPrice::from_num(0.000001);
+        Pallet::<Test>::do_swap(netuid, order_type, swap_amt, sqrt_limit_price, false).unwrap();
+
+        let swap_amt = 1_850_000_000_u64;
+        let order_type = OrderType::Buy;
+        let sqrt_limit_price = SqrtPrice::from_num(1_000_000.0);
+
+        let current_sqrt_price = Pallet::<Test>::current_price_sqrt(netuid).to_num::<f64>();
+        let current_price = current_sqrt_price * current_sqrt_price;
+        println!(
+            "Current price: {}",
+            format!("{:.6}", current_price)
+        );
+
+        Pallet::<Test>::do_swap(netuid, order_type, swap_amt, sqrt_limit_price, false).unwrap();
+
+        let current_sqrt_price = Pallet::<Test>::current_price_sqrt(netuid).to_num::<f64>();
+        let current_price = current_sqrt_price * current_sqrt_price;
+        println!(
+            "Current price: {}",
+            format!("{:.6}", current_price)
+        );
+
+        let add_liquidity_result = Pallet::<Test>::do_add_liquidity(
+            netuid,
+            &OK_COLDKEY_ACCOUNT_ID_RICH,
+            &OK_COLDKEY_ACCOUNT_ID_RICH,
+            price_to_tick(position_2_low_price),
+            price_to_tick(position_2_high_price),
+            1_000_000_000_u64,
+        )
+        .unwrap();
+
+        let swap_amt = 800_000_000_u64;
+        let order_type = OrderType::Sell;
+        let sqrt_limit_price = SqrtPrice::from_num(0.000001);
+        Pallet::<Test>::do_swap(netuid, order_type, swap_amt, sqrt_limit_price, false).unwrap();
+
+        let current_sqrt_price = Pallet::<Test>::current_price_sqrt(netuid).to_num::<f64>();
+        let current_price = current_sqrt_price * current_sqrt_price;
+        println!(
+            "Current price: {}",
+            format!("{:.6}", current_price)
+        );
+
+        let mut position = Positions::<Test>::get((netuid, &OK_COLDKEY_ACCOUNT_ID_RICH, add_liquidity_result.0)).unwrap();
+
+        let initial_sqrt_price = position.tick_high.try_to_sqrt_price().unwrap();
+        let initial_box_price = bbox(
+            initial_sqrt_price,
+            position.tick_low.try_to_sqrt_price().unwrap(),
+            position.tick_high.try_to_sqrt_price().unwrap(),
+        );
+        let final_sqrt_price = Pallet::<Test>::current_price_sqrt(netuid);
+        let final_box_price = bbox(
+            final_sqrt_price,
+            position.tick_low.try_to_sqrt_price().unwrap(),
+            position.tick_high.try_to_sqrt_price().unwrap(),
+        );
+        let fee_rate = FeeRate::<Test>::get(netuid) as f64 / u16::MAX as f64;
+
+        let expected_fee_tao = ((fee_rate / (1.0 - fee_rate))
+            * (position.liquidity as f64)
+            * (final_box_price.to_num::<f64>() - initial_box_price.to_num::<f64>()))
+            as u64;
+
+        let expected_fee_alpha = ((fee_rate / (1.0 - fee_rate))
+            * (position.liquidity as f64)
+            * ((1.0 / final_box_price.to_num::<f64>()) - (1.0 / initial_box_price.to_num::<f64>())))
+            as u64;
+
+        println!(
+            "Expected ALPHA fee: {}",
+            format!("{:.6}", expected_fee_alpha as f64)
+        );
+
+        let (fee_tao, fee_alpha) = position.collect_fees();
+
+        println!("Collected fees: TAO: {}, ALPHA: {}", fee_tao, fee_alpha);
+
+        assert_abs_diff_eq!(fee_tao, expected_fee_tao, epsilon = 1);
+        assert_abs_diff_eq!(fee_alpha, expected_fee_alpha, epsilon = 1);
     });
 }
