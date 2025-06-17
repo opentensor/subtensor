@@ -61,7 +61,7 @@ fn test_senate_join_works() {
     new_test_ext().execute_with(|| {
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(6);
         let burn_cost = 1000;
@@ -135,7 +135,7 @@ fn test_senate_vote_works() {
     new_test_ext().execute_with(|| {
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let senate_hotkey = U256::from(1);
         let hotkey_account_id = U256::from(6);
@@ -248,7 +248,7 @@ fn test_senate_vote_not_member() {
     new_test_ext().execute_with(|| {
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let senate_hotkey = U256::from(1);
         let hotkey_account_id = U256::from(6);
@@ -309,7 +309,7 @@ fn test_senate_leave_works() {
     new_test_ext().execute_with(|| {
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(6);
         let burn_cost = 1000;
@@ -382,7 +382,7 @@ fn test_senate_leave_vote_removal() {
     new_test_ext().execute_with(|| {
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let senate_hotkey = U256::from(1);
         let hotkey_account_id = U256::from(6);
@@ -472,15 +472,14 @@ fn test_senate_leave_vote_removal() {
         // Fill the root network with many large stake keys.
         // This removes all other keys.
         // Add two networks.
-        let root_netuid: u16 = 0;
-        let other_netuid: u16 = 5;
+        let other_netuid = NetUid::from(5);
         add_network(other_netuid, 1, 0);
         SubtensorModule::set_burn(other_netuid, 0);
         SubtensorModule::set_max_registrations_per_block(other_netuid, 1000);
         SubtensorModule::set_target_registrations_per_interval(other_netuid, 1000);
-        SubtensorModule::set_max_registrations_per_block(root_netuid, 1000);
-        SubtensorModule::set_target_registrations_per_interval(root_netuid, 1000);
-        SubtokenEnabled::<Test>::insert(root_netuid, true);
+        SubtensorModule::set_max_registrations_per_block(NetUid::ROOT, 1000);
+        SubtensorModule::set_target_registrations_per_interval(NetUid::ROOT, 1000);
+        SubtokenEnabled::<Test>::insert(NetUid::ROOT, true);
         SubtokenEnabled::<Test>::insert(other_netuid, true);
 
         for i in 0..200 {
@@ -498,7 +497,7 @@ fn test_senate_leave_vote_removal() {
             assert_ok!(SubtensorModule::add_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 hot,
-                root_netuid,
+                NetUid::ROOT,
                 100_000_000 + (i as u64)
             ));
             // Register them on the root network.
@@ -508,13 +507,13 @@ fn test_senate_leave_vote_removal() {
             ));
             // Check succesfull registration.
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(other_netuid, &hot).is_ok());
-            assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
+            assert!(SubtensorModule::get_uid_for_net_and_hotkey(NetUid::ROOT, &hot).is_ok());
             // Check that they are all delegates
             assert!(SubtensorModule::hotkey_is_delegate(&hot));
         }
         // No longer a root member
         assert!(
-            SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hotkey_account_id).is_err()
+            SubtensorModule::get_uid_for_net_and_hotkey(NetUid::ROOT, &hotkey_account_id).is_err()
         );
         // No longer a member of the senate
         assert!(!Senate::is_member(&hotkey_account_id));
@@ -531,7 +530,7 @@ fn test_senate_not_leave_when_stake_removed() {
     new_test_ext().execute_with(|| {
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(6);
         let burn_cost = 1000;
@@ -615,7 +614,7 @@ fn test_senate_join_current_delegate() {
     new_test_ext().execute_with(|| {
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(6);
         let burn_cost = 1000;
@@ -689,12 +688,12 @@ fn test_adjust_senate_events() {
     new_test_ext().execute_with(|| {
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(6);
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667);
-        let root_netuid = SubtensorModule::get_root_netuid();
+        let root_netuid = NetUid::ROOT;
         let fee = DefaultStakingFee::<Test>::get();
 
         let max_senate_size: u16 = SenateMaxMembers::get() as u16;

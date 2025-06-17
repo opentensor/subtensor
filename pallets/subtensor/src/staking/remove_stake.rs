@@ -1,5 +1,6 @@
 use super::*;
 use substrate_fixed::types::U96F32;
+use subtensor_runtime_common::NetUid;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
@@ -37,7 +38,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_remove_stake(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
-        netuid: u16,
+        netuid: NetUid,
         alpha_unstaked: u64,
     ) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
@@ -90,74 +91,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// ---- The implementation for the extrinsic remove_stake_aggregate: Removes stake from a hotkey account and adds it onto a coldkey.
-    ///    The operation will be delayed until the end of the block.
-    /// # Args:
-    /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    ///     -  The signature of the caller's coldkey.
-    ///
-    /// * 'hotkey' (T::AccountId):
-    ///     -  The associated hotkey account.
-    ///
-    /// * 'netuid' (u16):
-    ///     - Subnetwork UID
-    ///
-    /// * 'stake_to_be_added' (u64):
-    ///     -  The amount of stake to be added to the hotkey staking account.
-    ///
-    /// # Event:
-    /// * StakeRemoved;
-    ///     -  On the successfully removing stake from the hotkey account.
-    ///
-    /// # Raises:
-    /// * 'NotRegistered':
-    ///     -  Thrown if the account we are attempting to unstake from is non existent.
-    ///
-    /// * 'NonAssociatedColdKey':
-    ///     -  Thrown if the coldkey does not own the hotkey we are unstaking from.
-    ///
-    /// * 'NotEnoughStakeToWithdraw':
-    ///     -  Thrown if there is not enough stake on the hotkey to withdwraw this amount.
-    ///
-    /// * 'TxRateLimitExceeded':
-    ///     -  Thrown if key has hit transaction rate limit
-    ///
-    pub fn do_remove_stake_aggregate(
-        origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
-        netuid: u16,
-        alpha_unstaked: u64,
-    ) -> dispatch::DispatchResult {
-        // We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
-        let coldkey = ensure_signed(origin)?;
-
-        // Consider the weight from on_finalize
-        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
-            Self::do_remove_stake(
-                crate::dispatch::RawOrigin::Signed(coldkey.clone()).into(),
-                hotkey.clone(),
-                netuid,
-                alpha_unstaked,
-            )?;
-        }
-
-        // Save the staking job for the on_finalize
-        let stake_job = StakeJob::RemoveStake {
-            hotkey,
-            coldkey,
-            netuid,
-            alpha_unstaked,
-        };
-
-        let stake_job_id = NextStakeJobId::<T>::get();
-        let current_blocknumber = <frame_system::Pallet<T>>::block_number();
-
-        StakeJobs::<T>::insert(current_blocknumber, stake_job_id, stake_job);
-        NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
-
-        Ok(())
-    }
-
     /// ---- The implementation for the extrinsic unstake_all: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
     ///
     /// # Args:
@@ -199,7 +132,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // 3. Get all netuids.
-        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
+        let netuids = Self::get_all_subnet_netuids();
         log::debug!("All subnet netuids: {:?}", netuids);
 
         // 4. Iterate through all subnets and remove stake.
@@ -250,41 +183,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// ---- The implementation for the extrinsic unstake_all_aggregate: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
-    ///
-    /// # Args:
-    /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    ///     -  The signature of the caller's coldkey.
-    ///
-    /// * 'hotkey' (T::AccountId):
-    ///     -  The associated hotkey account.
-    pub fn do_unstake_all_aggregate(
-        origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
-    ) -> dispatch::DispatchResult {
-        // We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
-        let coldkey = ensure_signed(origin)?;
-
-        // Consider the weight from on_finalize
-        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
-            Self::do_unstake_all(
-                crate::dispatch::RawOrigin::Signed(coldkey.clone()).into(),
-                hotkey.clone(),
-            )?;
-        }
-
-        // Save the unstake_all job for the on_finalize
-        let stake_job = StakeJob::UnstakeAll { hotkey, coldkey };
-
-        let stake_job_id = NextStakeJobId::<T>::get();
-        let current_blocknumber = <frame_system::Pallet<T>>::block_number();
-
-        StakeJobs::<T>::insert(current_blocknumber, stake_job_id, stake_job);
-        NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
-
-        Ok(())
-    }
-
     /// ---- The implementation for the extrinsic unstake_all: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
     ///
     /// # Args:
@@ -326,7 +224,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // 3. Get all netuids.
-        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
+        let netuids = Self::get_all_subnet_netuids();
         log::debug!("All subnet netuids: {:?}", netuids);
 
         // 4. Iterate through all subnets and remove stake.
@@ -336,7 +234,7 @@ impl<T: Config> Pallet<T> {
                 continue;
             }
             // If not Root network.
-            if netuid != Self::get_root_netuid() {
+            if !netuid.is_root() {
                 // Ensure that the hotkey has enough stake to withdraw.
                 let alpha_unstaked =
                     Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
@@ -381,47 +279,12 @@ impl<T: Config> Pallet<T> {
         Self::stake_into_subnet(
             &hotkey,
             &coldkey,
-            Self::get_root_netuid(),
+            NetUid::ROOT,
             total_tao_unstaked,
             0, // no fee for restaking
         );
 
         // 5. Done and ok.
-        Ok(())
-    }
-
-    /// ---- The implementation for the extrinsic unstake_all_alpha_aggregate: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
-    ///
-    /// # Args:
-    /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    ///     -  The signature of the caller's coldkey.
-    ///
-    /// * 'hotkey' (T::AccountId):
-    ///     -  The associated hotkey account.
-    pub fn do_unstake_all_alpha_aggregate(
-        origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
-    ) -> dispatch::DispatchResult {
-        // We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
-        let coldkey = ensure_signed(origin)?;
-
-        // Consider the weight from on_finalize
-        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
-            Self::do_unstake_all_alpha(
-                crate::dispatch::RawOrigin::Signed(coldkey.clone()).into(),
-                hotkey.clone(),
-            )?;
-        }
-
-        // Save the unstake_all_alpha job for the on_finalize
-        let stake_job = StakeJob::UnstakeAllAlpha { hotkey, coldkey };
-
-        let stake_job_id = NextStakeJobId::<T>::get();
-        let current_blocknumber = <frame_system::Pallet<T>>::block_number();
-
-        StakeJobs::<T>::insert(current_blocknumber, stake_job_id, stake_job);
-        NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
-
         Ok(())
     }
 
@@ -469,7 +332,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_remove_stake_limit(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
-        netuid: u16,
+        netuid: NetUid,
         alpha_unstaked: u64,
         limit_price: u64,
         allow_partial: bool,
@@ -529,96 +392,12 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// ---- The implementation for the extrinsic remove_stake_limit_aggregate: Removes stake from
-    /// a hotkey on a subnet with a price limit.
-    ///
-    /// In case if slippage occurs and the price shall move beyond the limit
-    /// price, the staking order may execute only partially or not execute
-    /// at all.
-    ///
-    /// The operation will be delayed until the end of the block.
-    ///
-    /// # Args:
-    /// * 'origin': (<T as frame_system::Config>Origin):
-    ///     - The signature of the caller's coldkey.
-    ///
-    /// * 'hotkey' (T::AccountId):
-    ///     - The associated hotkey account.
-    ///
-    /// * 'netuid' (u16):
-    ///     - Subnetwork UID
-    ///
-    /// * 'amount_unstaked' (u64):
-    ///     - The amount of stake to be added to the hotkey staking account.
-    ///
-    ///  * 'limit_price' (u64):
-    ///     - The limit price expressed in units of RAO per one Alpha.
-    ///
-    ///  * 'allow_partial' (bool):
-    ///     - Allows partial execution of the amount. If set to false, this becomes
-    ///       fill or kill type or order.
-    ///
-    /// # Event:
-    /// * StakeRemoved;
-    ///     - On the successfully removing stake from the hotkey account.
-    ///
-    /// # Raises:
-    /// * 'NotRegistered':
-    ///     - Thrown if the account we are attempting to unstake from is non existent.
-    ///
-    /// * 'NonAssociatedColdKey':
-    ///     - Thrown if the coldkey does not own the hotkey we are unstaking from.
-    ///
-    /// * 'NotEnoughStakeToWithdraw':
-    ///     - Thrown if there is not enough stake on the hotkey to withdwraw this amount.
-    ///
-    pub fn do_remove_stake_limit_aggregate(
-        origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
-        netuid: u16,
-        alpha_unstaked: u64,
-        limit_price: u64,
-        allow_partial: bool,
-    ) -> dispatch::DispatchResult {
-        let coldkey = ensure_signed(origin)?;
-
-        // Consider the weight from on_finalize
-        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
-            Self::do_remove_stake_limit(
-                crate::dispatch::RawOrigin::Signed(coldkey.clone()).into(),
-                hotkey.clone(),
-                netuid,
-                alpha_unstaked,
-                limit_price,
-                allow_partial,
-            )?;
-        }
-
-        let stake_job = StakeJob::RemoveStakeLimit {
-            hotkey,
-            coldkey,
-            netuid,
-            alpha_unstaked,
-            limit_price,
-            allow_partial,
-        };
-
-        let stake_job_id = NextStakeJobId::<T>::get();
-        let current_blocknumber = <frame_system::Pallet<T>>::block_number();
-
-        StakeJobs::<T>::insert(current_blocknumber, stake_job_id, stake_job);
-        NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
-
-        // Done and ok.
-        Ok(())
-    }
-
     // Returns the maximum amount of RAO that can be executed with price limit
-    pub fn get_max_amount_remove(netuid: u16, limit_price: u64) -> Result<u64, Error<T>> {
+    pub fn get_max_amount_remove(netuid: NetUid, limit_price: u64) -> Result<u64, Error<T>> {
         // Corner case: root and stao
         // There's no slippage for root or stable subnets, so if limit price is 1e9 rao or
         // lower, then max_amount equals u64::MAX, otherwise it is 0.
-        if (netuid == Self::get_root_netuid()) || (SubnetMechanism::<T>::get(netuid)) == 0 {
+        if netuid.is_root() || SubnetMechanism::<T>::get(netuid) == 0 {
             if limit_price <= 1_000_000_000 {
                 return Ok(u64::MAX);
             } else {

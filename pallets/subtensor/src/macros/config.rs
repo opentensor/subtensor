@@ -229,6 +229,12 @@ mod config {
         /// Block number after a new subnet accept the start call extrinsic.
         #[pallet::constant]
         type DurationOfStartCall: Get<u64>;
+        /// Cost of swapping a hotkey in a subnet.
+        #[pallet::constant]
+        type KeySwapOnSubnetCost: Get<u64>;
+        /// Block number for a coldkey swap the hotkey in specific subnet.
+        #[pallet::constant]
+        type HotkeySwapOnSubnetInterval: Get<u64>;
         /// Number of blocks between dividends distribution.
         #[pallet::constant]
         type LeaseDividendsDistributionInterval: Get<BlockNumberFor<Self>>;

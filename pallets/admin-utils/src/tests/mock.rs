@@ -2,10 +2,10 @@
 
 use frame_support::{
     PalletId, assert_ok, derive_impl, parameter_types,
-    traits::{Everything, Hooks, PrivilegeCmp},
     weights,
+    traits::{Everything, Hooks, InherentBuilder, PrivilegeCmp},
 };
-use frame_system as system;
+use frame_system::{self as system, offchain::CreateTransactionBase};
 use frame_system::{EnsureNever, EnsureRoot, limits};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityList as GrandpaAuthorityList;
@@ -18,6 +18,7 @@ use sp_runtime::{
 };
 use sp_std::cmp::Ordering;
 use sp_weights::Weight;
+use subtensor_runtime_common::NetUid;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -70,14 +71,16 @@ pub type Balance = u64;
 pub type BlockNumber = u64;
 
 pub type TestAuthId = test_crypto::TestAuthId;
-pub type Index = u64;
 pub type UncheckedExtrinsic = TestXt<RuntimeCall, ()>;
 
 parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
     pub const InitialEmissionValue: u16 = 0;
     pub const InitialMaxWeightsLimit: u16 = u16::MAX;
-    pub BlockWeights: limits::BlockWeights = limits::BlockWeights::simple_max(weights::Weight::from_parts(1024, 0));
+    pub BlockWeights: limits::BlockWeights = limits::BlockWeights::with_sensible_defaults(
+        Weight::from_parts(2_000_000_000_000, u64::MAX),
+        Perbill::from_percent(75),
+    );
     pub const ExistentialDeposit: Balance = 1;
     pub const TransactionByteFee: Balance = 100;
     pub const SDebug:u64 = 1;
@@ -142,6 +145,8 @@ parameter_types! {
     pub const InitialTaoWeight: u64 = u64::MAX/10; // 10% global weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
     pub const DurationOfStartCall: u64 = 7 * 24 * 60 * 60 / 12; // 7 days
+    pub const InitialKeySwapOnSubnetCost: u64 = 10_000_000;
+    pub const HotkeySwapOnSubnetInterval: u64 = 7 * 24 * 60 * 60 / 12; // 7 days
     pub const LeaseDividendsDistributionInterval: u32 = 100; // 100 blocks
 }
 
@@ -212,6 +217,8 @@ impl pallet_subtensor::Config for Test {
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
+    type KeySwapOnSubnetCost = InitialKeySwapOnSubnetCost;
+    type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
     type ProxyInterface = ();
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
 }
@@ -405,26 +412,37 @@ mod test_crypto {
     }
 }
 
-impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Test>> for Test {
-    fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
-        call: RuntimeCall,
-        _public: Self::Public,
-        _account: Self::AccountId,
-        nonce: Index,
-    ) -> Option<(
-        RuntimeCall,
-        <UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
-    )> {
-        Some((call, (nonce, ())))
+impl<LocalCall> frame_system::offchain::CreateTransactionBase<LocalCall> for Test
+where
+    RuntimeCall: From<LocalCall>,
+{
+    type Extrinsic = UncheckedExtrinsic;
+    type RuntimeCall = RuntimeCall;
+}
+
+impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Test
+where
+    RuntimeCall: From<LocalCall>,
+{
+    fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+        UncheckedExtrinsic::new_inherent(call)
     }
 }
 
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
 where
-    RuntimeCall: From<C>,
+    RuntimeCall: From<LocalCall>,
 {
-    type Extrinsic = UncheckedExtrinsic;
-    type OverarchingCall = RuntimeCall;
+    fn create_signed_transaction<
+        C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
+    >(
+        call: <Self as CreateTransactionBase<LocalCall>>::RuntimeCall,
+        _public: Self::Public,
+        _account: Self::AccountId,
+        nonce: Self::Nonce,
+    ) -> Option<Self::Extrinsic> {
+        Some(UncheckedExtrinsic::new_signed(call, nonce, (), ()))
+    }
 }
 
 // Build genesis storage according to the mock runtime.
@@ -452,7 +470,7 @@ pub(crate) fn run_to_block(n: u64) {
 
 #[allow(dead_code)]
 pub fn register_ok_neuron(
-    netuid: u16,
+    netuid: NetUid,
     hotkey_account_id: U256,
     coldkey_account_id: U256,
     start_nonce: u64,
@@ -483,7 +501,7 @@ pub fn register_ok_neuron(
 }
 
 #[allow(dead_code)]
-pub fn add_network(netuid: u16, tempo: u16) {
+pub fn add_network(netuid: NetUid, tempo: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);

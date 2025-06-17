@@ -58,9 +58,9 @@ ark-serialize = { workspace = true, default-features = false }
 w3f-bls = { workspace = true, default-features = false }
 sha2 = { workspace = true }
 rand_chacha = { workspace = true }
+subtensor-runtime-common = { workspace = true, default-features = false }
 pallet-crowdloan = { workspace = true, default-features = false }
 pallet-proxy = { workspace = true, default-features = false }
-subtensor-runtime-common = { workspace = true, default-features = false }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
@@ -75,50 +75,55 @@ sp-std = { workspace = true }
 pallet-preimage = { workspace = true }
 
 [features]
-default = ["std"]
 std = [
+	"ark-bls12-381/std",
+	"ark-serialize/std",
 	"codec/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"scale-info/std",
-	"pallet-collective/std",
-	"pallet-membership/std",
-	"substrate-fixed/std",
+	"hex/std",
+	"libsecp256k1/std",
+	"log/std",
+	"ndarray/std",
+	"num-traits/std",
 	"pallet-balances/std",
+	"pallet-collective/std",
+	"pallet-drand/std",
+	"pallet-membership/std",
 	"pallet-preimage/std",
 	"pallet-scheduler/std",
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
+	"rand_chacha/std",
+	"safe-math/std",
+	"scale-info/std",
+	"serde/std",
+	"serde_bytes/std",
+	"serde_json/std",
+	"serde_with/std",
+	"sha2/std",
+	"share-pool/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"sp-tracing/std",
 	"sp-version/std",
-	"hex/std",
-	"libsecp256k1/std",
-	"log/std",
-	"ndarray/std",
-	"serde/std",
-	"serde_bytes/std",
-	"serde_with/std",
 	"substrate-fixed/std",
-	"num-traits/std",
-	"serde_json/std",
+	"substrate-fixed/std",
+	"subtensor-runtime-common/std",
 	"tle/std",
-	"pallet-drand/std",
-	"ark-bls12-381/std",
-	"ark-serialize/std",
 	"w3f-bls/std",
 	"rand_chacha/std",
 	"safe-math/std",
 	"sha2/std",
 	"share-pool/std",
+	"subtensor-runtime-common/std",
 	"pallet-proxy/std",
 	"pallet-crowdloan/std",
-	"subtensor-runtime-common/std"
 ]
+default = ["std"]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
@@ -131,6 +136,7 @@ runtime-benchmarks = [
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-crowdloan/runtime-benchmarks",
 ]

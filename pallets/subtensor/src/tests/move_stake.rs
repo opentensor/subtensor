@@ -1,8 +1,12 @@
+#![allow(clippy::unwrap_used)]
+
 use super::mock::*;
 use crate::*;
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_system::RawOrigin;
 use sp_core::{Get, U256};
+use sp_runtime::traits::TxBaseImplication;
 use substrate_fixed::types::{U64F64, U96F32};
 
 // 1. test_do_move_success
@@ -13,7 +17,7 @@ fn test_do_move_success() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         let coldkey = U256::from(1);
         let origin_hotkey = U256::from(2);
         let destination_hotkey = U256::from(3);
@@ -141,7 +145,7 @@ fn test_do_move_nonexistent_subnet() {
         let coldkey = U256::from(1);
         let origin_hotkey = U256::from(2);
         let destination_hotkey = U256::from(3);
-        let nonexistent_netuid = 99; // Assuming this subnet doesn't exist
+        let nonexistent_netuid = NetUid::from(99); // Assuming this subnet doesn't exist
         let stake_amount = 1_000_000;
         let fee = 0;
 
@@ -240,7 +244,7 @@ fn test_do_move_nonexistent_destination_hotkey() {
         let coldkey = U256::from(1);
         let origin_hotkey = U256::from(2);
         let nonexistent_destination_hotkey = U256::from(99); // Assuming this hotkey doesn't exist
-        let netuid = 1;
+        let netuid = NetUid::from(1);
         let stake_amount = 1_000_000;
         let fee = 0;
 
@@ -518,7 +522,7 @@ fn test_do_move_wrong_origin() {
         let wrong_coldkey = U256::from(99);
         let origin_hotkey = U256::from(2);
         let destination_hotkey = U256::from(3);
-        let netuid = 1;
+        let netuid = NetUid::from(1);
         let stake_amount = DefaultMinStake::<Test>::get() * 10;
         let fee = 0;
 
@@ -738,7 +742,7 @@ fn test_do_move_max_values() {
         let origin_hotkey = U256::from(2);
         let destination_hotkey = U256::from(3);
         let max_stake = u64::MAX;
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         let fee = 0;
 
         // Set up initial stake with maximum value
@@ -797,8 +801,8 @@ fn test_moving_too_little_unstakes() {
         let fee = DefaultStakingFee::<Test>::get();
 
         //add network
-        let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
-        let netuid2: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+        let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+        let netuid2 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
 
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount + fee);
@@ -886,7 +890,7 @@ fn test_do_transfer_nonexistent_subnet() {
         let origin_coldkey = U256::from(1);
         let destination_coldkey = U256::from(2);
         let hotkey = U256::from(3);
-        let nonexistent_netuid = 9999;
+        let nonexistent_netuid = NetUid::from(9999);
         let stake_amount = DefaultMinStake::<Test>::get() * 5;
 
         assert_noop!(
@@ -1153,8 +1157,8 @@ fn test_do_swap_nonexistent_subnet() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let nonexistent_netuid1: u16 = 9998;
-        let nonexistent_netuid2: u16 = 9999;
+        let nonexistent_netuid1 = NetUid::from(9998);
+        let nonexistent_netuid2 = NetUid::from(9999);
         let stake_amount = 1_000_000;
 
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
@@ -1562,16 +1566,22 @@ fn test_swap_stake_limit_validate() {
         let info: crate::DispatchInfo =
             crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        let extension = crate::SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(&coldkey, &call.clone(), &info, 10);
+        let result_no_stake = extension.validate(
+            RawOrigin::Signed(coldkey).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
 
         // Should fail due to slippage
-        assert_err!(
-            result_no_stake,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::SlippageTooHigh.into()
-            ))
+        assert_eq!(
+            result_no_stake.unwrap_err(),
+            CustomTransactionError::SlippageTooHigh.into()
         );
     });
 }
@@ -1608,19 +1618,25 @@ fn test_stake_transfers_disabled_validate() {
         let info: crate::DispatchInfo =
             crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        let extension = crate::SubtensorTransactionExtension::<Test>::new();
 
         // Disable transfers in origin subnet
         TransferToggle::<Test>::insert(origin_netuid, false);
         TransferToggle::<Test>::insert(destination_netuid, true);
 
         // Submit to the signed extension validate function
-        let result1 = extension.validate(&coldkey, &call.clone(), &info, 10);
-        assert_err!(
-            result1,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::TransferDisallowed.into()
-            ))
+        let result1 = extension.validate(
+            RawOrigin::Signed(coldkey).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
+        assert_eq!(
+            result1.unwrap_err(),
+            CustomTransactionError::TransferDisallowed.into()
         );
 
         // Disable transfers in destination subnet
@@ -1628,12 +1644,18 @@ fn test_stake_transfers_disabled_validate() {
         TransferToggle::<Test>::insert(destination_netuid, false);
 
         // Submit to the signed extension validate function
-        let result2 = extension.validate(&coldkey, &call.clone(), &info, 10);
-        assert_err!(
-            result2,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::TransferDisallowed.into()
-            ))
+        let result2 = extension.validate(
+            RawOrigin::Signed(coldkey).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
+        assert_eq!(
+            result2.unwrap_err(),
+            CustomTransactionError::TransferDisallowed.into()
         );
 
         // Enable transfers
@@ -1641,7 +1663,15 @@ fn test_stake_transfers_disabled_validate() {
         TransferToggle::<Test>::insert(destination_netuid, true);
 
         // Submit to the signed extension validate function
-        let result3 = extension.validate(&coldkey, &call.clone(), &info, 10);
+        let result3 = extension.validate(
+            RawOrigin::Signed(coldkey).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         assert_ok!(result3);
     });
 }
@@ -1666,9 +1696,9 @@ fn test_move_stake_specific_stake_into_subnet_fail() {
         let tao_staked = 200_000_000;
 
         //add network
-        let netuid: u16 = add_dynamic_network(&sn_owner_coldkey, &sn_owner_coldkey);
+        let netuid = add_dynamic_network(&sn_owner_coldkey, &sn_owner_coldkey);
 
-        let origin_netuid: u16 = add_dynamic_network(&sn_owner_coldkey, &sn_owner_coldkey);
+        let origin_netuid = add_dynamic_network(&sn_owner_coldkey, &sn_owner_coldkey);
 
         // Register hotkey on netuid
         register_ok_neuron(netuid, hotkey_account_id, hotkey_owner_account_id, 0);

@@ -41,7 +41,7 @@ impl<T: Config> Pallet<T> {
         let total_staked = SubnetTAO::<T>::iter().fold(0u64, |acc, (netuid, stake)| {
             let acc = acc.saturating_add(stake);
 
-            if netuid == Self::get_root_netuid() {
+            if netuid.is_root() {
                 // root network doesn't have initial pool TAO
                 acc
             } else {
