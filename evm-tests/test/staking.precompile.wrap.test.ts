@@ -57,6 +57,7 @@ describe("Test staking precompile add remove limit methods", () => {
       netuid,
     );
 
+
     const contractFactory = new ethers.ContractFactory(abi, bytecode, wallet1)
     const contract = await contractFactory.deploy()
     await contract.waitForDeployment()
@@ -64,13 +65,14 @@ describe("Test staking precompile add remove limit methods", () => {
     console.log("========= deployed address: ", contract.target.toString())
 
 
-    // const ethTransfer = {
-    //   to: contract.target.toString(),
-    //   value: raoToEth(tao(2)).toString()
-    // }
+    // stake will remove the balance from contract, need transfer token to deployed contract
+    const ethTransfer = {
+      to: contract.target.toString(),
+      value: raoToEth(tao(10000)).toString()
+    }
 
-    // const txResponse = await wallet1.sendTransaction(ethTransfer)
-    // await txResponse.wait();
+    const txResponse = await wallet1.sendTransaction(ethTransfer)
+    await txResponse.wait();
 
     const balance = await api.query.System.Account.getValue(convertH160ToSS58(contract.target.toString()))
     console.log(" == balance is ", balance.data.free)
@@ -84,12 +86,16 @@ describe("Test staking precompile add remove limit methods", () => {
     const tx = await deployedContract.stakeLimit(
       hotkey.publicKey,
       netuid,
+      tao(2000),
       tao(1000),
-      raoToEth(tao(1)),
       true,
     );
     await tx.wait();
 
+    const alphaAfterStakeLimit = await api.query.SubtensorModule.Alpha.getValue(
+      convertPublicKeyToSs58(hotkey.publicKey),
+      ss58Address,
+      netuid,
+    );
   });
-
 });

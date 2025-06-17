@@ -11,24 +11,24 @@ interface Staking {
         uint256 limit_price,
         bool allow_partial,
         uint256 netuid
-    ) public virtual;
+    ) external;
 
-    function addStake(
-        bytes32 hotkey,
-        uint256 amount,
-        uint256 netuid
-    ) public virtual;
+    function addStake(bytes32 hotkey, uint256 amount, uint256 netuid) external;
 }
 
 contract StakeWrap {
-    address ISUBNET_ADDRESS = 0x0000000000000000000000000000000000000805;
     constructor() {}
     receive() external payable {}
+
     function stake(bytes32 hotkey, uint256 netuid, uint256 amount) external {
-        address precompile = address(
-            0x0000000000000000000000000000000000000805
+        bytes memory data = abi.encodeWithSelector(
+            Staking.addStake.selector,
+            hotkey,
+            amount,
+            netuid
         );
-        Staking(a).addStake(hotkey, amount, netuid);
+        (bool success, ) = ISTAKING_ADDRESS.call{gas: gasleft()}(data);
+        require(success, "addStake call failed");
     }
 
     function stakeLimit(
@@ -38,16 +38,15 @@ contract StakeWrap {
         uint256 amount,
         bool allowPartial
     ) external {
-        address precompile = address(
-            0x0000000000000000000000000000000000000805
+        bytes memory data = abi.encodeWithSelector(
+            Staking.addStakeLimit.selector,
+            hotkey,
+            amount,
+            limitPrice,
+            allowPartial,
+            netuid
         );
-        (bool success, ) = ISUBNET_ADDRESS.call{gas: gasleft()}(
-            abi.encodeWithSelector(
-                subnet.setMinDifficulty.selector,
-                netuid,
-                minDifficulty
-            )
-        );
-        require(success, "setMinDifficulty call failed");
+        (bool success, ) = ISTAKING_ADDRESS.call{gas: gasleft()}(data);
+        require(success, "addStakeLimit call failed");
     }
 }
