@@ -3,7 +3,7 @@ use core::marker::PhantomData;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
 use safe_math::*;
-use substrate_fixed::types::U64F64;
+use substrate_fixed::types::{I64F64, U64F64};
 use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::NetUid;
 
@@ -15,7 +15,7 @@ use crate::tick::TickIndex;
 ///
 /// Alpha price is expressed in rao units per one 10^9 unit. For example,
 /// price 1_000_000 is equal to 0.001 TAO per Alpha.
-#[freeze_struct("64d56db027265714")]
+#[freeze_struct("27a1bf8c59480f0")]
 #[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen, Default)]
 #[scale_info(skip_type_params(T))]
 pub struct Position<T: Config> {
@@ -29,15 +29,39 @@ pub struct Position<T: Config> {
     pub tick_high: TickIndex,
     /// Position liquidity
     pub liquidity: u64,
-    /// Fees accrued by the position in quote currency (TAO)
-    pub fees_tao: U64F64,
-    /// Fees accrued by the position in base currency (Alpha)
-    pub fees_alpha: U64F64,
+    /// Fees accrued by the position in quote currency (TAO) relative to global fees
+    pub fees_tao: I64F64,
+    /// Fees accrued by the position in base currency (Alpha) relative to global fees
+    pub fees_alpha: I64F64,
     /// Phantom marker for generic Config type
     pub _phantom: PhantomData<T>,
 }
 
 impl<T: Config> Position<T> {
+    pub fn new(
+        id: PositionId,
+        netuid: NetUid,
+        tick_low: TickIndex,
+        tick_high: TickIndex,
+        liquidity: u64,
+    ) -> Self {
+        let mut position = Position {
+            id,
+            netuid,
+            tick_low,
+            tick_high,
+            liquidity,
+            fees_tao: I64F64::saturating_from_num(0),
+            fees_alpha: I64F64::saturating_from_num(0),
+            _phantom: PhantomData,
+        };
+
+        position.fees_tao = position.fees_in_range(true);
+        position.fees_alpha = position.fees_in_range(false);
+
+        position
+    }
+
     /// Converts position to token amounts
     ///
     /// returns tuple of (TAO, Alpha)
@@ -110,9 +134,17 @@ impl<T: Config> Position<T> {
         self.fees_tao = fee_tao_agg;
         self.fees_alpha = fee_alpha_agg;
 
-        let liquidity_frac = U64F64::saturating_from_num(self.liquidity);
+        let liquidity_frac = I64F64::saturating_from_num(self.liquidity);
+
+        println!("liquidity_frac = {:?}", liquidity_frac);
+        println!("fee_tao = {:?}", fee_tao);
+        println!("fee_alpha = {:?}", fee_alpha);
+
         fee_tao = liquidity_frac.saturating_mul(fee_tao);
         fee_alpha = liquidity_frac.saturating_mul(fee_alpha);
+
+        println!("fee_tao = {:?}", fee_tao);
+        println!("fee_alpha = {:?}", fee_alpha);
 
         (
             fee_tao.saturating_to_num::<u64>(),
@@ -123,11 +155,11 @@ impl<T: Config> Position<T> {
     /// Get fees in a position's range
     ///
     /// If quote flag is true, Tao is returned, otherwise alpha.
-    fn fees_in_range(&self, quote: bool) -> U64F64 {
+    fn fees_in_range(&self, quote: bool) -> I64F64 {
         if quote {
-            FeeGlobalTao::<T>::get(self.netuid)
+            I64F64::saturating_from_num(FeeGlobalTao::<T>::get(self.netuid))
         } else {
-            FeeGlobalAlpha::<T>::get(self.netuid)
+            I64F64::saturating_from_num(FeeGlobalAlpha::<T>::get(self.netuid))
         }
         .saturating_sub(self.tick_low.fees_below::<T>(self.netuid, quote))
         .saturating_sub(self.tick_high.fees_above::<T>(self.netuid, quote))

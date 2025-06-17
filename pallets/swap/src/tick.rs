@@ -12,7 +12,7 @@ use frame_support::pallet_prelude::*;
 use safe_math::*;
 use sp_std::vec;
 use sp_std::vec::Vec;
-use substrate_fixed::types::U64F64;
+use substrate_fixed::types::{I64F64, U64F64};
 use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::NetUid;
 
@@ -79,13 +79,13 @@ const TICK_HIGH: I256 = I256::from_raw(U256::from_limbs([
 ///  - Net liquidity
 ///  - Gross liquidity
 ///  - Fees (above global) in both currencies
-#[freeze_struct("a73c75ea32eb04ed")]
+#[freeze_struct("ff1bce826e64c4aa")]
 #[derive(Debug, Default, Clone, Encode, Decode, TypeInfo, MaxEncodedLen, PartialEq, Eq)]
 pub struct Tick {
     pub liquidity_net: i128,
     pub liquidity_gross: u64,
-    pub fees_out_tao: U64F64,
-    pub fees_out_alpha: U64F64,
+    pub fees_out_tao: I64F64,
+    pub fees_out_alpha: I64F64,
 }
 
 impl Tick {
@@ -213,15 +213,17 @@ impl TickIndex {
     }
 
     /// Get fees above a tick
-    pub fn fees_above<T: Config>(&self, netuid: NetUid, quote: bool) -> U64F64 {
+    pub fn fees_above<T: Config>(&self, netuid: NetUid, quote: bool) -> I64F64 {
         let current_tick = Self::current_bounded::<T>(netuid);
 
         let tick = Ticks::<T>::get(netuid, *self).unwrap_or_default();
         if *self <= current_tick {
             if quote {
-                FeeGlobalTao::<T>::get(netuid).saturating_sub(tick.fees_out_tao)
+                I64F64::saturating_from_num(FeeGlobalTao::<T>::get(netuid))
+                    .saturating_sub(tick.fees_out_tao)
             } else {
-                FeeGlobalAlpha::<T>::get(netuid).saturating_sub(tick.fees_out_alpha)
+                I64F64::saturating_from_num(FeeGlobalAlpha::<T>::get(netuid))
+                    .saturating_sub(tick.fees_out_alpha)
             }
         } else if quote {
             tick.fees_out_tao
@@ -231,7 +233,7 @@ impl TickIndex {
     }
 
     /// Get fees below a tick
-    pub fn fees_below<T: Config>(&self, netuid: NetUid, quote: bool) -> U64F64 {
+    pub fn fees_below<T: Config>(&self, netuid: NetUid, quote: bool) -> I64F64 {
         let current_tick = Self::current_bounded::<T>(netuid);
 
         let tick = Ticks::<T>::get(netuid, *self).unwrap_or_default();
@@ -242,9 +244,11 @@ impl TickIndex {
                 tick.fees_out_alpha
             }
         } else if quote {
-            FeeGlobalTao::<T>::get(netuid).saturating_sub(tick.fees_out_tao)
+            I64F64::saturating_from_num(FeeGlobalTao::<T>::get(netuid))
+                .saturating_sub(tick.fees_out_tao)
         } else {
-            FeeGlobalAlpha::<T>::get(netuid).saturating_sub(tick.fees_out_alpha)
+            I64F64::saturating_from_num(FeeGlobalAlpha::<T>::get(netuid))
+                .saturating_sub(tick.fees_out_alpha)
         }
     }
 

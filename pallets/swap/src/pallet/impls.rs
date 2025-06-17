@@ -6,7 +6,7 @@ use frame_support::{ensure, pallet_prelude::DispatchError, traits::Get};
 use safe_math::*;
 use sp_arithmetic::helpers_128bit;
 use sp_runtime::traits::AccountIdConversion;
-use substrate_fixed::types::{U64F64, U96F32};
+use substrate_fixed::types::{I64F64, U64F64, U96F32};
 use subtensor_runtime_common::{BalanceOps, NetUid, SubnetInfo};
 use subtensor_swap_interface::{SwapHandler, SwapResult, UpdateLiquidityResult};
 
@@ -209,9 +209,9 @@ impl<T: Config> SwapStep<T> {
         if self.action == SwapStepAction::Crossing {
             let mut tick = Ticks::<T>::get(self.netuid, self.edge_tick).unwrap_or_default();
             tick.fees_out_tao =
-                FeeGlobalTao::<T>::get(self.netuid).saturating_sub(tick.fees_out_tao);
+                I64F64::saturating_from_num(FeeGlobalTao::<T>::get(self.netuid)).saturating_sub(tick.fees_out_tao);
             tick.fees_out_alpha =
-                FeeGlobalAlpha::<T>::get(self.netuid).saturating_sub(tick.fees_out_alpha);
+                I64F64::saturating_from_num(FeeGlobalAlpha::<T>::get(self.netuid)).saturating_sub(tick.fees_out_alpha);
             Pallet::<T>::update_liquidity_at_crossing(self.netuid, self.order_type)?;
             Ticks::<T>::insert(self.netuid, self.edge_tick, tick);
         }
@@ -784,16 +784,13 @@ impl<T: Config> Pallet<T> {
 
         // New position
         let position_id = PositionId::new::<T>();
-        let position = Position {
-            id: position_id,
+        let position = Position::new(
+            position_id,
             netuid,
             tick_low,
             tick_high,
             liquidity,
-            fees_tao: U64F64::saturating_from_num(0),
-            fees_alpha: U64F64::saturating_from_num(0),
-            _phantom: PhantomData,
-        };
+        );
 
         let current_price_sqrt = Pallet::<T>::current_price_sqrt(netuid);
         let (tao, alpha) = position.to_token_amounts(current_price_sqrt)?;
@@ -987,13 +984,13 @@ impl<T: Config> Pallet<T> {
 
                 let (fees_out_tao, fees_out_alpha) = if tick_index > current_tick {
                     (
-                        FeeGlobalTao::<T>::get(netuid),
-                        FeeGlobalAlpha::<T>::get(netuid),
+                        I64F64::saturating_from_num(FeeGlobalTao::<T>::get(netuid)),
+                        I64F64::saturating_from_num(FeeGlobalAlpha::<T>::get(netuid)),
                     )
                 } else {
                     (
-                        U64F64::saturating_from_num(0),
-                        U64F64::saturating_from_num(0),
+                        I64F64::saturating_from_num(0),
+                        I64F64::saturating_from_num(0),
                     )
                 };
                 *maybe_tick = Some(Tick {

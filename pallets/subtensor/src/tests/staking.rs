@@ -5066,6 +5066,7 @@ fn test_default_min_stake_sufficiency() {
 
 /// Test that modify_position always credits fees
 ///
+/// cargo test --package pallet-subtensor --lib -- tests::staking::test_update_position_fees --exact --show-output
 #[test]
 fn test_update_position_fees() {
     // Test cases: add or remove liquidity during modification
