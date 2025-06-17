@@ -6,6 +6,7 @@
 
 use super::mock::*;
 use crate::epoch::math::{fixed, u16_proportion_to_fixed};
+use crate::tests::math::{assert_mat_compare, vec_to_fixed, vec_to_mat_fixed};
 use crate::*;
 
 use approx::assert_abs_diff_eq;
@@ -1312,7 +1313,7 @@ fn test_set_alpha_disabled() {
         // Explicitly set to false
         SubtensorModule::set_liquid_alpha_enabled(netuid, false);
         assert_err!(
-            SubtensorModule::do_set_alpha_values(signer.clone(), netuid, 12_u16, u16::MAX),
+            SubtensorModule::do_set_alpha_values(signer.clone(), netuid, 1638_u16, u16::MAX),
             Error::<Test>::LiquidAlphaDisabled
         );
 
@@ -1320,7 +1321,7 @@ fn test_set_alpha_disabled() {
         assert_ok!(SubtensorModule::do_set_alpha_values(
             signer.clone(),
             netuid,
-            12_u16,
+            1638_u16,
             u16::MAX
         ));
     });
@@ -2227,7 +2228,7 @@ fn test_validator_permits() {
 fn test_get_set_alpha() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        let alpha_low: u16 = 12_u16;
+        let alpha_low: u16 = 1638_u16;
         let alpha_high: u16 = u16::MAX - 10;
 
         let hotkey: U256 = U256::from(1);
@@ -2315,7 +2316,7 @@ fn test_get_set_alpha() {
         ));
 
         // 2. Alpha high too low
-        let alpha_high_too_low = (u16::MAX as u32 * 4 / 5) as u16 - 1; // One less than the minimum acceptable value
+        let alpha_high_too_low = (u16::MAX as u32 / 40) as u16 - 1; // One less than the minimum acceptable value
         assert_err!(
             SubtensorModule::do_set_alpha_values(
                 signer.clone(),
@@ -2352,7 +2353,7 @@ fn test_get_set_alpha() {
             alpha_high
         ));
 
-        let alpha_low_too_high = (u16::MAX as u32 * 4 / 5) as u16 + 1; // One more than the maximum acceptable value
+        let alpha_low_too_high = alpha_high + 1; // alpha_low should be <= alpha_high
         assert_err!(
             SubtensorModule::do_set_alpha_values(
                 signer.clone(),
@@ -3479,4 +3480,46 @@ fn test_yuma_3_bonds_reset() {
             }
         }
     })
+}
+
+#[test]
+fn test_liquid_alpha_equal_values_against_itself() {
+    new_test_ext(1).execute_with(|| {
+        // check Liquid alpha disabled against Liquid Alpha enabled with alpha_low == alpha_high
+        let netuid: NetUid = NetUid::from(1);
+        let alpha_low = u16::MAX / 10;
+        let alpha_high = u16::MAX / 10;
+        let epsilon = I32F32::from_num(1e-3);
+        let weights: Vec<Vec<I32F32>> = vec_to_mat_fixed(
+            &[0., 0.1, 0., 0., 0.2, 0.4, 0., 0.3, 0.1, 0., 0.4, 0.5],
+            4,
+            false,
+        );
+        let bonds: Vec<Vec<I32F32>> = vec_to_mat_fixed(
+            &[0.1, 0.1, 0.5, 0., 0., 0.4, 0.5, 0.1, 0.1, 0., 0.4, 0.2],
+            4,
+            false,
+        );
+        let consensus: Vec<I32F32> = vec_to_fixed(&[0.3, 0.2, 0.1, 0.4]);
+
+        // set both alpha values to 0.1 and bonds moving average to 0.9
+        AlphaValues::<Test>::insert(netuid, (alpha_low, alpha_high));
+        SubtensorModule::set_bonds_moving_average(netuid.into(), 900_000);
+
+        // compute bonds with liquid alpha enabled
+        SubtensorModule::set_liquid_alpha_enabled(netuid.into(), true);
+        let new_bonds_liquid_alpha_on =
+            SubtensorModule::compute_bonds(netuid.into(), &weights, &bonds, &consensus);
+
+        // compute bonds with liquid alpha disabled
+        SubtensorModule::set_liquid_alpha_enabled(netuid.into(), false);
+        let new_bonds_liquid_alpha_off =
+            SubtensorModule::compute_bonds(netuid.into(), &weights, &bonds, &consensus);
+
+        assert_mat_compare(
+            &new_bonds_liquid_alpha_on,
+            &new_bonds_liquid_alpha_off,
+            epsilon,
+        );
+    });
 }
