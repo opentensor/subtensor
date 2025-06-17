@@ -102,7 +102,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Args:
     /// * 'origin': ('T::RuntimeOrigin'): The calling origin. Must be signed.
-    /// * `identity` (`Option<SubnetIdentityOf>`): Optional identity to be associated with the new subnetwork.
+    /// * `identity` (`Option<SubnetIdentityOfV3>`): Optional identity to be associated with the new subnetwork.
     ///
     /// # Event:
     /// * 'NetworkAdded': Emitted when a new network is successfully added.
@@ -118,7 +118,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: &T::AccountId,
         mechid: u16,
-        identity: Option<SubnetIdentityOfV2>,
+        identity: Option<SubnetIdentityOfV3>,
     ) -> DispatchResult {
         // --- 1. Ensure the caller is a signed user.
         let coldkey = ensure_signed(origin)?;
@@ -217,7 +217,7 @@ impl<T: Config> Pallet<T> {
                 Error::<T>::InvalidIdentity
             );
 
-            SubnetIdentitiesV2::<T>::insert(netuid_to_register, identity_value);
+            SubnetIdentitiesV3::<T>::insert(netuid_to_register, identity_value);
             Self::deposit_event(Event::SubnetIdentitySet(netuid_to_register));
         }
 

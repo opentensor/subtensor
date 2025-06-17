@@ -250,9 +250,9 @@ pub mod pallet {
         pub subnet_contact: Vec<u8>,
     }
 
-    ///  Struct for SubnetIdentitiesV2.
+    ///  Struct for SubnetIdentitiesV2. (DEPRECATED for V3)
     pub type SubnetIdentityOfV2 = SubnetIdentityV2;
-    /// Data structure for Subnet Identities
+    /// Data structure for Subnet Identities (DEPRECATED for V3)
     #[crate::freeze_struct("e002be4cd05d7b3e")]
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct SubnetIdentityV2 {
@@ -268,6 +268,30 @@ pub mod pallet {
         pub discord: Vec<u8>,
         /// The subnet's description
         pub description: Vec<u8>,
+        /// Additional information about the subnet
+        pub additional: Vec<u8>,
+    }
+
+    ///  Struct for SubnetIdentitiesV3.
+    pub type SubnetIdentityOfV3 = SubnetIdentityV3;
+    /// Data structure for Subnet Identities
+    #[crate::freeze_struct("3618af6beb882a23")]
+    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    pub struct SubnetIdentityV3 {
+        /// The name of the subnet
+        pub subnet_name: Vec<u8>,
+        /// The github repository associated with the subnet
+        pub github_repo: Vec<u8>,
+        /// The subnet's contact
+        pub subnet_contact: Vec<u8>,
+        /// The subnet's website
+        pub subnet_url: Vec<u8>,
+        /// The subnet's discord
+        pub discord: Vec<u8>,
+        /// The subnet's description
+        pub description: Vec<u8>,
+        /// The subnet's logo
+        pub logo_url: Vec<u8>,
         /// Additional information about the subnet
         pub additional: Vec<u8>,
     }
@@ -1567,9 +1591,13 @@ pub mod pallet {
     pub type SubnetIdentities<T: Config> =
         StorageMap<_, Blake2_128Concat, NetUid, SubnetIdentityOf, OptionQuery>;
 
-    #[pallet::storage] // --- MAP ( netuid ) --> identityV2
+    #[pallet::storage] // --- MAP ( netuid ) --> identityV2 (DEPRECATED for V3)
     pub type SubnetIdentitiesV2<T: Config> =
         StorageMap<_, Blake2_128Concat, NetUid, SubnetIdentityOfV2, OptionQuery>;
+
+    #[pallet::storage] // --- MAP ( netuid ) --> SubnetIdentityOfV3
+    pub type SubnetIdentitiesV3<T: Config> =
+        StorageMap<_, Blake2_128Concat, NetUid, SubnetIdentityOfV3, OptionQuery>;
 
     /// =================================
     /// ==== Axon / Promo Endpoints =====
@@ -1656,6 +1684,17 @@ pub mod pallet {
     /// ==================
     #[pallet::storage] // --- Storage for migration run status
     pub type HasMigrationRun<T: Config> = StorageMap<_, Identity, Vec<u8>, bool, ValueQuery>;
+
+    #[pallet::type_value]
+    /// Default value for pending childkey cooldown (settable by root, default 0)
+    pub fn DefaultPendingChildKeyCooldown<T: Config>() -> u64 {
+        0
+    }
+
+    #[pallet::storage]
+    /// Storage value for pending childkey cooldown, settable by root.
+    pub type PendingChildKeyCooldown<T: Config> =
+        StorageValue<_, u64, ValueQuery, DefaultPendingChildKeyCooldown<T>>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
