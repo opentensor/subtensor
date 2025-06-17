@@ -454,7 +454,7 @@ mod dispatches {
         /// 	- The hotkey we are delegating is not owned by the calling coldket.
         ///
         #[pallet::call_index(1)]
-        #[pallet::weight((Weight::from_parts(4_709_000, 0)
+        #[pallet::weight((Weight::from_parts(3_657_000, 0)
 		.saturating_add(T::DbWeight::get().reads(0))
 		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Normal, Pays::No))]
         pub fn become_delegate(_origin: OriginFor<T>, _hotkey: T::AccountId) -> DispatchResult {
@@ -1519,6 +1519,7 @@ mod dispatches {
             subnet_url: Vec<u8>,
             discord: Vec<u8>,
             description: Vec<u8>,
+            logo_url: Vec<u8>,
             additional: Vec<u8>,
         ) -> DispatchResult {
             Self::do_set_subnet_identity(
@@ -1530,6 +1531,7 @@ mod dispatches {
                 subnet_url,
                 discord,
                 description,
+                logo_url,
                 additional,
             )
         }
@@ -1542,7 +1544,7 @@ mod dispatches {
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
-            identity: Option<SubnetIdentityOfV2>,
+            identity: Option<SubnetIdentityOfV3>,
         ) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, identity)
         }
@@ -2071,6 +2073,18 @@ mod dispatches {
             limit_price: u64,
         ) -> DispatchResult {
             Self::do_remove_stake_full_limit(origin, hotkey, netuid, limit_price)
+      }
+
+        /// Sets the pending childkey cooldown (in blocks). Root only.
+        #[pallet::call_index(109)]
+        #[pallet::weight((Weight::from_parts(10_000, 0), DispatchClass::Operational, Pays::No))]
+        pub fn set_pending_childkey_cooldown(
+            origin: OriginFor<T>,
+            cooldown: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            PendingChildKeyCooldown::<T>::put(cooldown);
+            Ok(())
         }
     }
 }

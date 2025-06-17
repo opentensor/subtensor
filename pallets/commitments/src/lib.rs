@@ -11,7 +11,6 @@ pub mod types;
 pub mod weights;
 
 pub use pallet::*;
-use subtensor_macros::freeze_struct;
 pub use types::*;
 pub use weights::WeightInfo;
 
@@ -344,7 +343,7 @@ pub mod pallet {
         /// Sudo-set MaxSpace
         #[pallet::call_index(2)]
         #[pallet::weight((
-            Weight::from_parts(3_556_000, 0)
+            Weight::from_parts(2_965_000, 0)
 			.saturating_add(T::DbWeight::get().reads(0_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
@@ -401,114 +400,7 @@ pub enum CallType {
     Other,
 }
 
-use {
-    frame_support::{
-        dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
-        pallet_prelude::{Decode, Encode, PhantomData, TypeInfo},
-        traits::IsSubType,
-    },
-    sp_runtime::{
-        traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
-        transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
-    },
-};
-
-#[freeze_struct("6a00398e14a8a984")]
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
-pub struct CommitmentsSignedExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
-
-impl<T: Config + Send + Sync + TypeInfo> Default for CommitmentsSignedExtension<T>
-where
-    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-    <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
-{
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<T: Config + Send + Sync + TypeInfo> CommitmentsSignedExtension<T>
-where
-    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-    <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
-{
-    pub fn new() -> Self {
-        Self(Default::default())
-    }
-
-    pub fn get_priority_vanilla() -> u64 {
-        // Return high priority so that every extrinsic except set_weights function will
-        // have a higher priority than the set_weights call
-        u64::MAX
-    }
-}
-
-impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for CommitmentsSignedExtension<T> {
-    fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-        write!(f, "SignedExtension")
-    }
-}
-
-impl<T: Config + Send + Sync + TypeInfo> SignedExtension for CommitmentsSignedExtension<T>
-where
-    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-    <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
-{
-    const IDENTIFIER: &'static str = "CommitmentsSignedExtension";
-
-    type AccountId = T::AccountId;
-    type Call = T::RuntimeCall;
-    type AdditionalSigned = ();
-    type Pre = (CallType, u64, Self::AccountId);
-
-    fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
-        Ok(())
-    }
-
-    fn validate(
-        &self,
-        _: &Self::AccountId,
-        call: &Self::Call,
-        _info: &DispatchInfoOf<Self::Call>,
-        _len: usize,
-    ) -> TransactionValidity {
-        call.is_sub_type();
-        Ok(ValidTransaction {
-            priority: Self::get_priority_vanilla(),
-            ..Default::default()
-        })
-    }
-
-    // NOTE: Add later when we put in a pre and post dispatch step.
-    fn pre_dispatch(
-        self,
-        who: &Self::AccountId,
-        call: &Self::Call,
-        _info: &DispatchInfoOf<Self::Call>,
-        _len: usize,
-    ) -> Result<Self::Pre, TransactionValidityError> {
-        match call.is_sub_type() {
-            Some(Call::set_commitment { .. }) => {
-                let transaction_fee = 0;
-                Ok((CallType::SetCommitment, transaction_fee, who.clone()))
-            }
-            _ => {
-                let transaction_fee = 0;
-                Ok((CallType::Other, transaction_fee, who.clone()))
-            }
-        }
-    }
-
-    fn post_dispatch(
-        _maybe_pre: Option<Self::Pre>,
-        _info: &DispatchInfoOf<Self::Call>,
-        _post_info: &PostDispatchInfoOf<Self::Call>,
-        _len: usize,
-        _result: &DispatchResult,
-    ) -> Result<(), TransactionValidityError> {
-        Ok(())
-    }
-}
+use frame_support::{dispatch::DispatchResult, pallet_prelude::TypeInfo};
 
 impl<T: Config> Pallet<T> {
     pub fn reveal_timelocked_commitments() -> DispatchResult {
