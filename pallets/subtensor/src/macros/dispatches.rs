@@ -1,5 +1,3 @@
-
-
 use frame_support::pallet_macros::pallet_section;
 
 /// A [`pallet_section`] that defines the errors for a pallet.
@@ -2059,7 +2057,7 @@ mod dispatches {
         ) -> DispatchResult {
             Self::do_burn_alpha(origin, hotkey, amount, netuid)
         }
-        
+
         /// Sets the pending childkey cooldown (in blocks). Root only.
         #[pallet::call_index(109)]
         #[pallet::weight((Weight::from_parts(10_000, 0), DispatchClass::Operational, Pays::No))]

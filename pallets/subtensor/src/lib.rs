@@ -1700,7 +1700,8 @@ pub mod pallet {
 
     #[pallet::storage]
     // --- MAP ( netuid ) --> lease_id | The lease id for a given netuid.
-    pub type SubnetUidToLeaseId<T: Config> = StorageMap<_, Twox64Concat, u16, LeaseId, OptionQuery>;
+    pub type SubnetUidToLeaseId<T: Config> =
+        StorageMap<_, Twox64Concat, NetUid, LeaseId, OptionQuery>;
 
     #[pallet::storage]
     /// --- ITEM ( next_lease_id ) | The next lease id.

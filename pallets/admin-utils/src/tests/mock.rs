@@ -2,7 +2,6 @@
 
 use frame_support::{
     PalletId, assert_ok, derive_impl, parameter_types,
-    weights,
     traits::{Everything, Hooks, InherentBuilder, PrivilegeCmp},
 };
 use frame_system::{self as system, offchain::CreateTransactionBase};

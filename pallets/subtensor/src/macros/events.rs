@@ -341,7 +341,7 @@ mod events {
         /// - **netuid**: The network identifier.
         /// - **Enabled**: Is Commit-Reveal enabled.
         CommitRevealEnabled(NetUid, bool),
-        
+
         /// the hotkey is swapped
         HotkeySwappedOnSubnet {
             /// the account ID of coldkey
@@ -361,16 +361,17 @@ mod events {
             /// The lease ID
             lease_id: LeaseId,
             /// The subnet ID
-            netuid: u16,
+            netuid: NetUid,
             /// The end block of the lease
             end_block: Option<BlockNumberFor<T>>,
         },
 
+        /// A subnet lease has been terminated.
         SubnetLeaseTerminated {
             /// The beneficiary of the lease.
             beneficiary: T::AccountId,
             /// The subnet ID
-            netuid: u16,
-        }
+            netuid: NetUid,
+        },
     }
 }

@@ -1,13 +1,13 @@
 use super::*;
 use frame_support::{
     dispatch::RawOrigin,
-    pallet_prelude::*,
     traits::{Defensive, fungible::*, tokens::Preservation},
 };
 use frame_system::pallet_prelude::*;
 use sp_core::blake2_256;
 use sp_runtime::{Percent, traits::TrailingZeroInput};
 use substrate_fixed::types::{U64F64, U96F32};
+use subtensor_runtime_common::NetUid;
 
 pub type LeaseId = u32;
 
@@ -16,7 +16,7 @@ pub type CurrencyOf<T> = <T as Config>::Currency;
 pub type BalanceOf<T> =
     <CurrencyOf<T> as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
-#[freeze_struct("75abd76dca254c88")]
+#[freeze_struct("8cc3d0594faed7dd")]
 #[derive(Encode, Decode, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo)]
 pub struct SubnetLease<AccountId, BlockNumber, Balance> {
     /// The beneficiary of the lease, able to operate the subnet through
@@ -31,7 +31,7 @@ pub struct SubnetLease<AccountId, BlockNumber, Balance> {
     /// The block at which the lease will end. If not defined, the lease is perpetual.
     pub end_block: Option<BlockNumber>,
     /// The netuid of the subnet that the lease is for.
-    pub netuid: u16,
+    pub netuid: NetUid,
     /// The cost of the lease including the network registration and proxy.
     pub cost: Balance,
 }
@@ -343,7 +343,7 @@ impl<T: Config> Pallet<T> {
         Ok(lease_id)
     }
 
-    fn find_lease_netuid(lease_coldkey: &T::AccountId) -> Option<u16> {
+    fn find_lease_netuid(lease_coldkey: &T::AccountId) -> Option<NetUid> {
         SubnetOwner::<T>::iter()
             .find(|(_, coldkey)| coldkey == lease_coldkey)
             .map(|(netuid, _)| netuid)
