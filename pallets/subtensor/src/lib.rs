@@ -28,7 +28,7 @@ use sp_runtime::{
     transaction_validity::{TransactionValidity, TransactionValidityError},
 };
 use sp_std::marker::PhantomData;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{NetUid, Alpha as AlphaCurrency};
 
 // ============================
 //	==== Benchmark Imports =====
@@ -988,7 +988,7 @@ pub mod pallet {
         NetUid,
         Blake2_128Concat,
         T::AccountId,
-        u64,
+        AlphaCurrency,
         ValueQuery,
         DefaultZeroU64<T>,
     >;
@@ -1018,7 +1018,7 @@ pub mod pallet {
         T::AccountId,
         Identity,
         NetUid,
-        u64,
+        AlphaCurrency,
         ValueQuery,
         DefaultZeroU64<T>,
     >;
@@ -1055,16 +1055,16 @@ pub mod pallet {
         StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> alpha_out_emission | Returns the amount of alpha out emission into the network per block.
     pub type SubnetAlphaOutEmission<T: Config> =
-        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
+        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> tao_in_emission | Returns the amount of tao emitted into this subent on the last block.
     pub type SubnetTaoInEmission<T: Config> =
         StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the pool.
     pub type SubnetAlphaIn<T: Config> =
-        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
+        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
     pub type SubnetAlphaOut<T: Config> =
-        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
+        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
     pub type StakingHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
@@ -1089,7 +1089,7 @@ pub mod pallet {
         T::AccountId,
         Identity,
         NetUid,
-        u64,
+        AlphaCurrency,
         ValueQuery,
         DefaultZeroU64<T>,
     >;
@@ -1100,7 +1100,7 @@ pub mod pallet {
         T::AccountId,
         Identity,
         NetUid,
-        u64,
+        AlphaCurrency,
         ValueQuery,
         DefaultZeroU64<T>,
     >;

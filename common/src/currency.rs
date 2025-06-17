@@ -6,7 +6,7 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use subtensor_macros::freeze_struct;
 
-#[freeze_struct("e12e377d201c5e2c")]
+#[freeze_struct("597e376f01cf675a")]
 #[repr(transparent)]
 #[derive(
     Deserialize,
@@ -23,9 +23,15 @@ use subtensor_macros::freeze_struct;
     PartialEq,
     PartialOrd,
     RuntimeDebug,
-    TypeInfo,
 )]
 pub struct Alpha(u64);
+
+impl TypeInfo for Alpha {
+    type Identity = <u64 as TypeInfo>::Identity;
+    fn type_info() -> scale_info::Type {
+        <u64 as TypeInfo>::type_info()
+    }
+}
 
 impl Display for Alpha {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

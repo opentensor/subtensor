@@ -11,6 +11,8 @@ use sp_runtime::{
 };
 use subtensor_macros::freeze_struct;
 
+pub use currency::*;
+
 mod currency;
 
 /// Balance of an account.
