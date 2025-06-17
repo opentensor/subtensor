@@ -594,7 +594,6 @@ mod dispatches {
             netuid: u16,
             amount_staked: u64,
         ) -> DispatchResult {
-            log::error!("===================== {} {}", file!(), line!());
             Self::do_add_stake(origin, hotkey, netuid, amount_staked)
         }
 
@@ -1797,7 +1796,6 @@ mod dispatches {
             limit_price: u64,
             allow_partial: bool,
         ) -> DispatchResult {
-            log::error!("===================== {} {}", file!(), line!());
             Self::do_add_stake_limit(
                 origin,
                 hotkey,

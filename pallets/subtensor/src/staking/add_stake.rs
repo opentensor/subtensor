@@ -42,8 +42,8 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
-        log::error!(
-            "=========== do_add_stake( origin:{:?} hotkey:{:?}, netuid:{:?}, stake_to_be_added:{:?} )",
+        log::debug!(
+            "do_add_stake( origin:{:?} hotkey:{:?}, netuid:{:?}, stake_to_be_added:{:?} )",
             coldkey,
             hotkey,
             netuid,
@@ -129,7 +129,6 @@ impl<T: Config> Pallet<T> {
         limit_price: u64,
         allow_partial: bool,
     ) -> dispatch::DispatchResult {
-        log::error!("===================== {} {}", file!(), line!());
         // 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::debug!(
@@ -143,7 +142,6 @@ impl<T: Config> Pallet<T> {
         // 2. Calculate the maximum amount that can be executed with price limit
         let max_amount = Self::get_max_amount_add(netuid, limit_price)?;
         let mut possible_stake = stake_to_be_added;
-        log::error!("====== {} {}", file!(), line!());
         if possible_stake > max_amount {
             possible_stake = max_amount;
         }
@@ -157,18 +155,15 @@ impl<T: Config> Pallet<T> {
             max_amount,
             allow_partial,
         )?;
-        log::error!("====== {} {}", file!(), line!());
 
         // 4. If the coldkey is not the owner, make the hotkey a delegate.
         if Self::get_owning_coldkey_for_hotkey(&hotkey) != coldkey {
             Self::maybe_become_delegate(&hotkey);
         }
-        log::error!("====== {} {}", file!(), line!());
 
         // 5. Ensure the remove operation from the coldkey is a success.
         let tao_staked: I96F32 =
             Self::remove_balance_from_coldkey_account(&coldkey, possible_stake)?.into();
-        log::error!("====== {} {}", file!(), line!());
         // 6. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
         let fee = DefaultStakingFee::<T>::get();
@@ -179,8 +174,6 @@ impl<T: Config> Pallet<T> {
             tao_staked.saturating_to_num::<u64>(),
             fee,
         );
-        log::error!("====== {} {}", file!(), line!());
-
         // Ok and return.
         Ok(())
     }

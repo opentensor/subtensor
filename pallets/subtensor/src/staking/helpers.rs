@@ -232,13 +232,10 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) -> Result<u64, DispatchError> {
-        log::error!("====== {} {}", file!(), line!());
         if amount == 0 {
-            log::error!("====== {} {}", file!(), line!());
             return Ok(0);
         }
 
-        log::error!("====== {} {}", file!(), line!());
         let credit = T::Currency::withdraw(
             coldkey,
             amount,
