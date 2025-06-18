@@ -3,8 +3,8 @@ use frame_support::pallet_prelude::{Decode, Encode};
 use frame_support::storage::IterableStorageMap;
 extern crate alloc;
 use codec::Compact;
-use subtensor_runtime_common::NetUid;
 use substrate_fixed::types::I32F32;
+use subtensor_runtime_common::NetUid;
 
 #[freeze_struct("dd2293544ffd8f2e")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
