@@ -12,10 +12,11 @@ use frame_support::{
     dispatch::{self, DispatchInfo, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo},
     ensure,
     pallet_macros::import_section,
+    pallet_prelude::*,
     traits::{IsSubType, tokens::fungible},
 };
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::sp_runtime::transaction_validity::InvalidTransaction;
 use frame_support::sp_runtime::transaction_validity::ValidTransaction;
 use pallet_balances::Call as BalancesCall;
@@ -24,7 +25,10 @@ use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{
     DispatchError,
-    traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
+    traits::{
+        AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Implication, PostDispatchInfoOf,
+        TransactionExtension, ValidateResult,
+    },
     transaction_validity::{TransactionValidity, TransactionValidityError},
 };
 use sp_std::marker::PhantomData;
@@ -1848,22 +1852,23 @@ impl From<CustomTransactionError> for u8 {
     }
 }
 
-#[freeze_struct("61e2b893d5ce6701")]
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
-pub struct SubtensorSignedExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
-
-impl<T: Config + Send + Sync + TypeInfo> Default for SubtensorSignedExtension<T>
-where
-    <T as frame_system::Config>::RuntimeCall:
-        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-    <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
-{
-    fn default() -> Self {
-        Self::new()
+impl From<CustomTransactionError> for TransactionValidityError {
+    fn from(variant: CustomTransactionError) -> Self {
+        TransactionValidityError::Invalid(InvalidTransaction::Custom(variant.into()))
     }
 }
 
-impl<T: Config + Send + Sync + TypeInfo> SubtensorSignedExtension<T>
+#[freeze_struct("2e02eb32e5cb25d3")]
+#[derive(Default, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
+pub struct SubtensorTransactionExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
+
+impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for SubtensorTransactionExtension<T> {
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+        write!(f, "SubtensorTransactionExtension")
+    }
+}
+
+impl<T: Config + Send + Sync + TypeInfo> SubtensorTransactionExtension<T>
 where
     <T as frame_system::Config>::RuntimeCall:
         Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
@@ -1897,59 +1902,31 @@ where
 
     pub fn result_to_validity(result: Result<(), Error<T>>, priority: u64) -> TransactionValidity {
         if let Err(err) = result {
-            match err {
-                Error::<T>::AmountTooLow => Err(InvalidTransaction::Custom(
-                    CustomTransactionError::StakeAmountTooLow.into(),
-                )
-                .into()),
-                Error::<T>::SubnetNotExists => Err(InvalidTransaction::Custom(
-                    CustomTransactionError::SubnetDoesntExist.into(),
-                )
-                .into()),
-                Error::<T>::NotEnoughBalanceToStake => Err(InvalidTransaction::Custom(
-                    CustomTransactionError::BalanceTooLow.into(),
-                )
-                .into()),
-                Error::<T>::HotKeyAccountNotExists => Err(InvalidTransaction::Custom(
-                    CustomTransactionError::HotkeyAccountDoesntExist.into(),
-                )
-                .into()),
-                Error::<T>::NotEnoughStakeToWithdraw => Err(InvalidTransaction::Custom(
-                    CustomTransactionError::NotEnoughStakeToWithdraw.into(),
-                )
-                .into()),
-                Error::<T>::InsufficientLiquidity => Err(InvalidTransaction::Custom(
-                    CustomTransactionError::InsufficientLiquidity.into(),
-                )
-                .into()),
-                Error::<T>::SlippageTooHigh => Err(InvalidTransaction::Custom(
-                    CustomTransactionError::SlippageTooHigh.into(),
-                )
-                .into()),
-                Error::<T>::TransferDisallowed => Err(InvalidTransaction::Custom(
-                    CustomTransactionError::TransferDisallowed.into(),
-                )
-                .into()),
-                Error::<T>::HotKeyNotRegisteredInNetwork => Err(InvalidTransaction::Custom(
-                    CustomTransactionError::HotKeyNotRegisteredInNetwork.into(),
-                )
-                .into()),
-                Error::<T>::InvalidIpAddress => Err(InvalidTransaction::Custom(
-                    CustomTransactionError::InvalidIpAddress.into(),
-                )
-                .into()),
-                Error::<T>::ServingRateLimitExceeded => Err(InvalidTransaction::Custom(
-                    CustomTransactionError::ServingRateLimitExceeded.into(),
-                )
-                .into()),
-                Error::<T>::InvalidPort => Err(InvalidTransaction::Custom(
-                    CustomTransactionError::InvalidPort.into(),
-                )
-                .into()),
-                _ => Err(
-                    InvalidTransaction::Custom(CustomTransactionError::BadRequest.into()).into(),
-                ),
-            }
+            Err(match err {
+                Error::<T>::AmountTooLow => CustomTransactionError::StakeAmountTooLow.into(),
+                Error::<T>::SubnetNotExists => CustomTransactionError::SubnetDoesntExist.into(),
+                Error::<T>::NotEnoughBalanceToStake => CustomTransactionError::BalanceTooLow.into(),
+                Error::<T>::HotKeyAccountNotExists => {
+                    CustomTransactionError::HotkeyAccountDoesntExist.into()
+                }
+                Error::<T>::NotEnoughStakeToWithdraw => {
+                    CustomTransactionError::NotEnoughStakeToWithdraw.into()
+                }
+                Error::<T>::InsufficientLiquidity => {
+                    CustomTransactionError::InsufficientLiquidity.into()
+                }
+                Error::<T>::SlippageTooHigh => CustomTransactionError::SlippageTooHigh.into(),
+                Error::<T>::TransferDisallowed => CustomTransactionError::TransferDisallowed.into(),
+                Error::<T>::HotKeyNotRegisteredInNetwork => {
+                    CustomTransactionError::HotKeyNotRegisteredInNetwork.into()
+                }
+                Error::<T>::InvalidIpAddress => CustomTransactionError::InvalidIpAddress.into(),
+                Error::<T>::ServingRateLimitExceeded => {
+                    CustomTransactionError::ServingRateLimitExceeded.into()
+                }
+                Error::<T>::InvalidPort => CustomTransactionError::InvalidPort.into(),
+                _ => CustomTransactionError::BadRequest.into(),
+            })
         } else {
             Ok(ValidTransaction {
                 priority,
@@ -1959,127 +1936,119 @@ where
     }
 }
 
-impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for SubtensorSignedExtension<T> {
-    fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-        write!(f, "SubtensorSignedExtension")
-    }
-}
-
-impl<T: Config + Send + Sync + TypeInfo + pallet_balances::Config> SignedExtension
-    for SubtensorSignedExtension<T>
+impl<T: Config + Send + Sync + TypeInfo + pallet_balances::Config>
+    TransactionExtension<<T as frame_system::Config>::RuntimeCall>
+    for SubtensorTransactionExtension<T>
 where
     <T as frame_system::Config>::RuntimeCall:
         Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
     <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<BalancesCall<T>>,
 {
-    const IDENTIFIER: &'static str = "SubtensorSignedExtension";
+    const IDENTIFIER: &'static str = "SubtensorTransactionExtension";
 
-    type AccountId = T::AccountId;
-    type Call = <T as frame_system::Config>::RuntimeCall;
-    type AdditionalSigned = ();
-    type Pre = (CallType, u64, Self::AccountId);
+    type Implicit = ();
+    type Val = Option<T::AccountId>;
+    type Pre = Option<CallType>;
 
-    fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
-        Ok(())
+    fn weight(&self, _call: &<T as frame_system::Config>::RuntimeCall) -> Weight {
+        // TODO: benchmark transaction extension
+        Weight::zero()
     }
 
     fn validate(
         &self,
-        who: &Self::AccountId,
-        call: &Self::Call,
-        _info: &DispatchInfoOf<Self::Call>,
+        origin: <T as frame_system::Config>::RuntimeOrigin,
+        call: &<T as frame_system::Config>::RuntimeCall,
+        _info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
         _len: usize,
-    ) -> TransactionValidity {
+        _self_implicit: Self::Implicit,
+        _inherited_implication: &impl Implication,
+        _source: TransactionSource,
+    ) -> ValidateResult<Self::Val, <T as frame_system::Config>::RuntimeCall> {
+        // Ensure the transaction is signed, else we just skip the extension.
+        let Some(who) = origin.as_system_origin_signer() else {
+            return Ok((Default::default(), None, origin));
+        };
+
         match call.is_sub_type() {
             Some(Call::commit_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who, *netuid) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                    Ok(ValidTransaction {
+                    let validity = ValidTransaction {
                         priority,
                         longevity: 1,
                         ..Default::default()
-                    })
+                    };
+                    Ok((validity, Some(who.clone()), origin))
                 } else {
-                    Err(InvalidTransaction::Custom(
-                        CustomTransactionError::StakeAmountTooLow.into(),
-                    )
-                    .into())
+                    Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
             Some(Call::reveal_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who, *netuid) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                    Ok(ValidTransaction {
+                    let validity = ValidTransaction {
                         priority,
                         longevity: 1,
                         ..Default::default()
-                    })
+                    };
+                    Ok((validity, Some(who.clone()), origin))
                 } else {
-                    Err(InvalidTransaction::Custom(
-                        CustomTransactionError::StakeAmountTooLow.into(),
-                    )
-                    .into())
+                    Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
             Some(Call::batch_reveal_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who, *netuid) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                    Ok(ValidTransaction {
+                    let validity = ValidTransaction {
                         priority,
                         longevity: 1,
                         ..Default::default()
-                    })
+                    };
+                    Ok((validity, Some(who.clone()), origin))
                 } else {
-                    Err(InvalidTransaction::Custom(
-                        CustomTransactionError::StakeAmountTooLow.into(),
-                    )
-                    .into())
+                    Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
             Some(Call::set_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who, *netuid) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                    Ok(ValidTransaction {
+                    let validity = ValidTransaction {
                         priority,
                         longevity: 1,
                         ..Default::default()
-                    })
+                    };
+                    Ok((validity, Some(who.clone()), origin))
                 } else {
-                    Err(InvalidTransaction::Custom(
-                        CustomTransactionError::StakeAmountTooLow.into(),
-                    )
-                    .into())
+                    Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
             Some(Call::set_tao_weights { netuid, hotkey, .. }) => {
                 if Self::check_weights_min_stake(hotkey, *netuid) {
                     let priority: u64 = Self::get_priority_set_weights(hotkey, *netuid);
-                    Ok(ValidTransaction {
+                    let validity = ValidTransaction {
                         priority,
                         longevity: 1,
                         ..Default::default()
-                    })
+                    };
+                    Ok((validity, Some(who.clone()), origin))
                 } else {
-                    Err(InvalidTransaction::Custom(
-                        CustomTransactionError::StakeAmountTooLow.into(),
-                    )
-                    .into())
+                    Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
             Some(Call::commit_crv3_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who, *netuid) {
                     let priority: u64 = Pallet::<T>::get_priority_set_weights(who, *netuid);
-                    Ok(ValidTransaction {
+                    let validity = ValidTransaction {
                         priority,
                         longevity: 1,
                         ..Default::default()
-                    })
+                    };
+                    Ok((validity, Some(who.clone()), origin))
                 } else {
-                    Err(InvalidTransaction::Custom(
-                        CustomTransactionError::StakeAmountTooLow.into(),
-                    )
-                    .into())
+                    Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
             Some(Call::add_stake {
@@ -2088,11 +2057,9 @@ where
                 amount_staked,
             }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return InvalidTransaction::Custom(
-                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
-                    )
-                    .into();
+                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
                 }
+
                 // Fully validate the user input
                 Self::result_to_validity(
                     Pallet::<T>::validate_add_stake(
@@ -2105,6 +2072,7 @@ where
                     ),
                     Self::get_priority_staking(who, hotkey, *amount_staked),
                 )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::add_stake_limit {
                 hotkey,
@@ -2114,18 +2082,12 @@ where
                 allow_partial,
             }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return InvalidTransaction::Custom(
-                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
-                    )
-                    .into();
+                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
                 }
 
                 // Calculate the maximum amount that can be executed with price limit
                 let Ok(max_amount) = Pallet::<T>::get_max_amount_add(*netuid, *limit_price) else {
-                    return InvalidTransaction::Custom(
-                        CustomTransactionError::ZeroMaxAmount.into(),
-                    )
-                    .into();
+                    return Err(CustomTransactionError::ZeroMaxAmount.into());
                 };
 
                 // Fully validate the user input
@@ -2140,6 +2102,7 @@ where
                     ),
                     Self::get_priority_staking(who, hotkey, *amount_staked),
                 )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::remove_stake {
                 hotkey,
@@ -2158,6 +2121,7 @@ where
                     ),
                     Self::get_priority_staking(who, hotkey, *amount_unstaked),
                 )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::remove_stake_limit {
                 hotkey,
@@ -2169,10 +2133,7 @@ where
                 // Calculate the maximum amount that can be executed with price limit
                 let Ok(max_amount) = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price)
                 else {
-                    return InvalidTransaction::Custom(
-                        CustomTransactionError::ZeroMaxAmount.into(),
-                    )
-                    .into();
+                    return Err(CustomTransactionError::ZeroMaxAmount.into());
                 };
 
                 // Fully validate the user input
@@ -2187,6 +2148,7 @@ where
                     ),
                     Self::get_priority_staking(who, hotkey, *amount_unstaked),
                 )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::unstake_all { hotkey }) => {
                 // Fully validate the user input
@@ -2194,6 +2156,7 @@ where
                     Pallet::<T>::validate_unstake_all(who, hotkey, false),
                     Self::get_priority_vanilla(),
                 )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::unstake_all_alpha { hotkey }) => {
                 // Fully validate the user input
@@ -2201,6 +2164,7 @@ where
                     Pallet::<T>::validate_unstake_all(who, hotkey, true),
                     Self::get_priority_vanilla(),
                 )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::move_stake {
                 origin_hotkey,
@@ -2210,10 +2174,7 @@ where
                 alpha_amount,
             }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return InvalidTransaction::Custom(
-                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
-                    )
-                    .into();
+                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
                 }
 
                 // Fully validate the user input
@@ -2232,6 +2193,7 @@ where
                     ),
                     Self::get_priority_staking(who, origin_hotkey, *alpha_amount),
                 )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::transfer_stake {
                 destination_coldkey,
@@ -2241,10 +2203,7 @@ where
                 alpha_amount,
             }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return InvalidTransaction::Custom(
-                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
-                    )
-                    .into();
+                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
                 }
 
                 // Fully validate the user input
@@ -2263,6 +2222,7 @@ where
                     ),
                     Self::get_priority_staking(who, hotkey, *alpha_amount),
                 )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::swap_stake {
                 hotkey,
@@ -2271,10 +2231,7 @@ where
                 alpha_amount,
             }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return InvalidTransaction::Custom(
-                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
-                    )
-                    .into();
+                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
                 }
 
                 // Fully validate the user input
@@ -2293,6 +2250,7 @@ where
                     ),
                     Self::get_priority_staking(who, hotkey, *alpha_amount),
                 )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::swap_stake_limit {
                 hotkey,
@@ -2303,10 +2261,7 @@ where
                 allow_partial,
             }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return InvalidTransaction::Custom(
-                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
-                    )
-                    .into();
+                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
                 }
 
                 // Get the max amount possible to exchange
@@ -2315,10 +2270,7 @@ where
                     *destination_netuid,
                     *limit_price,
                 ) else {
-                    return InvalidTransaction::Custom(
-                        CustomTransactionError::ZeroMaxAmount.into(),
-                    )
-                    .into();
+                    return Err(CustomTransactionError::ZeroMaxAmount.into());
                 };
 
                 // Fully validate the user input
@@ -2337,13 +2289,11 @@ where
                     ),
                     Self::get_priority_staking(who, hotkey, *alpha_amount),
                 )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return InvalidTransaction::Custom(
-                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
-                    )
-                    .into();
+                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
                 }
 
                 let registrations_this_interval =
@@ -2353,29 +2303,31 @@ where
                 if registrations_this_interval >= (max_registrations_per_interval.saturating_mul(3))
                 {
                     // If the registration limit for the interval is exceeded, reject the transaction
-                    return Err(InvalidTransaction::Custom(
-                        CustomTransactionError::RateLimitExceeded.into(),
-                    )
-                    .into());
+                    return Err(CustomTransactionError::RateLimitExceeded.into());
                 }
-                Ok(ValidTransaction {
+                let validity = ValidTransaction {
                     priority: Self::get_priority_vanilla(),
                     ..Default::default()
-                })
+                };
+                Ok((validity, Some(who.clone()), origin))
             }
-            Some(Call::register_network { .. }) => Ok(ValidTransaction {
-                priority: Self::get_priority_vanilla(),
-                ..Default::default()
-            }),
+            Some(Call::register_network { .. }) => {
+                let validity = ValidTransaction {
+                    priority: Self::get_priority_vanilla(),
+                    ..Default::default()
+                };
+
+                Ok((validity, Some(who.clone()), origin))
+            }
             Some(Call::dissolve_network { .. }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    InvalidTransaction::Custom(CustomTransactionError::ColdkeyInSwapSchedule.into())
-                        .into()
+                    Err(CustomTransactionError::ColdkeyInSwapSchedule.into())
                 } else {
-                    Ok(ValidTransaction {
+                    let validity = ValidTransaction {
                         priority: Self::get_priority_vanilla(),
                         ..Default::default()
-                    })
+                    };
+                    Ok((validity, Some(who.clone()), origin))
                 }
             }
             Some(Call::serve_axon {
@@ -2403,6 +2355,7 @@ where
                     ),
                     Self::get_priority_vanilla(),
                 )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             _ => {
                 if let Some(
@@ -2412,102 +2365,77 @@ where
                 ) = call.is_sub_type()
                 {
                     if ColdkeySwapScheduled::<T>::contains_key(who) {
-                        return InvalidTransaction::Custom(
-                            CustomTransactionError::ColdkeyInSwapSchedule.into(),
-                        )
-                        .into();
+                        return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
                     }
                 }
-                Ok(ValidTransaction {
+                let validity = ValidTransaction {
                     priority: Self::get_priority_vanilla(),
                     ..Default::default()
-                })
+                };
+                Ok((validity, Some(who.clone()), origin))
             }
         }
     }
 
     // NOTE: Add later when we put in a pre and post dispatch step.
-    fn pre_dispatch(
+    fn prepare(
         self,
-        who: &Self::AccountId,
-        call: &Self::Call,
-        info: &DispatchInfoOf<Self::Call>,
-        len: usize,
+        val: Self::Val,
+        _origin: &<T as frame_system::Config>::RuntimeOrigin,
+        call: &<T as frame_system::Config>::RuntimeCall,
+        _info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
+        _len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
-        // We need to perform same checks as Self::validate so that
-        // the validation is performed during Executive::apply_extrinsic as well.
-        // this prevents inclusion of invalid tx in a block by malicious block author.
-        self.validate(who, call, info, len)?;
+        // The transaction is not signed, given val is None, so we just skip this step.
+        if val.is_none() {
+            return Ok(None);
+        }
+
         match call.is_sub_type() {
-            Some(Call::add_stake { .. }) => {
-                let transaction_fee = 100000;
-                Ok((CallType::AddStake, transaction_fee, who.clone()))
-            }
-            Some(Call::remove_stake { .. }) => {
-                let transaction_fee = 0;
-                Ok((CallType::RemoveStake, transaction_fee, who.clone()))
-            }
-            Some(Call::set_weights { .. }) => {
-                let transaction_fee = 0;
-                Ok((CallType::SetWeights, transaction_fee, who.clone()))
-            }
-            Some(Call::commit_weights { .. }) => {
-                let transaction_fee = 0;
-                Ok((CallType::SetWeights, transaction_fee, who.clone()))
-            }
-            Some(Call::reveal_weights { .. }) => {
-                let transaction_fee = 0;
-                Ok((CallType::SetWeights, transaction_fee, who.clone()))
-            }
-            Some(Call::register { .. }) => {
-                let transaction_fee = 0;
-                Ok((CallType::Register, transaction_fee, who.clone()))
-            }
-            Some(Call::serve_axon { .. }) => {
-                let transaction_fee = 0;
-                Ok((CallType::Serve, transaction_fee, who.clone()))
-            }
-            Some(Call::serve_axon_tls { .. }) => {
-                let transaction_fee = 0;
-                Ok((CallType::Serve, transaction_fee, who.clone()))
-            }
-            Some(Call::register_network { .. }) => {
-                let transaction_fee = 0;
-                Ok((CallType::RegisterNetwork, transaction_fee, who.clone()))
-            }
-            _ => {
-                let transaction_fee = 0;
-                Ok((CallType::Other, transaction_fee, who.clone()))
-            }
+            Some(Call::add_stake { .. }) => Ok(Some(CallType::AddStake)),
+            Some(Call::remove_stake { .. }) => Ok(Some(CallType::RemoveStake)),
+            Some(Call::set_weights { .. }) => Ok(Some(CallType::SetWeights)),
+            Some(Call::commit_weights { .. }) => Ok(Some(CallType::SetWeights)),
+            Some(Call::reveal_weights { .. }) => Ok(Some(CallType::SetWeights)),
+            Some(Call::register { .. }) => Ok(Some(CallType::Register)),
+            Some(Call::serve_axon { .. }) => Ok(Some(CallType::Serve)),
+            Some(Call::serve_axon_tls { .. }) => Ok(Some(CallType::Serve)),
+            Some(Call::register_network { .. }) => Ok(Some(CallType::RegisterNetwork)),
+            _ => Ok(Some(CallType::Other)),
         }
     }
 
     fn post_dispatch(
-        maybe_pre: Option<Self::Pre>,
-        _info: &DispatchInfoOf<Self::Call>,
-        _post_info: &PostDispatchInfoOf<Self::Call>,
+        pre: Self::Pre,
+        _info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
+        _post_info: &mut PostDispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
         _len: usize,
         _result: &dispatch::DispatchResult,
     ) -> Result<(), TransactionValidityError> {
-        if let Some((call_type, _transaction_fee, _who)) = maybe_pre {
-            match call_type {
-                CallType::SetWeights => {
-                    log::debug!("Not Implemented!");
-                }
-                CallType::AddStake => {
-                    log::debug!("Not Implemented! Need to add potential transaction fees here.");
-                }
-                CallType::RemoveStake => {
-                    log::debug!("Not Implemented! Need to add potential transaction fees here.");
-                }
-                CallType::Register => {
-                    log::debug!("Not Implemented!");
-                }
-                _ => {
-                    log::debug!("Not Implemented!");
-                }
+        // Skip this step if the transaction is not signed, meaning pre is None.
+        let call_type = match pre {
+            Some(call_type) => call_type,
+            None => return Ok(()),
+        };
+
+        match call_type {
+            CallType::SetWeights => {
+                log::debug!("Not Implemented!");
+            }
+            CallType::AddStake => {
+                log::debug!("Not Implemented! Need to add potential transaction fees here.");
+            }
+            CallType::RemoveStake => {
+                log::debug!("Not Implemented! Need to add potential transaction fees here.");
+            }
+            CallType::Register => {
+                log::debug!("Not Implemented!");
+            }
+            _ => {
+                log::debug!("Not Implemented!");
             }
         }
+
         Ok(())
     }
 }

@@ -3,14 +3,14 @@ use crate::verifier::*;
 use crate::*;
 use frame_support::{
     derive_impl, parameter_types,
-    traits::{ConstU16, ConstU64},
+    traits::{ConstU16, ConstU64, InherentBuilder},
 };
 use sp_core::{H256, sr25519::Signature};
 use sp_keystore::{KeystoreExt, testing::MemoryKeystore};
 use sp_runtime::{
     BuildStorage,
     testing::TestXt,
-    traits::{BlakeTwo256, Extrinsic as ExtrinsicT, IdentifyAccount, IdentityLookup, Verify},
+    traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -59,25 +59,36 @@ impl frame_system::offchain::SigningTypes for Test {
     type Signature = Signature;
 }
 
-impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test
+impl<LocalCall> frame_system::offchain::CreateTransactionBase<LocalCall> for Test
 where
     RuntimeCall: From<LocalCall>,
 {
-    type OverarchingCall = RuntimeCall;
+    type RuntimeCall = RuntimeCall;
     type Extrinsic = Extrinsic;
+}
+
+impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Test
+where
+    RuntimeCall: From<LocalCall>,
+{
+    fn create_inherent(call: RuntimeCall) -> Self::Extrinsic {
+        Extrinsic::new_inherent(call)
+    }
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
 where
     RuntimeCall: From<LocalCall>,
 {
-    fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+    fn create_signed_transaction<
+        C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
+    >(
         call: RuntimeCall,
         _public: <Signature as Verify>::Signer,
         _account: AccountId,
         nonce: u64,
-    ) -> Option<(RuntimeCall, <Extrinsic as ExtrinsicT>::SignaturePayload)> {
-        Some((call, (nonce, ())))
+    ) -> Option<Self::Extrinsic> {
+        Some(Extrinsic::new_signed(call, nonce, (), ()))
     }
 }
 

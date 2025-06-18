@@ -137,7 +137,7 @@ where
         + Dispatchable<PostInfo = PostDispatchInfo>
         + Decode,
     <<R as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
-        From<Option<R::AccountId>>,
+        From<Option<pallet_evm::AccountIdOf<R>>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
