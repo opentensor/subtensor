@@ -102,6 +102,15 @@ interface ISubnet {
 
     function setRho(uint16 netuid, uint16 rho) external payable;
 
+    function getAlphaSigmoidSteepness(
+        uint16 netuid
+    ) external view returns (unt16);
+
+    function setAlphaSigmoidSteepness(
+        uint16 netuid,
+        int16 steepness
+    ) external payable;
+
     function getActivityCutoff(uint16 netuid) external view returns (uint16);
 
     function setActivityCutoff(
@@ -174,7 +183,7 @@ interface ISubnet {
     function getBondsResetEnabled(uint16 netuid) external view returns (bool);
 
     function setBondsResetEnabled(
-        uint16 netuid, 
+        uint16 netuid,
         bool bondsResetEnabled
     ) external payable;
 

@@ -56,6 +56,7 @@ where
         + pallet_balances::Config
         + pallet_admin_utils::Config
         + pallet_subtensor::Config
+        + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
@@ -80,6 +81,7 @@ where
         + pallet_balances::Config
         + pallet_admin_utils::Config
         + pallet_subtensor::Config
+        + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
@@ -127,6 +129,7 @@ where
         + pallet_balances::Config
         + pallet_admin_utils::Config
         + pallet_subtensor::Config
+        + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
@@ -137,7 +140,7 @@ where
         + Dispatchable<PostInfo = PostDispatchInfo>
         + Decode,
     <<R as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
-        From<Option<R::AccountId>>,
+        From<Option<pallet_evm::AccountIdOf<R>>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,

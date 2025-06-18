@@ -394,9 +394,7 @@ where
     #[precompile::public("getAlphaSigmoidSteepness(uint16)")]
     #[precompile::view]
     fn get_alpha_sigmoid_steepness(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
-        Ok(pallet_subtensor::AlphaSigmoidSteepness::<R>::get(
-            NetUid::from(netuid),
-        ))
+        Ok(pallet_subtensor::AlphaSigmoidSteepness::<R>::get(NetUid::from(netuid)) as u16)
     }
 
     #[precompile::public("setRho(uint16,uint16)")]
@@ -422,7 +420,7 @@ where
     ) -> EvmResult<()> {
         let call = pallet_admin_utils::Call::<R>::sudo_set_alpha_sigmoid_steepness {
             netuid: netuid.into(),
-            steepness,
+            steepness: (steepness as i16),
         };
 
         handle.try_dispatch_runtime_call::<R, _>(

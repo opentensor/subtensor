@@ -44,17 +44,11 @@ impl<T: Config> Pallet<T> {
     pub fn do_associate_evm_key(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
-        hotkey: T::AccountId,
         evm_key: H160,
         block_number: u64,
         mut signature: Signature,
     ) -> dispatch::DispatchResult {
-        let coldkey = ensure_signed(origin)?;
-
-        ensure!(
-            Self::get_owning_coldkey_for_hotkey(&hotkey) == coldkey,
-            Error::<T>::NonAssociatedColdKey
-        );
+        let hotkey = ensure_signed(origin)?;
 
         // Normalize the v value to 0 or 1
         if signature.0[64] >= 27 {

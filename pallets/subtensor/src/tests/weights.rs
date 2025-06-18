@@ -1,23 +1,24 @@
-#![allow(clippy::indexing_slicing)]
+#![allow(clippy::indexing_slicing, clippy::unwrap_used)]
 
-use super::mock::*;
-use crate::coinbase::run_coinbase::WeightsTlockPayload;
-use crate::*;
 use ark_serialize::CanonicalDeserialize;
 use frame_support::{
     assert_err, assert_ok,
     dispatch::{DispatchClass, DispatchResult, GetDispatchInfo, Pays},
 };
+use frame_system::RawOrigin;
+use pallet_drand::types::Pulse;
 use rand_chacha::{ChaCha20Rng, rand_core::SeedableRng};
 use scale_info::prelude::collections::HashMap;
 use sha2::Digest;
+use sp_core::Encode;
 use sp_core::{Get, H256, U256};
 use sp_runtime::{
     BoundedVec, DispatchError,
-    traits::{BlakeTwo256, ConstU32, Hash, SignedExtension},
+    traits::{BlakeTwo256, ConstU32, Hash, TxBaseImplication},
 };
 use sp_std::collections::vec_deque::VecDeque;
 use substrate_fixed::types::I32F32;
+use subtensor_swap_interface::SwapHandler;
 use tle::{
     curves::drand::TinyBLS381,
     ibe::fullident::Identity,
@@ -26,8 +27,10 @@ use tle::{
 };
 use w3f_bls::EngineBLS;
 
-use pallet_drand::types::Pulse;
-use sp_core::Encode;
+use super::mock;
+use super::mock::*;
+use crate::coinbase::run_coinbase::WeightsTlockPayload;
+use crate::*;
 
 /***************************
   pub fn set_weights() tests
@@ -69,7 +72,7 @@ fn test_set_rootweights_validate() {
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1); // Add the hotkey field
         assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
-        let fee = DefaultStakingFee::<Test>::get();
+        let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
 
         let who = coldkey; // The coldkey signs this transaction
 
@@ -98,16 +101,22 @@ fn test_set_rootweights_validate() {
         let info: crate::DispatchInfo =
             crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        let extension = crate::SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
+        let result_no_stake = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Should fail
-        assert_err!(
+        assert_eq!(
             // Should get an invalid transaction error
-            result_no_stake,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::StakeAmountTooLow.into()
-            ))
+            result_no_stake.unwrap_err(),
+            CustomTransactionError::StakeAmountTooLow.into()
         );
 
         // Increase the stake to be equal to the minimum
@@ -125,7 +134,15 @@ fn test_set_rootweights_validate() {
         );
 
         // Submit to the signed extension validate function
-        let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
+        let result_min_stake = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Now the call should pass
         assert_ok!(result_min_stake);
 
@@ -140,7 +157,15 @@ fn test_set_rootweights_validate() {
         // Verify stake is more than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
 
-        let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
+        let result_more_stake = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // The call should still pass
         assert_ok!(result_more_stake);
     });
@@ -186,7 +211,6 @@ fn test_commit_weights_validate() {
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1); // Add the hotkey field
         assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
-        let fee = DefaultStakingFee::<Test>::get();
 
         let who = hotkey; // The hotkey signs this transaction
 
@@ -207,40 +231,55 @@ fn test_commit_weights_validate() {
         SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
 
         let min_stake = 500_000_000_000;
-        // Set the minimum stake
-        SubtensorModule::set_stake_threshold(min_stake);
+        let reserve = min_stake * 1000;
+        mock::setup_reserves(netuid, reserve, reserve);
 
-        // Verify stake is less than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
-        // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
-        // Should fail
-        assert_err!(
-            // Should get an invalid transaction error
-            result_no_stake,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(1))
-        );
-
-        // Increase the stake to be equal to the minimum
+        // Stake some TAO and read what get_total_stake_for_hotkey it gets
+        // It will be a different value due to the slippage
         assert_ok!(SubtensorModule::do_add_stake(
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            min_stake + fee
-        ));
-
-        // Verify stake is equal to minimum
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
             min_stake
-        );
+        ));
+        let min_stake_with_slippage = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
+
+        // Set the minimum stake above what hotkey has
+        SubtensorModule::set_stake_threshold(min_stake_with_slippage + 1);
 
         // Submit to the signed extension validate function
-        let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
+        let info = crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = crate::SubtensorTransactionExtension::<Test>::new();
+        // Submit to the signed extension validate function
+        let result_no_stake = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
+        // Should fail
+        assert_eq!(
+            // Should get an invalid transaction error
+            result_no_stake.unwrap_err(),
+            CustomTransactionError::StakeAmountTooLow.into()
+        );
+
+        // Set the minimum stake equal to what hotkey has
+        SubtensorModule::set_stake_threshold(min_stake_with_slippage);
+
+        // Submit to the signed extension validate function
+        let result_min_stake = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Now the call should pass
         assert_ok!(result_min_stake);
 
@@ -253,9 +292,17 @@ fn test_commit_weights_validate() {
         ));
 
         // Verify stake is more than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
+        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake_with_slippage);
 
-        let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
+        let result_more_stake = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // The call should still pass
         assert_ok!(result_more_stake);
     });
@@ -296,7 +343,6 @@ fn test_set_weights_validate() {
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1);
         assert_ne!(hotkey, coldkey);
-        let fee = DefaultStakingFee::<Test>::get();
 
         let who = hotkey; // The hotkey signs this transaction
 
@@ -309,6 +355,7 @@ fn test_set_weights_validate() {
 
         // Create netuid
         add_network(netuid, 1, 0);
+        mock::setup_reserves(netuid, 1_000_000_000_000, 1_000_000_000_000);
         // Register the hotkey
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
@@ -316,6 +363,7 @@ fn test_set_weights_validate() {
         SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
 
         let min_stake = 500_000_000_000;
+
         // Set the minimum stake
         SubtensorModule::set_stake_threshold(min_stake);
 
@@ -324,33 +372,47 @@ fn test_set_weights_validate() {
         let info: crate::DispatchInfo =
             crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        let extension = crate::SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
+        let result_no_stake = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Should fail due to insufficient stake
-        assert_err!(
-            result_no_stake,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::StakeAmountTooLow.into()
-            ))
+        assert_eq!(
+            result_no_stake.unwrap_err(),
+            CustomTransactionError::StakeAmountTooLow.into()
         );
 
-        // Increase the stake to be equal to the minimum
+        // Increase the stake and make it to be equal to the minimum threshold
+        let fee =
+            <Test as pallet::Config>::SwapInterface::approx_fee_amount(netuid.into(), min_stake);
         assert_ok!(SubtensorModule::do_add_stake(
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
             min_stake + fee
         ));
+        let min_stake_with_slippage = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
 
-        // Verify stake is equal to minimum
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            min_stake
-        );
+        // Set the minimum stake to what the hotkey has
+        SubtensorModule::set_stake_threshold(min_stake_with_slippage);
 
         // Submit to the signed extension validate function
-        let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
+        let result_min_stake = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Now the call should pass
         assert_ok!(result_min_stake);
     });
@@ -371,7 +433,7 @@ fn test_reveal_weights_validate() {
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1); // Add the hotkey field
         assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
-        let fee = DefaultStakingFee::<Test>::get();
+        let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
 
         let who = hotkey; // The hotkey signs this transaction
 
@@ -399,16 +461,22 @@ fn test_reveal_weights_validate() {
         let info: crate::DispatchInfo =
             crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        let extension = crate::SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
+        let result_no_stake = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Should fail
-        assert_err!(
+        assert_eq!(
             // Should get an invalid transaction error
-            result_no_stake,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::StakeAmountTooLow.into()
-            ))
+            result_no_stake.unwrap_err(),
+            CustomTransactionError::StakeAmountTooLow.into()
         );
 
         // Increase the stake to be equal to the minimum
@@ -426,7 +494,15 @@ fn test_reveal_weights_validate() {
         );
 
         // Submit to the signed extension validate function
-        let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
+        let result_min_stake = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Now the call should pass
         assert_ok!(result_min_stake);
 
@@ -441,7 +517,15 @@ fn test_reveal_weights_validate() {
         // Verify stake is more than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
 
-        let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
+        let result_more_stake = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // The call should still pass
         assert_ok!(result_more_stake);
     });

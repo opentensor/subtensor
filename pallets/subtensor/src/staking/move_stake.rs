@@ -1,8 +1,9 @@
 use super::*;
 use safe_math::*;
 use sp_core::Get;
-use substrate_fixed::types::{U64F64, U96F32};
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::NetUid;
+use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
     /// Moves stake from one hotkey to another across subnets.
@@ -321,7 +322,7 @@ impl<T: Config> Pallet<T> {
         maybe_limit_price: Option<u64>,
         maybe_allow_partial: Option<bool>,
         check_transfer_toggle: bool,
-    ) -> Result<u64, Error<T>> {
+    ) -> Result<u64, DispatchError> {
         // Calculate the maximum amount that can be executed
         let max_amount = if let Some(limit_price) = maybe_limit_price {
             Self::get_max_amount_move(origin_netuid, destination_netuid, limit_price)?
@@ -350,28 +351,18 @@ impl<T: Config> Pallet<T> {
             max_amount
         };
 
-        // Unstake from the origin subnet, returning TAO (or a 1:1 equivalent).
-        let fee = Self::calculate_staking_fee(
-            Some((origin_hotkey, origin_netuid)),
-            origin_coldkey,
-            Some((destination_hotkey, destination_netuid)),
-            destination_coldkey,
-            U96F32::saturating_from_num(alpha_amount),
-        )
-        .safe_div(2);
-
         let tao_unstaked = Self::unstake_from_subnet(
             origin_hotkey,
             origin_coldkey,
             origin_netuid,
             move_amount,
-            fee,
-        );
+            T::SwapInterface::min_price(),
+        )?;
 
         // Stake the unstaked amount into the destination.
         // Because of the fee, the tao_unstaked may be too low if initial stake is low. In that case,
         // do not restake.
-        if tao_unstaked >= DefaultMinStake::<T>::get().saturating_add(fee) {
+        if tao_unstaked >= DefaultMinStake::<T>::get() {
             // If the coldkey is not the owner, make the hotkey a delegate.
             if Self::get_owning_coldkey_for_hotkey(destination_hotkey) != *destination_coldkey {
                 Self::maybe_become_delegate(destination_hotkey);
@@ -382,11 +373,11 @@ impl<T: Config> Pallet<T> {
                 destination_coldkey,
                 destination_netuid,
                 tao_unstaked,
-                fee,
-            );
+                T::SwapInterface::max_price(),
+            )?;
         }
 
-        Ok(tao_unstaked.saturating_sub(fee))
+        Ok(tao_unstaked)
     }
 
     /// Returns the maximum amount of origin netuid Alpha that can be executed before we cross
@@ -409,6 +400,8 @@ impl<T: Config> Pallet<T> {
     /// ```
     ///
     /// In the corner case when SubnetTAO(2) == SubnetTAO(1), no slippage is going to occur.
+    ///
+    /// TODO: This formula only works for a single swap step, so it is not 100% correct for swap v3. We need an updated one.
     ///
     pub fn get_max_amount_move(
         origin_netuid: NetUid,
@@ -456,8 +449,10 @@ impl<T: Config> Pallet<T> {
         }
 
         // Corner case: SubnetTAO for any of two subnets is zero
-        let subnet_tao_1 = SubnetTAO::<T>::get(origin_netuid);
-        let subnet_tao_2 = SubnetTAO::<T>::get(destination_netuid);
+        let subnet_tao_1 = SubnetTAO::<T>::get(origin_netuid)
+            .saturating_add(SubnetTaoProvided::<T>::get(origin_netuid));
+        let subnet_tao_2 = SubnetTAO::<T>::get(destination_netuid)
+            .saturating_add(SubnetTaoProvided::<T>::get(destination_netuid));
         if (subnet_tao_1 == 0) || (subnet_tao_2 == 0) {
             return Err(Error::ZeroMaxStakeAmount);
         }
@@ -465,8 +460,10 @@ impl<T: Config> Pallet<T> {
         let subnet_tao_2_float: U64F64 = U64F64::saturating_from_num(subnet_tao_2);
 
         // Corner case: SubnetAlphaIn for any of two subnets is zero
-        let alpha_in_1 = SubnetAlphaIn::<T>::get(origin_netuid);
-        let alpha_in_2 = SubnetAlphaIn::<T>::get(destination_netuid);
+        let alpha_in_1 = SubnetAlphaIn::<T>::get(origin_netuid)
+            .saturating_add(SubnetAlphaInProvided::<T>::get(origin_netuid));
+        let alpha_in_2 = SubnetAlphaIn::<T>::get(destination_netuid)
+            .saturating_add(SubnetAlphaInProvided::<T>::get(destination_netuid));
         if (alpha_in_1 == 0) || (alpha_in_2 == 0) {
             return Err(Error::ZeroMaxStakeAmount);
         }
@@ -480,8 +477,9 @@ impl<T: Config> Pallet<T> {
         let limit_price_float: U64F64 = U64F64::saturating_from_num(limit_price)
             .checked_div(U64F64::saturating_from_num(1_000_000_000))
             .unwrap_or(U64F64::saturating_from_num(0));
-        let current_price = Self::get_alpha_price(origin_netuid)
-            .safe_div(Self::get_alpha_price(destination_netuid));
+        let current_price = T::SwapInterface::current_alpha_price(origin_netuid.into()).safe_div(
+            T::SwapInterface::current_alpha_price(destination_netuid.into()),
+        );
         if limit_price_float > current_price {
             return Err(Error::ZeroMaxStakeAmount);
         }
