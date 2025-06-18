@@ -288,7 +288,7 @@ where
 
     fn get_subnet_hyperparams_v2(
         &self,
-        netuid: u16,
+        netuid: NetUid,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();

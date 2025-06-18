@@ -723,11 +723,11 @@ impl<T: Config> Pallet<T> {
         Yuma3On::<T>::get(netuid)
     }
 
-    pub fn get_subtoken_enabled(netuid: u16) -> bool {
+    pub fn get_subtoken_enabled(netuid: NetUid) -> bool {
         SubtokenEnabled::<T>::get(netuid)
     }
 
-    pub fn get_transfer_toggle(netuid: u16) -> bool {
+    pub fn get_transfer_toggle(netuid: NetUid) -> bool {
         TransferToggle::<T>::get(netuid)
     }
 

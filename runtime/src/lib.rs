@@ -2281,10 +2281,6 @@ impl_runtime_apis! {
             SubtensorModule::get_subnet_hyperparams_v2(netuid)
         }
 
-        fn get_subnet_hyperparams_v2(netuid: NetUid) -> Option<SubnetHyperparamsV2> {
-            SubtensorModule::get_subnet_hyperparams_v2(netuid)
-        }
-
         fn get_dynamic_info(netuid: NetUid) -> Option<DynamicInfo<AccountId32>> {
             SubtensorModule::get_dynamic_info(netuid)
         }
