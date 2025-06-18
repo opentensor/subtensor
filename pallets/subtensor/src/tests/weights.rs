@@ -1,23 +1,24 @@
-#![allow(clippy::indexing_slicing)]
+#![allow(clippy::indexing_slicing, clippy::unwrap_used)]
 
-use super::mock::*;
-use crate::coinbase::run_coinbase::WeightsTlockPayload;
-use crate::*;
 use ark_serialize::CanonicalDeserialize;
 use frame_support::{
     assert_err, assert_ok,
     dispatch::{DispatchClass, DispatchResult, GetDispatchInfo, Pays},
 };
+use frame_system::RawOrigin;
+use pallet_drand::types::Pulse;
 use rand_chacha::{ChaCha20Rng, rand_core::SeedableRng};
 use scale_info::prelude::collections::HashMap;
 use sha2::Digest;
+use sp_core::Encode;
 use sp_core::{Get, H256, U256};
 use sp_runtime::{
     BoundedVec, DispatchError,
-    traits::{BlakeTwo256, ConstU32, Hash, SignedExtension},
+    traits::{BlakeTwo256, ConstU32, Hash, TxBaseImplication},
 };
 use sp_std::collections::vec_deque::VecDeque;
 use substrate_fixed::types::I32F32;
+use subtensor_swap_interface::SwapHandler;
 use tle::{
     curves::drand::TinyBLS381,
     ibe::fullident::Identity,
@@ -26,8 +27,10 @@ use tle::{
 };
 use w3f_bls::EngineBLS;
 
-use pallet_drand::types::Pulse;
-use sp_core::Encode;
+use super::mock;
+use super::mock::*;
+use crate::coinbase::run_coinbase::WeightsTlockPayload;
+use crate::*;
 
 /***************************
   pub fn set_weights() tests
@@ -40,7 +43,7 @@ fn test_set_weights_dispatch_info_ok() {
     new_test_ext(0).execute_with(|| {
         let dests = vec![1, 1];
         let weights = vec![1, 1];
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let version_key: u64 = 0;
         let call = RuntimeCall::SubtensorModule(SubtensorCall::set_weights {
             netuid,
@@ -64,12 +67,12 @@ fn test_set_rootweights_validate() {
     new_test_ext(0).execute_with(|| {
         let dests = vec![1, 1];
         let weights = vec![1, 1];
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let version_key: u64 = 0;
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1); // Add the hotkey field
         assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
-        let fee = DefaultStakingFee::<Test>::get();
+        let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
 
         let who = coldkey; // The coldkey signs this transaction
 
@@ -98,16 +101,22 @@ fn test_set_rootweights_validate() {
         let info: crate::DispatchInfo =
             crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        let extension = crate::SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
+        let result_no_stake = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Should fail
-        assert_err!(
+        assert_eq!(
             // Should get an invalid transaction error
-            result_no_stake,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::StakeAmountTooLow.into()
-            ))
+            result_no_stake.unwrap_err(),
+            CustomTransactionError::StakeAmountTooLow.into()
         );
 
         // Increase the stake to be equal to the minimum
@@ -125,7 +134,15 @@ fn test_set_rootweights_validate() {
         );
 
         // Submit to the signed extension validate function
-        let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
+        let result_min_stake = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Now the call should pass
         assert_ok!(result_min_stake);
 
@@ -140,7 +157,15 @@ fn test_set_rootweights_validate() {
         // Verify stake is more than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
 
-        let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
+        let result_more_stake = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // The call should still pass
         assert_ok!(result_more_stake);
     });
@@ -152,7 +177,7 @@ fn test_commit_weights_dispatch_info_ok() {
     new_test_ext(0).execute_with(|| {
         let dests = vec![1, 1];
         let weights = vec![1, 1];
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let version_key: u64 = 0;
         let hotkey: U256 = U256::from(1);
@@ -180,13 +205,12 @@ fn test_commit_weights_validate() {
     new_test_ext(0).execute_with(|| {
         let dests = vec![1, 1];
         let weights = vec![1, 1];
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let version_key: u64 = 0;
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1); // Add the hotkey field
         assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
-        let fee = DefaultStakingFee::<Test>::get();
 
         let who = hotkey; // The hotkey signs this transaction
 
@@ -207,40 +231,55 @@ fn test_commit_weights_validate() {
         SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
 
         let min_stake = 500_000_000_000;
-        // Set the minimum stake
-        SubtensorModule::set_stake_threshold(min_stake);
+        let reserve = min_stake * 1000;
+        mock::setup_reserves(netuid, reserve, reserve);
 
-        // Verify stake is less than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
-        // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
-        // Should fail
-        assert_err!(
-            // Should get an invalid transaction error
-            result_no_stake,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(1))
-        );
-
-        // Increase the stake to be equal to the minimum
+        // Stake some TAO and read what get_total_stake_for_hotkey it gets
+        // It will be a different value due to the slippage
         assert_ok!(SubtensorModule::do_add_stake(
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            min_stake + fee
-        ));
-
-        // Verify stake is equal to minimum
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
             min_stake
-        );
+        ));
+        let min_stake_with_slippage = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
+
+        // Set the minimum stake above what hotkey has
+        SubtensorModule::set_stake_threshold(min_stake_with_slippage + 1);
 
         // Submit to the signed extension validate function
-        let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
+        let info = crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = crate::SubtensorTransactionExtension::<Test>::new();
+        // Submit to the signed extension validate function
+        let result_no_stake = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
+        // Should fail
+        assert_eq!(
+            // Should get an invalid transaction error
+            result_no_stake.unwrap_err(),
+            CustomTransactionError::StakeAmountTooLow.into()
+        );
+
+        // Set the minimum stake equal to what hotkey has
+        SubtensorModule::set_stake_threshold(min_stake_with_slippage);
+
+        // Submit to the signed extension validate function
+        let result_min_stake = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Now the call should pass
         assert_ok!(result_min_stake);
 
@@ -253,9 +292,17 @@ fn test_commit_weights_validate() {
         ));
 
         // Verify stake is more than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
+        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake_with_slippage);
 
-        let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
+        let result_more_stake = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // The call should still pass
         assert_ok!(result_more_stake);
     });
@@ -267,7 +314,7 @@ fn test_reveal_weights_dispatch_info_ok() {
     new_test_ext(0).execute_with(|| {
         let dests = vec![1, 1];
         let weights = vec![1, 1];
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let version_key: u64 = 0;
 
@@ -292,11 +339,10 @@ fn test_set_weights_validate() {
     // correctly filters the `set_weights` transaction.
 
     new_test_ext(0).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1);
         assert_ne!(hotkey, coldkey);
-        let fee = DefaultStakingFee::<Test>::get();
 
         let who = hotkey; // The hotkey signs this transaction
 
@@ -309,6 +355,7 @@ fn test_set_weights_validate() {
 
         // Create netuid
         add_network(netuid, 1, 0);
+        mock::setup_reserves(netuid, 1_000_000_000_000, 1_000_000_000_000);
         // Register the hotkey
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
@@ -316,6 +363,7 @@ fn test_set_weights_validate() {
         SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
 
         let min_stake = 500_000_000_000;
+
         // Set the minimum stake
         SubtensorModule::set_stake_threshold(min_stake);
 
@@ -324,33 +372,47 @@ fn test_set_weights_validate() {
         let info: crate::DispatchInfo =
             crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        let extension = crate::SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
+        let result_no_stake = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Should fail due to insufficient stake
-        assert_err!(
-            result_no_stake,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::StakeAmountTooLow.into()
-            ))
+        assert_eq!(
+            result_no_stake.unwrap_err(),
+            CustomTransactionError::StakeAmountTooLow.into()
         );
 
-        // Increase the stake to be equal to the minimum
+        // Increase the stake and make it to be equal to the minimum threshold
+        let fee =
+            <Test as pallet::Config>::SwapInterface::approx_fee_amount(netuid.into(), min_stake);
         assert_ok!(SubtensorModule::do_add_stake(
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
             min_stake + fee
         ));
+        let min_stake_with_slippage = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
 
-        // Verify stake is equal to minimum
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            min_stake
-        );
+        // Set the minimum stake to what the hotkey has
+        SubtensorModule::set_stake_threshold(min_stake_with_slippage);
 
         // Submit to the signed extension validate function
-        let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
+        let result_min_stake = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Now the call should pass
         assert_ok!(result_min_stake);
     });
@@ -365,13 +427,13 @@ fn test_reveal_weights_validate() {
     new_test_ext(0).execute_with(|| {
         let dests = vec![1, 1];
         let weights = vec![1, 1];
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let version_key: u64 = 0;
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1); // Add the hotkey field
         assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
-        let fee = DefaultStakingFee::<Test>::get();
+        let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
 
         let who = hotkey; // The hotkey signs this transaction
 
@@ -399,16 +461,22 @@ fn test_reveal_weights_validate() {
         let info: crate::DispatchInfo =
             crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        let extension = crate::SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
+        let result_no_stake = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Should fail
-        assert_err!(
+        assert_eq!(
             // Should get an invalid transaction error
-            result_no_stake,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::StakeAmountTooLow.into()
-            ))
+            result_no_stake.unwrap_err(),
+            CustomTransactionError::StakeAmountTooLow.into()
         );
 
         // Increase the stake to be equal to the minimum
@@ -426,7 +494,15 @@ fn test_reveal_weights_validate() {
         );
 
         // Submit to the signed extension validate function
-        let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
+        let result_min_stake = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Now the call should pass
         assert_ok!(result_min_stake);
 
@@ -441,7 +517,15 @@ fn test_reveal_weights_validate() {
         // Verify stake is more than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
 
-        let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
+        let result_more_stake = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // The call should still pass
         assert_ok!(result_more_stake);
     });
@@ -451,8 +535,6 @@ fn test_reveal_weights_validate() {
 #[test]
 fn test_set_weights_is_root_error() {
     new_test_ext(0).execute_with(|| {
-        let root_netuid: u16 = 0;
-
         let uids = vec![0];
         let weights = vec![1];
         let version_key: u64 = 0;
@@ -461,7 +543,7 @@ fn test_set_weights_is_root_error() {
         assert_err!(
             SubtensorModule::set_weights(
                 RuntimeOrigin::signed(hotkey),
-                root_netuid,
+                NetUid::ROOT,
                 uids.clone(),
                 weights.clone(),
                 version_key,
@@ -477,7 +559,7 @@ fn test_set_weights_is_root_error() {
 fn test_weights_err_no_validator_permit() {
     new_test_ext(0).execute_with(|| {
         let hotkey_account_id = U256::from(55);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         add_network(netuid, tempo, 0);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
@@ -522,7 +604,7 @@ fn test_set_stake_threshold_failed() {
     new_test_ext(0).execute_with(|| {
         let dests = vec![0];
         let weights = vec![1];
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let version_key: u64 = 0;
         let hotkey = U256::from(0);
         let coldkey = U256::from(0);
@@ -586,8 +668,8 @@ fn test_weights_version_key() {
     new_test_ext(0).execute_with(|| {
         let hotkey = U256::from(55);
         let coldkey = U256::from(66);
-        let netuid0: u16 = 1;
-        let netuid1: u16 = 2;
+        let netuid0 = NetUid::from(1);
+        let netuid1 = NetUid::from(2);
 
         add_network(netuid0, 1, 0);
         add_network(netuid1, 1, 0);
@@ -663,7 +745,7 @@ fn test_weights_version_key() {
 fn test_weights_err_setting_weights_too_fast() {
     new_test_ext(0).execute_with(|| {
         let hotkey_account_id = U256::from(55);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         add_network(netuid, tempo, 0);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
@@ -726,11 +808,11 @@ fn test_weights_err_setting_weights_too_fast() {
 fn test_weights_err_weights_vec_not_equal_size() {
     new_test_ext(0).execute_with(|| {
         let hotkey_account_id = U256::from(55);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         add_network(netuid, tempo, 0);
-        register_ok_neuron(1, hotkey_account_id, U256::from(66), 0);
+        register_ok_neuron(netuid, hotkey_account_id, U256::from(66), 0);
         let neuron_uid: u16 =
             SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id)
                 .expect("Not registered.");
@@ -739,7 +821,7 @@ fn test_weights_err_weights_vec_not_equal_size() {
         let weight_values: Vec<u16> = vec![1, 2, 3, 4, 5]; // Uneven sizes
         let result = commit_reveal_set_weights(
             hotkey_account_id,
-            1,
+            1.into(),
             weights_keys.clone(),
             weight_values.clone(),
             salt.clone(),
@@ -755,7 +837,7 @@ fn test_weights_err_weights_vec_not_equal_size() {
 fn test_weights_err_has_duplicate_ids() {
     new_test_ext(0).execute_with(|| {
         let hotkey_account_id = U256::from(666);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         add_network(netuid, tempo, 0);
@@ -816,7 +898,7 @@ fn test_weights_err_max_weight_limit() {
     //TO DO SAM: uncomment when we implement run_to_block fn
     new_test_ext(0).execute_with(|| {
         // Add network.
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 100;
         add_network(netuid, tempo, 0);
 
@@ -878,8 +960,13 @@ fn test_weights_err_max_weight_limit() {
         // Non self-weight fails.
         let uids: Vec<u16> = vec![1, 2, 3, 4];
         let values: Vec<u16> = vec![u16::MAX / 4, u16::MAX / 4, u16::MAX / 54, u16::MAX / 4];
-        let result =
-            SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(0)), 1, uids, values, 0);
+        let result = SubtensorModule::set_weights(
+            RuntimeOrigin::signed(U256::from(0)),
+            1.into(),
+            uids,
+            values,
+            0,
+        );
         assert_eq!(result, Err(Error::<Test>::MaxWeightExceeded.into()));
 
         // Self-weight is a success.
@@ -887,7 +974,7 @@ fn test_weights_err_max_weight_limit() {
         let values: Vec<u16> = vec![u16::MAX]; // normalizes to u32::MAX
         assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(U256::from(0)),
-            1,
+            1.into(),
             uids,
             values,
             0
@@ -902,7 +989,7 @@ fn test_no_signature() {
     new_test_ext(0).execute_with(|| {
         let uids: Vec<u16> = vec![];
         let values: Vec<u16> = vec![];
-        let result = SubtensorModule::set_weights(RuntimeOrigin::none(), 1, uids, values, 0);
+        let result = SubtensorModule::set_weights(RuntimeOrigin::none(), 1.into(), uids, values, 0);
         assert_eq!(result, Err(DispatchError::BadOrigin));
     });
 }
@@ -912,21 +999,27 @@ fn test_no_signature() {
 #[test]
 fn test_set_weights_err_not_active() {
     new_test_ext(0).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         add_network(netuid, tempo, 0);
 
         // Register one neuron. Should have uid 0
-        register_ok_neuron(1, U256::from(666), U256::from(2), 100000);
+        register_ok_neuron(netuid, U256::from(666), U256::from(2), 100000);
         SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(666))
             .expect("Not registered.");
 
         let weights_keys: Vec<u16> = vec![0]; // Uid 0 is valid.
         let weight_values: Vec<u16> = vec![1];
         // This hotkey is NOT registered.
-        let result =
-            commit_reveal_set_weights(U256::from(1), 1, weights_keys, weight_values, salt, 0);
+        let result = commit_reveal_set_weights(
+            U256::from(1),
+            1.into(),
+            weights_keys,
+            weight_values,
+            salt,
+            0,
+        );
         assert_eq!(
             result,
             Err(Error::<Test>::HotKeyNotRegisteredInSubNet.into())
@@ -940,11 +1033,11 @@ fn test_set_weights_err_not_active() {
 fn test_set_weights_err_invalid_uid() {
     new_test_ext(0).execute_with(|| {
         let hotkey_account_id = U256::from(55);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         add_network(netuid, tempo, 0);
-        register_ok_neuron(1, hotkey_account_id, U256::from(66), 0);
+        register_ok_neuron(netuid, hotkey_account_id, U256::from(66), 0);
         let neuron_uid: u16 =
             SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id)
                 .expect("Not registered.");
@@ -959,8 +1052,14 @@ fn test_set_weights_err_invalid_uid() {
         );
         let weight_keys: Vec<u16> = vec![9999]; // Does not exist
         let weight_values: Vec<u16> = vec![88]; // random value
-        let result =
-            commit_reveal_set_weights(hotkey_account_id, 1, weight_keys, weight_values, salt, 0);
+        let result = commit_reveal_set_weights(
+            hotkey_account_id,
+            netuid,
+            weight_keys,
+            weight_values,
+            salt,
+            0,
+        );
         assert_eq!(result, Err(Error::<Test>::UidVecContainInvalidOne.into()));
     });
 }
@@ -970,13 +1069,13 @@ fn test_set_weights_err_invalid_uid() {
 #[test]
 fn test_set_weight_not_enough_values() {
     new_test_ext(0).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let account_id = U256::from(1);
         add_network(netuid, tempo, 0);
 
-        register_ok_neuron(1, account_id, U256::from(2), 100000);
+        register_ok_neuron(netuid, account_id, U256::from(2), 100000);
         let neuron_uid: u16 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(1))
             .expect("Not registered.");
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
@@ -989,7 +1088,7 @@ fn test_set_weight_not_enough_values() {
             1,
         );
 
-        register_ok_neuron(1, U256::from(3), U256::from(4), 300000);
+        register_ok_neuron(netuid, U256::from(3), U256::from(4), 300000);
         SubtensorModule::set_min_allowed_weights(netuid, 2);
 
         // Should fail because we are only setting a single value and its not the self weight.
@@ -997,7 +1096,7 @@ fn test_set_weight_not_enough_values() {
         let weight_values: Vec<u16> = vec![88]; // random value.
         let result = SubtensorModule::set_weights(
             RuntimeOrigin::signed(account_id),
-            1,
+            1.into(),
             weight_keys,
             weight_values,
             0,
@@ -1009,7 +1108,7 @@ fn test_set_weight_not_enough_values() {
         let weight_values: Vec<u16> = vec![88]; // random value.
         assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(account_id),
-            1,
+            1.into(),
             weight_keys,
             weight_values,
             0
@@ -1021,7 +1120,7 @@ fn test_set_weight_not_enough_values() {
         SubtensorModule::set_min_allowed_weights(netuid, 1);
         assert_ok!(commit_reveal_set_weights(
             account_id,
-            1,
+            1.into(),
             weight_keys,
             weight_values,
             salt,
@@ -1035,17 +1134,17 @@ fn test_set_weight_not_enough_values() {
 #[test]
 fn test_set_weight_too_many_uids() {
     new_test_ext(0).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         add_network(netuid, tempo, 0);
 
-        register_ok_neuron(1, U256::from(1), U256::from(2), 100_000);
+        register_ok_neuron(1.into(), U256::from(1), U256::from(2), 100_000);
         let neuron_uid: u16 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(1))
             .expect("Not registered.");
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
 
-        register_ok_neuron(1, U256::from(3), U256::from(4), 300_000);
-        SubtensorModule::set_min_allowed_weights(1, 2);
+        register_ok_neuron(1.into(), U256::from(3), U256::from(4), 300_000);
+        SubtensorModule::set_min_allowed_weights(1.into(), 2);
         SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
 
         // Should fail because we are setting more weights than there are neurons.
@@ -1053,7 +1152,7 @@ fn test_set_weight_too_many_uids() {
         let weight_values: Vec<u16> = vec![88, 102, 303, 1212, 11]; // random value.
         let result = SubtensorModule::set_weights(
             RuntimeOrigin::signed(U256::from(1)),
-            1,
+            1.into(),
             weight_keys,
             weight_values,
             0,
@@ -1068,7 +1167,7 @@ fn test_set_weight_too_many_uids() {
         let weight_values: Vec<u16> = vec![10, 10]; // random value.
         assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(U256::from(1)),
-            1,
+            1.into(),
             weight_keys,
             weight_values,
             0
@@ -1081,12 +1180,12 @@ fn test_set_weight_too_many_uids() {
 #[test]
 fn test_set_weights_sum_larger_than_u16_max() {
     new_test_ext(0).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         add_network(netuid, tempo, 0);
 
-        register_ok_neuron(1, U256::from(1), U256::from(2), 100_000);
+        register_ok_neuron(1.into(), U256::from(1), U256::from(2), 100_000);
         let neuron_uid: u16 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(1))
             .expect("Not registered.");
         SubtensorModule::set_stake_threshold(0);
@@ -1100,8 +1199,8 @@ fn test_set_weights_sum_larger_than_u16_max() {
             1,
         );
 
-        register_ok_neuron(1, U256::from(3), U256::from(4), 300_000);
-        SubtensorModule::set_min_allowed_weights(1, 2);
+        register_ok_neuron(1.into(), U256::from(3), U256::from(4), 300_000);
+        SubtensorModule::set_min_allowed_weights(1.into(), 2);
 
         // Shouldn't fail because we are setting the right number of weights.
         let weight_keys: Vec<u16> = vec![0, 1];
@@ -1110,7 +1209,7 @@ fn test_set_weights_sum_larger_than_u16_max() {
         assert!(weight_values.iter().map(|x| *x as u64).sum::<u64>() > (u16::MAX as u64));
 
         let result =
-            commit_reveal_set_weights(U256::from(1), 1, weight_keys, weight_values, salt, 0);
+            commit_reveal_set_weights(U256::from(1), 1.into(), weight_keys, weight_values, salt, 0);
         assert_ok!(result);
 
         // Get max-upscaled unnormalized weights.
@@ -1126,7 +1225,7 @@ fn test_set_weights_sum_larger_than_u16_max() {
 #[test]
 fn test_check_length_allows_singleton() {
     new_test_ext(0).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         let max_allowed: u16 = 1;
         let min_allowed_weights = max_allowed;
@@ -1149,7 +1248,7 @@ fn test_check_length_allows_singleton() {
 #[test]
 fn test_check_length_weights_length_exceeds_min_allowed() {
     new_test_ext(0).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         let max_allowed: u16 = 3;
         let min_allowed_weights = max_allowed;
@@ -1172,7 +1271,7 @@ fn test_check_length_weights_length_exceeds_min_allowed() {
 #[test]
 fn test_check_length_to_few_weights() {
     new_test_ext(0).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         let min_allowed_weights = 3;
 
@@ -1180,13 +1279,13 @@ fn test_check_length_to_few_weights() {
         SubtensorModule::set_target_registrations_per_interval(netuid, 100);
         SubtensorModule::set_max_registrations_per_block(netuid, 100);
         // register morw than min allowed
-        register_ok_neuron(1, U256::from(1), U256::from(1), 300_000);
-        register_ok_neuron(1, U256::from(2), U256::from(2), 300_001);
-        register_ok_neuron(1, U256::from(3), U256::from(3), 300_002);
-        register_ok_neuron(1, U256::from(4), U256::from(4), 300_003);
-        register_ok_neuron(1, U256::from(5), U256::from(5), 300_004);
-        register_ok_neuron(1, U256::from(6), U256::from(6), 300_005);
-        register_ok_neuron(1, U256::from(7), U256::from(7), 300_006);
+        register_ok_neuron(1.into(), U256::from(1), U256::from(1), 300_000);
+        register_ok_neuron(1.into(), U256::from(2), U256::from(2), 300_001);
+        register_ok_neuron(1.into(), U256::from(3), U256::from(3), 300_002);
+        register_ok_neuron(1.into(), U256::from(4), U256::from(4), 300_003);
+        register_ok_neuron(1.into(), U256::from(5), U256::from(5), 300_004);
+        register_ok_neuron(1.into(), U256::from(6), U256::from(6), 300_005);
+        register_ok_neuron(1.into(), U256::from(7), U256::from(7), 300_006);
         SubtensorModule::set_min_allowed_weights(netuid, min_allowed_weights);
 
         let uids: Vec<u16> = Vec::from_iter((0..2).map(|id| id + 1));
@@ -1242,7 +1341,7 @@ fn test_max_weight_limited_allow_self_weights_to_exceed_max_weight_limit() {
     new_test_ext(0).execute_with(|| {
         let max_allowed: u16 = 1;
 
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| id + 1));
         let uid: u16 = uids[0];
         let weights: Vec<u16> = vec![0];
@@ -1264,7 +1363,7 @@ fn test_max_weight_limited_when_weight_limit_is_u16_max() {
     new_test_ext(0).execute_with(|| {
         let max_allowed: u16 = 3;
 
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| id + 1));
         let uid: u16 = uids[0];
         let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|_id| u16::MAX));
@@ -1287,7 +1386,7 @@ fn test_max_weight_limited_when_max_weight_is_within_limit() {
         let max_allowed: u16 = 1;
         let max_weight_limit = u16::MAX / 5;
 
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| id + 1));
         let uid: u16 = uids[0];
         let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| max_weight_limit - id));
@@ -1312,7 +1411,7 @@ fn test_max_weight_limited_when_guard_checks_are_not_triggered() {
         let max_allowed: u16 = 3;
         let max_weight_limit = u16::MAX / 5;
 
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| id + 1));
         let uid: u16 = uids[0];
         let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| max_weight_limit + id));
@@ -1398,7 +1497,7 @@ fn test_is_self_weight_uid_in_uids() {
 #[test]
 fn test_check_len_uids_within_allowed_within_network_pool() {
     new_test_ext(0).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         let tempo: u16 = 13;
         let modality: u16 = 0;
@@ -1431,7 +1530,7 @@ fn test_check_len_uids_within_allowed_within_network_pool() {
 #[test]
 fn test_check_len_uids_within_allowed_not_within_network_pool() {
     new_test_ext(0).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         let tempo: u16 = 13;
         let modality: u16 = 0;
@@ -1464,7 +1563,7 @@ fn test_check_len_uids_within_allowed_not_within_network_pool() {
 #[test]
 fn test_set_weights_commit_reveal_enabled_error() {
     new_test_ext(0).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         add_network(netuid, 1, 0);
         register_ok_neuron(netuid, U256::from(1), U256::from(2), 10);
 
@@ -1502,7 +1601,7 @@ fn test_set_weights_commit_reveal_enabled_error() {
 #[test]
 fn test_reveal_weights_when_commit_reveal_disabled() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let uids: Vec<u16> = vec![0, 1];
         let weight_values: Vec<u16> = vec![10, 10];
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
@@ -1562,7 +1661,7 @@ fn test_reveal_weights_when_commit_reveal_disabled() {
 #[test]
 fn test_commit_reveal_weights_ok() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let uids: Vec<u16> = vec![0, 1];
         let weight_values: Vec<u16> = vec![10, 10];
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
@@ -1631,7 +1730,7 @@ fn test_commit_reveal_weights_ok() {
 #[test]
 fn test_commit_reveal_tempo_interval() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let uids: Vec<u16> = vec![0, 1];
         let weight_values: Vec<u16> = vec![10, 10];
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
@@ -1777,7 +1876,7 @@ fn test_commit_reveal_tempo_interval() {
 #[test]
 fn test_commit_reveal_hash() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let uids: Vec<u16> = vec![0, 1];
         let weight_values: Vec<u16> = vec![10, 10];
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
@@ -1869,7 +1968,7 @@ fn test_commit_reveal_hash() {
 #[test]
 fn test_commit_reveal_disabled_or_enabled() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let uids: Vec<u16> = vec![0, 1];
         let weight_values: Vec<u16> = vec![10, 10];
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
@@ -1946,7 +2045,7 @@ fn test_commit_reveal_disabled_or_enabled() {
 #[test]
 fn test_toggle_commit_reveal_weights_and_set_weights() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let uids: Vec<u16> = vec![0, 1];
         let weight_values: Vec<u16> = vec![10, 10];
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
@@ -2029,7 +2128,7 @@ fn test_toggle_commit_reveal_weights_and_set_weights() {
 #[test]
 fn test_tempo_change_during_commit_reveal_process() {
     new_test_ext(0).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let uids: Vec<u16> = vec![0, 1];
         let weight_values: Vec<u16> = vec![10, 10];
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
@@ -2187,7 +2286,7 @@ fn test_tempo_change_during_commit_reveal_process() {
 #[test]
 fn test_commit_reveal_multiple_commits() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let uids: Vec<u16> = vec![0, 1];
         let weight_values: Vec<u16> = vec![10, 10];
         let version_key: u64 = 0;
@@ -2553,7 +2652,7 @@ fn test_commit_reveal_multiple_commits() {
 
 fn commit_reveal_set_weights(
     hotkey: U256,
-    netuid: u16,
+    netuid: NetUid,
     uids: Vec<u16>,
     weights: Vec<u16>,
     salt: Vec<u16>,
@@ -2590,7 +2689,7 @@ fn commit_reveal_set_weights(
 #[test]
 fn test_expired_commits_handling_in_commit_and_reveal() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey: <Test as frame_system::Config>::AccountId = U256::from(1);
         let version_key: u64 = 0;
         let uids: Vec<u16> = vec![0, 1];
@@ -2789,7 +2888,7 @@ fn test_expired_commits_handling_in_commit_and_reveal() {
 #[test]
 fn test_reveal_at_exact_epoch() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey: <Test as frame_system::Config>::AccountId = U256::from(1);
         let version_key: u64 = 0;
         let uids: Vec<u16> = vec![0, 1];
@@ -2939,7 +3038,7 @@ fn test_reveal_at_exact_epoch() {
 #[test]
 fn test_tempo_and_reveal_period_change_during_commit_reveal_process() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let uids: Vec<u16> = vec![0, 1];
         let weight_values: Vec<u16> = vec![10, 10];
         let salt: Vec<u16> = vec![42; 8];
@@ -3143,7 +3242,7 @@ fn test_tempo_and_reveal_period_change_during_commit_reveal_process() {
 #[test]
 fn test_commit_reveal_order_enforcement() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey: <Test as frame_system::Config>::AccountId = U256::from(1);
         let version_key: u64 = 0;
         let uids: Vec<u16> = vec![0, 1];
@@ -3245,7 +3344,7 @@ fn test_commit_reveal_order_enforcement() {
 #[test]
 fn test_reveal_at_exact_block() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey: <Test as frame_system::Config>::AccountId = U256::from(1);
         let version_key: u64 = 0;
         let uids: Vec<u16> = vec![0, 1];
@@ -3304,7 +3403,7 @@ fn test_reveal_at_exact_block() {
 
             // Calculate the block number where the reveal epoch starts
             let tempo_plus_one = (tempo as u64).saturating_add(1);
-            let netuid_plus_one = (netuid as u64).saturating_add(1);
+            let netuid_plus_one = (u16::from(netuid) as u64).saturating_add(1);
             let reveal_epoch_start_block = reveal_epoch
                 .saturating_mul(tempo_plus_one)
                 .saturating_sub(netuid_plus_one);
@@ -3415,7 +3514,7 @@ fn test_reveal_at_exact_block() {
 #[test]
 fn test_successful_batch_reveal() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey = U256::from(1);
         let version_keys: Vec<u64> = vec![0, 0, 0];
         let uids_list: Vec<Vec<u16>> = vec![vec![0, 1], vec![1, 0], vec![0, 1]];
@@ -3493,7 +3592,7 @@ fn test_successful_batch_reveal() {
 #[test]
 fn test_batch_reveal_with_expired_commits() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey = U256::from(1);
         let version_keys: Vec<u64> = vec![0, 0, 0];
         let uids_list: Vec<Vec<u16>> = vec![vec![0, 1], vec![1, 0], vec![0, 1]];
@@ -3614,7 +3713,7 @@ fn test_batch_reveal_with_expired_commits() {
 #[test]
 fn test_batch_reveal_with_invalid_input_lengths() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey = U256::from(1);
         let tempo: u16 = 100;
 
@@ -3712,7 +3811,7 @@ fn test_batch_reveal_with_invalid_input_lengths() {
 #[test]
 fn test_batch_reveal_with_no_commits() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey = U256::from(1);
         let version_keys: Vec<u64> = vec![0];
         let uids_list: Vec<Vec<u16>> = vec![vec![0, 1]];
@@ -3742,7 +3841,7 @@ fn test_batch_reveal_with_no_commits() {
 #[test]
 fn test_batch_reveal_before_reveal_period() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey = U256::from(1);
         let version_keys: Vec<u64> = vec![0, 0];
         let uids_list: Vec<Vec<u16>> = vec![vec![0, 1], vec![1, 0]];
@@ -3800,7 +3899,7 @@ fn test_batch_reveal_before_reveal_period() {
 #[test]
 fn test_batch_reveal_after_commits_expired() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey = U256::from(1);
         let version_keys: Vec<u64> = vec![0, 0];
         let uids_list: Vec<Vec<u16>> = vec![vec![0, 1], vec![1, 0]];
@@ -3880,7 +3979,7 @@ fn test_batch_reveal_after_commits_expired() {
 #[test]
 fn test_batch_reveal_when_commit_reveal_disabled() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey = U256::from(1);
         let version_keys: Vec<u64> = vec![0];
         let uids_list: Vec<Vec<u16>> = vec![vec![0, 1]];
@@ -3910,7 +4009,7 @@ fn test_batch_reveal_when_commit_reveal_disabled() {
 #[test]
 fn test_batch_reveal_with_out_of_order_commits() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey = U256::from(1);
         let version_keys: Vec<u64> = vec![0, 0, 0];
         let uids_list: Vec<Vec<u16>> = vec![vec![0, 1], vec![1, 0], vec![0, 1]];
@@ -4022,7 +4121,7 @@ fn test_batch_reveal_with_out_of_order_commits() {
 fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
     new_test_ext(1).execute_with(|| {
         // ==== Test Configuration ====
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let num_hotkeys: usize = 10;
         let max_unrevealed_commits: usize = 10;
         let commits_per_hotkey: usize = 20;
@@ -4301,7 +4400,7 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
 fn test_get_reveal_blocks() {
     new_test_ext(1).execute_with(|| {
         // **1. Define Test Parameters**
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let uids: Vec<u16> = vec![0, 1];
         let weight_values: Vec<u16> = vec![10, 10];
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
@@ -4440,7 +4539,7 @@ fn test_get_reveal_blocks() {
 #[test]
 fn test_commit_weights_rate_limit() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let uids: Vec<u16> = vec![0, 1];
         let weight_values: Vec<u16> = vec![10, 10];
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
@@ -4637,7 +4736,7 @@ fn test_reveal_crv3_commits_success() {
     new_test_ext(100).execute_with(|| {
         use ark_serialize::CanonicalSerialize;
 
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey1: AccountId = U256::from(1);
         let hotkey2: AccountId = U256::from(2);
         let reveal_round: u64 = 1000;
@@ -4793,7 +4892,7 @@ fn test_reveal_crv3_commits_cannot_reveal_after_reveal_epoch() {
     new_test_ext(100).execute_with(|| {
         use ark_serialize::CanonicalSerialize;
 
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey1: AccountId = U256::from(1);
         let hotkey2: AccountId = U256::from(2);
         let reveal_round: u64 = 1000;
@@ -4918,7 +5017,7 @@ fn test_reveal_crv3_commits_cannot_reveal_after_reveal_epoch() {
 #[test]
 fn test_do_commit_crv3_weights_success() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey: AccountId = U256::from(1);
         let commit_data: Vec<u8> = vec![1, 2, 3, 4, 5];
         let reveal_round: u64 = 1000;
@@ -4952,7 +5051,7 @@ fn test_do_commit_crv3_weights_success() {
 #[test]
 fn test_do_commit_crv3_weights_disabled() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey: AccountId = U256::from(1);
         let commit_data: Vec<u8> = vec![1, 2, 3, 4, 5];
         let reveal_round: u64 = 1000;
@@ -4980,7 +5079,7 @@ fn test_do_commit_crv3_weights_disabled() {
 #[test]
 fn test_do_commit_crv3_weights_hotkey_not_registered() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let unregistered_hotkey: AccountId = U256::from(99);
         let commit_data: Vec<u8> = vec![1, 2, 3, 4, 5];
         let reveal_round: u64 = 1000;
@@ -5009,7 +5108,7 @@ fn test_do_commit_crv3_weights_hotkey_not_registered() {
 #[test]
 fn test_do_commit_crv3_weights_committing_too_fast() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey: AccountId = U256::from(1);
         let commit_data_1: Vec<u8> = vec![1, 2, 3];
         let commit_data_2: Vec<u8> = vec![4, 5, 6];
@@ -5078,7 +5177,7 @@ fn test_do_commit_crv3_weights_committing_too_fast() {
 #[test]
 fn test_do_commit_crv3_weights_too_many_unrevealed_commits() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey1: AccountId = U256::from(1);
         let hotkey2: AccountId = U256::from(2);
         let reveal_round: u64 = 1000;
@@ -5183,7 +5282,7 @@ fn test_do_commit_crv3_weights_too_many_unrevealed_commits() {
 #[test]
 fn test_reveal_crv3_commits_decryption_failure() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey: AccountId = U256::from(1);
         let reveal_round: u64 = 1000;
 
@@ -5236,7 +5335,7 @@ fn test_reveal_crv3_commits_multiple_commits_some_fail_some_succeed() {
     new_test_ext(100).execute_with(|| {
         use ark_serialize::CanonicalSerialize;
 
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey1: AccountId = U256::from(1);
         let hotkey2: AccountId = U256::from(2);
         let reveal_round: u64 = 1000;
@@ -5360,7 +5459,7 @@ fn test_reveal_crv3_commits_do_set_weights_failure() {
     new_test_ext(1).execute_with(|| {
         use ark_serialize::CanonicalSerialize;
 
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey: AccountId = U256::from(1);
         let reveal_round: u64 = 1000;
 
@@ -5446,7 +5545,7 @@ fn test_reveal_crv3_commits_payload_decoding_failure() {
     new_test_ext(1).execute_with(|| {
         use ark_serialize::CanonicalSerialize;
 
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey: AccountId = U256::from(1);
         let reveal_round: u64 = 1000;
 
@@ -5525,7 +5624,7 @@ fn test_reveal_crv3_commits_signature_deserialization_failure() {
     new_test_ext(1).execute_with(|| {
         use ark_serialize::CanonicalSerialize;
 
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey: AccountId = U256::from(1);
         let reveal_round: u64 = 1000;
 
@@ -5605,7 +5704,7 @@ fn test_reveal_crv3_commits_signature_deserialization_failure() {
 #[test]
 fn test_do_commit_crv3_weights_commit_size_exceeds_limit() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey: AccountId = U256::from(1);
         let reveal_round: u64 = 1000;
 
@@ -5648,7 +5747,7 @@ fn test_do_commit_crv3_weights_commit_size_exceeds_limit() {
 #[test]
 fn test_reveal_crv3_commits_with_empty_commit_queue() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         add_network(netuid, 5, 0);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
@@ -5670,7 +5769,7 @@ fn test_reveal_crv3_commits_with_incorrect_identity_message() {
     new_test_ext(1).execute_with(|| {
         use ark_serialize::CanonicalSerialize;
 
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey: AccountId = U256::from(1);
         let reveal_round: u64 = 1000;
 
@@ -5756,7 +5855,7 @@ fn test_reveal_crv3_commits_with_incorrect_identity_message() {
 #[test]
 fn test_multiple_commits_by_same_hotkey_within_limit() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey: AccountId = U256::from(1);
         let reveal_round: u64 = 1000;
 
@@ -5793,7 +5892,7 @@ fn test_multiple_commits_by_same_hotkey_within_limit() {
 #[test]
 fn test_reveal_crv3_commits_removes_past_epoch_commits() {
     new_test_ext(100).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey: AccountId = U256::from(1);
         let reveal_round: u64 = 1000;
 
@@ -5860,7 +5959,7 @@ fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
     new_test_ext(100).execute_with(|| {
         use ark_serialize::CanonicalSerialize;
 
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let reveal_round: u64 = 1000;
 
         // Initialize the network
@@ -6049,7 +6148,7 @@ fn test_reveal_crv3_commits_max_neurons() {
     new_test_ext(100).execute_with(|| {
         use ark_serialize::CanonicalSerialize;
 
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let reveal_round: u64 = 1000;
 
         add_network(netuid, 5, 0);

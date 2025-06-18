@@ -1,5 +1,8 @@
-use super::*;
 use substrate_fixed::types::I96F32;
+use subtensor_runtime_common::NetUid;
+use subtensor_swap_interface::{OrderType, SwapHandler};
+
+use super::*;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic add_stake: Adds stake to a hotkey account.
@@ -37,7 +40,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_add_stake(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
-        netuid: u16,
+        netuid: NetUid,
         stake_to_be_added: u64,
     ) -> dispatch::DispatchResult {
         // 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
@@ -68,14 +71,13 @@ impl<T: Config> Pallet<T> {
 
         // 4. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
-        let fee = DefaultStakingFee::<T>::get();
         Self::stake_into_subnet(
             &hotkey,
             &coldkey,
             netuid,
             tao_staked.saturating_to_num::<u64>(),
-            fee,
-        );
+            T::SwapInterface::max_price(),
+        )?;
 
         // Ok and return.
         Ok(())
@@ -124,7 +126,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_add_stake_limit(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
-        netuid: u16,
+        netuid: NetUid,
         stake_to_be_added: u64,
         limit_price: u64,
         allow_partial: bool,
@@ -162,30 +164,22 @@ impl<T: Config> Pallet<T> {
         }
 
         // 5. Ensure the remove operation from the coldkey is a success.
-        let tao_staked: I96F32 =
-            Self::remove_balance_from_coldkey_account(&coldkey, possible_stake)?.into();
+        let tao_staked: u64 = Self::remove_balance_from_coldkey_account(&coldkey, possible_stake)?;
 
         // 6. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
-        let fee = DefaultStakingFee::<T>::get();
-        Self::stake_into_subnet(
-            &hotkey,
-            &coldkey,
-            netuid,
-            tao_staked.saturating_to_num::<u64>(),
-            fee,
-        );
+        Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked, limit_price)?;
 
         // Ok and return.
         Ok(())
     }
 
     // Returns the maximum amount of RAO that can be executed with price limit
-    pub fn get_max_amount_add(netuid: u16, limit_price: u64) -> Result<u64, Error<T>> {
+    pub fn get_max_amount_add(netuid: NetUid, limit_price: u64) -> Result<u64, Error<T>> {
         // Corner case: root and stao
         // There's no slippage for root or stable subnets, so if limit price is 1e9 rao or
         // higher, then max_amount equals u64::MAX, otherwise it is 0.
-        if (netuid == Self::get_root_netuid()) || (SubnetMechanism::<T>::get(netuid)) == 0 {
+        if netuid.is_root() || SubnetMechanism::<T>::get(netuid) == 0 {
             if limit_price >= 1_000_000_000 {
                 return Ok(u64::MAX);
             } else {
@@ -193,49 +187,16 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // Corner case: SubnetAlphaIn is zero. Staking can't happen, so max amount is zero.
-        let alpha_in = SubnetAlphaIn::<T>::get(netuid);
-        if alpha_in == 0 {
-            return Err(Error::ZeroMaxStakeAmount);
-        }
-        let alpha_in_u128 = alpha_in as u128;
+        // Use reverting swap to estimate max limit amount
+        let result =
+            T::SwapInterface::swap(netuid.into(), OrderType::Buy, u64::MAX, limit_price, true)
+                .map(|r| r.amount_paid_in.saturating_add(r.fee_paid))
+                .map_err(|_| Error::ZeroMaxStakeAmount)?;
 
-        // Corner case: SubnetTAO is zero. Staking can't happen, so max amount is zero.
-        let tao_reserve = SubnetTAO::<T>::get(netuid);
-        if tao_reserve == 0 {
-            return Err(Error::ZeroMaxStakeAmount);
-        }
-        let tao_reserve_u128 = tao_reserve as u128;
-
-        // Corner case: limit_price < current_price (price cannot decrease with staking)
-        let tao = 1_000_000_000_u128;
-        let limit_price_u128 = limit_price as u128;
-        if (limit_price_u128
-            < Self::get_alpha_price(netuid)
-                .saturating_to_num::<u128>()
-                .saturating_mul(tao))
-            || (limit_price == 0u64)
-        {
-            return Err(Error::ZeroMaxStakeAmount);
-        }
-
-        // Main case: return limit_price * SubnetAlphaIn - SubnetTAO
-        // Non overflowing calculation: limit_price * alpha_in <= u64::MAX * u64::MAX <= u128::MAX
-        // May overflow result, then it will be capped at u64::MAX, which is OK because that matches balance u64 size.
-        let result = limit_price_u128
-            .saturating_mul(alpha_in_u128)
-            .checked_div(tao)
-            .unwrap_or(0)
-            .saturating_sub(tao_reserve_u128);
-
-        if result == 0 {
-            return Err(Error::ZeroMaxStakeAmount);
-        }
-
-        if result < u64::MAX as u128 {
-            Ok(result as u64)
+        if result != 0 {
+            Ok(result)
         } else {
-            Ok(u64::MAX)
+            Err(Error::ZeroMaxStakeAmount)
         }
     }
 }

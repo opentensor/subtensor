@@ -88,6 +88,25 @@
 				"type": "uint16"
 			}
 		],
+		"name": "getBondsResetEnabled",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint16",
+				"name": "netuid",
+				"type": "uint16"
+			}
+		],
 		"name": "getCommitRevealWeightsEnabled",
 		"outputs": [
 			{
@@ -392,12 +411,12 @@
 				"type": "uint16"
 			}
 		],
-		"name": "getServingRateLimit",
+		"name": "getAlphaSigmoidSteepness",
 		"outputs": [
 			{
-				"internalType": "uint64",
+				"internalType": "uint16",
 				"name": "",
-				"type": "uint64"
+				"type": "uint16"
 			}
 		],
 		"stateMutability": "view",
@@ -505,6 +524,59 @@
 	{
 		"inputs": [
 			{
+				"internalType": "bytes32",
+				"name": "hotkey",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "string",
+				"name": "subnetName",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "githubRepo",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "subnetContact",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "subnetUrl",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "discord",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "description",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "logoUrl",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "additional",
+				"type": "string"
+			}
+		],
+		"name": "registerNetwork",
+		"outputs": [],
+		"stateMutability": "payable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
 				"internalType": "uint16",
 				"name": "netuid",
 				"type": "uint16"
@@ -575,6 +647,24 @@
 			}
 		],
 		"name": "setBondsMovingAverage",
+		"outputs": [],
+		"stateMutability": "payable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint16",
+				"name": "netuid",
+				"type": "uint16"
+			},
+			{
+				"internalType": "bool",
+				"name": "bondsResetEnabled",
+				"type": "bool"
+			}
+		],
+		"name": "setBondsResetEnabled",
 		"outputs": [],
 		"stateMutability": "payable",
 		"type": "function"
@@ -863,6 +953,24 @@
 			}
 		],
 		"name": "setRho",
+		"outputs": [],
+		"stateMutability": "payable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint16",
+				"name": "netuid",
+				"type": "uint16"
+			},
+			{
+				"internalType": "uint16",
+				"name": "steepness",
+				"type": "uint16"
+			}
+		],
+		"name": "setAlphaSigmoidSteepness",
 		"outputs": [],
 		"stateMutability": "payable",
 		"type": "function"

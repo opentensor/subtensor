@@ -23,18 +23,19 @@ sp-rpc = { workspace = true }
 sp-runtime = { workspace = true }
 
 # local packages
-
+subtensor-runtime-common = { workspace = true }
 subtensor-custom-rpc-runtime-api = { path = "../runtime-api", default-features = false }
 pallet-subtensor = { path = "../../subtensor", default-features = false }
 
 [features]
 default = ["std"]
 std = [
+	"codec/std",
+	"pallet-subtensor/std",
+	"serde/std",
 	"sp-api/std",
 	"sp-runtime/std",
 	"subtensor-custom-rpc-runtime-api/std",
-	"pallet-subtensor/std",
-	"codec/std",
-	"serde/std"
+	"subtensor-runtime-common/std",
 ]
 pow-faucet = []
