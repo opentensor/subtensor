@@ -23,6 +23,7 @@ path = "src/spec_version.rs"
 subtensor-macros.workspace = true
 subtensor-custom-rpc-runtime-api = { workspace = true }
 smallvec = { workspace = true }
+array-bytes = { workspace = true }
 log = { workspace = true }
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
 	"derive",
@@ -117,6 +118,8 @@ pallet-staking-reward-curve = { workspace = true }
 sp-staking = { workspace = true }
 sp-npos-elections = { workspace = true }
 sp-consensus-aura = { workspace = true }
+sp-consensus-slots = { workspace = true }
+sp-consensus-grandpa = { workspace = true }
 
 # Frontier
 fp-evm = { workspace = true }

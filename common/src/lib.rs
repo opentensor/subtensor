@@ -7,8 +7,8 @@ use runtime_common::prod_or_fast;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
-    traits::{IdentifyAccount, Verify},
     MultiSignature,
+    traits::{IdentifyAccount, Verify},
 };
 use subtensor_macros::freeze_struct;
 

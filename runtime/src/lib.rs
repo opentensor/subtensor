@@ -236,7 +236,6 @@ pub mod opaque {
     impl_opaque_keys! {
         pub struct SessionKeys {
             pub babe: Babe,
-            // pub aura: Aura,
             pub grandpa: Grandpa,
         }
     }
@@ -1905,7 +1904,7 @@ type Migrations = (
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
         Runtime,
     >,
-    pallet_subtensor::migrations::migrate_aura_to_babe::aura_to_babe::Migration<Runtime>,
+    crate::migrations::pos::Migration, // pallet_subtensor::migrations::migrate_aura_to_babe::aura_to_babe::Migration<Runtime>,
 );
 
 // Unchecked extrinsic type as expected by this runtime.
