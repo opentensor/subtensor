@@ -670,8 +670,9 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // 4. Pro-rata distribution WITH remainder handling.
+        // 4. Pro-rata distribution – TAO restaked to ROOT.
         let subnet_tao: u128 = SubnetTAO::<T>::get(netuid) as u128;
+        let root_netuid = Self::get_root_netuid();
 
         if total_alpha_out > 0 && subnet_tao > 0 && !stakers.is_empty() {
             struct Portion<A, C> {
@@ -698,7 +699,7 @@ impl<T: Config> Pallet<T> {
                 });
             }
 
-            // Left-over units ( < stakers.len() ).
+            // Handle leftover (< stakers.len()).
             let leftover = subnet_tao.saturating_sub(distributed);
             if leftover > 0 {
                 portions.sort_by(|a, b| b.rem.cmp(&a.rem));
@@ -707,25 +708,26 @@ impl<T: Config> Pallet<T> {
                 }
             }
 
-            // Final crediting and α-record cleanup.
+            // Restake into root and clean α records.
             for p in portions {
                 if p.share > 0 {
-                    Self::add_balance_to_coldkey_account(&p.cold, p.share);
+                    // Zero-fee restake of TAO into the root network.
+                    Self::stake_into_subnet(&p.hot, &p.cold, root_netuid, p.share, 0u64);
                 }
                 Alpha::<T>::remove((&p.hot, &p.cold, netuid));
             }
         } else {
-            // No α-out or no Tao – just clear α-records.
+            // No α-out or no TAO – just clear α records.
             for (hot, cold, _) in &stakers {
                 Alpha::<T>::remove((hot.clone(), cold.clone(), netuid));
             }
         }
 
-        // 5. Reset α-in/out accumulations.
+        // 5. Reset α in/out counters.
         SubnetAlphaIn::<T>::insert(netuid, 0);
         SubnetAlphaOut::<T>::insert(netuid, 0);
 
-        // 6. Refund remaining lock.
+        // 6. Refund remaining lock to subnet owner.
         let refund = lock_cost.saturating_sub(owner_received_emission);
         Self::set_subnet_locked_balance(netuid, 0);
         if refund > 0 {
