@@ -660,7 +660,8 @@ fn test_remove_stake_insufficient_liquidity() {
         // Simulate stake for hotkey
         SubnetTAO::<Test>::insert(netuid, u64::MAX / 1000);
         SubnetAlphaIn::<Test>::insert(netuid, u64::MAX / 1000);
-        let alpha = SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, amount_staked, 0);
+        let alpha =
+            SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, amount_staked, 0, false);
 
         // Set the liquidity at lowest possible value so that all staking requests fail
         SubnetTAO::<Test>::insert(
@@ -731,6 +732,7 @@ fn test_remove_stake_total_issuance_no_change() {
             &coldkey_account_id,
             netuid,
         );
+        remove_stake_rate_limit_for_tests(&hotkey_account_id, &coldkey_account_id, netuid);
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
@@ -854,6 +856,8 @@ fn test_remove_prev_epoch_stake() {
                     &coldkey_account_id,
                     netuid,
                 );
+
+                remove_stake_rate_limit_for_tests(&hotkey_account_id, &coldkey_account_id, netuid);
 
                 assert_ok!(SubtensorModule::remove_stake(
                     RuntimeOrigin::signed(coldkey_account_id),
@@ -1435,6 +1439,9 @@ fn test_clear_small_nominations() {
             netuid,
             amount + fee
         ));
+
+        remove_stake_rate_limit_for_tests(&hot1, &cold1, netuid);
+
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(cold1),
             hot1,
@@ -1455,6 +1462,9 @@ fn test_clear_small_nominations() {
             netuid,
             amount + fee
         ));
+
+        remove_stake_rate_limit_for_tests(&hot1, &cold2, netuid);
+
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(cold2),
             hot1,
@@ -1475,6 +1485,7 @@ fn test_clear_small_nominations() {
             netuid,
             amount + fee
         ));
+        remove_stake_rate_limit_for_tests(&hot2, &cold1, netuid);
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(cold1),
             hot2,
@@ -1496,6 +1507,7 @@ fn test_clear_small_nominations() {
             netuid,
             amount + fee
         ));
+        remove_stake_rate_limit_for_tests(&hot2, &cold2, netuid);
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(cold2),
             hot2,
@@ -1995,6 +2007,8 @@ fn test_get_total_delegated_stake_after_unstaking() {
             epsilon = initial_stake / 1000,
         );
 
+        remove_stake_rate_limit_for_tests(&delegate_hotkey, &delegator, netuid);
+
         // Unstake part of the delegation
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(delegator),
@@ -2412,6 +2426,8 @@ fn test_remove_stake_fee_goes_to_subnet_tao() {
             tao_to_stake
         ));
 
+        remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
+
         // Remove all stake
         let alpha_to_unstake =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
@@ -2799,7 +2815,8 @@ fn test_unstake_low_liquidity_validate() {
         // Simulate stake for hotkey
         SubnetTAO::<Test>::insert(netuid, u64::MAX / 1000);
         SubnetAlphaIn::<Test>::insert(netuid, u64::MAX / 1000);
-        let alpha = SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, amount_staked, 0);
+        let alpha =
+            SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, amount_staked, 0, false);
 
         // Set the liquidity at lowest possible value so that all staking requests fail
         SubnetTAO::<Test>::insert(
@@ -2854,7 +2871,7 @@ fn test_unstake_all_validate() {
         // Simulate stake for hotkey
         SubnetTAO::<Test>::insert(netuid, u64::MAX / 1000);
         SubnetAlphaIn::<Test>::insert(netuid, u64::MAX / 1000);
-        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, amount_staked, 0);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, amount_staked, 0, false);
 
         // Set the liquidity at lowest possible value so that all staking requests fail
         SubnetTAO::<Test>::insert(
@@ -4209,6 +4226,8 @@ fn test_remove_99_9991_per_cent_stake_removes_all() {
             amount
         ));
 
+        remove_stake_rate_limit_for_tests(&hotkey_account_id, &coldkey_account_id, netuid);
+
         // Remove 99.9991% stake
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_account_id,
@@ -4266,6 +4285,8 @@ fn test_remove_99_9989_per_cent_stake_leaves_a_little() {
             netuid,
             amount
         ));
+
+        remove_stake_rate_limit_for_tests(&hotkey_account_id, &coldkey_account_id, netuid);
 
         // Remove 99.9989% stake
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(

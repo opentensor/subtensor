@@ -858,7 +858,7 @@ pub fn increase_stake_on_coldkey_hotkey_account(
     netuid: NetUid,
 ) {
     let fee = 0;
-    SubtensorModule::stake_into_subnet(hotkey, coldkey, netuid, tao_staked, fee);
+    SubtensorModule::stake_into_subnet(hotkey, coldkey, netuid, tao_staked, fee, false);
 }
 
 /// Increases the stake on the hotkey account under its owning coldkey.
@@ -874,4 +874,8 @@ pub fn increase_stake_on_hotkey_account(hotkey: &U256, increment: u64, netuid: N
         increment,
         netuid,
     );
+}
+
+pub(crate) fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, netuid: NetUid) {
+    StakingOperationRateLimiter::<Test>::remove((hotkey, coldkey, u16::from(netuid)));
 }
