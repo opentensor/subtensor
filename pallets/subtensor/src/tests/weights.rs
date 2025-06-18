@@ -5993,6 +5993,7 @@ fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
                 .cloned()
                 .unwrap_or_default();
 
+            // junius need consider the weight lost permits
             assert!(
                 !weights.is_empty(),
                 "Weights for neuron_uid {} should be set",
@@ -6179,7 +6180,7 @@ fn test_reveal_crv3_commits_max_neurons() {
                 .get(neuron_uid)
                 .cloned()
                 .unwrap_or_default();
-
+            // junius consider the weight lost permits.
             assert!(
                 !weights.is_empty(),
                 "Weights for neuron_uid {} should be set",
