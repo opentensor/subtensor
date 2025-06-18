@@ -383,7 +383,7 @@ impl<T: Config> Pallet<T> {
     /// * 'SubNetworkDoesNotExist': If the specified network does not exist.
     /// * 'NotSubnetOwner': If the caller does not own the specified subnet.
     ///
-     pub fn do_dissolve_network(netuid: NetUid) -> dispatch::DispatchResult {
+    pub fn do_dissolve_network(netuid: NetUid) -> dispatch::DispatchResult {
         // --- Perform the dtTao-compatible cleanup before removing the network.
         Self::destroy_alpha_in_out_stakes(netuid)?;
 
