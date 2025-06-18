@@ -96,7 +96,7 @@ fn dissolve_single_alpha_out_staker_gets_all_tao() {
         SubtensorModule::set_subnet_locked_balance(net, 0);
 
         // α on ROOT before
-        let root = SubtensorModule::get_root_netuid();
+        let root = NetUid::ROOT;
         let alpha_before_root =
             Alpha::<Test>::get((s_hot, s_cold, root)).saturating_to_num::<u64>();
 
@@ -130,7 +130,7 @@ fn dissolve_two_stakers_pro_rata_distribution() {
         SubtensorModule::set_subnet_locked_balance(net, 5_000u64);
 
         // α on ROOT before
-        let root = SubtensorModule::get_root_netuid();
+        let root = NetUid::ROOT;
         let a1_root_before = Alpha::<Test>::get((s1_hot, s1_cold, root)).saturating_to_num::<u64>();
         let a2_root_before = Alpha::<Test>::get((s2_hot, s2_cold, root)).saturating_to_num::<u64>();
 
@@ -215,7 +215,7 @@ fn dissolve_zero_refund_when_emission_exceeds_lock() {
 fn dissolve_nonexistent_subnet_fails() {
     new_test_ext(0).execute_with(|| {
         assert_err!(
-            SubtensorModule::do_dissolve_network(9_999),
+            SubtensorModule::do_dissolve_network(9_999.into()),
             Error::<Test>::SubNetworkDoesNotExist
         );
     });
@@ -408,7 +408,7 @@ fn dissolve_rounding_remainder_distribution() {
         SubtensorModule::set_subnet_locked_balance(net, 0);
 
         // 2. α on ROOT before
-        let root = SubtensorModule::get_root_netuid();
+        let root = NetUid::ROOT;
         let a1_before = Alpha::<Test>::get((s1h, s1c, root)).saturating_to_num::<u64>();
         let a2_before = Alpha::<Test>::get((s2h, s2c, root)).saturating_to_num::<u64>();
 
@@ -476,7 +476,7 @@ fn destroy_alpha_out_multiple_stakers_pro_rata() {
         SubtensorModule::set_subnet_locked_balance(netuid, 5_000);
 
         // 6. Balances & α on the *root* network *before*
-        let root = SubtensorModule::get_root_netuid();
+        let root = NetUid::ROOT;
         let bal1_before = SubtensorModule::get_coldkey_balance(&c1);
         let bal2_before = SubtensorModule::get_coldkey_balance(&c2);
         let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
@@ -567,7 +567,7 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         SubnetOwnerCut::<Test>::put(32_768u16); // 50 %
 
         // 4. Balances & α on root *before*
-        let root = SubtensorModule::get_root_netuid();
+        let root = NetUid::ROOT;
         let mut bal_before = [0u64; N];
         let mut alpha_before_root = [0u64; N];
         for i in 0..N {
@@ -739,7 +739,7 @@ fn register_network_under_limit_success() {
         ));
 
         assert_eq!(TotalNetworks::<Test>::get(), total_before + 1);
-        let new_id = TotalNetworks::<Test>::get();
+        let new_id: NetUid = TotalNetworks::<Test>::get().into();
         assert_eq!(SubnetOwner::<Test>::get(new_id), cold);
         assert_eq!(SubnetOwnerHotkey::<Test>::get(new_id), hot);
     });

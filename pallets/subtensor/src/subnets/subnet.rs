@@ -150,7 +150,7 @@ impl<T: Config> Pallet<T> {
         //         But do not prune yet; we only do it after all checks pass.
         let subnet_limit = Self::get_max_subnets();
         let current_count = TotalNetworks::<T>::get();
-        let mut recycle_netuid: Option<u16> = None;
+        let mut recycle_netuid: Option<NetUid> = None;
         if current_count >= subnet_limit {
             if let Some(netuid) = Self::get_network_to_prune() {
                 recycle_netuid = Some(netuid);
@@ -181,7 +181,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 10. Determine netuid to register. If we pruned a subnet, reuse that netuid.
-        let netuid_to_register: u16 = match recycle_netuid {
+        let netuid_to_register: NetUid = match recycle_netuid {
             Some(prune_netuid) => prune_netuid,
             None => Self::get_next_netuid(),
         };

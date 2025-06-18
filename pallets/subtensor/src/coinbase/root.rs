@@ -383,25 +383,15 @@ impl<T: Config> Pallet<T> {
     /// * 'SubNetworkDoesNotExist': If the specified network does not exist.
     /// * 'NotSubnetOwner': If the caller does not own the specified subnet.
     ///
-    pub fn user_remove_network(coldkey: T::AccountId, netuid: NetUid) -> dispatch::DispatchResult {
-        // --- 1. Ensure this subnet exists.
+     pub fn do_dissolve_network(netuid: NetUid) -> dispatch::DispatchResult {
+        // --- Perform the dtTao-compatible cleanup before removing the network.
+        Self::destroy_alpha_in_out_stakes(netuid)?;
+
+        // --- Finally, remove the network entirely.
         ensure!(
             Self::if_subnet_exist(netuid),
             Error::<T>::SubNetworkDoesNotExist
         );
-
-        // --- 2. Ensure the caller owns this subnet.
-        ensure!(
-            SubnetOwner::<T>::get(netuid) == coldkey,
-            Error::<T>::NotSubnetOwner
-        );
-
-        // --- 4. Remove the subnet identity if it exists.
-        if SubnetIdentitiesV3::<T>::take(netuid).is_some() {
-            Self::deposit_event(Event::SubnetIdentityRemoved(netuid));
-        }
-
-        // --- 5. Explicitly erase the network and all its parameters.
         Self::remove_network(netuid);
 
         // --- Emit event.
@@ -605,7 +595,7 @@ impl<T: Config> Pallet<T> {
         LastRateLimitedBlock::<T>::set(rate_limit_key, block);
     }
 
-    pub fn destroy_alpha_in_out_stakes(netuid: u16) -> DispatchResult {
+    pub fn destroy_alpha_in_out_stakes(netuid: NetUid) -> DispatchResult {
         // 1. Ensure the subnet exists.
         ensure!(
             Self::if_subnet_exist(netuid),
@@ -638,7 +628,7 @@ impl<T: Config> Pallet<T> {
 
         // 4. Pro-rata distribution – TAO restaked to ROOT.
         let subnet_tao: u128 = SubnetTAO::<T>::get(netuid) as u128;
-        let root_netuid = Self::get_root_netuid();
+        let root_netuid = NetUid::ROOT;
 
         if total_alpha_out > 0 && subnet_tao > 0 && !stakers.is_empty() {
             struct Portion<A, C> {
@@ -703,15 +693,16 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn get_network_to_prune() -> Option<u16> {
+    pub fn get_network_to_prune() -> Option<NetUid> {
         let current_block: u64 = Self::get_current_block_as_u64();
         let total_networks: u16 = TotalNetworks::<T>::get();
 
-        let mut candidate_netuid: Option<u16> = None;
+        let mut candidate_netuid: Option<NetUid> = None;
         let mut candidate_emission = u64::MAX;
         let mut candidate_timestamp = u64::MAX;
 
-        for netuid in 1..=total_networks {
+        for net in 1..=total_networks {
+            let netuid: NetUid = net.into();
             let registered_at = NetworkRegisteredAt::<T>::get(netuid);
 
             // Skip immune networks
