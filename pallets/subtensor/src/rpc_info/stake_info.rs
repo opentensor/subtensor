@@ -1,9 +1,11 @@
-use super::*;
-use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
+
 use codec::Compact;
-use substrate_fixed::types::U96F32;
+use frame_support::pallet_prelude::{Decode, Encode};
 use subtensor_runtime_common::NetUid;
+use subtensor_swap_interface::SwapHandler;
+
+use super::*;
 
 #[freeze_struct("56f5e9f33e5ec9da")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
@@ -117,29 +119,12 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_stake_fee(
         origin: Option<(T::AccountId, NetUid)>,
-        origin_coldkey_account: T::AccountId,
+        _origin_coldkey_account: T::AccountId,
         destination: Option<(T::AccountId, NetUid)>,
-        destination_coldkey_account: T::AccountId,
+        _destination_coldkey_account: T::AccountId,
         amount: u64,
     ) -> u64 {
-        let origin_ = if let Some((ref origin_hotkey, origin_netuid)) = origin {
-            Some((origin_hotkey, origin_netuid))
-        } else {
-            None
-        };
-
-        let destination_ = if let Some((ref destination_hotkey, destination_netuid)) = destination {
-            Some((destination_hotkey, destination_netuid))
-        } else {
-            None
-        };
-
-        Self::calculate_staking_fee(
-            origin_,
-            &origin_coldkey_account,
-            destination_,
-            &destination_coldkey_account,
-            U96F32::saturating_from_num(amount),
-        )
+        let netuid = destination.or(origin).map(|v| v.1).unwrap_or_default();
+        T::SwapInterface::approx_fee_amount(netuid.into(), amount)
     }
 }
