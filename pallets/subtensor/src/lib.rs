@@ -599,7 +599,7 @@ pub mod pallet {
     }
     #[pallet::type_value]
     /// Default value for alpha sigmoid steepness.
-    pub fn DefaultAlphaSigmoidSteepness<T: Config>() -> u16 {
+    pub fn DefaultAlphaSigmoidSteepness<T: Config>() -> i16 {
         T::InitialAlphaSigmoidSteepness::get()
     }
     #[pallet::type_value]
@@ -1296,7 +1296,7 @@ pub mod pallet {
     #[pallet::storage]
     /// --- MAP ( netuid ) --> AlphaSigmoidSteepness
     pub type AlphaSigmoidSteepness<T> =
-        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultAlphaSigmoidSteepness<T>>;
+        StorageMap<_, Identity, NetUid, i16, ValueQuery, DefaultAlphaSigmoidSteepness<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Kappa
     pub type Kappa<T> = StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultKappa<T>>;
