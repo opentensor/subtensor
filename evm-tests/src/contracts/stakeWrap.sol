@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
-
+// need use the compiler version 0.8.20 for this contract, otherwise there is an issue
+// opcode(94) swap5 not supported.
 pragma solidity >=0.8.0 <0.8.2;
 
 address constant ISTAKING_ADDRESS = 0x0000000000000000000000000000000000000805;
@@ -21,6 +22,9 @@ contract StakeWrap {
     receive() external payable {}
 
     function stake(bytes32 hotkey, uint256 netuid, uint256 amount) external {
+        // can't call precompile like this way, the call never go to runtime precompile
+        //Staking(ISTAKING_ADDRESS).addStake(hotkey, amount, netuid);
+
         bytes memory data = abi.encodeWithSelector(
             Staking.addStake.selector,
             hotkey,
@@ -38,6 +42,15 @@ contract StakeWrap {
         uint256 amount,
         bool allowPartial
     ) external {
+        // can't call precompile like this way, the call never go to runtime precompile
+        // Staking(ISTAKING_ADDRESS).addStakeLimit(
+        //     hotkey,
+        //     amount,
+        //     limitPrice,
+        //     allowPartial,
+        //     netuid
+        // );
+
         bytes memory data = abi.encodeWithSelector(
             Staking.addStakeLimit.selector,
             hotkey,
