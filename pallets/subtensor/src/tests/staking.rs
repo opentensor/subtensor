@@ -4620,3 +4620,46 @@ fn test_increase_stake_for_hotkey_and_coldkey_on_subnet_adds_to_staking_hotkeys_
         assert!(StakingHotkeys::<Test>::get(coldkey1).contains(&hotkey));
     });
 }
+
+#[test]
+fn test_stake_rate_limits() {
+    new_test_ext(0).execute_with(|| {
+        // Create subnet and accounts.
+        let subnet_owner_coldkey = U256::from(10);
+        let subnet_owner_hotkey = U256::from(20);
+        let hot1 = U256::from(1);
+        let cold1 = U256::from(3);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let amount = DefaultMinStake::<Test>::get() * 10;
+        let fee: u64 = DefaultMinStake::<Test>::get();
+        let init_balance = amount + fee + ExistentialDeposit::get();
+
+        register_ok_neuron(netuid, hot1, cold1, 0);
+        Delegates::<Test>::insert(hot1, SubtensorModule::get_min_delegate_take());
+        assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot1), cold1);
+
+        SubtensorModule::add_balance_to_coldkey_account(&cold1, init_balance);
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(cold1),
+            hot1,
+            netuid,
+            amount + fee
+        ));
+
+        assert_err!(
+            SubtensorModule::remove_stake(RuntimeOrigin::signed(cold1), hot1, netuid, amount),
+            Error::<Test>::StakingOperationRateLimitExceeded
+        );
+
+        // Test limit clear each block
+        assert!(StakingOperationRateLimiter::<Test>::contains_key((
+            hot1, cold1, netuid
+        )));
+
+        next_block();
+
+        assert!(!StakingOperationRateLimiter::<Test>::contains_key((
+            hot1, cold1, netuid
+        )));
+    });
+}
