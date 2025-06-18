@@ -877,5 +877,5 @@ pub fn increase_stake_on_hotkey_account(hotkey: &U256, increment: u64, netuid: N
 }
 
 pub(crate) fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, netuid: NetUid) {
-    StakingOperationRateLimiter::<Test>::remove((hotkey, coldkey, u16::from(netuid)));
+    StakingOperationRateLimiter::<Test>::remove((hotkey, coldkey, netuid));
 }

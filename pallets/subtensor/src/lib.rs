@@ -1679,7 +1679,7 @@ pub mod pallet {
         (
             NMapKey<Blake2_128Concat, T::AccountId>, // hot
             NMapKey<Blake2_128Concat, T::AccountId>, // cold
-            NMapKey<Identity, u16>,                  // subnet
+            NMapKey<Identity, NetUid>,               // subnet
         ),
         bool,
         ValueQuery,
