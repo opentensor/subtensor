@@ -146,8 +146,8 @@ mod pallet {
         FeeRateSet { netuid: NetUid, rate: u16 },
 
         /// Event emitted when user liquidity operations are enabled for a subnet.
-        /// This indicates a permanent switch from V2 to V3 swap.
-        UserLiquidityEnabled { netuid: NetUid },
+        /// First enable even indicates a switch from V2 to V3 swap.
+        UserLiquidityToggled { netuid: NetUid, enable: bool },
 
         /// Event emitted when liquidity is added to a subnet's liquidity pool.
         LiquidityAdded {
@@ -261,17 +261,25 @@ mod pallet {
             Ok(())
         }
 
-        /// Enable user liquidity operations for a specific subnet. This permanently switches the
-        /// subnet from V2 to V3 swap mode. Once enabled, it cannot be disabled.
+        /// Enable user liquidity operations for a specific subnet. This switches the
+        /// subnet from V2 to V3 swap mode. Thereafter, adding new user liquidity can be disabled
+        /// by toggling this flag to false, but the swap mode will remain V3 because of existing
+        /// user liquidity until all users withdraw their liquidity.
         ///
-        /// Only callable by the admin origin
+        /// Only sudo or subnet owner can enable user liquidity.
+        /// Only sudo can disable user liquidity.
         #[pallet::call_index(4)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::set_enabled_user_liquidity())]
-        pub fn set_enabled_user_liquidity(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
+        pub fn toggle_user_liquidity(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            enable: bool,
+        ) -> DispatchResult {
             if ensure_root(origin.clone()).is_err() {
                 let account_id: T::AccountId = ensure_signed(origin)?;
+                // Only enabling is allowed to subnet owner
                 ensure!(
-                    T::SubnetInfo::is_owner(&account_id, netuid.into()),
+                    T::SubnetInfo::is_owner(&account_id, netuid.into()) && enable,
                     DispatchError::BadOrigin
                 );
             }
@@ -281,9 +289,9 @@ mod pallet {
                 Error::<T>::SubNetworkDoesNotExist
             );
 
-            EnabledUserLiquidity::<T>::insert(netuid, true);
+            EnabledUserLiquidity::<T>::insert(netuid, enable);
 
-            Self::deposit_event(Event::UserLiquidityEnabled { netuid });
+            Self::deposit_event(Event::UserLiquidityToggled { netuid, enable });
 
             Ok(())
         }

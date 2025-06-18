@@ -52,7 +52,7 @@ pub struct SubnetInfov2<AccountId: TypeInfo + Encode + Decode> {
     identity: Option<SubnetIdentityV2>,
 }
 
-#[freeze_struct("7b506df55bd44646")]
+#[freeze_struct("769dc2ca2135b525")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetHyperparams {
     rho: Compact<u16>,
@@ -82,6 +82,7 @@ pub struct SubnetHyperparams {
     alpha_high: Compact<u16>,
     alpha_low: Compact<u16>,
     liquid_alpha_enabled: bool,
+    user_liquidity_enabled: bool,
 }
 
 impl<T: Config> Pallet<T> {
@@ -257,6 +258,7 @@ impl<T: Config> Pallet<T> {
         let commit_reveal_weights_enabled = Self::get_commit_reveal_weights_enabled(netuid);
         let liquid_alpha_enabled = Self::get_liquid_alpha_enabled(netuid);
         let (alpha_low, alpha_high): (u16, u16) = Self::get_alpha_values(netuid);
+        let user_liquidity_enabled: bool = Self::is_user_liquidity_enabled(netuid);
 
         Some(SubnetHyperparams {
             rho: rho.into(),
@@ -286,6 +288,7 @@ impl<T: Config> Pallet<T> {
             alpha_high: alpha_high.into(),
             alpha_low: alpha_low.into(),
             liquid_alpha_enabled,
+            user_liquidity_enabled,
         })
     }
 }

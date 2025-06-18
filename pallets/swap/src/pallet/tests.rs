@@ -116,25 +116,31 @@ mod dispatchables {
 
             assert!(!EnabledUserLiquidity::<Test>::get(netuid));
 
-            assert_ok!(Swap::set_enabled_user_liquidity(
+            assert_ok!(Swap::toggle_user_liquidity(
                 RuntimeOrigin::root(),
-                netuid.into()
+                netuid.into(),
+                true
             ));
 
             assert!(EnabledUserLiquidity::<Test>::get(netuid));
 
             assert_noop!(
-                Swap::set_enabled_user_liquidity(RuntimeOrigin::signed(666), netuid.into()),
+                Swap::toggle_user_liquidity(RuntimeOrigin::signed(666), netuid.into(), true),
                 DispatchError::BadOrigin
             );
 
-            assert_ok!(Swap::set_enabled_user_liquidity(
+            assert_ok!(Swap::toggle_user_liquidity(
                 RuntimeOrigin::signed(1),
-                netuid.into()
+                netuid.into(),
+                true
             ));
 
             assert_noop!(
-                Swap::set_enabled_user_liquidity(RuntimeOrigin::root(), NON_EXISTENT_NETUID.into()),
+                Swap::toggle_user_liquidity(
+                    RuntimeOrigin::root(),
+                    NON_EXISTENT_NETUID.into(),
+                    true
+                ),
                 Error::<Test>::SubNetworkDoesNotExist
             );
         });
@@ -1352,7 +1358,7 @@ fn test_user_liquidity_disabled() {
 
         assert_noop!(
             Swap::do_remove_liquidity(netuid, &OK_COLDKEY_ACCOUNT_ID, position_id),
-            Error::<Test>::UserLiquidityDisabled
+            Error::<Test>::LiquidityNotFound
         );
 
         assert_noop!(
@@ -1366,9 +1372,10 @@ fn test_user_liquidity_disabled() {
             Error::<Test>::UserLiquidityDisabled
         );
 
-        assert_ok!(Swap::set_enabled_user_liquidity(
+        assert_ok!(Swap::toggle_user_liquidity(
             RuntimeOrigin::root(),
-            netuid
+            netuid,
+            true
         ));
 
         let position_id = Swap::do_add_liquidity(

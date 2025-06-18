@@ -816,7 +816,8 @@ impl<T: Config> Pallet<T> {
         Ok((position, tao, alpha))
     }
 
-    /// Remove liquidity and credit balances back to (coldkey_account_id, hotkey_account_id) stake
+    /// Remove liquidity and credit balances back to (coldkey_account_id, hotkey_account_id) stake.
+    /// Removing is allowed even when user liquidity is enabled.
     ///
     /// Account ID and Position ID identify position in the storage map
     pub fn do_remove_liquidity(
@@ -824,11 +825,6 @@ impl<T: Config> Pallet<T> {
         coldkey_account_id: &T::AccountId,
         position_id: PositionId,
     ) -> Result<UpdateLiquidityResult, Error<T>> {
-        ensure!(
-            EnabledUserLiquidity::<T>::get(netuid),
-            Error::<T>::UserLiquidityDisabled
-        );
-
         let Some(mut position) = Positions::<T>::get((netuid, coldkey_account_id, position_id))
         else {
             return Err(Error::<T>::LiquidityNotFound);
@@ -1179,6 +1175,10 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
 
     fn adjust_protocol_liquidity(netuid: NetUid) {
         Self::adjust_protocol_liquidity(netuid);
+    }
+
+    fn is_user_liquidity_enabled(netuid: NetUid) -> bool {
+        EnabledUserLiquidity::<T>::get(netuid)
     }
 }
 

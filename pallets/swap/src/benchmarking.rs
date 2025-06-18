@@ -132,13 +132,13 @@ mod benchmarks {
     }
 
     #[benchmark]
-    fn set_enabled_user_liquidity() {
+    fn toggle_user_liquidity() {
         let netuid = NetUid::from(101);
 
         assert!(!EnabledUserLiquidity::<T>::get(netuid));
 
         #[extrinsic_call]
-        set_enabled_user_liquidity(RawOrigin::Root, netuid.into());
+        toggle_user_liquidity(RawOrigin::Root, netuid.into(), true);
 
         assert!(EnabledUserLiquidity::<T>::get(netuid));
     }
