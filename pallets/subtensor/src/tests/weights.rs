@@ -5960,6 +5960,7 @@ fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
 
         let netuid = NetUid::from(1);
         let reveal_round: u64 = 1000;
+        let stake: u64 = 1_000_000_000;
 
         // Initialize the network
         add_network(netuid, 5, 0);
@@ -5982,6 +5983,7 @@ fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
                 SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey)
                     .expect("Failed to get neuron UID"),
             );
+            TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, stake);
         }
 
         let version_key = SubtensorModule::get_weights_version_key(netuid);
@@ -6076,7 +6078,6 @@ fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
                 .cloned()
                 .unwrap_or_default();
 
-            // junius need consider the weight lost permits
             assert!(
                 !weights.is_empty(),
                 "Weights for neuron_uid {} should be set",
@@ -6150,6 +6151,9 @@ fn test_reveal_crv3_commits_max_neurons() {
 
         let netuid = NetUid::from(1);
         let reveal_round: u64 = 1000;
+        let stake = 1_000_000_000;
+        let min_stake = 1;
+        let max_allowed_validators = SubtensorModule::get_max_allowed_validators(netuid);
 
         add_network(netuid, 5, 0);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
@@ -6159,7 +6163,7 @@ fn test_reveal_crv3_commits_max_neurons() {
         SubtensorModule::set_target_registrations_per_interval(netuid, 10000);
         SubtensorModule::set_max_allowed_uids(netuid, 10024);
 
-        let num_neurons = 1_024;
+        let num_neurons: usize = 1_024;
         let mut hotkeys = Vec::new();
         let mut neuron_uids = Vec::new();
         for i in 0..num_neurons {
@@ -6171,6 +6175,11 @@ fn test_reveal_crv3_commits_max_neurons() {
                 SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey)
                     .expect("Failed to get neuron UID"),
             );
+            if i < max_allowed_validators as usize {
+                TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, stake);
+            } else {
+                TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, min_stake);
+            }
         }
 
         let version_key = SubtensorModule::get_weights_version_key(netuid);
@@ -6255,7 +6264,8 @@ fn test_reveal_crv3_commits_max_neurons() {
 
         // Set acceptable delta for `I32F32` weights
         let delta = I32F32::from_num(0.0001); // Adjust delta as needed
-
+        
+        let validator_permits: Vec<bool> = SubtensorModule::get_validator_permit(netuid);
         for (hotkey, expected_payload) in commits {
             let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, hotkey)
                 .expect("Failed to get neuron UID for hotkey") as usize;
@@ -6263,12 +6273,14 @@ fn test_reveal_crv3_commits_max_neurons() {
                 .get(neuron_uid)
                 .cloned()
                 .unwrap_or_default();
-            // junius consider the weight lost permits.
-            assert!(
-                !weights.is_empty(),
-                "Weights for neuron_uid {} should be set",
-                neuron_uid
-            );
+            // weights should be removed for the validators lost permit
+            if validator_permits[neuron_uid] {
+                assert!(
+                    !weights.is_empty(),
+                    "Weights for neuron_uid {} should be set",
+                    neuron_uid
+                );
+            }
 
             // Normalize expected weights
             let expected_weights: Vec<(u16, I32F32)> = expected_payload
