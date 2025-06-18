@@ -19,6 +19,13 @@ if [ "$i" -eq 1000 ]; then
     exit 1
 fi
 
+sleep 5
+
+if ! nc -z localhost 9944; then
+    echo "node subtensor exit, port not available"
+    exit 1
+fi
+
 cd evm-tests
 
 # required for papi in get-metadata.sh, but we cannot run yarn before papi as it adds the descriptors to the package.json which won't resolve

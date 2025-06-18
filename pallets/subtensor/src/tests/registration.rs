@@ -4,13 +4,13 @@ use approx::assert_abs_diff_eq;
 use frame_support::traits::Currency;
 
 use super::mock::*;
-use crate::{AxonInfoOf, CustomTransactionError, Error, SubtensorSignedExtension};
+use crate::{AxonInfoOf, CustomTransactionError, Error, SubtensorTransactionExtension};
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
-use frame_support::sp_runtime::{DispatchError, transaction_validity::InvalidTransaction};
+use frame_support::sp_runtime::{DispatchError, transaction_validity::TransactionSource};
 use frame_support::{assert_err, assert_noop, assert_ok};
-use frame_system::Config;
+use frame_system::{Config, RawOrigin};
 use sp_core::U256;
-use sp_runtime::traits::{DispatchInfoOf, SignedExtension};
+use sp_runtime::traits::{DispatchInfoOf, TransactionExtension, TxBaseImplication};
 use subtensor_runtime_common::NetUid;
 
 /********************************************
@@ -38,7 +38,8 @@ fn test_registration_subscribe_ok_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                weight: frame_support::weights::Weight::from_parts(3_166_200_000, 0),
+                call_weight: frame_support::weights::Weight::from_parts(3_166_200_000, 0),
+                extension_weight: frame_support::weights::Weight::zero(),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
             }
@@ -219,9 +220,17 @@ fn test_registration_under_limit() {
         };
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-        let extension = SubtensorSignedExtension::<Test>::new();
+        let extension = SubtensorTransactionExtension::<Test>::new();
         //does not actually call register
-        let result = extension.validate(&who, &call.into(), &info, 10);
+        let result = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.into(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         assert_ok!(result);
 
         //actually call register
@@ -272,13 +281,21 @@ fn test_registration_rate_limit_exceeded() {
         };
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-        let extension = SubtensorSignedExtension::<Test>::new();
-        let result = extension.validate(&who, &call.into(), &info, 10);
+        let extension = SubtensorTransactionExtension::<Test>::new();
+        let result = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.into(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
 
         // Expectation: The transaction should be rejected
-        assert_err!(
-            result,
-            InvalidTransaction::Custom(CustomTransactionError::RateLimitExceeded.into())
+        assert_eq!(
+            result.unwrap_err(),
+            CustomTransactionError::RateLimitExceeded.into()
         );
 
         let current_registrants = SubtensorModule::get_registrations_this_interval(netuid);
@@ -316,10 +333,17 @@ fn test_burned_registration_under_limit() {
 
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-        let extension = SubtensorSignedExtension::<Test>::new();
+        let extension = SubtensorTransactionExtension::<Test>::new();
         //does not actually call register
-        let burned_register_result =
-            extension.validate(&who, &call_burned_register.into(), &info, 10);
+        let burned_register_result = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call_burned_register.into(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         assert_ok!(burned_register_result);
 
         //actually call register
@@ -356,14 +380,21 @@ fn test_burned_registration_rate_limit_exceeded() {
 
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-        let extension = SubtensorSignedExtension::<Test>::new();
-        let burned_register_result =
-            extension.validate(&who, &call_burned_register.into(), &info, 10);
+        let extension = SubtensorTransactionExtension::<Test>::new();
+        let burned_register_result = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call_burned_register.into(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
 
         // Expectation: The transaction should be rejected
-        assert_err!(
-            burned_register_result,
-            InvalidTransaction::Custom(CustomTransactionError::RateLimitExceeded.into())
+        assert_eq!(
+            burned_register_result.unwrap_err(),
+            CustomTransactionError::RateLimitExceeded.into()
         );
 
         let current_registrants = SubtensorModule::get_registrations_this_interval(netuid);
@@ -401,10 +432,17 @@ fn test_burned_registration_rate_allows_burn_adjustment() {
 
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-        let extension = SubtensorSignedExtension::<Test>::new();
+        let extension = SubtensorTransactionExtension::<Test>::new();
         //does not actually call register
-        let burned_register_result =
-            extension.validate(&who, &call_burned_register.into(), &info, 10);
+        let burned_register_result = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call_burned_register.into(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         assert_ok!(burned_register_result);
 
         //actually call register

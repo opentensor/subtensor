@@ -1,15 +1,17 @@
+#![allow(clippy::unwrap_used)]
 use super::mock::*;
 
 use crate::Error;
 use crate::*;
+use frame_support::assert_noop;
 use frame_support::pallet_prelude::Weight;
-use frame_support::{assert_err, assert_noop};
 use frame_support::{
     assert_ok,
     dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays},
 };
-use frame_system::Config;
+use frame_system::{Config, RawOrigin};
 use sp_core::U256;
+use sp_runtime::traits::TxBaseImplication;
 
 mod test {
     use std::net::{Ipv4Addr, Ipv6Addr};
@@ -53,7 +55,8 @@ fn test_serving_subscribe_ok_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                weight: frame_support::weights::Weight::from_parts(235_670_000, 0),
+                call_weight: frame_support::weights::Weight::from_parts(235_670_000, 0),
+                extension_weight: frame_support::weights::Weight::zero(),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
             }
@@ -355,7 +358,8 @@ fn test_prometheus_serving_subscribe_ok_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                weight: frame_support::weights::Weight::from_parts(231_170_000, 0),
+                call_weight: frame_support::weights::Weight::from_parts(231_170_000, 0),
+                extension_weight: frame_support::weights::Weight::zero(),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
             }
@@ -1411,16 +1415,22 @@ fn test_serve_axon_validate() {
         let info: crate::DispatchInfo =
             crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        let extension = crate::SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
-        let result_bad = extension.validate(&hotkey, &call.clone(), &info, 10);
+        let result_bad = extension.validate(
+            RawOrigin::Signed(hotkey).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
 
         // Should fail due to insufficient stake
-        assert_err!(
-            result_bad,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::HotKeyNotRegisteredInNetwork.into()
-            ))
+        assert_eq!(
+            result_bad.unwrap_err(),
+            CustomTransactionError::HotKeyNotRegisteredInNetwork.into()
         );
 
         // Register the hotkey in the subnet and try again
@@ -1429,7 +1439,15 @@ fn test_serve_axon_validate() {
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Submit to the signed extension validate function
-        let result_ok = extension.validate(&hotkey, &call.clone(), &info, 10);
+        let result_ok = extension.validate(
+            RawOrigin::Signed(hotkey).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
 
         // Now the call passes
         assert_ok!(result_ok);
