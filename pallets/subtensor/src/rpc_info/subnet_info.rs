@@ -85,7 +85,7 @@ pub struct SubnetHyperparams {
     liquid_alpha_enabled: bool,
 }
 
-#[freeze_struct("3fbe8d53738695c7")]
+#[freeze_struct("a13c536303dec16f")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetHyperparamsV2 {
     rho: Compact<u16>,
@@ -117,7 +117,7 @@ pub struct SubnetHyperparamsV2 {
     liquid_alpha_enabled: bool,
     alpha_sigmoid_steepness: I32F32,
     yuma_version: Compact<u16>,
-    subnet_token_enabled: bool,
+    subnet_is_active: bool,
     transfers_enabled: bool,
     bonds_reset_enabled: bool,
     user_liquidity_enabled: bool,
@@ -399,7 +399,7 @@ impl<T: Config> Pallet<T> {
             liquid_alpha_enabled,
             alpha_sigmoid_steepness,
             yuma_version: yuma_version.into(),
-            subnet_token_enabled,
+            subnet_is_active: subnet_token_enabled,
             transfers_enabled,
             bonds_reset_enabled: bonds_reset,
             user_liquidity_enabled,
