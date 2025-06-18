@@ -6264,7 +6264,6 @@ fn test_reveal_crv3_commits_max_neurons() {
 
         // Set acceptable delta for `I32F32` weights
         let delta = I32F32::from_num(0.0001); // Adjust delta as needed
-        
         let validator_permits: Vec<bool> = SubtensorModule::get_validator_permit(netuid);
         for (hotkey, expected_payload) in commits {
             let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, hotkey)
