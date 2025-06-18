@@ -110,7 +110,7 @@ mod dispatchables {
     }
 
     #[test]
-    fn test_set_enabled_user_liquidity() {
+    fn test_toggle_user_liquidity() {
         new_test_ext().execute_with(|| {
             let netuid = NetUid::from(101);
 

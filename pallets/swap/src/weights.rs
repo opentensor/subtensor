@@ -18,7 +18,7 @@ pub trait WeightInfo {
     fn add_liquidity() -> Weight;
     fn remove_liquidity() -> Weight;
     fn modify_position() -> Weight;
-    fn set_enabled_user_liquidity() -> Weight;
+    fn toggle_user_liquidity() -> Weight;
 }
 
 /// Default weights for pallet_subtensor_swap.
@@ -52,7 +52,7 @@ impl<T: frame_system::Config> WeightInfo for DefaultWeight<T> {
             .saturating_add(T::DbWeight::get().writes(4))
     }
 
-    fn set_enabled_user_liquidity() -> Weight {
+    fn toggle_user_liquidity() -> Weight {
         // Conservative weight estimate: one read and one write
         Weight::from_parts(10_000_000, 0)
             .saturating_add(T::DbWeight::get().reads(1))
