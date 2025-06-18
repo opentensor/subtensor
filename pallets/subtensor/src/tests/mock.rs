@@ -2,7 +2,7 @@
 use crate::utils::rate_limiting::TransactionType;
 use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
-use frame_support::traits::{Contains, Everything, InsideBoth};
+use frame_support::traits::{Contains, Everything, InherentBuilder, InsideBoth};
 use frame_support::weights::Weight;
 use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{
@@ -10,7 +10,7 @@ use frame_support::{
     traits::{Hooks, PrivilegeCmp},
 };
 use frame_system as system;
-use frame_system::{EnsureNever, EnsureRoot, RawOrigin, limits};
+use frame_system::{EnsureNever, EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
 use pallet_collective::MemberCount;
 use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
@@ -54,8 +54,6 @@ pub type BalanceCall = pallet_balances::Call<Test>;
 
 #[allow(dead_code)]
 pub type TestRuntimeCall = frame_system::Call<Test>;
-
-pub type Index = u64;
 
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"test");
 
@@ -532,14 +530,6 @@ mod test_crypto {
 
 pub type TestAuthId = test_crypto::TestAuthId;
 
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
-where
-    RuntimeCall: From<C>,
-{
-    type Extrinsic = UncheckedExtrinsic;
-    type OverarchingCall = RuntimeCall;
-}
-
 impl pallet_drand::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type AuthorityId = TestAuthId;
@@ -555,17 +545,36 @@ impl frame_system::offchain::SigningTypes for Test {
 
 pub type UncheckedExtrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
 
-impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Test>> for Test {
-    fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
-        call: RuntimeCall,
+impl<LocalCall> frame_system::offchain::CreateTransactionBase<LocalCall> for Test
+where
+    RuntimeCall: From<LocalCall>,
+{
+    type Extrinsic = UncheckedExtrinsic;
+    type RuntimeCall = RuntimeCall;
+}
+
+impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Test
+where
+    RuntimeCall: From<LocalCall>,
+{
+    fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+        UncheckedExtrinsic::new_inherent(call)
+    }
+}
+
+impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
+where
+    RuntimeCall: From<LocalCall>,
+{
+    fn create_signed_transaction<
+        C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
+    >(
+        call: <Self as CreateTransactionBase<LocalCall>>::RuntimeCall,
         _public: Self::Public,
         _account: Self::AccountId,
-        nonce: Index,
-    ) -> Option<(
-        RuntimeCall,
-        <UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
-    )> {
-        Some((call, (nonce, ())))
+        nonce: Self::Nonce,
+    ) -> Option<Self::Extrinsic> {
+        Some(UncheckedExtrinsic::new_signed(call, nonce.into(), (), ()))
     }
 }
 

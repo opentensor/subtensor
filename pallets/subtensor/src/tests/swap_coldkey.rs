@@ -13,7 +13,7 @@ use frame_support::traits::OnInitialize;
 use frame_support::traits::schedule::DispatchTime;
 use frame_support::traits::schedule::v3::Named as ScheduleNamed;
 use sp_core::{Get, H256, U256};
-use sp_runtime::DispatchError;
+use sp_runtime::{DispatchError, traits::TxBaseImplication};
 use substrate_fixed::types::U96F32;
 
 // // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_total_hotkey_coldkey_stakes_this_interval --exact --nocapture
@@ -1799,7 +1799,7 @@ fn test_schedule_swap_coldkey_execution() {
         run_to_block(execution_block);
 
         // Run on_initialize for the execution block
-        SubtensorModule::on_initialize(execution_block);
+        <SubtensorModule as OnInitialize<BlockNumber>>::on_initialize(execution_block);
 
         // Also run Scheduler's on_initialize
         <pallet_scheduler::Pallet<Test> as OnInitialize<BlockNumber>>::on_initialize(
@@ -2168,7 +2168,7 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
         // Setup the extension
         let info: crate::DispatchInfo =
             crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        let extension = crate::SubtensorTransactionExtension::<Test>::new();
 
         // Try each call
 
@@ -2178,15 +2178,20 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             netuid,
             amount_staked: 100_000_000_000,
         });
-        let result: Result<ValidTransaction, TransactionValidityError> =
-            extension.validate(&who, &call.clone(), &info, 10);
+        let result = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Should fail
-        assert_err!(
+        assert_eq!(
             // Should get an invalid transaction error
-            result,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::ColdkeyInSwapSchedule.into()
-            ))
+            result.unwrap_err(),
+            CustomTransactionError::ColdkeyInSwapSchedule.into()
         );
 
         // Add stake limit
@@ -2197,14 +2202,20 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             limit_price: 100_000_000_000,
             allow_partial: false,
         });
-        let result = extension.validate(&who, &call.clone(), &info, 10);
+        let result = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Should fail
-        assert_err!(
+        assert_eq!(
             // Should get an invalid transaction error
-            result,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::ColdkeyInSwapSchedule.into()
-            ))
+            result.unwrap_err(),
+            CustomTransactionError::ColdkeyInSwapSchedule.into()
         );
 
         // Swap stake
@@ -2214,14 +2225,20 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             destination_netuid: netuid,
             alpha_amount: 100_000_000_000,
         });
-        let result = extension.validate(&who, &call.clone(), &info, 10);
+        let result = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Should fail
-        assert_err!(
+        assert_eq!(
             // Should get an invalid transaction error
-            result,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::ColdkeyInSwapSchedule.into()
-            ))
+            result.unwrap_err(),
+            CustomTransactionError::ColdkeyInSwapSchedule.into()
         );
 
         // Swap stake limit
@@ -2233,14 +2250,20 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             limit_price: 100_000_000_000,
             allow_partial: false,
         });
-        let result = extension.validate(&who, &call.clone(), &info, 10);
+        let result = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Should fail
-        assert_err!(
+        assert_eq!(
             // Should get an invalid transaction error
-            result,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::ColdkeyInSwapSchedule.into()
-            ))
+            result.unwrap_err(),
+            CustomTransactionError::ColdkeyInSwapSchedule.into()
         );
 
         // Move stake
@@ -2251,14 +2274,20 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             destination_netuid: netuid,
             alpha_amount: 100_000_000_000,
         });
-        let result = extension.validate(&who, &call.clone(), &info, 10);
+        let result = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Should fail
-        assert_err!(
+        assert_eq!(
             // Should get an invalid transaction error
-            result,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::ColdkeyInSwapSchedule.into()
-            ))
+            result.unwrap_err(),
+            CustomTransactionError::ColdkeyInSwapSchedule.into()
         );
 
         // Transfer stake
@@ -2269,14 +2298,20 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             destination_netuid: netuid,
             alpha_amount: 100_000_000_000,
         });
-        let result = extension.validate(&who, &call.clone(), &info, 10);
+        let result = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Should fail
-        assert_err!(
+        assert_eq!(
             // Should get an invalid transaction error
-            result,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::ColdkeyInSwapSchedule.into()
-            ))
+            result.unwrap_err(),
+            CustomTransactionError::ColdkeyInSwapSchedule.into()
         );
 
         // Transfer all
@@ -2284,14 +2319,20 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             dest: new_coldkey,
             keep_alive: false,
         });
-        let result = extension.validate(&who, &call.clone(), &info, 10);
+        let result = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Should fail
-        assert_err!(
+        assert_eq!(
             // Should get an invalid transaction error
-            result,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::ColdkeyInSwapSchedule.into()
-            ))
+            result.unwrap_err(),
+            CustomTransactionError::ColdkeyInSwapSchedule.into()
         );
 
         // Transfer keep alive
@@ -2299,14 +2340,20 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             dest: new_coldkey,
             value: 100_000_000_000,
         });
-        let result = extension.validate(&who, &call.clone(), &info, 10);
+        let result = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Should fail
-        assert_err!(
+        assert_eq!(
             // Should get an invalid transaction error
-            result,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::ColdkeyInSwapSchedule.into()
-            ))
+            result.unwrap_err(),
+            CustomTransactionError::ColdkeyInSwapSchedule.into()
         );
 
         // Transfer allow death
@@ -2314,26 +2361,38 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             dest: new_coldkey,
             value: 100_000_000_000,
         });
-        let result = extension.validate(&who, &call.clone(), &info, 10);
+        let result = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Should fail
-        assert_err!(
+        assert_eq!(
             // Should get an invalid transaction error
-            result,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::ColdkeyInSwapSchedule.into()
-            ))
+            result.unwrap_err(),
+            CustomTransactionError::ColdkeyInSwapSchedule.into()
         );
 
         // Burned register
         let call = RuntimeCall::SubtensorModule(SubtensorCall::burned_register { netuid, hotkey });
-        let result = extension.validate(&who, &call.clone(), &info, 10);
+        let result = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Should fail
-        assert_err!(
+        assert_eq!(
             // Should get an invalid transaction error
-            result,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::ColdkeyInSwapSchedule.into()
-            ))
+            result.unwrap_err(),
+            CustomTransactionError::ColdkeyInSwapSchedule.into()
         );
 
         // Remove stake
@@ -2342,7 +2401,15 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             netuid,
             amount_unstaked: 1_000_000,
         });
-        let result = extension.validate(&who, &call.clone(), &info, 10);
+        let result = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Should pass, not in list.
         assert_ok!(result);
 
@@ -2354,7 +2421,15 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
             limit_price: 123456789, // should be low enough
             allow_partial: true,
         });
-        let result = extension.validate(&who, &call.clone(), &info, 10);
+        let result = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Should pass, not in list.
         assert_ok!(result);
     });
@@ -2410,22 +2485,27 @@ fn test_coldkey_in_swap_schedule_prevents_critical_calls() {
         // Setup the extension
         let info: crate::DispatchInfo =
             crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        let extension = crate::SubtensorTransactionExtension::<Test>::new();
 
         // Try each call
 
         // Dissolve network
         let call =
             RuntimeCall::SubtensorModule(SubtensorCall::dissolve_network { netuid, coldkey });
-        let result: Result<ValidTransaction, TransactionValidityError> =
-            extension.validate(&who, &call.clone(), &info, 10);
+        let result = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         // Should fail
-        assert_err!(
+        assert_eq!(
             // Should get an invalid transaction error
-            result,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::ColdkeyInSwapSchedule.into()
-            ))
+            result.unwrap_err(),
+            CustomTransactionError::ColdkeyInSwapSchedule.into()
         );
     });
 }

@@ -482,7 +482,7 @@ impl<T: Config> Pallet<T> {
     /// was too high.
     pub fn hash_meets_difficulty(hash: &H256, difficulty: U256) -> bool {
         let bytes: &[u8] = hash.as_bytes();
-        let num_hash: U256 = U256::from(bytes);
+        let num_hash: U256 = U256::from_little_endian(bytes);
         let (value, overflowed) = num_hash.overflowing_mul(difficulty);
 
         log::trace!(

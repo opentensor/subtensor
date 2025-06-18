@@ -41,7 +41,7 @@ fn assert_vec_compare_u16(va: &[u16], vb: &[u16]) {
     }
 }
 
-fn assert_mat_compare(ma: &[Vec<I32F32>], mb: &[Vec<I32F32>], epsilon: I32F32) {
+pub fn assert_mat_compare(ma: &[Vec<I32F32>], mb: &[Vec<I32F32>], epsilon: I32F32) {
     assert!(ma.len() == mb.len());
     for row in 0..ma.len() {
         assert!(ma[row].len() == mb[row].len());
@@ -72,7 +72,7 @@ fn assert_sparse_mat_compare(
     }
 }
 
-fn vec_to_fixed(vector: &[f32]) -> Vec<I32F32> {
+pub fn vec_to_fixed(vector: &[f32]) -> Vec<I32F32> {
     vector.iter().map(|x| I32F32::from_num(*x)).collect()
 }
 
@@ -365,7 +365,7 @@ fn test_math_vec_to_fixed() {
 }
 
 // Reshape vector to matrix with specified number of rows, cast to I32F32.
-fn vec_to_mat_fixed(vector: &[f32], rows: usize, transpose: bool) -> Vec<Vec<I32F32>> {
+pub fn vec_to_mat_fixed(vector: &[f32], rows: usize, transpose: bool) -> Vec<Vec<I32F32>> {
     assert!(
         vector.len() % rows == 0,
         "Vector of len {:?} cannot reshape to {rows} rows.",

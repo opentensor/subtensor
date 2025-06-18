@@ -309,7 +309,7 @@ pub mod pallet {
         #[pallet::weight({
 			let di = call.as_ref().map(|c| c.get_dispatch_info());
 			let inner_call_weight = match di {
-				Some(di) => di.weight,
+				Some(di) => di.call_weight,
 				None => Weight::zero(),
 			};
 			let base_weight = T::WeightInfo::create();
