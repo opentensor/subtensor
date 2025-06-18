@@ -208,10 +208,11 @@ impl<T: Config> SwapStep<T> {
 
         if self.action == SwapStepAction::Crossing {
             let mut tick = Ticks::<T>::get(self.netuid, self.edge_tick).unwrap_or_default();
-            tick.fees_out_tao =
-                I64F64::saturating_from_num(FeeGlobalTao::<T>::get(self.netuid)).saturating_sub(tick.fees_out_tao);
+            tick.fees_out_tao = I64F64::saturating_from_num(FeeGlobalTao::<T>::get(self.netuid))
+                .saturating_sub(tick.fees_out_tao);
             tick.fees_out_alpha =
-                I64F64::saturating_from_num(FeeGlobalAlpha::<T>::get(self.netuid)).saturating_sub(tick.fees_out_alpha);
+                I64F64::saturating_from_num(FeeGlobalAlpha::<T>::get(self.netuid))
+                    .saturating_sub(tick.fees_out_alpha);
             Pallet::<T>::update_liquidity_at_crossing(self.netuid, self.order_type)?;
             Ticks::<T>::insert(self.netuid, self.edge_tick, tick);
         }
@@ -322,6 +323,27 @@ impl<T: Config> Pallet<T> {
         Positions::<T>::insert(&(netuid, protocol_account_id, position.id), position);
 
         Ok(())
+    }
+
+    /// Adjusts protocol liquidity with new values of TAO and Alpha reserve
+    pub(super) fn adjust_protocol_liquidity(netuid: NetUid) {
+        // Get updated reserves, calculate liquidity
+        let tao_reserve = <T as Config>::SubnetInfo::tao_reserve(netuid.into());
+        let alpha_reserve = <T as Config>::SubnetInfo::alpha_reserve(netuid.into());
+        let liquidity =
+            helpers_128bit::sqrt((tao_reserve as u128).saturating_mul(alpha_reserve as u128))
+                as u64;
+
+        // Update protocol position with new liquidity
+        let protocol_account_id = Self::protocol_account_id();
+        let mut positions =
+            Positions::<T>::iter_prefix_values((netuid, protocol_account_id.clone()))
+                .collect::<sp_std::vec::Vec<_>>();
+
+        if let Some(position) = positions.get_mut(0) {
+            position.liquidity = liquidity;
+            Positions::<T>::insert((netuid, protocol_account_id, position.id), position.clone());
+        }
     }
 
     /// Executes a token swap on the specified subnet.
@@ -784,13 +806,7 @@ impl<T: Config> Pallet<T> {
 
         // New position
         let position_id = PositionId::new::<T>();
-        let position = Position::new(
-            position_id,
-            netuid,
-            tick_low,
-            tick_high,
-            liquidity,
-        );
+        let position = Position::new(position_id, netuid, tick_low, tick_high, liquidity);
 
         let current_price_sqrt = Pallet::<T>::current_price_sqrt(netuid);
         let (tao, alpha) = position.to_token_amounts(current_price_sqrt)?;
@@ -800,7 +816,8 @@ impl<T: Config> Pallet<T> {
         Ok((position, tao, alpha))
     }
 
-    /// Remove liquidity and credit balances back to (coldkey_account_id, hotkey_account_id) stake
+    /// Remove liquidity and credit balances back to (coldkey_account_id, hotkey_account_id) stake.
+    /// Removing is allowed even when user liquidity is enabled.
     ///
     /// Account ID and Position ID identify position in the storage map
     pub fn do_remove_liquidity(
@@ -808,11 +825,6 @@ impl<T: Config> Pallet<T> {
         coldkey_account_id: &T::AccountId,
         position_id: PositionId,
     ) -> Result<UpdateLiquidityResult, Error<T>> {
-        ensure!(
-            EnabledUserLiquidity::<T>::get(netuid),
-            Error::<T>::UserLiquidityDisabled
-        );
-
         let Some(mut position) = Positions::<T>::get((netuid, coldkey_account_id, position_id))
         else {
             return Err(Error::<T>::LiquidityNotFound);
@@ -1159,6 +1171,14 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
             .saturating_mul(SqrtPrice::saturating_from_num(1_000_000_000))
             .saturating_round()
             .saturating_to_num()
+    }
+
+    fn adjust_protocol_liquidity(netuid: NetUid) {
+        Self::adjust_protocol_liquidity(netuid);
+    }
+
+    fn is_user_liquidity_enabled(netuid: NetUid) -> bool {
+        EnabledUserLiquidity::<T>::get(netuid)
     }
 }
 

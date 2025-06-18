@@ -26,6 +26,9 @@ subtensor-macros = { workspace = true }
 subtensor-runtime-common = {workspace = true}
 subtensor-swap-interface = { workspace = true }
 
+[dev-dependencies]
+sp-tracing = { workspace = true }
+
 [lints]
 workspace = true
 

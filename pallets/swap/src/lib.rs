@@ -10,7 +10,7 @@ use frame_support::pallet_prelude::*;
 use subtensor_macros::freeze_struct;
 
 pub mod pallet;
-mod position;
+pub mod position;
 pub mod tick;
 pub mod weights;
 

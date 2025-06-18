@@ -72,6 +72,7 @@ impl system::Config for Test {
     type PreInherents = ();
     type PostInherents = ();
     type PostTransactions = ();
+    type ExtensionsWeightInfo = ();
 }
 
 parameter_types! {
@@ -135,7 +136,9 @@ impl BalanceOps<AccountId> for MockBalanceOps {
         match (coldkey_account_id, hotkey_account_id) {
             (&OK_COLDKEY_ACCOUNT_ID, &OK_HOTKEY_ACCOUNT_ID) => 100_000_000_000_000,
             (&OK_COLDKEY_ACCOUNT_ID_2, &OK_HOTKEY_ACCOUNT_ID_2) => 100_000_000_000_000,
-            (&OK_COLDKEY_ACCOUNT_ID_RICH, &OK_HOTKEY_ACCOUNT_ID_RICH) => 900_000_000_000_000_000_u64,
+            (&OK_COLDKEY_ACCOUNT_ID_RICH, &OK_HOTKEY_ACCOUNT_ID_RICH) => {
+                900_000_000_000_000_000_u64
+            }
             _ => 1_000_000_000,
         }
     }
@@ -184,6 +187,7 @@ impl crate::pallet::Config for Test {
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
+    sp_tracing::try_init_simple();
     let storage = system::GenesisConfig::<Test>::default()
         .build_storage()
         .unwrap();
