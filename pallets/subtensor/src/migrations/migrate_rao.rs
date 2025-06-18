@@ -1,8 +1,7 @@
-use alloc::string::String;
+use alloc::{format, string::String};
 
 use frame_support::IterableStorageMap;
 use frame_support::{traits::Get, weights::Weight};
-use sp_runtime::format;
 
 use super::*;
 

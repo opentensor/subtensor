@@ -28,7 +28,7 @@ pub struct SubnetInfo<AccountId: TypeInfo + Encode + Decode> {
     owner: AccountId,
 }
 
-#[freeze_struct("42d9a1f1761c3b31")]
+#[freeze_struct("4e60a45245fc2ad1")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetInfov2<AccountId: TypeInfo + Encode + Decode> {
     netuid: Compact<NetUid>,
@@ -49,7 +49,7 @@ pub struct SubnetInfov2<AccountId: TypeInfo + Encode + Decode> {
     emission_value: Compact<u64>,
     burn: Compact<u64>,
     owner: AccountId,
-    identity: Option<SubnetIdentityV2>,
+    identity: Option<SubnetIdentityV3>,
 }
 
 #[freeze_struct("769dc2ca2135b525")]
@@ -174,7 +174,7 @@ impl<T: Config> Pallet<T> {
         let tempo = Self::get_tempo(netuid);
         let network_modality = <NetworkModality<T>>::get(netuid);
         let burn: Compact<u64> = Self::get_burn_as_u64(netuid).into();
-        let identity: Option<SubnetIdentityV2> = SubnetIdentitiesV2::<T>::get(netuid);
+        let identity: Option<SubnetIdentityV3> = SubnetIdentitiesV3::<T>::get(netuid);
 
         // DEPRECATED
         let network_connect: Vec<[u16; 2]> = Vec::<[u16; 2]>::new();

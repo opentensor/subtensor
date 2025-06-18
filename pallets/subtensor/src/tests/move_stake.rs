@@ -2,7 +2,9 @@
 
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_system::RawOrigin;
 use sp_core::{Get, U256};
+use sp_runtime::traits::TxBaseImplication;
 use substrate_fixed::types::{U64F64, U96F32};
 use subtensor_swap_interface::SwapHandler;
 
@@ -1726,16 +1728,22 @@ fn test_swap_stake_limit_validate() {
         let info: crate::DispatchInfo =
             crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        let extension = crate::SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(&coldkey, &call.clone(), &info, 10);
+        let result_no_stake = extension.validate(
+            RawOrigin::Signed(coldkey).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
 
         // Should fail due to slippage
-        assert_err!(
-            result_no_stake,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::SlippageTooHigh.into()
-            ))
+        assert_eq!(
+            result_no_stake.unwrap_err(),
+            CustomTransactionError::SlippageTooHigh.into()
         );
     });
 }
@@ -1778,19 +1786,25 @@ fn test_stake_transfers_disabled_validate() {
         let info: crate::DispatchInfo =
             crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        let extension = crate::SubtensorTransactionExtension::<Test>::new();
 
         // Disable transfers in origin subnet
         TransferToggle::<Test>::insert(origin_netuid, false);
         TransferToggle::<Test>::insert(destination_netuid, true);
 
         // Submit to the signed extension validate function
-        let result1 = extension.validate(&coldkey, &call.clone(), &info, 10);
-        assert_err!(
-            result1,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::TransferDisallowed.into()
-            ))
+        let result1 = extension.validate(
+            RawOrigin::Signed(coldkey).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
+        assert_eq!(
+            result1.unwrap_err(),
+            CustomTransactionError::TransferDisallowed.into()
         );
 
         // Disable transfers in destination subnet
@@ -1798,12 +1812,18 @@ fn test_stake_transfers_disabled_validate() {
         TransferToggle::<Test>::insert(destination_netuid, false);
 
         // Submit to the signed extension validate function
-        let result2 = extension.validate(&coldkey, &call.clone(), &info, 10);
-        assert_err!(
-            result2,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
-                CustomTransactionError::TransferDisallowed.into()
-            ))
+        let result2 = extension.validate(
+            RawOrigin::Signed(coldkey).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
+        assert_eq!(
+            result2.unwrap_err(),
+            CustomTransactionError::TransferDisallowed.into()
         );
 
         // Enable transfers
@@ -1811,7 +1831,15 @@ fn test_stake_transfers_disabled_validate() {
         TransferToggle::<Test>::insert(destination_netuid, true);
 
         // Submit to the signed extension validate function
-        let result3 = extension.validate(&coldkey, &call.clone(), &info, 10);
+        let result3 = extension.validate(
+            RawOrigin::Signed(coldkey).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
         assert_ok!(result3);
     });
 }

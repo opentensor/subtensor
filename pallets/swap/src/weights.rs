@@ -86,7 +86,7 @@ impl WeightInfo for () {
             .saturating_add(RocksDbWeight::get().writes(4))
     }
 
-    fn set_enabled_user_liquidity() -> Weight {
+    fn toggle_user_liquidity() -> Weight {
         Weight::from_parts(10_000_000, 0)
             .saturating_add(RocksDbWeight::get().reads(1))
             .saturating_add(RocksDbWeight::get().writes(1))

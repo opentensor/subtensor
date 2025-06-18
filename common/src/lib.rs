@@ -35,7 +35,7 @@ pub type Nonce = u32;
 /// Transfers below SMALL_TRANSFER_LIMIT are considered small transfers
 pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
 
-#[freeze_struct("f1746d0b1911967")]
+#[freeze_struct("9b6be98fb98e9b17")]
 #[repr(transparent)]
 #[derive(
     Deserialize,
@@ -52,8 +52,8 @@ pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
     PartialEq,
     PartialOrd,
     RuntimeDebug,
-    TypeInfo,
 )]
+#[serde(transparent)]
 pub struct NetUid(u16);
 
 impl NetUid {
@@ -65,6 +65,14 @@ impl NetUid {
 
     pub fn next(&self) -> NetUid {
         Self(self.0.saturating_add(1))
+    }
+
+    pub fn prev(&self) -> NetUid {
+        Self(self.0.saturating_sub(1))
+    }
+
+    pub fn inner(&self) -> u16 {
+        self.0
     }
 }
 
@@ -104,6 +112,13 @@ impl From<u16> for NetUid {
     }
 }
 
+impl TypeInfo for NetUid {
+    type Identity = <u16 as TypeInfo>::Identity;
+    fn type_info() -> scale_info::Type {
+        <u16 as TypeInfo>::type_info()
+    }
+}
+
 #[derive(
     Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, MaxEncodedLen, TypeInfo,
 )]
@@ -123,6 +138,7 @@ pub enum ProxyType {
     RootWeights,
     ChildKeys,
     SudoUncheckedSetCode,
+    SwapHotkey,
 }
 
 impl Default for ProxyType {
@@ -187,4 +203,14 @@ pub mod time {
     pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
     pub const HOURS: BlockNumber = MINUTES * 60;
     pub const DAYS: BlockNumber = HOURS * 24;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn netuid_has_u16_bin_repr() {
+        assert_eq!(NetUid(5).encode(), 5u16.encode());
+    }
 }

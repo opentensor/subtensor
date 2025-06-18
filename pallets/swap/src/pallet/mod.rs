@@ -269,7 +269,7 @@ mod pallet {
         /// Only sudo or subnet owner can enable user liquidity.
         /// Only sudo can disable user liquidity.
         #[pallet::call_index(4)]
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_enabled_user_liquidity())]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::toggle_user_liquidity())]
         pub fn toggle_user_liquidity(
             origin: OriginFor<T>,
             netuid: NetUid,
