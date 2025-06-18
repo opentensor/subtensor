@@ -10,7 +10,9 @@ use super::mock::*;
 use crate::*;
 use approx::assert_abs_diff_eq;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
-use frame_support::sp_runtime::DispatchError;
+use frame_support::sp_runtime::{
+    DispatchError, traits::TxBaseImplication, transaction_validity::TransactionSource,
+};
 use sp_core::{Get, H256, U256};
 use substrate_fixed::types::{I96F32, I110F18, U64F64, U96F32};
 /***********************************************************
@@ -31,7 +33,8 @@ fn test_add_stake_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                weight: frame_support::weights::Weight::from_parts(1_501_000_000, 0),
+                call_weight: frame_support::weights::Weight::from_parts(1_501_000_000, 0),
+                extension_weight: frame_support::weights::Weight::zero(),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
             }
@@ -343,8 +346,9 @@ fn test_remove_stake_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                weight: frame_support::weights::Weight::from_parts(1_671_800_000, 0)
+                call_weight: frame_support::weights::Weight::from_parts(1_671_800_000, 0)
                     .add_proof_size(0),
+                extension_weight: frame_support::weights::Weight::zero(),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
             }
@@ -2546,16 +2550,22 @@ fn test_stake_below_min_validate() {
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = SubtensorSignedExtension::<Test>::new();
+        let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(&coldkey, &call.clone(), &info, 10);
+        let result_no_stake = extension.validate(
+            RawOrigin::Signed(coldkey).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
 
         // Should fail due to insufficient stake
-        assert_err!(
-            result_no_stake,
-            TransactionValidityError::Invalid(InvalidTransaction::Custom(
-                CustomTransactionError::StakeAmountTooLow.into()
-            ))
+        assert_eq!(
+            result_no_stake.unwrap_err(),
+            CustomTransactionError::StakeAmountTooLow.into()
         );
 
         // Increase the stake to be equal to the minimum, but leave the balance low
@@ -2567,21 +2577,35 @@ fn test_stake_below_min_validate() {
         });
 
         // Submit to the signed extension validate function
-        let result_low_balance = extension.validate(&coldkey, &call_2.clone(), &info, 10);
+        let result_low_balance = extension.validate(
+            RawOrigin::Signed(coldkey).into(),
+            &call_2.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
 
         // Still doesn't pass, but with a different reason (balance too low)
-        assert_err!(
-            result_low_balance,
-            TransactionValidityError::Invalid(InvalidTransaction::Custom(
-                CustomTransactionError::BalanceTooLow.into()
-            ))
+        assert_eq!(
+            result_low_balance.unwrap_err(),
+            CustomTransactionError::BalanceTooLow.into()
         );
 
         // Increase the coldkey balance to match the minimum
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1);
 
         // Submit to the signed extension validate function
-        let result_min_stake = extension.validate(&coldkey, &call_2.clone(), &info, 10);
+        let result_min_stake = extension.validate(
+            RawOrigin::Signed(coldkey).into(),
+            &call_2.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
 
         // Now the call passes
         assert_ok!(result_min_stake);
@@ -2629,16 +2653,22 @@ fn test_add_stake_limit_validate() {
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = SubtensorSignedExtension::<Test>::new();
+        let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(&coldkey, &call.clone(), &info, 10);
+        let result_no_stake = extension.validate(
+            RawOrigin::Signed(coldkey).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
 
         // Should fail due to slippage
-        assert_err!(
-            result_no_stake,
-            TransactionValidityError::Invalid(InvalidTransaction::Custom(
-                CustomTransactionError::SlippageTooHigh.into()
-            ))
+        assert_eq!(
+            result_no_stake.unwrap_err(),
+            CustomTransactionError::SlippageTooHigh.into()
         );
     });
 }
@@ -2689,16 +2719,22 @@ fn test_remove_stake_limit_validate() {
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = SubtensorSignedExtension::<Test>::new();
+        let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(&coldkey, &call.clone(), &info, 10);
+        let result_no_stake = extension.validate(
+            RawOrigin::Signed(coldkey).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
 
         // Should fail due to slippage
-        assert_err!(
-            result_no_stake,
-            TransactionValidityError::Invalid(InvalidTransaction::Custom(
-                CustomTransactionError::SlippageTooHigh.into()
-            ))
+        assert_eq!(
+            result_no_stake.unwrap_err(),
+            CustomTransactionError::SlippageTooHigh.into()
         );
     });
 }
@@ -2782,16 +2818,22 @@ fn test_stake_low_liquidity_validate() {
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = SubtensorSignedExtension::<Test>::new();
+        let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(&coldkey, &call.clone(), &info, 10);
+        let result_no_stake = extension.validate(
+            RawOrigin::Signed(coldkey).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
 
         // Should fail due to insufficient stake
-        assert_err!(
-            result_no_stake,
-            TransactionValidityError::Invalid(InvalidTransaction::Custom(
-                CustomTransactionError::InsufficientLiquidity.into()
-            ))
+        assert_eq!(
+            result_no_stake.unwrap_err(),
+            CustomTransactionError::InsufficientLiquidity.into()
         );
     });
 }
@@ -2838,16 +2880,22 @@ fn test_unstake_low_liquidity_validate() {
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = SubtensorSignedExtension::<Test>::new();
+        let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(&coldkey, &call.clone(), &info, 10);
+        let result_no_stake = extension.validate(
+            RawOrigin::Signed(coldkey).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
 
         // Should fail due to insufficient stake
-        assert_err!(
-            result_no_stake,
-            TransactionValidityError::Invalid(InvalidTransaction::Custom(
-                CustomTransactionError::InsufficientLiquidity.into()
-            ))
+        assert_eq!(
+            result_no_stake.unwrap_err(),
+            CustomTransactionError::InsufficientLiquidity.into()
         );
     });
 }
@@ -2889,16 +2937,22 @@ fn test_unstake_all_validate() {
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = SubtensorSignedExtension::<Test>::new();
+        let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(&coldkey, &call.clone(), &info, 10);
+        let result_no_stake = extension.validate(
+            RawOrigin::Signed(coldkey).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
 
         // Should fail due to insufficient stake
-        assert_err!(
-            result_no_stake,
-            TransactionValidityError::Invalid(InvalidTransaction::Custom(
-                CustomTransactionError::StakeAmountTooLow.into()
-            ))
+        assert_eq!(
+            result_no_stake.unwrap_err(),
+            CustomTransactionError::StakeAmountTooLow.into()
         );
     });
 }

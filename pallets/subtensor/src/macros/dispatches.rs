@@ -454,7 +454,7 @@ mod dispatches {
         /// 	- The hotkey we are delegating is not owned by the calling coldket.
         ///
         #[pallet::call_index(1)]
-        #[pallet::weight((Weight::from_parts(4_709_000, 0)
+        #[pallet::weight((Weight::from_parts(3_657_000, 0)
 		.saturating_add(T::DbWeight::get().reads(0))
 		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Normal, Pays::No))]
         pub fn become_delegate(_origin: OriginFor<T>, _hotkey: T::AccountId) -> DispatchResult {
@@ -2001,12 +2001,11 @@ mod dispatches {
         pub fn associate_evm_key(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
-            hotkey: T::AccountId,
             evm_key: H160,
             block_number: u64,
             signature: Signature,
         ) -> DispatchResult {
-            Self::do_associate_evm_key(origin, netuid, hotkey, evm_key, block_number, signature)
+            Self::do_associate_evm_key(origin, netuid, evm_key, block_number, signature)
         }
 
         /// Recycles alpha from a cold/hot key pair, reducing AlphaOut on a subnet
@@ -2057,6 +2056,18 @@ mod dispatches {
             netuid: NetUid,
         ) -> DispatchResult {
             Self::do_burn_alpha(origin, hotkey, amount, netuid)
+        }
+
+        /// Sets the pending childkey cooldown (in blocks). Root only.
+        #[pallet::call_index(109)]
+        #[pallet::weight((Weight::from_parts(10_000, 0), DispatchClass::Operational, Pays::No))]
+        pub fn set_pending_childkey_cooldown(
+            origin: OriginFor<T>,
+            cooldown: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            PendingChildKeyCooldown::<T>::put(cooldown);
+            Ok(())
         }
     }
 }

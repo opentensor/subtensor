@@ -699,7 +699,7 @@ impl<T: Config> Pallet<T> {
         (converted_low, converted_high)
     }
 
-    pub fn set_alpha_sigmoid_steepness(netuid: NetUid, steepness: u16) {
+    pub fn set_alpha_sigmoid_steepness(netuid: NetUid, steepness: i16) {
         AlphaSigmoidSteepness::<T>::insert(netuid, steepness);
     }
     pub fn get_alpha_sigmoid_steepness(netuid: NetUid) -> I32F32 {
