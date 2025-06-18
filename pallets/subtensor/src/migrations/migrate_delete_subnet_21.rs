@@ -1,6 +1,5 @@
 use super::*;
 use frame_support::{
-    pallet_prelude::*,
     storage_alias,
     traits::{Get, GetStorageVersion, StorageVersion},
     weights::Weight,

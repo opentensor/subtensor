@@ -1353,14 +1353,15 @@ impl<T: Config> Pallet<T> {
         );
 
         let max_u16: u32 = u16::MAX as u32; // 65535
-        let min_alpha_high: u16 = (max_u16.saturating_mul(4).safe_div(5)) as u16; // 52428
+        let min_alpha_low: u16 = (max_u16.safe_div(40)) as u16; // 1638
+        let min_alpha_high: u16 = min_alpha_low;
 
         // --- 4. Ensure alpha high is greater than the minimum
         ensure!(alpha_high >= min_alpha_high, Error::<T>::AlphaHighTooLow);
 
         // -- 5. Ensure alpha low is within range
         ensure!(
-            alpha_low > 0 && alpha_low < min_alpha_high,
+            alpha_low >= min_alpha_low && alpha_low <= alpha_high,
             Error::<T>::AlphaLowOutOfRange
         );
 
