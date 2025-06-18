@@ -1225,9 +1225,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn set_stake_operation_limit(hotkey: &T::AccountId, coldkey: &T::AccountId, netuid: u16) {
-        let current_block_number = <frame_system::Pallet<T>>::block_number();
-
-        StakingOperationRateLimiter::<T>::insert((hotkey, coldkey, netuid), current_block_number);
+        StakingOperationRateLimiter::<T>::insert((hotkey, coldkey, netuid), true);
     }
 
     pub fn ensure_stake_operation_limit_not_exceeded(
@@ -1237,7 +1235,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), Error<T>> {
         ensure!(
             !StakingOperationRateLimiter::<T>::contains_key((hotkey, coldkey, netuid)),
-            Error::<T>::StakingOperationRateExceeded
+            Error::<T>::StakingOperationRateLimitExceeded
         );
 
         Ok(())

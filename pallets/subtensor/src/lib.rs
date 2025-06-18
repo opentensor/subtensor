@@ -899,12 +899,6 @@ pub mod pallet {
     /// Ensures unique IDs for StakeJobs storage map
     pub type NextStakeJobId<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
 
-    #[pallet::type_value]
-    /// Default value for block number
-    pub fn DefaultBlockNumber<T: Config>() -> BlockNumberFor<T> {
-        0u32.into()
-    }
-
     /// ============================
     /// ==== Staking Variables ====
     /// ============================
@@ -1687,9 +1681,8 @@ pub mod pallet {
             NMapKey<Blake2_128Concat, T::AccountId>, // cold
             NMapKey<Identity, u16>,                  // subnet
         ),
-        BlockNumberFor<T>,
+        bool,
         ValueQuery,
-        DefaultBlockNumber<T>,
     >;
 
     /// =============================

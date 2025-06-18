@@ -217,6 +217,6 @@ mod errors {
         /// Invalid netuid duplication
         SameNetuid,
         /// Too frequent staking operations
-        StakingOperationRateExceeded,
+        StakingOperationRateLimitExceeded,
     }
 }
