@@ -197,7 +197,7 @@ pub mod pallet {
         #[pallet::weight({
 			let di = call.get_dispatch_info();
 			let inner_call_weight = match di.pays_fee {
-				Pays::Yes => di.weight,
+				Pays::Yes => di.call_weight,
 				Pays::No => Weight::zero(),
 			};
 			let base_weight = T::WeightInfo::proxy(T::MaxProxies::get())
@@ -503,7 +503,7 @@ pub mod pallet {
 			(T::WeightInfo::proxy_announced(T::MaxPending::get(), T::MaxProxies::get())
 				 // AccountData for inner call origin accountdata.
 				.saturating_add(T::DbWeight::get().reads_writes(1, 1))
-				.saturating_add(di.weight),
+				.saturating_add(di.call_weight),
 			di.class)
 		})]
         pub fn proxy_announced(

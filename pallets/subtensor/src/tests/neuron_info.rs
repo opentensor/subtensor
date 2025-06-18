@@ -1,11 +1,12 @@
 use super::mock::*;
 
 use sp_core::U256;
+use subtensor_runtime_common::NetUid;
 
 #[test]
 fn test_get_neuron_none() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let uid: u16 = 42;
 
         let neuron = SubtensorModule::get_neuron(netuid, uid);
@@ -16,7 +17,7 @@ fn test_get_neuron_none() {
 #[test]
 fn test_get_neuron_some() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         let tempo: u16 = 2;
         let modality: u16 = 2;
@@ -37,7 +38,7 @@ fn test_get_neuron_some() {
 #[test]
 fn test_get_neurons_list() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         let tempo: u16 = 2;
         let modality: u16 = 2;
@@ -62,7 +63,7 @@ fn test_get_neurons_list() {
 #[test]
 fn test_get_neurons_empty() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         let neuron_count = 0;
         let neurons = SubtensorModule::get_neurons(netuid);

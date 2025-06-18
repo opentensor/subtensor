@@ -1,5 +1,6 @@
 use super::*;
 use substrate_fixed::types::U96F32;
+use subtensor_runtime_common::NetUid;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
@@ -37,7 +38,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_remove_stake(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
-        netuid: u16,
+        netuid: NetUid,
         alpha_unstaked: u64,
     ) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
@@ -131,7 +132,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // 3. Get all netuids.
-        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
+        let netuids = Self::get_all_subnet_netuids();
         log::debug!("All subnet netuids: {:?}", netuids);
 
         // 4. Iterate through all subnets and remove stake.
@@ -223,7 +224,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // 3. Get all netuids.
-        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
+        let netuids = Self::get_all_subnet_netuids();
         log::debug!("All subnet netuids: {:?}", netuids);
 
         // 4. Iterate through all subnets and remove stake.
@@ -233,7 +234,7 @@ impl<T: Config> Pallet<T> {
                 continue;
             }
             // If not Root network.
-            if netuid != Self::get_root_netuid() {
+            if !netuid.is_root() {
                 // Ensure that the hotkey has enough stake to withdraw.
                 let alpha_unstaked =
                     Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
@@ -278,7 +279,7 @@ impl<T: Config> Pallet<T> {
         Self::stake_into_subnet(
             &hotkey,
             &coldkey,
-            Self::get_root_netuid(),
+            NetUid::ROOT,
             total_tao_unstaked,
             0, // no fee for restaking
         );
@@ -331,7 +332,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_remove_stake_limit(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
-        netuid: u16,
+        netuid: NetUid,
         alpha_unstaked: u64,
         limit_price: u64,
         allow_partial: bool,
@@ -392,11 +393,11 @@ impl<T: Config> Pallet<T> {
     }
 
     // Returns the maximum amount of RAO that can be executed with price limit
-    pub fn get_max_amount_remove(netuid: u16, limit_price: u64) -> Result<u64, Error<T>> {
+    pub fn get_max_amount_remove(netuid: NetUid, limit_price: u64) -> Result<u64, Error<T>> {
         // Corner case: root and stao
         // There's no slippage for root or stable subnets, so if limit price is 1e9 rao or
         // lower, then max_amount equals u64::MAX, otherwise it is 0.
-        if (netuid == Self::get_root_netuid()) || (SubnetMechanism::<T>::get(netuid)) == 0 {
+        if netuid.is_root() || SubnetMechanism::<T>::get(netuid) == 0 {
             if limit_price <= 1_000_000_000 {
                 return Ok(u64::MAX);
             } else {

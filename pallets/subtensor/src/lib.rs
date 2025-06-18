@@ -12,10 +12,11 @@ use frame_support::{
     dispatch::{self, DispatchInfo, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo},
     ensure,
     pallet_macros::import_section,
+    pallet_prelude::*,
     traits::{IsSubType, tokens::fungible},
 };
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::sp_runtime::transaction_validity::InvalidTransaction;
 use frame_support::sp_runtime::transaction_validity::ValidTransaction;
 use pallet_balances::Call as BalancesCall;
@@ -24,10 +25,14 @@ use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{
     DispatchError,
-    traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
+    traits::{
+        AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Implication, PostDispatchInfoOf,
+        TransactionExtension, ValidateResult,
+    },
     transaction_validity::{TransactionValidity, TransactionValidityError},
 };
 use sp_std::marker::PhantomData;
+use subtensor_runtime_common::NetUid;
 
 // ============================
 //	==== Benchmark Imports =====
@@ -85,6 +90,7 @@ pub mod pallet {
     use sp_std::vec::Vec;
     use substrate_fixed::types::{I96F32, U64F64};
     use subtensor_macros::freeze_struct;
+    use subtensor_runtime_common::NetUid;
 
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
@@ -248,9 +254,9 @@ pub mod pallet {
         pub subnet_contact: Vec<u8>,
     }
 
-    ///  Struct for SubnetIdentitiesV2.
+    ///  Struct for SubnetIdentitiesV2. (DEPRECATED for V3)
     pub type SubnetIdentityOfV2 = SubnetIdentityV2;
-    /// Data structure for Subnet Identities
+    /// Data structure for Subnet Identities (DEPRECATED for V3)
     #[crate::freeze_struct("e002be4cd05d7b3e")]
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct SubnetIdentityV2 {
@@ -266,6 +272,30 @@ pub mod pallet {
         pub discord: Vec<u8>,
         /// The subnet's description
         pub description: Vec<u8>,
+        /// Additional information about the subnet
+        pub additional: Vec<u8>,
+    }
+
+    ///  Struct for SubnetIdentitiesV3.
+    pub type SubnetIdentityOfV3 = SubnetIdentityV3;
+    /// Data structure for Subnet Identities
+    #[crate::freeze_struct("3618af6beb882a23")]
+    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    pub struct SubnetIdentityV3 {
+        /// The name of the subnet
+        pub subnet_name: Vec<u8>,
+        /// The github repository associated with the subnet
+        pub github_repo: Vec<u8>,
+        /// The subnet's contact
+        pub subnet_contact: Vec<u8>,
+        /// The subnet's website
+        pub subnet_url: Vec<u8>,
+        /// The subnet's discord
+        pub discord: Vec<u8>,
+        /// The subnet's description
+        pub description: Vec<u8>,
+        /// The subnet's logo
+        pub logo_url: Vec<u8>,
         /// Additional information about the subnet
         pub additional: Vec<u8>,
     }
@@ -569,7 +599,7 @@ pub mod pallet {
     }
     #[pallet::type_value]
     /// Default value for alpha sigmoid steepness.
-    pub fn DefaultAlphaSigmoidSteepness<T: Config>() -> u16 {
+    pub fn DefaultAlphaSigmoidSteepness<T: Config>() -> i16 {
         T::InitialAlphaSigmoidSteepness::get()
     }
     #[pallet::type_value]
@@ -867,7 +897,7 @@ pub mod pallet {
     pub type LastHotkeySwapOnNetuid<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        u16,
+        NetUid,
         Blake2_128Concat,
         T::AccountId,
         u64,
@@ -921,8 +951,8 @@ pub mod pallet {
         Blake2_128Concat,
         T::AccountId, // First key: hotkey
         Identity,
-        u16, // Second key: netuid
-        u16, // Value: take
+        NetUid, // Second key: netuid
+        u16,    // Value: take
         ValueQuery,
     >;
     #[pallet::storage]
@@ -930,7 +960,7 @@ pub mod pallet {
     pub type PendingChildKeys<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        u16,
+        NetUid,
         Blake2_128Concat,
         T::AccountId,
         (Vec<(u64, T::AccountId)>, u64),
@@ -944,7 +974,7 @@ pub mod pallet {
         Blake2_128Concat,
         T::AccountId,
         Identity,
-        u16,
+        NetUid,
         Vec<(u64, T::AccountId)>,
         ValueQuery,
         DefaultAccountLinkage<T>,
@@ -956,7 +986,7 @@ pub mod pallet {
         Blake2_128Concat,
         T::AccountId,
         Identity,
-        u16,
+        NetUid,
         Vec<(u64, T::AccountId)>,
         ValueQuery,
         DefaultAccountLinkage<T>,
@@ -965,7 +995,7 @@ pub mod pallet {
     pub type AlphaDividendsPerSubnet<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        u16,
+        NetUid,
         Blake2_128Concat,
         T::AccountId,
         u64,
@@ -976,7 +1006,7 @@ pub mod pallet {
     pub type TaoDividendsPerSubnet<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        u16,
+        NetUid,
         Blake2_128Concat,
         T::AccountId,
         u64,
@@ -997,7 +1027,7 @@ pub mod pallet {
         Blake2_128Concat,
         T::AccountId,
         Identity,
-        u16,
+        NetUid,
         u64,
         ValueQuery,
         DefaultZeroU64<T>,
@@ -1026,28 +1056,28 @@ pub mod pallet {
     pub type SubnetMovingAlpha<T> = StorageValue<_, I96F32, ValueQuery, DefaultMovingAlpha<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> moving_price | The subnet moving price.
     pub type SubnetMovingPrice<T: Config> =
-        StorageMap<_, Identity, u16, I96F32, ValueQuery, DefaultMovingPrice<T>>;
+        StorageMap<_, Identity, NetUid, I96F32, ValueQuery, DefaultMovingPrice<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> total_volume | The total amount of TAO bought and sold since the start of the network.
     pub type SubnetVolume<T: Config> =
-        StorageMap<_, Identity, u16, u128, ValueQuery, DefaultZeroU128<T>>;
+        StorageMap<_, Identity, NetUid, u128, ValueQuery, DefaultZeroU128<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> tao_in_subnet | Returns the amount of TAO in the subnet.
     pub type SubnetTAO<T: Config> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> alpha_in_emission | Returns the amount of alph in  emission into the pool per block.
     pub type SubnetAlphaInEmission<T: Config> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> alpha_out_emission | Returns the amount of alpha out emission into the network per block.
     pub type SubnetAlphaOutEmission<T: Config> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> tao_in_emission | Returns the amount of tao emitted into this subent on the last block.
     pub type SubnetTaoInEmission<T: Config> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the pool.
     pub type SubnetAlphaIn<T: Config> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
     pub type SubnetAlphaOut<T: Config> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
     pub type StakingHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
@@ -1071,7 +1101,7 @@ pub mod pallet {
         Blake2_128Concat,
         T::AccountId,
         Identity,
-        u16,
+        NetUid,
         u64,
         ValueQuery,
         DefaultZeroU64<T>,
@@ -1082,7 +1112,7 @@ pub mod pallet {
         Blake2_128Concat,
         T::AccountId,
         Identity,
-        u16,
+        NetUid,
         u64,
         ValueQuery,
         DefaultZeroU64<T>,
@@ -1094,7 +1124,7 @@ pub mod pallet {
         Blake2_128Concat,
         T::AccountId,
         Identity,
-        u16,
+        NetUid,
         U64F64,
         ValueQuery,
         DefaultSharePoolZero<T>,
@@ -1105,14 +1135,14 @@ pub mod pallet {
         (
             NMapKey<Blake2_128Concat, T::AccountId>, // hot
             NMapKey<Blake2_128Concat, T::AccountId>, // cold
-            NMapKey<Identity, u16>,                  // subnet
+            NMapKey<Identity, NetUid>,               // subnet
         ),
         U64F64, // Shares
         ValueQuery,
     >;
     #[pallet::storage] // --- MAP ( netuid ) --> token_symbol | Returns the token symbol for a subnet.
     pub type TokenSymbol<T: Config> =
-        StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
+        StorageMap<_, Identity, NetUid, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
 
     /// ============================
     /// ==== Global Parameters =====
@@ -1123,7 +1153,7 @@ pub mod pallet {
     #[pallet::storage]
     /// --- ITEM( global_max_registrations_per_block )
     pub type MaxRegistrationsPerBlock<T> =
-        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultMaxRegistrationsPerBlock<T>>;
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultMaxRegistrationsPerBlock<T>>;
     #[pallet::storage]
     /// --- ITEM( total_number_of_existing_networks )
     pub type TotalNetworks<T> = StorageValue<_, u16, ValueQuery>;
@@ -1173,40 +1203,42 @@ pub mod pallet {
     /// ============================
     #[pallet::storage] // --- MAP ( netuid ) --> transfer_toggle
     pub type TransferToggle<T: Config> =
-        StorageMap<_, Identity, u16, bool, ValueQuery, DefaultTrue<T>>;
+        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultTrue<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> total_subnet_locked
     pub type SubnetLocked<T: Config> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> largest_locked
     pub type LargestLocked<T: Config> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
 
     /// =================
     /// ==== Tempos =====
     /// =================
     #[pallet::storage] // --- MAP ( netuid ) --> tempo
-    pub type Tempo<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultTempo<T>>;
+    pub type Tempo<T> = StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultTempo<T>>;
 
     /// ============================
     /// ==== Subnet Parameters =====
     /// ============================
     /// --- MAP ( netuid ) --> block number of first emission
     #[pallet::storage]
-    pub type FirstEmissionBlockNumber<T: Config> = StorageMap<_, Identity, u16, u64, OptionQuery>;
+    pub type FirstEmissionBlockNumber<T: Config> =
+        StorageMap<_, Identity, NetUid, u64, OptionQuery>;
     /// --- MAP ( netuid ) --> subnet mechanism
     #[pallet::storage]
     pub type SubnetMechanism<T: Config> =
-        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultZeroU16<T>>;
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultZeroU16<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> subnetwork_n (Number of UIDs in the network).
-    pub type SubnetworkN<T: Config> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultN<T>>;
+    pub type SubnetworkN<T: Config> = StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultN<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> modality   TEXT: 0, IMAGE: 1, TENSOR: 2
-    pub type NetworkModality<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultModality<T>>;
+    pub type NetworkModality<T> =
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultModality<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> network_is_added
     pub type NetworksAdded<T: Config> =
-        StorageMap<_, Identity, u16, bool, ValueQuery, DefaultNeworksAdded<T>>;
+        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultNeworksAdded<T>>;
     #[pallet::storage]
     /// --- DMAP ( hotkey, netuid ) --> bool
     pub type IsNetworkMember<T: Config> = StorageDoubleMap<
@@ -1214,7 +1246,7 @@ pub mod pallet {
         Blake2_128Concat,
         T::AccountId,
         Identity,
-        u16,
+        NetUid,
         bool,
         ValueQuery,
         DefaultIsNetworkMember<T>,
@@ -1222,174 +1254,177 @@ pub mod pallet {
     #[pallet::storage]
     /// --- MAP ( netuid ) --> network_registration_allowed
     pub type NetworkRegistrationAllowed<T: Config> =
-        StorageMap<_, Identity, u16, bool, ValueQuery, DefaultRegistrationAllowed<T>>;
+        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultRegistrationAllowed<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> network_pow_allowed
     pub type NetworkPowRegistrationAllowed<T: Config> =
-        StorageMap<_, Identity, u16, bool, ValueQuery, DefaultRegistrationAllowed<T>>;
+        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultRegistrationAllowed<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> block_created
     pub type NetworkRegisteredAt<T: Config> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultNetworkRegisteredAt<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultNetworkRegisteredAt<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> pending_emission
     pub type PendingEmission<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultPendingEmission<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultPendingEmission<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> pending_root_emission
-    pub type PendingRootDivs<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+    pub type PendingRootDivs<T> =
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> pending_alpha_swapped
     pub type PendingAlphaSwapped<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> pending_owner_cut
-    pub type PendingOwnerCut<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+    pub type PendingOwnerCut<T> =
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> blocks_since_last_step
     pub type BlocksSinceLastStep<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBlocksSinceLastStep<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultBlocksSinceLastStep<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> last_mechanism_step_block
     pub type LastMechansimStepBlock<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultLastMechanismStepBlock<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultLastMechanismStepBlock<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> subnet_owner
     pub type SubnetOwner<T: Config> =
-        StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
+        StorageMap<_, Identity, NetUid, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> subnet_owner_hotkey
     pub type SubnetOwnerHotkey<T: Config> =
-        StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
+        StorageMap<_, Identity, NetUid, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> serving_rate_limit
     pub type ServingRateLimit<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultServingRateLimit<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultServingRateLimit<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Rho
-    pub type Rho<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultRho<T>>;
+    pub type Rho<T> = StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultRho<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> AlphaSigmoidSteepness
     pub type AlphaSigmoidSteepness<T> =
-        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultAlphaSigmoidSteepness<T>>;
+        StorageMap<_, Identity, NetUid, i16, ValueQuery, DefaultAlphaSigmoidSteepness<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Kappa
-    pub type Kappa<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultKappa<T>>;
+    pub type Kappa<T> = StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultKappa<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> registrations_this_interval
-    pub type RegistrationsThisInterval<T: Config> = StorageMap<_, Identity, u16, u16, ValueQuery>;
+    pub type RegistrationsThisInterval<T: Config> =
+        StorageMap<_, Identity, NetUid, u16, ValueQuery>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> pow_registrations_this_interval
     pub type POWRegistrationsThisInterval<T: Config> =
-        StorageMap<_, Identity, u16, u16, ValueQuery>;
+        StorageMap<_, Identity, NetUid, u16, ValueQuery>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> burn_registrations_this_interval
     pub type BurnRegistrationsThisInterval<T: Config> =
-        StorageMap<_, Identity, u16, u16, ValueQuery>;
+        StorageMap<_, Identity, NetUid, u16, ValueQuery>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> max_allowed_uids
     pub type MaxAllowedUids<T> =
-        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultMaxAllowedUids<T>>;
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultMaxAllowedUids<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> immunity_period
     pub type ImmunityPeriod<T> =
-        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultImmunityPeriod<T>>;
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultImmunityPeriod<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> activity_cutoff
     pub type ActivityCutoff<T> =
-        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultActivityCutoff<T>>;
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultActivityCutoff<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> max_weight_limit
     pub type MaxWeightsLimit<T> =
-        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultMaxWeightsLimit<T>>;
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultMaxWeightsLimit<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> weights_version_key
     pub type WeightsVersionKey<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultWeightsVersionKey<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultWeightsVersionKey<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> min_allowed_weights
     pub type MinAllowedWeights<T> =
-        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultMinAllowedWeights<T>>;
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultMinAllowedWeights<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> max_allowed_validators
     pub type MaxAllowedValidators<T> =
-        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultMaxAllowedValidators<T>>;
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultMaxAllowedValidators<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> adjustment_interval
     pub type AdjustmentInterval<T> =
-        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultAdjustmentInterval<T>>;
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultAdjustmentInterval<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> bonds_moving_average
     pub type BondsMovingAverage<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBondsMovingAverage<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultBondsMovingAverage<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> bonds_penalty
     pub type BondsPenalty<T> =
-        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultBondsPenalty<T>>;
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultBondsPenalty<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> bonds_reset
     pub type BondsResetOn<T> =
-        StorageMap<_, Identity, u16, bool, ValueQuery, DefaultBondsResetOn<T>>;
+        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultBondsResetOn<T>>;
     /// --- MAP ( netuid ) --> weights_set_rate_limit
     #[pallet::storage]
     pub type WeightsSetRateLimit<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultWeightsSetRateLimit<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultWeightsSetRateLimit<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> validator_prune_len
     pub type ValidatorPruneLen<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultValidatorPruneLen<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultValidatorPruneLen<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> scaling_law_power
     pub type ScalingLawPower<T> =
-        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultScalingLawPower<T>>;
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultScalingLawPower<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> target_registrations_this_interval
     pub type TargetRegistrationsPerInterval<T> =
-        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultTargetRegistrationsPerInterval<T>>;
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultTargetRegistrationsPerInterval<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> adjustment_alpha
     pub type AdjustmentAlpha<T: Config> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultAdjustmentAlpha<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultAdjustmentAlpha<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> commit reveal v2 weights are enabled
     pub type CommitRevealWeightsEnabled<T> =
-        StorageMap<_, Identity, u16, bool, ValueQuery, DefaultCommitRevealWeightsEnabled<T>>;
+        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultCommitRevealWeightsEnabled<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Burn
-    pub type Burn<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBurn<T>>;
+    pub type Burn<T> = StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultBurn<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Difficulty
-    pub type Difficulty<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultDifficulty<T>>;
+    pub type Difficulty<T> = StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultDifficulty<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> MinBurn
-    pub type MinBurn<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultMinBurn<T>>;
+    pub type MinBurn<T> = StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultMinBurn<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> MaxBurn
-    pub type MaxBurn<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultMaxBurn<T>>;
+    pub type MaxBurn<T> = StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultMaxBurn<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> MinDifficulty
     pub type MinDifficulty<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultMinDifficulty<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultMinDifficulty<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> MaxDifficulty
     pub type MaxDifficulty<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultMaxDifficulty<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultMaxDifficulty<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) -->  Block at last adjustment.
     pub type LastAdjustmentBlock<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultLastAdjustmentBlock<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultLastAdjustmentBlock<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Registrations of this Block.
     pub type RegistrationsThisBlock<T> =
-        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultRegistrationsThisBlock<T>>;
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultRegistrationsThisBlock<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Halving time of average moving price.
     pub type EMAPriceHalvingBlocks<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultEMAPriceMovingBlocks<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultEMAPriceMovingBlocks<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> global_RAO_recycled_for_registration
     pub type RAORecycledForRegistration<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultRAORecycledForRegistration<T>>;
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultRAORecycledForRegistration<T>>;
     #[pallet::storage]
     /// --- ITEM ( tx_rate_limit )
     pub type TxRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultTxRateLimit<T>>;
@@ -1404,84 +1439,96 @@ pub mod pallet {
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Whether or not Liquid Alpha is enabled
     pub type LiquidAlphaOn<T> =
-        StorageMap<_, Blake2_128Concat, u16, bool, ValueQuery, DefaultLiquidAlpha<T>>;
+        StorageMap<_, Blake2_128Concat, NetUid, bool, ValueQuery, DefaultLiquidAlpha<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Whether or not Yuma3 is enabled
-    pub type Yuma3On<T> = StorageMap<_, Blake2_128Concat, u16, bool, ValueQuery, DefaultYuma3<T>>;
+    pub type Yuma3On<T> =
+        StorageMap<_, Blake2_128Concat, NetUid, bool, ValueQuery, DefaultYuma3<T>>;
     #[pallet::storage]
     ///  MAP ( netuid ) --> (alpha_low, alpha_high)
     pub type AlphaValues<T> =
-        StorageMap<_, Identity, u16, (u16, u16), ValueQuery, DefaultAlphaValues<T>>;
+        StorageMap<_, Identity, NetUid, (u16, u16), ValueQuery, DefaultAlphaValues<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> If subtoken trading enabled
-    pub type SubtokenEnabled<T> = StorageMap<_, Identity, u16, bool, ValueQuery, DefaultFalse<T>>;
+    pub type SubtokenEnabled<T> =
+        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultFalse<T>>;
 
     /// =======================================
     /// ==== Subnetwork Consensus Storage  ====
     /// =======================================
     #[pallet::storage] // --- DMAP ( netuid ) --> stake_weight | weight for stake used in YC.
     pub(super) type StakeWeight<T: Config> =
-        StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+        StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
     /// --- DMAP ( netuid, hotkey ) --> uid
     pub type Uids<T: Config> =
-        StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, u16, OptionQuery>;
+        StorageDoubleMap<_, Identity, NetUid, Blake2_128Concat, T::AccountId, u16, OptionQuery>;
     #[pallet::storage]
     /// --- DMAP ( netuid, uid ) --> hotkey
-    pub type Keys<T: Config> =
-        StorageDoubleMap<_, Identity, u16, Identity, u16, T::AccountId, ValueQuery, DefaultKey<T>>;
+    pub type Keys<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        NetUid,
+        Identity,
+        u16,
+        T::AccountId,
+        ValueQuery,
+        DefaultKey<T>,
+    >;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> (hotkey, se, ve)
     pub type LoadedEmission<T: Config> =
-        StorageMap<_, Identity, u16, Vec<(T::AccountId, u64, u64)>, OptionQuery>;
+        StorageMap<_, Identity, NetUid, Vec<(T::AccountId, u64, u64)>, OptionQuery>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> active
     pub type Active<T: Config> =
-        StorageMap<_, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T>>;
+        StorageMap<_, Identity, NetUid, Vec<bool>, ValueQuery, EmptyBoolVec<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> rank
-    pub type Rank<T: Config> = StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+    pub type Rank<T: Config> =
+        StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> trust
-    pub type Trust<T: Config> = StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+    pub type Trust<T: Config> =
+        StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> consensus
     pub type Consensus<T: Config> =
-        StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+        StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> incentive
     pub type Incentive<T: Config> =
-        StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+        StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> dividends
     pub type Dividends<T: Config> =
-        StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+        StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> emission
     pub type Emission<T: Config> =
-        StorageMap<_, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
+        StorageMap<_, Identity, NetUid, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> last_update
     pub type LastUpdate<T: Config> =
-        StorageMap<_, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
+        StorageMap<_, Identity, NetUid, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> validator_trust
     pub type ValidatorTrust<T: Config> =
-        StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+        StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> pruning_scores
     pub type PruningScores<T: Config> =
-        StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+        StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> validator_permit
     pub type ValidatorPermit<T: Config> =
-        StorageMap<_, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T>>;
+        StorageMap<_, Identity, NetUid, Vec<bool>, ValueQuery, EmptyBoolVec<T>>;
     #[pallet::storage]
     /// --- DMAP ( netuid, uid ) --> weights
     pub type Weights<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        u16,
+        NetUid,
         Identity,
         u16,
         Vec<(u16, u16)>,
@@ -1493,7 +1540,7 @@ pub mod pallet {
     pub type Bonds<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        u16,
+        NetUid,
         Identity,
         u16,
         Vec<(u16, u16)>,
@@ -1505,7 +1552,7 @@ pub mod pallet {
     pub type BlockAtRegistration<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        u16,
+        NetUid,
         Identity,
         u16,
         u64,
@@ -1514,14 +1561,21 @@ pub mod pallet {
     >;
     #[pallet::storage]
     /// --- MAP ( netuid, hotkey ) --> axon_info
-    pub type Axons<T: Config> =
-        StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, AxonInfoOf, OptionQuery>;
+    pub type Axons<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        NetUid,
+        Blake2_128Concat,
+        T::AccountId,
+        AxonInfoOf,
+        OptionQuery,
+    >;
     /// --- MAP ( netuid, hotkey ) --> certificate
     #[pallet::storage]
     pub type NeuronCertificates<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        u16,
+        NetUid,
         Blake2_128Concat,
         T::AccountId,
         NeuronCertificateOf,
@@ -1532,7 +1586,7 @@ pub mod pallet {
     pub type Prometheus<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        u16,
+        NetUid,
         Blake2_128Concat,
         T::AccountId,
         PrometheusInfoOf,
@@ -1548,11 +1602,15 @@ pub mod pallet {
 
     #[pallet::storage] // --- MAP ( netuid ) --> identity. (DEPRECATED for V2)
     pub type SubnetIdentities<T: Config> =
-        StorageMap<_, Blake2_128Concat, u16, SubnetIdentityOf, OptionQuery>;
+        StorageMap<_, Blake2_128Concat, NetUid, SubnetIdentityOf, OptionQuery>;
 
-    #[pallet::storage] // --- MAP ( netuid ) --> identityV2
+    #[pallet::storage] // --- MAP ( netuid ) --> identityV2 (DEPRECATED for V3)
     pub type SubnetIdentitiesV2<T: Config> =
-        StorageMap<_, Blake2_128Concat, u16, SubnetIdentityOfV2, OptionQuery>;
+        StorageMap<_, Blake2_128Concat, NetUid, SubnetIdentityOfV2, OptionQuery>;
+
+    #[pallet::storage] // --- MAP ( netuid ) --> SubnetIdentityOfV3
+    pub type SubnetIdentitiesV3<T: Config> =
+        StorageMap<_, Blake2_128Concat, NetUid, SubnetIdentityOfV3, OptionQuery>;
 
     /// =================================
     /// ==== Axon / Promo Endpoints =====
@@ -1562,7 +1620,7 @@ pub mod pallet {
         _,
         (
             NMapKey<Blake2_128Concat, T::AccountId>, // hot
-            NMapKey<Identity, u16>,                  // netuid
+            NMapKey<Identity, NetUid>,               // netuid
             NMapKey<Identity, u16>,                  // extrinsic enum.
         ),
         u64,
@@ -1588,7 +1646,7 @@ pub mod pallet {
     pub type WeightCommits<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
-        u16,
+        NetUid,
         Twox64Concat,
         T::AccountId,
         VecDeque<(H256, u64, u64, u64)>,
@@ -1599,7 +1657,7 @@ pub mod pallet {
     pub type CRV3WeightCommits<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
-        u16,
+        NetUid,
         Twox64Concat,
         u64,
         VecDeque<(
@@ -1612,7 +1670,7 @@ pub mod pallet {
     #[pallet::storage]
     /// --- Map (netuid) --> Number of epochs allowed for commit reveal periods
     pub type RevealPeriodEpochs<T: Config> =
-        StorageMap<_, Twox64Concat, u16, u64, ValueQuery, DefaultRevealPeriodEpochs<T>>;
+        StorageMap<_, Twox64Concat, NetUid, u64, ValueQuery, DefaultRevealPeriodEpochs<T>>;
 
     #[pallet::storage]
     /// --- Map (coldkey, hotkey) --> u64 the last block at which stake was added/removed.
@@ -1632,13 +1690,24 @@ pub mod pallet {
     #[pallet::storage]
     /// --- DMAP (netuid, uid) --> (H160, last_block_where_ownership_was_proven)
     pub type AssociatedEvmAddress<T: Config> =
-        StorageDoubleMap<_, Twox64Concat, u16, Twox64Concat, u16, (H160, u64), OptionQuery>;
+        StorageDoubleMap<_, Twox64Concat, NetUid, Twox64Concat, u16, (H160, u64), OptionQuery>;
 
     /// ==================
     /// ==== Genesis =====
     /// ==================
     #[pallet::storage] // --- Storage for migration run status
     pub type HasMigrationRun<T: Config> = StorageMap<_, Identity, Vec<u8>, bool, ValueQuery>;
+
+    #[pallet::type_value]
+    /// Default value for pending childkey cooldown (settable by root, default 0)
+    pub fn DefaultPendingChildKeyCooldown<T: Config>() -> u64 {
+        0
+    }
+
+    #[pallet::storage]
+    /// Storage value for pending childkey cooldown, settable by root.
+    pub type PendingChildKeyCooldown<T: Config> =
+        StorageValue<_, u64, ValueQuery, DefaultPendingChildKeyCooldown<T>>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -1660,7 +1729,7 @@ pub mod pallet {
     // ---- Subtensor helper functions.
     impl<T: Config> Pallet<T> {
         /// Returns the transaction priority for setting weights.
-        pub fn get_priority_set_weights(hotkey: &T::AccountId, netuid: u16) -> u64 {
+        pub fn get_priority_set_weights(hotkey: &T::AccountId, netuid: NetUid) -> u64 {
             if let Ok(uid) = Self::get_uid_for_net_and_hotkey(netuid, hotkey) {
                 // TODO rethink this.
                 let _stake = Self::get_inherited_for_hotkey_on_subnet(hotkey, netuid);
@@ -1692,15 +1761,15 @@ pub mod pallet {
         }
 
         /// Is the caller allowed to set weights
-        pub fn check_weights_min_stake(hotkey: &T::AccountId, netuid: u16) -> bool {
+        pub fn check_weights_min_stake(hotkey: &T::AccountId, netuid: NetUid) -> bool {
             // Blacklist weights transactions for low stake peers.
             let (total_stake, _, _) = Self::get_stake_weights_for_hotkey_on_subnet(hotkey, netuid);
             total_stake >= Self::get_stake_threshold()
         }
 
         /// Helper function to check if register is allowed
-        pub fn checked_allowed_register(netuid: u16) -> bool {
-            if netuid == Self::get_root_netuid() {
+        pub fn checked_allowed_register(netuid: NetUid) -> bool {
+            if netuid.is_root() {
                 return false;
             }
             if !Self::if_subnet_exist(netuid) {
@@ -1723,7 +1792,7 @@ pub mod pallet {
         }
 
         /// Ensure subtoken enalbed
-        pub fn ensure_subtoken_enabled(subnet: u16) -> DispatchResult {
+        pub fn ensure_subtoken_enabled(subnet: NetUid) -> Result<(), Error<T>> {
             ensure!(
                 SubtokenEnabled::<T>::get(subnet),
                 Error::<T>::SubtokenDisabled
@@ -1792,22 +1861,23 @@ impl From<CustomTransactionError> for u8 {
     }
 }
 
-#[freeze_struct("61e2b893d5ce6701")]
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
-pub struct SubtensorSignedExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
-
-impl<T: Config + Send + Sync + TypeInfo> Default for SubtensorSignedExtension<T>
-where
-    <T as frame_system::Config>::RuntimeCall:
-        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-    <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
-{
-    fn default() -> Self {
-        Self::new()
+impl From<CustomTransactionError> for TransactionValidityError {
+    fn from(variant: CustomTransactionError) -> Self {
+        TransactionValidityError::Invalid(InvalidTransaction::Custom(variant.into()))
     }
 }
 
-impl<T: Config + Send + Sync + TypeInfo> SubtensorSignedExtension<T>
+#[freeze_struct("2e02eb32e5cb25d3")]
+#[derive(Default, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
+pub struct SubtensorTransactionExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
+
+impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for SubtensorTransactionExtension<T> {
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+        write!(f, "SubtensorTransactionExtension")
+    }
+}
+
+impl<T: Config + Send + Sync + TypeInfo> SubtensorTransactionExtension<T>
 where
     <T as frame_system::Config>::RuntimeCall:
         Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
@@ -1823,7 +1893,7 @@ where
         u64::MAX
     }
 
-    pub fn get_priority_set_weights(who: &T::AccountId, netuid: u16) -> u64 {
+    pub fn get_priority_set_weights(who: &T::AccountId, netuid: NetUid) -> u64 {
         Pallet::<T>::get_priority_set_weights(who, netuid)
     }
 
@@ -1835,65 +1905,37 @@ where
         Pallet::<T>::get_priority_staking(coldkey, hotkey, stake_amount)
     }
 
-    pub fn check_weights_min_stake(who: &T::AccountId, netuid: u16) -> bool {
+    pub fn check_weights_min_stake(who: &T::AccountId, netuid: NetUid) -> bool {
         Pallet::<T>::check_weights_min_stake(who, netuid)
     }
 
     pub fn result_to_validity(result: Result<(), Error<T>>, priority: u64) -> TransactionValidity {
         if let Err(err) = result {
-            match err {
-                Error::<T>::AmountTooLow => Err(InvalidTransaction::Custom(
-                    CustomTransactionError::StakeAmountTooLow.into(),
-                )
-                .into()),
-                Error::<T>::SubnetNotExists => Err(InvalidTransaction::Custom(
-                    CustomTransactionError::SubnetDoesntExist.into(),
-                )
-                .into()),
-                Error::<T>::NotEnoughBalanceToStake => Err(InvalidTransaction::Custom(
-                    CustomTransactionError::BalanceTooLow.into(),
-                )
-                .into()),
-                Error::<T>::HotKeyAccountNotExists => Err(InvalidTransaction::Custom(
-                    CustomTransactionError::HotkeyAccountDoesntExist.into(),
-                )
-                .into()),
-                Error::<T>::NotEnoughStakeToWithdraw => Err(InvalidTransaction::Custom(
-                    CustomTransactionError::NotEnoughStakeToWithdraw.into(),
-                )
-                .into()),
-                Error::<T>::InsufficientLiquidity => Err(InvalidTransaction::Custom(
-                    CustomTransactionError::InsufficientLiquidity.into(),
-                )
-                .into()),
-                Error::<T>::SlippageTooHigh => Err(InvalidTransaction::Custom(
-                    CustomTransactionError::SlippageTooHigh.into(),
-                )
-                .into()),
-                Error::<T>::TransferDisallowed => Err(InvalidTransaction::Custom(
-                    CustomTransactionError::TransferDisallowed.into(),
-                )
-                .into()),
-                Error::<T>::HotKeyNotRegisteredInNetwork => Err(InvalidTransaction::Custom(
-                    CustomTransactionError::HotKeyNotRegisteredInNetwork.into(),
-                )
-                .into()),
-                Error::<T>::InvalidIpAddress => Err(InvalidTransaction::Custom(
-                    CustomTransactionError::InvalidIpAddress.into(),
-                )
-                .into()),
-                Error::<T>::ServingRateLimitExceeded => Err(InvalidTransaction::Custom(
-                    CustomTransactionError::ServingRateLimitExceeded.into(),
-                )
-                .into()),
-                Error::<T>::InvalidPort => Err(InvalidTransaction::Custom(
-                    CustomTransactionError::InvalidPort.into(),
-                )
-                .into()),
-                _ => Err(
-                    InvalidTransaction::Custom(CustomTransactionError::BadRequest.into()).into(),
-                ),
-            }
+            Err(match err {
+                Error::<T>::AmountTooLow => CustomTransactionError::StakeAmountTooLow.into(),
+                Error::<T>::SubnetNotExists => CustomTransactionError::SubnetDoesntExist.into(),
+                Error::<T>::NotEnoughBalanceToStake => CustomTransactionError::BalanceTooLow.into(),
+                Error::<T>::HotKeyAccountNotExists => {
+                    CustomTransactionError::HotkeyAccountDoesntExist.into()
+                }
+                Error::<T>::NotEnoughStakeToWithdraw => {
+                    CustomTransactionError::NotEnoughStakeToWithdraw.into()
+                }
+                Error::<T>::InsufficientLiquidity => {
+                    CustomTransactionError::InsufficientLiquidity.into()
+                }
+                Error::<T>::SlippageTooHigh => CustomTransactionError::SlippageTooHigh.into(),
+                Error::<T>::TransferDisallowed => CustomTransactionError::TransferDisallowed.into(),
+                Error::<T>::HotKeyNotRegisteredInNetwork => {
+                    CustomTransactionError::HotKeyNotRegisteredInNetwork.into()
+                }
+                Error::<T>::InvalidIpAddress => CustomTransactionError::InvalidIpAddress.into(),
+                Error::<T>::ServingRateLimitExceeded => {
+                    CustomTransactionError::ServingRateLimitExceeded.into()
+                }
+                Error::<T>::InvalidPort => CustomTransactionError::InvalidPort.into(),
+                _ => CustomTransactionError::BadRequest.into(),
+            })
         } else {
             Ok(ValidTransaction {
                 priority,
@@ -1903,127 +1945,119 @@ where
     }
 }
 
-impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for SubtensorSignedExtension<T> {
-    fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-        write!(f, "SubtensorSignedExtension")
-    }
-}
-
-impl<T: Config + Send + Sync + TypeInfo + pallet_balances::Config> SignedExtension
-    for SubtensorSignedExtension<T>
+impl<T: Config + Send + Sync + TypeInfo + pallet_balances::Config>
+    TransactionExtension<<T as frame_system::Config>::RuntimeCall>
+    for SubtensorTransactionExtension<T>
 where
     <T as frame_system::Config>::RuntimeCall:
         Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
     <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<BalancesCall<T>>,
 {
-    const IDENTIFIER: &'static str = "SubtensorSignedExtension";
+    const IDENTIFIER: &'static str = "SubtensorTransactionExtension";
 
-    type AccountId = T::AccountId;
-    type Call = <T as frame_system::Config>::RuntimeCall;
-    type AdditionalSigned = ();
-    type Pre = (CallType, u64, Self::AccountId);
+    type Implicit = ();
+    type Val = Option<T::AccountId>;
+    type Pre = Option<CallType>;
 
-    fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
-        Ok(())
+    fn weight(&self, _call: &<T as frame_system::Config>::RuntimeCall) -> Weight {
+        // TODO: benchmark transaction extension
+        Weight::zero()
     }
 
     fn validate(
         &self,
-        who: &Self::AccountId,
-        call: &Self::Call,
-        _info: &DispatchInfoOf<Self::Call>,
+        origin: <T as frame_system::Config>::RuntimeOrigin,
+        call: &<T as frame_system::Config>::RuntimeCall,
+        _info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
         _len: usize,
-    ) -> TransactionValidity {
+        _self_implicit: Self::Implicit,
+        _inherited_implication: &impl Implication,
+        _source: TransactionSource,
+    ) -> ValidateResult<Self::Val, <T as frame_system::Config>::RuntimeCall> {
+        // Ensure the transaction is signed, else we just skip the extension.
+        let Some(who) = origin.as_system_origin_signer() else {
+            return Ok((Default::default(), None, origin));
+        };
+
         match call.is_sub_type() {
             Some(Call::commit_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who, *netuid) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                    Ok(ValidTransaction {
+                    let validity = ValidTransaction {
                         priority,
                         longevity: 1,
                         ..Default::default()
-                    })
+                    };
+                    Ok((validity, Some(who.clone()), origin))
                 } else {
-                    Err(InvalidTransaction::Custom(
-                        CustomTransactionError::StakeAmountTooLow.into(),
-                    )
-                    .into())
+                    Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
             Some(Call::reveal_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who, *netuid) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                    Ok(ValidTransaction {
+                    let validity = ValidTransaction {
                         priority,
                         longevity: 1,
                         ..Default::default()
-                    })
+                    };
+                    Ok((validity, Some(who.clone()), origin))
                 } else {
-                    Err(InvalidTransaction::Custom(
-                        CustomTransactionError::StakeAmountTooLow.into(),
-                    )
-                    .into())
+                    Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
             Some(Call::batch_reveal_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who, *netuid) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                    Ok(ValidTransaction {
+                    let validity = ValidTransaction {
                         priority,
                         longevity: 1,
                         ..Default::default()
-                    })
+                    };
+                    Ok((validity, Some(who.clone()), origin))
                 } else {
-                    Err(InvalidTransaction::Custom(
-                        CustomTransactionError::StakeAmountTooLow.into(),
-                    )
-                    .into())
+                    Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
             Some(Call::set_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who, *netuid) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                    Ok(ValidTransaction {
+                    let validity = ValidTransaction {
                         priority,
                         longevity: 1,
                         ..Default::default()
-                    })
+                    };
+                    Ok((validity, Some(who.clone()), origin))
                 } else {
-                    Err(InvalidTransaction::Custom(
-                        CustomTransactionError::StakeAmountTooLow.into(),
-                    )
-                    .into())
+                    Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
             Some(Call::set_tao_weights { netuid, hotkey, .. }) => {
                 if Self::check_weights_min_stake(hotkey, *netuid) {
                     let priority: u64 = Self::get_priority_set_weights(hotkey, *netuid);
-                    Ok(ValidTransaction {
+                    let validity = ValidTransaction {
                         priority,
                         longevity: 1,
                         ..Default::default()
-                    })
+                    };
+                    Ok((validity, Some(who.clone()), origin))
                 } else {
-                    Err(InvalidTransaction::Custom(
-                        CustomTransactionError::StakeAmountTooLow.into(),
-                    )
-                    .into())
+                    Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
             Some(Call::commit_crv3_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who, *netuid) {
                     let priority: u64 = Pallet::<T>::get_priority_set_weights(who, *netuid);
-                    Ok(ValidTransaction {
+                    let validity = ValidTransaction {
                         priority,
                         longevity: 1,
                         ..Default::default()
-                    })
+                    };
+                    Ok((validity, Some(who.clone()), origin))
                 } else {
-                    Err(InvalidTransaction::Custom(
-                        CustomTransactionError::StakeAmountTooLow.into(),
-                    )
-                    .into())
+                    Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
             Some(Call::add_stake {
@@ -2032,11 +2066,9 @@ where
                 amount_staked,
             }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return InvalidTransaction::Custom(
-                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
-                    )
-                    .into();
+                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
                 }
+
                 // Fully validate the user input
                 Self::result_to_validity(
                     Pallet::<T>::validate_add_stake(
@@ -2049,6 +2081,7 @@ where
                     ),
                     Self::get_priority_staking(who, hotkey, *amount_staked),
                 )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::add_stake_limit {
                 hotkey,
@@ -2058,18 +2091,12 @@ where
                 allow_partial,
             }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return InvalidTransaction::Custom(
-                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
-                    )
-                    .into();
+                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
                 }
 
                 // Calculate the maximum amount that can be executed with price limit
                 let Ok(max_amount) = Pallet::<T>::get_max_amount_add(*netuid, *limit_price) else {
-                    return InvalidTransaction::Custom(
-                        CustomTransactionError::ZeroMaxAmount.into(),
-                    )
-                    .into();
+                    return Err(CustomTransactionError::ZeroMaxAmount.into());
                 };
 
                 // Fully validate the user input
@@ -2084,6 +2111,7 @@ where
                     ),
                     Self::get_priority_staking(who, hotkey, *amount_staked),
                 )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::remove_stake {
                 hotkey,
@@ -2102,6 +2130,7 @@ where
                     ),
                     Self::get_priority_staking(who, hotkey, *amount_unstaked),
                 )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::remove_stake_limit {
                 hotkey,
@@ -2113,10 +2142,7 @@ where
                 // Calculate the maximum amount that can be executed with price limit
                 let Ok(max_amount) = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price)
                 else {
-                    return InvalidTransaction::Custom(
-                        CustomTransactionError::ZeroMaxAmount.into(),
-                    )
-                    .into();
+                    return Err(CustomTransactionError::ZeroMaxAmount.into());
                 };
 
                 // Fully validate the user input
@@ -2131,6 +2157,7 @@ where
                     ),
                     Self::get_priority_staking(who, hotkey, *amount_unstaked),
                 )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::unstake_all { hotkey }) => {
                 // Fully validate the user input
@@ -2138,6 +2165,7 @@ where
                     Pallet::<T>::validate_unstake_all(who, hotkey, false),
                     Self::get_priority_vanilla(),
                 )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::unstake_all_alpha { hotkey }) => {
                 // Fully validate the user input
@@ -2145,6 +2173,7 @@ where
                     Pallet::<T>::validate_unstake_all(who, hotkey, true),
                     Self::get_priority_vanilla(),
                 )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::move_stake {
                 origin_hotkey,
@@ -2154,10 +2183,7 @@ where
                 alpha_amount,
             }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return InvalidTransaction::Custom(
-                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
-                    )
-                    .into();
+                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
                 }
 
                 // Fully validate the user input
@@ -2176,6 +2202,7 @@ where
                     ),
                     Self::get_priority_staking(who, origin_hotkey, *alpha_amount),
                 )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::transfer_stake {
                 destination_coldkey,
@@ -2185,10 +2212,7 @@ where
                 alpha_amount,
             }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return InvalidTransaction::Custom(
-                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
-                    )
-                    .into();
+                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
                 }
 
                 // Fully validate the user input
@@ -2207,6 +2231,7 @@ where
                     ),
                     Self::get_priority_staking(who, hotkey, *alpha_amount),
                 )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::swap_stake {
                 hotkey,
@@ -2215,10 +2240,7 @@ where
                 alpha_amount,
             }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return InvalidTransaction::Custom(
-                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
-                    )
-                    .into();
+                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
                 }
 
                 // Fully validate the user input
@@ -2237,6 +2259,7 @@ where
                     ),
                     Self::get_priority_staking(who, hotkey, *alpha_amount),
                 )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::swap_stake_limit {
                 hotkey,
@@ -2247,10 +2270,7 @@ where
                 allow_partial,
             }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return InvalidTransaction::Custom(
-                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
-                    )
-                    .into();
+                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
                 }
 
                 // Get the max amount possible to exchange
@@ -2259,10 +2279,7 @@ where
                     *destination_netuid,
                     *limit_price,
                 ) else {
-                    return InvalidTransaction::Custom(
-                        CustomTransactionError::ZeroMaxAmount.into(),
-                    )
-                    .into();
+                    return Err(CustomTransactionError::ZeroMaxAmount.into());
                 };
 
                 // Fully validate the user input
@@ -2281,13 +2298,11 @@ where
                     ),
                     Self::get_priority_staking(who, hotkey, *alpha_amount),
                 )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return InvalidTransaction::Custom(
-                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
-                    )
-                    .into();
+                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
                 }
 
                 let registrations_this_interval =
@@ -2297,29 +2312,31 @@ where
                 if registrations_this_interval >= (max_registrations_per_interval.saturating_mul(3))
                 {
                     // If the registration limit for the interval is exceeded, reject the transaction
-                    return Err(InvalidTransaction::Custom(
-                        CustomTransactionError::RateLimitExceeded.into(),
-                    )
-                    .into());
+                    return Err(CustomTransactionError::RateLimitExceeded.into());
                 }
-                Ok(ValidTransaction {
+                let validity = ValidTransaction {
                     priority: Self::get_priority_vanilla(),
                     ..Default::default()
-                })
+                };
+                Ok((validity, Some(who.clone()), origin))
             }
-            Some(Call::register_network { .. }) => Ok(ValidTransaction {
-                priority: Self::get_priority_vanilla(),
-                ..Default::default()
-            }),
+            Some(Call::register_network { .. }) => {
+                let validity = ValidTransaction {
+                    priority: Self::get_priority_vanilla(),
+                    ..Default::default()
+                };
+
+                Ok((validity, Some(who.clone()), origin))
+            }
             Some(Call::dissolve_network { .. }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    InvalidTransaction::Custom(CustomTransactionError::ColdkeyInSwapSchedule.into())
-                        .into()
+                    Err(CustomTransactionError::ColdkeyInSwapSchedule.into())
                 } else {
-                    Ok(ValidTransaction {
+                    let validity = ValidTransaction {
                         priority: Self::get_priority_vanilla(),
                         ..Default::default()
-                    })
+                    };
+                    Ok((validity, Some(who.clone()), origin))
                 }
             }
             Some(Call::serve_axon {
@@ -2347,6 +2364,7 @@ where
                     ),
                     Self::get_priority_vanilla(),
                 )
+                .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
             _ => {
                 if let Some(
@@ -2356,102 +2374,77 @@ where
                 ) = call.is_sub_type()
                 {
                     if ColdkeySwapScheduled::<T>::contains_key(who) {
-                        return InvalidTransaction::Custom(
-                            CustomTransactionError::ColdkeyInSwapSchedule.into(),
-                        )
-                        .into();
+                        return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
                     }
                 }
-                Ok(ValidTransaction {
+                let validity = ValidTransaction {
                     priority: Self::get_priority_vanilla(),
                     ..Default::default()
-                })
+                };
+                Ok((validity, Some(who.clone()), origin))
             }
         }
     }
 
     // NOTE: Add later when we put in a pre and post dispatch step.
-    fn pre_dispatch(
+    fn prepare(
         self,
-        who: &Self::AccountId,
-        call: &Self::Call,
-        info: &DispatchInfoOf<Self::Call>,
-        len: usize,
+        val: Self::Val,
+        _origin: &<T as frame_system::Config>::RuntimeOrigin,
+        call: &<T as frame_system::Config>::RuntimeCall,
+        _info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
+        _len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
-        // We need to perform same checks as Self::validate so that
-        // the validation is performed during Executive::apply_extrinsic as well.
-        // this prevents inclusion of invalid tx in a block by malicious block author.
-        self.validate(who, call, info, len)?;
+        // The transaction is not signed, given val is None, so we just skip this step.
+        if val.is_none() {
+            return Ok(None);
+        }
+
         match call.is_sub_type() {
-            Some(Call::add_stake { .. }) => {
-                let transaction_fee = 100000;
-                Ok((CallType::AddStake, transaction_fee, who.clone()))
-            }
-            Some(Call::remove_stake { .. }) => {
-                let transaction_fee = 0;
-                Ok((CallType::RemoveStake, transaction_fee, who.clone()))
-            }
-            Some(Call::set_weights { .. }) => {
-                let transaction_fee = 0;
-                Ok((CallType::SetWeights, transaction_fee, who.clone()))
-            }
-            Some(Call::commit_weights { .. }) => {
-                let transaction_fee = 0;
-                Ok((CallType::SetWeights, transaction_fee, who.clone()))
-            }
-            Some(Call::reveal_weights { .. }) => {
-                let transaction_fee = 0;
-                Ok((CallType::SetWeights, transaction_fee, who.clone()))
-            }
-            Some(Call::register { .. }) => {
-                let transaction_fee = 0;
-                Ok((CallType::Register, transaction_fee, who.clone()))
-            }
-            Some(Call::serve_axon { .. }) => {
-                let transaction_fee = 0;
-                Ok((CallType::Serve, transaction_fee, who.clone()))
-            }
-            Some(Call::serve_axon_tls { .. }) => {
-                let transaction_fee = 0;
-                Ok((CallType::Serve, transaction_fee, who.clone()))
-            }
-            Some(Call::register_network { .. }) => {
-                let transaction_fee = 0;
-                Ok((CallType::RegisterNetwork, transaction_fee, who.clone()))
-            }
-            _ => {
-                let transaction_fee = 0;
-                Ok((CallType::Other, transaction_fee, who.clone()))
-            }
+            Some(Call::add_stake { .. }) => Ok(Some(CallType::AddStake)),
+            Some(Call::remove_stake { .. }) => Ok(Some(CallType::RemoveStake)),
+            Some(Call::set_weights { .. }) => Ok(Some(CallType::SetWeights)),
+            Some(Call::commit_weights { .. }) => Ok(Some(CallType::SetWeights)),
+            Some(Call::reveal_weights { .. }) => Ok(Some(CallType::SetWeights)),
+            Some(Call::register { .. }) => Ok(Some(CallType::Register)),
+            Some(Call::serve_axon { .. }) => Ok(Some(CallType::Serve)),
+            Some(Call::serve_axon_tls { .. }) => Ok(Some(CallType::Serve)),
+            Some(Call::register_network { .. }) => Ok(Some(CallType::RegisterNetwork)),
+            _ => Ok(Some(CallType::Other)),
         }
     }
 
     fn post_dispatch(
-        maybe_pre: Option<Self::Pre>,
-        _info: &DispatchInfoOf<Self::Call>,
-        _post_info: &PostDispatchInfoOf<Self::Call>,
+        pre: Self::Pre,
+        _info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
+        _post_info: &mut PostDispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
         _len: usize,
         _result: &dispatch::DispatchResult,
     ) -> Result<(), TransactionValidityError> {
-        if let Some((call_type, _transaction_fee, _who)) = maybe_pre {
-            match call_type {
-                CallType::SetWeights => {
-                    log::debug!("Not Implemented!");
-                }
-                CallType::AddStake => {
-                    log::debug!("Not Implemented! Need to add potential transaction fees here.");
-                }
-                CallType::RemoveStake => {
-                    log::debug!("Not Implemented! Need to add potential transaction fees here.");
-                }
-                CallType::Register => {
-                    log::debug!("Not Implemented!");
-                }
-                _ => {
-                    log::debug!("Not Implemented!");
-                }
+        // Skip this step if the transaction is not signed, meaning pre is None.
+        let call_type = match pre {
+            Some(call_type) => call_type,
+            None => return Ok(()),
+        };
+
+        match call_type {
+            CallType::SetWeights => {
+                log::debug!("Not Implemented!");
+            }
+            CallType::AddStake => {
+                log::debug!("Not Implemented! Need to add potential transaction fees here.");
+            }
+            CallType::RemoveStake => {
+                log::debug!("Not Implemented! Need to add potential transaction fees here.");
+            }
+            CallType::Register => {
+                log::debug!("Not Implemented!");
+            }
+            _ => {
+                log::debug!("Not Implemented!");
             }
         }
+
         Ok(())
     }
 }
@@ -2544,5 +2537,5 @@ impl<T, H, P> CollectiveInterface<T, H, P> for () {
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub enum RateLimitKey {
     // The setting sn owner hotkey operation is rate limited per netuid
-    SetSNOwnerHotkey(u16),
+    SetSNOwnerHotkey(NetUid),
 }

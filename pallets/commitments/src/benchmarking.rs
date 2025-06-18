@@ -35,7 +35,7 @@ mod benchmarks {
 
     #[benchmark]
     fn set_commitment() {
-        let netuid = 1;
+        let netuid = NetUid::from(1);
         let caller: T::AccountId = whitelisted_caller();
         let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 

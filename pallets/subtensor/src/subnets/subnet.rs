@@ -1,19 +1,8 @@
 use super::*;
-use frame_support::IterableStorageMap;
 use sp_core::Get;
+use subtensor_runtime_common::NetUid;
 
 impl<T: Config> Pallet<T> {
-    /// Retrieves the unique identifier (UID) for the root network.
-    ///
-    /// The root network is a special case and has a fixed UID of 0.
-    ///
-    /// # Returns:
-    /// * 'u16': The UID for the root network.
-    ///
-    pub fn get_root_netuid() -> u16 {
-        0
-    }
-
     /// Fetches the total count of subnets.
     ///
     /// This function retrieves the total number of subnets present on the chain.
@@ -32,7 +21,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns:
     /// * 'bool': Whether the subnet exists.
     ///
-    pub fn if_subnet_exist(netuid: u16) -> bool {
+    pub fn if_subnet_exist(netuid: NetUid) -> bool {
         NetworksAdded::<T>::get(netuid)
     }
 
@@ -44,8 +33,8 @@ impl<T: Config> Pallet<T> {
     /// # Returns:
     /// * 'Vec<u16>': Netuids of all subnets.
     ///
-    pub fn get_all_subnet_netuids() -> Vec<u16> {
-        <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter()
+    pub fn get_all_subnet_netuids() -> Vec<NetUid> {
+        NetworksAdded::<T>::iter()
             .map(|(netuid, _)| netuid)
             .collect()
     }
@@ -61,7 +50,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns:
     /// * 'u16': The subnet mechanism
     ///
-    pub fn get_subnet_mechanism(netuid: u16) -> u16 {
+    pub fn get_subnet_mechanism(netuid: NetUid) -> u16 {
         SubnetMechanism::<T>::get(netuid)
     }
 
@@ -72,14 +61,14 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     /// * `u16` - The next available mechanism ID.
-    pub fn get_next_netuid() -> u16 {
-        let mut next_netuid = 1; // do not allow creation of root
-        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
+    pub fn get_next_netuid() -> NetUid {
+        let mut next_netuid = NetUid::from(1); // do not allow creation of root
+        let netuids = Self::get_all_subnet_netuids();
         loop {
             if !netuids.contains(&next_netuid) {
                 break next_netuid;
             }
-            next_netuid = next_netuid.saturating_add(1);
+            next_netuid = next_netuid.next();
         }
     }
 
@@ -103,7 +92,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     ///
     /// * `bool` - `true` if registrations are allowed for the subnet, `false` otherwise.
-    pub fn is_registration_allowed(netuid: u16) -> bool {
+    pub fn is_registration_allowed(netuid: NetUid) -> bool {
         Self::get_subnet_hyperparams(netuid)
             .map(|params| params.registration_allowed)
             .unwrap_or(false)
@@ -115,7 +104,7 @@ impl<T: Config> Pallet<T> {
     /// * **`origin`** – `T::RuntimeOrigin` &nbsp;Must be **signed** by the coldkey.  
     /// * **`hotkey`** – `&T::AccountId` &nbsp;First neuron of the new subnet.  
     /// * **`mechid`** – `u16` &nbsp;Only the dynamic mechanism (`1`) is currently supported.  
-    /// * **`identity`** – `Option<SubnetIdentityOfV2>` &nbsp;Optional metadata for the subnet.
+    /// * **`identity`** – `Option<SubnetIdentityOfV3V2>` &nbsp;Optional metadata for the subnet.
     ///
     /// ### Events
     /// * `NetworkAdded(netuid, mechid)` – always.  
@@ -135,7 +124,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: &T::AccountId,
         mechid: u16,
-        identity: Option<SubnetIdentityOfV2>,
+        identity: Option<SubnetIdentityOfV3>,
     ) -> DispatchResult {
         // --- 1. Ensure the caller is a signed user.
         let coldkey = ensure_signed(origin)?;
@@ -255,7 +244,7 @@ impl<T: Config> Pallet<T> {
                 Error::<T>::InvalidIdentity
             );
 
-            SubnetIdentitiesV2::<T>::insert(netuid_to_register, identity_value);
+            SubnetIdentitiesV3::<T>::insert(netuid_to_register, identity_value);
             Self::deposit_event(Event::SubnetIdentitySet(netuid_to_register));
         }
 
@@ -272,7 +261,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Sets initial and custom parameters for a new network.
-    pub fn init_new_network(netuid: u16, tempo: u16) {
+    pub fn init_new_network(netuid: NetUid, tempo: u16) {
         // --- 1. Set network to 0 size.
         SubnetworkN::<T>::insert(netuid, 0);
 
@@ -367,7 +356,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     ///
     /// * `DispatchResult`: A result indicating the success or failure of the operation.
-    pub fn do_start_call(origin: T::RuntimeOrigin, netuid: u16) -> DispatchResult {
+    pub fn do_start_call(origin: T::RuntimeOrigin, netuid: NetUid) -> DispatchResult {
         ensure!(
             Self::if_subnet_exist(netuid),
             Error::<T>::SubNetworkDoesNotExist
@@ -429,7 +418,7 @@ impl<T: Config> Pallet<T> {
     /// This function is rate-limited to one call per subnet per interval (e.g., one week).
     pub fn do_set_sn_owner_hotkey(
         origin: T::RuntimeOrigin,
-        netuid: u16,
+        netuid: NetUid,
         hotkey: &T::AccountId,
     ) -> DispatchResult {
         // Ensure the caller is either root or subnet owner.
@@ -464,7 +453,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn is_valid_subnet_for_emission(netuid: u16) -> bool {
+    pub fn is_valid_subnet_for_emission(netuid: NetUid) -> bool {
         FirstEmissionBlockNumber::<T>::get(netuid).is_some()
     }
 }
