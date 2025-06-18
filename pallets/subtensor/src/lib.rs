@@ -1673,7 +1673,7 @@ pub mod pallet {
 
     #[pallet::storage]
     /// DMAP ( hot, cold, netuid ) --> rate limits for staking operations
-    /// Returns the block number of the last staking operation
+    /// Value contains just a marker: we use this map as a set.
     pub type StakingOperationRateLimiter<T: Config> = StorageNMap<
         _,
         (

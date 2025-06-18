@@ -281,8 +281,8 @@ impl<T: Config> Pallet<T> {
             &coldkey,
             NetUid::ROOT,
             total_tao_unstaked,
-            0, // no fee for restaking
-            true,
+            0,     // no fee for restaking
+            false, // no limit for Root subnet
         );
 
         // 5. Done and ok.
