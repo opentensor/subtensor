@@ -1,4 +1,5 @@
 use super::mock::*;
+use crate::migrations::migrate_network_immunity_period;
 use crate::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
@@ -811,6 +812,41 @@ fn register_network_fails_before_prune_keeps_existing() {
 
         assert!(SubtensorModule::if_subnet_exist(net));
         assert_eq!(TotalNetworks::<Test>::get(), 1);
+    });
+}
+
+#[test]
+fn test_migrate_network_immunity_period() {
+    new_test_ext(0).execute_with(|| {
+        // --------------------------------------------------------------------
+        // ‼️ PRE-CONDITIONS
+        // --------------------------------------------------------------------
+        assert_ne!(NetworkImmunityPeriod::<Test>::get(), 864_000);
+        assert!(
+            !HasMigrationRun::<Test>::get(b"migrate_network_immunity_period".to_vec()),
+            "HasMigrationRun should be false before migration"
+        );
+
+        // --------------------------------------------------------------------
+        // ▶️  RUN MIGRATION
+        // --------------------------------------------------------------------
+        let weight = migrate_network_immunity_period::migrate_network_immunity_period::<Test>();
+
+        // --------------------------------------------------------------------
+        // ✅ POST-CONDITIONS
+        // --------------------------------------------------------------------
+        assert_eq!(
+            NetworkImmunityPeriod::<Test>::get(),
+            864_000,
+            "NetworkImmunityPeriod should now be 864_000"
+        );
+
+        assert!(
+            HasMigrationRun::<Test>::get(b"migrate_network_immunity_period".to_vec()),
+            "HasMigrationRun should be true after migration"
+        );
+
+        assert!(weight != Weight::zero(), "migration weight should be > 0");
     });
 }
 
