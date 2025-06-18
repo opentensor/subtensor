@@ -6279,6 +6279,22 @@ fn test_reveal_crv3_commits_max_neurons() {
                     "Weights for neuron_uid {} should be set",
                     neuron_uid
                 );
+                assert!(
+                    !Bonds::<Test>::get(netuid, neuron_uid as u16).is_empty(),
+                    "Bonds for neuron_uid {} should be set",
+                    neuron_uid
+                );
+            } else {
+                assert!(
+                    weights.is_empty(),
+                    "Weights for neuron_uid {} should be removed",
+                    neuron_uid
+                );
+                assert!(
+                    Bonds::<Test>::get(netuid, neuron_uid as u16).is_empty(),
+                    "Bonds for neuron_uid {} should be removed",
+                    neuron_uid
+                );
             }
 
             // Normalize expected weights
