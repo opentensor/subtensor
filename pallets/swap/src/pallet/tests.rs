@@ -1604,16 +1604,23 @@ fn test_new_lp_doesnt_get_old_fees() {
     });
 }
 
-// fn bbox(t: U64F64, a: U64F64, b: U64F64) -> U64F64 {
-//     if t < a {
-//         a
-//     } else if t > b {
-//         b
-//     } else {
-//         t
-//     }
-// }
+fn bbox(t: U64F64, a: U64F64, b: U64F64) -> U64F64 {
+    if t < a {
+        a
+    } else if t > b {
+        b
+    } else {
+        t
+    }
+}
 
+fn print_current_price(netuid: NetUid) {
+    let current_sqrt_price = Pallet::<Test>::current_price_sqrt(netuid).to_num::<f64>();
+    let current_price = current_sqrt_price * current_sqrt_price;
+    log::trace!("Current price: {:.6}", current_price);
+}
+
+/// RUST_LOG=pallet_subtensor_swap=trace cargo test --package pallet-subtensor-swap --lib -- pallet::tests::test_wrapping_fees --exact --show-output --nocapture
 #[test]
 fn test_wrapping_fees() {
     new_test_ext().execute_with(|| {
@@ -1621,7 +1628,7 @@ fn test_wrapping_fees() {
         let position_1_low_price = 0.20;
         let position_1_high_price = 0.255;
         let position_2_low_price = 0.255;
-        let position_2_high_price = 0.3;
+        let position_2_high_price = 0.257;
         assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
 
         Pallet::<Test>::do_add_liquidity(
@@ -1633,9 +1640,8 @@ fn test_wrapping_fees() {
             1_000_000_000_u64,
         )
         .unwrap();
-        let current_sqrt_price = Pallet::<Test>::current_price_sqrt(netuid).to_num::<f64>();
-        let current_price = current_sqrt_price * current_sqrt_price;
-        log::trace!("Current price: {}", format!("{:.6}", current_price));
+
+        print_current_price(netuid);
 
         let swap_amt = 800_000_000_u64;
         let order_type = OrderType::Sell;
@@ -1646,15 +1652,11 @@ fn test_wrapping_fees() {
         let order_type = OrderType::Buy;
         let sqrt_limit_price = SqrtPrice::from_num(1_000_000.0);
 
-        let current_sqrt_price = Pallet::<Test>::current_price_sqrt(netuid).to_num::<f64>();
-        let current_price = current_sqrt_price * current_sqrt_price;
-        log::trace!("Current price: {}", format!("{:.6}", current_price));
+        print_current_price(netuid);
 
         Pallet::<Test>::do_swap(netuid, order_type, swap_amt, sqrt_limit_price, false).unwrap();
 
-        let current_sqrt_price = Pallet::<Test>::current_price_sqrt(netuid).to_num::<f64>();
-        let current_price = current_sqrt_price * current_sqrt_price;
-        log::trace!("Current price: {}", format!("{:.6}", current_price));
+        print_current_price(netuid);
 
         let add_liquidity_result = Pallet::<Test>::do_add_liquidity(
             netuid,
@@ -1666,49 +1668,53 @@ fn test_wrapping_fees() {
         )
         .unwrap();
 
-        // let swap_amt = 800_000_000_u64;
-        // let order_type = OrderType::Sell;
-        // let sqrt_limit_price = SqrtPrice::from_num(0.000001);
-        // Pallet::<Test>::do_swap(netuid, order_type, swap_amt, sqrt_limit_price, false).unwrap();
+        let swap_amt = 1_800_000_000_u64;
+        let order_type = OrderType::Sell;
+        let sqrt_limit_price = SqrtPrice::from_num(0.000001);
 
-        let current_sqrt_price = Pallet::<Test>::current_price_sqrt(netuid).to_num::<f64>();
-        let current_price = current_sqrt_price * current_sqrt_price;
-        log::trace!("Current price: {}", format!("{:.6}", current_price));
+        let initial_sqrt_price = Pallet::<Test>::current_price_sqrt(netuid);
+        Pallet::<Test>::do_swap(netuid, order_type, swap_amt, sqrt_limit_price, false).unwrap();
+        let final_sqrt_price = Pallet::<Test>::current_price_sqrt(netuid);
+
+        print_current_price(netuid);
 
         let mut position =
             Positions::<Test>::get((netuid, &OK_COLDKEY_ACCOUNT_ID_RICH, add_liquidity_result.0))
                 .unwrap();
 
-        // let initial_sqrt_price = position.tick_high.try_to_sqrt_price().unwrap();
-        // let initial_box_price = bbox(
-        //     initial_sqrt_price,
-        //     position.tick_low.try_to_sqrt_price().unwrap(),
-        //     position.tick_high.try_to_sqrt_price().unwrap(),
-        // );
-        // let final_sqrt_price = Pallet::<Test>::current_price_sqrt(netuid);
-        // let final_box_price = bbox(
-        //     final_sqrt_price,
-        //     position.tick_low.try_to_sqrt_price().unwrap(),
-        //     position.tick_high.try_to_sqrt_price().unwrap(),
-        // );
-        // let fee_rate = FeeRate::<Test>::get(netuid) as f64 / u16::MAX as f64;
-
-        // let expected_fee_tao = ((fee_rate / (1.0 - fee_rate))
-        //     * (position.liquidity as f64)
-        //     * (final_box_price.to_num::<f64>() - initial_box_price.to_num::<f64>()))
-        //     as u64;
-
-        // let expected_fee_alpha = ((fee_rate / (1.0 - fee_rate))
-        //     * (position.liquidity as f64)
-        //     * ((1.0 / final_box_price.to_num::<f64>()) - (1.0 / initial_box_price.to_num::<f64>())))
-        //     as u64;
-        let expected_fee_tao = 0;
-        let expected_fee_alpha = 0;
-
-        log::trace!(
-            "Expected ALPHA fee: {}",
-            format!("{:.6}", expected_fee_alpha as f64)
+        let initial_box_price = bbox(
+            initial_sqrt_price,
+            position.tick_low.try_to_sqrt_price().unwrap(),
+            position.tick_high.try_to_sqrt_price().unwrap(),
         );
+
+        let final_box_price = bbox(
+            final_sqrt_price,
+            position.tick_low.try_to_sqrt_price().unwrap(),
+            position.tick_high.try_to_sqrt_price().unwrap(),
+        );
+
+        let fee_rate = FeeRate::<Test>::get(netuid) as f64 / u16::MAX as f64;
+
+        log::trace!("fee_rate: {:.6}", fee_rate);
+        log::trace!("position.liquidity: {}", position.liquidity);
+        log::trace!(
+            "initial_box_price: {:.6}",
+            initial_box_price.to_num::<f64>()
+        );
+        log::trace!("final_box_price: {:.6}", final_box_price.to_num::<f64>());
+
+        let expected_fee_tao = ((fee_rate / (1.0 - fee_rate))
+            * (position.liquidity as f64)
+            * (final_box_price.to_num::<f64>() - initial_box_price.to_num::<f64>()))
+            as u64;
+
+        let expected_fee_alpha = ((fee_rate / (1.0 - fee_rate))
+            * (position.liquidity as f64)
+            * ((1.0 / final_box_price.to_num::<f64>()) - (1.0 / initial_box_price.to_num::<f64>())))
+            as u64;
+
+        log::trace!("Expected ALPHA fee: {:.6}", expected_fee_alpha as f64);
 
         let (fee_tao, fee_alpha) = position.collect_fees();
 

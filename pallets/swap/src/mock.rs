@@ -186,6 +186,7 @@ impl crate::pallet::Config for Test {
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
+    sp_tracing::try_init_simple();
     let storage = system::GenesisConfig::<Test>::default()
         .build_storage()
         .unwrap();
