@@ -1,0 +1,22 @@
+[package]
+name = "pallet-subtensor-swap-rpc"
+version = "1.0.0"
+description = "RPC interface for the Swap pallet"
+edition = { workspace = true }
+
+[dependencies]
+codec = { workspace = true }
+jsonrpsee = { workspace = true }
+sp-api = { workspace = true }
+sp-blockchain = { workspace = true }
+sp-runtime = { workspace = true }
+pallet-subtensor-swap-runtime-api = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"pallet-subtensor-swap-runtime-api/std",
+	"sp-api/std",
+	"sp-runtime/std",
+]

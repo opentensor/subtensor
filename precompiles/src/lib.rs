@@ -56,6 +56,7 @@ where
         + pallet_balances::Config
         + pallet_admin_utils::Config
         + pallet_subtensor::Config
+        + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
@@ -80,6 +81,7 @@ where
         + pallet_balances::Config
         + pallet_admin_utils::Config
         + pallet_subtensor::Config
+        + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
@@ -127,6 +129,7 @@ where
         + pallet_balances::Config
         + pallet_admin_utils::Config
         + pallet_subtensor::Config
+        + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>

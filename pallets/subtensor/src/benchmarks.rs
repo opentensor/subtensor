@@ -705,7 +705,7 @@ mod pallet_benchmarks {
 
         let amount = 900_000_000_000;
         let limit: u64 = 6_000_000_000;
-        let amount_to_be_staked = 440_000_000_000;
+        let amount_to_be_staked = 44_000_000_000;
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount);
 
         let tao_reserve = 150_000_000_000_u64;
@@ -1316,12 +1316,44 @@ mod pallet_benchmarks {
 
     #[benchmark]
     fn unstake_all_alpha() {
-        let coldkey: T::AccountId = whitelisted_caller();
-        let hotkey: T::AccountId = account("A", 0, 15);
-        Subtensor::<T>::create_account_if_non_existent(&coldkey, &hotkey);
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 1;
+        let seed: u32 = 1;
+
+        Subtensor::<T>::init_new_network(netuid, tempo);
+        Subtensor::<T>::set_network_registration_allowed(netuid, true);
+        SubtokenEnabled::<T>::insert(netuid, true);
+
+        Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
+        assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
+
+        let coldkey: T::AccountId = account("Test", 0, seed);
+        let hotkey: T::AccountId = account("Alice", 0, seed);
+        Subtensor::<T>::set_burn(netuid, 1);
+
+        SubnetTAO::<T>::insert(netuid, 150_000_000_000);
+        SubnetAlphaIn::<T>::insert(netuid, 100_000_000_000);
+
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), 1000000u32.into());
+
+        assert_ok!(Subtensor::<T>::do_burned_registration(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            netuid,
+            hotkey.clone()
+        ));
+
+        let staked_amt = 100_000_000_000;
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), staked_amt);
+
+        assert_ok!(Subtensor::<T>::add_stake(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            hotkey.clone(),
+            netuid,
+            staked_amt
+        ));
 
         #[extrinsic_call]
-        _(RawOrigin::Signed(coldkey.clone()), hotkey.clone());
+        _(RawOrigin::Signed(coldkey), hotkey);
     }
 
     #[benchmark]
