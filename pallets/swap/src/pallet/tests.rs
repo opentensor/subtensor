@@ -10,7 +10,7 @@ use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::NetUid;
 
 use super::*;
-use crate::{OrderType, SqrtPrice, mock::*};
+use crate::{FeeRateT, OrderType, SqrtPrice, mock::*};
 
 // this function is used to convert price (NON-SQRT price!) to TickIndex. it's only utility for
 // testing, all the implementation logic is based on sqrt prices
@@ -80,7 +80,7 @@ mod dispatchables {
     fn test_set_fee_rate() {
         new_test_ext().execute_with(|| {
             let netuid = NetUid::from(1);
-            let fee_rate = 500; // 0.76% fee
+            let fee_rate = FeeRateT::from(500); // 0.76% fee
 
             assert_noop!(
                 Swap::set_fee_rate(RuntimeOrigin::signed(666), netuid, fee_rate),
@@ -92,7 +92,7 @@ mod dispatchables {
             // Check that fee rate was set correctly
             assert_eq!(FeeRate::<Test>::get(netuid), fee_rate);
 
-            let fee_rate = fee_rate * 2;
+            let fee_rate = fee_rate * 2.into();
             assert_ok!(Swap::set_fee_rate(
                 RuntimeOrigin::signed(1),
                 netuid,
@@ -101,7 +101,7 @@ mod dispatchables {
             assert_eq!(FeeRate::<Test>::get(netuid), fee_rate);
 
             // Verify fee rate validation - should fail if too high
-            let too_high_fee = MaxFeeRate::get() + 1;
+            let too_high_fee = MaxFeeRate::get() + FeeRateT::from(1);
             assert_noop!(
                 Swap::set_fee_rate(RuntimeOrigin::root(), netuid, too_high_fee),
                 Error::<Test>::FeeRateTooHigh
@@ -740,7 +740,7 @@ fn test_swap_basic() {
                 );
 
                 // Expected fee amount
-                let fee_rate = FeeRate::<Test>::get(netuid) as f64 / u16::MAX as f64;
+                let fee_rate = FeeRate::<Test>::get(netuid).as_normalized_f64();
                 let expected_fee = (liquidity as f64 * fee_rate) as u64;
 
                 // Global fees should be updated
@@ -1002,7 +1002,7 @@ fn test_swap_single_position() {
                     );
 
                     // Expected fee amount
-                    let fee_rate = FeeRate::<Test>::get(netuid) as f64 / u16::MAX as f64;
+                    let fee_rate = FeeRate::<Test>::get(netuid).as_normalized_f64();
                     let expected_fee =
                         (order_liquidity - order_liquidity / (1.0 + fee_rate)) as u64;
 
@@ -1455,7 +1455,7 @@ fn test_swap_fee_correctness() {
         assert_eq!(position.tick_high, tick_high);
 
         // Check that 50% of fees were credited to the position
-        let fee_rate = FeeRate::<Test>::get(NetUid::from(netuid)) as f64 / u16::MAX as f64;
+        let fee_rate = FeeRate::<Test>::get(NetUid::from(netuid)).as_normalized_f64();
         let (actual_fee_tao, actual_fee_alpha) = position.collect_fees();
         let expected_fee = (fee_rate * (liquidity / 10) as f64 * 0.5) as u64;
 
@@ -1701,7 +1701,7 @@ fn test_wrapping_fees() {
             position.tick_high.try_to_sqrt_price().unwrap(),
         );
 
-        let fee_rate = FeeRate::<Test>::get(netuid) as f64 / u16::MAX as f64;
+        let fee_rate = FeeRate::<Test>::get(netuid).as_normalized_f64();
 
         log::trace!("fee_rate: {:.6}", fee_rate);
         log::trace!("position.liquidity: {}", position.liquidity);

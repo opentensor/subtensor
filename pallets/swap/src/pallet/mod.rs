@@ -6,6 +6,7 @@ use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{BalanceOps, NetUid, SubnetInfo};
 
 use crate::{
+    FeeRateT,
     position::{Position, PositionId},
     tick::{LayerLevel, Tick, TickIndex},
     weights::WeightInfo,
@@ -46,7 +47,7 @@ mod pallet {
 
         /// The maximum fee rate that can be set
         #[pallet::constant]
-        type MaxFeeRate: Get<u16>;
+        type MaxFeeRate: Get<FeeRateT>;
 
         /// The maximum number of positions a user can have
         #[pallet::constant]
@@ -66,13 +67,13 @@ mod pallet {
 
     /// Default fee rate if not set
     #[pallet::type_value]
-    pub fn DefaultFeeRate() -> u16 {
-        196 // 0.3 %
+    pub fn DefaultFeeRate() -> FeeRateT {
+        196.into() // 0.3 %
     }
 
     /// The fee rate applied to swaps per subnet, normalized value between 0 and u16::MAX
     #[pallet::storage]
-    pub type FeeRate<T> = StorageMap<_, Twox64Concat, NetUid, u16, ValueQuery, DefaultFeeRate>;
+    pub type FeeRate<T> = StorageMap<_, Twox64Concat, NetUid, FeeRateT, ValueQuery, DefaultFeeRate>;
 
     // Global accrued fees in tao per subnet
     #[pallet::storage]
@@ -143,7 +144,7 @@ mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// Event emitted when the fee rate has been updated for a subnet
-        FeeRateSet { netuid: NetUid, rate: u16 },
+        FeeRateSet { netuid: NetUid, rate: FeeRateT },
 
         /// Event emitted when user liquidity operations are enabled for a subnet.
         /// First enable even indicates a switch from V2 to V3 swap.
@@ -237,7 +238,11 @@ mod pallet {
         /// Only callable by the admin origin
         #[pallet::call_index(0)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::set_fee_rate())]
-        pub fn set_fee_rate(origin: OriginFor<T>, netuid: NetUid, rate: u16) -> DispatchResult {
+        pub fn set_fee_rate(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            rate: FeeRateT,
+        ) -> DispatchResult {
             if ensure_root(origin.clone()).is_err() {
                 let account_id: T::AccountId = ensure_signed(origin)?;
                 ensure!(

@@ -175,7 +175,7 @@ impl<T: Config> SwapStep<T> {
         // in case if we hit the limit price or the edge price.
         if recalculate_fee {
             let u16_max = U64F64::saturating_from_num(u16::MAX);
-            let fee_rate = U64F64::saturating_from_num(FeeRate::<T>::get(self.netuid));
+            let fee_rate = FeeRate::<T>::get(self.netuid).as_fixed();
             let delta_fixed = U64F64::saturating_from_num(self.delta_in);
             self.fee = delta_fixed
                 .saturating_mul(fee_rate.safe_div(u16_max.saturating_sub(fee_rate)))
@@ -518,8 +518,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// Fee is provided by state ops as u16-normalized value.
     fn calculate_fee_amount(netuid: NetUid, amount: u64) -> u64 {
-        let fee_rate = U64F64::saturating_from_num(FeeRate::<T>::get(netuid))
-            .safe_div(U64F64::saturating_from_num(u16::MAX));
+        let fee_rate = FeeRate::<T>::get(netuid).as_normalized_fixed();
 
         U64F64::saturating_from_num(amount)
             .saturating_mul(fee_rate)

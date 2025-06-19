@@ -4878,8 +4878,8 @@ fn test_unstake_full_amount() {
         // Check if balance has increased accordingly
         let balance_after = SubtensorModule::get_coldkey_balance(&coldkey);
         let actual_balance_increase = (balance_after - balance_before) as f64;
-        let fee_rate = pallet_subtensor_swap::FeeRate::<Test>::get(NetUid::from(netuid)) as f64
-            / u16::MAX as f64;
+        let fee_rate =
+            pallet_subtensor_swap::FeeRate::<Test>::get(NetUid::from(netuid)).as_normalized_f64();
         let expected_balance_increase = amount as f64 * (1. - fee_rate) / (1. + fee_rate);
         assert_abs_diff_eq!(
             actual_balance_increase,
@@ -4931,8 +4931,8 @@ fn test_swap_fees_tao_correctness() {
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, owner_balance_before);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, user_balance_before);
-        let fee_rate = pallet_subtensor_swap::FeeRate::<Test>::get(NetUid::from(netuid)) as f64
-            / u16::MAX as f64;
+        let fee_rate =
+            pallet_subtensor_swap::FeeRate::<Test>::get(NetUid::from(netuid)).as_normalized_f64();
         pallet_subtensor_swap::EnabledUserLiquidity::<Test>::insert(NetUid::from(netuid), true);
 
         // Forse-set alpha in and tao reserve to make price equal 0.25
@@ -5072,8 +5072,8 @@ fn test_default_min_stake_sufficiency() {
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, owner_balance_before);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, user_balance_before);
-        let fee_rate = pallet_subtensor_swap::FeeRate::<Test>::get(NetUid::from(netuid)) as f64
-            / u16::MAX as f64;
+        let fee_rate =
+            pallet_subtensor_swap::FeeRate::<Test>::get(NetUid::from(netuid)).as_normalized_f64();
 
         // Set some extreme, but realistic TAO and Alpha reserves to minimize slippage
         // 1% of TAO max supply
