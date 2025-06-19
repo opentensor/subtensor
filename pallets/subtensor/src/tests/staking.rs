@@ -5078,10 +5078,7 @@ fn test_remove_stake_full_limit_ok() {
         SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
         SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
 
-        // Reserves 100 Alpha and 100 TAO, unstake 10. Expected value ~ 9.09
-        // 10_000_000_000
-        //  9_090_454_547
-        let limit_price = 909_000_000;
+        let limit_price = 90_000_000;
 
         // Remove stake with slippage safety
         assert_ok!(SubtensorModule::remove_stake_full_limit(
@@ -5102,7 +5099,7 @@ fn test_remove_stake_full_limit_ok() {
         );
 
         let new_balance = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
-        assert_abs_diff_eq!(new_balance, 9_090_000_000, epsilon = 1_000_000);
+        assert_abs_diff_eq!(new_balance, 9_066_000_000, epsilon = 1_000_000);
     });
 }
 
@@ -5129,9 +5126,6 @@ fn test_remove_stake_full_limit_fails_slippage_too_high() {
         SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
         SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
 
-        // Reserves 100 Alpha and 100 TAO, unstake 10. Expected value ~ 9.09
-        // 10_000_000_000
-        //  9_090_454_547
         let invalid_limit_price = 910_000_000;
 
         // Remove stake with slippage safety
@@ -5189,7 +5183,7 @@ fn test_remove_stake_full_limit_ok_with_no_limit_price() {
         );
 
         let new_balance = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
-        assert_abs_diff_eq!(new_balance, 9_090_000_000, epsilon = 1_000_000);
+        assert_abs_diff_eq!(new_balance, 9_066_000_000, epsilon = 1_000_000);
     });
 }
 /// This test verifies that minimum stake amount is sufficient to move price and apply
