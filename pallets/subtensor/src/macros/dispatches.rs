@@ -6,12 +6,12 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod dispatches {
+    use crate::subnets::symbols::SYMBOLS;
     use frame_support::traits::schedule::DispatchTime;
     use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
     use frame_system::pallet_prelude::BlockNumberFor;
     use sp_core::ecdsa::Signature;
     use sp_runtime::traits::Saturating;
-    use crate::subnets::symbols::SYMBOLS;
 
     use crate::MAX_CRV3_COMMIT_SIZE_BYTES;
     /// Dispatchable functions allow users to interact with the pallet and invoke state changes.
@@ -2071,7 +2071,7 @@ mod dispatches {
             PendingChildKeyCooldown::<T>::put(cooldown);
             Ok(())
         }
-        
+
         /// Sets the symbol for a subnet.
         ///
         /// # Arguments
@@ -2089,28 +2089,26 @@ mod dispatches {
         /// Emits a `SymbolUpdated` event on success.
         #[pallet::call_index(110)]
         #[pallet::weight(Weight::zero())]
-        pub fn set_symbol(
-            origin: OriginFor<T>, 
-            netuid: NetUid, 
-            symbol: Vec<u8>,
-        ) -> DispatchResult {
+        pub fn set_symbol(origin: OriginFor<T>, netuid: NetUid, symbol: Vec<u8>) -> DispatchResult {
             Self::ensure_subnet_owner_or_root(origin, netuid)?;
 
-            if SYMBOLS.iter()
-                      .skip(1) // Skip the root symbol
-                      .find(|s| *s == &symbol).is_none() 
+            if SYMBOLS
+                .iter()
+                .skip(1) // Skip the root symbol
+                .find(|s| *s == &symbol)
+                .is_none()
             {
                 return Err(Error::<T>::SymbolDoesNotExist.into());
             }
-            
+
             let used_symbols = TokenSymbol::<T>::iter_values().collect::<Vec<_>>();
             if used_symbols.contains(&symbol) {
                 return Err(Error::<T>::SymbolAlreadyInUse.into());
             }
-            
+
             TokenSymbol::<T>::insert(netuid, symbol.clone());
 
-            Self::deposit_event(Event::SymbolUpdated{ netuid, symbol });
+            Self::deposit_event(Event::SymbolUpdated { netuid, symbol });
             Ok(())
         }
     }

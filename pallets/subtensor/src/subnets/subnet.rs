@@ -2,7 +2,7 @@ use super::*;
 use sp_core::Get;
 use subtensor_runtime_common::NetUid;
 
-use crate::subnets::symbols::{SYMBOLS, DEFAULT_SYMBOL};
+use crate::subnets::symbols::{DEFAULT_SYMBOL, SYMBOLS};
 
 impl<T: Config> Pallet<T> {
     /// Fetches the total count of subnets.
@@ -233,26 +233,30 @@ impl<T: Config> Pallet<T> {
         // --- 17. Return success.
         Ok(())
     }
-    
+
     fn get_next_available_symbol(netuid: NetUid) -> Vec<u8> {
         let used_symbols = TokenSymbol::<T>::iter_values().collect::<Vec<_>>();
-        
+
         // We first try the default strategy of using the subnet id to get the symbol.
         let symbol = Self::get_symbol_for_subnet(netuid);
         if !used_symbols.contains(&symbol) {
             return symbol;
         }
-        
-        // If it is already taken, we try to get the next available symbol. 
-        let available_symbol = SYMBOLS.iter()
+
+        // If it is already taken, we try to get the next available symbol.
+        let available_symbol = SYMBOLS
+            .iter()
             .skip(1) // Skip the root symbol
             .find(|s| !used_symbols.contains(&s.to_vec()))
             .map(|s| s.to_vec());
-        
+
         if available_symbol.is_none() {
-            log::warn!("All available symbols have been exhausted for netuid: {:?}. Using default symbol.", netuid); 
+            log::warn!(
+                "All available symbols have been exhausted for netuid: {:?}. Using default symbol.",
+                netuid
+            );
         }
-        
+
         // If we have exhausted all symbols, we use the default symbol.
         available_symbol.unwrap_or(DEFAULT_SYMBOL.to_vec())
     }

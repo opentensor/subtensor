@@ -6,31 +6,31 @@ pub static DEFAULT_SYMBOL: &[u8] = b"\xCE\xA4"; // TAO uppercase symbol
 
 pub static SYMBOLS: [&[u8]; 439] = [
     // Greek Alphabet (Lowercase)
-    DEFAULT_SYMBOL,  // Τ (Upper case Tau)
-    b"\xCE\xB1",  // α (Alpha)
-    b"\xCE\xB2",  // β (Beta)
-    b"\xCE\xB3",  // γ (Gamma)
-    b"\xCE\xB4",  // δ (Delta)
-    b"\xCE\xB5",  // ε (Epsilon)
-    b"\xCE\xB6",  // ζ (Zeta)
-    b"\xCE\xB7",  // η (Eta)
-    b"\xCE\xB8",  // θ (Theta)
-    b"\xCE\xB9",  // ι (Iota)
-    b"\xCE\xBA",  // κ (Kappa)
-    b"\xCE\xBB",  // λ (Lambda)
-    b"\xCE\xBC",  // μ (Mu)
-    b"\xCE\xBD",  // ν (Nu)
-    b"\xCE\xBE",  // ξ (Xi)
-    b"\xCE\xBF",  // ο (Omicron)
-    b"\xCF\x80",  // π (Pi)
-    b"\xCF\x81",  // ρ (Rho)
-    b"\xCF\x83",  // σ (Sigma)
-    b"t",         // t (Tau)
-    b"\xCF\x85",  // υ (Upsilon)
-    b"\xCF\x86", // φ (Phi)
-    b"\xCF\x87", // χ (Chi)
-    b"\xCF\x88", // ψ (Psi)
-    b"\xCF\x89", // ω (Omega)
+    DEFAULT_SYMBOL, // Τ (Upper case Tau)
+    b"\xCE\xB1",    // α (Alpha)
+    b"\xCE\xB2",    // β (Beta)
+    b"\xCE\xB3",    // γ (Gamma)
+    b"\xCE\xB4",    // δ (Delta)
+    b"\xCE\xB5",    // ε (Epsilon)
+    b"\xCE\xB6",    // ζ (Zeta)
+    b"\xCE\xB7",    // η (Eta)
+    b"\xCE\xB8",    // θ (Theta)
+    b"\xCE\xB9",    // ι (Iota)
+    b"\xCE\xBA",    // κ (Kappa)
+    b"\xCE\xBB",    // λ (Lambda)
+    b"\xCE\xBC",    // μ (Mu)
+    b"\xCE\xBD",    // ν (Nu)
+    b"\xCE\xBE",    // ξ (Xi)
+    b"\xCE\xBF",    // ο (Omicron)
+    b"\xCF\x80",    // π (Pi)
+    b"\xCF\x81",    // ρ (Rho)
+    b"\xCF\x83",    // σ (Sigma)
+    b"t",           // t (Tau)
+    b"\xCF\x85",    // υ (Upsilon)
+    b"\xCF\x86",    // φ (Phi)
+    b"\xCF\x87",    // χ (Chi)
+    b"\xCF\x88",    // ψ (Psi)
+    b"\xCF\x89",    // ω (Omega)
     // Hebrew Alphabet (Including Final Forms)
     b"\xD7\x90", // א (Aleph)
     b"\xD7\x91", // ב (Bet)
@@ -99,7 +99,6 @@ pub static SYMBOLS: [&[u8]; 439] = [
     b"\xD0\xAB",     // Ы (Cyrillic Yeru, 87)
     b"\xE1\x9B\x89", // ᛉ (Algiz, protection, 88)
     b"\xE1\x9B\x92", // ᛒ (Berkanan, birch, 89)
-
     // Ogham Alphabet
     b"\xE1\x9A\x80", //   (Space, 90)
     b"\xE1\x9A\x81", // ᚁ (Beith, birch, 91)
@@ -108,15 +107,13 @@ pub static SYMBOLS: [&[u8]; 439] = [
     b"\xE1\x9A\x84", // ᚄ (Sail, willow, 94)
     b"\xE1\x9A\x85", // ᚅ (Nion, ash, 95)
     b"\xE1\x9A\x9B", // ᚛ (Forfeda, 96)
-
     // Georgian Alphabet (Mkhedruli)
-    b"\xE1\x83\x90",  // ა (Ani, 97)
-    b"\xE1\x83\x91",  // ბ (Bani, 98)
-    b"\xE1\x83\x92",  // გ (Gani, 99)
+    b"\xE1\x83\x90", // ა (Ani, 97)
+    b"\xE1\x83\x91", // ბ (Bani, 98)
+    b"\xE1\x83\x92", // გ (Gani, 99)
     b"\xE1\x83\x93", // დ (Doni, 100)
     b"\xE1\x83\x94", // ე (Eni, 101)
     b"\xE1\x83\x95", // ვ (Vini, 102)
-
     // Armenian Alphabet
     b"\xD4\xB1", // Ա (Ayp, 103)
     b"\xD4\xB2", // Բ (Ben, 104)
@@ -125,7 +122,6 @@ pub static SYMBOLS: [&[u8]; 439] = [
     b"\xD4\xB5", // Ե (Ech, 107)
     b"\xD4\xB6", // Զ (Za, 108)
     b"\xD5\x9E", // ՞ (Question mark, 109)
-
     // Cyrillic Alphabet
     b"\xD0\x80", // Ѐ (Ie with grave, 110)
     b"\xD0\x81", // Ё (Io, 111)
@@ -134,7 +130,6 @@ pub static SYMBOLS: [&[u8]; 439] = [
     b"\xD0\x84", // Є (Ukrainian Ie, 114)
     b"\xD0\x85", // Ѕ (Dze, 115)
     b"\xD1\x8A", // Ъ (Hard sign, 116)
-
     // Coptic Alphabet
     b"\xE2\xB2\x80", // Ⲁ (Alfa, 117)
     b"\xE2\xB2\x81", // ⲁ (Small Alfa, 118)
@@ -142,14 +137,12 @@ pub static SYMBOLS: [&[u8]; 439] = [
     b"\xE2\xB2\x83", // ⲃ (Small Vida, 120)
     b"\xE2\xB2\x84", // Ⲅ (Gamma, 121)
     b"\xE2\xB2\x85", // ⲅ (Small Gamma, 122)
-
     // Brahmi Script
     b"\xF0\x91\x80\x80", // 𑀀 (A, 123)
     b"\xF0\x91\x80\x81", // 𑀁 (Aa, 124)
     b"\xF0\x91\x80\x82", // 𑀂 (I, 125)
     b"\xF0\x91\x80\x83", // 𑀃 (Ii, 126)
     b"\xF0\x91\x80\x85", // 𑀅 (U, 127)
-
     // End of Sinhala Alphabet
     b"\xE0\xB6\xB1", // ඲ (La, 128)
     b"\xE0\xB6\xB2", // ඳ (Va, 129)
@@ -157,7 +150,6 @@ pub static SYMBOLS: [&[u8]; 439] = [
     b"\xE0\xB6\xB4", // ඵ (Ssa, 131)
     b"\xE0\xB6\xB5", // බ (Sa, 132)
     b"\xE0\xB6\xB6", // භ (Ha, 133)
-
     // Glagolitic Alphabet
     b"\xE2\xB0\x80", // Ⰰ (Az, 134)
     b"\xE2\xB0\x81", // Ⰱ (Buky, 135)
@@ -192,7 +184,6 @@ pub static SYMBOLS: [&[u8]; 439] = [
     b"\xE2\xB0\x9E", // Ⱎ (Yo, 164)
     b"\xE2\xB0\x9F", // Ⱏ (Yu, 165)
     b"\xE2\xB0\xA0", // Ⱐ (Ja, 166)
-
     // Thai Alphabet
     b"\xE0\xB8\x81", // ก (Ko Kai, 167)
     b"\xE0\xB8\x82", // ข (Kho Khai, 168)
@@ -238,7 +229,6 @@ pub static SYMBOLS: [&[u8]; 439] = [
     b"\xE0\xB8\xAC", // ฬ (Lo Chula, 208)
     b"\xE0\xB8\xAD", // อ (O Ang, 209)
     b"\xE0\xB8\xAE", // ฮ (Ho Nokhuk, 210)
-
     // Hangul Alphabet (Korean)
     b"\xE1\x84\x80", // ㄱ (Giyeok, 211)
     b"\xE1\x84\x81", // ㄴ (Nieun, 212)
@@ -254,7 +244,6 @@ pub static SYMBOLS: [&[u8]; 439] = [
     b"\xE1\x84\x8B", // ㅌ (Tieut, 222)
     b"\xE1\x84\x8C", // ㅍ (Pieup, 223)
     b"\xE1\x84\x8D", // ㅎ (Hieut, 224)
-
     // Hangul Vowels
     b"\xE1\x85\xA1", // ㅏ (A, 225)
     b"\xE1\x85\xA2", // ㅐ (Ae, 226)
@@ -277,7 +266,6 @@ pub static SYMBOLS: [&[u8]; 439] = [
     b"\xE1\x85\xB3", // ㅡ (Eu, 243)
     b"\xE1\x85\xB4", // ㅢ (Ui, 244)
     b"\xE1\x85\xB5", // ㅣ (I, 245)
-
     // Ethiopic Alphabet
     b"\xE1\x8A\xA0", // አ (Glottal A, 246)
     b"\xE1\x8A\xA1", // ኡ (Glottal U, 247)
@@ -308,7 +296,6 @@ pub static SYMBOLS: [&[u8]; 439] = [
     b"\xE1\x8A\x94", // ጔ (Ge, 272)
     b"\xE1\x8A\x95", // ጕ (Gwe, 273)
     b"\xE1\x8A\x96", // ጖ (Go, 274)
-
     // Devanagari Alphabet
     b"\xE0\xA4\x85", // अ (A, 275)
     b"\xE0\xA4\x86", // आ (Aa, 276)
@@ -354,7 +341,6 @@ pub static SYMBOLS: [&[u8]; 439] = [
     b"\xE0\xA4\xB7", // ष (Ssa, 316)
     b"\xE0\xA4\xB8", // स (Sa, 317)
     b"\xE0\xA4\xB9", // ह (Ha, 318)
-
     // Katakana Alphabet
     b"\xE3\x82\xA2", // ア (A, 319)
     b"\xE3\x82\xA4", // イ (I, 320)
@@ -402,7 +388,6 @@ pub static SYMBOLS: [&[u8]; 439] = [
     b"\xE3\x83\xAF", // ワ (Wa, 362)
     b"\xE3\x83\xB2", // ヲ (Wo, 363)
     b"\xE3\x83\xB3", // ン (N, 364)
-
     // Tifinagh Alphabet
     b"\xE2\xB4\xB0", // ⴰ (Ya, 365)
     b"\xE2\xB4\xB1", // ⴱ (Yab, 366)
@@ -440,7 +425,6 @@ pub static SYMBOLS: [&[u8]; 439] = [
     b"\xE2\xB5\x91", // ⵑ (Yany, 398)
     b"\xE2\xB5\x92", // ⵒ (Yap, 399)
     b"\xE2\xB5\x93", // ⵓ (Yu, 400)
-
     // Sinhala Alphabet
     b"\xE0\xB6\x85", // අ (A, 401)
     b"\xE0\xB6\x86", // ආ (Aa, 402)
