@@ -254,7 +254,7 @@ impl<T: Config> Pallet<T> {
         }
         
         // If we have exhausted all symbols, we use the default symbol.
-        return available_symbol.unwrap_or(DEFAULT_SYMBOL.to_vec());
+        available_symbol.unwrap_or(DEFAULT_SYMBOL.to_vec())
     }
 
     /// Sets initial and custom parameters for a new network.
