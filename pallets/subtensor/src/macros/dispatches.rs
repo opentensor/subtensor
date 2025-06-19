@@ -2096,7 +2096,10 @@ mod dispatches {
         ) -> DispatchResult {
             Self::ensure_subnet_owner_or_root(origin, netuid)?;
 
-            if SYMBOLS.iter().find(|s| *s == &symbol).is_none() {
+            if SYMBOLS.iter()
+                      .skip(1) // Skip the root symbol
+                      .find(|s| *s == &symbol).is_none() 
+            {
                 return Err(Error::<T>::SymbolDoesNotExist.into());
             }
             
