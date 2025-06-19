@@ -42,7 +42,7 @@ use pallet_subtensor::rpc_info::{
     neuron_info::{NeuronInfo, NeuronInfoLite},
     show_subnet::SubnetState,
     stake_info::StakeInfo,
-    subnet_info::{SubnetHyperparams, SubnetInfo, SubnetInfov2},
+    subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
 };
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
@@ -217,7 +217,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 278,
+    spec_version: 279,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -2275,6 +2275,10 @@ impl_runtime_apis! {
 
         fn get_subnet_hyperparams(netuid: NetUid) -> Option<SubnetHyperparams> {
             SubtensorModule::get_subnet_hyperparams(netuid)
+        }
+
+        fn get_subnet_hyperparams_v2(netuid: NetUid) -> Option<SubnetHyperparamsV2> {
+            SubtensorModule::get_subnet_hyperparams_v2(netuid)
         }
 
         fn get_dynamic_info(netuid: NetUid) -> Option<DynamicInfo<AccountId32>> {

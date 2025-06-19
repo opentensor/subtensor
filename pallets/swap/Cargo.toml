@@ -49,6 +49,7 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"sp-tracing/std",
 	"sp-std/std",
 	"substrate-fixed/std",
 	"subtensor-runtime-common/std",
