@@ -218,5 +218,7 @@ mod errors {
         SameNetuid,
         /// Too frequent staking operations
         StakingOperationRateLimitExceeded,
+        /// The caller does not have enough balance for the operation.
+        InsufficientBalance,
     }
 }

@@ -58,6 +58,12 @@ pub trait SubtensorCustomApi<BlockHash> {
     fn get_subnets_info_v2(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetHyperparams")]
     fn get_subnet_hyperparams(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    #[method(name = "subnetInfo_getSubnetHyperparamsV2")]
+    fn get_subnet_hyperparams_v2(
+        &self,
+        netuid: NetUid,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getAllDynamicInfo")]
     fn get_all_dynamic_info(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getDynamicInfo")]
@@ -277,6 +283,22 @@ where
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         match api.get_subnet_hyperparams(at, netuid) {
+            Ok(result) => Ok(result.encode()),
+            Err(e) => {
+                Err(Error::RuntimeError(format!("Unable to get subnet info: {:?}", e)).into())
+            }
+        }
+    }
+
+    fn get_subnet_hyperparams_v2(
+        &self,
+        netuid: NetUid,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        match api.get_subnet_hyperparams_v2(at, netuid) {
             Ok(result) => Ok(result.encode()),
             Err(e) => {
                 Err(Error::RuntimeError(format!("Unable to get subnet info: {:?}", e)).into())

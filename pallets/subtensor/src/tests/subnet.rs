@@ -1,8 +1,10 @@
-use super::mock::*;
-use crate::*;
 use frame_support::{assert_noop, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
+
+use super::mock;
+use super::mock::*;
+use crate::*;
 
 /***************************
   pub fn do_start_call() tests
@@ -17,6 +19,7 @@ fn test_do_start_call_ok() {
 
         add_network_without_emission_block(netuid, tempo, 0);
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
+        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000);
 
         // account 0 is the default owner for any subnet
         assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey_account_id);
@@ -57,7 +60,14 @@ fn test_do_start_call_fail_not_owner() {
         let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let coldkey_account_id = U256::from(0);
-        let wrong_owner_account_id = U256::from(1);
+        let wrong_owner_account_id = U256::from(2);
+        let burn_cost = 1000;
+        //add network
+        SubtensorModule::set_burn(netuid, burn_cost);
+        add_network_without_emission_block(netuid, tempo, 0);
+        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000);
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
 
         add_network_without_emission_block(netuid, tempo, 0);
 
@@ -81,6 +91,13 @@ fn test_do_start_call_fail_with_cannot_start_call_now() {
         let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let coldkey_account_id = U256::from(0);
+        let burn_cost = 1000;
+        //add network
+        SubtensorModule::set_burn(netuid, burn_cost);
+        add_network_without_emission_block(netuid, tempo, 0);
+        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000);
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
 
         add_network_without_emission_block(netuid, tempo, 0);
 
@@ -102,9 +119,24 @@ fn test_do_start_call_fail_for_set_again() {
         let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let coldkey_account_id = U256::from(0);
+        let hotkey_account_id = U256::from(1);
+        let burn_cost = 1000;
 
+        SubtensorModule::set_burn(netuid, burn_cost);
         add_network_without_emission_block(netuid, tempo, 0);
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
+
+        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000);
+
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+
+        // Subscribe and check extrinsic output
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            netuid,
+            hotkey_account_id
+        ));
 
         assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey_account_id);
 
@@ -135,6 +167,7 @@ fn test_do_start_call_ok_with_same_block_number_after_coinbase() {
 
         add_network_without_emission_block(netuid, tempo, 0);
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
+        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000);
 
         assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey_account_id);
 
@@ -307,15 +340,12 @@ fn test_subtoken_enable_reject_trading_before_enable() {
             Error::<Test>::SubtokenDisabled
         );
 
-        // For unstake_all and unstake_all_alpha, the result is Ok, but the
+        // For unstake_all the result is Ok, but the
         // operation is not performed.
-        assert_ok!(
-            SubtensorModule::unstake_all(
-                RuntimeOrigin::signed(coldkey_account_id),
-                hotkey_account_id
-            ),
-            ()
-        );
+        assert_ok!(SubtensorModule::unstake_all(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id
+        ));
         // Check that the stake is still the same
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -326,12 +356,13 @@ fn test_subtoken_enable_reject_trading_before_enable() {
             stake_bal
         );
 
-        assert_ok!(
+        // For unstake_all_alpha, the result is AmountTooLow because no re-staking happens.
+        assert_noop!(
             SubtensorModule::unstake_all_alpha(
                 RuntimeOrigin::signed(coldkey_account_id),
                 hotkey_account_id
             ),
-            ()
+            Error::<Test>::AmountTooLow
         );
         // Check that the stake is still the same
         assert_eq!(
@@ -436,6 +467,13 @@ fn test_subtoken_enable_trading_ok_with_enable() {
 
         add_network(netuid, 10, 0);
         add_network(netuid2, 10, 0);
+
+        let reserve = stake_amount * 1000;
+        mock::setup_reserves(netuid, reserve, reserve);
+        mock::setup_reserves(netuid2, reserve, reserve);
+        SubnetAlphaOut::<Test>::insert(netuid, reserve);
+        SubnetAlphaOut::<Test>::insert(netuid2, reserve);
+
         // Register so staking works
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 0);
         register_ok_neuron(netuid2, hotkey_account_id, coldkey_account_id, 100);
@@ -524,11 +562,6 @@ fn test_subtoken_enable_trading_ok_with_enable() {
             unstake_amount,
         ));
 
-        assert_ok!(SubtensorModule::unstake_all(
-            RuntimeOrigin::signed(coldkey_account_id),
-            hotkey_account_id,
-        ));
-
         assert_ok!(SubtensorModule::unstake_all_alpha(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
@@ -567,6 +600,68 @@ fn test_subtoken_enable_ok_for_burn_register_before_enable() {
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             netuid2,
             hotkey_account_2_id
+        ));
+    });
+}
+
+#[test]
+fn test_user_liquidity_access_control() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+        let not_owner = U256::from(999); // arbitrary non-owner
+
+        // add network
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Initially should be disabled
+        assert!(!pallet_subtensor_swap::EnabledUserLiquidity::<Test>::get(
+            NetUid::from(netuid)
+        ));
+
+        // Not owner, not root: should fail
+        assert_noop!(
+            Swap::toggle_user_liquidity(RuntimeOrigin::signed(not_owner), netuid, true),
+            DispatchError::BadOrigin
+        );
+
+        // Subnet owner can enable
+        assert_ok!(Swap::toggle_user_liquidity(
+            RuntimeOrigin::signed(owner_coldkey),
+            netuid,
+            true
+        ));
+        assert!(pallet_subtensor_swap::EnabledUserLiquidity::<Test>::get(
+            NetUid::from(netuid)
+        ));
+
+        // Root can disable
+        assert_ok!(Swap::toggle_user_liquidity(
+            RuntimeOrigin::root(),
+            netuid,
+            false
+        ));
+        assert!(!pallet_subtensor_swap::EnabledUserLiquidity::<Test>::get(
+            NetUid::from(netuid)
+        ));
+
+        // Root can enable again
+        assert_ok!(Swap::toggle_user_liquidity(
+            RuntimeOrigin::root(),
+            netuid,
+            true
+        ));
+        assert!(pallet_subtensor_swap::EnabledUserLiquidity::<Test>::get(
+            NetUid::from(netuid)
+        ));
+
+        // Subnet owner cannot disable (only root can disable)
+        assert_noop!(
+            Swap::toggle_user_liquidity(RuntimeOrigin::signed(owner_coldkey), netuid, false),
+            DispatchError::BadOrigin
+        );
+        assert!(pallet_subtensor_swap::EnabledUserLiquidity::<Test>::get(
+            NetUid::from(netuid)
         ));
     });
 }
