@@ -11,6 +11,7 @@ mod dispatches {
     use frame_system::pallet_prelude::BlockNumberFor;
     use sp_core::ecdsa::Signature;
     use sp_runtime::traits::Saturating;
+    use crate::subnets::symbols::SYMBOLS;
 
     use crate::MAX_CRV3_COMMIT_SIZE_BYTES;
     /// Dispatchable functions allow users to interact with the pallet and invoke state changes.
@@ -2068,6 +2069,45 @@ mod dispatches {
         ) -> DispatchResult {
             ensure_root(origin)?;
             PendingChildKeyCooldown::<T>::put(cooldown);
+            Ok(())
+        }
+        
+        /// Sets the symbol for a subnet.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the subnet owner or root.
+        /// * `netuid` - The unique identifier of the subnet on which the symbol is being set.
+        /// * `symbol` - The symbol to set for the subnet.
+        ///
+        /// # Errors
+        /// Returns an error if:
+        /// * The transaction is not signed by the subnet owner.
+        /// * The symbol does not exist.
+        /// * The symbol is already in use by another subnet.
+        ///
+        /// # Events
+        /// Emits a `SymbolUpdated` event on success.
+        #[pallet::call_index(110)]
+        #[pallet::weight(Weight::zero())]
+        pub fn set_symbol(
+            origin: OriginFor<T>, 
+            netuid: NetUid, 
+            symbol: Vec<u8>,
+        ) -> DispatchResult {
+            Self::ensure_subnet_owner_or_root(origin, netuid)?;
+
+            if SYMBOLS.iter().find(|s| *s == &symbol).is_none() {
+                return Err(Error::<T>::SymbolDoesNotExist.into());
+            }
+            
+            let used_symbols = TokenSymbol::<T>::iter_values().collect::<Vec<_>>();
+            if used_symbols.contains(&symbol) {
+                return Err(Error::<T>::SymbolAlreadyInUse.into());
+            }
+            
+            TokenSymbol::<T>::insert(netuid, symbol.clone());
+
+            Self::deposit_event(Event::SymbolUpdated{ netuid, symbol });
             Ok(())
         }
     }

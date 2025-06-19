@@ -353,5 +353,13 @@ mod events {
             /// the subnet ID
             netuid: NetUid,
         },
+        
+        /// The symbol for a subnet has been updated.
+        SymbolUpdated {
+            /// The subnet ID
+            netuid: NetUid,
+            /// The symbol that has been updated
+            symbol: Vec<u8>,
+        }
     }
 }

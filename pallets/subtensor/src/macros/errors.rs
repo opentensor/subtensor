@@ -216,5 +216,9 @@ mod errors {
         ZeroMaxStakeAmount,
         /// Invalid netuid duplication
         SameNetuid,
+        /// Symbol does not exist.
+        SymbolDoesNotExist,
+        /// Symbol already in use.
+        SymbolAlreadyInUse,
     }
 }
