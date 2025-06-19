@@ -884,3 +884,12 @@ pub fn increase_stake_on_hotkey_account(hotkey: &U256, increment: u64, netuid: N
         netuid,
     );
 }
+
+#[allow(dead_code)]
+pub(crate) fn last_event() -> RuntimeEvent {
+    System::events().pop().expect("RuntimeEvent expected").event
+}
+
+pub fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+    frame_system::Pallet::<T>::assert_last_event(generic_event.into());
+}
