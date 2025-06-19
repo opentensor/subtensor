@@ -4687,7 +4687,7 @@ fn test_remove_stake_full_limit_ok() {
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
             netuid,
-            limit_price,
+            Some(limit_price),
         ));
 
         // Check if stake has decreased to zero
@@ -4739,9 +4739,55 @@ fn test_remove_stake_full_limit_fails_slippage_too_high() {
                 RuntimeOrigin::signed(coldkey_account_id),
                 hotkey_account_id,
                 netuid,
-                invalid_limit_price,
+                Some(invalid_limit_price),
             ),
             Error::<Test>::SlippageTooHigh
         );
+    });
+}
+
+#[test]
+fn test_remove_stake_full_limit_ok_with_no_limit_price() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(1);
+        let coldkey_account_id = U256::from(2);
+        let stake_amount = 10_000_000_000;
+
+        // add network
+        let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+            stake_amount,
+        );
+
+        let tao_reserve: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
+
+        // Remove stake with slippage safety
+        assert_ok!(SubtensorModule::remove_stake_full_limit(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            None,
+        ));
+
+        // Check if stake has decreased to zero
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey_account_id,
+                &coldkey_account_id,
+                netuid
+            ),
+            0
+        );
+
+        let new_balance = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
+        assert_abs_diff_eq!(new_balance, 9_090_000_000, epsilon = 1_000_000);
     });
 }

@@ -1374,7 +1374,7 @@ mod pallet_benchmarks {
             RawOrigin::Signed(coldkey.clone()),
             hotkey.clone(),
             netuid,
-            limit,
+            Some(limit),
         );
     }
 }
