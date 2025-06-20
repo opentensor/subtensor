@@ -48,10 +48,7 @@ impl<T: Config> Pallet<T> {
                 .into_iter()
                 .map(Compact)
                 .collect(),
-            token_symbol: Self::get_symbol_for_subnet(netuid)
-                .into_iter()
-                .map(Compact)
-                .collect(),
+            token_symbol: TokenSymbol::<T>::get(netuid),
             tempo: Tempo::<T>::get(netuid).into(),
             last_step: last_step.into(),
             blocks_since_last_step: blocks_since_last_step.into(),

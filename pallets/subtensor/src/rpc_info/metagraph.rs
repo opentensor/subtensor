@@ -659,10 +659,7 @@ impl<T: Config> Pallet<T> {
                 .into_iter()
                 .map(Compact)
                 .collect(), // Name
-            symbol: Self::get_symbol_for_subnet(netuid)
-                .into_iter()
-                .map(Compact)
-                .collect(), // Symbol.
+            symbol: TokenSymbol::<T>::get(netuid), // Symbol.
             identity: SubnetIdentitiesV3::<T>::get(netuid), // identity information.
             network_registered_at: NetworkRegisteredAt::<T>::get(netuid).into(), // block at registration
 
@@ -834,12 +831,7 @@ impl<T: Config> Pallet<T> {
             },
             Some(SelectiveMetagraphIndex::Symbol) => SelectiveMetagraph {
                 netuid: netuid.into(),
-                symbol: Some(
-                    Self::get_symbol_for_subnet(netuid)
-                        .into_iter()
-                        .map(Compact)
-                        .collect(),
-                ),
+                symbol: Some(TokenSymbol::<T>::get(netuid)),
                 ..Default::default()
             },
             Some(SelectiveMetagraphIndex::Identity) => SelectiveMetagraph {
