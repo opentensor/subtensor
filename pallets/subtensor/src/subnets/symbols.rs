@@ -1,6 +1,6 @@
 use super::*;
-use subtensor_runtime_common::NetUid;
 use sp_std::collections::btree_set::BTreeSet;
+use subtensor_runtime_common::NetUid;
 
 // TODO: default symbol should be different from the root symbol?
 pub static DEFAULT_SYMBOL: &[u8] = b"\xCE\xA4"; // TAO uppercase symbol

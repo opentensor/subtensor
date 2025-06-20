@@ -2092,7 +2092,11 @@ mod dispatches {
             DispatchClass::Operational,
             Pays::Yes
         ))]
-        pub fn update_symbol(origin: OriginFor<T>, netuid: NetUid, symbol: Vec<u8>) -> DispatchResult {
+        pub fn update_symbol(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            symbol: Vec<u8>,
+        ) -> DispatchResult {
             Self::ensure_subnet_owner_or_root(origin, netuid)?;
 
             if SYMBOLS
