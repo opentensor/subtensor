@@ -2,10 +2,10 @@ use core::marker::PhantomData;
 
 use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 use pallet_evm::PrecompileHandle;
+use parity_scale_codec::Encode;
 use precompile_utils::{EvmResult, prelude::Address};
 use sp_runtime::traits::{Dispatchable, StaticLookup};
 use sp_std::vec::Vec;
-use parity_scale_codec::Encode;
 
 use crate::PrecompileExt;
 
@@ -45,14 +45,12 @@ where
         evm_address: Address,
         limit: u16,
     ) -> EvmResult<Vec<(Address, u64)>> {
-        let results = pallet_subtensor::Pallet::<R>::hotkey_lookup(
-            netuid.into(),
-            evm_address.0,
-            limit,
-        );
-        
+        let results =
+            pallet_subtensor::Pallet::<R>::hotkey_lookup(netuid.into(), evm_address.0, limit);
+
         // Convert AccountId to Address for EVM compatibility
-        Ok(results.into_iter()
+        Ok(results
+            .into_iter()
             .map(|(account_id, block)| {
                 let mut bytes = [0u8; 20];
                 let account_bytes = account_id.encode();

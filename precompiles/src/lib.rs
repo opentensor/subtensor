@@ -28,25 +28,25 @@ use crate::alpha::*;
 use crate::balance_transfer::*;
 use crate::ed25519::*;
 use crate::extensions::*;
+use crate::hotkey_lookup::*;
 use crate::metagraph::*;
 use crate::neuron::*;
 use crate::sr25519::*;
 use crate::staking::*;
 use crate::storage_query::*;
 use crate::subnet::*;
-use crate::hotkey_lookup::*;
 
 mod alpha;
 mod balance_transfer;
 mod ed25519;
 mod extensions;
+mod hotkey_lookup;
 mod metagraph;
 mod neuron;
 mod sr25519;
 mod staking;
 mod storage_query;
 mod subnet;
-mod hotkey_lookup;
 pub struct Precompiles<R>(PhantomData<R>);
 
 impl<R> Default for Precompiles<R>

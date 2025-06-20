@@ -1,6 +1,6 @@
 use super::*;
 use frame_support::{
-    pallet_prelude::{Twox64Concat, OptionQuery},
+    pallet_prelude::{OptionQuery, Twox64Concat},
     storage_alias,
     traits::Get,
     weights::Weight,
@@ -46,10 +46,12 @@ pub fn migrate_evm_address_to_hotkey<T: Config>() -> Weight {
     let mut old_entries = Vec::new();
 
     // Read all old entries
-    deprecated_evm_address_format::AssociatedEvmAddress::<T>::iter().for_each(|(netuid, uid, (evm_address, block))| {
-        old_entries.push((netuid, uid, evm_address, block));
-        storage_reads = storage_reads.saturating_add(1);
-    });
+    deprecated_evm_address_format::AssociatedEvmAddress::<T>::iter().for_each(
+        |(netuid, uid, (evm_address, block))| {
+            old_entries.push((netuid, uid, evm_address, block));
+            storage_reads = storage_reads.saturating_add(1);
+        },
+    );
 
     weight = weight.saturating_add(T::DbWeight::get().reads(old_entries.len() as u64));
 
@@ -62,14 +64,14 @@ pub fn migrate_evm_address_to_hotkey<T: Config>() -> Weight {
         // Look up the hotkey for this uid on this subnet
         if let Ok(hotkey) = Keys::<T>::try_get(netuid, uid) {
             storage_reads = storage_reads.saturating_add(1);
-            
+
             // Store with the new format using hotkey
             AssociatedEvmAddress::<T>::insert(netuid, &hotkey, (evm_address, block));
             storage_writes = storage_writes.saturating_add(1);
             migrated_count = migrated_count.saturating_add(1);
-            
+
             weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
-            
+
             info!(
                 target: LOG_TARGET,
                 "Migrated EVM address {} from UID {} to hotkey {:?} on subnet {}",
@@ -79,7 +81,7 @@ pub fn migrate_evm_address_to_hotkey<T: Config>() -> Weight {
             // No hotkey found for this UID - the neuron may have been deregistered
             orphaned_count = orphaned_count.saturating_add(1);
             weight = weight.saturating_add(T::DbWeight::get().reads(1));
-            
+
             info!(
                 target: LOG_TARGET,
                 "WARNING: Orphaned EVM address {} for UID {} on subnet {} - no hotkey found",
