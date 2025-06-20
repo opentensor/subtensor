@@ -111,122 +111,122 @@ alloy-primitives = { version = "0.8.23", default-features = false }
 
 subtensor-macros = { path = "support/macros" }
 
-frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-frame-executive = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-frame-metadata-hash-extension = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-frame-support = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-frame-system = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-frame-system-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-frame-try-runtime = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
+frame-benchmarking = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+frame-benchmarking-cli = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+frame-executive = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+frame-metadata-hash-extension = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+frame-support = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+frame-system = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+frame-system-benchmarking = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+frame-system-rpc-runtime-api = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+frame-try-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
 frame-metadata = "18.0.0"
 
-pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-grandpa = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-insecure-randomness-collective-flip = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-membership = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-multisig = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-preimage = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
+pallet-balances = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-grandpa = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-insecure-randomness-collective-flip = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-membership = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-multisig = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-preimage = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
 pallet-proxy-opentensor = { path = "pallets/proxy", default-features = false }
-pallet-safe-mode = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-scheduler = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-sudo = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-timestamp = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-transaction-payment = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
+pallet-safe-mode = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-scheduler = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-sudo = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-timestamp = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-transaction-payment = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-transaction-payment-rpc = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
 pallet-utility-opentensor = { path = "pallets/utility", default-features = false }
-pallet-root-testing = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
+pallet-root-testing = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
 
-sc-basic-authorship = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-client-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-consensus = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-consensus-grandpa = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-consensus-grandpa-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-chain-spec-derive = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-chain-spec = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-consensus-slots = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-executor = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-keystore = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-network = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-offchain = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-rpc-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-service = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-telemetry = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-transaction-pool = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-transaction-pool-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
+sc-basic-authorship = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+sc-cli = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+sc-client-api = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+sc-consensus = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+sc-consensus-grandpa = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+sc-consensus-grandpa-rpc = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+sc-chain-spec-derive = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+sc-chain-spec = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+sc-consensus-slots = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+sc-executor = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+sc-keystore = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+sc-network = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+sc-offchain = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+sc-rpc = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+sc-rpc-api = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+sc-service = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+sc-telemetry = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+sc-transaction-pool = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+sc-transaction-pool-api = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
 
-sp-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-arithmetic = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-block-builder = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-blockchain = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-consensus = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sp-consensus-grandpa = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-genesis-builder = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-inherents = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-io = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-keyring = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-offchain = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-session = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-std = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-storage = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-timestamp = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sp-tracing = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-transaction-pool = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-version = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-weights = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
+sp-api = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-arithmetic = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-block-builder = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-blockchain = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-consensus = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+sp-consensus-grandpa = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-genesis-builder = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-core = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-inherents = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-io = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-keyring = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-offchain = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-rpc = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-session = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-std = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-storage = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-timestamp = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+sp-tracing = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-transaction-pool = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-version = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-weights = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
 
-substrate-build-script-utils = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
+substrate-build-script-utils = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
 substrate-fixed = { git = "https://github.com/opentensor/substrate-fixed.git", tag = "v0.5.9" }
-substrate-frame-rpc-system = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-substrate-wasm-builder = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-frame-election-provider-support = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-authority-discovery = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-authorship = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-babe = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-aura = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-bags-list = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-election-provider-multi-phase = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-fast-unstake = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-nomination-pools = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-nomination-pools-runtime-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-session = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-staking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-staking-runtime-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-staking-reward-fn = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-staking-reward-curve = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-offences = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-runtime-common = { package = "polkadot-runtime-common", git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
+substrate-frame-rpc-system = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+substrate-wasm-builder = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+frame-election-provider-support = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-authority-discovery = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-authorship = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-babe = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-aura = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-bags-list = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-election-provider-multi-phase = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-fast-unstake = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-nomination-pools = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-nomination-pools-runtime-api = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-session = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-staking = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-staking-runtime-api = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-staking-reward-fn = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-staking-reward-curve = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+pallet-offences = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+runtime-common = { package = "polkadot-runtime-common", git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
 
-sc-consensus-babe = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sc-consensus-babe-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
+sc-consensus-babe = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sc-consensus-babe-rpc = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
 
-sp-authority-discovery-primitives = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-authority-discovery = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-consensus-aura = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-consensus-slots = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-npos-elections = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-staking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-transaction-storage-proof = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-polkadot-core-primitives = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
+sp-authority-discovery-primitives = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-authority-discovery = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-consensus-aura = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-consensus-slots = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-npos-elections = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-staking = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sp-transaction-storage-proof = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+polkadot-core-primitives = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
 
-authority-discovery-primitives = { package = "sp-authority-discovery", git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-babe-primitives = { package = "sp-consensus-babe", git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-polkadot-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
+authority-discovery-primitives = { package = "sp-authority-discovery", git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+babe-primitives = { package = "sp-consensus-babe", git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+polkadot-rpc = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
 parity-scale-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
 	"derive",
 	"max-encoded-len",
 ] }
 
-sc-consensus-manual-seal = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sc-network-sync = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-substrate-prometheus-endpoint = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
+sc-consensus-manual-seal = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+sc-network-sync = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
+substrate-prometheus-endpoint = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
 
 # frontier
 fp-evm = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
@@ -263,13 +263,13 @@ pallet-hotfix-sufficients = { git = "https://github.com/opentensor/frontier", br
 
 #drand
 pallet-drand = { path = "pallets/drand", default-features = false }
-sp-crypto-ec-utils = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", features = [
+sp-crypto-ec-utils = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", features = [
 	"bls12-381",
 ] }
 getrandom = { version = "0.2.15", features = [
 	"custom",
 ], default-features = false }
-sp-keystore = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
+sp-keystore = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", default-features = false }
 w3f-bls = { version = "=0.1.3", default-features = false }
 ark-crypto-primitives = { version = "0.4.0", default-features = false, features = [
 	"r1cs",
@@ -293,7 +293,7 @@ sha2 = { version = "0.10.8", default-features = false }
 rand_chacha = { version = "0.3.1", default-features = false }
 tle = { git = "https://github.com/ideal-lab5/timelock", rev = "5416406cfd32799e31e1795393d4916894de4468", default-features = false }
 
-cumulus-primitives-proof-size-hostfunction = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", package = "cumulus-primitives-proof-size-hostfunction", default-features = false }
+cumulus-primitives-proof-size-hostfunction = { git = "https://github.com/liamaharon/polkadot-sdk.git", branch="allow-aura-to-babe-upgrades-polkadot-stable2412-6", package = "cumulus-primitives-proof-size-hostfunction", default-features = false }
 
 [profile.release]
 panic = "unwind"
@@ -319,1073 +319,3 @@ runtime-benchmarks = [
 metadata-hash = ["node-subtensor-runtime/metadata-hash"]
 pow-faucet = []
 
-# [patch."https://github.com/paritytech/polkadot-sdk"]
-# bridge-runtime-common = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/bin/runtime-common" }
-# bp-header-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/primitives/header-chain" }
-# bp-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/primitives/runtime" }
-# frame-support = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/support" }
-# binary-merkle-tree = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/binary-merkle-tree" }
-# sp-core = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/core" }
-# sp-crypto-hashing = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/crypto/hashing" }
-# sp-crypto-hashing-proc-macro = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/crypto/hashing/proc-macro" }
-# sp-debug-derive = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/debug-derive" }
-# sp-externalities = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/externalities" }
-# sp-storage = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/storage" }
-# sp-runtime-interface = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/runtime-interface" }
-# sp-runtime-interface-proc-macro = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/runtime-interface/proc-macro" }
-# sp-std = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/std" }
-# sp-tracing = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/tracing" }
-# sp-wasm-interface = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/wasm-interface" }
-# sp-io = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/io" }
-# sp-keystore = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/keystore" }
-# sp-state-machine = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/state-machine" }
-# sp-panic-handler = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/panic-handler" }
-# sp-trie = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/trie" }
-# sp-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/runtime" }
-# sp-application-crypto = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/application-crypto" }
-# sp-arithmetic = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/arithmetic" }
-# sp-weights = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/weights" }
-# sp-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/api" }
-# sp-api-proc-macro = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/api/proc-macro" }
-# sp-metadata-ir = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/metadata-ir" }
-# sp-version = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/version" }
-# sp-version-proc-macro = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/version/proc-macro" }
-# sp-test-primitives = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/test-primitives" }
-# substrate-test-runtime-client = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/test-utils/runtime/client" }
-# sc-block-builder = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/block-builder" }
-# sp-block-builder = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/block-builder" }
-# sp-inherents = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/inherents" }
-# sp-blockchain = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/blockchain" }
-# sp-consensus = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/consensus/common" }
-# sp-database = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/database" }
-# sc-client-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/api" }
-# substrate-prometheus-endpoint = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/prometheus" }
-# sc-executor = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/executor" }
-# sc-executor-common = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/executor/common" }
-# sc-allocator = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/allocator" }
-# sp-maybe-compressed-blob = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/maybe-compressed-blob" }
-# sc-executor-polkavm = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/executor/polkavm" }
-# sc-executor-wasmtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/executor/wasmtime" }
-# sc-runtime-test = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/executor/runtime-test" }
-# substrate-wasm-builder = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/wasm-builder" }
-# sc-tracing = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/tracing" }
-# sc-tracing-proc-macro = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/tracing/proc-macro" }
-# sp-rpc = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/rpc" }
-# substrate-test-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/test-utils/runtime" }
-# frame-executive = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/executive" }
-# frame-system = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/system" }
-# frame-try-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/try-runtime" }
-# pallet-balances = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/balances" }
-# frame-benchmarking = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/benchmarking" }
-# frame-support-procedural = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/support/procedural" }
-# frame-support-procedural-tools = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/support/procedural/tools" }
-# frame-support-procedural-tools-derive = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/support/procedural/tools/derive" }
-# pallet-transaction-payment = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/transaction-payment" }
-# frame-metadata-hash-extension = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/metadata-hash-extension" }
-# sp-transaction-pool = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/transaction-pool" }
-# frame-system-rpc-runtime-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/system/rpc/runtime-api" }
-# pallet-babe = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/babe" }
-# pallet-authorship = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/authorship" }
-# pallet-session = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/session" }
-# pallet-timestamp = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/timestamp" }
-# sp-timestamp = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/timestamp" }
-# sp-session = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/session" }
-# sp-staking = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/staking" }
-# sp-consensus-babe = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/consensus/babe" }
-# sp-consensus-slots = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/consensus/slots" }
-# frame-election-provider-support = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/election-provider-support" }
-# frame-election-provider-solution-type = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/election-provider-support/solution-type" }
-# sp-npos-elections = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/npos-elections" }
-# substrate-test-utils = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/test-utils" }
-# sc-service = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/service" }
-# sc-chain-spec = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/chain-spec" }
-# sc-chain-spec-derive = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/chain-spec/derive" }
-# sc-network = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/network" }
-# sc-network-common = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/network/common" }
-# sc-consensus = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/consensus/common" }
-# sc-network-types = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/network/types" }
-# sc-utils = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/utils" }
-# sp-consensus-grandpa = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/consensus/grandpa" }
-# sc-network-light = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/network/light" }
-# sc-network-sync = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/network/sync" }
-# fork-tree = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/fork-tree" }
-# sc-telemetry = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/telemetry" }
-# sp-genesis-builder = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/genesis-builder" }
-# sp-keyring = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/keyring" }
-# sc-client-db = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/db" }
-# sc-state-db = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/state-db" }
-# kitchensink-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/bin/node/runtime" }
-# node-primitives = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/bin/node/primitives" }
-# pallet-example-mbm = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/examples/multi-block-migrations" }
-# pallet-migrations = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/migrations" }
-# pallet-example-tasks = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/examples/tasks" }
-# polkadot-sdk = { path = "/users/liamaharon/grimoire/polkadot-sdk/umbrella" }
-# asset-test-utils = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/assets/test-utils" }
-# cumulus-pallet-parachain-system = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/pallets/parachain-system" }
-# cumulus-pallet-parachain-system-proc-macro = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/pallets/parachain-system/proc-macro" }
-# cumulus-primitives-core = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/primitives/core" }
-# polkadot-core-primitives = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/core-primitives" }
-# polkadot-parachain-primitives = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/parachain" }
-# polkadot-primitives = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/primitives" }
-# sp-authority-discovery = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/authority-discovery" }
-# polkadot-primitives-test-helpers = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/primitives/test-helpers" }
-# staging-xcm = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/xcm" }
-# xcm-procedural = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/xcm/procedural" }
-# cumulus-primitives-parachain-inherent = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/primitives/parachain-inherent" }
-# cumulus-primitives-proof-size-hostfunction = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/primitives/proof-size-hostfunction" }
-# pallet-message-queue = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/message-queue" }
-# polkadot-runtime-common = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/runtime/common" }
-# pallet-asset-rate = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/asset-rate" }
-# pallet-broker = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/broker" }
-# pallet-election-provider-multi-phase = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/election-provider-multi-phase" }
-# pallet-election-provider-support-benchmarking = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/election-provider-support/benchmarking" }
-# pallet-fast-unstake = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/fast-unstake" }
-# pallet-staking = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/staking" }
-# pallet-bags-list = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/bags-list" }
-# pallet-staking-reward-curve = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/staking/reward-curve" }
-# pallet-identity = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/identity" }
-# pallet-staking-reward-fn = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/staking/reward-fn" }
-# pallet-treasury = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/treasury" }
-# pallet-utility = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/utility" }
-# pallet-collective = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/collective" }
-# pallet-root-testing = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/root-testing" }
-# pallet-vesting = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/vesting" }
-# polkadot-runtime-parachains = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/runtime/parachains" }
-# pallet-authority-discovery = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/authority-discovery" }
-# pallet-mmr = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/merkle-mountain-range" }
-# sp-mmr-primitives = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/merkle-mountain-range" }
-# polkadot-runtime-metrics = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/runtime/metrics" }
-# staging-xcm-executor = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/xcm/xcm-executor" }
-# frame-support-test = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/support/test" }
-# frame-support-test-pallet = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/support/test/pallet" }
-# sc-keystore = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/keystore" }
-# slot-range-helper = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/runtime/common/slot_range_helper" }
-# staging-xcm-builder = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/xcm/xcm-builder" }
-# pallet-asset-conversion = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/asset-conversion" }
-# pallet-assets = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/assets" }
-# pallet-salary = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/salary" }
-# pallet-ranked-collective = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/ranked-collective" }
-# pallet-xcm = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/xcm/pallet-xcm" }
-# xcm-runtime-apis = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/xcm/xcm-runtime-apis" }
-# xcm-simulator = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/xcm/xcm-simulator" }
-# polkadot-test-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/runtime/test-runtime" }
-# pallet-grandpa = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/grandpa" }
-# pallet-offences = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/offences" }
-# pallet-indices = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/indices" }
-# pallet-sudo = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/sudo" }
-# pallet-transaction-payment-rpc-runtime-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/transaction-payment/rpc/runtime-api" }
-# sp-consensus-beefy = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/consensus/beefy" }
-# sp-offchain = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/offchain" }
-# test-runtime-constants = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/runtime/test-runtime/constants" }
-# cumulus-test-client = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/test/client" }
-# cumulus-primitives-storage-weight-reclaim = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/primitives/storage-weight-reclaim" }
-# cumulus-test-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/test/runtime" }
-# cumulus-pallet-aura-ext = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/pallets/aura-ext" }
-# pallet-aura = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/aura" }
-# sp-consensus-aura = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/consensus/aura" }
-# cumulus-primitives-aura = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/primitives/aura" }
-# pallet-collator-selection = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/pallets/collator-selection" }
-# pallet-glutton = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/glutton" }
-# staging-parachain-info = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/pallets/parachain-info" }
-# cumulus-test-relay-sproof-builder = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/test/relay-sproof-builder" }
-# cumulus-test-service = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/test/service" }
-# cumulus-client-cli = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/cli" }
-# sc-cli = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/cli" }
-# sc-mixnet = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/mixnet" }
-# sc-transaction-pool-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/transaction-pool/api" }
-# sp-mixnet = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/mixnet" }
-# sc-transaction-pool = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/transaction-pool" }
-# substrate-test-runtime-transaction-pool = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/test-utils/runtime/transaction-pool" }
-# cumulus-client-collator = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/collator" }
-# cumulus-client-consensus-common = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/consensus/common" }
-# cumulus-client-pov-recovery = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/pov-recovery" }
-# cumulus-relay-chain-interface = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/relay-chain-interface" }
-# polkadot-overseer = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/overseer" }
-# tracing-gum = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/gum" }
-# tracing-gum-proc-macro = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/gum/proc-macro" }
-# polkadot-node-metrics = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/metrics" }
-# polkadot-test-service = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/test/service" }
-# polkadot-node-primitives = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/primitives" }
-# polkadot-erasure-coding = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/erasure-coding" }
-# polkadot-node-subsystem = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/subsystem" }
-# polkadot-node-subsystem-types = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/subsystem-types" }
-# polkadot-node-network-protocol = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/network/protocol" }
-# sc-authority-discovery = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/authority-discovery" }
-# polkadot-statement-table = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/statement-table" }
-# polkadot-rpc = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/rpc" }
-# mmr-rpc = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/merkle-mountain-range/rpc" }
-# pallet-transaction-payment-rpc = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/transaction-payment/rpc" }
-# sc-consensus-babe = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/consensus/babe" }
-# sc-consensus-epochs = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/consensus/epochs" }
-# sc-consensus-slots = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/consensus/slots" }
-# sc-network-test = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/network/test" }
-# sc-consensus-babe-rpc = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/consensus/babe/rpc" }
-# sc-rpc-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/rpc-api" }
-# sc-consensus-beefy = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/consensus/beefy" }
-# sc-network-gossip = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/network-gossip" }
-# sc-consensus-beefy-rpc = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/consensus/beefy/rpc" }
-# sc-rpc = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/rpc" }
-# sp-statement-store = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/statement-store" }
-# sc-consensus-grandpa = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/consensus/grandpa" }
-# sc-consensus-grandpa-rpc = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/consensus/grandpa/rpc" }
-# sc-rpc-spec-v2 = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/rpc-spec-v2" }
-# sc-sync-state-rpc = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/sync-state-rpc" }
-# substrate-frame-rpc-system = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/frame/rpc/system" }
-# substrate-state-trie-migration-rpc = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/frame/rpc/state-trie-migration-rpc" }
-# polkadot-service = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/service" }
-# frame-benchmarking-cli = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/frame/benchmarking-cli" }
-# cumulus-client-parachain-inherent = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/parachain-inherent" }
-# sc-sysinfo = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/sysinfo" }
-# westend-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/runtime/westend" }
-# frame-system-benchmarking = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/system/benchmarking" }
-# pallet-beefy = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/beefy" }
-# pallet-beefy-mmr = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/beefy-mmr" }
-# pallet-conviction-voting = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/conviction-voting" }
-# pallet-scheduler = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/scheduler" }
-# pallet-preimage = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/preimage" }
-# pallet-delegated-staking = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/delegated-staking" }
-# pallet-nomination-pools = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/nomination-pools" }
-# pallet-democracy = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/democracy" }
-# pallet-elections-phragmen = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/elections-phragmen" }
-# pallet-membership = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/membership" }
-# pallet-multisig = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/multisig" }
-# polkadot-sdk-frame = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame" }
-# pallet-examples = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/examples" }
-# pallet-default-config-example = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/examples/default-config" }
-# pallet-dev-mode = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/examples/dev-mode" }
-# pallet-example-authorization-tx-extension = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/examples/authorization-tx-extension" }
-# pallet-verify-signature = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/verify-signature" }
-# pallet-example-basic = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/examples/basic" }
-# pallet-example-frame-crate = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/examples/frame-crate" }
-# pallet-example-kitchensink = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/examples/kitchensink" }
-# pallet-example-offchain-worker = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/examples/offchain-worker" }
-# pallet-example-single-block-migrations = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/examples/single-block-migrations" }
-# pallet-example-split = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/examples/split" }
-# pallet-nomination-pools-benchmarking = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/nomination-pools/benchmarking" }
-# pallet-nomination-pools-runtime-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/nomination-pools/runtime-api" }
-# pallet-offences-benchmarking = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/offences/benchmarking" }
-# pallet-im-online = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/im-online" }
-# pallet-parameters = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/parameters" }
-# pallet-proxy = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/proxy" }
-# pallet-recovery = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/recovery" }
-# pallet-referenda = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/referenda" }
-# pallet-session-benchmarking = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/session/benchmarking" }
-# pallet-society = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/society" }
-# pallet-staking-runtime-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/staking/runtime-api" }
-# pallet-state-trie-migration = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/state-trie-migration" }
-# frame-remote-externalities = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/frame/remote-externalities" }
-# substrate-rpc-client = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/frame/rpc/client" }
-# pallet-whitelist = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/whitelist" }
-# pallet-xcm-benchmarks = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/xcm/pallet-xcm-benchmarks" }
-# westend-runtime-constants = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/runtime/westend/constants" }
-# mmr-gadget = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/merkle-mountain-range" }
-# sc-offchain = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/offchain" }
-# polkadot-approval-distribution = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/network/approval-distribution" }
-# polkadot-node-subsystem-util = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/subsystem-util" }
-# polkadot-node-subsystem-test-helpers = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/subsystem-test-helpers" }
-# polkadot-availability-bitfield-distribution = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/network/bitfield-distribution" }
-# polkadot-availability-distribution = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/network/availability-distribution" }
-# polkadot-subsystem-bench = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/subsystem-bench" }
-# polkadot-availability-recovery = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/network/availability-recovery" }
-# polkadot-node-core-approval-voting = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/approval-voting" }
-# polkadot-node-core-approval-voting-parallel = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/approval-voting-parallel" }
-# polkadot-node-core-av-store = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/av-store" }
-# polkadot-node-core-chain-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/chain-api" }
-# polkadot-statement-distribution = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/network/statement-distribution" }
-# polkadot-collator-protocol = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/network/collator-protocol" }
-# polkadot-dispute-distribution = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/network/dispute-distribution" }
-# polkadot-gossip-support = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/network/gossip-support" }
-# polkadot-network-bridge = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/network/bridge" }
-# polkadot-node-collation-generation = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/collation-generation" }
-# polkadot-node-core-backing = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/backing" }
-# polkadot-node-core-bitfield-signing = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/bitfield-signing" }
-# polkadot-node-core-candidate-validation = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/candidate-validation" }
-# polkadot-node-core-pvf = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/pvf" }
-# polkadot-node-core-pvf-common = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/pvf/common" }
-# polkadot-node-core-pvf-execute-worker = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/pvf/execute-worker" }
-# polkadot-node-core-pvf-prepare-worker = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/pvf/prepare-worker" }
-# staging-tracking-allocator = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/tracking-allocator" }
-# rococo-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/runtime/rococo" }
-# pallet-bounties = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/bounties" }
-# pallet-child-bounties = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/child-bounties" }
-# pallet-nis = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/nis" }
-# pallet-tips = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/tips" }
-# rococo-runtime-constants = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/runtime/rococo/constants" }
-# test-parachain-adder = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/parachain/test-parachains/adder" }
-# test-parachain-halt = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/parachain/test-parachains/halt" }
-# polkadot-node-core-chain-selection = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/chain-selection" }
-# polkadot-node-core-dispute-coordinator = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/dispute-coordinator" }
-# polkadot-node-core-parachains-inherent = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/parachains-inherent" }
-# polkadot-node-core-prospective-parachains = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/prospective-parachains" }
-# polkadot-node-core-provisioner = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/provisioner" }
-# polkadot-node-core-pvf-checker = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/pvf-checker" }
-# polkadot-node-core-runtime-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/runtime-api" }
-# sc-basic-authorship = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/basic-authorship" }
-# sc-proposer-metrics = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/proposer-metrics" }
-# polkadot-test-client = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/test/client" }
-# substrate-test-client = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/test-utils/client" }
-# cumulus-client-network = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/network" }
-# cumulus-relay-chain-inprocess-interface = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/relay-chain-inprocess-interface" }
-# polkadot-cli = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/cli" }
-# sc-storage-monitor = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/storage-monitor" }
-# substrate-build-script-utils = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/build-script-utils" }
-# cumulus-client-consensus-aura = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/consensus/aura" }
-# cumulus-client-consensus-proposer = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/consensus/proposer" }
-# sc-consensus-aura = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/consensus/aura" }
-# cumulus-client-consensus-relay-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/consensus/relay-chain" }
-# cumulus-client-service = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/service" }
-# cumulus-relay-chain-minimal-node = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/relay-chain-minimal-node" }
-# cumulus-relay-chain-rpc-interface = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/relay-chain-rpc-interface" }
-# sc-network-transactions = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/network/transactions" }
-# parachains-common = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/common" }
-# cumulus-primitives-utility = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/primitives/utility" }
-# pallet-asset-tx-payment = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/transaction-payment/asset-tx-payment" }
-# cumulus-pallet-xcmp-queue = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/pallets/xcmp-queue" }
-# bp-xcm-bridge-hub-router = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/primitives/xcm-bridge-hub-router" }
-# pallet-xcm-bridge-hub-router = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/modules/xcm-bridge-hub-router" }
-# parachains-runtimes-test-utils = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/test-utils" }
-# assets-common = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/assets/common" }
-# bp-messages = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/primitives/messages" }
-# bp-parachains = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/primitives/parachains" }
-# bp-polkadot-core = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/primitives/polkadot-core" }
-# bp-polkadot = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/chains/chain-polkadot" }
-# bp-relayers = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/primitives/relayers" }
-# bp-test-utils = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/primitives/test-utils" }
-# bp-xcm-bridge-hub = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/primitives/xcm-bridge-hub" }
-# bridge-hub-common = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/bridge-hubs/common" }
-# snowbridge-core = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/primitives/core" }
-# snowbridge-beacon-primitives = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/primitives/beacon" }
-# snowbridge-ethereum = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/primitives/ethereum" }
-# bridge-hub-test-utils = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/bridge-hubs/test-utils" }
-# pallet-bridge-grandpa = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/modules/grandpa" }
-# pallet-bridge-messages = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/modules/messages" }
-# pallet-bridge-parachains = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/modules/parachains" }
-# pallet-bridge-relayers = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/modules/relayers" }
-# pallet-xcm-bridge-hub = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/modules/xcm-bridge-hub" }
-# cumulus-pallet-dmp-queue = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/pallets/dmp-queue" }
-# cumulus-pallet-session-benchmarking = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/pallets/session-benchmarking" }
-# cumulus-pallet-solo-to-para = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/pallets/solo-to-para" }
-# cumulus-pallet-xcm = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/pallets/xcm" }
-# cumulus-ping = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/pallets/ping" }
-# cumulus-primitives-timestamp = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/primitives/timestamp" }
-# emulated-integration-tests-common = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/common" }
-# xcm-emulator = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/xcm/xcm-emulator" }
-# frame-benchmarking-pallet-pov = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/benchmarking/pov" }
-# generate-bags = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/frame/generate-bags" }
-# pallet-alliance = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/alliance" }
-# pallet-asset-conversion-ops = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/asset-conversion/ops" }
-# pallet-asset-conversion-tx-payment = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/transaction-payment/asset-conversion-tx-payment" }
-# pallet-assets-freezer = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/assets-freezer" }
-# pallet-atomic-swap = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/atomic-swap" }
-# pallet-collective-content = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/pallets/collective-content" }
-# pallet-contracts = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/contracts" }
-# pallet-contracts-proc-macro = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/contracts/proc-macro" }
-# pallet-contracts-uapi = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/contracts/uapi" }
-# pallet-contracts-fixtures = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/contracts/fixtures" }
-# pallet-insecure-randomness-collective-flip = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/insecure-randomness-collective-flip" }
-# pallet-contracts-mock-network = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/contracts/mock-network" }
-# pallet-core-fellowship = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/core-fellowship" }
-# pallet-lottery = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/lottery" }
-# pallet-mixnet = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/mixnet" }
-# pallet-nft-fractionalization = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/nft-fractionalization" }
-# pallet-nfts = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/nfts" }
-# pallet-nfts-runtime-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/nfts/runtime-api" }
-# pallet-node-authorization = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/node-authorization" }
-# pallet-paged-list = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/paged-list" }
-# pallet-remark = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/remark" }
-# pallet-root-offences = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/root-offences" }
-# pallet-safe-mode = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/safe-mode" }
-# pallet-scored-pool = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/scored-pool" }
-# pallet-skip-feeless-payment = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/transaction-payment/skip-feeless-payment" }
-# pallet-statement = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/statement" }
-# pallet-transaction-storage = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/transaction-storage" }
-# sp-transaction-storage-proof = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/transaction-storage-proof" }
-# pallet-tx-pause = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/tx-pause" }
-# pallet-uniques = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/uniques" }
-# polkadot-omni-node-lib = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/polkadot-omni-node/lib" }
-# sc-consensus-manual-seal = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/consensus/manual-seal" }
-# sc-consensus-pow = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/consensus/pow" }
-# sp-consensus-pow = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/consensus/pow" }
-# sc-informant = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/informant" }
-# sc-network-statement = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/network/statement" }
-# sc-rpc-server = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/rpc-servers" }
-# sc-statement-store = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/statement-store" }
-# snowbridge-outbound-queue-merkle-tree = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/pallets/outbound-queue/merkle-tree" }
-# snowbridge-outbound-queue-runtime-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/pallets/outbound-queue/runtime-api" }
-# snowbridge-pallet-ethereum-client = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/pallets/ethereum-client" }
-# snowbridge-pallet-ethereum-client-fixtures = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/pallets/ethereum-client/fixtures" }
-# snowbridge-pallet-inbound-queue = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/pallets/inbound-queue" }
-# snowbridge-pallet-inbound-queue-fixtures = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/pallets/inbound-queue/fixtures" }
-# snowbridge-router-primitives = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/primitives/router" }
-# snowbridge-pallet-outbound-queue = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/pallets/outbound-queue" }
-# snowbridge-pallet-system = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/pallets/system" }
-# snowbridge-runtime-common = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/runtime/runtime-common" }
-# snowbridge-runtime-test-common = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/runtime/test-common" }
-# snowbridge-system-runtime-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/pallets/system/runtime-api" }
-# sp-core-hashing = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/deprecated/hashing" }
-# sp-core-hashing-proc-macro = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/deprecated/hashing/proc-macro" }
-# sp-crypto-ec-utils = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/crypto/ec-utils" }
-# staging-chain-spec-builder = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/bin/utils/chain-spec-builder" }
-# staging-node-inspect = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/bin/node/inspect" }
-# subkey = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/bin/utils/subkey" }
-# substrate-bip39 = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/substrate-bip39" }
-# substrate-frame-rpc-support = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/frame/rpc/support" }
-# testnet-parachains-constants = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/constants" }
-# sp-runtime-interface-test-wasm = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/runtime-interface/test-wasm" }
-# bp-asset-hub-rococo = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/chains/chain-asset-hub-rococo" }
-# bp-asset-hub-westend = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/chains/chain-asset-hub-westend" }
-# bp-bridge-hub-cumulus = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/chains/chain-bridge-hub-cumulus" }
-# bp-bridge-hub-kusama = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/chains/chain-bridge-hub-kusama" }
-# bp-bridge-hub-polkadot = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/chains/chain-bridge-hub-polkadot" }
-# bp-bridge-hub-rococo = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/chains/chain-bridge-hub-rococo" }
-# bp-bridge-hub-westend = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/chains/chain-bridge-hub-westend" }
-# bp-kusama = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/chains/chain-kusama" }
-# bp-polkadot-bulletin = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/chains/chain-polkadot-bulletin" }
-# bp-rococo = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/chains/chain-rococo" }
-# bp-westend = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/chains/chain-westend" }
-# pallet-bridge-beefy = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/modules/beefy" }
-# bp-beefy = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/primitives/beefy" }
-# relay-substrate-client = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/relays/client-substrate" }
-# finality-relay = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/relays/finality" }
-# relay-utils = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/relays/utils" }
-# equivocation-detector = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/relays/equivocation" }
-# substrate-relay-helper = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/relays/lib-substrate-relay" }
-# messages-relay = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/relays/messages" }
-# parachains-relay = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/relays/parachains" }
-# cumulus-pov-validator = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/bin/pov-validator" }
-# asset-hub-rococo-emulated-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-rococo" }
-# asset-hub-rococo-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/assets/asset-hub-rococo" }
-# rococo-emulated-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/chains/relays/rococo" }
-# asset-hub-westend-emulated-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-westend" }
-# asset-hub-westend-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/assets/asset-hub-westend" }
-# westend-emulated-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/chains/relays/westend" }
-# bridge-hub-rococo-emulated-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-rococo" }
-# bridge-hub-rococo-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo" }
-# bridge-hub-westend-emulated-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-westend" }
-# bridge-hub-westend-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend" }
-# collectives-westend-emulated-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/chains/parachains/collectives/collectives-westend" }
-# collectives-westend-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/collectives/collectives-westend" }
-# coretime-rococo-emulated-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-rococo" }
-# coretime-rococo-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/coretime/coretime-rococo" }
-# coretime-westend-emulated-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-westend" }
-# coretime-westend-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/coretime/coretime-westend" }
-# people-rococo-emulated-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/chains/parachains/people/people-rococo" }
-# people-rococo-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/people/people-rococo" }
-# people-westend-emulated-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/chains/parachains/people/people-westend" }
-# people-westend-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/people/people-westend" }
-# penpal-emulated-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/chains/parachains/testing/penpal" }
-# penpal-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/testing/penpal" }
-# rococo-system-emulated-network = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/networks/rococo-system" }
-# rococo-westend-system-emulated-network = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/networks/rococo-westend-system" }
-# westend-system-emulated-network = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/networks/westend-system" }
-# asset-hub-rococo-integration-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/tests/assets/asset-hub-rococo" }
-# asset-hub-westend-integration-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/tests/assets/asset-hub-westend" }
-# bridge-hub-rococo-integration-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/tests/bridges/bridge-hub-rococo" }
-# bridge-hub-westend-integration-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/tests/bridges/bridge-hub-westend" }
-# collectives-westend-integration-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/tests/collectives/collectives-westend" }
-# coretime-rococo-integration-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/tests/coretime/coretime-rococo" }
-# coretime-westend-integration-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/tests/coretime/coretime-westend" }
-# people-rococo-integration-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/tests/people/people-rococo" }
-# people-westend-integration-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/tests/people/people-westend" }
-# contracts-rococo-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/contracts/contracts-rococo" }
-# glutton-westend-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/glutton/glutton-westend" }
-# rococo-parachain-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/testing/rococo-parachain" }
-# polkadot-omni-node = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/polkadot-omni-node" }
-# polkadot-parachain-bin = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/polkadot-parachain" }
-# polkadot-sdk-docs = { path = "/users/liamaharon/grimoire/polkadot-sdk/docs/sdk" }
-# chain-spec-guide-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/docs/sdk/src/reference_docs/chain_spec_runtime" }
-# polkadot-sdk-docs-first-pallet = { path = "/users/liamaharon/grimoire/polkadot-sdk/docs/sdk/packages/guides/first-pallet" }
-# polkadot-sdk-docs-first-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/docs/sdk/packages/guides/first-runtime" }
-# minimal-template-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/templates/minimal/runtime" }
-# pallet-minimal-template = { path = "/users/liamaharon/grimoire/polkadot-sdk/templates/minimal/pallets/template" }
-# staging-node-cli = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/bin/node/cli" }
-# node-rpc = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/bin/node/rpc" }
-# node-testing = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/bin/node/testing" }
-# sc-service-test = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/service/test" }
-# substrate-cli-test-utils = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/test-utils/cli" }
-# parachain-template-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/templates/parachain/runtime" }
-# pallet-parachain-template = { path = "/users/liamaharon/grimoire/polkadot-sdk/templates/parachain/pallets/template" }
-# solochain-template-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/templates/solochain/runtime" }
-# pallet-template = { path = "/users/liamaharon/grimoire/polkadot-sdk/templates/solochain/pallets/template" }
-# xcm-docs = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/xcm/docs" }
-# polkadot = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot" }
-# erasure_coding_fuzzer = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/erasure-coding/fuzzer" }
-# polkadot-test-malus = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/malus" }
-# zombienet-backchannel = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/zombienet-backchannel" }
-# test-parachains = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/parachain/test-parachains" }
-# test-parachain-adder-collator = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/parachain/test-parachains/adder/collator" }
-# test-parachain-undying = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/parachain/test-parachains/undying" }
-# test-parachain-undying-collator = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/parachain/test-parachains/undying/collator" }
-# polkadot-voter-bags = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/utils/generate-bags" }
-# remote-ext-tests-bags-list = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/utils/remote-ext-tests/bags-list" }
-# pallet-bags-list-remote-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/bags-list/remote-tests" }
-# xcm-executor-integration-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/xcm/xcm-executor/integration-tests" }
-# xcm-simulator-example = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/xcm/xcm-simulator/example" }
-# xcm-simulator-fuzzer = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/xcm/xcm-simulator/fuzzer" }
-# polkadot-zombienet-sdk-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/zombienet-sdk-tests" }
-# node-bench = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/bin/node/bench" }
-# pallet-bags-list-fuzzer = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/bags-list/fuzzer" }
-# pallet-election-provider-e2e-test = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/election-provider-multi-phase/test-staking-e2e" }
-# frame-election-solution-type-fuzzer = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/election-provider-support/solution-type/fuzzer" }
-# pallet-nomination-pools-fuzzer = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/nomination-pools/fuzzer" }
-# pallet-nomination-pools-test-delegate-stake = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/nomination-pools/test-delegate-stake" }
-# pallet-nomination-pools-test-transfer-stake = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/nomination-pools/test-transfer-stake" }
-# pallet-paged-list-fuzzer = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/paged-list/fuzzer" }
-# pallet-revive = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/revive" }
-# pallet-revive-fixtures = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/revive/fixtures" }
-# pallet-revive-proc-macro = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/revive/proc-macro" }
-# pallet-revive-uapi = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/revive/uapi" }
-# pallet-revive-mock-network = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/revive/mock-network" }
-# pallet-revive-eth-rpc = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/revive/rpc" }
-# frame-support-test-compile-pass = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/support/test/compile_pass" }
-# frame-support-test-stg-frame-crate = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/support/test/stg_frame_crate" }
-# sp-api-test = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/api/test" }
-# sp-application-crypto-test = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/application-crypto/test" }
-# sp-arithmetic-fuzzer = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/arithmetic/fuzzer" }
-# sp-core-fuzz = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/core/fuzz" }
-# sp-npos-elections-fuzzer = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/npos-elections/fuzzer" }
-# sp-runtime-interface-test = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/runtime-interface/test" }
-# sp-runtime-interface-test-wasm-deprecated = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/runtime-interface/test-wasm-deprecated" }
-# node-template-release = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/scripts/ci/node-template-release" }
-# node-runtime-generate-bags = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/frame/generate-bags/node-runtime" }
-# frame-omni-bencher = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/frame/omni-bencher" }
-# minimal-template-node = { path = "/users/liamaharon/grimoire/polkadot-sdk/templates/minimal/node" }
-# parachain-template-node = { path = "/users/liamaharon/grimoire/polkadot-sdk/templates/parachain/node" }
-# solochain-template-node = { path = "/users/liamaharon/grimoire/polkadot-sdk/templates/solochain/node" }
-# template-zombienet-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/templates/zombienet" }
-#
-# [patch."https://github.com/liamaharon/polkadot-sdk"]
-# bridge-runtime-common = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/bin/runtime-common" }
-# bp-header-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/primitives/header-chain" }
-# bp-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/primitives/runtime" }
-# frame-support = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/support" }
-# binary-merkle-tree = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/binary-merkle-tree" }
-# sp-core = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/core" }
-# sp-crypto-hashing = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/crypto/hashing" }
-# sp-crypto-hashing-proc-macro = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/crypto/hashing/proc-macro" }
-# sp-debug-derive = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/debug-derive" }
-# sp-externalities = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/externalities" }
-# sp-storage = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/storage" }
-# sp-runtime-interface = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/runtime-interface" }
-# sp-runtime-interface-proc-macro = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/runtime-interface/proc-macro" }
-# sp-std = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/std" }
-# sp-tracing = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/tracing" }
-# sp-wasm-interface = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/wasm-interface" }
-# sp-io = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/io" }
-# sp-keystore = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/keystore" }
-# sp-state-machine = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/state-machine" }
-# sp-panic-handler = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/panic-handler" }
-# sp-trie = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/trie" }
-# sp-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/runtime" }
-# sp-application-crypto = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/application-crypto" }
-# sp-arithmetic = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/arithmetic" }
-# sp-weights = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/weights" }
-# sp-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/api" }
-# sp-api-proc-macro = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/api/proc-macro" }
-# sp-metadata-ir = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/metadata-ir" }
-# sp-version = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/version" }
-# sp-version-proc-macro = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/version/proc-macro" }
-# sp-test-primitives = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/test-primitives" }
-# substrate-test-runtime-client = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/test-utils/runtime/client" }
-# sc-block-builder = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/block-builder" }
-# sp-block-builder = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/block-builder" }
-# sp-inherents = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/inherents" }
-# sp-blockchain = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/blockchain" }
-# sp-consensus = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/consensus/common" }
-# sp-database = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/database" }
-# sc-client-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/api" }
-# substrate-prometheus-endpoint = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/prometheus" }
-# sc-executor = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/executor" }
-# sc-executor-common = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/executor/common" }
-# sc-allocator = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/allocator" }
-# sp-maybe-compressed-blob = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/maybe-compressed-blob" }
-# sc-executor-polkavm = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/executor/polkavm" }
-# sc-executor-wasmtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/executor/wasmtime" }
-# sc-runtime-test = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/executor/runtime-test" }
-# substrate-wasm-builder = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/wasm-builder" }
-# sc-tracing = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/tracing" }
-# sc-tracing-proc-macro = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/tracing/proc-macro" }
-# sp-rpc = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/rpc" }
-# substrate-test-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/test-utils/runtime" }
-# frame-executive = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/executive" }
-# frame-system = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/system" }
-# frame-try-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/try-runtime" }
-# pallet-balances = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/balances" }
-# frame-benchmarking = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/benchmarking" }
-# frame-support-procedural = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/support/procedural" }
-# frame-support-procedural-tools = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/support/procedural/tools" }
-# frame-support-procedural-tools-derive = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/support/procedural/tools/derive" }
-# pallet-transaction-payment = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/transaction-payment" }
-# frame-metadata-hash-extension = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/metadata-hash-extension" }
-# sp-transaction-pool = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/transaction-pool" }
-# frame-system-rpc-runtime-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/system/rpc/runtime-api" }
-# pallet-babe = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/babe" }
-# pallet-authorship = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/authorship" }
-# pallet-session = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/session" }
-# pallet-timestamp = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/timestamp" }
-# sp-timestamp = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/timestamp" }
-# sp-session = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/session" }
-# sp-staking = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/staking" }
-# sp-consensus-babe = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/consensus/babe" }
-# sp-consensus-slots = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/consensus/slots" }
-# frame-election-provider-support = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/election-provider-support" }
-# frame-election-provider-solution-type = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/election-provider-support/solution-type" }
-# sp-npos-elections = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/npos-elections" }
-# substrate-test-utils = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/test-utils" }
-# sc-service = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/service" }
-# sc-chain-spec = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/chain-spec" }
-# sc-chain-spec-derive = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/chain-spec/derive" }
-# sc-network = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/network" }
-# sc-network-common = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/network/common" }
-# sc-consensus = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/consensus/common" }
-# sc-network-types = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/network/types" }
-# sc-utils = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/utils" }
-# sp-consensus-grandpa = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/consensus/grandpa" }
-# sc-network-light = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/network/light" }
-# sc-network-sync = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/network/sync" }
-# fork-tree = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/fork-tree" }
-# sc-telemetry = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/telemetry" }
-# sp-genesis-builder = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/genesis-builder" }
-# sp-keyring = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/keyring" }
-# sc-client-db = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/db" }
-# sc-state-db = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/state-db" }
-# kitchensink-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/bin/node/runtime" }
-# node-primitives = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/bin/node/primitives" }
-# pallet-example-mbm = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/examples/multi-block-migrations" }
-# pallet-migrations = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/migrations" }
-# pallet-example-tasks = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/examples/tasks" }
-# polkadot-sdk = { path = "/users/liamaharon/grimoire/polkadot-sdk/umbrella" }
-# asset-test-utils = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/assets/test-utils" }
-# cumulus-pallet-parachain-system = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/pallets/parachain-system" }
-# cumulus-pallet-parachain-system-proc-macro = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/pallets/parachain-system/proc-macro" }
-# cumulus-primitives-core = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/primitives/core" }
-# polkadot-core-primitives = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/core-primitives" }
-# polkadot-parachain-primitives = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/parachain" }
-# polkadot-primitives = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/primitives" }
-# sp-authority-discovery = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/authority-discovery" }
-# polkadot-primitives-test-helpers = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/primitives/test-helpers" }
-# staging-xcm = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/xcm" }
-# xcm-procedural = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/xcm/procedural" }
-# cumulus-primitives-parachain-inherent = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/primitives/parachain-inherent" }
-# cumulus-primitives-proof-size-hostfunction = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/primitives/proof-size-hostfunction" }
-# pallet-message-queue = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/message-queue" }
-# polkadot-runtime-common = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/runtime/common" }
-# pallet-asset-rate = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/asset-rate" }
-# pallet-broker = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/broker" }
-# pallet-election-provider-multi-phase = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/election-provider-multi-phase" }
-# pallet-election-provider-support-benchmarking = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/election-provider-support/benchmarking" }
-# pallet-fast-unstake = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/fast-unstake" }
-# pallet-staking = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/staking" }
-# pallet-bags-list = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/bags-list" }
-# pallet-staking-reward-curve = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/staking/reward-curve" }
-# pallet-identity = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/identity" }
-# pallet-staking-reward-fn = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/staking/reward-fn" }
-# pallet-treasury = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/treasury" }
-# pallet-utility = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/utility" }
-# pallet-collective = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/collective" }
-# pallet-root-testing = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/root-testing" }
-# pallet-vesting = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/vesting" }
-# polkadot-runtime-parachains = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/runtime/parachains" }
-# pallet-authority-discovery = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/authority-discovery" }
-# pallet-mmr = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/merkle-mountain-range" }
-# sp-mmr-primitives = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/merkle-mountain-range" }
-# polkadot-runtime-metrics = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/runtime/metrics" }
-# staging-xcm-executor = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/xcm/xcm-executor" }
-# frame-support-test = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/support/test" }
-# frame-support-test-pallet = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/support/test/pallet" }
-# sc-keystore = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/keystore" }
-# slot-range-helper = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/runtime/common/slot_range_helper" }
-# staging-xcm-builder = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/xcm/xcm-builder" }
-# pallet-asset-conversion = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/asset-conversion" }
-# pallet-assets = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/assets" }
-# pallet-salary = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/salary" }
-# pallet-ranked-collective = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/ranked-collective" }
-# pallet-xcm = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/xcm/pallet-xcm" }
-# xcm-runtime-apis = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/xcm/xcm-runtime-apis" }
-# xcm-simulator = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/xcm/xcm-simulator" }
-# polkadot-test-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/runtime/test-runtime" }
-# pallet-grandpa = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/grandpa" }
-# pallet-offences = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/offences" }
-# pallet-indices = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/indices" }
-# pallet-sudo = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/sudo" }
-# pallet-transaction-payment-rpc-runtime-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/transaction-payment/rpc/runtime-api" }
-# sp-consensus-beefy = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/consensus/beefy" }
-# sp-offchain = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/offchain" }
-# test-runtime-constants = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/runtime/test-runtime/constants" }
-# cumulus-test-client = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/test/client" }
-# cumulus-primitives-storage-weight-reclaim = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/primitives/storage-weight-reclaim" }
-# cumulus-test-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/test/runtime" }
-# cumulus-pallet-aura-ext = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/pallets/aura-ext" }
-# pallet-aura = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/aura" }
-# sp-consensus-aura = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/consensus/aura" }
-# cumulus-primitives-aura = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/primitives/aura" }
-# pallet-collator-selection = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/pallets/collator-selection" }
-# pallet-glutton = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/glutton" }
-# staging-parachain-info = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/pallets/parachain-info" }
-# cumulus-test-relay-sproof-builder = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/test/relay-sproof-builder" }
-# cumulus-test-service = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/test/service" }
-# cumulus-client-cli = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/cli" }
-# sc-cli = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/cli" }
-# sc-mixnet = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/mixnet" }
-# sc-transaction-pool-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/transaction-pool/api" }
-# sp-mixnet = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/mixnet" }
-# sc-transaction-pool = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/transaction-pool" }
-# substrate-test-runtime-transaction-pool = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/test-utils/runtime/transaction-pool" }
-# cumulus-client-collator = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/collator" }
-# cumulus-client-consensus-common = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/consensus/common" }
-# cumulus-client-pov-recovery = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/pov-recovery" }
-# cumulus-relay-chain-interface = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/relay-chain-interface" }
-# polkadot-overseer = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/overseer" }
-# tracing-gum = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/gum" }
-# tracing-gum-proc-macro = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/gum/proc-macro" }
-# polkadot-node-metrics = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/metrics" }
-# polkadot-test-service = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/test/service" }
-# polkadot-node-primitives = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/primitives" }
-# polkadot-erasure-coding = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/erasure-coding" }
-# polkadot-node-subsystem = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/subsystem" }
-# polkadot-node-subsystem-types = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/subsystem-types" }
-# polkadot-node-network-protocol = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/network/protocol" }
-# sc-authority-discovery = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/authority-discovery" }
-# polkadot-statement-table = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/statement-table" }
-# polkadot-rpc = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/rpc" }
-# mmr-rpc = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/merkle-mountain-range/rpc" }
-# pallet-transaction-payment-rpc = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/transaction-payment/rpc" }
-# sc-consensus-babe = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/consensus/babe" }
-# sc-consensus-epochs = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/consensus/epochs" }
-# sc-consensus-slots = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/consensus/slots" }
-# sc-network-test = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/network/test" }
-# sc-consensus-babe-rpc = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/consensus/babe/rpc" }
-# sc-rpc-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/rpc-api" }
-# sc-consensus-beefy = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/consensus/beefy" }
-# sc-network-gossip = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/network-gossip" }
-# sc-consensus-beefy-rpc = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/consensus/beefy/rpc" }
-# sc-rpc = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/rpc" }
-# sp-statement-store = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/statement-store" }
-# sc-consensus-grandpa = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/consensus/grandpa" }
-# sc-consensus-grandpa-rpc = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/consensus/grandpa/rpc" }
-# sc-rpc-spec-v2 = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/rpc-spec-v2" }
-# sc-sync-state-rpc = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/sync-state-rpc" }
-# substrate-frame-rpc-system = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/frame/rpc/system" }
-# substrate-state-trie-migration-rpc = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/frame/rpc/state-trie-migration-rpc" }
-# polkadot-service = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/service" }
-# frame-benchmarking-cli = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/frame/benchmarking-cli" }
-# cumulus-client-parachain-inherent = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/parachain-inherent" }
-# sc-sysinfo = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/sysinfo" }
-# westend-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/runtime/westend" }
-# frame-system-benchmarking = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/system/benchmarking" }
-# pallet-beefy = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/beefy" }
-# pallet-beefy-mmr = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/beefy-mmr" }
-# pallet-conviction-voting = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/conviction-voting" }
-# pallet-scheduler = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/scheduler" }
-# pallet-preimage = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/preimage" }
-# pallet-delegated-staking = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/delegated-staking" }
-# pallet-nomination-pools = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/nomination-pools" }
-# pallet-democracy = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/democracy" }
-# pallet-elections-phragmen = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/elections-phragmen" }
-# pallet-membership = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/membership" }
-# pallet-multisig = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/multisig" }
-# polkadot-sdk-frame = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame" }
-# pallet-examples = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/examples" }
-# pallet-default-config-example = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/examples/default-config" }
-# pallet-dev-mode = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/examples/dev-mode" }
-# pallet-example-authorization-tx-extension = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/examples/authorization-tx-extension" }
-# pallet-verify-signature = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/verify-signature" }
-# pallet-example-basic = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/examples/basic" }
-# pallet-example-frame-crate = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/examples/frame-crate" }
-# pallet-example-kitchensink = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/examples/kitchensink" }
-# pallet-example-offchain-worker = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/examples/offchain-worker" }
-# pallet-example-single-block-migrations = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/examples/single-block-migrations" }
-# pallet-example-split = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/examples/split" }
-# pallet-nomination-pools-benchmarking = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/nomination-pools/benchmarking" }
-# pallet-nomination-pools-runtime-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/nomination-pools/runtime-api" }
-# pallet-offences-benchmarking = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/offences/benchmarking" }
-# pallet-im-online = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/im-online" }
-# pallet-parameters = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/parameters" }
-# pallet-proxy = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/proxy" }
-# pallet-recovery = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/recovery" }
-# pallet-referenda = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/referenda" }
-# pallet-session-benchmarking = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/session/benchmarking" }
-# pallet-society = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/society" }
-# pallet-staking-runtime-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/staking/runtime-api" }
-# pallet-state-trie-migration = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/state-trie-migration" }
-# frame-remote-externalities = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/frame/remote-externalities" }
-# substrate-rpc-client = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/frame/rpc/client" }
-# pallet-whitelist = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/whitelist" }
-# pallet-xcm-benchmarks = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/xcm/pallet-xcm-benchmarks" }
-# westend-runtime-constants = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/runtime/westend/constants" }
-# mmr-gadget = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/merkle-mountain-range" }
-# sc-offchain = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/offchain" }
-# polkadot-approval-distribution = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/network/approval-distribution" }
-# polkadot-node-subsystem-util = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/subsystem-util" }
-# polkadot-node-subsystem-test-helpers = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/subsystem-test-helpers" }
-# polkadot-availability-bitfield-distribution = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/network/bitfield-distribution" }
-# polkadot-availability-distribution = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/network/availability-distribution" }
-# polkadot-subsystem-bench = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/subsystem-bench" }
-# polkadot-availability-recovery = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/network/availability-recovery" }
-# polkadot-node-core-approval-voting = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/approval-voting" }
-# polkadot-node-core-approval-voting-parallel = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/approval-voting-parallel" }
-# polkadot-node-core-av-store = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/av-store" }
-# polkadot-node-core-chain-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/chain-api" }
-# polkadot-statement-distribution = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/network/statement-distribution" }
-# polkadot-collator-protocol = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/network/collator-protocol" }
-# polkadot-dispute-distribution = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/network/dispute-distribution" }
-# polkadot-gossip-support = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/network/gossip-support" }
-# polkadot-network-bridge = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/network/bridge" }
-# polkadot-node-collation-generation = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/collation-generation" }
-# polkadot-node-core-backing = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/backing" }
-# polkadot-node-core-bitfield-signing = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/bitfield-signing" }
-# polkadot-node-core-candidate-validation = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/candidate-validation" }
-# polkadot-node-core-pvf = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/pvf" }
-# polkadot-node-core-pvf-common = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/pvf/common" }
-# polkadot-node-core-pvf-execute-worker = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/pvf/execute-worker" }
-# polkadot-node-core-pvf-prepare-worker = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/pvf/prepare-worker" }
-# staging-tracking-allocator = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/tracking-allocator" }
-# rococo-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/runtime/rococo" }
-# pallet-bounties = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/bounties" }
-# pallet-child-bounties = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/child-bounties" }
-# pallet-nis = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/nis" }
-# pallet-tips = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/tips" }
-# rococo-runtime-constants = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/runtime/rococo/constants" }
-# test-parachain-adder = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/parachain/test-parachains/adder" }
-# test-parachain-halt = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/parachain/test-parachains/halt" }
-# polkadot-node-core-chain-selection = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/chain-selection" }
-# polkadot-node-core-dispute-coordinator = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/dispute-coordinator" }
-# polkadot-node-core-parachains-inherent = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/parachains-inherent" }
-# polkadot-node-core-prospective-parachains = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/prospective-parachains" }
-# polkadot-node-core-provisioner = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/provisioner" }
-# polkadot-node-core-pvf-checker = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/pvf-checker" }
-# polkadot-node-core-runtime-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/core/runtime-api" }
-# sc-basic-authorship = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/basic-authorship" }
-# sc-proposer-metrics = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/proposer-metrics" }
-# polkadot-test-client = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/test/client" }
-# substrate-test-client = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/test-utils/client" }
-# cumulus-client-network = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/network" }
-# cumulus-relay-chain-inprocess-interface = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/relay-chain-inprocess-interface" }
-# polkadot-cli = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/cli" }
-# sc-storage-monitor = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/storage-monitor" }
-# substrate-build-script-utils = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/build-script-utils" }
-# cumulus-client-consensus-aura = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/consensus/aura" }
-# cumulus-client-consensus-proposer = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/consensus/proposer" }
-# sc-consensus-aura = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/consensus/aura" }
-# cumulus-client-consensus-relay-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/consensus/relay-chain" }
-# cumulus-client-service = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/service" }
-# cumulus-relay-chain-minimal-node = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/relay-chain-minimal-node" }
-# cumulus-relay-chain-rpc-interface = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/client/relay-chain-rpc-interface" }
-# sc-network-transactions = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/network/transactions" }
-# parachains-common = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/common" }
-# cumulus-primitives-utility = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/primitives/utility" }
-# pallet-asset-tx-payment = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/transaction-payment/asset-tx-payment" }
-# cumulus-pallet-xcmp-queue = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/pallets/xcmp-queue" }
-# bp-xcm-bridge-hub-router = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/primitives/xcm-bridge-hub-router" }
-# pallet-xcm-bridge-hub-router = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/modules/xcm-bridge-hub-router" }
-# parachains-runtimes-test-utils = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/test-utils" }
-# assets-common = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/assets/common" }
-# bp-messages = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/primitives/messages" }
-# bp-parachains = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/primitives/parachains" }
-# bp-polkadot-core = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/primitives/polkadot-core" }
-# bp-polkadot = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/chains/chain-polkadot" }
-# bp-relayers = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/primitives/relayers" }
-# bp-test-utils = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/primitives/test-utils" }
-# bp-xcm-bridge-hub = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/primitives/xcm-bridge-hub" }
-# bridge-hub-common = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/bridge-hubs/common" }
-# snowbridge-core = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/primitives/core" }
-# snowbridge-beacon-primitives = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/primitives/beacon" }
-# snowbridge-ethereum = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/primitives/ethereum" }
-# bridge-hub-test-utils = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/bridge-hubs/test-utils" }
-# pallet-bridge-grandpa = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/modules/grandpa" }
-# pallet-bridge-messages = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/modules/messages" }
-# pallet-bridge-parachains = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/modules/parachains" }
-# pallet-bridge-relayers = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/modules/relayers" }
-# pallet-xcm-bridge-hub = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/modules/xcm-bridge-hub" }
-# cumulus-pallet-dmp-queue = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/pallets/dmp-queue" }
-# cumulus-pallet-session-benchmarking = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/pallets/session-benchmarking" }
-# cumulus-pallet-solo-to-para = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/pallets/solo-to-para" }
-# cumulus-pallet-xcm = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/pallets/xcm" }
-# cumulus-ping = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/pallets/ping" }
-# cumulus-primitives-timestamp = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/primitives/timestamp" }
-# emulated-integration-tests-common = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/common" }
-# xcm-emulator = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/xcm/xcm-emulator" }
-# frame-benchmarking-pallet-pov = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/benchmarking/pov" }
-# generate-bags = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/frame/generate-bags" }
-# pallet-alliance = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/alliance" }
-# pallet-asset-conversion-ops = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/asset-conversion/ops" }
-# pallet-asset-conversion-tx-payment = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/transaction-payment/asset-conversion-tx-payment" }
-# pallet-assets-freezer = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/assets-freezer" }
-# pallet-atomic-swap = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/atomic-swap" }
-# pallet-collective-content = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/pallets/collective-content" }
-# pallet-contracts = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/contracts" }
-# pallet-contracts-proc-macro = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/contracts/proc-macro" }
-# pallet-contracts-uapi = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/contracts/uapi" }
-# pallet-contracts-fixtures = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/contracts/fixtures" }
-# pallet-insecure-randomness-collective-flip = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/insecure-randomness-collective-flip" }
-# pallet-contracts-mock-network = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/contracts/mock-network" }
-# pallet-core-fellowship = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/core-fellowship" }
-# pallet-lottery = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/lottery" }
-# pallet-mixnet = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/mixnet" }
-# pallet-nft-fractionalization = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/nft-fractionalization" }
-# pallet-nfts = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/nfts" }
-# pallet-nfts-runtime-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/nfts/runtime-api" }
-# pallet-node-authorization = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/node-authorization" }
-# pallet-paged-list = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/paged-list" }
-# pallet-remark = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/remark" }
-# pallet-root-offences = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/root-offences" }
-# pallet-safe-mode = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/safe-mode" }
-# pallet-scored-pool = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/scored-pool" }
-# pallet-skip-feeless-payment = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/transaction-payment/skip-feeless-payment" }
-# pallet-statement = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/statement" }
-# pallet-transaction-storage = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/transaction-storage" }
-# sp-transaction-storage-proof = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/transaction-storage-proof" }
-# pallet-tx-pause = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/tx-pause" }
-# pallet-uniques = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/uniques" }
-# polkadot-omni-node-lib = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/polkadot-omni-node/lib" }
-# sc-consensus-manual-seal = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/consensus/manual-seal" }
-# sc-consensus-pow = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/consensus/pow" }
-# sp-consensus-pow = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/consensus/pow" }
-# sc-informant = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/informant" }
-# sc-network-statement = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/network/statement" }
-# sc-rpc-server = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/rpc-servers" }
-# sc-statement-store = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/statement-store" }
-# snowbridge-outbound-queue-merkle-tree = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/pallets/outbound-queue/merkle-tree" }
-# snowbridge-outbound-queue-runtime-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/pallets/outbound-queue/runtime-api" }
-# snowbridge-pallet-ethereum-client = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/pallets/ethereum-client" }
-# snowbridge-pallet-ethereum-client-fixtures = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/pallets/ethereum-client/fixtures" }
-# snowbridge-pallet-inbound-queue = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/pallets/inbound-queue" }
-# snowbridge-pallet-inbound-queue-fixtures = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/pallets/inbound-queue/fixtures" }
-# snowbridge-router-primitives = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/primitives/router" }
-# snowbridge-pallet-outbound-queue = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/pallets/outbound-queue" }
-# snowbridge-pallet-system = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/pallets/system" }
-# snowbridge-runtime-common = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/runtime/runtime-common" }
-# snowbridge-runtime-test-common = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/runtime/test-common" }
-# snowbridge-system-runtime-api = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/snowbridge/pallets/system/runtime-api" }
-# sp-core-hashing = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/deprecated/hashing" }
-# sp-core-hashing-proc-macro = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/deprecated/hashing/proc-macro" }
-# sp-crypto-ec-utils = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/crypto/ec-utils" }
-# staging-chain-spec-builder = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/bin/utils/chain-spec-builder" }
-# staging-node-inspect = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/bin/node/inspect" }
-# subkey = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/bin/utils/subkey" }
-# substrate-bip39 = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/substrate-bip39" }
-# substrate-frame-rpc-support = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/frame/rpc/support" }
-# testnet-parachains-constants = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/constants" }
-# sp-runtime-interface-test-wasm = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/runtime-interface/test-wasm" }
-# bp-asset-hub-rococo = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/chains/chain-asset-hub-rococo" }
-# bp-asset-hub-westend = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/chains/chain-asset-hub-westend" }
-# bp-bridge-hub-cumulus = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/chains/chain-bridge-hub-cumulus" }
-# bp-bridge-hub-kusama = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/chains/chain-bridge-hub-kusama" }
-# bp-bridge-hub-polkadot = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/chains/chain-bridge-hub-polkadot" }
-# bp-bridge-hub-rococo = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/chains/chain-bridge-hub-rococo" }
-# bp-bridge-hub-westend = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/chains/chain-bridge-hub-westend" }
-# bp-kusama = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/chains/chain-kusama" }
-# bp-polkadot-bulletin = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/chains/chain-polkadot-bulletin" }
-# bp-rococo = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/chains/chain-rococo" }
-# bp-westend = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/chains/chain-westend" }
-# pallet-bridge-beefy = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/modules/beefy" }
-# bp-beefy = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/primitives/beefy" }
-# relay-substrate-client = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/relays/client-substrate" }
-# finality-relay = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/relays/finality" }
-# relay-utils = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/relays/utils" }
-# equivocation-detector = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/relays/equivocation" }
-# substrate-relay-helper = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/relays/lib-substrate-relay" }
-# messages-relay = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/relays/messages" }
-# parachains-relay = { path = "/users/liamaharon/grimoire/polkadot-sdk/bridges/relays/parachains" }
-# cumulus-pov-validator = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/bin/pov-validator" }
-# asset-hub-rococo-emulated-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-rococo" }
-# asset-hub-rococo-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/assets/asset-hub-rococo" }
-# rococo-emulated-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/chains/relays/rococo" }
-# asset-hub-westend-emulated-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-westend" }
-# asset-hub-westend-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/assets/asset-hub-westend" }
-# westend-emulated-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/chains/relays/westend" }
-# bridge-hub-rococo-emulated-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-rococo" }
-# bridge-hub-rococo-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo" }
-# bridge-hub-westend-emulated-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-westend" }
-# bridge-hub-westend-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend" }
-# collectives-westend-emulated-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/chains/parachains/collectives/collectives-westend" }
-# collectives-westend-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/collectives/collectives-westend" }
-# coretime-rococo-emulated-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-rococo" }
-# coretime-rococo-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/coretime/coretime-rococo" }
-# coretime-westend-emulated-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-westend" }
-# coretime-westend-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/coretime/coretime-westend" }
-# people-rococo-emulated-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/chains/parachains/people/people-rococo" }
-# people-rococo-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/people/people-rococo" }
-# people-westend-emulated-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/chains/parachains/people/people-westend" }
-# people-westend-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/people/people-westend" }
-# penpal-emulated-chain = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/chains/parachains/testing/penpal" }
-# penpal-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/testing/penpal" }
-# rococo-system-emulated-network = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/networks/rococo-system" }
-# rococo-westend-system-emulated-network = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/networks/rococo-westend-system" }
-# westend-system-emulated-network = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/networks/westend-system" }
-# asset-hub-rococo-integration-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/tests/assets/asset-hub-rococo" }
-# asset-hub-westend-integration-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/tests/assets/asset-hub-westend" }
-# bridge-hub-rococo-integration-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/tests/bridges/bridge-hub-rococo" }
-# bridge-hub-westend-integration-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/tests/bridges/bridge-hub-westend" }
-# collectives-westend-integration-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/tests/collectives/collectives-westend" }
-# coretime-rococo-integration-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/tests/coretime/coretime-rococo" }
-# coretime-westend-integration-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/tests/coretime/coretime-westend" }
-# people-rococo-integration-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/tests/people/people-rococo" }
-# people-westend-integration-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/integration-tests/emulated/tests/people/people-westend" }
-# contracts-rococo-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/contracts/contracts-rococo" }
-# glutton-westend-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/glutton/glutton-westend" }
-# rococo-parachain-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/parachains/runtimes/testing/rococo-parachain" }
-# polkadot-omni-node = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/polkadot-omni-node" }
-# polkadot-parachain-bin = { path = "/users/liamaharon/grimoire/polkadot-sdk/cumulus/polkadot-parachain" }
-# polkadot-sdk-docs = { path = "/users/liamaharon/grimoire/polkadot-sdk/docs/sdk" }
-# chain-spec-guide-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/docs/sdk/src/reference_docs/chain_spec_runtime" }
-# polkadot-sdk-docs-first-pallet = { path = "/users/liamaharon/grimoire/polkadot-sdk/docs/sdk/packages/guides/first-pallet" }
-# polkadot-sdk-docs-first-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/docs/sdk/packages/guides/first-runtime" }
-# minimal-template-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/templates/minimal/runtime" }
-# pallet-minimal-template = { path = "/users/liamaharon/grimoire/polkadot-sdk/templates/minimal/pallets/template" }
-# staging-node-cli = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/bin/node/cli" }
-# node-rpc = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/bin/node/rpc" }
-# node-testing = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/bin/node/testing" }
-# sc-service-test = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/client/service/test" }
-# substrate-cli-test-utils = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/test-utils/cli" }
-# parachain-template-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/templates/parachain/runtime" }
-# pallet-parachain-template = { path = "/users/liamaharon/grimoire/polkadot-sdk/templates/parachain/pallets/template" }
-# solochain-template-runtime = { path = "/users/liamaharon/grimoire/polkadot-sdk/templates/solochain/runtime" }
-# pallet-template = { path = "/users/liamaharon/grimoire/polkadot-sdk/templates/solochain/pallets/template" }
-# xcm-docs = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/xcm/docs" }
-# polkadot = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot" }
-# erasure_coding_fuzzer = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/erasure-coding/fuzzer" }
-# polkadot-test-malus = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/malus" }
-# zombienet-backchannel = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/node/zombienet-backchannel" }
-# test-parachains = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/parachain/test-parachains" }
-# test-parachain-adder-collator = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/parachain/test-parachains/adder/collator" }
-# test-parachain-undying = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/parachain/test-parachains/undying" }
-# test-parachain-undying-collator = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/parachain/test-parachains/undying/collator" }
-# polkadot-voter-bags = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/utils/generate-bags" }
-# remote-ext-tests-bags-list = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/utils/remote-ext-tests/bags-list" }
-# pallet-bags-list-remote-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/bags-list/remote-tests" }
-# xcm-executor-integration-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/xcm/xcm-executor/integration-tests" }
-# xcm-simulator-example = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/xcm/xcm-simulator/example" }
-# xcm-simulator-fuzzer = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/xcm/xcm-simulator/fuzzer" }
-# polkadot-zombienet-sdk-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/polkadot/zombienet-sdk-tests" }
-# node-bench = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/bin/node/bench" }
-# pallet-bags-list-fuzzer = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/bags-list/fuzzer" }
-# pallet-election-provider-e2e-test = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/election-provider-multi-phase/test-staking-e2e" }
-# frame-election-solution-type-fuzzer = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/election-provider-support/solution-type/fuzzer" }
-# pallet-nomination-pools-fuzzer = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/nomination-pools/fuzzer" }
-# pallet-nomination-pools-test-delegate-stake = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/nomination-pools/test-delegate-stake" }
-# pallet-nomination-pools-test-transfer-stake = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/nomination-pools/test-transfer-stake" }
-# pallet-paged-list-fuzzer = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/paged-list/fuzzer" }
-# pallet-revive = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/revive" }
-# pallet-revive-fixtures = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/revive/fixtures" }
-# pallet-revive-proc-macro = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/revive/proc-macro" }
-# pallet-revive-uapi = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/revive/uapi" }
-# pallet-revive-mock-network = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/revive/mock-network" }
-# pallet-revive-eth-rpc = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/revive/rpc" }
-# frame-support-test-compile-pass = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/support/test/compile_pass" }
-# frame-support-test-stg-frame-crate = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/frame/support/test/stg_frame_crate" }
-# sp-api-test = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/api/test" }
-# sp-application-crypto-test = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/application-crypto/test" }
-# sp-arithmetic-fuzzer = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/arithmetic/fuzzer" }
-# sp-core-fuzz = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/core/fuzz" }
-# sp-npos-elections-fuzzer = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/npos-elections/fuzzer" }
-# sp-runtime-interface-test = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/runtime-interface/test" }
-# sp-runtime-interface-test-wasm-deprecated = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/primitives/runtime-interface/test-wasm-deprecated" }
-# node-template-release = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/scripts/ci/node-template-release" }
-# node-runtime-generate-bags = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/frame/generate-bags/node-runtime" }
-# frame-omni-bencher = { path = "/users/liamaharon/grimoire/polkadot-sdk/substrate/utils/frame/omni-bencher" }
-# minimal-template-node = { path = "/users/liamaharon/grimoire/polkadot-sdk/templates/minimal/node" }
-# parachain-template-node = { path = "/users/liamaharon/grimoire/polkadot-sdk/templates/parachain/node" }
-# solochain-template-node = { path = "/users/liamaharon/grimoire/polkadot-sdk/templates/solochain/node" }
-# template-zombienet-tests = { path = "/users/liamaharon/grimoire/polkadot-sdk/templates/zombienet" }
-#
