@@ -7,7 +7,7 @@ use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 use frame_system::RawOrigin;
 use pallet_evm::{AddressMapping, PrecompileHandle};
 use precompile_utils::EvmResult;
-use sp_core::blake2_256;
+use sp_core::keccak_256;
 use sp_core::{H160, H256};
 use sp_runtime::traits::Dispatchable;
 use sp_std::vec::Vec;
@@ -23,7 +23,7 @@ where
         let mut data = [0u8; 30];
         data[0..10].copy_from_slice(b"pureproxy:");
         data[10..30].copy_from_slice(&address[..]);
-        let hash = blake2_256(&data);
+        let hash = keccak_256(&data);
 
         R::AccountId::from(Into::<[u8; 32]>::into(hash))
     }
