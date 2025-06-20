@@ -1,6 +1,6 @@
 use super::*;
 use subtensor_runtime_common::NetUid;
-use std::collections::HashSet;
+use sp_std::collections::btree_set::BTreeSet;
 
 // TODO: default symbol should be different from the root symbol?
 pub static DEFAULT_SYMBOL: &[u8] = b"\xCE\xA4"; // TAO uppercase symbol
@@ -932,7 +932,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_next_available_symbol(netuid: NetUid) -> Vec<u8> {
-        let used_symbols: HashSet<Vec<u8>> = TokenSymbol::<T>::iter_values().collect();
+        let used_symbols: BTreeSet<Vec<u8>> = TokenSymbol::<T>::iter_values().collect();
 
         // We first try the default strategy of using the subnet id to get the symbol.
         let symbol = Self::get_symbol_for_subnet(netuid);
