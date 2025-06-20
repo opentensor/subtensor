@@ -1,5 +1,8 @@
 #![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
-use crate::utils::rate_limiting::TransactionType;
+
+use core::num::NonZeroU64;
+
+use frame_support::PalletId;
 use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
 use frame_support::traits::{Contains, Everything, InherentBuilder, InsideBoth};
@@ -20,7 +23,9 @@ use sp_runtime::{
 };
 use sp_std::cmp::Ordering;
 use subtensor_runtime_common::NetUid;
+use subtensor_swap_interface::{OrderType, SwapHandler};
 
+use crate::utils::rate_limiting::TransactionType;
 use crate::*;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -40,6 +45,7 @@ frame_support::construct_runtime!(
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 9,
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 10,
         Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 11,
+        Swap: pallet_subtensor_swap::{Pallet, Call, Storage, Event<T>} = 12,
     }
 );
 
@@ -443,8 +449,30 @@ impl crate::Config for Test {
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
+    type SwapInterface = Swap;
     type KeySwapOnSubnetCost = InitialKeySwapOnSubnetCost;
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
+}
+
+// Swap-related parameter types
+parameter_types! {
+    pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
+    pub const SwapMaxFeeRate: u16 = 10000; // 15.26%
+    pub const SwapMaxPositions: u32 = 100;
+    pub const SwapMinimumLiquidity: u64 = 1_000;
+    pub const SwapMinimumReserve: NonZeroU64 = NonZeroU64::new(100).unwrap();
+}
+
+impl pallet_subtensor_swap::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type SubnetInfo = SubtensorModule;
+    type BalanceOps = SubtensorModule;
+    type ProtocolId = SwapProtocolId;
+    type MaxFeeRate = SwapMaxFeeRate;
+    type MaxPositions = SwapMaxPositions;
+    type MinimumLiquidity = SwapMinimumLiquidity;
+    type MinimumReserve = SwapMinimumReserve;
+    type WeightInfo = ();
 }
 
 pub struct OriginPrivilegeCmp;
@@ -866,8 +894,14 @@ pub fn increase_stake_on_coldkey_hotkey_account(
     tao_staked: u64,
     netuid: NetUid,
 ) {
-    let fee = 0;
-    SubtensorModule::stake_into_subnet(hotkey, coldkey, netuid, tao_staked, fee);
+    SubtensorModule::stake_into_subnet(
+        hotkey,
+        coldkey,
+        netuid,
+        tao_staked,
+        <Test as Config>::SwapInterface::max_price(),
+    )
+    .unwrap();
 }
 
 /// Increases the stake on the hotkey account under its owning coldkey.
@@ -883,4 +917,60 @@ pub fn increase_stake_on_hotkey_account(hotkey: &U256, increment: u64, netuid: N
         increment,
         netuid,
     );
+}
+
+pub(crate) fn setup_reserves(netuid: NetUid, tao: u64, alpha: u64) {
+    SubnetTAO::<Test>::set(netuid, tao);
+    SubnetAlphaIn::<Test>::set(netuid, alpha);
+}
+
+pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: u64) -> (u64, u64) {
+    if netuid.is_root() {
+        return (tao, 0);
+    }
+
+    let result = <Test as pallet::Config>::SwapInterface::swap(
+        netuid.into(),
+        OrderType::Buy,
+        tao,
+        <Test as pallet::Config>::SwapInterface::max_price(),
+        true,
+    );
+
+    assert_ok!(&result);
+
+    let result = result.unwrap();
+
+    // we don't want to have silent 0 comparissons in tests
+    assert!(result.amount_paid_out > 0);
+
+    (result.amount_paid_out, result.fee_paid)
+}
+
+pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: u64) -> (u64, u64) {
+    if netuid.is_root() {
+        return (alpha, 0);
+    }
+
+    println!(
+        "<Test as pallet::Config>::SwapInterface::min_price() = {:?}",
+        <Test as pallet::Config>::SwapInterface::min_price()
+    );
+
+    let result = <Test as pallet::Config>::SwapInterface::swap(
+        netuid.into(),
+        OrderType::Sell,
+        alpha,
+        <Test as pallet::Config>::SwapInterface::min_price(),
+        true,
+    );
+
+    assert_ok!(&result);
+
+    let result = result.unwrap();
+
+    // we don't want to have silent 0 comparissons in tests
+    assert!(result.amount_paid_out > 0);
+
+    (result.amount_paid_out, result.fee_paid)
 }

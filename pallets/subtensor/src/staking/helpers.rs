@@ -1,8 +1,3 @@
-use super::*;
-use safe_math::*;
-use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::NetUid;
-
 use frame_support::traits::{
     Imbalance,
     tokens::{
@@ -10,6 +5,12 @@ use frame_support::traits::{
         fungible::{Balanced as _, Inspect as _},
     },
 };
+use safe_math::*;
+use substrate_fixed::types::U96F32;
+use subtensor_runtime_common::NetUid;
+use subtensor_swap_interface::{OrderType, SwapHandler};
+
+use super::*;
 
 impl<T: Config> Pallet<T> {
     // Returns true if the passed hotkey allow delegative staking.
@@ -42,19 +43,21 @@ impl<T: Config> Pallet<T> {
         TotalStake::<T>::put(Self::get_total_stake().saturating_sub(decrement));
     }
 
-    // Returns the total amount of stake under a hotkey (delegative or otherwise)
-    //
+    /// Returns the total amount of stake (in TAO) under a hotkey (delegative or otherwise)
     pub fn get_total_stake_for_hotkey(hotkey: &T::AccountId) -> u64 {
         Self::get_all_subnet_netuids()
-            .iter()
+            .into_iter()
             .map(|netuid| {
-                let alpha: U96F32 = U96F32::saturating_from_num(
-                    Self::get_stake_for_hotkey_on_subnet(hotkey, *netuid),
+                let alpha = U96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(
+                    hotkey, netuid,
+                ));
+                let alpha_price = U96F32::saturating_from_num(
+                    T::SwapInterface::current_alpha_price(netuid.into()),
                 );
-                let tao_price: U96F32 = Self::get_alpha_price(*netuid);
-                alpha.saturating_mul(tao_price).saturating_to_num::<u64>()
+                alpha.saturating_mul(alpha_price)
             })
-            .sum()
+            .sum::<U96F32>()
+            .saturating_to_num::<u64>()
     }
 
     // Returns the total amount of stake under a coldkey
@@ -64,18 +67,23 @@ impl<T: Config> Pallet<T> {
         hotkeys
             .iter()
             .map(|hotkey| {
-                let mut total_stake: u64 = 0;
-                for (netuid, _) in Alpha::<T>::iter_prefix((hotkey, coldkey)) {
-                    let alpha_stake =
-                        Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
-                    let tao_price: U96F32 = Self::get_alpha_price(netuid);
-                    total_stake = total_stake.saturating_add(
-                        U96F32::saturating_from_num(alpha_stake)
-                            .saturating_mul(tao_price)
-                            .saturating_to_num::<u64>(),
-                    );
-                }
-                total_stake
+                Alpha::<T>::iter_prefix((hotkey, coldkey))
+                    .map(|(netuid, _)| {
+                        let alpha_stake = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
+                            hotkey, coldkey, netuid,
+                        );
+                        T::SwapInterface::sim_swap(netuid.into(), OrderType::Sell, alpha_stake)
+                            .map(|r| {
+                                let fee: u64 = U96F32::saturating_from_num(r.fee_paid)
+                                    .saturating_mul(T::SwapInterface::current_alpha_price(
+                                        netuid.into(),
+                                    ))
+                                    .saturating_to_num();
+                                r.amount_paid_out.saturating_add(fee)
+                            })
+                            .unwrap_or_default()
+                    })
+                    .sum::<u64>()
             })
             .sum::<u64>()
     }
@@ -179,9 +187,25 @@ impl<T: Config> Pallet<T> {
                 // Remove the stake from the nominator account. (this is a more forceful unstake operation which )
                 // Actually deletes the staking account.
                 // Do not apply any fees
-                let cleared_stake = Self::unstake_from_subnet(hotkey, coldkey, netuid, stake, 0);
-                // Add the stake to the coldkey account.
-                Self::add_balance_to_coldkey_account(coldkey, cleared_stake);
+                let maybe_cleared_stake = Self::unstake_from_subnet(
+                    hotkey,
+                    coldkey,
+                    netuid,
+                    stake,
+                    T::SwapInterface::min_price(),
+                );
+
+                if let Ok(cleared_stake) = maybe_cleared_stake {
+                    // Add the stake to the coldkey account.
+                    Self::add_balance_to_coldkey_account(coldkey, cleared_stake);
+                } else {
+                    // Just clear small alpha
+                    let alpha =
+                        Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
+                    Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                        hotkey, coldkey, netuid, alpha,
+                    );
+                }
             }
         }
     }
@@ -277,5 +301,9 @@ impl<T: Config> Pallet<T> {
         }
 
         Ok(credit)
+    }
+
+    pub fn is_user_liquidity_enabled(netuid: NetUid) -> bool {
+        T::SwapInterface::is_user_liquidity_enabled(netuid)
     }
 }
