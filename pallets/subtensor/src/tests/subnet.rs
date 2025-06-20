@@ -776,10 +776,11 @@ fn test_set_symbol_works_as_root_if_symbol_exists_and_available() {
         let netuid = NetUid::from(1);
         add_network(netuid, 10, 0);
 
-        // only one network so we can set any symbol
-        for i in 0..SYMBOLS.len() {
+        // only one network so we can set any symbol, except the root symbol
+        for i in 1..SYMBOLS.len() {
             let symbol = SYMBOLS.get(i).unwrap().to_vec();
-
+            println!("i: {:?}", i);
+            println!("symbol: {:?}", SYMBOLS.get(i).unwrap());
             assert_ok!(SubtensorModule::set_symbol(
                 <Test as Config>::RuntimeOrigin::root(),
                 netuid,
@@ -800,14 +801,14 @@ fn test_set_symbol_works_as_subnet_owner_if_symbol_exists_and_available() {
         add_network(netuid, 10, 0);
         SubnetOwner::<Test>::insert(netuid, coldkey);
 
-        // only one network so we can set any symbol
-        for i in 0..SYMBOLS.len() {
+        // only one network so we can set any symbol, except the root symbol
+        for i in 1..SYMBOLS.len() {
             let symbol = SYMBOLS.get(i).unwrap().to_vec();
 
             assert_ok!(SubtensorModule::set_symbol(
                 <Test as Config>::RuntimeOrigin::signed(coldkey),
                 netuid,
-                SYMBOLS.get(i).unwrap().to_vec()
+                symbol.clone()
             ));
 
             assert_eq!(TokenSymbol::<Test>::get(netuid), symbol);
