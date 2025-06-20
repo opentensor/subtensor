@@ -863,4 +863,3 @@ fn test_set_symbol_fails_if_symbol_already_in_use() {
         );
     });
 }
-

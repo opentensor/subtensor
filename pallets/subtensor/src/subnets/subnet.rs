@@ -430,7 +430,7 @@ impl<T: Config> Pallet<T> {
     pub fn is_valid_subnet_for_emission(netuid: NetUid) -> bool {
         FirstEmissionBlockNumber::<T>::get(netuid).is_some()
     }
-    
+
     fn get_next_available_symbol(netuid: NetUid) -> Vec<u8> {
         let used_symbols = TokenSymbol::<T>::iter_values().collect::<Vec<_>>();
 
