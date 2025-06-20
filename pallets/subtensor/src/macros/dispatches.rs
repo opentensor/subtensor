@@ -2087,7 +2087,11 @@ mod dispatches {
         /// # Events
         /// Emits a `SymbolUpdated` event on success.
         #[pallet::call_index(110)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight((
+            Weight::from_parts(10_000, 0).saturating_add(T::DbWeight::get().reads_writes(2, 1)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
         pub fn update_symbol(origin: OriginFor<T>, netuid: NetUid, symbol: Vec<u8>) -> DispatchResult {
             Self::ensure_subnet_owner_or_root(origin, netuid)?;
 
