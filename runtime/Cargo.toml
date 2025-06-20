@@ -32,6 +32,10 @@ scale-info = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["alloc"] }
 pallet-balances = { workspace = true }
 pallet-subtensor = { workspace = true }
+pallet-subtensor-swap = { workspace = true }
+pallet-subtensor-swap-runtime-api = { workspace = true }
+substrate-fixed = { workspace = true }
+subtensor-swap-interface = { workspace = true }
 frame-support = { workspace = true }
 pallet-grandpa = { workspace = true }
 pallet-insecure-randomness-collective-flip = { workspace = true }
@@ -179,6 +183,11 @@ std = [
 	"frame-system/std",
 	"frame-try-runtime/std",
 	"pallet-subtensor/std",
+	"pallet-subtensor-swap/std",
+	"pallet-subtensor-swap-runtime-api/std",
+	"substrate-fixed/std",
+	"subtensor-swap-interface/std",
+	"pallet-aura/std",
 	"pallet-balances/std",
 	"pallet-grandpa/std",
 	"pallet-insecure-randomness-collective-flip/std",
@@ -273,9 +282,12 @@ runtime-benchmarks = [
 	"pallet-grandpa/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-utility-opentensor/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"pallet-safe-mode/runtime-benchmarks",
 	"pallet-subtensor/runtime-benchmarks",
+	"pallet-subtensor-swap/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
 	"pallet-proxy-opentensor/runtime-benchmarks",

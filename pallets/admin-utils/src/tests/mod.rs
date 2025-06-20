@@ -1147,10 +1147,69 @@ fn test_sudo_set_liquid_alpha_enabled() {
 }
 
 #[test]
+fn test_sudo_set_alpha_sigmoid_steepness() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        let to_be_set: i16 = 5000;
+        add_network(netuid, 10);
+        let init_value = SubtensorModule::get_alpha_sigmoid_steepness(netuid);
+        assert_eq!(
+            AdminUtils::sudo_set_alpha_sigmoid_steepness(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        assert_eq!(
+            AdminUtils::sudo_set_alpha_sigmoid_steepness(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid.next(),
+                to_be_set
+            ),
+            Err(Error::<Test>::SubnetDoesNotExist.into())
+        );
+
+        let owner = U256::from(10);
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, owner);
+        assert_eq!(
+            AdminUtils::sudo_set_alpha_sigmoid_steepness(
+                <<Test as Config>::RuntimeOrigin>::signed(owner),
+                netuid,
+                -to_be_set
+            ),
+            Err(Error::<Test>::NegativeSigmoidSteepness.into())
+        );
+        assert_eq!(
+            SubtensorModule::get_alpha_sigmoid_steepness(netuid),
+            init_value
+        );
+        assert_ok!(AdminUtils::sudo_set_alpha_sigmoid_steepness(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+        assert_eq!(
+            SubtensorModule::get_alpha_sigmoid_steepness(netuid),
+            to_be_set
+        );
+        assert_ok!(AdminUtils::sudo_set_alpha_sigmoid_steepness(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            -to_be_set
+        ));
+        assert_eq!(
+            SubtensorModule::get_alpha_sigmoid_steepness(netuid),
+            -to_be_set
+        );
+    });
+}
+
+#[test]
 fn test_set_alpha_values_dispatch_info_ok() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
-        let alpha_low: u16 = 12_u16;
+        let alpha_low: u16 = 1638_u16;
         let alpha_high: u16 = u16::MAX - 10;
         let call = RuntimeCall::AdminUtils(crate::Call::sudo_set_alpha_values {
             netuid,
@@ -1169,7 +1228,7 @@ fn test_set_alpha_values_dispatch_info_ok() {
 fn test_sudo_get_set_alpha() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
-        let alpha_low: u16 = 12_u16;
+        let alpha_low: u16 = 1638_u16;
         let alpha_high: u16 = u16::MAX - 10;
 
         let hotkey: U256 = U256::from(1);
@@ -1252,7 +1311,7 @@ fn test_sudo_get_set_alpha() {
         ));
 
         // 2. Alpha high too low
-        let alpha_high_too_low = (u16::MAX as u32 * 4 / 5) as u16 - 1; // One less than the minimum acceptable value
+        let alpha_high_too_low = (u16::MAX as u32 / 40) as u16 - 1; // One less than the minimum acceptable value
         assert_err!(
             AdminUtils::sudo_set_alpha_values(
                 signer.clone(),
@@ -1289,7 +1348,7 @@ fn test_sudo_get_set_alpha() {
             alpha_high
         ));
 
-        let alpha_low_too_high = (u16::MAX as u32 * 4 / 5) as u16 + 1; // One more than the maximum acceptable value
+        let alpha_low_too_high = alpha_high + 1;
         assert_err!(
             AdminUtils::sudo_set_alpha_values(
                 signer.clone(),

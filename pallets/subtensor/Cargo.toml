@@ -44,6 +44,8 @@ hex = { workspace = true }
 share-pool = { default-features = false, path = "../../primitives/share-pool" }
 safe-math = { default-features = false, path = "../../primitives/safe-math" }
 approx = { workspace = true }
+subtensor-swap-interface = { workspace = true }
+subtensor-runtime-common = { workspace = true }
 
 pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../collective" }
 pallet-drand = { path = "../drand", default-features = false }
@@ -71,6 +73,7 @@ sp-consensus-slots = { workspace = true }
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
 pallet-scheduler = { workspace = true }
+pallet-subtensor-swap = { workspace = true }
 sp-version = { workspace = true }
 # Substrate
 sp-tracing = { workspace = true }
@@ -99,6 +102,7 @@ std = [
 	"pallet-membership/std",
 	"pallet-preimage/std",
 	"pallet-scheduler/std",
+	"pallet-subtensor-swap/std",
 	"pallet-transaction-payment/std",
 	"pallet-utility-opentensor/std",
 	"rand_chacha/std",
@@ -119,6 +123,7 @@ std = [
 	"substrate-fixed/std",
 	"substrate-fixed/std",
 	"subtensor-runtime-common/std",
+	"subtensor-swap-interface/std",
 	"tle/std",
 	"w3f-bls/std",
 	"runtime-common/std",
@@ -139,12 +144,18 @@ runtime-benchmarks = [
 	"pallet-utility-opentensor/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
+	"pallet-drand/runtime-benchmarks",
+	"pallet-membership/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
 	"runtime-common/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks"
+	"pallet-subtensor-swap/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

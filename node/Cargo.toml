@@ -73,6 +73,7 @@ polkadot-rpc = { workspace = true }
 pallet-drand = { workspace = true }
 sp-crypto-ec-utils = { workspace = true }
 sp-keystore = { workspace = true, default-features = false }
+cumulus-primitives-proof-size-hostfunction =  { workspace = true, default-features =  false }
 
 
 # These dependencies are used for the subtensor's RPCs
@@ -116,6 +117,8 @@ node-subtensor-runtime = { workspace = true, features = ["std"] }
 subtensor-runtime-common = { workspace = true, features = ["std"] }
 subtensor-custom-rpc = { workspace = true, features = ["std"] }
 subtensor-custom-rpc-runtime-api = { workspace = true, features = ["std"] }
+pallet-subtensor-swap-rpc = { workspace = true, features = ["std"] }
+pallet-subtensor-swap-runtime-api = { workspace = true, features = ["std"] }
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true }
@@ -148,6 +151,7 @@ runtime-benchmarks = [
 	"pallet-commitments/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 ]
 pow-faucet = []
 

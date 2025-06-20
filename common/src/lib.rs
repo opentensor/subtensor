@@ -36,7 +36,7 @@ pub type Nonce = u32;
 /// Transfers below SMALL_TRANSFER_LIMIT are considered small transfers
 pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
 
-#[freeze_struct("f1746d0b1911967")]
+#[freeze_struct("9b6be98fb98e9b17")]
 #[repr(transparent)]
 #[derive(
     Deserialize,
@@ -53,8 +53,8 @@ pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
     PartialEq,
     PartialOrd,
     RuntimeDebug,
-    TypeInfo,
 )]
+#[serde(transparent)]
 pub struct NetUid(u16);
 
 impl NetUid {
@@ -66,6 +66,14 @@ impl NetUid {
 
     pub fn next(&self) -> NetUid {
         Self(self.0.saturating_add(1))
+    }
+
+    pub fn prev(&self) -> NetUid {
+        Self(self.0.saturating_sub(1))
+    }
+
+    pub fn inner(&self) -> u16 {
+        self.0
     }
 }
 
@@ -105,6 +113,13 @@ impl From<u16> for NetUid {
     }
 }
 
+impl TypeInfo for NetUid {
+    type Identity = <u16 as TypeInfo>::Identity;
+    fn type_info() -> scale_info::Type {
+        <u16 as TypeInfo>::type_info()
+    }
+}
+
 #[derive(
     Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, MaxEncodedLen, TypeInfo,
 )]
@@ -124,6 +139,7 @@ pub enum ProxyType {
     RootWeights,
     ChildKeys,
     SudoUncheckedSetCode,
+    SwapHotkey,
 }
 
 impl Default for ProxyType {
@@ -131,6 +147,37 @@ impl Default for ProxyType {
     fn default() -> Self {
         Self::Any
     }
+}
+
+pub trait SubnetInfo<AccountId> {
+    fn tao_reserve(netuid: NetUid) -> u64;
+    fn alpha_reserve(netuid: NetUid) -> u64;
+    fn exists(netuid: NetUid) -> bool;
+    fn mechanism(netuid: NetUid) -> u16;
+    fn is_owner(account_id: &AccountId, netuid: NetUid) -> bool;
+}
+
+pub trait BalanceOps<AccountId> {
+    fn tao_balance(account_id: &AccountId) -> u64;
+    fn alpha_balance(netuid: NetUid, coldkey: &AccountId, hotkey: &AccountId) -> u64;
+    fn increase_balance(coldkey: &AccountId, tao: u64);
+    fn decrease_balance(coldkey: &AccountId, tao: u64) -> Result<u64, DispatchError>;
+    fn increase_stake(
+        coldkey: &AccountId,
+        hotkey: &AccountId,
+        netuid: NetUid,
+        alpha: u64,
+    ) -> Result<(), DispatchError>;
+    fn decrease_stake(
+        coldkey: &AccountId,
+        hotkey: &AccountId,
+        netuid: NetUid,
+        alpha: u64,
+    ) -> Result<u64, DispatchError>;
+    fn increase_provided_tao_reserve(netuid: NetUid, tao: u64);
+    fn decrease_provided_tao_reserve(netuid: NetUid, tao: u64);
+    fn increase_provided_alpha_reserve(netuid: NetUid, alpha: u64);
+    fn decrease_provided_alpha_reserve(netuid: NetUid, alpha: u64);
 }
 
 pub mod time {
@@ -152,4 +199,14 @@ pub mod time {
     pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
     pub const HOURS: BlockNumber = MINUTES * 60;
     pub const DAYS: BlockNumber = HOURS * 24;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn netuid_has_u16_bin_repr() {
+        assert_eq!(NetUid(5).encode(), 5u16.encode());
+    }
 }
