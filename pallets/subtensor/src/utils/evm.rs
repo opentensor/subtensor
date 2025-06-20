@@ -55,8 +55,6 @@ impl<T: Config> Pallet<T> {
             signature.0[64] = signature.0[64].saturating_sub(27);
         }
 
-        let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey)?;
-
         let block_hash = keccak_256(block_number.encode().as_ref());
         let message = [hotkey.encode().as_ref(), block_hash.as_ref()].concat();
         let public = signature
@@ -74,7 +72,7 @@ impl<T: Config> Pallet<T> {
 
         let current_block_number = Self::get_current_block_as_u64();
 
-        AssociatedEvmAddress::<T>::insert(netuid, uid, (evm_key, current_block_number));
+        AssociatedEvmAddress::<T>::insert(netuid, &hotkey, (evm_key, current_block_number));
 
         Self::deposit_event(Event::EvmKeyAssociated {
             netuid,
@@ -86,17 +84,17 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn uid_lookup(netuid: NetUid, evm_key: H160, limit: u16) -> Vec<(u16, u64)> {
+    pub fn hotkey_lookup(netuid: NetUid, evm_key: H160, limit: u16) -> Vec<(T::AccountId, u64)> {
         let mut ret_val = AssociatedEvmAddress::<T>::iter_prefix(netuid)
             .take(limit as usize)
-            .filter_map(|(uid, (stored_evm_key, block_associated))| {
+            .filter_map(|(hotkey, (stored_evm_key, block_associated))| {
                 if stored_evm_key != evm_key {
                     return None;
                 }
 
-                Some((uid, block_associated))
+                Some((hotkey, block_associated))
             })
-            .collect::<Vec<(u16, u64)>>();
+            .collect::<Vec<(T::AccountId, u64)>>();
         ret_val.sort_by(|(_, block1), (_, block2)| block1.cmp(block2));
         ret_val
     }

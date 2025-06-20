@@ -34,7 +34,7 @@ use crate::sr25519::*;
 use crate::staking::*;
 use crate::storage_query::*;
 use crate::subnet::*;
-use crate::uid_lookup::*;
+use crate::hotkey_lookup::*;
 
 mod alpha;
 mod balance_transfer;
@@ -46,7 +46,7 @@ mod sr25519;
 mod staking;
 mod storage_query;
 mod subnet;
-mod uid_lookup;
+mod hotkey_lookup;
 pub struct Precompiles<R>(PhantomData<R>);
 
 impl<R> Default for Precompiles<R>
@@ -117,7 +117,7 @@ where
             hash(NeuronPrecompile::<R>::INDEX),
             hash(StakingPrecompileV2::<R>::INDEX),
             hash(StorageQueryPrecompile::<R>::INDEX),
-            hash(UidLookupPrecompile::<R>::INDEX),
+            hash(HotkeyLookupPrecompile::<R>::INDEX),
             hash(AlphaPrecompile::<R>::INDEX),
         ]
     }
@@ -185,8 +185,8 @@ where
             a if a == hash(NeuronPrecompile::<R>::INDEX) => {
                 NeuronPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Neuron)
             }
-            a if a == hash(UidLookupPrecompile::<R>::INDEX) => {
-                UidLookupPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::UidLookup)
+            a if a == hash(HotkeyLookupPrecompile::<R>::INDEX) => {
+                HotkeyLookupPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::HotkeyLookup)
             }
             a if a == hash(StorageQueryPrecompile::<R>::INDEX) => {
                 Some(StorageQueryPrecompile::<R>::execute(handle))

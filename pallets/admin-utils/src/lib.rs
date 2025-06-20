@@ -121,8 +121,8 @@ pub mod pallet {
         Metagraph,
         /// Enum for neuron precompile
         Neuron,
-        /// Enum for UID lookup precompile
-        UidLookup,
+        /// Enum for hotkey lookup precompile
+        HotkeyLookup,
         /// Enum for alpha precompile
         Alpha,
     }

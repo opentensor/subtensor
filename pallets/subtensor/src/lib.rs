@@ -1675,9 +1675,9 @@ pub mod pallet {
     /// ==== EVM related storage ====
     /// =============================
     #[pallet::storage]
-    /// --- DMAP (netuid, uid) --> (H160, last_block_where_ownership_was_proven)
+    /// --- DMAP (netuid, hotkey) --> (H160, last_block_where_ownership_was_proven)
     pub type AssociatedEvmAddress<T: Config> =
-        StorageDoubleMap<_, Twox64Concat, NetUid, Twox64Concat, u16, (H160, u64), OptionQuery>;
+        StorageDoubleMap<_, Twox64Concat, NetUid, Twox64Concat, T::AccountId, (H160, u64), OptionQuery>;
 
     /// ==================
     /// ==== Genesis =====
