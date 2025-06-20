@@ -125,6 +125,8 @@ pub mod pallet {
         UidLookup,
         /// Enum for alpha precompile
         Alpha,
+        /// Pure proxy precompile
+        PureProxy,
     }
 
     #[pallet::type_value]
