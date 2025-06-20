@@ -49,22 +49,22 @@ where
         GetDispatchInfo + Dispatchable<PostInfo = PostDispatchInfo>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
 {
-    #[precompile::public("setWeights(uint16,uint16[],uint16[],uint64)")]
+    #[precompile::public("createPureProxy()")]
     #[precompile::payable]
-    pub fn create_pure(handle: &mut impl PrecompileHandle) -> EvmResult<()> {
+    pub fn create_pure_proxy(handle: &mut impl PrecompileHandle) -> EvmResult<()> {
         let caller = handle.context().caller;
-        if pallet_subtensor::PureProxyAccount::<R>::get(&caller).is_none() {
+        if pallet_subtensor::PureProxyAccount::<R>::get(caller).is_none() {
             let account = Self::into_pure_proxy_account_id(&caller);
-            pallet_subtensor::PureProxyAccount::<R>::insert(&caller, account);
+            pallet_subtensor::PureProxyAccount::<R>::insert(caller, account);
         }
         Ok(())
     }
 
-    #[precompile::public("proxyCall(uint8[],)")]
+    #[precompile::public("pureProxyCall(uint8[],)")]
     #[precompile::payable]
-    pub fn proxy_call(handle: &mut impl PrecompileHandle, call: Vec<u8>) -> EvmResult<()> {
+    pub fn pure_proxy_call(handle: &mut impl PrecompileHandle, call: Vec<u8>) -> EvmResult<()> {
         let caller = handle.context().caller;
-        match pallet_subtensor::PureProxyAccount::<R>::get(&caller) {
+        match pallet_subtensor::PureProxyAccount::<R>::get(caller) {
             Some(account) => {
                 let call = <R as frame_system::Config>::RuntimeCall::decode_with_depth_limit(
                     MAX_DECODE_DEPTH,
@@ -85,9 +85,9 @@ where
         }
     }
 
-    #[precompile::public("getProxy()")]
+    #[precompile::public("getPureProxy()")]
     #[precompile::view]
-    fn get_proxy(handle: &mut impl PrecompileHandle) -> EvmResult<H256> {
+    fn get_pure_proxy(handle: &mut impl PrecompileHandle) -> EvmResult<H256> {
         let caller = handle.context().caller;
         let result = pallet_subtensor::PureProxyAccount::<R>::get(caller);
         let buf: [u8; 32] = result.map(|account| account.into()).unwrap_or([0_u8; 32]);
