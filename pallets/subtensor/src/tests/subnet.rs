@@ -6,8 +6,6 @@ use frame_system::Config;
 use sp_core::U256;
 
 use super::mock;
-use super::mock::*;
-use crate::*;
 
 /***************************
   pub fn do_start_call() tests
