@@ -60,7 +60,7 @@ where
         Ok(())
     }
 
-    #[precompile::public("pureProxyCall(uint8[],)")]
+    #[precompile::public("pureProxyCall(uint8[])")]
     #[precompile::payable]
     pub fn pure_proxy_call(handle: &mut impl PrecompileHandle, call: Vec<u8>) -> EvmResult<()> {
         let caller = handle.context().caller;
