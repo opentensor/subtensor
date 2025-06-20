@@ -64,7 +64,6 @@ w3f-bls = { workspace = true, default-features = false }
 sha2 = { workspace = true }
 array-bytes = { workspace = true }
 rand_chacha = { workspace = true }
-subtensor-runtime-common = { workspace = true }
 runtime-common = { workspace = true }
 babe-primitives = { workspace = true }
 sp-consensus-aura = { workspace = true }
@@ -151,10 +150,9 @@ runtime-benchmarks = [
 	"pallet-drand/runtime-benchmarks",
 	"runtime-common/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks"
+	"pallet-timestamp/runtime-benchmarks",
 	"pallet-subtensor-swap/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
-	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
