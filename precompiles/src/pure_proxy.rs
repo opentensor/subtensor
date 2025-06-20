@@ -51,13 +51,19 @@ where
 {
     #[precompile::public("createPureProxy()")]
     #[precompile::payable]
-    pub fn create_pure_proxy(handle: &mut impl PrecompileHandle) -> EvmResult<()> {
+    pub fn create_pure_proxy(handle: &mut impl PrecompileHandle) -> EvmResult<H256> {
         let caller = handle.context().caller;
         if pallet_subtensor::PureProxyAccount::<R>::get(caller).is_none() {
             let account = Self::into_pure_proxy_account_id(&caller);
-            pallet_subtensor::PureProxyAccount::<R>::insert(caller, account);
+            pallet_subtensor::PureProxyAccount::<R>::insert(caller, account.clone());
+            let buf: [u8; 32] = account.into();
+
+            Ok(H256::from(buf))
+        } else {
+            Err(PrecompileFailure::Error {
+                exit_status: ExitError::Other("Pure proxy account not created yet".into()),
+            })
         }
-        Ok(())
     }
 
     #[precompile::public("pureProxyCall(uint8[])")]
