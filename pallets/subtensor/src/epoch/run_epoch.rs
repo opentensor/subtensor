@@ -1298,10 +1298,9 @@ impl<T: Config> Pallet<T> {
         // sigmoid = 1. / (1. + e^(-steepness * (combined_diff - 0.5)))
         let sigmoid = one.saturating_div(
             one.saturating_add(safe_exp(
-                I32F32::from_num(-1).saturating_mul(
-                    alpha_sigmoid_steepness
-                        .saturating_mul(combined_diff.saturating_sub(I32F32::from_num(0.5))),
-                ),
+                alpha_sigmoid_steepness
+                    .saturating_div(I32F32::from_num(-100))
+                    .saturating_mul(combined_diff.saturating_sub(I32F32::from_num(0.5))),
             )),
         );
         let alpha =

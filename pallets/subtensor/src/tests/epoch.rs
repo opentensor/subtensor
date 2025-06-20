@@ -4,20 +4,19 @@
     clippy::unwrap_used
 )]
 
+use std::time::Instant;
+
+use approx::assert_abs_diff_eq;
+use frame_support::{assert_err, assert_ok};
+use rand::{Rng, SeedableRng, distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng};
+use sp_core::{Get, U256};
+use substrate_fixed::types::I32F32;
+use subtensor_swap_interface::SwapHandler;
+
 use super::mock::*;
 use crate::epoch::math::{fixed, u16_proportion_to_fixed};
 use crate::tests::math::{assert_mat_compare, vec_to_fixed, vec_to_mat_fixed};
 use crate::*;
-
-use approx::assert_abs_diff_eq;
-use frame_support::{assert_err, assert_ok};
-
-// use frame_system::Config;
-use rand::{Rng, SeedableRng, distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng};
-use sp_core::{Get, U256};
-// use sp_runtime::DispatchError;
-use std::time::Instant;
-use substrate_fixed::types::I32F32;
 
 // Normalizes (sum to 1 except 0) the input vector directly in-place.
 #[allow(dead_code)]
@@ -562,17 +561,23 @@ fn test_1_graph() {
         let coldkey = U256::from(0);
         let hotkey = U256::from(0);
         let uid: u16 = 0;
-        let stake_amount: u64 = 1;
+        let stake_amount: u64 = 1_000_000_000;
         add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
         SubtensorModule::set_max_allowed_uids(netuid, 1);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_amount);
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
+        SubtensorModule::add_balance_to_coldkey_account(
             &coldkey,
-            netuid,
-            stake_amount,
+            stake_amount + ExistentialDeposit::get(),
         );
-        SubtensorModule::append_neuron(netuid, &hotkey, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 1);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            stake_amount
+        ));
+
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
         run_to_block(1); // run to next block to ensure weights are set on nodes after their registration block
         assert_ok!(SubtensorModule::set_weights(
@@ -1301,11 +1306,15 @@ fn test_set_alpha_disabled() {
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
+        let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
+            netuid.into(),
+            DefaultMinStake::<Test>::get(),
+        );
         assert_ok!(SubtensorModule::add_stake(
             signer.clone(),
             hotkey,
             netuid,
-            DefaultMinStake::<Test>::get() + DefaultStakingFee::<Test>::get()
+            DefaultMinStake::<Test>::get() + fee
         ));
         // Only owner can set alpha values
         assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey));
@@ -2249,11 +2258,17 @@ fn test_get_set_alpha() {
 
         assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey));
         SubtokenEnabled::<Test>::insert(netuid, true);
+
+        let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
+            netuid.into(),
+            DefaultMinStake::<Test>::get(),
+        );
+
         assert_ok!(SubtensorModule::add_stake(
             signer.clone(),
             hotkey,
             netuid,
-            DefaultMinStake::<Test>::get() + DefaultStakingFee::<Test>::get()
+            DefaultMinStake::<Test>::get() + fee
         ));
 
         assert_ok!(SubtensorModule::do_set_alpha_values(
@@ -2644,7 +2659,7 @@ fn setup_yuma_3_scenario(netuid: NetUid, n: u16, sparse: bool, max_stake: u64, s
     SubtensorModule::set_min_allowed_weights(netuid, 1);
     SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
     SubtensorModule::set_bonds_penalty(netuid, 0);
-    SubtensorModule::set_alpha_sigmoid_steepness(netuid, 10);
+    SubtensorModule::set_alpha_sigmoid_steepness(netuid, 1000);
     SubtensorModule::set_bonds_moving_average(netuid, 975_000);
 
     // === Register

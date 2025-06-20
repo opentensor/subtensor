@@ -216,6 +216,8 @@ mod errors {
         ZeroMaxStakeAmount,
         /// Invalid netuid duplication
         SameNetuid,
+        /// The caller does not have enough balance for the operation.
+        InsufficientBalance,
         /// Symbol does not exist.
         SymbolDoesNotExist,
         /// Symbol already in use.

@@ -1,7 +1,9 @@
 #![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 
+use core::num::NonZeroU64;
+
 use frame_support::{
-    assert_ok, derive_impl, parameter_types,
+    PalletId, assert_ok, derive_impl, parameter_types,
     traits::{Everything, Hooks, InherentBuilder, PrivilegeCmp},
 };
 use frame_system::{self as system, offchain::CreateTransactionBase};
@@ -32,6 +34,7 @@ frame_support::construct_runtime!(
         Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 6,
         Grandpa: pallet_grandpa = 7,
         EVMChainId: pallet_evm_chain_id = 8,
+        Swap: pallet_subtensor_swap::{Pallet, Call, Storage, Event<T>} = 9,
     }
 );
 
@@ -82,7 +85,7 @@ parameter_types! {
     pub const TransactionByteFee: Balance = 100;
     pub const SDebug:u64 = 1;
     pub const InitialRho: u16 = 30;
-    pub const InitialAlphaSigmoidSteepness: u16 = 10;
+    pub const InitialAlphaSigmoidSteepness: i16 = 1000;
     pub const InitialKappa: u16 = 32_767;
     pub const InitialTempo: u16 = 0;
     pub const SelfOwnership: u64 = 2;
@@ -213,6 +216,7 @@ impl pallet_subtensor::Config for Test {
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type DurationOfStartCall = DurationOfStartCall;
+    type SwapInterface = Swap;
     type KeySwapOnSubnetCost = InitialKeySwapOnSubnetCost;
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
 }
@@ -271,6 +275,27 @@ impl pallet_balances::Config for Test {
     type FreezeIdentifier = ();
     type MaxFreezes = ();
     type RuntimeHoldReason = ();
+}
+
+// Swap-related parameter types
+parameter_types! {
+    pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
+    pub const SwapMaxFeeRate: u16 = 10000; // 15.26%
+    pub const SwapMaxPositions: u32 = 100;
+    pub const SwapMinimumLiquidity: u64 = 1_000;
+    pub const SwapMinimumReserve: NonZeroU64 = NonZeroU64::new(1_000_000).unwrap();
+}
+
+impl pallet_subtensor_swap::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type SubnetInfo = SubtensorModule;
+    type BalanceOps = SubtensorModule;
+    type ProtocolId = SwapProtocolId;
+    type MaxFeeRate = SwapMaxFeeRate;
+    type MaxPositions = SwapMaxPositions;
+    type MinimumLiquidity = SwapMinimumLiquidity;
+    type MinimumReserve = SwapMinimumReserve;
+    type WeightInfo = ();
 }
 
 pub struct OriginPrivilegeCmp;
