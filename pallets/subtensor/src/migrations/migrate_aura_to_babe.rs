@@ -4,7 +4,6 @@ use babe_primitives::BabeAuthorityWeight;
 use frame_support::WeakBoundedVec;
 use frame_support::pallet_prelude::{Identity, OptionQuery, Weight};
 use frame_support::storage_alias;
-use num_traits::Zero as _;
 use pallet_aura;
 use pallet_babe;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;

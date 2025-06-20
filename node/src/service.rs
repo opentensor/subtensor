@@ -74,7 +74,7 @@ where
         &TaskManager,
         Option<TelemetryHandle>,
         GrandpaBlockImport,
-        Arc<FullPool<Block, FullClient>>,
+        Arc<TransactionPoolHandle<Block, FullClient>>,
     ) -> Result<
         (
             BasicQueue<Block>,
@@ -161,7 +161,7 @@ where
         .with_options(config.transaction_pool.clone())
         .with_prometheus(config.prometheus_registry())
         .build(),
-	);
+    );
 
     let (import_queue, block_import, babe_link, babe_worker_handle) = build_import_queue(
         client.clone(),
@@ -303,7 +303,7 @@ pub fn build_babe_grandpa_import_queue(
     task_manager: &TaskManager,
     telemetry: Option<TelemetryHandle>,
     grandpa_block_import: GrandpaBlockImport,
-    transaction_pool: Arc<FullPool<Block, FullClient>>,
+    transaction_pool: Arc<TransactionPoolHandle<Block, FullClient>>,
 ) -> Result<
     (
         BasicQueue<Block>,
@@ -370,7 +370,7 @@ pub fn build_manual_seal_import_queue(
     _task_manager: &TaskManager,
     _telemetry: Option<TelemetryHandle>,
     _grandpa_block_import: GrandpaBlockImport,
-    _transaction_pool: Arc<FullPool<Block, FullClient>>,
+    _transaction_pool: Arc<TransactionPoolHandle<Block, FullClient>>,
 ) -> Result<
     (
         BasicQueue<Block>,

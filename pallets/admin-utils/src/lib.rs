@@ -8,8 +8,6 @@ pub use pallet::*;
 //   `sp_consensus_grandpa` for `AuthorityId` anyway
 // - we could use a type parameter for `AuthorityId`, but there is
 //   no sense for this as GRANDPA's `AuthorityId` is not a parameter -- it's always the same
-use sp_consensus_grandpa::AuthorityList;
-use sp_runtime::DispatchResult;
 
 mod benchmarking;
 

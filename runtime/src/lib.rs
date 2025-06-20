@@ -37,7 +37,7 @@ use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
 use pallet_election_provider_multi_phase::GeometricDepositBase;
 use pallet_grandpa::{
-    AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList, fg_primitives,
+    AuthorityId as GrandpaId, fg_primitives,
 };
 use pallet_proxy_opentensor as pallet_proxy;
 use pallet_registry::CanRegisterIdentity;
@@ -64,7 +64,6 @@ use sp_core::{
     H160, H256, OpaqueMetadata, U256,
     crypto::{ByteArray, KeyTypeId},
 };
-use sp_runtime::BoundedVec;
 use sp_runtime::Cow;
 use sp_runtime::Percent;
 use sp_runtime::SaturatedConversion;
@@ -74,7 +73,7 @@ use sp_runtime::transaction_validity::TransactionPriority;
 use sp_runtime::{
     AccountId32, ApplyExtrinsicResult, ConsensusEngineId, generic, impl_opaque_keys,
     traits::{
-        AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, NumberFor,
+        AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable,
         One, PostDispatchInfoOf, UniqueSaturatedInto, Verify,
     },
     transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
@@ -143,8 +142,11 @@ where
     type RuntimeCall = RuntimeCall;
 }
 
-impl frame_system::offchain::CreateInherent<pallet_drand::Call<Runtime>> for Runtime {
-    fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
+where
+    RuntimeCall: From<LocalCall>,
+{
+    fn create_inherent(call: RuntimeCall) -> UncheckedExtrinsic {
         UncheckedExtrinsic::new_bare(call)
     }
 }
