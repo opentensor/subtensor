@@ -64,6 +64,7 @@ use sp_core::{
     H160, H256, OpaqueMetadata, U256,
     crypto::{ByteArray, KeyTypeId},
 };
+use sp_runtime::BoundedVec;
 use sp_runtime::Cow;
 use sp_runtime::Percent;
 use sp_runtime::SaturatedConversion;
@@ -1564,29 +1565,8 @@ impl pallet_subtensor_swap::Config for Runtime {
     type WeightInfo = pallet_subtensor_swap::weights::DefaultWeight<Runtime>;
 }
 
-use sp_runtime::BoundedVec;
-
-pub struct AuraPalletIntrf;
-impl pallet_admin_utils::AuraInterface<AuraId, ConstU32<32>> for AuraPalletIntrf {
-    fn change_authorities(new: BoundedVec<AuraId, ConstU32<32>>) {
-        Aura::change_authorities(new);
-    }
-}
-
-pub struct GrandpaInterfaceImpl;
-impl pallet_admin_utils::GrandpaInterface<Runtime> for GrandpaInterfaceImpl {
-    fn schedule_change(
-        next_authorities: Vec<(pallet_grandpa::AuthorityId, u64)>,
-        in_blocks: BlockNumber,
-        forced: Option<BlockNumber>,
-    ) -> sp_runtime::DispatchResult {
-        Grandpa::schedule_change(next_authorities, in_blocks, forced)
-    }
-}
-
 impl pallet_admin_utils::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type Grandpa = GrandpaInterfaceImpl;
     type Balance = Balance;
 }
 
@@ -2664,7 +2644,6 @@ impl_runtime_apis! {
         }
     }
 
-<<<<<<< HEAD
     impl pallet_staking_runtime_api::StakingApi<Block, Balance, AccountId> for Runtime {
         fn nominations_quota(balance: Balance) -> u32 {
             Staking::api_nominations_quota(balance)
@@ -2726,7 +2705,7 @@ impl_runtime_apis! {
                 key_owner_proof,
             )
         }
-        }
+    }
 
     impl pallet_subtensor_swap_runtime_api::SwapRuntimeApi<Block> for Runtime {
         fn current_alpha_price(netuid: u16) -> u64 {

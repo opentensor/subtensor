@@ -47,9 +47,6 @@ pub mod pallet {
         /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-        /// Implementation of [`GrandpaInterface`]
-        type Grandpa: crate::GrandpaInterface<Self>;
-
         /// Unit of assets
         type Balance: Balance;
     }
@@ -1364,36 +1361,6 @@ pub mod pallet {
             Ok(())
         }
 
-        /// A public interface for `pallet_grandpa::Pallet::schedule_grandpa_change`.
-        ///
-        /// Schedule a change in the authorities.
-        ///
-        /// The change will be applied at the end of execution of the block `in_blocks` after the
-        /// current block. This value may be 0, in which case the change is applied at the end of
-        /// the current block.
-        ///
-        /// If the `forced` parameter is defined, this indicates that the current set has been
-        /// synchronously determined to be offline and that after `in_blocks` the given change
-        /// should be applied. The given block number indicates the median last finalized block
-        /// number and it should be used as the canon block when starting the new grandpa voter.
-        ///
-        /// No change should be signaled while any change is pending. Returns an error if a change
-        /// is already pending.
-        #[pallet::call_index(59)]
-        #[pallet::weight(Weight::from_parts(9_060_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
-        pub fn schedule_grandpa_change(
-            origin: OriginFor<T>,
-            // grandpa ID is always the same type, so we don't need to parametrize it via `Config`
-            next_authorities: AuthorityList,
-            in_blocks: BlockNumberFor<T>,
-            forced: Option<BlockNumberFor<T>>,
-        ) -> DispatchResult {
-            ensure_root(origin)?;
-            T::Grandpa::schedule_change(next_authorities, in_blocks, forced)
-        }
-
         /// Enable or disable atomic alpha transfers for a given subnet.
         ///
         /// # Parameters
@@ -1694,29 +1661,5 @@ pub mod pallet {
             );
             Ok(())
         }
-    }
-}
-
-pub trait GrandpaInterface<Runtime>
-where
-    Runtime: frame_system::Config,
-{
-    fn schedule_change(
-        next_authorities: AuthorityList,
-        in_blocks: BlockNumberFor<Runtime>,
-        forced: Option<BlockNumberFor<Runtime>>,
-    ) -> DispatchResult;
-}
-
-impl<R> GrandpaInterface<R> for ()
-where
-    R: frame_system::Config,
-{
-    fn schedule_change(
-        _next_authorities: AuthorityList,
-        _in_blocks: BlockNumberFor<R>,
-        _forced: Option<BlockNumberFor<R>>,
-    ) -> DispatchResult {
-        Ok(())
     }
 }

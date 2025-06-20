@@ -32,6 +32,8 @@ scale-info = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["alloc"] }
 pallet-balances = { workspace = true }
 pallet-subtensor = { workspace = true }
+pallet-subtensor-swap = { workspace = true }
+pallet-subtensor-swap-runtime-api = { workspace = true }
 frame-support = { workspace = true }
 pallet-grandpa = { workspace = true }
 pallet-insecure-randomness-collective-flip = { workspace = true }
@@ -60,6 +62,7 @@ babe-primitives = { workspace = true }
 authority-discovery-primitives = { workspace = true }
 runtime-common = { workspace = true }
 polkadot-core-primitives = { workspace = true }
+substrate-fixed = { workspace = true }
 
 # Temporary sudo
 pallet-sudo = { workspace = true }
@@ -264,7 +267,10 @@ std = [
 	"pallet-aura/std",
 	"sp-consensus-aura/std",
 	"sp-consensus-grandpa/std",
-	"sp-consensus-slots/std"
+	"sp-consensus-slots/std",
+	"substrate-fixed/std",
+	"pallet-subtensor-swap/std",
+	"pallet-subtensor-swap-runtime-api/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -305,7 +311,8 @@ runtime-benchmarks = [
 	"pallet-evm/runtime-benchmarks",
 	"pallet-hotfix-sufficients/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks"
+	"pallet-transaction-payment/runtime-benchmarks",
+	"pallet-subtensor-swap/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
