@@ -708,6 +708,7 @@ fn test_subtoken_enable_ok_for_burn_register_before_enable() {
     });
 }
 
+#[test]
 fn test_user_liquidity_access_control() {
     new_test_ext(1).execute_with(|| {
         let owner_hotkey = U256::from(1);
