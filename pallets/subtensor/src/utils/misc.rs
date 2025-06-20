@@ -699,7 +699,7 @@ impl<T: Config> Pallet<T> {
         (converted_low, converted_high)
     }
 
-    pub fn set_alpha_sigmoid_steepness(netuid: NetUid, steepness: u16) {
+    pub fn set_alpha_sigmoid_steepness(netuid: NetUid, steepness: i16) {
         AlphaSigmoidSteepness::<T>::insert(netuid, steepness);
     }
     pub fn get_alpha_sigmoid_steepness(netuid: NetUid) -> I32F32 {
@@ -721,6 +721,14 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_yuma3_enabled(netuid: NetUid) -> bool {
         Yuma3On::<T>::get(netuid)
+    }
+
+    pub fn get_subtoken_enabled(netuid: NetUid) -> bool {
+        SubtokenEnabled::<T>::get(netuid)
+    }
+
+    pub fn get_transfer_toggle(netuid: NetUid) -> bool {
+        TransferToggle::<T>::get(netuid)
     }
 
     /// Set the duration for coldkey swap

@@ -10,6 +10,7 @@ declare -A DISPATCH_PATHS=(
   [admin_utils]="../pallets/admin-utils/src/lib.rs"
   [commitments]="../pallets/commitments/src/lib.rs"
   [drand]="../pallets/drand/src/lib.rs"
+  [swap]="../pallets/swap/src/pallet/mod.rs"
 )
 
 # Max allowed drift (%)

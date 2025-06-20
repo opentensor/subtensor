@@ -3,6 +3,7 @@ use alloc::collections::BTreeMap;
 use safe_math::*;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::NetUid;
+use subtensor_swap_interface::SwapHandler;
 use tle::stream_ciphers::AESGCMStreamCipherProvider;
 use tle::tlock::tld;
 
@@ -70,7 +71,7 @@ impl<T: Config> Pallet<T> {
         // Only calculate for subnets that we are emitting to.
         for netuid_i in subnets_to_emit_to.iter() {
             // Get subnet price.
-            let price_i: U96F32 = Self::get_alpha_price(*netuid_i);
+            let price_i = T::SwapInterface::current_alpha_price((*netuid_i).into());
             log::debug!("price_i: {:?}", price_i);
             // Get subnet TAO.
             let moving_price_i: U96F32 = Self::get_moving_alpha_price(*netuid_i);
@@ -138,6 +139,8 @@ impl<T: Config> Pallet<T> {
             TotalIssuance::<T>::mutate(|total| {
                 *total = total.saturating_add(tao_in_i);
             });
+            // Adjust protocol liquidity based on new reserves
+            T::SwapInterface::adjust_protocol_liquidity(*netuid_i);
         }
 
         // --- 5. Compute owner cuts and remove them from alpha_out remaining.
@@ -192,20 +195,28 @@ impl<T: Config> Pallet<T> {
             let pending_alpha: U96F32 = alpha_out_i.saturating_sub(root_alpha);
             log::debug!("pending_alpha: {:?}", pending_alpha);
             // Sell root emission through the pool.
-            let root_tao: u64 = Self::swap_alpha_for_tao(*netuid_i, tou64!(root_alpha));
-            log::debug!("root_tao: {:?}", root_tao);
-            // Accumulate alpha emission in pending.
-            PendingAlphaSwapped::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(tou64!(root_alpha));
-            });
-            // Accumulate alpha emission in pending.
-            PendingEmission::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(tou64!(pending_alpha));
-            });
-            // Accumulate root divs for subnet.
-            PendingRootDivs::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(root_tao);
-            });
+            let swap_result = Self::swap_alpha_for_tao(
+                *netuid_i,
+                tou64!(root_alpha),
+                T::SwapInterface::min_price(),
+            );
+            if let Ok(ok_result) = swap_result {
+                let root_tao: u64 = ok_result.amount_paid_out;
+
+                log::debug!("root_tao: {:?}", root_tao);
+                // Accumulate alpha emission in pending.
+                PendingAlphaSwapped::<T>::mutate(*netuid_i, |total| {
+                    *total = total.saturating_add(tou64!(root_alpha));
+                });
+                // Accumulate alpha emission in pending.
+                PendingEmission::<T>::mutate(*netuid_i, |total| {
+                    *total = total.saturating_add(tou64!(pending_alpha));
+                });
+                // Accumulate root divs for subnet.
+                PendingRootDivs::<T>::mutate(*netuid_i, |total| {
+                    *total = total.saturating_add(root_tao);
+                });
+            }
         }
 
         // --- 7 Update moving prices after using them in the emission calculation.

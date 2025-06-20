@@ -33,27 +33,35 @@ members = [
 ]
 resolver = "2"
 
+[workspace.package]
+edition = "2024"
+
 [workspace.lints.clippy]
-indexing-slicing = "deny"
 arithmetic-side-effects = "deny"
-type_complexity = "allow"
-unwrap-used = "deny"
+indexing-slicing = "deny"
 manual_inspect = "allow"
 result_large_err = "allow"
+type_complexity = "allow"
+unwrap-used = "deny"
 useless_conversion = "allow"     # until polkadot is patched
 
 [workspace.dependencies]
+node-subtensor-runtime = { default-features = false, path = "runtime" }
 pallet-admin-utils = { default-features = false, path = "pallets/admin-utils" }
 pallet-collective = { default-features = false, path = "pallets/collective" }
 pallet-commitments = { default-features = false, path = "pallets/commitments" }
 pallet-registry = { default-features = false, path = "pallets/registry" }
 pallet-crowdloan = { default-features = false, path = "pallets/crowdloan" }
 pallet-subtensor = { default-features = false, path = "pallets/subtensor" }
+pallet-subtensor-swap = { default-features = false, path = "pallets/swap" }
+pallet-subtensor-swap-runtime-api = { default-features = false, path = "pallets/swap/runtime-api" }
+pallet-subtensor-swap-rpc = { default-features = false, path = "pallets/swap/rpc" }
+safe-math = { default-features = false, path = "primitives/safe-math" }
 subtensor-custom-rpc = { default-features = false, path = "pallets/subtensor/rpc" }
 subtensor-custom-rpc-runtime-api = { default-features = false, path = "pallets/subtensor/runtime-api" }
 subtensor-precompiles = { default-features = false, path = "precompiles" }
 subtensor-runtime-common = { default-features = false, path = "common" }
-node-subtensor-runtime = { default-features = false, path = "runtime" }
+subtensor-swap-interface = { default-features = false, path = "pallets/swap-interface" }
 
 async-trait = "0.1"
 cargo-husky = { version = "1", default-features = false }
@@ -98,6 +106,7 @@ proc-macro2 = { version = "1", features = ["span-locations"] }
 thiserror = "1.0"
 walkdir = "2"
 approx = "0.5"
+alloy-primitives = { version = "0.8.23", default-features = false }
 
 subtensor-macros = { path = "support/macros" }
 
@@ -152,6 +161,7 @@ sc-transaction-pool = { git = "https://github.com/paritytech/polkadot-sdk.git", 
 sc-transaction-pool-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
 
 sp-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-arithmetic = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
 sp-block-builder = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
 sp-blockchain = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
 sp-consensus = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
