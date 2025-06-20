@@ -777,7 +777,7 @@ fn test_get_symbol_for_subnet_returns_default_symbol_if_netuid_is_out_of_bounds(
 }
 
 #[test]
-fn test_set_symbol_works_as_root_if_symbol_exists_and_available() {
+fn test_update_symbol_works_as_root_if_symbol_exists_and_available() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
         add_network(netuid, 10, 0);
@@ -785,7 +785,7 @@ fn test_set_symbol_works_as_root_if_symbol_exists_and_available() {
         // only one network so we can set any symbol, except the root symbol
         for i in 1..SYMBOLS.len() {
             let symbol = SYMBOLS.get(i).unwrap().to_vec();
-            assert_ok!(SubtensorModule::set_symbol(
+            assert_ok!(SubtensorModule::update_symbol(
                 <Test as Config>::RuntimeOrigin::root(),
                 netuid,
                 symbol.clone()
@@ -798,7 +798,7 @@ fn test_set_symbol_works_as_root_if_symbol_exists_and_available() {
 }
 
 #[test]
-fn test_set_symbol_works_as_subnet_owner_if_symbol_exists_and_available() {
+fn test_update_symbol_works_as_subnet_owner_if_symbol_exists_and_available() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let netuid = NetUid::from(1);
@@ -809,7 +809,7 @@ fn test_set_symbol_works_as_subnet_owner_if_symbol_exists_and_available() {
         for i in 1..SYMBOLS.len() {
             let symbol = SYMBOLS.get(i).unwrap().to_vec();
 
-            assert_ok!(SubtensorModule::set_symbol(
+            assert_ok!(SubtensorModule::update_symbol(
                 <Test as Config>::RuntimeOrigin::signed(coldkey),
                 netuid,
                 symbol.clone()
@@ -822,7 +822,7 @@ fn test_set_symbol_works_as_subnet_owner_if_symbol_exists_and_available() {
 }
 
 #[test]
-fn test_set_symbol_fails_if_symbol_doesnt_exist() {
+fn test_update_symbol_fails_if_symbol_doesnt_exist() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let netuid = NetUid::from(1);
@@ -830,7 +830,7 @@ fn test_set_symbol_fails_if_symbol_doesnt_exist() {
         SubnetOwner::<Test>::insert(netuid, coldkey);
 
         assert_err!(
-            SubtensorModule::set_symbol(
+            SubtensorModule::update_symbol(
                 <Test as Config>::RuntimeOrigin::signed(coldkey),
                 netuid,
                 b"TEST".to_vec()
@@ -841,7 +841,7 @@ fn test_set_symbol_fails_if_symbol_doesnt_exist() {
 }
 
 #[test]
-fn test_set_symbol_fails_if_symbol_already_in_use() {
+fn test_update_symbol_fails_if_symbol_already_in_use() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let netuid = NetUid::from(1);
@@ -853,14 +853,14 @@ fn test_set_symbol_fails_if_symbol_already_in_use() {
         add_network(netuid2, 10, 0);
         SubnetOwner::<Test>::insert(netuid2, coldkey2);
 
-        assert_ok!(SubtensorModule::set_symbol(
+        assert_ok!(SubtensorModule::update_symbol(
             <Test as Config>::RuntimeOrigin::signed(coldkey),
             netuid,
             SYMBOLS.get(42).unwrap().to_vec()
         ));
 
         assert_err!(
-            SubtensorModule::set_symbol(
+            SubtensorModule::update_symbol(
                 <Test as Config>::RuntimeOrigin::signed(coldkey2),
                 netuid2,
                 SYMBOLS.get(42).unwrap().to_vec()

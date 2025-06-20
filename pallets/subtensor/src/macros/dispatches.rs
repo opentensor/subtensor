@@ -2071,7 +2071,7 @@ mod dispatches {
             Ok(())
         }
 
-        /// Sets the symbol for a subnet.
+        /// Updates the symbol for a subnet.
         ///
         /// # Arguments
         /// * `origin` - The origin of the call, which must be the subnet owner or root.
@@ -2088,7 +2088,7 @@ mod dispatches {
         /// Emits a `SymbolUpdated` event on success.
         #[pallet::call_index(110)]
         #[pallet::weight(Weight::zero())]
-        pub fn set_symbol(origin: OriginFor<T>, netuid: NetUid, symbol: Vec<u8>) -> DispatchResult {
+        pub fn update_symbol(origin: OriginFor<T>, netuid: NetUid, symbol: Vec<u8>) -> DispatchResult {
             Self::ensure_subnet_owner_or_root(origin, netuid)?;
 
             if SYMBOLS

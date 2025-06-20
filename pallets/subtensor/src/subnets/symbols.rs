@@ -1,5 +1,6 @@
 use super::*;
 use subtensor_runtime_common::NetUid;
+use std::collections::HashSet;
 
 // TODO: default symbol should be different from the root symbol?
 pub static DEFAULT_SYMBOL: &[u8] = b"\xCE\xA4"; // TAO uppercase symbol
@@ -931,7 +932,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_next_available_symbol(netuid: NetUid) -> Vec<u8> {
-        let used_symbols = TokenSymbol::<T>::iter_values().collect::<Vec<_>>();
+        let used_symbols: HashSet<Vec<u8>> = TokenSymbol::<T>::iter_values().collect();
 
         // We first try the default strategy of using the subnet id to get the symbol.
         let symbol = Self::get_symbol_for_subnet(netuid);
@@ -943,7 +944,7 @@ impl<T: Config> Pallet<T> {
         let available_symbol = SYMBOLS
             .iter()
             .skip(1) // Skip the root symbol
-            .find(|s| !used_symbols.contains(&s.to_vec()))
+            .find(|s| !used_symbols.contains(&s[..]))
             .map(|s| s.to_vec());
 
         if available_symbol.is_none() {
