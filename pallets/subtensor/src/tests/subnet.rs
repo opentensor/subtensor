@@ -341,13 +341,12 @@ fn test_register_network_use_default_symbol_if_all_symbols_are_taken() {
 
 // cargo test --package pallet-subtensor --lib -- tests::subnet::test_no_duplicates_in_get_symbol_for_subnet --exact --show-output
 #[test]
-fn test_no_duplicates_in_get_symbol_for_subnet() {
+fn test_no_duplicates_in_symbol_static() {
     use std::collections::HashSet;
 
     let mut seen = HashSet::new();
-    for netuid in 0u16..=438 {
-        let netuid = NetUid::from(netuid);
-        let symbol = Pallet::<Test>::get_symbol_for_subnet(netuid);
+    for netuid in 0..(SYMBOLS.len() as u16) {
+        let symbol = SYMBOLS.get(usize::from(netuid)).unwrap();
         assert!(
             seen.insert(symbol.clone()),
             "Duplicate symbol found for netuid {}: {:?}",
@@ -779,8 +778,6 @@ fn test_set_symbol_works_as_root_if_symbol_exists_and_available() {
         // only one network so we can set any symbol, except the root symbol
         for i in 1..SYMBOLS.len() {
             let symbol = SYMBOLS.get(i).unwrap().to_vec();
-            println!("i: {:?}", i);
-            println!("symbol: {:?}", SYMBOLS.get(i).unwrap());
             assert_ok!(SubtensorModule::set_symbol(
                 <Test as Config>::RuntimeOrigin::root(),
                 netuid,
