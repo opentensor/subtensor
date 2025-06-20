@@ -338,26 +338,7 @@ fn test_register_network_use_default_symbol_if_all_symbols_are_taken() {
         assert_eq!(TokenSymbol::<Test>::get(netuid), *DEFAULT_SYMBOL);
     });
 }
-
-// cargo test --package pallet-subtensor --lib -- tests::subnet::test_no_duplicates_in_get_symbol_for_subnet --exact --show-output
-#[test]
-fn test_no_duplicates_in_symbol_static() {
-    use std::collections::HashSet;
-
-    let mut seen = HashSet::new();
-    for netuid in 0..(SYMBOLS.len() as u16) {
-        let symbol = SYMBOLS.get(usize::from(netuid)).unwrap();
-        assert!(
-            seen.insert(symbol.clone()),
-            "Duplicate symbol found for netuid {}: {:?}",
-            netuid,
-            symbol
-        );
-    }
-}
-
 // cargo test --package pallet-subtensor --lib -- tests::subnet::test_subtoken_enable --exact --show-output
-
 #[test]
 fn test_subtoken_enable() {
     // ensure_subtoken_enabled
@@ -766,6 +747,32 @@ fn test_user_liquidity_access_control() {
         assert!(pallet_subtensor_swap::EnabledUserLiquidity::<Test>::get(
             NetUid::from(netuid)
         ));
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::subnet::test_no_duplicates_in_symbol_static --exact --show-output
+#[test]
+fn test_no_duplicates_in_symbol_static() {
+    use std::collections::HashSet;
+
+    let mut seen = HashSet::new();
+    for netuid in 0..(SYMBOLS.len() as u16) {
+        let symbol = SYMBOLS.get(usize::from(netuid)).unwrap();
+        assert!(
+            seen.insert(symbol.to_vec()),
+            "Duplicate symbol found for netuid {}: {:?}",
+            netuid,
+            symbol
+        );
+    }
+}
+
+#[test]
+fn test_get_symbol_for_subnet_returns_default_symbol_if_netuid_is_out_of_bounds() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(SYMBOLS.len() as u16 + 1);
+        let symbol = Pallet::<Test>::get_symbol_for_subnet(netuid);
+        assert_eq!(symbol, DEFAULT_SYMBOL);
     });
 }
 
