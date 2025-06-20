@@ -366,6 +366,13 @@ pub mod pallet {
             let (_, deposit) = Proxies::<T>::take(&who);
             T::Currency::unreserve(&spawner, deposit);
 
+            Self::deposit_event(Event::PureKilled {
+                pure: who,
+                spawner,
+                proxy_type,
+                disambiguation_index: index,
+            });
+
             Ok(())
         }
 
@@ -544,6 +551,17 @@ pub mod pallet {
             pure: T::AccountId,
             who: T::AccountId,
             proxy_type: T::ProxyType,
+            disambiguation_index: u16,
+        },
+        /// A pure proxy was killed by its spawner.
+        PureKilled {
+            // The pure proxy account that was destroyed.
+            pure: T::AccountId,
+            // The account that created the pure proxy.
+            spawner: T::AccountId,
+            // The proxy type of the pure proxy that was destroyed.
+            proxy_type: T::ProxyType,
+            // The index originally passed to `create_pure` when this pure proxy was created.
             disambiguation_index: u16,
         },
         /// An announcement was placed to make a call in the future.
