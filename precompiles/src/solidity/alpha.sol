@@ -41,13 +41,19 @@ interface IAlpha {
     /// @param netuid The subnet identifier.
     /// @param tao The amount of TAO to swap.
     /// @return The amount of alpha that would be received.
-    function simSwapTaoForAlpha(uint16 netuid, uint64 tao) external view returns (uint256);
+    function simSwapTaoForAlpha(
+        uint16 netuid,
+        uint64 tao
+    ) external view returns (uint256);
 
     /// @dev Simulates swapping alpha for TAO.
     /// @param netuid The subnet identifier.
     /// @param alpha The amount of alpha to swap.
     /// @return The amount of TAO that would be received.
-    function simSwapAlphaForTao(uint16 netuid, uint64 alpha) external view returns (uint256);
+    function simSwapAlphaForTao(
+        uint16 netuid,
+        uint64 alpha
+    ) external view returns (uint256);
 
     /// @dev Returns the mechanism type for a subnet (0 for Stable, 1 for Dynamic).
     /// @param netuid The subnet identifier.
@@ -61,7 +67,9 @@ interface IAlpha {
     /// @dev Returns the EMA price halving blocks parameter for a subnet.
     /// @param netuid The subnet identifier.
     /// @return The number of blocks for EMA price halving.
-    function getEMAPriceHalvingBlocks(uint16 netuid) external view returns (uint64);
+    function getEMAPriceHalvingBlocks(
+        uint16 netuid
+    ) external view returns (uint64);
 
     /// @dev Returns the transaction volume for a subnet.
     /// @param netuid The subnet identifier.

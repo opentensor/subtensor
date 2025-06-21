@@ -353,5 +353,13 @@ mod events {
             /// the subnet ID
             netuid: NetUid,
         },
+
+        /// Pure proxy account is set
+        PureProxyAccountSet {
+            /// EVM address
+            address: H160,
+            /// Pure proxy account
+            account: T::AccountId,
+        },
     }
 }

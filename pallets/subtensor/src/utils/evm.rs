@@ -1,8 +1,12 @@
 use super::*;
-
 use alloc::string::ToString;
 use frame_support::ensure;
 use frame_system::ensure_signed;
+use pallet_evm::AddressMapping;
+
+use pallet_evm::HashedAddressMapping;
+use sp_runtime::traits::BlakeTwo256;
+
 use sp_core::{H160, ecdsa::Signature, hashing::keccak_256};
 use sp_std::vec::Vec;
 use subtensor_runtime_common::NetUid;
@@ -99,5 +103,22 @@ impl<T: Config> Pallet<T> {
             .collect::<Vec<(u16, u64)>>();
         ret_val.sort_by(|(_, block1), (_, block2)| block1.cmp(block2));
         ret_val
+    }
+
+    pub fn do_set_pure_proxy_account(
+        origin: T::RuntimeOrigin,
+        address: H160,
+        account: T::AccountId,
+    ) -> dispatch::DispatchResult {
+        let caller = ensure_signed(origin)?;
+        let owner: T::AccountId = T::AddressMapping::into_account_id(address);
+
+        ensure!(caller == owner, Error::<T>::OriginNotMatchMappedEVM);
+
+        PureProxyAccount::<T>::insert(address, account.clone());
+
+        Self::deposit_event(Event::PureProxyAccountSet { address, account });
+
+        Ok(())
     }
 }

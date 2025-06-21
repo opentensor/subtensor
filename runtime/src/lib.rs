@@ -1207,6 +1207,7 @@ impl pallet_subtensor::Config for Runtime {
     type SwapInterface = Swap;
     type KeySwapOnSubnetCost = SubtensorInitialKeySwapOnSubnetCost;
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
+    type AddressMapping = pallet_evm::HashedAddressMapping<BlakeTwo256>;
 }
 
 parameter_types! {

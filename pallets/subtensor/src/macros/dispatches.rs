@@ -2069,5 +2069,20 @@ mod dispatches {
             PendingChildKeyCooldown::<T>::put(cooldown);
             Ok(())
         }
+
+        /// Sets the pending childkey cooldown (in blocks). Root only.
+        #[pallet::call_index(110)]
+        #[pallet::weight((
+            Weight::from_parts(98_010_000, 0).saturating_add(T::DbWeight::get().reads_writes(1, 1)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn set_pure_proxy_account(
+            origin: OriginFor<T>,
+            address: H160,
+            account: T::AccountId,
+        ) -> DispatchResult {
+            Self::do_set_pure_proxy_account(origin, address, account)
+        }
     }
 }

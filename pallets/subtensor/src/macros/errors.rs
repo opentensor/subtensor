@@ -218,5 +218,7 @@ mod errors {
         SameNetuid,
         /// The caller does not have enough balance for the operation.
         InsufficientBalance,
+        /// Origin not match the mapped EVM account
+        OriginNotMatchMappedEVM,
     }
 }

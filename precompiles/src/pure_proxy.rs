@@ -33,8 +33,9 @@ impl<R> PrecompileExt<R::AccountId> for PureProxyPrecompile<R>
 where
     R: frame_system::Config + pallet_evm::Config + pallet_subtensor::Config,
     R::AccountId: From<[u8; 32]> + Into<[u8; 32]>,
-    <R as frame_system::Config>::RuntimeCall:
-        GetDispatchInfo + Dispatchable<PostInfo = PostDispatchInfo>,
+    <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
+        + GetDispatchInfo
+        + Dispatchable<PostInfo = PostDispatchInfo>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
 {
     const INDEX: u64 = 2057;
@@ -45,23 +46,35 @@ impl<R> PureProxyPrecompile<R>
 where
     R: frame_system::Config + pallet_evm::Config + pallet_subtensor::Config,
     R::AccountId: From<[u8; 32]> + Into<[u8; 32]>,
-    <R as frame_system::Config>::RuntimeCall:
-        GetDispatchInfo + Dispatchable<PostInfo = PostDispatchInfo>,
+    <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
+        + GetDispatchInfo
+        + Dispatchable<PostInfo = PostDispatchInfo>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
 {
     #[precompile::public("createPureProxy()")]
     #[precompile::payable]
-    pub fn create_pure_proxy(handle: &mut impl PrecompileHandle) -> EvmResult<H256> {
+    pub fn create_pure_proxy(handle: &mut impl PrecompileHandle) -> EvmResult<()> {
         let caller = handle.context().caller;
         if pallet_subtensor::PureProxyAccount::<R>::get(caller).is_none() {
             let account = Self::into_pure_proxy_account_id(&caller);
-            pallet_subtensor::PureProxyAccount::<R>::insert(caller, account.clone());
-            let buf: [u8; 32] = account.into();
+            // pallet_subtensor::PureProxyAccount::<R>::insert(caller, account.clone());
 
-            Ok(H256::from(buf))
+            let call = pallet_subtensor::Call::<R>::set_pure_proxy_account {
+                address: caller,
+                account,
+            };
+
+            handle.try_dispatch_runtime_call::<R, _>(
+                call,
+                RawOrigin::Signed(handle.caller_account_id::<R>()),
+            )
+
+            //
+            // Ok(H256::from(Into::<[u8; 32]>::into(account)))
+            // Ok(())
         } else {
             Err(PrecompileFailure::Error {
-                exit_status: ExitError::Other("Pure proxy account not created yet".into()),
+                exit_status: ExitError::Other("Pure proxy account already created yet".into()),
             })
         }
     }

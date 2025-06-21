@@ -49,6 +49,7 @@ subtensor-runtime-common = { workspace = true }
 
 pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../collective" }
 pallet-drand = { path = "../drand", default-features = false }
+pallet-evm = {workspace = true}
 pallet-membership = { workspace = true }
 hex-literal = { workspace = true }
 num-traits = { version = "0.2.19", default-features = false, features = [
@@ -90,6 +91,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-collective/std",
 	"pallet-drand/std",
+	"pallet-evm/std",
 	"pallet-membership/std",
 	"pallet-preimage/std",
 	"pallet-scheduler/std",

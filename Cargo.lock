@@ -7743,6 +7743,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collective",
  "pallet-drand",
+ "pallet-evm",
  "pallet-membership",
  "pallet-preimage",
  "pallet-scheduler",
