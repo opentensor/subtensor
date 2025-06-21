@@ -219,7 +219,7 @@ impl pallet_subtensor::Config for Test {
     type SwapInterface = Swap;
     type KeySwapOnSubnetCost = InitialKeySwapOnSubnetCost;
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
-    type AddressMapping = ();
+    type AddressMapping = pallet_evm::HashedAddressMapping<BlakeTwo256>;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
