@@ -2,6 +2,8 @@
 
 use core::num::NonZeroU64;
 
+use crate::utils::rate_limiting::TransactionType;
+use crate::*;
 use frame_support::PalletId;
 use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
@@ -15,6 +17,7 @@ use frame_support::{
 use frame_system as system;
 use frame_system::{EnsureNever, EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
 use pallet_collective::MemberCount;
+use pallet_evm::AddressMapping;
 use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
@@ -24,9 +27,6 @@ use sp_runtime::{
 use sp_std::cmp::Ordering;
 use subtensor_runtime_common::NetUid;
 use subtensor_swap_interface::{OrderType, SwapHandler};
-
-use crate::utils::rate_limiting::TransactionType;
-use crate::*;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 // struct DummyAddressMap;
