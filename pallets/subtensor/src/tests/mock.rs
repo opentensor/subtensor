@@ -31,11 +31,6 @@ use subtensor_swap_interface::{OrderType, SwapHandler};
 type Block = frame_system::mocking::MockBlock<Test>;
 // struct DummyAddressMap;
 
-// impl pallet_evm::AddressMapping for DummyAddressMap {
-//     fn into_account_id(address: sp_core::H160) -> A {
-//         A
-//     }
-// }
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
     pub enum Test
