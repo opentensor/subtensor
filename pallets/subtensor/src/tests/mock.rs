@@ -458,7 +458,7 @@ impl crate::Config for Test {
     type SwapInterface = Swap;
     type KeySwapOnSubnetCost = InitialKeySwapOnSubnetCost;
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
-    type AddressMapping = pallet_evm::AddressMapping<AccountId>;
+    type AddressMapping = pallet_evm::HashedAddressMapping<BlakeTwo256>;
 }
 
 // Swap-related parameter types
