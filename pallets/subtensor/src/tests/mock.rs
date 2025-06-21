@@ -17,7 +17,6 @@ use frame_support::{
 use frame_system as system;
 use frame_system::{EnsureNever, EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
 use pallet_collective::MemberCount;
-use pallet_evm::AddressMapping;
 use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
