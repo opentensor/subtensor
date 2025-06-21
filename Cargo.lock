@@ -7243,6 +7243,7 @@ dependencies = [
  "log",
  "pallet-balances",
  "pallet-drand",
+ "pallet-evm",
  "pallet-evm-chain-id",
  "pallet-grandpa",
  "pallet-scheduler",

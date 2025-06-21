@@ -45,6 +45,7 @@ pallet-scheduler = { workspace = true }
 pallet-grandpa = { workspace = true }
 sp-std = { workspace = true }
 pallet-subtensor-swap = { workspace = true }
+pallet-evm = { workspace = true }
 
 [features]
 default = ["std"]
