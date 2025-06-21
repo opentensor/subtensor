@@ -4,9 +4,6 @@ use frame_support::ensure;
 use frame_system::ensure_signed;
 use pallet_evm::AddressMapping;
 
-use pallet_evm::HashedAddressMapping;
-use sp_runtime::traits::BlakeTwo256;
-
 use sp_core::{H160, ecdsa::Signature, hashing::keccak_256};
 use sp_std::vec::Vec;
 use subtensor_runtime_common::NetUid;
