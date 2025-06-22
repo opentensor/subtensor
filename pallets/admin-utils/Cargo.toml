@@ -57,6 +57,7 @@ std = [
 	"log/std",
 	"pallet-balances/std",
 	"pallet-drand/std",
+	"pallet-evm/std",
 	"pallet-evm-chain-id/std",
 	"pallet-grandpa/std",
 	"pallet-scheduler/std",
