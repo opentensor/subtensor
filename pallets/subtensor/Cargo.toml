@@ -126,8 +126,8 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-collective/runtime-benchmarks"
-	"pallet-evm/runtime-benchmarks",,
+	"pallet-collective/runtime-benchmarks",
+	"pallet-evm/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
