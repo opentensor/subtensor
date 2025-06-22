@@ -102,12 +102,31 @@ impl<T: Config> Pallet<T> {
         ret_val
     }
 
+    /// Sets a pure proxy account for a given EVM address.
+    ///
+    /// This function allows the owner of the EVM-mapped Substrate account to associate a Substrate account
+    /// with an EVM address as a "pure proxy". The caller must be the Substrate account mapped from the EVM address.
+    /// If the EVM address already has a pure proxy account, this function will return an error.
+    ///
+    /// # Arguments
+    ///
+    /// * `origin` - The transaction origin, must be signed by the mapped Substrate account.
+    /// * `address` - The EVM address to associate with the pure proxy account.
+    /// * `account` - The Substrate account to set as the pure proxy for the EVM address.
+    ///
+    /// # Errors
+    ///
+    /// Returns `PureProxyAccountExisted` if the EVM address already has a pure proxy account.
+    /// Returns `OriginNotMatchMappedEVM` if the caller is not the mapped Substrate account for the EVM address.
     pub fn do_set_pure_proxy_account(
         origin: T::RuntimeOrigin,
         address: H160,
         account: T::AccountId,
     ) -> dispatch::DispatchResult {
         let caller = ensure_signed(origin)?;
+        if PureProxyAccount::<T>::get(&address).is_none() {
+            return Err(Error::<T>::PureProxyAccountExisted.into());
+        }
         let owner: T::AccountId = T::AddressMapping::into_account_id(address);
 
         ensure!(caller == owner, Error::<T>::OriginNotMatchMappedEVM);

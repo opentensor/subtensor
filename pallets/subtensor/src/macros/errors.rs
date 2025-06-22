@@ -220,5 +220,7 @@ mod errors {
         InsufficientBalance,
         /// Origin not match the mapped EVM account
         OriginNotMatchMappedEVM,
+        /// Pure proxy account already set
+        PureProxyAccountExisted,
     }
 }
