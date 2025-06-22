@@ -1358,8 +1358,8 @@ mod pallet_benchmarks {
 
     #[benchmark]
     fn set_pure_proxy_account() {
-        let address: H160 = H160::zero;
-        let account = <T as Config>::AddressMapping::into_account_id(address);
+        let address: H160 = H160::zero();
+        let account = T::AddressMapping::into_account_id(address);
         let proxy_account: T::AccountId = account("A", 0, 7);
         // assert_ok!(Subtensor::<T>::set_pure_proxy_account(
         //     address,
