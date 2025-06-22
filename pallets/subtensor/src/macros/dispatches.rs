@@ -2070,7 +2070,7 @@ mod dispatches {
             Ok(())
         }
 
-        /// Sets the pending childkey cooldown (in blocks). Root only.
+        /// Sets proxy account for evm address
         #[pallet::call_index(110)]
         #[pallet::weight((
             Weight::from_parts(98_010_000, 0).saturating_add(T::DbWeight::get().reads_writes(1, 1)),

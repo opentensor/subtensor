@@ -1355,4 +1355,18 @@ mod pallet_benchmarks {
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey), hotkey);
     }
+
+    #[benchmark]
+    fn set_pure_proxy_account() {
+        let address: H160 = H160::from_big_endian(0);
+        let account = T::AddressMapping::into_account_id(address);
+        let proxy_account: T::AccountId = account("A", 0, 7);
+        // assert_ok!(Subtensor::<T>::set_pure_proxy_account(
+        //     address,
+        //     proxy_account
+        // ));
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(account), address, proxy_account);
+    }
 }
