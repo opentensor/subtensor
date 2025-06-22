@@ -9,7 +9,7 @@ use frame_benchmarking::v2::*;
 use frame_support::assert_ok;
 use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
 pub use pallet::*;
-use sp_core::H256;
+use sp_core::{H160, H256};
 use sp_runtime::{
     BoundedVec,
     traits::{BlakeTwo256, Hash},
