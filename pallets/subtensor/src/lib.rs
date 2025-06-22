@@ -805,12 +805,6 @@ pub mod pallet {
     }
 
     #[pallet::type_value]
-    /// Default staking fee.
-    pub fn DefaultStakingFee<T: Config>() -> u64 {
-        50_000
-    }
-
-    #[pallet::type_value]
     /// Default unicode vector for tau symbol.
     pub fn DefaultUnicodeVecU8<T: Config>() -> Vec<u8> {
         b"\xF0\x9D\x9C\x8F".to_vec() // Unicode for tau (𝜏)
@@ -838,12 +832,6 @@ pub mod pallet {
     /// Default value for Share Pool variables
     pub fn DefaultSharePoolZero<T: Config>() -> U64F64 {
         U64F64::saturating_from_num(0)
-    }
-
-    #[pallet::type_value]
-    /// Default value for minimum liquidity in pool
-    pub fn DefaultMinimumPoolLiquidity<T: Config>() -> I96F32 {
-        I96F32::saturating_from_num(10_000_000)
     }
 
     #[pallet::type_value]
@@ -1063,6 +1051,9 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> tao_in_subnet | Returns the amount of TAO in the subnet.
     pub type SubnetTAO<T: Config> =
         StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage] // --- MAP ( netuid ) --> tao_in_user_subnet | Returns the amount of TAO in the subnet reserve provided by users as liquidity.
+    pub type SubnetTaoProvided<T: Config> =
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> alpha_in_emission | Returns the amount of alph in  emission into the pool per block.
     pub type SubnetAlphaInEmission<T: Config> =
         StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
@@ -1075,7 +1066,12 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the pool.
     pub type SubnetAlphaIn<T: Config> =
         StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
+    #[pallet::storage] // --- MAP ( netuid ) --> alpha_supply_user_in_pool | Returns the amount of alpha in the pool provided by users as liquidity.
+    pub type SubnetAlphaInProvided<T: Config> =
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
+    /// TODO: Deprecate, not accurate and not used in v3 anymore
     pub type SubnetAlphaOut<T: Config> =
         StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
@@ -2529,6 +2525,98 @@ impl<T, H, P> CollectiveInterface<T, H, P> for () {
 
     fn add_vote(_: &T, _: H, _: P, _: bool) -> Result<bool, DispatchError> {
         Ok(true)
+    }
+}
+
+impl<T: Config + pallet_balances::Config<Balance = u64>>
+    subtensor_runtime_common::SubnetInfo<T::AccountId> for Pallet<T>
+{
+    fn tao_reserve(netuid: NetUid) -> u64 {
+        SubnetTAO::<T>::get(netuid).saturating_add(SubnetTaoProvided::<T>::get(netuid))
+    }
+
+    fn alpha_reserve(netuid: NetUid) -> u64 {
+        SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaInProvided::<T>::get(netuid))
+    }
+
+    fn exists(netuid: NetUid) -> bool {
+        Self::if_subnet_exist(netuid)
+    }
+
+    fn mechanism(netuid: NetUid) -> u16 {
+        SubnetMechanism::<T>::get(netuid)
+    }
+
+    fn is_owner(account_id: &T::AccountId, netuid: NetUid) -> bool {
+        SubnetOwner::<T>::get(netuid) == *account_id
+    }
+}
+
+impl<T: Config + pallet_balances::Config<Balance = u64>>
+    subtensor_runtime_common::BalanceOps<T::AccountId> for Pallet<T>
+{
+    fn tao_balance(account_id: &T::AccountId) -> u64 {
+        pallet_balances::Pallet::<T>::free_balance(account_id)
+    }
+
+    fn alpha_balance(netuid: NetUid, coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
+        Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid)
+    }
+
+    fn increase_balance(coldkey: &T::AccountId, tao: u64) {
+        Self::add_balance_to_coldkey_account(coldkey, tao)
+    }
+
+    fn decrease_balance(coldkey: &T::AccountId, tao: u64) -> Result<u64, DispatchError> {
+        Self::remove_balance_from_coldkey_account(coldkey, tao)
+    }
+
+    fn increase_stake(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+        netuid: NetUid,
+        alpha: u64,
+    ) -> Result<(), DispatchError> {
+        ensure!(
+            Self::hotkey_account_exists(hotkey),
+            Error::<T>::HotKeyAccountNotExists
+        );
+
+        Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
+
+        Ok(())
+    }
+
+    fn decrease_stake(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+        netuid: NetUid,
+        alpha: u64,
+    ) -> Result<u64, DispatchError> {
+        ensure!(
+            Self::hotkey_account_exists(hotkey),
+            Error::<T>::HotKeyAccountNotExists
+        );
+
+        Ok(Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+            hotkey, coldkey, netuid, alpha,
+        ))
+    }
+
+    fn increase_provided_tao_reserve(netuid: NetUid, tao: u64) {
+        Self::increase_provided_tao_reserve(netuid, tao);
+    }
+
+    fn decrease_provided_tao_reserve(netuid: NetUid, tao: u64) {
+        Self::decrease_provided_tao_reserve(netuid, tao);
+    }
+
+    fn increase_provided_alpha_reserve(netuid: NetUid, alpha: u64) {
+        Self::increase_provided_alpha_reserve(netuid, alpha);
+    }
+
+    fn decrease_provided_alpha_reserve(netuid: NetUid, alpha: u64) {
+        Self::decrease_provided_alpha_reserve(netuid, alpha);
     }
 }
 

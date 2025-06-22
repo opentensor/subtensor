@@ -55,12 +55,11 @@ describe("Test the UID Lookup precompile", () => {
         const signature = await evmWallet.signMessage(concatenatedArray);
         const associateEvmKeyTx = api.tx.SubtensorModule.associate_evm_key({
             netuid: netuid,
-            hotkey: convertPublicKeyToSs58(hotkey.publicKey),
             evm_key: convertToFixedSizeBinary(evmWallet.address, 20),
             block_number: BigInt(blockNumber),
             signature: convertToFixedSizeBinary(signature, 65)
         });
-        const signer = getSignerFromKeypair(coldkey);
+        const signer = getSignerFromKeypair(hotkey);
         await waitForTransactionCompletion(api, associateEvmKeyTx, signer)
             .then(() => { })
             .catch((error) => { console.log(`transaction error ${error}`) });
