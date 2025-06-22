@@ -19,6 +19,7 @@ use sp_std::vec;
 #[frame_benchmarking::v2::benchmarks]
 mod pallet_benchmarks {
     use super::*;
+    use pallet_evm::AddressMapping;
 
     #[benchmark]
     fn register() {
