@@ -2073,7 +2073,7 @@ mod dispatches {
         /// Sets proxy account for evm address
         #[pallet::call_index(110)]
         #[pallet::weight((
-            Weight::from_parts(98_010_000, 0).saturating_add(T::DbWeight::get().reads_writes(1, 1)),
+            Weight::from_parts(9_010_000, 0).saturating_add(T::DbWeight::get().reads_writes(1, 1)),
             DispatchClass::Operational,
             Pays::Yes
         ))]

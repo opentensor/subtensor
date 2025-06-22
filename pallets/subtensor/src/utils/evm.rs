@@ -124,7 +124,7 @@ impl<T: Config> Pallet<T> {
         account: T::AccountId,
     ) -> dispatch::DispatchResult {
         let caller = ensure_signed(origin)?;
-        if PureProxyAccount::<T>::get(&address).is_none() {
+        if PureProxyAccount::<T>::get(&address).is_some() {
             return Err(Error::<T>::PureProxyAccountExisted.into());
         }
         let owner: T::AccountId = T::AddressMapping::into_account_id(address);
