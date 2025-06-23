@@ -41,7 +41,6 @@ use pallet_proxy_opentensor as pallet_proxy;
 use pallet_registry::CanRegisterIdentity;
 use pallet_session::historical as session_historical;
 use pallet_staking::UseValidatorsMap;
-use pallet_subtensor::migrations::migrate_aura_to_babe::BABE_GENESIS_EPOCH_CONFIG;
 use pallet_subtensor::rpc_info::{
     delegate_info::DelegateInfo,
     dynamic_info::DynamicInfo,
@@ -405,6 +404,19 @@ parameter_types! {
     pub ReportLongevity: u64 =
         BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
 }
+
+/// 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
+/// The choice of is done in accordance to the slot duration and expected target
+/// block time, for safely resisting network delays of maximum two seconds.
+/// <https://research.web3.foundation/en/latest/polkadot/BABE/Babe/#6-practical-results>
+pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
+
+/// The BABE epoch configuration at genesis.
+pub const BABE_GENESIS_EPOCH_CONFIG: babe_primitives::BabeEpochConfiguration =
+    babe_primitives::BabeEpochConfiguration {
+        c: PRIMARY_PROBABILITY,
+        allowed_slots: babe_primitives::AllowedSlots::PrimaryAndSecondaryVRFSlots,
+    };
 
 impl pallet_babe::Config for Runtime {
     type EpochDuration = EpochDuration;

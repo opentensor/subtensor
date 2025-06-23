@@ -1,8 +1,9 @@
 use crate::opaque::SessionKeys;
+use array_bytes::bytes2hex;
+use array_bytes::hex2bytes;
 use babe_primitives::AuthorityId as BabeAuthorityId;
 use babe_primitives::AuthorityId as BabeId;
 use babe_primitives::BabeAuthorityWeight;
-// use core::str::FromStr;
 use frame_support::WeakBoundedVec;
 use frame_support::pallet_prelude::Weight;
 use frame_support::traits::OnRuntimeUpgrade;
@@ -12,6 +13,8 @@ use scale_info::prelude::string::String;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_consensus_slots::Slot;
 use sp_core::crypto::Ss58Codec;
+use sp_core::ed25519;
+use sp_core::sr25519;
 use sp_runtime::AccountId32;
 use sp_runtime::SaturatedConversion;
 use sp_runtime::traits::OpaqueKeys;
@@ -83,11 +86,7 @@ pub(crate) fn populate_babe() -> Weight {
     pallet_babe::CurrentSlot::<Runtime>::put(timestamp_slot.saturating_add(1u64));
 
     // TODO: Init session pallet
-    let ss58_authorities = authorities
-        .iter()
-        .map(|a| a.0.to_ss58check())
-        .collect::<Vec<_>>();
-    initialize_pallet_session(ss58_authorities);
+    initialize_pallet_session(authorities.into_iter().map(|a| a.0).collect());
 
     // TODO: Init Staking pallet
 
@@ -97,22 +96,23 @@ pub(crate) fn populate_babe() -> Weight {
     weight
 }
 
-fn initialize_pallet_session(ss58_authorities: Vec<String>) {
+fn initialize_pallet_session(babe_authorities: Vec<BabeAuthorityId>) {
     log::info!(
         "Initializing pallet_session with authorities: {:?}",
-        ss58_authorities
+        babe_authorities
     );
 
-    let keys: Vec<(AccountId32, SessionKeys)> = ss58_authorities
+    let keys: Vec<(AccountId32, SessionKeys)> = babe_authorities
         .into_iter()
-        .map(|ss58| {
-            let account = AccountId32::from_ss58check(&ss58).unwrap();
+        .map(|babe_id| {
+            // Babe and AccountId32 are both sr25519::Public. We can convert between them like this.
+            let babe_id_bytes: [u8; 32] = babe_id.clone().into_inner().into();
+            let account: AccountId32 = AccountId32::new(babe_id_bytes);
+            // let account = AccountId32::from_ss58check(&ss58).unwrap();
             let keys = SessionKeys {
-                babe: BabeId::from_ss58check(&ss58).unwrap(),
-                grandpa: GrandpaId::from_ss58check(&ss58).unwrap(),
+                babe: babe_id.clone(),
+                grandpa: babe_to_grandpa_id(babe_id).unwrap(),
             };
-            // let babe: BabeId = Ss58Codec::from_ss58check(&ss58).unwrap();
-            // let grandpa: GrandpaId = Ss58Codec::from_ss58check(&ss58).unwrap();
             log::info!(
                 "Built SessionKeys Account: {:?} Keys: {:?}",
                 &account,
@@ -134,35 +134,130 @@ fn initialize_pallet_session(ss58_authorities: Vec<String>) {
 
         for id in key_ids.iter() {
             pallet_session::KeyOwner::<Runtime>::insert((id, session_keys.get_raw(*id)), account);
-            // fn put_key_owner(id: KeyTypeId, key_data: &[u8], v: &T::ValidatorId) {
-            // KeyOwner::<T>::insert((id, key_data), v)
-            // }
-            // for i in new_ids.iter() {
-            // 	Self::put_key_owner(*i, new_keys.get_raw(*i), &val);
-            // }
         }
     }
     pallet_session::QueuedKeys::<Runtime>::put(keys);
+}
 
-    // pallet_session::KeyOwner::<Runtime>::put(
-    //     keys.iter()
-    //         .map(|(account, _)| (account.clone(), account.clone()))
-    //         .collect::<Vec<_>>(),
-    // );
-
-    // Set NextKeys and KeyOwner.
-    //  for (account, val, keys) in keys.iter().cloned()
-    // {
-    // 	pallet_session::Pallet::<Runtime>::inner_set_keys(&val, keys)
-    // 		.expect("genesis config must not contain duplicates; qed");
-    // 	if frame_system::Pallet::<Runtime>::inc_consumers_without_limit(&account).is_err() {
-    // 		// This will leak a provider reference, however it only happens once (at
-    // 		// genesis) so it's really not a big deal and we assume that the user wants to
-    // 		// do this since it's the only way a non-endowed account can contain a session
-    // 		// key.
-    // 		frame_system::Pallet::<Runtime>::inc_providers(&account);
-    // 	}
-    // }
+/// Grandpa keys are in a different encoding to Aura/Babe.
+///
+/// The pallet_session `KeyOwner` storage requires a mapping from Aura/Babe to
+/// the grandpa key. We use this function to perform that mapping for all known keys.
+///
+/// The pub keys in this function were seeded from Alice, Bob, Charlie, Dave, Eve, Ferdie,
+/// and known Bittensor devnet, testnet and finney authorities.
+fn babe_to_grandpa_id(babe: BabeAuthorityId) -> Option<GrandpaId> {
+    match babe.to_ss58check().as_str() {
+        // Alice
+        "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY" => {
+            GrandpaId::from_ss58check("5FA9nQDVg267DEd8m1ZypXLBnvN7SFxYwV7ndqSYGiN9TTpu").ok()
+        }
+        // Testnet Validator 1
+        "5D5ABUyMsdmJdH7xrsz9vREq5eGXr5pXhHxix2dENQR62dEo" => {
+            GrandpaId::from_ss58check("5H3qMjQjoeZxZ98jzDmoCwbz2sugd5fDN1wrr8Phf49zemKL").ok()
+        }
+        // Testnet Validator 2
+        "5GbRc5sNDdhcPAU9suV2g9P5zyK1hjAQ9JHeeadY1mb8kXoM" => {
+            GrandpaId::from_ss58check("5GbkysfaCjK3cprKPhi3CUwaB5xWpBwcfrkzs6FmqHxej8HZ").ok()
+        }
+        // Testnet Validator 3
+        "5CoVWwBwXz2ndEChGcS46VfSTb3RMUZzZzAYdBKo263zDhEz" => {
+            GrandpaId::from_ss58check("5HTLp4BvPp99iXtd8YTBZA1sMfzo8pd4mZzBJf7HYdCn2boU").ok()
+        }
+        // Testnet Validator 4
+        "5EekcbqupwbgWqF8hWGY4Pczsxp9sbarjDehqk7bdyLhDCwC" => {
+            GrandpaId::from_ss58check("5GAemcU4Pzyfe8DwLwDFx3aWzyg3FuqYUCCw2h4sdDZhyFvE").ok()
+        }
+        // Testnet Validator 5
+        "5GgdEQyS5DZzUwKuyucEPEZLxFKGmasUFm1mqM3sx1MRC5RV" => {
+            GrandpaId::from_ss58check("5EibpMomXmgekxcfs25SzFBpGWUsG9Lc8ALNjXN3TYH5Tube").ok()
+        }
+        // Testnet Validator 6
+        "5Ek5JLCGk2PuoT1fS23GXiWYUT98HVUBERFQBu5g57sNf44x" => {
+            GrandpaId::from_ss58check("5Gyrc6b2mx1Af6zWJYHdx3gwgtXgZvD9YkcG9uTUPYry4V2a").ok()
+        }
+        // Finney Validator 1
+        "5EJUcFbe74FDQwPsZDbRVpdDxVZQQxjoGZA9ayJqJTbcRrGf" => {
+            GrandpaId::from_ss58check("5GRcfchgXZjkCfqgNvfjicjJw3vVGF4Ahqon2w8RfjXwyzy4").ok()
+        }
+        // Finney Validator 2
+        "5H5oVSbQxDSw1TohAvLvp9CTAua6PN4yHme19UrG4c1ojS8J" => {
+            GrandpaId::from_ss58check("5FAEYaHLZmLRX4XFs2SBHbLhkysbSPrcTp51w6sQNaYLa7Tu").ok()
+        }
+        // Finney Validator 3
+        "5CfBazEwCAsmscGj1J9rhXess9ZXZ5qYcuZvFWii9sxT977v" => {
+            GrandpaId::from_ss58check("5F6LgDAenzchE5tPmFHKGueYy1rj85oB2yxvm1xyKLVvk4gy").ok()
+        }
+        // Finney Validator 4
+        "5HZDvVFWH3ifx1Sx8Uaaa7oiT6U4fAKrR3LKy9r1zFnptc1z" => {
+            GrandpaId::from_ss58check("5GJY6A1X8KNvqHcf42Cpr5HZzG95FZVJkTHJvnHSBGgshEWn").ok()
+        }
+        // Finney Validator 5
+        "5H3v2VfQmsAAgj63EDaB1ZWmruTHHkJ4kci5wkt6SwMi2VW1" => {
+            GrandpaId::from_ss58check("5FXVk1gEsNweTB6AvS5jAWCivXQHTcyCWXs21wHvRU5UTZtb").ok()
+        }
+        // Finney Validator 6
+        "5CPhKdvHmMqRmMUrpFnvLc6GUcduVwpNHsPPEhnYQ7QXjPdz" => {
+            GrandpaId::from_ss58check("5GAzG6PhVvpeoZVkKupa2uZDrhwsUmk5fCHgwq95cN9s3Dvi").ok()
+        }
+        // Finney Validator 7
+        "5DZTjVhqVjHyhXLhommE4jqY9w1hJEKNQWJ8p6QnUWghRYS1" => {
+            GrandpaId::from_ss58check("5HmGN73kkcHaKNJrSPAxwiwAiiCkztDZ1AYi4gkpv6jaWaxi").ok()
+        }
+        // Finney Validator 8
+        "5ETyBUhi3uVCzsk4gyTmtf41nheH7wALqQQxbUkmRPNqEMGS" => {
+            GrandpaId::from_ss58check("5Cq63ca5KM5qScJYmQi7PvFPhJ6Cxr6yw6Xg9dLYoRYg33rN").ok()
+        }
+        // Finney Validator 9
+        "5DUSt6KiZWxA3tsiFkv3xYSNuox6PCfhyvqqM9x7N5kuHV2S" => {
+            GrandpaId::from_ss58check("5FF1kun4rb5B7C3tqh23XPVDDUJ3UchnaXxJeXu1i5n8KNHp").ok()
+        }
+        // Finney Validator 10
+        "5GgsDz9yixsdHxFu52SN37f6TrUtU2RwmGJejbHVmN1ERXL4" => {
+            GrandpaId::from_ss58check("5EZiep2gMyV2cz9x54TQDb1cuyFYYcwGRGZ7J19Ua4YSAWCZ").ok()
+        }
+        // Finney Validator 11
+        "5HjhkCMa89QJbFULs8WPZBgVg8kMq5qdX1nx7CnQpZgoyKAN" => {
+            GrandpaId::from_ss58check("5D5DL9sru2ep3AWoHvmEUbFLirVr7tJ6BxBWH5M8j3r9kUpe").ok()
+        }
+        // Finney Validator 12
+        "5F257gHitacwDGvYm2Xm7dBE882auTU8wraG6w4T3r63wh9V" => {
+            GrandpaId::from_ss58check("5CovRCaioWENKejfaeccDQY4vCF8kTGtZ5fwagSCeDGmiSyh").ok()
+        }
+        // Finney Validator 13
+        "5CtGLbiHWs6XVgNi9nW7oqSP4D4JMot7yHYuFokidZzAP6ny" => {
+            GrandpaId::from_ss58check("5DSxsR9aAiq33uSYXWt4zEibx6KT6xxtFGkT9S4GLaCavgDE").ok()
+        }
+        // Finney Validator 14
+        "5DeVtxyiniPzoHo4iQiLhGfhED6RP3V73B5nGSYWr5Mgt82c" => {
+            GrandpaId::from_ss58check("5HaWL2AvLZHwyPXofWFTEZ6jHVmUG8U9cFATggKZonN1xZjm").ok()
+        }
+        // Finney Validator 15
+        "5GF4a6pQ8TQuPhdkKqugzrZSW7YnpQtB4ihouKGZsVMwoTn6" => {
+            GrandpaId::from_ss58check("5DaEhFN8bWjvhDxavSWFBr962qoTAMB4b51QebdRZ75VA4h2").ok()
+        }
+        // Finney Validator 16
+        "5DAC8Did2NgeVfZeNmEfZuU6t7UseJNf9J68XTvhLf5yCsBZ" => {
+            GrandpaId::from_ss58check("5G27pyXx9ieSRCTuDoqPgTvpCynH6yhum9HiQQ1iMj3rAeaP").ok()
+        }
+        // Finney Validator 17
+        "5FmxaYznqMqiorPHQgKoRQgEHN7ud4yKsJWr6FvXuS6FS6be" => {
+            GrandpaId::from_ss58check("5Ch5XFMKETDiiPiuhUj9TumUtgsnVG1VzQRvBykP9bRdt4km").ok()
+        }
+        // Finney Validator 18
+        "5GNAkfKYmFbVRAYm1tPr1yG6bHCapaY7WKRmzkEdendDXj1j" => {
+            GrandpaId::from_ss58check("5EC6JjwnE11qaRnjKM85eevQFV1EoaKPPtcBRmTp1XsR7Kx3").ok()
+        }
+        // Finney Validator 19
+        "5GYk3B38R9F2TEcWoqCLojqPwx6AA1TsD3EovoTgggyRdzki" => {
+            GrandpaId::from_ss58check("5FjdhdAxujZVev6HYqQcTB6UBAKfKFKPoftgMLenoxbNWoe2").ok()
+        }
+        // Finney Validator 20
+        "5D7fthS7zBDhwi2u2JYd74t7FpQuseDkUkTuaLZoenXNpXPK" => {
+            GrandpaId::from_ss58check("5DhAKQ4MFg39mQAYzndzbznLGqSV4VMUJUyRXe8QPDqD5G1D").ok()
+        }
+        _ => None,
+    }
 }
 
 use crate::*;

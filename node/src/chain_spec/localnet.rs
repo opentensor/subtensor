@@ -1,9 +1,7 @@
 // Allowed since it's actually better to panic during chain setup when there is an error
 #![allow(clippy::unwrap_used)]
 
-use node_subtensor_runtime::{
-    UNITS, pallet_subtensor::migrations::migrate_aura_to_babe::BABE_GENESIS_EPOCH_CONFIG,
-};
+use node_subtensor_runtime::{BABE_GENESIS_EPOCH_CONFIG, UNITS};
 use pallet_staking::Forcing;
 use sp_runtime::Perbill;
 use sp_staking::StakerStatus;
