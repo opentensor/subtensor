@@ -2076,10 +2076,7 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(119_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
-        pub fn root_dissolve_network(
-            origin: OriginFor<T>,
-            netuid: NetUid,
-        ) -> DispatchResult {
+        pub fn root_dissolve_network(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
             ensure_root(origin)?;
             Self::do_dissolve_network(netuid)
         }
