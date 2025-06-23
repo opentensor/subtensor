@@ -1,7 +1,9 @@
 use super::*;
 use safe_math::*;
 use sp_core::Get;
-use substrate_fixed::types::{U64F64, U96F32};
+use substrate_fixed::types::U64F64;
+use subtensor_runtime_common::NetUid;
+use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
     /// Moves stake from one hotkey to another across subnets.
@@ -29,8 +31,8 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         origin_hotkey: T::AccountId,
         destination_hotkey: T::AccountId,
-        origin_netuid: u16,
-        destination_netuid: u16,
+        origin_netuid: NetUid,
+        destination_netuid: NetUid,
         alpha_amount: u64,
     ) -> dispatch::DispatchResult {
         // Check that the origin is signed by the origin_hotkey.
@@ -72,6 +74,28 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Toggles the atomic alpha transfers for a specific subnet.
+    ///
+    /// # Arguments
+    /// * `netuid` - The network ID (subnet) for which the transfer functionality is being toggled.
+    /// * `toggle` - A boolean value indicating whether to enable (true) or disable (false) transfers.
+    ///
+    /// # Returns
+    /// * `DispatchResult` - Indicates success or failure of the operation.
+    ///
+    /// # Events
+    /// Emits a `TransferToggle` event upon successful completion.
+    pub fn toggle_transfer(netuid: NetUid, toggle: bool) -> dispatch::DispatchResult {
+        TransferToggle::<T>::insert(netuid, toggle);
+        log::debug!(
+            "TransferToggle( netuid: {:?}, toggle: {:?} ) ",
+            netuid,
+            toggle
+        );
+        Self::deposit_event(Event::TransferToggle(netuid, toggle));
+        Ok(())
+    }
+
     /// Transfers stake from one coldkey to another, optionally moving from one subnet to another,
     /// while keeping the same hotkey.
     ///
@@ -97,22 +121,12 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Events
     /// Emits a `StakeTransferred` event upon successful completion of the transfer.
-    pub fn toggle_transfer(netuid: u16, toggle: bool) -> dispatch::DispatchResult {
-        TransferToggle::<T>::insert(netuid, toggle);
-        log::debug!(
-            "TransferToggle( netuid: {:?}, toggle: {:?} ) ",
-            netuid,
-            toggle
-        );
-        Self::deposit_event(Event::TransferToggle(netuid, toggle));
-        Ok(())
-    }
     pub fn do_transfer_stake(
         origin: T::RuntimeOrigin,
         destination_coldkey: T::AccountId,
         hotkey: T::AccountId,
-        origin_netuid: u16,
-        destination_netuid: u16,
+        origin_netuid: NetUid,
+        destination_netuid: NetUid,
         alpha_amount: u64,
     ) -> dispatch::DispatchResult {
         // Ensure the extrinsic is signed by the origin_coldkey.
@@ -181,8 +195,8 @@ impl<T: Config> Pallet<T> {
     pub fn do_swap_stake(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
-        origin_netuid: u16,
-        destination_netuid: u16,
+        origin_netuid: NetUid,
+        destination_netuid: NetUid,
         alpha_amount: u64,
     ) -> dispatch::DispatchResult {
         // Ensure the extrinsic is signed by the coldkey.
@@ -251,8 +265,8 @@ impl<T: Config> Pallet<T> {
     pub fn do_swap_stake_limit(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
-        origin_netuid: u16,
-        destination_netuid: u16,
+        origin_netuid: NetUid,
+        destination_netuid: NetUid,
         alpha_amount: u64,
         limit_price: u64,
         allow_partial: bool,
@@ -302,13 +316,13 @@ impl<T: Config> Pallet<T> {
         destination_coldkey: &T::AccountId,
         origin_hotkey: &T::AccountId,
         destination_hotkey: &T::AccountId,
-        origin_netuid: u16,
-        destination_netuid: u16,
+        origin_netuid: NetUid,
+        destination_netuid: NetUid,
         alpha_amount: u64,
         maybe_limit_price: Option<u64>,
         maybe_allow_partial: Option<bool>,
         check_transfer_toggle: bool,
-    ) -> Result<u64, Error<T>> {
+    ) -> Result<u64, DispatchError> {
         // Calculate the maximum amount that can be executed
         let max_amount = if let Some(limit_price) = maybe_limit_price {
             Self::get_max_amount_move(origin_netuid, destination_netuid, limit_price)?
@@ -337,28 +351,18 @@ impl<T: Config> Pallet<T> {
             max_amount
         };
 
-        // Unstake from the origin subnet, returning TAO (or a 1:1 equivalent).
-        let fee = Self::calculate_staking_fee(
-            Some((origin_hotkey, origin_netuid)),
-            origin_coldkey,
-            Some((destination_hotkey, destination_netuid)),
-            destination_coldkey,
-            U96F32::saturating_from_num(alpha_amount),
-        )
-        .safe_div(2);
-
         let tao_unstaked = Self::unstake_from_subnet(
             origin_hotkey,
             origin_coldkey,
             origin_netuid,
             move_amount,
-            fee,
-        );
+            T::SwapInterface::min_price(),
+        )?;
 
         // Stake the unstaked amount into the destination.
         // Because of the fee, the tao_unstaked may be too low if initial stake is low. In that case,
         // do not restake.
-        if tao_unstaked >= DefaultMinStake::<T>::get().saturating_add(fee) {
+        if tao_unstaked >= DefaultMinStake::<T>::get() {
             // If the coldkey is not the owner, make the hotkey a delegate.
             if Self::get_owning_coldkey_for_hotkey(destination_hotkey) != *destination_coldkey {
                 Self::maybe_become_delegate(destination_hotkey);
@@ -369,11 +373,11 @@ impl<T: Config> Pallet<T> {
                 destination_coldkey,
                 destination_netuid,
                 tao_unstaked,
-                fee,
-            );
+                T::SwapInterface::max_price(),
+            )?;
         }
 
-        Ok(tao_unstaked.saturating_sub(fee))
+        Ok(tao_unstaked)
     }
 
     /// Returns the maximum amount of origin netuid Alpha that can be executed before we cross
@@ -397,9 +401,11 @@ impl<T: Config> Pallet<T> {
     ///
     /// In the corner case when SubnetTAO(2) == SubnetTAO(1), no slippage is going to occur.
     ///
+    /// TODO: This formula only works for a single swap step, so it is not 100% correct for swap v3. We need an updated one.
+    ///
     pub fn get_max_amount_move(
-        origin_netuid: u16,
-        destination_netuid: u16,
+        origin_netuid: NetUid,
+        destination_netuid: NetUid,
         limit_price: u64,
     ) -> Result<u64, Error<T>> {
         let tao: U64F64 = U64F64::saturating_from_num(1_000_000_000);
@@ -407,10 +413,8 @@ impl<T: Config> Pallet<T> {
         // Corner case: both subnet IDs are root or stao
         // There's no slippage for root or stable subnets, so slippage is always 0.
         // The price always stays at 1.0, return 0 if price is expected to raise.
-        if ((origin_netuid == Self::get_root_netuid())
-            || (SubnetMechanism::<T>::get(origin_netuid)) == 0)
-            && ((destination_netuid == Self::get_root_netuid())
-                || (SubnetMechanism::<T>::get(destination_netuid)) == 0)
+        if (origin_netuid.is_root() || SubnetMechanism::<T>::get(origin_netuid) == 0)
+            && (destination_netuid.is_root() || SubnetMechanism::<T>::get(destination_netuid) == 0)
         {
             if limit_price > tao.saturating_to_num::<u64>() {
                 return Err(Error::ZeroMaxStakeAmount);
@@ -421,9 +425,8 @@ impl<T: Config> Pallet<T> {
 
         // Corner case: Origin is root or stable, destination is dynamic
         // Same as adding stake with limit price
-        if ((origin_netuid == Self::get_root_netuid())
-            || (SubnetMechanism::<T>::get(origin_netuid)) == 0)
-            && ((SubnetMechanism::<T>::get(destination_netuid)) == 1)
+        if (origin_netuid.is_root() || SubnetMechanism::<T>::get(origin_netuid) == 0)
+            && (SubnetMechanism::<T>::get(destination_netuid) == 1)
         {
             if limit_price == 0 {
                 return Ok(u64::MAX);
@@ -439,16 +442,17 @@ impl<T: Config> Pallet<T> {
 
         // Corner case: Origin is dynamic, destination is root or stable
         // Same as removing stake with limit price
-        if ((destination_netuid == Self::get_root_netuid())
-            || (SubnetMechanism::<T>::get(destination_netuid)) == 0)
-            && ((SubnetMechanism::<T>::get(origin_netuid)) == 1)
+        if (destination_netuid.is_root() || SubnetMechanism::<T>::get(destination_netuid) == 0)
+            && (SubnetMechanism::<T>::get(origin_netuid) == 1)
         {
             return Self::get_max_amount_remove(origin_netuid, limit_price);
         }
 
         // Corner case: SubnetTAO for any of two subnets is zero
-        let subnet_tao_1 = SubnetTAO::<T>::get(origin_netuid);
-        let subnet_tao_2 = SubnetTAO::<T>::get(destination_netuid);
+        let subnet_tao_1 = SubnetTAO::<T>::get(origin_netuid)
+            .saturating_add(SubnetTaoProvided::<T>::get(origin_netuid));
+        let subnet_tao_2 = SubnetTAO::<T>::get(destination_netuid)
+            .saturating_add(SubnetTaoProvided::<T>::get(destination_netuid));
         if (subnet_tao_1 == 0) || (subnet_tao_2 == 0) {
             return Err(Error::ZeroMaxStakeAmount);
         }
@@ -456,8 +460,10 @@ impl<T: Config> Pallet<T> {
         let subnet_tao_2_float: U64F64 = U64F64::saturating_from_num(subnet_tao_2);
 
         // Corner case: SubnetAlphaIn for any of two subnets is zero
-        let alpha_in_1 = SubnetAlphaIn::<T>::get(origin_netuid);
-        let alpha_in_2 = SubnetAlphaIn::<T>::get(destination_netuid);
+        let alpha_in_1 = SubnetAlphaIn::<T>::get(origin_netuid)
+            .saturating_add(SubnetAlphaInProvided::<T>::get(origin_netuid));
+        let alpha_in_2 = SubnetAlphaIn::<T>::get(destination_netuid)
+            .saturating_add(SubnetAlphaInProvided::<T>::get(destination_netuid));
         if (alpha_in_1 == 0) || (alpha_in_2 == 0) {
             return Err(Error::ZeroMaxStakeAmount);
         }
@@ -471,8 +477,9 @@ impl<T: Config> Pallet<T> {
         let limit_price_float: U64F64 = U64F64::saturating_from_num(limit_price)
             .checked_div(U64F64::saturating_from_num(1_000_000_000))
             .unwrap_or(U64F64::saturating_from_num(0));
-        let current_price = Self::get_alpha_price(origin_netuid)
-            .safe_div(Self::get_alpha_price(destination_netuid));
+        let current_price = T::SwapInterface::current_alpha_price(origin_netuid.into()).safe_div(
+            T::SwapInterface::current_alpha_price(destination_netuid.into()),
+        );
         if limit_price_float > current_price {
             return Err(Error::ZeroMaxStakeAmount);
         }

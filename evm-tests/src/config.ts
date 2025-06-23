@@ -20,6 +20,22 @@ export const IEd25519VerifyABI = [
     },
 ];
 
+export const ISr25519VERIFY_ADDRESS = "0x0000000000000000000000000000000000000403";
+export const ISr25519VerifyABI = [
+    {
+        inputs: [
+            { internalType: "bytes32", name: "message", type: "bytes32" },
+            { internalType: "bytes32", name: "publicKey", type: "bytes32" },
+            { internalType: "bytes32", name: "r", type: "bytes32" },
+            { internalType: "bytes32", name: "s", type: "bytes32" },
+        ],
+        name: "verify",
+        outputs: [{ internalType: "bool", name: "", type: "bool" }],
+        stateMutability: "pure",
+        type: "function",
+    },
+];
+
 export const IBALANCETRANSFER_ADDRESS = "0x0000000000000000000000000000000000000800";
 export const IBalanceTransferABI = [
     {
@@ -36,3 +52,7 @@ export const IBalanceTransferABI = [
         type: "function",
     },
 ];
+
+export const IDISPATCH_ADDRESS = "0x0000000000000000000000000000000000000006";
+
+export const ISTORAGE_QUERY_ADDRESS = "0x0000000000000000000000000000000000000807";

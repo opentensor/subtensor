@@ -16,6 +16,18 @@ interface ISubnet {
         string memory description,
         string memory additional
     ) external payable;
+    /// Registers a new network with specified subnet name, GitHub repository, contact information, and logo URL.
+    function registerNetwork(
+        bytes32 hotkey,
+        string memory subnetName,
+        string memory githubRepo,
+        string memory subnetContact,
+        string memory subnetUrl,
+        string memory discord,
+        string memory description,
+        string memory logoUrl,
+        string memory additional
+    ) external payable;
 
     function getServingRateLimit(uint16 netuid) external view returns (uint64);
 
@@ -90,6 +102,15 @@ interface ISubnet {
 
     function setRho(uint16 netuid, uint16 rho) external payable;
 
+    function getAlphaSigmoidSteepness(
+        uint16 netuid
+    ) external view returns (unt16);
+
+    function setAlphaSigmoidSteepness(
+        uint16 netuid,
+        int16 steepness
+    ) external payable;
+
     function getActivityCutoff(uint16 netuid) external view returns (uint16);
 
     function setActivityCutoff(
@@ -158,6 +179,14 @@ interface ISubnet {
         uint16 netuid,
         bool yuma3Enabled
     ) external payable;
+
+    function getBondsResetEnabled(uint16 netuid) external view returns (bool);
+
+    function setBondsResetEnabled(
+        uint16 netuid,
+        bool bondsResetEnabled
+    ) external payable;
+
 
     function getAlphaValues(
         uint16 netuid
