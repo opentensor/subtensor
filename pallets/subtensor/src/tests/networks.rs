@@ -445,8 +445,7 @@ fn destroy_alpha_out_multiple_stakers_pro_rata() {
         register_ok_neuron(netuid, h2, c2, 0);
 
         // 3. Stake 30 : 70 (s1 : s2) in TAO
-        let min_total =
-            DefaultMinStake::<Test>::get().saturating_add(DefaultStakingFee::<Test>::get());
+        let min_total = DefaultMinStake::<Test>::get();
         let s1 = 3 * min_total;
         let s2 = 7 * min_total;
 
@@ -526,8 +525,7 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         SubtensorModule::set_max_registrations_per_block(netuid, 1_000u16);
         SubtensorModule::set_target_registrations_per_interval(netuid, 1_000u16);
 
-        let min_total =
-            DefaultMinStake::<Test>::get().saturating_add(DefaultStakingFee::<Test>::get());
+        let min_total = DefaultMinStake::<Test>::get();
 
         const N: usize = 20;
         let mut cold = [U256::zero(); N];
