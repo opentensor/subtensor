@@ -4,7 +4,7 @@ use babe_primitives::AuthorityId as BabeId;
 use babe_primitives::BabeAuthorityWeight;
 // use core::str::FromStr;
 use frame_support::WeakBoundedVec;
-use frame_support::pallet_prelude::{Weight};
+use frame_support::pallet_prelude::Weight;
 use frame_support::traits::OnRuntimeUpgrade;
 use pallet_aura;
 use pallet_babe;

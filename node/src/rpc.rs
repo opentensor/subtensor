@@ -24,7 +24,7 @@ use sc_transaction_pool_api::TransactionPool;
 use sp_consensus::SelectChain;
 use sp_core::H256;
 use sp_inherents::CreateInherentDataProviders;
-use sp_runtime::{traits::BlakeTwo256, traits::Block as BlockT, OpaqueExtrinsic};
+use sp_runtime::{OpaqueExtrinsic, traits::BlakeTwo256, traits::Block as BlockT};
 use subtensor_runtime_common::Hash;
 
 use crate::{

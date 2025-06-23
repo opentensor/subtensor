@@ -36,9 +36,7 @@ use frame_support::{
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
 use pallet_election_provider_multi_phase::GeometricDepositBase;
-use pallet_grandpa::{
-    AuthorityId as GrandpaId, fg_primitives,
-};
+use pallet_grandpa::{AuthorityId as GrandpaId, fg_primitives};
 use pallet_proxy_opentensor as pallet_proxy;
 use pallet_registry::CanRegisterIdentity;
 use pallet_session::historical as session_historical;
@@ -73,8 +71,8 @@ use sp_runtime::transaction_validity::TransactionPriority;
 use sp_runtime::{
     AccountId32, ApplyExtrinsicResult, ConsensusEngineId, generic, impl_opaque_keys,
     traits::{
-        AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable,
-        One, PostDispatchInfoOf, UniqueSaturatedInto, Verify,
+        AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, One,
+        PostDispatchInfoOf, UniqueSaturatedInto, Verify,
     },
     transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
 };
