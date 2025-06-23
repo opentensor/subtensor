@@ -1362,10 +1362,6 @@ mod pallet_benchmarks {
         let address: H160 = H160::zero();
         let mapped_account = T::AddressMapping::into_account_id(address);
         let proxy_account: T::AccountId = account("A", 0, 7);
-        // assert_ok!(Subtensor::<T>::set_pure_proxy_account(
-        //     address,
-        //     proxy_account
-        // ));
 
         #[extrinsic_call]
         _(RawOrigin::Signed(mapped_account), address, proxy_account);

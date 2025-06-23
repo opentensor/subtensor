@@ -57,7 +57,6 @@ where
         let caller = handle.context().caller;
         if pallet_subtensor::PureProxyAccount::<R>::get(caller).is_none() {
             let account = Self::into_pure_proxy_account_id(&caller);
-            // pallet_subtensor::PureProxyAccount::<R>::insert(caller, account.clone());
 
             let call = pallet_subtensor::Call::<R>::set_pure_proxy_account {
                 address: caller,
@@ -68,10 +67,6 @@ where
                 call,
                 RawOrigin::Signed(handle.caller_account_id::<R>()),
             )
-
-            //
-            // Ok(H256::from(Into::<[u8; 32]>::into(account)))
-            // Ok(())
         } else {
             Err(PrecompileFailure::Error {
                 exit_status: ExitError::Other("Pure proxy account already created yet".into()),

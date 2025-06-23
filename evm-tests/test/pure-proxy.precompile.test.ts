@@ -93,7 +93,7 @@ describe("Test pure proxy precompile", () => {
             const tx = await contract.pureProxyCall(callCode)
             await tx.wait()
         } catch (error) {
-            assert.notEqual(error, undefined, "should fail if set proxy again")
+            assert.notEqual(error, undefined, "should fail if proxy not set")
         }
 
         const tx = await contract.createPureProxy()
@@ -116,7 +116,7 @@ describe("Test pure proxy precompile", () => {
             const tx = await contract.pureProxyCall(callCode)
             await tx.wait()
         } catch (error) {
-            assert.notEqual(error, undefined, "should fail if set proxy again")
+            assert.notEqual(error, undefined, "should fail if proxy without balance")
         }
 
         // set balance for proxy account
