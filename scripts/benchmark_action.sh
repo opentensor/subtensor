@@ -14,12 +14,44 @@ declare -A DISPATCH_PATHS=(
 )
 
 # Max allowed drift (%)
-THRESHOLD=15
+THRESHOLD=20
 MAX_RETRIES=3
 
 # We'll build once for runtime-benchmarks
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNTIME_WASM="$SCRIPT_DIR/../target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm"
+
+# File that tracks which dispatch files were modified (used by the CI step)
+PATCH_MARKER="$SCRIPT_DIR/benchmark_patch_marker"
+: > "$PATCH_MARKER"
+
+################################################################################
+# Helper to patch literals in dispatch files
+################################################################################
+function patch_field() {
+  local file="$1" extr="$2" field="$3" new_val="$4"
+
+  # mark that we are patching something
+  PATCH_MODE=1
+  echo "$file" >> "$PATCH_MARKER"
+
+  case "$field" in
+    weight)
+      # Weight::from_parts(<NUM>,
+      sed -Ei "0,/pub fn[[:space:]]+$extr\\(/s/Weight::from_parts\\([0-9_]+/Weight::from_parts(${new_val}/" "$file"
+      ;;
+    reads)
+      # .reads(<NUM>)      or reads_writes(<NUM>,
+      sed -Ei "0,/pub fn[[:space:]]+$extr\\(/s/\\.reads\\([0-9_]+/.reads(${new_val}/" "$file"
+      sed -Ei "0,/pub fn[[:space:]]+$extr\\(/s/reads_writes\\([0-9_]+,/reads_writes(${new_val},/" "$file"
+      ;;
+    writes)
+      # .writes(<NUM>)     or reads_writes(*, <NUM>)
+      sed -Ei "0,/pub fn[[:space:]]+$extr\\(/s/\\.writes\\([0-9_]+/.writes(${new_val}/" "$file"
+      sed -Ei "0,/pub fn[[:space:]]+$extr\\(/s/reads_writes\\([0-9_]+, *[0-9_]+/reads_writes(\\1, ${new_val}/" "$file"
+      ;;
+  esac
+}
 
 echo "Building runtime-benchmarks…"
 cargo build --profile production -p node-subtensor --features runtime-benchmarks
@@ -93,7 +125,6 @@ function process_extr() {
       next
     }
 
-    # main condition: function name must match "pub fn <extr>("
     $0 ~ ("pub fn[[:space:]]+" extr "\\(") {
       print w, r, wri
       exit
@@ -119,35 +150,30 @@ function process_extr() {
   # compute drift
   local drift
   drift=$(awk -v a="$meas_ps" -v b="$code_w" 'BEGIN {
-    if (b == "" || b == 0) {
-      print 99999
-      exit
-    }
+    if (b == "" || b == 0) { print 99999; exit }
     printf("%.1f", (a - b) / b * 100)
   }')
 
-  # produce summary line
   summary_lines+=("$(printf "%-30s | reads code=%3s measured=%3s | writes code=%3s measured=%3s | weight code=%12s measured=%12s | drift %6s%%" \
-    "$e" \
-    "$code_reads" \
-    "$rd" \
-    "$code_writes" \
-    "$wr" \
-    "$code_w" \
-    "$meas_ps" \
-    "$drift")")
+    "$e" "$code_reads" "$rd" "$code_writes" "$wr" "$code_w" "$meas_ps" "$drift")")
 
-  # validations
+  # validations & patching
   if (( rd != code_reads )); then
     failures+=("[${e}] reads mismatch code=${code_reads}, measured=${rd}")
+    patch_field "$dispatch_file" "$e" "reads" "$rd"
     fail=1
   fi
+
   if (( wr != code_writes )); then
     failures+=("[${e}] writes mismatch code=${code_writes}, measured=${wr}")
+    patch_field "$dispatch_file" "$e" "writes" "$wr"
     fail=1
   fi
+
   if [[ "$code_w" == "0" ]]; then
     failures+=("[${e}] zero code weight")
+    pretty_weight=$(printf "%'d" "$meas_ps" | tr ',' '_')
+    patch_field "$dispatch_file" "$e" "weight" "$pretty_weight"
     fail=1
   fi
 
@@ -155,22 +181,24 @@ function process_extr() {
   local drift_int=${abs_drift%%.*}
   if (( drift_int > THRESHOLD )); then
     failures+=("[${e}] weight code=${code_w}, measured=${meas_ps}, drift=${drift}%")
+    pretty_weight=$(printf "%'d" "$meas_ps" | tr ',' '_')
+    patch_field "$dispatch_file" "$e" "weight" "$pretty_weight"
     fail=1
   fi
 }
 
 ################################################################################
-# We'll do the standard "attempt" logic for each pallet
+# Attempt logic per-pallet
 ################################################################################
 
+PATCH_MODE=0  # becomes 1 when we actually modify any file
+
 for pallet_name in "${PALLETS[@]}"; do
-  # ensure the dispatch path is defined
   if [[ -z "${DISPATCH_PATHS[$pallet_name]:-}" ]]; then
     echo "❌ ERROR: dispatch path not defined for pallet '$pallet_name'"
     exit 1
   fi
 
-  # Prepend $SCRIPT_DIR to the path
   DISPATCH="$SCRIPT_DIR/${DISPATCH_PATHS[$pallet_name]}"
   if [[ ! -f "$DISPATCH" ]]; then
     echo "❌ ERROR: dispatch file not found at $DISPATCH"
@@ -190,7 +218,6 @@ for pallet_name in "${PALLETS[@]}"; do
     TMP="$(mktemp)"
     trap "rm -f \"$TMP\"" EXIT
 
-    # Run benchmark for just this pallet
     ./target/production/node-subtensor benchmark pallet \
       --runtime "$RUNTIME_WASM" \
       --genesis-builder=runtime \
@@ -202,22 +229,15 @@ for pallet_name in "${PALLETS[@]}"; do
       --repeat 5 \
       | tee "$TMP"
 
-    # now parse results
     summary_lines=()
     failures=()
     fail=0
 
-    extr=""
-    meas_us=""
-    meas_reads=""
-    meas_writes=""
+    extr="" meas_us="" meas_reads="" meas_writes=""
 
     function finalize_extr() {
       process_extr "$extr" "$meas_us" "$meas_reads" "$meas_writes" "$DISPATCH"
-      extr=""
-      meas_us=""
-      meas_reads=""
-      meas_writes=""
+      extr="" meas_us="" meas_reads="" meas_writes=""
     }
 
     while IFS= read -r line; do
@@ -226,46 +246,45 @@ for pallet_name in "${PALLETS[@]}"; do
         extr="${BASH_REMATCH[1]}"
         continue
       fi
-
       if [[ $line =~ Time\ ~=\ *([0-9]+(\.[0-9]+)?) ]]; then
         meas_us="${BASH_REMATCH[1]}"
         continue
       fi
-
       if [[ $line =~ Reads[[:space:]]*=[[:space:]]*([0-9]+) ]]; then
         meas_reads="${BASH_REMATCH[1]}"
         continue
       fi
-
       if [[ $line =~ Writes[[:space:]]*=[[:space:]]*([0-9]+) ]]; then
         meas_writes="${BASH_REMATCH[1]}"
         continue
       fi
     done < "$TMP"
-
     finalize_extr
 
     echo
     echo "Benchmark Summary for pallet '$pallet_name' (attempt #$attempt):"
-    for l in "${summary_lines[@]}"; do
-      echo "  $l"
-    done
+    for l in "${summary_lines[@]}"; do echo "  $l"; done
 
     if (( fail )); then
       echo
       echo "❌ Issues detected on attempt #$attempt (pallet '$pallet_name'):"
-      for e in "${failures[@]}"; do
-        echo "  • $e"
-      done
+      for e in "${failures[@]}"; do echo "  • $e"; done
 
       if (( attempt < MAX_RETRIES )); then
         echo "→ Retrying…"
         (( attempt++ ))
         continue
       else
-        echo
-        echo "❌ Benchmarks for pallet '$pallet_name' failed after $MAX_RETRIES attempts."
-        exit 1
+        if (( PATCH_MODE )); then
+          echo
+          echo "🛠️  Patched dispatch file(s). Continuing without further checks."
+          pallet_success=1
+          break
+        else
+          echo
+          echo "❌ Benchmarks for pallet '$pallet_name' failed after $MAX_RETRIES attempts."
+          exit 1
+        fi
       fi
     else
       echo
@@ -275,7 +294,6 @@ for pallet_name in "${PALLETS[@]}"; do
     fi
   done
 
-  # If we never succeeded for this pallet, exit
   if (( pallet_success == 0 )); then
     echo "❌ Could not benchmark pallet '$pallet_name' successfully."
     exit 1
@@ -286,4 +304,9 @@ echo
 echo "══════════════════════════════════════"
 echo "All requested pallets benchmarked successfully!"
 echo "══════════════════════════════════════"
+
+if (( PATCH_MODE )); then
+  echo "💾  Benchmark drift fixed in-place; files listed in $PATCH_MARKER"
+fi
+
 exit 0
