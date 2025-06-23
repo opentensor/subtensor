@@ -521,7 +521,7 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
     new_test_ext(0).execute_with(|| {
         // ── 1) create subnet with 20 stakers ────────────────────────────────
         let owner_cold = U256::from(1_000);
-        let owner_hot  = U256::from(2_000);
+        let owner_hot = U256::from(2_000);
         let netuid = add_dynamic_network(&owner_hot, &owner_cold);
         SubtensorModule::set_max_registrations_per_block(netuid, 1_000u16);
         SubtensorModule::set_target_registrations_per_interval(netuid, 1_000u16);
@@ -530,19 +530,22 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         let min_amount = {
             let min_stake = DefaultMinStake::<Test>::get();
             // Use the same helper pallet uses in validate_add_stake
-            let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(netuid.into(), min_stake);
+            let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
+                netuid.into(),
+                min_stake,
+            );
             min_stake.saturating_add(fee)
         };
 
         const N: usize = 20;
-        let mut cold  = [U256::zero(); N];
-        let mut hot   = [U256::zero(); N];
+        let mut cold = [U256::zero(); N];
+        let mut hot = [U256::zero(); N];
         let mut stake = [0u64; N];
 
         for i in 0..N {
-            cold[i]  = U256::from(10_000 + 2 * i as u32);
-            hot[i]   = U256::from(10_001 + 2 * i as u32);
-            stake[i] = (i as u64 + 1) * min_amount;          // multiples of min_amount
+            cold[i] = U256::from(10_000 + 2 * i as u32);
+            hot[i] = U256::from(10_001 + 2 * i as u32);
+            stake[i] = (i as u64 + 1) * min_amount; // multiples of min_amount
 
             register_ok_neuron(netuid, hot[i], cold[i], 0);
             SubtensorModule::add_balance_to_coldkey_account(&cold[i], stake[i] + 100_000);
@@ -565,13 +568,13 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
 
         // ── 3) TAO pot & subnet lock ────────────────────────────────────────
         let tao_pot: u64 = 123_456;
-        let lock   : u64 = 30_000;
+        let lock: u64 = 30_000;
         SubnetTAO::<Test>::insert(netuid, tao_pot);
         SubtensorModule::set_subnet_locked_balance(netuid, lock);
 
         // Owner already earned some emission; owner-cut = 50 %
         Emission::<Test>::insert(netuid, vec![1_000u64, 2_000, 1_500]);
-        SubnetOwnerCut::<Test>::put(32_768u16);   // = 0.5 in fixed-point
+        SubnetOwnerCut::<Test>::put(32_768u16); // = 0.5 in fixed-point
 
         // ── 4) balances & α on ROOT before ──────────────────────────────────
         let root = NetUid::ROOT;
@@ -579,21 +582,20 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         let mut alpha_before_root = [0u64; N];
         for i in 0..N {
             bal_before[i] = SubtensorModule::get_coldkey_balance(&cold[i]);
-            alpha_before_root[i] =
-                Alpha::<Test>::get((hot[i], cold[i], root)).saturating_to_num();
+            alpha_before_root[i] = Alpha::<Test>::get((hot[i], cold[i], root)).saturating_to_num();
         }
         let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
 
         // ── 5) expected TAO share per pallet algorithm (incl. remainder) ────
         let mut share = [0u64; N];
-        let mut rem   = [0u128; N];
-        let mut paid  : u128 = 0;
+        let mut rem = [0u128; N];
+        let mut paid: u128 = 0;
 
         for i in 0..N {
             let prod = tao_pot as u128 * alpha[i];
             share[i] = (prod / alpha_sum) as u64;
-            rem[i]   =  prod % alpha_sum;
-            paid    += share[i] as u128;
+            rem[i] = prod % alpha_sum;
+            paid += share[i] as u128;
         }
         let leftover = tao_pot as u128 - paid;
         let mut idx: Vec<_> = (0..N).collect();
@@ -628,7 +630,7 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         }
 
         // owner refund
-        let owner_em   = (4_500u128 * 32_768u128 / 65_535u128) as u64; // same math pallet uses
+        let owner_em = (4_500u128 * 32_768u128 / 65_535u128) as u64; // same math pallet uses
         let expected_refund = lock.saturating_sub(owner_em);
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&owner_cold),
