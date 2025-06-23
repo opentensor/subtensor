@@ -326,14 +326,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Adjusts protocol liquidity with new values of TAO and Alpha reserve
-    pub(super) fn adjust_protocol_liquidity(netuid: NetUid) {
-        // Get updated reserves, calculate liquidity
-        let tao_reserve = <T as Config>::SubnetInfo::tao_reserve(netuid.into());
-        let alpha_reserve = <T as Config>::SubnetInfo::alpha_reserve(netuid.into());
-        let liquidity =
-            helpers_128bit::sqrt((tao_reserve as u128).saturating_mul(alpha_reserve as u128))
-                as u64;
-
+    pub(super) fn adjust_protocol_liquidity(netuid: NetUid, tao_delta: u64, alpha_delta: u64) {
         // Update protocol position with new liquidity
         let protocol_account_id = Self::protocol_account_id();
         let mut positions =
@@ -341,8 +334,22 @@ impl<T: Config> Pallet<T> {
                 .collect::<sp_std::vec::Vec<_>>();
 
         if let Some(position) = positions.get_mut(0) {
-            position.liquidity = liquidity;
-            Positions::<T>::insert((netuid, protocol_account_id, position.id), position.clone());
+            let current_sqrt_price = Pallet::<T>::current_price_sqrt(netuid);
+            let maybe_token_amounts = position.to_token_amounts(current_sqrt_price);
+            if let Ok((tao, alpha)) = maybe_token_amounts {
+                // Get updated reserves, calculate liquidity
+                let new_tao_reserve = tao.saturating_add(tao_delta);
+                let new_alpha_reserve = alpha.saturating_add(alpha_delta);
+                let new_liquidity = helpers_128bit::sqrt(
+                    (new_tao_reserve as u128).saturating_mul(new_alpha_reserve as u128),
+                ) as u64;
+
+                position.liquidity = new_liquidity;
+                Positions::<T>::insert(
+                    (netuid, protocol_account_id, position.id),
+                    position.clone(),
+                );
+            }
         }
     }
 
@@ -855,6 +862,7 @@ impl<T: Config> Pallet<T> {
             alpha,
             fee_tao,
             fee_alpha,
+            removed: true,
         })
     }
 
@@ -938,10 +946,12 @@ impl<T: Config> Pallet<T> {
 
         // If delta brings the position liquidity below MinimumLiquidity, eliminate position and
         // withdraw full amounts
+        let mut remove = false;
         if (liquidity_delta < 0)
             && (position.liquidity.saturating_sub(delta_liquidity_abs) < T::MinimumLiquidity::get())
         {
             delta_liquidity_abs = position.liquidity;
+            remove = true;
         }
 
         // Adjust liquidity at the ticks based on the delta sign
@@ -960,15 +970,20 @@ impl<T: Config> Pallet<T> {
             // Remove liquidity from user position
             position.liquidity = position.liquidity.saturating_sub(delta_liquidity_abs);
         }
-        Positions::<T>::insert(&(netuid, coldkey_account_id, position.id), position);
 
-        // TODO: Withdraw balances and update pool reserves
+        // Update or, in case if full liquidity is removed, remove the position
+        if remove {
+            Positions::<T>::remove((netuid, coldkey_account_id, position_id));
+        } else {
+            Positions::<T>::insert(&(netuid, coldkey_account_id, position.id), position);
+        }
 
         Ok(UpdateLiquidityResult {
             tao: tao.saturating_to_num::<u64>(),
             alpha: alpha.saturating_to_num::<u64>(),
             fee_tao,
             fee_alpha,
+            removed: remove,
         })
     }
 
@@ -1173,8 +1188,8 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
             .saturating_to_num()
     }
 
-    fn adjust_protocol_liquidity(netuid: NetUid) {
-        Self::adjust_protocol_liquidity(netuid);
+    fn adjust_protocol_liquidity(netuid: NetUid, tao_delta: u64, alpha_delta: u64) {
+        Self::adjust_protocol_liquidity(netuid, tao_delta, alpha_delta);
     }
 
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool {
