@@ -154,7 +154,7 @@ mod pallet {
         LiquidityAdded {
             /// The coldkey account that owns the position
             coldkey: T::AccountId,
-            /// The hotkey account associated with the position
+            /// The hotkey account where Alpha comes from
             hotkey: T::AccountId,
             /// The subnet identifier
             netuid: NetUid,
@@ -172,6 +172,8 @@ mod pallet {
         LiquidityRemoved {
             /// The coldkey account that owns the position
             coldkey: T::AccountId,
+            /// The hotkey account where Alpha goes to
+            hotkey: T::AccountId,
             /// The subnet identifier
             netuid: NetUid,
             /// Unique identifier for the liquidity position
@@ -191,6 +193,8 @@ mod pallet {
         LiquidityModified {
             /// The coldkey account that owns the position
             coldkey: T::AccountId,
+            /// The hotkey account where Alpha comes from or goes to
+            hotkey: T::AccountId,
             /// The subnet identifier
             netuid: NetUid,
             /// Unique identifier for the liquidity position
@@ -424,6 +428,7 @@ mod pallet {
             // Emit an event
             Self::deposit_event(Event::LiquidityRemoved {
                 coldkey,
+                hotkey,
                 netuid: netuid.into(),
                 position_id,
                 tao: result.tao,
@@ -480,6 +485,7 @@ mod pallet {
                 // Emit an event
                 Self::deposit_event(Event::LiquidityModified {
                     coldkey: coldkey.clone(),
+                    hotkey: hotkey.clone(),
                     netuid,
                     position_id,
                     liquidity: liquidity_delta,
@@ -497,6 +503,7 @@ mod pallet {
                 if result.removed {
                     Self::deposit_event(Event::LiquidityRemoved {
                         coldkey: coldkey.clone(),
+                        hotkey: hotkey.clone(),
                         netuid,
                         position_id,
                         tao: result.tao,
@@ -507,6 +514,7 @@ mod pallet {
                 } else {
                     Self::deposit_event(Event::LiquidityModified {
                         coldkey: coldkey.clone(),
+                        hotkey: hotkey.clone(),
                         netuid,
                         position_id,
                         liquidity: liquidity_delta,
