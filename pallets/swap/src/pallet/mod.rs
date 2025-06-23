@@ -1,4 +1,5 @@
 use core::num::NonZeroU64;
+use core::ops::Neg;
 
 use frame_support::{PalletId, pallet_prelude::*, traits::Get};
 use frame_system::pallet_prelude::*;
@@ -149,11 +150,11 @@ mod pallet {
         /// First enable even indicates a switch from V2 to V3 swap.
         UserLiquidityToggled { netuid: NetUid, enable: bool },
 
-        /// Event emitted when liquidity is added to a subnet's liquidity pool.
+        /// Event emitted when a liquidity position is added to a subnet's liquidity pool.
         LiquidityAdded {
             /// The coldkey account that owns the position
             coldkey: T::AccountId,
-            /// The hotkey account associated with the position
+            /// The hotkey account where Alpha comes from
             hotkey: T::AccountId,
             /// The subnet identifier
             netuid: NetUid,
@@ -167,10 +168,12 @@ mod pallet {
             alpha: u64,
         },
 
-        /// Event emitted when liquidity is removed from a subnet's liquidity pool.
+        /// Event emitted when a liquidity position is removed from a subnet's liquidity pool.
         LiquidityRemoved {
             /// The coldkey account that owns the position
             coldkey: T::AccountId,
+            /// The hotkey account where Alpha goes to
+            hotkey: T::AccountId,
             /// The subnet identifier
             netuid: NetUid,
             /// Unique identifier for the liquidity position
@@ -179,6 +182,29 @@ mod pallet {
             tao: u64,
             /// The amount of Alpha tokens returned to the user
             alpha: u64,
+            /// The amount of TAO fees earned from the position
+            fee_tao: u64,
+            /// The amount of Alpha fees earned from the position
+            fee_alpha: u64,
+        },
+
+        /// Event emitted when a liquidity position is modified in a subnet's liquidity pool.
+        /// Modifying causes the fees to be claimed.
+        LiquidityModified {
+            /// The coldkey account that owns the position
+            coldkey: T::AccountId,
+            /// The hotkey account where Alpha comes from or goes to
+            hotkey: T::AccountId,
+            /// The subnet identifier
+            netuid: NetUid,
+            /// Unique identifier for the liquidity position
+            position_id: PositionId,
+            /// The amount of liquidity added to or removed from the position
+            liquidity: i64,
+            /// The amount of TAO tokens returned to the user
+            tao: i64,
+            /// The amount of Alpha tokens returned to the user
+            alpha: i64,
             /// The amount of TAO fees earned from the position
             fee_tao: u64,
             /// The amount of Alpha fees earned from the position
@@ -402,6 +428,7 @@ mod pallet {
             // Emit an event
             Self::deposit_event(Event::LiquidityRemoved {
                 coldkey,
+                hotkey,
                 netuid: netuid.into(),
                 position_id,
                 tao: result.tao,
@@ -456,14 +483,16 @@ mod pallet {
                 );
 
                 // Emit an event
-                Self::deposit_event(Event::LiquidityAdded {
+                Self::deposit_event(Event::LiquidityModified {
                     coldkey: coldkey.clone(),
                     hotkey: hotkey.clone(),
                     netuid,
                     position_id,
-                    liquidity: liquidity_delta as u64,
-                    tao: result.tao,
-                    alpha: result.alpha,
+                    liquidity: liquidity_delta,
+                    tao: result.tao as i64,
+                    alpha: result.alpha as i64,
+                    fee_tao: result.fee_tao,
+                    fee_alpha: result.fee_alpha,
                 });
             } else {
                 // Credit the returned tao and alpha to the account
@@ -471,15 +500,30 @@ mod pallet {
                 T::BalanceOps::increase_stake(&coldkey, &hotkey, netuid.into(), result.alpha)?;
 
                 // Emit an event
-                Self::deposit_event(Event::LiquidityRemoved {
-                    coldkey: coldkey.clone(),
-                    netuid,
-                    position_id,
-                    tao: result.tao,
-                    alpha: result.alpha,
-                    fee_tao: result.fee_tao,
-                    fee_alpha: result.fee_alpha,
-                });
+                if result.removed {
+                    Self::deposit_event(Event::LiquidityRemoved {
+                        coldkey: coldkey.clone(),
+                        hotkey: hotkey.clone(),
+                        netuid,
+                        position_id,
+                        tao: result.tao,
+                        alpha: result.alpha,
+                        fee_tao: result.fee_tao,
+                        fee_alpha: result.fee_alpha,
+                    });
+                } else {
+                    Self::deposit_event(Event::LiquidityModified {
+                        coldkey: coldkey.clone(),
+                        hotkey: hotkey.clone(),
+                        netuid,
+                        position_id,
+                        liquidity: liquidity_delta,
+                        tao: (result.tao as i64).neg(),
+                        alpha: (result.alpha as i64).neg(),
+                        fee_tao: result.fee_tao,
+                        fee_alpha: result.fee_alpha,
+                    });
+                }
             }
 
             // Credit accrued fees to user account (no matter if liquidity is added or removed)
