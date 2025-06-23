@@ -216,9 +216,9 @@ mod errors {
         ZeroMaxStakeAmount,
         /// Invalid netuid duplication
         SameNetuid,
-        /// Too frequent staking operations
-        StakingOperationRateLimitExceeded,
         /// The caller does not have enough balance for the operation.
         InsufficientBalance,
+        /// Too frequent staking operations
+        StakingOperationRateLimitExceeded,
     }
 }
