@@ -16,7 +16,7 @@ jobs:
 
     env:
       SKIP_BENCHMARKS: '0'
-      # only push fixes to branches *inside* the main repo, never to forks
+      # push fixes only to branches inside the main repo
       AUTO_FIX_BENCHMARKS: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]' && '1' || '0' }}
 
     steps:
@@ -29,7 +29,6 @@ jobs:
           fetch-depth: 0
 
       - name: Install GitHub CLI
-        # We disallow skipping benchmarks for PRs from forks to avoid exposing secrets
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository && env.SKIP_BENCHMARKS != '1' }}
         run: |
           sudo apt-get update
@@ -75,16 +74,22 @@ jobs:
           chmod +x scripts/benchmark_action.sh
           ./scripts/benchmark_action.sh
 
-      - name: Commit updated weights (if any)
+      - name: Commit any updated weights
         if: ${{ always() && env.AUTO_FIX_BENCHMARKS == '1' }}
         run: |
-          if [[ -f scripts/benchmark_patch_marker ]]; then
+          MARKER=scripts/benchmark_patch_marker
+          if [[ -s "$MARKER" ]]; then
             echo "🔧  Updating benchmark weights…"
             git config --global user.name  "Benchmark-Bot"
             git config --global user.email "bench-bot@users.noreply.github.com"
-            git add $(sort -u scripts/benchmark_patch_marker)
-            git commit -m "chore(bench): auto-update benchmark weight/read/write numbers"
-            git push
+            mapfile -t files < <(sort -u "$MARKER")
+            git add "${files[@]}"
+            if git diff --cached --quiet; then
+              echo "Nothing actually changed - skipping commit."
+            else
+              git commit -m "chore(bench): auto-update benchmark weight/read/write numbers"
+              git push
+            fi
           else
             echo "No benchmark drift detected - nothing to commit."
           fi
