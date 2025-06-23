@@ -668,7 +668,7 @@ impl<T: Config> Pallet<T> {
             for p in portions {
                 if p.share > 0 {
                     // Zero-fee restake of TAO into the root network.
-                    Self::stake_into_subnet(&p.hot, &p.cold, root_netuid, p.share, 0u64);
+                    Self::stake_into_subnet(&p.hot, &p.cold, root_netuid, p.share, 0u64)?;
                 }
                 Alpha::<T>::remove((&p.hot, &p.cold, netuid));
             }
