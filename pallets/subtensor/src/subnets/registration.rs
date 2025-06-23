@@ -3,6 +3,7 @@ use sp_core::{H256, U256};
 use sp_io::hashing::{keccak_256, sha2_256};
 use sp_runtime::Saturating;
 use subtensor_runtime_common::NetUid;
+use subtensor_swap_interface::SwapHandler;
 use system::pallet_prelude::BlockNumberFor;
 
 const LOG_TARGET: &str = "runtime::subtensor::registration";
@@ -140,7 +141,9 @@ impl<T: Config> Pallet<T> {
             Self::remove_balance_from_coldkey_account(&coldkey, registration_cost)?;
 
         // Tokens are swapped and then burned.
-        let burned_alpha: u64 = Self::swap_tao_for_alpha(netuid, actual_burn_amount);
+        let burned_alpha: u64 =
+            Self::swap_tao_for_alpha(netuid, actual_burn_amount, T::SwapInterface::max_price())?
+                .amount_paid_out;
         SubnetAlphaOut::<T>::mutate(netuid, |total| *total = total.saturating_sub(burned_alpha));
 
         // Actually perform the registration.
@@ -482,7 +485,7 @@ impl<T: Config> Pallet<T> {
     /// was too high.
     pub fn hash_meets_difficulty(hash: &H256, difficulty: U256) -> bool {
         let bytes: &[u8] = hash.as_bytes();
-        let num_hash: U256 = U256::from(bytes);
+        let num_hash: U256 = U256::from_little_endian(bytes);
         let (value, overflowed) = num_hash.overflowing_mul(difficulty);
 
         log::trace!(
