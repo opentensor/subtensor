@@ -2572,6 +2572,11 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
             Error::<T>::HotKeyAccountNotExists
         );
 
+        // Increse alpha out counter
+        SubnetAlphaOut::<T>::mutate(netuid, |total| {
+            *total = total.saturating_add(alpha);
+        });
+
         Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
 
         Ok(())
@@ -2587,6 +2592,11 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
             Self::hotkey_account_exists(hotkey),
             Error::<T>::HotKeyAccountNotExists
         );
+
+        // Decrese alpha out counter
+        SubnetAlphaOut::<T>::mutate(netuid, |total| {
+            *total = total.saturating_sub(alpha);
+        });
 
         Ok(Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             hotkey, coldkey, netuid, alpha,
