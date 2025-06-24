@@ -16,9 +16,13 @@ jobs:
 
     env:
       SKIP_BENCHMARKS: '0'
+      # only auto‑commit on branches inside the main repo (never on forks)
       AUTO_FIX_BENCHMARKS: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]' && '1' || '0' }}
 
     steps:
+      # ──────────────────────────────────────────────────────────────────────
+      # Checkout & preliminaries
+      # ──────────────────────────────────────────────────────────────────────
       - name: Check out PR branch
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         uses: actions/checkout@v4
@@ -43,6 +47,9 @@ jobs:
             echo "SKIP_BENCHMARKS=1" >> "$GITHUB_ENV"
           fi
 
+      # ──────────────────────────────────────────────────────────────────────
+      # Build environment
+      # ──────────────────────────────────────────────────────────────────────
       - name: Install system dependencies
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         run: |
@@ -62,6 +69,9 @@ jobs:
         with:
           key: bench-${{ hashFiles('**/Cargo.lock') }}
 
+      # ──────────────────────────────────────────────────────────────────────
+      # Benchmarks
+      # ──────────────────────────────────────────────────────────────────────
       - name: Build node with benchmarks
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         run: |
@@ -82,7 +92,6 @@ jobs:
             exit 0
           fi
 
-          # read & de-duplicate paths
           mapfile -t files < <(grep -v '^[[:space:]]*$' "$marker" | sort -u)
           if (( ${#files[@]} == 0 )); then
             echo "Patch marker is empty - nothing to commit."
@@ -91,10 +100,8 @@ jobs:
 
           git config --global user.name  "Benchmark-Bot"
           git config --global user.email "bench-bot@users.noreply.github.com"
-
           git add "${files[@]}"
 
-          # If staging area is still clean, bail out gracefully.
           if git diff --cached --quiet; then
             echo "No code changes - skipping commit."
             exit 0
