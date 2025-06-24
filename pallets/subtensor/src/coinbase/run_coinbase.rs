@@ -505,7 +505,7 @@ impl<T: Config> Pallet<T> {
             TaoDividendsPerSubnet::<T>::mutate(netuid, hotkey.clone(), |divs| {
                 *divs = divs.saturating_add(tou64!(root_tao));
             });
-            // Add the stakes to the total TAO on the subnet.
+            // Update the total TAO on the subnet with root tao dividends.
             SubnetTAO::<T>::mutate(NetUid::ROOT, |total| {
                 *total = total
                     .saturating_add(validator_stake)
