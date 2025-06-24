@@ -889,7 +889,7 @@ mod dispatches {
         /// 	- The seal is incorrect.
         ///
         #[pallet::call_index(6)]
-        #[pallet::weight((Weight::from_parts(1_216_200_000, 0)
+        #[pallet::weight((Weight::from_parts(216_200_000, 0)
 		.saturating_add(T::DbWeight::get().reads(26))
 		.saturating_add(T::DbWeight::get().writes(23)), DispatchClass::Normal, Pays::No))]
         pub fn register(
