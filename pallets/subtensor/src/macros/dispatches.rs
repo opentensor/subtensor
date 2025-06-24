@@ -2075,9 +2075,9 @@ mod dispatches {
         /// at which or better (higher) the staking should execute.
         /// Without limit_price it remove all the stake similar to `remove_stake` extrinsic
         #[pallet::call_index(103)]
-        #[pallet::weight((Weight::from_parts(206_700_000, 10142)
-			.saturating_add(T::DbWeight::get().reads(18_u64))
-			.saturating_add(T::DbWeight::get().writes(10_u64)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_parts(398_000_000, 10142)
+			.saturating_add(T::DbWeight::get().reads(29_u64))
+			.saturating_add(T::DbWeight::get().writes(14_u64)), DispatchClass::Normal, Pays::No))]
         pub fn remove_stake_full_limit(
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
