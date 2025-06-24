@@ -476,11 +476,11 @@ fn test_migrate_remove_zero_total_hotkey_alpha() {
         let hotkey_nonzero = U256::from(101u64);
 
         // Insert one zero-alpha entry and one non-zero entry
-        TotalHotkeyAlpha::<Test>::insert(hotkey_zero, netuid, 0u64);
-        TotalHotkeyAlpha::<Test>::insert(hotkey_nonzero, netuid, 123u64);
+        TotalHotkeyAlpha::<Test>::insert(hotkey_zero, netuid, AlphaCurrency::ZERO);
+        TotalHotkeyAlpha::<Test>::insert(hotkey_nonzero, netuid, AlphaCurrency::from(123));
 
-        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_zero, netuid), 0u64);
-        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_nonzero, netuid), 123u64);
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_zero, netuid), AlphaCurrency::ZERO);
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_nonzero, netuid), AlphaCurrency::from(123));
 
         assert!(
             !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
@@ -499,7 +499,7 @@ fn test_migrate_remove_zero_total_hotkey_alpha() {
             "Zero-alpha entry should have been removed."
         );
 
-        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_nonzero, netuid), 123u64);
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_nonzero, netuid), AlphaCurrency::from(123));
 
         assert!(
             !weight.is_zero(),

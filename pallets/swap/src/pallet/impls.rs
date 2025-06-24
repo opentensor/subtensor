@@ -7,7 +7,7 @@ use safe_math::*;
 use sp_arithmetic::helpers_128bit;
 use sp_runtime::traits::AccountIdConversion;
 use substrate_fixed::types::{I64F64, U64F64, U96F32};
-use subtensor_runtime_common::{BalanceOps, NetUid, SubnetInfo};
+use subtensor_runtime_common::{Alpha, BalanceOps, Currency, NetUid, SubnetInfo};
 use subtensor_swap_interface::{SwapHandler, SwapResult, UpdateLiquidityResult};
 
 use super::pallet::*;
@@ -264,7 +264,7 @@ impl<T: Config> Pallet<T> {
                 } else {
                     let tao_reserve = T::SubnetInfo::tao_reserve(netuid.into());
                     let alpha_reserve = T::SubnetInfo::alpha_reserve(netuid.into());
-                    if alpha_reserve > 0 {
+                    if !alpha_reserve.is_zero() {
                         U96F32::saturating_from_num(tao_reserve)
                             .saturating_div(U96F32::saturating_from_num(alpha_reserve))
                     } else {
@@ -307,9 +307,9 @@ impl<T: Config> Pallet<T> {
         // Set initial (protocol owned) liquidity and positions
         // Protocol liquidity makes one position from TickIndex::MIN to TickIndex::MAX
         // We are using the sp_arithmetic sqrt here, which works for u128
-        let liquidity =
-            helpers_128bit::sqrt((tao_reserve as u128).saturating_mul(alpha_reserve as u128))
-                as u64;
+        let liquidity = helpers_128bit::sqrt(
+            (tao_reserve as u128).saturating_mul(u64::from(alpha_reserve) as u128),
+        ) as u64;
         let protocol_account_id = Self::protocol_account_id();
 
         let (position, _, _) = Self::add_liquidity_not_insert(
@@ -330,9 +330,9 @@ impl<T: Config> Pallet<T> {
         // Get updated reserves, calculate liquidity
         let tao_reserve = <T as Config>::SubnetInfo::tao_reserve(netuid.into());
         let alpha_reserve = <T as Config>::SubnetInfo::alpha_reserve(netuid.into());
-        let liquidity =
-            helpers_128bit::sqrt((tao_reserve as u128).saturating_mul(alpha_reserve as u128))
-                as u64;
+        let liquidity = helpers_128bit::sqrt(
+            (tao_reserve as u128).saturating_mul(u64::from(alpha_reserve) as u128),
+        ) as u64;
 
         // Update protocol position with new liquidity
         let protocol_account_id = Self::protocol_account_id();
@@ -392,7 +392,7 @@ impl<T: Config> Pallet<T> {
                 // Check if reserves are overused
                 if let Ok(ref swap_result) = result {
                     let checked_reserve = match order_type {
-                        OrderType::Buy => alpha_reserve,
+                        OrderType::Buy => u64::from(alpha_reserve),
                         OrderType::Sell => tao_reserve,
                     };
 
@@ -414,7 +414,8 @@ impl<T: Config> Pallet<T> {
     ) -> Result<SwapResult, Error<T>> {
         ensure!(
             T::SubnetInfo::tao_reserve(netuid.into()) >= T::MinimumReserve::get().get()
-                && T::SubnetInfo::alpha_reserve(netuid.into()) >= T::MinimumReserve::get().get(),
+                && u64::from(T::SubnetInfo::alpha_reserve(netuid.into()))
+                    >= T::MinimumReserve::get().get(),
             Error::<T>::ReservesTooLow
         );
 
@@ -763,7 +764,7 @@ impl<T: Config> Pallet<T> {
                     netuid.into(),
                     coldkey_account_id,
                     hotkey_account_id
-                ) >= alpha,
+                ) >= Alpha::from(alpha),
             Error::<T>::InsufficientBalance
         );
 
@@ -852,9 +853,9 @@ impl<T: Config> Pallet<T> {
 
         Ok(UpdateLiquidityResult {
             tao,
-            alpha,
+            alpha: alpha.into(),
             fee_tao,
-            fee_alpha,
+            fee_alpha: fee_alpha.into(),
         })
     }
 
@@ -922,7 +923,7 @@ impl<T: Config> Pallet<T> {
             ensure!(
                 T::BalanceOps::tao_balance(coldkey_account_id) >= tao
                     && T::BalanceOps::alpha_balance(netuid, coldkey_account_id, hotkey_account_id)
-                        >= alpha,
+                        >= Alpha::from(alpha.saturating_to_num::<u64>()),
                 Error::<T>::InsufficientBalance
             );
         } else {
@@ -966,9 +967,9 @@ impl<T: Config> Pallet<T> {
 
         Ok(UpdateLiquidityResult {
             tao: tao.saturating_to_num::<u64>(),
-            alpha: alpha.saturating_to_num::<u64>(),
+            alpha: alpha.saturating_to_num::<u64>().into(),
             fee_tao,
-            fee_alpha,
+            fee_alpha: fee_alpha.into(),
         })
     }
 

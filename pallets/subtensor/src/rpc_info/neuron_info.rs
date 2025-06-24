@@ -2,9 +2,9 @@ use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
 use codec::Compact;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{Alpha as AlphaCurrency, NetUid};
 
-#[freeze_struct("3bddc0abfa5445a6")]
+#[freeze_struct("9e5a291e7e71482d")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct NeuronInfo<AccountId: TypeInfo + Encode + Decode> {
     hotkey: AccountId,
@@ -14,9 +14,9 @@ pub struct NeuronInfo<AccountId: TypeInfo + Encode + Decode> {
     active: bool,
     axon_info: AxonInfo,
     prometheus_info: PrometheusInfo,
-    stake: Vec<(AccountId, Compact<u64>)>, // map of coldkey to stake on this neuron/hotkey (includes delegations)
+    stake: Vec<(AccountId, Compact<AlphaCurrency>)>, // map of coldkey to stake on this neuron/hotkey (includes delegations)
     rank: Compact<u16>,
-    emission: Compact<u64>,
+    emission: Compact<AlphaCurrency>,
     incentive: Compact<u16>,
     consensus: Compact<u16>,
     trust: Compact<u16>,
@@ -29,7 +29,7 @@ pub struct NeuronInfo<AccountId: TypeInfo + Encode + Decode> {
     pruning_score: Compact<u16>,
 }
 
-#[freeze_struct("e2a6a95696a82c4f")]
+#[freeze_struct("b9fdff7fc6e023c7")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct NeuronInfoLite<AccountId: TypeInfo + Encode + Decode> {
     hotkey: AccountId,
@@ -39,9 +39,9 @@ pub struct NeuronInfoLite<AccountId: TypeInfo + Encode + Decode> {
     active: bool,
     axon_info: AxonInfo,
     prometheus_info: PrometheusInfo,
-    stake: Vec<(AccountId, Compact<u64>)>, // map of coldkey to stake on this neuron/hotkey (includes delegations)
+    stake: Vec<(AccountId, Compact<AlphaCurrency>)>, // map of coldkey to stake on this neuron/hotkey (includes delegations)
     rank: Compact<u16>,
-    emission: Compact<u64>,
+    emission: Compact<AlphaCurrency>,
     incentive: Compact<u16>,
     consensus: Compact<u16>,
     trust: Compact<u16>,
@@ -117,7 +117,7 @@ impl<T: Config> Pallet<T> {
                 }
             })
             .collect::<Vec<(Compact<u16>, Compact<u16>)>>();
-        let stake: Vec<(T::AccountId, Compact<u64>)> = vec![(
+        let stake: Vec<(T::AccountId, Compact<AlphaCurrency>)> = vec![(
             coldkey.clone(),
             Self::get_stake_for_hotkey_on_subnet(&hotkey, netuid).into(),
         )];
@@ -182,7 +182,7 @@ impl<T: Config> Pallet<T> {
         let last_update = Self::get_last_update_for_uid(netuid, uid);
         let validator_permit = Self::get_validator_permit_for_uid(netuid, uid);
 
-        let stake: Vec<(T::AccountId, Compact<u64>)> = vec![(
+        let stake: Vec<(T::AccountId, Compact<AlphaCurrency>)> = vec![(
             coldkey.clone(),
             Self::get_stake_for_hotkey_on_subnet(&hotkey, netuid).into(),
         )];

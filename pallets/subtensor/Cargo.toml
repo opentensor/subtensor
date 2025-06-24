@@ -45,7 +45,7 @@ share-pool = { default-features = false, path = "../../primitives/share-pool" }
 safe-math = { default-features = false, path = "../../primitives/safe-math" }
 approx = { workspace = true }
 subtensor-swap-interface = { workspace = true }
-subtensor-runtime-common = { workspace = true }
+subtensor-runtime-common = { workspace = true, features = ["approx"] }
 
 pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../collective" }
 pallet-drand = { path = "../drand", default-features = false }

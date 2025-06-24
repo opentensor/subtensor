@@ -1,7 +1,7 @@
 use subtensor_swap_interface::{OrderType, SwapHandler};
 
 use super::*;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{Alpha as AlphaCurrency, Currency, NetUid};
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
@@ -16,8 +16,8 @@ impl<T: Config> Pallet<T> {
     /// * 'netuid' (u16):
     ///     - Subnetwork UID
     ///
-    /// * 'stake_to_be_added' (u64):
-    ///     -  The amount of stake to be added to the hotkey staking account.
+    /// * 'alpha_unstaked' (Alpha):
+    ///     -  The amount of stake to be removed from the staking account.
     ///
     /// # Event:
     /// * StakeRemoved;
@@ -40,7 +40,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
         netuid: NetUid,
-        alpha_unstaked: u64,
+        alpha_unstaked: AlphaCurrency,
     ) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
@@ -65,7 +65,7 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // 3. Swap the alpba to tao and update counters for this subnet.
-        let tao_unstaked: u64 = Self::unstake_from_subnet(
+        let tao_unstaked = Self::unstake_from_subnet(
             &hotkey,
             &coldkey,
             netuid,
@@ -157,7 +157,7 @@ impl<T: Config> Pallet<T> {
                 continue;
             }
 
-            if alpha_unstaked > 0 {
+            if !alpha_unstaked.is_zero() {
                 // Swap the alpha to tao and update counters for this subnet.
                 let tao_unstaked: u64 = Self::unstake_from_subnet(
                     &hotkey,
@@ -249,7 +249,7 @@ impl<T: Config> Pallet<T> {
                     continue;
                 }
 
-                if alpha_unstaked > 0 {
+                if !alpha_unstaked.is_zero() {
                     // Swap the alpha to tao and update counters for this subnet.
                     let tao_unstaked = Self::unstake_from_subnet(
                         &hotkey,
@@ -326,7 +326,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
         netuid: NetUid,
-        alpha_unstaked: u64,
+        alpha_unstaked: AlphaCurrency,
         limit_price: u64,
         allow_partial: bool,
     ) -> dispatch::DispatchResult {
@@ -379,13 +379,16 @@ impl<T: Config> Pallet<T> {
     }
 
     // Returns the maximum amount of RAO that can be executed with price limit
-    pub fn get_max_amount_remove(netuid: NetUid, limit_price: u64) -> Result<u64, Error<T>> {
+    pub fn get_max_amount_remove(
+        netuid: NetUid,
+        limit_price: u64,
+    ) -> Result<AlphaCurrency, Error<T>> {
         // Corner case: root and stao
         // There's no slippage for root or stable subnets, so if limit price is 1e9 rao or
         // lower, then max_amount equals u64::MAX, otherwise it is 0.
         if netuid.is_root() || SubnetMechanism::<T>::get(netuid) == 0 {
             if limit_price <= 1_000_000_000 {
-                return Ok(u64::MAX);
+                return Ok(AlphaCurrency::MAX);
             } else {
                 return Err(Error::ZeroMaxStakeAmount);
             }
@@ -398,7 +401,7 @@ impl<T: Config> Pallet<T> {
                 .map_err(|_| Error::ZeroMaxStakeAmount)?;
 
         if result != 0 {
-            Ok(result)
+            Ok(result.into())
         } else {
             Err(Error::ZeroMaxStakeAmount)
         }

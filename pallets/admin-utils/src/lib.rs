@@ -10,6 +10,7 @@ pub use pallet::*;
 //   no sense for this as GRANDPA's `AuthorityId` is not a parameter -- it's always the same
 use sp_consensus_grandpa::AuthorityList;
 use sp_runtime::{DispatchResult, RuntimeAppPublic, traits::Member};
+use subtensor_runtime_common::Alpha as AlphaCurrency;
 
 mod benchmarking;
 
@@ -1081,7 +1082,7 @@ pub mod pallet {
         pub fn sudo_set_nominator_min_required_stake(
             origin: OriginFor<T>,
             // The minimum stake required for nominators.
-            min_stake: u64,
+            min_stake: AlphaCurrency,
         ) -> DispatchResult {
             ensure_root(origin)?;
             let prev_min_stake = pallet_subtensor::Pallet::<T>::get_nominator_min_required_stake();

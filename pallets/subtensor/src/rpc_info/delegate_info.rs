@@ -6,7 +6,7 @@ use substrate_fixed::types::U64F64;
 extern crate alloc;
 use alloc::collections::BTreeMap;
 use codec::Compact;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{Alpha as AlphaCurrency, NetUid};
 
 #[freeze_struct("1fafc4fcf28cba7a")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
@@ -96,7 +96,7 @@ impl<T: Config> Pallet<T> {
                     validator_permits.push((*netuid).into());
                 }
 
-                let emission: U64F64 = Self::get_emission_for_uid(*netuid, uid).into();
+                let emission: U64F64 = u64::from(Self::get_emission_for_uid(*netuid, uid)).into();
                 let tempo: U64F64 = Self::get_tempo(*netuid).into();
                 if tempo > U64F64::saturating_from_num(0) {
                     let epochs_per_day: U64F64 = U64F64::saturating_from_num(7200).safe_div(tempo);
@@ -109,8 +109,11 @@ impl<T: Config> Pallet<T> {
         let owner = Self::get_owning_coldkey_for_hotkey(&delegate.clone());
         let take: Compact<u16> = <Delegates<T>>::get(delegate.clone()).into();
 
-        let total_stake: U64F64 =
-            Self::get_stake_for_hotkey_on_subnet(&delegate.clone(), NetUid::ROOT).into();
+        let total_stake: U64F64 = u64::from(Self::get_stake_for_hotkey_on_subnet(
+            &delegate.clone(),
+            NetUid::ROOT,
+        ))
+        .into();
 
         let return_per_1000: U64F64 =
             Self::return_per_1000_tao(take, total_stake, emissions_per_day);
@@ -153,9 +156,14 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn get_delegated(
         delegatee: T::AccountId,
-    ) -> Vec<(DelegateInfo<T::AccountId>, (Compact<NetUid>, Compact<u64>))> {
-        let mut delegates: Vec<(DelegateInfo<T::AccountId>, (Compact<NetUid>, Compact<u64>))> =
-            Vec::new();
+    ) -> Vec<(
+        DelegateInfo<T::AccountId>,
+        (Compact<NetUid>, Compact<AlphaCurrency>),
+    )> {
+        let mut delegates: Vec<(
+            DelegateInfo<T::AccountId>,
+            (Compact<NetUid>, Compact<AlphaCurrency>),
+        )> = Vec::new();
         for delegate in <Delegates<T> as IterableStorageMap<T::AccountId, u16>>::iter_keys() {
             // Staked to this delegate, so add to list
             for (netuid, _) in Alpha::<T>::iter_prefix((delegate.clone(), delegatee.clone())) {

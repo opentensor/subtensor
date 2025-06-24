@@ -76,7 +76,7 @@ fn test_senate_join_works() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
 
         let reserve = 1_000_000_000;
-        mock::setup_reserves(netuid, reserve, reserve);
+        mock::setup_reserves(netuid, reserve, reserve.into());
 
         // Subscribe and check extrinsic output
         assert_ok!(SubtensorModule::burned_register(
@@ -116,13 +116,13 @@ fn test_senate_join_works() {
                 &staker_coldkey,
                 netuid
             ),
-            stake,
-            epsilon = 1
+            AlphaCurrency::from(stake),
+            epsilon = 1.into()
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
-            stake,
-            epsilon = 1
+            AlphaCurrency::from(stake),
+            epsilon = 1.into()
         );
 
         assert_ok!(SubtensorModule::root_register(
@@ -152,7 +152,7 @@ fn test_senate_vote_works() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
 
         let reserve = 1_000_000_000_000;
-        mock::setup_reserves(netuid, reserve, reserve);
+        mock::setup_reserves(netuid, reserve, reserve.into());
 
         // Subscribe and check extrinsic output
         assert_ok!(SubtensorModule::burned_register(
@@ -193,13 +193,13 @@ fn test_senate_vote_works() {
                 &staker_coldkey,
                 netuid
             ),
-            stake,
-            epsilon = 1
+            AlphaCurrency::from(stake),
+            epsilon = 1.into()
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
-            stake,
-            epsilon = 1
+            AlphaCurrency::from(stake),
+            epsilon = 1.into()
         );
 
         assert_ok!(SubtensorModule::root_register(
@@ -268,7 +268,7 @@ fn test_senate_vote_not_member() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
 
         let reserve = 1_000_000_000_000;
-        mock::setup_reserves(netuid, reserve, reserve);
+        mock::setup_reserves(netuid, reserve, reserve.into());
 
         // Subscribe and check extrinsic output
         assert_ok!(SubtensorModule::burned_register(
@@ -332,7 +332,7 @@ fn test_senate_leave_works() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
 
         let reserve = stake * 1000;
-        mock::setup_reserves(netuid, reserve, reserve);
+        mock::setup_reserves(netuid, reserve, reserve.into());
 
         // Subscribe and check extrinsic output
         assert_ok!(SubtensorModule::burned_register(
@@ -372,13 +372,13 @@ fn test_senate_leave_works() {
                 &staker_coldkey,
                 netuid
             ),
-            stake,
-            epsilon = 1
+            AlphaCurrency::from(stake),
+            epsilon = 1.into()
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
-            stake,
-            epsilon = 1
+            AlphaCurrency::from(stake),
+            epsilon = 1.into()
         );
 
         assert_ok!(SubtensorModule::root_register(
@@ -411,7 +411,7 @@ fn test_senate_leave_vote_removal() {
         SubtokenEnabled::<Test>::insert(netuid, true);
 
         let reserve = stake * 1000;
-        mock::setup_reserves(netuid, reserve, reserve);
+        mock::setup_reserves(netuid, reserve, reserve.into());
 
         // Subscribe and check extrinsic output
         assert_ok!(SubtensorModule::burned_register(
@@ -451,13 +451,13 @@ fn test_senate_leave_vote_removal() {
                 &staker_coldkey,
                 netuid
             ),
-            stake,
-            epsilon = 1
+            AlphaCurrency::from(stake),
+            epsilon = 1.into()
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
-            stake,
-            epsilon = 1
+            AlphaCurrency::from(stake),
+            epsilon = 1.into()
         );
 
         assert_ok!(SubtensorModule::root_register(
@@ -496,8 +496,8 @@ fn test_senate_leave_vote_removal() {
         SubtensorModule::set_target_registrations_per_interval(NetUid::ROOT, 1000);
 
         let reserve = 1_000_000_000_000;
-        mock::setup_reserves(other_netuid, reserve, reserve);
-        mock::setup_reserves(NetUid::ROOT, reserve, reserve);
+        mock::setup_reserves(other_netuid, reserve, reserve.into());
+        mock::setup_reserves(NetUid::ROOT, reserve, reserve.into());
         SubtokenEnabled::<Test>::insert(NetUid::ROOT, true);
         SubtokenEnabled::<Test>::insert(other_netuid, true);
 
@@ -562,7 +562,7 @@ fn test_senate_not_leave_when_stake_removed() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
 
         let reserve = 1_000_000_000_000;
-        mock::setup_reserves(netuid, reserve, reserve);
+        mock::setup_reserves(netuid, reserve, reserve.into());
 
         // Subscribe and check extrinsic output
         assert_ok!(SubtensorModule::burned_register(
@@ -603,13 +603,13 @@ fn test_senate_not_leave_when_stake_removed() {
                 &staker_coldkey,
                 netuid
             ),
-            stake_amount,
-            epsilon = 1
+            AlphaCurrency::from(stake_amount),
+            epsilon = 1.into()
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
-            stake_amount,
-            epsilon = 1
+            AlphaCurrency::from(stake_amount),
+            epsilon = 1.into()
         );
 
         assert_ok!(SubtensorModule::root_register(
@@ -624,7 +624,7 @@ fn test_senate_not_leave_when_stake_removed() {
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
             netuid,
-            stake_amount - 1
+            (stake_amount - 1).into()
         ));
         assert!(Senate::is_member(&hotkey_account_id));
     });
@@ -649,7 +649,7 @@ fn test_senate_join_current_delegate() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
 
         let reserve = 1_000_000_000_000;
-        mock::setup_reserves(netuid, reserve, reserve);
+        mock::setup_reserves(netuid, reserve, reserve.into());
 
         // Subscribe and check extrinsic output
         assert_ok!(SubtensorModule::burned_register(
@@ -751,7 +751,7 @@ fn test_adjust_senate_events() {
         SubtokenEnabled::<Test>::insert(NetUid::ROOT, true);
 
         let reserve = 100_000_000_000_000;
-        mock::setup_reserves(netuid, reserve, reserve);
+        mock::setup_reserves(netuid, reserve, reserve.into());
 
         // Subscribe and check extrinsic output
         assert_ok!(SubtensorModule::burned_register(
@@ -841,7 +841,7 @@ fn test_adjust_senate_events() {
         let stake = DefaultMinStake::<Test>::get() * 10;
 
         let reserve = 100_000_000_000_000;
-        mock::setup_reserves(NetUid::ROOT, reserve, reserve);
+        mock::setup_reserves(NetUid::ROOT, reserve, reserve.into());
 
         let (_, fee) = mock::swap_tao_to_alpha(NetUid::ROOT, stake);
 
@@ -857,16 +857,16 @@ fn test_adjust_senate_events() {
                 &coldkey_account_id,
                 NetUid::ROOT
             ),
-            stake - fee,
-            epsilon = stake / 1000
+            AlphaCurrency::from(stake - fee),
+            epsilon = (stake / 1000).into()
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(
                 &replacement_hotkey_account_id,
                 NetUid::ROOT
             ),
-            stake - fee,
-            epsilon = stake / 1000
+            AlphaCurrency::from(stake - fee),
+            epsilon = (stake / 1000).into()
         );
 
         System::reset_events();

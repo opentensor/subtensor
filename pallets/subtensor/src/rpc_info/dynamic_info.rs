@@ -4,9 +4,9 @@ use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I96F32;
 use subtensor_macros::freeze_struct;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{Alpha, NetUid};
 
-#[freeze_struct("ddf2c1fdd5bb7e7")]
+#[freeze_struct("a21076dce0494dfa")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct DynamicInfo<AccountId: TypeInfo + Encode + Decode> {
     netuid: Compact<NetUid>,
@@ -18,13 +18,13 @@ pub struct DynamicInfo<AccountId: TypeInfo + Encode + Decode> {
     last_step: Compact<u64>,
     blocks_since_last_step: Compact<u64>,
     emission: Compact<u64>,
-    alpha_in: Compact<u64>,
-    alpha_out: Compact<u64>,
+    alpha_in: Compact<Alpha>,
+    alpha_out: Compact<Alpha>,
     tao_in: Compact<u64>,
-    alpha_out_emission: Compact<u64>,
-    alpha_in_emission: Compact<u64>,
+    alpha_out_emission: Compact<Alpha>,
+    alpha_in_emission: Compact<Alpha>,
     tao_in_emission: Compact<u64>,
-    pending_alpha_emission: Compact<u64>,
+    pending_alpha_emission: Compact<Alpha>,
     pending_root_emission: Compact<u64>,
     subnet_volume: Compact<u128>,
     network_registered_at: Compact<u64>,

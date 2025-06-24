@@ -2,6 +2,7 @@ use alloc::{format, string::String};
 
 use frame_support::IterableStorageMap;
 use frame_support::{traits::Get, weights::Weight};
+use subtensor_runtime_common::{Alpha as AlphaCurrency, NetUid};
 
 use super::*;
 
@@ -64,7 +65,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
     for netuid in netuids.iter() {
         if netuid.is_root() {
             // Give root a single RAO in pool to avoid any catestrophic division by zero.
-            SubnetAlphaIn::<T>::insert(netuid, 1_000_000_000);
+            SubnetAlphaIn::<T>::insert(netuid, AlphaCurrency::from(1_000_000_000));
             SubnetMechanism::<T>::insert(netuid, 0); // Set to zero mechanism.
             TokenSymbol::<T>::insert(netuid, Pallet::<T>::get_symbol_for_subnet(NetUid::ROOT));
             continue;
@@ -96,8 +97,8 @@ pub fn migrate_rao<T: Config>() -> Weight {
         TotalStake::<T>::mutate(|total| {
             *total = total.saturating_add(pool_initial_tao);
         }); // Increase total stake.
-        SubnetAlphaIn::<T>::insert(netuid, pool_initial_tao); // Set initial alpha to pool initial tao.
-        SubnetAlphaOut::<T>::insert(netuid, 0); // Set zero subnet alpha out.
+        SubnetAlphaIn::<T>::insert(netuid, AlphaCurrency::from(pool_initial_tao)); // Set initial alpha to pool initial tao.
+        SubnetAlphaOut::<T>::insert(netuid, AlphaCurrency::ZERO); // Set zero subnet alpha out.
         SubnetMechanism::<T>::insert(netuid, 1); // Convert to dynamic immediately with initialization.
 
         // Set the token symbol for this subnet using Self instead of Pallet::<T>

@@ -919,14 +919,14 @@ pub fn increase_stake_on_hotkey_account(hotkey: &U256, increment: u64, netuid: N
     );
 }
 
-pub(crate) fn setup_reserves(netuid: NetUid, tao: u64, alpha: u64) {
+pub(crate) fn setup_reserves(netuid: NetUid, tao: u64, alpha: AlphaCurrency) {
     SubnetTAO::<Test>::set(netuid, tao);
     SubnetAlphaIn::<Test>::set(netuid, alpha);
 }
 
-pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: u64) -> (u64, u64) {
+pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: u64) -> (AlphaCurrency, u64) {
     if netuid.is_root() {
-        return (tao, 0);
+        return (tao.into(), 0);
     }
 
     let result = <Test as pallet::Config>::SwapInterface::swap(
@@ -944,12 +944,12 @@ pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: u64) -> (u64, u64) {
     // we don't want to have silent 0 comparissons in tests
     assert!(result.amount_paid_out > 0);
 
-    (result.amount_paid_out, result.fee_paid)
+    (result.amount_paid_out.into(), result.fee_paid)
 }
 
-pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: u64) -> (u64, u64) {
+pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: AlphaCurrency) -> (u64, u64) {
     if netuid.is_root() {
-        return (alpha, 0);
+        return (alpha.into(), 0);
     }
 
     println!(
@@ -960,7 +960,7 @@ pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: u64) -> (u64, u64) {
     let result = <Test as pallet::Config>::SwapInterface::swap(
         netuid.into(),
         OrderType::Sell,
-        alpha,
+        alpha.into(),
         <Test as pallet::Config>::SwapInterface::min_price(),
         true,
     );

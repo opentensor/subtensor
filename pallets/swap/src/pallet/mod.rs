@@ -3,7 +3,7 @@ use core::num::NonZeroU64;
 use frame_support::{PalletId, pallet_prelude::*, traits::Get};
 use frame_system::pallet_prelude::*;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{BalanceOps, NetUid, SubnetInfo};
+use subtensor_runtime_common::{Alpha, BalanceOps, Currency, NetUid, SubnetInfo};
 
 use crate::{
     position::{Position, PositionId},
@@ -164,7 +164,7 @@ mod pallet {
             /// The amount of TAO tokens committed to the position
             tao: u64,
             /// The amount of Alpha tokens committed to the position
-            alpha: u64,
+            alpha: Alpha,
         },
 
         /// Event emitted when liquidity is removed from a subnet's liquidity pool.
@@ -178,11 +178,11 @@ mod pallet {
             /// The amount of TAO tokens returned to the user
             tao: u64,
             /// The amount of Alpha tokens returned to the user
-            alpha: u64,
+            alpha: Alpha,
             /// The amount of TAO fees earned from the position
             fee_tao: u64,
             /// The amount of Alpha fees earned from the position
-            fee_alpha: u64,
+            fee_alpha: Alpha,
         },
     }
 
@@ -332,6 +332,7 @@ mod pallet {
                 tick_high,
                 liquidity,
             )?;
+            let alpha = Alpha::from(alpha);
 
             // Remove TAO and Alpha balances or fail transaction if they can't be removed exactly
             let tao_provided = T::BalanceOps::decrease_balance(&coldkey, tao)?;
@@ -486,7 +487,7 @@ mod pallet {
             if result.fee_tao > 0 {
                 T::BalanceOps::increase_balance(&coldkey, result.fee_tao);
             }
-            if result.fee_alpha > 0 {
+            if !result.fee_alpha.is_zero() {
                 T::BalanceOps::increase_stake(
                     &coldkey,
                     &hotkey.clone(),

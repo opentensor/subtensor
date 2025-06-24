@@ -2,7 +2,7 @@
 
 use frame_support::pallet_prelude::*;
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{Alpha, NetUid};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OrderType {
@@ -44,7 +44,7 @@ pub struct SwapResult {
 #[derive(Debug, PartialEq)]
 pub struct UpdateLiquidityResult {
     pub tao: u64,
-    pub alpha: u64,
+    pub alpha: Alpha,
     pub fee_tao: u64,
-    pub fee_alpha: u64,
+    pub fee_alpha: Alpha,
 }

@@ -22,7 +22,7 @@ use frame_support::weights::Weight;
 use safe_math::*;
 use sp_core::Get;
 use substrate_fixed::types::I64F64;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{Alpha as AlphaCurrency, Currency, NetUid};
 
 impl<T: Config> Pallet<T> {
     /// Fetches the total count of root network validators
@@ -139,7 +139,7 @@ impl<T: Config> Pallet<T> {
         } else {
             // --- 13.1.1 The network is full. Perform replacement.
             // Find the neuron with the lowest stake value to replace.
-            let mut lowest_stake: u64 = u64::MAX;
+            let mut lowest_stake = AlphaCurrency::MAX;
             let mut lowest_uid: u16 = 0;
 
             // Iterate over all keys in the root network to find the neuron with the lowest stake.

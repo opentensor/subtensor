@@ -1014,7 +1014,7 @@ mod sudo_set_nominator_min_required_stake {
     #[test]
     fn can_only_be_called_by_admin() {
         new_test_ext().execute_with(|| {
-            let to_be_set: u64 = SubtensorModule::get_nominator_min_required_stake() + 5_u64;
+            let to_be_set = SubtensorModule::get_nominator_min_required_stake() + 5.into();
             assert_eq!(
                 AdminUtils::sudo_set_nominator_min_required_stake(
                     <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
@@ -1030,22 +1030,28 @@ mod sudo_set_nominator_min_required_stake {
         new_test_ext().execute_with(|| {
             assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
                 <<Test as Config>::RuntimeOrigin>::root(),
-                10u64
+                10.into()
             ));
-            assert_eq!(SubtensorModule::get_nominator_min_required_stake(), 10u64);
+            assert_eq!(
+                SubtensorModule::get_nominator_min_required_stake(),
+                10.into()
+            );
 
             assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
                 <<Test as Config>::RuntimeOrigin>::root(),
-                5u64
+                5.into()
             ));
-            assert_eq!(SubtensorModule::get_nominator_min_required_stake(), 5u64);
+            assert_eq!(
+                SubtensorModule::get_nominator_min_required_stake(),
+                5.into()
+            );
         });
     }
 
     #[test]
     fn sets_a_higher_value() {
         new_test_ext().execute_with(|| {
-            let to_be_set: u64 = SubtensorModule::get_nominator_min_required_stake() + 5_u64;
+            let to_be_set = SubtensorModule::get_nominator_min_required_stake() + 5.into();
             assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
                 <<Test as Config>::RuntimeOrigin>::root(),
                 to_be_set
@@ -1611,14 +1617,14 @@ fn test_sets_a_lower_value_clears_small_nominations() {
         let owner_coldkey: U256 = U256::from(1);
         let staker_coldkey: U256 = U256::from(2);
 
-        let initial_nominator_min_required_stake = 10u64;
-        let nominator_min_required_stake_0 = 5u64;
-        let nominator_min_required_stake_1 = 20u64;
+        let initial_nominator_min_required_stake = 10.into();
+        let nominator_min_required_stake_0 = 5.into();
+        let nominator_min_required_stake_1 = 20.into();
 
         assert!(nominator_min_required_stake_0 < nominator_min_required_stake_1);
         assert!(nominator_min_required_stake_0 < initial_nominator_min_required_stake);
 
-        let to_stake = initial_nominator_min_required_stake + 1;
+        let to_stake = initial_nominator_min_required_stake + 1.into();
 
         assert!(to_stake > initial_nominator_min_required_stake);
         assert!(to_stake > nominator_min_required_stake_0); // Should stay when set
@@ -1663,7 +1669,7 @@ fn test_sets_a_lower_value_clears_small_nominations() {
                 &hotkey,
                 &staker_coldkey,
                 netuid
-            ) > 0
+            ) > 0.into()
         );
 
         assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
@@ -1682,7 +1688,7 @@ fn test_sets_a_lower_value_clears_small_nominations() {
                 &staker_coldkey,
                 netuid
             ),
-            0
+            0.into()
         );
     });
 }

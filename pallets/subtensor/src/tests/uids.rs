@@ -5,6 +5,7 @@ use crate::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
+use subtensor_runtime_common::Alpha as AlphaCurrency;
 
 /********************************************
     tests for uids.rs file
@@ -57,7 +58,7 @@ fn test_replace_neuron() {
             SubtensorModule::set_element_at(v, neuron_uid as usize, 5u16)
         });
         Emission::<Test>::mutate(netuid, |v| {
-            SubtensorModule::set_element_at(v, neuron_uid as usize, 5u64)
+            SubtensorModule::set_element_at(v, neuron_uid as usize, 5.into())
         });
         Consensus::<Test>::mutate(netuid, |v| {
             SubtensorModule::set_element_at(v, neuron_uid as usize, 5u16)
@@ -120,7 +121,10 @@ fn test_replace_neuron() {
 
         // Check trust, emission, consensus, incentive, dividends have been reset to 0.
         assert_eq!(SubtensorModule::get_trust_for_uid(netuid, neuron_uid), 0);
-        assert_eq!(SubtensorModule::get_emission_for_uid(netuid, neuron_uid), 0);
+        assert_eq!(
+            SubtensorModule::get_emission_for_uid(netuid, neuron_uid),
+            AlphaCurrency::ZERO
+        );
         assert_eq!(
             SubtensorModule::get_consensus_for_uid(netuid, neuron_uid),
             0

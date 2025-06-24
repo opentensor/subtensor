@@ -2,7 +2,7 @@ use super::*;
 use safe_math::*;
 use sp_core::Get;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{Alpha as AlphaCurrency, Currency, NetUid};
 use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
@@ -33,7 +33,7 @@ impl<T: Config> Pallet<T> {
         destination_hotkey: T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        alpha_amount: u64,
+        alpha_amount: AlphaCurrency,
     ) -> dispatch::DispatchResult {
         // Check that the origin is signed by the origin_hotkey.
         let coldkey = ensure_signed(origin)?;
@@ -127,7 +127,7 @@ impl<T: Config> Pallet<T> {
         hotkey: T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        alpha_amount: u64,
+        alpha_amount: AlphaCurrency,
     ) -> dispatch::DispatchResult {
         // Ensure the extrinsic is signed by the origin_coldkey.
         let coldkey = ensure_signed(origin)?;
@@ -197,7 +197,7 @@ impl<T: Config> Pallet<T> {
         hotkey: T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        alpha_amount: u64,
+        alpha_amount: AlphaCurrency,
     ) -> dispatch::DispatchResult {
         // Ensure the extrinsic is signed by the coldkey.
         let coldkey = ensure_signed(origin)?;
@@ -267,7 +267,7 @@ impl<T: Config> Pallet<T> {
         hotkey: T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        alpha_amount: u64,
+        alpha_amount: AlphaCurrency,
         limit_price: u64,
         allow_partial: bool,
     ) -> dispatch::DispatchResult {
@@ -318,7 +318,7 @@ impl<T: Config> Pallet<T> {
         destination_hotkey: &T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        alpha_amount: u64,
+        alpha_amount: AlphaCurrency,
         maybe_limit_price: Option<u64>,
         maybe_allow_partial: Option<bool>,
         check_transfer_toggle: bool,
@@ -407,7 +407,7 @@ impl<T: Config> Pallet<T> {
         origin_netuid: NetUid,
         destination_netuid: NetUid,
         limit_price: u64,
-    ) -> Result<u64, Error<T>> {
+    ) -> Result<AlphaCurrency, Error<T>> {
         let tao: U64F64 = U64F64::saturating_from_num(1_000_000_000);
 
         // Corner case: both subnet IDs are root or stao
@@ -419,7 +419,7 @@ impl<T: Config> Pallet<T> {
             if limit_price > tao.saturating_to_num::<u64>() {
                 return Err(Error::ZeroMaxStakeAmount);
             } else {
-                return Ok(u64::MAX);
+                return Ok(AlphaCurrency::MAX);
             }
         }
 
@@ -429,14 +429,15 @@ impl<T: Config> Pallet<T> {
             && (SubnetMechanism::<T>::get(destination_netuid) == 1)
         {
             if limit_price == 0 {
-                return Ok(u64::MAX);
+                return Ok(AlphaCurrency::MAX);
             } else {
                 // The destination price is reverted because the limit_price is origin_price / destination_price
                 let destination_subnet_price = tao
                     .safe_div(U64F64::saturating_from_num(limit_price))
                     .saturating_mul(tao)
                     .saturating_to_num::<u64>();
-                return Self::get_max_amount_add(destination_netuid, destination_subnet_price);
+                return Self::get_max_amount_add(destination_netuid, destination_subnet_price)
+                    .map(Into::into);
             }
         }
 
@@ -464,7 +465,7 @@ impl<T: Config> Pallet<T> {
             .saturating_add(SubnetAlphaInProvided::<T>::get(origin_netuid));
         let alpha_in_2 = SubnetAlphaIn::<T>::get(destination_netuid)
             .saturating_add(SubnetAlphaInProvided::<T>::get(destination_netuid));
-        if (alpha_in_1 == 0) || (alpha_in_2 == 0) {
+        if alpha_in_1.is_zero() || alpha_in_2.is_zero() {
             return Err(Error::ZeroMaxStakeAmount);
         }
         let alpha_in_1_float: U64F64 = U64F64::saturating_from_num(alpha_in_1);
@@ -486,7 +487,7 @@ impl<T: Config> Pallet<T> {
 
         // Corner case: limit_price is zero
         if limit_price == 0 {
-            return Ok(u64::MAX);
+            return Ok(AlphaCurrency::MAX);
         }
 
         // Main case
@@ -505,7 +506,7 @@ impl<T: Config> Pallet<T> {
             .saturating_to_num::<u64>();
 
         if final_result != 0 {
-            Ok(final_result)
+            Ok(final_result.into())
         } else {
             Err(Error::ZeroMaxStakeAmount)
         }

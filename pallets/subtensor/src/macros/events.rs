@@ -16,7 +16,7 @@ mod events {
         /// stake has been transferred from the a coldkey account onto the hotkey staking account.
         StakeAdded(T::AccountId, T::AccountId, u64, u64, NetUid, u64),
         /// stake has been removed from the hotkey staking account onto the coldkey account.
-        StakeRemoved(T::AccountId, T::AccountId, u64, u64, NetUid, u64),
+        StakeRemoved(T::AccountId, T::AccountId, u64, AlphaCurrency, NetUid, u64),
         /// stake has been moved from origin (hotkey, subnet ID) to destination (hotkey, subnet ID) of this amount (in TAO).
         StakeMoved(
             T::AccountId,
@@ -304,13 +304,13 @@ mod events {
         ///
         /// Parameters:
         /// (coldkey, hotkey, amount, subnet_id)
-        AlphaRecycled(T::AccountId, T::AccountId, u64, NetUid),
+        AlphaRecycled(T::AccountId, T::AccountId, AlphaCurrency, NetUid),
 
         /// Alpha have been burned without reducing AlphaOut.
         ///
         /// Parameters:
         /// (coldkey, hotkey, amount, subnet_id)
-        AlphaBurned(T::AccountId, T::AccountId, u64, NetUid),
+        AlphaBurned(T::AccountId, T::AccountId, AlphaCurrency, NetUid),
 
         /// An EVM key has been associated with a hotkey.
         EvmKeyAssociated {

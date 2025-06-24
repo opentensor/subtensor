@@ -11,6 +11,7 @@ mod dispatches {
     use frame_system::pallet_prelude::BlockNumberFor;
     use sp_core::ecdsa::Signature;
     use sp_runtime::traits::Saturating;
+    // use subtensor_runtime_common::{Alpha as AlphaCurrency};
 
     use crate::MAX_CRV3_COMMIT_SIZE_BYTES;
     /// Dispatchable functions allow users to interact with the pallet and invoke state changes.
@@ -636,7 +637,7 @@ mod dispatches {
             origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: NetUid,
-            amount_unstaked: u64,
+            amount_unstaked: AlphaCurrency,
         ) -> DispatchResult {
             Self::do_remove_stake(origin, hotkey, netuid, amount_unstaked)
         }
@@ -1646,7 +1647,7 @@ mod dispatches {
             destination_hotkey: T::AccountId,
             origin_netuid: NetUid,
             destination_netuid: NetUid,
-            alpha_amount: u64,
+            alpha_amount: AlphaCurrency,
         ) -> DispatchResult {
             Self::do_move_stake(
                 origin,
@@ -1689,7 +1690,7 @@ mod dispatches {
             hotkey: T::AccountId,
             origin_netuid: NetUid,
             destination_netuid: NetUid,
-            alpha_amount: u64,
+            alpha_amount: AlphaCurrency,
         ) -> DispatchResult {
             Self::do_transfer_stake(
                 origin,
@@ -1733,7 +1734,7 @@ mod dispatches {
             hotkey: T::AccountId,
             origin_netuid: NetUid,
             destination_netuid: NetUid,
-            alpha_amount: u64,
+            alpha_amount: AlphaCurrency,
         ) -> DispatchResult {
             Self::do_swap_stake(
                 origin,
@@ -1858,7 +1859,7 @@ mod dispatches {
             origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: NetUid,
-            amount_unstaked: u64,
+            amount_unstaked: AlphaCurrency,
             limit_price: u64,
             allow_partial: bool,
         ) -> DispatchResult {
@@ -1906,7 +1907,7 @@ mod dispatches {
             hotkey: T::AccountId,
             origin_netuid: NetUid,
             destination_netuid: NetUid,
-            alpha_amount: u64,
+            alpha_amount: AlphaCurrency,
             limit_price: u64,
             allow_partial: bool,
         ) -> DispatchResult {
@@ -2027,7 +2028,7 @@ mod dispatches {
         pub fn recycle_alpha(
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
-            amount: u64,
+            amount: AlphaCurrency,
             netuid: NetUid,
         ) -> DispatchResult {
             Self::do_recycle_alpha(origin, hotkey, amount, netuid)
@@ -2052,7 +2053,7 @@ mod dispatches {
         pub fn burn_alpha(
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
-            amount: u64,
+            amount: AlphaCurrency,
             netuid: NetUid,
         ) -> DispatchResult {
             Self::do_burn_alpha(origin, hotkey, amount, netuid)

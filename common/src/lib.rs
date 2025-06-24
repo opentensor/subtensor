@@ -154,7 +154,7 @@ impl Default for ProxyType {
 
 pub trait SubnetInfo<AccountId> {
     fn tao_reserve(netuid: NetUid) -> u64;
-    fn alpha_reserve(netuid: NetUid) -> u64;
+    fn alpha_reserve(netuid: NetUid) -> Alpha;
     fn exists(netuid: NetUid) -> bool;
     fn mechanism(netuid: NetUid) -> u16;
     fn is_owner(account_id: &AccountId, netuid: NetUid) -> bool;
@@ -162,25 +162,25 @@ pub trait SubnetInfo<AccountId> {
 
 pub trait BalanceOps<AccountId> {
     fn tao_balance(account_id: &AccountId) -> u64;
-    fn alpha_balance(netuid: NetUid, coldkey: &AccountId, hotkey: &AccountId) -> u64;
+    fn alpha_balance(netuid: NetUid, coldkey: &AccountId, hotkey: &AccountId) -> Alpha;
     fn increase_balance(coldkey: &AccountId, tao: u64);
     fn decrease_balance(coldkey: &AccountId, tao: u64) -> Result<u64, DispatchError>;
     fn increase_stake(
         coldkey: &AccountId,
         hotkey: &AccountId,
         netuid: NetUid,
-        alpha: u64,
+        alpha: Alpha,
     ) -> Result<(), DispatchError>;
     fn decrease_stake(
         coldkey: &AccountId,
         hotkey: &AccountId,
         netuid: NetUid,
-        alpha: u64,
-    ) -> Result<u64, DispatchError>;
+        alpha: Alpha,
+    ) -> Result<Alpha, DispatchError>;
     fn increase_provided_tao_reserve(netuid: NetUid, tao: u64);
     fn decrease_provided_tao_reserve(netuid: NetUid, tao: u64);
-    fn increase_provided_alpha_reserve(netuid: NetUid, alpha: u64);
-    fn decrease_provided_alpha_reserve(netuid: NetUid, alpha: u64);
+    fn increase_provided_alpha_reserve(netuid: NetUid, alpha: Alpha);
+    fn decrease_provided_alpha_reserve(netuid: NetUid, alpha: Alpha);
 }
 
 pub mod time {

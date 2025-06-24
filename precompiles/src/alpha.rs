@@ -51,25 +51,19 @@ where
     #[precompile::public("getAlphaInPool(uint16)")]
     #[precompile::view]
     fn get_alpha_in_pool(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::SubnetAlphaIn::<R>::get(NetUid::from(
-            netuid,
-        )))
+        Ok(pallet_subtensor::SubnetAlphaIn::<R>::get(NetUid::from(netuid)).into())
     }
 
     #[precompile::public("getAlphaOutPool(uint16)")]
     #[precompile::view]
     fn get_alpha_out_pool(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::SubnetAlphaOut::<R>::get(NetUid::from(
-            netuid,
-        )))
+        Ok(pallet_subtensor::SubnetAlphaOut::<R>::get(NetUid::from(netuid)).into())
     }
 
     #[precompile::public("getAlphaIssuance(uint16)")]
     #[precompile::view]
     fn get_alpha_issuance(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::Pallet::<R>::get_alpha_issuance(
-            netuid.into(),
-        ))
+        Ok(pallet_subtensor::Pallet::<R>::get_alpha_issuance(netuid.into()).into())
     }
 
     #[precompile::public("getTaoWeight()")]

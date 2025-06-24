@@ -1,6 +1,6 @@
 use super::*;
 use crate::{Error, system::ensure_signed};
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{Alpha as AlphaCurrency, Currency, NetUid};
 
 impl<T: Config> Pallet<T> {
     /// Recycles alpha from a cold/hot key pair, reducing AlphaOut on a subnet
@@ -18,7 +18,7 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn do_recycle_alpha(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
-        amount: u64,
+        amount: AlphaCurrency,
         netuid: NetUid,
     ) -> DispatchResult {
         let coldkey: T::AccountId = ensure_signed(origin)?;
@@ -87,7 +87,7 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn do_burn_alpha(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
-        amount: u64,
+        amount: AlphaCurrency,
         netuid: NetUid,
     ) -> DispatchResult {
         let coldkey = ensure_signed(origin)?;
