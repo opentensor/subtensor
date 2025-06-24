@@ -121,6 +121,26 @@ where
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
     }
 
+    #[precompile::public("removeStakeFullLimit(bytes32,uint256,uint256)")]
+    fn remove_stake_full_limit(
+        handle: &mut impl PrecompileHandle,
+        hotkey: H256,
+        netuid: U256,
+        limit_price: U256,
+    ) -> EvmResult<()> {
+        let account_id = handle.caller_account_id::<R>();
+        let hotkey = R::AccountId::from(hotkey.0);
+        let netuid = try_u16_from_u256(netuid)?;
+        let limit_price = try_u64_from_u256(limit_price)?;
+        let call = pallet_subtensor::Call::<R>::remove_stake_full_limit {
+            hotkey,
+            netuid: netuid.into(),
+            limit_price: Some(limit_price),
+        };
+
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+    }
+
     #[precompile::public("moveStake(bytes32,bytes32,uint256,uint256,uint256)")]
     fn move_stake(
         handle: &mut impl PrecompileHandle,
@@ -550,5 +570,11 @@ where
 fn try_u16_from_u256(value: U256) -> Result<u16, PrecompileFailure> {
     value.try_into().map_err(|_| PrecompileFailure::Error {
         exit_status: ExitError::Other("the value is outside of u16 bounds".into()),
+    })
+}
+
+fn try_u64_from_u256(value: U256) -> Result<u64, PrecompileFailure> {
+    value.try_into().map_err(|_| PrecompileFailure::Error {
+        exit_status: ExitError::Other("the value is outside of u64 bounds".into()),
     })
 }

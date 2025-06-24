@@ -46,36 +46,57 @@ interface IStaking {
         uint256 netuid
     ) external;
 
-  /**
-   * @dev Returns the amount of RAO staked by the coldkey.
-   *
-   * This function allows external accounts and contracts to query the amount of RAO staked by the coldkey
-   * which effectively calls `get_total_coldkey_stake` on the subtensor pallet with
-   * specified coldkey as a parameter.
-   *
-   * @param coldkey The coldkey public key (32 bytes).
-   * @return The amount of RAO staked by the coldkey.
-   */
-  function getTotalColdkeyStake(bytes32 coldkey) external view returns (uint256);
+    /**
+     * @dev Removes all stake from a hotkey on a subnet with a price limit.
+     *
+     * This function allows external accounts and contracts to remove all stake from a specified hotkey
+     * on a subnet, with an optional limit price for alpha token at which or better (higher) the staking
+     * should execute. Without a limit price, it removes all the stake similar to `removeStake` function.
+     *
+     * @param hotkey The hotkey public key (32 bytes).
+     * @param netuid The subnet to remove stake from (uint256).
+     * @param limitPrice The limit price for alpha token (uint256).
+     */
+    function removeStakeFullLimit(
+        bytes32 hotkey,
+        uint256 netuid,
+        uint256 limitPrice
+    ) external;
 
-  /**
-   * @dev Returns the total amount of stake under a hotkey (delegative or otherwise)
-   * 
-   * This function allows external accounts and contracts to query the total amount of RAO staked under a hotkey
-   * which effectively calls `get_total_hotkey_stake` on the subtensor pallet with
-   * specified hotkey as a parameter.
-   * 
-   * @param hotkey The hotkey public key (32 bytes).
-   * @return The total amount of RAO staked under the hotkey.
-   */
-  function getTotalHotkeyStake(bytes32 hotkey) external view returns (uint256);
+    /**
+     * @dev Returns the amount of RAO staked by the coldkey.
+     *
+     * This function allows external accounts and contracts to query the amount of RAO staked by the coldkey
+     * which effectively calls `get_total_coldkey_stake` on the subtensor pallet with
+     * specified coldkey as a parameter.
+     *
+     * @param coldkey The coldkey public key (32 bytes).
+     * @return The amount of RAO staked by the coldkey.
+     */
+    function getTotalColdkeyStake(
+        bytes32 coldkey
+    ) external view returns (uint256);
 
-  /**
-   * @dev Delegates staking to a proxy account.
-   *
-   * @param delegate The public key (32 bytes) of the delegate.
-   */
-  function addProxy(bytes32 delegate) external;
+    /**
+     * @dev Returns the total amount of stake under a hotkey (delegative or otherwise)
+     *
+     * This function allows external accounts and contracts to query the total amount of RAO staked under a hotkey
+     * which effectively calls `get_total_hotkey_stake` on the subtensor pallet with
+     * specified hotkey as a parameter.
+     *
+     * @param hotkey The hotkey public key (32 bytes).
+     * @return The total amount of RAO staked under the hotkey.
+     */
+    function getTotalHotkeyStake(
+        bytes32 hotkey
+    ) external view returns (uint256);
+
+    /**
+     * @dev Delegates staking to a proxy account.
+     *
+     * @param delegate The public key (32 bytes) of the delegate.
+     */
+    function addProxy(bytes32 delegate) external;
 
     /**
      * @dev Removes staking proxy account.
