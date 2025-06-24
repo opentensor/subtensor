@@ -6,6 +6,10 @@ on:
     types: [opened, synchronize]
   workflow_dispatch:
 
+permissions:
+  contents: write
+  pull-requests: write
+
 concurrency:
   group: run-benchmarks-${{ github.ref }}
   cancel-in-progress: true

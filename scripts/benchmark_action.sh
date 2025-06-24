@@ -23,26 +23,61 @@ PATCH_MARKER="$SCRIPT_DIR/benchmark_patch_marker"
 PATCH_MODE=0
 
 # ────────────────────────────────────────────────────────────────────────────────
-# Helper: patch a single literal inside an attribute block *for the given extrinsic*
+# Helper: patch a literal number inside the attribute block of <extrinsic>
 # ────────────────────────────────────────────────────────────────────────────────
 patch_field() {
   local file="$1" extr="$2" field="$3" new_val="$4"
 
-  # create marker on first change
   if (( PATCH_MODE == 0 )); then : > "$PATCH_MARKER"; PATCH_MODE=1; fi
   echo "$file" >> "$PATCH_MARKER"
 
   case "$field" in
     weight)
-      perl -0777 -pi -e 's/(#\s*\[pallet::weight\([^]]*?Weight::from_parts\()\s*[0-9_]+(?=[^]]*?\]\s*pub\s+fn\s+'"${extr}"'\b)/\1'"${new_val}"'/s' "$file"
+      awk -i inplace -v fn="$extr" -v nv="$new_val" '
+        NR>25 { window[NR%26]=$0 }          # ring buffer of last 25 lines
+        { line[NR]=$0 }                     # store all lines for later output
+        $0 ~ ("pub[[:space:]]+fn[[:space:]]+"fn"\\(") {
+          for(i=NR-1;i>=NR-25&&i>0;i--){
+            if(match(line[i],/Weight::from_parts\([0-9_]+/,m)){
+              sub(/[0-9_]+/,nv,line[i]); line_modified[i]=1; break;
+            }
+          }
+        }
+        END{
+          for(i=1;i<=NR;i++){
+            if(line_modified[i]) print line[i]; else print line[i];
+          }
+        }' "$file"
       ;;
     reads)
-      perl -0777 -pi -e 's/(#\s*\[pallet::weight\([^]]*?\.reads\()\s*[0-9_]+(?=[^]]*?\]\s*pub\s+fn\s+'"${extr}"'\b)/\1'"${new_val}"'/s' "$file"
-      perl -0777 -pi -e 's/(#\s*\[pallet::weight\([^]]*?reads_writes\()\s*[0-9_]+(?=,[^]]*?\]\s*pub\s+fn\s+'"${extr}"'\b)/\1'"${new_val}"'/s' "$file"
+      awk -i inplace -v fn="$extr" -v nv="$new_val" '
+        { line[NR]=$0 }
+        $0 ~ ("pub[[:space:]]+fn[[:space:]]+"fn"\\(") {
+          for(i=NR-1;i>=NR-25&&i>0;i--){
+            if(match(line[i],/reads_writes\([0-9_]+,[[:space:]]*[0-9_]+/,m)){
+              sub(/[0-9_]+/,nv,line[i]); line_modified[i]=1; break
+            }
+            if(match(line[i],/\.reads\([0-9_]+/,m)){
+              sub(/[0-9_]+/,nv,line[i]); line_modified[i]=1; break
+            }
+          }
+        }
+        END{ for(i=1;i<=NR;i++) print line[i] }' "$file"
       ;;
     writes)
-      perl -0777 -pi -e 's/(#\s*\[pallet::weight\([^]]*?\.writes\()\s*[0-9_]+(?=[^]]*?\]\s*pub\s+fn\s+'"${extr}"'\b)/\1'"${new_val}"'/s' "$file"
-      perl -0777 -pi -e 's/(#\s*\[pallet::weight\([^]]*?reads_writes\([0-9_]+,\s*)[0-9_]+(?=[^]]*?\]\s*pub\s+fn\s+'"${extr}"'\b)/\1'"${new_val}"'/s' "$file"
+      awk -i inplace -v fn="$extr" -v nv="$new_val" '
+        { line[NR]=$0 }
+        $0 ~ ("pub[[:space:]]+fn[[:space:]]+"fn"\\(") {
+          for(i=NR-1;i>=NR-25&&i>0;i--){
+            if(match(line[i],/reads_writes\([0-9_]+,[[:space:]]*[0-9_]+/,m)){
+              sub(/,[[:space:]]*[0-9_]+/,", "nv,line[i]); line_modified[i]=1; break
+            }
+            if(match(line[i],/\.writes\([0-9_]+/,m)){
+              sub(/[0-9_]+/,nv,line[i]); line_modified[i]=1; break
+            }
+          }
+        }
+        END{ for(i=1;i<=NR;i++) print line[i] }' "$file"
       ;;
   esac
 }
@@ -56,60 +91,23 @@ echo   " Will benchmark pallets: ${PALLETS[*]}"
 echo   "──────────────────────────────────────────"
 
 # ────────────────────────────────────────────────────────────────────────────────
-# Helper that compares measured vs. code‑side numbers and patches when needed
+# Helper that extracts code‑side numbers for one extrinsic
 # ────────────────────────────────────────────────────────────────────────────────
-process_extr() {
-  local e="$1" us="$2" rd="$3" wr="$4" dispatch_file="$5"
-  [[ -z "$e" || -z "$us" || -z "$rd" || -z "$wr" ]] && return
-
-  # Convert micro‑seconds → pico‑seconds (Substrate weights use ps)
-  local meas_ps; meas_ps=$(awk -v x="$us" 'BEGIN{printf("%.0f", x * 1000000)}')
-
-  # ── Look up the literal numbers already in the code ─────────────────────────
-  local code_record
-  code_record=$(awk -v extr="$e" '
-    /^\s*#\[pallet::call_index\(/ { next }
-    /Weight::from_parts/          { lw=$0; sub(/.*Weight::from_parts\(\s*/, "", lw); sub(/[^0-9_].*$/, "", lw); gsub(/_/, "", lw); w=lw }
-    /reads_writes\(/              { lw=$0; sub(/.*reads_writes\(/, "", lw); sub(/\).*/, "", lw); split(lw, io, ","); gsub(/[ \t]/, "", io[1]); gsub(/[ \t]/, "", io[2]); r=io[1]; wri=io[2]; next }
-    /\.reads\(/                   { lw=$0; sub(/.*\.reads\(/, "", lw); sub(/\).*/, "", lw); r=lw; next }
-    /\.writes\(/                  { lw=$0; sub(/.*\.writes\(/, "", lw); sub(/\).*/, "", lw); wri=lw; next }
-    $0 ~ ("pub fn[[:space:]]+" extr "\\(") { print w, r, wri; exit }
-  ' "$dispatch_file")
-
-  local code_w code_reads code_writes
-  read code_w code_reads code_writes <<<"$code_record"
-  code_w="${code_w//_/}";       code_w="${code_w%%[^0-9]*}"
-  code_reads="${code_reads//_/}"; code_reads="${code_reads%%[^0-9]*}"
-  code_writes="${code_writes//_/}"; code_writes="${code_writes%%[^0-9]*}"
-  [[ -z "$code_w" ]]      && code_w="0"
-  [[ -z "$code_reads" ]]  && code_reads="0"
-  [[ -z "$code_writes" ]] && code_writes="0"
-
-  local drift
-  drift=$(awk -v a="$meas_ps" -v b="$code_w" 'BEGIN{ if(b==0){print 99999;exit}; printf("%.1f",(a-b)/b*100)}')
-
-  summary_lines+=("$(printf "%-30s | reads code=%4s measured=%4s | writes code=%4s measured=%4s | weight code=%12s measured=%12s | drift %6s%%" \
-                  "$e" "$code_reads" "$rd" "$code_writes" "$wr" "$code_w" "$meas_ps" "$drift")")
-
-  # ── validations & auto‑patching ─────────────────────────────────────────────
-  if (( rd != code_reads )); then
-    failures+=("[${e}] reads mismatch code=${code_reads}, measured=${rd}")
-    patch_field "$dispatch_file" "$e" "reads" "${rd//[^0-9]/}"
-    fail=1
-  fi
-  if (( wr != code_writes )); then
-    failures+=("[${e}] writes mismatch code=${code_writes}, measured=${wr}")
-    patch_field "$dispatch_file" "$e" "writes" "${wr//[^0-9]/}"
-    fail=1
-  fi
-
-  local abs=${drift#-}; local drift_int=${abs%%.*}
-  if (( drift_int > THRESHOLD )); then
-    failures+=("[${e}] weight code=${code_w}, measured=${meas_ps}, drift=${drift}%")
-    local pretty_weight; pretty_weight=$(printf "%'d" "$meas_ps" | tr ',' '_')
-    patch_field "$dispatch_file" "$e" "weight" "$pretty_weight"
-    fail=1
-  fi
+lookup_code_numbers() {
+  local extr="$1" file="$2"
+  awk -v fn="$extr" '
+    { buf[NR]=$0 }
+    $0 ~ ("pub[[:space:]]+fn[[:space:]]+"fn"\\(") {
+      w=r=wri="0"
+      for(i=NR-1;i>=NR-25&&i>0;i--){
+        if(match(buf[i],/Weight::from_parts\(([0-9_]+)/,m)){ w=m[1] }
+        if(match(buf[i],/reads_writes\(([0-9_]+),[[:space:]]*([0-9_]+)/,m)){ r=m[1]; wri=m[2] }
+        if(match(buf[i],/\.reads\(([0-9_]+)/,m)){ r=m[1] }
+        if(match(buf[i],/\.writes\(([0-9_]+)/,m)){ wri=m[1] }
+      }
+      gsub(/_/,"",w); gsub(/_/,"",r); gsub(/_/,"",wri)
+      print w, r, wri; exit
+    }' "$file"
 }
 
 # ────────────────────────────────────────────────────────────────────────────────
@@ -136,7 +134,38 @@ for pallet in "${PALLETS[@]}"; do
 
     summary_lines=(); failures=(); fail=0
     extr="" meas_us="" meas_reads="" meas_writes=""
-    finalise() { process_extr "$extr" "$meas_us" "$meas_reads" "$meas_writes" "$DISPATCH_FILE"; extr=""; meas_us=""; meas_reads=""; meas_writes=""; }
+    finalise() {
+      [[ -z "$extr" ]] && return
+      read code_w code_reads code_writes <<<"$(lookup_code_numbers "$extr" "$DISPATCH_FILE")"
+
+      # Convert µs → ps
+      local meas_ps; meas_ps=$(awk -v x="$meas_us" 'BEGIN{printf("%.0f", x * 1000000)}')
+
+      local drift
+      drift=$(awk -v a="$meas_ps" -v b="$code_w" 'BEGIN{ if(b==0){print 99999;exit}; printf("%.1f",(a-b)/b*100)}')
+
+      summary_lines+=("$(printf "%-30s | reads code=%4s measured=%4s | writes code=%4s measured=%4s | weight code=%12s measured=%12s | drift %6s%%" \
+                       "$extr" "$code_reads" "$meas_reads" "$code_writes" "$meas_writes" "$code_w" "$meas_ps" "$drift")")
+
+      local abs=${drift#-}; local drift_int=${abs%%.*}
+      if (( meas_reads != code_reads )); then
+        failures+=("[${extr}] reads mismatch code=${code_reads}, measured=${meas_reads}")
+        patch_field "$DISPATCH_FILE" "$extr" "reads" "$meas_reads"
+        fail=1
+      fi
+      if (( meas_writes != code_writes )); then
+        failures+=("[${extr}] writes mismatch code=${code_writes}, measured=${meas_writes}")
+        patch_field "$DISPATCH_FILE" "$extr" "writes" "$meas_writes"
+        fail=1
+      fi
+      if (( drift_int > THRESHOLD )); then
+        failures+=("[${extr}] weight code=${code_w}, measured=${meas_ps}, drift=${drift}%")
+        local pretty_weight; pretty_weight=$(printf "%'d" "$meas_ps" | tr ',' '_')
+        patch_field "$DISPATCH_FILE" "$extr" "weight" "$pretty_weight"
+        fail=1
+      fi
+      extr="" meas_us="" meas_reads="" meas_writes=""
+    }
 
     while IFS= read -r line; do
       [[ $line =~ Extrinsic:\ \"([A-Za-z0-9_]+)\" ]] && { finalise; extr="${BASH_REMATCH[1]}"; continue; }
