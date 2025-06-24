@@ -757,7 +757,11 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         let expected_root2 = I96F32::from_num(stake_before)
             + I96F32::from_num(pending_tao) * I96F32::from_num(1.0 / 3.0);
         assert_abs_diff_eq!(expected_root2.to_num::<u64>(), root_after2, epsilon = 10); // Registered gets 1/3 tao emission
-        assert_abs_diff_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), pending_tao, epsilon = 10);
+        assert_abs_diff_eq!(
+            SubnetTAO::<Test>::get(NetUid::ROOT),
+            pending_tao,
+            epsilon = 10
+        );
     });
 }
 
@@ -833,7 +837,11 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         let expected_root2 = I96F32::from_num(stake_before)
             + I96F32::from_num(pending_tao) * I96F32::from_num(1.0 / 3.0);
         assert_abs_diff_eq!(expected_root2.to_num::<u64>(), root_after2, epsilon = 10);
-        assert_abs_diff_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), pending_tao, epsilon = 10);
+        assert_abs_diff_eq!(
+            SubnetTAO::<Test>::get(NetUid::ROOT),
+            pending_tao,
+            epsilon = 10
+        );
     });
 }
 
@@ -1105,7 +1113,7 @@ fn test_get_root_children_drain() {
             SubtensorModule::get_stake_for_hotkey_on_subnet(&bob, NetUid::ROOT),
             bob_root_stake + pending_root1 / 2
         );
-        
+
         // The pending root dividends should be present in root subnet.
         assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), pending_root1);
 
@@ -1116,7 +1124,7 @@ fn test_get_root_children_drain() {
         let pending_alpha: u64 = 1_000_000_000;
         let pending_root2: u64 = 1_000_000_000;
         SubtensorModule::drain_pending_emission(alpha, pending_alpha, pending_root2, 0, 0);
-        
+
         // Alice makes nothing
         assert_eq!(AlphaDividendsPerSubnet::<Test>::get(alpha, alice), 0);
         assert_eq!(TaoDividendsPerSubnet::<Test>::get(alpha, alice), 0);
@@ -1126,9 +1134,15 @@ fn test_get_root_children_drain() {
             pending_alpha,
             epsilon = 1
         );
-        assert_eq!(TaoDividendsPerSubnet::<Test>::get(alpha, bob), pending_root2);
+        assert_eq!(
+            TaoDividendsPerSubnet::<Test>::get(alpha, bob),
+            pending_root2
+        );
         // The pending root dividends should be present in root subnet.
-        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), pending_root1 + pending_root2);
+        assert_eq!(
+            SubnetTAO::<Test>::get(NetUid::ROOT),
+            pending_root1 + pending_root2
+        );
     });
 }
 
