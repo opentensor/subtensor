@@ -60,6 +60,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
 
+      - name: Check skip label (post-deps)
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository && env.SKIP_BENCHMARKS != '1' }}
+        run: |
+          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          if echo "$labels" | grep -q "skip-validate-benchmarks"; then
+            echo "skip-validate-benchmarks label found — skipping benchmarks."
+            echo "SKIP_BENCHMARKS=1" >> "$GITHUB_ENV"
+          fi
+
       - name: Install Rust toolchain
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         uses: actions-rs/toolchain@v1
@@ -67,11 +76,29 @@ jobs:
           profile: minimal
           toolchain: stable
 
+      - name: Check skip label (post-toolchain)
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository && env.SKIP_BENCHMARKS != '1' }}
+        run: |
+          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          if echo "$labels" | grep -q "skip-validate-benchmarks"; then
+            echo "skip-validate-benchmarks label found — skipping benchmarks."
+            echo "SKIP_BENCHMARKS=1" >> "$GITHUB_ENV"
+          fi
+
       - name: Cache Rust build
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         uses: Swatinem/rust-cache@v2
         with:
           key: bench-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Check skip label (post-cache)
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository && env.SKIP_BENCHMARKS != '1' }}
+        run: |
+          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          if echo "$labels" | grep -q "skip-validate-benchmarks"; then
+            echo "skip-validate-benchmarks label found — skipping benchmarks."
+            echo "SKIP_BENCHMARKS=1" >> "$GITHUB_ENV"
+          fi
 
       # ──────────────────────────────────────────────────────────────────────
       # Benchmarks
@@ -81,12 +108,32 @@ jobs:
         run: |
           cargo build --profile production -p node-subtensor --features runtime-benchmarks
 
+      - name: Check skip label (post-build)
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository && env.SKIP_BENCHMARKS != '1' }}
+        run: |
+          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          if echo "$labels" | grep -q "skip-validate-benchmarks"; then
+            echo "skip-validate-benchmarks label found — skipping benchmarks."
+            echo "SKIP_BENCHMARKS=1" >> "$GITHUB_ENV"
+          fi
+
       - name: Run & validate benchmarks
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         run: |
           chmod +x scripts/benchmark_action.sh
           ./scripts/benchmark_action.sh
 
+      - name: Check skip label (post-run)
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository && env.SKIP_BENCHMARKS != '1' }}
+        run: |
+          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          if echo "$labels" | grep -q "skip-validate-benchmarks"; then
+            echo "skip-validate-benchmarks label was found — but benchmarks already ran."
+          fi
+
+      # ──────────────────────────────────────────────────────────────────────
+      # Auto-commit any patched weights
+      # ──────────────────────────────────────────────────────────────────────
       - name: Commit any updated weights
         if: ${{ always() && env.AUTO_FIX_BENCHMARKS == '1' }}
         run: |
