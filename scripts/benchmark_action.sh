@@ -110,10 +110,15 @@ process_extr() {
   summary_lines+=( "$(printf '%-30s | reads %5s→%5s | writes %5s→%5s | weight %13s→%13s | drift %6s%%' \
                            "$e" "${code_r:-0}" "$rd" "${code_wr:-0}" "$wr" "${code_w:-0}" "$meas_ps" "$drift")" )
 
+  # ── integer drift for arithmetic test ───────────────────────────────────────
+  local abs="${drift#-}"
+  local drift_int="${abs%%.*}"
+  [[ -z "$drift_int" ]] && drift_int=0
+
   local fail_now=0
   if (( rd != code_r ));     then patch_field "$dispatch_file" "$e" reads  "$rd"; fail_now=1; fi
   if (( wr != code_wr ));    then patch_field "$dispatch_file" "$e" writes "$wr"; fail_now=1; fi
-  if (( ${drift#-} > THRESHOLD )); then
+  if (( drift_int > THRESHOLD )); then
     patch_field "$dispatch_file" "$e" weight "$meas_ps"; fail_now=1
   fi
   (( fail_now )) && failures+=( "$e" )
