@@ -14,7 +14,6 @@ pub fn migrate_fix_root_subnet_tao<T: Config>() -> Weight {
     }
 
     log::info!(
-        target: "runtime",
         "Running migration '{}'",
         String::from_utf8_lossy(&migration_name)
     );
@@ -27,6 +26,13 @@ pub fn migrate_fix_root_subnet_tao<T: Config>() -> Weight {
         total_stake = total_stake.saturating_add(hotkey_stake);
         hotkey_count = hotkey_count.saturating_add(1);
     }
+
+    log::info!(
+        "Total stake: {}, hotkey count: {}",
+        total_stake,
+        hotkey_count
+    );
+
     weight = weight.saturating_add(T::DbWeight::get().reads(hotkey_count).saturating_mul(2));
 
     // We set the root subnet TAO to the total stake.
