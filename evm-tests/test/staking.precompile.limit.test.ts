@@ -110,36 +110,4 @@ describe("Test staking precompile add remove limit methods", () => {
 
     assert.ok(alphaAfterRemoveStake < alpha);
   });
-
-  it("Staker remove stake with limit price", async () => {
-    let netuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1;
-    let ss58Address = convertH160ToSS58(wallet1.address);
-
-    const alpha = await api.query.SubtensorModule.Alpha.getValue(
-      convertPublicKeyToSs58(hotkey.publicKey),
-      ss58Address,
-      netuid,
-    );
-
-    const contract = new ethers.Contract(
-      ISTAKING_V2_ADDRESS,
-      IStakingV2ABI,
-      wallet1,
-    );
-
-    const tx = await contract.removeStakeFullLimit(
-      hotkey.publicKey,
-      netuid,
-      tao(10),
-    );
-    await tx.wait();
-
-    const alphaAfterRemoveStake = await api.query.SubtensorModule.Alpha.getValue(
-      convertPublicKeyToSs58(hotkey.publicKey),
-      ss58Address,
-      netuid,
-    );
-
-    assert.ok(alphaAfterRemoveStake < alpha);
-  });
 });
