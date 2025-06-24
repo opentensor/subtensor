@@ -27,7 +27,7 @@ pub trait SwapHandler<AccountId> {
     fn current_alpha_price(netuid: NetUid) -> U96F32;
     fn max_price() -> u64;
     fn min_price() -> u64;
-    fn adjust_protocol_liquidity(netuid: NetUid);
+    fn adjust_protocol_liquidity(netuid: NetUid, tao_delta: u64, alpha_delta: u64);
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool;
 }
 
@@ -47,4 +47,5 @@ pub struct UpdateLiquidityResult {
     pub alpha: u64,
     pub fee_tao: u64,
     pub fee_alpha: u64,
+    pub removed: bool,
 }
