@@ -23,7 +23,7 @@ PATCH_MARKER="$SCRIPT_DIR/benchmark_patch_marker"
 PATCH_MODE=0
 
 # ────────────────────────────────────────────────────────────────────────────────
-# Helper: patch a literal number inside the attribute block of <extrinsic>
+# Helper: patch a literal inside the attribute that belongs to <extrinsic>
 # ────────────────────────────────────────────────────────────────────────────────
 patch_field() {
   local file="$1" extr="$2" field="$3" new_val="$4"
@@ -33,57 +33,52 @@ patch_field() {
 
   case "$field" in
     weight)
-      awk -i inplace -v fn="$extr" -v nv="$new_val" '
-        NR>25 { window[NR%26]=$0 }          # ring buffer of last 25 lines
-        { line[NR]=$0 }                     # store all lines for later output
-        $0 ~ ("pub[[:space:]]+fn[[:space:]]+"fn"\\(") {
-          for(i=NR-1;i>=NR-25&&i>0;i--){
-            if(match(line[i],/Weight::from_parts\([0-9_]+/,m)){
-              sub(/[0-9_]+/,nv,line[i]); line_modified[i]=1; break;
-            }
-          }
-        }
-        END{
-          for(i=1;i<=NR;i++){
-            if(line_modified[i]) print line[i]; else print line[i];
-          }
-        }' "$file"
+      perl -0777 -pi -e 's/
+        (#[[:space:]]*\[pallet::weight\([^]]*?
+          Weight::from_parts\()[0-9_]+
+        (?=[^]]*?\]\s*pub\s+fn\s+'"${extr}"'\b)
+      /\1'"${new_val}"'/sx' "$file"
       ;;
     reads)
-      awk -i inplace -v fn="$extr" -v nv="$new_val" '
-        { line[NR]=$0 }
-        $0 ~ ("pub[[:space:]]+fn[[:space:]]+"fn"\\(") {
-          for(i=NR-1;i>=NR-25&&i>0;i--){
-            if(match(line[i],/reads_writes\([0-9_]+,[[:space:]]*[0-9_]+/,m)){
-              sub(/[0-9_]+/,nv,line[i]); line_modified[i]=1; break
-            }
-            if(match(line[i],/\.reads\([0-9_]+/,m)){
-              sub(/[0-9_]+/,nv,line[i]); line_modified[i]=1; break
-            }
-          }
-        }
-        END{ for(i=1;i<=NR;i++) print line[i] }' "$file"
+      perl -0777 -pi -e 's/
+        (#[[:space:]]*\[pallet::weight\([^]]*?
+          (\.reads\(|reads_writes\())\s*)[0-9_]+
+        (?=[^]]*?\]\s*pub\s+fn\s+'"${extr}"'\b)
+      /\1'"${new_val}"'/sx' "$file"
       ;;
     writes)
-      awk -i inplace -v fn="$extr" -v nv="$new_val" '
-        { line[NR]=$0 }
-        $0 ~ ("pub[[:space:]]+fn[[:space:]]+"fn"\\(") {
-          for(i=NR-1;i>=NR-25&&i>0;i--){
-            if(match(line[i],/reads_writes\([0-9_]+,[[:space:]]*[0-9_]+/,m)){
-              sub(/,[[:space:]]*[0-9_]+/,", "nv,line[i]); line_modified[i]=1; break
-            }
-            if(match(line[i],/\.writes\([0-9_]+/,m)){
-              sub(/[0-9_]+/,nv,line[i]); line_modified[i]=1; break
-            }
-          }
-        }
-        END{ for(i=1;i<=NR;i++) print line[i] }' "$file"
+      perl -0777 -pi -e 's/
+        (#[[:space:]]*\[pallet::weight\([^]]*?
+          (\.writes\(|reads_writes\([0-9_]+,\s*))\s*[0-9_]+
+        (?=[^]]*?\]\s*pub\s+fn\s+'"${extr}"'\b)
+      /\1'"${new_val}"'/sx' "$file"
       ;;
   esac
 }
 
 # ────────────────────────────────────────────────────────────────────────────────
-echo "Building runtime‑benchmarks…"
+# Helper: extract the three literals from code for one extrinsic
+# Returns: weight reads writes  (all underscore‑stripped, default 0)
+# ────────────────────────────────────────────────────────────────────────────────
+extract_code_numbers() {
+  local file="$1" extr="$2"
+
+  local block
+  block=$(perl -0777 -ne 'if(/#[[:space:]]*\[pallet::weight\(([^]]*?)\]\s*pub\s+fn\s+'"${extr}"'\b/s){print $1; exit}' "$file" || true)
+
+  local w r wri
+  [[ $block =~ Weight::from_parts\(\s*([0-9_]+) ]]        && w="${BASH_REMATCH[1]}"
+  if [[ $block =~ reads_writes\(\s*([0-9_]+)\s*,\s*([0-9_]+) ]]; then
+    r="${BASH_REMATCH[1]}"; wri="${BASH_REMATCH[2]}"
+  else
+    [[ $block =~ \.reads\(\s*([0-9_]+) ]]  && r="${BASH_REMATCH[1]}"
+    [[ $block =~ \.writes\(\s*([0-9_]+) ]] && wri="${BASH_REMATCH[1]}"
+  fi
+  echo "${w//_/:-0} ${r//_/:-0} ${wri//_/:-0}" | tr ':' ' '
+}
+
+# ────────────────────────────────────────────────────────────────────────────────
+echo "Building runtime-benchmarks…"
 cargo build --profile production -p node-subtensor --features runtime-benchmarks
 
 echo -e "\n──────────────────────────────────────────"
@@ -91,23 +86,43 @@ echo   " Will benchmark pallets: ${PALLETS[*]}"
 echo   "──────────────────────────────────────────"
 
 # ────────────────────────────────────────────────────────────────────────────────
-# Helper that extracts code‑side numbers for one extrinsic
+# Compare measured vs code and patch when needed
 # ────────────────────────────────────────────────────────────────────────────────
-lookup_code_numbers() {
-  local extr="$1" file="$2"
-  awk -v fn="$extr" '
-    { buf[NR]=$0 }
-    $0 ~ ("pub[[:space:]]+fn[[:space:]]+"fn"\\(") {
-      w=r=wri="0"
-      for(i=NR-1;i>=NR-25&&i>0;i--){
-        if(match(buf[i],/Weight::from_parts\(([0-9_]+)/,m)){ w=m[1] }
-        if(match(buf[i],/reads_writes\(([0-9_]+),[[:space:]]*([0-9_]+)/,m)){ r=m[1]; wri=m[2] }
-        if(match(buf[i],/\.reads\(([0-9_]+)/,m)){ r=m[1] }
-        if(match(buf[i],/\.writes\(([0-9_]+)/,m)){ wri=m[1] }
-      }
-      gsub(/_/,"",w); gsub(/_/,"",r); gsub(/_/,"",wri)
-      print w, r, wri; exit
-    }' "$file"
+process_extr() {
+  local e="$1" us="$2" rd="$3" wr="$4" dispatch_file="$5"
+  [[ -z "$e" || -z "$us" || -z "$rd" || -z "$wr" ]] && return
+
+  local meas_ps; meas_ps=$(awk -v x="$us" 'BEGIN{printf("%.0f", x * 1000000)}')
+
+  read code_w code_reads code_writes < <(extract_code_numbers "$dispatch_file" "$e")
+  [[ -z "$code_w"      ]] && code_w="0"
+  [[ -z "$code_reads"  ]] && code_reads="0"
+  [[ -z "$code_writes" ]] && code_writes="0"
+
+  local drift
+  drift=$(awk -v a="$meas_ps" -v b="$code_w" 'BEGIN{ if(b==0){print 99999;exit}; printf("%.1f",(a-b)/b*100)}')
+
+  summary_lines+=("$(printf "%-28s | reads %4s→%4s | writes %4s→%4s | weight %12s→%12s | drift %6s%%" \
+                  "$e" "$code_reads" "$rd" "$code_writes" "$wr" "$code_w" "$meas_ps" "$drift")")
+
+  if (( rd != code_reads )); then
+    failures+=("$e: reads $code_reads→$rd")
+    patch_field "$dispatch_file" "$e" "reads" "$rd"
+    fail=1
+  fi
+  if (( wr != code_writes )); then
+    failures+=("$e: writes $code_writes→$wr")
+    patch_field "$dispatch_file" "$e" "writes" "$wr"
+    fail=1
+  fi
+
+  local abs=${drift#-}; local drift_int=${abs%%.*}
+  if (( drift_int > THRESHOLD )); then
+    failures+=("$e: weight drift ${drift}%")
+    local pretty_weight; pretty_weight=$(printf "%'d" "$meas_ps" | tr ',' '_')
+    patch_field "$dispatch_file" "$e" "weight" "$pretty_weight"
+    fail=1
+  fi
 }
 
 # ────────────────────────────────────────────────────────────────────────────────
@@ -134,58 +149,22 @@ for pallet in "${PALLETS[@]}"; do
 
     summary_lines=(); failures=(); fail=0
     extr="" meas_us="" meas_reads="" meas_writes=""
-    finalise() {
-      [[ -z "$extr" ]] && return
-      read code_w code_reads code_writes <<<"$(lookup_code_numbers "$extr" "$DISPATCH_FILE")"
-
-      # Convert µs → ps
-      local meas_ps; meas_ps=$(awk -v x="$meas_us" 'BEGIN{printf("%.0f", x * 1000000)}')
-
-      local drift
-      drift=$(awk -v a="$meas_ps" -v b="$code_w" 'BEGIN{ if(b==0){print 99999;exit}; printf("%.1f",(a-b)/b*100)}')
-
-      summary_lines+=("$(printf "%-30s | reads code=%4s measured=%4s | writes code=%4s measured=%4s | weight code=%12s measured=%12s | drift %6s%%" \
-                       "$extr" "$code_reads" "$meas_reads" "$code_writes" "$meas_writes" "$code_w" "$meas_ps" "$drift")")
-
-      local abs=${drift#-}; local drift_int=${abs%%.*}
-      if (( meas_reads != code_reads )); then
-        failures+=("[${extr}] reads mismatch code=${code_reads}, measured=${meas_reads}")
-        patch_field "$DISPATCH_FILE" "$extr" "reads" "$meas_reads"
-        fail=1
-      fi
-      if (( meas_writes != code_writes )); then
-        failures+=("[${extr}] writes mismatch code=${code_writes}, measured=${meas_writes}")
-        patch_field "$DISPATCH_FILE" "$extr" "writes" "$meas_writes"
-        fail=1
-      fi
-      if (( drift_int > THRESHOLD )); then
-        failures+=("[${extr}] weight code=${code_w}, measured=${meas_ps}, drift=${drift}%")
-        local pretty_weight; pretty_weight=$(printf "%'d" "$meas_ps" | tr ',' '_')
-        patch_field "$DISPATCH_FILE" "$extr" "weight" "$pretty_weight"
-        fail=1
-      fi
-      extr="" meas_us="" meas_reads="" meas_writes=""
-    }
+    finalise() { process_extr "$extr" "$meas_us" "$meas_reads" "$meas_writes" "$DISPATCH_FILE"; extr=""; meas_us=""; meas_reads=""; meas_writes=""; }
 
     while IFS= read -r line; do
       [[ $line =~ Extrinsic:\ \"([A-Za-z0-9_]+)\" ]] && { finalise; extr="${BASH_REMATCH[1]}"; continue; }
       [[ $line =~ Time\ ~=\ *([0-9]+(\.[0-9]+)?) ]]  && { meas_us="${BASH_REMATCH[1]}"; continue; }
       [[ $line =~ Reads[[:space:]]*=[[:space:]]*([0-9]+) ]]  && { meas_reads="${BASH_REMATCH[1]}"; continue; }
       [[ $line =~ Writes[[:space:]]*=[[:space:]]*([0-9]+) ]] && { meas_writes="${BASH_REMATCH[1]}"; continue; }
-    done < "$TMP"
-    finalise
+    done < "$TMP"; finalise
 
     echo -e "\nBenchmark Summary for pallet '$pallet' (attempt #$attempt):"
-    printf "  %s\n" "${summary_lines[@]}"
+    printf '  %s\n' "${summary_lines[@]}"
 
     if (( fail )); then
       printf '\n❌ Issues on attempt #%d:\n' "$attempt"
       printf '  • %s\n' "${failures[@]}"
-
-      if (( attempt < MAX_RETRIES )); then
-        echo "→ Retrying…"
-        (( attempt++ )); continue
-      fi
+      if (( attempt < MAX_RETRIES )); then echo "→ Retrying…"; (( attempt++ )); continue; fi
 
       if (( PATCH_MODE )); then
         echo -e "\n🛠️  Patched dispatch file(s). Continuing."
