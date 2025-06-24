@@ -830,11 +830,11 @@ fn test_migrate_fix_root_subnet_tao() {
         // Seed some hotkeys with some fake stake.
         for i in 0..100_000 {
             Owner::<Test>::insert(
-                U256::from(U256::from(i as u64)),
-                U256::from((i + 1_000_000) as u64),
+                U256::from(U256::from(i)),
+                U256::from(i + 1_000_000),
             );
             let stake = i + 1_000_000;
-            TotalHotkeyAlpha::<Test>::insert(U256::from(U256::from(i as u64)), NetUid::ROOT, stake);
+            TotalHotkeyAlpha::<Test>::insert(U256::from(U256::from(i)), NetUid::ROOT, stake);
             expected_total_stake += stake;
         }
 
