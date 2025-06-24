@@ -16,7 +16,6 @@ jobs:
 
     env:
       SKIP_BENCHMARKS: '0'
-      # push fixes only to branches inside the main repo
       AUTO_FIX_BENCHMARKS: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]' && '1' || '0' }}
 
     steps:
@@ -77,19 +76,29 @@ jobs:
       - name: Commit any updated weights
         if: ${{ always() && env.AUTO_FIX_BENCHMARKS == '1' }}
         run: |
-          MARKER=scripts/benchmark_patch_marker
-          if [[ -s "$MARKER" ]]; then
-            echo "🔧  Updating benchmark weights…"
-            git config --global user.name  "Benchmark-Bot"
-            git config --global user.email "bench-bot@users.noreply.github.com"
-            mapfile -t files < <(sort -u "$MARKER")
-            git add "${files[@]}"
-            if git diff --cached --quiet; then
-              echo "Nothing actually changed - skipping commit."
-            else
-              git commit -m "chore(bench): auto-update benchmark weight/read/write numbers"
-              git push
-            fi
-          else
+          marker="scripts/benchmark_patch_marker"
+          if [[ ! -f "$marker" ]]; then
             echo "No benchmark drift detected - nothing to commit."
+            exit 0
           fi
+
+          # read & de-duplicate paths
+          mapfile -t files < <(grep -v '^[[:space:]]*$' "$marker" | sort -u)
+          if (( ${#files[@]} == 0 )); then
+            echo "Patch marker is empty - nothing to commit."
+            exit 0
+          fi
+
+          git config --global user.name  "Benchmark-Bot"
+          git config --global user.email "bench-bot@users.noreply.github.com"
+
+          git add "${files[@]}"
+
+          # If staging area is still clean, bail out gracefully.
+          if git diff --cached --quiet; then
+            echo "No code changes - skipping commit."
+            exit 0
+          fi
+
+          git commit -m "chore(bench): auto-update benchmark weight/read/write numbers"
+          git push
