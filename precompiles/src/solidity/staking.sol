@@ -55,6 +55,18 @@ interface IStaking {
      *
      * @param hotkey The hotkey public key (32 bytes).
      * @param netuid The subnet to remove stake from (uint256).
+     */
+    function removeStakeFull(bytes32 hotkey, uint256 netuid) external;
+
+    /**
+     * @dev Removes all stake from a hotkey on a subnet with a price limit.
+     *
+     * This function allows external accounts and contracts to remove all stake from a specified hotkey
+     * on a subnet, with an optional limit price for alpha token at which or better (higher) the staking
+     * should execute. Without a limit price, it removes all the stake similar to `removeStake` function.
+     *
+     * @param hotkey The hotkey public key (32 bytes).
+     * @param netuid The subnet to remove stake from (uint256).
      * @param limitPrice The limit price for alpha token (uint256).
      */
     function removeStakeFullLimit(

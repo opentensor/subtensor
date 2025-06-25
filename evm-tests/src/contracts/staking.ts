@@ -366,6 +366,24 @@ export const IStakingV2ABI = [
                 "name": "netuid",
                 "type": "uint256"
             },
+        ],
+        "name": "removeStakeFull",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "hotkey",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "uint256",
+                "name": "netuid",
+                "type": "uint256"
+            },
             {
                 "internalType": "uint256",
                 "name": "limit_price",

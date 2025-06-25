@@ -121,6 +121,33 @@ where
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
     }
 
+    fn call_remove_stake_full_limit(
+        handle: &mut impl PrecompileHandle,
+        hotkey: H256,
+        netuid: U256,
+        limit_price: Option<u64>,
+    ) -> EvmResult<()> {
+        let account_id = handle.caller_account_id::<R>();
+        let hotkey = R::AccountId::from(hotkey.0);
+        let netuid = try_u16_from_u256(netuid)?;
+        let call = pallet_subtensor::Call::<R>::remove_stake_full_limit {
+            hotkey,
+            netuid: netuid.into(),
+            limit_price,
+        };
+
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+    }
+
+    #[precompile::public("removeStakeFull(bytes32,uint256)")]
+    fn remove_stake_full(
+        handle: &mut impl PrecompileHandle,
+        hotkey: H256,
+        netuid: U256,
+    ) -> EvmResult<()> {
+        Self::call_remove_stake_full_limit(handle, hotkey, netuid, None)
+    }
+
     #[precompile::public("removeStakeFullLimit(bytes32,uint256,uint256)")]
     fn remove_stake_full_limit(
         handle: &mut impl PrecompileHandle,
@@ -128,17 +155,8 @@ where
         netuid: U256,
         limit_price: U256,
     ) -> EvmResult<()> {
-        let account_id = handle.caller_account_id::<R>();
-        let hotkey = R::AccountId::from(hotkey.0);
-        let netuid = try_u16_from_u256(netuid)?;
         let limit_price = try_u64_from_u256(limit_price)?;
-        let call = pallet_subtensor::Call::<R>::remove_stake_full_limit {
-            hotkey,
-            netuid: netuid.into(),
-            limit_price: Some(limit_price),
-        };
-
-        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+        Self::call_remove_stake_full_limit(handle, hotkey, netuid, Some(limit_price))
     }
 
     #[precompile::public("moveStake(bytes32,bytes32,uint256,uint256,uint256)")]
