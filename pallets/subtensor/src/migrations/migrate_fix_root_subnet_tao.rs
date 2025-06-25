@@ -1,5 +1,6 @@
 use super::*;
 use alloc::string::String;
+use super::migrate_init_total_issuance::migrate_init_total_issuance;
 
 pub fn migrate_fix_root_subnet_tao<T: Config>() -> Weight {
     let migration_name = b"migrate_fix_root_subnet_tao".to_vec();
@@ -48,5 +49,7 @@ pub fn migrate_fix_root_subnet_tao<T: Config>() -> Weight {
         String::from_utf8_lossy(&migration_name)
     );
 
-    weight
+    // We need to run the total issuance migration to update the total issuance
+    // when the root subnet TAO has been updated.
+    migrate_init_total_issuance::<T>().saturating_add(weight)
 }
