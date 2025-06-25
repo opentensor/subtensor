@@ -1,6 +1,6 @@
+use super::migrate_init_total_issuance::migrate_init_total_issuance;
 use super::*;
 use alloc::string::String;
-use super::migrate_init_total_issuance::migrate_init_total_issuance;
 
 pub fn migrate_fix_root_subnet_tao<T: Config>() -> Weight {
     let migration_name = b"migrate_fix_root_subnet_tao".to_vec();
