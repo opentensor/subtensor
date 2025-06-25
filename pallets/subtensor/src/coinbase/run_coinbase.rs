@@ -140,7 +140,7 @@ impl<T: Config> Pallet<T> {
                 *total = total.saturating_add(tao_in_i);
             });
             // Adjust protocol liquidity based on new reserves
-            T::SwapInterface::adjust_protocol_liquidity(*netuid_i);
+            T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
         }
 
         // --- 5. Compute owner cuts and remove them from alpha_out remaining.
