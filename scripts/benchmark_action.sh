@@ -2,15 +2,13 @@
 ###############################################################################
 # benchmark_action.sh
 #
-# 1.  Benchmarks every requested pallet.
-# 2.  Validates measured vs. code values.
-# 3.  After MAX_RETRIES failures it *rewrites* weight / read / write numbers,
-#     commits, and pushes — provided AUTO_COMMIT_WEIGHTS=1 is set.
+# Benchmarks the listed pallets, compares measured vs. code values, and—
+# if enabled—auto‑patches Weight/reads/writes drift after MAX_RETRIES failures.
 ###############################################################################
 set -euo pipefail
 
 ################################################################################
-# Configuration
+# Config
 ################################################################################
 PALLET_LIST=(subtensor admin_utils commitments drand)
 
@@ -19,6 +17,7 @@ declare -A DISPATCH_PATHS=(
   [admin_utils]="../pallets/admin-utils/src/lib.rs"
   [commitments]="../pallets/commitments/src/lib.rs"
   [drand]="../pallets/drand/src/lib.rs"
+  [swap]="../pallets/swap/src/pallet/mod.rs"
 )
 
 THRESHOLD=15
@@ -31,30 +30,48 @@ AUTO_COMMIT="${AUTO_COMMIT_WEIGHTS:-0}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNTIME_WASM="$SCRIPT_DIR/../target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm"
 
-function die() { echo "❌ $1" >&2; exit 1; }
+die() { echo "❌ $1" >&2; exit 1; }
+
+# strip underscores and any trailing non‑digits, e.g. 12_345u64 → 12345
+num() { local v="${1//_/}"; v="${v%%[^0-9]*}"; echo "${v:-0}"; }
 
 ###############################################################################
-# Patch helpers – only invoked when auto‑commit is enabled
+# Patch helpers (only used when AUTO_COMMIT_WEIGHTS=1)
 ###############################################################################
-function regex_fn() { echo "$1" | sed 's/_/\\_/g'; }
+regex_fn() { printf '%s' "$1" | sed 's/[][().*?+^$|{}]/\\&/g; s/_/\\_/g'; }
 
-function patch_weight() {
-  local extr="$1" new_weight="$2" file="$3"
-  perl -0777 -i -pe "
-    s|(pub\\s+fn\\s+$(regex_fn "${extr}")\\s*\\([^{}]*?)Weight::from_parts\\(\\s*)\\d+[\\d_]*|\\1${new_weight}|s
-  " "$file"
+patch_weight() {
+  local extr="$1" new="$2" file="$3"
+  perl -0777 -i -pe '
+    my $fn = quotemeta("'"$extr"'");
+    s{
+      (pub\s+fn\s+$fn\s*\([^{}]*?Weight::from_parts\(\s*)
+      \d[\d_]*(?:\s*u64)?
+    }{$1'"$new"'}sx;
+  ' "$file"
 }
 
-function patch_reads_writes() {
+patch_reads_writes() {
   local extr="$1" new_r="$2" new_w="$3" file="$4"
-  perl -0777 -i -pe "
-    s|(pub\\s+fn\\s+$(regex_fn "${extr}")\\s*\\([^{}]*?)reads_writes\\(\\s*)\\d+\\s*,\\s*\\d+\\s*\\)|\\1${new_r}, ${new_w}|s;
-    s|(pub\\s+fn\\s+$(regex_fn "${extr}")\\s*\\([^{}]*?)\\.reads\\(\\s*)\\d+\\s*\\)|\\1${new_r}|s;
-    s|(pub\\s+fn\\s+$(regex_fn "${extr}")\\s*\\([^{}]*?)\\.writes\\(\\s*)\\d+\\s*\\)|\\1${new_w}|s;
-  " "$file"
+  perl -0777 -i -pe '
+    my $fn = quotemeta("'"$extr"'");
+    my ($r,$w) = ("'"$new_r"'","'"$new_w"'");
+    s{
+      (pub\s+fn\s+$fn\s*\([^{}]*?reads_writes\()\s*
+      \d[\d_]*(?:\s*u64)?\s*,\s*\d[\d_]*(?:\s*u64)?\s*\)
+    }{$1$r, $w)}sx;
+    s{
+      (pub\s+fn\s+$fn\s*\([^{}]*?\.reads\()\s*
+      \d[\d_]*(?:\s*u64)?\s*\)
+    }{$1$r)}sx;
+    s{
+      (pub\s+fn\s+$fn\s*\([^{}]*?\.writes\()\s*
+      \d[\d_]*(?:\s*u64)?\s*\)
+    }{$1$w)}sx;
+  ' "$file"
 }
 
-function git_commit_and_push() {
+git_commit_and_push() {
   local msg="$1"
   git config user.name  "github-actions[bot]"
   git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -66,7 +83,7 @@ function git_commit_and_push() {
 }
 
 ################################################################################
-# Benchmark logic
+# Build once for all pallets
 ################################################################################
 echo "Building runtime‑benchmarks…"
 cargo build --profile production -p node-subtensor --features runtime-benchmarks
@@ -78,18 +95,19 @@ echo "────────────────────────�
 
 PATCHED_FILES=()
 
+################################################################################
+# Main loop
+################################################################################
 for pallet in "${PALLET_LIST[@]}"; do
-  DISPATCH_REL="${DISPATCH_PATHS[$pallet]:-}"
-  [[ -z "$DISPATCH_REL" ]] && die "dispatch path not defined for pallet '$pallet'"
+  DISPATCH_REL="${DISPATCH_PATHS[$pallet]:-}" || die "dispatch path missing for $pallet"
   DISPATCH="$SCRIPT_DIR/$DISPATCH_REL"
-  [[ -f "$DISPATCH" ]] || die "dispatch file not found at $DISPATCH"
+  [[ -f "$DISPATCH" ]] || die "dispatch file not found: $DISPATCH"
 
   attempt=1
   while (( attempt <= MAX_RETRIES )); do
     echo
     echo "══════════════════════════════════════════════"
     echo "Benchmarking pallet: $pallet (attempt #$attempt)"
-    echo "Dispatch file: $DISPATCH"
     echo "══════════════════════════════════════════════"
 
     TMP="$(mktemp)"
@@ -97,127 +115,99 @@ for pallet in "${PALLET_LIST[@]}"; do
 
     ./target/production/node-subtensor benchmark pallet \
       --runtime "$RUNTIME_WASM" \
-      --genesis-builder=runtime \
-      --genesis-builder-preset=benchmark \
+      --genesis-builder=runtime --genesis-builder-preset=benchmark \
       --wasm-execution=compiled \
-      --pallet "pallet_${pallet}" \
-      --extrinsic "*" \
-      --steps 50 \
-      --repeat 5 | tee "$TMP"
+      --pallet "pallet_${pallet}" --extrinsic "*" \
+      --steps 50 --repeat 5 | tee "$TMP"
 
-    # ------------------------------------------------------------------
-    # Parse results
-    # ------------------------------------------------------------------
-    declare -A new_weight=() new_reads=() new_writes=()
-    summary_lines=(); failures=(); fail=0
+    ##########################################################################
+    # Parse benchmark output
+    ##########################################################################
+    declare -A new_weight=() new_r=() new_w=()
+    summary=(); fail=0
 
-    extr=""; meas_us=""; meas_reads=""; meas_writes=""
+    extr="" us="" rd="" wr=""
 
-    function finalize_extr() {
+    finalize_extr() {
       [[ -z "$extr" ]] && return
 
-      # convert µs → ps
       local meas_ps
-      meas_ps=$(awk -v x="$meas_us" 'BEGIN{printf("%.0f", x*1000000)}')
+      meas_ps=$(awk -v x="$us" 'BEGIN{printf("%.0f", x*1000000)}')
 
-      # lookup code-side values
-      local code
-      code=$(awk -v extr="$extr" '
-        /^\s*#\[pallet::call_index\(/ { next }
-        /Weight::from_parts/{
-          lw=$0; sub(/.*Weight::from_parts\(/,"",lw); sub(/[^0-9_].*/,"",lw); gsub(/_/,"",lw); w=lw
-        }
-        /reads_writes\(/{
-          lw=$0; sub(/.*reads_writes\(/,"",lw); sub(/\).*/,"",lw);
-          split(lw,io,","); gsub(/[ \t]/,"",io[1]); gsub(/[ \t]/,"",io[2]); r=io[1]; wr=io[2]
-        }
-        /\.reads\(/{
-          lw=$0; sub(/.*\.reads\(/,"",lw); sub(/\).*/,"",lw); r=lw
-        }
-        /\.writes\(/{
-          lw=$0; sub(/.*\.writes\(/,"",lw); sub(/\).*/,"",lw); wr=lw
-        }
-        $0 ~ ("pub fn[[:space:]]+"extr"\\("){ print w,r,wr; exit }
-      ' "$DISPATCH")
+      # --- fetch code‑side values ------------------------------------------------
+      read -r cw cr cwrt < <(
+        awk -v extr="$extr" '
+          /^\s*#\[pallet::call_index\(/ { next }
+          /Weight::from_parts/   { sub(/.*Weight::from_parts\(/,"",$0); sub(/[^0-9_].*/,"",$0); w=$0 }
+          /reads_writes\(/       { sub(/.*reads_writes\(/,"",$0); sub(/\).*/,"",$0); split($0,io,","); r=io[1]; wr=io[2] }
+          /\.reads\(/            { sub(/.*\.reads\(/,"",$0); sub(/\).*/,"",$0); r=$0 }
+          /\.writes\(/           { sub(/.*\.writes\(/,"",$0); sub(/\).*/,"",$0); wr=$0 }
+          $0 ~ ("pub fn[[:space:]]+"extr"\\("){ print w,r,wr; exit }
+        ' "$DISPATCH"
+      )
 
-      local code_w code_r code_wr
-      read -r code_w code_r code_wr <<<"$code"
-      code_w="${code_w//_/}"; code_r="${code_r//_/}"; code_wr="${code_wr//_/}"
-      [[ -z "$code_w" ]] && code_w=0
-      [[ -z "$code_r" ]] && code_r=0
-      [[ -z "$code_wr" ]] && code_wr=0
+      cw=$(num "$cw"); cr=$(num "$cr"); cwrt=$(num "$cwrt")
+      local mrd=$(num "$rd") mwr=$(num "$wr")
 
-      # compute drift safely (avoid awk ternary with statements)
-      local drift
-      if [[ "$code_w" == 0 ]]; then
-        drift="99999"
-      else
-        drift=$(awk -v a="$meas_ps" -v b="$code_w" 'BEGIN{printf("%.1f", (a-b)/b*100)}')
-      fi
-      local abs_drift=${drift#-}; local drift_int=${abs_drift%%.*}
+      # drift
+      local drift; [[ "$cw" == 0 ]] && drift=99999 || drift=$(awk -v a="$meas_ps" -v b="$cw" 'BEGIN{printf("%.1f",(a-b)/b*100)}')
+      local drift_int=${drift#-}; drift_int=${drift_int%%.*}
 
-      summary_lines+=("$(printf "%-30s | reads %3s → %3s | writes %3s → %3s | weight %12s → %12s | drift %6s%%" \
-        "$extr" "$code_r" "$meas_reads" "$code_wr" "$meas_writes" "$code_w" "$meas_ps" "$drift")")
+      summary+=("$(printf "%-28s | reads %3s → %3s | writes %3s → %3s | weight %11s → %11s | drift %6s%%" \
+        "$extr" "$cr" "$mrd" "$cwrt" "$mwr" "$cw" "$meas_ps" "$drift")")
 
-      # gather mismatches
-      if (( meas_reads != code_r ));   then new_reads[$extr]=$meas_reads;   fail=1; fi
-      if (( meas_writes != code_wr )); then new_writes[$extr]=$meas_writes; fail=1; fi
-      if (( drift_int > THRESHOLD ));  then new_weight[$extr]=$meas_ps;     fail=1; fi
+      # record mismatches
+      [[ $mrd -ne $cr      ]] && new_r[$extr]=$mrd  && fail=1
+      [[ $mwr -ne $cwrt    ]] && new_w[$extr]=$mwr  && fail=1
+      (( drift_int > THRESHOLD )) && new_weight[$extr]=$meas_ps && fail=1
     }
 
     while IFS= read -r line; do
-      [[ $line =~ Extrinsic:\ \"([[:alnum:]_]+)\" ]] && { finalize_extr; extr="${BASH_REMATCH[1]}"; }
-      [[ $line =~ Time\ ~=\ *([0-9]+(\.[0-9]+)?) ]] && { meas_us="${BASH_REMATCH[1]}"; }
-      [[ $line =~ Reads[[:space:]]*=[[:space:]]*([0-9]+) ]]  && { meas_reads="${BASH_REMATCH[1]}"; }
-      [[ $line =~ Writes[[:space:]]*=[[:space:]]*([0-9]+) ]] && { meas_writes="${BASH_REMATCH[1]}"; }
+      [[ $line =~ Extrinsic:\ \"([A-Za-z0-9_]+)\" ]] && { finalize_extr; extr="${BASH_REMATCH[1]}"; us=""; rd=""; wr=""; }
+      [[ $line =~ Time\ ~=\ *([0-9]+(\.[0-9]+)?) ]]          && us="${BASH_REMATCH[1]}"
+      [[ $line =~ Reads[[:space:]]*=[[:space:]]*([0-9_]+[0-9u]*) ]]  && rd="${BASH_REMATCH[1]}"
+      [[ $line =~ Writes[[:space:]]*=[[:space:]]*([0-9_]+[0-9u]*) ]] && wr="${BASH_REMATCH[1]}"
     done < "$TMP"
     finalize_extr
 
-    echo; printf '  %s\n' "${summary_lines[@]}"
+    echo; printf '  %s\n' "${summary[@]}"
 
+    ##########################################################################
+    # Decide pass / retry / patch
+    ##########################################################################
     if (( fail == 0 )); then
-      echo "✅ Pallet '$pallet' is within ±${THRESHOLD}%."
-      break
+      echo "✅  '$pallet' within ±${THRESHOLD}%."; break
     fi
 
     if (( attempt < MAX_RETRIES )); then
-      echo "❌ Issues detected – retrying ($((attempt+1))/${MAX_RETRIES}) …"
-      (( attempt++ ))
-      continue
+      echo "❌  Issues detected – retrying ($((attempt+1))/${MAX_RETRIES}) …"
+      (( attempt++ )); continue
     fi
 
-    #######################################################################
-    # Exhausted retries — optionally auto‑patch & commit
-    #######################################################################
-    echo "❌ Pallet '$pallet' still failing after ${MAX_RETRIES} attempts."
+    echo "❌  '$pallet' still failing after $MAX_RETRIES attempts."
 
     if [[ "$AUTO_COMMIT" != "1" ]]; then
-      echo "AUTO_COMMIT_WEIGHTS disabled → exiting with error."
-      exit 1
+      die "AUTO_COMMIT_WEIGHTS disabled – aborting."
     fi
 
-    echo "🛠  Auto‑patching $DISPATCH …"
+    echo "🛠   Auto‑patching $DISPATCH …"
     for e in "${!new_weight[@]}"; do
-      [[ -n "${new_weight[$e]:-}" ]] && patch_weight "$e" "${new_weight[$e]}" "$DISPATCH"
-      local r="${new_reads[$e]:-}" w="${new_writes[$e]:-}"
-      if [[ -n "$r" || -n "$w" ]]; then
-        patch_reads_writes "$e" "${r:-0}" "${w:-0}" "$DISPATCH"
-      fi
+      patch_weight "$e" "${new_weight[$e]}" "$DISPATCH"
+      patch_reads_writes "$e" "${new_r[$e]:-0}" "${new_w[$e]:-0}" "$DISPATCH"
     done
     PATCHED_FILES+=("$DISPATCH")
 
-    echo "🔄  Re‑running benchmarks after patch …"
-    attempt=1  # reset counter
-  done  # retry loop
-done  # pallet loop
+    echo "🔄   Re‑running benchmarks after patch …"
+    attempt=1   # reset attempts
+  done
+done
 
 ################################################################################
-# Commit & push any patched files
+# Commit & push if we changed anything
 ################################################################################
-if [[ "${#PATCHED_FILES[@]}" -gt 0 ]]; then
-  echo; echo "📦  Committing updated weight files …"
+if (( ${#PATCHED_FILES[@]} )); then
   git_commit_and_push "chore: auto‑update benchmark weights"
-  echo "✅ Auto‑patch committed & pushed."
+  echo "✅  Auto‑patch committed & pushed."
 fi
 
 echo
