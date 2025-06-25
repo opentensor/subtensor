@@ -20,30 +20,28 @@ jobs:
 
     env:
       SKIP_BENCHMARKS: '0'
-      # only auto‑commit on branches inside the main repo (never on forks)
-      AUTO_FIX_BENCHMARKS: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]' && '1' || '0' }}
+      AUTO_COMMIT_WEIGHTS: '1'
 
     steps:
-      # ──────────────────────────────────────────────────────────────────────
-      # Checkout & preliminaries
-      # ──────────────────────────────────────────────────────────────────────
+      # ────────────────────────────────────────────────────────────────
       - name: Check out PR branch
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         uses: actions/checkout@v4
         with:
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
-          ref:        ${{ github.event.pull_request.head.ref }}
+          ref: ${{ github.head_ref }}
           fetch-depth: 0
 
       - name: Install GitHub CLI
-        if: ${{ github.event.pull_request.head.repo.full_name == github.repository && env.SKIP_BENCHMARKS != '1' }}
+        if: ${{ env.SKIP_BENCHMARKS != '1' }}
         run: |
           sudo apt-get update
           sudo apt-get install -y gh
           echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
 
-      - name: Check skip label
-        if: ${{ github.event.pull_request.head.repo.full_name == github.repository && env.SKIP_BENCHMARKS != '1' }}
+      # Three identical “skip‑label” checks collapsed into one reusable step
+      - name: Check skip-validate-benchmarks label
+        if: ${{ env.SKIP_BENCHMARKS != '1' }}
+        id: check_label
         run: |
           labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
           if echo "$labels" | grep -q "skip-validate-benchmarks"; then
@@ -51,23 +49,11 @@ jobs:
             echo "SKIP_BENCHMARKS=1" >> "$GITHUB_ENV"
           fi
 
-      # ──────────────────────────────────────────────────────────────────────
-      # Build environment
-      # ──────────────────────────────────────────────────────────────────────
       - name: Install system dependencies
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         run: |
           sudo apt-get update
           sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
-
-      - name: Check skip label (post-deps)
-        if: ${{ github.event.pull_request.head.repo.full_name == github.repository && env.SKIP_BENCHMARKS != '1' }}
-        run: |
-          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
-          if echo "$labels" | grep -q "skip-validate-benchmarks"; then
-            echo "skip-validate-benchmarks label found — skipping benchmarks."
-            echo "SKIP_BENCHMARKS=1" >> "$GITHUB_ENV"
-          fi
 
       - name: Install Rust toolchain
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
@@ -76,87 +62,27 @@ jobs:
           profile: minimal
           toolchain: stable
 
-      - name: Check skip label (post-toolchain)
-        if: ${{ github.event.pull_request.head.repo.full_name == github.repository && env.SKIP_BENCHMARKS != '1' }}
-        run: |
-          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
-          if echo "$labels" | grep -q "skip-validate-benchmarks"; then
-            echo "skip-validate-benchmarks label found — skipping benchmarks."
-            echo "SKIP_BENCHMARKS=1" >> "$GITHUB_ENV"
-          fi
-
       - name: Cache Rust build
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         uses: Swatinem/rust-cache@v2
         with:
           key: bench-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Check skip label (post-cache)
-        if: ${{ github.event.pull_request.head.repo.full_name == github.repository && env.SKIP_BENCHMARKS != '1' }}
-        run: |
-          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
-          if echo "$labels" | grep -q "skip-validate-benchmarks"; then
-            echo "skip-validate-benchmarks label found — skipping benchmarks."
-            echo "SKIP_BENCHMARKS=1" >> "$GITHUB_ENV"
-          fi
-
-      # ──────────────────────────────────────────────────────────────────────
-      # Benchmarks
-      # ──────────────────────────────────────────────────────────────────────
+      # ────────────────────────────────────────────────────────────────
+      # Build once (this is faster than rebuilding inside the script)
       - name: Build node with benchmarks
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         run: |
           cargo build --profile production -p node-subtensor --features runtime-benchmarks
 
-      - name: Check skip label (post-build)
-        if: ${{ github.event.pull_request.head.repo.full_name == github.repository && env.SKIP_BENCHMARKS != '1' }}
-        run: |
-          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
-          if echo "$labels" | grep -q "skip-validate-benchmarks"; then
-            echo "skip-validate-benchmarks label found — skipping benchmarks."
-            echo "SKIP_BENCHMARKS=1" >> "$GITHUB_ENV"
-          fi
-
-      - name: Run & validate benchmarks
+      # ────────────────────────────────────────────────────────────────
+      # MAIN STEP — run the checker *and* auto‑fix if needed
+      - name: Run & validate benchmarks (auto‑fix capable)
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         run: |
           chmod +x scripts/benchmark_action.sh
-          ./scripts/benchmark_action.sh
+          scripts/benchmark_action.sh
 
-      - name: Check skip label (post-run)
-        if: ${{ github.event.pull_request.head.repo.full_name == github.repository && env.SKIP_BENCHMARKS != '1' }}
-        run: |
-          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
-          if echo "$labels" | grep -q "skip-validate-benchmarks"; then
-            echo "skip-validate-benchmarks label was found — but benchmarks already ran."
-          fi
-
-      # ──────────────────────────────────────────────────────────────────────
-      # Auto-commit any patched weights
-      # ──────────────────────────────────────────────────────────────────────
-      - name: Commit any updated weights
-        if: ${{ always() && env.AUTO_FIX_BENCHMARKS == '1' }}
-        run: |
-          marker="scripts/benchmark_patch_marker"
-          if [[ ! -f "$marker" ]]; then
-            echo "No benchmark drift detected - nothing to commit."
-            exit 0
-          fi
-
-          mapfile -t files < <(grep -v '^[[:space:]]*$' "$marker" | sort -u)
-          if (( ${#files[@]} == 0 )); then
-            echo "Patch marker is empty - nothing to commit."
-            exit 0
-          fi
-
-          git config --global user.name  "Benchmark-Bot"
-          git config --global user.email "bench-bot@users.noreply.github.com"
-          git add "${files[@]}"
-
-          if git diff --cached --quiet; then
-            echo "No code changes - skipping commit."
-            exit 0
-          fi
-
-          git commit -m "chore(bench): auto-update benchmark weight/read/write numbers"
-          git push
+      # ────────────────────────────────────────────────────────────────
+      # If we get here the script either succeeded on the first pass
+      # or it already fixed, committed and pushed the new weights.
