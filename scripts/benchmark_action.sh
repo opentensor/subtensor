@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 ###############################################################################
-# benchmark_action.sh
+# scripts/benchmark_action.sh
 #
-# Benchmarks the listed pallets, compares measured vs. code values, and—
-# if enabled—auto‑patches Weight/reads/writes drift after MAX_RETRIES failures.
+# • Benchmarks each pallet in PALLET_LIST.
+# • Compares measured vs. code Weight / Reads / Writes.
+# • Retries up to MAX_RETRIES, then (optionally) rewrites the code values,
+#   commits, and pushes when AUTO_COMMIT_WEIGHTS=1 is set.
 ###############################################################################
 set -euo pipefail
 
 ################################################################################
-# Config
+# Configuration
 ################################################################################
-PALLET_LIST=(subtensor admin_utils commitments drand)
+PALLET_LIST=(subtensor admin_utils commitments drand)   # add swap if desired
 
 declare -A DISPATCH_PATHS=(
   [subtensor]="../pallets/subtensor/src/macros/dispatches.rs"
@@ -20,32 +22,31 @@ declare -A DISPATCH_PATHS=(
   [swap]="../pallets/swap/src/pallet/mod.rs"
 )
 
-THRESHOLD=15
+THRESHOLD=15           # allowed drift %
 MAX_RETRIES=3
 AUTO_COMMIT="${AUTO_COMMIT_WEIGHTS:-0}"
 
 ################################################################################
-# Helpers
+# Small helpers
 ################################################################################
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNTIME_WASM="$SCRIPT_DIR/../target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm"
-
 die() { echo "❌ $1" >&2; exit 1; }
 
-# strip underscores and any trailing non‑digits, e.g. 12_345u64 → 12345
-num() { local v="${1//_/}"; v="${v%%[^0-9]*}"; echo "${v:-0}"; }
+# strip underscores & any trailing non‑digits, e.g. 12_345u64 → 12345
+num() { local v="${1:-}"; v="${v//_/}"; v="${v%%[^0-9]*}"; echo "${v:-0}"; }
 
 ###############################################################################
-# Patch helpers (only used when AUTO_COMMIT_WEIGHTS=1)
+# Patch helpers (invoked only when AUTO_COMMIT_WEIGHTS=1)
 ###############################################################################
 regex_fn() { printf '%s' "$1" | sed 's/[][().*?+^$|{}]/\\&/g; s/_/\\_/g'; }
 
 patch_weight() {
   local extr="$1" new="$2" file="$3"
   perl -0777 -i -pe '
-    my $fn = quotemeta("'"$extr"'");
+    my $fn = qr/\b'"$(regex_fn "$extr")"'\b/;
     s{
-      (pub\s+fn\s+$fn\s*\([^{}]*?Weight::from_parts\(\s*)
+      (pub\s+fn\s+$fn\s* \([^{}]*? Weight::from_parts\(\s*)
       \d[\d_]*(?:\s*u64)?
     }{$1'"$new"'}sx;
   ' "$file"
@@ -54,19 +55,17 @@ patch_weight() {
 patch_reads_writes() {
   local extr="$1" new_r="$2" new_w="$3" file="$4"
   perl -0777 -i -pe '
-    my $fn = quotemeta("'"$extr"'");
-    my ($r,$w) = ("'"$new_r"'","'"$new_w"'");
+    my $fn = qr/\b'"$(regex_fn "$extr")"'\b/;
+    my ($r,$w) = ('"$new_r"','"$new_w"');
     s{
-      (pub\s+fn\s+$fn\s*\([^{}]*?reads_writes\()\s*
+      (pub\s+fn\s+$fn\s* \([^{}]*? reads_writes\()\s*
       \d[\d_]*(?:\s*u64)?\s*,\s*\d[\d_]*(?:\s*u64)?\s*\)
     }{$1$r, $w)}sx;
     s{
-      (pub\s+fn\s+$fn\s*\([^{}]*?\.reads\()\s*
-      \d[\d_]*(?:\s*u64)?\s*\)
+      (pub\s+fn\s+$fn\s* \([^{}]*? \.reads\()\s*\d[\d_]*(?:\s*u64)?\s*\)
     }{$1$r)}sx;
     s{
-      (pub\s+fn\s+$fn\s*\([^{}]*?\.writes\()\s*
-      \d[\d_]*(?:\s*u64)?\s*\)
+      (pub\s+fn\s+$fn\s* \([^{}]*? \.writes\()\s*\d[\d_]*(?:\s*u64)?\s*\)
     }{$1$w)}sx;
   ' "$file"
 }
@@ -85,7 +84,7 @@ git_commit_and_push() {
 ################################################################################
 # Build once for all pallets
 ################################################################################
-echo "Building runtime‑benchmarks…"
+echo "Building runtime‑benchmarks …"
 cargo build --profile production -p node-subtensor --features runtime-benchmarks
 
 echo
@@ -123,9 +122,8 @@ for pallet in "${PALLET_LIST[@]}"; do
     ##########################################################################
     # Parse benchmark output
     ##########################################################################
-    declare -A new_weight=() new_r=() new_w=()
+    declare -A new_wt=() new_r=() new_w=()
     summary=(); fail=0
-
     extr="" us="" rd="" wr=""
 
     finalize_extr() {
@@ -134,37 +132,53 @@ for pallet in "${PALLET_LIST[@]}"; do
       local meas_ps
       meas_ps=$(awk -v x="$us" 'BEGIN{printf("%.0f", x*1000000)}')
 
-      # --- fetch code‑side values ------------------------------------------------
-      read -r cw cr cwrt < <(
-        awk -v extr="$extr" '
-          /^\s*#\[pallet::call_index\(/ { next }
-          /Weight::from_parts/   { sub(/.*Weight::from_parts\(/,"",$0); sub(/[^0-9_].*/,"",$0); w=$0 }
-          /reads_writes\(/       { sub(/.*reads_writes\(/,"",$0); sub(/\).*/,"",$0); split($0,io,","); r=io[1]; wr=io[2] }
-          /\.reads\(/            { sub(/.*\.reads\(/,"",$0); sub(/\).*/,"",$0); r=$0 }
-          /\.writes\(/           { sub(/.*\.writes\(/,"",$0); sub(/\).*/,"",$0); wr=$0 }
-          $0 ~ ("pub fn[[:space:]]+"extr"\\("){ print w,r,wr; exit }
-        ' "$DISPATCH"
-      )
+      # --- code‑side lookup ----------------------------------------------------
+      local record
+      record=$(awk -v extr="$extr" '
+        /^\s*#\[pallet::call_index\(/ { next }
+        /Weight::from_parts/{
+          sub(/.*Weight::from_parts\(/,"",$0); sub(/[^0-9_].*/,"",$0); w=$0
+        }
+        /reads_writes\(/{
+          sub(/.*reads_writes\(/,"",$0); sub(/\).*/,"",$0);
+          split($0,io,","); r=io[1]; wr=io[2]
+        }
+        /\.reads\(/{
+          sub(/.*\.reads\(/,"",$0); sub(/\).*/,"",$0); r=$0
+        }
+        /\.writes\(/{
+          sub(/.*\.writes\(/,"",$0); sub(/\).*/,"",$0); wr=$0
+        }
+        $0 ~ ("pub fn[[:space:]]+"extr"\\("){ print w,r,wr; exit }
+      ' "$DISPATCH") || true
 
-      cw=$(num "$cw"); cr=$(num "$cr"); cwrt=$(num "$cwrt")
+      # Default values
+      local cw=0 cr=0 cwrt=0
+      if [[ -n "$record" ]]; then
+        # shellcheck disable=SC2086
+        set -- $record       # split into $1 $2 $3 (some may be empty)
+        cw=$(num "$1"); cr=$(num "${2:-}"); cwrt=$(num "${3:-}")
+      fi
+
       local mrd=$(num "$rd") mwr=$(num "$wr")
 
       # drift
-      local drift; [[ "$cw" == 0 ]] && drift=99999 || drift=$(awk -v a="$meas_ps" -v b="$cw" 'BEGIN{printf("%.1f",(a-b)/b*100)}')
-      local drift_int=${drift#-}; drift_int=${drift_int%%.*}
+      local drift; [[ "$cw" == 0 ]] && drift="99999" \
+        || drift=$(awk -v a="$meas_ps" -v b="$cw" 'BEGIN{printf("%.1f",(a-b)/b*100)}')
+      local drift_abs=${drift#-}; drift_abs=${drift_abs%%.*}
 
       summary+=("$(printf "%-28s | reads %3s → %3s | writes %3s → %3s | weight %11s → %11s | drift %6s%%" \
         "$extr" "$cr" "$mrd" "$cwrt" "$mwr" "$cw" "$meas_ps" "$drift")")
 
-      # record mismatches
-      [[ $mrd -ne $cr      ]] && new_r[$extr]=$mrd  && fail=1
-      [[ $mwr -ne $cwrt    ]] && new_w[$extr]=$mwr  && fail=1
-      (( drift_int > THRESHOLD )) && new_weight[$extr]=$meas_ps && fail=1
+      # mismatches
+      [[ $mrd -ne $cr      ]] && { new_r[$extr]=$mrd;  fail=1; }
+      [[ $mwr -ne $cwrt    ]] && { new_w[$extr]=$mwr;  fail=1; }
+      (( drift_abs > THRESHOLD )) && { new_wt[$extr]=$meas_ps; fail=1; }
     }
 
     while IFS= read -r line; do
       [[ $line =~ Extrinsic:\ \"([A-Za-z0-9_]+)\" ]] && { finalize_extr; extr="${BASH_REMATCH[1]}"; us=""; rd=""; wr=""; }
-      [[ $line =~ Time\ ~=\ *([0-9]+(\.[0-9]+)?) ]]          && us="${BASH_REMATCH[1]}"
+      [[ $line =~ Time\ ~=\ *([0-9]+(\.[0-9]+)?) ]]               && us="${BASH_REMATCH[1]}"
       [[ $line =~ Reads[[:space:]]*=[[:space:]]*([0-9_]+[0-9u]*) ]]  && rd="${BASH_REMATCH[1]}"
       [[ $line =~ Writes[[:space:]]*=[[:space:]]*([0-9_]+[0-9u]*) ]] && wr="${BASH_REMATCH[1]}"
     done < "$TMP"
@@ -191,8 +205,8 @@ for pallet in "${PALLET_LIST[@]}"; do
     fi
 
     echo "🛠   Auto‑patching $DISPATCH …"
-    for e in "${!new_weight[@]}"; do
-      patch_weight "$e" "${new_weight[$e]}" "$DISPATCH"
+    for e in "${!new_wt[@]}"; do
+      patch_weight "$e" "${new_wt[$e]}" "$DISPATCH"
       patch_reads_writes "$e" "${new_r[$e]:-0}" "${new_w[$e]:-0}" "$DISPATCH"
     done
     PATCHED_FILES+=("$DISPATCH")
