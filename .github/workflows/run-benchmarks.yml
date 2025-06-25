@@ -112,7 +112,7 @@ jobs:
           echo "SKIP_BENCHMARKS=1" >> "$GITHUB_ENV"
         fi
 
-    - name: Run & validate benchmarks (auto-fix capable)
+    - name: Run & validate benchmarks
       if: ${{ env.SKIP_BENCHMARKS != '1' }}
       run: |
         chmod +x scripts/benchmark_action.sh
