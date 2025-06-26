@@ -222,7 +222,7 @@ parameter_types! {
 pub const UNITS: Balance = 1_000_000_000;
 
 /// TODO: Check this
-pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = prod_or_fast!(4 * HOURS, 1 * MINUTES);
+pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = prod_or_fast!(4 * HOURS, MINUTES / 6);
 
 // Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 // the specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -397,7 +397,7 @@ impl pallet_grandpa::Config for Runtime {
 parameter_types! {
     pub EpochDuration: u64 = prod_or_fast!(
         EPOCH_DURATION_IN_SLOTS as u64,
-        MINUTES as u64 / 2u64,
+        MINUTES as u64 / 4u64,
         "TAO_EPOCH_DURATION"
     );
     pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;

@@ -1,27 +1,21 @@
 use crate::opaque::SessionKeys;
-use array_bytes::bytes2hex;
-use array_bytes::hex2bytes;
 use babe_primitives::AuthorityId as BabeAuthorityId;
-use babe_primitives::AuthorityId as BabeId;
 use babe_primitives::BabeAuthorityWeight;
+use frame_election_provider_support::ElectionProviderBase;
 use frame_support::WeakBoundedVec;
 use frame_support::pallet_prelude::Weight;
 use frame_support::traits::OnRuntimeUpgrade;
 use pallet_aura;
 use pallet_babe;
-use scale_info::prelude::string::String;
+use pallet_staking::ValidatorPrefs;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_consensus_slots::Slot;
 use sp_core::crypto::Ss58Codec;
-use sp_core::ed25519;
-use sp_core::sr25519;
 use sp_runtime::AccountId32;
-use sp_runtime::SaturatedConversion;
 use sp_runtime::traits::OpaqueKeys;
 use sp_runtime::traits::Zero;
 use sp_std::vec::Vec;
 
-pub(crate) fn populate_babe() -> Weight {
+pub(crate) fn pos_upgrade() -> Weight {
     // Initialize weight counter
     // TODO: Compute weight correctly
     let weight = <Runtime as frame_system::Config>::DbWeight::get().reads(1);
@@ -33,62 +27,12 @@ pub(crate) fn populate_babe() -> Weight {
         return weight;
     }
 
-    let authorities = pallet_aura::Authorities::<Runtime>::get();
-    let authorities: Vec<(BabeAuthorityId, BabeAuthorityWeight)> = authorities
-        .into_iter()
-        .map(|a| {
-            // BabeAuthorityId and AuraId are both sr25519::Public, so can convert between with
-            // Encode/Decode.
-            let encoded: Vec<u8> = a.encode();
-            log::info!(
-                "Converting Aura authority {:?} to Babe authority",
-                array_bytes::bytes2hex("", &a)
-            );
-            let decoded: BabeAuthorityId =
-                BabeAuthorityId::decode(&mut &encoded[..]).expect("Failed to decode authority");
-            log::info!(
-                "Decoded Babe authority: {:?}",
-                array_bytes::bytes2hex("", &decoded)
-            );
-            (decoded, 1)
-        })
-        .collect::<Vec<_>>();
-    let bounded_authorities =
-        WeakBoundedVec::<_, <Runtime as pallet_babe::Config>::MaxAuthorities>::try_from(
-            authorities.to_vec(),
-        )
-        .expect("Initial number of authorities should be lower than T::MaxAuthorities");
-
-    log::info!("Set {} into bounded authorites", bounded_authorities.len());
-    pallet_babe::SegmentIndex::<Runtime>::put(0);
-    pallet_babe::Authorities::<Runtime>::put(&bounded_authorities);
-    pallet_babe::NextAuthorities::<Runtime>::put(&bounded_authorities);
-    pallet_babe::EpochConfig::<Runtime>::put(BABE_GENESIS_EPOCH_CONFIG);
-
-    //     2025-06-17 13:11:31 panicked at /Users/liamaharon/grimoire/polkadot-sdk/substrate/frame/babe/src/lib.rs:938:3:
-    // assertion `left == right` failed: Timestamp slot must match `CurrentSlot`
-    //   left: Slot(7000490749) // current slot
-    //  right: Slot(7000490765) // timestamp slot
-
-    let now = pallet_timestamp::Now::<Runtime>::get();
-    let slot_duration = pallet_babe::Pallet::<Runtime>::slot_duration();
-    let timestamp_slot = now / slot_duration;
-    let timestamp_slot = Slot::from(timestamp_slot.saturated_into::<u64>());
-
-    log::info!(
-        "now: {:?}, slot_duration: {:?}, timestamp_slot: {:?}",
-        &now,
-        &slot_duration,
-        &timestamp_slot
-    );
-
-    // let current_slot = pallet_aura::CurrentSlot::<Runtime>::get();
-    pallet_babe::CurrentSlot::<Runtime>::put(timestamp_slot.saturating_add(1u64));
-
-    // TODO: Init session pallet
-    initialize_pallet_session(authorities.into_iter().map(|a| a.0).collect());
-
-    // TODO: Init Staking pallet
+    // IMPORTANT: These steps depend on each other.
+    //
+    // **Do not rearange them!
+    initialize_pallet_babe();
+    initialize_pallet_session();
+    initialize_pallet_staking();
 
     // Brick the Aura pallet so no new Aura blocks can be produced after this runtime upgrade.
     let _ = pallet_aura::Authorities::<Runtime>::take();
@@ -96,7 +40,119 @@ pub(crate) fn populate_babe() -> Weight {
     weight
 }
 
-fn initialize_pallet_session(babe_authorities: Vec<BabeAuthorityId>) {
+fn initialize_pallet_staking() {
+    let authorities = pallet_babe::Authorities::<Runtime>::get()
+        .into_iter()
+        .map(|a| babe_id_to_account_id32(a.0))
+        .collect::<Vec<_>>();
+    let minimum_validator_count = 1;
+    let validator_count = authorities.len() as u32;
+    let stakers = authorities
+        .iter()
+        .map(|x| {
+            (
+                x.clone(),
+                x.clone(),
+                UNITS,
+                pallet_staking::StakerStatus::<AccountId32>::Validator,
+            )
+        })
+        .collect::<Vec<_>>();
+    let invulnerables = authorities.clone();
+    let force_era = pallet_staking::Forcing::NotForcing;
+    let slash_reward_fraction = Perbill::from_percent(10);
+
+    pallet_staking::ValidatorCount::<Runtime>::put(validator_count);
+    pallet_staking::MinimumValidatorCount::<Runtime>::put(minimum_validator_count);
+    pallet_staking::Invulnerables::<Runtime>::put(&invulnerables);
+    pallet_staking::ForceEra::<Runtime>::put(force_era);
+    pallet_staking::CanceledSlashPayout::<Runtime>::put(0);
+    pallet_staking::SlashRewardFraction::<Runtime>::put(slash_reward_fraction);
+    pallet_staking::MinNominatorBond::<Runtime>::put(10);
+    pallet_staking::MinValidatorBond::<Runtime>::put(10);
+    pallet_staking::MaxValidatorsCount::<Runtime>::put(20);
+    pallet_staking::MaxNominatorsCount::<Runtime>::put(100);
+
+    for &(ref account, _, balance, ref status) in &stakers {
+        log::info!(
+            "inserting genesis staker: {:?} => {:?} => {:?}",
+            account,
+            balance,
+            status
+        );
+        assert!(
+            Balances::usable_balance(account) >= balance,
+            "Account does not have enough balance to bond."
+        );
+        <pallet_staking::Pallet<Runtime>>::bond(
+            RawOrigin::Signed(account.clone()).into(),
+            balance,
+            pallet_staking::RewardDestination::Staked,
+        )
+        .unwrap();
+        <pallet_staking::Pallet<Runtime>>::validate(
+            RawOrigin::Signed(account.clone()).into(),
+            ValidatorPrefs {
+                commission: Perbill::from_percent(1),
+                blocked: false,
+            },
+        )
+        .unwrap();
+        assert!(
+            pallet_staking::ValidatorCount::<Runtime>::get()
+                <= <<Runtime as pallet_staking::Config>::ElectionProvider as ElectionProviderBase>::MaxWinners::get()
+        );
+    }
+
+    // // all voters are reported to the `VoterList`.
+    // assert_eq!(
+    //     <Runtime as pallet_staking::Config>::VoterList::count(),
+    //     pallet_staking::Nominators::<Runtime>::count()
+    //         + pallet_staking::Validators::<Runtime>::count(),
+    //     "not all genesis stakers were inserted into sorted list provider, something is wrong."
+    // );
+}
+
+fn initialize_pallet_babe() {
+    let authorities: Vec<(BabeAuthorityId, BabeAuthorityWeight)> =
+        pallet_aura::Authorities::<Runtime>::get()
+            .into_iter()
+            .map(|a| {
+                // BabeAuthorityId and AuraId are both sr25519::Public, so can convert between with
+                // Encode/Decode.
+                let encoded: Vec<u8> = a.encode();
+                log::info!(
+                    "Converting Aura authority {:?} to Babe authority",
+                    array_bytes::bytes2hex("", &a)
+                );
+                let decoded: BabeAuthorityId =
+                    BabeAuthorityId::decode(&mut &encoded[..]).expect("Failed to decode authority");
+                log::info!(
+                    "Decoded Babe authority: {:?}",
+                    array_bytes::bytes2hex("", &decoded)
+                );
+                (decoded, 1)
+            })
+            .collect::<Vec<_>>();
+    let bounded_authorities =
+        WeakBoundedVec::<_, <Runtime as pallet_babe::Config>::MaxAuthorities>::try_from(
+            authorities.to_vec(),
+        )
+        .expect("Initial number of authorities should be lower than Runtime::MaxAuthorities");
+
+    log::info!("Set {} into bounded authorites", bounded_authorities.len());
+    pallet_babe::SegmentIndex::<Runtime>::put(0);
+    pallet_babe::Authorities::<Runtime>::put(&bounded_authorities);
+    pallet_babe::NextAuthorities::<Runtime>::put(&bounded_authorities);
+    pallet_babe::EpochConfig::<Runtime>::put(BABE_GENESIS_EPOCH_CONFIG);
+}
+
+fn initialize_pallet_session() {
+    let babe_authorities = pallet_babe::Authorities::<Runtime>::get()
+        .into_iter()
+        .map(|a| a.0)
+        .collect::<Vec<_>>();
+
     log::info!(
         "Initializing pallet_session with authorities: {:?}",
         babe_authorities
@@ -105,14 +161,12 @@ fn initialize_pallet_session(babe_authorities: Vec<BabeAuthorityId>) {
     let keys: Vec<(AccountId32, SessionKeys)> = babe_authorities
         .into_iter()
         .map(|babe_id| {
-            // Babe and AccountId32 are both sr25519::Public. We can convert between them like this.
-            let babe_id_bytes: [u8; 32] = babe_id.clone().into_inner().into();
-            let account: AccountId32 = AccountId32::new(babe_id_bytes);
             // let account = AccountId32::from_ss58check(&ss58).unwrap();
             let keys = SessionKeys {
                 babe: babe_id.clone(),
-                grandpa: babe_to_grandpa_id(babe_id).unwrap(),
+                grandpa: babe_to_grandpa_id(babe_id.clone()).unwrap(),
             };
+            let account = babe_id_to_account_id32(babe_id);
             log::info!(
                 "Built SessionKeys Account: {:?} Keys: {:?}",
                 &account,
@@ -139,6 +193,13 @@ fn initialize_pallet_session(babe_authorities: Vec<BabeAuthorityId>) {
     pallet_session::QueuedKeys::<Runtime>::put(keys);
 }
 
+/// Convert a BabeAuthorityId to AccountId32.
+fn babe_id_to_account_id32(babe: BabeAuthorityId) -> AccountId32 {
+    // Babe and AccountId32 are both sr25519::Public. We can convert between them like this.
+    let babe_id_bytes: [u8; 32] = babe.into_inner().into();
+    AccountId32::new(babe_id_bytes)
+}
+
 /// Grandpa keys are in a different encoding to Aura/Babe.
 ///
 /// The pallet_session `KeyOwner` storage requires a mapping from Aura/Babe to
@@ -146,8 +207,10 @@ fn initialize_pallet_session(babe_authorities: Vec<BabeAuthorityId>) {
 ///
 /// The pub keys in this function were seeded from Alice, Bob, Charlie, Dave, Eve, Ferdie,
 /// and known Bittensor devnet, testnet and finney authorities.
+///
+/// TODO: Double check these values.
 fn babe_to_grandpa_id(babe: BabeAuthorityId) -> Option<GrandpaId> {
-    match babe.to_ss58check().as_str() {
+    let res = match babe.to_ss58check().as_str() {
         // Alice
         "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY" => {
             GrandpaId::from_ss58check("5FA9nQDVg267DEd8m1ZypXLBnvN7SFxYwV7ndqSYGiN9TTpu").ok()
@@ -257,6 +320,24 @@ fn babe_to_grandpa_id(babe: BabeAuthorityId) -> Option<GrandpaId> {
             GrandpaId::from_ss58check("5DhAKQ4MFg39mQAYzndzbznLGqSV4VMUJUyRXe8QPDqD5G1D").ok()
         }
         _ => None,
+    };
+
+    match res {
+        Some(grandpa_id) => {
+            log::info!(
+                "Successfully mapped BabeId {:?} to GrandpaId {:?}",
+                babe.to_ss58check(),
+                grandpa_id.to_ss58check()
+            );
+            Some(grandpa_id)
+        }
+        None => {
+            log::error!(
+                "Failed to map Babe authority {:?} to Grandpa authority!!!",
+                babe.to_ss58check()
+            );
+            None
+        }
     }
 }
 
@@ -274,7 +355,7 @@ impl OnRuntimeUpgrade for Migration {
     ///
     /// Returns the weight of the migration operation.
     fn on_runtime_upgrade() -> Weight {
-        populate_babe()
+        pos_upgrade()
     }
 
     /// Performs post-upgrade checks to ensure the migration was successful.
