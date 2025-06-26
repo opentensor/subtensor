@@ -22,7 +22,6 @@ declare -A DISPATCH_PATHS=(
   [admin_utils]="../pallets/admin-utils/src/lib.rs"
   [commitments]="../pallets/commitments/src/lib.rs"
   [drand]="../pallets/drand/src/lib.rs"
-  [swap]="../pallets/swap/src/pallet/mod.rs"
 )
 
 THRESHOLD=15
@@ -35,9 +34,9 @@ AUTO_COMMIT="${AUTO_COMMIT_WEIGHTS:-0}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNTIME_WASM="$SCRIPT_DIR/../target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm"
 
-die()               { echo "❌ $1" >&2; exit 1; }
-digits_only()       { echo "${1//[^0-9]/}"; }                  # strip _ and suffixes
-dec()               { local d; d="$(digits_only "$1")"; echo "$((10#${d:-0}))"; }
+die()                 { echo "❌ $1" >&2; exit 1; }
+digits_only()         { echo "${1//[^0-9]/}"; }       # strip _ and suffixes
+dec()                 { local d; d=$(digits_only "$1"); echo "$((10#${d:-0}))"; }
 
 # Patch helpers (used only when AUTO_COMMIT_WEIGHTS=1)
 patch_weight() {
@@ -58,12 +57,23 @@ patch_reads_writes() {
 
 git_commit_and_push() {
   local msg="$1"
+  local branch
+  branch="$(git symbolic-ref --quiet --short HEAD || true)"
+  [[ -z "$branch" ]] && die "Not on a branch – cannot push"
+
   git config user.name  "github-actions[bot]"
   git config user.email "github-actions[bot]@users.noreply.github.com"
   git add "${PATCHED_FILES[@]}"
-  if ! git diff --cached --quiet; then
-    git commit -m "$msg"
-    git push
+
+  if git diff --cached --quiet; then
+    echo "ℹ️  Nothing to commit; patches produced no diff."
+    return
+  fi
+
+  git commit -m "$msg"
+  # explicit remote/branch to avoid 'simple' push failures
+  if ! git push origin "HEAD:${branch}"; then
+    die "Failed to push patches to remote branch '${branch}'."
   fi
 }
 
@@ -112,7 +122,7 @@ for pallet in "${PALLET_LIST[@]}"; do
 
     # ───── Parse benchmark output ─────
     declare -A new_weight=() new_reads=() new_writes=()
-    summary_lines=(); failures_lines=(); fail=0
+    summary_lines=(); failure_lines=(); fail=0
 
     extr=""; meas_us=""; meas_reads=""; meas_writes=""
 
@@ -156,17 +166,17 @@ for pallet in "${PALLET_LIST[@]}"; do
         "$extr" "$code_r" "$meas_reads" "$code_wr" "$meas_writes" "$code_w" "$meas_ps" "$drift")")
 
       if (( meas_reads != code_r )); then
-        failures_lines+=("[$extr] reads mismatch (code=$code_r, measured=$meas_reads)")
+        failure_lines+=("[$extr] reads mismatch (code=$code_r, measured=$meas_reads)")
         new_reads["$extr"]="$meas_reads"
         fail=1
       fi
       if (( meas_writes != code_wr )); then
-        failures_lines+=("[$extr] writes mismatch (code=$code_wr, measured=$meas_writes)")
+        failure_lines+=("[$extr] writes mismatch (code=$code_wr, measured=$meas_writes)")
         new_writes["$extr"]="$meas_writes"
         fail=1
       fi
       if (( drift_int > THRESHOLD )); then
-        failures_lines+=("[$extr] weight drift ${drift}% (code=$code_w, measured=$meas_ps)")
+        failure_lines+=("[$extr] weight drift ${drift}% (code=$code_w, measured=$meas_ps)")
         new_weight["$extr"]="$meas_ps"
         fail=1
       fi
@@ -188,10 +198,8 @@ for pallet in "${PALLET_LIST[@]}"; do
       break
     fi
 
-    # Print detailed failures
-    printf '  ❌ %s\n' "${failures_lines[@]}"
+    printf '  ❌ %s\n' "${failure_lines[@]}"
 
-    # Retry loop decision
     if (( attempt < MAX_RETRIES )); then
       echo "→ Retrying …"
       (( attempt++ ))
@@ -211,16 +219,15 @@ for pallet in "${PALLET_LIST[@]}"; do
     echo "🛠  Auto‑patching $DISPATCH …"
     for fn in "${!new_weight[@]}"; do
       [[ -n "${new_weight[$fn]}" ]] && patch_weight "$fn" "${new_weight[$fn]}" "$DISPATCH"
-
       r="${new_reads[$fn]:-}"; w="${new_writes[$fn]:-}"
       [[ -n "$r" || -n "$w" ]] && patch_reads_writes "$fn" "${r:-0}" "${w:-0}" "$DISPATCH"
     done
     PATCHED_FILES+=("$DISPATCH")
 
     echo "✅ Patched $pallet; moving on to next pallet."
-    break   # move to next pallet (do NOT re‑benchmark this one)
-  done  # while attempt
-done    # for pallet
+    break   # move to next pallet
+  done      # retry loop
+done        # pallet loop
 
 ################################################################################
 # Commit & push any patches
