@@ -346,24 +346,7 @@ use crate::*;
 pub struct Migration;
 
 impl OnRuntimeUpgrade for Migration {
-    /// Performs the migration to initialize and update the total issuance.
-    ///
-    /// This function does the following:
-    /// 1. Calculates the total locked tokens across all subnets
-    /// 2. Retrieves the total account balances and total stake
-    /// 3. Computes and updates the new total issuance
-    ///
-    /// Returns the weight of the migration operation.
     fn on_runtime_upgrade() -> Weight {
         pos_upgrade()
-    }
-
-    /// Performs post-upgrade checks to ensure the migration was successful.
-    ///
-    /// This function is only compiled when the "try-runtime" feature is enabled.
-    #[cfg(feature = "try-runtime")]
-    fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-        // TODO: impl
-        Ok(())
     }
 }
