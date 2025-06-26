@@ -820,3 +820,56 @@ fn test_migrate_remove_commitments_rate_limit() {
         assert!(!weight.is_zero(), "Migration weight should be non-zero");
     });
 }
+
+#[test]
+fn test_migrate_subnet_symbols() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_subnet_symbols";
+
+        // Create 100 subnets
+        for i in 0..100 {
+            add_network(i.into(), 1, 0);
+        }
+
+        // Shift some symbols
+        TokenSymbol::<Test>::insert(
+            NetUid::from(21),
+            SubtensorModule::get_symbol_for_subnet(NetUid::from(142)),
+        );
+        TokenSymbol::<Test>::insert(
+            NetUid::from(42),
+            SubtensorModule::get_symbol_for_subnet(NetUid::from(184)),
+        );
+        TokenSymbol::<Test>::insert(
+            NetUid::from(83),
+            SubtensorModule::get_symbol_for_subnet(NetUid::from(242)),
+        );
+        TokenSymbol::<Test>::insert(
+            NetUid::from(99),
+            SubtensorModule::get_symbol_for_subnet(NetUid::from(284)),
+        );
+
+        // Run the migration
+        let weight = crate::migrations::migrate_subnet_symbols::migrate_subnet_symbols::<Test>();
+
+        // Check that the symbols have been corrected
+        assert_eq!(
+            TokenSymbol::<Test>::get(NetUid::from(21)),
+            SubtensorModule::get_symbol_for_subnet(NetUid::from(21))
+        );
+        assert_eq!(
+            TokenSymbol::<Test>::get(NetUid::from(42)),
+            SubtensorModule::get_symbol_for_subnet(NetUid::from(42))
+        );
+        assert_eq!(
+            TokenSymbol::<Test>::get(NetUid::from(83)),
+            SubtensorModule::get_symbol_for_subnet(NetUid::from(83))
+        );
+        assert_eq!(
+            TokenSymbol::<Test>::get(NetUid::from(99)),
+            SubtensorModule::get_symbol_for_subnet(NetUid::from(99))
+        );
+
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+    });
+}
