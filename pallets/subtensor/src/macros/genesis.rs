@@ -42,7 +42,10 @@ mod genesis {
             TargetRegistrationsPerInterval::<T>::insert(NetUid::ROOT, 1);
 
             // Set token symbol for root
-            TokenSymbol::<T>::insert(NetUid::ROOT, Pallet::<T>::get_symbol_for_subnet(NetUid::ROOT));
+            TokenSymbol::<T>::insert(
+                NetUid::ROOT,
+                Pallet::<T>::get_symbol_for_subnet(NetUid::ROOT),
+            );
 
             let netuid = NetUid::from(1);
             let hotkey = DefaultAccount::<T>::get();

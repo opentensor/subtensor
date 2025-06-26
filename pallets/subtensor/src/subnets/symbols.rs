@@ -957,4 +957,28 @@ impl<T: Config> Pallet<T> {
         // If we have exhausted all symbols, we use the default symbol.
         available_symbol.unwrap_or(DEFAULT_SYMBOL.to_vec())
     }
+
+    pub fn ensure_symbol_exists(symbol: &[u8]) -> DispatchResult {
+        if SYMBOLS
+            .iter()
+            .skip(1) // Skip the root symbol
+            .find(|s| *s == &symbol)
+            .is_none()
+        {
+            return Err(Error::<T>::SymbolDoesNotExist.into());
+        }
+
+        Ok(())
+    }
+
+    pub fn ensure_symbol_available(symbol: &[u8]) -> DispatchResult {
+        if TokenSymbol::<T>::iter_values()
+            .find(|s| *s == symbol)
+            .is_some()
+        {
+            return Err(Error::<T>::SymbolAlreadyInUse.into());
+        }
+
+        Ok(())
+    }
 }

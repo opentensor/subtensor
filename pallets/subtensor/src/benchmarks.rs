@@ -1355,7 +1355,7 @@ mod pallet_benchmarks {
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey), hotkey);
     }
-    
+
     #[benchmark]
     fn remove_stake_full_limit() {
         let netuid = NetUid::from(1);

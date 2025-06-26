@@ -6,7 +6,6 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod dispatches {
-    use crate::subnets::symbols::SYMBOLS;
     use frame_support::traits::schedule::DispatchTime;
     use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
     use frame_system::pallet_prelude::BlockNumberFor;
@@ -2070,7 +2069,7 @@ mod dispatches {
             PendingChildKeyCooldown::<T>::put(cooldown);
             Ok(())
         }
-        
+
         /// Removes all stake from a hotkey on a subnet with a price limit.
         /// This extrinsic allows to specify the limit price for alpha token
         /// at which or better (higher) the staking should execute.
@@ -2116,19 +2115,8 @@ mod dispatches {
         ) -> DispatchResult {
             Self::ensure_subnet_owner_or_root(origin, netuid)?;
 
-            if SYMBOLS
-                .iter()
-                .skip(1) // Skip the root symbol
-                .find(|s| *s == &symbol)
-                .is_none()
-            {
-                return Err(Error::<T>::SymbolDoesNotExist.into());
-            }
-
-            let used_symbols = TokenSymbol::<T>::iter_values().collect::<Vec<_>>();
-            if used_symbols.contains(&symbol) {
-                return Err(Error::<T>::SymbolAlreadyInUse.into());
-            }
+            Self::ensure_symbol_exists(&symbol)?;
+            Self::ensure_symbol_available(&symbol)?;
 
             TokenSymbol::<T>::insert(netuid, symbol.clone());
 
