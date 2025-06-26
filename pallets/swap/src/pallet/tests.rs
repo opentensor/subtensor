@@ -607,6 +607,10 @@ fn test_modify_position_basic() {
             )
             .unwrap();
 
+            // Get tick infos before the swap/update
+            let tick_low_info_before = Ticks::<Test>::get(netuid, tick_low).unwrap();
+            let tick_high_info_before = Ticks::<Test>::get(netuid, tick_high).unwrap();
+
             // Swap to create fees on the position
             let sqrt_limit_price = SqrtPrice::from_num((limit_price).sqrt());
             Pallet::<Test>::do_swap(
@@ -647,6 +651,27 @@ fn test_modify_position_basic() {
             assert_eq!(position.liquidity, liquidity * 9 / 10);
             assert_eq!(position.tick_low, tick_low);
             assert_eq!(position.tick_high, tick_high);
+
+            // Tick liquidity is updated properly for low and high position ticks
+            let tick_low_info_after = Ticks::<Test>::get(netuid, tick_low).unwrap();
+            let tick_high_info_after = Ticks::<Test>::get(netuid, tick_high).unwrap();
+
+            assert_eq!(
+                tick_low_info_before.liquidity_net - (liquidity / 10) as i128,
+                tick_low_info_after.liquidity_net,
+            );
+            assert_eq!(
+                tick_low_info_before.liquidity_gross - (liquidity / 10) as u64,
+                tick_low_info_after.liquidity_gross,
+            );
+            assert_eq!(
+                tick_high_info_before.liquidity_net + (liquidity / 10) as i128,
+                tick_high_info_after.liquidity_net,
+            );
+            assert_eq!(
+                tick_high_info_before.liquidity_gross - (liquidity / 10) as u64,
+                tick_high_info_after.liquidity_gross,
+            );
 
             // Modify liquidity again (ensure fees aren't double-collected)
             let modify_result = Pallet::<Test>::do_modify_position(
