@@ -959,10 +959,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn ensure_symbol_exists(symbol: &[u8]) -> DispatchResult {
-        if !SYMBOLS
-            .iter()
-            .skip(1).any(|s| s == &symbol)
-        {
+        if !SYMBOLS.iter().skip(1).any(|s| s == &symbol) {
             return Err(Error::<T>::SymbolDoesNotExist.into());
         }
 
@@ -970,9 +967,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn ensure_symbol_available(symbol: &[u8]) -> DispatchResult {
-        if TokenSymbol::<T>::iter_values()
-            .any(|s| s == symbol)
-        {
+        if TokenSymbol::<T>::iter_values().any(|s| s == symbol) {
             return Err(Error::<T>::SymbolAlreadyInUse.into());
         }
 
