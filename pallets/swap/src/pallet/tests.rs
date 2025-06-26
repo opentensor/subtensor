@@ -661,7 +661,7 @@ fn test_modify_position_basic() {
                 tick_low_info_after.liquidity_net,
             );
             assert_eq!(
-                tick_low_info_before.liquidity_gross - (liquidity / 10) as u64,
+                tick_low_info_before.liquidity_gross - (liquidity / 10),
                 tick_low_info_after.liquidity_gross,
             );
             assert_eq!(
@@ -669,7 +669,7 @@ fn test_modify_position_basic() {
                 tick_high_info_after.liquidity_net,
             );
             assert_eq!(
-                tick_high_info_before.liquidity_gross - (liquidity / 10) as u64,
+                tick_high_info_before.liquidity_gross - (liquidity / 10),
                 tick_high_info_after.liquidity_gross,
             );
 
