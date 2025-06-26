@@ -1,4 +1,5 @@
 use super::*;
+use alloc::string::String;
 use frame_support::IterableStorageMap;
 use frame_support::{traits::Get, weights::Weight};
 
