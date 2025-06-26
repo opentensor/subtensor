@@ -117,7 +117,9 @@ mod hooks {
                 // Reset max burn
                 .saturating_add(migrations::migrate_reset_max_burn::migrate_reset_max_burn::<T>())
                 // Migrate ColdkeySwapScheduled structure to new format
-                .saturating_add(migrations::migrate_coldkey_swap_scheduled::migrate_coldkey_swap_scheduled::<T>());
+                .saturating_add(migrations::migrate_coldkey_swap_scheduled::migrate_coldkey_swap_scheduled::<T>())
+                // Fix the root subnet TAO storage value
+                .saturating_add(migrations::migrate_fix_root_subnet_tao::migrate_fix_root_subnet_tao::<T>());
             weight
         }
 
