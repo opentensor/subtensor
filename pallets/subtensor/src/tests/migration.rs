@@ -822,6 +822,40 @@ fn test_migrate_remove_commitments_rate_limit() {
 }
 
 #[test]
+fn test_migrate_fix_root_subnet_tao() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_fix_root_subnet_tao";
+
+        let mut expected_total_stake = 0;
+        // Seed some hotkeys with some fake stake.
+        for i in 0..100_000 {
+            Owner::<Test>::insert(U256::from(U256::from(i)), U256::from(i + 1_000_000));
+            let stake = i + 1_000_000;
+            TotalHotkeyAlpha::<Test>::insert(U256::from(U256::from(i)), NetUid::ROOT, stake);
+            expected_total_stake += stake;
+        }
+
+        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), 0);
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // Run the migration
+        let weight =
+            crate::migrations::migrate_fix_root_subnet_tao::migrate_fix_root_subnet_tao::<Test>();
+
+        // Verify the migration ran correctly
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as run"
+        );
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), expected_total_stake);
+    });
+}
+
+#[test]
 fn test_migrate_subnet_symbols() {
     new_test_ext(1).execute_with(|| {
         const MIGRATION_NAME: &str = "migrate_subnet_symbols";
