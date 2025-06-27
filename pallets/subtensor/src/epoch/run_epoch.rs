@@ -577,20 +577,19 @@ impl<T: Config> Pallet<T> {
         );
         log::trace!("Weights (permit+diag+outdate): {:?}", &weights);
 
+        // ------------------------------------------------------------------
         // Commit‑reveal safety mask
+        // ------------------------------------------------------------------
         if Self::get_commit_reveal_weights_enabled(netuid) {
             let mut pending_commit_mask: Vec<bool> = vec![false; n as usize];
 
-            let current_epoch = Self::get_epoch_index(netuid, current_block);
-            let reveal_period = Self::get_reveal_period(netuid);
+            let current_epoch  = Self::get_epoch_index(netuid, current_block);
+            let reveal_period  = Self::get_reveal_period(netuid);
             let earliest_epoch = current_epoch.saturating_sub(reveal_period.saturating_sub(1));
 
             let has_live_commit = |acc: &T::AccountId| -> bool {
                 if let Some(queue) = WeightCommits::<T>::get(netuid, acc) {
-                    if queue
-                        .iter()
-                        .any(|(_, blk, _, _)| !Self::is_commit_expired(netuid, *blk))
-                    {
+                    if queue.iter().any(|(_, blk, _, _)| !Self::is_commit_expired(netuid, *blk)) {
                         return true;
                     }
                 }
@@ -617,6 +616,25 @@ impl<T: Config> Pallet<T> {
                 );
                 weights = mask_rows_sparse(&pending_commit_mask, &weights);
             }
+        }
+
+        // ------------------------------------------------------------------
+        // NEW: zero weights during the *first tempo* after registration
+        // ------------------------------------------------------------------
+        let mut first_tempo_mask: Vec<bool> = vec![false; n as usize];
+        for (uid_i, &reg_block) in block_at_registration.iter().enumerate() {
+            // If the neuron registered within the current tempo window,
+            // it must not influence consensus until the next tempo.
+            if reg_block >= current_block.saturating_sub(tempo) {
+                first_tempo_mask[uid_i] = true;
+            }
+        }
+        if first_tempo_mask.iter().any(|&b| b) {
+            log::trace!(
+                "Masking validators registered this tempo: {:?}",
+                first_tempo_mask
+            );
+            weights = mask_rows_sparse(&first_tempo_mask, &weights);
         }
 
         // Normalize remaining weights.
