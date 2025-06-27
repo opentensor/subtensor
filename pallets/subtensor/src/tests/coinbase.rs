@@ -1,10 +1,12 @@
 #![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
 use super::mock::*;
 
+use crate::tests::mock;
 use crate::*;
 use alloc::collections::BTreeMap;
 use approx::assert_abs_diff_eq;
 use frame_support::assert_ok;
+use pallet_subtensor_swap::position::PositionId;
 use sp_core::U256;
 use substrate_fixed::types::{I64F64, I96F32, U96F32};
 
@@ -439,6 +441,7 @@ fn test_owner_cut_base() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
         add_network(netuid, 1, 0);
+        mock::setup_reserves(netuid, 1_000_000_000_000, 1_000_000_000_000);
         SubtensorModule::set_tempo(netuid, 10000); // Large number (dont drain)
         SubtensorModule::set_subnet_owner_cut(0);
         SubtensorModule::run_coinbase(U96F32::from_num(0));
@@ -456,6 +459,7 @@ fn test_pending_swapped() {
         let netuid = NetUid::from(1);
         let emission: u64 = 1_000_000;
         add_network(netuid, 1, 0);
+        mock::setup_reserves(netuid, 1_000_000, 1);
         SubtensorModule::run_coinbase(U96F32::from_num(0));
         assert_eq!(PendingAlphaSwapped::<Test>::get(netuid), 0); // Zero tao weight and no root.
         SubnetTAO::<Test>::insert(NetUid::ROOT, 1_000_000_000); // Add root weight.
@@ -464,12 +468,18 @@ fn test_pending_swapped() {
         SubtensorModule::set_tempo(netuid, 10000); // Large number (dont drain)
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
         SubtensorModule::run_coinbase(U96F32::from_num(0));
-        assert_eq!(PendingAlphaSwapped::<Test>::get(netuid), 125000000); // 1 TAO / ( 1 + 3 ) = 0.25 * 1 / 2 = 125000000
-        assert_eq!(
+        // 1 TAO / ( 1 + 3 ) = 0.25 * 1 / 2 = 125000000
+        assert_abs_diff_eq!(
+            PendingAlphaSwapped::<Test>::get(netuid),
+            125000000,
+            epsilon = 1
+        );
+        assert_abs_diff_eq!(
             PendingEmission::<Test>::get(netuid),
-            1_000_000_000 - 125000000
+            1_000_000_000 - 125000000,
+            epsilon = 1
         ); // 1 - swapped.
-        assert_eq!(PendingRootDivs::<Test>::get(netuid), 125000000); // swapped * (price = 1)
+        assert_abs_diff_eq!(PendingRootDivs::<Test>::get(netuid), 125000000, epsilon = 1); // swapped * (price = 1)
     });
 }
 
@@ -563,6 +573,7 @@ fn test_drain_base_with_subnet_with_single_staker_registered_root_weight() {
         );
         let pending_tao: u64 = 1_000_000_000;
         let pending_alpha: u64 = 1_000_000_000;
+        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), 0);
         SubtensorModule::drain_pending_emission(netuid, pending_alpha, pending_tao, 0, 0);
         let stake_after =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
@@ -573,6 +584,7 @@ fn test_drain_base_with_subnet_with_single_staker_registered_root_weight() {
         );
         close(stake_before + pending_alpha, stake_after, 10); // Registered gets all alpha emission.
         close(stake_before + pending_tao, root_after, 10); // Registered gets all tao emission
+        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), pending_tao);
     });
 }
 
@@ -652,6 +664,7 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root() {
         );
         let pending_tao: u64 = 1_000_000_000;
         let pending_alpha: u64 = 1_000_000_000;
+        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), 0);
         SubtensorModule::drain_pending_emission(netuid, pending_alpha, pending_tao, 0, 0);
         let stake_after1 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &coldkey, netuid);
@@ -671,6 +684,7 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root() {
         close(stake_before + pending_alpha / 2, stake_after2, 10); // Registered gets 1/2 emission.
         close(stake_before + pending_tao / 2, root_after1, 10); // Registered gets 1/2 tao emission
         close(stake_before + pending_tao / 2, root_after2, 10); // Registered gets 1/2 tao emission
+        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), pending_tao);
     });
 }
 
@@ -715,6 +729,7 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         );
         let pending_tao: u64 = 1_000_000_000;
         let pending_alpha: u64 = 1_000_000_000;
+        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), 0);
         SubtensorModule::drain_pending_emission(netuid, pending_alpha, pending_tao, 0, 0);
         let stake_after1 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &coldkey, netuid);
@@ -742,6 +757,11 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         let expected_root2 = I96F32::from_num(stake_before)
             + I96F32::from_num(pending_tao) * I96F32::from_num(1.0 / 3.0);
         assert_abs_diff_eq!(expected_root2.to_num::<u64>(), root_after2, epsilon = 10); // Registered gets 1/3 tao emission
+        assert_abs_diff_eq!(
+            SubnetTAO::<Test>::get(NetUid::ROOT),
+            pending_tao,
+            epsilon = 10
+        );
     });
 }
 
@@ -787,6 +807,7 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         );
         let pending_tao: u64 = 1_000_000_000;
         let pending_alpha: u64 = 1_000_000_000;
+        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), 0);
         SubtensorModule::drain_pending_emission(netuid, pending_alpha, pending_tao, 0, 0);
         let stake_after1 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &coldkey, netuid);
@@ -816,6 +837,11 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         let expected_root2 = I96F32::from_num(stake_before)
             + I96F32::from_num(pending_tao) * I96F32::from_num(1.0 / 3.0);
         assert_abs_diff_eq!(expected_root2.to_num::<u64>(), root_after2, epsilon = 10);
+        assert_abs_diff_eq!(
+            SubnetTAO::<Test>::get(NetUid::ROOT),
+            pending_tao,
+            epsilon = 10
+        );
     });
 }
 
@@ -1070,28 +1096,34 @@ fn test_get_root_children_drain() {
             bob_alpha_stake + pending_alpha / 2
         );
 
+        // There should be no TAO on the root subnet.
+        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), 0);
+
         // Lets drain
         let pending_alpha: u64 = 1_000_000_000;
-        let pending_root: u64 = 1_000_000_000;
-        SubtensorModule::drain_pending_emission(alpha, pending_alpha, pending_root, 0, 0);
+        let pending_root1: u64 = 1_000_000_000;
+        SubtensorModule::drain_pending_emission(alpha, pending_alpha, pending_root1, 0, 0);
 
         // Alice and Bob both made half of the dividends.
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&alice, NetUid::ROOT),
-            alice_root_stake + pending_root / 2
+            alice_root_stake + pending_root1 / 2
         );
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&bob, NetUid::ROOT),
-            bob_root_stake + pending_root / 2
+            bob_root_stake + pending_root1 / 2
         );
+
+        // The pending root dividends should be present in root subnet.
+        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), pending_root1);
 
         // Lets change the take value. (Bob is greedy.)
         ChildkeyTake::<Test>::insert(bob, alpha, u16::MAX);
 
         // Lets drain
         let pending_alpha: u64 = 1_000_000_000;
-        let pending_root: u64 = 1_000_000_000;
-        SubtensorModule::drain_pending_emission(alpha, pending_alpha, pending_root, 0, 0);
+        let pending_root2: u64 = 1_000_000_000;
+        SubtensorModule::drain_pending_emission(alpha, pending_alpha, pending_root2, 0, 0);
 
         // Alice makes nothing
         assert_eq!(AlphaDividendsPerSubnet::<Test>::get(alpha, alice), 0);
@@ -1102,7 +1134,15 @@ fn test_get_root_children_drain() {
             pending_alpha,
             epsilon = 1
         );
-        assert_eq!(TaoDividendsPerSubnet::<Test>::get(alpha, bob), pending_root);
+        assert_eq!(
+            TaoDividendsPerSubnet::<Test>::get(alpha, bob),
+            pending_root2
+        );
+        // The pending root dividends should be present in root subnet.
+        assert_eq!(
+            SubnetTAO::<Test>::get(NetUid::ROOT),
+            pending_root1 + pending_root2
+        );
     });
 }
 
@@ -1988,6 +2028,9 @@ fn test_run_coinbase_not_started() {
         // Set weight-set limit to 0.
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
+        let reserve = init_stake * 1000;
+        mock::setup_reserves(netuid, reserve, reserve);
+
         register_ok_neuron(netuid, hotkey, coldkey, 0);
         register_ok_neuron(netuid, miner_hk, miner_ck, 0);
         register_ok_neuron(netuid, sn_owner_hk, sn_owner_ck, 0);
@@ -2140,5 +2183,46 @@ fn test_run_coinbase_not_started_start_after() {
         // We expect the stake to remain unchanged.
         assert!(new_stake > init_stake);
         log::info!("new_stake: {}", new_stake);
+    });
+}
+
+/// Test that coinbase updates protocol position liquidity
+/// cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_v3_liquidity_update --exact --show-output
+#[test]
+fn test_coinbase_v3_liquidity_update() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+
+        // add network
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Force the swap to initialize
+        SubtensorModule::swap_tao_for_alpha(netuid, 0, 1_000_000_000_000).unwrap();
+
+        let protocol_account_id = pallet_subtensor_swap::Pallet::<Test>::protocol_account_id();
+        let position = pallet_subtensor_swap::Positions::<Test>::get((
+            netuid,
+            protocol_account_id,
+            PositionId::from(1),
+        ))
+        .unwrap();
+        let liquidity_before = position.liquidity;
+
+        // Enable emissions and run coinbase (which will increase position liquidity)
+        let emission: u64 = 1_234_567;
+        FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0.5));
+        SubtensorModule::run_coinbase(U96F32::from_num(emission));
+
+        let position_after = pallet_subtensor_swap::Positions::<Test>::get((
+            netuid,
+            protocol_account_id,
+            PositionId::from(1),
+        ))
+        .unwrap();
+        let liquidity_after = position_after.liquidity;
+
+        assert!(liquidity_before < liquidity_after);
     });
 }

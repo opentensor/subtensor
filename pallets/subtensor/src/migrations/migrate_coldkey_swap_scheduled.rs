@@ -27,7 +27,7 @@ pub fn migrate_coldkey_swap_scheduled<T: Config>() -> Weight {
     if HasMigrationRun::<T>::get(&migration_name) {
         log::info!(
             "Migration '{:?}' has already run. Skipping.",
-            migration_name
+            String::from_utf8_lossy(&migration_name)
         );
         return weight;
     }

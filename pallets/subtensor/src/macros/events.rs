@@ -51,7 +51,7 @@ mod events {
         /// Rho value is set.
         RhoSet(NetUid, u16),
         /// steepness of the sigmoid used to compute alpha values.
-        AlphaSigmoidSteepnessSet(NetUid, u16),
+        AlphaSigmoidSteepnessSet(NetUid, i16),
         /// Kappa is set for a subnet.
         KappaSet(NetUid, u16),
         /// minimum allowed weight is set for a subnet.
