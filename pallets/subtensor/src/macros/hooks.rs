@@ -14,7 +14,9 @@ mod hooks {
         // # Args:
         // 	* 'n': (BlockNumberFor<T>):
         // 		- The number of the block we are initializing.
-        fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
+        fn on_initialize(block_number: BlockNumberFor<T>) -> Weight {
+            let hotkey_swap_clean_up_weight = Self::clean_up_hotkey_swap_records(block_number);
+
             let block_step_result = Self::block_step();
             match block_step_result {
                 Ok(_) => {
@@ -23,6 +25,7 @@ mod hooks {
                     Weight::from_parts(110_634_229_000_u64, 0)
                         .saturating_add(T::DbWeight::get().reads(8304_u64))
                         .saturating_add(T::DbWeight::get().writes(110_u64))
+                        .saturating_add(hotkey_swap_clean_up_weight)
                 }
                 Err(e) => {
                     // --- If the block step was unsuccessful, return the weight anyway.
@@ -30,6 +33,7 @@ mod hooks {
                     Weight::from_parts(110_634_229_000_u64, 0)
                         .saturating_add(T::DbWeight::get().reads(8304_u64))
                         .saturating_add(T::DbWeight::get().writes(110_u64))
+                        .saturating_add(hotkey_swap_clean_up_weight)
                 }
             }
         }
@@ -113,7 +117,9 @@ mod hooks {
                 // Reset max burn
                 .saturating_add(migrations::migrate_reset_max_burn::migrate_reset_max_burn::<T>())
                 // Migrate ColdkeySwapScheduled structure to new format
-                .saturating_add(migrations::migrate_coldkey_swap_scheduled::migrate_coldkey_swap_scheduled::<T>());
+                .saturating_add(migrations::migrate_coldkey_swap_scheduled::migrate_coldkey_swap_scheduled::<T>())
+                // Fix the root subnet TAO storage value
+                .saturating_add(migrations::migrate_fix_root_subnet_tao::migrate_fix_root_subnet_tao::<T>());
             weight
         }
 
@@ -123,6 +129,45 @@ mod hooks {
             // Disabled: https://github.com/opentensor/subtensor/pull/1166
             // Self::check_total_stake()?;
             Ok(())
+        }
+    }
+
+    impl<T: Config> Pallet<T> {
+        // This function is to clean up the old hotkey swap records
+        // It just clean up for one subnet at a time, according to the block number
+        fn clean_up_hotkey_swap_records(block_number: BlockNumberFor<T>) -> Weight {
+            let mut weight = Weight::from_parts(0, 0);
+            let hotkey_swap_on_subnet_interval = T::HotkeySwapOnSubnetInterval::get();
+            let block_number: u64 = TryInto::try_into(block_number)
+                .ok()
+                .expect("blockchain will not exceed 2^64 blocks; QED.");
+            weight.saturating_accrue(T::DbWeight::get().reads(2_u64));
+
+            let netuids = Self::get_all_subnet_netuids();
+            weight.saturating_accrue(T::DbWeight::get().reads(netuids.len() as u64));
+
+            if let Some(slot) = block_number.checked_rem(hotkey_swap_on_subnet_interval) {
+                // only handle the subnet with the same residue as current block number by HotkeySwapOnSubnetInterval
+                for netuid in netuids.iter().filter(|netuid| {
+                    (u16::from(**netuid) as u64).checked_rem(hotkey_swap_on_subnet_interval)
+                        == Some(slot)
+                }) {
+                    // Iterate over all the coldkeys in the subnet
+                    for (coldkey, swap_block_number) in
+                        LastHotkeySwapOnNetuid::<T>::iter_prefix(netuid)
+                    {
+                        // Clean up out of date swap records
+                        if swap_block_number.saturating_add(hotkey_swap_on_subnet_interval)
+                            < block_number
+                        {
+                            LastHotkeySwapOnNetuid::<T>::remove(netuid, coldkey);
+                            weight.saturating_accrue(T::DbWeight::get().writes(1_u64));
+                        }
+                        weight.saturating_accrue(T::DbWeight::get().reads(1_u64));
+                    }
+                }
+            }
+            weight
         }
     }
 }

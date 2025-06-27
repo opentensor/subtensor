@@ -22,7 +22,7 @@ mod pallet_benchmarks {
 
     #[benchmark]
     fn register() {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 1;
         let hotkey: T::AccountId = account("Alice", 0, 1);
         let coldkey: T::AccountId = account("Test", 0, 2);
@@ -49,7 +49,7 @@ mod pallet_benchmarks {
 
     #[benchmark]
     fn set_weights() {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let version_key: u64 = 1;
         let tempo: u16 = 1;
 
@@ -98,7 +98,7 @@ mod pallet_benchmarks {
 
     #[benchmark]
     fn become_delegate() {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 1;
 
         Subtensor::<T>::init_new_network(netuid, tempo);
@@ -125,7 +125,7 @@ mod pallet_benchmarks {
 
     #[benchmark]
     fn add_stake() {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 1;
 
         Subtensor::<T>::init_new_network(netuid, tempo);
@@ -156,177 +156,9 @@ mod pallet_benchmarks {
         );
     }
 
-    // #[benchmark]
-    // fn add_stake_aggregate() {
-    //     let netuid: u16 = 1;
-    //     let tempo: u16 = 1;
-    //
-    //     Subtensor::<T>::init_new_network(netuid, tempo);
-    //     SubtokenEnabled::<T>::insert(netuid, true);
-    //     Subtensor::<T>::set_burn(netuid, 1);
-    //     Subtensor::<T>::set_network_registration_allowed(netuid, true);
-    //     Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
-    //
-    //     let seed: u32 = 1;
-    //     let coldkey: T::AccountId = account("Test", 0, seed);
-    //     let hotkey: T::AccountId = account("Alice", 0, seed);
-    //     let total_stake: u64 = 1_000_000_000;
-    //     let amount: u64 = 600_000;
-    //
-    //     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, total_stake);
-    //     assert_ok!(Subtensor::<T>::do_burned_registration(
-    //         RawOrigin::Signed(coldkey.clone()).into(),
-    //         netuid,
-    //         hotkey.clone()
-    //     ));
-    //
-    //     #[extrinsic_call]
-    //     _(
-    //         RawOrigin::Signed(coldkey.clone()),
-    //         hotkey.clone(),
-    //         netuid,
-    //         amount,
-    //     );
-    // }
-    //
-    // #[benchmark]
-    // fn remove_stake_limit_aggregate() {
-    //     let netuid: u16 = 1;
-    //
-    //     Subtensor::<T>::increase_total_stake(1_000_000_000_000);
-    //     Subtensor::<T>::init_new_network(netuid, 1);
-    //     Subtensor::<T>::set_network_registration_allowed(netuid, true);
-    //     SubtokenEnabled::<T>::insert(netuid, true);
-    //     Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
-    //
-    //     let seed: u32 = 1;
-    //     let coldkey: T::AccountId = account("Test", 0, seed);
-    //     let hotkey: T::AccountId = account("Alice", 0, seed);
-    //     Subtensor::<T>::set_burn(netuid, 1);
-    //
-    //     let limit: u64 = 1_000_000_000;
-    //     let tao_reserve: u64 = 150_000_000_000;
-    //     let alpha_in: u64 = 100_000_000_000;
-    //     SubnetTAO::<T>::insert(netuid, tao_reserve);
-    //     SubnetAlphaIn::<T>::insert(netuid, alpha_in);
-    //
-    //     let wallet_bal: u64 = 1_000_000;
-    //     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, wallet_bal);
-    //
-    //     assert_ok!(Subtensor::<T>::do_burned_registration(
-    //         RawOrigin::Signed(coldkey.clone()).into(),
-    //         netuid,
-    //         hotkey.clone()
-    //     ));
-    //
-    //     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, 100_000_000_000u64);
-    //     assert_ok!(Subtensor::<T>::add_stake(
-    //         RawOrigin::Signed(coldkey.clone()).into(),
-    //         hotkey.clone(),
-    //         netuid,
-    //         100_000_000_000u64
-    //     ));
-    //
-    //     let amount_unstaked: u64 = 30_000_000_000;
-    //
-    //     #[extrinsic_call]
-    //     _(
-    //         RawOrigin::Signed(coldkey.clone()),
-    //         hotkey.clone(),
-    //         netuid,
-    //         amount_unstaked,
-    //         limit,
-    //         false,
-    //     );
-    // }
-    //
-    // #[benchmark]
-    // fn remove_stake_aggregate() {
-    //     let netuid: u16 = 1;
-    //
-    //     Subtensor::<T>::increase_total_stake(1_000_000_000_000);
-    //     Subtensor::<T>::init_new_network(netuid, 1);
-    //     Subtensor::<T>::set_network_registration_allowed(netuid, true);
-    //     SubtokenEnabled::<T>::insert(netuid, true);
-    //     Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
-    //
-    //     let seed: u32 = 1;
-    //     let coldkey: T::AccountId = account("Test", 0, seed);
-    //     let hotkey: T::AccountId = account("Alice", 0, seed);
-    //     Subtensor::<T>::set_burn(netuid, 1);
-    //
-    //     let wallet_bal: u64 = 1_000_000;
-    //     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, wallet_bal);
-    //
-    //     assert_ok!(Subtensor::<T>::do_burned_registration(
-    //         RawOrigin::Signed(coldkey.clone()).into(),
-    //         netuid,
-    //         hotkey.clone()
-    //     ));
-    //
-    //     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, 100_000_000_000u64);
-    //     assert_ok!(Subtensor::<T>::add_stake(
-    //         RawOrigin::Signed(coldkey.clone()).into(),
-    //         hotkey.clone(),
-    //         netuid,
-    //         100_000_000_000u64
-    //     ));
-    //
-    //     let amount_unstaked: u64 = 600_000;
-    //
-    //     #[extrinsic_call]
-    //     _(
-    //         RawOrigin::Signed(coldkey.clone()),
-    //         hotkey.clone(),
-    //         netuid,
-    //         amount_unstaked,
-    //     );
-    // }
-    //
-    // #[benchmark]
-    // fn add_stake_limit_aggregate() {
-    //     let netuid: u16 = 1;
-    //
-    //     Subtensor::<T>::init_new_network(netuid, 1);
-    //     SubtokenEnabled::<T>::insert(netuid, true);
-    //     Subtensor::<T>::set_burn(netuid, 1);
-    //     Subtensor::<T>::set_network_registration_allowed(netuid, true);
-    //     Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
-    //
-    //     let seed: u32 = 1;
-    //     let coldkey: T::AccountId = account("Test", 0, seed);
-    //     let hotkey: T::AccountId = account("Alice", 0, seed);
-    //
-    //     let amount: u64 = 900_000_000_000;
-    //     let limit: u64 = 6_000_000_000;
-    //     let stake_amt: u64 = 440_000_000_000;
-    //     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, amount);
-    //
-    //     let tao_reserve: u64 = 150_000_000_000;
-    //     let alpha_in: u64 = 100_000_000_000;
-    //     SubnetTAO::<T>::insert(netuid, tao_reserve);
-    //     SubnetAlphaIn::<T>::insert(netuid, alpha_in);
-    //
-    //     assert_ok!(Subtensor::<T>::do_burned_registration(
-    //         RawOrigin::Signed(coldkey.clone()).into(),
-    //         netuid,
-    //         hotkey.clone()
-    //     ));
-    //
-    //     #[extrinsic_call]
-    //     _(
-    //         RawOrigin::Signed(coldkey.clone()),
-    //         hotkey.clone(),
-    //         netuid,
-    //         stake_amt,
-    //         limit,
-    //         false,
-    //     );
-    // }
-
     #[benchmark]
     fn serve_axon() {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let caller: T::AccountId = whitelisted_caller();
         let version: u32 = 2;
         let ip: u128 = 1676056785;
@@ -367,7 +199,7 @@ mod pallet_benchmarks {
 
     #[benchmark]
     fn serve_prometheus() {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let caller: T::AccountId = whitelisted_caller();
         let version: u32 = 2;
         let ip: u128 = 1676056785;
@@ -402,7 +234,7 @@ mod pallet_benchmarks {
 
     #[benchmark]
     fn burned_register() {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let seed: u32 = 1;
         let hotkey: T::AccountId = account("Alice", 0, seed);
         let coldkey: T::AccountId = account("Test", 0, seed);
@@ -420,7 +252,7 @@ mod pallet_benchmarks {
 
     #[benchmark]
     fn root_register() {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let seed: u32 = 1;
         let coldkey: T::AccountId = account("Test", 0, seed);
         let hotkey: T::AccountId = account("Alice", 0, seed);
@@ -462,7 +294,7 @@ mod pallet_benchmarks {
     #[benchmark]
     fn commit_weights() {
         let tempo: u16 = 1;
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let version_key: u64 = 0;
         let uids: Vec<u16> = vec![0];
         let weight_values: Vec<u16> = vec![10];
@@ -507,7 +339,7 @@ mod pallet_benchmarks {
     #[benchmark]
     fn reveal_weights() {
         let tempo: u16 = 0;
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let version_key: u64 = 0;
         let uids: Vec<u16> = vec![0];
         let weight_values: Vec<u16> = vec![10];
@@ -582,7 +414,7 @@ mod pallet_benchmarks {
 
     #[benchmark]
     fn set_childkey_take() {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let coldkey: T::AccountId = account("Cold", 0, 1);
         let hotkey: T::AccountId = account("Hot", 0, 1);
         let take: u16 = 1000;
@@ -615,7 +447,7 @@ mod pallet_benchmarks {
         let old_coldkey: T::AccountId = account("old_coldkey", 0, 0);
         let new_coldkey: T::AccountId = account("new_coldkey", 0, 0);
         let hotkey1: T::AccountId = account("hotkey1", 0, 0);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let swap_cost: u64 = Subtensor::<T>::get_key_swap_cost();
         let free_balance_old: u64 = 12345 + swap_cost;
 
@@ -660,7 +492,7 @@ mod pallet_benchmarks {
     #[benchmark]
     fn batch_reveal_weights() {
         let tempo: u16 = 0;
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let num_commits: usize = 10;
 
         let hotkey: T::AccountId = account("hot", 0, 1);
@@ -732,7 +564,7 @@ mod pallet_benchmarks {
 
     #[benchmark]
     fn recycle_alpha() {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         let coldkey: T::AccountId = account("Test", 0, 1);
         let hotkey: T::AccountId = account("Alice", 0, 1);
@@ -773,7 +605,7 @@ mod pallet_benchmarks {
 
     #[benchmark]
     fn burn_alpha() {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let coldkey: T::AccountId = account("Test", 0, 1);
         let hotkey: T::AccountId = account("Alice", 0, 1);
 
@@ -811,7 +643,7 @@ mod pallet_benchmarks {
 
     #[benchmark]
     fn start_call() {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let coldkey: T::AccountId = account("Test", 0, 1);
         let hotkey: T::AccountId = account("Alice", 0, 1);
 
@@ -848,10 +680,9 @@ mod pallet_benchmarks {
     fn adjust_senate() {
         let coldkey: T::AccountId = whitelisted_caller();
         let hotkey: T::AccountId = account("Alice", 0, 1);
-        let root: u16 = Subtensor::<T>::get_root_netuid();
 
-        Subtensor::<T>::init_new_network(root, 1);
-        Uids::<T>::insert(root, &hotkey, 0u16);
+        Subtensor::<T>::init_new_network(NetUid::ROOT, 1);
+        Uids::<T>::insert(NetUid::ROOT, &hotkey, 0u16);
 
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey.clone()), hotkey.clone());
@@ -859,7 +690,7 @@ mod pallet_benchmarks {
 
     #[benchmark]
     fn add_stake_limit() {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 1;
         let seed: u32 = 1;
 
@@ -874,7 +705,7 @@ mod pallet_benchmarks {
 
         let amount = 900_000_000_000;
         let limit: u64 = 6_000_000_000;
-        let amount_to_be_staked = 440_000_000_000;
+        let amount_to_be_staked = 44_000_000_000;
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount);
 
         let tao_reserve = 150_000_000_000_u64;
@@ -904,7 +735,7 @@ mod pallet_benchmarks {
         let coldkey: T::AccountId = whitelisted_caller();
         let origin: T::AccountId = account("A", 0, 1);
         let destination: T::AccountId = account("B", 0, 2);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         SubtokenEnabled::<T>::insert(netuid, true);
         Subtensor::<T>::init_new_network(netuid, 1);
@@ -951,7 +782,7 @@ mod pallet_benchmarks {
 
     #[benchmark]
     fn remove_stake_limit() {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let tempo: u16 = 1;
         let seed: u32 = 1;
 
@@ -1011,8 +842,8 @@ mod pallet_benchmarks {
     fn swap_stake_limit() {
         let coldkey: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
         let hot: T::AccountId = account("A", 0, 1);
-        let netuid1: u16 = 1;
-        let netuid2: u16 = 2;
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
         let allow: bool = true;
 
         SubtokenEnabled::<T>::insert(netuid1, true);
@@ -1073,7 +904,7 @@ mod pallet_benchmarks {
         let coldkey: T::AccountId = whitelisted_caller();
         let dest: T::AccountId = account("B", 0, 2);
         let hot: T::AccountId = account("A", 0, 1);
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
 
         SubtokenEnabled::<T>::insert(netuid, true);
         Subtensor::<T>::init_new_network(netuid, 1);
@@ -1122,8 +953,8 @@ mod pallet_benchmarks {
     fn swap_stake() {
         let coldkey: T::AccountId = whitelisted_caller();
         let hot: T::AccountId = account("A", 0, 9);
-        let netuid1: u16 = 1;
-        let netuid2: u16 = 2;
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
 
         SubtokenEnabled::<T>::insert(netuid1, true);
         Subtensor::<T>::init_new_network(netuid1, 1);
@@ -1172,9 +1003,9 @@ mod pallet_benchmarks {
     #[benchmark]
     fn batch_commit_weights() {
         let hotkey: T::AccountId = whitelisted_caller();
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let count: usize = 3;
-        let mut netuids: Vec<Compact<u16>> = Vec::new();
+        let mut netuids: Vec<Compact<NetUid>> = Vec::new();
         let mut hashes: Vec<H256> = Vec::new();
 
         Subtensor::<T>::init_new_network(netuid, 1);
@@ -1209,10 +1040,10 @@ mod pallet_benchmarks {
     #[benchmark]
     fn batch_set_weights() {
         let hotkey: T::AccountId = whitelisted_caller();
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let version: u64 = 1;
         let entries: Vec<(Compact<u16>, Compact<u16>)> = vec![(Compact(0u16), Compact(0u16))];
-        let netuids: Vec<Compact<u16>> = vec![Compact(netuid)];
+        let netuids: Vec<Compact<NetUid>> = vec![Compact(netuid)];
         let weights: Vec<Vec<(Compact<u16>, Compact<u16>)>> = vec![entries.clone()];
         let keys: Vec<Compact<u64>> = vec![Compact(version)];
 
@@ -1241,7 +1072,7 @@ mod pallet_benchmarks {
     #[benchmark]
     fn commit_crv3_weights() {
         let hotkey: T::AccountId = whitelisted_caller();
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let vec_commit: Vec<u8> = vec![0; MAX_CRV3_COMMIT_SIZE_BYTES as usize];
         let commit: BoundedVec<_, _> = vec_commit.try_into().unwrap();
         let round: u64 = 0;
@@ -1300,9 +1131,9 @@ mod pallet_benchmarks {
     fn register_network_with_identity() {
         let coldkey: T::AccountId = whitelisted_caller();
         let hotkey: T::AccountId = account("Alice", 0, 1);
-        let identity: Option<SubnetIdentityOfV2> = None;
+        let identity: Option<SubnetIdentityOfV3> = None;
 
-        Subtensor::<T>::set_network_registration_allowed(1, true);
+        Subtensor::<T>::set_network_registration_allowed(1.into(), true);
         Subtensor::<T>::set_network_rate_limit(1);
         let amount: u64 = 9_999_999_999_999;
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, amount);
@@ -1318,7 +1149,7 @@ mod pallet_benchmarks {
     #[benchmark]
     fn serve_axon_tls() {
         let caller: T::AccountId = whitelisted_caller();
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let version: u32 = 1;
         let ip: u128 = 0xC0A8_0001;
         let port: u16 = 30333;
@@ -1370,14 +1201,14 @@ mod pallet_benchmarks {
         let add = vec![];
 
         Subtensor::<T>::create_account_if_non_existent(&coldkey, &hotkey);
-        Subtensor::<T>::init_new_network(1, 1);
+        Subtensor::<T>::init_new_network(1.into(), 1);
         let deposit: u64 = 1_000_000_000u64.saturating_mul(2);
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, deposit);
-        SubtokenEnabled::<T>::insert(1, true);
+        SubtokenEnabled::<T>::insert(NetUid::from(1), true);
 
         assert_ok!(Subtensor::<T>::burned_register(
             RawOrigin::Signed(coldkey.clone()).into(),
-            1,
+            1.into(),
             hotkey.clone()
         ));
 
@@ -1397,13 +1228,14 @@ mod pallet_benchmarks {
     #[benchmark]
     fn set_subnet_identity() {
         let coldkey: T::AccountId = whitelisted_caller();
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let name = b"n".to_vec();
         let repo = vec![];
         let contact = vec![];
         let url = vec![];
         let disc = vec![];
         let descr = vec![];
+        let logo_url = vec![];
         let add = vec![];
 
         SubnetOwner::<T>::insert(netuid, coldkey.clone());
@@ -1419,13 +1251,14 @@ mod pallet_benchmarks {
             url.clone(),
             disc.clone(),
             descr.clone(),
+            logo_url.clone(),
             add.clone(),
         );
     }
 
     #[benchmark]
     fn set_tao_weights() {
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let hotkey: T::AccountId = account("A", 0, 6);
         let dests = vec![0u16];
         let weights = vec![0u16];
@@ -1454,7 +1287,12 @@ mod pallet_benchmarks {
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, cost);
 
         #[extrinsic_call]
-        _(RawOrigin::Signed(coldkey.clone()), old.clone(), new.clone());
+        _(
+            RawOrigin::Signed(coldkey.clone()),
+            old.clone(),
+            new.clone(),
+            None,
+        );
     }
 
     #[benchmark]
@@ -1478,11 +1316,97 @@ mod pallet_benchmarks {
 
     #[benchmark]
     fn unstake_all_alpha() {
-        let coldkey: T::AccountId = whitelisted_caller();
-        let hotkey: T::AccountId = account("A", 0, 15);
-        Subtensor::<T>::create_account_if_non_existent(&coldkey, &hotkey);
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 1;
+        let seed: u32 = 1;
+
+        Subtensor::<T>::init_new_network(netuid, tempo);
+        Subtensor::<T>::set_network_registration_allowed(netuid, true);
+        SubtokenEnabled::<T>::insert(netuid, true);
+
+        Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
+        assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
+
+        let coldkey: T::AccountId = account("Test", 0, seed);
+        let hotkey: T::AccountId = account("Alice", 0, seed);
+        Subtensor::<T>::set_burn(netuid, 1);
+
+        SubnetTAO::<T>::insert(netuid, 150_000_000_000);
+        SubnetAlphaIn::<T>::insert(netuid, 100_000_000_000);
+
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), 1000000u32.into());
+
+        assert_ok!(Subtensor::<T>::do_burned_registration(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            netuid,
+            hotkey.clone()
+        ));
+
+        let staked_amt = 100_000_000_000;
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), staked_amt);
+
+        assert_ok!(Subtensor::<T>::add_stake(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            hotkey.clone(),
+            netuid,
+            staked_amt
+        ));
 
         #[extrinsic_call]
-        _(RawOrigin::Signed(coldkey.clone()), hotkey.clone());
+        _(RawOrigin::Signed(coldkey), hotkey);
+    }
+
+    #[benchmark]
+    fn remove_stake_full_limit() {
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 1;
+        let seed: u32 = 1;
+
+        // Set our total stake to 1000 TAO
+        Subtensor::<T>::increase_total_stake(1_000_000_000_000);
+
+        Subtensor::<T>::init_new_network(netuid, tempo);
+        Subtensor::<T>::set_network_registration_allowed(netuid, true);
+        SubtokenEnabled::<T>::insert(netuid, true);
+
+        Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
+        assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
+
+        let coldkey: T::AccountId = account("Test", 0, seed);
+        let hotkey: T::AccountId = account("Alice", 0, seed);
+        Subtensor::<T>::set_burn(netuid, 1);
+
+        let limit: u64 = 1_000_000_000;
+        let tao_reserve = 150_000_000_000_u64;
+        let alpha_in = 100_000_000_000_u64;
+        SubnetTAO::<T>::insert(netuid, tao_reserve);
+        SubnetAlphaIn::<T>::insert(netuid, alpha_in);
+
+        let wallet_bal = 1000000u32.into();
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), wallet_bal);
+
+        assert_ok!(Subtensor::<T>::do_burned_registration(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            netuid,
+            hotkey.clone()
+        ));
+
+        let u64_staked_amt = 100_000_000_000;
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), u64_staked_amt);
+
+        assert_ok!(Subtensor::<T>::add_stake(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            hotkey.clone(),
+            netuid,
+            u64_staked_amt
+        ));
+
+        #[extrinsic_call]
+        _(
+            RawOrigin::Signed(coldkey.clone()),
+            hotkey.clone(),
+            netuid,
+            Some(limit),
+        );
     }
 }

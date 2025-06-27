@@ -44,7 +44,7 @@ where
         version_key: u64,
     ) -> EvmResult<()> {
         let call = pallet_subtensor::Call::<R>::set_weights {
-            netuid,
+            netuid: netuid.into(),
             dests,
             weights,
             version_key,
@@ -64,7 +64,7 @@ where
         commit_hash: H256,
     ) -> EvmResult<()> {
         let call = pallet_subtensor::Call::<R>::commit_weights {
-            netuid,
+            netuid: netuid.into(),
             commit_hash,
         };
 
@@ -85,7 +85,7 @@ where
         version_key: u64,
     ) -> EvmResult<()> {
         let call = pallet_subtensor::Call::<R>::reveal_weights {
-            netuid,
+            netuid: netuid.into(),
             uids,
             values,
             salt,
@@ -107,7 +107,10 @@ where
     ) -> EvmResult<()> {
         let coldkey = handle.caller_account_id::<R>();
         let hotkey = R::AccountId::from(hotkey.0);
-        let call = pallet_subtensor::Call::<R>::burned_register { netuid, hotkey };
+        let call = pallet_subtensor::Call::<R>::burned_register {
+            netuid: netuid.into(),
+            hotkey,
+        };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(coldkey))
     }
@@ -127,7 +130,7 @@ where
         placeholder2: u8,
     ) -> EvmResult<()> {
         let call = pallet_subtensor::Call::<R>::serve_axon {
-            netuid,
+            netuid: netuid.into(),
             version,
             ip,
             port,
@@ -161,7 +164,7 @@ where
         certificate: UnboundedBytes,
     ) -> EvmResult<()> {
         let call = pallet_subtensor::Call::<R>::serve_axon_tls {
-            netuid,
+            netuid: netuid.into(),
             version,
             ip,
             port,
@@ -190,7 +193,7 @@ where
         ip_type: u8,
     ) -> EvmResult<()> {
         let call = pallet_subtensor::Call::<R>::serve_prometheus {
-            netuid,
+            netuid: netuid.into(),
             version,
             ip,
             port,

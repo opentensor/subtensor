@@ -82,7 +82,7 @@ mod dispatches {
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn set_weights(
             origin: OriginFor<T>,
-            netuid: u16,
+            netuid: NetUid,
             dests: Vec<u16>,
             weights: Vec<u16>,
             version_key: u64,
@@ -125,7 +125,7 @@ mod dispatches {
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn batch_set_weights(
             origin: OriginFor<T>,
-            netuids: Vec<Compact<u16>>,
+            netuids: Vec<Compact<NetUid>>,
             weights: Vec<Vec<(Compact<u16>, Compact<u16>)>>,
             version_keys: Vec<Compact<u64>>,
         ) -> DispatchResult {
@@ -157,7 +157,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_weights(
             origin: T::RuntimeOrigin,
-            netuid: u16,
+            netuid: NetUid,
             commit_hash: H256,
         ) -> DispatchResult {
             Self::do_commit_weights(origin, netuid, commit_hash)
@@ -191,7 +191,7 @@ mod dispatches {
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn batch_commit_weights(
             origin: OriginFor<T>,
-            netuids: Vec<Compact<u16>>,
+            netuids: Vec<Compact<NetUid>>,
             commit_hashes: Vec<H256>,
         ) -> DispatchResult {
             Self::do_batch_commit_weights(origin, netuids, commit_hashes)
@@ -240,7 +240,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn reveal_weights(
             origin: T::RuntimeOrigin,
-            netuid: u16,
+            netuid: NetUid,
             uids: Vec<u16>,
             values: Vec<u16>,
             salt: Vec<u16>,
@@ -284,7 +284,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_crv3_weights(
             origin: T::RuntimeOrigin,
-            netuid: u16,
+            netuid: NetUid,
             commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
             reveal_round: u64,
         ) -> DispatchResult {
@@ -336,7 +336,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn batch_reveal_weights(
             origin: T::RuntimeOrigin,
-            netuid: u16,
+            netuid: NetUid,
             uids_list: Vec<Vec<u16>>,
             values_list: Vec<Vec<u16>>,
             salts_list: Vec<Vec<u16>>,
@@ -418,7 +418,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Normal, Pays::No))]
         pub fn set_tao_weights(
             _origin: OriginFor<T>,
-            _netuid: u16,
+            _netuid: NetUid,
             _hotkey: T::AccountId,
             _dests: Vec<u16>,
             _weights: Vec<u16>,
@@ -454,7 +454,7 @@ mod dispatches {
         /// 	- The hotkey we are delegating is not owned by the calling coldket.
         ///
         #[pallet::call_index(1)]
-        #[pallet::weight((Weight::from_parts(4_709_000, 0)
+        #[pallet::weight((Weight::from_parts(3_657_000, 0)
 		.saturating_add(T::DbWeight::get().reads(0))
 		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Normal, Pays::No))]
         pub fn become_delegate(_origin: OriginFor<T>, _hotkey: T::AccountId) -> DispatchResult {
@@ -551,11 +551,11 @@ mod dispatches {
             Self::do_increase_take(origin, hotkey, take)
         }
 
-        /// --- Adds stake to a hotkey. The call is made from the
-        /// coldkey account linked in the hotkey.
-        /// Only the associated coldkey is allowed to make staking and
-        /// unstaking requests. This protects the neuron against
-        /// attacks on its hotkey running in production code.
+        /// --- Adds stake to a hotkey. The call is made from a coldkey account.
+        /// This delegates stake to the hotkey.
+        ///
+        /// Note: the coldkey account may own the hotkey, in which case they are
+        /// delegating to themselves.
         ///
         /// # Args:
         ///  * 'origin': (<T as frame_system::Config>Origin):
@@ -585,13 +585,13 @@ mod dispatches {
         ///  	- Errors stemming from transaction pallet.
         ///
         #[pallet::call_index(2)]
-        #[pallet::weight((Weight::from_parts(151_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(14))
-		.saturating_add(T::DbWeight::get().writes(10)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_parts(345_500_000, 0)
+		.saturating_add(T::DbWeight::get().reads(26))
+		.saturating_add(T::DbWeight::get().writes(14)), DispatchClass::Normal, Pays::No))]
         pub fn add_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
-            netuid: u16,
+            netuid: NetUid,
             amount_staked: u64,
         ) -> DispatchResult {
             Self::do_add_stake(origin, hotkey, netuid, amount_staked)
@@ -635,7 +635,7 @@ mod dispatches {
         pub fn remove_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
-            netuid: u16,
+            netuid: NetUid,
             amount_unstaked: u64,
         ) -> DispatchResult {
             Self::do_remove_stake(origin, hotkey, netuid, amount_unstaked)
@@ -698,7 +698,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_axon(
             origin: OriginFor<T>,
-            netuid: u16,
+            netuid: NetUid,
             version: u32,
             ip: u128,
             port: u16,
@@ -782,7 +782,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_axon_tls(
             origin: OriginFor<T>,
-            netuid: u16,
+            netuid: NetUid,
             version: u32,
             ip: u128,
             port: u16,
@@ -832,7 +832,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_prometheus(
             origin: OriginFor<T>,
-            netuid: u16,
+            netuid: NetUid,
             version: u32,
             ip: u128,
             port: u16,
@@ -894,7 +894,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(23)), DispatchClass::Normal, Pays::No))]
         pub fn register(
             origin: OriginFor<T>,
-            netuid: u16,
+            netuid: NetUid,
             block_number: u64,
             nonce: u64,
             work: Vec<u8>,
@@ -924,28 +924,29 @@ mod dispatches {
 
         /// User register a new subnetwork via burning token
         #[pallet::call_index(7)]
-        #[pallet::weight((Weight::from_parts(219_400_000, 0)
-		.saturating_add(T::DbWeight::get().reads(33))
-		.saturating_add(T::DbWeight::get().writes(29)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_parts(354_400_000, 0)
+		.saturating_add(T::DbWeight::get().reads(49))
+		.saturating_add(T::DbWeight::get().writes(43)), DispatchClass::Normal, Pays::No))]
         pub fn burned_register(
             origin: OriginFor<T>,
-            netuid: u16,
+            netuid: NetUid,
             hotkey: T::AccountId,
         ) -> DispatchResult {
             Self::do_burned_registration(origin, netuid, hotkey)
         }
 
-        /// The extrinsic for user to change its hotkey
+        /// The extrinsic for user to change its hotkey in subnet or all subnets.
         #[pallet::call_index(70)]
-        #[pallet::weight((Weight::from_parts(240_600_000, 0)
-        .saturating_add(T::DbWeight::get().reads(31))
-        .saturating_add(T::DbWeight::get().writes(23)), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(285_900_000, 0)
+        .saturating_add(T::DbWeight::get().reads(47))
+        .saturating_add(T::DbWeight::get().writes(37)), DispatchClass::Operational, Pays::No))]
         pub fn swap_hotkey(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
             new_hotkey: T::AccountId,
+            netuid: Option<NetUid>,
         ) -> DispatchResultWithPostInfo {
-            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey)
+            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey, netuid)
         }
 
         /// The extrinsic for user to change the coldkey associated with their account.
@@ -1020,7 +1021,7 @@ mod dispatches {
         pub fn set_childkey_take(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
-            netuid: u16,
+            netuid: NetUid,
             take: u16,
         ) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
@@ -1044,7 +1045,7 @@ mod dispatches {
         ///
         #[pallet::call_index(69)]
         #[pallet::weight((
-            Weight::from_parts(6_873_000, 0)
+            Weight::from_parts(5_760_000, 0)
         .saturating_add(T::DbWeight::get().reads(0))
         .saturating_add(T::DbWeight::get().writes(1)),
     DispatchClass::Operational,
@@ -1228,7 +1229,7 @@ mod dispatches {
         pub fn dissolve_network(
             origin: OriginFor<T>,
             coldkey: T::AccountId,
-            netuid: u16,
+            netuid: NetUid,
         ) -> DispatchResult {
             ensure_root(origin)?;
             Self::user_remove_network(coldkey, netuid)
@@ -1286,7 +1287,7 @@ mod dispatches {
         pub fn set_children(
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
-            netuid: u16,
+            netuid: NetUid,
             children: Vec<(u64, T::AccountId)>,
         ) -> DispatchResultWithPostInfo {
             Self::do_schedule_children(origin, hotkey, netuid, children)?;
@@ -1406,7 +1407,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
         pub fn schedule_dissolve_network(
             _origin: OriginFor<T>,
-            _netuid: u16,
+            _netuid: NetUid,
         ) -> DispatchResultWithPostInfo {
             Err(Error::<T>::CallDisabled.into())
 
@@ -1464,7 +1465,7 @@ mod dispatches {
         /// 	- The ip type v4 or v6.
         ///
         #[pallet::call_index(68)]
-        #[pallet::weight((Weight::from_parts(32_340_000, 0)
+        #[pallet::weight((Weight::from_parts(38_980_000, 0)
 		.saturating_add(T::DbWeight::get().reads(3))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::Yes))]
         pub fn set_identity(
@@ -1511,13 +1512,14 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::Yes))]
         pub fn set_subnet_identity(
             origin: OriginFor<T>,
-            netuid: u16,
+            netuid: NetUid,
             subnet_name: Vec<u8>,
             github_repo: Vec<u8>,
             subnet_contact: Vec<u8>,
             subnet_url: Vec<u8>,
             discord: Vec<u8>,
             description: Vec<u8>,
+            logo_url: Vec<u8>,
             additional: Vec<u8>,
         ) -> DispatchResult {
             Self::do_set_subnet_identity(
@@ -1529,6 +1531,7 @@ mod dispatches {
                 subnet_url,
                 discord,
                 description,
+                logo_url,
                 additional,
             )
         }
@@ -1541,7 +1544,7 @@ mod dispatches {
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
-            identity: Option<SubnetIdentityOfV2>,
+            identity: Option<SubnetIdentityOfV3>,
         ) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, identity)
         }
@@ -1605,9 +1608,9 @@ mod dispatches {
         /// * `TxRateLimitExceeded`:
         ///     - Thrown if key has hit transaction rate limit
         #[pallet::call_index(84)]
-        #[pallet::weight((Weight::from_parts(68_730_000, 0)
-        .saturating_add(T::DbWeight::get().reads(12))
-        .saturating_add(T::DbWeight::get().writes(6)), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(369_500_000, 0)
+        .saturating_add(T::DbWeight::get().reads(32))
+        .saturating_add(T::DbWeight::get().writes(16)), DispatchClass::Operational, Pays::No))]
         pub fn unstake_all_alpha(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_unstake_all_alpha(origin, hotkey)
         }
@@ -1634,15 +1637,15 @@ mod dispatches {
         ///     - The alpha stake amount to move.
         ///
         #[pallet::call_index(85)]
-        #[pallet::weight((Weight::from_parts(196_600_000, 0)
-        .saturating_add(T::DbWeight::get().reads(17))
-        .saturating_add(T::DbWeight::get().writes(13)), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(419_500_000, 0)
+        .saturating_add(T::DbWeight::get().reads(31))
+        .saturating_add(T::DbWeight::get().writes(19)), DispatchClass::Operational, Pays::No))]
         pub fn move_stake(
             origin: T::RuntimeOrigin,
             origin_hotkey: T::AccountId,
             destination_hotkey: T::AccountId,
-            origin_netuid: u16,
-            destination_netuid: u16,
+            origin_netuid: NetUid,
+            destination_netuid: NetUid,
             alpha_amount: u64,
         ) -> DispatchResult {
             Self::do_move_stake(
@@ -1677,15 +1680,15 @@ mod dispatches {
         /// # Events
         /// May emit a `StakeTransferred` event on success.
         #[pallet::call_index(86)]
-        #[pallet::weight((Weight::from_parts(207_300_000, 0)
-        .saturating_add(T::DbWeight::get().reads(16))
-        .saturating_add(T::DbWeight::get().writes(13)), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(432_600_000, 0)
+        .saturating_add(T::DbWeight::get().reads(30))
+        .saturating_add(T::DbWeight::get().writes(19)), DispatchClass::Operational, Pays::No))]
         pub fn transfer_stake(
             origin: T::RuntimeOrigin,
             destination_coldkey: T::AccountId,
             hotkey: T::AccountId,
-            origin_netuid: u16,
-            destination_netuid: u16,
+            origin_netuid: NetUid,
+            destination_netuid: NetUid,
             alpha_amount: u64,
         ) -> DispatchResult {
             Self::do_transfer_stake(
@@ -1719,8 +1722,8 @@ mod dispatches {
         /// May emit a `StakeSwapped` event on success.
         #[pallet::call_index(87)]
         #[pallet::weight((
-            Weight::from_parts(221_600_000, 0)
-            .saturating_add(T::DbWeight::get().reads(25))
+            Weight::from_parts(351_300_000, 0)
+            .saturating_add(T::DbWeight::get().reads(31))
             .saturating_add(T::DbWeight::get().writes(16)),
             DispatchClass::Operational,
             Pays::No
@@ -1728,8 +1731,8 @@ mod dispatches {
         pub fn swap_stake(
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
-            origin_netuid: u16,
-            destination_netuid: u16,
+            origin_netuid: NetUid,
+            destination_netuid: NetUid,
             alpha_amount: u64,
         ) -> DispatchResult {
             Self::do_swap_stake(
@@ -1784,13 +1787,13 @@ mod dispatches {
         ///  	- Errors stemming from transaction pallet.
         ///
         #[pallet::call_index(88)]
-        #[pallet::weight((Weight::from_parts(159_200_000, 0)
-		.saturating_add(T::DbWeight::get().reads(13))
-		.saturating_add(T::DbWeight::get().writes(10)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_parts(402_800_000, 0)
+		.saturating_add(T::DbWeight::get().reads(26))
+		.saturating_add(T::DbWeight::get().writes(14)), DispatchClass::Normal, Pays::No))]
         pub fn add_stake_limit(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
-            netuid: u16,
+            netuid: NetUid,
             amount_staked: u64,
             limit_price: u64,
             allow_partial: bool,
@@ -1848,13 +1851,13 @@ mod dispatches {
         /// 	- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
         ///
         #[pallet::call_index(89)]
-        #[pallet::weight((Weight::from_parts(192_600_000, 0)
-		.saturating_add(T::DbWeight::get().reads(18))
-		.saturating_add(T::DbWeight::get().writes(10)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_parts(403_800_000, 0)
+		.saturating_add(T::DbWeight::get().reads(29))
+		.saturating_add(T::DbWeight::get().writes(14)), DispatchClass::Normal, Pays::No))]
         pub fn remove_stake_limit(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
-            netuid: u16,
+            netuid: NetUid,
             amount_unstaked: u64,
             limit_price: u64,
             allow_partial: bool,
@@ -1892,8 +1895,8 @@ mod dispatches {
         /// May emit a `StakeSwapped` event on success.
         #[pallet::call_index(90)]
         #[pallet::weight((
-            Weight::from_parts(232_000_000, 0)
-            .saturating_add(T::DbWeight::get().reads(25))
+            Weight::from_parts(426_500_000, 0)
+            .saturating_add(T::DbWeight::get().reads(31))
             .saturating_add(T::DbWeight::get().writes(16)),
             DispatchClass::Operational,
             Pays::No
@@ -1901,8 +1904,8 @@ mod dispatches {
         pub fn swap_stake_limit(
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
-            origin_netuid: u16,
-            destination_netuid: u16,
+            origin_netuid: NetUid,
+            destination_netuid: NetUid,
             alpha_amount: u64,
             limit_price: u64,
             allow_partial: bool,
@@ -1957,7 +1960,7 @@ mod dispatches {
             DispatchClass::Operational,
             Pays::Yes
         ))]
-        pub fn start_call(origin: T::RuntimeOrigin, netuid: u16) -> DispatchResult {
+        pub fn start_call(origin: T::RuntimeOrigin, netuid: NetUid) -> DispatchResult {
             Self::do_start_call(origin, netuid)?;
             Ok(())
         }
@@ -1997,13 +2000,12 @@ mod dispatches {
         ))]
         pub fn associate_evm_key(
             origin: T::RuntimeOrigin,
-            netuid: u16,
-            hotkey: T::AccountId,
+            netuid: NetUid,
             evm_key: H160,
             block_number: u64,
             signature: Signature,
         ) -> DispatchResult {
-            Self::do_associate_evm_key(origin, netuid, hotkey, evm_key, block_number, signature)
+            Self::do_associate_evm_key(origin, netuid, evm_key, block_number, signature)
         }
 
         /// Recycles alpha from a cold/hot key pair, reducing AlphaOut on a subnet
@@ -2026,7 +2028,7 @@ mod dispatches {
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
             amount: u64,
-            netuid: u16,
+            netuid: NetUid,
         ) -> DispatchResult {
             Self::do_recycle_alpha(origin, hotkey, amount, netuid)
         }
@@ -2051,293 +2053,38 @@ mod dispatches {
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
             amount: u64,
-            netuid: u16,
+            netuid: NetUid,
         ) -> DispatchResult {
             Self::do_burn_alpha(origin, hotkey, amount, netuid)
         }
 
-        // /// --- Adds stake to a hotkey on a subnet with a price limit.
-        // /// This extrinsic allows to specify the limit price for alpha token
-        // /// at which or better (lower) the staking should execute.
-        // ///
-        // /// In case if slippage occurs and the price shall move beyond the limit
-        // /// price, the staking order may execute only partially or not execute
-        // /// at all.
-        // ///
-        // /// The operation will be delayed.
-        // ///
-        // /// # Args:
-        // ///  * 'origin': (<T as frame_system::Config>Origin):
-        // /// 	- The signature of the caller's coldkey.
-        // ///
-        // ///  * 'hotkey' (T::AccountId):
-        // /// 	- The associated hotkey account.
-        // ///
-        // /// * 'netuid' (u16):
-        // ///     - Subnetwork UID
-        // ///
-        // ///  * 'amount_staked' (u64):
-        // /// 	- The amount of stake to be added to the hotkey staking account.
-        // ///
-        // /// # Event:
-        // ///  * StakeAdded;
-        // /// 	- On the successfully adding stake to a global account.
-        // ///
-        // /// # Raises:
-        // ///  * 'NotEnoughBalanceToStake':
-        // /// 	- Not enough balance on the coldkey to add onto the global account.
-        // ///
-        // ///  * 'NonAssociatedColdKey':
-        // /// 	- The calling coldkey is not associated with this hotkey.
-        // ///
-        // ///  * 'BalanceWithdrawalError':
-        // ///  	- Errors stemming from transaction pallet.
-        // ///
-        // #[pallet::call_index(103)]
-        // #[pallet::weight((Weight::from_parts(162_000_000, 5127)
-        // .saturating_add(T::DbWeight::get().reads(15_u64))
-        // .saturating_add(T::DbWeight::get().writes(12_u64)), DispatchClass::Normal, Pays::No))]
-        // pub fn add_stake_aggregate(
-        //     origin: OriginFor<T>,
-        //     hotkey: T::AccountId,
-        //     netuid: u16,
-        //     amount_staked: u64,
-        // ) -> DispatchResult {
-        //     Self::do_add_stake_aggregate(origin, hotkey, netuid, amount_staked)
-        // }
+        /// Sets the pending childkey cooldown (in blocks). Root only.
+        #[pallet::call_index(109)]
+        #[pallet::weight((Weight::from_parts(10_000, 0), DispatchClass::Operational, Pays::No))]
+        pub fn set_pending_childkey_cooldown(
+            origin: OriginFor<T>,
+            cooldown: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            PendingChildKeyCooldown::<T>::put(cooldown);
+            Ok(())
+        }
 
-        // /// --- Removes stake from a hotkey on a subnet with a price limit.
-        // /// This extrinsic allows to specify the limit price for alpha token
-        // /// at which or better (higher) the staking should execute.
-        // ///
-        // /// In case if slippage occurs and the price shall move beyond the limit
-        // /// price, the staking order may execute only partially or not execute
-        // /// at all.
-        // ///
-        // /// The operation will be delayed.
-        // ///
-        // /// # Args:
-        // /// * 'origin': (<T as frame_system::Config>Origin):
-        // /// 	- The signature of the caller's coldkey.
-        // ///
-        // /// * 'hotkey' (T::AccountId):
-        // /// 	- The associated hotkey account.
-        // ///
-        // /// * 'netuid' (u16):
-        // ///     - Subnetwork UID
-        // ///
-        // /// * 'amount_unstaked' (u64):
-        // /// 	- The amount of stake to be added to the hotkey staking account.
-        // ///
-        // /// # Event:
-        // /// * StakeRemoved;
-        // /// 	- On the successfully removing stake from the hotkey account.
-        // ///
-        // /// # Raises:
-        // /// * 'NotRegistered':
-        // /// 	- Thrown if the account we are attempting to unstake from is non existent.
-        // ///
-        // /// * 'NonAssociatedColdKey':
-        // /// 	- Thrown if the coldkey does not own the hotkey we are unstaking from.
-        // ///
-        // /// * 'NotEnoughStakeToWithdraw':
-        // /// 	- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
-        // ///
-        // #[pallet::call_index(104)]
-        // #[pallet::weight((Weight::from_parts(213_300_000, 10163)
-        // .saturating_add(T::DbWeight::get().reads(20_u64))
-        // .saturating_add(T::DbWeight::get().writes(12_u64)), DispatchClass::Normal, Pays::No))]
-        // pub fn remove_stake_aggregate(
-        //     origin: OriginFor<T>,
-        //     hotkey: T::AccountId,
-        //     netuid: u16,
-        //     amount_unstaked: u64,
-        // ) -> DispatchResult {
-        //     Self::do_remove_stake_aggregate(origin, hotkey, netuid, amount_unstaked)
-        // }
-
-        // /// --- Adds stake to a hotkey on a subnet with a price limit.
-        // /// This extrinsic allows to specify the limit price for alpha token
-        // /// at which or better (lower) the staking should execute.
-        // ///
-        // /// In case if slippage occurs and the price shall move beyond the limit
-        // /// price, the staking order may execute only partially or not execute
-        // /// at all.
-        // ///
-        // /// The operation will be delayed.
-        // ///
-        // /// # Args:
-        // ///  * 'origin': (<T as frame_system::Config>Origin):
-        // /// 	- The signature of the caller's coldkey.
-        // ///
-        // ///  * 'hotkey' (T::AccountId):
-        // /// 	- The associated hotkey account.
-        // ///
-        // /// * 'netuid' (u16):
-        // ///     - Subnetwork UID
-        // ///
-        // ///  * 'amount_staked' (u64):
-        // /// 	- The amount of stake to be added to the hotkey staking account.
-        // ///
-        // ///  * 'limit_price' (u64):
-        // /// 	- The limit price expressed in units of RAO per one Alpha.
-        // ///
-        // ///  * 'allow_partial' (bool):
-        // /// 	- Allows partial execution of the amount. If set to false, this becomes
-        // ///       fill or kill type or order.
-        // ///
-        // /// # Event:
-        // ///  * StakeAdded;
-        // /// 	- On the successfully adding stake to a global account.
-        // ///
-        // /// # Raises:
-        // ///  * 'NotEnoughBalanceToStake':
-        // /// 	- Not enough balance on the coldkey to add onto the global account.
-        // ///
-        // ///  * 'NonAssociatedColdKey':
-        // /// 	- The calling coldkey is not associated with this hotkey.
-        // ///
-        // ///  * 'BalanceWithdrawalError':
-        // ///  	- Errors stemming from transaction pallet.
-        // ///
-        // #[pallet::call_index(105)]
-        // #[pallet::weight((Weight::from_parts(169_200_000, 5127)
-        // .saturating_add(T::DbWeight::get().reads(14_u64))
-        // .saturating_add(T::DbWeight::get().writes(12_u64)), DispatchClass::Normal, Pays::No))]
-        // pub fn add_stake_limit_aggregate(
-        //     origin: OriginFor<T>,
-        //     hotkey: T::AccountId,
-        //     netuid: u16,
-        //     amount_staked: u64,
-        //     limit_price: u64,
-        //     allow_partial: bool,
-        // ) -> DispatchResult {
-        //     Self::do_add_stake_limit_aggregate(
-        //         origin,
-        //         hotkey,
-        //         netuid,
-        //         amount_staked,
-        //         limit_price,
-        //         allow_partial,
-        //     )
-        // }
-
-        // /// --- Removes stake from a hotkey on a subnet with a price limit.
-        // /// This extrinsic allows to specify the limit price for alpha token
-        // /// at which or better (higher) the staking should execute.
-        // ///
-        // /// In case if slippage occurs and the price shall move beyond the limit
-        // /// price, the staking order may execute only partially or not execute
-        // /// at all.
-        // ///
-        // /// The operation will be delayed.
-        // ///
-        // /// # Args:
-        // /// * 'origin': (<T as frame_system::Config>Origin):
-        // /// 	- The signature of the caller's coldkey.
-        // ///
-        // /// * 'hotkey' (T::AccountId):
-        // /// 	- The associated hotkey account.
-        // ///
-        // /// * 'netuid' (u16):
-        // ///     - Subnetwork UID
-        // ///
-        // /// * 'amount_unstaked' (u64):
-        // /// 	- The amount of stake to be added to the hotkey staking account.
-        // ///
-        // ///  * 'limit_price' (u64):
-        // ///     - The limit price expressed in units of RAO per one Alpha.
-        // ///
-        // ///  * 'allow_partial' (bool):
-        // ///     - Allows partial execution of the amount. If set to false, this becomes
-        // ///       fill or kill type or order.
-        // ///
-        // /// # Event:
-        // /// * StakeRemoved;
-        // /// 	- On the successfully removing stake from the hotkey account.
-        // ///
-        // /// # Raises:
-        // /// * 'NotRegistered':
-        // /// 	- Thrown if the account we are attempting to unstake from is non existent.
-        // ///
-        // /// * 'NonAssociatedColdKey':
-        // /// 	- Thrown if the coldkey does not own the hotkey we are unstaking from.
-        // ///
-        // /// * 'NotEnoughStakeToWithdraw':
-        // /// 	- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
-        // ///
-        // #[pallet::call_index(106)]
-        // #[pallet::weight((Weight::from_parts(211_700_000, 10163)
-        // .saturating_add(T::DbWeight::get().reads(19_u64))
-        // .saturating_add(T::DbWeight::get().writes(12_u64)), DispatchClass::Normal, Pays::No))]
-        // pub fn remove_stake_limit_aggregate(
-        //     origin: OriginFor<T>,
-        //     hotkey: T::AccountId,
-        //     netuid: u16,
-        //     amount_unstaked: u64,
-        //     limit_price: u64,
-        //     allow_partial: bool,
-        // ) -> DispatchResult {
-        //     Self::do_remove_stake_limit_aggregate(
-        //         origin,
-        //         hotkey,
-        //         netuid,
-        //         amount_unstaked,
-        //         limit_price,
-        //         allow_partial,
-        //     )
-        // }
-
-        // /// ---- The implementation for the extrinsic unstake_all_aggregate: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
-        // ///
-        // /// The operation will be delayed.
-        // ///
-        // /// # Args:
-        // /// * `origin` - (<T as frame_system::Config>::Origin):
-        // ///     - The signature of the caller's coldkey.
-        // ///
-        // /// * `hotkey` (T::AccountId):
-        // ///     - The associated hotkey account.
-        // ///
-        // /// # Event:
-        // /// * StakeRemoved;
-        // ///     - On the successfully removing stake from the hotkey account.
-        // ///
-        // /// # Raises:
-        // /// * `NotRegistered`:
-        // ///     - Thrown if the account we are attempting to unstake from is non existent.
-        // ///
-        // /// * `NonAssociatedColdKey`:
-        // ///     - Thrown if the coldkey does not own the hotkey we are unstaking from.
-        // ///
-        // /// * `NotEnoughStakeToWithdraw`:
-        // ///     - Thrown if there is not enough stake on the hotkey to withdraw this amount.
-        // ///
-        // /// * `TxRateLimitExceeded`:
-        // ///     - Thrown if key has hit transaction rate limit
-        // #[pallet::call_index(107)]
-        // #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        // pub fn unstake_all_aggregate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-        //     Self::do_unstake_all_aggregate(origin, hotkey)
-        // }
-
-        //     /// ---- The implementation for the extrinsic unstake_all_alpha_aggregate: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
-        //     ///
-        //     /// The operation will be delayed.
-        //     ///
-        //     /// # Args:
-        //     /// * `origin` - (<T as frame_system::Config>::Origin):
-        //     ///     - The signature of the caller's coldkey.
-        //     ///
-        //     /// * `hotkey` (T::AccountId):
-        //     ///     - The associated hotkey account.
-        //     #[pallet::call_index(108)]
-        //     #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        //     pub fn unstake_all_alpha_aggregate(
-        //         origin: OriginFor<T>,
-        //         hotkey: T::AccountId,
-        //     ) -> DispatchResult {
-        //         Self::do_unstake_all_alpha_aggregate(origin, hotkey)
-        //     }
+        /// Removes all stake from a hotkey on a subnet with a price limit.
+        /// This extrinsic allows to specify the limit price for alpha token
+        /// at which or better (higher) the staking should execute.
+        /// Without limit_price it remove all the stake similar to `remove_stake` extrinsic
+        #[pallet::call_index(103)]
+        #[pallet::weight((Weight::from_parts(398_000_000, 10142)
+			.saturating_add(T::DbWeight::get().reads(29_u64))
+			.saturating_add(T::DbWeight::get().writes(14_u64)), DispatchClass::Normal, Pays::No))]
+        pub fn remove_stake_full_limit(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            limit_price: Option<u64>,
+        ) -> DispatchResult {
+            Self::do_remove_stake_full_limit(origin, hotkey, netuid, limit_price)
+        }
     }
 }

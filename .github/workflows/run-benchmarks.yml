@@ -24,18 +24,20 @@ jobs:
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
       - name: Install GitHub CLI
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
+        # We disallow skipping benchmarks for PRs from forks to avoid exposing secrets
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository && env.SKIP_BENCHMARKS != '1' }}
         run: |
           sudo apt-get update
           sudo apt-get install -y gh
           echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
 
       - name: Check skip label
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository && env.SKIP_BENCHMARKS != '1' }}
         run: |
           labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
           if echo "$labels" | grep -q "skip-validate-benchmarks"; then
@@ -50,7 +52,7 @@ jobs:
           sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
 
       - name: Check skip label
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository && env.SKIP_BENCHMARKS != '1' }}
         run: |
           labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
           if echo "$labels" | grep -q "skip-validate-benchmarks"; then
@@ -66,7 +68,7 @@ jobs:
           toolchain: stable
 
       - name: Check skip label
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository && env.SKIP_BENCHMARKS != '1' }}
         run: |
           labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
           if echo "$labels" | grep -q "skip-validate-benchmarks"; then
@@ -81,7 +83,7 @@ jobs:
           key: bench-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Check skip label
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository && env.SKIP_BENCHMARKS != '1' }}
         run: |
           labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
           if echo "$labels" | grep -q "skip-validate-benchmarks"; then
@@ -95,7 +97,7 @@ jobs:
           cargo build --profile production -p node-subtensor --features runtime-benchmarks
 
       - name: Check skip label
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository && env.SKIP_BENCHMARKS != '1' }}
         run: |
           labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
           if echo "$labels" | grep -q "skip-validate-benchmarks"; then
@@ -110,7 +112,7 @@ jobs:
           ./scripts/benchmark_action.sh
 
       - name: Check skip label after run
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository && env.SKIP_BENCHMARKS != '1' }}
         run: |
           labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
           if echo "$labels" | grep -q "skip-validate-benchmarks"; then
