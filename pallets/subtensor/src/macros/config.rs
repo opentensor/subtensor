@@ -51,7 +51,7 @@ mod config {
 
         /// the preimage to store the call data.
         type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
-        
+
         /// Swap interface.
         type SwapInterface: SwapHandler<Self::AccountId>;
 

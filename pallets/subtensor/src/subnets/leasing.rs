@@ -6,8 +6,9 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use sp_core::blake2_256;
 use sp_runtime::{Percent, traits::TrailingZeroInput};
-use substrate_fixed::types::{U64F64, U96F32};
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::NetUid;
+use subtensor_swap_interface::SwapHandler;
 
 pub type LeaseId = u32;
 
@@ -286,20 +287,20 @@ impl<T: Config> Pallet<T> {
         }
 
         // Unstake the contributors cut from the subnet as tao to the lease coldkey
-        let fee = Self::calculate_staking_fee(
-            Some((&lease.hotkey, lease.netuid)),
-            &lease.coldkey,
-            None,
-            &lease.coldkey,
-            U96F32::saturating_from_num(total_contributors_cut_alpha),
-        );
-        let tao_unstaked = Self::unstake_from_subnet(
+        let tao_unstaked = match Self::unstake_from_subnet(
             &lease.hotkey,
             &lease.coldkey,
             lease.netuid,
             total_contributors_cut_alpha,
-            fee,
-        );
+            T::SwapInterface::min_price(),
+        ) {
+            Ok(tao_unstaked) => tao_unstaked,
+            Err(err) => {
+                log::debug!("Couldn't distributing dividends for lease {lease_id}: {err:?}");
+                AccumulatedLeaseDividends::<T>::set(lease_id, total_contributors_cut_alpha);
+                return;
+            }
+        };
 
         // Distribute the contributors cut to the contributors and accumulate the tao
         // distributed so far to obtain how much tao is left to distribute to the beneficiary

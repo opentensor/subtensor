@@ -2086,7 +2086,7 @@ mod dispatches {
         ) -> DispatchResult {
             Self::do_remove_stake_full_limit(origin, hotkey, netuid, limit_price)
         }
-        
+
         /// Register a new leased network.
         ///
         /// The crowdloan's contributions are used to compute the share of the emissions that the contributors
