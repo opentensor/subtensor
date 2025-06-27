@@ -10,7 +10,7 @@ use tle::tlock::TLECiphertext;
 use tle::tlock::tld;
 use w3f_bls::EngineBLS;
 
-/// Contains all necesarry information to set weights.
+/// Contains all necessary information to set weights.
 ///
 /// In the context of commit-reveal v3, this is the payload which should be
 /// encrypted, compressed, serialized, and submitted to the `commit_crv3_weights`
