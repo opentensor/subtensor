@@ -114,3 +114,17 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:${{ env.tag }}-arm64
             ${{ env.latest_tag == 'true' && format('ghcr.io/{0}:latest-arm64', github.repository) || '' }}
+  merge-docker-manifest:
+    runs-on: ubuntu-latest
+    needs: [publish-arm, publish-x86]
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create and push manifest images
+        uses: Noelware/docker-manifest-action@v1 # or use a pinned version in the Releases tab
+        with:
+          inputs: ${{ env.latest_tag == 'true' && format('ghcr.io/{0}', github.repository) || '' }}:latest
+          tags: ${{ env.latest_tag == 'true' && format('ghcr.io/{0}:latest-arm64', github.repository) || '' }},${{ env.latest_tag == 'true' && format('ghcr.io/{0}:latest-amd64', github.repository) || '' }}
