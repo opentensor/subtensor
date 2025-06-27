@@ -964,8 +964,8 @@ impl<T: Config> Pallet<T> {
             position.liquidity = position.liquidity.saturating_add(delta_liquidity_abs);
         } else {
             // Remove liquidity at tick
-            Self::remove_liquidity_at_index(netuid, position.tick_low, position.liquidity, false);
-            Self::remove_liquidity_at_index(netuid, position.tick_high, position.liquidity, true);
+            Self::remove_liquidity_at_index(netuid, position.tick_low, delta_liquidity_abs, false);
+            Self::remove_liquidity_at_index(netuid, position.tick_high, delta_liquidity_abs, true);
 
             // Remove liquidity from user position
             position.liquidity = position.liquidity.saturating_sub(delta_liquidity_abs);
