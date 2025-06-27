@@ -33,7 +33,7 @@ services:
     volumes:
       - mainnet-lite-volume:/data
     command:
-      - --base-path=/tmp/blockchain
+      - --base-path=/data
       - --chain=./chainspecs/raw_spec_finney.json
       - --rpc-external
       - --rpc-cors=all
@@ -47,7 +47,7 @@ services:
     volumes:
       - mainnet-archive-volume:/data
     command:
-      - --base-path=/tmp/blockchain
+      - --base-path=/data
       - --chain=./chainspecs/raw_spec_finney.json
       - --rpc-external
       - --rpc-cors=all
@@ -61,7 +61,7 @@ services:
     volumes:
       - testnet-lite-volume:/data
     command:
-      - --base-path=/tmp/blockchain
+      - --base-path=/data
       - --chain=./chainspecs/raw_spec_testfinney.json
       - --rpc-external
       - --rpc-cors=all
@@ -77,7 +77,7 @@ services:
     volumes:
       - testnet-archive-volume:/data
     command:
-      - --base-path=/tmp/blockchain
+      - --base-path=/data
       - --chain=./chainspecs/raw_spec_testfinney.json
       - --rpc-external
       - --rpc-cors=all
