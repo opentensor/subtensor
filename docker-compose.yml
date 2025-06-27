@@ -34,7 +34,7 @@ services:
       - mainnet-lite-volume:/tmp/blockchain
     command:
       - --base-path=/tmp/blockchain
-      - --chain=/raw_spec_finney.json
+      - --chain=./chainspecs/raw_spec_finney.json
       - --rpc-external
       - --rpc-cors=all
       - --no-mdns
@@ -48,7 +48,7 @@ services:
       - mainnet-archive-volume:/tmp/blockchain
     command:
       - --base-path=/tmp/blockchain
-      - --chain=/raw_spec_finney.json
+      - --chain=./chainspecs/raw_spec_finney.json
       - --rpc-external
       - --rpc-cors=all
       - --no-mdns
@@ -62,7 +62,7 @@ services:
       - testnet-lite-volume:/tmp/blockchain
     command:
       - --base-path=/tmp/blockchain
-      - --chain=/raw_spec_testfinney.json
+      - --chain=./chainspecs/raw_spec_testfinney.json
       - --rpc-external
       - --rpc-cors=all
       - --no-mdns
@@ -78,7 +78,7 @@ services:
       - testnet-archive-volume:/tmp/blockchain
     command:
       - --base-path=/tmp/blockchain
-      - --chain=/raw_spec_testfinney.json
+      - --chain=./chainspecs/raw_spec_testfinney.json
       - --rpc-external
       - --rpc-cors=all
       - --no-mdns
