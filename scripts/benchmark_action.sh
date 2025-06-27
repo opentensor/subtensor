@@ -2,12 +2,8 @@
 ###############################################################################
 # benchmark_action.sh
 #
-# 1. Benchmarks every pallet in PALLET_LIST.
-# 2. Compares measured vs. declared weight / reads / writes.
-# 3. Each pallet → max 3 attempts. After 3 failures:
-#      • Patch literals once
-#      • Commit & push when AUTO_COMMIT_WEIGHTS=1
-#      • Move on to the next pallet (no re‑benchmark)
+# Benchmarks each pallet, validates weight declarations, patches & commits
+# when drift exceeds THRESHOLD.
 ###############################################################################
 set -euo pipefail
 
@@ -23,7 +19,7 @@ declare -A DISPATCH_PATHS=(
   [drand]="../pallets/drand/src/lib.rs"
 )
 
-THRESHOLD=15        # % drift allowed before patching
+THRESHOLD=15          # % drift allowed
 MAX_RETRIES=3
 AUTO_COMMIT="${AUTO_COMMIT_WEIGHTS:-0}"
 
@@ -34,24 +30,31 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNTIME_WASM="$SCRIPT_DIR/../target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm"
 
 die()          { echo "❌ $1" >&2; exit 1; }
+warn()         { echo "⚠️  $*"; }
 digits_only()  { echo "${1//[^0-9]/}"; }
 dec()          { local d; d=$(digits_only "$1"); echo "$((10#${d:-0}))"; }
 
-log_warn()     { echo "⚠️  $*"; }
+# Disable pipefail just for diff‑previews to avoid SIGPIPE aborts
+safe_preview() {
+  ( set +o pipefail
+    git diff --cached --stat || true
+    git diff --cached | head -n 40 || true
+  )
+}
 
 ###############################################################################
-# Patch helpers (Perl one‑liner tries *two* patterns: attribute‑above & below)
+# Patch helpers (attribute‑above & inline patterns)
 ###############################################################################
 patch_weight() {
   local fn="$1" new_w="$2" file="$3"
   local before after; before=$(sha1sum "$file" | cut -d' ' -f1)
 
   FN="$fn" NEWW="$new_w" perl -0777 -i -pe '
-    my $hits = 0;
-    $hits += s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{]*?Weight::from_parts\(\s*)[0-9A-Za-z_]+|$1$ENV{NEWW}|s;
-    $hits += s|(\#\s*\[pallet::weight[^\]]*?Weight::from_parts\(\s*)[0-9A-Za-z_]+(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1$ENV{NEWW}|s;
+    my $hits=0;
+    $hits += s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{]*?Weight::from_parts\(\s*)[0-9A-Za-z_]+|${1}$ENV{NEWW}|s;
+    $hits += s|(\#\s*\[pallet::weight[^\]]*?Weight::from_parts\(\s*)[0-9A-Za-z_]+(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|${1}$ENV{NEWW}|s;
     END{ exit $hits ? 0 : 1 }
-  ' "$file" || log_warn "patch_weight: no substitution for $fn"
+  ' "$file" || warn "patch_weight: $fn – pattern not found"
 
   after=$(sha1sum "$file" | cut -d' ' -f1)
   [[ "$before" != "$after" ]]
@@ -62,23 +65,26 @@ patch_reads_writes() {
   local before after; before=$(sha1sum "$file" | cut -d' ' -f1)
 
   FN="$fn" NEWR="$new_r" NEWW="$new_w" perl -0777 -i -pe '
-    my $h = 0;
-    $h += s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{]*?reads_writes\(\s*)([^,]+)(\s*,\s*)([^)]+)|$1$ENV{NEWR}$3$ENV{NEWW}|s;
-    $h += s|(\#\s*\[pallet::weight[^\]]*?reads_writes\(\s*)([^,]+)(\s*,\s*)([^)]+)(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1$ENV{NEWR}$3$ENV{NEWW}|s;
-    $h += s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{]*?\.reads\(\s*)([^)]+)|$1$ENV{NEWR}|s;
-    $h += s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{]*?\.writes\(\s*)([^)]+)|$1$ENV{NEWW}|s;
-    $h += s|(\#\s*\[pallet::weight[^\]]*?\.reads\(\s*)([^)]+)(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1$ENV{NEWR}|s;
-    $h += s|(\#\s*\[pallet::weight[^\]]*?\.writes\(\s*)([^)]+)(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1$ENV{NEWW}|s;
+    my $h=0;
+    $h += s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{]*?reads_writes\(\s*)([^,]+)(\s*,\s*)([^)]+)|${1}$ENV{NEWR}${3}$ENV{NEWW}|s;
+    $h += s|(\#\s*\[pallet::weight[^\]]*?reads_writes\(\s*)([^,]+)(\s*,\s*)([^)]+)(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|${1}$ENV{NEWR}${3}$ENV{NEWW}|s;
+    $h += s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{]*?\.reads\(\s*)([^)]+)|${1}$ENV{NEWR}|s;
+    $h += s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{]*?\.writes\(\s*)([^)]+)|${1}$ENV{NEWW}|s;
+    $h += s|(\#\s*\[pallet::weight[^\]]*?\.reads\(\s*)([^)]+)(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|${1}$ENV{NEWR}|s;
+    $h += s|(\#\s*\[pallet::weight[^\]]*?\.writes\(\s*)([^)]+)(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|${1}$ENV{NEWW}|s;
     END{ exit $h ? 0 : 1 }
-  ' "$file" || log_warn "patch_reads_writes: no substitution for $fn"
+  ' "$file" || warn "patch_reads/writes: $fn – pattern not found"
 
   after=$(sha1sum "$file" | cut -d' ' -f1)
   [[ "$before" != "$after" ]]
 }
 
+###############################################################################
+# Git helpers
+###############################################################################
 git_commit_and_push() {
   local msg="$1"
-  local branch; branch="$(git symbolic-ref --quiet --short HEAD || true)"
+  local branch; branch=$(git symbolic-ref --quiet --short HEAD || true)
   [[ -z "$branch" ]] && die "Not on a branch – cannot push"
 
   git config user.name  "github-actions[bot]"
@@ -91,17 +97,9 @@ git_commit_and_push() {
     return
   fi
 
-  echo "==== diff preview ===="
-  git diff --cached --stat
-  git diff --cached | head -n 40
-  echo "======================"
-
+  safe_preview
   git commit -m "$msg"
-
-  if ! git push origin "HEAD:${branch}"; then
-    git --no-pager log -1 --stat
-    die "Push to '${branch}' failed."
-  fi
+  git push origin "HEAD:$branch" || die "Push to '$branch' failed"
 }
 
 ################################################################################
@@ -125,19 +123,17 @@ for pallet in "${PALLET_LIST[@]}"; do
 
   attempt=1
   while (( attempt <= MAX_RETRIES )); do
-    printf "\n════ Benchmarking '%s' (attempt %d/%d) ════\n" "$pallet" "$attempt" "$MAX_RETRIES"
+    printf "\n════ Benchmark '%s' (attempt %d/%d) ════\n" "$pallet" "$attempt" "$MAX_RETRIES"
 
-    TMP="$(mktemp)"
-    trap 'rm -f "$TMP"' EXIT
-
+    TMP="$(mktemp)"; trap 'rm -f "$TMP"' EXIT
     ./target/production/node-subtensor benchmark pallet \
-        --runtime "$RUNTIME_WASM" --genesis-builder=runtime \
-        --genesis-builder-preset=benchmark --wasm-execution=compiled \
-        --pallet "pallet_${pallet}" --extrinsic "*" --steps 50 --repeat 5 \
-        | tee "$TMP"
+         --runtime "$RUNTIME_WASM" --genesis-builder=runtime \
+         --genesis-builder-preset=benchmark --wasm-execution=compiled \
+         --pallet "pallet_${pallet}" --extrinsic "*" --steps 50 --repeat 5 \
+         | tee "$TMP"
 
     declare -A new_weight=() new_reads=() new_writes=()
-    summary_lines=(); failures=(); fail=0
+    summary=(); failures=(); fail=0
     extr=""; meas_us=""; meas_reads=""; meas_writes=""
 
     flush_extr() {
@@ -151,7 +147,7 @@ for pallet in "${PALLET_LIST[@]}"; do
                                     split(lw,io,","); gsub(/[ \t_]/,"",io[1]); gsub(/[ \t_]/,"",io[2]); r=io[1]; wr=io[2] }
         /\.reads\(/               { lw=$0; sub(/.*\.reads\(/,"",lw); sub(/\).*/,"",lw); gsub(/_/,"",lw); r=lw }
         /\.writes\(/              { lw=$0; sub(/.*\.writes\(/,"",lw); sub(/\).*/,"",lw); gsub(/_/,"",lw); wr=lw }
-        $0 ~ ("pub fn[[:space:]]+"fn"\\(") { print w,r,wr; exit }
+        $0 ~ ("pub fn[[:space:]]+"fn"\\("){ print w,r,wr; exit }
       ' "$DISPATCH")
 
       code_w=$(dec "${code_w:-0}")
@@ -160,23 +156,14 @@ for pallet in "${PALLET_LIST[@]}"; do
 
       local drift
       drift=$([[ "$code_w" -eq 0 ]] && echo 99999 || awk -v a="$meas_ps" -v b="$code_w" 'BEGIN{printf("%.1f", (a-b)/b*100)}')
-      local abs_drift=${drift#-}; local drift_int=${abs_drift%%.*}
+      local abs=${drift#-}; local d_int=${abs%%.*}
 
-      summary_lines+=("$(printf "%-35s | reads %4s → %4s | writes %4s → %4s | weight %12s → %12s | drift %6s%%" \
-                      "$extr" "$code_r" "$meas_reads" "$code_wr" "$meas_writes" "$code_w" "$meas_ps" "$drift")")
+      summary+=("$(printf "%-35s | reads %4s → %4s | writes %4s → %4s | weight %12s → %12s | drift %6s%%" \
+               "$extr" "$code_r" "$meas_reads" "$code_wr" "$meas_writes" "$code_w" "$meas_ps" "$drift")")
 
-      if (( meas_reads != code_r )); then
-        failures+=("[$extr] reads mismatch (code=$code_r, measured=$meas_reads)")
-        new_reads[$extr]=$meas_reads;   fail=1
-      fi
-      if (( meas_writes != code_wr )); then
-        failures+=("[$extr] writes mismatch (code=$code_wr, measured=$meas_writes)")
-        new_writes[$extr]=$meas_writes; fail=1
-      fi
-      if (( drift_int > THRESHOLD )); then
-        failures+=("[$extr] weight drift ${drift}% (code=$code_w, measured=$meas_ps)")
-        new_weight[$extr]=$meas_ps;     fail=1
-      fi
+      (( meas_reads != code_r )) && { failures+=("[$extr] reads mismatch");      new_reads[$extr]=$meas_reads;   fail=1; }
+      (( meas_writes != code_wr )) && { failures+=("[$extr] writes mismatch");    new_writes[$extr]=$meas_writes; fail=1; }
+      (( d_int > THRESHOLD ))      && { failures+=("[$extr] weight drift $drift%"); new_weight[$extr]=$meas_ps;  fail=1; }
     }
 
     while IFS= read -r line; do
@@ -184,17 +171,15 @@ for pallet in "${PALLET_LIST[@]}"; do
       [[ $line =~ Time\ ~=\ *([0-9]+(\.[0-9]+)?) ]]   && { meas_us="${BASH_REMATCH[1]}"; continue; }
       [[ $line =~ Reads[[:space:]]*=[[:space:]]*([0-9]+) ]]  && { meas_reads="${BASH_REMATCH[1]}"; continue; }
       [[ $line =~ Writes[[:space:]]*=[[:space:]]*([0-9]+) ]] && { meas_writes="${BASH_REMATCH[1]}"; continue; }
-    done < "$TMP"
-    flush_extr
+    done < "$TMP"; flush_extr
 
-    echo; printf '  %s\n' "${summary_lines[@]}"
-    (( fail == 0 )) && { echo "✅ '$pallet' within tolerance."; break; }
+    echo; printf '  %s\n' "${summary[@]}"
+    (( fail == 0 )) && { echo "✅ '$pallet' OK."; break; }
 
     printf '  ❌ %s\n' "${failures[@]}"
-    (( attempt < MAX_RETRIES )) && { echo "→ Retrying …"; (( attempt++ )); continue; }
+    (( attempt < MAX_RETRIES )) && { echo "→ Retry …"; (( attempt++ )); continue; }
 
-    # After final failure ⇒ patch
-    echo "❌ '$pallet' still failing; patching …"
+    echo "❌ '$pallet' still failing – patching …"
     [[ "$AUTO_COMMIT" != "1" ]] && die "AUTO_COMMIT_WEIGHTS disabled."
 
     changed=0
@@ -204,18 +189,14 @@ for pallet in "${PALLET_LIST[@]}"; do
       [[ -n "$r" || -n "$w" ]] && patch_reads_writes "$fn" "${r:-0}" "${w:-0}" "$DISPATCH" && changed=1
     done
 
-    if (( changed )); then
-      PATCHED_FILES+=("$DISPATCH")
-      echo "✅ Patched '$pallet' file."
-    else
-      echo "⚠️  No modifications applied for '$pallet'."
-    fi
+    (( changed )) && { PATCHED_FILES+=("$DISPATCH"); echo "✅ Patched '$pallet'." ;} \
+                  || warn "No substitutions applied for '$pallet'."
     break
   done
 done
 
 ################################################################################
-# Commit & push patches
+# Commit & push
 ################################################################################
 if (( ${#PATCHED_FILES[@]} )); then
   echo -e "\n📦  Committing patched files …"
