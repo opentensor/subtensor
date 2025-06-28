@@ -13,6 +13,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: subtensor
+    user: 10001:10001
     cpu_count: 4
     mem_limit: 40000000000
     memswap_limit: 80000000000
