@@ -54,14 +54,29 @@ impl<T: Config> Pallet<T> {
         log::debug!("Subnets to emit to: {:?}", subnets_to_emit_to);
 
         // --- 2. Get sum of tao reserves ( in a later version we will switch to prices. )
-        let mut total_moving_prices = U96F32::saturating_from_num(0.0);
+        let mut emission_scores: BTreeMap<NetUid, U96F32> = BTreeMap::new();
+        let mut total_emission_scores = U96F32::saturating_from_num(0.0);
         // Only get price EMA for subnets that we emit to.
+        // Get total TAO on root.
+        let root_tao: U96F32 = asfloat!(SubnetTAO::<T>::get(NetUid::ROOT));
         for netuid_i in subnets_to_emit_to.iter() {
             // Get and update the moving price of each subnet adding the total together.
-            total_moving_prices =
-                total_moving_prices.saturating_add(Self::get_moving_alpha_price(*netuid_i));
+            let moving_price_i: U96F32 = Self::get_moving_alpha_price(*netuid_i);
+            // Get alpha_issuance.
+            let alpha_issuance: U96F32 = asfloat!(Self::get_alpha_issuance(*netuid_i));
+            // Get tao_weight
+            let tao_weight: U96F32 = root_tao.saturating_mul(Self::get_tao_weight());
+            // Multiply by root proportion.
+            let root_proportion: U96F32 = tao_weight
+             .checked_div(tao_weight.saturating_add(alpha_issuance))
+             .unwrap_or(asfloat!(0.0));
+            // Get score.
+            let score_i: U96F32 = root_proportion * moving_price_i;
+            emission_scores.insert(*netuid_i, score_i);
+            // Get finalized score.
+            total_emission_scores = total_emission_scores.saturating_add(score_i);
         }
-        log::debug!("total_moving_prices: {:?}", total_moving_prices);
+        log::debug!("total_moving_prices: {:?}", total_emission_scores);
 
         // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
         // Computation is described in detail in the dtao whitepaper.
@@ -73,13 +88,13 @@ impl<T: Config> Pallet<T> {
             // Get subnet price.
             let price_i = T::SwapInterface::current_alpha_price((*netuid_i).into());
             log::debug!("price_i: {:?}", price_i);
-            // Get subnet TAO.
-            let moving_price_i: U96F32 = Self::get_moving_alpha_price(*netuid_i);
-            log::debug!("moving_price_i: {:?}", moving_price_i);
+            // Get subnet emission_score
+            let emission_score_i: U96F32 = *emission_scores.get(netuid_i).unwrap_or(&asfloat!(0));
+            log::debug!("emission_score_i: {:?}", emission_score_i);
             // Emission is price over total.
             let mut tao_in_i: U96F32 = block_emission
-                .saturating_mul(moving_price_i)
-                .checked_div(total_moving_prices)
+                .saturating_mul(emission_score_i)
+                .checked_div(total_emission_scores)
                 .unwrap_or(asfloat!(0.0));
             log::debug!("tao_in_i: {:?}", tao_in_i);
             // Get alpha_emission total
