@@ -2154,7 +2154,7 @@ mod dispatches {
         ///
         /// # Events
         /// Emits a `SymbolUpdated` event on success.
-        #[pallet::call_index(110)]
+        #[pallet::call_index(112)]
         #[pallet::weight((
             Weight::from_parts(28_840_000, 0).saturating_add(T::DbWeight::get().reads_writes(4, 1)),
             DispatchClass::Operational,
