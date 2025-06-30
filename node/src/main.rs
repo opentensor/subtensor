@@ -9,6 +9,7 @@ mod benchmarking;
 mod cli;
 mod client;
 mod command;
+mod conditional_evm_block_import;
 mod ethereum;
 mod rpc;
 

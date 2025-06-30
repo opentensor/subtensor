@@ -1,13 +1,9 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-use fp_consensus::{FindLogError, ensure_log};
-use fp_rpc::EthereumRuntimeRPCApi;
 use futures::{FutureExt, channel::mpsc, future};
 use node_subtensor_runtime::{RuntimeApi, TransactionConverter, opaque::Block};
 use sc_client_api::{Backend as BackendT, BlockBackend};
-use sc_consensus::{
-    BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxBlockImport, ImportResult,
-};
+use sc_consensus::{BasicQueue, BoxBlockImport};
 use sc_consensus_babe::BabeWorkerHandle;
 use sc_consensus_grandpa::BlockNumberOps;
 use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
@@ -16,16 +12,14 @@ use sc_service::{Configuration, PartialComponents, TaskManager, error::Error as 
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, log};
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_api::ProvideRuntimeApi;
-use sp_block_builder::BlockBuilder as BlockBuilderApi;
-use sp_consensus::Error as ConsensusError;
 use sp_runtime::traits::{Block as BlockT, Header, NumberFor};
 use std::{cell::RefCell, path::Path};
-use std::{marker::PhantomData, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
 
 use crate::cli::Sealing;
 use crate::client::{FullBackend, FullClient, HostFunctions, RuntimeExecutor};
+use crate::conditional_evm_block_import::ConditionalEVMBlockImport;
 use crate::ethereum::{
     BackendType, EthConfiguration, FrontierBackend, FrontierBlockImport, FrontierPartialComponents,
     StorageOverride, StorageOverrideHandler, db_config_dir, new_frontier_partial,
@@ -192,106 +186,6 @@ where
             storage_override,
         ),
     })
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("Multiple runtime Ethereum blocks, rejecting!")]
-    MultipleRuntimeLogs,
-    #[error("Runtime Ethereum block not found, rejecting!")]
-    NoRuntimeLog,
-    #[error("Cannot access the runtime at genesis, rejecting!")]
-    RuntimeApiCallFailed,
-}
-
-impl From<Error> for String {
-    fn from(error: Error) -> String {
-        error.to_string()
-    }
-}
-
-impl From<FindLogError> for Error {
-    fn from(error: FindLogError) -> Error {
-        match error {
-            FindLogError::NotFound => Error::NoRuntimeLog,
-            FindLogError::MultipleLogs => Error::MultipleRuntimeLogs,
-        }
-    }
-}
-
-impl From<Error> for ConsensusError {
-    fn from(error: Error) -> ConsensusError {
-        ConsensusError::ClientImport(error.to_string())
-    }
-}
-
-pub struct ConditionalEVMBlockImport<B: BlockT, I, F, C> {
-    inner: I,
-    frontier_block_import: F,
-    client: Arc<C>,
-    _marker: PhantomData<B>,
-}
-
-impl<B, I, F, C> Clone for ConditionalEVMBlockImport<B, I, F, C>
-where
-    B: BlockT,
-    I: Clone + BlockImport<B>,
-    F: Clone + BlockImport<B>,
-{
-    fn clone(&self) -> Self {
-        ConditionalEVMBlockImport {
-            inner: self.inner.clone(),
-            frontier_block_import: self.frontier_block_import.clone(),
-            client: self.client.clone(),
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<B, I, F, C> ConditionalEVMBlockImport<B, I, F, C>
-where
-    B: BlockT,
-    I: BlockImport<B>,
-    I::Error: Into<ConsensusError>,
-    F: BlockImport<B>,
-    F::Error: Into<ConsensusError>,
-    C: ProvideRuntimeApi<B>,
-    C::Api: BlockBuilderApi<B> + EthereumRuntimeRPCApi<B>,
-{
-    pub fn new(inner: I, frontier_block_import: F, client: Arc<C>) -> Self {
-        Self {
-            inner,
-            frontier_block_import,
-            client,
-            _marker: PhantomData,
-        }
-    }
-}
-
-#[async_trait::async_trait]
-impl<B, I, F, C> BlockImport<B> for ConditionalEVMBlockImport<B, I, F, C>
-where
-    B: BlockT,
-    I: BlockImport<B> + Send + Sync,
-    I::Error: Into<ConsensusError>,
-    F: BlockImport<B> + Send + Sync,
-    F::Error: Into<ConsensusError>,
-    C: ProvideRuntimeApi<B> + Send + Sync,
-    C::Api: BlockBuilderApi<B> + EthereumRuntimeRPCApi<B>,
-{
-    type Error = ConsensusError;
-
-    async fn check_block(&self, block: BlockCheckParams<B>) -> Result<ImportResult, Self::Error> {
-        self.inner.check_block(block).await.map_err(Into::into)
-    }
-
-    async fn import_block(&self, block: BlockImportParams<B>) -> Result<ImportResult, Self::Error> {
-        // Import like Frontier, but fallback to grandpa import for errors
-        match ensure_log(block.header.digest()).map_err(Error::from) {
-            Ok(()) => self.inner.import_block(block).await.map_err(Into::into),
-            _ => self.inner.import_block(block).await.map_err(Into::into),
-        }
-    }
 }
 
 /// Build the import queue for the template runtime (babe + grandpa).
