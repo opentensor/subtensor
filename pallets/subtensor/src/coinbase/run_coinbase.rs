@@ -140,7 +140,7 @@ impl<T: Config> Pallet<T> {
                 *total = total.saturating_add(tao_in_i);
             });
             // Adjust protocol liquidity based on new reserves
-            T::SwapInterface::adjust_protocol_liquidity(*netuid_i);
+            T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
         }
 
         // --- 5. Compute owner cuts and remove them from alpha_out remaining.
@@ -492,7 +492,7 @@ impl<T: Config> Pallet<T> {
             root_tao = root_tao.saturating_sub(tao_take);
             // Give the validator their take.
             log::debug!("hotkey: {:?} tao_take: {:?}", hotkey, tao_take);
-            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            let validator_stake = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey,
                 &Owner::<T>::get(hotkey.clone()),
                 NetUid::ROOT,
@@ -504,6 +504,12 @@ impl<T: Config> Pallet<T> {
             // Record root dividends for this validator on this subnet.
             TaoDividendsPerSubnet::<T>::mutate(netuid, hotkey.clone(), |divs| {
                 *divs = divs.saturating_add(tou64!(root_tao));
+            });
+            // Update the total TAO on the subnet with root tao dividends.
+            SubnetTAO::<T>::mutate(NetUid::ROOT, |total| {
+                *total = total
+                    .saturating_add(validator_stake)
+                    .saturating_add(tou64!(root_tao));
             });
         }
     }

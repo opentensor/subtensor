@@ -691,7 +691,7 @@ impl<T: Config> Pallet<T> {
             // Decrease Alpha outstanding.
             // TODO: Deprecate, not accurate in v3 anymore
             SubnetAlphaOut::<T>::mutate(netuid, |total| {
-                *total = total.saturating_sub(alpha);
+                *total = total.saturating_sub(swap_result.alpha_reserve_delta as u64);
             });
 
             // Decrease tao reserves.
