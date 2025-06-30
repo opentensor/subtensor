@@ -599,6 +599,8 @@ fn test_subtoken_enable_trading_ok_with_enable() {
             stake_amount
         ));
 
+        remove_stake_rate_limit_for_tests(&hotkey_account_id, &coldkey_account_id, netuid);
+
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
@@ -628,6 +630,8 @@ fn test_subtoken_enable_trading_ok_with_enable() {
             netuid2,
             unstake_amount,
         ));
+
+        remove_stake_rate_limit_for_tests(&hotkey_account_2_id, &coldkey_account_id, netuid);
 
         assert_ok!(SubtensorModule::transfer_stake(
             RuntimeOrigin::signed(coldkey_account_id),
