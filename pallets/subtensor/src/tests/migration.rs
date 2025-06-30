@@ -37,8 +37,8 @@ fn test_initialise_ti() {
 
     new_test_ext(1).execute_with(|| {
         pallet_balances::TotalIssuance::<Test>::put(1000);
-        crate::SubnetTAO::<Test>::insert(1, 100);
-        crate::SubnetTAO::<Test>::insert(2, 5);
+        crate::SubnetTAO::<Test>::insert(NetUid::from(1), 100);
+        crate::SubnetTAO::<Test>::insert(NetUid::from(2), 5);
 
         // Ensure values are NOT initialized prior to running migration
         assert!(crate::TotalIssuance::<Test>::get() == 0);
@@ -59,11 +59,11 @@ fn test_initialise_ti() {
 fn test_migration_transfer_nets_to_foundation() {
     new_test_ext(1).execute_with(|| {
         // Create subnet 1
-        add_network(1, 1, 0);
+        add_network(1.into(), 1, 0);
         // Create subnet 11
-        add_network(11, 1, 0);
+        add_network(11.into(), 1, 0);
 
-        log::info!("{:?}", SubtensorModule::get_subnet_owner(1));
+        log::info!("{:?}", SubtensorModule::get_subnet_owner(1.into()));
         //assert_eq!(SubtensorModule::<T>::get_subnet_owner(1), );
 
         // Run the migration to transfer ownership
@@ -71,7 +71,7 @@ fn test_migration_transfer_nets_to_foundation() {
             hex_literal::hex!["feabaafee293d3b76dae304e2f9d885f77d2b17adab9e17e921b321eccd61c77"];
         crate::migrations::migrate_transfer_ownership_to_foundation::migrate_transfer_ownership_to_foundation::<Test>(hex);
 
-        log::info!("new owner: {:?}", SubtensorModule::get_subnet_owner(1));
+        log::info!("new owner: {:?}", SubtensorModule::get_subnet_owner(1.into()));
     })
 }
 
@@ -79,13 +79,13 @@ fn test_migration_transfer_nets_to_foundation() {
 fn test_migration_delete_subnet_3() {
     new_test_ext(1).execute_with(|| {
         // Create subnet 3
-        add_network(3, 1, 0);
-        assert!(SubtensorModule::if_subnet_exist(3));
+        add_network(3.into(), 1, 0);
+        assert!(SubtensorModule::if_subnet_exist(3.into()));
 
         // Run the migration to transfer ownership
         crate::migrations::migrate_delete_subnet_3::migrate_delete_subnet_3::<Test>();
 
-        assert!(!SubtensorModule::if_subnet_exist(3));
+        assert!(!SubtensorModule::if_subnet_exist(3.into()));
     })
 }
 
@@ -93,13 +93,13 @@ fn test_migration_delete_subnet_3() {
 fn test_migration_delete_subnet_21() {
     new_test_ext(1).execute_with(|| {
         // Create subnet 21
-        add_network(21, 1, 0);
-        assert!(SubtensorModule::if_subnet_exist(21));
+        add_network(21.into(), 1, 0);
+        assert!(SubtensorModule::if_subnet_exist(21.into()));
 
         // Run the migration to transfer ownership
         crate::migrations::migrate_delete_subnet_21::migrate_delete_subnet_21::<Test>();
 
-        assert!(!SubtensorModule::if_subnet_exist(21));
+        assert!(!SubtensorModule::if_subnet_exist(21.into()));
     })
 }
 
@@ -115,7 +115,7 @@ fn test_migrate_commit_reveal_2() {
         let storage_prefix_interval = twox_128("WeightCommitRevealInterval".as_bytes());
         let storage_prefix_commits = twox_128("WeightCommits".as_bytes());
 
-        let netuid: u16 = 1;
+        let netuid = NetUid::from(1);
         let interval_value: u64 = 50u64;
 
         // Construct the full key for WeightCommitRevealInterval
@@ -385,7 +385,7 @@ fn test_migrate_commit_reveal_2() {
 fn test_migrate_subnet_volume() {
     new_test_ext(1).execute_with(|| {
         // Setup initial state
-        let netuid_1: u16 = 1;
+        let netuid_1 = NetUid::from(1);
         add_network(netuid_1, 1, 0);
 
         // SubnetValue for netuid 1 key
@@ -422,7 +422,7 @@ fn test_migrate_subnet_volume() {
 #[test]
 fn test_migrate_set_first_emission_block_number() {
     new_test_ext(1).execute_with(|| {
-    let netuids: [u16; 3] = [1, 2, 3];
+    let netuids: [NetUid; 3] = [1.into(), 2.into(), 3.into()];
     let block_number = 100;
     for netuid in netuids.iter() {
         add_network(*netuid, 1, 0);
@@ -433,7 +433,7 @@ fn test_migrate_set_first_emission_block_number() {
     let expected_weight: Weight = <Test as Config>::DbWeight::get().reads(3) + <Test as Config>::DbWeight::get().writes(netuids.len() as u64);
     assert_eq!(weight, expected_weight);
 
-    assert_eq!(FirstEmissionBlockNumber::<Test>::get(0), None);
+    assert_eq!(FirstEmissionBlockNumber::<Test>::get(NetUid::ROOT), None);
     for netuid in netuids.iter() {
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), Some(block_number));
     }
@@ -443,13 +443,13 @@ fn test_migrate_set_first_emission_block_number() {
 #[test]
 fn test_migrate_set_subtoken_enable() {
     new_test_ext(1).execute_with(|| {
-        let netuids: [u16; 3] = [1, 2, 3];
+        let netuids: [NetUid; 3] = [1.into(), 2.into(), 3.into()];
         let block_number = 100;
         for netuid in netuids.iter() {
             add_network(*netuid, 1, 0);
         }
 
-        let new_netuid = 4;
+        let new_netuid = NetUid::from(4);
         add_network_without_emission_block(new_netuid, 1, 0);
 
         let weight =
@@ -470,7 +470,7 @@ fn test_migrate_set_subtoken_enable() {
 fn test_migrate_remove_zero_total_hotkey_alpha() {
     new_test_ext(1).execute_with(|| {
         const MIGRATION_NAME: &str = "migrate_remove_zero_total_hotkey_alpha";
-        let netuid = 1u16;
+        let netuid = NetUid::from(1u16);
 
         let hotkey_zero = U256::from(100u64);
         let hotkey_nonzero = U256::from(101u64);
@@ -524,7 +524,7 @@ fn test_migrate_revealed_commitments() {
         // Example keys for the DoubleMap:
         //   Key1 (netuid) uses Identity (no hash)
         //   Key2 (account) uses Twox64Concat
-        let netuid: u16 = 123;
+        let netuid = NetUid::from(123);
         let account_id: u64 = 999; // Or however your test `AccountId` is represented
 
         // Construct the full storage key for `RevealedCommitments(netuid, account_id)`
@@ -818,5 +818,39 @@ fn test_migrate_remove_commitments_rate_limit() {
         );
 
         assert!(!weight.is_zero(), "Migration weight should be non-zero");
+    });
+}
+
+#[test]
+fn test_migrate_fix_root_subnet_tao() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_fix_root_subnet_tao";
+
+        let mut expected_total_stake = 0;
+        // Seed some hotkeys with some fake stake.
+        for i in 0..100_000 {
+            Owner::<Test>::insert(U256::from(U256::from(i)), U256::from(i + 1_000_000));
+            let stake = i + 1_000_000;
+            TotalHotkeyAlpha::<Test>::insert(U256::from(U256::from(i)), NetUid::ROOT, stake);
+            expected_total_stake += stake;
+        }
+
+        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), 0);
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // Run the migration
+        let weight =
+            crate::migrations::migrate_fix_root_subnet_tao::migrate_fix_root_subnet_tao::<Test>();
+
+        // Verify the migration ran correctly
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as run"
+        );
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), expected_total_stake);
     });
 }

@@ -13,7 +13,7 @@ use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
 use sc_network_sync::strategy::warp::{WarpSyncConfig, WarpSyncProvider};
 use sc_service::{Configuration, PartialComponents, TaskManager, error::Error as ServiceError};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, log};
-use sc_transaction_pool::FullPool;
+use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
@@ -51,7 +51,7 @@ pub fn new_partial<BIQ>(
         FullBackend,
         FullSelectChain,
         BasicQueue<Block>,
-        FullPool<Block, FullClient>,
+        TransactionPoolHandle<Block, FullClient>,
         (
             Option<Telemetry>,
             BoxBlockImport<Block>,
@@ -148,12 +148,15 @@ where
         grandpa_block_import,
     )?;
 
-    let transaction_pool = sc_transaction_pool::BasicPool::new_full(
-        config.transaction_pool.clone(),
-        config.role.is_authority().into(),
-        config.prometheus_registry(),
-        task_manager.spawn_essential_handle(),
-        client.clone(),
+    let transaction_pool = Arc::from(
+        sc_transaction_pool::Builder::new(
+            task_manager.spawn_essential_handle(),
+            client.clone(),
+            config.role.is_authority().into(),
+        )
+        .with_options(config.transaction_pool.clone())
+        .with_prometheus(config.prometheus_registry())
+        .build(),
     );
 
     Ok(PartialComponents {
@@ -526,7 +529,7 @@ where
                 network_provider: Arc::new(network.clone()),
                 enable_http_requests: true,
                 custom_extensions: |_| vec![],
-            })
+            })?
             .run(client.clone(), task_manager.spawn_handle())
             .boxed(),
         );
@@ -601,7 +604,7 @@ where
             let eth_deps = crate::rpc::EthDeps {
                 client: client.clone(),
                 pool: pool.clone(),
-                graph: pool.pool().clone(),
+                graph: pool.clone(),
                 converter: Some(TransactionConverter::<Block>::default()),
                 is_authority,
                 enable_dev_signer,
@@ -791,10 +794,14 @@ pub async fn build_full(
     sealing: Option<Sealing>,
 ) -> Result<TaskManager, ServiceError> {
     match config.network.network_backend {
-        sc_network::config::NetworkBackendType::Libp2p => {
+        Some(sc_network::config::NetworkBackendType::Libp2p) => {
             new_full::<sc_network::NetworkWorker<_, _>>(config, eth_config, sealing).await
         }
-        sc_network::config::NetworkBackendType::Litep2p => {
+        Some(sc_network::config::NetworkBackendType::Litep2p) => {
+            new_full::<sc_network::Litep2pNetworkBackend>(config, eth_config, sealing).await
+        }
+        _ => {
+            log::debug!("no network backend selected, falling back to libp2p");
             new_full::<sc_network::NetworkWorker<_, _>>(config, eth_config, sealing).await
         }
     }
@@ -829,7 +836,7 @@ pub fn new_chain_ops(
 fn run_manual_seal_authorship(
     sealing: Sealing,
     client: Arc<FullClient>,
-    transaction_pool: Arc<FullPool<Block, FullClient>>,
+    transaction_pool: Arc<TransactionPoolHandle<Block, FullClient>>,
     select_chain: FullSelectChain,
     block_import: BoxBlockImport<Block>,
     task_manager: &TaskManager,

@@ -4,11 +4,12 @@ use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I96F32;
 use subtensor_macros::freeze_struct;
+use subtensor_runtime_common::NetUid;
 
-#[freeze_struct("7fbd2013e8262885")]
+#[freeze_struct("ddf2c1fdd5bb7e7")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct DynamicInfo<AccountId: TypeInfo + Encode + Decode> {
-    netuid: Compact<u16>,
+    netuid: Compact<NetUid>,
     owner_hotkey: AccountId,
     owner_coldkey: AccountId,
     subnet_name: Vec<Compact<u8>>,
@@ -27,12 +28,12 @@ pub struct DynamicInfo<AccountId: TypeInfo + Encode + Decode> {
     pending_root_emission: Compact<u64>,
     subnet_volume: Compact<u128>,
     network_registered_at: Compact<u64>,
-    subnet_identity: Option<SubnetIdentityV2>,
+    subnet_identity: Option<SubnetIdentityV3>,
     moving_price: I96F32,
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn get_dynamic_info(netuid: u16) -> Option<DynamicInfo<T::AccountId>> {
+    pub fn get_dynamic_info(netuid: NetUid) -> Option<DynamicInfo<T::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }
@@ -65,12 +66,12 @@ impl<T: Config> Pallet<T> {
             pending_root_emission: PendingRootDivs::<T>::get(netuid).into(),
             subnet_volume: SubnetVolume::<T>::get(netuid).into(),
             network_registered_at: NetworkRegisteredAt::<T>::get(netuid).into(),
-            subnet_identity: SubnetIdentitiesV2::<T>::get(netuid),
+            subnet_identity: SubnetIdentitiesV3::<T>::get(netuid),
             moving_price: SubnetMovingPrice::<T>::get(netuid),
         })
     }
     pub fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<T::AccountId>>> {
-        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
+        let netuids = Self::get_all_subnet_netuids();
         let mut dynamic_info = Vec::<Option<DynamicInfo<T::AccountId>>>::new();
         for netuid in netuids.clone().iter() {
             dynamic_info.push(Self::get_dynamic_info(*netuid));

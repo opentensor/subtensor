@@ -106,9 +106,7 @@ mod hooks {
                 // Remove all entries in TotalHotkeyColdkeyStakesThisInterval
                 .saturating_add(migrations::migrate_remove_total_hotkey_coldkey_stakes_this_interval::migrate_remove_total_hotkey_coldkey_stakes_this_interval::<T>())
                 // Wipe the deprecated RateLimit storage item in the commitments pallet
-                .saturating_add(migrations::migrate_remove_commitments_rate_limit::migrate_remove_commitments_rate_limit::<T>());
-
-            weight
+                .saturating_add(migrations::migrate_remove_commitments_rate_limit::migrate_remove_commitments_rate_limit::<T>())
                 // Remove all entries in orphaned storage items
                 .saturating_add(
                     migrations::migrate_orphaned_storage_items::migrate_orphaned_storage_items::<T>(
@@ -119,7 +117,9 @@ mod hooks {
                 // Reset max burn
                 .saturating_add(migrations::migrate_reset_max_burn::migrate_reset_max_burn::<T>())
                 // Migrate ColdkeySwapScheduled structure to new format
-                .saturating_add(migrations::migrate_coldkey_swap_scheduled::migrate_coldkey_swap_scheduled::<T>());
+                .saturating_add(migrations::migrate_coldkey_swap_scheduled::migrate_coldkey_swap_scheduled::<T>())
+                // Fix the root subnet TAO storage value
+                .saturating_add(migrations::migrate_fix_root_subnet_tao::migrate_fix_root_subnet_tao::<T>());
             weight
         }
 
@@ -149,7 +149,8 @@ mod hooks {
             if let Some(slot) = block_number.checked_rem(hotkey_swap_on_subnet_interval) {
                 // only handle the subnet with the same residue as current block number by HotkeySwapOnSubnetInterval
                 for netuid in netuids.iter().filter(|netuid| {
-                    (**netuid as u64).checked_rem(hotkey_swap_on_subnet_interval) == Some(slot)
+                    (u16::from(**netuid) as u64).checked_rem(hotkey_swap_on_subnet_interval)
+                        == Some(slot)
                 }) {
                     // Iterate over all the coldkeys in the subnet
                     for (coldkey, swap_block_number) in
