@@ -226,7 +226,7 @@ impl<T: Config> Pallet<T> {
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) {
         // infallible
-        let _ = T::Currency::deposit(coldkey, amount, Precision::BestEffort);
+        let _ = <T as Config>::Currency::deposit(coldkey, amount, Precision::BestEffort);
     }
 
     pub fn can_remove_balance_from_coldkey_account(
@@ -240,7 +240,7 @@ impl<T: Config> Pallet<T> {
 
         // This bit is currently untested. @todo
 
-        T::Currency::can_withdraw(coldkey, amount)
+        <T as Config>::Currency::can_withdraw(coldkey, amount)
             .into_result(false)
             .is_ok()
     }
@@ -249,7 +249,11 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
     ) -> <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance
     {
-        T::Currency::reducible_balance(coldkey, Preservation::Expendable, Fortitude::Polite)
+        <T as Config>::Currency::reducible_balance(
+            coldkey,
+            Preservation::Expendable,
+            Fortitude::Polite,
+        )
     }
 
     #[must_use = "Balance must be used to preserve total issuance of token"]
@@ -261,7 +265,7 @@ impl<T: Config> Pallet<T> {
             return Ok(0);
         }
 
-        let credit = T::Currency::withdraw(
+        let credit = <T as Config>::Currency::withdraw(
             coldkey,
             amount,
             Precision::BestEffort,
@@ -286,7 +290,7 @@ impl<T: Config> Pallet<T> {
             return Ok(0);
         }
 
-        let credit = T::Currency::withdraw(
+        let credit = <T as Config>::Currency::withdraw(
             coldkey,
             amount,
             Precision::Exact,

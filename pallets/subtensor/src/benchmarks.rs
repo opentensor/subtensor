@@ -6,12 +6,12 @@ use crate::Pallet as Subtensor;
 use crate::*;
 use codec::Compact;
 use frame_benchmarking::v2::*;
-use frame_support::assert_ok;
+use frame_support::{StorageDoubleMap, assert_ok};
 use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
 pub use pallet::*;
 use sp_core::H256;
 use sp_runtime::{
-    BoundedVec,
+    BoundedVec, Percent,
     traits::{BlakeTwo256, Hash},
 };
 use sp_std::vec;
@@ -1426,5 +1426,151 @@ mod pallet_benchmarks {
             netuid,
             Some(limit),
         );
+    }
+
+    #[benchmark(extra)]
+    fn register_leased_network(k: Linear<2, { T::MaxContributors::get() }>) {
+        // Setup a crowdloan
+        let crowdloan_id = 0;
+        let beneficiary: T::AccountId = whitelisted_caller();
+        let deposit = 20_000_000_000; // 20 TAO
+        let now = frame_system::Pallet::<T>::block_number(); // not really important here
+        let end = now + T::MaximumBlockDuration::get();
+        let cap = 2_000_000_000_000; // 2000 TAO
+
+        let funds_account: T::AccountId = account("funds", 0, 0);
+        Subtensor::<T>::add_balance_to_coldkey_account(&funds_account, cap);
+
+        pallet_crowdloan::Crowdloans::<T>::insert(
+            crowdloan_id,
+            pallet_crowdloan::CrowdloanInfo {
+                creator: beneficiary.clone(),
+                deposit,
+                min_contribution: 0,
+                end,
+                cap,
+                raised: cap,
+                finalized: false,
+                funds_account: funds_account.clone(),
+                call: None,
+                target_address: None,
+                contributors_count: T::MaxContributors::get(),
+            },
+        );
+
+        // Set the block to the end of the crowdloan
+        frame_system::Pallet::<T>::set_block_number(end);
+
+        // Simulate deposit
+        pallet_crowdloan::Contributions::<T>::insert(crowdloan_id, &beneficiary, deposit);
+
+        // Simulate k - 1 contributions, the deposit is already taken into account
+        let contributors = k - 1;
+        let amount = (cap - deposit) / contributors as u64;
+        for i in 0..contributors {
+            let contributor = account::<T::AccountId>("contributor", i.try_into().unwrap(), 0);
+            pallet_crowdloan::Contributions::<T>::insert(crowdloan_id, contributor, amount);
+        }
+
+        // Mark the crowdloan as finalizing
+        pallet_crowdloan::CurrentCrowdloanId::<T>::set(Some(0));
+
+        let emissions_share = Percent::from_percent(30);
+        #[extrinsic_call]
+        _(
+            RawOrigin::Signed(beneficiary.clone()),
+            emissions_share,
+            None,
+        );
+
+        // Ensure the lease was created
+        let lease_id = 0;
+        let lease = SubnetLeases::<T>::get(lease_id).unwrap();
+        assert_eq!(lease.beneficiary, beneficiary);
+        assert_eq!(lease.emissions_share, emissions_share);
+        assert_eq!(lease.end_block, None);
+
+        // Ensure the subnet exists
+        assert!(SubnetMechanism::<T>::contains_key(lease.netuid));
+    }
+
+    #[benchmark(extra)]
+    fn terminate_lease(k: Linear<2, { T::MaxContributors::get() }>) {
+        // Setup a crowdloan
+        let crowdloan_id = 0;
+        let beneficiary: T::AccountId = whitelisted_caller();
+        let deposit = 20_000_000_000; // 20 TAO
+        let now = frame_system::Pallet::<T>::block_number(); // not really important here
+        let crowdloan_end = now + T::MaximumBlockDuration::get();
+        let cap = 2_000_000_000_000; // 2000 TAO
+
+        let funds_account: T::AccountId = account("funds", 0, 0);
+        Subtensor::<T>::add_balance_to_coldkey_account(&funds_account, cap);
+
+        pallet_crowdloan::Crowdloans::<T>::insert(
+            crowdloan_id,
+            pallet_crowdloan::CrowdloanInfo {
+                creator: beneficiary.clone(),
+                deposit,
+                min_contribution: 0,
+                end: crowdloan_end,
+                cap,
+                raised: cap,
+                finalized: false,
+                funds_account: funds_account.clone(),
+                call: None,
+                target_address: None,
+                contributors_count: T::MaxContributors::get(),
+            },
+        );
+
+        // Set the block to the end of the crowdloan
+        frame_system::Pallet::<T>::set_block_number(crowdloan_end);
+
+        // Simulate deposit
+        pallet_crowdloan::Contributions::<T>::insert(crowdloan_id, &beneficiary, deposit);
+
+        // Simulate k - 1 contributions, the deposit is already taken into account
+        let contributors = k - 1;
+        let amount = (cap - deposit) / contributors as u64;
+        for i in 0..contributors {
+            let contributor = account::<T::AccountId>("contributor", i.try_into().unwrap(), 0);
+            pallet_crowdloan::Contributions::<T>::insert(crowdloan_id, contributor, amount);
+        }
+
+        // Mark the crowdloan as finalizing
+        pallet_crowdloan::CurrentCrowdloanId::<T>::set(Some(0));
+
+        // Register the leased network
+        let emissions_share = Percent::from_percent(30);
+        let lease_end = crowdloan_end + 1000u32.into();
+        assert_ok!(Subtensor::<T>::register_leased_network(
+            RawOrigin::Signed(beneficiary.clone()).into(),
+            emissions_share,
+            Some(lease_end),
+        ));
+
+        // Set the block to the end of the lease
+        frame_system::Pallet::<T>::set_block_number(lease_end);
+
+        let lease_id = 0;
+        let lease = SubnetLeases::<T>::get(0).unwrap();
+        let hotkey = account::<T::AccountId>("beneficiary_hotkey", 0, 0);
+        Subtensor::<T>::create_account_if_non_existent(&beneficiary, &hotkey);
+        #[extrinsic_call]
+        _(
+            RawOrigin::Signed(beneficiary.clone()),
+            lease_id,
+            hotkey.clone(),
+        );
+
+        // Ensure the beneficiary is now the owner of the subnet
+        assert_eq!(SubnetOwner::<T>::get(lease.netuid), beneficiary);
+        assert_eq!(SubnetOwnerHotkey::<T>::get(lease.netuid), hotkey);
+
+        // Ensure everything has been cleaned up
+        assert_eq!(SubnetLeases::<T>::get(lease_id), None);
+        assert!(!SubnetLeaseShares::<T>::contains_prefix(lease_id));
+        assert!(!AccumulatedLeaseDividends::<T>::contains_key(lease_id));
     }
 }

@@ -1,16 +1,16 @@
 #![allow(clippy::crate_in_macro_def)]
-
 use frame_support::pallet_macros::pallet_section;
 
 /// A [`pallet_section`] that defines the errors for a pallet.
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod dispatches {
+    use crate::subnets::leasing::SubnetLeasingWeightInfo;
     use frame_support::traits::schedule::DispatchTime;
     use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
     use frame_system::pallet_prelude::BlockNumberFor;
     use sp_core::ecdsa::Signature;
-    use sp_runtime::traits::Saturating;
+    use sp_runtime::{Percent, traits::Saturating};
 
     use crate::MAX_CRV3_COMMIT_SIZE_BYTES;
     /// Dispatchable functions allow users to interact with the pallet and invoke state changes.
@@ -1362,7 +1362,7 @@ mod dispatches {
                 swap_cost,
             };
 
-            let bound_call = T::Preimages::bound(LocalCallOf::<T>::from(call.clone()))
+            let bound_call = <T as Config>::Preimages::bound(LocalCallOf::<T>::from(call.clone()))
                 .map_err(|_| Error::<T>::FailedToSchedule)?;
 
             T::Scheduler::schedule(
@@ -2085,6 +2085,58 @@ mod dispatches {
             limit_price: Option<u64>,
         ) -> DispatchResult {
             Self::do_remove_stake_full_limit(origin, hotkey, netuid, limit_price)
+        }
+
+        /// Register a new leased network.
+        ///
+        /// The crowdloan's contributions are used to compute the share of the emissions that the contributors
+        /// will receive as dividends.
+        ///
+        /// The leftover cap is refunded to the contributors and the beneficiary.
+        ///
+        /// # Args:
+        /// * `origin` - (<T as frame_system::Config>::Origin):
+        ///     - The signature of the caller's coldkey.
+        ///
+        /// * `emissions_share` (Percent):
+        ///     - The share of the emissions that the contributors will receive as dividends.
+        ///
+        /// * `end_block` (Option<BlockNumberFor<T>>):
+        ///     - The block at which the lease will end. If not defined, the lease is perpetual.
+        #[pallet::call_index(110)]
+        #[pallet::weight(SubnetLeasingWeightInfo::<T>::do_register_leased_network(T::MaxContributors::get()))]
+        pub fn register_leased_network(
+            origin: T::RuntimeOrigin,
+            emissions_share: Percent,
+            end_block: Option<BlockNumberFor<T>>,
+        ) -> DispatchResultWithPostInfo {
+            Self::do_register_leased_network(origin, emissions_share, end_block)
+        }
+
+        /// Terminate a lease.
+        ///
+        /// The beneficiary can terminate the lease after the end block has passed and get the subnet ownership.
+        /// The subnet is transferred to the beneficiary and the lease is removed from storage.
+        ///
+        /// **The hotkey must be owned by the beneficiary coldkey.**
+        ///
+        /// # Args:
+        /// * `origin` - (<T as frame_system::Config>::Origin):
+        ///     - The signature of the caller's coldkey.
+        ///
+        /// * `lease_id` (LeaseId):
+        ///     - The ID of the lease to terminate.
+        ///
+        /// * `hotkey` (T::AccountId):
+        ///     - The hotkey of the beneficiary to mark as subnet owner hotkey.
+        #[pallet::call_index(111)]
+        #[pallet::weight(SubnetLeasingWeightInfo::<T>::do_terminate_lease(T::MaxContributors::get()))]
+        pub fn terminate_lease(
+            origin: T::RuntimeOrigin,
+            lease_id: LeaseId,
+            hotkey: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            Self::do_terminate_lease(origin, lease_id, hotkey)
         }
     }
 }
