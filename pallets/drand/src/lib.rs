@@ -43,8 +43,8 @@ use codec::Encode;
 use frame_support::{pallet_prelude::*, traits::Randomness};
 use frame_system::{
     offchain::{
-        AppCrypto, CreateSignedTransaction, SendUnsignedTransaction, SignedPayload, Signer,
-        SigningTypes,
+        AppCrypto, CreateInherent, CreateSignedTransaction, SendUnsignedTransaction, SignedPayload,
+        Signer, SigningTypes,
     },
     pallet_prelude::BlockNumberFor,
 };
@@ -155,7 +155,9 @@ pub mod pallet {
     pub struct Pallet<T>(_);
 
     #[pallet::config]
-    pub trait Config: CreateSignedTransaction<Call<Self>> + frame_system::Config {
+    pub trait Config:
+        CreateSignedTransaction<Call<Self>> + CreateInherent<Call<Self>> + frame_system::Config
+    {
         /// The identifier type for an offchain worker.
         type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
         /// The overarching runtime event type.
@@ -288,10 +290,6 @@ pub mod pallet {
                     pulses_payload: payload,
                     signature,
                 } => {
-                    // Blacklist stale pulses in the txpool that can stall finalization.
-                    if payload.block_number < BlockNumberFor::<T>::from(5612500u32) {
-                        return InvalidTransaction::Stale.into();
-                    }
                     let signature = signature.as_ref().ok_or(InvalidTransaction::BadSigner)?;
                     Self::validate_signature_and_parameters(
                         payload,

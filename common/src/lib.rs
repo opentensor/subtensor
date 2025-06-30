@@ -1,11 +1,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+use core::fmt::{self, Display, Formatter};
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Compact, CompactAs, Decode, Encode, Error as CodecError, MaxEncodedLen};
+use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_runtime::{
     MultiSignature,
     traits::{IdentifyAccount, Verify},
 };
+use subtensor_macros::freeze_struct;
 
 /// Balance of an account.
 pub type Balance = u64;
@@ -30,6 +34,90 @@ pub type Nonce = u32;
 
 /// Transfers below SMALL_TRANSFER_LIMIT are considered small transfers
 pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
+
+#[freeze_struct("9b6be98fb98e9b17")]
+#[repr(transparent)]
+#[derive(
+    Deserialize,
+    Serialize,
+    Clone,
+    Copy,
+    Decode,
+    Default,
+    Encode,
+    Eq,
+    Hash,
+    MaxEncodedLen,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    RuntimeDebug,
+)]
+#[serde(transparent)]
+pub struct NetUid(u16);
+
+impl NetUid {
+    pub const ROOT: NetUid = Self(0);
+
+    pub fn is_root(&self) -> bool {
+        *self == Self::ROOT
+    }
+
+    pub fn next(&self) -> NetUid {
+        Self(self.0.saturating_add(1))
+    }
+
+    pub fn prev(&self) -> NetUid {
+        Self(self.0.saturating_sub(1))
+    }
+
+    pub fn inner(&self) -> u16 {
+        self.0
+    }
+}
+
+impl Display for NetUid {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+impl CompactAs for NetUid {
+    type As = u16;
+
+    fn encode_as(&self) -> &Self::As {
+        &self.0
+    }
+
+    fn decode_from(v: Self::As) -> Result<Self, CodecError> {
+        Ok(Self(v))
+    }
+}
+
+impl From<Compact<NetUid>> for NetUid {
+    fn from(c: Compact<NetUid>) -> Self {
+        c.0
+    }
+}
+
+impl From<NetUid> for u16 {
+    fn from(val: NetUid) -> Self {
+        val.0
+    }
+}
+
+impl From<u16> for NetUid {
+    fn from(value: u16) -> Self {
+        Self(value)
+    }
+}
+
+impl TypeInfo for NetUid {
+    type Identity = <u16 as TypeInfo>::Identity;
+    fn type_info() -> scale_info::Type {
+        <u16 as TypeInfo>::type_info()
+    }
+}
 
 #[derive(
     Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, MaxEncodedLen, TypeInfo,
@@ -60,6 +148,37 @@ impl Default for ProxyType {
     }
 }
 
+pub trait SubnetInfo<AccountId> {
+    fn tao_reserve(netuid: NetUid) -> u64;
+    fn alpha_reserve(netuid: NetUid) -> u64;
+    fn exists(netuid: NetUid) -> bool;
+    fn mechanism(netuid: NetUid) -> u16;
+    fn is_owner(account_id: &AccountId, netuid: NetUid) -> bool;
+}
+
+pub trait BalanceOps<AccountId> {
+    fn tao_balance(account_id: &AccountId) -> u64;
+    fn alpha_balance(netuid: NetUid, coldkey: &AccountId, hotkey: &AccountId) -> u64;
+    fn increase_balance(coldkey: &AccountId, tao: u64);
+    fn decrease_balance(coldkey: &AccountId, tao: u64) -> Result<u64, DispatchError>;
+    fn increase_stake(
+        coldkey: &AccountId,
+        hotkey: &AccountId,
+        netuid: NetUid,
+        alpha: u64,
+    ) -> Result<(), DispatchError>;
+    fn decrease_stake(
+        coldkey: &AccountId,
+        hotkey: &AccountId,
+        netuid: NetUid,
+        alpha: u64,
+    ) -> Result<u64, DispatchError>;
+    fn increase_provided_tao_reserve(netuid: NetUid, tao: u64);
+    fn decrease_provided_tao_reserve(netuid: NetUid, tao: u64);
+    fn increase_provided_alpha_reserve(netuid: NetUid, alpha: u64);
+    fn decrease_provided_alpha_reserve(netuid: NetUid, alpha: u64);
+}
+
 pub mod time {
     use super::*;
 
@@ -84,4 +203,14 @@ pub mod time {
     pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
     pub const HOURS: BlockNumber = MINUTES * 60;
     pub const DAYS: BlockNumber = HOURS * 24;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn netuid_has_u16_bin_repr() {
+        assert_eq!(NetUid(5).encode(), 5u16.encode());
+    }
 }

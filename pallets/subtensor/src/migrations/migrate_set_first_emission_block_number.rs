@@ -26,7 +26,7 @@ pub fn migrate_set_first_emission_block_number<T: Config>() -> Weight {
     let netuids = Pallet::<T>::get_all_subnet_netuids();
     let current_block_number = Pallet::<T>::get_current_block_as_u64();
     for netuid in netuids.iter() {
-        if *netuid != 0 {
+        if !netuid.is_root() {
             FirstEmissionBlockNumber::<T>::insert(netuid, current_block_number);
         }
     }

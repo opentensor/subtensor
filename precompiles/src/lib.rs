@@ -4,11 +4,16 @@ extern crate alloc;
 
 use core::marker::PhantomData;
 
-use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
+use fp_evm::{ExitError, PrecompileFailure};
+use frame_support::{
+    dispatch::{GetDispatchInfo, PostDispatchInfo},
+    pallet_prelude::Decode,
+};
 use pallet_evm::{
     AddressMapping, IsPrecompileResult, Precompile, PrecompileHandle, PrecompileResult,
     PrecompileSet,
 };
+use pallet_evm_precompile_dispatch::Dispatch;
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;
 use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripemd160, Sha256};
@@ -19,24 +24,29 @@ use subtensor_runtime_common::ProxyType;
 
 use pallet_admin_utils::PrecompileEnum;
 
+use crate::alpha::*;
 use crate::balance_transfer::*;
 use crate::ed25519::*;
 use crate::extensions::*;
 use crate::metagraph::*;
 use crate::neuron::*;
+use crate::sr25519::*;
 use crate::staking::*;
+use crate::storage_query::*;
 use crate::subnet::*;
 use crate::uid_lookup::*;
 
+mod alpha;
 mod balance_transfer;
 mod ed25519;
 mod extensions;
 mod metagraph;
 mod neuron;
+mod sr25519;
 mod staking;
+mod storage_query;
 mod subnet;
 mod uid_lookup;
-
 pub struct Precompiles<R>(PhantomData<R>);
 
 impl<R> Default for Precompiles<R>
@@ -46,6 +56,7 @@ where
         + pallet_balances::Config
         + pallet_admin_utils::Config
         + pallet_subtensor::Config
+        + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
@@ -70,6 +81,7 @@ where
         + pallet_balances::Config
         + pallet_admin_utils::Config
         + pallet_subtensor::Config
+        + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
@@ -86,23 +98,27 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 15] {
+    pub fn used_addresses() -> [H160; 19] {
         [
             hash(1),
             hash(2),
             hash(3),
             hash(4),
             hash(5),
+            hash(6),
             hash(1024),
             hash(1025),
             hash(Ed25519Verify::<R::AccountId>::INDEX),
+            hash(Sr25519Verify::<R::AccountId>::INDEX),
             hash(BalanceTransferPrecompile::<R>::INDEX),
             hash(StakingPrecompile::<R>::INDEX),
             hash(SubnetPrecompile::<R>::INDEX),
             hash(MetagraphPrecompile::<R>::INDEX),
             hash(NeuronPrecompile::<R>::INDEX),
             hash(StakingPrecompileV2::<R>::INDEX),
+            hash(StorageQueryPrecompile::<R>::INDEX),
             hash(UidLookupPrecompile::<R>::INDEX),
+            hash(AlphaPrecompile::<R>::INDEX),
         ]
     }
 }
@@ -113,6 +129,7 @@ where
         + pallet_balances::Config
         + pallet_admin_utils::Config
         + pallet_subtensor::Config
+        + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
@@ -120,7 +137,10 @@ where
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
         + GetDispatchInfo
-        + Dispatchable<PostInfo = PostDispatchInfo>,
+        + Dispatchable<PostInfo = PostDispatchInfo>
+        + Decode,
+    <<R as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
+        From<Option<pallet_evm::AccountIdOf<R>>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
@@ -133,11 +153,15 @@ where
             a if a == hash(3) => Some(Ripemd160::execute(handle)),
             a if a == hash(4) => Some(Identity::execute(handle)),
             a if a == hash(5) => Some(Modexp::execute(handle)),
+            a if a == hash(6) => Some(Dispatch::<R>::execute(handle)),
             // Non-Frontier specific nor Ethereum precompiles :
             a if a == hash(1024) => Some(Sha3FIPS256::execute(handle)),
             a if a == hash(1025) => Some(ECRecoverPublicKey::execute(handle)),
             a if a == hash(Ed25519Verify::<R::AccountId>::INDEX) => {
                 Some(Ed25519Verify::<R::AccountId>::execute(handle))
+            }
+            a if a == hash(Sr25519Verify::<R::AccountId>::INDEX) => {
+                Some(Sr25519Verify::<R::AccountId>::execute(handle))
             }
             // Subtensor specific precompiles :
             a if a == hash(BalanceTransferPrecompile::<R>::INDEX) => {
@@ -164,6 +188,12 @@ where
             a if a == hash(UidLookupPrecompile::<R>::INDEX) => {
                 UidLookupPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::UidLookup)
             }
+            a if a == hash(StorageQueryPrecompile::<R>::INDEX) => {
+                Some(StorageQueryPrecompile::<R>::execute(handle))
+            }
+            a if a == hash(AlphaPrecompile::<R>::INDEX) => {
+                AlphaPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Alpha)
+            }
             _ => None,
         }
     }
@@ -178,4 +208,26 @@ where
 
 fn hash(a: u64) -> H160 {
     H160::from_low_u64_be(a)
+}
+
+/*
+ *
+ * This is used to parse a slice from bytes with PrecompileFailure as Error
+ *
+ */
+fn parse_slice(data: &[u8], from: usize, to: usize) -> Result<&[u8], PrecompileFailure> {
+    let maybe_slice = data.get(from..to);
+    if let Some(slice) = maybe_slice {
+        Ok(slice)
+    } else {
+        log::error!(
+            "fail to get slice from data, {:?}, from {}, to {}",
+            &data,
+            from,
+            to
+        );
+        Err(PrecompileFailure::Error {
+            exit_status: ExitError::InvalidRange,
+        })
+    }
 }
