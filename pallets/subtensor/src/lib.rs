@@ -1672,6 +1672,20 @@ pub mod pallet {
         OptionQuery,
     >;
 
+    #[pallet::storage]
+    /// DMAP ( hot, cold, netuid ) --> rate limits for staking operations
+    /// Value contains just a marker: we use this map as a set.
+    pub type StakingOperationRateLimiter<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+            NMapKey<Identity, NetUid>,               // subnet
+        ),
+        bool,
+        ValueQuery,
+    >;
+
     /// =============================
     /// ==== EVM related storage ====
     /// =============================
