@@ -4,7 +4,8 @@ set -e
 # Store original arguments to pass to the final exec call
 original_args="$@"
 
-base_path=''
+# Set default values
+base_path='/data'
 chain_spec=''
 
 # Parse arguments to find the real --base-path and --chain, handles both
@@ -35,13 +36,13 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-echo "Entrypoint: ensuring permissions for base path: ${base_path}"
+echo "entrypoint: ensuring permissions for base path: ${base_path}"
 mkdir -p "$base_path"
 chown -R subtensor:subtensor "$base_path"
 
 # Check if a chain spec was provided and if it's an existing file
 if [ -n "$chain_spec" ] && [ -f "$chain_spec" ]; then
-    echo "Entrypoint: ensuring permissions for chain spec: ${chain_spec}"
+    echo "entrypoint: ensuring permissions for chain spec: ${chain_spec}"
     chown subtensor:subtensor "$chain_spec"
 fi
 
