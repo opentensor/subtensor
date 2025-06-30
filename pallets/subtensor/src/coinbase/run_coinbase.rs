@@ -68,8 +68,8 @@ impl<T: Config> Pallet<T> {
             let tao_weight: U96F32 = root_tao.saturating_mul(Self::get_tao_weight());
             // Multiply by root proportion.
             let root_proportion: U96F32 = tao_weight
-             .checked_div(tao_weight.saturating_add(alpha_issuance))
-             .unwrap_or(asfloat!(0.0));
+                .checked_div(tao_weight.saturating_add(alpha_issuance))
+                .unwrap_or(asfloat!(0.0));
             // Get score.
             let score_i: U96F32 = root_proportion * moving_price_i;
             emission_scores.insert(*netuid_i, score_i);
