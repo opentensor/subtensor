@@ -241,6 +241,6 @@ mod errors {
         /// Symbol does not exist.
         SymbolDoesNotExist,
         /// Symbol already in use.
-        SymbolAlreadyInUse
+        SymbolAlreadyInUse,
     }
 }

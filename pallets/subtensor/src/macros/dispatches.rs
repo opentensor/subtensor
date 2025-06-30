@@ -2138,7 +2138,7 @@ mod dispatches {
         ) -> DispatchResultWithPostInfo {
             Self::do_terminate_lease(origin, lease_id, hotkey)
         }
-        
+
         /// Updates the symbol for a subnet.
         ///
         /// # Arguments

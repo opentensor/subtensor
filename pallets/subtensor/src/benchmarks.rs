@@ -1573,7 +1573,7 @@ mod pallet_benchmarks {
         assert!(!SubnetLeaseShares::<T>::contains_prefix(lease_id));
         assert!(!AccumulatedLeaseDividends::<T>::contains_key(lease_id));
     }
-    
+
     #[benchmark]
     fn update_symbol() {
         let coldkey: T::AccountId = whitelisted_caller();
