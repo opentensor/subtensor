@@ -1194,7 +1194,7 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(260_500_000, 0)
-		.saturating_add(T::DbWeight::get().reads(33))
+		.saturating_add(T::DbWeight::get().reads(36))
 		.saturating_add(T::DbWeight::get().writes(51)), DispatchClass::Operational, Pays::No))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
@@ -1465,7 +1465,7 @@ mod dispatches {
         /// 	- The ip type v4 or v6.
         ///
         #[pallet::call_index(68)]
-        #[pallet::weight((Weight::from_parts(38_980_000, 0)
+        #[pallet::weight((Weight::from_parts(31_330_000, 0)
 		.saturating_add(T::DbWeight::get().reads(3))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::Yes))]
         pub fn set_identity(
@@ -1539,7 +1539,7 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(79)]
         #[pallet::weight((Weight::from_parts(239_700_000, 0)
-                .saturating_add(T::DbWeight::get().reads(32))
+                .saturating_add(T::DbWeight::get().reads(35))
                 .saturating_add(T::DbWeight::get().writes(50)), DispatchClass::Operational, Pays::No))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
@@ -2104,7 +2104,7 @@ mod dispatches {
         /// Emits a `SymbolUpdated` event on success.
         #[pallet::call_index(110)]
         #[pallet::weight((
-            Weight::from_parts(10_000, 0).saturating_add(T::DbWeight::get().reads_writes(2, 1)),
+            Weight::from_parts(28_840_000, 0).saturating_add(T::DbWeight::get().reads_writes(4, 1)),
             DispatchClass::Operational,
             Pays::Yes
         ))]
