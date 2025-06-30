@@ -71,7 +71,7 @@ impl<T: Config> Pallet<T> {
                 .checked_div(tao_weight.saturating_add(alpha_issuance))
                 .unwrap_or(asfloat!(0.0));
             // Get score.
-            let score_i: U96F32 = root_proportion * moving_price_i;
+            let score_i: U96F32 = root_proportion.saturating_mul(moving_price_i);
             emission_scores.insert(*netuid_i, score_i);
             // Get finalized score.
             total_emission_scores = total_emission_scores.saturating_add(score_i);
