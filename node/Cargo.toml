@@ -132,7 +132,6 @@ rocksdb = [
 	"fc-rpc/rocksdb",
 ]
 txpool = ["fc-rpc/txpool", "fc-rpc-core/txpool"]
-warp-sync-patch = []
 
 # Dependencies that are only required if runtime benchmarking should be build.
 runtime-benchmarks = [
