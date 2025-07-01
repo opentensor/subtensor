@@ -50,6 +50,7 @@ impl<T: Config> Pallet<T> {
             None,
             None,
             false,
+            true,
         )?;
 
         // Log the event.
@@ -144,6 +145,7 @@ impl<T: Config> Pallet<T> {
             None,
             None,
             true,
+            false,
         )?;
 
         // 9. Emit an event for logging/monitoring.
@@ -214,6 +216,7 @@ impl<T: Config> Pallet<T> {
             None,
             None,
             false,
+            true,
         )?;
 
         // Emit an event for logging.
@@ -286,6 +289,7 @@ impl<T: Config> Pallet<T> {
             Some(limit_price),
             Some(allow_partial),
             false,
+            true,
         )?;
 
         // Emit an event for logging.
@@ -322,6 +326,7 @@ impl<T: Config> Pallet<T> {
         maybe_limit_price: Option<u64>,
         maybe_allow_partial: Option<bool>,
         check_transfer_toggle: bool,
+        set_limit: bool,
     ) -> Result<u64, DispatchError> {
         // Calculate the maximum amount that can be executed
         let max_amount = if let Some(limit_price) = maybe_limit_price {
@@ -374,6 +379,7 @@ impl<T: Config> Pallet<T> {
                 destination_netuid,
                 tao_unstaked,
                 T::SwapInterface::max_price(),
+                set_limit,
             )?;
         }
 

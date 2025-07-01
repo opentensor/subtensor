@@ -32,11 +32,14 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Get labels from PR
         id: get-labels
         run: |
-          LABELS=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          LABELS=$(gh pr -R ${{ github.repository }} view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
           echo "Current labels: $LABELS"
           if echo "$LABELS" | grep -q "skip-bittensor-e2e-tests"; then
             echo "skip-bittensor-e2e-tests=true" >> $GITHUB_OUTPUT
@@ -103,7 +106,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Patch non-fast-block node
         run: |
@@ -160,6 +164,9 @@ jobs:
     steps:
       - name: Check-out repository
         uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -257,6 +264,9 @@ jobs:
     steps:
       - name: Check-out repository
         uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5

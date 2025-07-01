@@ -10,7 +10,9 @@ mod config {
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
-    pub trait Config: frame_system::Config + pallet_drand::Config {
+    pub trait Config:
+        frame_system::Config + pallet_drand::Config + pallet_crowdloan::Config
+    {
         /// call type
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
@@ -52,6 +54,9 @@ mod config {
 
         /// Swap interface.
         type SwapInterface: SwapHandler<Self::AccountId>;
+
+        /// Interface to allow interacting with the proxy pallet.
+        type ProxyInterface: crate::ProxyInterface<Self::AccountId>;
 
         /// =================================
         /// ==== Initial Value Constants ====
@@ -236,5 +241,8 @@ mod config {
         /// Block number for a coldkey swap the hotkey in specific subnet.
         #[pallet::constant]
         type HotkeySwapOnSubnetInterval: Get<u64>;
+        /// Number of blocks between dividends distribution.
+        #[pallet::constant]
+        type LeaseDividendsDistributionInterval: Get<BlockNumberFor<Self>>;
     }
 }
