@@ -8995,7 +8995,7 @@ dependencies = [
  "proc-macro-error-attr2",
  "proc-macro2",
  "quote",
- "syn 2.0.103",
+ "syn 2.0.104",
 ]
 
 [[package]]
@@ -11303,7 +11303,7 @@ dependencies = [
  "darling 0.20.11",
  "proc-macro2",
  "quote",
- "syn 2.0.103",
+ "syn 2.0.104",
 ]
 
 [[package]]
@@ -11346,7 +11346,7 @@ dependencies = [
  "proc-macro-crate 3.3.0",
  "proc-macro2",
  "quote",
- "syn 2.0.103",
+ "syn 2.0.104",
 ]
 
 [[package]]
@@ -11420,7 +11420,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "scale-info",
- "syn 2.0.103",
+ "syn 2.0.104",
  "thiserror 2.0.12",
 ]
 
@@ -13665,12 +13665,9 @@ dependencies = [
  "proc-macro2",
  "quote",
  "scale-info",
- "scale-typegen",
- "subxt-metadata",
- "syn 2.0.104",
  "scale-typegen 0.8.0",
  "subxt-metadata 0.37.0",
- "syn 2.0.103",
+ "syn 2.0.104",
  "thiserror 1.0.69",
  "tokio",
 ]
@@ -13688,7 +13685,7 @@ dependencies = [
  "scale-info",
  "scale-typegen 0.11.1",
  "subxt-metadata 0.42.1",
- "syn 2.0.103",
+ "syn 2.0.104",
  "thiserror 2.0.12",
 ]
 
@@ -13793,8 +13790,25 @@ dependencies = [
  "parity-scale-codec",
  "proc-macro-error",
  "quote",
- "scale-typegen",
- "subxt-codegen",
+ "scale-typegen 0.8.0",
+ "subxt-codegen 0.37.0",
+ "syn 2.0.104",
+]
+
+[[package]]
+name = "subxt-macro"
+version = "0.42.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d91d253492eb17c65bdb41e538d6a31508563757bd34ad6014cb03536cf31757"
+dependencies = [
+ "darling 0.20.11",
+ "parity-scale-codec",
+ "proc-macro-error2",
+ "quote",
+ "scale-typegen 0.11.1",
+ "subxt-codegen 0.42.1",
+ "subxt-metadata 0.42.1",
+ "subxt-utils-fetchmetadata",
  "syn 2.0.104",
 ]
 
