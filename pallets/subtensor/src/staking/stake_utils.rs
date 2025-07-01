@@ -808,6 +808,7 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         tao: u64,
         price_limit: u64,
+        set_limit: bool,
     ) -> Result<u64, DispatchError> {
         // Swap the tao to alpha.
         let swap_result = Self::swap_tao_for_alpha(netuid, tao, price_limit)?;
@@ -843,6 +844,10 @@ impl<T: Config> Pallet<T> {
         }
 
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
+
+        if set_limit {
+            Self::set_stake_operation_limit(hotkey, coldkey, netuid.into());
+        }
 
         // Deposit and log the staking event.
         Self::deposit_event(Event::StakeAdded(
@@ -956,6 +961,8 @@ impl<T: Config> Pallet<T> {
         // Ensure that the subnet exists.
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
+        Self::ensure_stake_operation_limit_not_exceeded(hotkey, coldkey, netuid.into())?;
+
         // Ensure that the subnet is enabled.
         // Self::ensure_subtoken_enabled(netuid)?;
 
@@ -1044,6 +1051,12 @@ impl<T: Config> Pallet<T> {
         if origin_coldkey == destination_coldkey && origin_hotkey == destination_hotkey {
             ensure!(origin_netuid != destination_netuid, Error::<T>::SameNetuid);
         }
+
+        Self::ensure_stake_operation_limit_not_exceeded(
+            origin_hotkey,
+            origin_coldkey,
+            origin_netuid.into(),
+        )?;
 
         // Ensure that both subnets exist.
         ensure!(
@@ -1161,6 +1174,27 @@ impl<T: Config> Pallet<T> {
             SubnetAlphaInProvided::<T>::set(netuid, 0_u64);
             SubnetAlphaIn::<T>::set(netuid, subnet_alpha.saturating_sub(carry_over));
         }
+    }
+
+    pub fn set_stake_operation_limit(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        netuid: NetUid,
+    ) {
+        StakingOperationRateLimiter::<T>::insert((hotkey, coldkey, netuid), true);
+    }
+
+    pub fn ensure_stake_operation_limit_not_exceeded(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        netuid: NetUid,
+    ) -> Result<(), Error<T>> {
+        ensure!(
+            !StakingOperationRateLimiter::<T>::contains_key((hotkey, coldkey, netuid)),
+            Error::<T>::StakingOperationRateLimitExceeded
+        );
+
+        Ok(())
     }
 }
 

@@ -423,12 +423,16 @@ impl<T: Config> Pallet<T> {
                     owner_coldkey,
                     owner_cut
                 );
-                Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                let real_owner_cut = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                     &owner_hotkey,
                     &owner_coldkey,
                     netuid,
                     owner_cut,
                 );
+                // If the subnet is leased, notify the lease logic that owner cut has been distributed.
+                if let Some(lease_id) = SubnetUidToLeaseId::<T>::get(netuid) {
+                    Self::distribute_leased_network_dividends(lease_id, real_owner_cut);
+                }
             }
         }
 

@@ -278,6 +278,7 @@ impl<T: Config> Pallet<T> {
             NetUid::ROOT,
             total_tao_unstaked,
             T::SwapInterface::max_price(),
+            false, // no limit for Root subnet
         )?;
 
         // 5. Done and ok.
