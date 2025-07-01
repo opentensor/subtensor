@@ -16,6 +16,7 @@ pub trait SwapHandler<AccountId> {
         order_t: OrderType,
         amount: u64,
         price_limit: u64,
+        drop_fees: bool,
         should_rollback: bool,
     ) -> Result<SwapResult, DispatchError>;
     fn sim_swap(

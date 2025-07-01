@@ -194,11 +194,12 @@ impl<T: Config> Pallet<T> {
             // Get pending alpha as original alpha_out - root_alpha.
             let pending_alpha: U96F32 = alpha_out_i.saturating_sub(root_alpha);
             log::debug!("pending_alpha: {:?}", pending_alpha);
-            // Sell root emission through the pool.
+            // Sell root emission through the pool (do not pay fees)
             let swap_result = Self::swap_alpha_for_tao(
                 *netuid_i,
                 tou64!(root_alpha),
                 T::SwapInterface::min_price(),
+                true,
             );
             if let Ok(ok_result) = swap_result {
                 let root_tao: u64 = ok_result.amount_paid_out;

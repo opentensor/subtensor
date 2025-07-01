@@ -351,12 +351,14 @@ impl<T: Config> Pallet<T> {
             max_amount
         };
 
+        // do not pay fees to avoid double fees in moves transactions
         let tao_unstaked = Self::unstake_from_subnet(
             origin_hotkey,
             origin_coldkey,
             origin_netuid,
             move_amount,
             T::SwapInterface::min_price(),
+            true,
         )?;
 
         // Stake the unstaked amount into the destination.

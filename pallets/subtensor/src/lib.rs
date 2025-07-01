@@ -801,7 +801,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default minimum stake.
     pub fn DefaultMinStake<T: Config>() -> u64 {
-        500_000
+        20_000_000
     }
 
     #[pallet::type_value]

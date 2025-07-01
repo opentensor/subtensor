@@ -619,8 +619,14 @@ impl<T: Config> Pallet<T> {
         // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
         let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
         if mechanism_id == 1 {
-            let swap_result =
-                T::SwapInterface::swap(netuid.into(), OrderType::Buy, tao, price_limit, false)?;
+            let swap_result = T::SwapInterface::swap(
+                netuid.into(),
+                OrderType::Buy,
+                tao,
+                price_limit,
+                false,
+                false,
+            )?;
 
             // Decrease Alpha reserves.
             Self::decrease_provided_alpha_reserve(
@@ -673,13 +679,20 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         alpha: u64,
         price_limit: u64,
+        drop_fees: bool,
     ) -> Result<SwapResult, DispatchError> {
         // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
         let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
         // Step 2: Swap alpha and attain tao
         if mechanism_id == 1 {
-            let swap_result =
-                T::SwapInterface::swap(netuid.into(), OrderType::Sell, alpha, price_limit, false)?;
+            let swap_result = T::SwapInterface::swap(
+                netuid.into(),
+                OrderType::Sell,
+                alpha,
+                price_limit,
+                drop_fees,
+                false,
+            )?;
 
             // Increase only the protocol Alpha reserve. We only use the sum of
             // (SubnetAlphaIn + SubnetAlphaInProvided) in alpha_reserve(), so it is irrelevant
@@ -733,13 +746,15 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         alpha: u64,
         price_limit: u64,
+        drop_fees: bool,
     ) -> Result<u64, DispatchError> {
-        //  Decrease alpha on subneet
+        //  Decrease alpha on subnet
         let actual_alpha_decrease =
             Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
 
         // Swap the alpha for TAO.
-        let swap_result = Self::swap_alpha_for_tao(netuid, actual_alpha_decrease, price_limit)?;
+        let swap_result =
+            Self::swap_alpha_for_tao(netuid, actual_alpha_decrease, price_limit, drop_fees)?;
 
         // Refund the unused alpha (in case if limit price is hit)
         let refund = actual_alpha_decrease.saturating_sub(
