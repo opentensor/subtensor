@@ -8,6 +8,7 @@ declare -A DISPATCH_PATHS=(
   [admin_utils]="../pallets/admin-utils/src/lib.rs"
   [commitments]="../pallets/commitments/src/lib.rs"
   [drand]="../pallets/drand/src/lib.rs"
+  [swap]="../pallets/swap/src/pallet/mod.rs"
 )
 
 THRESHOLD=20
@@ -24,11 +25,9 @@ log_warn()     { echo "⚠️  $*"; }
 patch_weight() {
   local before after; before=$(sha1sum "$3" | cut -d' ' -f1)
   FN="$1" NEWV="$2" perl -0777 -i -pe '
-    my $n = $ENV{NEWV};                                 # raw digits
+    my $n = $ENV{NEWV};
     my $hit=0;
-    # inline:   pub fn … Weight::from_parts(
     $hit += s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?Weight::from_parts\(\s*)[0-9A-Za-z_]+|$1$n|s;
-    # attribute‑above: #[pallet::weight(Weight::from_parts( … )]  ⟶ same number
     $hit += s|(\#\s*\[pallet::weight[^\]]*?Weight::from_parts\(\s*)[0-9A-Za-z_]+(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1$n|s;
     END{ exit $hit ? 0 : 1 }
   ' "$3" || log_warn "patch_weight: no substitution for $1"
@@ -40,14 +39,10 @@ patch_reads_writes() {
   FN="$1" NEWR="$2" NEWW="$3" perl -0777 -i -pe '
     my ($r,$w)=("$ENV{NEWR}_u64","$ENV{NEWW}_u64");
     my $h=0;
-    # inline reads_writes(...)
     $h += s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?reads_writes\(\s*)([^,]+)(\s*,\s*)([^)]+)|$1$r$3$w|s;
-    # attribute reads_writes(...)
     $h += s|(\#\s*\[pallet::weight[^\]]*?reads_writes\(\s*)([^,]+)(\s*,\s*)([^)]+)(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1$r$3$w|s;
-    # inline .reads() / .writes()
     $h += s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?\.reads\(\s*)([^)]+)|$1$r|s;
     $h += s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?\.writes\(\s*)([^)]+)|$1$w|s;
-    # attribute .reads() / .writes()
     $h += s|(\#\s*\[pallet::weight[^\]]*?\.reads\(\s*)([^)]+)(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1$r|s;
     $h += s|(\#\s*\[pallet::weight[^\]]*?\.writes\(\s*)([^)]+)(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1$w|s;
     END{ exit $h ? 0 : 1 }
@@ -69,14 +64,12 @@ git_commit_and_push() {
   fi
 
   echo "==== diff preview ===="; git diff --cached --stat
-  # head can SIGPIPE diff → ignore failure
   git diff --cached | head -n 40 || true
   echo "======================"
 
   git commit -m "$msg"
   git push origin "HEAD:$branch" || die "Push to '${branch}' failed."
 }
-
 
 echo "Building runtime-benchmarks…"
 cargo build --profile production -p node-subtensor --features runtime-benchmarks
@@ -116,15 +109,22 @@ for pallet in "${PALLET_LIST[@]}"; do
 
       read -r code_w code_r code_wr < <(awk -v fn="$extr" '
         /^\s*#\[pallet::call_index/ { next }
-        /Weight::from_parts/      { lw=$0; sub(/.*Weight::from_parts\(/,"",lw); sub(/[^0-9A-Za-z_].*/,"",lw); w=lw }
+        /Weight::from_parts/      { lw=$0; sub(/.*Weight::from_parts\(/,"",lw); sub(/[^0-9_].*/,"",lw); w=lw }
         /reads_writes\(/          { lw=$0; sub(/.*reads_writes\(/,"",lw); sub(/\).*/,"",lw);
-                                    split(lw,io,","); gsub(/[ \t_]/,"",io[1]); gsub(/[ \t_]/,"",io[2]); r=io[1]; wr=io[2] }
-        /\.reads\(/               { lw=$0; sub(/.*\.reads\(/,"",lw); sub(/\).*/,"",lw); gsub(/_/,"",lw); r=lw }
-        /\.writes\(/              { lw=$0; sub(/.*\.writes\(/,"",lw); sub(/\).*/,"",lw); gsub(/_/,"",lw); wr=lw }
+                                    split(lw,io,",");
+                                    for(i in io){
+                                        sub(/^[ \t]+/,"",io[i]); sub(/[ \t]+$/,"",io[i]);
+                                        sub(/_u64.*/,"",io[i]); sub(/[^0-9_].*/,"",io[i])
+                                    }
+                                    r=io[1]; wr=io[2] }
+        /\.reads\(/               { lw=$0; sub(/.*\.reads\(/,"",lw);  sub(/_u64.*/,"",lw); sub(/[^0-9_].*/,"",lw); r=lw }
+        /\.writes\(/              { lw=$0; sub(/.*\.writes\(/,"",lw); sub(/_u64.*/,"",lw); sub(/[^0-9_].*/,"",lw); wr=lw }
         $0 ~ ("pub fn[[:space:]]+"fn"\\(") { print w,r,wr; exit }
       ' "$DISPATCH")
 
-      code_w=$(dec "${code_w:-0}"); code_r=$(dec "${code_r:-0}"); code_wr=$(dec "${code_wr:-0}")
+      code_w=$(dec "${code_w:-0}")
+      code_r=$(dec "${code_r:-0}")
+      code_wr=$(dec "${code_wr:-0}")
 
       local drift; drift=$([[ "$code_w" -eq 0 ]] && echo 99999 || awk -v a="$meas_ps" -v b="$code_w" 'BEGIN{printf("%.1f", (a-b)/b*100)}')
       local abs=${drift#-}; local dint=${abs%%.*}
@@ -150,7 +150,6 @@ for pallet in "${PALLET_LIST[@]}"; do
     printf '  ❌ %s\n' "${failures[@]}"
     (( attempt < MAX_RETRIES )) && { echo "→ Retrying …"; (( attempt++ )); continue; }
 
-    # --- Patch after final failure ---
     echo "❌ '$pallet' still failing; patching …"
     [[ "$AUTO_COMMIT" != "1" ]] && die "AUTO_COMMIT_WEIGHTS disabled."
 
@@ -161,17 +160,18 @@ for pallet in "${PALLET_LIST[@]}"; do
       [[ -n "$r" || -n "$w" ]] && patch_reads_writes "$fn" "${r:-0}" "${w:-0}" "$DISPATCH" && changed=1
     done
 
-    if (( changed )); then PATCHED_FILES+=("$DISPATCH"); echo "✅ Patched '$pallet' file.";
-    else                   echo "⚠️  No modifications applied for '$pallet'."; fi
+    (( changed )) && { PATCHED_FILES+=("$DISPATCH"); echo "✅ Patched '$pallet' file."; } \
+                   || echo "⚠️  No modifications applied for '$pallet'."
     break
   done
 done
 
 ################################################################################
-# Commit & push patches (if any)
+# Commit & push patches
 ################################################################################
 if (( ${#PATCHED_FILES[@]} )); then
-  echo -e "\n📦  Committing patched files …"; git_commit_and_push "chore: auto‑update benchmark weights"
+  echo -e "\n📦  Committing patched files …"
+  git_commit_and_push "chore: auto-update benchmark weights"
 fi
 
 echo -e "\n══════════════════════════════════════"
