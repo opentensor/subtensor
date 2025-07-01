@@ -7,6 +7,7 @@ mod difficulty;
 mod emission;
 mod epoch;
 mod evm;
+mod leasing;
 mod math;
 mod migration;
 mod mock;

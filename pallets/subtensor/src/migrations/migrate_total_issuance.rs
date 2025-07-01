@@ -59,7 +59,7 @@ pub fn migrate_total_issuance<T: Config>(test: bool) -> Weight {
             .saturating_add(T::DbWeight::get().reads(SubnetLocked::<T>::iter().count() as u64));
 
         // Retrieve the total balance sum
-        let total_balance = T::Currency::total_issuance();
+        let total_balance = <T as Config>::Currency::total_issuance();
         // Add weight for reading total issuance
         weight = weight.saturating_add(T::DbWeight::get().reads(1));
 
