@@ -413,7 +413,7 @@ mod dispatches {
         /// 	- Attempting to set weights with max value exceeding limit.
         ///
         #[pallet::call_index(8)]
-        #[pallet::weight((Weight::from_parts(4_068_000, 0)
+        #[pallet::weight((Weight::from_parts(3347000, 0)
 		.saturating_add(T::DbWeight::get().reads(0))
 		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Normal, Pays::No))]
         pub fn set_tao_weights(
@@ -965,7 +965,7 @@ mod dispatches {
         ///
         /// Weight is calculated based on the number of database reads and writes.
         #[pallet::call_index(71)]
-        #[pallet::weight((Weight::from_parts(179_500_000, 0)
+        #[pallet::weight((Weight::from_parts(208600000, 0)
         .saturating_add(T::DbWeight::get().reads(14))
         .saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Operational, Pays::No))]
         pub fn swap_coldkey(
@@ -1465,7 +1465,7 @@ mod dispatches {
         /// 	- The ip type v4 or v6.
         ///
         #[pallet::call_index(68)]
-        #[pallet::weight((Weight::from_parts(38_980_000, 0)
+        #[pallet::weight((Weight::from_parts(32090000, 0)
 		.saturating_add(T::DbWeight::get().reads(3))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::Yes))]
         pub fn set_identity(
