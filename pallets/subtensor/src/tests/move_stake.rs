@@ -337,7 +337,7 @@ fn test_do_move_partial_stake() {
                     netuid,
                     total_stake,
                     <Test as Config>::SwapInterface::max_price(),
-                    false,                    
+                    false,
                 )
                 .unwrap();
                 let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -429,6 +429,7 @@ fn test_do_move_multiple_times() {
             let alpha2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey2, &coldkey, netuid,
             );
+            remove_stake_rate_limit_for_tests(&hotkey2, &coldkey, netuid);
             assert_ok!(SubtensorModule::do_move_stake(
                 RuntimeOrigin::signed(coldkey),
                 hotkey2,
@@ -438,7 +439,7 @@ fn test_do_move_multiple_times() {
                 alpha2,
             ));
 
-            // Reduce by fees x2
+            // Reduce expected_alpha by fees x2
             expected_alpha -= expected_alpha * 6 / 1000;
         }
 
