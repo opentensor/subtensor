@@ -413,9 +413,9 @@ mod dispatches {
         /// 	- Attempting to set weights with max value exceeding limit.
         ///
         #[pallet::call_index(8)]
-        #[pallet::weight((Weight::from_parts(4168000, 0)
+        #[pallet::weight((Weight::from_parts(41000068000, 0)
 		.saturating_add(T::DbWeight::get().reads(0))
-		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Normal, Pays::No))]
+		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
         pub fn set_tao_weights(
             _origin: OriginFor<T>,
             _netuid: NetUid,
