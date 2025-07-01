@@ -25,11 +25,10 @@ log_warn()     { echo "⚠️  $*"; }
 patch_weight() {
   local before after; before=$(sha1sum "$3" | cut -d' ' -f1)
   FN="$1" NEWV="$2" perl -0777 -i -pe '
-    my $n = $ENV{NEWV};
-    my $hit=0;
-    $hit += s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?Weight::from_parts\(\s*)[0-9A-Za-z_]+|$1$n|s;
-    $hit += s|(\#\s*\[pallet::weight[^\]]*?Weight::from_parts\(\s*)[0-9A-Za-z_]+(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1$n|s;
-    END{ exit $hit ? 0 : 1 }
+    my $n=$ENV{NEWV}; my $hit=0;
+    $hit+=s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?Weight::from_parts\(\s*)[0-9A-Za-z_]+|$1$n|s;
+    $hit+=s|(\#\s*\[pallet::weight[^\]]*?Weight::from_parts\(\s*)[0-9A-Za-z_]+(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1$n|s;
+    END{exit $hit?0:1}
   ' "$3" || log_warn "patch_weight: no substitution for $1"
   after=$(sha1sum "$3" | cut -d' ' -f1); [[ "$before" != "$after" ]]
 }
@@ -37,15 +36,34 @@ patch_weight() {
 patch_reads_writes() {
   local before after; before=$(sha1sum "$4" | cut -d' ' -f1)
   FN="$1" NEWR="$2" NEWW="$3" perl -0777 -i -pe '
-    my ($r,$w)=("$ENV{NEWR}_u64","$ENV{NEWW}_u64");
+    my ($newr,$neww)=($ENV{NEWR},$ENV{NEWW});
+    sub u64  { $_[0] eq "" ? "" : $_[0]."_u64" }
     my $h=0;
-    $h += s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?reads_writes\(\s*)([^,]+)(\s*,\s*)([^)]+)|$1$r$3$w|s;
-    $h += s|(\#\s*\[pallet::weight[^\]]*?reads_writes\(\s*)([^,]+)(\s*,\s*)([^)]+)(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1$r$3$w|s;
-    $h += s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?\.reads\(\s*)([^)]+)|$1$r|s;
-    $h += s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?\.writes\(\s*)([^)]+)|$1$w|s;
-    $h += s|(\#\s*\[pallet::weight[^\]]*?\.reads\(\s*)([^)]+)(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1$r|s;
-    $h += s|(\#\s*\[pallet::weight[^\]]*?\.writes\(\s*)([^)]+)(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1$w|s;
-    END{ exit $h ? 0 : 1 }
+
+    # helper closure for reads_writes(...)
+    my $rw_sub = sub {
+        my ($pre,$r,$mid,$w,$post)=@_;
+        $r =~ s/^\s+|\s+$//g; $w =~ s/^\s+|\s+$//g;
+        my $R = $newr eq "" ? $r : u64($newr);
+        my $W = $neww eq "" ? $w : u64($neww);
+        return "$pre$R$mid$W$post";
+    };
+
+    # inline reads_writes(...)
+    $h += s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?reads_writes\(\s*)([^,]+)(\s*,\s*)([^)]+)|&$rw_sub($1,$2,$3,$4,"")|e;
+
+    # attribute reads_writes(...)
+    $h += s|(\#\s*\[pallet::weight[^\]]*?reads_writes\(\s*)([^,]+)(\s*,\s*)([^)]+)(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|&$rw_sub($1,$2,$3,$4,"")|e;
+
+    # .reads(...)
+    $h += s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?\.reads\(\s*)([^)]+)|$1.($newr eq "" ? $2 : u64($newr))|e;
+    $h += s|(\#\s*\[pallet::weight[^\]]*?\.reads\(\s*)([^)]+)(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1.($newr eq "" ? $2 : u64($newr))|e;
+
+    # .writes(...)
+    $h += s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?\.writes\(\s*)([^)]+)|$1.($neww eq "" ? $2 : u64($neww))|e;
+    $h += s|(\#\s*\[pallet::weight[^\]]*?\.writes\(\s*)([^)]+)(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1.($neww eq "" ? $2 : u64($neww))|e;
+
+    END{exit $h?0:1}
   ' "$4" || log_warn "patch_reads_writes: no substitution for $1"
   after=$(sha1sum "$4" | cut -d' ' -f1); [[ "$before" != "$after" ]]
 }
@@ -98,7 +116,6 @@ for pallet in "${PALLET_LIST[@]}"; do
       --pallet "pallet_${pallet}" --extrinsic "*" --steps 50 --repeat 5 \
       | tee "$TMP"
 
-    # ───── parse output ─────
     declare -A new_weight new_reads new_writes
     summary=(); failures=(); fail=0
     extr=""; meas_us=0; meas_r=0; meas_w=0
@@ -109,16 +126,15 @@ for pallet in "${PALLET_LIST[@]}"; do
 
       read -r code_w code_r code_wr < <(awk -v fn="$extr" '
         /^\s*#\[pallet::call_index/ { next }
-        /Weight::from_parts/      { lw=$0; sub(/.*Weight::from_parts\(/,"",lw); sub(/[^0-9_].*/,"",lw); w=lw }
-        /reads_writes\(/          { lw=$0; sub(/.*reads_writes\(/,"",lw); sub(/\).*/,"",lw);
-                                    split(lw,io,",");
-                                    for(i in io){
-                                        sub(/^[ \t]+/,"",io[i]); sub(/[ \t]+$/,"",io[i]);
-                                        sub(/_u64.*/,"",io[i]); sub(/[^0-9_].*/,"",io[i])
-                                    }
-                                    r=io[1]; wr=io[2] }
-        /\.reads\(/               { lw=$0; sub(/.*\.reads\(/,"",lw);  sub(/_u64.*/,"",lw); sub(/[^0-9_].*/,"",lw); r=lw }
-        /\.writes\(/              { lw=$0; sub(/.*\.writes\(/,"",lw); sub(/_u64.*/,"",lw); sub(/[^0-9_].*/,"",lw); wr=lw }
+        /Weight::from_parts/ { lw=$0; sub(/.*Weight::from_parts\(/,"",lw); sub(/[^0-9_].*/,"",lw); w=lw }
+        /reads_writes\(/ {
+            lw=$0; sub(/.*reads_writes\(/,"",lw); sub(/\).*/,"",lw);
+            split(lw,io,",");
+            for(i in io){sub(/^[ \t]+/,"",io[i]); sub(/[ \t]+$/,"",io[i]); sub(/_u64.*/,"",io[i]); sub(/[^0-9_].*/,"",io[i])}
+            r=io[1]; wr=io[2]
+        }
+        /\.reads\(/  { lw=$0; sub(/.*\.reads\(/,"",lw);  sub(/_u64.*/,"",lw); sub(/[^0-9_].*/,"",lw); r=lw }
+        /\.writes\(/ { lw=$0; sub(/.*\.writes\(/,"",lw); sub(/_u64.*/,"",lw); sub(/[^0-9_].*/,"",lw); wr=lw }
         $0 ~ ("pub fn[[:space:]]+"fn"\\(") { print w,r,wr; exit }
       ' "$DISPATCH")
 
@@ -132,9 +148,9 @@ for pallet in "${PALLET_LIST[@]}"; do
       summary+=("$(printf "%-35s | reads %4s → %4s | writes %4s → %4s | weight %12s → %12s | drift %6s%%" \
                  "$extr" "$code_r" "$meas_r" "$code_wr" "$meas_w" "$code_w" "$meas_ps" "$drift")")
 
-      if (( meas_r != code_r ));     then failures+=("[$extr] reads mismatch");   new_reads[$extr]=$meas_r;  fail=1; fi
-      if (( meas_w != code_wr ));    then failures+=("[$extr] writes mismatch");  new_writes[$extr]=$meas_w; fail=1; fi
-      if (( dint > THRESHOLD ));     then failures+=("[$extr] weight drift ${drift}%"); new_weight[$extr]=$meas_ps; fail=1; fi
+      if (( meas_r != code_r ));  then failures+=("[$extr] reads mismatch");   new_reads[$extr]=$meas_r;  fail=1; fi
+      if (( meas_w != code_wr )); then failures+=("[$extr] writes mismatch");  new_writes[$extr]=$meas_w; fail=1; fi
+      if (( dint > THRESHOLD ));  then failures+=("[$extr] weight drift ${drift}%"); new_weight[$extr]=$meas_ps; fail=1; fi
     }
 
     while IFS= read -r line; do
@@ -154,10 +170,9 @@ for pallet in "${PALLET_LIST[@]}"; do
     [[ "$AUTO_COMMIT" != "1" ]] && die "AUTO_COMMIT_WEIGHTS disabled."
 
     changed=0
-    for fn in "${!new_weight[@]}"; do
-      patch_weight "$fn" "${new_weight[$fn]}" "$DISPATCH" && changed=1
-      r="${new_reads[$fn]:-}"; w="${new_writes[$fn]:-}"
-      [[ -n "$r" || -n "$w" ]] && patch_reads_writes "$fn" "${r:-0}" "${w:-0}" "$DISPATCH" && changed=1
+    for fn in $(printf "%s\n" "${!new_weight[@]}" "${!new_reads[@]}" "${!new_writes[@]}" | sort -u); do
+      [[ -n "${new_weight[$fn]:-}" ]] && patch_weight "$fn" "${new_weight[$fn]}" "$DISPATCH" && changed=1
+      patch_reads_writes "$fn" "${new_reads[$fn]:-}" "${new_writes[$fn]:-}" "$DISPATCH" && changed=1
     done
 
     (( changed )) && { PATCHED_FILES+=("$DISPATCH"); echo "✅ Patched '$pallet' file."; } \
