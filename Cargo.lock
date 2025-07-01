@@ -10429,7 +10429,7 @@ dependencies = [
 [[package]]
 name = "sc-consensus-grandpa"
 version = "0.33.0"
-source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2412-6#bbc435c7667d3283ba280a8fec44676357392753"
+source = "git+https://github.com/opentensor/grandpa.git?rev=b0eabfdb46a3ca81116d1cb61fcfed446b10d166#b0eabfdb46a3ca81116d1cb61fcfed446b10d166"
 dependencies = [
  "ahash 0.8.12",
  "array-bytes",
@@ -16208,8 +16208,3 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
-
-[[patch.unused]]
-name = "sc-consensus-grandpa"
-version = "0.30.0"
-source = "git+https://github.com/opentensor/grandpa.git?rev=9fb32b1a18b69ab38b1027afc5f5f4371ecf6485#9fb32b1a18b69ab38b1027afc5f5f4371ecf6485"
