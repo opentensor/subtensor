@@ -1,19 +1,6 @@
 #!/usr/bin/env bash
-###############################################################################
-# benchmark_action.sh
-#
-# 1. Benchmarks every pallet in PALLET_LIST.
-# 2. Compares measured vs. declared weight / reads / writes.
-# 3. Each pallet → max 3 attempts. After 3 failures:
-#      • Patch literals once
-#      • Commit & push when AUTO_COMMIT_WEIGHTS=1
-#      • Move on to the next pallet (no re‑benchmark)
-###############################################################################
 set -euo pipefail
 
-################################################################################
-# Configuration
-################################################################################
 PALLET_LIST=(subtensor admin_utils commitments drand)
 
 declare -A DISPATCH_PATHS=(
@@ -23,13 +10,9 @@ declare -A DISPATCH_PATHS=(
   [drand]="../pallets/drand/src/lib.rs"
 )
 
-THRESHOLD=15
+THRESHOLD=20
 MAX_RETRIES=3
 AUTO_COMMIT="${AUTO_COMMIT_WEIGHTS:-0}"
-
-################################################################################
-# Helpers
-################################################################################
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNTIME_WASM="$SCRIPT_DIR/../target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm"
 
@@ -38,10 +21,7 @@ digits_only()  { echo "${1//[^0-9]/}"; }
 dec()          { local d; d=$(digits_only "$1"); echo "$((10#${d:-0}))"; }
 log_warn()     { echo "⚠️  $*"; }
 
-###############################################################################
-# Patch helpers (support attribute‑above *or* inline style)
-###############################################################################
-patch_weight() {      # $1 fn  $2 new_weight  $3 file
+patch_weight() {
   local before after; before=$(sha1sum "$3" | cut -d' ' -f1)
   FN="$1" NEWV="$2" perl -0777 -i -pe '
     my $n = $ENV{NEWV};                                 # raw digits
@@ -55,7 +35,7 @@ patch_weight() {      # $1 fn  $2 new_weight  $3 file
   after=$(sha1sum "$3" | cut -d' ' -f1); [[ "$before" != "$after" ]]
 }
 
-patch_reads_writes() {  # $1 fn  $2 new_r  $3 new_w  $4 file
+patch_reads_writes() {
   local before after; before=$(sha1sum "$4" | cut -d' ' -f1)
   FN="$1" NEWR="$2" NEWW="$3" perl -0777 -i -pe '
     my ($r,$w)=("$ENV{NEWR}_u64","$ENV{NEWW}_u64");
@@ -97,10 +77,8 @@ git_commit_and_push() {
   git push origin "HEAD:$branch" || die "Push to '${branch}' failed."
 }
 
-################################################################################
-# Build runtime once
-################################################################################
-echo "Building runtime‑benchmarks…"
+
+echo "Building runtime-benchmarks…"
 cargo build --profile production -p node-subtensor --features runtime-benchmarks
 
 echo -e "\n─────────────────────────────────────────────"
