@@ -11,6 +11,7 @@ use substrate_fixed::types::{I64F64, U64F64};
 use subtensor_runtime_common::NetUid;
 
 use crate::{
+    FeeRateT,
     pallet::{
         AlphaSqrtPrice, Call, Config, CurrentLiquidity, CurrentTick, EnabledUserLiquidity, Pallet,
         Positions, SwapV3Initialized,
@@ -26,7 +27,7 @@ mod benchmarks {
     #[benchmark]
     fn set_fee_rate() {
         let netuid = NetUid::from(1);
-        let rate: u16 = 100; // Some arbitrary fee rate value
+        let rate = FeeRateT::from(100); // Some arbitrary fee rate value
 
         #[extrinsic_call]
         set_fee_rate(RawOrigin::Root, netuid, rate);
