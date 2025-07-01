@@ -22,6 +22,11 @@ digits_only()  { echo "${1//[^0-9]/}"; }
 dec()          { local d; d=$(digits_only "$1"); echo "$((10#${d:-0}))"; }
 log_warn()     { echo "⚠️  $*"; }
 
+# format 123456789 -> 123_456_789
+fmt_num() {
+  perl -pe '1 while s/(\d)(\d{3})(?!\d)/$1_$2/' <<<"$1"
+}
+
 patch_weight() {
   local before after; before=$(sha1sum "$3" | cut -d' ' -f1)
   FN="$1" NEWV="$2" perl -0777 -i -pe '
@@ -39,30 +44,19 @@ patch_reads_writes() {
     my ($newr,$neww)=($ENV{NEWR},$ENV{NEWW});
     sub u64  { $_[0] eq "" ? "" : $_[0]."_u64" }
     my $h=0;
-
-    # helper closure for reads_writes(...)
-    my $rw_sub = sub {
-        my ($pre,$r,$mid,$w,$post)=@_;
-        $r =~ s/^\s+|\s+$//g; $w =~ s/^\s+|\s+$//g;
-        my $R = $newr eq "" ? $r : u64($newr);
-        my $W = $neww eq "" ? $w : u64($neww);
+    my $rw_sub=sub{
+        my($pre,$r,$mid,$w,$post)=@_;
+        $r=~s/^\s+|\s+$//g; $w=~s/^\s+|\s+$//g;
+        my $R=$newr eq "" ? $r : u64($newr);
+        my $W=$neww eq "" ? $w : u64($neww);
         return "$pre$R$mid$W$post";
     };
-
-    # inline reads_writes(...)
-    $h += s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?reads_writes\(\s*)([^,]+)(\s*,\s*)([^)]+)|&$rw_sub($1,$2,$3,$4,"")|e;
-
-    # attribute reads_writes(...)
-    $h += s|(\#\s*\[pallet::weight[^\]]*?reads_writes\(\s*)([^,]+)(\s*,\s*)([^)]+)(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|&$rw_sub($1,$2,$3,$4,"")|e;
-
-    # .reads(...)
-    $h += s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?\.reads\(\s*)([^)]+)|$1.($newr eq "" ? $2 : u64($newr))|e;
-    $h += s|(\#\s*\[pallet::weight[^\]]*?\.reads\(\s*)([^)]+)(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1.($newr eq "" ? $2 : u64($newr))|e;
-
-    # .writes(...)
-    $h += s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?\.writes\(\s*)([^)]+)|$1.($neww eq "" ? $2 : u64($neww))|e;
-    $h += s|(\#\s*\[pallet::weight[^\]]*?\.writes\(\s*)([^)]+)(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1.($neww eq "" ? $2 : u64($neww))|e;
-
+    $h+=s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?reads_writes\(\s*)([^,]+)(\s*,\s*)([^)]+)|&$rw_sub($1,$2,$3,$4,"")|e;
+    $h+=s|(\#\s*\[pallet::weight[^\]]*?reads_writes\(\s*)([^,]+)(\s*,\s*)([^)]+)(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|&$rw_sub($1,$2,$3,$4,"")|e;
+    $h+=s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?\.reads\(\s*)([^)]+)|$1.($newr eq "" ? $2 : u64($newr))|e;
+    $h+=s|(\#\s*\[pallet::weight[^\]]*?\.reads\(\s*)([^)]+)(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1.($newr eq "" ? $2 : u64($newr))|e;
+    $h+=s|(pub\s+fn\s+\Q$ENV{FN}\E\s*[^{}]*?\.writes\(\s*)([^)]+)|$1.($neww eq "" ? $2 : u64($neww))|e;
+    $h+=s|(\#\s*\[pallet::weight[^\]]*?\.writes\(\s*)([^)]+)(?=[^\]]*?\]\s*pub\s+fn\s+\Q$ENV{FN}\E\b)|$1.($neww eq "" ? $2 : u64($neww))|e;
     END{exit $h?0:1}
   ' "$4" || log_warn "patch_reads_writes: no substitution for $1"
   after=$(sha1sum "$4" | cut -d' ' -f1); [[ "$before" != "$after" ]]
@@ -171,7 +165,10 @@ for pallet in "${PALLET_LIST[@]}"; do
 
     changed=0
     for fn in $(printf "%s\n" "${!new_weight[@]}" "${!new_reads[@]}" "${!new_writes[@]}" | sort -u); do
-      [[ -n "${new_weight[$fn]:-}" ]] && patch_weight "$fn" "${new_weight[$fn]}" "$DISPATCH" && changed=1
+      if [[ -n "${new_weight[$fn]:-}" ]]; then
+        w_fmt=$(fmt_num "${new_weight[$fn]}")
+        patch_weight "$fn" "$w_fmt" "$DISPATCH" && changed=1
+      fi
       patch_reads_writes "$fn" "${new_reads[$fn]:-}" "${new_writes[$fn]:-}" "$DISPATCH" && changed=1
     done
 
