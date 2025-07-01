@@ -91,9 +91,7 @@ fn test_replace_neuron() {
 
         // Set a neuron certificate for it
         NeuronCertificates::<Test>::insert(netuid, hotkey_account_id, certificate);
-
         AssociatedEvmAddress::<Test>::insert(netuid, neuron_uid, (evm_address, 1));
-
         // Replace the neuron.
         SubtensorModule::replace_neuron(netuid, neuron_uid, &new_hotkey_account_id, block_number);
 
@@ -144,7 +142,6 @@ fn test_replace_neuron() {
 
         // Check bonds are cleared.
         assert_eq!(Bonds::<Test>::get(netuid, neuron_uid), vec![]);
-
         assert_eq!(AssociatedEvmAddress::<Test>::get(netuid, neuron_uid), None);
     });
 }
@@ -214,7 +211,6 @@ fn test_bonds_cleared_on_replace() {
 
         // Check bonds are cleared.
         assert_eq!(Bonds::<Test>::get(netuid, neuron_uid), vec![]);
-
         assert_eq!(AssociatedEvmAddress::<Test>::get(netuid, neuron_uid), None);
     });
 }
