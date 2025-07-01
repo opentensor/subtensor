@@ -280,7 +280,7 @@ mod dispatches {
         ///
         #[pallet::call_index(99)]
         #[pallet::weight((Weight::from_parts(73_720_000, 0)
-		.saturating_add(T::DbWeight::get().reads(6))
+		.saturating_add(T::DbWeight::get().reads(3))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_crv3_weights(
             origin: T::RuntimeOrigin,
@@ -333,7 +333,7 @@ mod dispatches {
         #[pallet::call_index(98)]
         #[pallet::weight((Weight::from_parts(420_500_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))
-		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+		.saturating_add(T::DbWeight::get().writes(999)), DispatchClass::Normal, Pays::No))]
         pub fn batch_reveal_weights(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
@@ -413,7 +413,7 @@ mod dispatches {
         /// 	- Attempting to set weights with max value exceeding limit.
         ///
         #[pallet::call_index(8)]
-        #[pallet::weight((Weight::from_parts(3_266_000, 0)
+        #[pallet::weight((Weight::from_parts(7, 0)
 		.saturating_add(T::DbWeight::get().reads(0))
 		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Normal, Pays::No))]
         pub fn set_tao_weights(
