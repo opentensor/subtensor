@@ -360,7 +360,7 @@ fn test_replace_neuron_subnet_owner_not_replaced() {
         let new_key_uid =
             SubtensorModule::get_uid_for_net_and_hotkey(netuid, &new_hotkey_account_id);
         assert_err!(new_key_uid, Error::<Test>::HotKeyNotRegisteredInSubNet,);
-        assert_eq!(AssociatedEvmAddress::<Test>::get(netuid, neuron_uid), None);
+        assert!(AssociatedEvmAddress::<Test>::get(netuid, neuron_uid).is_some());
     });
 }
 
@@ -402,10 +402,11 @@ fn test_replace_neuron_subnet_owner_not_replaced_if_in_sn_owner_hotkey_map() {
             owner_uid,
             "Owner's first hotkey should remain registered"
         );
-        assert_eq!(AssociatedEvmAddress::<Test>::get(netuid, owner_uid), None);
+        assert!(AssociatedEvmAddress::<Test>::get(netuid, owner_uid).is_some());
 
         let new_key_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &additional_hotkey_1);
         assert_err!(new_key_uid, Error::<Test>::HotKeyNotRegisteredInSubNet,);
+        AssociatedEvmAddress::<Test>::insert(netuid, other_owner_uid, (evm_address, 1));
 
         // Try to replace the other owner hotkey
         SubtensorModule::replace_neuron(
@@ -416,6 +417,7 @@ fn test_replace_neuron_subnet_owner_not_replaced_if_in_sn_owner_hotkey_map() {
         );
         let still_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &other_owner_hotkey);
         assert_err!(still_uid, Error::<Test>::HotKeyNotRegisteredInSubNet,); // Was replaced
+        assert!(AssociatedEvmAddress::<Test>::get(netuid, other_owner_uid).is_none());
 
         // Re-register this hotkey
         register_ok_neuron(netuid, other_owner_hotkey, owner_coldkey, 0);
@@ -434,6 +436,7 @@ fn test_replace_neuron_subnet_owner_not_replaced_if_in_sn_owner_hotkey_map() {
 
         let new_key_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &additional_hotkey_2);
         assert_ok!(new_key_uid);
+        assert!(AssociatedEvmAddress::<Test>::get(netuid, owner_uid).is_none());
     });
 }
 
