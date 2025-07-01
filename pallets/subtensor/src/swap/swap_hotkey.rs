@@ -379,6 +379,7 @@ impl<T: Config> Pallet<T> {
             // 3.2.1 Swap the UIDS
             if let Ok(old_uid) = Uids::<T>::try_get(netuid, old_hotkey) {
                 Uids::<T>::remove(netuid, old_hotkey);
+                AssociatedEvmAddress::<T>::remove(netuid, old_uid);
                 Uids::<T>::insert(netuid, new_hotkey, old_uid);
                 weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 

@@ -4,7 +4,7 @@ use super::mock::*;
 use crate::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
-use sp_core::U256;
+use sp_core::{H160, U256};
 
 /********************************************
     tests for uids.rs file
@@ -32,7 +32,7 @@ fn test_replace_neuron() {
         let new_hotkey_account_id = U256::from(2);
         let _new_colkey_account_id = U256::from(12345);
         let certificate = NeuronCertificate::try_from(vec![1, 2, 3]).unwrap();
-
+        let evm_address = H160::from_slice(&[1_u8; 20]);
         //add network
         add_network(netuid, tempo, 0);
 
@@ -92,6 +92,8 @@ fn test_replace_neuron() {
         // Set a neuron certificate for it
         NeuronCertificates::<Test>::insert(netuid, hotkey_account_id, certificate);
 
+        AssociatedEvmAddress::<Test>::insert(netuid, neuron_uid, (evm_address, 1));
+
         // Replace the neuron.
         SubtensorModule::replace_neuron(netuid, neuron_uid, &new_hotkey_account_id, block_number);
 
@@ -142,6 +144,8 @@ fn test_replace_neuron() {
 
         // Check bonds are cleared.
         assert_eq!(Bonds::<Test>::get(netuid, neuron_uid), vec![]);
+
+        assert_eq!(AssociatedEvmAddress::<Test>::get(netuid, neuron_uid), None);
     });
 }
 
@@ -162,6 +166,7 @@ fn test_bonds_cleared_on_replace() {
 
         let new_hotkey_account_id = U256::from(2);
         let _new_colkey_account_id = U256::from(12345);
+        let evm_address = H160::from_slice(&[1_u8; 20]);
 
         //add network
         add_network(netuid, tempo, 0);
@@ -181,7 +186,7 @@ fn test_bonds_cleared_on_replace() {
         let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id);
         assert_ok!(neuron_uid);
         let neuron_uid = neuron_uid.unwrap();
-
+        AssociatedEvmAddress::<Test>::insert(netuid, neuron_uid, (evm_address, 1));
         // set non-default bonds
         Bonds::<Test>::insert(netuid, neuron_uid, vec![(0, 1)]);
 
@@ -209,6 +214,8 @@ fn test_bonds_cleared_on_replace() {
 
         // Check bonds are cleared.
         assert_eq!(Bonds::<Test>::get(netuid, neuron_uid), vec![]);
+
+        assert_eq!(AssociatedEvmAddress::<Test>::get(netuid, neuron_uid), None);
     });
 }
 
@@ -238,7 +245,7 @@ fn test_replace_neuron_multiple_subnets() {
         let coldkey_account_id = U256::from(1234);
 
         let _new_colkey_account_id = U256::from(12345);
-
+        let evm_address = H160::from_slice(&[1_u8; 20]);
         //add network
         add_network(netuid, tempo, 0);
         add_network(netuid1, tempo, 0);
@@ -280,6 +287,8 @@ fn test_replace_neuron_multiple_subnets() {
             &hotkey_account_id
         ));
 
+        AssociatedEvmAddress::<Test>::insert(netuid, neuron_uid.unwrap(), (evm_address, 1));
+
         // Replace the neuron.
         // Only replace on ONE network.
         SubtensorModule::replace_neuron(
@@ -300,6 +309,11 @@ fn test_replace_neuron_multiple_subnets() {
             netuid1,
             &hotkey_account_id
         ));
+
+        assert_eq!(
+            AssociatedEvmAddress::<Test>::get(netuid, neuron_uid.unwrap()),
+            None
+        );
     });
 }
 
@@ -330,11 +344,12 @@ fn test_replace_neuron_subnet_owner_not_replaced() {
         let owner_hotkey = U256::from(100);
         let owner_coldkey = U256::from(999);
         let new_hotkey_account_id = U256::from(2);
+        let evm_address = H160::from_slice(&[1_u8; 20]);
 
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
         let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &owner_hotkey)
             .expect("Owner neuron should be registered by add_dynamic_network");
-
+        AssociatedEvmAddress::<Test>::insert(netuid, neuron_uid, (evm_address, 1));
         let current_block = SubtensorModule::get_current_block_as_u64();
         SubtensorModule::replace_neuron(netuid, neuron_uid, &new_hotkey_account_id, current_block);
 
@@ -349,6 +364,7 @@ fn test_replace_neuron_subnet_owner_not_replaced() {
         let new_key_uid =
             SubtensorModule::get_uid_for_net_and_hotkey(netuid, &new_hotkey_account_id);
         assert_err!(new_key_uid, Error::<Test>::HotKeyNotRegisteredInSubNet,);
+        assert_eq!(AssociatedEvmAddress::<Test>::get(netuid, neuron_uid), None);
     });
 }
 
@@ -358,6 +374,7 @@ fn test_replace_neuron_subnet_owner_not_replaced_if_in_sn_owner_hotkey_map() {
         let owner_hotkey = U256::from(123);
         let owner_coldkey = U256::from(999);
         let other_owner_hotkey = U256::from(456);
+        let evm_address = H160::from_slice(&[1_u8; 20]);
 
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
@@ -367,6 +384,8 @@ fn test_replace_neuron_subnet_owner_not_replaced_if_in_sn_owner_hotkey_map() {
 
         let owner_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &owner_hotkey)
             .expect("Owner neuron should already be registered by add_dynamic_network");
+
+        AssociatedEvmAddress::<Test>::insert(netuid, owner_uid, (evm_address, 1));
 
         // Register another hotkey for the owner
         register_ok_neuron(netuid, other_owner_hotkey, owner_coldkey, 0);
@@ -387,6 +406,7 @@ fn test_replace_neuron_subnet_owner_not_replaced_if_in_sn_owner_hotkey_map() {
             owner_uid,
             "Owner's first hotkey should remain registered"
         );
+        assert_eq!(AssociatedEvmAddress::<Test>::get(netuid, owner_uid), None);
 
         let new_key_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &additional_hotkey_1);
         assert_err!(new_key_uid, Error::<Test>::HotKeyNotRegisteredInSubNet,);
