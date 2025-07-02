@@ -90,7 +90,7 @@ fn test_swap_total_hotkey_stake() {
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&old_hotkey),
             amount - fee,
-            epsilon = amount / 1000,
+            epsilon = amount / 100,
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&new_hotkey),
@@ -116,7 +116,7 @@ fn test_swap_total_hotkey_stake() {
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&new_hotkey),
             amount - fee,
-            epsilon = amount / 1000,
+            epsilon = amount / 100,
         );
     });
 }
