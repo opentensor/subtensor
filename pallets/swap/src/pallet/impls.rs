@@ -24,6 +24,7 @@ struct SwapStep<T: frame_system::Config> {
     // Input parameters
     netuid: NetUid,
     order_type: OrderType,
+    drop_fees: bool,
 
     // Computed values
     current_liquidity: U64F64,
@@ -53,6 +54,7 @@ impl<T: Config> SwapStep<T> {
         order_type: OrderType,
         amount_remaining: u64,
         limit_sqrt_price: SqrtPrice,
+        drop_fees: bool,
     ) -> Self {
         // Calculate prices and ticks
         let current_tick = CurrentTick::<T>::get(netuid);
@@ -60,7 +62,7 @@ impl<T: Config> SwapStep<T> {
         let edge_tick = Pallet::<T>::tick_edge(netuid, current_tick, order_type);
         let edge_sqrt_price = edge_tick.as_sqrt_price_bounded();
 
-        let fee = Pallet::<T>::calculate_fee_amount(netuid, amount_remaining);
+        let fee = Pallet::<T>::calculate_fee_amount(netuid, amount_remaining, drop_fees);
         let possible_delta_in = amount_remaining.saturating_sub(fee);
 
         // Target price and quantities
@@ -75,6 +77,7 @@ impl<T: Config> SwapStep<T> {
         Self {
             netuid,
             order_type,
+            drop_fees,
             target_sqrt_price,
             limit_sqrt_price,
             current_sqrt_price,
@@ -175,7 +178,11 @@ impl<T: Config> SwapStep<T> {
         // in case if we hit the limit price or the edge price.
         if recalculate_fee {
             let u16_max = U64F64::saturating_from_num(u16::MAX);
-            let fee_rate = U64F64::saturating_from_num(FeeRate::<T>::get(self.netuid));
+            let fee_rate = if self.drop_fees {
+                U64F64::saturating_from_num(0)
+            } else {
+                U64F64::saturating_from_num(FeeRate::<T>::get(self.netuid))
+            };
             let delta_fixed = U64F64::saturating_from_num(self.delta_in);
             self.fee = delta_fixed
                 .saturating_mul(fee_rate.safe_div(u16_max.saturating_sub(fee_rate)))
@@ -380,6 +387,7 @@ impl<T: Config> Pallet<T> {
         order_type: OrderType,
         amount: u64,
         limit_sqrt_price: SqrtPrice,
+        drop_fees: bool,
         simulate: bool,
     ) -> Result<SwapResult, DispatchError> {
         transactional::with_transaction(|| {
@@ -388,7 +396,8 @@ impl<T: Config> Pallet<T> {
             let alpha_reserve = T::SubnetInfo::alpha_reserve(netuid.into());
 
             let mut result =
-                Self::swap_inner(netuid, order_type, amount, limit_sqrt_price).map_err(Into::into);
+                Self::swap_inner(netuid, order_type, amount, limit_sqrt_price, drop_fees)
+                    .map_err(Into::into);
 
             if simulate || result.is_err() {
                 // Simulation only
@@ -418,6 +427,7 @@ impl<T: Config> Pallet<T> {
         order_type: OrderType,
         amount: u64,
         limit_sqrt_price: SqrtPrice,
+        drop_fees: bool,
     ) -> Result<SwapResult, Error<T>> {
         ensure!(
             T::SubnetInfo::tao_reserve(netuid.into()) >= T::MinimumReserve::get().get()
@@ -426,6 +436,18 @@ impl<T: Config> Pallet<T> {
         );
 
         Self::maybe_initialize_v3(netuid)?;
+
+        // Because user specifies the limit price, check that it is in fact beoynd the current one
+        match order_type {
+            OrderType::Buy => ensure!(
+                AlphaSqrtPrice::<T>::get(netuid) < limit_sqrt_price,
+                Error::<T>::PriceLimitExceeded
+            ),
+            OrderType::Sell => ensure!(
+                AlphaSqrtPrice::<T>::get(netuid) > limit_sqrt_price,
+                Error::<T>::PriceLimitExceeded
+            ),
+        };
 
         let mut amount_remaining = amount;
         let mut amount_paid_out: u64 = 0;
@@ -445,8 +467,13 @@ impl<T: Config> Pallet<T> {
             );
 
             // Create and execute a swap step
-            let mut swap_step =
-                SwapStep::<T>::new(netuid, order_type, amount_remaining, limit_sqrt_price);
+            let mut swap_step = SwapStep::<T>::new(
+                netuid,
+                order_type,
+                amount_remaining,
+                limit_sqrt_price,
+                drop_fees,
+            );
 
             let swap_result = swap_step.execute()?;
 
@@ -524,13 +551,16 @@ impl<T: Config> Pallet<T> {
     /// Calculate fee amount
     ///
     /// Fee is provided by state ops as u16-normalized value.
-    fn calculate_fee_amount(netuid: NetUid, amount: u64) -> u64 {
-        let fee_rate = U64F64::saturating_from_num(FeeRate::<T>::get(netuid))
-            .safe_div(U64F64::saturating_from_num(u16::MAX));
-
-        U64F64::saturating_from_num(amount)
-            .saturating_mul(fee_rate)
-            .saturating_to_num::<u64>()
+    fn calculate_fee_amount(netuid: NetUid, amount: u64, drop_fees: bool) -> u64 {
+        if drop_fees {
+            0
+        } else {
+            let fee_rate = U64F64::saturating_from_num(FeeRate::<T>::get(netuid))
+                .safe_div(U64F64::saturating_from_num(u16::MAX));
+            U64F64::saturating_from_num(amount)
+                .saturating_mul(fee_rate)
+                .saturating_to_num::<u64>()
+        }
     }
 
     /// Add fees to the global fee counters
@@ -800,6 +830,9 @@ impl<T: Config> Pallet<T> {
             Self::count_positions(netuid, coldkey_account_id) <= T::MaxPositions::get() as usize,
             Error::<T>::MaxPositionsExceeded
         );
+
+        // Ensure that tick_high is actually higher than tick_low
+        ensure!(tick_high > tick_low, Error::<T>::InvalidTickRange);
 
         // Add liquidity at tick
         Self::add_liquidity_at_index(netuid, tick_low, liquidity, false);
@@ -1124,6 +1157,7 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
         order_t: OrderType,
         amount: u64,
         price_limit: u64,
+        drop_fees: bool,
         should_rollback: bool,
     ) -> Result<SwapResult, DispatchError> {
         let limit_sqrt_price = SqrtPrice::saturating_from_num(price_limit)
@@ -1136,6 +1170,7 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
             order_t,
             amount,
             limit_sqrt_price,
+            drop_fees,
             should_rollback,
         )
         .map_err(Into::into)
@@ -1153,7 +1188,7 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
                     OrderType::Sell => Self::min_price(),
                 };
 
-                Self::swap(netuid, order_t, amount, price_limit, true)
+                Self::swap(netuid, order_t, amount, price_limit, false, true)
             }
             _ => Ok(SwapResult {
                 amount_paid_in: amount,
@@ -1166,7 +1201,7 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
     }
 
     fn approx_fee_amount(netuid: NetUid, amount: u64) -> u64 {
-        Self::calculate_fee_amount(netuid.into(), amount)
+        Self::calculate_fee_amount(netuid.into(), amount, false)
     }
 
     fn current_alpha_price(netuid: NetUid) -> U96F32 {

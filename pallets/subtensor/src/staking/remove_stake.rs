@@ -64,13 +64,14 @@ impl<T: Config> Pallet<T> {
             false,
         )?;
 
-        // 3. Swap the alpba to tao and update counters for this subnet.
+        // 3. Swap the alpha to tao and update counters for this subnet.
         let tao_unstaked: u64 = Self::unstake_from_subnet(
             &hotkey,
             &coldkey,
             netuid,
             alpha_unstaked,
             T::SwapInterface::min_price(),
+            false,
         )?;
 
         // 4. We add the balance to the coldkey. If the above fails we will not credit this coldkey.
@@ -165,6 +166,7 @@ impl<T: Config> Pallet<T> {
                     netuid,
                     alpha_unstaked,
                     T::SwapInterface::min_price(),
+                    false,
                 )?;
 
                 // Add the balance to the coldkey. If the above fails we will not credit this coldkey.
@@ -257,6 +259,7 @@ impl<T: Config> Pallet<T> {
                         netuid,
                         alpha_unstaked,
                         T::SwapInterface::min_price(),
+                        false,
                     )?;
 
                     // Increment total
@@ -359,8 +362,14 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // 4. Swap the alpha to tao and update counters for this subnet.
-        let tao_unstaked =
-            Self::unstake_from_subnet(&hotkey, &coldkey, netuid, possible_alpha, limit_price)?;
+        let tao_unstaked = Self::unstake_from_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            possible_alpha,
+            limit_price,
+            false,
+        )?;
 
         // 5. We add the balance to the coldkey. If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
@@ -393,10 +402,16 @@ impl<T: Config> Pallet<T> {
         }
 
         // Use reverting swap to estimate max limit amount
-        let result =
-            T::SwapInterface::swap(netuid.into(), OrderType::Sell, u64::MAX, limit_price, true)
-                .map(|r| r.amount_paid_in.saturating_add(r.fee_paid))
-                .map_err(|_| Error::ZeroMaxStakeAmount)?;
+        let result = T::SwapInterface::swap(
+            netuid.into(),
+            OrderType::Sell,
+            u64::MAX,
+            limit_price,
+            false,
+            true,
+        )
+        .map(|r| r.amount_paid_in.saturating_add(r.fee_paid))
+        .map_err(|_| Error::ZeroMaxStakeAmount)?;
 
         if result != 0 {
             Ok(result)

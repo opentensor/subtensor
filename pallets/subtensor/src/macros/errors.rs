@@ -238,5 +238,9 @@ mod errors {
         BeneficiaryDoesNotOwnHotkey,
         /// Expected beneficiary origin.
         ExpectedBeneficiaryOrigin,
+        /// Symbol does not exist.
+        SymbolDoesNotExist,
+        /// Symbol already in use.
+        SymbolAlreadyInUse,
     }
 }

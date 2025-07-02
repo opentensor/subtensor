@@ -2467,7 +2467,7 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
         let call = RuntimeCall::SubtensorModule(SubtensorCall::remove_stake {
             hotkey,
             netuid,
-            amount_unstaked: 1_000_000,
+            amount_unstaked: DefaultMinStake::<Test>::get() * 2,
         });
         let result = extension.validate(
             RawOrigin::Signed(who).into(),
@@ -2485,7 +2485,7 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
         let call = RuntimeCall::SubtensorModule(SubtensorCall::remove_stake_limit {
             hotkey,
             netuid,
-            amount_unstaked: 1_000_000,
+            amount_unstaked: DefaultMinStake::<Test>::get() * 2,
             limit_price: 123456789, // should be low enough
             allow_partial: true,
         });
