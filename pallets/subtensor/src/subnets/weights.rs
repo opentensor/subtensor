@@ -1095,4 +1095,27 @@ impl<T: Config> Pallet<T> {
     pub fn get_reveal_period(netuid: NetUid) -> u64 {
         RevealPeriodEpochs::<T>::get(netuid)
     }
+
+    pub fn has_live_commit(netuid: NetUid, account: &T::AccountId, earliest_epoch: u64) -> bool {
+        // Classic commit-reveal queue -------------------------------
+        if let Some(queue) = WeightCommits::<T>::get(netuid, account) {
+            if queue
+                .iter()
+                .any(|(_, blk, _, _)| !Self::is_commit_expired(netuid, *blk))
+            {
+                return true;
+            }
+        }
+
+        // CRV3 commit-reveal queues ---------------------------------
+        for (_, commits) in CRV3WeightCommits::<T>::iter_prefix(netuid)
+            .filter(|(epoch, _)| *epoch >= earliest_epoch)
+        {
+            if commits.iter().any(|(who, _, _)| who == account) {
+                return true;
+            }
+        }
+
+        false
+    }
 }
