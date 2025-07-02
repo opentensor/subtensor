@@ -996,7 +996,6 @@ fn test_sudo_set_network_pow_registration_allowed() {
             SubtensorModule::get_network_pow_registration_allowed(netuid),
             init_value
         );
-
         assert_ok!(AdminUtils::sudo_set_network_pow_registration_allowed(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
