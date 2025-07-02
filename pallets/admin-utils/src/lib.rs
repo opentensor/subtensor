@@ -198,9 +198,9 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the serving rate limit.
         #[pallet::call_index(3)]
-        #[pallet::weight(Weight::from_parts(611200000000, 0)
+        #[pallet::weight(Weight::from_parts(6_682_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0_u64))
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(0_u64)))]
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_serving_rate_limit(
             origin: OriginFor<T>,
             netuid: NetUid,
