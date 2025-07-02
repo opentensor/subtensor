@@ -205,7 +205,7 @@ pub mod pallet {
         /// Set the commitment for a given netuid
         #[pallet::call_index(0)]
         #[pallet::weight((
-            Weight::from_parts(38_000_000, 0)
+            Weight::from_parts(38_000_000_000, 0)
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64)),
             DispatchClass::Operational,
