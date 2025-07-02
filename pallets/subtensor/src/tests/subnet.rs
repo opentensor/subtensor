@@ -228,6 +228,9 @@ fn test_register_network_min_burn_at_default() {
 
         // Check min burn is set to default
         assert_eq!(MinBurn::<Test>::get(netuid), InitialMinBurn::get());
+        // Check registration allowed
+        assert!(NetworkRegistrationAllowed::<Test>::get(netuid));
+        assert!(NetworkPowRegistrationAllowed::<Test>::get(netuid));
     });
 }
 
