@@ -220,6 +220,10 @@ fn test_register_network_min_burn_at_default() {
 
         // Check min burn is set to default
         assert_eq!(MinBurn::<Test>::get(netuid), InitialMinBurn::get());
+
+        // Check registration allowed
+        assert!(NetworkRegistrationAllowed::<Test>::get(netuid));
+        assert!(NetworkPowRegistrationAllowed::<Test>::get(netuid));
     });
 }
 
@@ -245,6 +249,10 @@ fn test_register_network_use_symbol_for_subnet_if_available() {
             // Ensure the symbol correspond to the netuid has been set
             let expected_symbol = SYMBOLS.get(usize::from(u16::from(netuid))).unwrap();
             assert_eq!(TokenSymbol::<Test>::get(netuid), *expected_symbol);
+
+            // Check registration allowed
+            assert!(NetworkRegistrationAllowed::<Test>::get(netuid));
+            assert!(NetworkPowRegistrationAllowed::<Test>::get(netuid));
         }
     });
 }
@@ -272,6 +280,10 @@ fn test_register_network_use_next_available_symbol_if_symbol_for_subnet_is_taken
             // Ensure the symbol correspond to the netuid has been set
             let expected_symbol = SYMBOLS.get(usize::from(u16::from(netuid))).unwrap();
             assert_eq!(TokenSymbol::<Test>::get(netuid), *expected_symbol);
+
+            // Check registration allowed
+            assert!(NetworkRegistrationAllowed::<Test>::get(netuid));
+            assert!(NetworkPowRegistrationAllowed::<Test>::get(netuid));
         }
 
         // Swap some of the network symbol for the network 25 to network 51 symbol (not registered yet)
@@ -336,6 +348,10 @@ fn test_register_network_use_default_symbol_if_all_symbols_are_taken() {
 
         // We expect the symbol to be the default symbol
         assert_eq!(TokenSymbol::<Test>::get(netuid), *DEFAULT_SYMBOL);
+
+        // Check registration allowed
+        assert!(NetworkRegistrationAllowed::<Test>::get(netuid));
+        assert!(NetworkPowRegistrationAllowed::<Test>::get(netuid));
     });
 }
 // cargo test --package pallet-subtensor --lib -- tests::subnet::test_subtoken_enable --exact --show-output
