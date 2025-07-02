@@ -983,6 +983,8 @@ fn test_sudo_set_network_pow_registration_allowed() {
         let to_be_set: bool = true;
         add_network(netuid, 10);
 
+        let owner = SubtensorModule::get_subnet_owner(netuid);
+
         let init_value: bool = SubtensorModule::get_network_pow_registration_allowed(netuid);
         assert_eq!(
             AdminUtils::sudo_set_network_pow_registration_allowed(
@@ -996,6 +998,20 @@ fn test_sudo_set_network_pow_registration_allowed() {
             SubtensorModule::get_network_pow_registration_allowed(netuid),
             init_value
         );
+
+        assert_eq!(
+            AdminUtils::sudo_set_network_pow_registration_allowed(
+                <<Test as Config>::RuntimeOrigin>::signed(owner),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        assert_eq!(
+            SubtensorModule::get_network_pow_registration_allowed(netuid),
+            init_value
+        );
+
         assert_ok!(AdminUtils::sudo_set_network_pow_registration_allowed(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
