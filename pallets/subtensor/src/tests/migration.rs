@@ -907,3 +907,49 @@ fn test_migrate_subnet_symbols() {
         assert!(!weight.is_zero(), "Migration weight should be non-zero");
     });
 }
+
+#[test]
+fn test_migrate_set_registration_enable() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_set_registration_enable";
+
+        // Create 3 subnets
+        let netuids: [NetUid; 3] = [1.into(), 2.into(), 3.into()];
+        for netuid in netuids.iter() {
+            add_network(*netuid, 1, 0);
+            // Set registration to false to simulate the need for migration
+            SubtensorModule::set_network_registration_allowed(*netuid, false);
+            SubtensorModule::set_network_pow_registration_allowed(*netuid, false);
+        }
+
+        // Sanity check: registration is disabled before migration
+        for netuid in netuids.iter() {
+            assert!(!SubtensorModule::get_network_registration_allowed(*netuid));
+            assert!(!SubtensorModule::get_network_pow_registration_allowed(
+                *netuid
+            ));
+        }
+
+        // Run the migration
+        let weight =
+            crate::migrations::migrate_set_registration_enable::migrate_set_registration_enable::<
+                Test,
+            >();
+
+        // After migration, registration should be enabled for all subnets except root
+        for netuid in netuids.iter() {
+            assert!(SubtensorModule::get_network_registration_allowed(*netuid));
+            assert!(SubtensorModule::get_network_pow_registration_allowed(
+                *netuid
+            ));
+        }
+
+        // Migration should be marked as run
+        assert!(HasMigrationRun::<Test>::get(
+            MIGRATION_NAME.as_bytes().to_vec()
+        ));
+
+        // Weight should be non-zero
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+    });
+}
