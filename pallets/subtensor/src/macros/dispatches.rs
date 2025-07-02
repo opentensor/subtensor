@@ -1,16 +1,16 @@
 #![allow(clippy::crate_in_macro_def)]
-
 use frame_support::pallet_macros::pallet_section;
 
 /// A [`pallet_section`] that defines the errors for a pallet.
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod dispatches {
+    use crate::subnets::leasing::SubnetLeasingWeightInfo;
     use frame_support::traits::schedule::DispatchTime;
     use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
     use frame_system::pallet_prelude::BlockNumberFor;
     use sp_core::ecdsa::Signature;
-    use sp_runtime::traits::Saturating;
+    use sp_runtime::{Percent, traits::Saturating};
 
     use crate::MAX_CRV3_COMMIT_SIZE_BYTES;
     /// Dispatchable functions allow users to interact with the pallet and invoke state changes.
@@ -413,7 +413,7 @@ mod dispatches {
         /// 	- Attempting to set weights with max value exceeding limit.
         ///
         #[pallet::call_index(8)]
-        #[pallet::weight((Weight::from_parts(4_068_000, 0)
+        #[pallet::weight((Weight::from_parts(3_266_000, 0)
 		.saturating_add(T::DbWeight::get().reads(0))
 		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Normal, Pays::No))]
         pub fn set_tao_weights(
@@ -587,7 +587,7 @@ mod dispatches {
         #[pallet::call_index(2)]
         #[pallet::weight((Weight::from_parts(345_500_000, 0)
 		.saturating_add(T::DbWeight::get().reads(26))
-		.saturating_add(T::DbWeight::get().writes(14)), DispatchClass::Normal, Pays::No))]
+		.saturating_add(T::DbWeight::get().writes(15)), DispatchClass::Normal, Pays::No))]
         pub fn add_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1194,7 +1194,7 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(260_500_000, 0)
-		.saturating_add(T::DbWeight::get().reads(33))
+		.saturating_add(T::DbWeight::get().reads(36))
 		.saturating_add(T::DbWeight::get().writes(51)), DispatchClass::Operational, Pays::No))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
@@ -1362,7 +1362,7 @@ mod dispatches {
                 swap_cost,
             };
 
-            let bound_call = T::Preimages::bound(LocalCallOf::<T>::from(call.clone()))
+            let bound_call = <T as Config>::Preimages::bound(LocalCallOf::<T>::from(call.clone()))
                 .map_err(|_| Error::<T>::FailedToSchedule)?;
 
             T::Scheduler::schedule(
@@ -1465,7 +1465,7 @@ mod dispatches {
         /// 	- The ip type v4 or v6.
         ///
         #[pallet::call_index(68)]
-        #[pallet::weight((Weight::from_parts(38_980_000, 0)
+        #[pallet::weight((Weight::from_parts(31_780_000, 0)
 		.saturating_add(T::DbWeight::get().reads(3))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::Yes))]
         pub fn set_identity(
@@ -1539,7 +1539,7 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(79)]
         #[pallet::weight((Weight::from_parts(239_700_000, 0)
-                .saturating_add(T::DbWeight::get().reads(32))
+                .saturating_add(T::DbWeight::get().reads(35))
                 .saturating_add(T::DbWeight::get().writes(50)), DispatchClass::Operational, Pays::No))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
@@ -1575,7 +1575,7 @@ mod dispatches {
         /// * `TxRateLimitExceeded`:
         ///     - Thrown if key has hit transaction rate limit
         #[pallet::call_index(83)]
-        #[pallet::weight((Weight::from_parts(36_200_000, 0)
+        #[pallet::weight((Weight::from_parts(30_190_000, 0)
         .saturating_add(T::DbWeight::get().reads(6))
         .saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Operational, Pays::No))]
         pub fn unstake_all(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
@@ -1609,7 +1609,7 @@ mod dispatches {
         ///     - Thrown if key has hit transaction rate limit
         #[pallet::call_index(84)]
         #[pallet::weight((Weight::from_parts(369_500_000, 0)
-        .saturating_add(T::DbWeight::get().reads(32))
+        .saturating_add(T::DbWeight::get().reads(33))
         .saturating_add(T::DbWeight::get().writes(16)), DispatchClass::Operational, Pays::No))]
         pub fn unstake_all_alpha(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_unstake_all_alpha(origin, hotkey)
@@ -1638,8 +1638,8 @@ mod dispatches {
         ///
         #[pallet::call_index(85)]
         #[pallet::weight((Weight::from_parts(419_500_000, 0)
-        .saturating_add(T::DbWeight::get().reads(31))
-        .saturating_add(T::DbWeight::get().writes(19)), DispatchClass::Operational, Pays::No))]
+        .saturating_add(T::DbWeight::get().reads(32))
+        .saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Operational, Pays::No))]
         pub fn move_stake(
             origin: T::RuntimeOrigin,
             origin_hotkey: T::AccountId,
@@ -1681,7 +1681,7 @@ mod dispatches {
         /// May emit a `StakeTransferred` event on success.
         #[pallet::call_index(86)]
         #[pallet::weight((Weight::from_parts(432_600_000, 0)
-        .saturating_add(T::DbWeight::get().reads(30))
+        .saturating_add(T::DbWeight::get().reads(31))
         .saturating_add(T::DbWeight::get().writes(19)), DispatchClass::Operational, Pays::No))]
         pub fn transfer_stake(
             origin: T::RuntimeOrigin,
@@ -1723,8 +1723,8 @@ mod dispatches {
         #[pallet::call_index(87)]
         #[pallet::weight((
             Weight::from_parts(351_300_000, 0)
-            .saturating_add(T::DbWeight::get().reads(31))
-            .saturating_add(T::DbWeight::get().writes(16)),
+            .saturating_add(T::DbWeight::get().reads(32))
+            .saturating_add(T::DbWeight::get().writes(17)),
             DispatchClass::Operational,
             Pays::No
         ))]
@@ -1789,7 +1789,7 @@ mod dispatches {
         #[pallet::call_index(88)]
         #[pallet::weight((Weight::from_parts(402_800_000, 0)
 		.saturating_add(T::DbWeight::get().reads(26))
-		.saturating_add(T::DbWeight::get().writes(14)), DispatchClass::Normal, Pays::No))]
+		.saturating_add(T::DbWeight::get().writes(15)), DispatchClass::Normal, Pays::No))]
         pub fn add_stake_limit(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1852,7 +1852,7 @@ mod dispatches {
         ///
         #[pallet::call_index(89)]
         #[pallet::weight((Weight::from_parts(403_800_000, 0)
-		.saturating_add(T::DbWeight::get().reads(29))
+		.saturating_add(T::DbWeight::get().reads(30))
 		.saturating_add(T::DbWeight::get().writes(14)), DispatchClass::Normal, Pays::No))]
         pub fn remove_stake_limit(
             origin: OriginFor<T>,
@@ -1896,8 +1896,8 @@ mod dispatches {
         #[pallet::call_index(90)]
         #[pallet::weight((
             Weight::from_parts(426_500_000, 0)
-            .saturating_add(T::DbWeight::get().reads(31))
-            .saturating_add(T::DbWeight::get().writes(16)),
+            .saturating_add(T::DbWeight::get().reads(32))
+            .saturating_add(T::DbWeight::get().writes(17)),
             DispatchClass::Operational,
             Pays::No
         ))]
@@ -2076,7 +2076,7 @@ mod dispatches {
         /// Without limit_price it remove all the stake similar to `remove_stake` extrinsic
         #[pallet::call_index(103)]
         #[pallet::weight((Weight::from_parts(398_000_000, 10142)
-			.saturating_add(T::DbWeight::get().reads(29_u64))
+			.saturating_add(T::DbWeight::get().reads(30_u64))
 			.saturating_add(T::DbWeight::get().writes(14_u64)), DispatchClass::Normal, Pays::No))]
         pub fn remove_stake_full_limit(
             origin: T::RuntimeOrigin,
@@ -2085,6 +2085,95 @@ mod dispatches {
             limit_price: Option<u64>,
         ) -> DispatchResult {
             Self::do_remove_stake_full_limit(origin, hotkey, netuid, limit_price)
+        }
+
+        /// Register a new leased network.
+        ///
+        /// The crowdloan's contributions are used to compute the share of the emissions that the contributors
+        /// will receive as dividends.
+        ///
+        /// The leftover cap is refunded to the contributors and the beneficiary.
+        ///
+        /// # Args:
+        /// * `origin` - (<T as frame_system::Config>::Origin):
+        ///     - The signature of the caller's coldkey.
+        ///
+        /// * `emissions_share` (Percent):
+        ///     - The share of the emissions that the contributors will receive as dividends.
+        ///
+        /// * `end_block` (Option<BlockNumberFor<T>>):
+        ///     - The block at which the lease will end. If not defined, the lease is perpetual.
+        #[pallet::call_index(110)]
+        #[pallet::weight(SubnetLeasingWeightInfo::<T>::do_register_leased_network(T::MaxContributors::get()))]
+        pub fn register_leased_network(
+            origin: T::RuntimeOrigin,
+            emissions_share: Percent,
+            end_block: Option<BlockNumberFor<T>>,
+        ) -> DispatchResultWithPostInfo {
+            Self::do_register_leased_network(origin, emissions_share, end_block)
+        }
+
+        /// Terminate a lease.
+        ///
+        /// The beneficiary can terminate the lease after the end block has passed and get the subnet ownership.
+        /// The subnet is transferred to the beneficiary and the lease is removed from storage.
+        ///
+        /// **The hotkey must be owned by the beneficiary coldkey.**
+        ///
+        /// # Args:
+        /// * `origin` - (<T as frame_system::Config>::Origin):
+        ///     - The signature of the caller's coldkey.
+        ///
+        /// * `lease_id` (LeaseId):
+        ///     - The ID of the lease to terminate.
+        ///
+        /// * `hotkey` (T::AccountId):
+        ///     - The hotkey of the beneficiary to mark as subnet owner hotkey.
+        #[pallet::call_index(111)]
+        #[pallet::weight(SubnetLeasingWeightInfo::<T>::do_terminate_lease(T::MaxContributors::get()))]
+        pub fn terminate_lease(
+            origin: T::RuntimeOrigin,
+            lease_id: LeaseId,
+            hotkey: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            Self::do_terminate_lease(origin, lease_id, hotkey)
+        }
+
+        /// Updates the symbol for a subnet.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the subnet owner or root.
+        /// * `netuid` - The unique identifier of the subnet on which the symbol is being set.
+        /// * `symbol` - The symbol to set for the subnet.
+        ///
+        /// # Errors
+        /// Returns an error if:
+        /// * The transaction is not signed by the subnet owner.
+        /// * The symbol does not exist.
+        /// * The symbol is already in use by another subnet.
+        ///
+        /// # Events
+        /// Emits a `SymbolUpdated` event on success.
+        #[pallet::call_index(112)]
+        #[pallet::weight((
+            Weight::from_parts(28_840_000, 0).saturating_add(T::DbWeight::get().reads_writes(4, 1)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn update_symbol(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            symbol: Vec<u8>,
+        ) -> DispatchResult {
+            Self::ensure_subnet_owner_or_root(origin, netuid)?;
+
+            Self::ensure_symbol_exists(&symbol)?;
+            Self::ensure_symbol_available(&symbol)?;
+
+            TokenSymbol::<T>::insert(netuid, symbol.clone());
+
+            Self::deposit_event(Event::SymbolUpdated { netuid, symbol });
+            Ok(())
         }
     }
 }
