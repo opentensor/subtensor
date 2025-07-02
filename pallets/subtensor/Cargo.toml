@@ -68,6 +68,8 @@ runtime-common = { workspace = true }
 babe-primitives = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-consensus-slots = { workspace = true }
+pallet-crowdloan = { workspace = true, default-features = false }
+pallet-proxy = { workspace = true, default-features = false }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
@@ -132,6 +134,13 @@ std = [
 	"sp-consensus-aura/std",
 	"pallet-timestamp/std",
 	"sp-consensus-slots/std"
+	"rand_chacha/std",
+	"safe-math/std",
+	"sha2/std",
+	"share-pool/std",
+	"subtensor-runtime-common/std",
+	"pallet-proxy/std",
+	"pallet-crowdloan/std",
 ]
 default = ["std"]
 runtime-benchmarks = [
@@ -153,6 +162,9 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-subtensor-swap/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
+	"pallet-crowdloan/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
@@ -171,6 +183,8 @@ try-runtime = [
 	"pallet-aura/try-runtime",
 	"pallet-babe/try-runtime",
 	"pallet-timestamp/try-runtime"
+	"pallet-proxy/try-runtime",
+	"pallet-crowdloan/try-runtime",
 ]
 pow-faucet = []
 fast-runtime = [

@@ -34,6 +34,8 @@ frame_support::construct_runtime!(
         Grandpa: pallet_grandpa = 7,
         EVMChainId: pallet_evm_chain_id = 8,
         Swap: pallet_subtensor_swap::{Pallet, Call, Storage, Event<T>} = 9,
+        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 10,
+        Crowdloan: pallet_crowdloan::{Pallet, Call, Storage, Event<T>} = 11,
     }
 );
 
@@ -146,6 +148,7 @@ parameter_types! {
     pub const DurationOfStartCall: u64 = 7 * 24 * 60 * 60 / 12; // 7 days
     pub const InitialKeySwapOnSubnetCost: u64 = 10_000_000;
     pub const HotkeySwapOnSubnetInterval: u64 = 7 * 24 * 60 * 60 / 12; // 7 days
+    pub const LeaseDividendsDistributionInterval: u32 = 100; // 100 blocks
 }
 
 impl pallet_subtensor::Config for Test {
@@ -218,6 +221,47 @@ impl pallet_subtensor::Config for Test {
     type SwapInterface = Swap;
     type KeySwapOnSubnetCost = InitialKeySwapOnSubnetCost;
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
+    type ProxyInterface = ();
+    type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
+}
+
+parameter_types! {
+    pub const PreimageMaxSize: u32 = 4096 * 1024;
+    pub const PreimageBaseDeposit: Balance = 1;
+    pub const PreimageByteDeposit: Balance = 1;
+}
+
+impl pallet_preimage::Config for Test {
+    type WeightInfo = pallet_preimage::weights::SubstrateWeight<Test>;
+    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
+    type ManagerOrigin = EnsureRoot<AccountId>;
+    type Consideration = ();
+}
+
+parameter_types! {
+    pub const CrowdloanPalletId: PalletId = PalletId(*b"bt/cloan");
+    pub const MinimumDeposit: u64 = 50;
+    pub const AbsoluteMinimumContribution: u64 = 10;
+    pub const MinimumBlockDuration: u64 = 20;
+    pub const MaximumBlockDuration: u64 = 100;
+    pub const RefundContributorsLimit: u32 = 5;
+    pub const MaxContributors: u32 = 10;
+}
+
+impl pallet_crowdloan::Config for Test {
+    type PalletId = CrowdloanPalletId;
+    type Currency = Balances;
+    type RuntimeCall = RuntimeCall;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = pallet_crowdloan::weights::SubstrateWeight<Test>;
+    type Preimages = Preimage;
+    type MinimumDeposit = MinimumDeposit;
+    type AbsoluteMinimumContribution = AbsoluteMinimumContribution;
+    type MinimumBlockDuration = MinimumBlockDuration;
+    type MaximumBlockDuration = MaximumBlockDuration;
+    type RefundContributorsLimit = RefundContributorsLimit;
+    type MaxContributors = MaxContributors;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]

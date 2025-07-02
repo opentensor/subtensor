@@ -140,6 +140,7 @@ pub enum ProxyType {
     ChildKeys,
     SudoUncheckedSetCode,
     SwapHotkey,
+    SubnetLeaseBeneficiary, // Used to operate the leased subnet
 }
 
 impl Default for ProxyType {

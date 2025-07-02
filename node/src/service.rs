@@ -8,7 +8,7 @@ use sc_consensus::{BasicQueue, BoxBlockImport};
 use sc_consensus_babe::BabeWorkerHandle;
 use sc_consensus_grandpa::BlockNumberOps;
 use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
-use sc_network_sync::strategy::warp::{WarpSyncConfig, WarpSyncProvider};
+use sc_network_sync::strategy::warp::WarpSyncConfig;
 use sc_service::{Configuration, PartialComponents, TaskManager, error::Error as ServiceError};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, log};
 use sc_transaction_pool::TransactionPoolHandle;
@@ -294,6 +294,64 @@ pub fn build_manual_seal_import_queue(
     // ))
 }
 
+async fn get_new_block_header()
+-> sp_runtime::generic::Header<NumberFor<Block>, sp_runtime::traits::BlakeTwo256> {
+    use sp_core::H256;
+    use sp_runtime::traits::BlakeTwo256;
+    use sp_runtime::{Digest, DigestItem};
+    use subxt::{OnlineClient, PolkadotConfig};
+
+    let api = OnlineClient::<PolkadotConfig>::from_url("wss://archive.chain.opentensor.ai")
+        .await
+        .expect("Could not compose an API client from the URL");
+
+    let mut blocks_sub = api
+        .blocks()
+        .subscribe_finalized()
+        .await
+        .expect("Could not subscribe to API");
+    if let Some(Ok(block)) = blocks_sub.next().await {
+        log::debug!("Target warp header:  ({:?})", block.header());
+
+        let number = block.header().number;
+        let parent_hash = H256::from_slice(block.header().parent_hash.as_bytes());
+        let extrinsics_root = H256::from_slice(block.header().extrinsics_root.as_bytes());
+        let state_root = H256::from_slice(block.header().state_root.as_bytes());
+        let logs = block
+            .header()
+            .digest
+            .logs
+            .clone()
+            .into_iter()
+            .map(|log| match log {
+                subxt::config::substrate::DigestItem::PreRuntime(engine, data) => {
+                    DigestItem::PreRuntime(engine, data)
+                }
+                subxt::config::substrate::DigestItem::Consensus(engine, data) => {
+                    DigestItem::Consensus(engine, data)
+                }
+                subxt::config::substrate::DigestItem::Seal(engine, data) => {
+                    DigestItem::Seal(engine, data)
+                }
+                subxt::config::substrate::DigestItem::Other(data) => {
+                    panic!("Unexpected log iter Other: {:?}", data);
+                }
+                subxt::config::substrate::DigestItem::RuntimeEnvironmentUpdated => {
+                    panic!("Unexpected log iter RuntimeEnvironmentUpdated");
+                }
+            })
+            .collect::<Vec<_>>();
+        return sp_runtime::generic::Header::<NumberFor<Block>, BlakeTwo256>::new(
+            number,
+            extrinsics_root,
+            state_root,
+            parent_hash,
+            Digest { logs },
+        );
+    }
+    panic!("Could not get finalized block header");
+}
+
 /// Builds a new service for a full client.
 pub async fn new_full<NB>(
     mut config: Configuration,
@@ -360,13 +418,19 @@ where
         None
     } else {
         net_config.add_notification_protocol(grandpa_protocol_config);
-        let warp_sync: Arc<dyn WarpSyncProvider<Block>> =
-            Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
-                backend.clone(),
-                grandpa_link.shared_authority_set().clone(),
-                Vec::new(),
-            ));
-        Some(WarpSyncConfig::WithProvider(warp_sync))
+        let warp_sync_header = get_new_block_header().await;
+
+        Some(WarpSyncConfig::WithTarget(warp_sync_header))
+
+        // TODO: Fix the default warp sync provider and uncomment this section
+        // let warp_sync: Arc<dyn WarpSyncProvider<Block>> =
+        //     Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
+        //         backend.clone(),
+        //         grandpa_link.shared_authority_set().clone(),
+        //         Vec::new(),
+        //     ));
+        //
+        // Some(WarpSyncConfig::WithProvider(warp_sync))
     };
 
     let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
