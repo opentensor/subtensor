@@ -1419,6 +1419,9 @@ mod pallet_benchmarks {
             u64_staked_amt
         ));
 
+        // Remove stake limit for benchmark
+        StakingOperationRateLimiter::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
+
         #[extrinsic_call]
         _(
             RawOrigin::Signed(coldkey.clone()),
