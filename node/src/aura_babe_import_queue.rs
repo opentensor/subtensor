@@ -1,12 +1,16 @@
+use babe_primitives::BABE_ENGINE_ID;
 use babe_primitives::BabeApi;
 use babe_primitives::BabeConfiguration;
 use futures::{channel::mpsc::channel, prelude::*};
+use log;
 use sc_client_api::AuxStore;
 use sc_consensus::BlockImport;
 use sc_consensus::BlockImportParams;
 use sc_consensus::BoxJustificationImport;
 use sc_consensus::Verifier;
 use sc_consensus::{BasicQueue, DefaultImportQueue};
+use sc_consensus_aura::AuraVerifier;
+use sc_consensus_aura::AuthorityId;
 use sc_consensus_aura::CheckForEquivocation;
 use sc_consensus_babe::BabeLink;
 use sc_consensus_babe::BabeVerifier;
@@ -21,9 +25,11 @@ use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata, Result as ClientResult};
 use sp_consensus::SelectChain;
 use sp_consensus::error::Error as ConsensusError;
+use sp_consensus_aura::AuraApi;
 use sp_consensus_aura::sr25519::AuthorityPair;
 use sp_core::traits::SpawnEssentialNamed;
 use sp_inherents::CreateInherentDataProviders;
+use sp_runtime::traits::NumberFor;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 use std::sync::Arc;
 use substrate_prometheus_endpoint::Registry;
@@ -65,6 +71,7 @@ pub struct ImportQueueParams<'a, Block: BlockT, BI, Client, CIDP, SelectChain, S
 /// A dynamic verifier that can verify both Aura and Babe blocks.
 struct AuraBabeVerifier<Block: BlockT, Client, SelectChain, CIDP> {
     babe_verifier: BabeVerifier<Block, Client, SelectChain, CIDP>,
+    aura_verifier: AuraVerifier<Client, AuthorityPair, CIDP, NumberFor<Block>>,
 }
 
 impl<Block, Client, SelectChain, CIDP> AuraBabeVerifier<Block, Client, SelectChain, CIDP>
@@ -76,9 +83,10 @@ where
         + Send
         + Sync
         + AuxStore,
-    Client::Api: BlockBuilderApi<Block> + BabeApi<Block>,
+    Client::Api:
+        BlockBuilderApi<Block> + BabeApi<Block> + AuraApi<Block, AuthorityId<AuthorityPair>>,
     SelectChain: sp_consensus::SelectChain<Block>,
-    CIDP: CreateInherentDataProviders<Block, ()> + Send + Sync,
+    CIDP: CreateInherentDataProviders<Block, ()> + Send + Sync + Clone,
     CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
     pub fn new(
@@ -91,24 +99,29 @@ where
         offchain_tx_pool_factory: OffchainTransactionPoolFactory<Block>,
     ) -> Self {
         let babe_verifier = BabeVerifier::new(
-            client,
+            client.clone(),
             select_chain,
-            create_inherent_data_providers,
+            create_inherent_data_providers.clone(),
             babe_config,
             epoch_changes,
-            telemetry,
+            telemetry.clone(),
             offchain_tx_pool_factory,
         );
 
-        // let aura_verifier = sc_consensus_aura::AuraVerifier::<Client, AuthorityPair, CIDP, u32>::new(
-        //     client.clone(),
-        //     create_inherent_data_providers,
-        //     check_for_equivocation,
-        //     telemetry.clone(),
-        //     sc_consensus_aura::CompatibilityMode::<u32>::None,
-        // );
+        let aura_verifier_params = sc_consensus_aura::BuildVerifierParams::<Client, CIDP, _> {
+            client,
+            create_inherent_data_providers,
+            telemetry,
+            check_for_equivocation: CheckForEquivocation::Yes,
+            compatibility_mode: sc_consensus_aura::CompatibilityMode::<NumberFor<Block>>::None,
+        };
+        let aura_verifier =
+            sc_consensus_aura::build_verifier::<AuthorityPair, _, _, _>(aura_verifier_params);
 
-        AuraBabeVerifier { babe_verifier }
+        AuraBabeVerifier {
+            babe_verifier,
+            aura_verifier,
+        }
     }
 }
 
@@ -123,16 +136,33 @@ where
         + Send
         + Sync
         + AuxStore,
-    Client::Api: BlockBuilderApi<Block> + BabeApi<Block>,
+    Client::Api:
+        BlockBuilderApi<Block> + BabeApi<Block> + AuraApi<Block, AuthorityId<AuthorityPair>>,
     SelectChain: sp_consensus::SelectChain<Block>,
-    CIDP: CreateInherentDataProviders<Block, ()> + Send + Sync,
+    CIDP: CreateInherentDataProviders<Block, ()> + Send + Sync + Clone,
     CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
     async fn verify(
         &self,
         mut block: BlockImportParams<Block>,
     ) -> Result<BlockImportParams<Block>, String> {
-        self.verify(block).await
+        let justifications = block.justifications.clone().unwrap();
+        log::info!("Verifying block: {:?}", block.post_header().number());
+        log::info!("Justifications: {:?}", justifications);
+        let is_aura = justifications
+            .get(sp_consensus_aura::AURA_ENGINE_ID)
+            .is_some();
+        let is_babe = justifications.get(BABE_ENGINE_ID).is_some();
+        log::info!("is_aura: {} is_babe: {}", is_aura, is_babe);
+        if is_babe {
+            log::info!("Using Babe Verifier.");
+            let r = self.babe_verifier.verify(block).await.unwrap();
+            panic!("succeeded babe verify!");
+        } else {
+            log::info!("Using Aura Verifier.");
+            self.aura_verifier.verify(block).await
+            // panic!("succeeded aura verify!");
+        }
     }
 }
 
@@ -161,9 +191,12 @@ where
         + Send
         + Sync
         + 'static,
-    Client::Api: BlockBuilderApi<Block> + BabeApi<Block> + ApiExt<Block>,
+    Client::Api: BlockBuilderApi<Block>
+        + BabeApi<Block>
+        + AuraApi<Block, AuthorityId<AuthorityPair>>
+        + ApiExt<Block>,
     SelectChain: sp_consensus::SelectChain<Block> + 'static,
-    CIDP: CreateInherentDataProviders<Block, ()> + Send + Sync + 'static,
+    CIDP: CreateInherentDataProviders<Block, ()> + Send + Sync + 'static + Clone,
     CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
     Spawn: SpawnEssentialNamed,
 {
