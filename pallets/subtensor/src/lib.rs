@@ -502,7 +502,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for registration allowed.
     pub fn DefaultRegistrationAllowed<T: Config>() -> bool {
-        true
+        false
     }
     #[pallet::type_value]
     /// Default value for network registered at.

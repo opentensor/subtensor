@@ -27,7 +27,6 @@ pub mod migrate_reset_max_burn;
 pub mod migrate_set_first_emission_block_number;
 pub mod migrate_set_min_burn;
 pub mod migrate_set_min_difficulty;
-pub mod migrate_set_registration_enable;
 pub mod migrate_set_subtoken_enabled;
 pub mod migrate_stake_threshold;
 pub mod migrate_subnet_identities_to_v3;
