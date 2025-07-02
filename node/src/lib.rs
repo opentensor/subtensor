@@ -1,3 +1,4 @@
+pub mod aura_babe_import_queue;
 pub mod chain_spec;
 pub mod cli;
 pub mod client;

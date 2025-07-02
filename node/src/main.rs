@@ -4,6 +4,7 @@
 mod chain_spec;
 #[macro_use]
 mod service;
+mod aura_babe_import_queue;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 mod cli;

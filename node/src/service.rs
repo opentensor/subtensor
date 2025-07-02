@@ -1,5 +1,6 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
+use crate::aura_babe_import_queue;
 use futures::{FutureExt, channel::mpsc, future};
 use node_subtensor_runtime::{RuntimeApi, TransactionConverter, opaque::Block};
 use sc_client_api::{Backend as BackendT, BlockBackend};
@@ -234,7 +235,7 @@ where
     };
 
     let (import_queue, babe_worker_handle) =
-        sc_consensus_babe::import_queue(sc_consensus_babe::ImportQueueParams {
+        aura_babe_import_queue::import_queue(aura_babe_import_queue::ImportQueueParams {
             link: babe_link.clone(),
             block_import: conditional_block_import.clone(),
             justification_import: Some(Box::new(grandpa_block_import)),
@@ -245,6 +246,7 @@ where
             registry: config.prometheus_registry(),
             telemetry,
             offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool),
+            check_for_equivocation: sc_consensus_aura::CheckForEquivocation::Yes,
         })?;
 
     Ok((
