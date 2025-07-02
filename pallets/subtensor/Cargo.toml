@@ -69,7 +69,7 @@ babe-primitives = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-consensus-slots = { workspace = true }
 pallet-crowdloan = { workspace = true, default-features = false }
-pallet-proxy = { workspace = true, default-features = false }
+pallet-proxy-opentensor = { workspace = true, default-features = false }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
@@ -105,7 +105,6 @@ std = [
 	"pallet-scheduler/std",
 	"pallet-subtensor-swap/std",
 	"pallet-transaction-payment/std",
-	"pallet-utility-opentensor/std",
 	"rand_chacha/std",
 	"safe-math/std",
 	"scale-info/std",
@@ -133,14 +132,15 @@ std = [
 	"babe-primitives/std",
 	"sp-consensus-aura/std",
 	"pallet-timestamp/std",
-	"sp-consensus-slots/std"
+	"sp-consensus-slots/std",
 	"rand_chacha/std",
 	"safe-math/std",
 	"sha2/std",
 	"share-pool/std",
 	"subtensor-runtime-common/std",
-	"pallet-proxy/std",
 	"pallet-crowdloan/std",
+	"pallet-proxy-opentensor/std",
+	"pallet-utility-opentensor/std"
 ]
 default = ["std"]
 runtime-benchmarks = [
@@ -149,7 +149,6 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
-	"pallet-utility-opentensor/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
@@ -162,10 +161,10 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-subtensor-swap/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
-	"pallet-proxy/runtime-benchmarks",
 	"pallet-crowdloan/runtime-benchmarks",
-	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"pallet-proxy-opentensor/runtime-benchmarks",
+	"pallet-utility-opentensor/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -175,16 +174,16 @@ try-runtime = [
 	"pallet-preimage/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-transaction-payment/try-runtime",
-	"pallet-utility-opentensor/try-runtime",
 	"sp-runtime/try-runtime",
 	"pallet-collective/try-runtime",
 	"pallet-drand/try-runtime",
 	"runtime-common/try-runtime",
 	"pallet-aura/try-runtime",
 	"pallet-babe/try-runtime",
-	"pallet-timestamp/try-runtime"
-	"pallet-proxy/try-runtime",
+	"pallet-timestamp/try-runtime",
 	"pallet-crowdloan/try-runtime",
+	"pallet-proxy-opentensor/try-runtime",
+	"pallet-utility-opentensor/try-runtime"
 ]
 pow-faucet = []
 fast-runtime = [
