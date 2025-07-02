@@ -1037,3 +1037,7 @@ pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: u64) -> (u64, u64) {
 pub(crate) fn last_event() -> RuntimeEvent {
     System::events().pop().expect("RuntimeEvent expected").event
 }
+
+pub fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+    frame_system::Pallet::<T>::assert_last_event(generic_event.into());
+}

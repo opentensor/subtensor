@@ -1575,4 +1575,20 @@ mod pallet_benchmarks {
         assert!(!SubnetLeaseShares::<T>::contains_prefix(lease_id));
         assert!(!AccumulatedLeaseDividends::<T>::contains_key(lease_id));
     }
+
+    #[benchmark]
+    fn update_symbol() {
+        let coldkey: T::AccountId = whitelisted_caller();
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 1;
+        Subtensor::<T>::init_new_network(netuid, tempo);
+        SubnetOwner::<T>::insert(netuid, coldkey.clone());
+
+        let new_symbol = Subtensor::<T>::get_symbol_for_subnet(NetUid::from(42));
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey), netuid, new_symbol.clone());
+
+        assert_eq!(TokenSymbol::<T>::get(netuid), new_symbol);
+    }
 }
