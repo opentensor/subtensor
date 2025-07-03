@@ -77,6 +77,7 @@ impl<T: Config> Pallet<T> {
             netuid,
             tao_staked.saturating_to_num::<u64>(),
             T::SwapInterface::max_price(),
+            true,
         )?;
 
         // Ok and return.
@@ -168,7 +169,7 @@ impl<T: Config> Pallet<T> {
 
         // 6. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
-        Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked, limit_price)?;
+        Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked, limit_price, true)?;
 
         // Ok and return.
         Ok(())
@@ -188,10 +189,16 @@ impl<T: Config> Pallet<T> {
         }
 
         // Use reverting swap to estimate max limit amount
-        let result =
-            T::SwapInterface::swap(netuid.into(), OrderType::Buy, u64::MAX, limit_price, true)
-                .map(|r| r.amount_paid_in.saturating_add(r.fee_paid))
-                .map_err(|_| Error::ZeroMaxStakeAmount)?;
+        let result = T::SwapInterface::swap(
+            netuid.into(),
+            OrderType::Buy,
+            u64::MAX,
+            limit_price,
+            false,
+            true,
+        )
+        .map(|r| r.amount_paid_in.saturating_add(r.fee_paid))
+        .map_err(|_| Error::ZeroMaxStakeAmount)?;
 
         if result != 0 {
             Ok(result)
