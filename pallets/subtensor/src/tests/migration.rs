@@ -936,10 +936,10 @@ fn test_migrate_set_registration_enable() {
                 Test,
             >();
 
-        // After migration, registration should be enabled for all subnets except root
+        // After migration, regular registration should be enabled for all subnets except root
         for netuid in netuids.iter() {
             assert!(SubtensorModule::get_network_registration_allowed(*netuid));
-            assert!(SubtensorModule::get_network_pow_registration_allowed(
+            assert!(!SubtensorModule::get_network_pow_registration_allowed(
                 *netuid
             ));
         }
