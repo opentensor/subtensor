@@ -65,7 +65,7 @@ patch_reads_writes() {
 git_commit_and_push() {
   local msg="$1"
   local branch; branch=$(git symbolic-ref --quiet --short HEAD || true)
-  [[ -z "$branch" ]] && die "Not on a branch – cannot push"
+  [[ -z "$branch" ]] && die "Not on a branch - cannot push"
 
   git config user.name  "github-actions[bot]"
   git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -183,7 +183,7 @@ done
 ################################################################################
 if (( ${#PATCHED_FILES[@]} )); then
   echo -e "\n📦  Committing patched files …"
-  git_commit_and_push "chore: auto-update benchmark weights"
+  git_commit_and_push "auto-update benchmark weights"
 fi
 
 echo -e "\n══════════════════════════════════════"
