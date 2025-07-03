@@ -350,12 +350,23 @@ impl<T: Config> Pallet<T> {
                 let new_liquidity = helpers_128bit::sqrt(
                     (new_tao_reserve as u128).saturating_mul(new_alpha_reserve as u128),
                 ) as u64;
+                let liquidity_delta = new_liquidity.saturating_sub(position.liquidity);
 
+                // Update current liquidity
+                CurrentLiquidity::<T>::mutate(netuid, |current_liquidity| {
+                    *current_liquidity = current_liquidity.saturating_add(liquidity_delta);
+                });
+
+                // Update protocol position
                 position.liquidity = new_liquidity;
                 Positions::<T>::insert(
                     (netuid, protocol_account_id, position.id),
                     position.clone(),
                 );
+
+                // Update position ticks
+                Self::add_liquidity_at_index(netuid, position.tick_low, liquidity_delta, false);
+                Self::add_liquidity_at_index(netuid, position.tick_high, liquidity_delta, true);
             }
         }
     }
