@@ -63,8 +63,6 @@ pub struct ImportQueueParams<'a, Block: BlockT, BI, Client, CIDP, SelectChain, S
     ///
     /// Will be used when sending equivocation reports.
     pub offchain_tx_pool_factory: OffchainTransactionPoolFactory<Block>,
-    /// Should we check for equivocation? (Aura)
-    pub check_for_equivocation: CheckForEquivocation,
 }
 
 /// A dynamic verifier that can verify both Aura and Babe blocks.
@@ -145,16 +143,15 @@ where
         &self,
         block: BlockImportParams<Block>,
     ) -> Result<BlockImportParams<Block>, String> {
-        log::info!("Block: {:?}", &block);
+        log::debug!("Block: {:?}", &block);
         let number: NumberFor<Block> = block.post_header().number().clone();
-        log::info!("Verifying block: {:?}", number);
+        log::debug!("Verifying block: {:?}", number);
         let consensus_engine_id = crate::common::block_consensus_engine_id(&block);
         if consensus_engine_id == AURA_ENGINE_ID {
-            log::info!("Using Aura Verifier.");
+            log::debug!("Using Aura Verifier.");
             self.aura_verifier.verify(block).await
         } else {
-            // Ok(block)
-            log::info!("Using Babe Verifier");
+            log::debug!("Using Babe Verifier");
             self.babe_verifier.verify(block).await
         }
     }
@@ -169,7 +166,6 @@ pub fn import_queue<Block: BlockT, Client, SelectChain, BI, CIDP, Spawn>(
         create_inherent_data_providers,
         spawner,
         registry,
-        check_for_equivocation,
         telemetry,
         link: babe_link,
         select_chain,

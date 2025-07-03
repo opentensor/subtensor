@@ -1,6 +1,5 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-use crate::aura_babe_import_queue;
 use futures::{FutureExt, channel::mpsc, future};
 use node_subtensor_runtime::{RuntimeApi, TransactionConverter, opaque::Block};
 use sc_client_api::{Backend as BackendT, BlockBackend};
@@ -211,16 +210,17 @@ pub fn build_babe_grandpa_import_queue(
 where
     NumberFor<Block>: BlockNumberOps,
 {
-    let (aura_or_babe_import, babe_link) =
-        crate::aura_babe_block_import::AuraOrBabeBlockImport::block_import(
-            sc_consensus_babe::configuration(&*client)?,
-            grandpa_block_import.clone(),
-            client.clone(),
-        )?;
+    // let (babe_import, babe_link) =
+    //     crate::aura_babe_block_import::AuraOrBabeBlockImport::block_import(
+    let (babe_import, babe_link) = sc_consensus_babe::block_import(
+        sc_consensus_babe::configuration(&*client)?,
+        grandpa_block_import.clone(),
+        client.clone(),
+    )?;
 
     let conditional_block_import = ConditionalEVMBlockImport::new(
-        aura_or_babe_import.clone(),
-        FrontierBlockImport::new(aura_or_babe_import.clone(), client.clone()),
+        babe_import.clone(),
+        FrontierBlockImport::new(babe_import.clone(), client.clone()),
         client.clone(),
     );
 
@@ -235,8 +235,10 @@ where
         Ok((slot, timestamp))
     };
 
-    let (import_queue, babe_worker_handle) =
-        aura_babe_import_queue::import_queue(aura_babe_import_queue::ImportQueueParams {
+    // let (import_queue, babe_worker_handle) =
+    //     sc_consensus_babe::import_queue(sc_consensus_babe::ImportQueueParams {
+    let (import_queue, babe_worker_handle) = crate::aura_babe_import_queue::import_queue(
+        crate::aura_babe_import_queue::ImportQueueParams {
             link: babe_link.clone(),
             block_import: conditional_block_import.clone(),
             justification_import: Some(Box::new(grandpa_block_import)),
@@ -247,12 +249,12 @@ where
             registry: config.prometheus_registry(),
             telemetry,
             offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool),
-            check_for_equivocation: sc_consensus_aura::CheckForEquivocation::Yes,
-        })?;
+        },
+    )?;
 
     Ok((
         import_queue,
-        Box::new(aura_or_babe_import),
+        Box::new(babe_import),
         babe_link,
         babe_worker_handle,
     ))

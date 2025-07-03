@@ -19,8 +19,8 @@ use codec::{Compact, Decode, Encode};
 use core::num::NonZeroU64;
 use frame_election_provider_support::bounds::ElectionBoundsBuilder;
 use frame_election_provider_support::{SequentialPhragmen, generate_solution_type, onchain};
-use frame_support::pallet_prelude::DispatchClass;
 use frame_support::dispatch::DispatchResult;
+use frame_support::pallet_prelude::DispatchClass;
 use frame_support::traits::{Imbalance, InsideBoth};
 use frame_support::{
     PalletId,
