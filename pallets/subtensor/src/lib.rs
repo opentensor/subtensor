@@ -502,7 +502,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for registration allowed.
     pub fn DefaultRegistrationAllowed<T: Config>() -> bool {
-        false
+        true
     }
     #[pallet::type_value]
     /// Default value for network registered at.
@@ -803,7 +803,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default minimum stake.
     pub fn DefaultMinStake<T: Config>() -> u64 {
-        500_000
+        20_000_000
     }
 
     #[pallet::type_value]

@@ -121,7 +121,9 @@ mod hooks {
                 // Migrate ColdkeySwapScheduled structure to new format
                 .saturating_add(migrations::migrate_coldkey_swap_scheduled::migrate_coldkey_swap_scheduled::<T>())
                 // Fix the root subnet TAO storage value
-                .saturating_add(migrations::migrate_fix_root_subnet_tao::migrate_fix_root_subnet_tao::<T>());
+                .saturating_add(migrations::migrate_fix_root_subnet_tao::migrate_fix_root_subnet_tao::<T>())
+                // Fix the owner disable the registration
+                .saturating_add(migrations::migrate_set_registration_enable::migrate_set_registration_enable::<T>());
             weight
         }
 

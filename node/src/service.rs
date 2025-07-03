@@ -2,12 +2,13 @@
 
 use futures::{FutureExt, channel::mpsc, future};
 use node_subtensor_runtime::{RuntimeApi, TransactionConverter, opaque::Block};
+use sc_chain_spec::ChainType;
 use sc_client_api::{Backend as BackendT, BlockBackend};
 use sc_consensus::{BasicQueue, BoxBlockImport};
 use sc_consensus_babe::BabeWorkerHandle;
 use sc_consensus_grandpa::BlockNumberOps;
 use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
-use sc_network_sync::strategy::warp::WarpSyncConfig;
+use sc_network_sync::strategy::warp::{WarpSyncConfig, WarpSyncProvider};
 use sc_service::{Configuration, PartialComponents, TaskManager, error::Error as ServiceError};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, log};
 use sc_transaction_pool::TransactionPoolHandle;
@@ -421,19 +422,22 @@ where
         None
     } else {
         net_config.add_notification_protocol(grandpa_protocol_config);
-        let warp_sync_header = get_new_block_header().await;
 
-        Some(WarpSyncConfig::WithTarget(warp_sync_header))
+        // TODO: Fix the default warp sync provider
+        if config.chain_spec.chain_type() == ChainType::Live {
+            let warp_sync_header = get_new_block_header().await;
 
-        // TODO: Fix the default warp sync provider and uncomment this section
-        // let warp_sync: Arc<dyn WarpSyncProvider<Block>> =
-        //     Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
-        //         backend.clone(),
-        //         grandpa_link.shared_authority_set().clone(),
-        //         Vec::new(),
-        //     ));
-        //
-        // Some(WarpSyncConfig::WithProvider(warp_sync))
+            Some(WarpSyncConfig::WithTarget(warp_sync_header))
+        } else {
+            let warp_sync: Arc<dyn WarpSyncProvider<Block>> =
+                Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
+                    backend.clone(),
+                    grandpa_link.shared_authority_set().clone(),
+                    Vec::new(),
+                ));
+
+            Some(WarpSyncConfig::WithProvider(warp_sync))
+        }
     };
 
     let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =

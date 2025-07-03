@@ -193,6 +193,7 @@ impl<T: Config> Pallet<T> {
                     netuid,
                     stake,
                     T::SwapInterface::min_price(),
+                    false,
                 );
 
                 if let Ok(cleared_stake) = maybe_cleared_stake {

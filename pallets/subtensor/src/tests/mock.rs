@@ -993,6 +993,7 @@ pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: u64) -> (u64, u64) {
         OrderType::Buy,
         tao,
         <Test as pallet::Config>::SwapInterface::max_price(),
+        false,
         true,
     );
 
@@ -1006,7 +1007,7 @@ pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: u64) -> (u64, u64) {
     (result.amount_paid_out, result.fee_paid)
 }
 
-pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: u64) -> (u64, u64) {
+pub(crate) fn swap_alpha_to_tao_ext(netuid: NetUid, alpha: u64, drop_fees: bool) -> (u64, u64) {
     if netuid.is_root() {
         return (alpha, 0);
     }
@@ -1021,6 +1022,7 @@ pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: u64) -> (u64, u64) {
         OrderType::Sell,
         alpha,
         <Test as pallet::Config>::SwapInterface::min_price(),
+        drop_fees,
         true,
     );
 
@@ -1034,7 +1036,15 @@ pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: u64) -> (u64, u64) {
     (result.amount_paid_out, result.fee_paid)
 }
 
+pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: u64) -> (u64, u64) {
+    swap_alpha_to_tao_ext(netuid, alpha, false)
+}
+
 #[allow(dead_code)]
 pub(crate) fn last_event() -> RuntimeEvent {
     System::events().pop().expect("RuntimeEvent expected").event
+}
+
+pub fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+    frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
