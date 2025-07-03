@@ -1,4 +1,3 @@
-use babe_primitives::BABE_ENGINE_ID;
 use babe_primitives::BabeApi;
 use babe_primitives::BabeConfiguration;
 use futures::{channel::mpsc::channel, prelude::*};
@@ -23,8 +22,8 @@ use sp_api::ApiExt;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata, Result as ClientResult};
-use sp_consensus::SelectChain;
 use sp_consensus::error::Error as ConsensusError;
+use sp_consensus_aura::AURA_ENGINE_ID;
 use sp_consensus_aura::AuraApi;
 use sp_consensus_aura::sr25519::AuthorityPair;
 use sp_core::traits::SpawnEssentialNamed;
@@ -144,24 +143,20 @@ where
 {
     async fn verify(
         &self,
-        mut block: BlockImportParams<Block>,
+        block: BlockImportParams<Block>,
     ) -> Result<BlockImportParams<Block>, String> {
-        let justifications = block.justifications.clone().unwrap();
-        log::info!("Verifying block: {:?}", block.post_header().number());
-        log::info!("Justifications: {:?}", justifications);
-        let is_aura = justifications
-            .get(sp_consensus_aura::AURA_ENGINE_ID)
-            .is_some();
-        let is_babe = justifications.get(BABE_ENGINE_ID).is_some();
-        log::info!("is_aura: {} is_babe: {}", is_aura, is_babe);
-        if is_babe {
-            log::info!("Using Babe Verifier.");
-            let r = self.babe_verifier.verify(block).await.unwrap();
-            panic!("succeeded babe verify!");
-        } else {
+        log::info!("Block: {:?}", &block);
+        let number: NumberFor<Block> = block.post_header().number().clone();
+        log::info!("Verifying block: {:?}", number);
+        let consensus_engine_id = crate::common::block_consensus_engine_id(&block);
+        if consensus_engine_id == AURA_ENGINE_ID {
             log::info!("Using Aura Verifier.");
             self.aura_verifier.verify(block).await
             // panic!("succeeded aura verify!");
+        } else {
+            log::info!("Using Babe Verifier.");
+            self.babe_verifier.verify(block).await
+            // panic!("succeeded babe verify!");
         }
     }
 }

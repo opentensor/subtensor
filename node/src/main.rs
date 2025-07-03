@@ -4,12 +4,14 @@
 mod chain_spec;
 #[macro_use]
 mod service;
+mod aura_babe_block_import;
 mod aura_babe_import_queue;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 mod cli;
 mod client;
 mod command;
+mod common;
 mod conditional_evm_block_import;
 mod ethereum;
 mod rpc;
