@@ -8,7 +8,7 @@ use sp_arithmetic::helpers_128bit;
 use sp_runtime::traits::AccountIdConversion;
 use substrate_fixed::types::{I64F64, U64F64, U96F32};
 use subtensor_runtime_common::{BalanceOps, NetUid, SubnetInfo};
-use subtensor_swap_interface::{SwapHandler, SwapResult, UpdateLiquidityResult};
+use subtensor_swap_interface::{SwapHandler, SwapResult};
 
 use super::pallet::*;
 use crate::{
@@ -19,6 +19,27 @@ use crate::{
 
 const MAX_SWAP_ITERATIONS: u16 = 1000;
 
+#[derive(Debug, PartialEq)]
+pub struct UpdateLiquidityResult {
+    pub tao: u64,
+    pub alpha: u64,
+    pub fee_tao: u64,
+    pub fee_alpha: u64,
+    pub removed: bool,
+    pub tick_low: TickIndex,
+    pub tick_high: TickIndex,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct RemoveLiquidityResult {
+    pub tao: u64,
+    pub alpha: u64,
+    pub fee_tao: u64,
+    pub fee_alpha: u64,
+    pub tick_low: TickIndex,
+    pub tick_high: TickIndex,
+    pub liquidity: u64,
+}
 /// A struct representing a single swap step with all its parameters and state
 struct SwapStep<T: frame_system::Config> {
     // Input parameters
@@ -875,7 +896,7 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         coldkey_account_id: &T::AccountId,
         position_id: PositionId,
-    ) -> Result<UpdateLiquidityResult, Error<T>> {
+    ) -> Result<RemoveLiquidityResult, Error<T>> {
         let Some(mut position) = Positions::<T>::get((netuid, coldkey_account_id, position_id))
         else {
             return Err(Error::<T>::LiquidityNotFound);
@@ -901,12 +922,14 @@ impl<T: Config> Pallet<T> {
         // Remove user position
         Positions::<T>::remove((netuid, coldkey_account_id, position_id));
 
-        Ok(UpdateLiquidityResult {
+        Ok(RemoveLiquidityResult {
             tao,
             alpha,
             fee_tao,
             fee_alpha,
-            removed: true,
+            tick_low: position.tick_low,
+            tick_high: position.tick_high,
+            liquidity: position.liquidity,
         })
     }
 
@@ -1019,7 +1042,7 @@ impl<T: Config> Pallet<T> {
         if remove {
             Positions::<T>::remove((netuid, coldkey_account_id, position_id));
         } else {
-            Positions::<T>::insert(&(netuid, coldkey_account_id, position.id), position);
+            Positions::<T>::insert(&(netuid, coldkey_account_id, position.id), position.clone());
         }
 
         Ok(UpdateLiquidityResult {
@@ -1028,6 +1051,8 @@ impl<T: Config> Pallet<T> {
             fee_tao,
             fee_alpha,
             removed: remove,
+            tick_low: position.tick_low,
+            tick_high: position.tick_high,
         })
     }
 
