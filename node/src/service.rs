@@ -236,10 +236,10 @@ where
         Ok((slot, timestamp))
     };
 
-    // let (import_queue, babe_worker_handle) =
-    //     sc_consensus_babe::import_queue(sc_consensus_babe::ImportQueueParams {
-    let (import_queue, babe_worker_handle) = crate::aura_babe_import_queue::import_queue(
-        crate::aura_babe_import_queue::ImportQueueParams {
+    // let (import_queue, babe_worker_handle) = crate::aura_babe_import_queue::import_queue(
+    //     crate::aura_babe_import_queue::ImportQueueParams {
+    let (import_queue, babe_worker_handle) =
+        sc_consensus_babe::import_queue(sc_consensus_babe::ImportQueueParams {
             link: babe_link.clone(),
             block_import: conditional_block_import.clone(),
             justification_import: Some(Box::new(grandpa_block_import)),
@@ -250,8 +250,7 @@ where
             registry: config.prometheus_registry(),
             telemetry,
             offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool),
-        },
-    )?;
+        })?;
 
     Ok((
         import_queue,
