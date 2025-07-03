@@ -363,6 +363,10 @@ impl<T: Config> Pallet<T> {
                     (netuid, protocol_account_id, position.id),
                     position.clone(),
                 );
+
+                // Update position ticks
+                Self::add_liquidity_at_index(netuid, position.tick_low, liquidity_delta, false);
+                Self::add_liquidity_at_index(netuid, position.tick_high, liquidity_delta, true);
             }
         }
     }
