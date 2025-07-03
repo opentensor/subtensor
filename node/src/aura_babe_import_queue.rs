@@ -152,11 +152,10 @@ where
         if consensus_engine_id == AURA_ENGINE_ID {
             log::info!("Using Aura Verifier.");
             self.aura_verifier.verify(block).await
-            // panic!("succeeded aura verify!");
         } else {
-            log::info!("Using Babe Verifier.");
+            // Ok(block)
+            log::info!("Using Babe Verifier");
             self.babe_verifier.verify(block).await
-            // panic!("succeeded babe verify!");
         }
     }
 }

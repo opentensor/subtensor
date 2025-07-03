@@ -211,15 +211,16 @@ pub fn build_babe_grandpa_import_queue(
 where
     NumberFor<Block>: BlockNumberOps,
 {
-    let (babe_import, babe_link) = sc_consensus_babe::block_import(
-        sc_consensus_babe::configuration(&*client)?,
-        grandpa_block_import.clone(),
-        client.clone(),
-    )?;
+    let (aura_or_babe_import, babe_link) =
+        crate::aura_babe_block_import::AuraOrBabeBlockImport::block_import(
+            sc_consensus_babe::configuration(&*client)?,
+            grandpa_block_import.clone(),
+            client.clone(),
+        )?;
 
     let conditional_block_import = ConditionalEVMBlockImport::new(
-        babe_import.clone(),
-        FrontierBlockImport::new(babe_import.clone(), client.clone()),
+        aura_or_babe_import.clone(),
+        FrontierBlockImport::new(aura_or_babe_import.clone(), client.clone()),
         client.clone(),
     );
 
@@ -251,7 +252,7 @@ where
 
     Ok((
         import_queue,
-        Box::new(babe_import),
+        Box::new(aura_or_babe_import),
         babe_link,
         babe_worker_handle,
     ))

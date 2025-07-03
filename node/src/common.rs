@@ -16,7 +16,7 @@ pub fn block_consensus_engine_id<Block: BlockT>(
         .header
         .digest()
         .log(|d| match d {
-            DigestItem::Seal(engine_id, _) => {
+            DigestItem::PreRuntime(engine_id, _) => {
                 if engine_id.clone() == AURA_ENGINE_ID {
                     Some(d)
                 } else {
@@ -30,7 +30,7 @@ pub fn block_consensus_engine_id<Block: BlockT>(
         .header
         .digest()
         .log(|d| match d {
-            DigestItem::Seal(engine_id, _) => {
+            DigestItem::PreRuntime(engine_id, _) => {
                 if engine_id.clone() == BABE_ENGINE_ID {
                     Some(d)
                 } else {
