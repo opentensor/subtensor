@@ -1195,7 +1195,7 @@ mod dispatches {
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(260_500_000, 0)
 		.saturating_add(T::DbWeight::get().reads(36))
-		.saturating_add(T::DbWeight::get().writes(51)), DispatchClass::Operational, Pays::No))]
+		.saturating_add(T::DbWeight::get().writes(52_u64)), DispatchClass::Operational, Pays::No))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
         }
@@ -1540,7 +1540,7 @@ mod dispatches {
         #[pallet::call_index(79)]
         #[pallet::weight((Weight::from_parts(239_700_000, 0)
                 .saturating_add(T::DbWeight::get().reads(35))
-                .saturating_add(T::DbWeight::get().writes(50)), DispatchClass::Operational, Pays::No))]
+                .saturating_add(T::DbWeight::get().writes(51_u64)), DispatchClass::Operational, Pays::No))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
