@@ -19,6 +19,31 @@ macro_rules! tou64 {
 }
 
 impl<T: Config> Pallet<T> {
+    pub fn update_tao_weight(block_emission: U96F32) {
+        let subnets: Vec<NetUid> = Self::get_all_subnet_netuids()
+            .into_iter()
+            .filter(|netuid| *netuid != NetUid::ROOT)
+            .collect();
+        let mut current_total_tao_in: U96F32 = U96F32::saturating_from_num(0.0);
+        for netuid_i in subnets.iter() {
+            let tao_in_i: U96F32 = U96F32::saturating_from_num( SubnetTAO::<T>::get( netuid_i ) );
+            current_total_tao_in = next_total_tao_in.saturating_add( tao_in_i );
+        }
+
+        let tick: U96F32 = U96F32::saturating_from_num( 0.01 / 7200 );
+        let tao_weight: U96F32 = Self::get_tao_weight();
+        let prev_total_tao_in: U96F32 = U96F32::saturating_from_num(TotalSubnetTAO::<T>::get());
+        let exp_total_tao_in: U96F32 = prev_total_tao_in.saturating_add( block_emission );
+
+        if current_total_tao_in < exp_total_tao_in {
+            let alpha: U96F32 = tick * ( exp_total_tao_in - current_total_tao_in );
+            let next_tao_weight = (1 - alpha) * tao_weight;
+        } else if exp_total_tao_in < current_total_tao_in {
+            let alpha: U96F32 = tick * ( current_total_tao_in - exp_total_tao_in );
+            let next_tao_weight = (1 + alpha) * tao_weight;
+        }
+        TotalSubnetTAO::<T>::set( current_total_tao_in );
+    }
     pub fn run_coinbase(block_emission: U96F32) {
         // --- 0. Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();

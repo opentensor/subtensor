@@ -18,6 +18,9 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         Self::run_coinbase(block_emission);
         // --- 4. Set pending children on the epoch; but only after the coinbase has been run.
         Self::try_set_pending_children(block_number);
+        // --- 5. Update tao weight based on marco conversion
+        Self::update_tao_weight_simple(block_emission)
+        log::debug!("Tao weight: {:?}", Self::get_tao_weight());
         // Return ok.
         Ok(())
     }
