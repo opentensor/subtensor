@@ -41,6 +41,12 @@ mod genesis {
             // Set target registrations for validators as 1 per block.
             TargetRegistrationsPerInterval::<T>::insert(NetUid::ROOT, 1);
 
+            // Set token symbol for root
+            TokenSymbol::<T>::insert(
+                NetUid::ROOT,
+                Pallet::<T>::get_symbol_for_subnet(NetUid::ROOT),
+            );
+
             let netuid = NetUid::from(1);
             let hotkey = DefaultAccount::<T>::get();
             SubnetMechanism::<T>::insert(netuid, 1); // Make dynamic.
@@ -96,6 +102,7 @@ mod genesis {
             Uids::<T>::insert(netuid, hotkey.clone(), 0); // Make uid - hotkey association.
             BlockAtRegistration::<T>::insert(netuid, 0, block_number); // Fill block at registration.
             IsNetworkMember::<T>::insert(hotkey.clone(), netuid, true); // Fill network is member.
+            TokenSymbol::<T>::insert(netuid, Pallet::<T>::get_symbol_for_subnet(netuid));
         }
     }
 }

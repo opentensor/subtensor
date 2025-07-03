@@ -1194,7 +1194,7 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(260_500_000, 0)
-		.saturating_add(T::DbWeight::get().reads(33))
+		.saturating_add(T::DbWeight::get().reads(36))
 		.saturating_add(T::DbWeight::get().writes(51)), DispatchClass::Operational, Pays::No))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
@@ -1539,7 +1539,7 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(79)]
         #[pallet::weight((Weight::from_parts(239_700_000, 0)
-                .saturating_add(T::DbWeight::get().reads(32))
+                .saturating_add(T::DbWeight::get().reads(35))
                 .saturating_add(T::DbWeight::get().writes(50)), DispatchClass::Operational, Pays::No))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
@@ -2137,6 +2137,43 @@ mod dispatches {
             hotkey: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             Self::do_terminate_lease(origin, lease_id, hotkey)
+        }
+
+        /// Updates the symbol for a subnet.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the subnet owner or root.
+        /// * `netuid` - The unique identifier of the subnet on which the symbol is being set.
+        /// * `symbol` - The symbol to set for the subnet.
+        ///
+        /// # Errors
+        /// Returns an error if:
+        /// * The transaction is not signed by the subnet owner.
+        /// * The symbol does not exist.
+        /// * The symbol is already in use by another subnet.
+        ///
+        /// # Events
+        /// Emits a `SymbolUpdated` event on success.
+        #[pallet::call_index(112)]
+        #[pallet::weight((
+            Weight::from_parts(28_840_000, 0).saturating_add(T::DbWeight::get().reads_writes(4, 1)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn update_symbol(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            symbol: Vec<u8>,
+        ) -> DispatchResult {
+            Self::ensure_subnet_owner_or_root(origin, netuid)?;
+
+            Self::ensure_symbol_exists(&symbol)?;
+            Self::ensure_symbol_available(&symbol)?;
+
+            TokenSymbol::<T>::insert(netuid, symbol.clone());
+
+            Self::deposit_event(Event::SymbolUpdated { netuid, symbol });
+            Ok(())
         }
     }
 }
