@@ -111,6 +111,7 @@ fc-rpc = { workspace = true }
 fc-rpc-core = { workspace = true }
 fp-rpc = { workspace = true }
 fc-babe = { workspace = true }
+fc-aura = { workspace = true }
 fc-mapping-sync = { workspace = true }
 fp-consensus = { workspace = true }
 thiserror = { workspace = true }

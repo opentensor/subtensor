@@ -9,25 +9,23 @@ use std::sync::Arc;
 
 use futures::channel::mpsc;
 
-use crate::ethereum::DefaultEthConfig;
-use crate::ethereum::EthDeps;
-use crate::{client::FullClient, ethereum::create_eth};
+use crate::{
+    client::FullClient,
+    ethereum::{DefaultEthConfig, EthDeps, create_eth},
+};
 pub use fc_rpc::EthBlockDataCacheTask;
 pub use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
 use jsonrpsee::RpcModule;
 use node_subtensor_runtime::opaque::Block;
-use polkadot_rpc::BabeDeps;
-use sc_consensus_babe_rpc::{Babe, BabeApiServer};
 use sc_consensus_manual_seal::EngineCommand;
 use sc_rpc::SubscriptionTaskExecutor;
 use sc_transaction_pool_api::TransactionPool;
-use sp_consensus::SelectChain;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::{OpaqueExtrinsic, traits::BlakeTwo256, traits::Block as BlockT};
 use subtensor_runtime_common::Hash;
 
 /// Full client dependencies.
-pub struct FullDeps<P, CT, CIDP, SC> {
+pub struct FullDeps<P, CT, CIDP> {
     /// The client instance to use.
     pub client: Arc<FullClient>,
     /// Transaction pool instance.
@@ -36,15 +34,11 @@ pub struct FullDeps<P, CT, CIDP, SC> {
     pub command_sink: Option<mpsc::Sender<EngineCommand<Hash>>>,
     /// Ethereum-compatibility specific dependencies.
     pub eth: EthDeps<P, CT, CIDP>,
-    /// BABE specific dependencies.
-    pub babe: BabeDeps,
-    /// The [`SelectChain`] Strategy
-    pub select_chain: SC,
 }
 
 /// Instantiate all full RPC extensions.
-pub fn create_full<P, CT, CIDP, SC>(
-    deps: FullDeps<P, CT, CIDP, SC>,
+pub fn create_full<P, CT, CIDP>(
+    deps: FullDeps<P, CT, CIDP>,
     subscription_task_executor: SubscriptionTaskExecutor,
     pubsub_notification_sinks: Arc<
         fc_mapping_sync::EthereumBlockNotificationSinks<
@@ -62,7 +56,6 @@ where
         > + 'static,
     CIDP: CreateInherentDataProviders<Block, ()> + Send + Clone + 'static,
     CT: fp_rpc::ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + Clone + 'static,
-    SC: SelectChain<Block> + 'static,
 {
     use pallet_subtensor_swap_rpc::{Swap, SwapRpcApiServer};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
@@ -76,16 +69,7 @@ where
         pool,
         command_sink,
         eth,
-        babe,
-        select_chain,
     } = deps;
-
-    sc_consensus_babe::configuration(&*client)?;
-
-    let BabeDeps {
-        babe_worker_handle,
-        keystore,
-    } = babe;
 
     // Custom RPC methods for Paratensor
     module.merge(SubtensorCustom::new(client.clone()).into_rpc())?;
@@ -94,7 +78,7 @@ where
     module.merge(Swap::new(client.clone()).into_rpc())?;
 
     module.merge(System::new(client.clone(), pool.clone()).into_rpc())?;
-    module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
+    module.merge(TransactionPayment::new(client).into_rpc())?;
 
     // Extend this RPC with a custom API by using the following syntax.
     // `YourRpcStruct` should have a reference to a client, which is needed
@@ -108,16 +92,6 @@ where
             ManualSeal::new(command_sink).into_rpc(),
         )?;
     }
-
-    module.merge(
-        Babe::new(
-            client.clone(),
-            babe_worker_handle.clone(),
-            keystore,
-            select_chain,
-        )
-        .into_rpc(),
-    )?;
 
     // Ethereum compatibility RPCs
     let module = create_eth::<_, _, _, DefaultEthConfig>(

@@ -1,3 +1,5 @@
+pub mod aura_rpc;
+pub mod aura_service;
 pub mod chain_spec;
 pub mod cli;
 pub mod client;

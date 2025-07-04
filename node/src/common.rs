@@ -1,6 +1,5 @@
 use babe_primitives::BABE_ENGINE_ID;
 use sc_consensus::BlockImportParams;
-use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::AURA_ENGINE_ID;
 use sp_runtime::ConsensusEngineId;
 use sp_runtime::DigestItem;

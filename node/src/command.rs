@@ -1,14 +1,14 @@
 use crate::{
-    chain_spec,
+    aura_service, chain_spec,
     cli::{Cli, Subcommand},
     ethereum::db_config_dir,
     service,
 };
 use fc_db::{DatabaseSource, kv::frontier_database_dir};
-
 use futures::TryFutureExt;
 use node_subtensor_runtime::Block;
-use sc_cli::SubstrateCli;
+use sc_cli::CliConfiguration;
+use sc_cli::{Runner, SubstrateCli};
 use sc_service::{
     Configuration,
     config::{ExecutorConfiguration, RpcConfiguration},
@@ -227,16 +227,42 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.sync_run(|config| cmd.run::<Block>(&config))
         }
-        None => {
-            let runner = cli.create_runner(&cli.run)?;
-            runner.run_node_until_exit(|config| async move {
-                let config = override_default_heap_pages(config, 60_000);
-                service::build_full(config, cli.eth, cli.sealing)
-                    .map_err(Into::into)
-                    .await
-            })
+        // Default running babe. If chain requires Aura to sync, it will
+        // automatically fallback.
+        None => run_babe(),
+    }
+}
+
+fn run_babe() -> Result<(), sc_cli::Error> {
+    let cli = Cli::from_args();
+    let runner = cli.create_runner(&cli.run)?;
+    match runner.run_node_until_exit(|config| async move {
+        let config = override_default_heap_pages(config, 60_000);
+        service::build_full(config, cli.eth, cli.sealing).await
+    }) {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            if e.to_string().contains("BabeApi") {
+                log::info!(
+                    "💡 Node appears to not have synced up to Babe blocks yet. Falling back to Aura-based node until synced.",
+                );
+                let _ = run_aura();
+                ()
+            }
+            Err(e.into())
         }
     }
+}
+
+fn run_aura() -> Result<(), sc_cli::Error> {
+    let cli = Cli::from_args();
+    let runner = cli.create_runner(&cli.run)?;
+    runner
+        .run_node_until_exit(|config| async move {
+            let config = override_default_heap_pages(config, 60_000);
+            aura_service::build_full(config, cli.eth, cli.sealing).await
+        })
+        .map_err(Into::into)
 }
 
 /// Override default heap pages

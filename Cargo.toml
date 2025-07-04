@@ -248,6 +248,7 @@ fc-rpc = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", d
 ] }
 fc-rpc-core = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
 fc-babe = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
+fc-aura = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
 fc-mapping-sync = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
 precompile-utils = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
 
