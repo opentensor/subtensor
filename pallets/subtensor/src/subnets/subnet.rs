@@ -220,7 +220,11 @@ impl<T: Config> Pallet<T> {
             Self::deposit_event(Event::SubnetIdentitySet(netuid_to_register));
         }
 
-        // --- 16. Emit the NetworkAdded event.
+        // --- 16. Enable registration for new subnet
+        NetworkRegistrationAllowed::<T>::set(netuid_to_register, true);
+        NetworkPowRegistrationAllowed::<T>::set(netuid_to_register, true);
+
+        // --- 17. Emit the NetworkAdded event.
         log::info!(
             "NetworkAdded( netuid:{:?}, mechanism:{:?} )",
             netuid_to_register,
@@ -228,7 +232,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::NetworkAdded(netuid_to_register, mechid));
 
-        // --- 17. Return success.
+        // --- 18. Return success.
         Ok(())
     }
 
