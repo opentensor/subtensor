@@ -37,13 +37,17 @@ impl<T: Config> Pallet<T> {
         let exp_total_tao_in: U96F32 = prev_total_tao_in.saturating_add(block_emission);
 
         if current_total_tao_in < exp_total_tao_in {
-            let alpha: U96F32 = tick * (exp_total_tao_in - current_total_tao_in);
+            let alpha: U96F32 = exp_total_tao_in
+                .saturating_sub(current_total_tao_in)
+                .saturating_mul(tick);
             let next_tao_weight = U96F32::saturating_from_num(1)
                 .saturating_sub(alpha)
                 .saturating_mul(tao_weight);
             TaoWeight::<T>::set(next_tao_weight.saturating_to_num::<u64>());
         } else if exp_total_tao_in < current_total_tao_in {
-            let alpha: U96F32 = tick * (current_total_tao_in - exp_total_tao_in);
+            let alpha: U96F32 = current_total_tao_in
+                .saturating_sub(exp_total_tao_in)
+                .saturating_mul(tick);
             let next_tao_weight = U96F32::saturating_from_num(1)
                 .saturating_add(alpha)
                 .saturating_mul(tao_weight);
