@@ -20,7 +20,6 @@ use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::error::Error as ConsensusError;
-use sp_consensus_aura::AURA_ENGINE_ID;
 use sp_consensus_aura::AuraApi;
 use sp_core::Pair;
 use sp_inherents::CreateInherentDataProviders;

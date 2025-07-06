@@ -810,6 +810,7 @@ pub async fn build_full(
     }
 }
 
+#[allow(unused)]
 pub fn new_chain_ops(
     config: &mut Configuration,
     eth_config: &EthConfiguration,

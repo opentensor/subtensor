@@ -1,5 +1,3 @@
-use std::sync::{Arc, atomic::AtomicBool};
-
 use crate::{
     aura_service, chain_spec,
     cli::{Cli, Subcommand},
@@ -7,11 +5,10 @@ use crate::{
     service,
 };
 use fc_db::{DatabaseSource, kv::frontier_database_dir};
-use jsonrpsee::tokio;
 use node_subtensor_runtime::Block;
 use sc_cli::SubstrateCli;
 use sc_service::{
-    Configuration, TaskManager,
+    Configuration,
     config::{ExecutorConfiguration, RpcConfiguration},
 };
 
