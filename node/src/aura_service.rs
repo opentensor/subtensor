@@ -307,7 +307,7 @@ where
         Ok((slot, timestamp))
     };
 
-    let import_queue = sc_consensus_aura::import_queue::<AuraPair, _, _, _, _, _>(
+    let import_queue = crate::aura_wrapped_import_queue::import_queue::<AuraPair, _, _, _, _, _>(
         sc_consensus_aura::ImportQueueParams {
             block_import: conditional_block_import.clone(),
             justification_import: Some(Box::new(grandpa_block_import.clone())),

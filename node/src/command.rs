@@ -1,3 +1,5 @@
+use std::sync::{Arc, atomic::AtomicBool};
+
 use crate::{
     aura_service, chain_spec,
     cli::{Cli, Subcommand},
@@ -5,12 +7,11 @@ use crate::{
     service,
 };
 use fc_db::{DatabaseSource, kv::frontier_database_dir};
-use futures::TryFutureExt;
+use jsonrpsee::tokio;
 use node_subtensor_runtime::Block;
-use sc_cli::CliConfiguration;
-use sc_cli::{Runner, SubstrateCli};
+use sc_cli::SubstrateCli;
 use sc_service::{
-    Configuration,
+    Configuration, TaskManager,
     config::{ExecutorConfiguration, RpcConfiguration},
 };
 
@@ -246,10 +247,10 @@ fn run_babe() -> Result<(), sc_cli::Error> {
                 log::info!(
                     "💡 Node appears to not have synced up to Babe blocks yet. Falling back to Aura-based node until synced.",
                 );
-                let _ = run_aura();
-                ()
+                run_aura()
+            } else {
+                Err(e.into())
             }
-            Err(e.into())
         }
     }
 }
@@ -257,12 +258,13 @@ fn run_babe() -> Result<(), sc_cli::Error> {
 fn run_aura() -> Result<(), sc_cli::Error> {
     let cli = Cli::from_args();
     let runner = cli.create_runner(&cli.run)?;
-    runner
-        .run_node_until_exit(|config| async move {
-            let config = override_default_heap_pages(config, 60_000);
-            aura_service::build_full(config, cli.eth, cli.sealing).await
-        })
-        .map_err(Into::into)
+    match runner.run_node_until_exit(|config| async move {
+        let config = override_default_heap_pages(config, 60_000);
+        aura_service::build_full(config, cli.eth, cli.sealing).await
+    }) {
+        Ok(_) => run_babe(),
+        Err(e) => Err(e.into()),
+    }
 }
 
 /// Override default heap pages

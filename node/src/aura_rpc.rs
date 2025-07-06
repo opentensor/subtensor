@@ -13,8 +13,6 @@ use crate::{
     client::FullClient,
     ethereum::{DefaultEthConfig, EthDeps, create_eth},
 };
-pub use fc_rpc::EthBlockDataCacheTask;
-pub use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
 use jsonrpsee::RpcModule;
 use node_subtensor_runtime::opaque::Block;
 use sc_consensus_manual_seal::EngineCommand;

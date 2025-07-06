@@ -1,9 +1,9 @@
 pub mod aura_rpc;
 pub mod aura_service;
+pub mod aura_wrapped_import_queue;
 pub mod chain_spec;
 pub mod cli;
 pub mod client;
-pub mod common;
 pub mod conditional_evm_block_import;
 pub mod ethereum;
 pub mod rpc;

@@ -6,12 +6,12 @@ mod chain_spec;
 mod service;
 mod aura_rpc;
 mod aura_service;
+mod aura_wrapped_import_queue;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 mod cli;
 mod client;
 mod command;
-mod common;
 mod conditional_evm_block_import;
 mod ethereum;
 mod rpc;

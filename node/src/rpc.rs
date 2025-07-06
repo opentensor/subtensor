@@ -12,8 +12,6 @@ use futures::channel::mpsc;
 use crate::ethereum::DefaultEthConfig;
 use crate::ethereum::EthDeps;
 use crate::{client::FullClient, ethereum::create_eth};
-pub use fc_rpc::EthBlockDataCacheTask;
-pub use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
 use jsonrpsee::RpcModule;
 use node_subtensor_runtime::opaque::Block;
 use polkadot_rpc::BabeDeps;
