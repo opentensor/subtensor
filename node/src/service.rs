@@ -4,6 +4,7 @@ use fp_consensus::{FindLogError, ensure_log};
 use fp_rpc::EthereumRuntimeRPCApi;
 use futures::{FutureExt, channel::mpsc, future};
 use node_subtensor_runtime::{RuntimeApi, TransactionConverter, opaque::Block};
+use sc_chain_spec::ChainType;
 use sc_client_api::{Backend as BackendT, BlockBackend};
 use sc_consensus::{
     BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxBlockImport, ImportResult,
@@ -19,7 +20,10 @@ use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_consensus::Error as ConsensusError;
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
+use sp_core::H256;
 use sp_runtime::traits::{Block as BlockT, Header, NumberFor};
+use std::collections::HashSet;
+use std::str::FromStr;
 use std::{cell::RefCell, path::Path};
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
@@ -101,12 +105,38 @@ where
     });
 
     let select_chain = sc_consensus::LongestChain::new(backend.clone());
+
+    let skip_block_justifications = if config.chain_spec.chain_type() == ChainType::Live {
+        // Mainnet patch
+        let hash_5614869 =
+            H256::from_str("0xb49f8cd2a49b51a493fc55a8c9524ba08c3aa6b702f20af02878c1ec68e3ff5f")
+                .expect("Invalid hash string.");
+        let hash_5614888 =
+            H256::from_str("0x04c71efb77060bfacfb49cd61826d594148ccda2ee23d66c7db819b16b55911c")
+                .expect("Invalid hash string.");
+
+        Some(HashSet::from([hash_5614869, hash_5614888]))
+    } else {
+        // Testnet patch
+        let hash_4589660 =
+            H256::from_str("0x819a5e54ffa2d267d469c6da44de5e8819b1aad1717a1389c959eab4349722ca")
+                .expect("Invalid hash string.");
+
+        Some(HashSet::from([hash_4589660]))
+    };
+
+    log::warn!(
+        "Grandpa block import patch enabled. Chain type = {:?}. Skip justifications for blocks = {skip_block_justifications:?}",
+        config.chain_spec.chain_type()
+    );
+
     let (grandpa_block_import, grandpa_link) = sc_consensus_grandpa::block_import(
         client.clone(),
         GRANDPA_JUSTIFICATION_PERIOD,
         &client,
         select_chain.clone(),
         telemetry.as_ref().map(|x| x.handle()),
+        skip_block_justifications,
     )?;
 
     let storage_override = Arc::new(StorageOverrideHandler::<_, _, _>::new(client.clone()));
@@ -404,13 +434,23 @@ where
     let warp_sync_config = if sealing.is_some() {
         None
     } else {
+        let set_id: u64 = if config.chain_spec.chain_type() == ChainType::Live {
+            3 // mainnet patch
+        } else {
+            2 // testnet patch
+        };
+        log::warn!(
+            "Grandpa warp sync patch enabled. Chain type = {:?}. Set ID = {set_id}",
+            config.chain_spec.chain_type()
+        );
         net_config.add_notification_protocol(grandpa_protocol_config);
         let warp_sync: Arc<dyn WarpSyncProvider<Block>> =
             Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
                 backend.clone(),
                 grandpa_link.shared_authority_set().clone(),
-                Vec::new(),
+                sc_consensus_grandpa::warp_proof::HardForks::new_initial_set_id(set_id),
             ));
+
         Some(WarpSyncConfig::WithProvider(warp_sync))
     };
 

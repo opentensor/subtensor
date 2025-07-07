@@ -367,6 +367,18 @@ fn test_add_liquidity_out_of_bounds() {
                 TickIndex::new_unchecked(TickIndex::MAX.get() + 100),
                 1_000_000_000_u64,
             ),
+            // Inverted ticks: high < low
+            (
+                TickIndex::new_unchecked(-900),
+                TickIndex::new_unchecked(-1000),
+                1_000_000_000_u64,
+            ),
+            // Equal ticks: high == low
+            (
+                TickIndex::new_unchecked(-10_000),
+                TickIndex::new_unchecked(-10_000),
+                1_000_000_000_u64,
+            ),
         ]
         .into_iter()
         .enumerate()
@@ -619,6 +631,7 @@ fn test_modify_position_basic() {
                 liquidity / 10,
                 sqrt_limit_price,
                 false,
+                false,
             )
             .unwrap();
 
@@ -724,9 +737,15 @@ fn test_swap_basic() {
 
                 // Swap
                 let sqrt_limit_price = SqrtPrice::from_num((limit_price).sqrt());
-                let swap_result =
-                    Pallet::<Test>::do_swap(netuid, order_type, liquidity, sqrt_limit_price, false)
-                        .unwrap();
+                let swap_result = Pallet::<Test>::do_swap(
+                    netuid,
+                    order_type,
+                    liquidity,
+                    sqrt_limit_price,
+                    false,
+                    false,
+                )
+                .unwrap();
                 assert_abs_diff_eq!(
                     swap_result.amount_paid_out,
                     output_amount,
@@ -970,6 +989,7 @@ fn test_swap_single_position() {
                         order_liquidity as u64,
                         sqrt_limit_price,
                         false,
+                        false,
                     )
                     .unwrap();
                     assert_abs_diff_eq!(
@@ -1193,6 +1213,7 @@ fn test_swap_multiple_positions() {
                 order_liquidity,
                 sqrt_limit_price,
                 false,
+                false,
             )
             .unwrap();
             assert_abs_diff_eq!(
@@ -1262,7 +1283,8 @@ fn test_swap_precision_edge_case() {
 
         // Swap
         let swap_result =
-            Pallet::<Test>::do_swap(netuid, order_type, liquidity, sqrt_limit_price, true).unwrap();
+            Pallet::<Test>::do_swap(netuid, order_type, liquidity, sqrt_limit_price, false, true)
+                .unwrap();
 
         assert!(swap_result.amount_paid_out > 0);
     });
@@ -1467,10 +1489,18 @@ fn test_swap_fee_correctness() {
             liquidity / 10,
             u64::MAX.into(),
             false,
+            false,
         )
         .unwrap();
-        Pallet::<Test>::do_swap(netuid, OrderType::Sell, liquidity / 10, 0_u64.into(), false)
-            .unwrap();
+        Pallet::<Test>::do_swap(
+            netuid,
+            OrderType::Sell,
+            liquidity / 10,
+            0_u64.into(),
+            false,
+            false,
+        )
+        .unwrap();
 
         // Get user position
         let mut position =
@@ -1560,10 +1590,24 @@ fn test_rollback_works() {
         let netuid = NetUid::from(1);
 
         assert_eq!(
-            Pallet::<Test>::do_swap(netuid, OrderType::Buy, 1_000_000, u64::MAX.into(), true)
-                .unwrap(),
-            Pallet::<Test>::do_swap(netuid, OrderType::Buy, 1_000_000, u64::MAX.into(), false)
-                .unwrap()
+            Pallet::<Test>::do_swap(
+                netuid,
+                OrderType::Buy,
+                1_000_000,
+                u64::MAX.into(),
+                false,
+                true
+            )
+            .unwrap(),
+            Pallet::<Test>::do_swap(
+                netuid,
+                OrderType::Buy,
+                1_000_000,
+                u64::MAX.into(),
+                false,
+                false
+            )
+            .unwrap()
         );
     })
 }
@@ -1606,10 +1650,18 @@ fn test_new_lp_doesnt_get_old_fees() {
             liquidity / 10,
             u64::MAX.into(),
             false,
+            false,
         )
         .unwrap();
-        Pallet::<Test>::do_swap(netuid, OrderType::Sell, liquidity / 10, 0_u64.into(), false)
-            .unwrap();
+        Pallet::<Test>::do_swap(
+            netuid,
+            OrderType::Sell,
+            liquidity / 10,
+            0_u64.into(),
+            false,
+            false,
+        )
+        .unwrap();
 
         // Add liquidity from a different user to a new tick
         let (position_id_2, _tao, _alpha) = Pallet::<Test>::do_add_liquidity(
@@ -1678,7 +1730,8 @@ fn test_wrapping_fees() {
         let swap_amt = 800_000_000_u64;
         let order_type = OrderType::Sell;
         let sqrt_limit_price = SqrtPrice::from_num(0.000001);
-        Pallet::<Test>::do_swap(netuid, order_type, swap_amt, sqrt_limit_price, false).unwrap();
+        Pallet::<Test>::do_swap(netuid, order_type, swap_amt, sqrt_limit_price, false, false)
+            .unwrap();
 
         let swap_amt = 1_850_000_000_u64;
         let order_type = OrderType::Buy;
@@ -1686,7 +1739,8 @@ fn test_wrapping_fees() {
 
         print_current_price(netuid);
 
-        Pallet::<Test>::do_swap(netuid, order_type, swap_amt, sqrt_limit_price, false).unwrap();
+        Pallet::<Test>::do_swap(netuid, order_type, swap_amt, sqrt_limit_price, false, false)
+            .unwrap();
 
         print_current_price(netuid);
 
@@ -1705,7 +1759,8 @@ fn test_wrapping_fees() {
         let sqrt_limit_price = SqrtPrice::from_num(0.000001);
 
         let initial_sqrt_price = Pallet::<Test>::current_price_sqrt(netuid);
-        Pallet::<Test>::do_swap(netuid, order_type, swap_amt, sqrt_limit_price, false).unwrap();
+        Pallet::<Test>::do_swap(netuid, order_type, swap_amt, sqrt_limit_price, false, false)
+            .unwrap();
         let final_sqrt_price = Pallet::<Test>::current_price_sqrt(netuid);
 
         print_current_price(netuid);
@@ -1754,5 +1809,90 @@ fn test_wrapping_fees() {
 
         assert_abs_diff_eq!(fee_tao, expected_fee_tao, epsilon = 1);
         assert_abs_diff_eq!(fee_alpha, expected_fee_alpha, epsilon = 1);
+    });
+}
+
+/// Test that price moves less with provided liquidity
+/// cargo test --package pallet-subtensor-swap --lib -- pallet::tests::test_less_price_movement --exact --show-output
+#[test]
+fn test_less_price_movement() {
+    let netuid = NetUid::from(1);
+    let mut last_end_price = U96F32::from_num(0);
+    let initial_stake_liquidity = 1_000_000_000;
+    let swapped_liquidity = 1_000_000;
+
+    // Test case is (order_type, provided_liquidity)
+    // Testing algorithm:
+    //   - Stake initial_stake_liquidity
+    //   - Provide liquidity if iteration provides lq
+    //   - Buy or sell
+    //   - Save end price if iteration doesn't provide lq
+    [
+        (OrderType::Buy, 0_u64),
+        (OrderType::Buy, 1_000_000_000_000_u64),
+        (OrderType::Sell, 0_u64),
+        (OrderType::Sell, 1_000_000_000_000_u64),
+    ]
+    .into_iter()
+    .for_each(|(order_type, provided_liquidity)| {
+        new_test_ext().execute_with(|| {
+            // Setup swap
+            assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+
+            // Buy Alpha
+            assert_ok!(Pallet::<Test>::do_swap(
+                netuid,
+                OrderType::Buy,
+                initial_stake_liquidity,
+                SqrtPrice::from_num(10_000_000_000_u64),
+                false,
+                false
+            ));
+
+            // Get current price
+            let start_price = Pallet::<Test>::current_price(netuid);
+
+            // Add liquidity if this test iteration provides
+            if provided_liquidity > 0 {
+                let tick_low = price_to_tick(start_price.to_num::<f64>() * 0.5);
+                let tick_high = price_to_tick(start_price.to_num::<f64>() * 1.5);
+                assert_ok!(Pallet::<Test>::do_add_liquidity(
+                    netuid,
+                    &OK_COLDKEY_ACCOUNT_ID,
+                    &OK_HOTKEY_ACCOUNT_ID,
+                    tick_low,
+                    tick_high,
+                    provided_liquidity,
+                ));
+            }
+
+            // Swap
+            let sqrt_limit_price = if order_type == OrderType::Buy {
+                SqrtPrice::from_num(1000.)
+            } else {
+                SqrtPrice::from_num(0.001)
+            };
+            assert_ok!(Pallet::<Test>::do_swap(
+                netuid,
+                order_type,
+                swapped_liquidity,
+                sqrt_limit_price,
+                false,
+                false
+            ));
+
+            let end_price = Pallet::<Test>::current_price(netuid);
+
+            // Save end price if iteration doesn't provide or compare with previous end price if it does
+            if provided_liquidity > 0 {
+                if order_type == OrderType::Buy {
+                    assert!(end_price < last_end_price);
+                } else {
+                    assert!(end_price > last_end_price);
+                }
+            } else {
+                last_end_price = end_price;
+            }
+        });
     });
 }

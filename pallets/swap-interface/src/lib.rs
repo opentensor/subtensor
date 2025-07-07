@@ -16,6 +16,7 @@ pub trait SwapHandler<AccountId> {
         order_t: OrderType,
         amount: u64,
         price_limit: u64,
+        drop_fees: bool,
         should_rollback: bool,
     ) -> Result<SwapResult, DispatchError>;
     fn sim_swap(
@@ -39,13 +40,4 @@ pub struct SwapResult {
     // For calculation of new tao/alpha reserves
     pub tao_reserve_delta: i64,
     pub alpha_reserve_delta: i64,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct UpdateLiquidityResult {
-    pub tao: u64,
-    pub alpha: u64,
-    pub fee_tao: u64,
-    pub fee_alpha: u64,
-    pub removed: bool,
 }
