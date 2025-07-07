@@ -279,8 +279,8 @@ mod dispatches {
         ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
         ///
         #[pallet::call_index(99)]
-        #[pallet::weight((Weight::from_parts(73_720_000, 0)
-		.saturating_add(T::DbWeight::get().reads(6))
+        #[pallet::weight((Weight::from_parts(73_750_000, 0)
+		.saturating_add(T::DbWeight::get().reads(6_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_crv3_weights(
             origin: T::RuntimeOrigin,
@@ -333,7 +333,7 @@ mod dispatches {
         #[pallet::call_index(98)]
         #[pallet::weight((Weight::from_parts(420_500_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))
-		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+		.saturating_add(T::DbWeight::get().writes(2_u64)), DispatchClass::Normal, Pays::No))]
         pub fn batch_reveal_weights(
             origin: T::RuntimeOrigin,
             netuid: NetUid,
@@ -413,9 +413,9 @@ mod dispatches {
         /// 	- Attempting to set weights with max value exceeding limit.
         ///
         #[pallet::call_index(8)]
-        #[pallet::weight((Weight::from_parts(3_266_000, 0)
-		.saturating_add(T::DbWeight::get().reads(0))
-		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_parts(3_757_000, 0)
+		.saturating_add(T::DbWeight::get().reads(0_u64))
+		.saturating_add(T::DbWeight::get().writes(0_u64)), DispatchClass::Normal, Pays::No))]
         pub fn set_tao_weights(
             _origin: OriginFor<T>,
             _netuid: NetUid,
@@ -965,7 +965,7 @@ mod dispatches {
         ///
         /// Weight is calculated based on the number of database reads and writes.
         #[pallet::call_index(71)]
-        #[pallet::weight((Weight::from_parts(179_500_000, 0)
+        #[pallet::weight((Weight::from_parts(208600000, 0)
         .saturating_add(T::DbWeight::get().reads(14))
         .saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Operational, Pays::No))]
         pub fn swap_coldkey(
@@ -1012,7 +1012,7 @@ mod dispatches {
         ///
         #[pallet::call_index(75)]
         #[pallet::weight((
-            Weight::from_parts(49_470_000, 0)
+            Weight::from_parts(46_330_000, 0)
             .saturating_add(T::DbWeight::get().reads(5))
             .saturating_add(T::DbWeight::get().writes(2)),
     DispatchClass::Normal,
@@ -1194,8 +1194,8 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(260_500_000, 0)
-		.saturating_add(T::DbWeight::get().reads(33))
-		.saturating_add(T::DbWeight::get().writes(51)), DispatchClass::Operational, Pays::No))]
+		.saturating_add(T::DbWeight::get().reads(36))
+		.saturating_add(T::DbWeight::get().writes(52)), DispatchClass::Operational, Pays::No))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
         }
@@ -1539,8 +1539,8 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(79)]
         #[pallet::weight((Weight::from_parts(239_700_000, 0)
-                .saturating_add(T::DbWeight::get().reads(32))
-                .saturating_add(T::DbWeight::get().writes(50)), DispatchClass::Operational, Pays::No))]
+                .saturating_add(T::DbWeight::get().reads(35))
+                .saturating_add(T::DbWeight::get().writes(51)), DispatchClass::Operational, Pays::No))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -2137,6 +2137,43 @@ mod dispatches {
             hotkey: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             Self::do_terminate_lease(origin, lease_id, hotkey)
+        }
+
+        /// Updates the symbol for a subnet.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the subnet owner or root.
+        /// * `netuid` - The unique identifier of the subnet on which the symbol is being set.
+        /// * `symbol` - The symbol to set for the subnet.
+        ///
+        /// # Errors
+        /// Returns an error if:
+        /// * The transaction is not signed by the subnet owner.
+        /// * The symbol does not exist.
+        /// * The symbol is already in use by another subnet.
+        ///
+        /// # Events
+        /// Emits a `SymbolUpdated` event on success.
+        #[pallet::call_index(112)]
+        #[pallet::weight((
+            Weight::from_parts(28_840_000, 0).saturating_add(T::DbWeight::get().reads_writes(4, 1)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn update_symbol(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            symbol: Vec<u8>,
+        ) -> DispatchResult {
+            Self::ensure_subnet_owner_or_root(origin, netuid)?;
+
+            Self::ensure_symbol_exists(&symbol)?;
+            Self::ensure_symbol_available(&symbol)?;
+
+            TokenSymbol::<T>::insert(netuid, symbol.clone());
+
+            Self::deposit_event(Event::SymbolUpdated { netuid, symbol });
+            Ok(())
         }
     }
 }

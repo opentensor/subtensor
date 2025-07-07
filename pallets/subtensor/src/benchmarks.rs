@@ -741,7 +741,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::init_new_network(netuid, 1);
 
         let burn_fee = Subtensor::<T>::get_burn_as_u64(netuid);
-        let stake_tao: u64 = 1_000_000;
+        let stake_tao: u64 = DefaultMinStake::<T>::get().saturating_mul(10);
         let deposit = burn_fee.saturating_mul(2).saturating_add(stake_tao);
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, deposit);
 
@@ -919,7 +919,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::init_new_network(netuid, 1);
 
         let reg_fee = Subtensor::<T>::get_burn_as_u64(netuid);
-        let stake_tao: u64 = 1_000_000;
+        let stake_tao: u64 = DefaultMinStake::<T>::get().saturating_mul(10);
         let deposit = reg_fee.saturating_mul(2).saturating_add(stake_tao);
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, deposit);
 
@@ -974,7 +974,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::init_new_network(netuid2, 1);
 
         let reg_fee = Subtensor::<T>::get_burn_as_u64(netuid1);
-        let stake_tao: u64 = 1_000_000;
+        let stake_tao: u64 = DefaultMinStake::<T>::get().saturating_mul(10);
         let deposit = reg_fee.saturating_mul(2).saturating_add(stake_tao);
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, deposit);
 
@@ -1574,5 +1574,21 @@ mod pallet_benchmarks {
         assert_eq!(SubnetLeases::<T>::get(lease_id), None);
         assert!(!SubnetLeaseShares::<T>::contains_prefix(lease_id));
         assert!(!AccumulatedLeaseDividends::<T>::contains_key(lease_id));
+    }
+
+    #[benchmark]
+    fn update_symbol() {
+        let coldkey: T::AccountId = whitelisted_caller();
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 1;
+        Subtensor::<T>::init_new_network(netuid, tempo);
+        SubnetOwner::<T>::insert(netuid, coldkey.clone());
+
+        let new_symbol = Subtensor::<T>::get_symbol_for_subnet(NetUid::from(42));
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey), netuid, new_symbol.clone());
+
+        assert_eq!(TokenSymbol::<T>::get(netuid), new_symbol);
     }
 }

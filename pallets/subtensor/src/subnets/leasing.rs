@@ -293,6 +293,7 @@ impl<T: Config> Pallet<T> {
             lease.netuid,
             total_contributors_cut_alpha,
             T::SwapInterface::min_price(),
+            false,
         ) {
             Ok(tao_unstaked) => tao_unstaked,
             Err(err) => {
