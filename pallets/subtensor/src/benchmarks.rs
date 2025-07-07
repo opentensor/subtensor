@@ -741,10 +741,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::init_new_network(netuid, 1);
 
         let burn_fee = Subtensor::<T>::get_burn_as_u64(netuid);
-        let min_stake: u64 = DefaultMinStake::<T>::get();
-        let fee = min_stake;
-        let stake_tao = min_stake.saturating_add(fee);
-
+        let stake_tao: u64 = DefaultMinStake::<T>::get().saturating_mul(10);
         let deposit = burn_fee.saturating_mul(2).saturating_add(stake_tao);
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, deposit);
 
@@ -922,9 +919,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::init_new_network(netuid, 1);
 
         let reg_fee = Subtensor::<T>::get_burn_as_u64(netuid);
-        let min_stake: u64 = DefaultMinStake::<T>::get();
-        let fee = min_stake;
-        let stake_tao = min_stake.saturating_add(fee);
+        let stake_tao: u64 = DefaultMinStake::<T>::get().saturating_mul(10);
         let deposit = reg_fee.saturating_mul(2).saturating_add(stake_tao);
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, deposit);
 
@@ -979,9 +974,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::init_new_network(netuid2, 1);
 
         let reg_fee = Subtensor::<T>::get_burn_as_u64(netuid1);
-        let min_stake: u64 = DefaultMinStake::<T>::get();
-        let fee = min_stake;
-        let stake_tao = min_stake.saturating_add(fee);
+        let stake_tao: u64 = DefaultMinStake::<T>::get().saturating_mul(10);
         let deposit = reg_fee.saturating_mul(2).saturating_add(stake_tao);
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, deposit);
 
