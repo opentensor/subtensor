@@ -249,7 +249,7 @@ fn run_babe() -> Result<(), sc_cli::Error> {
         Err(e) => {
             if e.to_string().contains("BabeApi") {
                 log::info!(
-                    "💡 Node appears to not have synced up to Babe blocks yet. Falling back to Aura-based node until synced.",
+                    "💡 Chain is using Aura consensus. Switching to Aura service until Babe block is detected.",
                 );
                 run_aura()
             } else if e.to_string().contains("lock hold by current process") {
