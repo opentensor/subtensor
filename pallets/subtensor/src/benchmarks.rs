@@ -742,6 +742,14 @@ mod pallet_benchmarks {
 
         let burn_fee = Subtensor::<T>::get_burn_as_u64(netuid);
         let stake_tao: u64 = DefaultMinStake::<T>::get();
+        let fee = T::SwapInterface::sim_swap(netuid.into(), OrderType::Buy, min_stake)
+            .map(|res| res.fee_paid)
+            .unwrap_or(T::SwapInterface::approx_fee_amount(
+                netuid.into(),
+                min_stake,
+            ));
+        // min_stake.saturating_add(fee)
+
         let deposit = burn_fee.saturating_mul(2).saturating_add(stake_tao);
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, deposit);
 
