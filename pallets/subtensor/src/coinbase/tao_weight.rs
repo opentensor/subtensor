@@ -1,9 +1,9 @@
-use substrate_fixed::types::I64F64;
+use super::*;
+use safe_math::*;
+use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::NetUid;
 
-
 impl<T: Config> Pallet<T> {
-
     /// Retrieves the global global weight as a normalized value between 0 and 1.
     ///
     /// This function performs the following steps:
@@ -71,8 +71,10 @@ impl<T: Config> Pallet<T> {
     /// use the `get_tao_weight()` function.
     pub fn set_tao_weight_from_float(weight: U96F32) {
         // Convert the U96F32 weight to a u64 by multiplying with u64::MAX
-        let weight_u64 = weight.saturating_mul(U96F32::saturating_from_num(u64::MAX)).saturating_to_num::<u64>();
-        
+        let weight_u64 = weight
+            .saturating_mul(U96F32::saturating_from_num(u64::MAX))
+            .saturating_to_num::<u64>();
+
         // Update the TaoWeight storage with the new weight value
         TaoWeight::<T>::set(weight_u64);
     }
@@ -90,7 +92,7 @@ impl<T: Config> Pallet<T> {
         // TODO: Check if the sum operation can overflow or if any subnet TAO retrieval can fail.
 
         // 2) Read last‐block total and compute “expected” next total.
-        let prev_total: U96F32 = StoredTotal::<T>::get();
+        let prev_total: U96F32 = U96F32::saturating_from_num(TotalStake::<T>::get());
         let expected_total = prev_total.saturating_add(block_emission);
         // TODO: Ensure that the addition does not overflow and block_emission is valid.
 
@@ -112,8 +114,9 @@ impl<T: Config> Pallet<T> {
             .saturating_mul(diff)
             .saturating_div(current_total.max(U96F32::saturating_from_num(1)));
         // TODO: Check for division by zero and ensure adjustment is within expected bounds.
-        
-        let mut w_next = w_prev.saturating_mul(U96F32::one().saturating_add(adjustment));
+
+        let mut w_next =
+            w_prev.saturating_mul(U96F32::saturating_from_num(1).saturating_add(adjustment));
         // TODO: Validate that w_next does not overflow or underflow.
 
         // 6) Clamp to your safety bounds [0.018, 0.18]
@@ -127,8 +130,8 @@ impl<T: Config> Pallet<T> {
         // TODO: Ensure clamping logic is correct and does not introduce errors.
 
         // 7) Write back new weight & persist current_total for next block.
-        Self::set_tao_weight(w_next);
-        StoredTotal::<T>::set(current_total);
+        Self::set_tao_weight(w_next.saturating_to_num::<u64>());
+        TotalStake::<T>::set(current_total.saturating_to_num::<u64>());
         // TODO: Verify that storage updates are successful and atomic.
     }
 }

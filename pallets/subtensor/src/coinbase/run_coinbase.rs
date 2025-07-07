@@ -26,23 +26,34 @@ impl<T: Config> Pallet<T> {
             .collect();
         let mut current_total_tao_in: U96F32 = U96F32::saturating_from_num(0.0);
         for netuid_i in subnets.iter() {
-            let tao_in_i: U96F32 = U96F32::saturating_from_num( SubnetTAO::<T>::get( netuid_i ) );
-            current_total_tao_in = next_total_tao_in.saturating_add( tao_in_i );
+            let tao_in_i: U96F32 = U96F32::saturating_from_num(SubnetTAO::<T>::get(netuid_i));
+            current_total_tao_in = current_total_tao_in.saturating_add(tao_in_i);
         }
-
-        let tick: U96F32 = U96F32::saturating_from_num( 0.01 / 7200 );
+        // 0.01 / 7200.0
+        let tick: U96F32 =
+            U96F32::saturating_from_num(1).saturating_div(U96F32::saturating_from_num(720000));
         let tao_weight: U96F32 = Self::get_tao_weight();
-        let prev_total_tao_in: U96F32 = U96F32::saturating_from_num(TotalSubnetTAO::<T>::get());
-        let exp_total_tao_in: U96F32 = prev_total_tao_in.saturating_add( block_emission );
+        let prev_total_tao_in: U96F32 = U96F32::saturating_from_num(TotalStake::<T>::get());
+        let exp_total_tao_in: U96F32 = prev_total_tao_in.saturating_add(block_emission);
 
         if current_total_tao_in < exp_total_tao_in {
-            let alpha: U96F32 = tick * ( exp_total_tao_in - current_total_tao_in );
-            let next_tao_weight = (1 - alpha) * tao_weight;
+            let alpha: U96F32 = exp_total_tao_in
+                .saturating_sub(current_total_tao_in)
+                .saturating_mul(tick);
+            let next_tao_weight = U96F32::saturating_from_num(1)
+                .saturating_sub(alpha)
+                .saturating_mul(tao_weight);
+            TaoWeight::<T>::set(next_tao_weight.saturating_to_num::<u64>());
         } else if exp_total_tao_in < current_total_tao_in {
-            let alpha: U96F32 = tick * ( current_total_tao_in - exp_total_tao_in );
-            let next_tao_weight = (1 + alpha) * tao_weight;
+            let alpha: U96F32 = current_total_tao_in
+                .saturating_sub(exp_total_tao_in)
+                .saturating_mul(tick);
+            let next_tao_weight = U96F32::saturating_from_num(1)
+                .saturating_add(alpha)
+                .saturating_mul(tao_weight);
+            TaoWeight::<T>::set(next_tao_weight.saturating_to_num::<u64>());
         }
-        TotalSubnetTAO::<T>::set( current_total_tao_in );
+        TotalStake::<T>::set(current_total_tao_in.saturating_to_num::<u64>());
     }
     pub fn run_coinbase(block_emission: U96F32) {
         // --- 0. Get current block.
