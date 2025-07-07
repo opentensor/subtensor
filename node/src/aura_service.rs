@@ -3,6 +3,7 @@
 use fp_consensus::{FindLogError, ensure_log};
 use fp_rpc::EthereumRuntimeRPCApi;
 use futures::{FutureExt, channel::mpsc, future};
+use jsonrpsee::tokio::sync::oneshot;
 use node_subtensor_runtime::{RuntimeApi, TransactionConverter, opaque::Block};
 use sc_chain_spec::ChainType;
 use sc_client_api::{Backend as BackendT, BlockBackend};
@@ -21,6 +22,7 @@ use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_consensus::Error as ConsensusError;
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use sp_runtime::traits::{Block as BlockT, Header, NumberFor};
+use std::sync::atomic::AtomicBool;
 use std::{cell::RefCell, path::Path};
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
@@ -46,6 +48,7 @@ pub fn new_partial<BIQ>(
     config: &Configuration,
     eth_config: &EthConfiguration,
     build_import_queue: BIQ,
+    babe_switch_tx: oneshot::Sender<()>,
 ) -> Result<
     PartialComponents<
         FullClient,
@@ -71,6 +74,7 @@ where
         &TaskManager,
         Option<TelemetryHandle>,
         GrandpaBlockImport,
+        oneshot::Sender<()>,
     ) -> Result<(BasicQueue<Block>, BoxBlockImport<Block>), ServiceError>,
 {
     let telemetry = config
@@ -147,6 +151,7 @@ where
         &task_manager,
         telemetry.as_ref().map(|x| x.handle()),
         grandpa_block_import,
+        babe_switch_tx,
     )?;
 
     let transaction_pool = Arc::from(
@@ -286,6 +291,7 @@ pub fn build_aura_grandpa_import_queue(
     task_manager: &TaskManager,
     telemetry: Option<TelemetryHandle>,
     grandpa_block_import: GrandpaBlockImport,
+    babe_switch_tx: oneshot::Sender<()>,
 ) -> Result<(BasicQueue<Block>, BoxBlockImport<Block>), ServiceError>
 where
     NumberFor<Block>: BlockNumberOps,
@@ -307,7 +313,7 @@ where
         Ok((slot, timestamp))
     };
 
-    let import_queue = crate::aura_wrapped_import_queue::import_queue::<AuraPair, _, _, _, _, _>(
+    let import_queue = crate::aura_wrapped_import_queue::import_queue::<AuraPair, _, _, _, _, _>((
         sc_consensus_aura::ImportQueueParams {
             block_import: conditional_block_import.clone(),
             justification_import: Some(Box::new(grandpa_block_import.clone())),
@@ -319,7 +325,8 @@ where
             telemetry,
             compatibility_mode: sc_consensus_aura::CompatibilityMode::None,
         },
-    )
+        babe_switch_tx,
+    ))
     .map_err::<ServiceError, _>(Into::into)?;
 
     Ok((import_queue, Box::new(conditional_block_import)))
@@ -333,6 +340,7 @@ pub fn build_manual_seal_import_queue(
     task_manager: &TaskManager,
     _telemetry: Option<TelemetryHandle>,
     grandpa_block_import: GrandpaBlockImport,
+    _babe_switch_tx: oneshot::Sender<()>,
 ) -> Result<(BasicQueue<Block>, BoxBlockImport<Block>), ServiceError> {
     let conditional_block_import = ConditionalEVMBlockImport::new(
         grandpa_block_import.clone(),
@@ -412,6 +420,7 @@ pub async fn new_full<NB>(
     mut config: Configuration,
     eth_config: EthConfiguration,
     sealing: Option<Sealing>,
+    babe_switch: Arc<AtomicBool>,
 ) -> Result<TaskManager, ServiceError>
 where
     NumberFor<Block>: BlockNumberOps,
@@ -423,6 +432,7 @@ where
         build_aura_grandpa_import_queue
     };
 
+    let (babe_switch_tx, babe_switch_rx) = oneshot::channel::<()>();
     let PartialComponents {
         client,
         backend,
@@ -432,7 +442,23 @@ where
         select_chain,
         transaction_pool,
         other: (mut telemetry, block_import, grandpa_link, frontier_backend, storage_override),
-    } = new_partial(&config, &eth_config, build_import_queue)?;
+    } = new_partial(&config, &eth_config, build_import_queue, babe_switch_tx)?;
+
+    // Logic to terminating a node with a special side-effect when a Babe block is encountered.
+    task_manager.spawn_essential_handle().spawn(
+        "babe-switch-deliberate-exit",
+        None,
+        Box::pin(async move {
+            // Wait for babe_switch_tx to be fired
+            babe_switch_rx
+                .await
+                .expect("Failed to wait for babe switch rx");
+            // Mutate the babe_switch, so the caller knows we wish to switch to babe
+            babe_switch.store(true, std::sync::atomic::Ordering::SeqCst);
+            // Aura Service TaskManager will exit and clean everything up when this returns.
+            ()
+        }),
+    );
 
     let FrontierPartialComponents {
         filter_pool,
@@ -795,17 +821,21 @@ pub async fn build_full(
     config: Configuration,
     eth_config: EthConfiguration,
     sealing: Option<Sealing>,
+    babe_switch: Arc<AtomicBool>,
 ) -> Result<TaskManager, ServiceError> {
     match config.network.network_backend {
         Some(sc_network::config::NetworkBackendType::Libp2p) => {
-            new_full::<sc_network::NetworkWorker<_, _>>(config, eth_config, sealing).await
+            new_full::<sc_network::NetworkWorker<_, _>>(config, eth_config, sealing, babe_switch)
+                .await
         }
         Some(sc_network::config::NetworkBackendType::Litep2p) => {
-            new_full::<sc_network::Litep2pNetworkBackend>(config, eth_config, sealing).await
+            new_full::<sc_network::Litep2pNetworkBackend>(config, eth_config, sealing, babe_switch)
+                .await
         }
         _ => {
             log::debug!("no network backend selected, falling back to libp2p");
-            new_full::<sc_network::NetworkWorker<_, _>>(config, eth_config, sealing).await
+            new_full::<sc_network::NetworkWorker<_, _>>(config, eth_config, sealing, babe_switch)
+                .await
         }
     }
 }
@@ -814,6 +844,7 @@ pub async fn build_full(
 pub fn new_chain_ops(
     config: &mut Configuration,
     eth_config: &EthConfiguration,
+    babe_switch_tx: oneshot::Sender<()>,
 ) -> Result<
     (
         Arc<FullClient>,
@@ -832,7 +863,12 @@ pub fn new_chain_ops(
         task_manager,
         other,
         ..
-    } = new_partial(config, eth_config, build_aura_grandpa_import_queue)?;
+    } = new_partial(
+        config,
+        eth_config,
+        build_aura_grandpa_import_queue,
+        babe_switch_tx,
+    )?;
     Ok((client, backend, import_queue, task_manager, other.3))
 }
 

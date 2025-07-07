@@ -1,3 +1,5 @@
+use std::sync::{Arc, atomic::AtomicBool};
+
 use crate::{
     aura_service, chain_spec,
     cli::{Cli, Subcommand},
@@ -255,12 +257,26 @@ fn run_babe() -> Result<(), sc_cli::Error> {
 fn run_aura() -> Result<(), sc_cli::Error> {
     let cli = Cli::from_args();
     let runner = cli.create_runner(&cli.run)?;
+
+    // Unlike when the Babe node fails to build due to missing BabeApi in the runtime,
+    // there is no way to detect the exit reason for the Aura node when it encounters a Babe block.
+    //
+    // Passing this atomic bool is a hacky solution, allowing the node to set it to true to indicate
+    // a Babe service should be spawned on exit instead of a regular shutdown.
+    let babe_switch = Arc::new(AtomicBool::new(false));
+    let babe_switch_clone = babe_switch.clone();
     match runner.run_node_until_exit(|config| async move {
         let config = override_default_heap_pages(config, 60_000);
-        aura_service::build_full(config, cli.eth, cli.sealing).await
+        aura_service::build_full(config, cli.eth, cli.sealing, babe_switch_clone).await
     }) {
-        Ok(_) => run_babe(),
-        Err(e) => Err(e.into()),
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if babe_switch.load(std::sync::atomic::Ordering::Relaxed) {
+                run_babe()
+            } else {
+                Err(e.into())
+            }
+        }
     }
 }
 
