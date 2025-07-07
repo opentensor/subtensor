@@ -13271,7 +13271,7 @@ dependencies = [
  "scale-info",
  "scale-typegen",
  "subxt-metadata",
- "syn 2.0.103",
+ "syn 2.0.104",
  "thiserror 1.0.69",
  "tokio",
 ]
@@ -13332,7 +13332,7 @@ dependencies = [
  "quote",
  "scale-typegen",
  "subxt-codegen",
- "syn 2.0.103",
+ "syn 2.0.104",
 ]
 
 [[package]]
