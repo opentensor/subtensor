@@ -41,12 +41,3 @@ pub struct SwapResult {
     pub tao_reserve_delta: i64,
     pub alpha_reserve_delta: i64,
 }
-
-#[derive(Debug, PartialEq)]
-pub struct UpdateLiquidityResult {
-    pub tao: u64,
-    pub alpha: u64,
-    pub fee_tao: u64,
-    pub fee_alpha: u64,
-    pub removed: bool,
-}
