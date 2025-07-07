@@ -1,7 +1,5 @@
 use babe_primitives::BABE_ENGINE_ID;
 use futures::future::pending;
-use jsonrpsee::tokio::sync::Mutex;
-use jsonrpsee::tokio::sync::oneshot;
 use log;
 use sc_client_api::AuxStore;
 use sc_client_api::BlockOf;
@@ -41,7 +39,6 @@ use std::sync::Arc;
 /// imported)
 struct AuraWrappedVerifier<B, C, P, CIDP, N> {
     inner: AuraVerifier<C, P, CIDP, N>,
-    babe_switch_tx: Mutex<Option<oneshot::Sender<()>>>,
     _phantom: std::marker::PhantomData<B>,
 }
 
@@ -52,7 +49,6 @@ impl<B: BlockT, C, P, CIDP, N> AuraWrappedVerifier<B, C, P, CIDP, N> {
         telemetry: Option<TelemetryHandle>,
         check_for_equivocation: CheckForEquivocation,
         compatibility_mode: sc_consensus_aura::CompatibilityMode<N>,
-        babe_switch_tx: oneshot::Sender<()>,
     ) -> Self {
         let verifier_params = sc_consensus_aura::BuildVerifierParams::<C, CIDP, _> {
             client,
@@ -65,7 +61,6 @@ impl<B: BlockT, C, P, CIDP, N> AuraWrappedVerifier<B, C, P, CIDP, N> {
 
         AuraWrappedVerifier {
             inner: verifier,
-            babe_switch_tx: Mutex::new(Some(babe_switch_tx)),
             _phantom: std::marker::PhantomData,
         }
     }
@@ -85,16 +80,10 @@ where
     async fn verify(&self, block: BlockImportParams<B>) -> Result<BlockImportParams<B>, String> {
         let number: NumberFor<B> = block.post_header().number().clone();
         log::debug!("Verifying block: {:?}", number);
-        // Here is the trick: check if the block bring verified is .
         if is_babe_digest(block.header.digest()) {
-            log::info!("Detected Babe block, sending signal to switch to Babe-based processing.");
-            self.babe_switch_tx
-                .lock()
-                .await
-                .take()
-                .unwrap()
-                .send(())
-                .expect("Failed to send Babe switch signal; receiver should be ready.");
+            log::debug!(
+                "Detected Babe block! Verifier cannot continue, upgrade must be triggered elsewhere..."
+            );
             pending::<()>().await;
             unreachable!("Should not reach here, pending forever.");
         } else {
@@ -105,20 +94,17 @@ where
 
 /// Start an import queue for the Aura consensus algorithm.
 pub fn import_queue<P, B, I, C, S, CIDP>(
-    (
-        ImportQueueParams {
-            block_import,
-            justification_import,
-            client,
-            create_inherent_data_providers,
-            spawner,
-            registry,
-            check_for_equivocation,
-            telemetry,
-            compatibility_mode,
-        },
-        babe_switch_tx,
-    ): (ImportQueueParams<B, I, C, S, CIDP>, oneshot::Sender<()>),
+    ImportQueueParams {
+        block_import,
+        justification_import,
+        client,
+        create_inherent_data_providers,
+        spawner,
+        registry,
+        check_for_equivocation,
+        telemetry,
+        compatibility_mode,
+    }: ImportQueueParams<B, I, C, S, CIDP>,
 ) -> Result<DefaultImportQueue<B>, sp_consensus::Error>
 where
     B: BlockT,
@@ -145,7 +131,6 @@ where
         telemetry,
         check_for_equivocation,
         compatibility_mode,
-        babe_switch_tx,
     );
 
     Ok(BasicQueue::new(

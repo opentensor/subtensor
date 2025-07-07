@@ -13,6 +13,13 @@ pub struct Cli {
     #[arg(long, value_enum, ignore_case = true)]
     pub sealing: Option<Sealing>,
 
+    /// Whether to try Aura or Babe consensus on first start.
+    ///
+    /// After starting, the consensus used by the node will automatically
+    /// switch to whatever is required to continue validating / syncing.
+    #[arg(long, value_enum, ignore_case = true)]
+    pub initial_consensus: Option<InitialConsensus>,
+
     #[command(flatten)]
     pub eth: EthConfiguration,
 }
@@ -62,4 +69,14 @@ pub enum Sealing {
     Manual,
     /// Seal when transaction is executed.
     Instant,
+}
+
+/// Avaliable initial consensus types.
+#[derive(Copy, Clone, Debug, Default, clap::ValueEnum)]
+pub enum InitialConsensus {
+    /// Babe
+    #[default]
+    Babe,
+    /// Aura
+    Aura,
 }

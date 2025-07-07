@@ -6963,6 +6963,7 @@ dependencies = [
  "sp-consensus-aura",
  "sp-consensus-babe",
  "sp-consensus-grandpa",
+ "sp-consensus-slots",
  "sp-core",
  "sp-crypto-ec-utils 0.15.0",
  "sp-inherents",
@@ -16848,6 +16849,11 @@ dependencies = [
 ]
 
 [[patch.unused]]
+name = "sc-consensus-grandpa"
+version = "0.33.0"
+source = "git+https://github.com/opentensor/grandpa.git?rev=b0eabfdb46a3ca81116d1cb61fcfed446b10d166#b0eabfdb46a3ca81116d1cb61fcfed446b10d166"
+
+[[patch.unused]]
 name = "asset-hub-rococo-emulated-chain"
 version = "0.1.0"
 
@@ -18210,8 +18216,3 @@ version = "1.0.0"
 [[patch.unused]]
 name = "zombienet-backchannel"
 version = "1.0.0"
-
-[[patch.unused]]
-name = "sc-consensus-grandpa"
-version = "0.33.0"
-source = "git+https://github.com/opentensor/grandpa.git?rev=b0eabfdb46a3ca81116d1cb61fcfed446b10d166#b0eabfdb46a3ca81116d1cb61fcfed446b10d166"

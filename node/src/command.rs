@@ -2,7 +2,7 @@ use std::sync::{Arc, atomic::AtomicBool};
 
 use crate::{
     aura_service, chain_spec,
-    cli::{Cli, Subcommand},
+    cli::{Cli, InitialConsensus, Subcommand},
     ethereum::db_config_dir,
     service,
 };
@@ -227,9 +227,14 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.sync_run(|config| cmd.run::<Block>(&config))
         }
-        // Default running babe. If chain requires Aura to sync, it will
-        // automatically fallback.
-        None => run_babe(),
+        // Start with the initial consensus type asked.
+        None => {
+            let cli = Cli::from_args();
+            match cli.initial_consensus.unwrap_or_default() {
+                InitialConsensus::Babe => run_babe(),
+                InitialConsensus::Aura => run_aura(),
+            }
+        }
     }
 }
 
@@ -247,6 +252,10 @@ fn run_babe() -> Result<(), sc_cli::Error> {
                     "💡 Node appears to not have synced up to Babe blocks yet. Falling back to Aura-based node until synced.",
                 );
                 run_aura()
+            } else if e.to_string().contains("lock hold by current process") {
+                log::warn!("Failed to aquire DB lock, trying again in 1s...");
+                std::thread::sleep(std::time::Duration::from_secs(1));
+                return run_babe();
             } else {
                 Err(e.into())
             }
