@@ -125,6 +125,8 @@ pub mod pallet {
         UidLookup,
         /// Enum for alpha precompile
         Alpha,
+        /// Enum for crowdloan precompile
+        Crowdloan,
     }
 
     #[pallet::type_value]

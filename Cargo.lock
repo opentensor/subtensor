@@ -13514,6 +13514,7 @@ dependencies = [
  "log",
  "pallet-admin-utils",
  "pallet-balances",
+ "pallet-crowdloan",
  "pallet-evm",
  "pallet-evm-precompile-dispatch",
  "pallet-evm-precompile-modexp",
