@@ -34,11 +34,6 @@ pub fn migrate_set_registration_enable<T: Config>() -> Weight {
             continue;
         }
 
-        if !Pallet::<T>::get_network_pow_registration_allowed(*netuid) {
-            Pallet::<T>::set_network_pow_registration_allowed(*netuid, true);
-            weight = weight.saturating_add(T::DbWeight::get().writes(1));
-        }
-
         if !Pallet::<T>::get_network_registration_allowed(*netuid) {
             Pallet::<T>::set_network_registration_allowed(*netuid, true);
             weight = weight.saturating_add(T::DbWeight::get().writes(1));
