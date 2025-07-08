@@ -1453,3 +1453,34 @@ fn test_serve_axon_validate() {
         assert_ok!(result_ok);
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=DEBUG cargo test --release -p pallet-subtensor test_migrate_tao_reserves_at_last_block -- --nocapture
+#[test]
+fn test_migrate_tao_reserves_at_last_block() {
+    new_test_ext(1).execute_with(|| {
+        assert!(TaoReservesAtLastBlock::<Test>::get() == 0, "Initial reserves should be 0");
+        assert!(!HasMigrationRun::<Test>::get(
+            b"migrate_tao_reserves_at_last_block".to_vec()
+        ));
+
+        SubnetTAO::<Test>::insert(NetUid::from(0), 2_000_000_000);
+        SubnetTAO::<Test>::insert(NetUid::from(1), 2_000_000_000);
+        SubnetTAO::<Test>::insert(NetUid::from(2), 2_000_000_000);
+
+        let weight =
+            crate::migrations::migrate_tao_reserves_at_last_block::migrate_tao_reserves_at_last_block::<
+                Test,
+            >();
+
+        assert!(
+            HasMigrationRun::<Test>::get(b"migrate_tao_reserves_at_last_block".to_vec()),
+            "Expected HasMigrationRun to be true after migration"
+        );
+        assert!(TaoReservesAtLastBlock::<Test>::get() == 4_000_000_000, "Reserves should be set to 4_000_000_000 after migration");
+
+        assert!(
+            weight != Weight::zero(),
+            "Migration weight should be non-zero"
+        );
+    });
+}
