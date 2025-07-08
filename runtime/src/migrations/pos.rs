@@ -62,7 +62,7 @@ fn initialize_pallet_staking() {
     let force_era = pallet_staking::Forcing::NotForcing;
     let slash_reward_fraction = Perbill::from_percent(10);
 
-    pallet_staking::ValidatorCount::<Runtime>::put(validator_count);
+    pallet_staking::ValidatorCount::<Runtime>::put(11);
     pallet_staking::MinimumValidatorCount::<Runtime>::put(minimum_validator_count);
     pallet_staking::Invulnerables::<Runtime>::put(&invulnerables);
     pallet_staking::ForceEra::<Runtime>::put(force_era);
