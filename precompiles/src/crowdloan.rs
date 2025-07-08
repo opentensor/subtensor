@@ -34,9 +34,9 @@ where
     <R as frame_system::Config>::RuntimeCall: From<pallet_crowdloan::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
-    // <R as frame_system::Config>::RuntimeCall: From<pallet_crowdloan::Call<R>>
-    // + GetDispatchInfo
-    // + Dispatchable<PostInfo = PostDispatchInfo>,
+    <R as frame_system::Config>::RuntimeCall: From<pallet_crowdloan::Call<R>>
+        + GetDispatchInfo
+        + Dispatchable<PostInfo = PostDispatchInfo>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
 {
     #[precompile::public("getCrowdloan(uint32)")]
