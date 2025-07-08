@@ -39,7 +39,7 @@ jobs:
         run: |
             echo "<meta http-equiv=refresh content=0;url=wasm_oidc_plugin/index.html>" > target/doc/index.html
       - name: Upload documentation
-        uses: actions/upload-pages-artifact@v1
+        uses: actions/upload-pages-artifact@v3
         with:
             path: ./target/doc
 
