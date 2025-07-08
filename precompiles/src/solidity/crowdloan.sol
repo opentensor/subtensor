@@ -1,5 +1,7 @@
 pragma solidity ^0.8.0;
 
+address constant ICROWDLOAN_ADDRESS = 0x0000000000000000000000000000000000000809;
+
 interface ICrowdloan {
     /**
      * @dev Retrieves the crowdloan info for a given crowdloan id.
@@ -17,7 +19,7 @@ interface ICrowdloan {
      * @param coldkey The coldkey of the contributor.
      * @return The contribution.
      */
-    function getContribution(uint32 crowdloanId, bytes32 coldkey)
+    function getContribution(uint32 crowdloanId, address coldkey)
         external
         view
         returns (uint64);
