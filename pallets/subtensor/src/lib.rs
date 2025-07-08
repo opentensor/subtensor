@@ -855,9 +855,9 @@ pub mod pallet {
     }
 
     #[pallet::type_value]
-    /// Default value for TotalTaoReservesAtLastWeightUpdate.
-    pub fn DefaultTotalTaoReservesAtLastWeightUpdate<T: Config>() -> (u64, u64) {
-        (0, 0)
+    /// Default value for TaoReservesAtLastBlock.
+    pub fn DefaultTaoReservesAtLastBlock<T: Config>() -> u64 {
+        0
     }
 
     #[pallet::storage]
@@ -1181,9 +1181,9 @@ pub mod pallet {
     pub type WeightsVersionKeyRateLimit<T> =
         StorageValue<_, u64, ValueQuery, DefaultWeightsVersionKeyRateLimit<T>>;
     #[pallet::storage]
-    /// --- ITEM (block_of_update, total_tao_reserves)
-    pub type TotalTaoReservesAtLastWeightUpdate<T> =
-        StorageValue<_, (u64, u64), ValueQuery, DefaultTotalTaoReservesAtLastWeightUpdate<T>>;
+    /// --- ITEM (total_tao_reserves)
+    pub type TaoReservesAtLastBlock<T> =
+        StorageValue<_, u64, ValueQuery, DefaultTaoReservesAtLastBlock<T>>;
 
     /// ============================
     /// ==== Rate Limiting =====

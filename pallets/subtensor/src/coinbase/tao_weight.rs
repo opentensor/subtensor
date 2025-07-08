@@ -1,7 +1,6 @@
 use super::*;
 use safe_math::*;
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::NetUid;
 
 impl<T: Config> Pallet<T> {
     /// Retrieves the global global weight as a normalized value between 0 and 1.
@@ -82,53 +81,47 @@ impl<T: Config> Pallet<T> {
     /// Compares TAO injection to TAO reserves.
     ///
     /// - When TAO injection is greater than the change in TAO reserves
-    ///  since the last update, the tao_weight is decreased by 1 tick.
+    ///   since the last block, the tao_weight is decreased proportionally
+    ///   to the change.
     ///
     /// - When TAO injection is less than the change in TAO reserves
-    /// since the last update, the tao_weight is increased by 1 tick.
+    ///   since the last update, the tao_weight is increased proportionally
+    ///   to the change.
     ///
-    /// – 1 tick in TAO weight = 1%
+    /// – 1 tick in TAO weight equates to 1% per day
     ///
     /// – Simple 1 tick adjustment per execution, clamped at 9% and 18%.
-    pub fn update_tao_weight(block_emission: u64) {
+    pub fn update_tao_weight(block_emission: U96F32) {
         // 1) Sum raw TAO across all subnets (excluding ROOT).
         let current_total: U96F32 = Self::get_all_subnet_netuids()
             .into_iter()
-            .filter(|&uid| uid != NetUid::ROOT)
-            .map(|uid| U96F32::saturating_from_num(SubnetTAO::<T>::get(&uid)))
+            .filter(|&netuid| netuid.is_root() == false)
+            .map(|netuid| U96F32::saturating_from_num(SubnetTAO::<T>::get(&netuid)))
             .sum();
 
-        // 2) Read last‐block total and compute “expected” next total.
-        let (prev_block, prev_reserves) = TotalTaoReservesAtLastWeightUpdate::<T>::get();
+        // 2) Read last‐block total and compute expected next total.
+        let prev_reserves = TaoReservesAtLastBlock::<T>::get();
         let prev_reserves: U96F32 = U96F32::saturating_from_num(prev_reserves);
-
-        // this doesn't handle the halving, also TotalTaoReservesAtLastWeightUpdate is (0, 0), on first run it will reduce TAO weight.
-        let emission_since_update: U96F32 = U96F32::saturating_from_num(
-            block_emission.saturating_mul(Self::get_current_block_as_u64() - prev_block),
-        );
-        let expected_total = prev_reserves.saturating_add(emission_since_update);
+        let expected_total = prev_reserves.saturating_add(block_emission);
 
         // 3) Compute difference
-        //    A positive diff → we’re under‐filled (need to sell less / weight ↓).
-        //    A negative diff → we’re over‐filled (need to sell more / weight ↑).
-        let diff: U96F32 = expected_total.saturating_sub(current_total);
+        //    A positive diff → we’re over‐filled (need to sell less / weight ↓).
+        //    A negative diff → we’re under‐filled (need to sell more / weight ↑).
+        let diff: U96F32 = current_total.saturating_sub(expected_total);
 
-        // 4) Single‐factor proportional gain: tick = 1%
-        let tick = U96F32::saturating_from_num(0.01);
+        // 4) Single‐factor proportional gain: tick = 1% per day
+        let tick = U96F32::saturating_from_num(0.01 / 7200.0);
 
-        // 5) Apply update
-        //    If diff is positive, deduct 1 tick from tao weight
-        //    If diff is negative, add 1 tick to tao weight
+        // 5) Calculate next_weight: n_w = w * (1 + tick * (diff / current_total))
+        //    We divide by current_total so that the same absolute RAO error
+        //    yields a proportionally smaller change when pools are large.
         let current_weight: U96F32 = Self::get_tao_weight();
-        let mut next_weight = if diff > U96F32::saturating_from_num(0) {
-            // Reduce by 1 percentage point
-            current_weight.saturating_sub(tick)
-        } else if diff < U96F32::saturating_from_num(0) {
-            // Increase by 1 percentage point
-            current_weight.saturating_add(tick)
-        } else {
-            current_weight
-        };
+        let adjustment = tick
+            .saturating_mul(diff)
+            .saturating_div(current_total.max(U96F32::saturating_from_num(1)));
+
+        let mut next_weight = current_weight
+            .saturating_mul(U96F32::saturating_from_num(1).saturating_add(adjustment));
 
         // 6) Clamp to safety bounds [0.09, 0.18]
         let min_weight = U96F32::saturating_from_num(0.09);
@@ -141,9 +134,6 @@ impl<T: Config> Pallet<T> {
 
         // 7) Write back new weight & persist current_total for next cycle.
         Self::set_tao_weight_from_float(next_weight);
-        TotalTaoReservesAtLastWeightUpdate::<T>::set((
-            Self::get_current_block_as_u64(),
-            current_total.saturating_to_num::<u64>(),
-        ));
+        TaoReservesAtLastBlock::<T>::set(current_total.saturating_to_num::<u64>());
     }
 }
