@@ -125,7 +125,8 @@ mod hooks {
                 // Fix the owner disable the registration
                 .saturating_add(migrations::migrate_set_registration_enable::migrate_set_registration_enable::<T>())
                 // Migrate Subnet Identities to V3
-                .saturating_add(migrations::migrate_subnet_identities_to_v3::migrate_subnet_identities_to_v3::<T>());
+                .saturating_add(migrations::migrate_subnet_identities_to_v3::migrate_subnet_identities_to_v3::<T>())
+                .saturating_add(migrations::migrate_tao_reserves_at_last_block::migrate_tao_reserves_at_last_block::<T>());
             weight
         }
 
