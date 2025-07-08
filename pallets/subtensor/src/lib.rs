@@ -725,9 +725,7 @@ pub mod pallet {
         T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
             .expect("trailing zeroes always produce a valid account ID; qed")
     }
-    // pub fn DefaultHotkeyEmissionTempo<T: Config>() -> u64 {
-    //     T::InitialHotkeyEmissionTempo::get()
-    // } (DEPRECATED)
+
     #[pallet::type_value]
     /// Default value for rate limiting
     pub fn DefaultTxRateLimit<T: Config>() -> u64 {
@@ -854,6 +852,12 @@ pub mod pallet {
     /// Default value for setting subnet owner hotkey rate limit
     pub fn DefaultSetSNOwnerHotkeyRateLimit<T: Config>() -> u64 {
         50400
+    }
+
+    #[pallet::type_value]
+    /// Default value for TotalTaoReservesAtLastWeightUpdate.
+    pub fn DefaultTotalTaoReservesAtLastWeightUpdate<T: Config>() -> (u64, u64) {
+        (0, 0)
     }
 
     #[pallet::storage]
@@ -1176,6 +1180,10 @@ pub mod pallet {
     /// ITEM( weights_version_key_rate_limit ) --- Rate limit in tempos.
     pub type WeightsVersionKeyRateLimit<T> =
         StorageValue<_, u64, ValueQuery, DefaultWeightsVersionKeyRateLimit<T>>;
+    #[pallet::storage]
+    /// --- ITEM (block_of_update, total_tao_reserves)
+    pub type TotalTaoReservesAtLastWeightUpdate<T> =
+        StorageValue<_, (u64, u64), ValueQuery, DefaultTotalTaoReservesAtLastWeightUpdate<T>>;
 
     /// ============================
     /// ==== Rate Limiting =====

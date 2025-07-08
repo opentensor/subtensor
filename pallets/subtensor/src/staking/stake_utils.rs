@@ -68,56 +68,7 @@ impl<T: Config> Pallet<T> {
             I96F32::saturating_from_num(current_price.saturating_add(current_moving));
         SubnetMovingPrice::<T>::insert(netuid, new_moving);
     }
-
-    /// Retrieves the global global weight as a normalized value between 0 and 1.
-    ///
-    /// This function performs the following steps:
-    /// 1. Fetches the global weight from storage using the TaoWeight storage item.
-    /// 2. Converts the retrieved u64 value to a fixed-point number (U96F32).
-    /// 3. Normalizes the weight by dividing it by the maximum possible u64 value.
-    /// 4. Returns the normalized weight as an U96F32 fixed-point number.
-    ///
-    /// The normalization ensures that the returned value is always between 0 and 1,
-    /// regardless of the actual stored weight value.
-    ///
-    /// # Returns
-    /// * `U96F32` - The normalized global global weight as a fixed-point number between 0 and 1.
-    ///
-    /// # Note
-    /// This function uses saturating division to prevent potential overflow errors.
-    pub fn get_tao_weight() -> U96F32 {
-        // Step 1: Fetch the global weight from storage
-        let stored_weight = TaoWeight::<T>::get();
-
-        // Step 2: Convert the u64 weight to U96F32
-        let weight_fixed = U96F32::saturating_from_num(stored_weight);
-
-        // Step 3: Normalize the weight by dividing by u64::MAX
-        // This ensures the result is always between 0 and 1
-        weight_fixed.safe_div(U96F32::saturating_from_num(u64::MAX))
-    }
-
-    /// Sets the global global weight in storage.
-    ///
-    /// This function performs the following steps:
-    /// 1. Takes the provided weight value as a u64.
-    /// 2. Updates the TaoWeight storage item with the new value.
-    ///
-    /// # Arguments
-    /// * `weight` - The new global weight value to be set, as a u64.
-    ///
-    /// # Effects
-    /// This function modifies the following storage item:
-    /// - `TaoWeight`: Updates it with the new weight value.
-    ///
-    /// # Note
-    /// The weight is stored as a raw u64 value. To get the normalized weight between 0 and 1,
-    /// use the `get_tao_weight()` function.
-    pub fn set_tao_weight(weight: u64) {
-        // Update the TaoWeight storage with the new weight value
-        TaoWeight::<T>::set(weight);
-    }
-
+    
     /// Calculates the weighted combination of alpha and global tao for a single hotkey onet a subnet.
     ///
     pub fn get_stake_weights_for_hotkey_on_subnet(
