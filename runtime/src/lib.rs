@@ -218,7 +218,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 290,
+    spec_version: 291,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -750,13 +750,21 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 _ => false,
             },
             ProxyType::Owner => {
-                matches!(c, RuntimeCall::AdminUtils(..))
-                    && !matches!(
-                        c,
-                        RuntimeCall::AdminUtils(
-                            pallet_admin_utils::Call::sudo_set_sn_owner_hotkey { .. }
+                matches!(
+                    c,
+                    RuntimeCall::AdminUtils(..)
+                        | RuntimeCall::SubtensorModule(
+                            pallet_subtensor::Call::set_subnet_identity { .. }
                         )
+                        | RuntimeCall::SubtensorModule(
+                            pallet_subtensor::Call::update_symbol { .. }
+                        )
+                ) && !matches!(
+                    c,
+                    RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_sn_owner_hotkey { .. }
                     )
+                )
             }
             ProxyType::NonCritical => !matches!(
                 c,
