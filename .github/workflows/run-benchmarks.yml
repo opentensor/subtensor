@@ -28,7 +28,8 @@ jobs:
       if: ${{ env.SKIP_BENCHMARKS != '1' }}
       uses: actions/checkout@v4
       with:
-        ref: ${{ github.head_ref }}
+        repository: ${{ github.event.pull_request.head.repo.full_name }}
+        ref:        ${{ github.event.pull_request.head.ref }}
         fetch-depth: 0
 
     - name: Install GitHub CLI
