@@ -84,9 +84,9 @@
                 "type": "uint32"
             },
             {
-                "internalType": "bytes32",
+                "internalType": "address",
                 "name": "coldkey",
-                "type": "bytes32"
+                "type": "address"
             }
         ],
         "name": "getContribution",
