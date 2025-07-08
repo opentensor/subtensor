@@ -46,7 +46,7 @@ fn initialize_pallet_staking() {
         .map(|a| babe_id_to_account_id32(a.0))
         .collect::<Vec<_>>();
     let minimum_validator_count = 1;
-    let validator_count = authorities.len() as u32;
+    let _validator_count = authorities.len() as u32;
     let stakers = authorities
         .iter()
         .map(|x| {

@@ -2055,6 +2055,7 @@ mod benches {
         [pallet_subtensor, SubtensorModule]
         [pallet_drand, Drand]
         [pallet_crowdloan, Crowdloan]
+        [pallet_subtensor_swap, Swap]
     );
 }
 

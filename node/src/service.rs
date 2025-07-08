@@ -13,7 +13,10 @@ use sc_service::{Configuration, PartialComponents, TaskManager, error::Error as 
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, log};
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_runtime::traits::{Block as BlockT, Header, NumberFor};
+use sp_core::H256;
+use sp_runtime::traits::{Block as BlockT, NumberFor};
+use std::collections::HashSet;
+use std::str::FromStr;
 use std::{cell::RefCell, path::Path};
 use std::{sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
@@ -109,12 +112,38 @@ where
     });
 
     let select_chain = sc_consensus::LongestChain::new(backend.clone());
+
+    let skip_block_justifications = if config.chain_spec.chain_type() == ChainType::Live {
+        // Mainnet patch
+        let hash_5614869 =
+            H256::from_str("0xb49f8cd2a49b51a493fc55a8c9524ba08c3aa6b702f20af02878c1ec68e3ff5f")
+                .expect("Invalid hash string.");
+        let hash_5614888 =
+            H256::from_str("0x04c71efb77060bfacfb49cd61826d594148ccda2ee23d66c7db819b16b55911c")
+                .expect("Invalid hash string.");
+
+        Some(HashSet::from([hash_5614869, hash_5614888]))
+    } else {
+        // Testnet patch
+        let hash_4589660 =
+            H256::from_str("0x819a5e54ffa2d267d469c6da44de5e8819b1aad1717a1389c959eab4349722ca")
+                .expect("Invalid hash string.");
+
+        Some(HashSet::from([hash_4589660]))
+    };
+
+    log::warn!(
+        "Grandpa block import patch enabled. Chain type = {:?}. Skip justifications for blocks = {skip_block_justifications:?}",
+        config.chain_spec.chain_type()
+    );
+
     let (grandpa_block_import, grandpa_link) = sc_consensus_grandpa::block_import(
         client.clone(),
         GRANDPA_JUSTIFICATION_PERIOD,
         &client,
         select_chain.clone(),
         telemetry.as_ref().map(|x| x.handle()),
+        skip_block_justifications,
     )?;
 
     let storage_override = Arc::new(StorageOverrideHandler::<_, _, _>::new(client.clone()));
@@ -297,64 +326,6 @@ pub fn build_manual_seal_import_queue(
     // ))
 }
 
-async fn get_new_block_header()
--> sp_runtime::generic::Header<NumberFor<Block>, sp_runtime::traits::BlakeTwo256> {
-    use sp_core::H256;
-    use sp_runtime::traits::BlakeTwo256;
-    use sp_runtime::{Digest, DigestItem};
-    use subxt::{OnlineClient, PolkadotConfig};
-
-    let api = OnlineClient::<PolkadotConfig>::from_url("wss://archive.chain.opentensor.ai")
-        .await
-        .expect("Could not compose an API client from the URL");
-
-    let mut blocks_sub = api
-        .blocks()
-        .subscribe_finalized()
-        .await
-        .expect("Could not subscribe to API");
-    if let Some(Ok(block)) = blocks_sub.next().await {
-        log::debug!("Target warp header:  ({:?})", block.header());
-
-        let number = block.header().number;
-        let parent_hash = H256::from_slice(block.header().parent_hash.as_bytes());
-        let extrinsics_root = H256::from_slice(block.header().extrinsics_root.as_bytes());
-        let state_root = H256::from_slice(block.header().state_root.as_bytes());
-        let logs = block
-            .header()
-            .digest
-            .logs
-            .clone()
-            .into_iter()
-            .map(|log| match log {
-                subxt::config::substrate::DigestItem::PreRuntime(engine, data) => {
-                    DigestItem::PreRuntime(engine, data)
-                }
-                subxt::config::substrate::DigestItem::Consensus(engine, data) => {
-                    DigestItem::Consensus(engine, data)
-                }
-                subxt::config::substrate::DigestItem::Seal(engine, data) => {
-                    DigestItem::Seal(engine, data)
-                }
-                subxt::config::substrate::DigestItem::Other(data) => {
-                    panic!("Unexpected log iter Other: {:?}", data);
-                }
-                subxt::config::substrate::DigestItem::RuntimeEnvironmentUpdated => {
-                    panic!("Unexpected log iter RuntimeEnvironmentUpdated");
-                }
-            })
-            .collect::<Vec<_>>();
-        return sp_runtime::generic::Header::<NumberFor<Block>, BlakeTwo256>::new(
-            number,
-            extrinsics_root,
-            state_root,
-            parent_hash,
-            Digest { logs },
-        );
-    }
-    panic!("Could not get finalized block header");
-}
-
 /// Builds a new service for a full client.
 pub async fn new_full<NB>(
     mut config: Configuration,
@@ -420,23 +391,24 @@ where
     let warp_sync_config = if sealing.is_some() {
         None
     } else {
-        net_config.add_notification_protocol(grandpa_protocol_config);
-
-        // TODO: Fix the default warp sync provider
-        if config.chain_spec.chain_type() == ChainType::Live {
-            let warp_sync_header = get_new_block_header().await;
-
-            Some(WarpSyncConfig::WithTarget(warp_sync_header))
+        let set_id: u64 = if config.chain_spec.chain_type() == ChainType::Live {
+            3 // mainnet patch
         } else {
-            let warp_sync: Arc<dyn WarpSyncProvider<Block>> =
-                Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
-                    backend.clone(),
-                    grandpa_link.shared_authority_set().clone(),
-                    Vec::new(),
-                ));
+            2 // testnet patch
+        };
+        log::warn!(
+            "Grandpa warp sync patch enabled. Chain type = {:?}. Set ID = {set_id}",
+            config.chain_spec.chain_type()
+        );
+        net_config.add_notification_protocol(grandpa_protocol_config);
+        let warp_sync: Arc<dyn WarpSyncProvider<Block>> =
+            Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
+                backend.clone(),
+                grandpa_link.shared_authority_set().clone(),
+                sc_consensus_grandpa::warp_proof::HardForks::new_initial_set_id(set_id),
+            ));
 
-            Some(WarpSyncConfig::WithProvider(warp_sync))
-        }
+        Some(WarpSyncConfig::WithProvider(warp_sync))
     };
 
     let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
