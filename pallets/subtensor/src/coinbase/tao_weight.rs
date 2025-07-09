@@ -116,6 +116,8 @@ impl<T: Config> Pallet<T> {
         let min_weight_u64 = Self::convert_float_to_u64(U96F32::saturating_from_num(0.09));
         let max_weight_u64 = Self::convert_float_to_u64(U96F32::saturating_from_num(0.18));
 
+        let mut next_tao_weight_u64 = TaoWeight::<T>::get();
+
         // 3)  Compare difference between current and expected reserves.
         // 3a) We’re under‐filled (need to sell less / weight ↓).
         if current_reserves < expected_reserves {
@@ -126,14 +128,7 @@ impl<T: Config> Pallet<T> {
                 .saturating_sub(diff)
                 .saturating_mul(tao_weight);
 
-            let next_tao_weight_u64 = Self::convert_float_to_u64(next_tao_weight_float);
-
-            // Ensure next_tao_weight does not go above 0.18
-            if next_tao_weight_u64 < min_weight_u64 {
-                TaoWeight::<T>::set(min_weight_u64);
-            } else {
-                TaoWeight::<T>::set(next_tao_weight_u64);
-            }
+            next_tao_weight_u64 = Self::convert_float_to_u64(next_tao_weight_float);
         // 3b) We’re over‐filled (need to sell more / weight ↑).
         } else if expected_reserves < current_reserves {
             let diff: U96F32 = current_reserves
@@ -143,17 +138,17 @@ impl<T: Config> Pallet<T> {
                 .saturating_add(diff)
                 .saturating_mul(tao_weight);
 
-            let next_tao_weight_u64 = Self::convert_float_to_u64(next_tao_weight_float);
-
-            // Ensure next_tao_weight does not go below 0.09
-            if next_tao_weight_u64 > max_weight_u64 {
-                TaoWeight::<T>::set(max_weight_u64);
-            } else {
-                TaoWeight::<T>::set(next_tao_weight_u64);
-            }
+            next_tao_weight_u64 = Self::convert_float_to_u64(next_tao_weight_float);
         }
 
-        // 4) Update reserves at last block.
+        // 4) Clamp TAO weight and update storage.
+        if next_tao_weight_u64 > max_weight_u64 {
+            TaoWeight::<T>::set(max_weight_u64);
+        } else if next_tao_weight_u64 < min_weight_u64 {
+            TaoWeight::<T>::set(min_weight_u64);
+        } else {
+            TaoWeight::<T>::set(next_tao_weight_u64);
+        }
         TaoReservesAtLastBlock::<T>::set(current_reserves.saturating_to_num::<u64>());
     }
 }
