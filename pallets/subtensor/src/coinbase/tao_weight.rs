@@ -5,7 +5,6 @@ use substrate_fixed::types::U96F32;
 impl<T: Config> Pallet<T> {
     pub fn convert_float_to_u64(float: U96F32) -> u64 {
         // Convert the U96F32 weight to a u64 by multiplying with u64::MAX
-        
 
         float
             .saturating_mul(U96F32::saturating_from_num(u64::MAX))

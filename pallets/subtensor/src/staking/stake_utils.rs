@@ -68,7 +68,7 @@ impl<T: Config> Pallet<T> {
             I96F32::saturating_from_num(current_price.saturating_add(current_moving));
         SubnetMovingPrice::<T>::insert(netuid, new_moving);
     }
-    
+
     /// Calculates the weighted combination of alpha and global tao for a single hotkey onet a subnet.
     ///
     pub fn get_stake_weights_for_hotkey_on_subnet(
