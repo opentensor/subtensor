@@ -3553,10 +3553,10 @@ fn test_has_live_commit_classic() {
 
         System::set_block_number(100);
         let h = BlakeTwo256::hash(&[42]);
-        WeightCommits::<Test>::insert(netuid, &hotkey, vec![(h, 99, 0, 0)]);
+        WeightCommits::<Test>::insert(netuid, hotkey, vec![(h, 99, 0, 0)]);
         assert!(SubtensorModule::has_live_commit(netuid, &hotkey, 0));
 
-        WeightCommits::<Test>::mutate(netuid, &hotkey, |v| v.as_mut().unwrap()[0].1 = 1);
+        WeightCommits::<Test>::mutate(netuid, hotkey, |v| v.as_mut().unwrap()[0].1 = 1);
         assert!(!SubtensorModule::has_live_commit(netuid, &hotkey, 0));
     });
 }
@@ -3577,9 +3577,7 @@ fn test_has_live_commit_crv3() {
 
         let dummy: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>> =
             BoundedVec::truncate_from(vec![1, 2, 3]);
-        CRV3WeightCommits::<Test>::mutate(netuid, epoch_now, |q| {
-            q.push_back((hotkey.clone(), dummy, 0))
-        });
+        CRV3WeightCommits::<Test>::mutate(netuid, epoch_now, |q| q.push_back((hotkey, dummy, 0)));
 
         assert!(SubtensorModule::has_live_commit(netuid, &hotkey, epoch_now));
         assert!(!SubtensorModule::has_live_commit(
@@ -3614,7 +3612,7 @@ fn test_epoch_masks_unrevealed_commit() {
         // uid‑0 posts (never‑revealed) commit
         let hot0 = U256::from(0);
         let h = BlakeTwo256::hash(&[99]);
-        WeightCommits::<Test>::insert(netuid, &hot0, vec![(h, System::block_number(), 0, 0)]);
+        WeightCommits::<Test>::insert(netuid, hot0, vec![(h, System::block_number(), 0, 0)]);
 
         // allow uid‑1 to set weights (temporarily drop CR & rate‑limit)
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
@@ -3715,7 +3713,7 @@ fn test_has_live_commit_mixed_classic() {
         // One expired commit (blk 1), one live commit (blk 499)
         let h1 = BlakeTwo256::hash(&[1]);
         let h2 = BlakeTwo256::hash(&[2]);
-        WeightCommits::<Test>::insert(netuid, &hotkey, vec![(h1, 1, 0, 0), (h2, 499, 0, 0)]);
+        WeightCommits::<Test>::insert(netuid, hotkey, vec![(h1, 1, 0, 0), (h2, 499, 0, 0)]);
 
         assert!(SubtensorModule::has_live_commit(netuid, &hotkey, 0));
     });
