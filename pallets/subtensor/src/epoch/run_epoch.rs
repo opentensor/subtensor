@@ -578,28 +578,27 @@ impl<T: Config> Pallet<T> {
         log::trace!("Weights (permit+diag+outdate): {:?}", &weights);
 
         if Self::get_commit_reveal_weights_enabled(netuid) {
-            let mut pending_commit_mask: Vec<bool> = vec![false; n as usize];
+            let mut reveal_window_mask: Vec<bool> = vec![false; n as usize];
 
             let current_epoch = Self::get_epoch_index(netuid, current_block);
             let reveal_period = Self::get_reveal_period(netuid);
-            let earliest_epoch = current_epoch.saturating_sub(reveal_period.saturating_sub(1));
-            let last_tempo_block = current_block.saturating_sub(tempo);
 
-            for (uid_i, (_, hotkey)) in hotkeys.iter().enumerate() {
-                let unrevealed = Self::has_live_commit(netuid, hotkey, earliest_epoch);
-                let first_tempo = block_at_registration[uid_i] >= last_tempo_block;
+            for (uid_i, _) in hotkeys.iter().enumerate() {
+                // Epoch in which this UID most recently registered.
+                let reg_epoch = Self::get_epoch_index(netuid, block_at_registration[uid_i]);
 
-                if unrevealed || first_tempo {
-                    pending_commit_mask[uid_i] = true;
+                // Still within [reg_epoch , reg_epoch + reveal_period - 1] ?
+                if current_epoch < reg_epoch.saturating_add(reveal_period) {
+                    reveal_window_mask[uid_i] = true;
                 }
             }
 
-            if pending_commit_mask.iter().any(|&b| b) {
+            if reveal_window_mask.iter().any(|&b| b) {
                 log::trace!(
-                    "Masking validators (unrevealed commit or first-tempo): {:?}",
-                    pending_commit_mask
+                    "Masking validators inside reveal window: {:?}",
+                    reveal_window_mask
                 );
-                weights = mask_rows_sparse(&pending_commit_mask, &weights);
+                weights = mask_rows_sparse(&reveal_window_mask, &weights);
             }
         }
 
