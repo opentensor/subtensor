@@ -180,3 +180,34 @@ fn test_update_tao_weight_max_bound_clamping() {
         assert_eq!(new_weight, max_weight);
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=DEBUG cargo test --release -p pallet-subtensor test_update_tao_weight_equal_growth -- --nocapture
+#[test]
+fn test_update_tao_weight_equal_growth() {
+    new_test_ext(1).execute_with(|| {
+        // Setup: Current total > expected total (overfilled) to force weight up
+        let netuid1 = NetUid::from(1);
+
+        let initial_reserves = 1000u64;
+        TaoReservesAtLastBlock::<Test>::set(initial_reserves);
+
+        // Set inital weight at max
+        Pallet::<Test>::set_tao_weight_from_float(U96F32::saturating_from_num(0.15));
+        let initial_weight_float = Pallet::<Test>::get_tao_weight();
+        let initial_weight_u64 = TaoWeight::<Test>::get();
+
+        // Create massive overfill to force weight up
+        NetworksAdded::<Test>::insert(&netuid1, true);
+        SubnetTAO::<Test>::insert(&netuid1, 1_100u64);
+
+        let block_emission = U96F32::saturating_from_num(100);
+
+        // Current total: 1_100, Expected: 1_100, Diff: 0 (equal growth)
+        Pallet::<Test>::update_tao_weight(block_emission);
+
+        let new_weight = TaoWeight::<Test>::get();
+
+        // Weight should be clamped to maximum
+        assert_eq!(new_weight, initial_weight_u64);
+    });
+}
