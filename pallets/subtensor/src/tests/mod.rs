@@ -24,5 +24,6 @@ mod subnet;
 mod swap_coldkey;
 mod swap_hotkey;
 mod swap_hotkey_with_subnet;
+mod tao_weight;
 mod uids;
 mod weights;
