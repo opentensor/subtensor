@@ -110,7 +110,9 @@ impl<T: Config> Pallet<T> {
         let prev_reserves: U96F32 = U96F32::saturating_from_num(prev_reserves);
         let expected_reserves = prev_reserves.saturating_add(block_emission);
 
-        let tick = U96F32::saturating_from_num(0.01 / 7200.0);
+        // Tick size: 1/3,000,000 = 0.00000033333... (0.000033333...%)
+        let tick =
+            U96F32::saturating_from_num(1u64).safe_div(U96F32::saturating_from_num(3_000_000u64));
         let tao_weight = Self::get_tao_weight();
 
         let min_weight_u64 = Self::convert_float_to_u64(U96F32::saturating_from_num(0.09));
@@ -118,27 +120,49 @@ impl<T: Config> Pallet<T> {
 
         let mut next_tao_weight_u64 = TaoWeight::<T>::get();
 
+        let tao_scale = U96F32::saturating_from_num(1_000_000_000u64);
+
         // 3)  Compare difference between current and expected reserves.
         // 3a) We’re under‐filled (need to sell less / weight ↓).
         if current_reserves < expected_reserves {
-            let diff: U96F32 = expected_reserves
-                .saturating_sub(current_reserves)
-                .saturating_mul(tick);
-            let next_tao_weight_float = U96F32::saturating_from_num(1)
-                .saturating_sub(diff)
-                .saturating_mul(tao_weight);
+            let diff_raw = expected_reserves.saturating_sub(current_reserves);
+            // Convert to actual TAO units by dividing by 1e9
+            let diff_tao = diff_raw.safe_div(tao_scale);
+            // Apply 1 tick per TAO difference
+            let adjustment = diff_tao.saturating_mul(tick);
+            let next_tao_weight_float = tao_weight.saturating_sub(adjustment);
 
             next_tao_weight_u64 = Self::convert_float_to_u64(next_tao_weight_float);
+
+            log::debug!(
+                "TAO reserves under-filled: current_reserves: {}, expected_reserves: {}, diff_tao: {}, adjustment: {}, next_tao_weight_float: {}, next_tao_weight_u64: {}",
+                current_reserves,
+                expected_reserves,
+                diff_tao,
+                adjustment,
+                next_tao_weight_float,
+                next_tao_weight_u64
+            );
         // 3b) We’re over‐filled (need to sell more / weight ↑).
         } else if expected_reserves < current_reserves {
-            let diff: U96F32 = current_reserves
-                .saturating_sub(expected_reserves)
-                .saturating_mul(tick);
-            let next_tao_weight_float = U96F32::saturating_from_num(1)
-                .saturating_add(diff)
-                .saturating_mul(tao_weight);
+            let diff_raw = current_reserves.saturating_sub(expected_reserves);
+            // Convert to actual TAO units by dividing by 1e9
+            let diff_tao = diff_raw.safe_div(tao_scale);
+            // Apply 1 tick per TAO difference
+            let adjustment = diff_tao.saturating_mul(tick);
+            let next_tao_weight_float = tao_weight.saturating_add(adjustment);
 
             next_tao_weight_u64 = Self::convert_float_to_u64(next_tao_weight_float);
+
+            log::debug!(
+                "TAO reserves over-filled: current_reserves: {}, expected_reserves: {}, diff_tao: {}, adjustment: {}, next_tao_weight_float: {}, next_tao_weight_u64: {}",
+                current_reserves,
+                expected_reserves,
+                diff_tao,
+                adjustment,
+                next_tao_weight_float,
+                next_tao_weight_u64
+            );
         }
 
         // 4) Clamp TAO weight and update storage.
