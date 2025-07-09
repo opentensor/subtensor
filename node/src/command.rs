@@ -231,7 +231,11 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(&cli.run)?;
             runner.run_node_until_exit(|config| async move {
                 let mut config = override_default_heap_pages(config, 60_000);
-                config.rpc.rate_limit = None;
+
+                // If the operator did **not** supply `--rpc-rate-limit`, disable the limiter.
+                if cli.rpc_rate_limit.is_none() {
+                    config.rpc.rate_limit = None;
+                }
                 service::build_full(config, cli.eth, cli.sealing)
                     .map_err(Into::into)
                     .await
