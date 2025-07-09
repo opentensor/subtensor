@@ -30,7 +30,7 @@ pub fn migrate_tao_reserves_at_last_block<T: Config>() -> Weight {
     // 1) Migrate TAO reserves at last block
     // -------------------------------------
     let current_reserves_vec: Vec<u64> = <SubnetTAO<T> as IterableStorageMap<NetUid, u64>>::iter()
-        .filter(|(netuid, _)| netuid.is_root() == false)
+        .filter(|(netuid, _)| !netuid.is_root())
         .map(|(_, reserves)| reserves)
         .collect();
     let current_reserves: u64 = current_reserves_vec.iter().sum();

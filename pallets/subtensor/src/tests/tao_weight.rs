@@ -28,13 +28,13 @@ fn test_update_tao_weight_basic_functionality() {
 
         TaoReservesAtLastBlock::<Test>::set(initial_reserves);
         Pallet::<Test>::set_tao_weight_from_float(initial_weight);
-        NetworksAdded::<Test>::insert(&netuid1, true);
-        NetworksAdded::<Test>::insert(&netuid2, true);
-        SubnetTAO::<Test>::insert(&netuid1, 50_000_000_000_000u64);
-        SubnetTAO::<Test>::insert(&netuid2, 60_000_000_000_000u64);
+        NetworksAdded::<Test>::insert(netuid1, true);
+        NetworksAdded::<Test>::insert(netuid2, true);
+        SubnetTAO::<Test>::insert(netuid1, 50_000_000_000_000u64);
+        SubnetTAO::<Test>::insert(netuid2, 60_000_000_000_000u64);
 
         // Mock the subnet list (excluding ROOT)
-        let mut subnets = vec![netuid1, netuid2];
+        let mut subnets = [netuid1, netuid2];
 
         // Set block emission
         let block_emission = U96F32::saturating_from_num(1_000_000_000u64);
@@ -69,12 +69,12 @@ fn test_update_tao_weight_overfilled_scenario() {
         let initial_weight_float = Pallet::<Test>::get_tao_weight();
         let initial_weight_u64 = TaoWeight::<Test>::get();
 
-        NetworksAdded::<Test>::insert(&netuid1, true);
-        NetworksAdded::<Test>::insert(&netuid2, true);
+        NetworksAdded::<Test>::insert(netuid1, true);
+        NetworksAdded::<Test>::insert(netuid2, true);
 
         // Set high subnet TAO amounts (overfilled, 10 tao growth)
-        SubnetTAO::<Test>::insert(&netuid1, 50_010_000_000_000u64);
-        SubnetTAO::<Test>::insert(&netuid2, 50_000_000_000_000u64);
+        SubnetTAO::<Test>::insert(netuid1, 50_010_000_000_000u64);
+        SubnetTAO::<Test>::insert(netuid2, 50_000_000_000_000u64);
 
         let block_emission = U96F32::saturating_from_num(1_000_000_000u64);
 
@@ -114,12 +114,12 @@ fn test_update_tao_weight_underfilled_scenario() {
         let initial_weight_float = Pallet::<Test>::get_tao_weight();
         let initial_weight_u64 = TaoWeight::<Test>::get();
 
-        NetworksAdded::<Test>::insert(&netuid1, true);
-        NetworksAdded::<Test>::insert(&netuid2, true);
+        NetworksAdded::<Test>::insert(netuid1, true);
+        NetworksAdded::<Test>::insert(netuid2, true);
 
         // Set low subnet TAO amounts (underfilled)
-        SubnetTAO::<Test>::insert(&netuid1, 50_000_000_000_000u64);
-        SubnetTAO::<Test>::insert(&netuid2, 50_000_000_000_000u64);
+        SubnetTAO::<Test>::insert(netuid1, 50_000_000_000_000u64);
+        SubnetTAO::<Test>::insert(netuid2, 50_000_000_000_000u64);
 
         let block_emission = U96F32::saturating_from_num(1_000_000_000u64);
 
@@ -159,8 +159,8 @@ fn test_update_tao_weight_min_bound_clamping() {
         let initial_weight_u64 = TaoWeight::<Test>::get();
 
         // Create massive underfill to force weight down
-        NetworksAdded::<Test>::insert(&netuid1, true);
-        SubnetTAO::<Test>::insert(&netuid1, 50_000_000_000_000u64);
+        NetworksAdded::<Test>::insert(netuid1, true);
+        SubnetTAO::<Test>::insert(netuid1, 50_000_000_000_000u64);
 
         let block_emission = U96F32::saturating_from_num(1_000_000_000u64);
 
@@ -192,8 +192,8 @@ fn test_update_tao_weight_max_bound_clamping() {
         let initial_weight_u64 = TaoWeight::<Test>::get();
 
         // Create massive overfill to force weight up
-        NetworksAdded::<Test>::insert(&netuid1, true);
-        SubnetTAO::<Test>::insert(&netuid1, 150_000_000_000_000u64);
+        NetworksAdded::<Test>::insert(netuid1, true);
+        SubnetTAO::<Test>::insert(netuid1, 150_000_000_000_000u64);
 
         let block_emission = U96F32::saturating_from_num(1_000_000_000u64);
 
@@ -225,8 +225,8 @@ fn test_update_tao_weight_equal_growth() {
         let initial_weight_u64 = TaoWeight::<Test>::get();
 
         // Create massive overfill to force weight up
-        NetworksAdded::<Test>::insert(&netuid1, true);
-        SubnetTAO::<Test>::insert(&netuid1, 100_001_000_000_000u64);
+        NetworksAdded::<Test>::insert(netuid1, true);
+        SubnetTAO::<Test>::insert(netuid1, 100_001_000_000_000u64);
 
         let block_emission = U96F32::saturating_from_num(1_000_000_000u64);
 
@@ -259,12 +259,12 @@ fn test_update_tao_weight_full_swing_up() {
         let initial_weight_float = Pallet::<Test>::get_tao_weight();
         let initial_weight_u64 = TaoWeight::<Test>::get();
 
-        NetworksAdded::<Test>::insert(&netuid1, true);
-        NetworksAdded::<Test>::insert(&netuid2, true);
+        NetworksAdded::<Test>::insert(netuid1, true);
+        NetworksAdded::<Test>::insert(netuid2, true);
 
         // Create massive overfill of 270k TAO, enough to swing the full 9% up
-        SubnetTAO::<Test>::insert(&netuid1, 500_000_000_000_000u64);
-        SubnetTAO::<Test>::insert(&netuid2, 670_001_000_000_000u64);
+        SubnetTAO::<Test>::insert(netuid1, 500_000_000_000_000u64);
+        SubnetTAO::<Test>::insert(netuid2, 670_001_000_000_000u64);
 
         let block_emission = U96F32::saturating_from_num(1_000_000_000u64);
 
@@ -309,12 +309,12 @@ fn test_update_tao_weight_full_swing_down() {
         let initial_weight_float = Pallet::<Test>::get_tao_weight();
         let initial_weight_u64 = TaoWeight::<Test>::get();
 
-        NetworksAdded::<Test>::insert(&netuid1, true);
-        NetworksAdded::<Test>::insert(&netuid2, true);
+        NetworksAdded::<Test>::insert(netuid1, true);
+        NetworksAdded::<Test>::insert(netuid2, true);
 
         // Create massive overfill of 270k TAO, enough to swing the full 9% up
-        SubnetTAO::<Test>::insert(&netuid1, 500_000_000_000_000u64);
-        SubnetTAO::<Test>::insert(&netuid2, 130_001_000_000_000u64);
+        SubnetTAO::<Test>::insert(netuid1, 500_000_000_000_000u64);
+        SubnetTAO::<Test>::insert(netuid2, 130_001_000_000_000u64);
 
         let block_emission = U96F32::saturating_from_num(1_000_000_000u64);
 
@@ -359,12 +359,12 @@ fn test_update_tao_weight_half_swing_up() {
         let initial_weight_float = Pallet::<Test>::get_tao_weight();
         let initial_weight_u64 = TaoWeight::<Test>::get();
 
-        NetworksAdded::<Test>::insert(&netuid1, true);
-        NetworksAdded::<Test>::insert(&netuid2, true);
+        NetworksAdded::<Test>::insert(netuid1, true);
+        NetworksAdded::<Test>::insert(netuid2, true);
 
         // Create massive overfill of 270k TAO, enough to swing the full 9% up
-        SubnetTAO::<Test>::insert(&netuid1, 500_000_000_000_000u64);
-        SubnetTAO::<Test>::insert(&netuid2, 535_001_000_000_000u64);
+        SubnetTAO::<Test>::insert(netuid1, 500_000_000_000_000u64);
+        SubnetTAO::<Test>::insert(netuid2, 535_001_000_000_000u64);
 
         let block_emission = U96F32::saturating_from_num(1_000_000_000u64);
 
@@ -409,12 +409,12 @@ fn test_update_tao_weight_half_swing_down() {
         let initial_weight_float = Pallet::<Test>::get_tao_weight();
         let initial_weight_u64 = TaoWeight::<Test>::get();
 
-        NetworksAdded::<Test>::insert(&netuid1, true);
-        NetworksAdded::<Test>::insert(&netuid2, true);
+        NetworksAdded::<Test>::insert(netuid1, true);
+        NetworksAdded::<Test>::insert(netuid2, true);
 
         // Create massive overfill of 270k TAO, enough to swing the full 9% up
-        SubnetTAO::<Test>::insert(&netuid1, 500_000_000_000_000u64);
-        SubnetTAO::<Test>::insert(&netuid2, 264_999_000_000_000u64);
+        SubnetTAO::<Test>::insert(netuid1, 500_000_000_000_000u64);
+        SubnetTAO::<Test>::insert(netuid2, 264_999_000_000_000u64);
 
         let block_emission = U96F32::saturating_from_num(1_000_000_000u64);
 

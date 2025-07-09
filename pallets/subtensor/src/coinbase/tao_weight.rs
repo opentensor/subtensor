@@ -5,11 +5,11 @@ use substrate_fixed::types::U96F32;
 impl<T: Config> Pallet<T> {
     pub fn convert_float_to_u64(float: U96F32) -> u64 {
         // Convert the U96F32 weight to a u64 by multiplying with u64::MAX
-        let u64_value = float
-            .saturating_mul(U96F32::saturating_from_num(u64::MAX))
-            .saturating_to_num::<u64>();
+        
 
-        u64_value
+        float
+            .saturating_mul(U96F32::saturating_from_num(u64::MAX))
+            .saturating_to_num::<u64>()
     }
     /// Retrieves the global global weight as a normalized value between 0 and 1.
     ///
@@ -101,7 +101,7 @@ impl<T: Config> Pallet<T> {
         // 1) Sum raw TAO across all subnets (excluding ROOT).
         let current_reserves: U96F32 = Self::get_all_subnet_netuids()
             .into_iter()
-            .filter(|&netuid| netuid.is_root() == false)
+            .filter(|&netuid| !netuid.is_root())
             .map(|netuid| U96F32::saturating_from_num(SubnetTAO::<T>::get(&netuid)))
             .sum();
 
