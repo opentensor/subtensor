@@ -619,8 +619,14 @@ impl<T: Config> Pallet<T> {
         // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
         let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
         if mechanism_id == 1 {
-            let swap_result =
-                T::SwapInterface::swap(netuid.into(), OrderType::Buy, tao, price_limit, false)?;
+            let swap_result = T::SwapInterface::swap(
+                netuid.into(),
+                OrderType::Buy,
+                tao,
+                price_limit,
+                false,
+                false,
+            )?;
 
             // Decrease Alpha reserves.
             Self::decrease_provided_alpha_reserve(
@@ -673,13 +679,20 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         alpha: u64,
         price_limit: u64,
+        drop_fees: bool,
     ) -> Result<SwapResult, DispatchError> {
         // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
         let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
         // Step 2: Swap alpha and attain tao
         if mechanism_id == 1 {
-            let swap_result =
-                T::SwapInterface::swap(netuid.into(), OrderType::Sell, alpha, price_limit, false)?;
+            let swap_result = T::SwapInterface::swap(
+                netuid.into(),
+                OrderType::Sell,
+                alpha,
+                price_limit,
+                drop_fees,
+                false,
+            )?;
 
             // Increase only the protocol Alpha reserve. We only use the sum of
             // (SubnetAlphaIn + SubnetAlphaInProvided) in alpha_reserve(), so it is irrelevant
@@ -691,7 +704,7 @@ impl<T: Config> Pallet<T> {
             // Decrease Alpha outstanding.
             // TODO: Deprecate, not accurate in v3 anymore
             SubnetAlphaOut::<T>::mutate(netuid, |total| {
-                *total = total.saturating_sub(alpha);
+                *total = total.saturating_sub(swap_result.alpha_reserve_delta as u64);
             });
 
             // Decrease tao reserves.
@@ -733,13 +746,15 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         alpha: u64,
         price_limit: u64,
+        drop_fees: bool,
     ) -> Result<u64, DispatchError> {
-        //  Decrease alpha on subneet
+        //  Decrease alpha on subnet
         let actual_alpha_decrease =
             Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
 
         // Swap the alpha for TAO.
-        let swap_result = Self::swap_alpha_for_tao(netuid, actual_alpha_decrease, price_limit)?;
+        let swap_result =
+            Self::swap_alpha_for_tao(netuid, actual_alpha_decrease, price_limit, drop_fees)?;
 
         // Refund the unused alpha (in case if limit price is hit)
         let refund = actual_alpha_decrease.saturating_sub(
@@ -793,6 +808,7 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         tao: u64,
         price_limit: u64,
+        set_limit: bool,
     ) -> Result<u64, DispatchError> {
         // Swap the tao to alpha.
         let swap_result = Self::swap_tao_for_alpha(netuid, tao, price_limit)?;
@@ -828,6 +844,10 @@ impl<T: Config> Pallet<T> {
         }
 
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
+
+        if set_limit {
+            Self::set_stake_operation_limit(hotkey, coldkey, netuid.into());
+        }
 
         // Deposit and log the staking event.
         Self::deposit_event(Event::StakeAdded(
@@ -941,6 +961,8 @@ impl<T: Config> Pallet<T> {
         // Ensure that the subnet exists.
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
+        Self::ensure_stake_operation_limit_not_exceeded(hotkey, coldkey, netuid.into())?;
+
         // Ensure that the subnet is enabled.
         // Self::ensure_subtoken_enabled(netuid)?;
 
@@ -1029,6 +1051,12 @@ impl<T: Config> Pallet<T> {
         if origin_coldkey == destination_coldkey && origin_hotkey == destination_hotkey {
             ensure!(origin_netuid != destination_netuid, Error::<T>::SameNetuid);
         }
+
+        Self::ensure_stake_operation_limit_not_exceeded(
+            origin_hotkey,
+            origin_coldkey,
+            origin_netuid.into(),
+        )?;
 
         // Ensure that both subnets exist.
         ensure!(
@@ -1146,6 +1174,27 @@ impl<T: Config> Pallet<T> {
             SubnetAlphaInProvided::<T>::set(netuid, 0_u64);
             SubnetAlphaIn::<T>::set(netuid, subnet_alpha.saturating_sub(carry_over));
         }
+    }
+
+    pub fn set_stake_operation_limit(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        netuid: NetUid,
+    ) {
+        StakingOperationRateLimiter::<T>::insert((hotkey, coldkey, netuid), true);
+    }
+
+    pub fn ensure_stake_operation_limit_not_exceeded(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        netuid: NetUid,
+    ) -> Result<(), Error<T>> {
+        ensure!(
+            !StakingOperationRateLimiter::<T>::contains_key((hotkey, coldkey, netuid)),
+            Error::<T>::StakingOperationRateLimitExceeded
+        );
+
+        Ok(())
     }
 }
 

@@ -13,7 +13,7 @@ pub fn migrate_fix_is_network_member<T: Config>() -> Weight {
     if HasMigrationRun::<T>::get(&migration_name) {
         log::info!(
             "Migration '{:?}' has already run. Skipping.",
-            migration_name
+            String::from_utf8_lossy(&migration_name)
         );
         return weight;
     }

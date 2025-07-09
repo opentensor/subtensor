@@ -1,12 +1,12 @@
+use super::*;
 use alloc::string::String;
-
 use frame_support::IterableStorageMap;
 use frame_support::{traits::Get, weights::Weight};
 
-use super::*;
-
-pub fn migrate_set_min_burn<T: Config>() -> Weight {
-    let migration_name = b"migrate_set_min_burn_1".to_vec();
+/// Migrates the subnet symbols to their correct values because some shift is present
+/// after subnet 81.
+pub fn migrate_subnet_symbols<T: Config>() -> Weight {
+    let migration_name = b"migrate_subnet_symbols".to_vec();
 
     // Initialize the weight with one read operation.
     let mut weight = T::DbWeight::get().reads(1);
@@ -24,17 +24,17 @@ pub fn migrate_set_min_burn<T: Config>() -> Weight {
         String::from_utf8_lossy(&migration_name)
     );
 
+    // Get all netuids
     let netuids: Vec<NetUid> = <NetworksAdded<T> as IterableStorageMap<NetUid, bool>>::iter()
         .map(|(netuid, _)| netuid)
         .collect();
-    weight = weight.saturating_add(T::DbWeight::get().reads(netuids.len() as u64));
 
     for netuid in netuids.iter() {
-        if netuid.is_root() {
-            continue;
-        }
-        // Set min burn to the newest initial min burn
-        Pallet::<T>::set_min_burn(*netuid, T::InitialMinBurn::get());
+        // Get the symbol for the subnet
+        let symbol = Pallet::<T>::get_symbol_for_subnet(*netuid);
+
+        // Set the symbol for the subnet
+        TokenSymbol::<T>::insert(*netuid, symbol);
         weight = weight.saturating_add(T::DbWeight::get().writes(1));
     }
 

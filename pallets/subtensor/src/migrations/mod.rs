@@ -1,4 +1,5 @@
 use super::*;
+use alloc::string::String;
 use frame_support::pallet_prelude::Weight;
 use sp_io::KillStorageResult;
 use sp_io::hashing::twox_128;
@@ -10,6 +11,7 @@ pub mod migrate_create_root_network;
 pub mod migrate_delete_subnet_21;
 pub mod migrate_delete_subnet_3;
 pub mod migrate_fix_is_network_member;
+pub mod migrate_fix_root_subnet_tao;
 pub mod migrate_identities_v2;
 pub mod migrate_init_total_issuance;
 pub mod migrate_orphaned_storage_items;
@@ -25,9 +27,11 @@ pub mod migrate_reset_max_burn;
 pub mod migrate_set_first_emission_block_number;
 pub mod migrate_set_min_burn;
 pub mod migrate_set_min_difficulty;
+pub mod migrate_set_registration_enable;
 pub mod migrate_set_subtoken_enabled;
 pub mod migrate_stake_threshold;
 pub mod migrate_subnet_identities_to_v3;
+pub mod migrate_subnet_symbols;
 pub mod migrate_subnet_volume;
 pub mod migrate_to_v1_separate_emission;
 pub mod migrate_to_v2_fixed_total_stake;
@@ -46,7 +50,7 @@ pub(crate) fn migrate_storage<T: Config>(
     if HasMigrationRun::<T>::get(&migration_name_bytes) {
         log::info!(
             "Migration '{:?}' has already run. Skipping.",
-            migration_name
+            String::from_utf8_lossy(&migration_name_bytes)
         );
         return weight;
     }

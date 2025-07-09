@@ -39,7 +39,7 @@ pub fn migrate_remove_unused_maps_and_values<T: Config>() -> Weight {
     if HasMigrationRun::<T>::get(&migration_name) {
         log::info!(
             "Migration '{:?}' has already run. Skipping.",
-            migration_name
+            String::from_utf8_lossy(&migration_name)
         );
         return weight;
     }

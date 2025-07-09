@@ -5,8 +5,8 @@ use frame_support::{traits::Get, weights::Weight};
 
 use super::*;
 
-pub fn migrate_set_min_burn<T: Config>() -> Weight {
-    let migration_name = b"migrate_set_min_burn_1".to_vec();
+pub fn migrate_set_registration_enable<T: Config>() -> Weight {
+    let migration_name = b"migrate_set_registration_enable".to_vec();
 
     // Initialize the weight with one read operation.
     let mut weight = T::DbWeight::get().reads(1);
@@ -33,9 +33,11 @@ pub fn migrate_set_min_burn<T: Config>() -> Weight {
         if netuid.is_root() {
             continue;
         }
-        // Set min burn to the newest initial min burn
-        Pallet::<T>::set_min_burn(*netuid, T::InitialMinBurn::get());
-        weight = weight.saturating_add(T::DbWeight::get().writes(1));
+
+        if !Pallet::<T>::get_network_registration_allowed(*netuid) {
+            Pallet::<T>::set_network_registration_allowed(*netuid, true);
+            weight = weight.saturating_add(T::DbWeight::get().writes(1));
+        }
     }
 
     // Mark the migration as completed

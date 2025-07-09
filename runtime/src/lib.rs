@@ -16,6 +16,7 @@ mod migrations;
 extern crate alloc;
 
 use codec::{Compact, Decode, Encode};
+use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Imbalance, InsideBoth};
 use frame_support::{
     PalletId,
@@ -217,7 +218,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 279,
+    spec_version: 291,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -530,7 +531,7 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
     }
 }
 
-use pallet_subtensor::{CollectiveInterface, MemberManagement};
+use pallet_subtensor::{CollectiveInterface, MemberManagement, ProxyInterface};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
@@ -708,18 +709,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(
                         pallet_subtensor::Call::remove_stake_limit { .. }
                     )
-                    // | RuntimeCall::SubtensorModule(
-                    //     pallet_subtensor::Call::add_stake_aggregate { .. }
-                    // )
-                    // | RuntimeCall::SubtensorModule(
-                    //     pallet_subtensor::Call::add_stake_limit_aggregate { .. }
-                    // )
-                    // | RuntimeCall::SubtensorModule(
-                    //     pallet_subtensor::Call::remove_stake_aggregate { .. }
-                    // )
-                    // | RuntimeCall::SubtensorModule(
-                    //     pallet_subtensor::Call::remove_stake_limit_aggregate { .. }
-                    // )
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::remove_stake_full_limit { .. }
+                    )
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::unstake_all { .. })
                     | RuntimeCall::SubtensorModule(
                         pallet_subtensor::Call::unstake_all_alpha { .. }
@@ -758,13 +750,21 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 _ => false,
             },
             ProxyType::Owner => {
-                matches!(c, RuntimeCall::AdminUtils(..))
-                    && !matches!(
-                        c,
-                        RuntimeCall::AdminUtils(
-                            pallet_admin_utils::Call::sudo_set_sn_owner_hotkey { .. }
+                matches!(
+                    c,
+                    RuntimeCall::AdminUtils(..)
+                        | RuntimeCall::SubtensorModule(
+                            pallet_subtensor::Call::set_subnet_identity { .. }
                         )
+                        | RuntimeCall::SubtensorModule(
+                            pallet_subtensor::Call::update_symbol { .. }
+                        )
+                ) && !matches!(
+                    c,
+                    RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_sn_owner_hotkey { .. }
                     )
+                )
             }
             ProxyType::NonCritical => !matches!(
                 c,
@@ -800,18 +800,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake_limit { .. })
                     | RuntimeCall::SubtensorModule(
                         pallet_subtensor::Call::remove_stake_limit { .. }
-                    ) // | RuntimeCall::SubtensorModule(
-                      //     pallet_subtensor::Call::add_stake_aggregate { .. }
-                      // )
-                      // | RuntimeCall::SubtensorModule(
-                      //     pallet_subtensor::Call::add_stake_limit_aggregate { .. }
-                      // )
-                      // | RuntimeCall::SubtensorModule(
-                      //     pallet_subtensor::Call::remove_stake_aggregate { .. }
-                      // )
-                      // | RuntimeCall::SubtensorModule(
-                      //     pallet_subtensor::Call::remove_stake_limit_aggregate { .. }
-                      // )
+                    )
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::remove_stake_full_limit { .. }
+                    )
             ),
             ProxyType::Registration => matches!(
                 c,
@@ -844,6 +836,67 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey { .. })
             ),
+            ProxyType::SubnetLeaseBeneficiary => matches!(
+                c,
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::start_call { .. })
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_serving_rate_limit { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_min_difficulty { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_max_difficulty { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_weights_version_key { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_adjustment_alpha { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_max_weight_limit { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_immunity_period { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_min_allowed_weights { .. }
+                    )
+                    | RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_kappa { .. })
+                    | RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_rho { .. })
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_activity_cutoff { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_network_registration_allowed { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_network_pow_registration_allowed { .. }
+                    )
+                    | RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_max_burn { .. })
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_bonds_moving_average { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_bonds_penalty { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_commit_reveal_weights_enabled { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_liquid_alpha_enabled { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_alpha_values { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_commit_reveal_weights_interval { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_toggle_transfer { .. }
+                    )
+            ),
         }
     }
     fn is_superset(&self, o: &Self) -> bool {
@@ -875,6 +928,30 @@ impl pallet_proxy::Config for Runtime {
     type CallHasher = BlakeTwo256;
     type AnnouncementDepositBase = AnnouncementDepositBase;
     type AnnouncementDepositFactor = AnnouncementDepositFactor;
+}
+
+pub struct Proxier;
+impl ProxyInterface<AccountId> for Proxier {
+    fn add_lease_beneficiary_proxy(lease: &AccountId, beneficiary: &AccountId) -> DispatchResult {
+        pallet_proxy::Pallet::<Runtime>::add_proxy_delegate(
+            lease,
+            beneficiary.clone(),
+            ProxyType::SubnetLeaseBeneficiary,
+            0,
+        )
+    }
+
+    fn remove_lease_beneficiary_proxy(
+        lease: &AccountId,
+        beneficiary: &AccountId,
+    ) -> DispatchResult {
+        pallet_proxy::Pallet::<Runtime>::remove_proxy_delegate(
+            lease,
+            beneficiary.clone(),
+            ProxyType::SubnetLeaseBeneficiary,
+            0,
+        )
+    }
 }
 
 parameter_types! {
@@ -1135,6 +1212,7 @@ parameter_types! {
     };
     pub const SubtensorInitialKeySwapOnSubnetCost: u64 = 1_000_000; // 0.001 TAO
     pub const HotkeySwapOnSubnetInterval : BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
+    pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1207,6 +1285,8 @@ impl pallet_subtensor::Config for Runtime {
     type SwapInterface = Swap;
     type KeySwapOnSubnetCost = SubtensorInitialKeySwapOnSubnetCost;
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
+    type ProxyInterface = Proxier;
+    type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
 }
 
 parameter_types! {
@@ -1660,6 +1740,7 @@ mod benches {
         [pallet_subtensor, SubtensorModule]
         [pallet_drand, Drand]
         [pallet_crowdloan, Crowdloan]
+        [pallet_subtensor_swap, Swap]
     );
 }
 
