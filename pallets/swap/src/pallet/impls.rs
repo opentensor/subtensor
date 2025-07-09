@@ -587,11 +587,16 @@ impl<T: Config> Pallet<T> {
         if drop_fees {
             0
         } else {
-            let fee_rate = U64F64::saturating_from_num(FeeRate::<T>::get(netuid))
-                .safe_div(U64F64::saturating_from_num(u16::MAX));
-            U64F64::saturating_from_num(amount)
-                .saturating_mul(fee_rate)
-                .saturating_to_num::<u64>()
+            match T::SubnetInfo::mechanism(netuid) {
+                1 => {
+                    let fee_rate = U64F64::saturating_from_num(FeeRate::<T>::get(netuid))
+                        .safe_div(U64F64::saturating_from_num(u16::MAX));
+                    U64F64::saturating_from_num(amount)
+                        .saturating_mul(fee_rate)
+                        .saturating_to_num::<u64>()
+                }
+                _ => 0,
+            }
         }
     }
 

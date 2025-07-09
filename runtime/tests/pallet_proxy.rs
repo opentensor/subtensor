@@ -77,6 +77,31 @@ fn call_sn_owner_hotkey() -> RuntimeCall {
     })
 }
 
+// set subnet identity call
+fn call_set_subnet_identity() -> RuntimeCall {
+    let netuid = NetUid::from(1);
+    RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_subnet_identity {
+        netuid,
+        subnet_name: vec![],
+        github_repo: vec![],
+        subnet_contact: vec![],
+        subnet_url: vec![],
+        discord: vec![],
+        description: vec![],
+        logo_url: vec![],
+        additional: vec![],
+    })
+}
+
+// update symbol call
+fn call_update_symbol() -> RuntimeCall {
+    let netuid = NetUid::from(1);
+    RuntimeCall::SubtensorModule(pallet_subtensor::Call::update_symbol {
+        netuid,
+        symbol: vec![],
+    })
+}
+
 // critical call for Subtensor
 fn call_propose() -> RuntimeCall {
     let proposal = call_remark();
@@ -264,5 +289,20 @@ fn test_owner_type_cannot_set_sn_owner_hotkey() {
             }
             .into(),
         );
+    });
+}
+
+#[test]
+fn test_owner_type_can_set_subnet_identity_and_update_symbol() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Proxy::add_proxy(
+            RuntimeOrigin::signed(AccountId::from(ACCOUNT)),
+            AccountId::from(DELEGATE).into(),
+            ProxyType::Owner,
+            0
+        ));
+
+        verify_call_with_proxy_type(&ProxyType::Owner, &call_set_subnet_identity());
+        verify_call_with_proxy_type(&ProxyType::Owner, &call_update_symbol());
     });
 }
