@@ -3685,3 +3685,94 @@ fn test_epoch_masks_first_tempo() {
         assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, 1), 0);
     });
 }
+
+#[test]
+fn test_has_live_commit_none() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(10);
+        add_network(netuid, 8, 0);
+
+        let hotkey = U256::from(100);
+        let coldkey = U256::from(110);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // No WeightCommits / CRV3WeightCommits inserted.
+        assert!(!SubtensorModule::has_live_commit(netuid, &hotkey, 0));
+    });
+}
+
+#[test]
+fn test_has_live_commit_mixed_classic() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(11);
+        add_network(netuid, 8, 0);
+
+        let hotkey = U256::from(101);
+        let coldkey = U256::from(111);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        System::set_block_number(500);
+        // One expired commit (blk 1), one live commit (blk 499)
+        let h1 = BlakeTwo256::hash(&[1]);
+        let h2 = BlakeTwo256::hash(&[2]);
+        WeightCommits::<Test>::insert(netuid, &hotkey, vec![(h1, 1, 0, 0), (h2, 499, 0, 0)]);
+
+        assert!(SubtensorModule::has_live_commit(netuid, &hotkey, 0));
+    });
+}
+
+#[test]
+fn test_epoch_unmask_after_first_tempo_passed() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(13);
+        let tempo: u16 = 20;
+        add_network(netuid, tempo, 0);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        // uid‑0 registered > tempo ago
+        let hot0 = U256::from(300);
+        let cold0 = U256::from(330);
+        register_ok_neuron(netuid, hot0, cold0, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hot0, &cold0, netuid, 1_000,
+        );
+        run_to_block(tempo as u64 + 1);
+
+        // uid‑1 registers now (first‑tempo mask applies)
+        let hot1 = U256::from(301);
+        let cold1 = U256::from(331);
+        register_ok_neuron(netuid, hot1, cold1, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hot1, &cold1, netuid, 1_000,
+        );
+
+        SubtensorModule::set_max_allowed_validators(netuid, 2);
+        SubtensorModule::epoch(netuid, 10); // uid‑1 still masked
+
+        // Advance beyond first tempo of uid‑1
+        run_to_block(System::block_number() + tempo as u64 + 1);
+
+        // uid‑0 votes for uid‑1
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hot0),
+            netuid,
+            vec![1],
+            vec![u16::MAX],
+            0
+        ));
+        // uid‑1 bumps its last_update (any target)
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hot1),
+            netuid,
+            vec![0],
+            vec![u16::MAX],
+            0
+        ));
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        SubtensorModule::epoch(netuid, 100);
+        assert!(SubtensorModule::get_rank_for_uid(netuid, 1) > 0);
+    });
+}
