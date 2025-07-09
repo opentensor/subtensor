@@ -953,3 +953,40 @@ fn test_migrate_set_registration_enable() {
         assert!(!weight.is_zero(), "Migration weight should be non-zero");
     });
 }
+
+#[test]
+fn test_migrate_set_nominator_min_stake() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_set_nominator_min_stake";
+
+        let min_nomination_initial = 100_000_000;
+        let min_nomination_migrated = 10_000_000;
+        NominatorMinRequiredStake::<Test>::set(min_nomination_initial);
+
+        assert_eq!(
+            NominatorMinRequiredStake::<Test>::get(),
+            min_nomination_initial
+        );
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // Run the migration
+        let weight =
+            crate::migrations::migrate_set_nominator_min_stake::migrate_set_nominator_min_stake::<
+                Test,
+            >();
+
+        // Verify the migration ran correctly
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as run"
+        );
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+        assert_eq!(
+            NominatorMinRequiredStake::<Test>::get(),
+            min_nomination_migrated
+        );
+    });
+}
