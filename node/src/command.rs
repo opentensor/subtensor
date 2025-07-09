@@ -230,7 +230,8 @@ pub fn run() -> sc_cli::Result<()> {
         None => {
             let runner = cli.create_runner(&cli.run)?;
             runner.run_node_until_exit(|config| async move {
-                let config = override_default_heap_pages(config, 60_000);
+                let mut config = override_default_heap_pages(config, 60_000);
+                config.rpc.rate_limit = None;
                 service::build_full(config, cli.eth, cli.sealing)
                     .map_err(Into::into)
                     .await
