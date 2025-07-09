@@ -1,0 +1,22 @@
+./target/prod/production/node-subtensor 
+    --chain chainspecs/raw_spec_finney.json 
+    --base-path /home/blockchain/dev 
+    --sync=full 
+    --pruning archive 
+    --port 33333 
+    --max-runtime-instances 32 
+    --rpc-max-response-size 1024 
+    --rpc-max-request-size 1024 
+    --rpc-cors all 
+    --rpc-port 9999 
+    --bootnodes /dns/bootnode.finney.chain.opentensor.ai/tcp/30333/ws/p2p/12D3KooWRwbMb85RWnT8DSXSYMWQtuDwh4LJzndoRrTDotTR5gDC 
+    --no-mdns 
+    --in-peers 100 
+    --out-peers 100 
+    --prometheus-external 
+    --rpc-external 
+    --trie-cache-size 8192 
+    --no-private-ip 
+    --rpc-max-connections 1000 
+    --rpc-methods=unsafe 
+    --prometheus-port 9615

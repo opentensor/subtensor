@@ -573,7 +573,7 @@ pub mod pallet {
             proxy_type: T::ProxyType,
             delay: BlockNumberFor<T>,
         },
-	/// A pure proxy was killed by its spawner.
+        /// A pure proxy was killed by its spawner.
         PureKilled {
             // The pure proxy account that was destroyed.
             pure: T::AccountId,
