@@ -803,7 +803,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default minimum stake.
     pub fn DefaultMinStake<T: Config>() -> u64 {
-        20_000_000
+        2_000_000
     }
 
     #[pallet::type_value]
@@ -1170,7 +1170,8 @@ pub mod pallet {
     #[pallet::storage]
     /// ITEM( network_rate_limit )
     pub type NetworkRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkRateLimit<T>>;
-    #[pallet::storage] // --- ITEM( nominator_min_required_stake )
+    #[pallet::storage]
+    /// --- ITEM( nominator_min_required_stake ) --- Factor of DefaultMinStake in per-mill format.
     pub type NominatorMinRequiredStake<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage]
     /// ITEM( weights_version_key_rate_limit ) --- Rate limit in tempos.

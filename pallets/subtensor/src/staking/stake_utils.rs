@@ -444,19 +444,23 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Note
     /// This function only checks the stake for the specific hotkey-coldkey pair, not the total stake of the hotkey or coldkey individually.
-    pub fn has_enough_stake_on_subnet(
+    pub fn calculate_reduced_stake_on_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: NetUid,
         decrement: u64,
-    ) -> bool {
+    ) -> Result<u64, Error<T>> {
         // Retrieve the current stake for this hotkey-coldkey pair on the subnet
         let current_stake =
             Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
 
         // Compare the current stake with the requested decrement
         // Return true if the current stake is greater than or equal to the decrement
-        current_stake >= decrement
+        if current_stake >= decrement {
+            Ok(current_stake.saturating_sub(decrement))
+        } else {
+            Err(Error::<T>::NotEnoughStakeToWithdraw)
+        }
     }
 
     /// Retrieves the alpha (stake) value for a given hotkey and coldkey pair on a specific subnet.
@@ -966,12 +970,22 @@ impl<T: Config> Pallet<T> {
         // Ensure that the subnet is enabled.
         // Self::ensure_subtoken_enabled(netuid)?;
 
+        // Do not allow zero unstake amount
+        ensure!(alpha_unstaked > 0, Error::<T>::AmountTooLow);
+
         // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
+        // Bypass this check if the user unstakes full amount
+        let remaining_alpha_stake =
+            Self::calculate_reduced_stake_on_subnet(hotkey, coldkey, netuid, alpha_unstaked)?;
         match T::SwapInterface::sim_swap(netuid.into(), OrderType::Sell, alpha_unstaked) {
-            Ok(res) => ensure!(
-                res.amount_paid_out > DefaultMinStake::<T>::get(),
-                Error::<T>::AmountTooLow
-            ),
+            Ok(res) => {
+                if remaining_alpha_stake > 0 {
+                    ensure!(
+                        res.amount_paid_out >= DefaultMinStake::<T>::get(),
+                        Error::<T>::AmountTooLow
+                    );
+                }
+            }
             Err(_) => return Err(Error::<T>::InsufficientLiquidity),
         }
 
@@ -985,12 +999,6 @@ impl<T: Config> Pallet<T> {
         ensure!(
             Self::hotkey_account_exists(hotkey),
             Error::<T>::HotKeyAccountNotExists
-        );
-
-        // Ensure that the hotkey has enough stake to withdraw.
-        ensure!(
-            Self::has_enough_stake_on_subnet(hotkey, coldkey, netuid, alpha_unstaked),
-            Error::<T>::NotEnoughStakeToWithdraw
         );
 
         Ok(())

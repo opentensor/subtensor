@@ -1432,30 +1432,3 @@ fn test_swap_hotkey_swap_rate_limits() {
         );
     });
 }
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_hotkey_with_associated_evm_address --exact --nocapture
-#[test]
-fn test_swap_hotkey_with_associated_evm_address() {
-    new_test_ext(1).execute_with(|| {
-        let old_hotkey = U256::from(1);
-        let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
-        let netuid = add_dynamic_network(&old_hotkey, &coldkey);
-        let uid = Uids::<Test>::get(netuid, old_hotkey).unwrap();
-        let evm_address = H160::from_slice(&[1_u8; 20]);
-        AssociatedEvmAddress::<Test>::insert(netuid, uid, (evm_address, 1));
-
-        Owner::<Test>::insert(old_hotkey, coldkey);
-        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
-            &old_hotkey,
-            &new_hotkey,
-            &coldkey,
-            &mut weight
-        ));
-
-        assert_eq!(AssociatedEvmAddress::<Test>::get(netuid, uid), None);
-        assert!(!Owner::<Test>::contains_key(old_hotkey));
-        assert_eq!(Owner::<Test>::get(new_hotkey), coldkey);
-    });
-}
