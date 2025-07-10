@@ -587,8 +587,11 @@ impl<T: Config> Pallet<T> {
                 // Epoch in which this UID most recently registered.
                 let reg_epoch = Self::get_epoch_index(netuid, block_at_registration[uid_i]);
 
-                // Zero weights for miners during their registration tempo & the next one
-                if current_epoch < reg_epoch.saturating_add(reveal_period.saturating_mul(2)) {
+                // Zero weights for miners during their registration period &
+                // the one after in case of unrevealed commits from deregistered
+                if current_epoch
+                    < reg_epoch.saturating_add(reveal_period.saturating_mul(2))
+                {
                     reveal_window_mask[uid_i] = true;
                 }
             }
