@@ -560,7 +560,7 @@ where
                 forced_parent_hashes: None,
                 pending_create_inherent_data_providers,
             };
-            let deps = crate::rpc::FullDeps {
+            let deps = crate::babe_rpc::FullDeps {
                 client: client.clone(),
                 pool: pool.clone(),
                 command_sink: if sealing.is_some() {
@@ -575,7 +575,7 @@ where
                 },
                 select_chain: select_chain.clone(),
             };
-            crate::rpc::create_full(
+            crate::babe_rpc::create_full(
                 deps,
                 subscription_task_executor,
                 pubsub_notification_sinks.clone(),
