@@ -3774,3 +3774,220 @@ fn test_epoch_unmask_after_first_tempo_passed() {
         assert!(SubtensorModule::get_rank_for_uid(netuid, 1) > 0);
     });
 }
+
+#[test]
+fn test_epoch_masks_full_reveal_window() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(20);
+        let tempo: u16 = 10;
+        let reveal_period: u16 = 3;
+
+        add_network(netuid, tempo, 0);
+        SubtensorModule::set_reveal_period(netuid, reveal_period as u64);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        // target uid‑0, helper uid‑1
+        let (hot0, cold0) = (U256::from(400), U256::from(440));
+        let (hot1, cold1) = (U256::from(401), U256::from(441));
+        register_ok_neuron(netuid, hot0, cold0, 0);
+        register_ok_neuron(netuid, hot1, cold1, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hot0, &cold0, netuid, 1_000,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hot1, &cold1, netuid, 1_000,
+        );
+        SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
+        SubtensorModule::set_max_allowed_validators(netuid, 2);
+
+        // helper votes for target
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hot1),
+            netuid,
+            vec![0],
+            vec![u16::MAX],
+            0
+        ));
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        // epochs inside window → weight row must be empty
+        for _ in 0..reveal_period {
+            SubtensorModule::epoch(netuid, 1);
+            let row = SubtensorModule::get_weights_sparse(netuid)
+                .get(0)
+                .cloned()
+                .unwrap_or_default();
+            assert!(
+                row.is_empty(),
+                "weight row should be masked (empty) inside reveal window"
+            );
+            run_to_block(System::block_number() + tempo as u64 + 1);
+        }
+
+        // advance one more tempo; target bumps last_update
+        run_to_block(System::block_number() + tempo as u64 + 1);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hot0),
+            netuid,
+            vec![0],
+            vec![u16::MAX],
+            0
+        ));
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        // boundary epoch → row must be non‑empty
+        SubtensorModule::epoch(netuid, 1);
+        let row = SubtensorModule::get_weights_sparse(netuid)
+            .get(0)
+            .cloned()
+            .unwrap_or_default();
+        assert!(
+            !row.is_empty(),
+            "weight row should be un-masked (non-empty) after reveal window"
+        );
+    });
+}
+
+#[test]
+fn test_epoch_no_mask_after_window_even_if_unrevealed() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(21);
+        let tempo: u16 = 6;
+        let reveal_period: u16 = 2;
+
+        add_network(netuid, tempo, 0);
+        SubtensorModule::set_reveal_period(netuid, reveal_period as u64);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        let (hot0, cold0) = (U256::from(500), U256::from(550)); // target
+        let (hot1, cold1) = (U256::from(501), U256::from(551)); // helper
+        register_ok_neuron(netuid, hot0, cold0, 0);
+        register_ok_neuron(netuid, hot1, cold1, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hot0, &cold0, netuid, 1_000,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hot1, &cold1, netuid, 1_000,
+        );
+        SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
+        SubtensorModule::set_max_allowed_validators(netuid, 2);
+
+        // helper votes now
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hot1),
+            netuid,
+            vec![0],
+            vec![u16::MAX],
+            0
+        ));
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        // advance past reveal window + one extra tempo
+        for _ in 0..=reveal_period {
+            run_to_block(System::block_number() + tempo as u64 + 1);
+        }
+
+        // target bumps last_update
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hot0),
+            netuid,
+            vec![0],
+            vec![u16::MAX],
+            0
+        ));
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        // epoch should NOT remask
+        SubtensorModule::epoch(netuid, 1);
+        let row = SubtensorModule::get_weights_sparse(netuid)
+            .get(0)
+            .cloned()
+            .unwrap_or_default();
+        assert!(
+            !row.is_empty(),
+            "weight row must remain non-empty after window even with unrevealed commit"
+        );
+    });
+}
+
+#[test]
+fn test_epoch_mask_boundary() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(22);
+        let tempo: u16 = 4;
+        let reveal_period: u16 = 2;
+
+        add_network(netuid, tempo, 0);
+        SubtensorModule::set_reveal_period(netuid, reveal_period as u64);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        let (hot0, cold0) = (U256::from(600), U256::from(650)); // target
+        let (hot1, cold1) = (U256::from(601), U256::from(651)); // helper
+        register_ok_neuron(netuid, hot0, cold0, 0);
+        register_ok_neuron(netuid, hot1, cold1, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hot0, &cold0, netuid, 1_000,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hot1, &cold1, netuid, 1_000,
+        );
+        SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
+        SubtensorModule::set_max_allowed_validators(netuid, 2);
+
+        // helper votes from start
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hot1),
+            netuid,
+            vec![0],
+            vec![u16::MAX],
+            0
+        ));
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        // epoch 0 (masked)
+        SubtensorModule::epoch(netuid, 1);
+        let row0 = SubtensorModule::get_weights_sparse(netuid)
+            .get(0)
+            .cloned()
+            .unwrap_or_default();
+        assert!(row0.is_empty(), "row must be empty at epoch 0");
+
+        // advance reveal_period tempos + one extra
+        for _ in 0..=reveal_period {
+            run_to_block(System::block_number() + tempo as u64 + 1);
+        }
+
+        // target bumps last_update
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hot0),
+            netuid,
+            vec![0],
+            vec![u16::MAX],
+            0
+        ));
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        // boundary epoch
+        SubtensorModule::epoch(netuid, 1);
+        let row1 = SubtensorModule::get_weights_sparse(netuid)
+            .get(0)
+            .cloned()
+            .unwrap_or_default();
+        assert!(
+            !row1.is_empty(),
+            "row must be non-empty starting boundary epoch"
+        );
+    });
+}
