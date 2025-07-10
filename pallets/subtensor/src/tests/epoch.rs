@@ -3540,54 +3540,6 @@ fn test_liquid_alpha_equal_values_against_itself() {
     });
 }
 
-/// Classic queue — live vs expired.
-#[test]
-fn test_has_live_commit_classic() {
-    new_test_ext(1).execute_with(|| {
-        let netuid = NetUid::from(1);
-        add_network(netuid, 10, 0);
-
-        let hotkey = U256::from(0);
-        let coldkey = U256::from(10);
-        register_ok_neuron(netuid, hotkey, coldkey, 0);
-
-        System::set_block_number(100);
-        let h = BlakeTwo256::hash(&[42]);
-        WeightCommits::<Test>::insert(netuid, hotkey, vec![(h, 99, 0, 0)]);
-        assert!(SubtensorModule::has_live_commit(netuid, &hotkey, 0));
-
-        WeightCommits::<Test>::mutate(netuid, hotkey, |v| v.as_mut().unwrap()[0].1 = 1);
-        assert!(!SubtensorModule::has_live_commit(netuid, &hotkey, 0));
-    });
-}
-
-/// CRV3 queue — live epoch vs older epoch.
-#[test]
-fn test_has_live_commit_crv3() {
-    new_test_ext(1).execute_with(|| {
-        let netuid = NetUid::from(2);
-        add_network(netuid, 5, 0);
-
-        let hotkey = U256::from(1);
-        let coldkey = U256::from(11);
-        register_ok_neuron(netuid, hotkey, coldkey, 0);
-
-        System::set_block_number(18); // epoch 3
-        let epoch_now = SubtensorModule::get_epoch_index(netuid, 18);
-
-        let dummy: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>> =
-            BoundedVec::truncate_from(vec![1, 2, 3]);
-        CRV3WeightCommits::<Test>::mutate(netuid, epoch_now, |q| q.push_back((hotkey, dummy, 0)));
-
-        assert!(SubtensorModule::has_live_commit(netuid, &hotkey, epoch_now));
-        assert!(!SubtensorModule::has_live_commit(
-            netuid,
-            &hotkey,
-            epoch_now + 1
-        ));
-    });
-}
-
 #[test]
 fn test_epoch_masks_unrevealed_commit() {
     new_test_ext(1).execute_with(|| {
@@ -3681,41 +3633,6 @@ fn test_epoch_masks_first_tempo() {
         // first‑tempo validator (uid‑1) must have rank / incentive 0
         assert_eq!(SubtensorModule::get_rank_for_uid(netuid, 1), 0);
         assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, 1), 0);
-    });
-}
-
-#[test]
-fn test_has_live_commit_none() {
-    new_test_ext(1).execute_with(|| {
-        let netuid = NetUid::from(10);
-        add_network(netuid, 8, 0);
-
-        let hotkey = U256::from(100);
-        let coldkey = U256::from(110);
-        register_ok_neuron(netuid, hotkey, coldkey, 0);
-
-        // No WeightCommits / CRV3WeightCommits inserted.
-        assert!(!SubtensorModule::has_live_commit(netuid, &hotkey, 0));
-    });
-}
-
-#[test]
-fn test_has_live_commit_mixed_classic() {
-    new_test_ext(1).execute_with(|| {
-        let netuid = NetUid::from(11);
-        add_network(netuid, 8, 0);
-
-        let hotkey = U256::from(101);
-        let coldkey = U256::from(111);
-        register_ok_neuron(netuid, hotkey, coldkey, 0);
-
-        System::set_block_number(500);
-        // One expired commit (blk 1), one live commit (blk 499)
-        let h1 = BlakeTwo256::hash(&[1]);
-        let h2 = BlakeTwo256::hash(&[2]);
-        WeightCommits::<Test>::insert(netuid, hotkey, vec![(h1, 1, 0, 0), (h2, 499, 0, 0)]);
-
-        assert!(SubtensorModule::has_live_commit(netuid, &hotkey, 0));
     });
 }
 
