@@ -180,9 +180,13 @@ impl<T: Config> Pallet<T> {
         if !Self::coldkey_owns_hotkey(coldkey, hotkey) {
             // If the stake is below the minimum required, it's considered a small nomination and needs to be cleared.
             // Log if the stake is below the minimum required
-            let stake: u64 =
+            let alpha_stake: u64 =
                 Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
-            if stake < Self::get_nominator_min_required_stake() {
+            let min_alpha_stake =
+                U96F32::saturating_from_num(Self::get_nominator_min_required_stake())
+                    .safe_div(T::SwapInterface::current_alpha_price(netuid))
+                    .saturating_to_num::<u64>();
+            if alpha_stake < min_alpha_stake {
                 // Log the clearing of a small nomination
                 // Remove the stake from the nominator account. (this is a more forceful unstake operation which )
                 // Actually deletes the staking account.
@@ -191,7 +195,7 @@ impl<T: Config> Pallet<T> {
                     hotkey,
                     coldkey,
                     netuid,
-                    stake,
+                    alpha_stake,
                     T::SwapInterface::min_price(),
                     false,
                 );

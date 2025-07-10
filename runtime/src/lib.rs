@@ -1102,13 +1102,21 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 _ => false,
             },
             ProxyType::Owner => {
-                matches!(c, RuntimeCall::AdminUtils(..))
-                    && !matches!(
-                        c,
-                        RuntimeCall::AdminUtils(
-                            pallet_admin_utils::Call::sudo_set_sn_owner_hotkey { .. }
+                matches!(
+                    c,
+                    RuntimeCall::AdminUtils(..)
+                        | RuntimeCall::SubtensorModule(
+                            pallet_subtensor::Call::set_subnet_identity { .. }
                         )
+                        | RuntimeCall::SubtensorModule(
+                            pallet_subtensor::Call::update_symbol { .. }
+                        )
+                ) && !matches!(
+                    c,
+                    RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_sn_owner_hotkey { .. }
                     )
+                )
             }
             ProxyType::NonCritical => !matches!(
                 c,

@@ -30,6 +30,10 @@ pub fn migrate_subnet_identities_to_v3<T: Config>() -> Weight {
     // -----------------------------
     let old_subnet_identities = SubnetIdentitiesV2::<T>::iter().collect::<Vec<_>>();
     for (netuid, old_subnet_identity) in old_subnet_identities.clone() {
+        // check for existing SubnetIdentitiesV3 entry, skip if found
+        if SubnetIdentitiesV3::<T>::contains_key(netuid) {
+            continue;
+        }
         let new_subnet_identity = SubnetIdentityV3 {
             subnet_name: old_subnet_identity.subnet_name,
             github_repo: old_subnet_identity.github_repo,

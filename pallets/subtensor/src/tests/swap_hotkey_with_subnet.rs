@@ -1556,31 +1556,3 @@ fn test_swap_hotkey_registered_on_other_subnet() {
         );
     });
 }
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey_with_subnet -- test_swap_hotkey_with_associated_evm_address --exact --nocapture
-#[test]
-fn test_swap_hotkey_with_associated_evm_address() {
-    new_test_ext(1).execute_with(|| {
-        let old_hotkey = U256::from(1);
-        let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
-
-        let netuid = add_dynamic_network(&old_hotkey, &coldkey);
-        let uid = Uids::<Test>::get(netuid, old_hotkey).unwrap();
-        let evm_address = H160::from_slice(&[1_u8; 20]);
-        AssociatedEvmAddress::<Test>::insert(netuid, uid, (evm_address, 1));
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
-        Owner::<Test>::insert(old_hotkey, coldkey);
-        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
-        assert_ok!(SubtensorModule::do_swap_hotkey(
-            RuntimeOrigin::signed(coldkey),
-            &old_hotkey,
-            &new_hotkey,
-            Some(netuid)
-        ));
-
-        assert_eq!(AssociatedEvmAddress::<Test>::get(netuid, uid), None);
-        assert_eq!(Owner::<Test>::get(old_hotkey), coldkey);
-        assert_eq!(Owner::<Test>::get(new_hotkey), coldkey);
-    });
-}

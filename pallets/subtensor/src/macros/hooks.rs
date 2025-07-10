@@ -123,7 +123,9 @@ mod hooks {
                 // Fix the root subnet TAO storage value
                 .saturating_add(migrations::migrate_fix_root_subnet_tao::migrate_fix_root_subnet_tao::<T>())
                 // Fix the owner disable the registration
-                .saturating_add(migrations::migrate_set_registration_enable::migrate_set_registration_enable::<T>());
+                .saturating_add(migrations::migrate_set_registration_enable::migrate_set_registration_enable::<T>())
+                // Migrate Subnet Identities to V3
+                .saturating_add(migrations::migrate_subnet_identities_to_v3::migrate_subnet_identities_to_v3::<T>());
             weight
         }
 

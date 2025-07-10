@@ -242,7 +242,7 @@ fn run_babe() -> Result<(), sc_cli::Error> {
     let cli = Cli::from_args();
     let runner = cli.create_runner(&cli.run)?;
     match runner.run_node_until_exit(|config| async move {
-        let config = override_default_heap_pages(config, 60_000);
+        let config = customise_config(&cli, config);
         service::build_full(config, cli.eth, cli.sealing).await
     }) {
         Ok(_) => Ok(()),
@@ -275,7 +275,7 @@ fn run_aura() -> Result<(), sc_cli::Error> {
     let babe_switch = Arc::new(AtomicBool::new(false));
     let babe_switch_clone = babe_switch.clone();
     match runner.run_node_until_exit(|config| async move {
-        let config = override_default_heap_pages(config, 60_000);
+        let config = customise_config(&cli, config);
         aura_service::build_full(config, cli.eth, cli.sealing, babe_switch_clone).await
     }) {
         Ok(()) => Ok(()),
@@ -287,6 +287,17 @@ fn run_aura() -> Result<(), sc_cli::Error> {
             }
         }
     }
+}
+
+fn customise_config(cli: &Cli, config: Configuration) -> Configuration {
+    let mut config = override_default_heap_pages(config, 60_000);
+
+    // If the operator did **not** supply `--rpc-rate-limit`, disable the limiter.
+    if cli.run.rpc_params.rpc_rate_limit.is_none() {
+        config.rpc.rate_limit = None;
+    }
+
+    config
 }
 
 /// Override default heap pages
