@@ -1315,7 +1315,7 @@ fn test_set_alpha_disabled() {
             signer.clone(),
             hotkey,
             netuid,
-            DefaultMinStake::<Test>::get() + fee
+            5 * DefaultMinStake::<Test>::get() + fee
         ));
         // Only owner can set alpha values
         assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey));
@@ -2234,6 +2234,7 @@ fn test_validator_permits() {
     }
 }
 
+/// cargo test --package pallet-subtensor --lib -- tests::epoch::test_get_set_alpha --exact --show-output
 #[test]
 fn test_get_set_alpha() {
     new_test_ext(1).execute_with(|| {
@@ -2269,7 +2270,7 @@ fn test_get_set_alpha() {
             signer.clone(),
             hotkey,
             netuid,
-            DefaultMinStake::<Test>::get() + fee
+            DefaultMinStake::<Test>::get() + fee * 2
         ));
 
         assert_ok!(SubtensorModule::do_set_alpha_values(
