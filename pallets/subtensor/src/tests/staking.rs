@@ -543,6 +543,54 @@ fn test_remove_stake_below_min_stake() {
 }
 
 #[test]
+fn test_add_stake_partial_below_min_stake_fails() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1);
+        let subnet_owner_hotkey = U256::from(2);
+        let coldkey_account_id = U256::from(4343);
+        let hotkey_account_id = U256::from(4968585);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
+
+        // Stake TAO amount is above min stake
+        let min_stake = DefaultMinStake::<Test>::get();
+        let amount = min_stake * 2;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount + ExistentialDeposit::get());
+
+        // Setup reserves so that price is 1.0 and init swap
+        mock::setup_reserves(netuid, amount * 10, amount * 10);
+
+        // Force the swap to initialize
+        SubtensorModule::swap_tao_for_alpha(netuid, 0, 1_000_000_000_000).unwrap();
+
+        // Get the current price (should be 1.0)
+        let current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+        assert_eq!(current_price.to_num::<f64>(), 1.0);
+
+        // Set limit price close to 1.0 so that we hit the limit on adding and the amount is lower than min stake
+        let limit_price = (1.0001 * 1_000_000_000_f64) as u64;
+
+        // Add stake with partial flag on
+        assert_err!(
+            SubtensorModule::add_stake_limit(
+                RuntimeOrigin::signed(coldkey_account_id),
+                hotkey_account_id,
+                netuid,
+                amount,
+                limit_price,
+                true
+            ),
+            Error::<Test>::AmountTooLow
+        );
+
+        let new_current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+        assert_eq!(new_current_price.to_num::<f64>(), 1.0);
+    });
+}
+
+#[test]
 fn test_remove_stake_err_signature() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(4968585);
@@ -2553,11 +2601,11 @@ fn test_stake_below_min_validate() {
 
         // Increase the stake to be equal to the minimum, but leave the balance low
         let amount_staked = {
-            let defaulte_stake = DefaultMinStake::<Test>::get();
+            let min_stake = DefaultMinStake::<Test>::get();
             let fee =
-                <Test as Config>::SwapInterface::approx_fee_amount(netuid.into(), defaulte_stake);
+                <Test as Config>::SwapInterface::approx_fee_amount(netuid.into(), min_stake);
 
-            defaulte_stake + fee
+            min_stake + fee * 2
         };
         let call_2 = RuntimeCall::SubtensorModule(SubtensorCall::add_stake {
             hotkey,
@@ -2582,8 +2630,8 @@ fn test_stake_below_min_validate() {
             CustomTransactionError::BalanceTooLow.into()
         );
 
-        // Increase the coldkey balance to match the minimum
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1);
+        // Increase the coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount_staked);
 
         // Submit to the signed extension validate function
         let result_min_stake = extension.validate(
@@ -2651,11 +2699,11 @@ fn test_stake_below_min_can_unstake() {
 
         // Increase the stake to be equal to the minimum, but leave the balance low
         let amount_staked = {
-            let defaulte_stake = DefaultMinStake::<Test>::get();
+            let min_stake = DefaultMinStake::<Test>::get();
             let fee =
-                <Test as Config>::SwapInterface::approx_fee_amount(netuid.into(), defaulte_stake);
+                <Test as Config>::SwapInterface::approx_fee_amount(netuid.into(), min_stake);
 
-            defaulte_stake + fee
+            min_stake + fee * 2
         };
         let call_2 = RuntimeCall::SubtensorModule(SubtensorCall::add_stake {
             hotkey,
@@ -2680,8 +2728,8 @@ fn test_stake_below_min_can_unstake() {
             CustomTransactionError::BalanceTooLow.into()
         );
 
-        // Increase the coldkey balance to match the minimum
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1);
+        // Increase the coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount_staked);
 
         // Submit to the signed extension validate function
         let result_min_stake = extension.validate(

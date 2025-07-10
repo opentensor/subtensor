@@ -889,7 +889,7 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
         netuid: NetUid,
-        stake_to_be_added: u64,
+        mut stake_to_be_added: u64,
         max_amount: u64,
         allow_partial: bool,
     ) -> Result<(), Error<T>> {
@@ -900,8 +900,8 @@ impl<T: Config> Pallet<T> {
         Self::ensure_subtoken_enabled(netuid)?;
 
         // Get the minimum balance (and amount) that satisfies the transaction
+        let min_stake = DefaultMinStake::<T>::get();
         let min_amount = {
-            let min_stake = DefaultMinStake::<T>::get();
             let fee = T::SwapInterface::sim_swap(netuid.into(), OrderType::Buy, min_stake)
                 .map(|res| res.fee_paid)
                 .unwrap_or(T::SwapInterface::approx_fee_amount(
@@ -918,6 +918,8 @@ impl<T: Config> Pallet<T> {
         // slippage over desired
         if !allow_partial {
             ensure!(stake_to_be_added <= max_amount, Error::<T>::SlippageTooHigh);
+        } else {
+            stake_to_be_added = max_amount.min(stake_to_be_added);
         }
 
         // Ensure the callers coldkey has enough stake to perform the transaction.
@@ -932,12 +934,15 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyAccountNotExists
         );
 
-        let expected_alpha =
+        let swap_result =
             T::SwapInterface::sim_swap(netuid.into(), OrderType::Buy, stake_to_be_added)
                 .map_err(|_| Error::<T>::InsufficientLiquidity)?;
 
+        // Check that actual withdrawn TAO amount is not lower than the minimum stake
+        ensure!(swap_result.amount_paid_in >= min_stake, Error::<T>::AmountTooLow);
+
         ensure!(
-            expected_alpha.amount_paid_out > 0,
+            swap_result.amount_paid_out > 0,
             Error::<T>::InsufficientLiquidity
         );
 
@@ -945,7 +950,7 @@ impl<T: Config> Pallet<T> {
         let try_stake_result = Self::try_increase_stake_for_hotkey_and_coldkey_on_subnet(
             hotkey,
             netuid,
-            expected_alpha.amount_paid_out,
+            swap_result.amount_paid_out,
         );
         ensure!(try_stake_result, Error::<T>::InsufficientLiquidity);
 
