@@ -555,7 +555,10 @@ fn test_add_stake_partial_below_min_stake_fails() {
         // Stake TAO amount is above min stake
         let min_stake = DefaultMinStake::<Test>::get();
         let amount = min_stake * 2;
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount + ExistentialDeposit::get());
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey_account_id,
+            amount + ExistentialDeposit::get(),
+        );
 
         // Setup reserves so that price is 1.0 and init swap
         mock::setup_reserves(netuid, amount * 10, amount * 10);
@@ -2602,8 +2605,7 @@ fn test_stake_below_min_validate() {
         // Increase the stake to be equal to the minimum, but leave the balance low
         let amount_staked = {
             let min_stake = DefaultMinStake::<Test>::get();
-            let fee =
-                <Test as Config>::SwapInterface::approx_fee_amount(netuid.into(), min_stake);
+            let fee = <Test as Config>::SwapInterface::approx_fee_amount(netuid.into(), min_stake);
 
             min_stake + fee * 2
         };
@@ -2700,8 +2702,7 @@ fn test_stake_below_min_can_unstake() {
         // Increase the stake to be equal to the minimum, but leave the balance low
         let amount_staked = {
             let min_stake = DefaultMinStake::<Test>::get();
-            let fee =
-                <Test as Config>::SwapInterface::approx_fee_amount(netuid.into(), min_stake);
+            let fee = <Test as Config>::SwapInterface::approx_fee_amount(netuid.into(), min_stake);
 
             min_stake + fee * 2
         };

@@ -2233,7 +2233,7 @@ fn test_validator_permits() {
     }
 }
 
-/// cargo test --package pallet-subtensor --lib -- tests::epoch::test_get_set_alpha --exact --show-output 
+/// cargo test --package pallet-subtensor --lib -- tests::epoch::test_get_set_alpha --exact --show-output
 #[test]
 fn test_get_set_alpha() {
     new_test_ext(1).execute_with(|| {

@@ -939,7 +939,10 @@ impl<T: Config> Pallet<T> {
                 .map_err(|_| Error::<T>::InsufficientLiquidity)?;
 
         // Check that actual withdrawn TAO amount is not lower than the minimum stake
-        ensure!(swap_result.amount_paid_in >= min_stake, Error::<T>::AmountTooLow);
+        ensure!(
+            swap_result.amount_paid_in >= min_stake,
+            Error::<T>::AmountTooLow
+        );
 
         ensure!(
             swap_result.amount_paid_out > 0,
