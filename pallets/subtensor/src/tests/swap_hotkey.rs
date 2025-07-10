@@ -5,7 +5,7 @@ use codec::Encode;
 use frame_support::weights::Weight;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::{Config, RawOrigin};
-use sp_core::{Get, H256, U256};
+use sp_core::{Get, H160, H256, U256};
 use sp_runtime::SaturatedConversion;
 use substrate_fixed::types::U64F64;
 use subtensor_swap_interface::SwapHandler;

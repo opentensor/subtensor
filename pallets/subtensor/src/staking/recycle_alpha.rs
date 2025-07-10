@@ -42,10 +42,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure that the hotkey has enough stake to withdraw.
-        ensure!(
-            Self::has_enough_stake_on_subnet(&hotkey, &coldkey, netuid, amount),
-            Error::<T>::NotEnoughStakeToWithdraw
-        );
+        Self::calculate_reduced_stake_on_subnet(&hotkey, &coldkey, netuid, amount)?;
 
         ensure!(
             SubnetAlphaOut::<T>::get(netuid) >= amount,
@@ -111,10 +108,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure that the hotkey has enough stake to withdraw.
-        ensure!(
-            Self::has_enough_stake_on_subnet(&hotkey, &coldkey, netuid, amount),
-            Error::<T>::NotEnoughStakeToWithdraw
-        );
+        Self::calculate_reduced_stake_on_subnet(&hotkey, &coldkey, netuid, amount)?;
 
         ensure!(
             SubnetAlphaOut::<T>::get(netuid) >= amount,

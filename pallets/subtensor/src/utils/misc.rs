@@ -667,8 +667,19 @@ impl<T: Config> Pallet<T> {
         SubnetOwner::<T>::iter_values().any(|owner| *address == owner)
     }
 
+    /// The NominatorMinRequiredStake is the factor by which we multiply
+    /// the DefaultMinStake to get nominator minimum stake. With DefaulMinStake
+    /// of 0.001 TAO and NominatorMinRequiredStake of 100_000_000, the
+    /// minimum nomination stake will be 0.1 TAO.
     pub fn get_nominator_min_required_stake() -> u64 {
-        NominatorMinRequiredStake::<T>::get()
+        // Get the factor (It is stored in per-million format)
+        let factor = NominatorMinRequiredStake::<T>::get();
+
+        // Return the default minimum stake multiplied by factor
+        // 21M * 10^9 * 10^6 fits u64, hence no need for fixed type usage here
+        DefaultMinStake::<T>::get()
+            .saturating_mul(factor)
+            .safe_div(1_000_000)
     }
 
     pub fn set_nominator_min_required_stake(min_stake: u64) {
