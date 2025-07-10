@@ -442,4 +442,110 @@ fn test_update_tao_weight_half_swing_down() {
     });
 }
 
-// TODO multi block tests
+// SKIP_WASM_BUILD=1 RUST_LOG=DEBUG cargo test --release -p pallet-subtensor test_update_tao_weight_multi_block -- --nocapture
+#[test]
+fn test_update_tao_weight_multi_block() {
+    new_test_ext(1).execute_with(|| {
+        // Run 1000 blocks, each with reserves increasing by 30 TAO above emission, leading to a 1% swing (1 ninth of the 270k 9% swing)
+        let netuid1 = NetUid::from(1);
+        NetworksAdded::<Test>::insert(netuid1, true);
+
+        // realistic current reserves of 900k TAO
+        let initial_reserves = 900_000_000_000_000u64;
+        TaoReservesAtLastBlock::<Test>::set(initial_reserves);
+        SubnetTAO::<Test>::insert(netuid1, initial_reserves);
+
+        // Set inital weight 16% (testing for 1% swing)
+        Pallet::<Test>::set_tao_weight_from_float(U96F32::saturating_from_num(0.16));
+        let initial_weight_float = Pallet::<Test>::get_tao_weight();
+        let initial_weight_u64 = TaoWeight::<Test>::get();
+
+        let block_emission = U96F32::saturating_from_num(1_000_000_000u64);
+        let reserves_increase_per_block = 31_000_000_000u64;
+
+        // loop 1000 times to simulate updates blocks
+        for _ in 0..1000 {
+            SubnetTAO::<Test>::mutate(netuid1, |reserves| {
+                *reserves = reserves.saturating_add(reserves_increase_per_block);
+            });
+            Pallet::<Test>::update_tao_weight(block_emission);
+        }
+
+        let new_weight_u64 = TaoWeight::<Test>::get();
+        let new_weight_float = Pallet::<Test>::get_tao_weight();
+
+        log::debug!(
+            "New weight: {}, New weight float: {}, Initial weight: {}, Initial weight float: {}",
+            new_weight_u64,
+            new_weight_float,
+            initial_weight_u64,
+            initial_weight_float
+        );
+
+        // Assert that new weight is roughly 17%
+        let expected_weight_u64 =
+            Pallet::<Test>::convert_float_to_u64(U96F32::saturating_from_num(0.17));
+        let epsilon = u64::MAX / 1000; // 0.1% of the full range
+        assert_abs_diff_eq!(new_weight_u64, expected_weight_u64, epsilon = epsilon);
+        // manually added for a bit of clarity about the final value
+        assert_eq!(new_weight_float, U96F32::saturating_from_num(0.1699951864));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=DEBUG cargo test --release -p pallet-subtensor test_update_tao_weight_multi_block_with_variance -- --nocapture
+#[test]
+fn test_update_tao_weight_multi_block_with_variance() {
+    new_test_ext(1).execute_with(|| {
+        // Run 10000 blocks
+        // Odd blocks increase reserves by 9 TAO above emission
+        // Even blocks decrease by 3 TAO below emission
+        // Leads to a 1% swing (1 ninth of the 270k 9% swing)
+        let netuid1 = NetUid::from(1);
+        NetworksAdded::<Test>::insert(netuid1, true);
+
+        // realistic current reserves of 900k TAO
+        let initial_reserves = 900_000_000_000_000u64;
+        TaoReservesAtLastBlock::<Test>::set(initial_reserves);
+        SubnetTAO::<Test>::insert(netuid1, initial_reserves);
+
+        // Set inital weight 16% (testing for 1% swing)
+        Pallet::<Test>::set_tao_weight_from_float(U96F32::saturating_from_num(0.16));
+        let initial_weight_float = Pallet::<Test>::get_tao_weight();
+        let initial_weight_u64 = TaoWeight::<Test>::get();
+
+        let block_emission = U96F32::saturating_from_num(1_000_000_000u64);
+        let reserves_increase_per_block = 10_000_000_000u64;
+        let reserves_decrease_per_block = 2_000_000_000u64;
+
+        // loop 1000 times to simulate 1000 blocks
+        for i in 0..10000 {
+            SubnetTAO::<Test>::mutate(netuid1, |reserves| {
+                if i % 2 == 0 {
+                    *reserves = reserves.saturating_add(reserves_increase_per_block);
+                } else {
+                    *reserves = reserves.saturating_sub(reserves_decrease_per_block);
+                }
+            });
+            Pallet::<Test>::update_tao_weight(block_emission);
+        }
+
+        let new_weight_u64 = TaoWeight::<Test>::get();
+        let new_weight_float = Pallet::<Test>::get_tao_weight();
+
+        log::debug!(
+            "New weight: {}, New weight float: {}, Initial weight: {}, Initial weight float: {}",
+            new_weight_u64,
+            new_weight_float,
+            initial_weight_u64,
+            initial_weight_float
+        );
+
+        // Assert that new weight is roughly 11.5%
+        let expected_weight_u64 =
+            Pallet::<Test>::convert_float_to_u64(U96F32::saturating_from_num(0.17));
+        let epsilon = u64::MAX / 1000; // 0.1% of the full range
+        assert_abs_diff_eq!(new_weight_u64, expected_weight_u64, epsilon = epsilon);
+        // manually added for a bit of clarity about the final value
+        assert_eq!(new_weight_float, U96F32::saturating_from_num(0.169993091)); // not exactly the same as the test above
+    });
+}
