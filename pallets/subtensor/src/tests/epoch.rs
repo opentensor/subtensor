@@ -3909,3 +3909,96 @@ fn test_epoch_mask_boundary() {
         );
     });
 }
+
+#[test]
+fn test_epoch_no_mask_when_commit_reveal_disabled() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(32);
+        let tempo: u16 = 5;
+
+        add_network(netuid, tempo, 0);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+
+        let (hot, cold) = (U256::from(1000), U256::from(1100));
+        register_ok_neuron(netuid, hot, cold, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hot, &cold, netuid, 1_000,
+        );
+        SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
+
+        // vote once with feature disabled
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hot),
+            netuid,
+            vec![0],
+            vec![u16::MAX],
+            0
+        ));
+
+        // several epochs → row must always be present
+        for _ in 0..3 {
+            SubtensorModule::epoch(netuid, 1);
+            let row = SubtensorModule::get_weights_sparse(netuid)
+                .first()
+                .cloned()
+                .unwrap_or_default();
+            assert!(
+                !row.is_empty(),
+                "row must remain visible while commit‑reveal is disabled"
+            );
+            run_to_block(System::block_number() + tempo as u64 + 1);
+        }
+    });
+}
+
+#[test]
+fn test_epoch_masking_resumes_after_feature_toggle() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(33);
+        let tempo = 8_u16;
+        let reveal = 2_u16;
+
+        add_network(netuid, tempo, 0);
+        SubtensorModule::set_reveal_period(netuid, reveal as u64);
+
+        // start with commit‑reveal *disabled*
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+
+        // neuron registers while feature is off  ➟ reg_epoch << current_epoch
+        let (hot, cold) = (U256::from(1200), U256::from(1250));
+        register_ok_neuron(netuid, hot, cold, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hot, &cold, netuid, 1_000,
+        );
+        SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
+
+        // write an outgoing weight and advance one tempo
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hot),
+            netuid,
+            vec![0],
+            vec![u16::MAX],
+            0
+        ));
+        run_to_block(System::block_number() + tempo as u64 + 1);
+
+        // feature ON
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        // the neuron registered long before the current window → should NOT mask
+        for _ in 0..reveal {
+            SubtensorModule::epoch(netuid, 1);
+            let row = SubtensorModule::get_weights_sparse(netuid)
+                .first()
+                .cloned()
+                .unwrap_or_default();
+            assert!(
+                !row.is_empty(),
+                "row should stay visible because neuron registered before active window"
+            );
+            run_to_block(System::block_number() + tempo as u64 + 1);
+        }
+    });
+}
