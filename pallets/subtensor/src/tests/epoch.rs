@@ -3817,7 +3817,7 @@ fn test_epoch_masks_full_reveal_window() {
         for _ in 0..reveal_period {
             SubtensorModule::epoch(netuid, 1);
             let row = SubtensorModule::get_weights_sparse(netuid)
-                .get(0)
+                .first()
                 .cloned()
                 .unwrap_or_default();
             assert!(
@@ -3842,7 +3842,7 @@ fn test_epoch_masks_full_reveal_window() {
         // boundary epoch → row must be non‑empty
         SubtensorModule::epoch(netuid, 1);
         let row = SubtensorModule::get_weights_sparse(netuid)
-            .get(0)
+            .first()
             .cloned()
             .unwrap_or_default();
         assert!(
@@ -3908,7 +3908,7 @@ fn test_epoch_no_mask_after_window_even_if_unrevealed() {
         // epoch should NOT remask
         SubtensorModule::epoch(netuid, 1);
         let row = SubtensorModule::get_weights_sparse(netuid)
-            .get(0)
+            .first()
             .cloned()
             .unwrap_or_default();
         assert!(
@@ -3958,7 +3958,7 @@ fn test_epoch_mask_boundary() {
         // epoch 0 (masked)
         SubtensorModule::epoch(netuid, 1);
         let row0 = SubtensorModule::get_weights_sparse(netuid)
-            .get(0)
+            .first()
             .cloned()
             .unwrap_or_default();
         assert!(row0.is_empty(), "row must be empty at epoch 0");
@@ -3982,7 +3982,7 @@ fn test_epoch_mask_boundary() {
         // boundary epoch
         SubtensorModule::epoch(netuid, 1);
         let row1 = SubtensorModule::get_weights_sparse(netuid)
-            .get(0)
+            .first()
             .cloned()
             .unwrap_or_default();
         assert!(
