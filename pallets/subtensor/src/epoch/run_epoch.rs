@@ -589,9 +589,7 @@ impl<T: Config> Pallet<T> {
 
                 // Zero weights for miners during their registration period &
                 // the one after in case of unrevealed commits from deregistered
-                if current_epoch
-                    < reg_epoch.saturating_add(reveal_period.saturating_mul(2))
-                {
+                if current_epoch < reg_epoch.saturating_add(reveal_period.saturating_mul(2)) {
                     reveal_window_mask[uid_i] = true;
                 }
             }
