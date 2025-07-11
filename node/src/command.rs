@@ -6,6 +6,7 @@ use crate::{
 };
 use fc_db::{DatabaseSource, kv::frontier_database_dir};
 
+use clap::{CommandFactory, FromArgMatches, parser::ValueSource};
 use futures::TryFutureExt;
 use node_subtensor_runtime::Block;
 use sc_cli::SubstrateCli;
@@ -13,6 +14,7 @@ use sc_service::{
     Configuration,
     config::{ExecutorConfiguration, RpcConfiguration},
 };
+use sc_telemetry::log;
 
 impl SubstrateCli for Cli {
     fn impl_name() -> String {
@@ -55,7 +57,9 @@ impl SubstrateCli for Cli {
 
 // Parse and run command line arguments
 pub fn run() -> sc_cli::Result<()> {
-    let cli = Cli::from_args();
+    let cmd = Cli::command();
+    let arg_matches = cmd.get_matches();
+    let cli = Cli::from_arg_matches(&arg_matches)?;
 
     match &cli.subcommand {
         Some(Subcommand::Key(cmd)) => cmd.run(&cli),
@@ -236,6 +240,19 @@ pub fn run() -> sc_cli::Result<()> {
                 if cli.run.rpc_params.rpc_rate_limit.is_none() {
                     config.rpc.rate_limit = None;
                 }
+                // If the operator did **not** supply `--rpc-max-subscriptions-per-connection` set to high value.
+                config.rpc.max_subs_per_conn =
+                    match arg_matches.value_source("rpc-max-subscriptions-per-connection") {
+                        Some(ValueSource::CommandLine) => {
+                            cli.run.rpc_params.rpc_max_subscriptions_per_connection
+                        }
+                        _ => 10000,
+                    };
+                // If the operator did **not** supply `--rpc-max-connections` set to high value.
+                config.rpc.max_connections = match arg_matches.value_source("rpc-max-connections") {
+                    Some(ValueSource::CommandLine) => cli.run.rpc_params.rpc_max_connections,
+                    _ => 10000,
+                };
                 service::build_full(config, cli.eth, cli.sealing)
                     .map_err(Into::into)
                     .await
