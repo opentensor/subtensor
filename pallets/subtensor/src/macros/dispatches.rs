@@ -1639,7 +1639,7 @@ mod dispatches {
         #[pallet::call_index(85)]
         #[pallet::weight((Weight::from_parts(157_100_000, 0)
         .saturating_add(T::DbWeight::get().reads(15_u64))
-        .saturating_add(T::DbWeight::get().writes(7_u64)), DispatchClass::Operational, Pays::No))]
+        .saturating_add(T::DbWeight::get().writes(7_u64)), DispatchClass::Operational, Pays::Yes))]
         pub fn move_stake(
             origin: T::RuntimeOrigin,
             origin_hotkey: T::AccountId,
@@ -1682,7 +1682,7 @@ mod dispatches {
         #[pallet::call_index(86)]
         #[pallet::weight((Weight::from_parts(154_800_000, 0)
         .saturating_add(T::DbWeight::get().reads(13_u64))
-        .saturating_add(T::DbWeight::get().writes(6_u64)), DispatchClass::Operational, Pays::No))]
+        .saturating_add(T::DbWeight::get().writes(6_u64)), DispatchClass::Operational, Pays::Yes))]
         pub fn transfer_stake(
             origin: T::RuntimeOrigin,
             destination_coldkey: T::AccountId,
@@ -1726,7 +1726,7 @@ mod dispatches {
             .saturating_add(T::DbWeight::get().reads(32))
             .saturating_add(T::DbWeight::get().writes(17)),
             DispatchClass::Operational,
-            Pays::No
+            Pays::Yes
         ))]
         pub fn swap_stake(
             origin: T::RuntimeOrigin,
