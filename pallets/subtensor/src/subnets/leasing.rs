@@ -129,7 +129,7 @@ impl<T: Config> Pallet<T> {
             let contributor_refund = share
                 .saturating_mul(U64F64::from(leftover_cap))
                 .floor()
-                .to_num::<u64>();
+                .saturating_to_num::<u64>();
             <T as Config>::Currency::transfer(
                 &lease_coldkey,
                 &contributor,
@@ -310,7 +310,7 @@ impl<T: Config> Pallet<T> {
             let tao_for_contributor = share
                 .saturating_mul(U64F64::from(tao_unstaked))
                 .floor()
-                .to_num::<u64>();
+                .saturating_to_num::<u64>();
             Self::add_balance_to_coldkey_account(&contributor, tao_for_contributor);
             tao_distributed = tao_distributed.saturating_add(tao_for_contributor);
         }
