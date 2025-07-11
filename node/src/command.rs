@@ -14,7 +14,6 @@ use sc_service::{
     Configuration,
     config::{ExecutorConfiguration, RpcConfiguration},
 };
-use sc_telemetry::log;
 
 impl SubstrateCli for Cli {
     fn impl_name() -> String {
