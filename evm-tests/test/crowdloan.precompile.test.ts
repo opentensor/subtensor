@@ -125,9 +125,14 @@ describe("Test Crowdloan precompile", () => {
         assert.equal(crowdloanInfo[6], deposit);
         assert.equal(crowdloanInfo[10], 1);
 
+        let balanceBefore = await api.query.System.Account.getValue(convertH160ToSS58(wallet1.address));
+
         const contribution = BigInt(5_000_000_000);
         const tx = await crowdloanContract.contribute(nextId, contribution);
         await tx.wait();
+        
+        let balanceAfter = await api.query.System.Account.getValue(convertH160ToSS58(wallet1.address));
+        assert.approximately(Number(balanceBefore.data.free - balanceAfter.data.free), Number(contribution), 1_000_000);
 
         crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
         assert.isDefined(crowdloan);
@@ -137,9 +142,14 @@ describe("Test Crowdloan precompile", () => {
         crowdloanInfo = await crowdloanContract.getCrowdloan(nextId);
         assert.equal(crowdloanInfo[6], deposit + contribution);
         assert.equal(crowdloanInfo[10], 2);
+        
+        balanceBefore = await api.query.System.Account.getValue(convertH160ToSS58(wallet1.address));
 
         const tx2 = await crowdloanContract.withdraw(nextId);
         await tx2.wait();
+        
+        balanceAfter = await api.query.System.Account.getValue(convertH160ToSS58(wallet1.address));
+        assert.approximately(Number(balanceAfter.data.free), Number(balanceBefore.data.free + contribution), 1_000_000);
 
         crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
         assert.isDefined(crowdloan);
@@ -160,6 +170,8 @@ describe("Test Crowdloan precompile", () => {
 
         const nextId = await api.query.Crowdloan.NextCrowdloanId.getValue();
 
+        let balanceBefore = await api.query.System.Account.getValue(convertH160ToSS58(wallet1.address));
+
         let tx = await crowdloanContract.create(
             deposit,
             minContribution,
@@ -168,6 +180,9 @@ describe("Test Crowdloan precompile", () => {
             targetAddress
         );
         await tx.wait();
+
+        let balanceAfter = await api.query.System.Account.getValue(convertH160ToSS58(wallet1.address));
+        assert.approximately(Number(balanceBefore.data.free - balanceAfter.data.free), Number(deposit), 1_000_000);
 
         let crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
         assert.isDefined(crowdloan);
@@ -178,10 +193,15 @@ describe("Test Crowdloan precompile", () => {
         assert.equal(crowdloanInfo[6], deposit);
         assert.equal(crowdloanInfo[10], 1);
 
+        balanceBefore = await api.query.System.Account.getValue(convertH160ToSS58(wallet2.address));
+
         const contribution = BigInt(3_000_000_000);
         const crowdloanContract2 = new ethers.Contract(ICROWDLOAN_ADDRESS, ICrowdloanABI, wallet2);
         tx = await crowdloanContract2.contribute(nextId, contribution);
         await tx.wait();
+
+        balanceAfter = await api.query.System.Account.getValue(convertH160ToSS58(wallet2.address));
+        assert.approximately(Number(balanceBefore.data.free - balanceAfter.data.free), Number(contribution), 1_000_000);
 
         crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
         assert.isDefined(crowdloan);
@@ -192,8 +212,13 @@ describe("Test Crowdloan precompile", () => {
         assert.equal(crowdloanInfo[6], deposit + contribution);
         assert.equal(crowdloanInfo[10], 2);
 
+        balanceBefore = await api.query.System.Account.getValue(convertH160ToSS58(wallet2.address));
+
         const tx2 = await crowdloanContract2.withdraw(nextId);
         await tx2.wait();
+
+        balanceAfter = await api.query.System.Account.getValue(convertH160ToSS58(wallet2.address));
+        assert.approximately(Number(balanceAfter.data.free), Number(balanceBefore.data.free + contribution), 1_000_000);
 
         crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
         assert.isDefined(crowdloan);
