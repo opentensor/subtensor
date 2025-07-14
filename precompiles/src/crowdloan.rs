@@ -107,8 +107,8 @@ where
         end: u32,
         target_address: Address,
     ) -> EvmResult<()> {
-        let account_id = handle.caller_account_id::<R>();
-        let target_address = R::AccountId::from(H256::from(H160::from(target_address.0)).into());
+        let who = handle.caller_account_id::<R>();
+        let target_address = R::AddressMapping::into_account_id(target_address.0);
         let call = pallet_crowdloan::Call::<R>::create {
             deposit,
             min_contribution,
@@ -118,7 +118,7 @@ where
             target_address: Some(target_address),
         };
 
-        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(who))
     }
 
     #[precompile::public("contribute(uint32,uint64)")]
