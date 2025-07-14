@@ -124,25 +124,25 @@ export async function waitForTransactionWithRetry(
     api: TypedApi<typeof devnet>,
     tx: Transaction<{}, string, string, void>,
     signer: PolkadotSigner,
-  ) {
+) {
     let success = false;
     let retries = 0;
-  
+
     // set max retries times
     while (!success && retries < 5) {
-      await waitForTransactionCompletion(api, tx, signer)
-        .then(() => {success = true})
-        .catch((error) => {
-          console.log(`transaction error ${error}`);
-        });
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      retries += 1;
+        await waitForTransactionCompletion(api, tx, signer)
+            .then(() => { success = true })
+            .catch((error) => {
+                console.log(`transaction error ${error}`);
+            });
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        retries += 1;
     }
-  
+
     if (!success) {
-      console.log("Transaction failed after 5 retries");
+        console.log("Transaction failed after 5 retries");
     }
-  }
+}
 
 export async function waitForTransactionCompletion(api: TypedApi<typeof devnet>, tx: Transaction<{}, string, string, void>, signer: PolkadotSigner,) {
     const transactionPromise = await getTransactionWatchPromise(tx, signer)
@@ -281,14 +281,13 @@ export async function waitForNonceChange(api: TypedApi<typeof devnet>, ss58Addre
     }
 }
 
-
-// other approach to convert public key to ss58
-// export function convertPublicKeyToSs58(publicKey: Uint8Array, ss58Format: number = 42): string {
-//     // Create a keyring instance
-//     const keyring = new Keyring({ type: 'sr25519', ss58Format });
-
-//     // Add the public key to the keyring
-//     const address = keyring.encodeAddress(publicKey);
-
-//     return address
-// }
+export function waitForBlockFinalized(api: TypedApi<typeof devnet>, end: number) {
+    return new Promise<void>((resolve) => {
+        const subscription = api.query.System.Number.watchValue("finalized").subscribe((current) => {
+            if (current > end) {
+                subscription.unsubscribe();
+                resolve();
+            }
+        })
+    })
+}
