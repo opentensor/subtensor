@@ -179,19 +179,6 @@ export const ICrowdloanABI = [
         "type": "function"
     },
     {
-        "inputs": [],
-        "name": "getCurrentCrowdloanId",
-        "outputs": [
-            {
-                "internalType": "uint32",
-                "name": "",
-                "type": "uint32"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
         "inputs": [
             {
                 "internalType": "uint32",

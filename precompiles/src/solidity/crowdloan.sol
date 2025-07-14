@@ -25,12 +25,6 @@ interface ICrowdloan {
         returns (uint64);
 
     /**
-     * @dev Retrieves the crowdloan id that is being finalized.
-     * @return The crowdloan id.
-     */
-    function getCurrentCrowdloanId() external view returns (uint32);
-
-    /**
      * @dev Creates a crowdloan that will raise funds up to a maximum cap and if successful, transfer the funds to the target address.
      * @param deposit The initial deposit from the creator.
      * @param minContribution The minimum contribution required to contribute to the crowdloan.

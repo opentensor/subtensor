@@ -86,17 +86,6 @@ where
         Ok(contribution)
     }
 
-    #[precompile::public("getCurrentCrowdloanId()")]
-    #[precompile::view]
-    fn get_current_crowdloan_id(_handle: &mut impl PrecompileHandle) -> EvmResult<u32> {
-        let current_crowdloan_id =
-            pallet_crowdloan::CurrentCrowdloanId::<R>::get().ok_or(PrecompileFailure::Error {
-                exit_status: ExitError::Other("No current crowdloan id".into()),
-            })?;
-
-        Ok(current_crowdloan_id)
-    }
-
     #[precompile::public("create(uint64,uint64,uint64,uint32,bytes32)")]
     #[precompile::payable]
     fn create(
