@@ -578,29 +578,28 @@ impl<T: Config> Pallet<T> {
         log::trace!("Weights (permit+diag+outdate): {:?}", &weights);
 
         if Self::get_commit_reveal_weights_enabled(netuid) {
-            let mut reveal_window_mask: Vec<bool> = vec![false; n as usize];
-
             let current_epoch = Self::get_epoch_index(netuid, current_block);
             let reveal_period = Self::get_reveal_period(netuid);
 
-            for (uid_i, _) in hotkeys.iter().enumerate() {
-                // Epoch in which this UID most recently registered.
-                let reg_epoch = Self::get_epoch_index(netuid, block_at_registration[uid_i]);
+            // Precompute registration epochs for all UIDs (receivers)
+            let reg_epochs: Vec<u64> = block_at_registration
+                .iter()
+                .map(|reg_block| Self::get_epoch_index(netuid, *reg_block))
+                .collect();
 
-                // Zero weights for miners during their registration period &
-                // the one after in case of unrevealed commits from deregistered
-                if current_epoch < reg_epoch.saturating_add(reveal_period.saturating_mul(2)) {
-                    reveal_window_mask[uid_i] = true;
-                }
-            }
+            // Mask out weights to recently registered UIDs (columns)
+            weights = vec_mask_sparse_matrix(
+                &weights,
+                &vec![0u64; n as usize],
+                &reg_epochs,
+                &|_, reg_epoch| {
+                    current_epoch < reg_epoch.saturating_add(reveal_period.saturating_mul(2))
+                },
+            );
 
-            if reveal_window_mask.iter().any(|&b| b) {
-                log::trace!(
-                    "Masking validators inside reveal window: {:?}",
-                    reveal_window_mask
-                );
-                weights = mask_rows_sparse(&reveal_window_mask, &weights);
-            }
+            log::trace!(
+                "Masking weights to miners inside reveal window (recent registrations masked)"
+            );
         }
 
         // Normalize remaining weights.
