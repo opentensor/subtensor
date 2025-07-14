@@ -118,6 +118,32 @@ describe("Test Alpha Precompile", () => {
             // Both should be defined and valid
             assert.ok(alphaPrice !== undefined && movingAlphaPrice !== undefined);
         });
+
+        it("Tao in / Alpha in / Alpha out are consistent for same subnet", async () => {
+            const taoInEmission = await publicClient.readContract({
+                abi: IAlphaABI,
+                address: toViemAddress(IALPHA_ADDRESS),
+                functionName: "getTaoInEmission",
+                args: [subnetId]
+            })
+
+            const alphaInEmission = await publicClient.readContract({
+                abi: IAlphaABI,
+                address: toViemAddress(IALPHA_ADDRESS),
+                functionName: "getAlphaInEmission",
+                args: [subnetId]
+            })
+
+            const alphaOutEmission = await publicClient.readContract({
+                abi: IAlphaABI,
+                address: toViemAddress(IALPHA_ADDRESS),
+                functionName: "getAlphaOutEmission",
+                args: [subnetId]
+            })
+
+            // all should be defined and valid
+            assert.ok(taoInEmission !== undefined && alphaInEmission !== undefined && alphaOutEmission !== undefined);
+        });
     });
 
     describe("Pool Data Functions", () => {

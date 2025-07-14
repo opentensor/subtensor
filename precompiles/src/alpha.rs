@@ -151,4 +151,28 @@ where
             NetUid::from(netuid),
         )))
     }
+
+    #[precompile::public("getTaoInEmission(uint16)")]
+    #[precompile::view]
+    fn get_tao_in_emission(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
+        Ok(U256::from(pallet_subtensor::SubnetTaoInEmission::<R>::get(
+            NetUid::from(netuid),
+        )))
+    }
+
+    #[precompile::public("getAlphaInEmission(uint16)")]
+    #[precompile::view]
+    fn get_alpha_in_emission(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
+        Ok(U256::from(
+            pallet_subtensor::SubnetAlphaInEmission::<R>::get(NetUid::from(netuid)),
+        ))
+    }
+
+    #[precompile::public("getAlphaOutEmission(uint16)")]
+    #[precompile::view]
+    fn get_alpha_out_emission(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
+        Ok(U256::from(
+            pallet_subtensor::SubnetAlphaOutEmission::<R>::get(NetUid::from(netuid)),
+        ))
+    }
 }
