@@ -40,9 +40,9 @@
                 "type": "uint32"
             },
             {
-                "internalType": "address",
+                "internalType": "bytes32",
                 "name": "targetAddress",
-                "type": "address"
+                "type": "bytes32"
             }
         ],
         "name": "create",
@@ -84,9 +84,9 @@
                 "type": "uint32"
             },
             {
-                "internalType": "address",
+                "internalType": "bytes32",
                 "name": "coldkey",
-                "type": "address"
+                "type": "bytes32"
             }
         ],
         "name": "getContribution",
@@ -113,9 +113,9 @@
             {
                 "components": [
                     {
-                        "internalType": "address",
+                        "internalType": "bytes32",
                         "name": "creator",
-                        "type": "address"
+                        "type": "bytes32"
                     },
                     {
                         "internalType": "uint64",
@@ -138,9 +138,9 @@
                         "type": "uint64"
                     },
                     {
-                        "internalType": "address",
+                        "internalType": "bytes32",
                         "name": "funds_account",
-                        "type": "address"
+                        "type": "bytes32"
                     },
                     {
                         "internalType": "uint64",
@@ -153,9 +153,9 @@
                         "type": "bool"
                     },
                     {
-                        "internalType": "address",
+                        "internalType": "bytes32",
                         "name": "target_address",
-                        "type": "address"
+                        "type": "bytes32"
                     },
                     {
                         "internalType": "bool",

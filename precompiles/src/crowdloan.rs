@@ -6,8 +6,8 @@ use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 use frame_system::RawOrigin;
 use pallet_evm::AddressMapping;
 use pallet_evm::PrecompileHandle;
-use precompile_utils::{EvmResult, prelude::Address, solidity::Codec};
-use sp_core::{ByteArray, H160, H256};
+use precompile_utils::{EvmResult, solidity::Codec};
+use sp_core::{ByteArray, H256};
 use sp_runtime::traits::{Dispatchable, UniqueSaturatedInto};
 
 use crate::{PrecompileExt, PrecompileHandleExt};
@@ -52,18 +52,18 @@ where
         )?;
 
         Ok(CrowdloanInfo {
-            creator: H160::from(H256::from_slice(crowdloan.creator.as_slice())).into(),
+            creator: H256::from_slice(crowdloan.creator.as_slice()),
             deposit: crowdloan.deposit,
             min_contribution: crowdloan.min_contribution,
             end: crowdloan.end.unique_saturated_into(),
             cap: crowdloan.cap,
-            funds_account: H160::from(H256::from_slice(crowdloan.funds_account.as_slice())).into(),
+            funds_account: H256::from_slice(crowdloan.funds_account.as_slice()),
             raised: crowdloan.raised,
             has_target_address: crowdloan.target_address.is_some(),
             target_address: crowdloan
                 .target_address
-                .map(|a| H160::from(H256::from_slice(a.as_slice())).into())
-                .unwrap_or_else(|| H160::zero().into()),
+                .map(|a| H256::from_slice(a.as_slice()))
+                .unwrap_or_else(|| H256::zero()),
             finalized: crowdloan.finalized,
             contributors_count: crowdloan.contributors_count,
         })
@@ -97,7 +97,7 @@ where
         Ok(current_crowdloan_id)
     }
 
-    #[precompile::public("create(uint64,uint64,uint64,uint32,address)")]
+    #[precompile::public("create(uint64,uint64,uint64,uint32,bytes32)")]
     #[precompile::payable]
     fn create(
         handle: &mut impl PrecompileHandle,
@@ -105,10 +105,10 @@ where
         min_contribution: u64,
         cap: u64,
         end: u32,
-        target_address: Address,
+        target_address: H256,
     ) -> EvmResult<()> {
         let who = handle.caller_account_id::<R>();
-        let target_address = R::AddressMapping::into_account_id(target_address.0);
+        let target_address = R::AccountId::from(target_address.0);
         let call = pallet_crowdloan::Call::<R>::create {
             deposit,
             min_contribution,
@@ -224,15 +224,15 @@ where
 
 #[derive(Codec)]
 struct CrowdloanInfo {
-    creator: Address,
+    creator: H256,
     deposit: u64,
     min_contribution: u64,
     end: u32,
     cap: u64,
-    funds_account: Address,
+    funds_account: H256,
     raised: u64,
     has_target_address: bool,
-    target_address: Address,
+    target_address: H256,
     finalized: bool,
     contributors_count: u32,
 }

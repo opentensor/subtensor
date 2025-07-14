@@ -19,7 +19,7 @@ interface ICrowdloan {
      * @param coldkey The coldkey of the contributor.
      * @return The contribution.
      */
-    function getContribution(uint32 crowdloanId, address coldkey)
+    function getContribution(uint32 crowdloanId, bytes32 coldkey)
         external
         view
         returns (uint64);
@@ -43,7 +43,7 @@ interface ICrowdloan {
         uint64 minContribution,
         uint64 cap,
         uint32 end,
-        address targetAddress
+        bytes32 targetAddress
     ) external payable;
 
     /**
@@ -103,15 +103,15 @@ interface ICrowdloan {
 }
 
 struct CrowdloanInfo {
-    address creator;
+    bytes32 creator;
     uint64 deposit;
     uint64 min_contribution;
     uint32 end;
     uint64 cap;
-    address funds_account;
+    bytes32 funds_account;
     uint64 raised;
     bool has_target_address;
-    address target_address;
+    bytes32 target_address;
     bool finalized;
     uint32 contributors_count;
 }

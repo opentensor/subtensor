@@ -42,9 +42,9 @@ export const ICrowdloanABI = [
                 "type": "uint32"
             },
             {
-                "internalType": "address",
+                "internalType": "bytes32",
                 "name": "targetAddress",
-                "type": "address"
+                "type": "bytes32"
             }
         ],
         "name": "create",
@@ -86,9 +86,9 @@ export const ICrowdloanABI = [
                 "type": "uint32"
             },
             {
-                "internalType": "address",
+                "internalType": "bytes32",
                 "name": "coldkey",
-                "type": "address"
+                "type": "bytes32"
             }
         ],
         "name": "getContribution",
@@ -115,9 +115,9 @@ export const ICrowdloanABI = [
             {
                 "components": [
                     {
-                        "internalType": "address",
+                        "internalType": "bytes32",
                         "name": "creator",
-                        "type": "address"
+                        "type": "bytes32"
                     },
                     {
                         "internalType": "uint64",
@@ -140,9 +140,9 @@ export const ICrowdloanABI = [
                         "type": "uint64"
                     },
                     {
-                        "internalType": "address",
+                        "internalType": "bytes32",
                         "name": "funds_account",
-                        "type": "address"
+                        "type": "bytes32"
                     },
                     {
                         "internalType": "uint64",
@@ -155,9 +155,9 @@ export const ICrowdloanABI = [
                         "type": "bool"
                     },
                     {
-                        "internalType": "address",
+                        "internalType": "bytes32",
                         "name": "target_address",
-                        "type": "address"
+                        "type": "bytes32"
                     },
                     {
                         "internalType": "bool",
@@ -271,4 +271,4 @@ export const ICrowdloanABI = [
         "stateMutability": "payable",
         "type": "function"
     }
-];
+]
