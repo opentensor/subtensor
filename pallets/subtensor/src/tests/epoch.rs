@@ -3688,6 +3688,8 @@ fn test_epoch_unmask_after_first_tempo_passed() {
         ));
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
+        run_to_block(System::block_number() + tempo as u64 + 1);
+
         SubtensorModule::epoch(netuid, 100);
         assert!(SubtensorModule::get_rank_for_uid(netuid, 1) > 0);
     });
