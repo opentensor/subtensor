@@ -123,15 +123,16 @@ describe("Test Crowdloan precompile", () => {
         assert.isDefined(crowdloan);
         assert.equal(crowdloan.min_contribution, BigInt(1_000_000_000));
 
-        const tx2 = await crowdloanContract.updateMinContribution(nextId, BigInt(2_000_000_000));
+        const newMinContribution = BigInt(2_000_000_000);
+        const tx2 = await crowdloanContract.updateMinContribution(nextId, newMinContribution);
         await tx2.wait();
 
         const updatedCrowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
         assert.isDefined(updatedCrowdloan);
-        assert.equal(updatedCrowdloan.min_contribution, BigInt(2_000_000_000));
+        assert.equal(updatedCrowdloan.min_contribution, newMinContribution);
 
         const updatedCrowdloanInfo = await crowdloanContract.getCrowdloan(nextId);
-        assert.equal(updatedCrowdloanInfo[2], BigInt(2_000_000_000));
+        assert.equal(updatedCrowdloanInfo[2], newMinContribution);
     });
 
     it("updates the end", async () => {
@@ -156,15 +157,16 @@ describe("Test Crowdloan precompile", () => {
         assert.isDefined(crowdloan);
         assert.equal(crowdloan.end, 1000);
 
-        const tx2 = await crowdloanContract.updateEnd(nextId, 2000);
+        const newEnd = 2000;
+        const tx2 = await crowdloanContract.updateEnd(nextId, newEnd);
         await tx2.wait();
 
         const updatedCrowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
         assert.isDefined(updatedCrowdloan);
-        assert.equal(updatedCrowdloan.end, 2000);
+        assert.equal(updatedCrowdloan.end, newEnd);
 
         const updatedCrowdloanInfo = await crowdloanContract.getCrowdloan(nextId);
-        assert.equal(updatedCrowdloanInfo[3], 2000);
+        assert.equal(updatedCrowdloanInfo[3], newEnd);
     });
 
     it("updates the cap", async () => {
@@ -189,14 +191,15 @@ describe("Test Crowdloan precompile", () => {
         assert.isDefined(crowdloan);
         assert.equal(crowdloan.cap, BigInt(200_000_000_000));
 
-        const tx2 = await crowdloanContract.updateCap(nextId, 300_000_000_000);
+        const newCap = BigInt(300_000_000_000);
+        const tx2 = await crowdloanContract.updateCap(nextId, newCap);
         await tx2.wait();
 
         const updatedCrowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
         assert.isDefined(updatedCrowdloan);
-        assert.equal(updatedCrowdloan.cap, BigInt(300_000_000_000));
+        assert.equal(updatedCrowdloan.cap, newCap);
 
         const updatedCrowdloanInfo = await crowdloanContract.getCrowdloan(nextId);
-        assert.equal(updatedCrowdloanInfo[4], BigInt(300_000_000_000));
+        assert.equal(updatedCrowdloanInfo[4], newCap);
     });
 });
