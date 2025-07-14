@@ -86,7 +86,7 @@ describe("Test Crowdloan precompile", () => {
         assert.equal(crowdloan.target_address, convertH160ToSS58(targetAddress.address));
         assert.equal(crowdloan.finalized, false);
         assert.equal(crowdloan.contributors_count, 1);
-        
+
         const crowdloanInfo = await crowdloanContract.getCrowdloan(nextId);
         assert.equal(crowdloanInfo[0], u8aToHex(decodeAddress(crowdloan.creator)));
         assert.equal(crowdloanInfo[1], crowdloan.deposit);
@@ -98,6 +98,105 @@ describe("Test Crowdloan precompile", () => {
         assert.equal(crowdloanInfo[7], true); // has_target_address
         assert.equal(crowdloanInfo[8], u8aToHex(decodeAddress(crowdloan.target_address))); // target_address
         assert.equal(crowdloanInfo[9], crowdloan.finalized);
-        assert.equal(crowdloanInfo[10], crowdloan.contributors_count); 
+        assert.equal(crowdloanInfo[10], crowdloan.contributors_count);
+    });
+
+    it("updates the min contribution", async () => {
+        const deposit = BigInt(20_000_000_000); // 20 TAO
+        const minContribution = BigInt(1_000_000_000); // 1 TAO
+        const cap = BigInt(200_000_000_000); // 200 TAO
+        const end = 1000;
+        const targetAddress = generateRandomEthersWallet();
+
+        const nextId = await api.query.Crowdloan.NextCrowdloanId.getValue();
+
+        const tx = await crowdloanContract.create(
+            deposit,
+            minContribution,
+            cap,
+            end,
+            targetAddress
+        );
+        await tx.wait();
+
+        const crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
+        assert.isDefined(crowdloan);
+        assert.equal(crowdloan.min_contribution, BigInt(1_000_000_000));
+
+        const tx2 = await crowdloanContract.updateMinContribution(nextId, BigInt(2_000_000_000));
+        await tx2.wait();
+
+        const updatedCrowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
+        assert.isDefined(updatedCrowdloan);
+        assert.equal(updatedCrowdloan.min_contribution, BigInt(2_000_000_000));
+
+        const updatedCrowdloanInfo = await crowdloanContract.getCrowdloan(nextId);
+        assert.equal(updatedCrowdloanInfo[2], BigInt(2_000_000_000));
+    });
+
+    it("updates the end", async () => {
+        const deposit = BigInt(20_000_000_000); // 20 TAO
+        const minContribution = BigInt(1_000_000_000); // 1 TAO
+        const cap = BigInt(200_000_000_000); // 200 TAO
+        const end = 1000;
+        const targetAddress = generateRandomEthersWallet();
+
+        const nextId = await api.query.Crowdloan.NextCrowdloanId.getValue();
+
+        const tx = await crowdloanContract.create(
+            deposit,
+            minContribution,
+            cap,
+            end,
+            targetAddress
+        );
+        await tx.wait();
+
+        const crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
+        assert.isDefined(crowdloan);
+        assert.equal(crowdloan.end, 1000);
+
+        const tx2 = await crowdloanContract.updateEnd(nextId, 2000);
+        await tx2.wait();
+
+        const updatedCrowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
+        assert.isDefined(updatedCrowdloan);
+        assert.equal(updatedCrowdloan.end, 2000);
+
+        const updatedCrowdloanInfo = await crowdloanContract.getCrowdloan(nextId);
+        assert.equal(updatedCrowdloanInfo[3], 2000);
+    });
+
+    it("updates the cap", async () => {
+        const deposit = BigInt(20_000_000_000); // 20 TAO
+        const minContribution = BigInt(1_000_000_000); // 1 TAO
+        const cap = BigInt(200_000_000_000); // 200 TAO
+        const end = 1000;
+        const targetAddress = generateRandomEthersWallet();
+
+        const nextId = await api.query.Crowdloan.NextCrowdloanId.getValue();
+
+        const tx = await crowdloanContract.create(
+            deposit,
+            minContribution,
+            cap,
+            end,
+            targetAddress
+        );
+        await tx.wait();
+
+        const crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
+        assert.isDefined(crowdloan);
+        assert.equal(crowdloan.cap, BigInt(200_000_000_000));
+
+        const tx2 = await crowdloanContract.updateCap(nextId, 300_000_000_000);
+        await tx2.wait();
+
+        const updatedCrowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
+        assert.isDefined(updatedCrowdloan);
+        assert.equal(updatedCrowdloan.cap, BigInt(300_000_000_000));
+
+        const updatedCrowdloanInfo = await crowdloanContract.getCrowdloan(nextId);
+        assert.equal(updatedCrowdloanInfo[4], BigInt(300_000_000_000));
     });
 });
