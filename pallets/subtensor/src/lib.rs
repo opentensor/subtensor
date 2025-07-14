@@ -856,6 +856,12 @@ pub mod pallet {
         50400
     }
 
+    #[pallet::type_value]
+    /// Default value for lock interval blocks.
+    pub fn DefaultLockIntervalBlocks<T: Config>() -> u64 {
+        7200 * 180 // 180 days.
+    }
+
     #[pallet::storage]
     pub type MinActivityCutoff<T: Config> =
         StorageValue<_, u16, ValueQuery, DefaultMinActivityCutoff<T>>;
@@ -1722,6 +1728,28 @@ pub mod pallet {
     pub type AccumulatedLeaseDividends<T: Config> =
         StorageMap<_, Twox64Concat, LeaseId, u64, ValueQuery, ConstU64<0>>;
 
+    /// ======================
+    /// ==== Stake locks =====
+    /// ======================
+
+    #[pallet::storage]
+    /// --- ITEM ( lock_interval_blocks ) | Stake lock half-life factor
+    pub type LockIntervalBlocks<T: Config> = StorageValue<_, u64, ValueQuery, ConstU64<0>>;
+
+    #[pallet::storage]
+    /// --- NMAP ( hot, cold, netuid ) --> alpha locked | Returns the alpha shares for a hotkey, coldkey, netuid triplet.
+    pub type Locks<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+            NMapKey<Identity, NetUid>,               // subnet
+        ),
+        U64F64, // Shares
+        ValueQuery,
+    >;
+
+    
     /// ==================
     /// ==== Genesis =====
     /// ==================

@@ -4,6 +4,7 @@ pub mod add_stake;
 pub mod decrease_take;
 pub mod helpers;
 pub mod increase_take;
+pub mod lock;
 pub mod move_stake;
 pub mod recycle_alpha;
 pub mod remove_stake;
