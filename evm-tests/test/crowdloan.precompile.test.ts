@@ -18,14 +18,16 @@ describe("Test Crowdloan precompile", () => {
 
     const alice = getAliceSigner();
     const wallet1 = generateRandomEthersWallet();
+    const wallet2 = generateRandomEthersWallet();
 
-    const crowdloanContract = new ethers.Contract(ICROWDLOAN_ADDRESS, ICrowdloanABI, wallet1)
+    const crowdloanContract = new ethers.Contract(ICROWDLOAN_ADDRESS, ICrowdloanABI, wallet1);
 
     before(async () => {
         publicClient = await getPublicClient(ETH_LOCAL_URL)
         api = await getDevnetApi()
 
         await forceSetBalanceToEthAddress(api, wallet1.address)
+        await forceSetBalanceToEthAddress(api, wallet2.address)
     })
 
     it("gets an existing crowdloan created on substrate side", async () => {
@@ -101,6 +103,108 @@ describe("Test Crowdloan precompile", () => {
         assert.equal(crowdloanInfo[10], crowdloan.contributors_count);
     });
 
+    it("contributes/withdraws to a crowdloan created on substrate side", async () => {
+        const nextId = await api.query.Crowdloan.NextCrowdloanId.getValue();
+        const deposit = BigInt(15_000_000_000); // 15 TAO
+
+        await api.tx.Crowdloan.create({
+            deposit,
+            min_contribution: BigInt(1_000_000_000), // 1 TAO
+            cap: BigInt(100_000_000_000), // 100 TAO
+            end: 1000,
+            target_address: undefined,
+            call: api.tx.System.remark({ remark: Binary.fromText("foo") }).decodedCall
+        }).signAndSubmit(alice);
+
+        let crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
+        assert.isDefined(crowdloan);
+        assert.equal(crowdloan.raised, deposit);
+        assert.equal(crowdloan.contributors_count, 1);
+
+        let crowdloanInfo = await crowdloanContract.getCrowdloan(nextId);
+        assert.equal(crowdloanInfo[6], deposit);
+        assert.equal(crowdloanInfo[10], 1);
+
+        const contribution = BigInt(5_000_000_000);
+        const tx = await crowdloanContract.contribute(nextId, contribution);
+        await tx.wait();
+
+        crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
+        assert.isDefined(crowdloan);
+        assert.equal(crowdloan.raised, deposit + contribution);
+        assert.equal(crowdloan.contributors_count, 2);
+
+        crowdloanInfo = await crowdloanContract.getCrowdloan(nextId);
+        assert.equal(crowdloanInfo[6], deposit + contribution);
+        assert.equal(crowdloanInfo[10], 2);
+
+        const tx2 = await crowdloanContract.withdraw(nextId);
+        await tx2.wait();
+
+        crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
+        assert.isDefined(crowdloan);
+        assert.equal(crowdloan.raised, deposit);
+        assert.equal(crowdloan.contributors_count, 1);
+
+        crowdloanInfo = await crowdloanContract.getCrowdloan(nextId);
+        assert.equal(crowdloanInfo[6], deposit);
+        assert.equal(crowdloanInfo[10], 1);
+    });
+
+    it("contributes/withdraws to a crowdloan", async () => {
+        const deposit = BigInt(20_000_000_000); // 20 TAO
+        const minContribution = BigInt(2_000_000_000); // 2 TAO
+        const cap = BigInt(200_000_000_000); // 200 TAO
+        const end = 1000;
+        const targetAddress = generateRandomEthersWallet();
+
+        const nextId = await api.query.Crowdloan.NextCrowdloanId.getValue();
+
+        let tx = await crowdloanContract.create(
+            deposit,
+            minContribution,
+            cap,
+            end,
+            targetAddress
+        );
+        await tx.wait();
+
+        let crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
+        assert.isDefined(crowdloan);
+        assert.equal(crowdloan.raised, deposit);
+        assert.equal(crowdloan.contributors_count, 1);
+
+        let crowdloanInfo = await crowdloanContract.getCrowdloan(nextId);
+        assert.equal(crowdloanInfo[6], deposit);
+        assert.equal(crowdloanInfo[10], 1);
+
+        const contribution = BigInt(3_000_000_000);
+        const crowdloanContract2 = new ethers.Contract(ICROWDLOAN_ADDRESS, ICrowdloanABI, wallet2);
+        tx = await crowdloanContract2.contribute(nextId, contribution);
+        await tx.wait();
+
+        crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
+        assert.isDefined(crowdloan);
+        assert.equal(crowdloan.raised, deposit + contribution);
+        assert.equal(crowdloan.contributors_count, 2);
+
+        crowdloanInfo = await crowdloanContract.getCrowdloan(nextId);
+        assert.equal(crowdloanInfo[6], deposit + contribution);
+        assert.equal(crowdloanInfo[10], 2);
+
+        const tx2 = await crowdloanContract2.withdraw(nextId);
+        await tx2.wait();
+
+        crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
+        assert.isDefined(crowdloan);
+        assert.equal(crowdloan.raised, deposit);
+        assert.equal(crowdloan.contributors_count, 1);
+
+        crowdloanInfo = await crowdloanContract.getCrowdloan(nextId);
+        assert.equal(crowdloanInfo[6], deposit);
+        assert.equal(crowdloanInfo[10], 1);
+    });
+
     it("updates the min contribution", async () => {
         const deposit = BigInt(20_000_000_000); // 20 TAO
         const minContribution = BigInt(1_000_000_000); // 1 TAO
@@ -110,7 +214,7 @@ describe("Test Crowdloan precompile", () => {
 
         const nextId = await api.query.Crowdloan.NextCrowdloanId.getValue();
 
-        const tx = await crowdloanContract.create(
+        let tx = await crowdloanContract.create(
             deposit,
             minContribution,
             cap,
@@ -124,8 +228,8 @@ describe("Test Crowdloan precompile", () => {
         assert.equal(crowdloan.min_contribution, BigInt(1_000_000_000));
 
         const newMinContribution = BigInt(2_000_000_000);
-        const tx2 = await crowdloanContract.updateMinContribution(nextId, newMinContribution);
-        await tx2.wait();
+        tx = await crowdloanContract.updateMinContribution(nextId, newMinContribution);
+        await tx.wait();
 
         const updatedCrowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
         assert.isDefined(updatedCrowdloan);
