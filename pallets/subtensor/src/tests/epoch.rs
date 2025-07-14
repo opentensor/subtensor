@@ -4004,3 +4004,130 @@ fn test_epoch_masking_resumes_after_feature_toggle() {
         }
     });
 }
+
+#[test]
+fn test_epoch_masks_incoming_to_sniped_uid_prevents_inheritance() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(40);
+        let tempo: u16 = 10;
+        let reveal_period: u64 = 2;
+
+        add_network(netuid, tempo, 0);
+        SubtensorModule::set_reveal_period(netuid, reveal_period);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        SubtensorModule::set_max_registrations_per_block(netuid, 3);
+        SubtensorModule::set_max_allowed_uids(netuid, 3); // Limit to prune later
+        SubtensorModule::set_target_registrations_per_interval(netuid, 10);
+
+        // Register validator (uid-0, old)
+        let val_hot = U256::from(100);
+        let val_cold = U256::from(200);
+        register_ok_neuron(netuid, val_hot, val_cold, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &val_hot, &val_cold, netuid, 10_000,
+        );
+        SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
+
+        // Register miner to snipe (uid-1, will be deregistered)
+        let old_miner_hot = U256::from(101);
+        let old_miner_cold = U256::from(201);
+        register_ok_neuron(netuid, old_miner_hot, old_miner_cold, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &old_miner_hot,
+            &old_miner_cold,
+            netuid,
+            100,
+        );
+
+        // Register filler miner (uid-2, to force pruning)
+        let filler_hot = U256::from(102);
+        let filler_cold = U256::from(202);
+        register_ok_neuron(netuid, filler_hot, filler_cold, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &filler_hot,
+            &filler_cold,
+            netuid,
+            5_000,
+        );
+
+        SubtensorModule::set_max_allowed_validators(netuid, 3);
+
+        // Advance past initial registration window
+        run_to_block(tempo as u64 * 2 + 1);
+
+        // Validator sets weights to uid-1 (old miner) and self
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(val_hot),
+            netuid,
+            vec![0, 1], // To self and to uid-1
+            vec![u16::MAX / 2, u16::MAX / 2],
+            0
+        ));
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        // Run epoch to update pruning scores
+        SubtensorModule::epoch(netuid, 1_000_000);
+
+        // Immediately reregister new miner, sniping uid-1 during commit-reveal window
+        let new_miner_hot = U256::from(103);
+        let new_miner_cold = U256::from(203);
+        register_ok_neuron(netuid, new_miner_hot, new_miner_cold, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &new_miner_hot,
+            &new_miner_cold,
+            netuid,
+            10_000,
+        );
+        assert_eq!(
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &new_miner_hot).unwrap(),
+            1
+        ); // Sniped uid-1
+        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 3); // n remains max after replacement
+        assert!(SubtensorModule::get_uid_for_net_and_hotkey(netuid, &old_miner_hot).is_err()); // Old miner deregistered
+
+        // Run epoch inside window: new miner (uid-1) should NOT inherit incentives (masked)
+        SubtensorModule::epoch(netuid, 1_000_000);
+        assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, 1), 0);
+        assert_eq!(SubtensorModule::get_rank_for_uid(netuid, 1), 0);
+
+        // Advance one full reveal_period (still masked)
+        for _ in 0..reveal_period {
+            run_to_block(System::block_number() + tempo as u64 + 1);
+        }
+        SubtensorModule::epoch(netuid, 1_000_000);
+        assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, 1), 0);
+        assert_eq!(SubtensorModule::get_rank_for_uid(netuid, 1), 0);
+
+        // Advance another reveal_period + 1 (now outside 2x window)
+        for _ in 0..=reveal_period {
+            run_to_block(System::block_number() + tempo as u64 + 1);
+        }
+
+        // Validator re-sets weights to uid-1 (now unmasked)
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(val_hot),
+            netuid,
+            vec![0, 1],
+            vec![u16::MAX / 2, u16::MAX / 2],
+            0
+        ));
+
+        // New miner bumps last_update (self-weight)
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(new_miner_hot),
+            netuid,
+            vec![1],
+            vec![u16::MAX],
+            0
+        ));
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        // Run epoch outside window: new miner SHOULD get incentives now
+        SubtensorModule::epoch(netuid, 1_000_000);
+        assert!(SubtensorModule::get_incentive_for_uid(netuid, 1) > 0);
+        assert!(SubtensorModule::get_rank_for_uid(netuid, 1) > 0);
+    });
+}
