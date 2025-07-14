@@ -63,7 +63,7 @@ describe("Test Crowdloan precompile", () => {
         const deposit = BigInt(20_000_000_000); // 20 TAO
         const minContribution = BigInt(2_000_000_000); // 2 TAO
         const cap = BigInt(200_000_000_000); // 200 TAO
-        const end = 1000;
+        const end = await api.query.System.Number.getValue() + 100;
         const targetAddress = generateRandomEthersWallet();
 
         const nextId = await api.query.Crowdloan.NextCrowdloanId.getValue();
@@ -165,7 +165,7 @@ describe("Test Crowdloan precompile", () => {
         const deposit = BigInt(20_000_000_000); // 20 TAO
         const minContribution = BigInt(2_000_000_000); // 2 TAO
         const cap = BigInt(200_000_000_000); // 200 TAO
-        const end = 1000;
+        const end = await api.query.System.Number.getValue() + 100;
         const targetAddress = generateRandomEthersWallet();
 
         const nextId = await api.query.Crowdloan.NextCrowdloanId.getValue();
@@ -276,7 +276,7 @@ describe("Test Crowdloan precompile", () => {
         const deposit = BigInt(20_000_000_000); // 20 TAO
         const minContribution = BigInt(1_000_000_000); // 1 TAO
         const cap = BigInt(200_000_000_000); // 200 TAO
-        const end = 1000;
+        const end = await api.query.System.Number.getValue() + 100;
         const targetAddress = generateRandomEthersWallet();
 
         const nextId = await api.query.Crowdloan.NextCrowdloanId.getValue();
@@ -310,7 +310,7 @@ describe("Test Crowdloan precompile", () => {
         const deposit = BigInt(20_000_000_000); // 20 TAO
         const minContribution = BigInt(1_000_000_000); // 1 TAO
         const cap = BigInt(200_000_000_000); // 200 TAO
-        const end = 1000;
+        const end = await api.query.System.Number.getValue() + 100;
         const targetAddress = generateRandomEthersWallet();
 
         const nextId = await api.query.Crowdloan.NextCrowdloanId.getValue();
@@ -344,7 +344,7 @@ describe("Test Crowdloan precompile", () => {
         const deposit = BigInt(20_000_000_000); // 20 TAO
         const minContribution = BigInt(1_000_000_000); // 1 TAO
         const cap = BigInt(200_000_000_000); // 200 TAO
-        const end = 1000;
+        const end = await api.query.System.Number.getValue() + 100;
         const targetAddress = generateRandomEthersWallet();
 
         const nextId = await api.query.Crowdloan.NextCrowdloanId.getValue();
