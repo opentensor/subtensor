@@ -42,9 +42,9 @@ export const ICrowdloanABI = [
                 "type": "uint32"
             },
             {
-                "internalType": "bytes32",
+                "internalType": "address",
                 "name": "targetAddress",
-                "type": "bytes32"
+                "type": "address"
             }
         ],
         "name": "create",

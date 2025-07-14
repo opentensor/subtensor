@@ -37,7 +37,7 @@ interface ICrowdloan {
         uint64 minContribution,
         uint64 cap,
         uint32 end,
-        bytes32 targetAddress
+        address targetAddress
     ) external payable;
 
     /**

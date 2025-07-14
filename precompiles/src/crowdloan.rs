@@ -6,6 +6,7 @@ use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 use frame_system::RawOrigin;
 use pallet_evm::AddressMapping;
 use pallet_evm::PrecompileHandle;
+use precompile_utils::prelude::Address;
 use precompile_utils::{EvmResult, solidity::Codec};
 use sp_core::{ByteArray, H256};
 use sp_runtime::traits::{Dispatchable, UniqueSaturatedInto};
@@ -86,7 +87,7 @@ where
         Ok(contribution)
     }
 
-    #[precompile::public("create(uint64,uint64,uint64,uint32,bytes32)")]
+    #[precompile::public("create(uint64,uint64,uint64,uint32,address)")]
     #[precompile::payable]
     fn create(
         handle: &mut impl PrecompileHandle,
@@ -94,10 +95,10 @@ where
         min_contribution: u64,
         cap: u64,
         end: u32,
-        target_address: H256,
+        target_address: Address,
     ) -> EvmResult<()> {
         let who = handle.caller_account_id::<R>();
-        let target_address = R::AccountId::from(target_address.0);
+        let target_address = R::AddressMapping::into_account_id(target_address.0);
         let call = pallet_crowdloan::Call::<R>::create {
             deposit,
             min_contribution,
