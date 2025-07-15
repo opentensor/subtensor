@@ -123,6 +123,7 @@ where
         eth,
         subscription_task_executor,
         pubsub_notification_sinks,
+        Some(Box::new(fc_babe::BabeConsensusDataProvider::new(client)?)),
     )?;
 
     Ok(module)

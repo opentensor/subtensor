@@ -199,6 +199,7 @@ pub async fn spawn_frontier_tasks(
 fn extend_rpc_aet_api<P, CT, CIDP, EC>(
     io: &mut RpcModule<()>,
     deps: &EthDeps<P, CT, CIDP>,
+    pending_consensus_data_provider: Option<Box<dyn fc_rpc::pending::ConsensusDataProvider<Block>>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
     P: TransactionPool<
@@ -217,19 +218,6 @@ where
         signers.push(Box::new(EthDevSigner::new()) as Box<dyn EthSigner>);
     }
 
-	// let pending_consensus_data_provider = match fc_babe::BabeConsensusDataProvider::new(
-	// 	deps.client.clone(),
-	// 	deps.sync.clone(),
-	// ) {
-	// 	Ok(provider) => Some(Box::new(provider)),
-	// 	Err(e) => {
-	// 		log::error!("Failed to create BabeConsensusDataProvider: {}", e);
-	// 		fc_aura::AuraConsensusDataProvider::new(
-	//                deps.client.clone(),
-	//            );
-	// 		None
-	// 	}
-	// };
     io.merge(
         Eth::<Block, FullClient, P, CT, FullBackend, CIDP, EC>::new(
             deps.client.clone(),
@@ -247,9 +235,7 @@ where
             deps.execute_gas_limit_multiplier,
             deps.forced_parent_hashes.clone(),
             deps.pending_create_inherent_data_providers.clone(),
-            Some(Box::new(fc_aura::AuraConsensusDataProvider::new(
-                deps.client.clone(),
-            ))),
+            pending_consensus_data_provider,
         )
         .replace_config::<EC>()
         .into_rpc(),
@@ -407,6 +393,7 @@ pub fn create_eth<P, CT, CIDP, EC>(
             fc_mapping_sync::EthereumBlockNotification<Block>,
         >,
     >,
+    pending_consensus_data_provider: Option<Box<dyn fc_rpc::pending::ConsensusDataProvider<Block>>>,
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
     P: TransactionPool<
@@ -420,7 +407,7 @@ where
     CIDP: CreateInherentDataProviders<Block, ()> + Send + Clone + 'static,
     EC: EthConfig<Block, FullClient>,
 {
-    extend_rpc_aet_api::<P, CT, CIDP, EC>(&mut io, &deps)?;
+    extend_rpc_aet_api::<P, CT, CIDP, EC>(&mut io, &deps, pending_consensus_data_provider)?;
     extend_rpc_eth_filter::<P, CT, CIDP>(&mut io, &deps)?;
     extend_rpc_eth_pubsub::<P, CT, CIDP>(
         &mut io,
