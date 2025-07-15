@@ -9,6 +9,7 @@ use sc_consensus::{
 };
 use sc_consensus_grandpa::BlockNumberOps;
 use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
+use sc_network::config::SyncMode;
 use sc_network_sync::strategy::warp::{WarpSyncConfig, WarpSyncProvider};
 use sc_service::{Configuration, PartialComponents, TaskManager, error::Error as ServiceError};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, log};
@@ -348,6 +349,15 @@ where
     NumberFor<Block>: BlockNumberOps,
     NB: sc_network::NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
+    // Substrate doesn't seem to support fast sync option in our configuration.
+    if matches!(config.network.sync_mode, SyncMode::LightState { .. }) {
+        log::error!(
+            "Supported sync modes: full, warp. Provided: {:?}",
+            config.network.sync_mode
+        );
+        return Err(ServiceError::Other("Unsupported sync mode".to_string()));
+    }
+
     let build_import_queue = if sealing.is_some() {
         build_manual_seal_import_queue
     } else {
