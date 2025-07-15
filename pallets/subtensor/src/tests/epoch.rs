@@ -4173,7 +4173,7 @@ fn test_epoch_block_level_mask_prevents_timing_attack_in_classic_cr() {
 
         // Validator commits weights to uid-1 (old miner) and self at mid-epoch
         let commit_hash = BlakeTwo256::hash_of(&(
-            val_hot.clone(),
+            val_hot,
             netuid,
             vec![0u16, 1],
             vec![u16::MAX / 2, u16::MAX / 2],
@@ -4181,7 +4181,7 @@ fn test_epoch_block_level_mask_prevents_timing_attack_in_classic_cr() {
             0u64,       // version
         ));
         assert_ok!(SubtensorModule::do_commit_weights(
-            RuntimeOrigin::signed(val_hot.clone()),
+            RuntimeOrigin::signed(val_hot),
             netuid,
             commit_hash,
         ));
@@ -4208,7 +4208,7 @@ fn test_epoch_block_level_mask_prevents_timing_attack_in_classic_cr() {
         // Reveal the commit after registration (same epoch, simulate timing/MEV frontrun prevention need)
         run_to_block(9); // Start of reveal epoch1
         assert_ok!(SubtensorModule::do_reveal_weights(
-            RuntimeOrigin::signed(val_hot.clone()),
+            RuntimeOrigin::signed(val_hot),
             netuid,
             vec![0u16, 1],
             vec![u16::MAX / 2, u16::MAX / 2],
@@ -4229,7 +4229,7 @@ fn test_epoch_block_level_mask_prevents_timing_attack_in_classic_cr() {
         // Now at safe_block=20, commit/reveal new weights at block20
         run_to_block(20); // Start of epoch2
         let new_commit_hash = BlakeTwo256::hash_of(&(
-            val_hot.clone(),
+            val_hot,
             netuid,
             vec![0u16, 1],
             vec![u16::MAX / 2, u16::MAX / 2],
@@ -4237,7 +4237,7 @@ fn test_epoch_block_level_mask_prevents_timing_attack_in_classic_cr() {
             0u64,
         ));
         assert_ok!(SubtensorModule::do_commit_weights(
-            RuntimeOrigin::signed(val_hot.clone()),
+            RuntimeOrigin::signed(val_hot),
             netuid,
             new_commit_hash,
         )); // commit at 20, last_update=20
