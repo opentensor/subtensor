@@ -1,12 +1,9 @@
+use super::*;
 use alloc::string::String;
-
-use frame_support::IterableStorageMap;
 use frame_support::{traits::Get, weights::Weight};
 
-use super::*;
-
-pub fn migrate_set_registration_enable<T: Config>() -> Weight {
-    let migration_name = b"migrate_set_registration_enable".to_vec();
+pub fn migrate_set_nominator_min_stake<T: Config>() -> Weight {
+    let migration_name = b"migrate_set_nominator_min_stake".to_vec();
 
     // Initialize the weight with one read operation.
     let mut weight = T::DbWeight::get().reads(1);
@@ -24,21 +21,9 @@ pub fn migrate_set_registration_enable<T: Config>() -> Weight {
         String::from_utf8_lossy(&migration_name)
     );
 
-    let netuids: Vec<NetUid> = <NetworksAdded<T> as IterableStorageMap<NetUid, bool>>::iter()
-        .map(|(netuid, _)| netuid)
-        .collect();
-    weight = weight.saturating_add(T::DbWeight::get().reads(netuids.len() as u64));
-
-    for netuid in netuids.iter() {
-        if netuid.is_root() {
-            continue;
-        }
-
-        if !Pallet::<T>::get_network_registration_allowed(*netuid) {
-            Pallet::<T>::set_network_registration_allowed(*netuid, true);
-            weight = weight.saturating_add(T::DbWeight::get().writes(1));
-        }
-    }
+    // Set nominator min stake to 10 in per-mill format
+    Pallet::<T>::set_nominator_min_required_stake(10_000_000);
+    weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
     // Mark the migration as completed
     HasMigrationRun::<T>::insert(&migration_name, true);

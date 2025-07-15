@@ -166,6 +166,10 @@ mod pallet {
             tao: u64,
             /// The amount of Alpha tokens committed to the position
             alpha: u64,
+            /// the lower tick
+            tick_low: TickIndex,
+            /// the upper tick
+            tick_high: TickIndex,
         },
 
         /// Event emitted when a liquidity position is removed from a subnet's liquidity pool.
@@ -178,6 +182,8 @@ mod pallet {
             netuid: NetUid,
             /// Unique identifier for the liquidity position
             position_id: PositionId,
+            /// The amount of liquidity removed from the position
+            liquidity: u64,
             /// The amount of TAO tokens returned to the user
             tao: u64,
             /// The amount of Alpha tokens returned to the user
@@ -186,6 +192,10 @@ mod pallet {
             fee_tao: u64,
             /// The amount of Alpha fees earned from the position
             fee_alpha: u64,
+            /// the lower tick
+            tick_low: TickIndex,
+            /// the upper tick
+            tick_high: TickIndex,
         },
 
         /// Event emitted when a liquidity position is modified in a subnet's liquidity pool.
@@ -209,6 +219,10 @@ mod pallet {
             fee_tao: u64,
             /// The amount of Alpha fees earned from the position
             fee_alpha: u64,
+            /// the lower tick
+            tick_low: TickIndex,
+            /// the upper tick
+            tick_high: TickIndex,
         },
     }
 
@@ -380,6 +394,8 @@ mod pallet {
                 liquidity,
                 tao,
                 alpha,
+                tick_low,
+                tick_high,
             });
 
             Ok(())
@@ -431,10 +447,13 @@ mod pallet {
                 hotkey,
                 netuid: netuid.into(),
                 position_id,
+                liquidity: result.liquidity,
                 tao: result.tao,
                 alpha: result.alpha,
                 fee_tao: result.fee_tao,
                 fee_alpha: result.fee_alpha,
+                tick_low: result.tick_low.into(),
+                tick_high: result.tick_high.into(),
             });
 
             Ok(())
@@ -493,6 +512,8 @@ mod pallet {
                     alpha: result.alpha as i64,
                     fee_tao: result.fee_tao,
                     fee_alpha: result.fee_alpha,
+                    tick_low: result.tick_low,
+                    tick_high: result.tick_high,
                 });
             } else {
                 // Credit the returned tao and alpha to the account
@@ -506,10 +527,13 @@ mod pallet {
                         hotkey: hotkey.clone(),
                         netuid,
                         position_id,
+                        liquidity: liquidity_delta.unsigned_abs(),
                         tao: result.tao,
                         alpha: result.alpha,
                         fee_tao: result.fee_tao,
                         fee_alpha: result.fee_alpha,
+                        tick_low: result.tick_low,
+                        tick_high: result.tick_high,
                     });
                 } else {
                     Self::deposit_event(Event::LiquidityModified {
@@ -522,6 +546,8 @@ mod pallet {
                         alpha: (result.alpha as i64).neg(),
                         fee_tao: result.fee_tao,
                         fee_alpha: result.fee_alpha,
+                        tick_low: result.tick_low,
+                        tick_high: result.tick_high,
                     });
                 }
             }

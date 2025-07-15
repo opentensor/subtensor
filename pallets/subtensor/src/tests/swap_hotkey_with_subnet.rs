@@ -8,7 +8,7 @@ use frame_system::{Config, RawOrigin};
 
 use super::mock::*;
 use crate::*;
-use sp_core::{Get, H256, U256};
+use sp_core::{Get, H160, H256, U256};
 use sp_runtime::SaturatedConversion;
 use substrate_fixed::types::U64F64;
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey_with_subnet -- test_swap_owner --exact --nocapture

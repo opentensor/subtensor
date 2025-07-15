@@ -785,13 +785,13 @@ fn test_moving_too_little_unstakes() {
 
         let (_, fee) = mock::swap_tao_to_alpha(netuid, amount);
 
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount + fee);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount + fee * 2);
 
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
             netuid,
-            amount + fee
+            amount + fee * 2
         ));
 
         remove_stake_rate_limit_for_tests(&hotkey_account_id, &coldkey_account_id, netuid);
