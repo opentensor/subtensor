@@ -30,13 +30,8 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 use std::fmt::Debug;
 use std::sync::Arc;
 
-/// A wrapped Aura verifier which will SIGINT when it detects a Babe block, to
-/// allow seemless syncing of a chain that has undergone an Aura to Babe upgrade.
-///
-/// TODO: More graceful signal than SIGINT
-///
-/// TODO: Handle also signalling when a Babe runtime upgrade is detected (before first Babe block is
-/// imported)
+/// A wrapped Aura verifier which will stall verification if it encounters a
+/// Babe block, rather than error out.
 struct AuraWrappedVerifier<B, C, P, CIDP, N> {
     inner: AuraVerifier<C, P, CIDP, N>,
     _phantom: std::marker::PhantomData<B>,
