@@ -6393,23 +6393,47 @@ fn test_get_first_block_of_epoch_large_epoch() {
 }
 
 #[test]
-fn test_get_first_block_of_epoch_many_tempos() {
+fn test_get_first_block_of_epoch_step_blocks_and_assert_with_until_next() {
     new_test_ext(1).execute_with(|| {
-        let tempos: Vec<u16> = vec![2, 5, 50, 100, 500, u16::MAX - 1];
-        for tempo in tempos {
-            let netuid: NetUid = NetUid::from(1);
-            add_network(netuid, tempo, 0);
+        let netuid: NetUid = NetUid::from(1);
+        let tempo: u16 = 10;
+        add_network(netuid, tempo, 0);
 
-            for epoch in 0..5u64 {
-                let first_block = SubtensorModule::get_first_block_of_epoch(netuid, epoch);
-                assert_eq!(SubtensorModule::get_epoch_index(netuid, first_block), epoch);
-                if first_block > 0 {
-                    assert_eq!(
-                        SubtensorModule::get_epoch_index(netuid, first_block - 1),
-                        epoch - 1
-                    );
-                }
+        let mut current_block: u64 = 0;
+        for expected_epoch in 0..10u64 {
+            let expected_first = SubtensorModule::get_first_block_of_epoch(netuid, expected_epoch);
+
+            // Step blocks until we reach the start of this epoch
+            while current_block < expected_first {
+                run_to_block(current_block + 1);
+                current_block += 1;
             }
+
+            // Assert we are at the first block of the epoch
+            assert_eq!(current_block, expected_first);
+            assert_eq!(
+                SubtensorModule::get_epoch_index(netuid, current_block),
+                expected_epoch
+            );
+
+            // From here, blocks_until_next_epoch should point to the start of next epoch
+            let until_next = SubtensorModule::blocks_until_next_epoch(netuid, tempo, current_block);
+            let next_first = SubtensorModule::get_first_block_of_epoch(netuid, expected_epoch + 1);
+            assert_eq!(current_block + until_next + 1, next_first); // +1 since until is blocks to end, +1 to start next
+
+            // Advance to near end of this epoch
+            let last_block = next_first.saturating_sub(1);
+            run_to_block(last_block);
+            current_block = System::block_number();
+            assert_eq!(
+                SubtensorModule::get_epoch_index(netuid, current_block),
+                expected_epoch
+            );
+
+            // Until next from near end
+            let until_next_end =
+                SubtensorModule::blocks_until_next_epoch(netuid, tempo, current_block);
+            assert_eq!(current_block + until_next_end + 1, next_first);
         }
     });
 }
