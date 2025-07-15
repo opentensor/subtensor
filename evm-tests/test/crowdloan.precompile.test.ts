@@ -5,7 +5,7 @@ import { ethers } from "ethers";
 import { ICROWDLOAN_ADDRESS, ICrowdloanABI } from "../src/contracts/crowdloan";
 import { Binary, TypedApi } from "polkadot-api";
 import { devnet } from "@polkadot-api/descriptors";
-import { getAliceSigner, getDevnetApi, waitForBlockFinalized } from "../src/substrate";
+import { getAliceSigner, getDevnetApi, waitForFinalizedBlock } from "../src/substrate";
 import { forceSetBalanceToEthAddress } from "../src/subtensor";
 import { decodeAddress } from "@polkadot/util-crypto";
 import { u8aToHex } from "@polkadot/util";
@@ -19,6 +19,8 @@ describe("Test Crowdloan precompile", () => {
     const alice = getAliceSigner();
     const wallet1 = generateRandomEthersWallet();
     const wallet2 = generateRandomEthersWallet();
+    const wallet3 = generateRandomEthersWallet();
+    const wallet4 = generateRandomEthersWallet();
 
     const crowdloanContract = new ethers.Contract(ICROWDLOAN_ADDRESS, ICrowdloanABI, wallet1);
 
@@ -28,6 +30,8 @@ describe("Test Crowdloan precompile", () => {
 
         await forceSetBalanceToEthAddress(api, wallet1.address)
         await forceSetBalanceToEthAddress(api, wallet2.address)
+        await forceSetBalanceToEthAddress(api, wallet3.address)
+        await forceSetBalanceToEthAddress(api, wallet4.address)
     })
 
     it("gets an existing crowdloan created on substrate side", async () => {
@@ -256,7 +260,7 @@ describe("Test Crowdloan precompile", () => {
         tx = await crowdloanContract2.contribute(nextId, contribution);
         await tx.wait();
 
-        await waitForBlockFinalized(api, end);
+        await waitForFinalizedBlock(api, end);
 
         tx = await crowdloanContract.finalize(nextId);
         await tx.wait();
@@ -270,6 +274,81 @@ describe("Test Crowdloan precompile", () => {
 
         const balanceAfter = await api.query.System.Account.getValue(convertH160ToSS58(targetAddress.address));
         assert.equal(balanceAfter.data.free, cap);
+    });
+
+    it("refunds/dissolves a crowdloan", async () => {
+        const deposit = BigInt(20_000_000_000); // 20 TAO
+        const minContribution = BigInt(2_000_000_000); // 2 TAO
+        const cap = BigInt(100_000_000_000); // 100 TAO
+        const end = await api.query.System.Number.getValue() + 100;
+        const targetAddress = generateRandomEthersWallet();
+
+        const nextId = await api.query.Crowdloan.NextCrowdloanId.getValue();
+
+        const balanceBefore1 = await api.query.System.Account.getValue(convertH160ToSS58(wallet1.address));
+        let tx = await crowdloanContract.create(
+            deposit,
+            minContribution,
+            cap,
+            end,
+            targetAddress
+        );
+        await tx.wait()
+
+        const balanceBefore2 = await api.query.System.Account.getValue(convertH160ToSS58(wallet2.address));
+        const contribution = BigInt(20_000_000_000); // 20 TAO
+        const crowdloanContract2 = new ethers.Contract(ICROWDLOAN_ADDRESS, ICrowdloanABI, wallet2);
+        tx = await crowdloanContract2.contribute(nextId, contribution);
+        await tx.wait();
+
+        const balanceBefore3 = await api.query.System.Account.getValue(convertH160ToSS58(wallet3.address));
+        const crowdloanContract3 = new ethers.Contract(ICROWDLOAN_ADDRESS, ICrowdloanABI, wallet3);
+        tx = await crowdloanContract3.contribute(nextId, contribution);
+        await tx.wait();
+
+        const balanceBefore4 = await api.query.System.Account.getValue(convertH160ToSS58(wallet4.address));
+        const crowdloanContract4 = new ethers.Contract(ICROWDLOAN_ADDRESS, ICrowdloanABI, wallet4);
+        tx = await crowdloanContract4.contribute(nextId, contribution);
+        await tx.wait();
+
+        await waitForFinalizedBlock(api, end);
+
+        let crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
+        assert.isDefined(crowdloan);
+        assert.equal(crowdloan.raised, deposit + contribution * BigInt(3));
+        assert.equal(crowdloan.contributors_count, 4);
+
+        let crowdloanInfo = await crowdloanContract.getCrowdloan(nextId);
+        assert.equal(crowdloanInfo[6], deposit + contribution * BigInt(3));
+        assert.equal(crowdloanInfo[10], 4);
+
+        tx = await crowdloanContract.refund(nextId);
+        await tx.wait();
+
+        const balanceAfter2 = await api.query.System.Account.getValue(convertH160ToSS58(wallet2.address));
+        assert.approximately(Number(balanceAfter2.data.free), Number(balanceBefore2.data.free), 1_000_000);
+        const balanceAfter3 = await api.query.System.Account.getValue(convertH160ToSS58(wallet3.address));
+        assert.approximately(Number(balanceAfter3.data.free), Number(balanceBefore3.data.free), 1_000_000);
+        const balanceAfter4 = await api.query.System.Account.getValue(convertH160ToSS58(wallet4.address));
+        assert.approximately(Number(balanceAfter4.data.free), Number(balanceBefore4.data.free), 1_000_000);
+
+        crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
+        assert.isDefined(crowdloan);
+        assert.equal(crowdloan.raised, deposit);
+        assert.equal(crowdloan.contributors_count, 1);
+
+        crowdloanInfo = await crowdloanContract.getCrowdloan(nextId);
+        assert.equal(crowdloanInfo[6], deposit);
+        assert.equal(crowdloanInfo[10], 1);
+
+        tx = await crowdloanContract.dissolve(nextId);
+        await tx.wait();
+
+        crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
+        assert.isUndefined(crowdloan);
+
+        const balanceAfter1 = await api.query.System.Account.getValue(convertH160ToSS58(wallet1.address));
+        assert.approximately(Number(balanceAfter1.data.free), Number(balanceBefore1.data.free), 2_000_000);
     });
 
     it("updates the min contribution", async () => {

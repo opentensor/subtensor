@@ -201,44 +201,6 @@ export async function getTransactionWatchPromise(tx: Transaction<{}, string, str
     });
 }
 
-export async function waitForFinalizedBlock(api: TypedApi<typeof devnet>) {
-    const currentBlockNumber = await api.query.System.Number.getValue()
-    return new Promise<void>((resolve, reject) => {
-
-        const subscription = api.query.System.Number.watchValue().subscribe({
-            // TODO check why the block number event just get once
-            next(value: number) {
-                console.log("Event block number is :", value);
-
-                if (value > currentBlockNumber + 6) {
-                    console.log("Transaction is finalized in block:", value);
-                    subscription.unsubscribe();
-
-                    resolve();
-
-                }
-
-            },
-            error(err: Error) {
-                console.error("Transaction failed:", err);
-                subscription.unsubscribe();
-                // Reject the promise in case of an error
-                reject(err);
-
-            },
-            complete() {
-                console.log("Subscription complete");
-            }
-        });
-
-        setTimeout(() => {
-            subscription.unsubscribe();
-            console.log('unsubscribed!');
-            resolve()
-        }, 2000);
-    });
-}
-
 // second solution to wait for transaction finalization. pass the raw data to avoid the complex transaction type definition
 export async function waitForTransactionCompletion2(api: TypedApi<typeof devnet>, raw: Binary, signer: PolkadotSigner,) {
     const tx = await api.txFromCallData(raw);
@@ -281,7 +243,7 @@ export async function waitForNonceChange(api: TypedApi<typeof devnet>, ss58Addre
     }
 }
 
-export function waitForBlockFinalized(api: TypedApi<typeof devnet>, end: number) {
+export function waitForFinalizedBlock(api: TypedApi<typeof devnet>, end: number) {
     return new Promise<void>((resolve) => {
         const subscription = api.query.System.Number.watchValue("finalized").subscribe((current) => {
             if (current > end) {
