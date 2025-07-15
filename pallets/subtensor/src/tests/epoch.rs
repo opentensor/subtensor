@@ -4129,3 +4129,132 @@ fn test_epoch_masks_incoming_to_sniped_uid_prevents_inheritance() {
         assert!(SubtensorModule::get_rank_for_uid(netuid, 1) > 0);
     });
 }
+
+#[test]
+fn test_epoch_block_level_mask_prevents_timing_attack_in_classic_cr() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1); // Non-root netuid=1 for calc: +1=2, tempo_plus1=11 for tempo=10
+        let tempo: u16 = 10;
+        let reveal_period: u64 = 1; // Small for short test, *2=2 epochs mask
+
+        add_network(netuid, tempo, 0);
+        SubtensorModule::set_reveal_period(netuid, reveal_period);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        SubtensorModule::set_max_registrations_per_block(netuid, 2);
+        SubtensorModule::set_max_allowed_uids(netuid, 2); // Limit to prune
+        SubtensorModule::set_target_registrations_per_interval(netuid, 10);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+
+        // Register validator (uid-0)
+        let val_hot = U256::from(100);
+        let val_cold = U256::from(200);
+        register_ok_neuron(netuid, val_hot, val_cold, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &val_hot, &val_cold, netuid, 10_000,
+        );
+        SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
+
+        // Register old miner (uid-1, to deregister)
+        let old_miner_hot = U256::from(101);
+        let old_miner_cold = U256::from(201);
+        register_ok_neuron(netuid, old_miner_hot, old_miner_cold, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &old_miner_hot,
+            &old_miner_cold,
+            netuid,
+            100,
+        );
+
+        SubtensorModule::set_max_allowed_validators(netuid, 2);
+
+        // Advance to mid-epoch for timing test (epoch = (block+2)//11
+        // Mid-epoch: block ~5, adjusted=7//11=0
+        run_to_block(5);
+
+        // Validator commits weights to uid-1 (old miner) and self at mid-epoch
+        let commit_hash = BlakeTwo256::hash_of(&(
+            val_hot.clone(),
+            netuid,
+            vec![0u16, 1],
+            vec![u16::MAX / 2, u16::MAX / 2],
+            vec![0u16], // salt
+            0u64,       // version
+        ));
+        assert_ok!(SubtensorModule::do_commit_weights(
+            RuntimeOrigin::signed(val_hot.clone()),
+            netuid,
+            commit_hash,
+        ));
+        // last_update for val set to current=5
+
+        // Simulate DDoS or prune: run epoch to deregister old miner (low stake)
+        SubtensorModule::epoch(netuid, 1_000_000); // At block 5, but epoch runs
+
+        // Immediately snipe: register new miner at same block 5, sniping uid-1
+        let new_miner_hot = U256::from(102);
+        let new_miner_cold = U256::from(202);
+        register_ok_neuron(netuid, new_miner_hot, new_miner_cold, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &new_miner_hot,
+            &new_miner_cold,
+            netuid,
+            10_000,
+        );
+        assert_eq!(
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &new_miner_hot).unwrap(),
+            1
+        );
+
+        // Reveal the commit after registration (same epoch, simulate timing/MEV frontrun prevention need)
+        run_to_block(9); // Start of reveal epoch1
+        assert_ok!(SubtensorModule::do_reveal_weights(
+            RuntimeOrigin::signed(val_hot.clone()),
+            netuid,
+            vec![0u16, 1],
+            vec![u16::MAX / 2, u16::MAX / 2],
+            vec![0u16], // salt
+            0u64,       // version
+        ));
+
+        // Run epoch at end of current epoch: should mask since last_update=5 (commit block) < safe_block=20
+        run_to_block(19); // End of epoch1
+        SubtensorModule::epoch(netuid, 1_000_000);
+        assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, 1), 0); // Masked, no inheritance
+
+        // Advance to next epoch (1), still masked (current epoch1 <2)
+        run_to_block(19); // Already at19, but for comment
+        SubtensorModule::epoch(netuid, 1_000_000);
+        assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, 1), 0); // Still masked
+
+        // Now at safe_block=20, commit/reveal new weights at block20
+        run_to_block(20); // Start of epoch2
+        let new_commit_hash = BlakeTwo256::hash_of(&(
+            val_hot.clone(),
+            netuid,
+            vec![0u16, 1],
+            vec![u16::MAX / 2, u16::MAX / 2],
+            vec![1u16], // new salt
+            0u64,
+        ));
+        assert_ok!(SubtensorModule::do_commit_weights(
+            RuntimeOrigin::signed(val_hot.clone()),
+            netuid,
+            new_commit_hash,
+        )); // commit at 20, last_update=20
+
+        run_to_block(31); // Start of epoch3, reveal window
+        assert_ok!(SubtensorModule::do_reveal_weights(
+            RuntimeOrigin::signed(val_hot),
+            netuid,
+            vec![0u16, 1],
+            vec![u16::MAX / 2, u16::MAX / 2],
+            vec![1u16],
+            0u64,
+        ));
+
+        // Run epoch: now last_update=20 >=20, unmasked
+        run_to_block(41); // End of epoch3
+        SubtensorModule::epoch(netuid, 1_000_000);
+        assert!(SubtensorModule::get_incentive_for_uid(netuid, 1) > 0); // Unmasked
+    });
+}
