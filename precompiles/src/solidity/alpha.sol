@@ -90,4 +90,8 @@ interface IAlpha {
     /// @param netuid The subnet identifier.
     /// @return The alpha-out emission per block.
     function getAlphaOutEmission(uint16 netuid) external view returns (uint256);
+
+    /// @dev Returns the sum of alpha prices for all subnets.
+    /// @return The sum of alpha prices.
+    function getSumAlphaPrice() external view returns (uint256);
 }

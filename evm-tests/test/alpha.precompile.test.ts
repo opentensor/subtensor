@@ -144,6 +144,17 @@ describe("Test Alpha Precompile", () => {
             // all should be defined and valid
             assert.ok(taoInEmission !== undefined && alphaInEmission !== undefined && alphaOutEmission !== undefined);
         });
+
+        it("getSumAlphaPrice returns valid sum of alpha prices", async () => {
+            const sumAlphaPrice = await publicClient.readContract({
+                abi: IAlphaABI,
+                address: toViemAddress(IALPHA_ADDRESS),
+                functionName: "getSumAlphaPrice",
+                args: []
+            })
+
+            assert.ok(sumAlphaPrice !== undefined, "Sum alpha price should be defined");
+        })
     });
 
     describe("Pool Data Functions", () => {

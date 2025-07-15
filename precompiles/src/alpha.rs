@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 
 use fp_evm::{ExitError, PrecompileFailure};
-use pallet_evm::PrecompileHandle;
+use pallet_evm::{BalanceConverter, PrecompileHandle, SubstrateBalance};
 use precompile_utils::EvmResult;
 use sp_core::U256;
 use substrate_fixed::types::U96F32;
@@ -14,7 +14,10 @@ pub struct AlphaPrecompile<R>(PhantomData<R>);
 
 impl<R> PrecompileExt<R::AccountId> for AlphaPrecompile<R>
 where
-    R: frame_system::Config + pallet_subtensor::Config + pallet_subtensor_swap::Config,
+    R: frame_system::Config
+        + pallet_subtensor::Config
+        + pallet_subtensor_swap::Config
+        + pallet_evm::Config,
     R::AccountId: From<[u8; 32]>,
 {
     const INDEX: u64 = 2056;
@@ -23,7 +26,10 @@ where
 #[precompile_utils::precompile]
 impl<R> AlphaPrecompile<R>
 where
-    R: frame_system::Config + pallet_subtensor::Config + pallet_subtensor_swap::Config,
+    R: frame_system::Config
+        + pallet_subtensor::Config
+        + pallet_subtensor_swap::Config
+        + pallet_evm::Config,
 {
     #[precompile::public("getAlphaPrice(uint16)")]
     #[precompile::view]
@@ -32,16 +38,24 @@ where
             <pallet_subtensor_swap::Pallet<R> as SwapHandler<R::AccountId>>::current_alpha_price(
                 netuid.into(),
             );
-        let price_scaled = price.saturating_mul(U96F32::saturating_from_num(1_000_000_000));
-        Ok(U256::from(price_scaled.saturating_to_num::<u64>()))
+        let price: SubstrateBalance = price.saturating_to_num::<u64>().into();
+        let price_eth = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(price)
+            .map(|amount| amount.into_u256())
+            .ok_or(ExitError::InvalidRange)?;
+
+        Ok(price_eth)
     }
 
     #[precompile::public("getMovingAlphaPrice(uint16)")]
     #[precompile::view]
     fn get_moving_alpha_price(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
         let price: U96F32 = pallet_subtensor::Pallet::<R>::get_moving_alpha_price(netuid.into());
-        let price_scaled = price.saturating_mul(U96F32::saturating_from_num(1_000_000_000));
-        Ok(U256::from(price_scaled.saturating_to_num::<u64>()))
+        let price: SubstrateBalance = price.saturating_to_num::<u64>().into();
+        let price_eth = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(price)
+            .map(|amount| amount.into_u256())
+            .ok_or(ExitError::InvalidRange)?;
+
+        Ok(price_eth)
     }
 
     #[precompile::public("getTaoInPool(uint16)")]
@@ -174,5 +188,32 @@ where
         Ok(U256::from(
             pallet_subtensor::SubnetAlphaOutEmission::<R>::get(NetUid::from(netuid)),
         ))
+    }
+
+    #[precompile::public("getSumAlphaPrice(uint16)")]
+    #[precompile::view]
+    fn get_sum_alpha_price(_handle: &mut impl PrecompileHandle) -> EvmResult<U256> {
+        let netuids = pallet_subtensor::NetworksAdded::<R>::iter()
+            .filter(|(netuid, _)| *netuid != NetUid::ROOT)
+            .collect::<Vec<_>>();
+
+        let mut sum_alpha_price: U96F32 = U96F32::from_num(0);
+        for (netuid, _) in netuids {
+            let price =
+            <pallet_subtensor_swap::Pallet<R> as SwapHandler<R::AccountId>>::current_alpha_price(
+                netuid.into(),
+            );
+
+            if price < U96F32::from_num(1) {
+                sum_alpha_price = sum_alpha_price.saturating_add(price);
+            }
+        }
+
+        let price: SubstrateBalance = sum_alpha_price.saturating_to_num::<u64>().into();
+        let price_eth = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(price)
+            .map(|amount| amount.into_u256())
+            .ok_or(ExitError::InvalidRange)?;
+
+        Ok(price_eth)
     }
 }
