@@ -29,7 +29,7 @@ use w3f_bls::EngineBLS;
 
 use super::mock;
 use super::mock::*;
-use crate::coinbase::run_coinbase::WeightsTlockPayload;
+use crate::coinbase::reveal_commits::WeightsTlockPayload;
 use crate::*;
 
 /***************************

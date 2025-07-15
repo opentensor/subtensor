@@ -2,12 +2,11 @@
 
 use core::num::NonZeroU64;
 
-use frame_support::PalletId;
-use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
 use frame_support::traits::{Contains, Everything, InherentBuilder, InsideBoth};
 use frame_support::weights::Weight;
 use frame_support::weights::constants::RocksDbWeight;
+use frame_support::{PalletId, derive_impl};
 use frame_support::{
     assert_ok, parameter_types,
     traits::{Hooks, PrivilegeCmp},
@@ -21,7 +20,7 @@ use sp_runtime::{
     BuildStorage,
     traits::{BlakeTwo256, IdentityLookup},
 };
-use sp_std::cmp::Ordering;
+use sp_std::{cell::RefCell, cmp::Ordering};
 use subtensor_runtime_common::NetUid;
 use subtensor_swap_interface::{OrderType, SwapHandler};
 
@@ -46,6 +45,7 @@ frame_support::construct_runtime!(
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 10,
         Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 11,
         Swap: pallet_subtensor_swap::{Pallet, Call, Storage, Event<T>} = 12,
+        Crowdloan: pallet_crowdloan::{Pallet, Call, Storage, Event<T>} = 13,
     }
 );
 
@@ -220,7 +220,8 @@ parameter_types! {
     pub const DurationOfStartCall: u64 =  7 * 24 * 60 * 60 / 12; // Default as 7 days
     pub const InitialKeySwapOnSubnetCost: u64 = 10_000_000;
     pub const HotkeySwapOnSubnetInterval: u64 = 15; // 15 block, should be bigger than subnet number, then trigger clean up for all subnets
-
+    pub const MaxContributorsPerLeaseToRemove: u32 = 3;
+    pub const LeaseDividendsDistributionInterval: u32 = 100;
 }
 
 // Configure collective pallet for council
@@ -452,6 +453,8 @@ impl crate::Config for Test {
     type SwapInterface = Swap;
     type KeySwapOnSubnetCost = InitialKeySwapOnSubnetCost;
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
+    type ProxyInterface = FakeProxier;
+    type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
 }
 
 // Swap-related parameter types
@@ -522,6 +525,56 @@ impl pallet_preimage::Config for Test {
     type Currency = Balances;
     type ManagerOrigin = EnsureRoot<AccountId>;
     type Consideration = ();
+}
+
+thread_local! {
+    pub static PROXIES: RefCell<FakeProxier> = const { RefCell::new(FakeProxier(vec![])) };
+}
+
+pub struct FakeProxier(pub Vec<(U256, U256)>);
+
+impl ProxyInterface<U256> for FakeProxier {
+    fn add_lease_beneficiary_proxy(beneficiary: &AccountId, lease: &AccountId) -> DispatchResult {
+        PROXIES.with_borrow_mut(|proxies| {
+            proxies.0.push((*beneficiary, *lease));
+        });
+        Ok(())
+    }
+
+    fn remove_lease_beneficiary_proxy(
+        beneficiary: &AccountId,
+        lease: &AccountId,
+    ) -> DispatchResult {
+        PROXIES.with_borrow_mut(|proxies| {
+            proxies.0.retain(|(b, l)| b != beneficiary && l != lease);
+        });
+        Ok(())
+    }
+}
+
+parameter_types! {
+    pub const CrowdloanPalletId: PalletId = PalletId(*b"bt/cloan");
+    pub const MinimumDeposit: u64 = 50;
+    pub const AbsoluteMinimumContribution: u64 = 10;
+    pub const MinimumBlockDuration: u64 = 20;
+    pub const MaximumBlockDuration: u64 = 100;
+    pub const RefundContributorsLimit: u32 = 5;
+    pub const MaxContributors: u32 = 10;
+}
+
+impl pallet_crowdloan::Config for Test {
+    type PalletId = CrowdloanPalletId;
+    type Currency = Balances;
+    type RuntimeCall = RuntimeCall;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = pallet_crowdloan::weights::SubstrateWeight<Test>;
+    type Preimages = Preimage;
+    type MinimumDeposit = MinimumDeposit;
+    type AbsoluteMinimumContribution = AbsoluteMinimumContribution;
+    type MinimumBlockDuration = MinimumBlockDuration;
+    type MaximumBlockDuration = MaximumBlockDuration;
+    type RefundContributorsLimit = RefundContributorsLimit;
+    type MaxContributors = MaxContributors;
 }
 
 mod test_crypto {
@@ -900,6 +953,7 @@ pub fn increase_stake_on_coldkey_hotkey_account(
         netuid,
         tao_staked,
         <Test as Config>::SwapInterface::max_price(),
+        false,
     )
     .unwrap();
 }
@@ -919,6 +973,10 @@ pub fn increase_stake_on_hotkey_account(hotkey: &U256, increment: u64, netuid: N
     );
 }
 
+pub(crate) fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, netuid: NetUid) {
+    StakingOperationRateLimiter::<Test>::remove((hotkey, coldkey, netuid));
+}
+
 pub(crate) fn setup_reserves(netuid: NetUid, tao: u64, alpha: AlphaCurrency) {
     SubnetTAO::<Test>::set(netuid, tao);
     SubnetAlphaIn::<Test>::set(netuid, alpha);
@@ -934,6 +992,7 @@ pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: u64) -> (AlphaCurrency, u64
         OrderType::Buy,
         tao,
         <Test as pallet::Config>::SwapInterface::max_price(),
+        false,
         true,
     );
 
@@ -947,7 +1006,11 @@ pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: u64) -> (AlphaCurrency, u64
     (result.amount_paid_out.into(), result.fee_paid)
 }
 
-pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: AlphaCurrency) -> (u64, u64) {
+pub(crate) fn swap_alpha_to_tao_ext(
+    netuid: NetUid,
+    alpha: AlphaCurrency,
+    drop_fees: bool,
+) -> (u64, u64) {
     if netuid.is_root() {
         return (alpha.into(), 0);
     }
@@ -962,6 +1025,7 @@ pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: AlphaCurrency) -> (u64, u
         OrderType::Sell,
         alpha.into(),
         <Test as pallet::Config>::SwapInterface::min_price(),
+        drop_fees,
         true,
     );
 
@@ -973,4 +1037,17 @@ pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: AlphaCurrency) -> (u64, u
     assert!(result.amount_paid_out > 0);
 
     (result.amount_paid_out, result.fee_paid)
+}
+
+pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: AlphaCurrency) -> (u64, u64) {
+    swap_alpha_to_tao_ext(netuid, alpha, false)
+}
+
+#[allow(dead_code)]
+pub(crate) fn last_event() -> RuntimeEvent {
+    System::events().pop().expect("RuntimeEvent expected").event
+}
+
+pub fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+    frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }

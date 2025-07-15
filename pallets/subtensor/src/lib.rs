@@ -73,6 +73,8 @@ pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 pub mod pallet {
     use crate::RateLimitKey;
     use crate::migrations;
+    use crate::subnets::leasing::{LeaseId, SubnetLeaseOf};
+    use frame_support::Twox64Concat;
     use frame_support::{
         BoundedVec,
         dispatch::GetDispatchInfo,
@@ -505,7 +507,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for registration allowed.
     pub fn DefaultRegistrationAllowed<T: Config>() -> bool {
-        false
+        true
     }
     #[pallet::type_value]
     /// Default value for network registered at.
@@ -806,7 +808,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default minimum stake.
     pub fn DefaultMinStake<T: Config>() -> u64 {
-        500_000
+        2_000_000
     }
 
     #[pallet::type_value]
@@ -1067,7 +1069,6 @@ pub mod pallet {
         StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
-    /// TODO: Deprecate, not accurate and not used in v3 anymore
     pub type SubnetAlphaOut<T: Config> =
         StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
     #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
@@ -1174,9 +1175,9 @@ pub mod pallet {
     #[pallet::storage]
     /// ITEM( network_rate_limit )
     pub type NetworkRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkRateLimit<T>>;
-    #[pallet::storage] // --- ITEM( nominator_min_required_stake )
-    pub type NominatorMinRequiredStake<T> =
-        StorageValue<_, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
+    #[pallet::storage]
+    /// --- ITEM( nominator_min_required_stake ) --- Factor of DefaultMinStake in per-mill format.
+    pub type NominatorMinRequiredStake<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage]
     /// ITEM( weights_version_key_rate_limit ) --- Rate limit in tempos.
     pub type WeightsVersionKeyRateLimit<T> =
@@ -1676,6 +1677,20 @@ pub mod pallet {
         OptionQuery,
     >;
 
+    #[pallet::storage]
+    /// DMAP ( hot, cold, netuid ) --> rate limits for staking operations
+    /// Value contains just a marker: we use this map as a set.
+    pub type StakingOperationRateLimiter<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+            NMapKey<Identity, NetUid>,               // subnet
+        ),
+        bool,
+        ValueQuery,
+    >;
+
     /// =============================
     /// ==== EVM related storage ====
     /// =============================
@@ -1683,6 +1698,33 @@ pub mod pallet {
     /// --- DMAP (netuid, uid) --> (H160, last_block_where_ownership_was_proven)
     pub type AssociatedEvmAddress<T: Config> =
         StorageDoubleMap<_, Twox64Concat, NetUid, Twox64Concat, u16, (H160, u64), OptionQuery>;
+
+    /// ========================
+    /// ==== Subnet Leasing ====
+    /// ========================
+    #[pallet::storage]
+    /// --- MAP ( lease_id ) --> subnet lease | The subnet lease for a given lease id.
+    pub type SubnetLeases<T: Config> =
+        StorageMap<_, Twox64Concat, LeaseId, SubnetLeaseOf<T>, OptionQuery>;
+
+    #[pallet::storage]
+    /// --- DMAP ( lease_id, contributor ) --> shares | The shares of a contributor for a given lease.
+    pub type SubnetLeaseShares<T: Config> =
+        StorageDoubleMap<_, Twox64Concat, LeaseId, Identity, T::AccountId, U64F64, ValueQuery>;
+
+    #[pallet::storage]
+    // --- MAP ( netuid ) --> lease_id | The lease id for a given netuid.
+    pub type SubnetUidToLeaseId<T: Config> =
+        StorageMap<_, Twox64Concat, NetUid, LeaseId, OptionQuery>;
+
+    #[pallet::storage]
+    /// --- ITEM ( next_lease_id ) | The next lease id.
+    pub type NextSubnetLeaseId<T: Config> = StorageValue<_, LeaseId, ValueQuery, ConstU32<0>>;
+
+    #[pallet::storage]
+    /// --- MAP ( lease_id ) --> accumulated_dividends | The accumulated dividends for a given lease that needs to be distributed.
+    pub type AccumulatedLeaseDividends<T: Config> =
+        StorageMap<_, Twox64Concat, LeaseId, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// ==================
     /// ==== Genesis =====
@@ -2582,6 +2624,11 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
             Error::<T>::HotKeyAccountNotExists
         );
 
+        // Increse alpha out counter
+        SubnetAlphaOut::<T>::mutate(netuid, |total| {
+            *total = total.saturating_add(alpha);
+        });
+
         Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
 
         Ok(())
@@ -2597,6 +2644,11 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
             Self::hotkey_account_exists(hotkey),
             Error::<T>::HotKeyAccountNotExists
         );
+
+        // Decrese alpha out counter
+        SubnetAlphaOut::<T>::mutate(netuid, |total| {
+            *total = total.saturating_sub(alpha);
+        });
 
         Ok(Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             hotkey, coldkey, netuid, alpha,
@@ -2626,4 +2678,20 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
 pub enum RateLimitKey {
     // The setting sn owner hotkey operation is rate limited per netuid
     SetSNOwnerHotkey(NetUid),
+}
+
+pub trait ProxyInterface<AccountId> {
+    fn add_lease_beneficiary_proxy(beneficiary: &AccountId, lease: &AccountId) -> DispatchResult;
+    fn remove_lease_beneficiary_proxy(beneficiary: &AccountId, lease: &AccountId)
+    -> DispatchResult;
+}
+
+impl<T> ProxyInterface<T> for () {
+    fn add_lease_beneficiary_proxy(_: &T, _: &T) -> DispatchResult {
+        Ok(())
+    }
+
+    fn remove_lease_beneficiary_proxy(_: &T, _: &T) -> DispatchResult {
+        Ok(())
+    }
 }

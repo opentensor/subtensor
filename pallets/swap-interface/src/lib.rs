@@ -16,6 +16,7 @@ pub trait SwapHandler<AccountId> {
         order_t: OrderType,
         amount: u64,
         price_limit: u64,
+        drop_fees: bool,
         should_rollback: bool,
     ) -> Result<SwapResult, DispatchError>;
     fn sim_swap(
@@ -27,7 +28,7 @@ pub trait SwapHandler<AccountId> {
     fn current_alpha_price(netuid: NetUid) -> U96F32;
     fn max_price() -> u64;
     fn min_price() -> u64;
-    fn adjust_protocol_liquidity(netuid: NetUid);
+    fn adjust_protocol_liquidity(netuid: NetUid, tao_delta: u64, alpha_delta: Alpha);
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool;
 }
 
@@ -39,12 +40,4 @@ pub struct SwapResult {
     // For calculation of new tao/alpha reserves
     pub tao_reserve_delta: i64,
     pub alpha_reserve_delta: i64,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct UpdateLiquidityResult {
-    pub tao: u64,
-    pub alpha: Alpha,
-    pub fee_tao: u64,
-    pub fee_alpha: Alpha,
 }

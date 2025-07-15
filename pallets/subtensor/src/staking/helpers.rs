@@ -184,8 +184,13 @@ impl<T: Config> Pallet<T> {
         if !Self::coldkey_owns_hotkey(coldkey, hotkey) {
             // If the stake is below the minimum required, it's considered a small nomination and needs to be cleared.
             // Log if the stake is below the minimum required
-            let stake = Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
-            if stake < Self::get_nominator_min_required_stake() {
+            let alpha_stake =
+                Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
+            let min_alpha_stake =
+                U96F32::saturating_from_num(Self::get_nominator_min_required_stake())
+                    .safe_div(T::SwapInterface::current_alpha_price(netuid))
+                    .saturating_to_num::<u64>();
+            if alpha_stake < min_alpha_stake.into() {
                 // Log the clearing of a small nomination
                 // Remove the stake from the nominator account. (this is a more forceful unstake operation which )
                 // Actually deletes the staking account.
@@ -194,8 +199,9 @@ impl<T: Config> Pallet<T> {
                     hotkey,
                     coldkey,
                     netuid,
-                    stake,
+                    alpha_stake,
                     T::SwapInterface::min_price(),
+                    false,
                 );
 
                 if let Ok(cleared_stake) = maybe_cleared_stake {
@@ -229,7 +235,7 @@ impl<T: Config> Pallet<T> {
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) {
         // infallible
-        let _ = T::Currency::deposit(coldkey, amount, Precision::BestEffort);
+        let _ = <T as Config>::Currency::deposit(coldkey, amount, Precision::BestEffort);
     }
 
     pub fn can_remove_balance_from_coldkey_account(
@@ -243,7 +249,7 @@ impl<T: Config> Pallet<T> {
 
         // This bit is currently untested. @todo
 
-        T::Currency::can_withdraw(coldkey, amount)
+        <T as Config>::Currency::can_withdraw(coldkey, amount)
             .into_result(false)
             .is_ok()
     }
@@ -252,7 +258,11 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
     ) -> <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance
     {
-        T::Currency::reducible_balance(coldkey, Preservation::Expendable, Fortitude::Polite)
+        <T as Config>::Currency::reducible_balance(
+            coldkey,
+            Preservation::Expendable,
+            Fortitude::Polite,
+        )
     }
 
     #[must_use = "Balance must be used to preserve total issuance of token"]
@@ -264,7 +274,7 @@ impl<T: Config> Pallet<T> {
             return Ok(0);
         }
 
-        let credit = T::Currency::withdraw(
+        let credit = <T as Config>::Currency::withdraw(
             coldkey,
             amount,
             Precision::BestEffort,
@@ -289,7 +299,7 @@ impl<T: Config> Pallet<T> {
             return Ok(0);
         }
 
-        let credit = T::Currency::withdraw(
+        let credit = <T as Config>::Currency::withdraw(
             coldkey,
             amount,
             Precision::Exact,

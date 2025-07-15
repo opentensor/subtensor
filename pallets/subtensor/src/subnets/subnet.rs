@@ -148,23 +148,23 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotEnoughBalanceToStake
         );
 
-        // --- 5. Determine the netuid to register.
+        // --- 6. Determine the netuid to register.
         let netuid_to_register = Self::get_next_netuid();
 
-        // --- 6. Perform the lock operation.
+        // --- 7. Perform the lock operation.
         let actual_tao_lock_amount: u64 =
             Self::remove_balance_from_coldkey_account(&coldkey, lock_amount)?;
         log::debug!("actual_tao_lock_amount: {:?}", actual_tao_lock_amount);
 
-        // --- 7. Set the lock amount for use to determine pricing.
+        // --- 8. Set the lock amount for use to determine pricing.
         Self::set_network_last_lock(actual_tao_lock_amount);
 
-        // --- 8. Set initial and custom parameters for the network.
+        // --- 9. Set initial and custom parameters for the network.
         let default_tempo = DefaultTempo::<T>::get();
         Self::init_new_network(netuid_to_register, default_tempo);
         log::debug!("init_new_network: {:?}", netuid_to_register);
 
-        // --- 9 . Add the caller to the neuron set.
+        // --- 10. Add the caller to the neuron set.
         Self::create_account_if_non_existent(&coldkey, hotkey);
         Self::append_neuron(netuid_to_register, hotkey, current_block);
         log::debug!(
@@ -173,7 +173,7 @@ impl<T: Config> Pallet<T> {
             hotkey
         );
 
-        // --- 10. Set the mechanism.
+        // --- 11. Set the mechanism.
         SubnetMechanism::<T>::insert(netuid_to_register, mechid);
         log::debug!(
             "SubnetMechanism for netuid {:?} set to: {:?}",
@@ -181,16 +181,15 @@ impl<T: Config> Pallet<T> {
             mechid
         );
 
-        // --- 11. Set the creation terms.
+        // --- 12. Set the creation terms.
         NetworkLastRegistered::<T>::set(current_block);
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
 
-        // --- 14. Init the pool by putting the lock as the initial alpha.
-        TokenSymbol::<T>::insert(
-            netuid_to_register,
-            Self::get_symbol_for_subnet(netuid_to_register),
-        ); // Set subnet token symbol.
+        // --- 13. Set the symbol.
+        let symbol = Self::get_next_available_symbol(netuid_to_register);
+        TokenSymbol::<T>::insert(netuid_to_register, symbol);
 
+        // --- 14. Init the pool by putting the lock as the initial alpha.
         // Put initial TAO from lock into subnet TAO and produce numerically equal amount of Alpha
         // The initial TAO is the locked amount, with a minimum of 1 RAO and a cap of 100 TAO.
         let pool_initial_tao = Self::get_network_min_lock();
@@ -222,7 +221,11 @@ impl<T: Config> Pallet<T> {
             Self::deposit_event(Event::SubnetIdentitySet(netuid_to_register));
         }
 
-        // --- 16. Emit the NetworkAdded event.
+        // --- 16. Enable registration for new subnet
+        NetworkRegistrationAllowed::<T>::set(netuid_to_register, true);
+        NetworkPowRegistrationAllowed::<T>::set(netuid_to_register, true);
+
+        // --- 17. Emit the NetworkAdded event.
         log::info!(
             "NetworkAdded( netuid:{:?}, mechanism:{:?} )",
             netuid_to_register,
@@ -230,7 +233,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::NetworkAdded(netuid_to_register, mechid));
 
-        // --- 17. Return success.
+        // --- 18. Return success.
         Ok(())
     }
 

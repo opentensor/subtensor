@@ -1,11 +1,13 @@
-use frame_support::{assert_noop, assert_ok};
+#![allow(clippy::unwrap_used)]
+use super::mock::*;
+use crate::subnets::symbols::{DEFAULT_SYMBOL, SYMBOLS};
+use crate::*;
+use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
 use subtensor_runtime_common::Alpha as AlphaCurrency;
 
 use super::mock;
-use super::mock::*;
-use crate::*;
 
 /***************************
   pub fn do_start_call() tests
@@ -203,55 +205,157 @@ fn test_register_network_min_burn_at_default() {
         let cost = SubtensorModule::get_network_lock_cost();
 
         // Give coldkey enough for lock
-        SubtensorModule::add_balance_to_coldkey_account(&sn_owner_coldkey, cost + 10_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&sn_owner_coldkey, cost);
 
         // Register network
         assert_ok!(SubtensorModule::register_network(
             <<Test as Config>::RuntimeOrigin>::signed(sn_owner_coldkey),
             sn_owner_hotkey
         ));
-        // Get last events
-        let events = System::events();
-        let min_burn_event = events
-            .iter()
-            .filter(|event| {
-                matches!(
-                    event.event,
-                    RuntimeEvent::SubtensorModule(Event::<Test>::NetworkAdded(..))
-                )
-            })
-            .next_back();
 
-        let netuid = match min_burn_event.map(|event| event.event.clone()) {
-            Some(RuntimeEvent::SubtensorModule(Event::<Test>::NetworkAdded(netuid, _))) => netuid,
+        // Get netuid of the new network
+        let netuid = match last_event() {
+            RuntimeEvent::SubtensorModule(Event::<Test>::NetworkAdded(netuid, _)) => netuid,
             _ => panic!("Expected NetworkAdded event"),
         };
 
         // Check min burn is set to default
         assert_eq!(MinBurn::<Test>::get(netuid), InitialMinBurn::get());
+
+        // Check registration allowed
+        assert!(NetworkRegistrationAllowed::<Test>::get(netuid));
+        assert!(NetworkPowRegistrationAllowed::<Test>::get(netuid));
     });
 }
 
-// cargo test --package pallet-subtensor --lib -- tests::subnet::test_no_duplicates_in_get_symbol_for_subnet --exact --show-output
 #[test]
-fn test_no_duplicates_in_get_symbol_for_subnet() {
-    use std::collections::HashSet;
+fn test_register_network_use_symbol_for_subnet_if_available() {
+    new_test_ext(1).execute_with(|| {
+        for i in 0..(SYMBOLS.len() - 1) {
+            let coldkey = U256::from(1_000_000 + i);
+            let hotkey = U256::from(2_000_000 + i);
+            let cost = SubtensorModule::get_network_lock_cost();
+            SubtensorModule::add_balance_to_coldkey_account(&coldkey, cost);
 
-    let mut seen = HashSet::new();
-    for netuid in 0u16..=438 {
-        let netuid = NetUid::from(netuid);
-        let symbol = Pallet::<Test>::get_symbol_for_subnet(netuid);
-        assert!(
-            seen.insert(symbol.clone()),
-            "Duplicate symbol found for netuid {}: {:?}",
-            netuid,
-            symbol
-        );
-    }
+            assert_ok!(SubtensorModule::register_network(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                hotkey
+            ));
+
+            let netuid = match last_event() {
+                RuntimeEvent::SubtensorModule(Event::<Test>::NetworkAdded(netuid, _)) => netuid,
+                _ => panic!("Expected NetworkAdded event"),
+            };
+
+            // Ensure the symbol correspond to the netuid has been set
+            let expected_symbol = SYMBOLS.get(usize::from(u16::from(netuid))).unwrap();
+            assert_eq!(TokenSymbol::<Test>::get(netuid), *expected_symbol);
+
+            // Check registration allowed
+            assert!(NetworkRegistrationAllowed::<Test>::get(netuid));
+            assert!(NetworkPowRegistrationAllowed::<Test>::get(netuid));
+        }
+    });
 }
 
-// cargo test --package pallet-subtensor --lib -- tests::subnet::test_subtoken_enable --exact --show-output
+#[test]
+fn test_register_network_use_next_available_symbol_if_symbol_for_subnet_is_taken() {
+    new_test_ext(1).execute_with(|| {
+        // Register 50 networks (additionnaly to the root network)
+        for i in 0..50 {
+            let coldkey = U256::from(1_000_000 + i);
+            let hotkey = U256::from(2_000_000 + i);
+            let cost = SubtensorModule::get_network_lock_cost();
+            SubtensorModule::add_balance_to_coldkey_account(&coldkey, cost);
 
+            assert_ok!(SubtensorModule::register_network(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                hotkey
+            ));
+
+            let netuid = match last_event() {
+                RuntimeEvent::SubtensorModule(Event::<Test>::NetworkAdded(netuid, _)) => netuid,
+                _ => panic!("Expected NetworkAdded event"),
+            };
+
+            // Ensure the symbol correspond to the netuid has been set
+            let expected_symbol = SYMBOLS.get(usize::from(u16::from(netuid))).unwrap();
+            assert_eq!(TokenSymbol::<Test>::get(netuid), *expected_symbol);
+
+            // Check registration allowed
+            assert!(NetworkRegistrationAllowed::<Test>::get(netuid));
+            assert!(NetworkPowRegistrationAllowed::<Test>::get(netuid));
+        }
+
+        // Swap some of the network symbol for the network 25 to network 51 symbol (not registered yet)
+        TokenSymbol::<Test>::insert(NetUid::from(25), SYMBOLS.get(51).unwrap().to_vec());
+
+        // Register a new network
+        let coldkey = U256::from(1_000_000 + 50);
+        let hotkey = U256::from(2_000_000 + 50);
+        let cost = SubtensorModule::get_network_lock_cost();
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, cost);
+
+        assert_ok!(SubtensorModule::register_network(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey
+        ));
+
+        // Get netuid of the new network
+        let netuid = match last_event() {
+            RuntimeEvent::SubtensorModule(Event::<Test>::NetworkAdded(netuid, _)) => netuid,
+            _ => panic!("Expected NetworkAdded event"),
+        };
+
+        // We expect the symbol to be the one that was previously taken by network 25, before it was swapped
+        let expected_symbol = SYMBOLS.get(25).unwrap();
+        assert_eq!(TokenSymbol::<Test>::get(netuid), *expected_symbol);
+    });
+}
+
+#[test]
+fn test_register_network_use_default_symbol_if_all_symbols_are_taken() {
+    new_test_ext(1).execute_with(|| {
+        // Register networks until we have exhausted all symbols
+        for i in 0..(SYMBOLS.len() - 1) {
+            let coldkey = U256::from(1_000_000 + i);
+            let hotkey = U256::from(2_000_000 + i);
+            let cost = SubtensorModule::get_network_lock_cost();
+            SubtensorModule::add_balance_to_coldkey_account(&coldkey, cost);
+
+            assert_ok!(SubtensorModule::register_network(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                hotkey
+            ));
+        }
+
+        // Register a new network
+        let coldkey = U256::from(1_000_000 + 50);
+        let hotkey = U256::from(2_000_000 + 50);
+        let cost = SubtensorModule::get_network_lock_cost();
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, cost);
+
+        assert_ok!(SubtensorModule::register_network(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey
+        ));
+
+        // Get netuid of the new network
+        let netuid = match last_event() {
+            RuntimeEvent::SubtensorModule(Event::<Test>::NetworkAdded(netuid, _)) => netuid,
+            _ => panic!("Expected NetworkAdded event"),
+        };
+        assert_eq!(netuid, NetUid::from(SYMBOLS.len() as u16));
+
+        // We expect the symbol to be the default symbol
+        assert_eq!(TokenSymbol::<Test>::get(netuid), *DEFAULT_SYMBOL);
+
+        // Check registration allowed
+        assert!(NetworkRegistrationAllowed::<Test>::get(netuid));
+        assert!(NetworkPowRegistrationAllowed::<Test>::get(netuid));
+    });
+}
+// cargo test --package pallet-subtensor --lib -- tests::subnet::test_subtoken_enable --exact --show-output
 #[test]
 fn test_subtoken_enable() {
     // ensure_subtoken_enabled
@@ -512,6 +616,8 @@ fn test_subtoken_enable_trading_ok_with_enable() {
             stake_amount
         ));
 
+        remove_stake_rate_limit_for_tests(&hotkey_account_id, &coldkey_account_id, netuid);
+
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
@@ -541,6 +647,8 @@ fn test_subtoken_enable_trading_ok_with_enable() {
             netuid2,
             unstake_amount,
         ));
+
+        remove_stake_rate_limit_for_tests(&hotkey_account_2_id, &coldkey_account_id, netuid);
 
         assert_ok!(SubtensorModule::transfer_stake(
             RuntimeOrigin::signed(coldkey_account_id),
@@ -660,5 +768,125 @@ fn test_user_liquidity_access_control() {
         assert!(pallet_subtensor_swap::EnabledUserLiquidity::<Test>::get(
             NetUid::from(netuid)
         ));
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::subnet::test_no_duplicates_in_symbol_static --exact --show-output
+#[test]
+fn test_no_duplicates_in_symbol_static() {
+    use std::collections::HashSet;
+
+    let mut seen = HashSet::new();
+    for netuid in 0..(SYMBOLS.len() as u16) {
+        let symbol = SYMBOLS.get(usize::from(netuid)).unwrap();
+        assert!(
+            seen.insert(symbol.to_vec()),
+            "Duplicate symbol found for netuid {}: {:?}",
+            netuid,
+            symbol
+        );
+    }
+}
+
+#[test]
+fn test_get_symbol_for_subnet_returns_default_symbol_if_netuid_is_out_of_bounds() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(SYMBOLS.len() as u16 + 1);
+        let symbol = Pallet::<Test>::get_symbol_for_subnet(netuid);
+        assert_eq!(symbol, DEFAULT_SYMBOL);
+    });
+}
+
+#[test]
+fn test_update_symbol_works_as_root_if_symbol_exists_and_available() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        add_network(netuid, 10, 0);
+
+        // only one network so we can set any symbol, except the root symbol
+        for i in 1..SYMBOLS.len() {
+            let symbol = SYMBOLS.get(i).unwrap().to_vec();
+            assert_ok!(SubtensorModule::update_symbol(
+                <Test as Config>::RuntimeOrigin::root(),
+                netuid,
+                symbol.clone()
+            ));
+
+            assert_eq!(TokenSymbol::<Test>::get(netuid), symbol);
+            assert_last_event::<Test>(Event::SymbolUpdated { netuid, symbol }.into());
+        }
+    });
+}
+
+#[test]
+fn test_update_symbol_works_as_subnet_owner_if_symbol_exists_and_available() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let netuid = NetUid::from(1);
+        add_network(netuid, 10, 0);
+        SubnetOwner::<Test>::insert(netuid, coldkey);
+
+        // only one network so we can set any symbol, except the root symbol
+        for i in 1..SYMBOLS.len() {
+            let symbol = SYMBOLS.get(i).unwrap().to_vec();
+
+            assert_ok!(SubtensorModule::update_symbol(
+                <Test as Config>::RuntimeOrigin::signed(coldkey),
+                netuid,
+                symbol.clone()
+            ));
+
+            assert_eq!(TokenSymbol::<Test>::get(netuid), symbol);
+            assert_last_event::<Test>(Event::SymbolUpdated { netuid, symbol }.into());
+        }
+    });
+}
+
+#[test]
+fn test_update_symbol_fails_if_symbol_doesnt_exist() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let netuid = NetUid::from(1);
+        add_network(netuid, 10, 0);
+        SubnetOwner::<Test>::insert(netuid, coldkey);
+
+        assert_err!(
+            SubtensorModule::update_symbol(
+                <Test as Config>::RuntimeOrigin::signed(coldkey),
+                netuid,
+                b"TEST".to_vec()
+            ),
+            Error::<Test>::SymbolDoesNotExist
+        );
+    });
+}
+
+#[test]
+fn test_update_symbol_fails_if_symbol_already_in_use() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let netuid = NetUid::from(1);
+        add_network(netuid, 10, 0);
+        SubnetOwner::<Test>::insert(netuid, coldkey);
+
+        let coldkey2 = U256::from(2);
+        let netuid2 = NetUid::from(2);
+        add_network(netuid2, 10, 0);
+        SubnetOwner::<Test>::insert(netuid2, coldkey2);
+
+        assert_ok!(SubtensorModule::update_symbol(
+            <Test as Config>::RuntimeOrigin::signed(coldkey),
+            netuid,
+            SYMBOLS.get(42).unwrap().to_vec()
+        ));
+
+        assert_err!(
+            SubtensorModule::update_symbol(
+                <Test as Config>::RuntimeOrigin::signed(coldkey2),
+                netuid2,
+                SYMBOLS.get(42).unwrap().to_vec()
+            ),
+            Error::<Test>::SymbolAlreadyInUse
+        );
     });
 }

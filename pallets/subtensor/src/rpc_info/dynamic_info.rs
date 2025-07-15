@@ -48,7 +48,7 @@ impl<T: Config> Pallet<T> {
                 .into_iter()
                 .map(Compact)
                 .collect(),
-            token_symbol: Self::get_symbol_for_subnet(netuid)
+            token_symbol: TokenSymbol::<T>::get(netuid)
                 .into_iter()
                 .map(Compact)
                 .collect(),

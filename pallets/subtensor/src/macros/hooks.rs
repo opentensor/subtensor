@@ -44,7 +44,9 @@ mod hooks {
         // 	* 'n': (BlockNumberFor<T>):
         // 		- The number of the block we are finalizing.
         fn on_finalize(_block_number: BlockNumberFor<T>) {
-            // Self::do_on_finalize(block_number);
+            for _ in StakingOperationRateLimiter::<T>::drain() {
+                // Clear all entries each block
+            }
         }
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
@@ -117,7 +119,13 @@ mod hooks {
                 // Reset max burn
                 .saturating_add(migrations::migrate_reset_max_burn::migrate_reset_max_burn::<T>())
                 // Migrate ColdkeySwapScheduled structure to new format
-                .saturating_add(migrations::migrate_coldkey_swap_scheduled::migrate_coldkey_swap_scheduled::<T>());
+                .saturating_add(migrations::migrate_coldkey_swap_scheduled::migrate_coldkey_swap_scheduled::<T>())
+                // Fix the root subnet TAO storage value
+                .saturating_add(migrations::migrate_fix_root_subnet_tao::migrate_fix_root_subnet_tao::<T>())
+                // Fix the owner disable the registration
+                .saturating_add(migrations::migrate_set_registration_enable::migrate_set_registration_enable::<T>())
+                // Migrate Subnet Identities to V3
+                .saturating_add(migrations::migrate_subnet_identities_to_v3::migrate_subnet_identities_to_v3::<T>());
             weight
         }
 

@@ -1,25 +1,26 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-use fp_consensus::{FindLogError, ensure_log};
-use fp_rpc::EthereumRuntimeRPCApi;
 use futures::{FutureExt, channel::mpsc, future};
 use node_subtensor_runtime::{RuntimeApi, TransactionConverter, opaque::Block};
+use sc_chain_spec::ChainType;
 use sc_client_api::{Backend as BackendT, BlockBackend};
 use sc_consensus::{
     BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxBlockImport, ImportResult,
 };
 use sc_consensus_grandpa::BlockNumberOps;
 use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
+use sc_network::config::SyncMode;
 use sc_network_sync::strategy::warp::{WarpSyncConfig, WarpSyncProvider};
 use sc_service::{Configuration, PartialComponents, TaskManager, error::Error as ServiceError};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, log};
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_api::ProvideRuntimeApi;
-use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_consensus::Error as ConsensusError;
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
+use sp_core::H256;
 use sp_runtime::traits::{Block as BlockT, Header, NumberFor};
+use std::collections::HashSet;
+use std::str::FromStr;
 use std::{cell::RefCell, path::Path};
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
@@ -101,12 +102,38 @@ where
     });
 
     let select_chain = sc_consensus::LongestChain::new(backend.clone());
+
+    let skip_block_justifications = if config.chain_spec.chain_type() == ChainType::Live {
+        // Mainnet patch
+        let hash_5614869 =
+            H256::from_str("0xb49f8cd2a49b51a493fc55a8c9524ba08c3aa6b702f20af02878c1ec68e3ff5f")
+                .expect("Invalid hash string.");
+        let hash_5614888 =
+            H256::from_str("0x04c71efb77060bfacfb49cd61826d594148ccda2ee23d66c7db819b16b55911c")
+                .expect("Invalid hash string.");
+
+        Some(HashSet::from([hash_5614869, hash_5614888]))
+    } else {
+        // Testnet patch
+        let hash_4589660 =
+            H256::from_str("0x819a5e54ffa2d267d469c6da44de5e8819b1aad1717a1389c959eab4349722ca")
+                .expect("Invalid hash string.");
+
+        Some(HashSet::from([hash_4589660]))
+    };
+
+    log::warn!(
+        "Grandpa block import patch enabled. Chain type = {:?}. Skip justifications for blocks = {skip_block_justifications:?}",
+        config.chain_spec.chain_type()
+    );
+
     let (grandpa_block_import, grandpa_link) = sc_consensus_grandpa::block_import(
         client.clone(),
         GRANDPA_JUSTIFICATION_PERIOD,
         &client,
         select_chain.clone(),
         telemetry.as_ref().map(|x| x.handle()),
+        skip_block_justifications,
     )?;
 
     let storage_override = Arc::new(StorageOverrideHandler::<_, _, _>::new(client.clone()));
@@ -177,45 +204,13 @@ where
     })
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("Multiple runtime Ethereum blocks, rejecting!")]
-    MultipleRuntimeLogs,
-    #[error("Runtime Ethereum block not found, rejecting!")]
-    NoRuntimeLog,
-    #[error("Cannot access the runtime at genesis, rejecting!")]
-    RuntimeApiCallFailed,
-}
-
-impl From<Error> for String {
-    fn from(error: Error) -> String {
-        error.to_string()
-    }
-}
-
-impl From<FindLogError> for Error {
-    fn from(error: FindLogError) -> Error {
-        match error {
-            FindLogError::NotFound => Error::NoRuntimeLog,
-            FindLogError::MultipleLogs => Error::MultipleRuntimeLogs,
-        }
-    }
-}
-
-impl From<Error> for ConsensusError {
-    fn from(error: Error) -> ConsensusError {
-        ConsensusError::ClientImport(error.to_string())
-    }
-}
-
-pub struct ConditionalEVMBlockImport<B: BlockT, I, F, C> {
+pub struct ConditionalEVMBlockImport<B: BlockT, I, F> {
     inner: I,
     frontier_block_import: F,
-    client: Arc<C>,
     _marker: PhantomData<B>,
 }
 
-impl<B, I, F, C> Clone for ConditionalEVMBlockImport<B, I, F, C>
+impl<B, I, F> Clone for ConditionalEVMBlockImport<B, I, F>
 where
     B: BlockT,
     I: Clone + BlockImport<B>,
@@ -225,42 +220,36 @@ where
         ConditionalEVMBlockImport {
             inner: self.inner.clone(),
             frontier_block_import: self.frontier_block_import.clone(),
-            client: self.client.clone(),
             _marker: PhantomData,
         }
     }
 }
 
-impl<B, I, F, C> ConditionalEVMBlockImport<B, I, F, C>
+impl<B, I, F> ConditionalEVMBlockImport<B, I, F>
 where
     B: BlockT,
     I: BlockImport<B>,
     I::Error: Into<ConsensusError>,
     F: BlockImport<B>,
     F::Error: Into<ConsensusError>,
-    C: ProvideRuntimeApi<B>,
-    C::Api: BlockBuilderApi<B> + EthereumRuntimeRPCApi<B>,
 {
-    pub fn new(inner: I, frontier_block_import: F, client: Arc<C>) -> Self {
+    pub fn new(inner: I, frontier_block_import: F) -> Self {
         Self {
             inner,
             frontier_block_import,
-            client,
             _marker: PhantomData,
         }
     }
 }
 
 #[async_trait::async_trait]
-impl<B, I, F, C> BlockImport<B> for ConditionalEVMBlockImport<B, I, F, C>
+impl<B, I, F> BlockImport<B> for ConditionalEVMBlockImport<B, I, F>
 where
     B: BlockT,
     I: BlockImport<B> + Send + Sync,
     I::Error: Into<ConsensusError>,
     F: BlockImport<B> + Send + Sync,
     F::Error: Into<ConsensusError>,
-    C: ProvideRuntimeApi<B> + Send + Sync,
-    C::Api: BlockBuilderApi<B> + EthereumRuntimeRPCApi<B>,
 {
     type Error = ConsensusError;
 
@@ -269,10 +258,14 @@ where
     }
 
     async fn import_block(&self, block: BlockImportParams<B>) -> Result<ImportResult, Self::Error> {
-        // Import like Frontier, but fallback to grandpa import for errors
-        match ensure_log(block.header.digest()).map_err(Error::from) {
-            Ok(()) => self.inner.import_block(block).await.map_err(Into::into),
-            _ => self.inner.import_block(block).await.map_err(Into::into),
+        // 4345556 - mainnet runtime upgrade block with Frontier
+        if *block.header.number() < 4345557u32.into() {
+            self.inner.import_block(block).await.map_err(Into::into)
+        } else {
+            self.frontier_block_import
+                .import_block(block)
+                .await
+                .map_err(Into::into)
         }
     }
 }
@@ -292,7 +285,6 @@ where
     let conditional_block_import = ConditionalEVMBlockImport::new(
         grandpa_block_import.clone(),
         FrontierBlockImport::new(grandpa_block_import.clone(), client.clone()),
-        client.clone(),
     );
 
     let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
@@ -336,7 +328,6 @@ pub fn build_manual_seal_import_queue(
     let conditional_block_import = ConditionalEVMBlockImport::new(
         grandpa_block_import.clone(),
         FrontierBlockImport::new(grandpa_block_import.clone(), client.clone()),
-        client,
     );
     Ok((
         sc_consensus_manual_seal::import_queue(
@@ -358,6 +349,15 @@ where
     NumberFor<Block>: BlockNumberOps,
     NB: sc_network::NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
+    // Substrate doesn't seem to support fast sync option in our configuration.
+    if matches!(config.network.sync_mode, SyncMode::LightState { .. }) {
+        log::error!(
+            "Supported sync modes: full, warp. Provided: {:?}",
+            config.network.sync_mode
+        );
+        return Err(ServiceError::Other("Unsupported sync mode".to_string()));
+    }
+
     let build_import_queue = if sealing.is_some() {
         build_manual_seal_import_queue
     } else {
@@ -404,13 +404,23 @@ where
     let warp_sync_config = if sealing.is_some() {
         None
     } else {
+        let set_id: u64 = if config.chain_spec.chain_type() == ChainType::Live {
+            3 // mainnet patch
+        } else {
+            2 // testnet patch
+        };
+        log::warn!(
+            "Grandpa warp sync patch enabled. Chain type = {:?}. Set ID = {set_id}",
+            config.chain_spec.chain_type()
+        );
         net_config.add_notification_protocol(grandpa_protocol_config);
         let warp_sync: Arc<dyn WarpSyncProvider<Block>> =
             Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
                 backend.clone(),
                 grandpa_link.shared_authority_set().clone(),
-                Vec::new(),
+                sc_consensus_grandpa::warp_proof::HardForks::new_initial_set_id(set_id),
             ));
+
         Some(WarpSyncConfig::WithProvider(warp_sync))
     };
 

@@ -447,19 +447,23 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Note
     /// This function only checks the stake for the specific hotkey-coldkey pair, not the total stake of the hotkey or coldkey individually.
-    pub fn has_enough_stake_on_subnet(
+    pub fn calculate_reduced_stake_on_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: NetUid,
         decrement: AlphaCurrency,
-    ) -> bool {
+    ) -> Result<AlphaCurrency, Error<T>> {
         // Retrieve the current stake for this hotkey-coldkey pair on the subnet
         let current_stake =
             Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
 
         // Compare the current stake with the requested decrement
         // Return true if the current stake is greater than or equal to the decrement
-        current_stake >= decrement
+        if current_stake >= decrement {
+            Ok(current_stake.saturating_sub(decrement))
+        } else {
+            Err(Error::<T>::NotEnoughStakeToWithdraw)
+        }
     }
 
     /// Retrieves the alpha (stake) value for a given hotkey and coldkey pair on a specific subnet.
@@ -629,8 +633,14 @@ impl<T: Config> Pallet<T> {
         // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
         let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
         if mechanism_id == 1 {
-            let swap_result =
-                T::SwapInterface::swap(netuid.into(), OrderType::Buy, tao, price_limit, false)?;
+            let swap_result = T::SwapInterface::swap(
+                netuid.into(),
+                OrderType::Buy,
+                tao,
+                price_limit,
+                false,
+                false,
+            )?;
             let alpha_decrease = AlphaCurrency::from(swap_result.alpha_reserve_delta.abs() as u64);
 
             // Decrease Alpha reserves.
@@ -677,6 +687,7 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         alpha: AlphaCurrency,
         price_limit: u64,
+        drop_fees: bool,
     ) -> Result<SwapResult, DispatchError> {
         // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
         let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
@@ -687,6 +698,7 @@ impl<T: Config> Pallet<T> {
                 OrderType::Sell,
                 alpha.into(),
                 price_limit,
+                drop_fees,
                 false,
             )?;
 
@@ -700,7 +712,7 @@ impl<T: Config> Pallet<T> {
             // Decrease Alpha outstanding.
             // TODO: Deprecate, not accurate in v3 anymore
             SubnetAlphaOut::<T>::mutate(netuid, |total| {
-                *total = total.saturating_sub(alpha);
+                *total = total.saturating_sub((swap_result.alpha_reserve_delta as u64).into());
             });
 
             // Decrease tao reserves.
@@ -742,13 +754,15 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         alpha: AlphaCurrency,
         price_limit: u64,
+        drop_fees: bool,
     ) -> Result<u64, DispatchError> {
-        //  Decrease alpha on subneet
+        //  Decrease alpha on subnet
         let actual_alpha_decrease =
             Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
 
         // Swap the alpha for TAO.
-        let swap_result = Self::swap_alpha_for_tao(netuid, actual_alpha_decrease, price_limit)?;
+        let swap_result =
+            Self::swap_alpha_for_tao(netuid, actual_alpha_decrease, price_limit, drop_fees)?;
 
         // Refund the unused alpha (in case if limit price is hit)
         let refund = actual_alpha_decrease.saturating_sub(
@@ -803,6 +817,7 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         tao: u64,
         price_limit: u64,
+        set_limit: bool,
     ) -> Result<AlphaCurrency, DispatchError> {
         // Swap the tao to alpha.
         let swap_result = Self::swap_tao_for_alpha(netuid, tao, price_limit)?;
@@ -840,6 +855,10 @@ impl<T: Config> Pallet<T> {
 
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
+        if set_limit {
+            Self::set_stake_operation_limit(hotkey, coldkey, netuid.into());
+        }
+
         // Deposit and log the staking event.
         Self::deposit_event(Event::StakeAdded(
             coldkey.clone(),
@@ -876,7 +895,7 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
         netuid: NetUid,
-        stake_to_be_added: u64,
+        mut stake_to_be_added: u64,
         max_amount: u64,
         allow_partial: bool,
     ) -> Result<(), Error<T>> {
@@ -887,8 +906,8 @@ impl<T: Config> Pallet<T> {
         Self::ensure_subtoken_enabled(netuid)?;
 
         // Get the minimum balance (and amount) that satisfies the transaction
+        let min_stake = DefaultMinStake::<T>::get();
         let min_amount = {
-            let min_stake = DefaultMinStake::<T>::get();
             let fee = T::SwapInterface::sim_swap(netuid.into(), OrderType::Buy, min_stake)
                 .map(|res| res.fee_paid)
                 .unwrap_or(T::SwapInterface::approx_fee_amount(
@@ -905,6 +924,8 @@ impl<T: Config> Pallet<T> {
         // slippage over desired
         if !allow_partial {
             ensure!(stake_to_be_added <= max_amount, Error::<T>::SlippageTooHigh);
+        } else {
+            stake_to_be_added = max_amount.min(stake_to_be_added);
         }
 
         // Ensure the callers coldkey has enough stake to perform the transaction.
@@ -919,12 +940,18 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyAccountNotExists
         );
 
-        let expected_alpha =
+        let swap_result =
             T::SwapInterface::sim_swap(netuid.into(), OrderType::Buy, stake_to_be_added)
                 .map_err(|_| Error::<T>::InsufficientLiquidity)?;
 
+        // Check that actual withdrawn TAO amount is not lower than the minimum stake
         ensure!(
-            expected_alpha.amount_paid_out > 0,
+            swap_result.amount_paid_in >= min_stake,
+            Error::<T>::AmountTooLow
+        );
+
+        ensure!(
+            swap_result.amount_paid_out > 0,
             Error::<T>::InsufficientLiquidity
         );
 
@@ -932,7 +959,7 @@ impl<T: Config> Pallet<T> {
         let try_stake_result = Self::try_increase_stake_for_hotkey_and_coldkey_on_subnet(
             hotkey,
             netuid,
-            expected_alpha.amount_paid_out.into(),
+            swap_result.amount_paid_out.into(),
         );
         ensure!(try_stake_result, Error::<T>::InsufficientLiquidity);
 
@@ -952,15 +979,27 @@ impl<T: Config> Pallet<T> {
         // Ensure that the subnet exists.
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
+        Self::ensure_stake_operation_limit_not_exceeded(hotkey, coldkey, netuid.into())?;
+
         // Ensure that the subnet is enabled.
         // Self::ensure_subtoken_enabled(netuid)?;
 
+        // Do not allow zero unstake amount
+        ensure!(!alpha_unstaked.is_zero(), Error::<T>::AmountTooLow);
+
         // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
+        // Bypass this check if the user unstakes full amount
+        let remaining_alpha_stake =
+            Self::calculate_reduced_stake_on_subnet(hotkey, coldkey, netuid, alpha_unstaked)?;
         match T::SwapInterface::sim_swap(netuid.into(), OrderType::Sell, alpha_unstaked.into()) {
-            Ok(res) => ensure!(
-                res.amount_paid_out > DefaultMinStake::<T>::get(),
-                Error::<T>::AmountTooLow
-            ),
+            Ok(res) => {
+                if !remaining_alpha_stake.is_zero() {
+                    ensure!(
+                        res.amount_paid_out >= DefaultMinStake::<T>::get(),
+                        Error::<T>::AmountTooLow
+                    );
+                }
+            }
             Err(_) => return Err(Error::<T>::InsufficientLiquidity),
         }
 
@@ -974,12 +1013,6 @@ impl<T: Config> Pallet<T> {
         ensure!(
             Self::hotkey_account_exists(hotkey),
             Error::<T>::HotKeyAccountNotExists
-        );
-
-        // Ensure that the hotkey has enough stake to withdraw.
-        ensure!(
-            Self::has_enough_stake_on_subnet(hotkey, coldkey, netuid, alpha_unstaked),
-            Error::<T>::NotEnoughStakeToWithdraw
         );
 
         Ok(())
@@ -1040,6 +1073,12 @@ impl<T: Config> Pallet<T> {
         if origin_coldkey == destination_coldkey && origin_hotkey == destination_hotkey {
             ensure!(origin_netuid != destination_netuid, Error::<T>::SameNetuid);
         }
+
+        Self::ensure_stake_operation_limit_not_exceeded(
+            origin_hotkey,
+            origin_coldkey,
+            origin_netuid.into(),
+        )?;
 
         // Ensure that both subnets exist.
         ensure!(
@@ -1157,6 +1196,27 @@ impl<T: Config> Pallet<T> {
             SubnetAlphaInProvided::<T>::set(netuid, AlphaCurrency::from(0));
             SubnetAlphaIn::<T>::set(netuid, subnet_alpha.saturating_sub(carry_over));
         }
+    }
+
+    pub fn set_stake_operation_limit(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        netuid: NetUid,
+    ) {
+        StakingOperationRateLimiter::<T>::insert((hotkey, coldkey, netuid), true);
+    }
+
+    pub fn ensure_stake_operation_limit_not_exceeded(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        netuid: NetUid,
+    ) -> Result<(), Error<T>> {
+        ensure!(
+            !StakingOperationRateLimiter::<T>::contains_key((hotkey, coldkey, netuid)),
+            Error::<T>::StakingOperationRateLimitExceeded
+        );
+
+        Ok(())
     }
 }
 

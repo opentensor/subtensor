@@ -659,7 +659,7 @@ impl<T: Config> Pallet<T> {
                 .into_iter()
                 .map(Compact)
                 .collect(), // Name
-            symbol: Self::get_symbol_for_subnet(netuid)
+            symbol: TokenSymbol::<T>::get(netuid)
                 .into_iter()
                 .map(Compact)
                 .collect(), // Symbol.
@@ -835,7 +835,7 @@ impl<T: Config> Pallet<T> {
             Some(SelectiveMetagraphIndex::Symbol) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 symbol: Some(
-                    Self::get_symbol_for_subnet(netuid)
+                    TokenSymbol::<T>::get(netuid)
                         .into_iter()
                         .map(Compact)
                         .collect(),

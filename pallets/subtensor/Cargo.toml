@@ -60,6 +60,8 @@ ark-serialize = { workspace = true, default-features = false }
 w3f-bls = { workspace = true, default-features = false }
 sha2 = { workspace = true }
 rand_chacha = { workspace = true }
+pallet-crowdloan = { workspace = true, default-features = false }
+pallet-proxy = { workspace = true, default-features = false }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
@@ -117,6 +119,13 @@ std = [
 	"subtensor-swap-interface/std",
 	"tle/std",
 	"w3f-bls/std",
+	"rand_chacha/std",
+	"safe-math/std",
+	"sha2/std",
+	"share-pool/std",
+	"subtensor-runtime-common/std",
+	"pallet-proxy/std",
+	"pallet-crowdloan/std",
 ]
 default = ["std"]
 runtime-benchmarks = [
@@ -131,6 +140,8 @@ runtime-benchmarks = [
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-subtensor-swap/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
+	"pallet-crowdloan/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
@@ -146,6 +157,8 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 	"pallet-collective/try-runtime",
 	"pallet-drand/try-runtime",
+	"pallet-proxy/try-runtime",
+	"pallet-crowdloan/try-runtime",
 ]
 pow-faucet = []
 fast-blocks = []

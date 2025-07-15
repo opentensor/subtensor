@@ -61,6 +61,7 @@ impl<T: Config> Pallet<T> {
 
         // 2. Remove previous set memberships.
         Uids::<T>::remove(netuid, old_hotkey.clone());
+        AssociatedEvmAddress::<T>::remove(netuid, uid_to_replace);
         IsNetworkMember::<T>::remove(old_hotkey.clone(), netuid);
         #[allow(unknown_lints)]
         Keys::<T>::remove(netuid, uid_to_replace);
