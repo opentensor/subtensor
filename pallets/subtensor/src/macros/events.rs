@@ -381,5 +381,23 @@ mod events {
             /// The symbol that has been updated.
             symbol: Vec<u8>,
         },
+
+        /// The new stake lock interval half-life factor was set
+        LockIntervalSet {
+            /// New interval value (in blocks)
+            new_interval: u64
+        },
+
+        /// Stake lock has increased
+        LockIncreased {
+            /// The owner coldkey of the stake
+            coldkey: T::AccountId,
+            /// The hotkey the stake is made to
+            hotkey: T::AccountId,
+            /// Subnet ID
+            netuid: NetUid,
+            /// Amount of alpha locked
+            alpha_locked: u64,
+        },
     }
 }

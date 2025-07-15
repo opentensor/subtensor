@@ -73,6 +73,7 @@ pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 pub mod pallet {
     use crate::RateLimitKey;
     use crate::migrations;
+    use crate::staking::lock::StakeLock;
     use crate::subnets::leasing::{LeaseId, SubnetLeaseOf};
     use frame_support::Twox64Concat;
     use frame_support::{
@@ -1734,22 +1735,35 @@ pub mod pallet {
 
     #[pallet::storage]
     /// --- ITEM ( lock_interval_blocks ) | Stake lock half-life factor
-    pub type LockIntervalBlocks<T: Config> = StorageValue<_, u64, ValueQuery, ConstU64<0>>;
+    pub type LockIntervalBlocks<T: Config> =
+        StorageValue<_, u64, ValueQuery, DefaultLockIntervalBlocks<T>>;
 
     #[pallet::storage]
-    /// --- NMAP ( hot, cold, netuid ) --> alpha locked | Returns the alpha shares for a hotkey, coldkey, netuid triplet.
+    /// --- NMAP ( netuid, hot, cold ) --> stake_lock | Returns the stake_lock struct for netuid, hot and cold triplet.
     pub type Locks<T: Config> = StorageNMap<
         _,
         (
-            NMapKey<Blake2_128Concat, T::AccountId>, // hot
-            NMapKey<Blake2_128Concat, T::AccountId>, // cold
-            NMapKey<Identity, NetUid>,               // subnet
+            NMapKey<Blake2_128Concat, NetUid>, // subnet
+            NMapKey<Identity, T::AccountId>,   // hot
+            NMapKey<Identity, T::AccountId>,   // cold
         ),
-        U64F64, // Shares
+        StakeLock,
         ValueQuery,
     >;
 
-    
+    #[pallet::storage]
+    /// --- NMAP ( netuid, hot, cold ) --> stake conviction ema | Returns the stake conviction EMA for netuid, hot and cold triplet.
+    pub type ConvictionEma<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Identity, NetUid>,               // subnet
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+        ),
+        u64,
+        ValueQuery,
+    >;
+
     /// ==================
     /// ==== Genesis =====
     /// ==================
