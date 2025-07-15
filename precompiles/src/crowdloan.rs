@@ -64,7 +64,7 @@ where
             target_address: crowdloan
                 .target_address
                 .map(|a| H256::from_slice(a.as_slice()))
-                .unwrap_or_else(|| H256::zero()),
+                .unwrap_or_else(H256::zero),
             finalized: crowdloan.finalized,
             contributors_count: crowdloan.contributors_count,
         })
