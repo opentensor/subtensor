@@ -405,9 +405,9 @@ describe("Test Crowdloan precompile", () => {
 
         const crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
         assert.isDefined(crowdloan);
-        assert.equal(crowdloan.end, 1000);
+        assert.equal(crowdloan.end, end);
 
-        const newEnd = 2000;
+        const newEnd = end + 200;
         const tx2 = await crowdloanContract.updateEnd(nextId, newEnd);
         await tx2.wait();
 
