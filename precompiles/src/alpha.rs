@@ -191,7 +191,7 @@ where
         ))
     }
 
-    #[precompile::public("getSumAlphaPrice(uint16)")]
+    #[precompile::public("getSumAlphaPrice()")]
     #[precompile::view]
     fn get_sum_alpha_price(_handle: &mut impl PrecompileHandle) -> EvmResult<U256> {
         let netuids = pallet_subtensor::NetworksAdded::<R>::iter()
