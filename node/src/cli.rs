@@ -75,8 +75,8 @@ pub enum Sealing {
 #[derive(Copy, Clone, Debug, Default, clap::ValueEnum)]
 pub enum InitialConsensus {
     /// Babe
-    #[default]
     Babe,
     /// Aura
+    #[default]
     Aura,
 }
