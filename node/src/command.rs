@@ -78,8 +78,6 @@ pub fn run() -> sc_cli::Result<()> {
                     InitialConsensus::Aura => babe_service::new_chain_ops(&mut config, &cli.eth)?,
                 };
 
-                // let (client, _, import_queue, task_manager, _) =
-                //     aura_service::new_chain_ops(&mut config, &cli.eth)?;
                 Ok((cmd.run(client, import_queue), task_manager))
             })
         }
@@ -319,6 +317,7 @@ fn customise_config(arg_matches: &ArgMatches, config: Configuration) -> Configur
         Some(ValueSource::CommandLine) => cli.run.rpc_params.rpc_max_subscriptions_per_connection,
         _ => 10000,
     };
+
     // If the operator did **not** supply `--rpc-max-connections` set to high value.
     config.rpc.max_connections = match arg_matches.value_source("rpc-max-connections") {
         Some(ValueSource::CommandLine) => cli.run.rpc_params.rpc_max_connections,
