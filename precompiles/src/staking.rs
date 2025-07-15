@@ -292,6 +292,14 @@ where
         Ok(stake.into())
     }
 
+    #[precompile::public("getNominatorMinRequiredStake()")]
+    #[precompile::view]
+    fn get_nominator_min_required_stake(_handle: &mut impl PrecompileHandle) -> EvmResult<U256> {
+        let stake = pallet_subtensor::Pallet::<R>::get_nominator_min_required_stake();
+
+        Ok(stake.into())
+    }
+
     #[precompile::public("addProxy(bytes32)")]
     fn add_proxy(handle: &mut impl PrecompileHandle, delegate: H256) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();

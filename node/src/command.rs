@@ -1,11 +1,13 @@
 use std::sync::{Arc, atomic::AtomicBool};
 
 use crate::{
-    aura_service, chain_spec, babe_service,
+    aura_service, babe_service, chain_spec,
     cli::{Cli, InitialConsensus, Subcommand},
     ethereum::db_config_dir,
 };
 use fc_db::{DatabaseSource, kv::frontier_database_dir};
+
+use clap::{ArgMatches, CommandFactory, FromArgMatches, parser::ValueSource};
 use node_subtensor_runtime::Block;
 use sc_cli::SubstrateCli;
 use sc_service::{
@@ -54,7 +56,9 @@ impl SubstrateCli for Cli {
 
 // Parse and run command line arguments
 pub fn run() -> sc_cli::Result<()> {
-    let cli = Cli::from_args();
+    let cmd = Cli::command();
+    let arg_matches = cmd.get_matches();
+    let cli = Cli::from_arg_matches(&arg_matches)?;
 
     match &cli.subcommand {
         Some(Subcommand::Key(cmd)) => cmd.run(&cli),
@@ -237,20 +241,21 @@ pub fn run() -> sc_cli::Result<()> {
         }
         // Start with the initial consensus type asked.
         None => {
+            let arg_matches = Cli::command().get_matches();
             let cli = Cli::from_args();
             match cli.initial_consensus.unwrap_or_default() {
-                InitialConsensus::Babe => run_babe(),
-                InitialConsensus::Aura => run_aura(),
+                InitialConsensus::Babe => run_babe(&arg_matches),
+                InitialConsensus::Aura => run_aura(&arg_matches),
             }
         }
     }
 }
 
-fn run_babe() -> Result<(), sc_cli::Error> {
-    let cli = Cli::from_args();
+fn run_babe(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
+    let cli = Cli::from_arg_matches(arg_matches).expect("Bad arg_matches");
     let runner = cli.create_runner(&cli.run)?;
     match runner.run_node_until_exit(|config| async move {
-        let config = customise_config(&cli, config);
+        let config = customise_config(arg_matches, config);
         babe_service::build_full(config, cli.eth, cli.sealing).await
     }) {
         Ok(_) => Ok(()),
@@ -259,11 +264,11 @@ fn run_babe() -> Result<(), sc_cli::Error> {
                 log::info!(
                     "💡 Chain is using Aura consensus. Switching to Aura service until Babe block is detected.",
                 );
-                run_aura()
+                run_aura(arg_matches)
             } else if e.to_string().contains("lock hold by current process") {
                 log::warn!("Failed to aquire DB lock, trying again in 1s...");
                 std::thread::sleep(std::time::Duration::from_secs(1));
-                return run_babe();
+                return run_babe(arg_matches);
             } else {
                 Err(e.into())
             }
@@ -271,8 +276,8 @@ fn run_babe() -> Result<(), sc_cli::Error> {
     }
 }
 
-fn run_aura() -> Result<(), sc_cli::Error> {
-    let cli = Cli::from_args();
+fn run_aura(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
+    let cli = Cli::from_arg_matches(arg_matches).expect("Bad arg_matches");
     let runner = cli.create_runner(&cli.run)?;
 
     // Unlike when the Babe node fails to build due to missing BabeApi in the runtime,
@@ -283,13 +288,13 @@ fn run_aura() -> Result<(), sc_cli::Error> {
     let babe_switch = Arc::new(AtomicBool::new(false));
     let babe_switch_clone = babe_switch.clone();
     match runner.run_node_until_exit(|config| async move {
-        let config = customise_config(&cli, config);
+        let config = customise_config(arg_matches, config);
         aura_service::build_full(config, cli.eth, cli.sealing, babe_switch_clone).await
     }) {
         Ok(()) => Ok(()),
         Err(e) => {
             if babe_switch.load(std::sync::atomic::Ordering::Relaxed) {
-                run_babe()
+                run_babe(arg_matches)
             } else {
                 Err(e.into())
             }
@@ -297,13 +302,28 @@ fn run_aura() -> Result<(), sc_cli::Error> {
     }
 }
 
-fn customise_config(cli: &Cli, config: Configuration) -> Configuration {
+fn customise_config(arg_matches: &ArgMatches, config: Configuration) -> Configuration {
+    let cli = Cli::from_arg_matches(arg_matches).expect("Bad arg_matches");
+
     let mut config = override_default_heap_pages(config, 60_000);
 
     // If the operator did **not** supply `--rpc-rate-limit`, disable the limiter.
     if cli.run.rpc_params.rpc_rate_limit.is_none() {
         config.rpc.rate_limit = None;
     }
+
+    // If the operator did **not** supply `--rpc-max-subscriptions-per-connection` set to high value.
+    config.rpc.max_subs_per_conn = match arg_matches
+        .value_source("rpc-max-subscriptions-per-connection")
+    {
+        Some(ValueSource::CommandLine) => cli.run.rpc_params.rpc_max_subscriptions_per_connection,
+        _ => 10000,
+    };
+    // If the operator did **not** supply `--rpc-max-connections` set to high value.
+    config.rpc.max_connections = match arg_matches.value_source("rpc-max-connections") {
+        Some(ValueSource::CommandLine) => cli.run.rpc_params.rpc_max_connections,
+        _ => 10000,
+    };
 
     config
 }

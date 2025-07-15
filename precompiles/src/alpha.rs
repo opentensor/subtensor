@@ -32,14 +32,16 @@ where
             <pallet_subtensor_swap::Pallet<R> as SwapHandler<R::AccountId>>::current_alpha_price(
                 netuid.into(),
             );
-        Ok(U256::from(price.saturating_to_num::<u64>()))
+        let price_scaled = price.saturating_mul(U96F32::saturating_from_num(1_000_000_000));
+        Ok(U256::from(price_scaled.saturating_to_num::<u64>()))
     }
 
     #[precompile::public("getMovingAlphaPrice(uint16)")]
     #[precompile::view]
     fn get_moving_alpha_price(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
         let price: U96F32 = pallet_subtensor::Pallet::<R>::get_moving_alpha_price(netuid.into());
-        Ok(U256::from(price.saturating_to_num::<u64>()))
+        let price_scaled = price.saturating_mul(U96F32::saturating_from_num(1_000_000_000));
+        Ok(U256::from(price_scaled.saturating_to_num::<u64>()))
     }
 
     #[precompile::public("getTaoInPool(uint16)")]
@@ -75,8 +77,8 @@ where
     #[precompile::public("getTaoWeight()")]
     #[precompile::view]
     fn get_tao_weight(_handle: &mut impl PrecompileHandle) -> EvmResult<U256> {
-        let weight = pallet_subtensor::Pallet::<R>::get_tao_weight();
-        Ok(U256::from(weight.saturating_to_num::<u64>()))
+        let tao_weight = pallet_subtensor::TaoWeight::<R>::get();
+        Ok(U256::from(tao_weight))
     }
 
     #[precompile::public("simSwapTaoForAlpha(uint16,uint64)")]
