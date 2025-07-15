@@ -6328,3 +6328,88 @@ fn test_reveal_crv3_commits_max_neurons() {
         );
     });
 }
+
+#[test]
+fn test_get_first_block_of_epoch_epoch_zero() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: NetUid = NetUid::from(1);
+        let tempo: u16 = 10;
+        add_network(netuid, tempo, 0);
+
+        let first_block = SubtensorModule::get_first_block_of_epoch(netuid, 0);
+        assert_eq!(first_block, 0);
+
+        // Cross-check: epoch at block 0 should be 0
+        assert_eq!(SubtensorModule::get_epoch_index(netuid, 0), 0);
+    });
+}
+
+#[test]
+fn test_get_first_block_of_epoch_small_epoch() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: NetUid = NetUid::from(0);
+        let tempo: u16 = 1;
+        add_network(netuid, tempo, 0);
+
+        let first_block = SubtensorModule::get_first_block_of_epoch(netuid, 1);
+        assert_eq!(first_block, 1); // 1 * 2 - 1 = 1
+
+        // Cross-check
+        assert_eq!(SubtensorModule::get_epoch_index(netuid, 1), 1);
+        assert_eq!(SubtensorModule::get_epoch_index(netuid, 0), 0);
+    });
+}
+
+#[test]
+fn test_get_first_block_of_epoch_with_offset() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: NetUid = NetUid::from(1);
+        let tempo: u16 = 10;
+        add_network(netuid, tempo, 0);
+
+        let first_block = SubtensorModule::get_first_block_of_epoch(netuid, 1);
+        assert_eq!(first_block, 9); // 1 * 11 - 2 = 9
+
+        // Cross-check
+        assert_eq!(SubtensorModule::get_epoch_index(netuid, 9), 1);
+        assert_eq!(SubtensorModule::get_epoch_index(netuid, 8), 0);
+    });
+}
+
+#[test]
+fn test_get_first_block_of_epoch_large_epoch() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: NetUid = NetUid::from(0);
+        let tempo: u16 = 100;
+        add_network(netuid, tempo, 0);
+
+        let epoch: u64 = 1000;
+        let first_block = SubtensorModule::get_first_block_of_epoch(netuid, epoch);
+        assert_eq!(first_block, epoch * 101 - 1); // No overflow for this size
+
+        // Cross-check (simulate, as large block not runnable, but math holds)
+        assert_eq!(first_block + 1, epoch * 101);
+    });
+}
+
+#[test]
+fn test_get_first_block_of_epoch_many_tempos() {
+    new_test_ext(1).execute_with(|| {
+        let tempos: Vec<u16> = vec![2, 5, 50, 100, 500, u16::MAX - 1];
+        for tempo in tempos {
+            let netuid: NetUid = NetUid::from(1);
+            add_network(netuid, tempo, 0);
+
+            for epoch in 0..5u64 {
+                let first_block = SubtensorModule::get_first_block_of_epoch(netuid, epoch);
+                assert_eq!(SubtensorModule::get_epoch_index(netuid, first_block), epoch);
+                if first_block > 0 {
+                    assert_eq!(
+                        SubtensorModule::get_epoch_index(netuid, first_block - 1),
+                        epoch - 1
+                    );
+                }
+            }
+        }
+    });
+}
