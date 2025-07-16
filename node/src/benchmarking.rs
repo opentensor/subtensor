@@ -27,7 +27,7 @@ pub struct RemarkBuilder {
 
 impl RemarkBuilder {
     // Creates a new [`Self`] from the given client.
-    pub fn new(client: Arc<FullClient>) -> Self {
+    pub const fn new(client: Arc<FullClient>) -> Self {
         Self { client }
     }
 }
@@ -66,7 +66,7 @@ pub struct TransferKeepAliveBuilder {
 
 impl TransferKeepAliveBuilder {
     // Creates a new [`Self`] from the given client.
-    pub fn new(client: Arc<FullClient>, dest: AccountId, value: Balance) -> Self {
+    pub const fn new(client: Arc<FullClient>, dest: AccountId, value: Balance) -> Self {
         Self {
             client,
             dest,

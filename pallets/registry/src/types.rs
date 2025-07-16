@@ -390,7 +390,7 @@ impl<
     MaxAdditionalFields: Get<u32>,
 > Registration<Balance, MaxAdditionalFields>
 {
-    pub(crate) fn total_deposit(&self) -> Balance {
+    pub(crate) const fn total_deposit(&self) -> Balance {
         self.deposit
     }
 }

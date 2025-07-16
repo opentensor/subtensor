@@ -4,7 +4,7 @@ use syn::{parse_quote, visit_mut::VisitMut};
 pub struct CleanDocComments;
 
 impl CleanDocComments {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self
     }
 }

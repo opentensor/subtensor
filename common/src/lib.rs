@@ -63,15 +63,15 @@ impl NetUid {
         *self == Self::ROOT
     }
 
-    pub fn next(&self) -> NetUid {
+    pub const fn next(&self) -> NetUid {
         Self(self.0.saturating_add(1))
     }
 
-    pub fn prev(&self) -> NetUid {
+    pub const fn prev(&self) -> NetUid {
         Self(self.0.saturating_sub(1))
     }
 
-    pub fn inner(&self) -> u16 {
+    pub const fn inner(&self) -> u16 {
         self.0
     }
 }

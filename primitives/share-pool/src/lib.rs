@@ -39,7 +39,7 @@ where
     K: Eq,
     Ops: SharePoolDataOperations<K>,
 {
-    pub fn new(ops: Ops) -> Self {
+    pub const fn new(ops: Ops) -> Self {
         SharePool {
             state_ops: ops,
             phantom_key: marker::PhantomData,

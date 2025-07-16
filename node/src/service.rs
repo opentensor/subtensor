@@ -233,7 +233,7 @@ where
     F: BlockImport<B>,
     F::Error: Into<ConsensusError>,
 {
-    pub fn new(inner: I, frontier_block_import: F) -> Self {
+    pub const fn new(inner: I, frontier_block_import: F) -> Self {
         Self {
             inner,
             frontier_block_import,

@@ -252,7 +252,7 @@ where
 
     #[precompile::public("setWeightsSetRateLimit(uint16,uint64)")]
     #[precompile::payable]
-    fn set_weights_set_rate_limit(
+    const fn set_weights_set_rate_limit(
         _handle: &mut impl PrecompileHandle,
         _netuid: u16,
         _weights_set_rate_limit: u64,
@@ -521,7 +521,7 @@ where
 
     #[precompile::public("setMinBurn(uint16,uint64)")]
     #[precompile::payable]
-    fn set_min_burn(
+    const fn set_min_burn(
         _handle: &mut impl PrecompileHandle,
         _netuid: u16,
         _min_burn: u64,
@@ -538,7 +538,7 @@ where
 
     #[precompile::public("setMaxBurn(uint16,uint64)")]
     #[precompile::payable]
-    fn set_max_burn(
+    const fn set_max_burn(
         _handle: &mut impl PrecompileHandle,
         _netuid: u16,
         _max_burn: u64,

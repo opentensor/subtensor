@@ -678,7 +678,7 @@ use frame_system::pallet_prelude::BlockNumberFor;
 /// Return the weight of a dispatch call result as an `Option`.
 ///
 /// Will return the weight regardless of what the state of the result is.
-fn get_result_weight(result: DispatchResultWithPostInfo) -> Option<Weight> {
+const fn get_result_weight(result: DispatchResultWithPostInfo) -> Option<Weight> {
     match result {
         Ok(post_info) => post_info.actual_weight,
         Err(err) => err.post_info.actual_weight,
