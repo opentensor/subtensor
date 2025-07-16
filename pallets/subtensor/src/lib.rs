@@ -281,8 +281,8 @@ pub mod pallet {
     ///  Struct for SubnetIdentitiesV3.
     pub type SubnetIdentityOfV3 = SubnetIdentityV3;
     /// Data structure for Subnet Identities
-    #[crate::freeze_struct("3618af6beb882a23")]
-    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    #[crate::freeze_struct("c8ee35bd8130dcfc")]
+    #[derive(Encode, Decode, DecodeWithMemTracking, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct SubnetIdentityV3 {
         /// The name of the subnet
         pub subnet_name: Vec<u8>,

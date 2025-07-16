@@ -2158,7 +2158,7 @@ checksum = "1bfb12502f3fc46cca1bb51ac28df9d618d813cdc3d2f25b9fe775a34af26bb3"
 dependencies = [
  "generic-array 0.14.7",
  "rand_core 0.6.4",
- "typenum 1.18.0",
+ "typenum",
 ]
 
 [[package]]
@@ -4163,7 +4163,7 @@ version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ffdf9f34f1447443d37393cc6c2b8313aebddcd96906caf34e54c68d8e57d7bd"
 dependencies = [
- "typenum 1.18.0",
+ "typenum",
 ]
 
 [[package]]
@@ -4172,7 +4172,7 @@ version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a"
 dependencies = [
- "typenum 1.18.0",
+ "typenum",
  "version_check",
  "zeroize",
 ]
@@ -5961,7 +5961,7 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "sha2 0.9.9",
- "typenum 1.18.0",
+ "typenum",
 ]
 
 [[package]]
@@ -6589,7 +6589,7 @@ dependencies = [
  "num-rational",
  "num-traits",
  "simba",
- "typenum 1.18.0",
+ "typenum",
 ]
 
 [[package]]
@@ -12049,17 +12049,9 @@ name = "sp-crypto-ec-utils"
 version = "0.15.0"
 source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
 dependencies = [
- "ark-bls12-377",
- "ark-bls12-377-ext",
  "ark-bls12-381 0.4.0",
  "ark-bls12-381-ext",
- "ark-bw6-761",
- "ark-bw6-761-ext",
  "ark-ec 0.4.2",
- "ark-ed-on-bls12-377",
- "ark-ed-on-bls12-377-ext",
- "ark-ed-on-bls12-381-bandersnatch 0.4.0",
- "ark-ed-on-bls12-381-bandersnatch-ext",
  "ark-scale 0.0.12",
  "sp-runtime-interface 29.0.1",
 ]
@@ -12915,13 +12907,13 @@ source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable
 
 [[package]]
 name = "substrate-fixed"
-version = "0.5.9"
-source = "git+https://github.com/opentensor/substrate-fixed.git?tag=v0.5.9#a4fb461aae6205ffc55bed51254a40c52be04e5d"
+version = "0.6.0"
+source = "git+https://github.com/encointer/substrate-fixed.git?branch=master#d5f70362f2e05b5f33fb51cd7baa825323e4e6c5"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "typenum 1.16.0",
+ "substrate-typenum",
 ]
 
 [[package]]
@@ -12956,6 +12948,16 @@ dependencies = [
  "prometheus",
  "thiserror 1.0.69",
  "tokio",
+]
+
+[[package]]
+name = "substrate-typenum"
+version = "1.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9cd64d3efe988228b8496698197ee60cfbfcedbf226961300e559870c1a3e8e0"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
 ]
 
 [[package]]
@@ -13944,15 +13946,6 @@ dependencies = [
  "digest 0.10.7",
  "rand 0.8.5",
  "static_assertions",
-]
-
-[[package]]
-name = "typenum"
-version = "1.16.0"
-source = "git+https://github.com/encointer/typenum?tag=v1.16.0#4c8dddaa8bdd13130149e43b4085ad14e960617f"
-dependencies = [
- "parity-scale-codec",
- "scale-info",
 ]
 
 [[package]]

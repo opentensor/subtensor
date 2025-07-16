@@ -95,10 +95,11 @@ impl Tick {
 }
 
 /// Struct representing a tick index
-#[freeze_struct("31577b3ad1f55092")]
+#[freeze_struct("51ec1f1c78040a7d")]
 #[derive(
     Debug,
     Default,
+    DecodeWithMemTracking,
     Clone,
     Copy,
     Encode,

@@ -184,7 +184,7 @@ sp-version = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "po
 sp-weights = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 
 substrate-build-script-utils = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6" }
-substrate-fixed = { git = "https://github.com/opentensor/substrate-fixed.git", tag = "v0.5.9" }
+substrate-fixed = { git = "https://github.com/encointer/substrate-fixed.git", branch = "master", default-features = false }
 substrate-frame-rpc-system = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6" }
 substrate-wasm-builder = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6" }
 
@@ -229,7 +229,7 @@ pallet-hotfix-sufficients = { git = "https://github.com/opentensor/frontier", re
 pallet-drand = { path = "pallets/drand", default-features = false }
 sp-crypto-ec-utils = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", features = [
 	"bls12-381",
-] }
+], default-features = false }
 getrandom = { version = "0.2.15", features = [
 	"custom",
 ], default-features = false }

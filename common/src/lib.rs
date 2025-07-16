@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 use core::fmt::{self, Display, Formatter};
 
-use codec::{Compact, CompactAs, Decode, Encode, Error as CodecError, MaxEncodedLen};
+use codec::{Compact, CompactAs, Decode, DecodeWithMemTracking, Encode, Error as CodecError, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
@@ -35,7 +35,7 @@ pub type Nonce = u32;
 /// Transfers below SMALL_TRANSFER_LIMIT are considered small transfers
 pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
 
-#[freeze_struct("9b6be98fb98e9b17")]
+#[freeze_struct("c972489bff40ae48")]
 #[repr(transparent)]
 #[derive(
     Deserialize,
@@ -43,6 +43,7 @@ pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
     Clone,
     Copy,
     Decode,
+    DecodeWithMemTracking,
     Default,
     Encode,
     Eq,
@@ -120,7 +121,7 @@ impl TypeInfo for NetUid {
 }
 
 #[derive(
-    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, MaxEncodedLen, TypeInfo,
+    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, DecodeWithMemTracking, Debug, MaxEncodedLen, TypeInfo,
 )]
 pub enum ProxyType {
     Any,
