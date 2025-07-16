@@ -42,7 +42,7 @@ fn test_add_stake_dispatch_info_ok() {
                 call_weight: frame_support::weights::Weight::from_parts(2_495_500_000, 0),
                 extension_weight: frame_support::weights::Weight::zero(),
                 class: DispatchClass::Normal,
-                pays_fee: Pays::No
+                pays_fee: Pays::Yes
             }
         );
     });
@@ -370,7 +370,7 @@ fn test_remove_stake_dispatch_info_ok() {
                     .add_proof_size(0),
                 extension_weight: frame_support::weights::Weight::zero(),
                 class: DispatchClass::Normal,
-                pays_fee: Pays::No
+                pays_fee: Pays::Yes
             }
         );
     });
@@ -3473,13 +3473,11 @@ fn test_max_amount_remove_dynamic() {
                         Error::<Test>::ZeroMaxStakeAmount
                     ),
                     Ok(v) => {
-                        let expected =
-                            AlphaCurrency::from(v.saturating_add((*v as f64 * 0.003) as u64));
-
+                        let v = AlphaCurrency::from(*v);
                         assert_abs_diff_eq!(
                             SubtensorModule::get_max_amount_remove(netuid, limit_price).unwrap(),
-                            expected,
-                            epsilon = expected / 100.into()
+                            v,
+                            epsilon = v / 100.into()
                         );
                     }
                 }
@@ -3664,9 +3662,9 @@ fn test_max_amount_move_dynamic_stable() {
 
         // Forse-set alpha in and tao reserve to make price equal 1.5
         let tao_reserve = 150_000_000_000_u64;
-        let alpha_in = 100_000_000_000_u64;
+        let alpha_in = AlphaCurrency::from(100_000_000_000);
         SubnetTAO::<Test>::insert(dynamic_netuid, tao_reserve);
-        SubnetAlphaIn::<Test>::insert(dynamic_netuid, AlphaCurrency::from(alpha_in));
+        SubnetAlphaIn::<Test>::insert(dynamic_netuid, alpha_in);
         let current_price =
             <Test as pallet::Config>::SwapInterface::current_alpha_price(dynamic_netuid.into());
         assert_eq!(current_price, U96F32::from_num(1.5));
@@ -3711,8 +3709,8 @@ fn test_max_amount_move_dynamic_stable() {
         assert_abs_diff_eq!(
             SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, 375_000_000)
                 .unwrap(),
-            AlphaCurrency::from(alpha_in + (alpha_in as f64 * 0.003) as u64),
-            epsilon = AlphaCurrency::from(alpha_in) / 1000.into(),
+            alpha_in,
+            epsilon = alpha_in / 1000.into(),
         );
 
         // Precision test:
@@ -4771,7 +4769,9 @@ fn test_stake_into_subnet_ok() {
             u64::MAX,
             false,
         ));
-        let expected_stake = (amount as f64) * 0.997 / current_price;
+        let fee_rate = pallet_subtensor_swap::FeeRate::<Test>::get(NetUid::from(netuid)) as f64
+            / u16::MAX as f64;
+        let expected_stake = (amount as f64) * (1. - fee_rate) / current_price;
 
         // Check if stake has increased
         assert_abs_diff_eq!(
@@ -5308,7 +5308,7 @@ fn test_remove_stake_full_limit_ok() {
         );
 
         let new_balance = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
-        assert_abs_diff_eq!(new_balance, 9_066_000_000, epsilon = 1_000_000);
+        assert_abs_diff_eq!(new_balance, 9_086_000_000, epsilon = 1_000_000);
     });
 }
 
@@ -5392,7 +5392,7 @@ fn test_remove_stake_full_limit_ok_with_no_limit_price() {
         );
 
         let new_balance = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
-        assert_abs_diff_eq!(new_balance, 9_066_000_000, epsilon = 1_000_000);
+        assert_abs_diff_eq!(new_balance, 9_086_000_000, epsilon = 1_000_000);
     });
 }
 /// This test verifies that minimum stake amount is sufficient to move price and apply
