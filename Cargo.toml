@@ -37,6 +37,7 @@ resolver = "2"
 edition = "2024"
 
 [workspace.lints.clippy]
+missing_const_for_fn = "warn"
 arithmetic-side-effects = "deny"
 indexing-slicing = "deny"
 manual_inspect = "allow"
