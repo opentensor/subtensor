@@ -1,6 +1,4 @@
 use crate::opaque::SessionKeys;
-use babe_primitives::AuthorityId as BabeAuthorityId;
-use babe_primitives::BabeAuthorityWeight;
 use frame_election_provider_support::ElectionProviderBase;
 use frame_support::WeakBoundedVec;
 use frame_support::pallet_prelude::Weight;
@@ -8,6 +6,8 @@ use frame_support::traits::OnRuntimeUpgrade;
 use pallet_aura;
 use pallet_babe;
 use pallet_staking::ValidatorPrefs;
+use sp_consensus_babe::AuthorityId as BabeAuthorityId;
+use sp_consensus_babe::BabeAuthorityWeight;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::AccountId32;

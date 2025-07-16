@@ -6,10 +6,10 @@ pub mod finney;
 pub mod localnet;
 pub mod testnet;
 
-use babe_primitives::AuthorityId as BabeId;
 use node_subtensor_runtime::{Block, WASM_BINARY};
 use sc_chain_spec_derive::ChainSpecExtension;
 use sc_service::ChainType;
+use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::crypto::Ss58Codec;
 use sp_core::{H256, Pair, Public, bounded_vec, sr25519};

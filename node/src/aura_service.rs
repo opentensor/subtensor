@@ -300,8 +300,8 @@ where
         Ok((slot, timestamp))
     };
 
-    let import_queue = crate::aura_wrapped_import_queue::import_queue::<AuraPair, _, _, _, _, _>(
-        sc_consensus_aura::ImportQueueParams {
+    let import_queue =
+        crate::aura_wrapped_import_queue::import_queue(sc_consensus_aura::ImportQueueParams {
             block_import: conditional_block_import.clone(),
             justification_import: Some(Box::new(grandpa_block_import.clone())),
             client,
@@ -311,9 +311,8 @@ where
             check_for_equivocation: Default::default(),
             telemetry,
             compatibility_mode: sc_consensus_aura::CompatibilityMode::None,
-        },
-    )
-    .map_err::<ServiceError, _>(Into::into)?;
+        })
+        .map_err::<ServiceError, _>(Into::into)?;
 
     Ok((import_queue, Box::new(conditional_block_import)))
 }

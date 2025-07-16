@@ -65,7 +65,7 @@ sha2 = { workspace = true }
 array-bytes = { workspace = true }
 rand_chacha = { workspace = true }
 runtime-common = { workspace = true }
-babe-primitives = { workspace = true }
+sp-consensus-babe = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-consensus-slots = { workspace = true }
 pallet-crowdloan = { workspace = true, default-features = false }
@@ -129,7 +129,7 @@ std = [
 	"runtime-common/std",
 	"pallet-aura/std",
 	"pallet-babe/std",
-	"babe-primitives/std",
+	"sp-consensus-babe/std",
 	"sp-consensus-aura/std",
 	"pallet-timestamp/std",
 	"sp-consensus-slots/std",

@@ -220,7 +220,7 @@ sp-transaction-storage-proof = { git = "https://github.com/paritytech/polkadot-s
 polkadot-core-primitives = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
 
 authority-discovery-primitives = { package = "sp-authority-discovery", git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-babe-primitives = { package = "sp-consensus-babe", git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
+sp-consensus-babe = { package = "sp-consensus-babe", git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
 polkadot-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
 parity-scale-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
 	"derive",

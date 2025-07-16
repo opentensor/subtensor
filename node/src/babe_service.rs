@@ -258,7 +258,7 @@ where
     let create_inherent_data_providers = move |_, ()| async move {
         let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
         let slot =
-            babe_primitives::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+            sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
                 *timestamp,
                 slot_duration,
             );
@@ -529,7 +529,7 @@ where
                 .saturating_add(slot_duration.as_millis());
             let timestamp = sp_timestamp::InherentDataProvider::new(next_slot.into());
             let slot =
-                babe_primitives::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+                sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
                     *timestamp,
                     slot_duration,
                 );
@@ -645,7 +645,7 @@ where
         let create_inherent_data_providers = move |_, ()| async move {
             let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
             let slot =
-                babe_primitives::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+                sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
                     *timestamp,
                     slot_duration,
                 );

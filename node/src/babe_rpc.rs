@@ -123,7 +123,9 @@ where
         eth,
         subscription_task_executor,
         pubsub_notification_sinks,
-        Some(Box::new(fc_babe::BabeConsensusDataProvider::new(client)?)),
+        // TODO: Enable BabeConsensusProvider when frontier is updated.
+        // Some(Box::new(fc_babe::BabeConsensusDataProvider::new(client)?)),
+        None,
     )?;
 
     Ok(module)

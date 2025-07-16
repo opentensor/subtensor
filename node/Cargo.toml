@@ -45,7 +45,7 @@ sc-offchain = { workspace = true }
 sc-network = { workspace = true }
 sc-consensus-babe = { workspace = true }
 sc-consensus-aura = { workspace = true }
-babe-primitives = { workspace = true }
+sp-consensus-babe = { workspace = true }
 sp-consensus = { workspace = true }
 sp-consensus-slots = { workspace = true }
 sp-consensus-aura = { workspace = true }

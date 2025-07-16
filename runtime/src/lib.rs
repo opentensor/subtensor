@@ -413,10 +413,10 @@ parameter_types! {
 pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
 
 /// The BABE epoch configuration at genesis.
-pub const BABE_GENESIS_EPOCH_CONFIG: babe_primitives::BabeEpochConfiguration =
-    babe_primitives::BabeEpochConfiguration {
+pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
+    sp_consensus_babe::BabeEpochConfiguration {
         c: PRIMARY_PROBABILITY,
-        allowed_slots: babe_primitives::AllowedSlots::PrimaryAndSecondaryVRFSlots,
+        allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryVRFSlots,
     };
 
 impl pallet_babe::Config for Runtime {
@@ -2751,10 +2751,10 @@ impl_runtime_apis! {
         }
     }
 
-    impl babe_primitives::BabeApi<Block> for Runtime {
-        fn configuration() -> babe_primitives::BabeConfiguration {
+    impl sp_consensus_babe::BabeApi<Block> for Runtime {
+        fn configuration() -> sp_consensus_babe::BabeConfiguration {
             let epoch_config = Babe::epoch_config().unwrap_or(BABE_GENESIS_EPOCH_CONFIG);
-            babe_primitives::BabeConfiguration {
+            sp_consensus_babe::BabeConfiguration {
                 slot_duration: Babe::slot_duration(),
                 epoch_length: EpochDuration::get(),
                 c: epoch_config.c,
@@ -2764,32 +2764,32 @@ impl_runtime_apis! {
             }
         }
 
-        fn current_epoch_start() -> babe_primitives::Slot {
+        fn current_epoch_start() -> sp_consensus_babe::Slot {
             Babe::current_epoch_start()
         }
 
-        fn current_epoch() -> babe_primitives::Epoch {
+        fn current_epoch() -> sp_consensus_babe::Epoch {
             Babe::current_epoch()
         }
 
-        fn next_epoch() -> babe_primitives::Epoch {
+        fn next_epoch() -> sp_consensus_babe::Epoch {
             Babe::next_epoch()
         }
 
         fn generate_key_ownership_proof(
-            _slot: babe_primitives::Slot,
-            authority_id: babe_primitives::AuthorityId,
-        ) -> Option<babe_primitives::OpaqueKeyOwnershipProof> {
+            _slot: sp_consensus_babe::Slot,
+            authority_id: sp_consensus_babe::AuthorityId,
+        ) -> Option<sp_consensus_babe::OpaqueKeyOwnershipProof> {
             use codec::Encode;
 
-            Historical::prove((babe_primitives::KEY_TYPE, authority_id))
+            Historical::prove((sp_consensus_babe::KEY_TYPE, authority_id))
                 .map(|p| p.encode())
-                .map(babe_primitives::OpaqueKeyOwnershipProof::new)
+                .map(sp_consensus_babe::OpaqueKeyOwnershipProof::new)
         }
 
         fn submit_report_equivocation_unsigned_extrinsic(
-            equivocation_proof: babe_primitives::EquivocationProof<<Block as BlockT>::Header>,
-            key_owner_proof: babe_primitives::OpaqueKeyOwnershipProof,
+            equivocation_proof: sp_consensus_babe::EquivocationProof<<Block as BlockT>::Header>,
+            key_owner_proof: sp_consensus_babe::OpaqueKeyOwnershipProof,
         ) -> Option<()> {
             let key_owner_proof = key_owner_proof.decode()?;
 
