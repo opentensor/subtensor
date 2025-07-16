@@ -876,6 +876,83 @@ impl<T: Config> Pallet<T> {
         Ok(swap_result.amount_paid_out)
     }
 
+    /// Transfers stake between coldkeys and/or hotkey within one subnet without running it
+    /// through swap.
+    ///
+    /// Does not incur any swapping nor fees
+    pub fn transfer_stake_within_subnet(
+        origin_coldkey: &T::AccountId,
+        origin_hotkey: &T::AccountId,
+        destination_coldkey: &T::AccountId,
+        destination_hotkey: &T::AccountId,
+        netuid: NetUid,
+        alpha: u64,
+    ) -> Result<u64, DispatchError> {
+        // Decrease alpha on origin keys
+        let actual_alpha_decrease = Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+            origin_hotkey,
+            origin_coldkey,
+            netuid,
+            alpha,
+        );
+
+        // Increase alpha on destination keys
+        let actual_alpha_moved = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            destination_hotkey,
+            destination_coldkey,
+            netuid,
+            actual_alpha_decrease,
+        );
+
+        // Calculate TAO equivalent based on current price (it is accurate because
+        // there's no slippage in this move)
+        let current_price =
+            <T as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+        let tao_equivalent = current_price
+            .saturating_mul(U96F32::saturating_from_num(actual_alpha_moved))
+            .saturating_to_num::<u64>();
+
+        // Ensure tao_equivalent is above DefaultMinStake
+        ensure!(
+            tao_equivalent >= DefaultMinStake::<T>::get(),
+            Error::<T>::AmountTooLow
+        );
+
+        // Step 3: Update StakingHotkeys if the hotkey's total alpha, across all subnets, is zero
+        // TODO: fix.
+        // if Self::get_stake(hotkey, coldkey) == 0 {
+        //     StakingHotkeys::<T>::mutate(coldkey, |hotkeys| {
+        //         hotkeys.retain(|k| k != hotkey);
+        //     });
+        // }
+
+        LastColdkeyHotkeyStakeBlock::<T>::insert(
+            destination_coldkey,
+            destination_hotkey,
+            Self::get_current_block_as_u64(),
+        );
+
+        // Deposit and log the unstaking event.
+        Self::deposit_event(Event::StakeRemoved(
+            origin_coldkey.clone(),
+            origin_hotkey.clone(),
+            tao_equivalent,
+            actual_alpha_decrease,
+            netuid,
+            0_u64, // 0 fee
+        ));
+        Self::deposit_event(Event::StakeAdded(
+            destination_coldkey.clone(),
+            destination_hotkey.clone(),
+            tao_equivalent,
+            actual_alpha_moved,
+            netuid,
+            0_u64, // 0 fee
+        ));
+
+        Ok(tao_equivalent)
+    }
+
     pub fn get_alpha_share_pool(
         hotkey: <T as frame_system::Config>::AccountId,
         netuid: NetUid,
@@ -1119,21 +1196,24 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotEnoughStakeToWithdraw
         );
 
-        // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
-        let tao_equivalent =
-            T::SwapInterface::sim_swap(origin_netuid.into(), OrderType::Sell, alpha_amount)
-                .map(|res| res.amount_paid_out)
-                .map_err(|_| Error::<T>::InsufficientLiquidity)?;
-        ensure!(
-            tao_equivalent > DefaultMinStake::<T>::get(),
-            Error::<T>::AmountTooLow
-        );
+        // If origin and destination netuid are different, do the swap-related checks
+        if origin_netuid != destination_netuid {
+            // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
+            let tao_equivalent =
+                T::SwapInterface::sim_swap(origin_netuid.into(), OrderType::Sell, alpha_amount)
+                    .map(|res| res.amount_paid_out)
+                    .map_err(|_| Error::<T>::InsufficientLiquidity)?;
+            ensure!(
+                tao_equivalent > DefaultMinStake::<T>::get(),
+                Error::<T>::AmountTooLow
+            );
 
-        // Ensure that if partial execution is not allowed, the amount will not cause
-        // slippage over desired
-        if let Some(allow_partial) = maybe_allow_partial {
-            if !allow_partial {
-                ensure!(alpha_amount <= max_amount, Error::<T>::SlippageTooHigh);
+            // Ensure that if partial execution is not allowed, the amount will not cause
+            // slippage over desired
+            if let Some(allow_partial) = maybe_allow_partial {
+                if !allow_partial {
+                    ensure!(alpha_amount <= max_amount, Error::<T>::SlippageTooHigh);
+                }
             }
         }
 
@@ -1143,10 +1223,12 @@ impl<T: Config> Pallet<T> {
                 TransferToggle::<T>::get(origin_netuid),
                 Error::<T>::TransferDisallowed
             );
-            ensure!(
-                TransferToggle::<T>::get(destination_netuid),
-                Error::<T>::TransferDisallowed
-            );
+            if origin_netuid != destination_netuid {
+                ensure!(
+                    TransferToggle::<T>::get(destination_netuid),
+                    Error::<T>::TransferDisallowed
+                );
+            }
         }
 
         Ok(())
