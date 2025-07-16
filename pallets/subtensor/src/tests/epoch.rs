@@ -3897,3 +3897,92 @@ fn test_epoch_no_mask_when_commit_reveal_disabled() {
         }
     });
 }
+
+#[test]
+fn test_epoch_does_not_mask_outside_window_but_masks_inside() {
+    new_test_ext(1).execute_with(|| {
+        /* network parameters ------------------------------------------------ */
+        let netuid = NetUid::from(50);
+        let tempo: u16 = 8; // epoch length
+        let reveal_period: u16 = 2; // mask lasts 2·reveal = 4 epochs
+        add_network(netuid, tempo, 0);
+        SubtensorModule::set_reveal_period(netuid, reveal_period as u64);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        SubtensorModule::set_target_registrations_per_interval(netuid, u16::MAX);
+
+        /* UID‑0 – validator, registered at genesis -------------------------- */
+        let (v_hot, v_cold) = (U256::from(2000), U256::from(2100));
+        register_ok_neuron(netuid, v_hot, v_cold, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &v_hot, &v_cold, netuid, 10_000,
+        );
+        SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
+        SubtensorModule::set_max_allowed_validators(netuid, 1);
+
+        /* advance one tempo so validator is “old” */
+        run_to_block(tempo as u64 + 1);
+
+        /* UID‑1 – old miner: will be OUTSIDE mask window -------------------- */
+        let (old_hot, old_cold) = (U256::from(2001), U256::from(2101));
+        register_ok_neuron(netuid, old_hot, old_cold, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &old_hot, &old_cold, netuid, 1_000,
+        );
+
+        /* advance (2·reveal + 1) epochs so UID‑1 exits the window */
+        for _ in 0..(reveal_period * 2 + 1) {
+            run_to_block(System::block_number() + tempo as u64 + 1);
+        }
+
+        /* UID‑2 – mid miner: still INSIDE window at the tested epoch -------- */
+        let (mid_hot, mid_cold) = (U256::from(2002), U256::from(2102));
+        register_ok_neuron(netuid, mid_hot, mid_cold, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &mid_hot, &mid_cold, netuid, 1_000,
+        );
+
+        /* UID‑3 – brand‑new miner: also INSIDE window ----------------------- */
+        let (new_hot, new_cold) = (U256::from(2003), U256::from(2103));
+        register_ok_neuron(netuid, new_hot, new_cold, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &new_hot, &new_cold, netuid, 1_000,
+        );
+
+        /* +1 block so the “out‑dated” rule cannot zero any cell on its own */
+        run_to_block(System::block_number() + 1);
+
+        /* Validator 0 votes equally for all three miners -------------------- */
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false); // bypass CR
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(v_hot),
+            netuid,
+            vec![1, 2, 3], // target UIDs
+            vec![u16::MAX / 3, u16::MAX / 3, u16::MAX / 3],
+            0
+        ));
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        /* run the tested epoch --------------------------------------------- */
+        SubtensorModule::epoch(netuid, 1_000);
+
+        /* ASSERTIONS -------------------------------------------------------- */
+        // UID‑1 (old miner) should be **unmasked**
+        assert!(
+            SubtensorModule::get_rank_for_uid(netuid, 1) > 0,
+            "UID-1 registered long ago: must NOT be masked"
+        );
+
+        // UID‑2 and UID‑3 should remain **masked**
+        assert_eq!(
+            SubtensorModule::get_rank_for_uid(netuid, 2),
+            0,
+            "UID-2 is still inside 2xreveal window: must be masked"
+        );
+        assert_eq!(
+            SubtensorModule::get_rank_for_uid(netuid, 3),
+            0,
+            "UID-3 is brand-new: must be masked"
+        );
+    });
+}
