@@ -30,6 +30,7 @@ pub trait SwapHandler<AccountId> {
     fn min_price() -> u64;
     fn adjust_protocol_liquidity(netuid: NetUid, tao_delta: u64, alpha_delta: u64);
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool;
+    fn calculate_injected_alpha(netuid: NetUid, tao: U96F32) -> U96F32;
 }
 
 #[derive(Debug, PartialEq)]

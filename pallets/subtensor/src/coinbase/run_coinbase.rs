@@ -55,9 +55,6 @@ impl<T: Config> Pallet<T> {
         let mut alpha_out: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         // Only calculate for subnets that we are emitting to.
         for netuid_i in subnets_to_emit_to.iter() {
-            // Get subnet price.
-            let price_i = T::SwapInterface::current_alpha_price((*netuid_i).into());
-            log::debug!("price_i: {:?}", price_i);
             // Get subnet TAO.
             let moving_price_i: U96F32 = Self::get_moving_alpha_price(*netuid_i);
             log::debug!("moving_price_i: {:?}", moving_price_i);
@@ -74,10 +71,8 @@ impl<T: Config> Pallet<T> {
             );
             log::debug!("alpha_emission_i: {:?}", alpha_emission_i);
             // Get initial alpha_in
-            let alpha_in_i: U96F32 = tao_in_i
-                .checked_div(price_i)
-                .unwrap_or(alpha_emission_i)
-                .min(alpha_emission_i);
+            let alpha_in_i: U96F32 =
+                T::SwapInterface::calculate_injected_alpha(NetUid::from(*netuid_i), tao_in_i);
             log::debug!("alpha_in_i: {:?}", alpha_in_i);
             // Get alpha_out.
             let alpha_out_i = alpha_emission_i;
