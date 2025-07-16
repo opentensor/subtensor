@@ -363,7 +363,7 @@ pub mod pallet {
         /// * `origin`: the root user
         /// * `config`: the beacon configuration
         #[pallet::call_index(1)]
-        #[pallet::weight(Weight::from_parts(9_878_000, 0)
+        #[pallet::weight(Weight::from_parts(6_976_000, 0)
         .saturating_add(T::DbWeight::get().reads(0_u64))
         .saturating_add(T::DbWeight::get().writes(2_u64)))]
         pub fn set_beacon_config(
