@@ -1194,7 +1194,7 @@ impl<T: Config> Pallet<T> {
         if carry_over.is_zero() {
             SubnetAlphaInProvided::<T>::set(netuid, remainder);
         } else {
-            SubnetAlphaInProvided::<T>::set(netuid, AlphaCurrency::from(0));
+            SubnetAlphaInProvided::<T>::set(netuid, AlphaCurrency::ZERO);
             SubnetAlphaIn::<T>::set(netuid, subnet_alpha.saturating_sub(carry_over));
         }
     }

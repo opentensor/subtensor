@@ -3112,7 +3112,7 @@ fn test_parent_child_chain_emission() {
         let emission: U96F32 = U96F32::from_num(SubtensorModule::get_block_emission().unwrap_or(0));
 
         // Set pending emission to 0
-        PendingEmission::<Test>::insert(netuid, AlphaCurrency::from(0));
+        PendingEmission::<Test>::insert(netuid, AlphaCurrency::ZERO);
 
         // Run epoch with emission value
         SubtensorModule::run_coinbase(emission);
@@ -3175,7 +3175,7 @@ fn test_parent_child_chain_emission() {
         );
 
         let hotkeys = [hotkey_a, hotkey_b, hotkey_c];
-        let mut total_stake_now = AlphaCurrency::from(0);
+        let mut total_stake_now = AlphaCurrency::ZERO;
         for (hotkey, netuid, stake) in TotalHotkeyAlpha::<Test>::iter() {
             if hotkeys.contains(&hotkey) {
                 total_stake_now += stake;

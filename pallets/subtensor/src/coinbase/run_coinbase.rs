@@ -233,7 +233,7 @@ impl<T: Config> Pallet<T> {
 
                 // Get and drain the subnet pending emission.
                 let pending_alpha = PendingEmission::<T>::get(netuid);
-                PendingEmission::<T>::insert(netuid, AlphaCurrency::from(0));
+                PendingEmission::<T>::insert(netuid, AlphaCurrency::ZERO);
 
                 // Get and drain the subnet pending root divs.
                 let pending_tao: u64 = PendingRootDivs::<T>::get(netuid);
@@ -241,11 +241,11 @@ impl<T: Config> Pallet<T> {
 
                 // Get this amount as alpha that was swapped for pending root divs.
                 let pending_swapped = PendingAlphaSwapped::<T>::get(netuid);
-                PendingAlphaSwapped::<T>::insert(netuid, AlphaCurrency::from(0));
+                PendingAlphaSwapped::<T>::insert(netuid, AlphaCurrency::ZERO);
 
                 // Get owner cut and drain.
                 let owner_cut = PendingOwnerCut::<T>::get(netuid);
-                PendingOwnerCut::<T>::insert(netuid, AlphaCurrency::from(0));
+                PendingOwnerCut::<T>::insert(netuid, AlphaCurrency::ZERO);
 
                 // Drain pending root divs, alpha emission, and owner cut.
                 Self::drain_pending_emission(

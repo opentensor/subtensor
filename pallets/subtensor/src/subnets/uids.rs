@@ -155,7 +155,7 @@ impl<T: Config> Pallet<T> {
         if let Ok(hotkey) = Self::get_hotkey_for_net_and_uid(netuid, neuron_uid) {
             Self::get_stake_for_hotkey_on_subnet(&hotkey, netuid)
         } else {
-            0.into()
+            AlphaCurrency::ZERO
         }
     }
 
