@@ -115,6 +115,7 @@ pub trait Currency: ToFixed + Into<u64> + From<u64> + Clone + Copy {
         Into::<u64>::into(*self).saturating_add(rhv.into()).into()
     }
 
+    #[allow(clippy::arithmetic_side_effects)]
     fn saturating_div(&self, rhv: Self) -> Self {
         Into::<u64>::into(*self).saturating_div(rhv.into()).into()
     }
@@ -133,6 +134,7 @@ macro_rules! impl_arithmetic_operators {
         impl Add for $currency_type {
             type Output = Self;
 
+            #[allow(clippy::arithmetic_side_effects)]
             fn add(self, rhs: Self) -> Self::Output {
                 let lhs_u64: u64 = self.into();
                 let rhs_u64: u64 = rhs.into();
@@ -143,6 +145,7 @@ macro_rules! impl_arithmetic_operators {
         impl Sub for $currency_type {
             type Output = Self;
 
+            #[allow(clippy::arithmetic_side_effects)]
             fn sub(self, rhs: Self) -> Self::Output {
                 let lhs_u64: u64 = self.into();
                 let rhs_u64: u64 = rhs.into();
@@ -153,6 +156,7 @@ macro_rules! impl_arithmetic_operators {
         impl Mul for $currency_type {
             type Output = Self;
 
+            #[allow(clippy::arithmetic_side_effects)]
             fn mul(self, rhs: Self) -> Self::Output {
                 let lhs_u64: u64 = self.into();
                 let rhs_u64: u64 = rhs.into();
@@ -163,6 +167,7 @@ macro_rules! impl_arithmetic_operators {
         impl Div for $currency_type {
             type Output = Self;
 
+            #[allow(clippy::arithmetic_side_effects)]
             fn div(self, rhs: Self) -> Self::Output {
                 let lhs_u64: u64 = self.into();
                 let rhs_u64: u64 = rhs.into();
@@ -171,24 +176,28 @@ macro_rules! impl_arithmetic_operators {
         }
 
         impl AddAssign for $currency_type {
+            #[allow(clippy::arithmetic_side_effects)]
             fn add_assign(&mut self, rhs: Self) {
                 *self = *self + rhs;
             }
         }
 
         impl SubAssign for $currency_type {
+            #[allow(clippy::arithmetic_side_effects)]
             fn sub_assign(&mut self, rhs: Self) {
                 *self = *self - rhs;
             }
         }
 
         impl MulAssign for $currency_type {
+            #[allow(clippy::arithmetic_side_effects)]
             fn mul_assign(&mut self, rhs: Self) {
                 *self = *self * rhs;
             }
         }
 
         impl DivAssign for $currency_type {
+            #[allow(clippy::arithmetic_side_effects)]
             fn div_assign(&mut self, rhs: Self) {
                 *self = *self / rhs;
             }
@@ -207,6 +216,7 @@ macro_rules! impl_approx {
             fn default_epsilon() -> Self::Epsilon {
                 u64::default_epsilon().into()
             }
+
             fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
                 u64::abs_diff_eq(&u64::from(*self), &u64::from(*other), epsilon.into())
             }

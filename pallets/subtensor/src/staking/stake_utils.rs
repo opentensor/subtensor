@@ -641,7 +641,8 @@ impl<T: Config> Pallet<T> {
                 false,
                 false,
             )?;
-            let alpha_decrease = AlphaCurrency::from(swap_result.alpha_reserve_delta.abs() as u64);
+            let alpha_decrease =
+                AlphaCurrency::from(swap_result.alpha_reserve_delta.unsigned_abs());
 
             // Decrease Alpha reserves.
             Self::decrease_provided_alpha_reserve(netuid.into(), alpha_decrease);
