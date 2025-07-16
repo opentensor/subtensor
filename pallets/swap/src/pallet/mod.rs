@@ -68,7 +68,7 @@ mod pallet {
     /// Default fee rate if not set
     #[pallet::type_value]
     pub fn DefaultFeeRate() -> u16 {
-        196 // 0.3 %
+        33 // ~0.05 %
     }
 
     /// The fee rate applied to swaps per subnet, normalized value between 0 and u16::MAX

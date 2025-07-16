@@ -127,7 +127,11 @@ impl<T: Config> Pallet<T> {
         _destination_coldkey_account: T::AccountId,
         amount: u64,
     ) -> u64 {
-        let netuid = destination.or(origin).map(|v| v.1).unwrap_or_default();
-        T::SwapInterface::approx_fee_amount(netuid.into(), amount)
+        if destination == origin {
+            0_u64
+        } else {
+            let netuid = destination.or(origin).map(|v| v.1).unwrap_or_default();
+            T::SwapInterface::approx_fee_amount(netuid.into(), amount)
+        }
     }
 }
