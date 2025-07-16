@@ -6328,3 +6328,112 @@ fn test_reveal_crv3_commits_max_neurons() {
         );
     });
 }
+
+#[test]
+fn test_get_first_block_of_epoch_epoch_zero() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: NetUid = NetUid::from(1);
+        let tempo: u16 = 10;
+        add_network(netuid, tempo, 0);
+
+        let first_block = SubtensorModule::get_first_block_of_epoch(netuid, 0);
+        assert_eq!(first_block, 0);
+
+        // Cross-check: epoch at block 0 should be 0
+        assert_eq!(SubtensorModule::get_epoch_index(netuid, 0), 0);
+    });
+}
+
+#[test]
+fn test_get_first_block_of_epoch_small_epoch() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: NetUid = NetUid::from(0);
+        let tempo: u16 = 1;
+        add_network(netuid, tempo, 0);
+
+        let first_block = SubtensorModule::get_first_block_of_epoch(netuid, 1);
+        assert_eq!(first_block, 1); // 1 * 2 - 1 = 1
+
+        // Cross-check
+        assert_eq!(SubtensorModule::get_epoch_index(netuid, 1), 1);
+        assert_eq!(SubtensorModule::get_epoch_index(netuid, 0), 0);
+    });
+}
+
+#[test]
+fn test_get_first_block_of_epoch_with_offset() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: NetUid = NetUid::from(1);
+        let tempo: u16 = 10;
+        add_network(netuid, tempo, 0);
+
+        let first_block = SubtensorModule::get_first_block_of_epoch(netuid, 1);
+        assert_eq!(first_block, 9); // 1 * 11 - 2 = 9
+
+        // Cross-check
+        assert_eq!(SubtensorModule::get_epoch_index(netuid, 9), 1);
+        assert_eq!(SubtensorModule::get_epoch_index(netuid, 8), 0);
+    });
+}
+
+#[test]
+fn test_get_first_block_of_epoch_large_epoch() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: NetUid = NetUid::from(0);
+        let tempo: u16 = 100;
+        add_network(netuid, tempo, 0);
+
+        let epoch: u64 = 1000;
+        let first_block = SubtensorModule::get_first_block_of_epoch(netuid, epoch);
+        assert_eq!(first_block, epoch * 101 - 1); // No overflow for this size
+
+        // Cross-check (simulate, as large block not runnable, but math holds)
+        assert_eq!(first_block + 1, epoch * 101);
+    });
+}
+
+#[test]
+fn test_get_first_block_of_epoch_step_blocks_and_assert_with_until_next() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: NetUid = NetUid::from(1);
+        let tempo: u16 = 10;
+        add_network(netuid, tempo, 0);
+
+        let mut current_block: u64 = 0;
+        for expected_epoch in 0..10u64 {
+            let expected_first = SubtensorModule::get_first_block_of_epoch(netuid, expected_epoch);
+
+            // Step blocks until we reach the start of this epoch
+            while current_block < expected_first {
+                run_to_block(current_block + 1);
+                current_block += 1;
+            }
+
+            // Assert we are at the first block of the epoch
+            assert_eq!(current_block, expected_first);
+            assert_eq!(
+                SubtensorModule::get_epoch_index(netuid, current_block),
+                expected_epoch
+            );
+
+            // From here, blocks_until_next_epoch should point to the start of next epoch
+            let until_next = SubtensorModule::blocks_until_next_epoch(netuid, tempo, current_block);
+            let next_first = SubtensorModule::get_first_block_of_epoch(netuid, expected_epoch + 1);
+            assert_eq!(current_block + until_next + 1, next_first); // +1 since until is blocks to end, +1 to start next
+
+            // Advance to near end of this epoch
+            let last_block = next_first.saturating_sub(1);
+            run_to_block(last_block);
+            current_block = System::block_number();
+            assert_eq!(
+                SubtensorModule::get_epoch_index(netuid, current_block),
+                expected_epoch
+            );
+
+            // Until next from near end
+            let until_next_end =
+                SubtensorModule::blocks_until_next_epoch(netuid, tempo, current_block);
+            assert_eq!(current_block + until_next_end + 1, next_first);
+        }
+    });
+}

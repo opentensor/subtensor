@@ -1456,6 +1456,16 @@ fn sudo_set_commit_reveal_weights_interval() {
         let netuid = NetUid::from(1);
         add_network(netuid, 10);
 
+        let too_high = 101;
+        assert_err!(
+            AdminUtils::sudo_set_commit_reveal_weights_interval(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                too_high
+            ),
+            Error::<Test>::RevealPeriodOutOfBounds
+        );
+
         let to_be_set = 55;
         let init_value = SubtensorModule::get_reveal_period(netuid);
 

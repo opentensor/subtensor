@@ -695,8 +695,10 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn set_alpha_values_32(netuid: NetUid, low: I32F32, high: I32F32) {
-        let low = (low.saturating_mul(I32F32::saturating_from_num(u16::MAX))).to_num::<u16>();
-        let high = (high.saturating_mul(I32F32::saturating_from_num(u16::MAX))).to_num::<u16>();
+        let low =
+            (low.saturating_mul(I32F32::saturating_from_num(u16::MAX))).saturating_to_num::<u16>();
+        let high =
+            (high.saturating_mul(I32F32::saturating_from_num(u16::MAX))).saturating_to_num::<u16>();
         AlphaValues::<T>::insert(netuid, (low, high));
     }
 
