@@ -577,6 +577,32 @@ impl<T: Config> Pallet<T> {
         );
         log::trace!("Weights (permit+diag+outdate): {:?}", &weights);
 
+        if Self::get_commit_reveal_weights_enabled(netuid) {
+            // Precompute safe blocks for all UIDs
+            let safe_blocks: Vec<u64> = block_at_registration
+                .iter()
+                .map(|reg_block| {
+                    let reg_epoch = Self::get_epoch_index(netuid, *reg_block);
+                    let safe_epoch =
+                        reg_epoch.saturating_add(Self::get_reveal_period(netuid).saturating_mul(2));
+
+                    Self::get_first_block_of_epoch(netuid, safe_epoch)
+                })
+                .collect();
+
+            // Mask out weights to recently registered UIDs
+            weights = vec_mask_sparse_matrix(
+                &weights,
+                &last_update,
+                &safe_blocks,
+                &|updated, safe_block| updated < safe_block,
+            );
+
+            log::trace!(
+                "Masking weights to miners inside reveal window (recent registrations masked)"
+            );
+        }
+
         // Normalize remaining weights.
         inplace_row_normalize_sparse(&mut weights);
         log::trace!("Weights (mask+norm): {:?}", &weights);
