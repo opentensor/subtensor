@@ -1095,4 +1095,13 @@ impl<T: Config> Pallet<T> {
     pub fn get_reveal_period(netuid: NetUid) -> u64 {
         RevealPeriodEpochs::<T>::get(netuid)
     }
+
+    pub fn get_first_block_of_epoch(netuid: NetUid, epoch: u64) -> u64 {
+        let tempo: u64 = Self::get_tempo(netuid) as u64;
+        let tempo_plus_one: u64 = tempo.saturating_add(1);
+        let netuid_plus_one: u64 = (u16::from(netuid) as u64).saturating_add(1);
+        epoch
+            .saturating_mul(tempo_plus_one)
+            .saturating_sub(netuid_plus_one)
+    }
 }
