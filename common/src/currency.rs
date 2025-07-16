@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use substrate_fixed::traits::{Fixed, ToFixed};
 use subtensor_macros::freeze_struct;
 
-#[freeze_struct("597e376f01cf675a")]
+#[freeze_struct("b21dcd0434b67c67")]
 #[repr(transparent)]
 #[derive(
     Deserialize,
@@ -28,22 +28,22 @@ use subtensor_macros::freeze_struct;
     PartialOrd,
     RuntimeDebug,
 )]
-pub struct Alpha(u64);
+pub struct AlphaCurrency(u64);
 
-impl TypeInfo for Alpha {
+impl TypeInfo for AlphaCurrency {
     type Identity = <u64 as TypeInfo>::Identity;
     fn type_info() -> scale_info::Type {
         <u64 as TypeInfo>::type_info()
     }
 }
 
-impl Display for Alpha {
+impl Display for AlphaCurrency {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.0, f)
     }
 }
 
-impl CompactAs for Alpha {
+impl CompactAs for AlphaCurrency {
     type As = u64;
 
     fn encode_as(&self) -> &Self::As {
@@ -55,25 +55,25 @@ impl CompactAs for Alpha {
     }
 }
 
-impl From<Compact<Alpha>> for Alpha {
-    fn from(c: Compact<Alpha>) -> Self {
+impl From<Compact<AlphaCurrency>> for AlphaCurrency {
+    fn from(c: Compact<AlphaCurrency>) -> Self {
         c.0
     }
 }
 
-impl From<Alpha> for u64 {
-    fn from(val: Alpha) -> Self {
+impl From<AlphaCurrency> for u64 {
+    fn from(val: AlphaCurrency) -> Self {
         val.0
     }
 }
 
-impl From<u64> for Alpha {
+impl From<u64> for AlphaCurrency {
     fn from(value: u64) -> Self {
         Self(value)
     }
 }
 
-impl ToFixed for Alpha {
+impl ToFixed for AlphaCurrency {
     fn to_fixed<F: Fixed>(self) -> F {
         self.0.to_fixed()
     }
@@ -94,7 +94,7 @@ impl ToFixed for Alpha {
     }
 }
 
-impl Currency for Alpha {
+impl Currency for AlphaCurrency {
     const MAX: Self = Self(u64::MAX);
     const ZERO: Self = Self(0);
 }
@@ -205,7 +205,7 @@ macro_rules! impl_arithmetic_operators {
     };
 }
 
-impl_arithmetic_operators!(Alpha);
+impl_arithmetic_operators!(AlphaCurrency);
 
 macro_rules! impl_approx {
     ($currency_type:ident) => {
@@ -228,4 +228,4 @@ macro_rules! impl_approx {
     };
 }
 
-impl_approx!(Alpha);
+impl_approx!(AlphaCurrency);

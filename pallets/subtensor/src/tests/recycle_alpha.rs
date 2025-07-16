@@ -1,7 +1,7 @@
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_noop, assert_ok, traits::Currency};
 use sp_core::U256;
-use subtensor_runtime_common::{Alpha as AlphaCurrency, Currency as CurrencyT};
+use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT};
 
 use super::mock;
 use super::mock::*;

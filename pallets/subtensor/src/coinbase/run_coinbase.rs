@@ -2,7 +2,7 @@ use super::*;
 use alloc::collections::BTreeMap;
 use safe_math::*;
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::{Alpha as AlphaCurrency, Currency, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid};
 use subtensor_swap_interface::SwapHandler;
 
 // Distribute dividends to each hotkey

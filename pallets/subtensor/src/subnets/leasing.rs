@@ -7,7 +7,7 @@ use frame_system::pallet_prelude::*;
 use sp_core::blake2_256;
 use sp_runtime::{Percent, traits::TrailingZeroInput};
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{Alpha as AlphaCurrency, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, NetUid};
 use subtensor_swap_interface::SwapHandler;
 
 pub type LeaseId = u32;

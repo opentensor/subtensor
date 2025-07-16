@@ -2,20 +2,20 @@ extern crate alloc;
 
 use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
-use subtensor_runtime_common::{Alpha, Currency, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid};
 use subtensor_swap_interface::SwapHandler;
 
 use super::*;
 
-#[freeze_struct("b8e0d5baa7dacb94")]
+#[freeze_struct("cff08b08c64eb867")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct StakeInfo<AccountId: TypeInfo + Encode + Decode> {
     hotkey: AccountId,
     coldkey: AccountId,
     netuid: Compact<NetUid>,
-    stake: Compact<Alpha>,
+    stake: Compact<AlphaCurrency>,
     locked: Compact<u64>,
-    emission: Compact<Alpha>,
+    emission: Compact<AlphaCurrency>,
     tao_emission: Compact<u64>,
     drain: Compact<u64>,
     is_registered: bool,

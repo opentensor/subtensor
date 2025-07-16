@@ -4,9 +4,9 @@ use crate::epoch::math::*;
 use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I64F64;
-use subtensor_runtime_common::{Alpha, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, NetUid};
 
-#[freeze_struct("d6326208b0c72fc3")]
+#[freeze_struct("c990700ae235dee9")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetState<AccountId: TypeInfo + Encode + Decode> {
     netuid: Compact<NetUid>,
@@ -16,7 +16,7 @@ pub struct SubnetState<AccountId: TypeInfo + Encode + Decode> {
     validator_permit: Vec<bool>,
     pruning_score: Vec<Compact<u16>>,
     last_update: Vec<Compact<u64>>,
-    emission: Vec<Compact<Alpha>>,
+    emission: Vec<Compact<AlphaCurrency>>,
     dividends: Vec<Compact<u16>>,
     incentives: Vec<Compact<u16>>,
     consensus: Vec<Compact<u16>>,
@@ -26,7 +26,7 @@ pub struct SubnetState<AccountId: TypeInfo + Encode + Decode> {
     alpha_stake: Vec<Compact<u64>>,
     tao_stake: Vec<Compact<u64>>,
     total_stake: Vec<Compact<u64>>,
-    emission_history: Vec<Vec<Compact<Alpha>>>,
+    emission_history: Vec<Vec<Compact<AlphaCurrency>>>,
     // identities: Vec<ChainIdentityOf>,
     // tao_stake: Compact<u64>,
     // incentive: Compact<u16>,
@@ -51,12 +51,12 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     ///
     /// * `Vec<Vec<Compact<u64>>>` - A vector of vectors containing the emission history for each hotkey across all subnets.
-    pub fn get_emissions_history(hotkeys: Vec<T::AccountId>) -> Vec<Vec<Compact<Alpha>>> {
-        let mut result: Vec<Vec<Compact<Alpha>>> = vec![];
+    pub fn get_emissions_history(hotkeys: Vec<T::AccountId>) -> Vec<Vec<Compact<AlphaCurrency>>> {
+        let mut result: Vec<Vec<Compact<AlphaCurrency>>> = vec![];
         for netuid in Self::get_all_subnet_netuids() {
-            let mut hotkeys_emissions: Vec<Compact<Alpha>> = vec![];
+            let mut hotkeys_emissions: Vec<Compact<AlphaCurrency>> = vec![];
             for hotkey in hotkeys.clone() {
-                let last_emission: Compact<Alpha> =
+                let last_emission: Compact<AlphaCurrency> =
                     LastHotkeyEmissionOnNetuid::<T>::get(hotkey.clone(), netuid).into();
                 hotkeys_emissions.push(last_emission);
             }

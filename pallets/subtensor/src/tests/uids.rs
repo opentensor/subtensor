@@ -5,7 +5,7 @@ use crate::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use sp_core::{H160, U256};
-use subtensor_runtime_common::Alpha as AlphaCurrency;
+use subtensor_runtime_common::AlphaCurrency;
 
 /********************************************
     tests for uids.rs file

@@ -6,7 +6,7 @@ use frame_support::{
     weights::Weight,
 };
 use sp_core::U256;
-use subtensor_runtime_common::{Alpha as AlphaCurrency, Currency};
+use subtensor_runtime_common::{AlphaCurrency, Currency};
 use subtensor_swap_interface::SwapHandler;
 
 use super::mock;

@@ -14,7 +14,7 @@ use safe_math::FixedExt;
 use sp_core::{Get, H256, U256};
 use substrate_fixed::traits::FromFixed;
 use substrate_fixed::types::{I96F32, I110F18, U64F64, U96F32};
-use subtensor_runtime_common::{Alpha as AlphaCurrency, Currency as CurrencyT, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT, NetUid};
 use subtensor_swap_interface::{OrderType, SwapHandler};
 
 use super::mock;

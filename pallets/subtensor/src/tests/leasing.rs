@@ -9,7 +9,7 @@ use frame_support::{StorageDoubleMap, assert_err, assert_ok};
 use sp_core::U256;
 use sp_runtime::Percent;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::Alpha as AlphaCurrency;
+use subtensor_runtime_common::AlphaCurrency;
 
 #[test]
 fn test_register_leased_network_works() {

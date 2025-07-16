@@ -2,7 +2,7 @@ use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
 use codec::Compact;
-use subtensor_runtime_common::{Alpha as AlphaCurrency, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, NetUid};
 
 #[freeze_struct("9e5a291e7e71482d")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]

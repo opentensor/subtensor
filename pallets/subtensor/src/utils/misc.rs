@@ -8,7 +8,7 @@ use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::Saturating;
 use substrate_fixed::types::{I32F32, U96F32};
-use subtensor_runtime_common::{Alpha as AlphaCurrency, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, NetUid};
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(

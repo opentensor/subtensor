@@ -6,7 +6,7 @@ use substrate_fixed::types::U64F64;
 extern crate alloc;
 use alloc::collections::BTreeMap;
 use codec::Compact;
-use subtensor_runtime_common::{Alpha as AlphaCurrency, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, NetUid};
 
 #[freeze_struct("1fafc4fcf28cba7a")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]

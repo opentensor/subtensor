@@ -68,7 +68,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use subtensor_precompiles::Precompiles;
-use subtensor_runtime_common::{Alpha as AlphaCurrency, time::*, *};
+use subtensor_runtime_common::{AlphaCurrency, time::*, *};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{

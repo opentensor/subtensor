@@ -15,7 +15,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, Hash},
 };
 use sp_std::vec;
-use subtensor_runtime_common::{Alpha as AlphaCurrency, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, NetUid};
 
 #[frame_benchmarking::v2::benchmarks]
 mod pallet_benchmarks {

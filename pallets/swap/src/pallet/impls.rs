@@ -7,7 +7,7 @@ use safe_math::*;
 use sp_arithmetic::helpers_128bit;
 use sp_runtime::traits::AccountIdConversion;
 use substrate_fixed::types::{I64F64, U64F64, U96F32};
-use subtensor_runtime_common::{Alpha, BalanceOps, Currency, NetUid, SubnetInfo};
+use subtensor_runtime_common::{AlphaCurrency, BalanceOps, Currency, NetUid, SubnetInfo};
 use subtensor_swap_interface::{SwapHandler, SwapResult};
 
 use super::pallet::*;
@@ -22,9 +22,9 @@ const MAX_SWAP_ITERATIONS: u16 = 1000;
 #[derive(Debug, PartialEq)]
 pub struct UpdateLiquidityResult {
     pub tao: u64,
-    pub alpha: Alpha,
+    pub alpha: AlphaCurrency,
     pub fee_tao: u64,
-    pub fee_alpha: Alpha,
+    pub fee_alpha: AlphaCurrency,
     pub removed: bool,
     pub tick_low: TickIndex,
     pub tick_high: TickIndex,
@@ -33,9 +33,9 @@ pub struct UpdateLiquidityResult {
 #[derive(Debug, PartialEq)]
 pub struct RemoveLiquidityResult {
     pub tao: u64,
-    pub alpha: Alpha,
+    pub alpha: AlphaCurrency,
     pub fee_tao: u64,
-    pub fee_alpha: Alpha,
+    pub fee_alpha: AlphaCurrency,
     pub tick_low: TickIndex,
     pub tick_high: TickIndex,
     pub liquidity: u64,
@@ -354,7 +354,11 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Adjusts protocol liquidity with new values of TAO and Alpha reserve
-    pub(super) fn adjust_protocol_liquidity(netuid: NetUid, tao_delta: u64, alpha_delta: Alpha) {
+    pub(super) fn adjust_protocol_liquidity(
+        netuid: NetUid,
+        tao_delta: u64,
+        alpha_delta: AlphaCurrency,
+    ) {
         // Update protocol position with new liquidity
         let protocol_account_id = Self::protocol_account_id();
         let mut positions =
@@ -838,7 +842,7 @@ impl<T: Config> Pallet<T> {
                     netuid.into(),
                     coldkey_account_id,
                     hotkey_account_id
-                ) >= Alpha::from(alpha),
+                ) >= AlphaCurrency::from(alpha),
             Error::<T>::InsufficientBalance
         );
 
@@ -1003,7 +1007,7 @@ impl<T: Config> Pallet<T> {
             ensure!(
                 T::BalanceOps::tao_balance(coldkey_account_id) >= tao
                     && T::BalanceOps::alpha_balance(netuid, coldkey_account_id, hotkey_account_id)
-                        >= Alpha::from(alpha.saturating_to_num::<u64>()),
+                        >= AlphaCurrency::from(alpha.saturating_to_num::<u64>()),
                 Error::<T>::InsufficientBalance
             );
         } else {
@@ -1265,7 +1269,7 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
             .saturating_to_num()
     }
 
-    fn adjust_protocol_liquidity(netuid: NetUid, tao_delta: u64, alpha_delta: Alpha) {
+    fn adjust_protocol_liquidity(netuid: NetUid, tao_delta: u64, alpha_delta: AlphaCurrency) {
         Self::adjust_protocol_liquidity(netuid, tao_delta, alpha_delta);
     }
 

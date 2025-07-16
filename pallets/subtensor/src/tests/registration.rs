@@ -8,7 +8,7 @@ use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::{Config, RawOrigin};
 use sp_core::U256;
 use sp_runtime::traits::{DispatchInfoOf, TransactionExtension, TxBaseImplication};
-use subtensor_runtime_common::{Alpha as AlphaCurrency, Currency as CurrencyT, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT, NetUid};
 
 use super::mock;
 use super::mock::*;

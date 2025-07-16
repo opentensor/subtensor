@@ -32,7 +32,7 @@ use sp_runtime::{
     transaction_validity::{TransactionValidity, TransactionValidityError},
 };
 use sp_std::marker::PhantomData;
-use subtensor_runtime_common::{Alpha as AlphaCurrency, Currency, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid};
 
 // ============================
 //	==== Benchmark Imports =====
@@ -92,7 +92,7 @@ pub mod pallet {
     use sp_std::vec::Vec;
     use substrate_fixed::types::{I96F32, U64F64};
     use subtensor_macros::freeze_struct;
-    use subtensor_runtime_common::{Alpha as AlphaCurrency, NetUid};
+    use subtensor_runtime_common::{AlphaCurrency, NetUid};
 
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;

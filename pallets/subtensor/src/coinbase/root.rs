@@ -22,7 +22,7 @@ use frame_support::weights::Weight;
 use safe_math::*;
 use sp_core::Get;
 use substrate_fixed::types::I64F64;
-use subtensor_runtime_common::{Alpha as AlphaCurrency, Currency, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid};
 
 impl<T: Config> Pallet<T> {
     /// Fetches the total count of root network validators

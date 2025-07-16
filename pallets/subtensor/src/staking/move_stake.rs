@@ -2,7 +2,7 @@ use super::*;
 use safe_math::*;
 use sp_core::Get;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{Alpha as AlphaCurrency, Currency, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid};
 use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {

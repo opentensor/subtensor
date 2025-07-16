@@ -2,7 +2,7 @@ use alloc::{format, string::String};
 
 use frame_support::IterableStorageMap;
 use frame_support::{traits::Get, weights::Weight};
-use subtensor_runtime_common::{Alpha as AlphaCurrency, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, NetUid};
 
 use super::*;
 

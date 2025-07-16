@@ -5,7 +5,7 @@ use codec::Encode;
 use frame_support::weights::Weight;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::{Config, RawOrigin};
-use subtensor_runtime_common::{Alpha as AlphaCurrency, Currency};
+use subtensor_runtime_common::{AlphaCurrency, Currency};
 
 use super::mock::*;
 use crate::*;

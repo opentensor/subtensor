@@ -8,7 +8,7 @@ use frame_system::{Config, RawOrigin};
 use sp_core::{Get, H160, H256, U256};
 use sp_runtime::SaturatedConversion;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::Alpha as AlphaCurrency;
+use subtensor_runtime_common::AlphaCurrency;
 use subtensor_swap_interface::SwapHandler;
 
 use super::mock;
