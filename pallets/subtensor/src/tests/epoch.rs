@@ -3586,7 +3586,10 @@ fn test_epoch_masks_first_tempo() {
         let (hot0, cold0) = (U256::from(2), U256::from(22));
         register_ok_neuron(netuid, hot0, cold0, 0);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hot0, &cold0, netuid, 1_000,
+            &hot0,
+            &cold0,
+            netuid,
+            1_000.into(),
         );
         run_to_block(tempo as u64 + 1);
 
@@ -3594,7 +3597,10 @@ fn test_epoch_masks_first_tempo() {
         let (hot1, cold1) = (U256::from(3), U256::from(23));
         register_ok_neuron(netuid, hot1, cold1, 0);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hot1, &cold1, netuid, 1_000,
+            &hot1,
+            &cold1,
+            netuid,
+            1_000.into(),
         );
 
         // WAIT one block so out‑dated rule will _not_ wipe the cell
@@ -3613,7 +3619,7 @@ fn test_epoch_masks_first_tempo() {
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
         /* epoch inside first tempo: uid‑1 must get ZERO reward */
-        SubtensorModule::epoch(netuid, 1_000);
+        SubtensorModule::epoch(netuid, 1_000.into());
         assert_eq!(SubtensorModule::get_rank_for_uid(netuid, 1), 0);
         assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, 1), 0);
     });
@@ -3634,14 +3640,20 @@ fn test_epoch_masks_full_reveal_window() {
         let (hot1, cold1) = (U256::from(401), U256::from(441));
         register_ok_neuron(netuid, hot0, cold0, 0);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hot0, &cold0, netuid, 1_000,
+            &hot0,
+            &cold0,
+            netuid,
+            1_000.into(),
         );
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         run_to_block(tempo as u64 + 1);
 
         register_ok_neuron(netuid, hot1, cold1, 0);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hot1, &cold1, netuid, 1_000,
+            &hot1,
+            &cold1,
+            netuid,
+            1_000.into(),
         );
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
         SubtensorModule::set_max_allowed_validators(netuid, 2);
@@ -3662,7 +3674,7 @@ fn test_epoch_masks_full_reveal_window() {
 
         /* inside the 2×reveal window uid‑1 must have rank 0 */
         for _ in 0..(reveal_period * 2) {
-            SubtensorModule::epoch(netuid, 1);
+            SubtensorModule::epoch(netuid, 1.into());
             assert_eq!(Rank::<Test>::get(netuid)[1], 0);
             run_to_block(System::block_number() + tempo as u64 + 1);
         }
@@ -3679,7 +3691,7 @@ fn test_epoch_masks_full_reveal_window() {
         ));
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
-        SubtensorModule::epoch(netuid, 1);
+        SubtensorModule::epoch(netuid, 1.into());
         assert!(Rank::<Test>::get(netuid)[1] > 0);
     });
 }
@@ -3699,14 +3711,20 @@ fn test_epoch_mask_boundary() {
         let (hot1, cold1) = (U256::from(601), U256::from(651));
         register_ok_neuron(netuid, hot0, cold0, 0);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hot0, &cold0, netuid, 1_000,
+            &hot0,
+            &cold0,
+            netuid,
+            1_000.into(),
         );
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         run_to_block(tempo as u64 + 1);
 
         register_ok_neuron(netuid, hot1, cold1, 0);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hot1, &cold1, netuid, 1_000,
+            &hot1,
+            &cold1,
+            netuid,
+            1_000.into(),
         );
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
         SubtensorModule::set_max_allowed_validators(netuid, 2);
@@ -3725,7 +3743,7 @@ fn test_epoch_mask_boundary() {
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
         /* epoch 0 – masked */
-        SubtensorModule::epoch(netuid, 1);
+        SubtensorModule::epoch(netuid, 1.into());
         assert_eq!(Rank::<Test>::get(netuid)[1], 0);
 
         /* advance beyond window */
@@ -3744,7 +3762,7 @@ fn test_epoch_mask_boundary() {
         ));
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
-        SubtensorModule::epoch(netuid, 1);
+        SubtensorModule::epoch(netuid, 1.into());
         assert!(Rank::<Test>::get(netuid)[1] > 0);
     });
 }
@@ -3763,7 +3781,10 @@ fn test_epoch_masking_resumes_after_feature_toggle() {
         let (hot0, cold0) = (U256::from(1200), U256::from(1250));
         register_ok_neuron(netuid, hot0, cold0, 0);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hot0, &cold0, netuid, 1_000,
+            &hot0,
+            &cold0,
+            netuid,
+            1_000.into(),
         );
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
 
@@ -3784,7 +3805,10 @@ fn test_epoch_masking_resumes_after_feature_toggle() {
         let (hot1, cold1) = (U256::from(1201), U256::from(1251));
         register_ok_neuron(netuid, hot1, cold1, 0);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hot1, &cold1, netuid, 1_000,
+            &hot1,
+            &cold1,
+            netuid,
+            1_000.into(),
         );
 
         run_to_block(System::block_number() + 1); // avoid out‑dated
@@ -3801,7 +3825,7 @@ fn test_epoch_masking_resumes_after_feature_toggle() {
 
         /* uid‑1 must stay masked for two epochs */
         for _ in 0..reveal {
-            SubtensorModule::epoch(netuid, 1);
+            SubtensorModule::epoch(netuid, 1.into());
             assert_eq!(SubtensorModule::get_rank_for_uid(netuid, 1), 0);
             run_to_block(System::block_number() + tempo as u64 + 1);
         }
@@ -3825,7 +3849,10 @@ fn test_epoch_masks_incoming_to_sniped_uid_prevents_inheritance() {
         let (val_hot, val_cold) = (U256::from(100), U256::from(200));
         register_ok_neuron(netuid, val_hot, val_cold, 0);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &val_hot, &val_cold, netuid, 10_000,
+            &val_hot,
+            &val_cold,
+            netuid,
+            10_000.into(),
         );
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
 
@@ -3833,14 +3860,20 @@ fn test_epoch_masks_incoming_to_sniped_uid_prevents_inheritance() {
         let (old_hot, old_cold) = (U256::from(101), U256::from(201));
         register_ok_neuron(netuid, old_hot, old_cold, 0);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &old_hot, &old_cold, netuid, 100,
+            &old_hot,
+            &old_cold,
+            netuid,
+            100.into(),
         );
 
         /* filler uid‑2 */
         let (fill_hot, fill_cold) = (U256::from(102), U256::from(202));
         register_ok_neuron(netuid, fill_hot, fill_cold, 0);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &fill_hot, &fill_cold, netuid, 5_000,
+            &fill_hot,
+            &fill_cold,
+            netuid,
+            5_000.into(),
         );
         SubtensorModule::set_max_allowed_validators(netuid, 3);
 
@@ -3857,13 +3890,16 @@ fn test_epoch_masks_incoming_to_sniped_uid_prevents_inheritance() {
             0
         ));
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::epoch(netuid, 1_000);
+        SubtensorModule::epoch(netuid, 1_000.into());
 
         /* snipe uid‑1 */
         let (new_hot, new_cold) = (U256::from(103), U256::from(203));
         register_ok_neuron(netuid, new_hot, new_cold, 0);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &new_hot, &new_cold, netuid, 10_000,
+            &new_hot,
+            &new_cold,
+            netuid,
+            10_000.into(),
         );
         assert_eq!(
             SubtensorModule::get_uid_for_net_and_hotkey(netuid, &new_hot).unwrap(),
@@ -3885,7 +3921,7 @@ fn test_epoch_masks_incoming_to_sniped_uid_prevents_inheritance() {
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
         /* epoch inside window – new uid‑1 must NOT inherit */
-        SubtensorModule::epoch(netuid, 1_000);
+        SubtensorModule::epoch(netuid, 1_000.into());
         assert_eq!(SubtensorModule::get_rank_for_uid(netuid, 1), 0);
         assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, 1), 0);
     });
@@ -3903,14 +3939,20 @@ fn test_epoch_no_mask_when_commit_reveal_disabled() {
         let (hot, cold) = (U256::from(1000), U256::from(1100));
         register_ok_neuron(netuid, hot, cold, 0);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hot, &cold, netuid, 1_000,
+            &hot,
+            &cold,
+            netuid,
+            1_000.into(),
         );
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
 
         let (hot1, cold1) = (U256::from(1001), U256::from(1101));
         register_ok_neuron(netuid, hot1, cold1, 0);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hot1, &cold1, netuid, 1_000,
+            &hot1,
+            &cold1,
+            netuid,
+            1_000.into(),
         );
 
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
@@ -3923,7 +3965,7 @@ fn test_epoch_no_mask_when_commit_reveal_disabled() {
         ));
 
         for _ in 0..3 {
-            SubtensorModule::epoch(netuid, 1);
+            SubtensorModule::epoch(netuid, 1.into());
             let row = SubtensorModule::get_weights_sparse(netuid)[0].clone();
             assert!(!row.is_empty(), "no mask when CR disabled");
             run_to_block(System::block_number() + tempo as u64 + 1);
