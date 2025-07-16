@@ -335,6 +335,14 @@ impl<T: Config> Pallet<T> {
             alpha_amount
         };
 
+        // Check stake locks
+        Self::check_locks_on_stake_reduction(
+            origin_hotkey,
+            origin_coldkey,
+            origin_netuid,
+            alpha_amount,
+        )?;
+
         // Validate user input
         Self::validate_stake_transition(
             origin_coldkey,

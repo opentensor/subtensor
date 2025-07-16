@@ -10,13 +10,15 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         log::debug!("block_step for block: {:?} ", block_number);
         // --- 1. Adjust difficulties.
         Self::adjust_registration_terms_for_networks();
-        // --- 2. Get the current coinbase emission.
+        // --- 2. Update subnet lock EMAs and owners.
+        Self::update_stake_locks(block_number);
+        // --- 3. Get the current coinbase emission.
         let block_emission: U96F32 =
             U96F32::saturating_from_num(Self::get_block_emission().unwrap_or(0));
         log::debug!("Block emission: {:?}", block_emission);
-        // --- 3. Run emission through network.
+        // --- 4. Run emission through network.
         Self::run_coinbase(block_emission);
-        // --- 4. Set pending children on the epoch; but only after the coinbase has been run.
+        // --- 5. Set pending children on the epoch; but only after the coinbase has been run.
         Self::try_set_pending_children(block_number);
         // Return ok.
         Ok(())

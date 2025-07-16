@@ -54,6 +54,9 @@ impl<T: Config> Pallet<T> {
 
         Self::ensure_subtoken_enabled(netuid)?;
 
+        // Check stake locks
+        Self::check_locks_on_stake_reduction(&hotkey, &coldkey, netuid, alpha_unstaked)?;
+
         // 2. Validate the user input
         Self::validate_remove_stake(
             &coldkey,
@@ -351,6 +354,9 @@ impl<T: Config> Pallet<T> {
             possible_alpha = max_amount;
         }
 
+        // Check stake locks
+        Self::check_locks_on_stake_reduction(&hotkey, &coldkey, netuid, alpha_unstaked)?;
+
         // 3. Validate the user input
         Self::validate_remove_stake(
             &coldkey,
@@ -430,6 +436,9 @@ impl<T: Config> Pallet<T> {
 
         let alpha_unstaked =
             Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+
+        // Check stake locks
+        Self::check_locks_on_stake_reduction(&hotkey, &coldkey, netuid, alpha_unstaked)?;
 
         if let Some(limit_price) = limit_price {
             Self::do_remove_stake_limit(origin, hotkey, netuid, alpha_unstaked, limit_price, false)

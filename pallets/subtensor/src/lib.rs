@@ -1734,7 +1734,7 @@ pub mod pallet {
     /// ======================
 
     #[pallet::storage]
-    /// --- ITEM ( lock_interval_blocks ) | Stake lock half-life factor
+    /// --- ITEM ( lock_interval_blocks ) | Stake lock EMA half-life factor
     pub type LockIntervalBlocks<T: Config> =
         StorageValue<_, u64, ValueQuery, DefaultLockIntervalBlocks<T>>;
 

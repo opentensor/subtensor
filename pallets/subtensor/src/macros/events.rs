@@ -385,7 +385,7 @@ mod events {
         /// The new stake lock interval half-life factor was set
         LockIntervalSet {
             /// New interval value (in blocks)
-            new_interval: u64
+            new_interval: u64,
         },
 
         /// Stake lock has increased

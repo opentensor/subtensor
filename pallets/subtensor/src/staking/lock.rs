@@ -1,15 +1,15 @@
 use super::*;
-use crate::epoch::math::*;
 use safe_math::*;
 use substrate_fixed::types::{I96F32, U64F64};
 use subtensor_runtime_common::NetUid;
 
-#[freeze_struct("79fc7facda47d89")]
+#[freeze_struct("21726ddc2788db4f")]
 #[derive(
     Clone, Copy, Decode, Default, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo,
 )]
 pub struct StakeLock {
     pub alpha_locked: u64,
+    pub start_block: u64,
     pub end_block: u64,
 }
 
@@ -152,6 +152,7 @@ impl<T: Config> Pallet<T> {
             let new_conviction = Self::calculate_conviction(
                 &StakeLock {
                     alpha_locked,
+                    start_block: current_block,
                     end_block: new_end_block,
                 },
                 current_block,
@@ -169,6 +170,7 @@ impl<T: Config> Pallet<T> {
             (netuid, hotkey.clone(), coldkey.clone()),
             StakeLock {
                 alpha_locked,
+                start_block: current_block,
                 end_block: current_block.saturating_add(duration),
             },
         );
@@ -203,23 +205,52 @@ impl<T: Config> Pallet<T> {
     /// - The update interval is set to 7200 * 15 blocks (approximately 15 days, assuming 7200 blocks per day).
     /// - The update is triggered every two intervals (30 days) when the current block number is divisible by twice the update interval.
     ///
-    /// # Arguments
-    /// * `update_period` - How frequently this call is made (for EMA calculation)
-    ///
     /// # Effects
     /// - When the update condition is met, it calls `update_subnet_owner` for each subnet,
     ///   potentially changing the owner of each subnet based on conviction scores.
-    pub fn update_stake_locks(update_period: u64) {
-        let current_block = Self::get_current_block_as_u64();
-        let update_interval = 7200 * 15; // Approx 15 days.
-        if current_block % (update_interval * 2) == 0 {
+    pub fn update_stake_locks(current_block: u64) {
+        let update_interval = 216_000; // Approx 30 days.
+        if current_block.checked_rem(update_interval).unwrap_or(1) == 0 {
             for netuid in Self::get_all_subnet_netuids() {
-                Self::update_subnet_owner(netuid, update_period);
+                Self::update_subnet_owner(netuid, update_interval);
             }
         }
     }
 
-    fn get_conviction_ema(
+    /// Calculates the exponentially moving average (EMA) of conviction for a given (hotkey, coldkey) pair in a subnet.
+    ///
+    /// # Arguments
+    ///
+    /// * `netuid` - The identifier of the subnet.
+    /// * `update_period` - The number of blocks since the last update. Used to compute the smoothing factor.
+    /// * `conviction` - The current conviction value to blend into the EMA.
+    /// * `hotkey` - The hotkey account associated with the stake lock.
+    /// * `coldkey` - The coldkey account associated with the stake lock.
+    ///
+    /// # Returns
+    ///
+    /// Returns the updated conviction EMA as a `u64`.
+    ///
+    /// # Description
+    ///
+    /// This function uses the formula:
+    ///
+    /// ```text
+    /// new_ema = old_ema * (1 - alpha) + conviction * alpha
+    /// where alpha = update_period / lock_interval
+    /// ```
+    ///
+    /// - If `alpha` (smoothing factor) exceeds `1.0`, it is capped at `1.0`.
+    /// - `ConvictionEma` is retrieved from storage for the key `(netuid, hotkey, coldkey)`.
+    /// - Floating point arithmetic is performed using `U64F64` fixed-point type to maintain precision.
+    ///
+    /// # Notes
+    ///
+    /// - This function is pure: it does not mutate any storage.
+    /// - Use the result to update `ConvictionEma` if necessary.
+    /// - Zero LockIntervalBLocks will result in constant EMA
+    ///
+    pub fn get_conviction_ema(
         netuid: NetUid,
         update_period: u64,
         conviction: u64,
@@ -227,8 +258,10 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
     ) -> u64 {
         let one = U64F64::saturating_from_num(1.0);
-        let mut smoothing_factor = U64F64::saturating_from_num(update_period)
-            .safe_div(U64F64::saturating_from_num(LockIntervalBlocks::<T>::get()));
+        let zero = U64F64::saturating_from_num(1.0);
+        let lock_interval_blocks = U64F64::saturating_from_num(Self::get_lock_interval_blocks());
+        let mut smoothing_factor =
+            U64F64::saturating_from_num(update_period).safe_div_or(lock_interval_blocks, zero);
         if smoothing_factor > one {
             smoothing_factor = one;
         }
@@ -264,7 +297,7 @@ impl<T: Config> Pallet<T> {
         let owner_hotkey = SubnetOwnerHotkey::<T>::get(netuid);
         let owner_lock = Locks::<T>::get((netuid, owner_hotkey.clone(), owner_coldkey.clone()));
         let updated_owner_conviction = Self::calculate_conviction(&owner_lock, current_block);
-        let updated_owner_conviction_ema = Self::get_conviction_ema(
+        let mut updated_owner_conviction_ema = Self::get_conviction_ema(
             netuid,
             update_period,
             updated_owner_conviction,
@@ -274,6 +307,7 @@ impl<T: Config> Pallet<T> {
         let mut new_owner_coldkey = owner_coldkey.clone();
         let mut new_owner_hotkey = owner_hotkey.clone();
         let mut owner_updated = false;
+        let mut total_conviction = 0_u64;
 
         for ((hotkey, coldkey), stake_lock) in Locks::<T>::iter_prefix((netuid,)) {
             // Update EMAs. The update value depends on the update_period so that even if we change how
@@ -284,26 +318,33 @@ impl<T: Config> Pallet<T> {
             let new_ema =
                 Self::get_conviction_ema(netuid, update_period, new_conviction, &hotkey, &coldkey);
             ConvictionEma::<T>::insert((netuid, hotkey.clone(), coldkey.clone()), new_ema);
+            total_conviction = total_conviction.saturating_add(new_conviction);
 
-            if new_ema > updated_owner_conviction_ema {
+            // In case of a tie, lower value coldkey wins
+            if (new_ema > updated_owner_conviction_ema)
+                || (new_ema == updated_owner_conviction_ema && coldkey < new_owner_coldkey)
+            {
                 new_owner_coldkey = coldkey;
                 new_owner_hotkey = hotkey;
+                updated_owner_conviction_ema = new_ema;
                 owner_updated = true;
             }
         }
 
-        // TODO: Is this needed?
         // Implement a minimum conviction threshold for becoming a subnet owner
-        // let min_conviction_threshold = I96F32::from_num(1000); // Example threshold, adjust as needed
-        // if max_total_conviction < min_conviction_threshold {
-        //     return;
-        // }
+        let min_conviction_threshold = I96F32::from_num(1000); // TODO: adjust as needed
+        if total_conviction < min_conviction_threshold {
+            owner_updated = false;
+        }
 
         // Set the subnet owner to the coldkey of the hotkey with highest conviction
         if owner_updated {
             SubnetOwner::<T>::insert(netuid, new_owner_coldkey.clone());
             SubnetOwnerHotkey::<T>::insert(netuid, new_owner_hotkey.clone());
         }
+
+        // Update subnet locked
+        SubnetLocked::<T>::insert(netuid, total_conviction);
     }
 
     /// Calculates the conviction score for a locked stake.
@@ -326,20 +367,65 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Formula
     ///
-    /// The conviction score is calculated using the following formula:
-    /// score = lock_amount * (1 - e^(-lock_duration / (lock_interval_blocks )))
+    /// The conviction score is linear of blocks, starting with 100% locked at start_block and going
+    /// down to 0% locked at the end_block:
     ///
-    /// Where:
-    /// - lock_duration is in blocks
+    ///   conviction = alpha_locked * (ax + b),
+    ///
+    /// where a = 1 / (start_block - end_block)
+    ///       b = end_block / (end_block - start_block)
+    ///       x is current block
     ///
     pub fn calculate_conviction(lock: &StakeLock, current_block: u64) -> u64 {
-        let lock_duration = lock.end_block.saturating_sub(current_block);
-        let lock_interval_blocks = Self::get_lock_interval_blocks();
-        let time_factor =
-            -I96F32::from_num(lock_duration).saturating_div(I96F32::from_num(lock_interval_blocks));
-        let exp_term = I96F32::from_num(1) - exp_safe_f96(I96F32::from_num(time_factor));
-        let conviction_score = I96F32::from_num(lock.alpha_locked).saturating_mul(exp_term);
+        // Handle corner cases first (with 100% precision)
+        if current_block < lock.start_block {
+            return 0;
+        } else if current_block == lock.start_block {
+            return lock.alpha_locked;
+        } else if current_block >= lock.end_block {
+            return 0;
+        }
 
-        conviction_score.to_num::<u64>()
+        // Handle the cases between start and end
+        let lock_duration =
+            I96F32::saturating_from_num(lock.end_block.saturating_sub(lock.start_block));
+        let minus_one = I96F32::saturating_from_num(-1);
+        let a = minus_one.safe_div(lock_duration);
+        let b = I96F32::saturating_from_num(lock.end_block).safe_div(lock_duration);
+        let x = I96F32::saturating_from_num(current_block);
+        let locked_alpha_fixed = I96F32::saturating_from_num(lock.alpha_locked);
+        let conviction_score =
+            locked_alpha_fixed.saturating_mul(a.saturating_mul(x).saturating_add(b));
+
+        conviction_score.saturating_to_num::<u64>()
+    }
+
+    pub fn check_locks_on_stake_reduction(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        netuid: NetUid,
+        alpha_unstaked: u64,
+    ) -> dispatch::DispatchResult {
+        if Locks::<T>::contains_key((netuid, &hotkey, &coldkey)) {
+            let total_stake =
+                Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
+            let current_block = Self::get_current_block_as_u64();
+            // Retrieve the lock information for the given netuid, hotkey, and coldkey
+            let stake_lock = Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone()));
+            let conviction = Self::calculate_conviction(&stake_lock, current_block);
+
+            let stake_after_unstake = total_stake.saturating_sub(alpha_unstaked);
+            // Ensure the requested unstake amount is not more than what's allowed
+            ensure!(
+                stake_after_unstake >= conviction,
+                Error::<T>::NotEnoughStakeToWithdraw
+            );
+            // If conviction is 0, remove the lock
+            if conviction == 0 {
+                Locks::<T>::remove((netuid, hotkey.clone(), coldkey.clone()));
+            }
+        }
+
+        Ok(())
     }
 }

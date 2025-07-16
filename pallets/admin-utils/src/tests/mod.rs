@@ -5,6 +5,7 @@ use frame_support::{
     traits::Hooks,
 };
 use frame_system::Config;
+use pallet_subtensor::staking::lock::StakeLock;
 use pallet_subtensor::{Error as SubtensorError, SubnetOwner, Tempo, WeightsVersionKeyRateLimit};
 // use pallet_subtensor::{migrations, Event};
 use pallet_subtensor::Event;
@@ -1922,5 +1923,116 @@ fn test_sudo_set_yuma3_enabled() {
             !to_be_set
         ));
         assert_eq!(SubtensorModule::get_yuma3_enabled(netuid), !to_be_set);
+    });
+}
+
+// cargo test --package pallet-admin-utils --lib -- tests::test_sudo_set_lock_interval_blocks_success --exact --show-output
+#[test]
+fn test_sudo_set_lock_interval_blocks_success() {
+    new_test_ext().execute_with(|| {
+        let new_interval = 1000;
+        assert_ok!(AdminUtils::sudo_set_lock_interval_blocks(
+            RuntimeOrigin::root(),
+            new_interval
+        ));
+        assert_eq!(SubtensorModule::get_lock_interval_blocks(), new_interval);
+    });
+}
+
+// cargo test --package pallet-admin-utils --lib -- tests::test_sudo_set_lock_interval_blocks_non_root_fails --exact --show-output
+#[test]
+fn test_sudo_set_lock_interval_blocks_non_root_fails() {
+    new_test_ext().execute_with(|| {
+        let new_interval = 1000;
+        let non_root = U256::from(1);
+        assert_noop!(
+            AdminUtils::sudo_set_lock_interval_blocks(
+                RuntimeOrigin::signed(non_root),
+                new_interval
+            ),
+            DispatchError::BadOrigin
+        );
+    });
+}
+
+// cargo test --package pallet-admin-utils --lib -- tests::test_sudo_set_lock_interval_blocks_zero --exact --show-output
+#[test]
+fn test_sudo_set_lock_interval_blocks_zero() {
+    new_test_ext().execute_with(|| {
+        let new_interval = 0;
+        assert_ok!(AdminUtils::sudo_set_lock_interval_blocks(
+            RuntimeOrigin::root(),
+            new_interval
+        ));
+        assert_eq!(SubtensorModule::get_lock_interval_blocks(), new_interval);
+    });
+}
+
+// cargo test --package pallet-admin-utils --lib -- tests::test_sudo_set_lock_interval_blocks_max_value --exact --show-output
+#[test]
+fn test_sudo_set_lock_interval_blocks_max_value() {
+    new_test_ext().execute_with(|| {
+        let new_interval = u64::MAX;
+        assert_ok!(AdminUtils::sudo_set_lock_interval_blocks(
+            RuntimeOrigin::root(),
+            new_interval
+        ));
+        assert_eq!(SubtensorModule::get_lock_interval_blocks(), new_interval);
+    });
+}
+
+// cargo test --package pallet-admin-utils --lib -- tests::test_sudo_set_lock_interval_blocks_multiple_calls --exact --show-output
+#[test]
+fn test_sudo_set_lock_interval_blocks_multiple_calls() {
+    new_test_ext().execute_with(|| {
+        let intervals = [1000, 2000, 500, 10000];
+        for interval in intervals.iter() {
+            assert_ok!(AdminUtils::sudo_set_lock_interval_blocks(
+                RuntimeOrigin::root(),
+                *interval
+            ));
+            assert_eq!(SubtensorModule::get_lock_interval_blocks(), *interval);
+        }
+    });
+}
+
+// cargo test --package pallet-admin-utils --lib -- tests::test_sudo_set_lock_interval_blocks_effect_on_existing_locks --exact --show-output
+#[test]
+fn test_sudo_set_lock_interval_blocks_effect_on_existing_locks() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let lock_amount = 1_000_000;
+        let initial_lock_interval = 7200;
+        let new_lock_interval = 14400;
+
+        // Set up initial lock interval
+        assert_ok!(AdminUtils::sudo_set_lock_interval_blocks(
+            RuntimeOrigin::root(),
+            initial_lock_interval
+        ));
+
+        // Create a lock
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        pallet_subtensor::Locks::<Test>::insert(
+            (netuid, hotkey, coldkey),
+            StakeLock {
+                alpha_locked: lock_amount,
+                start_block: 0,
+                end_block: current_block + initial_lock_interval,
+            },
+        );
+
+        // Change lock interval
+        assert_ok!(AdminUtils::sudo_set_lock_interval_blocks(
+            RuntimeOrigin::root(),
+            new_lock_interval
+        ));
+
+        // Verify that existing lock is not affected
+        let stake_lock = pallet_subtensor::Locks::<Test>::get((netuid, hotkey, coldkey));
+        assert_eq!(stake_lock.alpha_locked, lock_amount);
+        assert_eq!(stake_lock.end_block, current_block + initial_lock_interval);
     });
 }

@@ -1556,6 +1556,76 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Enables or disables subtoken trading for a given subnet.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the root account.
+        /// * `netuid` - The unique identifier of the subnet.
+        /// * `subtoken_enabled` - A boolean indicating whether subtoken trading should be enabled or disabled.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the caller is not the root account.
+        ///
+        /// # Weight
+        /// Weight is handled by the `#[pallet::weight]` attribute.
+        #[pallet::call_index(66)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_subtoken_enabled(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            subtoken_enabled: bool,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::SubtokenEnabled::<T>::set(netuid, subtoken_enabled);
+
+            log::debug!(
+                "SubtokenEnabled( netuid: {:?}, subtoken_enabled: {:?} )",
+                netuid,
+                subtoken_enabled
+            );
+            Ok(())
+        }
+
+        /// Sets or updates the hotkey account associated with the owner of a specific subnet.
+        ///
+        /// This function allows either the root origin or the current subnet owner to set or update
+        /// the hotkey for a given subnet. The subnet must already exist. To prevent abuse, the call is
+        /// rate-limited to once per configured interval (default: one week) per subnet.
+        ///
+        /// # Parameters
+        /// - `origin`: The dispatch origin of the call. Must be either root or the current owner of the subnet.
+        /// - `netuid`: The unique identifier of the subnet whose owner hotkey is being set.
+        /// - `hotkey`: The new hotkey account to associate with the subnet owner.
+        ///
+        /// # Returns
+        /// - `DispatchResult`: Returns `Ok(())` if the hotkey was successfully set, or an appropriate error otherwise.
+        ///
+        /// # Errors
+        /// - `Error::SubnetNotExists`: If the specified subnet does not exist.
+        /// - `Error::TxRateLimitExceeded`: If the function is called more frequently than the allowed rate limit.
+        ///
+        /// # Access Control
+        /// Only callable by:
+        /// - Root origin, or
+        /// - The coldkey account that owns the subnet.
+        ///
+        /// # Storage
+        /// - Updates [`SubnetOwnerHotkey`] for the given `netuid`.
+        /// - Reads and updates [`LastRateLimitedBlock`] for rate-limiting.
+        /// - Reads [`DefaultSetSNOwnerHotkeyRateLimit`] to determine the interval between allowed updates.
+        ///
+        /// # Rate Limiting
+        /// This function is rate-limited to one call per subnet per interval (e.g., one week).
+        #[pallet::call_index(67)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_sn_owner_hotkey(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            hotkey: <T as frame_system::Config>::AccountId,
+        ) -> DispatchResult {
+            pallet_subtensor::Pallet::<T>::do_set_sn_owner_hotkey(origin, netuid, &hotkey)
+        }
+
         ///
         ///
         /// # Arguments
@@ -1657,73 +1727,19 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Sets or updates the hotkey account associated with the owner of a specific subnet.
-        ///
-        /// This function allows either the root origin or the current subnet owner to set or update
-        /// the hotkey for a given subnet. The subnet must already exist. To prevent abuse, the call is
-        /// rate-limited to once per configured interval (default: one week) per subnet.
-        ///
-        /// # Parameters
-        /// - `origin`: The dispatch origin of the call. Must be either root or the current owner of the subnet.
-        /// - `netuid`: The unique identifier of the subnet whose owner hotkey is being set.
-        /// - `hotkey`: The new hotkey account to associate with the subnet owner.
-        ///
-        /// # Returns
-        /// - `DispatchResult`: Returns `Ok(())` if the hotkey was successfully set, or an appropriate error otherwise.
-        ///
-        /// # Errors
-        /// - `Error::SubnetNotExists`: If the specified subnet does not exist.
-        /// - `Error::TxRateLimitExceeded`: If the function is called more frequently than the allowed rate limit.
-        ///
-        /// # Access Control
-        /// Only callable by:
-        /// - Root origin, or
-        /// - The coldkey account that owns the subnet.
-        ///
-        /// # Storage
-        /// - Updates [`SubnetOwnerHotkey`] for the given `netuid`.
-        /// - Reads and updates [`LastRateLimitedBlock`] for rate-limiting.
-        /// - Reads [`DefaultSetSNOwnerHotkeyRateLimit`] to determine the interval between allowed updates.
-        ///
-        /// # Rate Limiting
-        /// This function is rate-limited to one call per subnet per interval (e.g., one week).
-        #[pallet::call_index(67)]
+        /// The extrinsic sets the subnet lock interval blocks.
+        /// It is only callable by the root account.
+        /// The extrinsic will call the Subtensor pallet to set the subnet lock interval blocks.
+        #[pallet::call_index(71)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_sn_owner_hotkey(
+        pub fn sudo_set_lock_interval_blocks(
             origin: OriginFor<T>,
-            netuid: NetUid,
-            hotkey: <T as frame_system::Config>::AccountId,
-        ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::do_set_sn_owner_hotkey(origin, netuid, &hotkey)
-        }
-
-        /// Enables or disables subtoken trading for a given subnet.
-        ///
-        /// # Arguments
-        /// * `origin` - The origin of the call, which must be the root account.
-        /// * `netuid` - The unique identifier of the subnet.
-        /// * `subtoken_enabled` - A boolean indicating whether subtoken trading should be enabled or disabled.
-        ///
-        /// # Errors
-        /// * `BadOrigin` - If the caller is not the root account.
-        ///
-        /// # Weight
-        /// Weight is handled by the `#[pallet::weight]` attribute.
-        #[pallet::call_index(66)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_subtoken_enabled(
-            origin: OriginFor<T>,
-            netuid: NetUid,
-            subtoken_enabled: bool,
+            lock_interval: u64,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            pallet_subtensor::SubtokenEnabled::<T>::set(netuid, subtoken_enabled);
+            pallet_subtensor::Pallet::<T>::set_lock_interval_blocks(lock_interval);
+            log::trace!("Set subnet lock interval blocks to: {}", lock_interval);
 
-            log::debug!(
-                "SubtokenEnabled( netuid: {:?}, subtoken_enabled: {:?} )",
-                netuid,
-                subtoken_enabled
-            );
             Ok(())
         }
     }

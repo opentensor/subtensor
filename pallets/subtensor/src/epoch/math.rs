@@ -9,7 +9,7 @@ use sp_std::cmp::Ordering;
 
 use sp_std::vec;
 use substrate_fixed::transcendental::{exp, ln};
-use substrate_fixed::types::{I32F32, I64F64, I96F32};
+use substrate_fixed::types::{I32F32, I64F64};
 
 // TODO: figure out what cfg gate this needs to not be a warning in rustc
 #[allow(unused)]
@@ -211,33 +211,6 @@ pub fn exp_safe(input: I32F32) -> I32F32 {
                 output = I32F32::saturating_from_num(0);
             } else {
                 output = I32F32::max_value();
-            }
-        }
-    }
-    output
-}
-
-// Exp safe function with I32F32 output of I32F32 input.
-#[allow(dead_code)]
-pub fn exp_safe_f96(input: I96F32) -> I96F32 {
-    let min_input: I96F32 = I96F32::from_num(-20); // <= 1/exp(-20) = 485 165 195,4097903
-    let max_input: I96F32 = I96F32::from_num(20); // <= exp(20) = 485 165 195,4097903
-    let mut safe_input: I96F32 = input;
-    if input < min_input {
-        safe_input = min_input;
-    } else if max_input < input {
-        safe_input = max_input;
-    }
-    let output: I96F32;
-    match exp(safe_input) {
-        Ok(val) => {
-            output = val;
-        }
-        Err(_err) => {
-            if safe_input <= 0 {
-                output = I96F32::from_num(0);
-            } else {
-                output = I96F32::max_value();
             }
         }
     }
