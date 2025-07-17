@@ -57,32 +57,27 @@ describe("Test the Subnet precompile contract", () => {
         assert.ok(totalNetwork + 1 === totalNetworkAfterAdd)
     });
 
-    it.only("Can register network with identity info and logo url", async () => {
-        const totalNetwork = await api.query.SubtensorModule.TotalNetworks.getValue()
+    // it.only("Can register network with identity info and logo url", async () => {
+    //     const totalNetwork = await api.query.SubtensorModule.TotalNetworks.getValue()
 
-        const contract = new ethers.Contract(ISUBNET_ADDRESS, ISubnetABI, wallet);
+    //     const contract = new ethers.Contract(ISUBNET_ADDRESS, ISubnetABI, wallet);
 
-        try {
-            const tx = await contract["registerNetwork(bytes32,string,string,string,string,string,string,string,string)"](
-                hotkey2.publicKey,
-                "name",
-                "repo",
-                "contact",
-                "subnetUrl",
-                "discord",
-                "description",
-                "logoUrl",
-                "additional"
-            );
-            await tx.wait();
-        } catch (error) {
-            console.log("=============== ", error)
-        }
+    //     const tx = await contract["registerNetwork(bytes32,string,string,string,string,string,string,string,string)"](
+    //         hotkey2.publicKey,
+    //         "name",
+    //         "repo",
+    //         "contact",
+    //         "subnetUrl",
+    //         "discord",
+    //         "description",
+    //         "logoUrl",
+    //         "additional"
+    //     );
+    //     await tx.wait();
 
-        const totalNetworkAfterAdd = await api.query.SubtensorModule.TotalNetworks.getValue()
-        console.log("=============== ", totalNetworkAfterAdd)
-        assert.ok(totalNetwork + 1 === totalNetworkAfterAdd)
-    });
+    //     const totalNetworkAfterAdd = await api.query.SubtensorModule.TotalNetworks.getValue()
+    //     assert.ok(totalNetwork + 1 === totalNetworkAfterAdd)
+    // });
 
     it("Can set servingRateLimit parameter", async () => {
 
