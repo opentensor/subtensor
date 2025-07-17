@@ -528,6 +528,68 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_alpha_issuance_tiny_ema_prices --exact --show-output
+#[test]
+fn test_coinbase_alpha_issuance_tiny_ema_prices() {
+    new_test_ext(1).execute_with(|| {
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
+        let emission: u64 = 1_000_000;
+        add_network(netuid1, 1, 0);
+        add_network(netuid2, 1, 0);
+        // Make subnets dynamic.
+        SubnetMechanism::<Test>::insert(netuid1, 1);
+        SubnetMechanism::<Test>::insert(netuid2, 1);
+
+        // Setup high prices (1.0)
+        let initial_tao: u64 = 1_000;
+        let initial_alpha: u64 = initial_tao;
+        SubnetTAO::<Test>::insert(netuid1, initial_tao);
+        SubnetAlphaIn::<Test>::insert(netuid1, AlphaCurrency::from(initial_alpha)); // Make price extremely low.
+        SubnetTAO::<Test>::insert(netuid2, initial_tao);
+        SubnetAlphaIn::<Test>::insert(netuid2, AlphaCurrency::from(initial_alpha)); // Make price extremely low.
+        mock::setup_reserves(netuid1, initial_tao, initial_alpha.into());
+        mock::setup_reserves(netuid2, initial_tao, initial_alpha.into());
+
+        // Enable emission and set small EMA prices
+        FirstEmissionBlockNumber::<Test>::insert(netuid1, 0);
+        FirstEmissionBlockNumber::<Test>::insert(netuid2, 0);
+        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(0.000001));
+        SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(0.000002));
+
+        // Force the swap to initialize
+        SubtensorModule::swap_tao_for_alpha(netuid1, 0, 1_000_000_000_000).unwrap();
+        SubtensorModule::swap_tao_for_alpha(netuid2, 0, 1_000_000_000_000).unwrap();
+
+        // Run coinbase
+        SubtensorModule::run_coinbase(U96F32::from_num(emission));
+
+        // tao_in = 333_333 and 666_666
+        // alpha_in = calculate_injected_alpha
+        let tao_in_1 = 333_333_u64;
+        let tao_in_2 = 666_667_u64;
+        let expected_alpha_emission_1 =
+            <Test as Config>::SwapInterface::calculate_injected_alpha(netuid1, tao_in_1.into())
+                .to_num::<u64>();
+        let expected_alpha_emission_2 =
+            <Test as Config>::SwapInterface::calculate_injected_alpha(netuid2, tao_in_2.into())
+                .to_num::<u64>();
+
+        assert_ne!(expected_alpha_emission_1, 0);
+        assert_ne!(expected_alpha_emission_2, 0);
+        assert_abs_diff_eq!(
+            u64::from(SubnetAlphaIn::<Test>::get(netuid1)),
+            initial_alpha + expected_alpha_emission_1,
+            epsilon = 1,
+        );
+        assert_abs_diff_eq!(
+            u64::from(SubnetAlphaIn::<Test>::get(netuid2)),
+            initial_alpha + expected_alpha_emission_2,
+            epsilon = 1,
+        );
+    });
+}
+
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_owner_cut_base --exact --show-output --nocapture
 #[test]
 fn test_owner_cut_base() {
