@@ -1,4 +1,6 @@
 use super::*;
+use frame_support::traits::Randomness;
+use frame_system::pallet_prelude::BlockNumberFor;
 use safe_math::*;
 use share_pool::{SharePool, SharePoolDataOperations};
 use sp_std::ops::Neg;
@@ -1304,6 +1306,120 @@ impl<T: Config> Pallet<T> {
         );
 
         Ok(())
+    }
+
+    // Process staking job for on_finalize() hook.
+    pub(crate) fn process_staking_jobs(_current_block_number: BlockNumberFor<T>) {
+        let stake_jobs = StakeJobs::<T>::drain().collect::<Vec<_>>();
+
+        // Sort jobs by job type
+        let mut add_stake = vec![];
+        let mut remove_stake = vec![];
+        let mut add_stake_limit = vec![];
+        let mut remove_stake_limit = vec![];
+        let mut unstake_all = vec![];
+        let mut unstake_all_aplha = vec![];
+
+        for (_, _, job) in stake_jobs.into_iter() {
+            match &job {
+                StakeJob::AddStake { .. } => add_stake.push(job),
+                StakeJob::RemoveStake { .. } => remove_stake.push(job),
+                StakeJob::AddStakeLimit { .. } => add_stake_limit.push(job),
+                StakeJob::RemoveStakeLimit { .. } => remove_stake_limit.push(job),
+                StakeJob::UnstakeAll { .. } => unstake_all.push(job),
+                StakeJob::UnstakeAllAlpha { .. } => unstake_all_aplha.push(job),
+            }
+        }
+        // Reorder jobs based on the last drand pulse
+        let (randomness, _) = <pallet_drand::pallet::Pallet<T> as Randomness<
+            T::Hash,
+            BlockNumberFor<T>,
+        >>::random(b"staking_ops");
+        let first_byte = randomness.as_ref().first().unwrap_or(&0);
+        // Extract the first bit
+        let altered_order = (*first_byte & 0b10000000) != 0;
+
+        // Ascending sort by coldkey
+
+        add_stake.sort_by(|a, b| match (a, b) {
+            (
+                StakeJob::AddStake { coldkey: a_key, .. },
+                StakeJob::AddStake { coldkey: b_key, .. },
+            ) => {
+                let direct_order = b_key.cmp(a_key); // descending
+
+                if altered_order {
+                    direct_order.reverse()
+                } else {
+                    direct_order
+                }
+            }
+            _ => sp_std::cmp::Ordering::Equal, // unreachable
+        });
+        
+        // TODO: add other extrinsics
+
+        // direct job order
+        let mut job_batches = vec![
+            remove_stake_limit,
+            remove_stake,
+            unstake_all,
+            unstake_all_aplha,
+            add_stake_limit,
+            add_stake,
+        ];
+        if altered_order {
+            job_batches.reverse();
+        }
+
+        for jobs in job_batches.into_iter() {
+            for job in jobs.into_iter() {
+                match job {
+                    StakeJob::AddStake {
+                        hotkey,
+                        coldkey,
+                        netuid,
+                        stake_to_be_added,
+                    } => {
+                        let result = Self::do_add_stake(
+                            dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                            hotkey.clone(),
+                            netuid,
+                            stake_to_be_added,
+                        );
+
+                        if let Err(err) = result {
+                            log::debug!(
+                                "Failed to add aggregated stake: {:?}, {:?}, {:?}, {:?}, {:?}",
+                                coldkey,
+                                hotkey,
+                                netuid,
+                                stake_to_be_added,
+                                err
+                            );
+                            // TODO: 
+                            // Self::deposit_event(Event::FailedToAddAggregatedStake(
+                            //     coldkey,
+                            //     hotkey,
+                            //     netuid,
+                            //     stake_to_be_added,
+                            // ));
+                        } else {
+                            // TODO: 
+                            // Self::deposit_event(Event::AggregatedStakeAdded(
+                            //     coldkey,
+                            //     hotkey,
+                            //     netuid,
+                            //     stake_to_be_added,
+                            // ));
+                        }
+                    }
+                    _ => {
+                        // TODO: implement other extrinsics
+                    }
+                }
+            }
+        }
     }
 }
 
