@@ -1643,7 +1643,7 @@ pub mod pallet {
     >;
     #[pallet::storage]
     /// MAP (netuid, epoch) → VecDeque<(who, ciphertext, reveal_round)>
-    /// Stores a queue of v3 commits for an account on a given netuid.
+    /// DEPRICATED for CRV3WeightCommitsV2
     pub type CRV3WeightCommits<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
