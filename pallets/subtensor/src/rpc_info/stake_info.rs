@@ -44,7 +44,7 @@ impl<T: Config> Pallet<T> {
                     }
                     let emission = AlphaDividendsPerSubnet::<T>::get(*netuid_i, &hotkey_i);
                     let tao_emission: u64 = TaoDividendsPerSubnet::<T>::get(*netuid_i, &hotkey_i);
-                    let conviction: u64 = Self::get_conviction_for_hotkey_and_coldkey_on_subnet(
+                    let conviction = Self::get_conviction_for_hotkey_and_coldkey_on_subnet(
                         hotkey_i, coldkey_i, *netuid_i,
                     );
                     let is_registered: bool =
@@ -54,7 +54,7 @@ impl<T: Config> Pallet<T> {
                         coldkey: coldkey_i.clone(),
                         netuid: (*netuid_i).into(),
                         stake: alpha.into(),
-                        locked: conviction.into(),
+                        locked: u64::from(conviction).into(),
                         emission: emission.into(),
                         tao_emission: tao_emission.into(),
                         drain: 0.into(),

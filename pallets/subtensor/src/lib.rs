@@ -1764,7 +1764,7 @@ pub mod pallet {
             NMapKey<Blake2_128Concat, T::AccountId>, // hot
             NMapKey<Blake2_128Concat, T::AccountId>, // cold
         ),
-        u64,
+        AlphaCurrency,
         ValueQuery,
     >;
 

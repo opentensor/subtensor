@@ -3,12 +3,12 @@ use safe_math::*;
 use substrate_fixed::types::{I96F32, U64F64};
 use subtensor_runtime_common::NetUid;
 
-#[freeze_struct("21726ddc2788db4f")]
+#[freeze_struct("f92b0bb7408af4d8")]
 #[derive(
     Clone, Copy, Decode, Default, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo,
 )]
 pub struct StakeLock {
-    pub alpha_locked: u64,
+    pub alpha_locked: AlphaCurrency,
     pub start_block: u64,
     pub end_block: u64,
 }
@@ -57,12 +57,12 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     ///
-    /// * `u64` - The conviction score calculated from the locked stake.
+    /// * `AlphaCurrency` - The conviction score calculated from the locked stake.
     pub fn get_conviction_for_hotkey_and_coldkey_on_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: NetUid,
-    ) -> u64 {
+    ) -> AlphaCurrency {
         let stake_lock = Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone()));
 
         Self::calculate_conviction(&stake_lock, Self::get_current_block_as_u64())
@@ -107,7 +107,7 @@ impl<T: Config> Pallet<T> {
         hotkey: T::AccountId,
         netuid: NetUid,
         duration: u64,
-        alpha_locked: u64,
+        alpha_locked: AlphaCurrency,
     ) -> dispatch::DispatchResult {
         // Step 1: Validate inputs and check conditions
         // Ensure the origin is valid.
@@ -123,7 +123,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure the the lock is above zero.
-        ensure!(alpha_locked > 0, Error::<T>::NotEnoughStakeToWithdraw);
+        ensure!(alpha_locked > 0.into(), Error::<T>::NotEnoughStakeToWithdraw);
 
         // Get the lockers current stake.
         let current_alpha_stake =
@@ -253,10 +253,10 @@ impl<T: Config> Pallet<T> {
     pub fn get_conviction_ema(
         netuid: NetUid,
         update_period: u64,
-        conviction: u64,
+        conviction: AlphaCurrency,
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
-    ) -> u64 {
+    ) -> AlphaCurrency {
         let one = U64F64::saturating_from_num(1.0);
         let zero = U64F64::saturating_from_num(1.0);
         let lock_interval_blocks = U64F64::saturating_from_num(Self::get_lock_interval_blocks());
@@ -269,12 +269,12 @@ impl<T: Config> Pallet<T> {
         let old_ema =
             U64F64::saturating_from_num(ConvictionEma::<T>::get((netuid, hotkey, coldkey)));
 
-        old_ema
+        AlphaCurrency::from(old_ema
             .saturating_mul(one.saturating_sub(smoothing_factor))
             .saturating_add(
                 smoothing_factor.saturating_mul(U64F64::saturating_from_num(conviction)),
             )
-            .saturating_to_num::<u64>()
+            .saturating_to_num::<u64>())
     }
 
     /// Determines the subnet owner based on the highest conviction score.
@@ -307,7 +307,7 @@ impl<T: Config> Pallet<T> {
         let mut new_owner_coldkey = owner_coldkey.clone();
         let mut new_owner_hotkey = owner_hotkey.clone();
         let mut owner_updated = false;
-        let mut total_conviction = 0_u64;
+        let mut total_conviction = AlphaCurrency::from(0);
 
         for ((hotkey, coldkey), stake_lock) in Locks::<T>::iter_prefix((netuid,)) {
             // Update EMAs. The update value depends on the update_period so that even if we change how
@@ -332,7 +332,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // Implement a minimum conviction threshold for becoming a subnet owner
-        let min_conviction_threshold = I96F32::from_num(1000); // TODO: adjust as needed
+        let min_conviction_threshold = AlphaCurrency::from(1000); // TODO: adjust as needed
         if total_conviction < min_conviction_threshold {
             owner_updated = false;
         }
@@ -376,14 +376,14 @@ impl<T: Config> Pallet<T> {
     ///       b = end_block / (end_block - start_block)
     ///       x is current block
     ///
-    pub fn calculate_conviction(lock: &StakeLock, current_block: u64) -> u64 {
+    pub fn calculate_conviction(lock: &StakeLock, current_block: u64) -> AlphaCurrency {
         // Handle corner cases first (with 100% precision)
         if current_block < lock.start_block {
-            return 0;
+            return 0.into();
         } else if current_block == lock.start_block {
             return lock.alpha_locked;
         } else if current_block >= lock.end_block {
-            return 0;
+            return 0.into();
         }
 
         // Handle the cases between start and end

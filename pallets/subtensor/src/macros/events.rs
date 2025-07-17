@@ -397,7 +397,7 @@ mod events {
             /// Subnet ID
             netuid: NetUid,
             /// Amount of alpha locked
-            alpha_locked: u64,
+            alpha_locked: AlphaCurrency,
         },
     }
 }
