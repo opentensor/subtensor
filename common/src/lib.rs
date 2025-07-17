@@ -11,6 +11,10 @@ use sp_runtime::{
 };
 use subtensor_macros::freeze_struct;
 
+pub use currency::*;
+
+mod currency;
+
 /// Balance of an account.
 pub type Balance = u64;
 
@@ -151,7 +155,7 @@ impl Default for ProxyType {
 
 pub trait SubnetInfo<AccountId> {
     fn tao_reserve(netuid: NetUid) -> u64;
-    fn alpha_reserve(netuid: NetUid) -> u64;
+    fn alpha_reserve(netuid: NetUid) -> AlphaCurrency;
     fn exists(netuid: NetUid) -> bool;
     fn mechanism(netuid: NetUid) -> u16;
     fn is_owner(account_id: &AccountId, netuid: NetUid) -> bool;
@@ -159,25 +163,25 @@ pub trait SubnetInfo<AccountId> {
 
 pub trait BalanceOps<AccountId> {
     fn tao_balance(account_id: &AccountId) -> u64;
-    fn alpha_balance(netuid: NetUid, coldkey: &AccountId, hotkey: &AccountId) -> u64;
+    fn alpha_balance(netuid: NetUid, coldkey: &AccountId, hotkey: &AccountId) -> AlphaCurrency;
     fn increase_balance(coldkey: &AccountId, tao: u64);
     fn decrease_balance(coldkey: &AccountId, tao: u64) -> Result<u64, DispatchError>;
     fn increase_stake(
         coldkey: &AccountId,
         hotkey: &AccountId,
         netuid: NetUid,
-        alpha: u64,
+        alpha: AlphaCurrency,
     ) -> Result<(), DispatchError>;
     fn decrease_stake(
         coldkey: &AccountId,
         hotkey: &AccountId,
         netuid: NetUid,
-        alpha: u64,
-    ) -> Result<u64, DispatchError>;
+        alpha: AlphaCurrency,
+    ) -> Result<AlphaCurrency, DispatchError>;
     fn increase_provided_tao_reserve(netuid: NetUid, tao: u64);
     fn decrease_provided_tao_reserve(netuid: NetUid, tao: u64);
-    fn increase_provided_alpha_reserve(netuid: NetUid, alpha: u64);
-    fn decrease_provided_alpha_reserve(netuid: NetUid, alpha: u64);
+    fn increase_provided_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency);
+    fn decrease_provided_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency);
 }
 
 pub mod time {

@@ -17,13 +17,17 @@ scale-info = { workspace = true }
 serde = { workspace = true }
 sp-core = { workspace = true }
 sp-runtime = { workspace = true }
+substrate-fixed = { workspace = true }
 subtensor-macros = { workspace = true }
+
+approx = {workspace = true, optional = true}
 
 [lints]
 workspace = true
 
 [features]
 default = ["std"]
+approx = ["dep:approx"]
 fast-blocks = []
 std = [
 	"codec/std",
@@ -32,4 +36,5 @@ std = [
 	"serde/std",
 	"sp-core/std",
 	"sp-runtime/std",
+	"substrate-fixed/std",
 ]
