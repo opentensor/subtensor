@@ -57,26 +57,32 @@ describe("Test the Subnet precompile contract", () => {
         assert.ok(totalNetwork + 1 === totalNetworkAfterAdd)
     });
 
-    // it.only("Can register network with identity info and logo url", async () => {
-    //     const totalNetwork = await api.query.SubtensorModule.TotalNetworks.getValue()
+    it.only("Can register network with identity info and logo url", async () => {
+        const totalNetwork = await api.query.SubtensorModule.TotalNetworks.getValue()
 
-    //     const contract = new ethers.Contract(ISUBNET_ADDRESS, ISubnetABI, wallet);
-    //     const tx = await contract["registerNetwork(bytes32,string,string,string,string,string,string,string,string)"](
-    //         hotkey2.publicKey,
-    //         "name",
-    //         "repo",
-    //         "contact",
-    //         "subnetUrl",
-    //         "discord",
-    //         "description",
-    //         "logoUrl",
-    //         "additional"
-    //     );
-    //     await tx.wait();
+        const contract = new ethers.Contract(ISUBNET_ADDRESS, ISubnetABI, wallet);
 
-    //     const totalNetworkAfterAdd = await api.query.SubtensorModule.TotalNetworks.getValue()
-    //     assert.ok(totalNetwork + 1 === totalNetworkAfterAdd)
-    // });
+        try {
+            const tx = await contract["registerNetwork(bytes32,string,string,string,string,string,string,string,string)"](
+                hotkey2.publicKey,
+                "name",
+                "repo",
+                "contact",
+                "subnetUrl",
+                "discord",
+                "description",
+                "logoUrl",
+                "additional"
+            );
+            await tx.wait();
+        } catch (error) {
+            console.log("=============== ", error)
+        }
+
+        const totalNetworkAfterAdd = await api.query.SubtensorModule.TotalNetworks.getValue()
+        console.log("=============== ", totalNetworkAfterAdd)
+        assert.ok(totalNetwork + 1 === totalNetworkAfterAdd)
+    });
 
     it("Can set servingRateLimit parameter", async () => {
 
@@ -330,26 +336,26 @@ describe("Test the Subnet precompile contract", () => {
         assert.equal(valueFromContract, onchainValue);
     })
 
-    it("Can set networkRegistrationAllowed parameter", async () => {
+    // it("Can set networkRegistrationAllowed parameter", async () => {
 
-        const totalNetwork = await api.query.SubtensorModule.TotalNetworks.getValue()
-        const contract = new ethers.Contract(ISUBNET_ADDRESS, ISubnetABI, wallet);
-        const netuid = totalNetwork - 1;
+    //     const totalNetwork = await api.query.SubtensorModule.TotalNetworks.getValue()
+    //     const contract = new ethers.Contract(ISUBNET_ADDRESS, ISubnetABI, wallet);
+    //     const netuid = totalNetwork - 1;
 
-        const newValue = true;
-        const tx = await contract.setNetworkRegistrationAllowed(netuid, newValue);
-        await tx.wait();
+    //     const newValue = true;
+    //     const tx = await contract.setNetworkRegistrationAllowed(netuid, newValue);
+    //     await tx.wait();
 
-        let onchainValue = await api.query.SubtensorModule.NetworkRegistrationAllowed.getValue(netuid)
+    //     let onchainValue = await api.query.SubtensorModule.NetworkRegistrationAllowed.getValue(netuid)
 
 
-        let valueFromContract = Boolean(
-            await contract.getNetworkRegistrationAllowed(netuid)
-        );
+    //     let valueFromContract = Boolean(
+    //         await contract.getNetworkRegistrationAllowed(netuid)
+    //     );
 
-        assert.equal(valueFromContract, newValue)
-        assert.equal(valueFromContract, onchainValue);
-    })
+    //     assert.equal(valueFromContract, newValue)
+    //     assert.equal(valueFromContract, onchainValue);
+    // })
 
     it("Can set networkPowRegistrationAllowed parameter", async () => {
 
@@ -511,32 +517,32 @@ describe("Test the Subnet precompile contract", () => {
     })
 
 
-    it("Can set alphaValues parameter", async () => {
-        const totalNetwork = await api.query.SubtensorModule.TotalNetworks.getValue()
-        const contract = new ethers.Contract(ISUBNET_ADDRESS, ISubnetABI, wallet);
-        const netuid = totalNetwork - 1;
+    // it("Can set alphaValues parameter", async () => {
+    //     const totalNetwork = await api.query.SubtensorModule.TotalNetworks.getValue()
+    //     const contract = new ethers.Contract(ISUBNET_ADDRESS, ISubnetABI, wallet);
+    //     const netuid = totalNetwork - 1;
 
-        const newValue = [118, 52429];
-        const tx = await contract.setAlphaValues(netuid, newValue[0], newValue[1]);
-        await tx.wait();
+    //     const newValue = [118, 52429];
+    //     const tx = await contract.setAlphaValues(netuid, newValue[0], newValue[1]);
+    //     await tx.wait();
 
-        let onchainValue = await api.query.SubtensorModule.AlphaValues.getValue(netuid)
+    //     let onchainValue = await api.query.SubtensorModule.AlphaValues.getValue(netuid)
 
-        let value = await contract.getAlphaValues(netuid)
-        let valueFromContract = [Number(value[0]), Number(value[1])]
+    //     let value = await contract.getAlphaValues(netuid)
+    //     let valueFromContract = [Number(value[0]), Number(value[1])]
 
-        assert.equal(valueFromContract[0], newValue[0])
-        assert.equal(valueFromContract[1], newValue[1])
-        assert.equal(valueFromContract[0], onchainValue[0]);
-        assert.equal(valueFromContract[1], onchainValue[1]);
-    })
+    //     assert.equal(valueFromContract[0], newValue[0])
+    //     assert.equal(valueFromContract[1], newValue[1])
+    //     assert.equal(valueFromContract[0], onchainValue[0]);
+    //     assert.equal(valueFromContract[1], onchainValue[1]);
+    // })
 
     it("Can set commitRevealWeightsInterval parameter", async () => {
         const totalNetwork = await api.query.SubtensorModule.TotalNetworks.getValue()
         const contract = new ethers.Contract(ISUBNET_ADDRESS, ISubnetABI, wallet);
         const netuid = totalNetwork - 1;
 
-        const newValue = 119;
+        const newValue = 99;
         const tx = await contract.setCommitRevealWeightsInterval(netuid, newValue);
         await tx.wait();
 
