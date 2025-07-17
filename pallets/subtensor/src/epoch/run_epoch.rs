@@ -4,13 +4,16 @@ use frame_support::IterableStorageDoubleMap;
 use safe_math::*;
 use sp_std::vec;
 use substrate_fixed::types::{I32F32, I64F64, I96F32};
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{AlphaCurrency, NetUid};
 
 impl<T: Config> Pallet<T> {
     /// Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.
     /// (Dense version used only for testing purposes.)
     #[allow(clippy::indexing_slicing)]
-    pub fn epoch_dense(netuid: NetUid, rao_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
+    pub fn epoch_dense(
+        netuid: NetUid,
+        rao_emission: AlphaCurrency,
+    ) -> Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> {
         // Get subnetwork size.
         let n: u16 = Self::get_subnetwork_n(netuid);
         log::trace!("n: {:?}", n);
@@ -314,18 +317,18 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|se: &I32F32| I96F32::saturating_from_num(*se).saturating_mul(float_rao_emission))
             .collect();
-        let server_emission: Vec<u64> = server_emission
+        let server_emission: Vec<AlphaCurrency> = server_emission
             .iter()
-            .map(|e: &I96F32| e.saturating_to_num::<u64>())
+            .map(|e: &I96F32| e.saturating_to_num::<u64>().into())
             .collect();
 
         let validator_emission: Vec<I96F32> = normalized_validator_emission
             .iter()
             .map(|ve: &I32F32| I96F32::saturating_from_num(*ve).saturating_mul(float_rao_emission))
             .collect();
-        let validator_emission: Vec<u64> = validator_emission
+        let validator_emission: Vec<AlphaCurrency> = validator_emission
             .iter()
-            .map(|e: &I96F32| e.saturating_to_num::<u64>())
+            .map(|e: &I96F32| e.saturating_to_num::<u64>().into())
             .collect();
 
         // Used only to track combined emission in the storage.
@@ -333,9 +336,9 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|ce: &I32F32| I96F32::saturating_from_num(*ce).saturating_mul(float_rao_emission))
             .collect();
-        let combined_emission: Vec<u64> = combined_emission
+        let combined_emission: Vec<AlphaCurrency> = combined_emission
             .iter()
-            .map(|e: &I96F32| e.saturating_to_num::<u64>())
+            .map(|e: &I96F32| AlphaCurrency::from(e.saturating_to_num::<u64>()))
             .collect();
 
         log::trace!("nSE: {:?}", &normalized_server_emission);
@@ -352,7 +355,7 @@ impl<T: Config> Pallet<T> {
         // ===================
         // == Value storage ==
         // ===================
-        let cloned_emission: Vec<u64> = combined_emission.clone();
+        let cloned_emission = combined_emission.clone();
         let cloned_stake_weight: Vec<u16> = stake
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))
@@ -439,9 +442,12 @@ impl<T: Config> Pallet<T> {
     ///     - Print debugging outputs.
     ///
     #[allow(clippy::indexing_slicing)]
-    pub fn epoch(netuid: NetUid, rao_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
+    pub fn epoch(
+        netuid: NetUid,
+        rao_emission: AlphaCurrency,
+    ) -> Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> {
         // Get subnetwork size.
-        let n: u16 = Self::get_subnetwork_n(netuid);
+        let n = Self::get_subnetwork_n(netuid);
         log::trace!("Number of Neurons in Network: {:?}", n);
 
         // ======================
@@ -576,6 +582,53 @@ impl<T: Config> Pallet<T> {
             &|updated, registered| updated <= registered,
         );
         log::trace!("Weights (permit+diag+outdate): {:?}", &weights);
+
+        if Self::get_commit_reveal_weights_enabled(netuid) {
+            let mut commit_blocks: Vec<u64> = vec![u64::MAX; n as usize]; // MAX ⇒ “no active commit”
+
+            // helper: hotkey → uid
+            let uid_of = |acct: &T::AccountId| -> Option<usize> {
+                hotkeys
+                    .iter()
+                    .find(|(_, a)| a == acct)
+                    .map(|(uid, _)| *uid as usize)
+            };
+
+            // ---------- v2 ------------------------------------------------------
+            for (who, q) in WeightCommits::<T>::iter_prefix(netuid) {
+                for (_, cb, _, _) in q.iter() {
+                    if !Self::is_commit_expired(netuid, *cb) {
+                        if let Some(i) = uid_of(&who) {
+                            commit_blocks[i] = commit_blocks[i].min(*cb);
+                        }
+                        break; // earliest active found
+                    }
+                }
+            }
+
+            // ---------- v3 ------------------------------------------------------
+            for (_epoch, q) in CRV3WeightCommitsV2::<T>::iter_prefix(netuid) {
+                for (who, cb, ..) in q.iter() {
+                    if !Self::is_commit_expired(netuid, *cb) {
+                        if let Some(i) = uid_of(who) {
+                            commit_blocks[i] = commit_blocks[i].min(*cb);
+                        }
+                    }
+                }
+            }
+
+            weights = vec_mask_sparse_matrix(
+                &weights,
+                &commit_blocks,
+                &block_at_registration,
+                &|cb, reg| cb < reg,
+            );
+
+            log::trace!(
+                "Commit-reveal column mask applied ({} masked rows)",
+                commit_blocks.iter().filter(|&&cb| cb != u64::MAX).count()
+            );
+        }
 
         // Normalize remaining weights.
         inplace_row_normalize_sparse(&mut weights);
@@ -758,18 +811,18 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|se: &I32F32| I96F32::saturating_from_num(*se).saturating_mul(float_rao_emission))
             .collect();
-        let server_emission: Vec<u64> = server_emission
+        let server_emission: Vec<AlphaCurrency> = server_emission
             .iter()
-            .map(|e: &I96F32| e.saturating_to_num::<u64>())
+            .map(|e: &I96F32| e.saturating_to_num::<u64>().into())
             .collect();
 
         let validator_emission: Vec<I96F32> = normalized_validator_emission
             .iter()
             .map(|ve: &I32F32| I96F32::saturating_from_num(*ve).saturating_mul(float_rao_emission))
             .collect();
-        let validator_emission: Vec<u64> = validator_emission
+        let validator_emission: Vec<AlphaCurrency> = validator_emission
             .iter()
-            .map(|e: &I96F32| e.saturating_to_num::<u64>())
+            .map(|e: &I96F32| e.saturating_to_num::<u64>().into())
             .collect();
 
         // Only used to track emission in storage.
@@ -777,9 +830,9 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|ce: &I32F32| I96F32::saturating_from_num(*ce).saturating_mul(float_rao_emission))
             .collect();
-        let combined_emission: Vec<u64> = combined_emission
+        let combined_emission: Vec<AlphaCurrency> = combined_emission
             .iter()
-            .map(|e: &I96F32| e.saturating_to_num::<u64>())
+            .map(|e: &I96F32| AlphaCurrency::from(e.saturating_to_num::<u64>()))
             .collect();
 
         log::trace!(
@@ -809,7 +862,7 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))
             .collect::<Vec<u16>>();
-        let cloned_emission: Vec<u64> = combined_emission.clone();
+        let cloned_emission = combined_emission.clone();
         let cloned_ranks: Vec<u16> = ranks
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))

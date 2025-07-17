@@ -14,7 +14,7 @@ use sp_runtime::{
     BuildStorage,
     traits::{BlakeTwo256, IdentityLookup},
 };
-use subtensor_runtime_common::{BalanceOps, NetUid, SubnetInfo};
+use subtensor_runtime_common::{AlphaCurrency, BalanceOps, NetUid, SubnetInfo};
 
 use crate::pallet::EnabledUserLiquidity;
 
@@ -95,11 +95,11 @@ impl SubnetInfo<AccountId> for MockLiquidityProvider {
         }
     }
 
-    fn alpha_reserve(netuid: NetUid) -> u64 {
+    fn alpha_reserve(netuid: NetUid) -> AlphaCurrency {
         match netuid.into() {
-            123u16 => 10_000,
-            WRAPPING_FEES_NETUID => 400_000_000_000,
-            _ => 4_000_000_000_000,
+            123u16 => 10_000.into(),
+            WRAPPING_FEES_NETUID => 400_000_000_000.into(),
+            _ => 4_000_000_000_000.into(),
         }
     }
 
@@ -132,7 +132,7 @@ impl BalanceOps<AccountId> for MockBalanceOps {
         _: NetUid,
         coldkey_account_id: &AccountId,
         hotkey_account_id: &AccountId,
-    ) -> u64 {
+    ) -> AlphaCurrency {
         match (coldkey_account_id, hotkey_account_id) {
             (&OK_COLDKEY_ACCOUNT_ID, &OK_HOTKEY_ACCOUNT_ID) => 100_000_000_000_000,
             (&OK_COLDKEY_ACCOUNT_ID_2, &OK_HOTKEY_ACCOUNT_ID_2) => 100_000_000_000_000,
@@ -141,6 +141,7 @@ impl BalanceOps<AccountId> for MockBalanceOps {
             }
             _ => 1_000_000_000,
         }
+        .into()
     }
 
     fn increase_balance(_coldkey: &AccountId, _tao: u64) {}
@@ -153,7 +154,7 @@ impl BalanceOps<AccountId> for MockBalanceOps {
         _coldkey: &AccountId,
         _hotkey: &AccountId,
         _netuid: NetUid,
-        _alpha: u64,
+        _alpha: AlphaCurrency,
     ) -> Result<(), DispatchError> {
         Ok(())
     }
@@ -162,15 +163,15 @@ impl BalanceOps<AccountId> for MockBalanceOps {
         _coldkey: &AccountId,
         _hotkey: &AccountId,
         _netuid: NetUid,
-        alpha: u64,
-    ) -> Result<u64, DispatchError> {
+        alpha: AlphaCurrency,
+    ) -> Result<AlphaCurrency, DispatchError> {
         Ok(alpha)
     }
 
     fn increase_provided_tao_reserve(_netuid: NetUid, _tao: u64) {}
     fn decrease_provided_tao_reserve(_netuid: NetUid, _tao: u64) {}
-    fn increase_provided_alpha_reserve(_netuid: NetUid, _alpha: u64) {}
-    fn decrease_provided_alpha_reserve(_netuid: NetUid, _alpha: u64) {}
+    fn increase_provided_alpha_reserve(_netuid: NetUid, _alpha: AlphaCurrency) {}
+    fn decrease_provided_alpha_reserve(_netuid: NetUid, _alpha: AlphaCurrency) {}
 }
 
 impl crate::pallet::Config for Test {
