@@ -2,6 +2,7 @@ use alloc::string::String;
 
 use frame_support::IterableStorageMap;
 use frame_support::{traits::Get, weights::Weight};
+use subtensor_runtime_common::NetUid;
 
 use super::*;
 

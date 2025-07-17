@@ -8,7 +8,7 @@ use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::{Config, RawOrigin};
 use sp_core::U256;
 use sp_runtime::traits::{DispatchInfoOf, TransactionExtension, TxBaseImplication};
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT, NetUid};
 
 use super::mock;
 use super::mock::*;
@@ -153,7 +153,7 @@ fn test_registration_ok() {
         // Check if the balance of this hotkey account for this subnetwork == 0
         assert_eq!(
             SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
-            0
+            AlphaCurrency::ZERO
         );
     });
 }
@@ -320,7 +320,7 @@ fn test_burned_registration_under_limit() {
         SubtensorModule::set_burn(netuid, burn_cost);
 
         let reserve = 1_000_000_000_000;
-        mock::setup_reserves(netuid, reserve, reserve);
+        mock::setup_reserves(netuid, reserve, reserve.into());
 
         add_network(netuid, 13, 0); // Add the network
         // Give it some TAO to the coldkey balance; more than the burn cost
@@ -420,7 +420,7 @@ fn test_burned_registration_rate_allows_burn_adjustment() {
         SubtensorModule::set_burn(netuid, burn_cost);
 
         let reserve = 1_000_000_000_000;
-        mock::setup_reserves(netuid, reserve, reserve);
+        mock::setup_reserves(netuid, reserve, reserve.into());
 
         add_network(netuid, 13, 0); // Add the network
         // Give it some TAO to the coldkey balance; more than the burn cost
@@ -477,7 +477,7 @@ fn test_burned_registration_ok() {
         add_network(netuid, tempo, 0);
 
         let reserve = 1_000_000_000_000;
-        mock::setup_reserves(netuid, reserve, reserve);
+        mock::setup_reserves(netuid, reserve, reserve.into());
 
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -510,7 +510,7 @@ fn test_burned_registration_ok() {
         // Check if the balance of this hotkey account for this subnetwork == 0
         assert_eq!(
             SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
-            0
+            AlphaCurrency::ZERO
         );
     });
 }
@@ -599,7 +599,7 @@ fn test_burn_adjustment() {
         );
 
         let reserve = 1_000_000_000_000;
-        mock::setup_reserves(netuid, reserve, reserve);
+        mock::setup_reserves(netuid, reserve, reserve.into());
 
         // Register key 1.
         let hotkey_account_id_1 = U256::from(1);
@@ -655,7 +655,7 @@ fn test_burn_registration_pruning_scenarios() {
         SubtensorModule::set_immunity_period(netuid, immunity_period);
 
         let reserve = 1_000_000_000_000;
-        mock::setup_reserves(netuid, reserve, reserve);
+        mock::setup_reserves(netuid, reserve, reserve.into());
 
         add_network(netuid, tempo, 0);
 
@@ -1560,8 +1560,8 @@ fn test_burn_registration_increase_recycled_rao() {
             Balances::deposit_creating(&coldkey_account_id, Balance::from(1_000_000_000_000_u64));
 
         let reserve = 1_000_000_000_000;
-        mock::setup_reserves(netuid, reserve, reserve);
-        mock::setup_reserves(netuid2, reserve, reserve);
+        mock::setup_reserves(netuid, reserve, reserve.into());
+        mock::setup_reserves(netuid2, reserve, reserve.into());
 
         add_network(netuid, 13, 0);
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 0);

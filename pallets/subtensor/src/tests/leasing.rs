@@ -9,6 +9,7 @@ use frame_support::{StorageDoubleMap, assert_err, assert_ok};
 use sp_core::U256;
 use sp_runtime::Percent;
 use substrate_fixed::types::U64F64;
+use subtensor_runtime_common::AlphaCurrency;
 
 #[test]
 fn test_register_leased_network_works() {
@@ -509,11 +510,11 @@ fn test_distribute_lease_network_dividends_multiple_contributors_works() {
         let beneficiary_balance_before = SubtensorModule::get_coldkey_balance(&beneficiary);
 
         // Setup some previously accumulated dividends
-        let accumulated_dividends = 5_000_000;
+        let accumulated_dividends = AlphaCurrency::from(5_000_000);
         AccumulatedLeaseDividends::<Test>::insert(lease_id, accumulated_dividends);
 
         // Distribute the dividends
-        let owner_cut_alpha = 5_000_000;
+        let owner_cut_alpha = AlphaCurrency::from(5_000_000);
         SubtensorModule::distribute_leased_network_dividends(lease_id, owner_cut_alpha);
 
         // Ensure the dividends were distributed correctly relative to their shares
@@ -550,7 +551,10 @@ fn test_distribute_lease_network_dividends_multiple_contributors_works() {
         assert_eq!(beneficiary_balance_delta, expected_beneficiary_balance);
 
         // Ensure nothing was accumulated for later distribution
-        assert_eq!(AccumulatedLeaseDividends::<Test>::get(lease_id), 0);
+        assert_eq!(
+            AccumulatedLeaseDividends::<Test>::get(lease_id),
+            AlphaCurrency::ZERO
+        );
     });
 }
 
@@ -584,11 +588,11 @@ fn test_distribute_lease_network_dividends_only_beneficiary_works() {
         let beneficiary_balance_before = SubtensorModule::get_coldkey_balance(&beneficiary);
 
         // Setup some previously accumulated dividends
-        let accumulated_dividends = 5_000_000;
+        let accumulated_dividends = AlphaCurrency::from(5_000_000);
         AccumulatedLeaseDividends::<Test>::insert(lease_id, accumulated_dividends);
 
         // Distribute the dividends
-        let owner_cut_alpha = 5_000_000;
+        let owner_cut_alpha = AlphaCurrency::from(5_000_000);
         SubtensorModule::distribute_leased_network_dividends(lease_id, owner_cut_alpha);
 
         // Ensure the dividends were distributed correctly relative to their shares
@@ -598,7 +602,10 @@ fn test_distribute_lease_network_dividends_only_beneficiary_works() {
         assert_eq!(distributed_tao, beneficiary_balance_delta);
 
         // Ensure nothing was accumulated for later distribution
-        assert_eq!(AccumulatedLeaseDividends::<Test>::get(lease_id), 0);
+        assert_eq!(
+            AccumulatedLeaseDividends::<Test>::get(lease_id),
+            AlphaCurrency::ZERO
+        );
     });
 }
 
@@ -636,11 +643,11 @@ fn test_distribute_lease_network_dividends_accumulates_if_not_the_correct_block(
         let beneficiary_balance_before = SubtensorModule::get_coldkey_balance(&beneficiary);
 
         // Setup some previously accumulated dividends
-        let accumulated_dividends = 5_000_000;
+        let accumulated_dividends = AlphaCurrency::from(5_000_000);
         AccumulatedLeaseDividends::<Test>::insert(lease_id, accumulated_dividends);
 
         // Distribute the dividends
-        let owner_cut_alpha = 5_000_000;
+        let owner_cut_alpha = AlphaCurrency::from(5_000_000);
         SubtensorModule::distribute_leased_network_dividends(lease_id, owner_cut_alpha);
 
         // Ensure the dividends were not distributed
@@ -660,7 +667,8 @@ fn test_distribute_lease_network_dividends_accumulates_if_not_the_correct_block(
         // Ensure we correctly accumulated the dividends
         assert_eq!(
             AccumulatedLeaseDividends::<Test>::get(lease_id),
-            accumulated_dividends + emissions_share.mul_ceil(owner_cut_alpha)
+            (accumulated_dividends + emissions_share.mul_ceil(owner_cut_alpha.to_u64()).into())
+                .into()
         );
     });
 }
@@ -669,7 +677,7 @@ fn test_distribute_lease_network_dividends_accumulates_if_not_the_correct_block(
 fn test_distribute_lease_network_dividends_does_nothing_if_lease_does_not_exist() {
     new_test_ext(1).execute_with(|| {
         let lease_id = 0;
-        let owner_cut_alpha = 5_000_000;
+        let owner_cut_alpha = AlphaCurrency::from(5_000_000);
         SubtensorModule::distribute_leased_network_dividends(lease_id, owner_cut_alpha);
     });
 }
@@ -709,7 +717,7 @@ fn test_distribute_lease_network_dividends_does_nothing_if_lease_has_ended() {
         let accumulated_dividends_before = AccumulatedLeaseDividends::<Test>::get(lease_id);
 
         // Try to distribute the dividends
-        let owner_cut_alpha = 5_000_000;
+        let owner_cut_alpha = AlphaCurrency::from(5_000_000);
         SubtensorModule::distribute_leased_network_dividends(lease_id, owner_cut_alpha);
 
         // Ensure the dividends were not distributed
@@ -765,7 +773,7 @@ fn test_distribute_lease_network_dividends_accumulates_if_amount_is_too_low() {
         let beneficiary_balance_before = SubtensorModule::get_coldkey_balance(&beneficiary);
 
         // Try to distribute the dividends
-        let owner_cut_alpha = 5_000;
+        let owner_cut_alpha = AlphaCurrency::from(5_000);
         SubtensorModule::distribute_leased_network_dividends(lease_id, owner_cut_alpha);
 
         // Ensure the dividends were not distributed
@@ -785,7 +793,7 @@ fn test_distribute_lease_network_dividends_accumulates_if_amount_is_too_low() {
         // Ensure the correct amount of alpha was accumulated for later dividends distribution
         assert_eq!(
             AccumulatedLeaseDividends::<Test>::get(lease_id),
-            emissions_share.mul_ceil(owner_cut_alpha)
+            emissions_share.mul_ceil(owner_cut_alpha.to_u64()).into()
         );
     });
 }
@@ -821,7 +829,7 @@ fn test_distribute_lease_network_dividends_accumulates_if_insufficient_liquidity
         let beneficiary_balance_before = SubtensorModule::get_coldkey_balance(&beneficiary);
 
         // Try to distribute the dividends
-        let owner_cut_alpha = 5_000_000;
+        let owner_cut_alpha = AlphaCurrency::from(5_000_000);
         SubtensorModule::distribute_leased_network_dividends(lease_id, owner_cut_alpha);
 
         // Ensure the dividends were not distributed
@@ -841,7 +849,7 @@ fn test_distribute_lease_network_dividends_accumulates_if_insufficient_liquidity
         // Ensure the correct amount of alpha was accumulated for later dividends distribution
         assert_eq!(
             AccumulatedLeaseDividends::<Test>::get(lease_id),
-            emissions_share.mul_ceil(owner_cut_alpha)
+            emissions_share.mul_ceil(owner_cut_alpha.to_u64()).into()
         );
     });
 }

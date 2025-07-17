@@ -6,7 +6,7 @@ use precompile_utils::EvmResult;
 use sp_core::U256;
 use sp_std::vec::Vec;
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{Currency, NetUid};
 use subtensor_swap_interface::{OrderType, SwapHandler};
 
 use crate::PrecompileExt;
@@ -68,25 +68,19 @@ where
     #[precompile::public("getAlphaInPool(uint16)")]
     #[precompile::view]
     fn get_alpha_in_pool(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::SubnetAlphaIn::<R>::get(NetUid::from(
-            netuid,
-        )))
+        Ok(pallet_subtensor::SubnetAlphaIn::<R>::get(NetUid::from(netuid)).into())
     }
 
     #[precompile::public("getAlphaOutPool(uint16)")]
     #[precompile::view]
     fn get_alpha_out_pool(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::SubnetAlphaOut::<R>::get(NetUid::from(
-            netuid,
-        )))
+        Ok(pallet_subtensor::SubnetAlphaOut::<R>::get(NetUid::from(netuid)).into())
     }
 
     #[precompile::public("getAlphaIssuance(uint16)")]
     #[precompile::view]
     fn get_alpha_issuance(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::Pallet::<R>::get_alpha_issuance(
-            netuid.into(),
-        ))
+        Ok(pallet_subtensor::Pallet::<R>::get_alpha_issuance(netuid.into()).into())
     }
 
     #[precompile::public("getTaoWeight()")]
@@ -179,7 +173,7 @@ where
     #[precompile::view]
     fn get_alpha_in_emission(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
         Ok(U256::from(
-            pallet_subtensor::SubnetAlphaInEmission::<R>::get(NetUid::from(netuid)),
+            pallet_subtensor::SubnetAlphaInEmission::<R>::get(NetUid::from(netuid)).to_u64(),
         ))
     }
 
@@ -187,7 +181,7 @@ where
     #[precompile::view]
     fn get_alpha_out_emission(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
         Ok(U256::from(
-            pallet_subtensor::SubnetAlphaOutEmission::<R>::get(NetUid::from(netuid)),
+            pallet_subtensor::SubnetAlphaOutEmission::<R>::get(NetUid::from(netuid)).to_u64(),
         ))
     }
 

@@ -7,7 +7,7 @@ use frame_system::pallet_prelude::*;
 use sp_core::blake2_256;
 use sp_runtime::{Percent, traits::TrailingZeroInput};
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{AlphaCurrency, NetUid};
 use subtensor_swap_interface::SwapHandler;
 
 pub type LeaseId = u32;
@@ -235,7 +235,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// It will ensure the subnet has enough alpha in its liquidity pool before swapping it to tao to be distributed,
     /// and if not enough liquidity is available, it will accumulate the dividends for later distribution.
-    pub fn distribute_leased_network_dividends(lease_id: LeaseId, owner_cut_alpha: u64) {
+    pub fn distribute_leased_network_dividends(lease_id: LeaseId, owner_cut_alpha: AlphaCurrency) {
         // Ensure the lease exists
         let Some(lease) = SubnetLeases::<T>::get(lease_id) else {
             log::debug!("Lease {lease_id} doesn't exists so we can't distribute dividends");
@@ -250,12 +250,13 @@ impl<T: Config> Pallet<T> {
 
         // Get the actual amount of alpha to distribute from the owner's cut,
         // we voluntarily round up to favor the contributors
-        let current_contributors_cut_alpha = lease.emissions_share.mul_ceil(owner_cut_alpha);
+        let current_contributors_cut_alpha =
+            lease.emissions_share.mul_ceil(owner_cut_alpha.to_u64());
 
         // Get the total amount of alpha to distribute from the contributors
         // including the dividends accumulated so far
         let total_contributors_cut_alpha = AccumulatedLeaseDividends::<T>::get(lease_id)
-            .saturating_add(current_contributors_cut_alpha);
+            .saturating_add(current_contributors_cut_alpha.into());
 
         // Ensure the distribution interval is not zero
         let rem = now
@@ -320,7 +321,7 @@ impl<T: Config> Pallet<T> {
         Self::add_balance_to_coldkey_account(&lease.beneficiary, beneficiary_cut_tao);
 
         // Reset the accumulated dividends
-        AccumulatedLeaseDividends::<T>::insert(lease_id, 0);
+        AccumulatedLeaseDividends::<T>::insert(lease_id, AlphaCurrency::ZERO);
     }
 
     fn lease_coldkey(lease_id: LeaseId) -> T::AccountId {

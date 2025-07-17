@@ -193,10 +193,11 @@ impl<T: Config> Pallet<T> {
         // Put initial TAO from lock into subnet TAO and produce numerically equal amount of Alpha
         // The initial TAO is the locked amount, with a minimum of 1 RAO and a cap of 100 TAO.
         let pool_initial_tao = Self::get_network_min_lock();
+        let pool_initial_alpha = AlphaCurrency::from(Self::get_network_min_lock());
         let actual_tao_lock_amount_less_pool_tao =
             actual_tao_lock_amount.saturating_sub(pool_initial_tao);
         SubnetTAO::<T>::insert(netuid_to_register, pool_initial_tao);
-        SubnetAlphaIn::<T>::insert(netuid_to_register, pool_initial_tao);
+        SubnetAlphaIn::<T>::insert(netuid_to_register, pool_initial_alpha);
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
         SubnetOwnerHotkey::<T>::insert(netuid_to_register, hotkey.clone());
 
