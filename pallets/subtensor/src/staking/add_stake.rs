@@ -206,4 +206,40 @@ impl<T: Config> Pallet<T> {
             Err(Error::ZeroMaxStakeAmount)
         }
     }
+
+    pub fn do_add_stake_aggregate(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+        netuid: NetUid,
+        stake_to_be_added: u64,
+    ) -> dispatch::DispatchResult {
+        // We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
+        let coldkey = ensure_signed(origin)?;
+
+        // Consider the weight from on_finalize
+        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
+            Self::do_add_stake(
+                crate::dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+                netuid,
+                stake_to_be_added,
+            )?;
+        }
+
+        // Save the staking job for the on_finalize
+        let stake_job = StakeJob::AddStake {
+            hotkey,
+            coldkey,
+            netuid,
+            stake_to_be_added,
+        };
+
+        let stake_job_id = NextStakeJobId::<T>::get();
+        let current_blocknumber = <frame_system::Pallet<T>>::block_number();
+
+        StakeJobs::<T>::insert(current_blocknumber, stake_job_id, stake_job);
+        NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
+
+        Ok(())
+    }
 }
