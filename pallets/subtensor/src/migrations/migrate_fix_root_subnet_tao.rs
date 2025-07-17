@@ -24,7 +24,7 @@ pub fn migrate_fix_root_subnet_tao<T: Config>() -> Weight {
     // We accumulate the total stake for all hotkeys on the root subnet.
     for hotkey in Owner::<T>::iter_keys() {
         let hotkey_stake = TotalHotkeyAlpha::<T>::get(&hotkey, NetUid::ROOT);
-        total_stake = total_stake.saturating_add(hotkey_stake);
+        total_stake = total_stake.saturating_add(hotkey_stake.to_u64());
         hotkey_count = hotkey_count.saturating_add(1);
     }
 

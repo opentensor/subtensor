@@ -1,6 +1,7 @@
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_noop, assert_ok, traits::Currency};
 use sp_core::U256;
+use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT};
 
 use super::mock;
 use super::mock::*;
@@ -34,7 +35,7 @@ fn test_recycle_success() {
         let initial_net_alpha = SubnetAlphaOut::<Test>::get(netuid);
 
         // amount to recycle
-        let recycle_amount = stake / 2;
+        let recycle_amount = AlphaCurrency::from(stake / 2);
 
         // recycle
         assert_ok!(SubtensorModule::recycle_alpha(
@@ -94,7 +95,7 @@ fn test_recycle_two_stakers() {
         let initial_net_alpha = SubnetAlphaOut::<Test>::get(netuid);
 
         // amount to recycle
-        let recycle_amount = stake / 2;
+        let recycle_amount = AlphaCurrency::from(stake / 2);
 
         // recycle
         assert_ok!(SubtensorModule::recycle_alpha(
@@ -108,7 +109,7 @@ fn test_recycle_two_stakers() {
         assert!(SubnetAlphaOut::<Test>::get(netuid) < initial_net_alpha);
         assert!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
-                < stake
+                < stake.into()
         );
         // Make sure the other coldkey has no change
         assert_abs_diff_eq!(
@@ -118,7 +119,7 @@ fn test_recycle_two_stakers() {
                 netuid
             ),
             expected_alpha,
-            epsilon = 2
+            epsilon = 2.into()
         );
 
         assert!(System::events().iter().any(|e| {
@@ -170,7 +171,7 @@ fn test_recycle_staker_is_nominator() {
         let initial_net_alpha = SubnetAlphaOut::<Test>::get(netuid);
 
         // amount to recycle
-        let recycle_amount = stake / 2;
+        let recycle_amount = AlphaCurrency::from(stake / 2);
 
         // recycle from nominator coldkey
         assert_ok!(SubtensorModule::recycle_alpha(
@@ -187,13 +188,13 @@ fn test_recycle_staker_is_nominator() {
                 &hotkey,
                 &other_coldkey,
                 netuid
-            ) < stake
+            ) < stake.into()
         );
         // Make sure the other coldkey has no change
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid),
             expected_alpha,
-            epsilon = 2
+            epsilon = 2.into()
         );
 
         assert!(System::events().iter().any(|e| {
@@ -239,7 +240,7 @@ fn test_burn_success() {
         assert_ok!(SubtensorModule::burn_alpha(
             RuntimeOrigin::signed(coldkey),
             hotkey,
-            burn_amount,
+            burn_amount.into(),
             netuid
         ));
 
@@ -247,7 +248,7 @@ fn test_burn_success() {
         assert!(SubnetAlphaOut::<Test>::get(netuid) == initial_net_alpha);
         assert!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
-                < stake
+                < stake.into()
         );
 
         assert!(System::events().iter().any(|e| {
@@ -294,7 +295,7 @@ fn test_burn_staker_is_nominator() {
         let initial_net_alpha = SubnetAlphaOut::<Test>::get(netuid);
 
         // amount to recycle
-        let burn_amount = stake / 2;
+        let burn_amount = AlphaCurrency::from(stake / 2);
 
         // burn from nominator coldkey
         assert_ok!(SubtensorModule::burn_alpha(
@@ -311,13 +312,13 @@ fn test_burn_staker_is_nominator() {
                 &hotkey,
                 &other_coldkey,
                 netuid
-            ) < stake
+            ) < stake.into()
         );
         // Make sure the other coldkey has no change
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid),
             expected_alpha,
-            epsilon = 2
+            epsilon = 2.into()
         );
 
         assert!(System::events().iter().any(|e| {
@@ -363,7 +364,7 @@ fn test_burn_two_stakers() {
         let initial_net_alpha = SubnetAlphaOut::<Test>::get(netuid);
 
         // amount to recycle
-        let burn_amount = stake / 2;
+        let burn_amount = AlphaCurrency::from(stake / 2);
 
         // burn from coldkey
         assert_ok!(SubtensorModule::burn_alpha(
@@ -377,7 +378,7 @@ fn test_burn_two_stakers() {
         assert!(SubnetAlphaOut::<Test>::get(netuid) == initial_net_alpha);
         assert!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
-                < stake
+                < stake.into()
         );
         // Make sure the other coldkey has no change
         assert_abs_diff_eq!(
@@ -387,7 +388,7 @@ fn test_burn_two_stakers() {
                 netuid
             ),
             expected_alpha,
-            epsilon = 2
+            epsilon = 2.into()
         );
 
         assert!(System::events().iter().any(|e| {
@@ -426,7 +427,7 @@ fn test_recycle_errors() {
             SubtensorModule::recycle_alpha(
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
-                100_000,
+                100_000.into(),
                 99.into() // non-existent subnet
             ),
             Error::<Test>::SubNetworkDoesNotExist
@@ -436,7 +437,7 @@ fn test_recycle_errors() {
             SubtensorModule::recycle_alpha(
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
-                100_000,
+                100_000.into(),
                 NetUid::ROOT,
             ),
             Error::<Test>::CannotBurnOrRecycleOnRootSubnet
@@ -446,7 +447,7 @@ fn test_recycle_errors() {
             SubtensorModule::recycle_alpha(
                 RuntimeOrigin::signed(coldkey),
                 wrong_hotkey,
-                100_000,
+                100_000.into(),
                 netuid
             ),
             Error::<Test>::HotKeyAccountNotExists
@@ -456,7 +457,7 @@ fn test_recycle_errors() {
             SubtensorModule::recycle_alpha(
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
-                10_000_000_000, // too much
+                10_000_000_000.into(), // too much
                 netuid
             ),
             Error::<Test>::NotEnoughStakeToWithdraw
@@ -466,14 +467,14 @@ fn test_recycle_errors() {
         TotalHotkeyAlpha::<Test>::set(
             hotkey,
             netuid,
-            SubnetAlphaOut::<Test>::get(netuid).saturating_mul(2),
+            SubnetAlphaOut::<Test>::get(netuid).saturating_mul(2.into()),
         );
 
         assert_noop!(
             SubtensorModule::recycle_alpha(
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
-                SubnetAlphaOut::<Test>::get(netuid) + 1,
+                SubnetAlphaOut::<Test>::get(netuid) + 1.into(),
                 netuid
             ),
             Error::<Test>::InsufficientLiquidity
@@ -508,7 +509,7 @@ fn test_burn_errors() {
             SubtensorModule::burn_alpha(
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
-                100_000,
+                100_000.into(),
                 99.into() // non-existent subnet
             ),
             Error::<Test>::SubNetworkDoesNotExist
@@ -518,7 +519,7 @@ fn test_burn_errors() {
             SubtensorModule::burn_alpha(
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
-                100_000,
+                100_000.into(),
                 NetUid::ROOT,
             ),
             Error::<Test>::CannotBurnOrRecycleOnRootSubnet
@@ -528,7 +529,7 @@ fn test_burn_errors() {
             SubtensorModule::burn_alpha(
                 RuntimeOrigin::signed(coldkey),
                 wrong_hotkey,
-                100_000,
+                100_000.into(),
                 netuid
             ),
             Error::<Test>::HotKeyAccountNotExists
@@ -538,7 +539,7 @@ fn test_burn_errors() {
             SubtensorModule::burn_alpha(
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
-                10_000_000_000, // too much
+                10_000_000_000.into(), // too much
                 netuid
             ),
             Error::<Test>::NotEnoughStakeToWithdraw
@@ -548,14 +549,14 @@ fn test_burn_errors() {
         TotalHotkeyAlpha::<Test>::set(
             hotkey,
             netuid,
-            SubnetAlphaOut::<Test>::get(netuid).saturating_mul(2),
+            SubnetAlphaOut::<Test>::get(netuid).saturating_mul(2.into()),
         );
 
         assert_noop!(
             SubtensorModule::burn_alpha(
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
-                SubnetAlphaOut::<Test>::get(netuid) + 1,
+                SubnetAlphaOut::<Test>::get(netuid) + 1.into(),
                 netuid
             ),
             Error::<Test>::InsufficientLiquidity
