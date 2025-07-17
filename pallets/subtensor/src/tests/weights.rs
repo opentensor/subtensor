@@ -5039,11 +5039,11 @@ fn test_do_commit_crv3_weights_success() {
 
         let cur_epoch =
             SubtensorModule::get_epoch_index(netuid, SubtensorModule::get_current_block_as_u64());
-        let commits = CRV3WeightCommits::<Test>::get(netuid, cur_epoch);
+        let commits = CRV3WeightCommitsV2::<Test>::get(netuid, cur_epoch);
         assert_eq!(commits.len(), 1);
         assert_eq!(commits[0].0, hotkey);
-        assert_eq!(commits[0].1, commit_data);
-        assert_eq!(commits[0].2, reveal_round);
+        assert_eq!(commits[0].2, commit_data);
+        assert_eq!(commits[0].3, reveal_round);
     });
 }
 
@@ -5879,7 +5879,7 @@ fn test_multiple_commits_by_same_hotkey_within_limit() {
 
         let cur_epoch =
             SubtensorModule::get_epoch_index(netuid, SubtensorModule::get_current_block_as_u64());
-        let commits = CRV3WeightCommits::<Test>::get(netuid, cur_epoch);
+        let commits = CRV3WeightCommitsV2::<Test>::get(netuid, cur_epoch);
         assert_eq!(
             commits.len(),
             10,
@@ -5914,18 +5914,18 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
                 .clone()
                 .try_into()
                 .expect("Failed to convert commit data into bounded vector");
-            assert_ok!(CRV3WeightCommits::<Test>::try_mutate(
+            assert_ok!(CRV3WeightCommitsV2::<Test>::try_mutate(
                 netuid,
                 *epoch,
                 |commits| -> DispatchResult {
-                    commits.push_back((hotkey, bounded_commit_data, reveal_round));
+                    commits.push_back((hotkey, current_block, bounded_commit_data, reveal_round));
                     Ok(())
                 }
             ));
         }
 
         for epoch in &past_epochs {
-            let commits = CRV3WeightCommits::<Test>::get(netuid, *epoch);
+            let commits = CRV3WeightCommitsV2::<Test>::get(netuid, *epoch);
             assert!(
                 !commits.is_empty(),
                 "Expected commits to be present for past epoch {}",
@@ -5936,7 +5936,7 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
         assert_ok!(SubtensorModule::reveal_crv3_commits(netuid));
 
         for epoch in &past_epochs {
-            let commits = CRV3WeightCommits::<Test>::get(netuid, *epoch);
+            let commits = CRV3WeightCommitsV2::<Test>::get(netuid, *epoch);
             assert!(
                 commits.is_empty(),
                 "Expected commits for past epoch {} to be removed",
@@ -5944,7 +5944,7 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
             );
         }
 
-        let current_epoch_commits = CRV3WeightCommits::<Test>::get(netuid, current_epoch);
+        let current_epoch_commits = CRV3WeightCommitsV2::<Test>::get(netuid, current_epoch);
         assert!(
             current_epoch_commits.is_empty(),
             "Expected no commits for current epoch {}",
@@ -6134,7 +6134,7 @@ fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
             netuid,
             SubtensorModule::get_current_block_as_u64(),
         );
-        let commits = CRV3WeightCommits::<Test>::get(netuid, cur_epoch);
+        let commits = CRV3WeightCommitsV2::<Test>::get(netuid, cur_epoch);
         assert!(
             commits.is_empty(),
             "Expected no commits left in storage after reveal"
@@ -6321,7 +6321,7 @@ fn test_reveal_crv3_commits_max_neurons() {
             netuid,
             SubtensorModule::get_current_block_as_u64(),
         );
-        let commits = CRV3WeightCommits::<Test>::get(netuid, cur_epoch);
+        let commits = CRV3WeightCommitsV2::<Test>::get(netuid, cur_epoch);
         assert!(
             commits.is_empty(),
             "Expected no commits left in storage after reveal"
