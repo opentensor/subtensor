@@ -425,9 +425,9 @@ impl<T: Config> Pallet<T> {
     /// This function does not emit any events, nor does it raise any errors. It silently
     /// returns if any internal checks fail.
     pub fn remove_network(netuid: NetUid) {
-        // --- 1. Return balance to subnet owner.
-        let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
-        let reserved_amount: u64 = Self::get_subnet_locked_balance(netuid);
+        // --- 1. Return balance to subnet owner - DEPRECATED
+        // let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
+        // let reserved_amount = Self::get_subnet_locked_balance(netuid);
 
         // --- 2. Remove network count.
         SubnetworkN::<T>::remove(netuid);
@@ -502,8 +502,10 @@ impl<T: Config> Pallet<T> {
         BurnRegistrationsThisInterval::<T>::remove(netuid);
 
         // --- 12. Add the balance back to the owner.
-        Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount);
-        Self::set_subnet_locked_balance(netuid, 0);
+        // Subnets don't have locked TAO balance on Finney anymore (all zeroes are currently in block #6,018,471)
+        // And SubnetLocked is repurposed to store locked Alpha, not TAO
+        // Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount);
+        Self::set_subnet_locked_balance(netuid, 0.into());
         SubnetOwner::<T>::remove(netuid);
 
         // --- 13. Remove subnet identity if it exists.

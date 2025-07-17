@@ -12,17 +12,13 @@ use sp_core::U256;
 
 pub const UPDATE_INTERVAL: u64 = 7200 * 7;
 
-fn max_unlockable_stake(netuid: NetUid, hotkey: &U256, coldkey: &U256) -> u64 {
+fn max_unlockable_stake(netuid: NetUid, hotkey: &U256, coldkey: &U256) -> AlphaCurrency {
     let current_block = SubtensorModule::get_current_block_as_u64();
-    let total_stake: u64 =
+    let total_stake: AlphaCurrency =
         SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
     if Locks::<Test>::contains_key((netuid, hotkey, coldkey)) {
         let stake_lock = Locks::<Test>::get((netuid, hotkey, coldkey));
         let conviction = SubtensorModule::calculate_conviction(&stake_lock, current_block);
-
-        println!("current_block = {:?}", current_block);
-        println!("stake_lock = {:?}", stake_lock);
-        println!("conviction = {:?}", conviction);
 
         total_stake.saturating_sub(conviction)
     } else {
@@ -38,7 +34,7 @@ fn test_do_lock_success() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let stake_amount = 500_000_000;
-        let lock_amount = 250_000_000;
+        let lock_amount = AlphaCurrency::from(250_000_000);
         let lock_duration = 7200 * 30; // 30 days
         let start_block = SubtensorModule::get_current_block_as_u64();
 
@@ -85,7 +81,7 @@ fn test_do_lock_subnet_does_not_exist() {
         let non_existent_netuid = NetUid::from(99);
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let lock_amount = 250_000_000;
+        let lock_amount = AlphaCurrency::from(250_000_000);
         let lock_duration = 7200 * 30; // 30 days
 
         // Attempt to lock stake on a non-existent subnet
@@ -109,7 +105,7 @@ fn test_do_lock_hotkey_does_not_exist() {
         let netuid = NetUid::from(1);
         let coldkey = U256::from(1);
         let non_existent_hotkey = U256::from(99);
-        let lock_amount = 250_000_000;
+        let lock_amount = AlphaCurrency::from(250_000_000);
         let lock_duration = 7200 * 30; // 30 days
 
         // Set up network
@@ -138,7 +134,7 @@ fn test_do_lock_hotkey_not_registered() {
         let coldkey2 = U256::from(3);
         let hotkey = U256::from(2);
         let stake_amount = 500_000_000;
-        let lock_amount = 250_000_000;
+        let lock_amount = AlphaCurrency::from(250_000_000);
         let lock_duration = 7200 * 30; // 30 days
         let start_block = SubtensorModule::get_current_block_as_u64();
 
@@ -188,7 +184,7 @@ fn test_do_lock_zero_amount() {
         let netuid = NetUid::from(1);
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let lock_amount = 0;
+        let lock_amount = AlphaCurrency::from(0);
         let lock_duration = 7200 * 30; // 30 days
 
         // Set up network and register neuron
@@ -220,7 +216,7 @@ fn test_do_lock_insufficient_stake() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let stake_amount = 500_000_000;
-        let lock_amount = 750_000_000; // More than available stake
+        let lock_amount = AlphaCurrency::from(750_000_000); // More than available stake
         let lock_duration = 7200 * 30; // 30 days
 
         // Set up network and register neuron
@@ -258,9 +254,9 @@ fn test_do_lock_increase_conviction() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let initial_stake = 1_000_000_000;
-        let initial_lock_amount = 500_000_000;
+        let initial_lock_amount = AlphaCurrency::from(500_000_000);
         let initial_lock_duration = 7200 * 30; // 30 days
-        let new_lock_amount = 750_000_000;
+        let new_lock_amount = AlphaCurrency::from(750_000_000);
         let new_lock_duration = 7200 * 60; // 60 days
 
         // Set up network and register neuron
@@ -323,9 +319,9 @@ fn test_do_lock_decrease_conviction() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let initial_stake = 1_000_000_000;
-        let initial_lock_amount = 500_000_000;
+        let initial_lock_amount = AlphaCurrency::from(500_000_000);
         let initial_lock_duration = 7200 * 30; // 30 days
-        let new_lock_amount = 400_000_000;
+        let new_lock_amount = AlphaCurrency::from(400_000_000);
         let new_lock_duration = 7200 * 20; // 20 days
 
         // Set up network and register neuron
@@ -380,7 +376,7 @@ fn test_do_lock_max_duration() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let initial_stake = 1_000_000_000;
-        let lock_amount = 500_000_000;
+        let lock_amount = AlphaCurrency::from(500_000_000);
         let max_lock_duration = 7200 * 365; // 1 year (assuming 7200 blocks per day)
 
         // Set up network and register neuron
@@ -434,8 +430,8 @@ fn test_do_lock_multiple_times() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let initial_stake = 1_000_000_000;
-        let lock_amount_1 = 300_000_000;
-        let lock_amount_2 = 500_000_000;
+        let lock_amount_1 = AlphaCurrency::from(300_000_000);
+        let lock_amount_2 = AlphaCurrency::from(500_000_000);
         let lock_duration_1 = 7200 * 30; // 30 days
         let lock_duration_2 = 7200 * 60; // 60 days
         let start_block = SubtensorModule::get_current_block_as_u64();
@@ -515,8 +511,8 @@ fn test_do_lock_different_subnets() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let initial_stake = 1_000_000_000;
-        let lock_amount_1 = 300_000_000;
-        let lock_amount_2 = 500_000_000;
+        let lock_amount_1 = AlphaCurrency::from(300_000_000);
+        let lock_amount_2 = AlphaCurrency::from(500_000_000);
         let lock_duration = 7200 * 30; // 30 days
         let start_block = SubtensorModule::get_current_block_as_u64();
 
@@ -602,7 +598,7 @@ fn test_remove_stake_fully_locked() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let initial_stake = 1_000_000_000;
-        let lock_amount = initial_stake - 1;
+        let lock_amount = AlphaCurrency::from(initial_stake - 1);
         let lock_duration = 7200 * 30; // 30 days
 
         // Set up network and register neuron
@@ -634,7 +630,7 @@ fn test_remove_stake_fully_locked() {
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 netuid,
-                initial_stake
+                initial_stake.into()
             ),
             Error::<Test>::NotEnoughStakeToWithdraw
         );
@@ -653,7 +649,7 @@ fn test_remove_stake_partially_locked() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let initial_stake = 1_000_000_000;
-        let lock_amount = 600_000_000;
+        let lock_amount = AlphaCurrency::from(600_000_000);
         let lock_duration = 7200 * 30; // 30 days
 
         // Set up network and register neuron
@@ -691,7 +687,10 @@ fn test_remove_stake_partially_locked() {
         // Verify stake and lock after removal
         let stake_after_removal =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
-        assert_eq!(stake_after_removal, initial_stake - unlocked_amount - 1);
+        assert_eq!(
+            stake_after_removal,
+            AlphaCurrency::from(initial_stake) - unlocked_amount - 1.into()
+        );
 
         let stake_lock = Locks::<Test>::get((netuid, hotkey, coldkey));
         assert_eq!(stake_lock.alpha_locked, lock_amount); // lock amount should not change
@@ -714,7 +713,7 @@ fn test_remove_stake_partially_locked() {
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
         assert_eq!(
             stake_after_failed_removal,
-            initial_stake - unlocked_amount - 1
+            AlphaCurrency::from(initial_stake) - unlocked_amount - 1.into()
         );
 
         let stake_lock_after = Locks::<Test>::get((netuid, hotkey, coldkey));
@@ -730,7 +729,7 @@ fn test_remove_stake_after_lock_expiry() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let initial_stake = 1_000_000_000;
-        let lock_amount = 600_000_000;
+        let lock_amount = AlphaCurrency::from(600_000_000);
         let lock_duration = 10; // 10 blocks
 
         // Set up network and register neuron
@@ -764,13 +763,13 @@ fn test_remove_stake_after_lock_expiry() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            initial_stake - 1
+            (initial_stake - 1).into()
         ));
 
         // Verify stake and lock after removal
         let stake_after_removal =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
-        assert_eq!(stake_after_removal, 0);
+        assert_eq!(stake_after_removal, 0.into());
 
         // Verify lock is removed
         assert!(!Locks::<Test>::contains_key((netuid, hotkey, coldkey)));
@@ -798,7 +797,11 @@ fn test_remove_stake_multiple_locks() {
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, hotkey, coldkey, 11);
 
-        mock::setup_reserves(netuid, initial_stake * 100, initial_stake * 100);
+        mock::setup_reserves(
+            netuid,
+            initial_stake * 100,
+            AlphaCurrency::from(initial_stake * 100),
+        );
 
         // Add balance to coldkey and stake
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_stake);
@@ -811,8 +814,8 @@ fn test_remove_stake_multiple_locks() {
         ));
         let alpha =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
-        let lock_amount_1 = alpha * 3 / 10;
-        let lock_amount_2 = alpha * 4 / 10;
+        let lock_amount_1 = alpha * 3.into() / 10.into();
+        let lock_amount_2 = alpha * 4.into() / 10.into();
 
         // Also add more stake so that we don't get into low liquidity issues now
         assert_ok!(SubtensorModule::add_stake(
@@ -846,7 +849,7 @@ fn test_remove_stake_multiple_locks() {
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 netuid,
-                max_removable + 1
+                max_removable + 1.into()
             ),
             Error::<Test>::NotEnoughStakeToWithdraw
         );
@@ -874,7 +877,7 @@ fn test_remove_stake_conviction_calculation() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let initial_stake = 1_000_000_000;
-        let lock_amount = 500_000_000;
+        let lock_amount = AlphaCurrency::from(500_000_000);
         let lock_duration = 10; // 10 blocks
 
         // Register and add stake
@@ -905,7 +908,7 @@ fn test_remove_stake_conviction_calculation() {
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 netuid,
-                max_removable + 1
+                max_removable + 1.into()
             ),
             Error::<Test>::NotEnoughStakeToWithdraw
         );
@@ -916,13 +919,16 @@ fn test_remove_stake_conviction_calculation() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            max_removable - 1
+            max_removable - 1.into()
         ));
 
         // Verify remaining stake
         let remaining_stake =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
-        assert_eq!(remaining_stake, initial_stake - max_removable);
+        assert_eq!(
+            remaining_stake,
+            AlphaCurrency::from(initial_stake) - max_removable
+        );
 
         // Fast forward to just before lock expiry
         run_to_block(lock_duration - 1);
@@ -952,7 +958,7 @@ fn test_remove_stake_conviction_calculation() {
         // Verify no stake remains
         let final_stake =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
-        assert_eq!(final_stake, 0);
+        assert_eq!(final_stake, 0.into());
 
         // Verify lock is removed
         assert!(!Locks::<Test>::contains_key((netuid, hotkey, coldkey)));
@@ -967,7 +973,7 @@ fn test_remove_stake_partial_lock_removal() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let initial_stake = 1_000_000_000;
-        let lock_amount = 500_000_000;
+        let lock_amount = AlphaCurrency::from(500_000_000);
         let lock_duration = 7200 * 30; // 30 days
 
         // Register and add stake
@@ -997,7 +1003,7 @@ fn test_remove_stake_partial_lock_removal() {
 
         // Calculate max removable stake
         let max_removable = max_unlockable_stake(netuid, &hotkey, &coldkey);
-        let partial_remove_amount = max_removable / 2;
+        let partial_remove_amount = max_removable / 2.into();
 
         // Remove part of the stake
         remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
@@ -1011,7 +1017,10 @@ fn test_remove_stake_partial_lock_removal() {
         // Verify remaining stake and updated lock
         let remaining_stake =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
-        assert_eq!(remaining_stake, initial_stake - partial_remove_amount - 1);
+        assert_eq!(
+            remaining_stake,
+            AlphaCurrency::from(initial_stake) - partial_remove_amount - 1.into()
+        );
 
         let stake_lock_after = Locks::<Test>::get((netuid, hotkey, coldkey));
         assert_eq!(stake_lock_after.alpha_locked, lock_amount); // lock never changes.
@@ -1029,7 +1038,7 @@ fn test_remove_stake_full_lock_removal() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let initial_stake = 1_000_000_000;
-        let lock_amount = 500_000_000;
+        let lock_amount = AlphaCurrency::from(500_000_000);
         let lock_duration = 10; // 10 blocks
 
         // Register and add stake
@@ -1065,13 +1074,13 @@ fn test_remove_stake_full_lock_removal() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            initial_stake - 1
+            (initial_stake - 1).into()
         ));
 
         // Verify remaining stake
         let remaining_stake =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
-        assert_eq!(remaining_stake, 0);
+        assert_eq!(remaining_stake, 0.into());
 
         // Verify lock is removed
         assert!(!Locks::<Test>::contains_key((netuid, hotkey, coldkey)));
@@ -1110,7 +1119,7 @@ fn test_remove_stake_across_subnets() {
         ));
         let initial_alpha_1 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid1);
-        let lock_amount_1 = initial_alpha_1 * 3 / 10;
+        let lock_amount_1 = initial_alpha_1 * 3.into() / 10.into();
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -1119,7 +1128,7 @@ fn test_remove_stake_across_subnets() {
         ));
         let initial_alpha_2 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid2);
-        let lock_amount_2 = initial_alpha_2 * 4 / 10;
+        let lock_amount_2 = initial_alpha_2 * 4.into() / 10.into();
 
         // Create locks on both networks
         assert_ok!(SubtensorModule::lock_stake(
@@ -1146,7 +1155,7 @@ fn test_remove_stake_across_subnets() {
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 netuid1,
-                max_removable_1 + 1
+                max_removable_1 + 1.into()
             ),
             Error::<Test>::NotEnoughStakeToWithdraw
         );
@@ -1178,7 +1187,7 @@ fn test_remove_stake_across_subnets() {
         // Verify no stake remains on netuid1
         let final_stake_1 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid1);
-        assert_eq!(final_stake_1, 0);
+        assert_eq!(final_stake_1, 0.into());
 
         // Attempt to remove stake from netuid2 (should still be partially locked)
         let max_removable_2 = max_unlockable_stake(netuid2, &hotkey, &coldkey);
@@ -1210,7 +1219,7 @@ fn test_remove_stake_across_subnets() {
         // Verify no stake remains on netuid2
         let final_stake_2 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid2);
-        assert_eq!(final_stake_2, 0);
+        assert_eq!(final_stake_2, 0.into());
 
         // Verify locks are removed from both networks
         assert!(!Locks::<Test>::contains_key((netuid1, hotkey, coldkey)));
@@ -1224,12 +1233,12 @@ fn test_calculate_conviction_zero_lock_amount() {
     new_test_ext(1).execute_with(|| {
         let current_block = 1000;
         let stake_lock = StakeLock {
-            alpha_locked: 0,
+            alpha_locked: 0.into(),
             start_block: 0,
             end_block: 2000,
         };
         let conviction = SubtensorModule::calculate_conviction(&stake_lock, current_block);
-        assert_eq!(conviction, 0);
+        assert_eq!(conviction, 0.into());
     });
 }
 
@@ -1239,12 +1248,12 @@ fn test_calculate_conviction_zero_duration() {
     new_test_ext(1).execute_with(|| {
         let current_block = 1000;
         let stake_lock = StakeLock {
-            alpha_locked: 1000000,
+            alpha_locked: 1000000.into(),
             start_block: 0,
             end_block: 1000,
         };
         let conviction = SubtensorModule::calculate_conviction(&stake_lock, current_block);
-        assert_eq!(conviction, 0);
+        assert_eq!(conviction, 0.into());
     });
 }
 
@@ -1254,13 +1263,13 @@ fn test_calculate_conviction_max_lock_amount() {
     new_test_ext(1).execute_with(|| {
         let current_block = 1000;
         let stake_lock = StakeLock {
-            alpha_locked: u64::MAX,
+            alpha_locked: u64::MAX.into(),
             start_block: 0,
             end_block: 2000,
         };
         let conviction = SubtensorModule::calculate_conviction(&stake_lock, current_block);
-        assert!(conviction > 0);
-        assert!(conviction < u64::MAX);
+        assert!(conviction > 0.into());
+        assert!(conviction < u64::MAX.into());
     });
 }
 
@@ -1270,12 +1279,12 @@ fn test_calculate_conviction_max_duration() {
     new_test_ext(1).execute_with(|| {
         let current_block = 0;
         let stake_lock = StakeLock {
-            alpha_locked: 1000000,
+            alpha_locked: 1000000.into(),
             start_block: 0,
             end_block: u64::MAX,
         };
         let conviction = SubtensorModule::calculate_conviction(&stake_lock, current_block);
-        assert!(conviction > 0);
+        assert!(conviction > 0.into());
         assert!(conviction <= stake_lock.alpha_locked);
     });
 }
@@ -1286,12 +1295,12 @@ fn test_calculate_conviction_overflow_check() {
     new_test_ext(1).execute_with(|| {
         let current_block = 0;
         let stake_lock = StakeLock {
-            alpha_locked: u64::MAX,
+            alpha_locked: u64::MAX.into(),
             start_block: 0,
             end_block: u64::MAX,
         };
         let conviction = SubtensorModule::calculate_conviction(&stake_lock, current_block);
-        assert_eq!(conviction, u64::MAX);
+        assert_eq!(conviction, u64::MAX.into());
     });
 }
 
@@ -1301,7 +1310,7 @@ fn test_calculate_conviction_precision_small_values() {
     new_test_ext(1).execute_with(|| {
         let current_block = 1000;
         let stake_lock = StakeLock {
-            alpha_locked: 1,
+            alpha_locked: 1.into(),
             start_block: 0,
             end_block: 1001,
         };
@@ -1316,7 +1325,7 @@ fn test_calculate_conviction_precision_large_values() {
     new_test_ext(1).execute_with(|| {
         let current_block = 0;
         let stake_lock = StakeLock {
-            alpha_locked: u64::MAX / 2,
+            alpha_locked: (u64::MAX / 2).into(),
             start_block: 0,
             end_block: u64::MAX / 2,
         };
@@ -1331,7 +1340,7 @@ fn test_calculate_conviction_rounding() {
     new_test_ext(1).execute_with(|| {
         let current_block = 1000;
         let end_block = 1100;
-        let lock_amount = 1000000;
+        let lock_amount = AlphaCurrency::from(1000000);
         let stake_lock1 = StakeLock {
             alpha_locked: lock_amount,
             start_block: 0,
@@ -1355,12 +1364,12 @@ fn test_calculate_conviction_lock_interval_boundary() {
         let current_block = 1000;
         let lock_interval = SubtensorModule::get_lock_interval_blocks();
         let stake_lock = StakeLock {
-            alpha_locked: 1000000,
+            alpha_locked: 1000000.into(),
             start_block: 0,
             end_block: current_block + lock_interval,
         };
         let conviction = SubtensorModule::calculate_conviction(&stake_lock, current_block);
-        assert!(conviction > 0);
+        assert!(conviction > 0.into());
         assert!(conviction < stake_lock.alpha_locked);
     });
 }
@@ -1371,7 +1380,7 @@ fn test_calculate_conviction_consistency() {
     new_test_ext(1).execute_with(|| {
         let current_block = 1000;
         let end_block = 2000;
-        let lock_amount = 1000000;
+        let lock_amount = AlphaCurrency::from(1000000);
 
         let stake_lock_base = StakeLock {
             alpha_locked: lock_amount,
@@ -1383,7 +1392,7 @@ fn test_calculate_conviction_consistency() {
 
         // Increasing lock amount
         let stake_lock_higher = StakeLock {
-            alpha_locked: lock_amount + 1000,
+            alpha_locked: lock_amount + 1000.into(),
             start_block: 0,
             end_block,
         };
@@ -1409,12 +1418,12 @@ fn test_calculate_conviction_expired_lock() {
     new_test_ext(1).execute_with(|| {
         let current_block = 21;
         let stake_lock = StakeLock {
-            alpha_locked: 394866833,
+            alpha_locked: 394866833.into(),
             start_block: 1,
             end_block: 21,
         };
         let conviction = SubtensorModule::calculate_conviction(&stake_lock, current_block);
-        assert_eq!(conviction, 0);
+        assert_eq!(conviction, 0.into());
     });
 }
 
@@ -1443,7 +1452,7 @@ fn test_update_subnet_owner_no_locks() {
         // Verify that the subnet locked amount is zero
         assert_eq!(
             SubnetLocked::<Test>::get(netuid),
-            0,
+            0.into(),
             "Subnet locked amount should be zero"
         );
 
@@ -1461,7 +1470,7 @@ fn test_update_subnet_owner_single_lock() {
         let netuid = NetUid::from(1);
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
-        let lock_amount = 1000000;
+        let lock_amount = AlphaCurrency::from(1000000);
         let current_block = 100;
         let lock_duration = 1000000;
 
@@ -1528,17 +1537,17 @@ fn test_update_subnet_owner_multiple_locks() {
 
         // Set up multiple locks with different amounts and durations
         let stake_lock_1 = StakeLock {
-            alpha_locked: 1000000,
+            alpha_locked: 1000000.into(),
             start_block: 0,
             end_block: current_block + 1000000,
         };
         let stake_lock_2 = StakeLock {
-            alpha_locked: 2000000,
+            alpha_locked: 2000000.into(),
             start_block: 0,
             end_block: current_block + 500000,
         };
         let stake_lock_3 = StakeLock {
-            alpha_locked: 1500000,
+            alpha_locked: 1500000.into(),
             start_block: 0,
             end_block: current_block + 2000000,
         };
@@ -1610,7 +1619,7 @@ fn test_update_subnet_owner_tie_breaking() {
 
         // Set up locks with equal convictions
         let stake_lock = StakeLock {
-            alpha_locked: 1000000,
+            alpha_locked: 1000000.into(),
             start_block: 0,
             end_block: current_block + 1000000,
         };
@@ -1643,7 +1652,7 @@ fn test_update_subnet_owner_tie_breaking() {
         let conviction1 = SubtensorModule::calculate_conviction(&stake_lock, current_block);
         assert_eq!(
             SubnetLocked::<Test>::get(netuid),
-            conviction1 * 3,
+            conviction1 * 3.into(),
             "Subnet locked amount should match the total calculated conviction"
         );
 
@@ -1669,12 +1678,12 @@ fn test_update_subnet_owner_below_threshold() {
 
         // Set up locks with low conviction scores
         let stake_lock_1 = StakeLock {
-            alpha_locked: 100,
+            alpha_locked: 100.into(),
             start_block: 0,
             end_block: current_block + 100,
         };
         let stake_lock_2 = StakeLock {
-            alpha_locked: 200,
+            alpha_locked: 200.into(),
             start_block: 0,
             end_block: current_block + 200,
         };
@@ -1730,12 +1739,12 @@ fn test_update_subnet_owner_conviction_calculation() {
 
         // Set up locks with different amounts and durations
         let stake_lock_1 = StakeLock {
-            alpha_locked: 1000000,
+            alpha_locked: 1000000.into(),
             start_block: 0,
             end_block: current_block + 1000000,
         };
         let stake_lock_2 = StakeLock {
-            alpha_locked: 2000000,
+            alpha_locked: 2000000.into(),
             start_block: 0,
             end_block: current_block + 500000,
         };
@@ -1795,12 +1804,12 @@ fn test_update_subnet_owner_different_subnets() {
 
         // Set up locks in different subnets
         let stake_lock_1 = StakeLock {
-            alpha_locked: 1000000,
+            alpha_locked: 1000000.into(),
             start_block: 0,
             end_block: current_block + 1000000,
         };
         let stake_lock_2 = StakeLock {
-            alpha_locked: 2000000,
+            alpha_locked: 2000000.into(),
             start_block: 0,
             end_block: current_block + 500000,
         };
@@ -1838,7 +1847,7 @@ fn test_update_subnet_owner_different_subnets() {
         );
         assert_eq!(
             SubnetLocked::<Test>::get(netuid2),
-            0,
+            0.into(),
             "Subnet locked amount for netuid2 should be zero"
         );
 
@@ -1884,7 +1893,7 @@ fn test_update_subnet_owner_large_subnet() {
         for i in 0..num_locks {
             let hotkey = U256::from(i);
             let coldkey = U256::from(i + num_locks);
-            let lock_amount = (i + 1) * 1000; // Varying lock amounts
+            let lock_amount = AlphaCurrency::from((i + 1) * 1000); // Varying lock amounts
             let lock_duration = (i % 10 + 1) * 100; // Varying lock durations
 
             let stake_lock = StakeLock {
@@ -1918,13 +1927,13 @@ fn test_update_subnet_owner_large_subnet() {
 
         // Verify that the subnet locked amount is non-zero
         assert!(
-            SubnetLocked::<Test>::get(netuid) > 0,
+            SubnetLocked::<Test>::get(netuid) > 0.into(),
             "Subnet locked amount should be non-zero"
         );
 
         // Verify that the subnet owner has the highest conviction
         let owner = SubnetOwner::<Test>::get(netuid);
-        let mut max_conviction_ema = 0;
+        let mut max_conviction_ema = AlphaCurrency::from(0);
         for ((iter_netuid, hotkey, coldkey), stake_lock) in Locks::<Test>::iter() {
             if iter_netuid == netuid {
                 let conviction = SubtensorModule::calculate_conviction(&stake_lock, current_block);
@@ -1956,7 +1965,7 @@ fn test_update_subnet_owner_large_subnet() {
         );
 
         // Subnet owner should have the highest conviction EMA
-        assert_abs_diff_eq!(owner_conviction_ema, max_conviction_ema, epsilon = 1,);
+        assert_abs_diff_eq!(owner_conviction_ema, max_conviction_ema, epsilon = 1.into());
     });
 }
 
@@ -1975,12 +1984,12 @@ fn test_update_subnet_owner_ownership_change() {
 
         // Set up initial locks
         let stake_lock_1 = StakeLock {
-            alpha_locked: 1000000,
+            alpha_locked: 1000000.into(),
             start_block: 0,
             end_block: current_block + lock_duration,
         };
         let stake_lock_2 = StakeLock {
-            alpha_locked: 500000,
+            alpha_locked: 500000.into(),
             start_block: 0,
             end_block: current_block + lock_duration,
         };
@@ -2011,7 +2020,7 @@ fn test_update_subnet_owner_ownership_change() {
 
         // Increase lock for hotkey2
         let stake_lock_2_increased = StakeLock {
-            alpha_locked: 2000000,
+            alpha_locked: 2000000.into(),
             start_block: new_block,
             end_block: current_block + lock_duration,
         };
@@ -2029,7 +2038,10 @@ fn test_update_subnet_owner_ownership_change() {
 
         // Verify subnet locked amount has increased
         let subnet_locked = SubnetLocked::<Test>::get(netuid);
-        assert!(subnet_locked > 0, "Subnet locked amount should be non-zero");
+        assert!(
+            subnet_locked > 0.into(),
+            "Subnet locked amount should be non-zero"
+        );
         assert!(
             subnet_locked > SubtensorModule::calculate_conviction(&stake_lock_1, new_block),
             "Subnet locked amount should increase"
@@ -2073,12 +2085,12 @@ fn test_update_subnet_owner_storage_updates() {
 
         // Set up initial locks
         let stake_lock_1 = StakeLock {
-            alpha_locked: 1000000,
+            alpha_locked: 1000000.into(),
             start_block: 0,
             end_block: current_block + lock_duration,
         };
         let stake_lock_2 = StakeLock {
-            alpha_locked: 500000,
+            alpha_locked: 500000.into(),
             start_block: 0,
             end_block: current_block + lock_duration,
         };
@@ -2104,7 +2116,7 @@ fn test_update_subnet_owner_storage_updates() {
         );
         let initial_locked = SubnetLocked::<Test>::get(netuid);
         assert!(
-            initial_locked > 0,
+            initial_locked > 0.into(),
             "Initial subnet locked amount should be non-zero"
         );
 
@@ -2114,7 +2126,7 @@ fn test_update_subnet_owner_storage_updates() {
 
         // Increase lock for hotkey2
         let stake_lock_3 = StakeLock {
-            alpha_locked: 2000000,
+            alpha_locked: 2000000.into(),
             start_block: 0,
             end_block: new_block + lock_duration,
         };
@@ -2170,9 +2182,9 @@ fn test_conviction_ema_basic() {
         let coldkey = U256::from(2);
         let update_period = 1_u64;
         let lock_interval = 2_u64;
-        let conviction_value = 1000_u64;
+        let conviction_value = AlphaCurrency::from(1000);
 
-        ConvictionEma::<Test>::insert((netuid, hotkey, coldkey), 0_u64);
+        ConvictionEma::<Test>::insert((netuid, hotkey, coldkey), AlphaCurrency::from(0));
         LockIntervalBlocks::<Test>::put(lock_interval);
 
         let ema = SubtensorModule::get_conviction_ema(
@@ -2182,7 +2194,7 @@ fn test_conviction_ema_basic() {
             &hotkey,
             &coldkey,
         );
-        assert!(ema > 0 && ema < conviction_value);
+        assert!(ema > 0.into() && ema < conviction_value);
     });
 }
 
@@ -2196,9 +2208,9 @@ fn test_conviction_ema_existing_ema() {
         let coldkey = U256::from(2);
         let update_period = 1;
         let lock_interval = 4;
-        let conviction_value = 800;
+        let conviction_value = AlphaCurrency::from(800);
 
-        ConvictionEma::<Test>::insert((netuid, hotkey, coldkey), 400_u64);
+        ConvictionEma::<Test>::insert((netuid, hotkey, coldkey), AlphaCurrency::from(400));
         LockIntervalBlocks::<Test>::put(lock_interval);
 
         let ema = SubtensorModule::get_conviction_ema(
@@ -2208,7 +2220,7 @@ fn test_conviction_ema_existing_ema() {
             &hotkey,
             &coldkey,
         );
-        assert!(ema > 400 && ema < conviction_value);
+        assert!(ema > 400.into() && ema < conviction_value);
     });
 }
 
@@ -2222,9 +2234,9 @@ fn test_conviction_ema_zero_update() {
         let coldkey = U256::from(4);
         let update_period = 0;
         let lock_interval = 10;
-        let conviction_value = 1000;
+        let conviction_value = AlphaCurrency::from(1000);
 
-        ConvictionEma::<Test>::insert((netuid, hotkey, coldkey), 500_u64);
+        ConvictionEma::<Test>::insert((netuid, hotkey, coldkey), AlphaCurrency::from(500));
         LockIntervalBlocks::<Test>::put(lock_interval);
 
         let ema = SubtensorModule::get_conviction_ema(
@@ -2234,7 +2246,7 @@ fn test_conviction_ema_zero_update() {
             &hotkey,
             &coldkey,
         );
-        assert_eq!(ema, 500);
+        assert_eq!(ema, 500.into());
     });
 }
 
@@ -2248,9 +2260,9 @@ fn test_conviction_ema_zero_lockint() {
         let coldkey = U256::from(6);
         let update_period = 1;
         let lock_interval = 0;
-        let conviction_value = 700;
+        let conviction_value = AlphaCurrency::from(700);
 
-        ConvictionEma::<Test>::insert((netuid, hotkey, coldkey), 300_u64);
+        ConvictionEma::<Test>::insert((netuid, hotkey, coldkey), AlphaCurrency::from(300));
         LockIntervalBlocks::<Test>::put(lock_interval);
 
         let ema = SubtensorModule::get_conviction_ema(
@@ -2274,9 +2286,9 @@ fn test_conviction_ema_large_update() {
         let coldkey = U256::from(8);
         let update_period = 100;
         let lock_interval = 10;
-        let conviction_value = 900;
+        let conviction_value = AlphaCurrency::from(900);
 
-        ConvictionEma::<Test>::insert((netuid, hotkey, coldkey), 200_u64);
+        ConvictionEma::<Test>::insert((netuid, hotkey, coldkey), AlphaCurrency::from(200));
         LockIntervalBlocks::<Test>::put(lock_interval);
 
         let ema = SubtensorModule::get_conviction_ema(
@@ -2300,9 +2312,9 @@ fn test_conviction_ema_conviction_0() {
         let coldkey = U256::from(10);
         let update_period = 2;
         let lock_interval = 4;
-        let conviction_value = 0;
+        let conviction_value = AlphaCurrency::from(0);
 
-        ConvictionEma::<Test>::insert((netuid, hotkey, coldkey), 1000_u64);
+        ConvictionEma::<Test>::insert((netuid, hotkey, coldkey), AlphaCurrency::from(1000));
         LockIntervalBlocks::<Test>::put(lock_interval);
 
         let ema = SubtensorModule::get_conviction_ema(
@@ -2312,7 +2324,7 @@ fn test_conviction_ema_conviction_0() {
             &hotkey,
             &coldkey,
         );
-        assert!(ema < 1000);
+        assert!(ema < 1000.into());
     });
 }
 
@@ -2326,9 +2338,9 @@ fn test_conviction_ema_conviction_max() {
         let coldkey = U256::from(12);
         let update_period = 2;
         let lock_interval = 4;
-        let conviction_value = u64::MAX;
+        let conviction_value = AlphaCurrency::from(u64::MAX);
 
-        ConvictionEma::<Test>::insert((netuid, hotkey, coldkey), 0_u64);
+        ConvictionEma::<Test>::insert((netuid, hotkey, coldkey), AlphaCurrency::from(0));
         LockIntervalBlocks::<Test>::put(lock_interval);
 
         let ema = SubtensorModule::get_conviction_ema(
@@ -2338,7 +2350,7 @@ fn test_conviction_ema_conviction_max() {
             &hotkey,
             &coldkey,
         );
-        assert!(ema > 0 && ema < conviction_value);
+        assert!(ema > 0.into() && ema < conviction_value);
     });
 }
 
@@ -2350,7 +2362,7 @@ fn test_locks_are_updated_in_block_step() {
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
         let coldkey2 = U256::from(3);
-        let lock_amount = 1000000;
+        let lock_amount = AlphaCurrency::from(1000000);
         let current_block = 216_000; // Triggers locks EMA and subnet owners update 
         let lock_duration = 1000000;
         add_network(netuid, 0, 0);

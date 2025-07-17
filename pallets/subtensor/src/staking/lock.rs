@@ -123,7 +123,10 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure the the lock is above zero.
-        ensure!(alpha_locked > 0.into(), Error::<T>::NotEnoughStakeToWithdraw);
+        ensure!(
+            alpha_locked > 0.into(),
+            Error::<T>::NotEnoughStakeToWithdraw
+        );
 
         // Get the lockers current stake.
         let current_alpha_stake =
@@ -269,12 +272,14 @@ impl<T: Config> Pallet<T> {
         let old_ema =
             U64F64::saturating_from_num(ConvictionEma::<T>::get((netuid, hotkey, coldkey)));
 
-        AlphaCurrency::from(old_ema
-            .saturating_mul(one.saturating_sub(smoothing_factor))
-            .saturating_add(
-                smoothing_factor.saturating_mul(U64F64::saturating_from_num(conviction)),
-            )
-            .saturating_to_num::<u64>())
+        AlphaCurrency::from(
+            old_ema
+                .saturating_mul(one.saturating_sub(smoothing_factor))
+                .saturating_add(
+                    smoothing_factor.saturating_mul(U64F64::saturating_from_num(conviction)),
+                )
+                .saturating_to_num::<u64>(),
+        )
     }
 
     /// Determines the subnet owner based on the highest conviction score.
@@ -397,14 +402,14 @@ impl<T: Config> Pallet<T> {
         let conviction_score =
             locked_alpha_fixed.saturating_mul(a.saturating_mul(x).saturating_add(b));
 
-        conviction_score.saturating_to_num::<u64>()
+        AlphaCurrency::from(conviction_score.saturating_to_num::<u64>())
     }
 
     pub fn check_locks_on_stake_reduction(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: NetUid,
-        alpha_unstaked: u64,
+        alpha_unstaked: AlphaCurrency,
     ) -> dispatch::DispatchResult {
         if Locks::<T>::contains_key((netuid, &hotkey, &coldkey)) {
             let total_stake =
@@ -421,7 +426,7 @@ impl<T: Config> Pallet<T> {
                 Error::<T>::NotEnoughStakeToWithdraw
             );
             // If conviction is 0, remove the lock
-            if conviction == 0 {
+            if conviction == 0.into() {
                 Locks::<T>::remove((netuid, hotkey.clone(), coldkey.clone()));
             }
         }

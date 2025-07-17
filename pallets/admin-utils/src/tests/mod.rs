@@ -12,7 +12,7 @@ use pallet_subtensor::Event;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{Get, Pair, U256, ed25519};
 use substrate_fixed::types::I96F32;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{AlphaCurrency, NetUid};
 
 use crate::Error;
 use crate::pallet::PrecompileEnable;
@@ -2013,7 +2013,7 @@ fn test_sudo_set_lock_interval_blocks_effect_on_existing_locks() {
         let netuid = NetUid::from(1);
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let lock_amount = 1_000_000;
+        let lock_amount = AlphaCurrency::from(1_000_000);
         let initial_lock_interval = 7200;
         let new_lock_interval = 14400;
 

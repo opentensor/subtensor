@@ -55,7 +55,7 @@ fn test_serving_subscribe_ok_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                call_weight: frame_support::weights::Weight::from_parts(235_670_000, 0),
+                call_weight: frame_support::weights::Weight::from_parts(249_840_000, 0),
                 extension_weight: frame_support::weights::Weight::zero(),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No

@@ -1207,7 +1207,7 @@ pub mod pallet {
         StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultTrue<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> total_subnet_locked
     pub type SubnetLocked<T: Config> =
-        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
+        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> largest_locked
     pub type LargestLocked<T: Config> =
         StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;

@@ -611,7 +611,7 @@ mod dispatches {
         /// * 'netuid' (u16):
         ///     - Subnetwork UID
         ///
-        /// * 'amount_unstaked' (u64):
+        /// * 'amount_unstaked' (AlphaCurrency):
         /// 	- The amount of stake to be added to the hotkey staking account.
         ///
         /// # Event:
@@ -2207,7 +2207,7 @@ mod dispatches {
             hotkey: T::AccountId,
             netuid: NetUid,
             duration: u64,
-            alpha_locked: u64,
+            alpha_locked: AlphaCurrency,
         ) -> DispatchResult {
             Self::do_lock(origin, hotkey, netuid, duration, alpha_locked)
         }

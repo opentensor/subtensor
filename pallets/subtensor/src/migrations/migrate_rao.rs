@@ -71,7 +71,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
             continue;
         }
         let owner = SubnetOwner::<T>::get(netuid);
-        let lock = SubnetLocked::<T>::get(netuid);
+        let lock = u64::from(SubnetLocked::<T>::get(netuid));
 
         // Put initial TAO from lock into subnet TAO and produce numerically equal amount of Alpha
         // The initial TAO is the locked amount, with a minimum of 1 RAO and a cap of 100 TAO.
@@ -92,7 +92,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
         //         .unwrap_or(I96F32::from_num(0.0)),
         // );
         Pallet::<T>::add_balance_to_coldkey_account(&owner, remaining_lock);
-        SubnetLocked::<T>::insert(netuid, 0); // Clear lock amount.
+        SubnetLocked::<T>::insert(netuid, AlphaCurrency::from(0)); // Clear lock amount.
         SubnetTAO::<T>::insert(netuid, pool_initial_tao);
         TotalStake::<T>::mutate(|total| {
             *total = total.saturating_add(pool_initial_tao);

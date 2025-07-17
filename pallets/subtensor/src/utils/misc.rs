@@ -277,18 +277,18 @@ impl<T: Config> Pallet<T> {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(amount));
     }
 
-    pub fn set_subnet_locked_balance(netuid: NetUid, amount: u64) {
+    pub fn set_subnet_locked_balance(netuid: NetUid, amount: AlphaCurrency) {
         SubnetLocked::<T>::insert(netuid, amount);
     }
-    pub fn get_subnet_locked_balance(netuid: NetUid) -> u64 {
+    pub fn get_subnet_locked_balance(netuid: NetUid) -> AlphaCurrency {
         SubnetLocked::<T>::get(netuid)
     }
-    pub fn get_total_subnet_locked() -> u64 {
+    pub fn get_total_subnet_locked() -> AlphaCurrency {
         let mut total_subnet_locked: u64 = 0;
         for (_, locked) in SubnetLocked::<T>::iter() {
-            total_subnet_locked.saturating_accrue(locked);
+            total_subnet_locked.saturating_accrue(u64::from(locked));
         }
-        total_subnet_locked
+        total_subnet_locked.into()
     }
 
     // ========================

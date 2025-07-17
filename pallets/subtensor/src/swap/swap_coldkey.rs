@@ -1,4 +1,5 @@
 use super::*;
+use crate::staking::lock::StakeLock;
 use frame_support::weights::Weight;
 use sp_core::Get;
 use substrate_fixed::types::U64F64;
@@ -156,13 +157,15 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
         }
 
-        // 3. Swap Stake.
+        // 3. Swap Stake and stake locks.
         // StakingHotkeys: MAP ( coldkey ) --> Vec( hotkey )
         for hotkey in StakingHotkeys::<T>::get(old_coldkey) {
             // 3.1 Swap Alpha
             for netuid in Self::get_all_subnet_netuids() {
                 // Get the stake on the old (hot,coldkey) account.
                 let old_alpha: U64F64 = Alpha::<T>::get((&hotkey, old_coldkey, netuid));
+                // Get existing stake lock (if any)
+                let stake_lock_old = Locks::<T>::get((netuid, &hotkey, old_coldkey));
                 // Get the stake on the new (hot,coldkey) account.
                 let new_alpha: U64F64 = Alpha::<T>::get((&hotkey, new_coldkey, netuid));
                 // Add the stake to new account.
@@ -172,6 +175,20 @@ impl<T: Config> Pallet<T> {
                 );
                 // Remove the value from the old account.
                 Alpha::<T>::remove((&hotkey, old_coldkey, netuid));
+
+                // Merge locks
+                let stake_lock_new = Locks::<T>::get((netuid, &hotkey, new_coldkey));
+                let stake_lock_merged = StakeLock {
+                    alpha_locked: stake_lock_old
+                        .alpha_locked
+                        .saturating_add(stake_lock_new.alpha_locked),
+                    start_block: stake_lock_old.start_block.max(stake_lock_new.start_block),
+                    end_block: stake_lock_old.end_block.max(stake_lock_new.end_block),
+                };
+                Locks::<T>::insert((netuid, &hotkey, old_coldkey), stake_lock_merged);
+
+                // Remove old stake lock
+                Locks::<T>::remove((netuid, &hotkey, old_coldkey));
             }
             // Add the weight for the read and write.
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));

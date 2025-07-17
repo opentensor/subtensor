@@ -63,7 +63,7 @@ mod genesis {
             Tempo::<T>::insert(netuid, 100);
             NetworkRegistrationAllowed::<T>::insert(netuid, true);
             SubnetOwner::<T>::insert(netuid, hotkey.clone());
-            SubnetLocked::<T>::insert(netuid, 1);
+            SubnetLocked::<T>::insert(netuid, AlphaCurrency::from(1));
             LargestLocked::<T>::insert(netuid, 1);
             Alpha::<T>::insert(
                 // Lock the initial funds making this key the owner.
