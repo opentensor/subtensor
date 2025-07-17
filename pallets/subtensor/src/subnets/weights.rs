@@ -269,7 +269,7 @@ impl<T: Config> Pallet<T> {
             false => Self::get_epoch_index(netuid, cur_block),
         };
 
-        CRV3WeightCommits::<T>::try_mutate(netuid, cur_epoch, |commits| -> DispatchResult {
+        CRV3WeightCommitsV2::<T>::try_mutate(netuid, cur_epoch, |commits| -> DispatchResult {
             // 6. Verify that the number of unrevealed commits is within the allowed limit.
 
             let unrevealed_commits_for_who = commits

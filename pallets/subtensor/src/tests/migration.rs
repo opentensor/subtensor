@@ -13,7 +13,7 @@ use frame_support::{
     weights::Weight,
 };
 
-use crate::migrations::{migrate_crv3_commits_add_block::OldCRV3WeightCommits, migrate_storage};
+use crate::migrations::migrate_storage;
 use frame_system::Config;
 use pallet_drand::types::RoundNumber;
 use scale_info::prelude::collections::VecDeque;
@@ -1020,10 +1020,10 @@ fn test_migrate_crv3_commits_add_block() {
 
         let old_queue: VecDeque<_> = VecDeque::from(vec![(who, ciphertext.clone(), round)]);
 
-        OldCRV3WeightCommits::<Test>::insert(netuid, epoch, old_queue.clone());
+        CRV3WeightCommits::<Test>::insert(netuid, epoch, old_queue.clone());
 
         // Sanity: entry decodes under old alias
-        assert_eq!(OldCRV3WeightCommits::<Test>::get(netuid, epoch), old_queue);
+        assert_eq!(CRV3WeightCommits::<Test>::get(netuid, epoch), old_queue);
 
         assert!(
             !HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
@@ -1048,11 +1048,11 @@ fn test_migrate_crv3_commits_add_block() {
 
         // Old storage must be empty (drained)
         assert!(
-            OldCRV3WeightCommits::<Test>::get(netuid, epoch).is_empty(),
+            CRV3WeightCommits::<Test>::get(netuid, epoch).is_empty(),
             "old queue should have been drained"
         );
 
-        let new_q = CRV3WeightCommits::<Test>::get(netuid, epoch);
+        let new_q = CRV3WeightCommitsV2::<Test>::get(netuid, epoch);
         assert_eq!(new_q.len(), 1, "exactly one migrated element expected");
 
         let (who2, commit_block, cipher2, round2) = new_q.front().cloned().unwrap();

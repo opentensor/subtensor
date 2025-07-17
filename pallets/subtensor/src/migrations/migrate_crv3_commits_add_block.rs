@@ -1,27 +1,8 @@
 use super::*;
-use frame_support::{storage_alias, traits::Get, weights::Weight};
+use frame_support::{traits::Get, weights::Weight};
 use log;
-use pallet_drand::types::RoundNumber;
 use scale_info::prelude::string::String;
-use sp_core::ConstU32;
-use sp_runtime::BoundedVec;
 use sp_std::collections::vec_deque::VecDeque;
-
-/// ---------- OLD layout (3-tuple, no commit_block) --------------------
-#[storage_alias]
-pub type OldCRV3WeightCommits<T: Config> = StorageDoubleMap<
-    Pallet<T>,
-    Twox64Concat,
-    NetUid,
-    Twox64Concat,
-    u64,
-    VecDeque<(
-        <T as frame_system::Config>::AccountId,
-        BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
-        RoundNumber,
-    )>,
-    ValueQuery,
->;
 
 /// --------------- Migration ------------------------------------------
 /// Upgrades every entry to the new 4-tuple layout by inserting
@@ -41,7 +22,7 @@ pub fn migrate_crv3_commits_add_block<T: Config>() -> Weight {
     log::info!("Running migration '{}'", String::from_utf8_lossy(&mig_name));
 
     // iterate over *all* (netuid, epoch, queue) triples
-    for (netuid, epoch, old_q) in OldCRV3WeightCommits::<T>::drain() {
+    for (netuid, epoch, old_q) in CRV3WeightCommits::<T>::drain() {
         total_weight = total_weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 
         let commit_block = Pallet::<T>::get_first_block_of_epoch(netuid, epoch);
@@ -53,7 +34,7 @@ pub fn migrate_crv3_commits_add_block<T: Config>() -> Weight {
             .collect();
 
         // write back under *new* storage definition
-        CRV3WeightCommits::<T>::insert(netuid, epoch, new_q);
+        CRV3WeightCommitsV2::<T>::insert(netuid, epoch, new_q);
     }
 
     // mark as done

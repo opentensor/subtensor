@@ -34,9 +34,9 @@ impl<T: Config> Pallet<T> {
             cur_epoch.saturating_sub(Self::get_reveal_period(netuid).saturating_sub(1));
 
         // Clean expired commits
-        for (epoch, _) in CRV3WeightCommits::<T>::iter_prefix(netuid) {
+        for (epoch, _) in CRV3WeightCommitsV2::<T>::iter_prefix(netuid) {
             if epoch < reveal_epoch {
-                CRV3WeightCommits::<T>::remove(netuid, epoch);
+                CRV3WeightCommitsV2::<T>::remove(netuid, epoch);
             }
         }
 
@@ -46,7 +46,7 @@ impl<T: Config> Pallet<T> {
             return Ok(());
         }
 
-        let mut entries = CRV3WeightCommits::<T>::take(netuid, reveal_epoch);
+        let mut entries = CRV3WeightCommitsV2::<T>::take(netuid, reveal_epoch);
 
         // Keep popping item off the end of the queue until we sucessfully reveal a commit.
         while let Some((who, _commit_block, serialized_compresssed_commit, round_number)) =

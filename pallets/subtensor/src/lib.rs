@@ -1642,9 +1642,25 @@ pub mod pallet {
         OptionQuery,
     >;
     #[pallet::storage]
-    /// MAP (netuid, commit_epoch) -> VecDeque<(who, commit_block, serialized_compressed_commit, reveal_round)>
+    /// MAP (netuid, epoch) → VecDeque<(who, ciphertext, reveal_round)>
     /// Stores a queue of v3 commits for an account on a given netuid.
     pub type CRV3WeightCommits<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        NetUid,
+        Twox64Concat,
+        u64, // epoch key
+        VecDeque<(
+            T::AccountId,
+            BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
+            RoundNumber,
+        )>,
+        ValueQuery,
+    >;
+    #[pallet::storage]
+    /// MAP (netuid, epoch) → VecDeque<(who, commit_block, ciphertext, reveal_round)>
+    /// Stores a queue of v3 commits for an account on a given netuid.
+    pub type CRV3WeightCommitsV2<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
         NetUid,
