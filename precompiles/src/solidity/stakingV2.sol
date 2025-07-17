@@ -196,6 +196,16 @@ interface IStaking {
     ) external view returns (uint256);
 
     /**
+     * @dev Returns the minimum required stake for a nominator.
+     *
+     * This function retrieves the minimum required stake for a nominator.
+     * It is a view function, meaning it does not modify the state of the contract and is free to call.
+     *
+     * @return The minimum required stake for a nominator.
+     */
+    function getNominatorMinRequiredStake() external view returns (uint256);
+
+    /**
      * @dev Adds a subtensor stake `amount` associated with the `hotkey` within a price limit.
      *
      * This function allows external accounts and contracts to stake TAO into the subtensor pallet,
