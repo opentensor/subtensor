@@ -6875,6 +6875,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-api",
+ "sp-application-crypto",
  "sp-authority-discovery",
  "sp-block-builder",
  "sp-blockchain",

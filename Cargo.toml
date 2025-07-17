@@ -212,6 +212,7 @@ sc-consensus-babe-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git"
 
 sp-authority-discovery-primitives = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
 sp-authority-discovery = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
+sp-application-crypto = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
 sp-consensus-aura = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
 sp-consensus-slots = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
 sp-npos-elections = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }

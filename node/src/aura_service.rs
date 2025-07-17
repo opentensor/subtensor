@@ -3,19 +3,32 @@
 use futures::{FutureExt, channel::mpsc, future};
 use node_subtensor_runtime::{RuntimeApi, TransactionConverter, opaque::Block};
 use sc_chain_spec::ChainType;
+use sc_client_api::AuxStore;
+use sc_client_api::BlockOf;
 use sc_client_api::{Backend as BackendT, BlockBackend};
+use sc_consensus::BlockImport;
 use sc_consensus::{BasicQueue, BoxBlockImport};
+use sc_consensus_aura::AuraApi;
+use sc_consensus_aura::AuthorityId;
 use sc_consensus_grandpa::BlockNumberOps;
+use sc_consensus_slots::BackoffAuthoringBlocksStrategy;
 use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
+use sc_consensus_slots::InherentDataProviderExt;
 use sc_network::config::SyncMode;
 use sc_network_sync::strategy::warp::{WarpSyncConfig, WarpSyncProvider};
 use sc_service::{Configuration, PartialComponents, TaskManager, error::Error as ServiceError};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, log};
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
+use sp_api::ProvideRuntimeApi;
+use sp_blockchain::HeaderBackend;
+use sp_consensus::Proposer;
+use sp_consensus::SyncOracle;
+use sp_consensus::{Environment, SelectChain};
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use sp_consensus_slots::SlotDuration;
 use sp_core::H256;
+use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 use std::collections::HashSet;
 use std::str::FromStr;
@@ -204,7 +217,9 @@ where
 }
 
 pub trait ConsensusBuilder {
-    type InherentDataProviders: sp_inherents::InherentDataProvider + 'static;
+    type InherentDataProviders: sp_inherents::InherentDataProvider
+        + sc_consensus_slots::InherentDataProviderExt
+        + 'static;
 
     fn build_import_queue(
         client: Arc<FullClient>,
@@ -217,9 +232,32 @@ pub trait ConsensusBuilder {
 
     fn slot_duration(client: &FullClient) -> Result<SlotDuration, ServiceError>;
 
-    fn pending_create_inherent_data_providers(
+    fn create_inherent_data_providers(
         slot_duration: SlotDuration,
     ) -> Result<Self::InherentDataProviders, Box<dyn std::error::Error + Send + Sync>>;
+
+    fn frontier_consensus_data_provider(
+        client: Arc<FullClient>,
+    ) -> Box<dyn fc_rpc::pending::ConsensusDataProvider<Block>>;
+
+    fn start_authoring<B, C, SC, I, PF, SO, L, CIDP, BS, Error>(
+        task_manager: &mut TaskManager,
+        params: sc_consensus_aura::StartAuraParams<C, SC, I, PF, SO, L, CIDP, BS, NumberFor<B>>,
+    ) -> Result<(), sp_consensus::Error>
+    where
+        B: BlockT,
+        C: ProvideRuntimeApi<B> + BlockOf + AuxStore + HeaderBackend<B> + Send + Sync + 'static,
+        C::Api: AuraApi<B, AuthorityId<AuraPair>>,
+        SC: SelectChain<B> + 'static,
+        I: BlockImport<B> + Send + Sync + 'static,
+        PF: Environment<B, Error = Error> + Send + Sync + 'static,
+        PF::Proposer: Proposer<B, Error = Error>,
+        SO: SyncOracle + Send + Sync + Clone + 'static,
+        L: sc_consensus::JustificationSyncLink<B> + 'static,
+        CIDP: CreateInherentDataProviders<B, ()> + Send + 'static,
+        CIDP::InherentDataProviders: InherentDataProviderExt + Send,
+        BS: BackoffAuthoringBlocksStrategy<NumberFor<B>> + Send + Sync + 'static,
+        Error: std::error::Error + Send + From<sp_consensus::Error> + 'static;
 
     fn spawn_essential_handles(
         task_manager: &mut TaskManager,
@@ -420,10 +458,8 @@ where
         ));
 
         let slot_duration = CB::slot_duration(&*client)?;
-        // let pending_create_inherent_data_providers =
-        //     CB::pending_create_inherent_data_providers(slot_duration);
         let pending_create_inherent_data_providers =
-            move |_, ()| async move { CB::pending_create_inherent_data_providers(slot_duration) };
+            move |_, ()| async move { CB::create_inherent_data_providers(slot_duration) };
 
         Box::new(move |subscription_task_executor| {
             let eth_deps = crate::ethereum::EthDeps {
@@ -463,6 +499,7 @@ where
                 deps,
                 subscription_task_executor,
                 pubsub_notification_sinks.clone(),
+                CB::frontier_consensus_data_provider(client.clone()),
             )
             .map_err(Into::into)
         })
@@ -525,17 +562,12 @@ where
             telemetry.as_ref().map(|x| x.handle()),
         );
 
-        let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
-        let create_inherent_data_providers = move |_, ()| async move {
-            let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-            let slot = sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-				*timestamp,
-				slot_duration,
-			);
-            Ok((slot, timestamp))
-        };
+        let slot_duration = CB::slot_duration(&*client)?;
+        let create_inherent_data_providers =
+            move |_, ()| async move { CB::create_inherent_data_providers(slot_duration) };
 
-        let aura = sc_consensus_aura::start_aura::<AuraPair, _, _, _, _, _, _, _, _, _, _>(
+        CB::start_authoring(
+            &mut task_manager,
             sc_consensus_aura::StartAuraParams {
                 slot_duration,
                 client,
@@ -554,11 +586,6 @@ where
                 compatibility_mode: sc_consensus_aura::CompatibilityMode::None,
             },
         )?;
-        // the AURA authoring task is considered essential, i.e. if it
-        // fails we take down the service with it.
-        task_manager
-            .spawn_essential_handle()
-            .spawn_blocking("aura", Some("block-authoring"), aura);
     }
 
     if enable_grandpa {

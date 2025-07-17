@@ -43,6 +43,9 @@ pub fn create_full<P, CT, CIDP>(
             fc_mapping_sync::EthereumBlockNotification<Block>,
         >,
     >,
+    frontier_pending_consensus_data_provider: Box<
+        dyn fc_rpc::pending::ConsensusDataProvider<Block>,
+    >,
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
     P: TransactionPool<
@@ -97,7 +100,7 @@ where
         eth,
         subscription_task_executor,
         pubsub_notification_sinks,
-        Some(Box::new(fc_aura::AuraConsensusDataProvider::new(client))),
+        Some(frontier_pending_consensus_data_provider),
     )?;
 
     Ok(module)

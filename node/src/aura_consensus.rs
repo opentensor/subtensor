@@ -7,12 +7,20 @@ use crate::{
 use fc_consensus::FrontierBlockImport;
 use jsonrpsee::tokio;
 use node_subtensor_runtime::opaque::Block;
-use sc_consensus::{BasicQueue, BoxBlockImport};
+use sc_client_api::{AuxStore, BlockOf};
+use sc_consensus::{BasicQueue, BlockImport, BoxBlockImport};
+use sc_consensus_aura::AuthorityId;
 use sc_consensus_grandpa::BlockNumberOps;
+use sc_consensus_slots::{BackoffAuthoringBlocksStrategy, InherentDataProviderExt};
 use sc_service::{Configuration, TaskManager};
 use sc_telemetry::TelemetryHandle;
+use sp_api::ProvideRuntimeApi;
+use sp_blockchain::HeaderBackend;
+use sp_consensus::{Environment, Proposer, SelectChain, SyncOracle};
+use sp_consensus_aura::{AuraApi, sr25519::AuthorityPair as AuraPair};
 use sp_consensus_slots::SlotDuration;
-use sp_runtime::traits::NumberFor;
+use sp_inherents::CreateInherentDataProviders;
+use sp_runtime::traits::{Block as BlockT, NumberFor};
 use std::{error::Error, sync::Arc};
 
 pub struct AuraConsensus;
@@ -23,7 +31,77 @@ impl ConsensusBuilder for AuraConsensus {
         sp_timestamp::InherentDataProvider,
     );
 
-    fn pending_create_inherent_data_providers(
+    fn start_authoring<B, C, SC, I, PF, SO, L, CIDP, BS, Error>(
+        task_manager: &mut TaskManager,
+        sc_consensus_aura::StartAuraParams {
+            slot_duration,
+            client,
+            select_chain,
+            block_import,
+            proposer_factory,
+            sync_oracle,
+            justification_sync_link,
+            create_inherent_data_providers,
+            force_authoring,
+            backoff_authoring_blocks,
+            keystore,
+            telemetry,
+            block_proposal_slot_portion,
+            max_block_proposal_slot_portion,
+            compatibility_mode,
+        }: sc_consensus_aura::StartAuraParams<C, SC, I, PF, SO, L, CIDP, BS, NumberFor<B>>,
+    ) -> Result<(), sp_consensus::Error>
+    where
+        B: BlockT,
+        C: ProvideRuntimeApi<B> + BlockOf + AuxStore + HeaderBackend<B> + Send + Sync + 'static,
+        C::Api: AuraApi<B, AuthorityId<AuraPair>>,
+        SC: SelectChain<B> + 'static,
+        I: BlockImport<B> + Send + Sync + 'static,
+        PF: Environment<B, Error = Error> + Send + Sync + 'static,
+        PF::Proposer: Proposer<B, Error = Error>,
+        SO: SyncOracle + Send + Sync + Clone + 'static,
+        L: sc_consensus::JustificationSyncLink<B> + 'static,
+        CIDP: CreateInherentDataProviders<B, ()> + Send + 'static,
+        CIDP::InherentDataProviders: InherentDataProviderExt + Send,
+        BS: BackoffAuthoringBlocksStrategy<NumberFor<B>> + Send + Sync + 'static,
+        Error: std::error::Error + Send + From<sp_consensus::Error> + 'static,
+    {
+        let aura = sc_consensus_aura::start_aura::<AuraPair, _, _, _, _, _, _, _, _, _, _>(
+            sc_consensus_aura::StartAuraParams {
+                slot_duration,
+                client,
+                select_chain,
+                block_import,
+                proposer_factory,
+                sync_oracle,
+                justification_sync_link,
+                create_inherent_data_providers,
+                force_authoring,
+                backoff_authoring_blocks,
+                keystore,
+                block_proposal_slot_portion,
+                max_block_proposal_slot_portion,
+                telemetry,
+                compatibility_mode,
+            },
+        )?;
+
+        // the AURA authoring task is considered essential, i.e. if it
+        // fails we take down the service with it.
+        task_manager
+            .spawn_essential_handle()
+            .spawn_blocking("aura", Some("block-authoring"), aura);
+
+        Ok(())
+    }
+
+    fn frontier_consensus_data_provider(
+        client: Arc<FullClient>,
+    ) -> Box<dyn fc_rpc::pending::ConsensusDataProvider<Block>> {
+        Box::new(fc_aura::AuraConsensusDataProvider::new(client))
+    }
+
+    fn create_inherent_data_providers(
         slot_duration: SlotDuration,
     ) -> Result<Self::InherentDataProviders, Box<dyn Error + Send + Sync>> {
         let current = sp_timestamp::InherentDataProvider::from_system_time();
