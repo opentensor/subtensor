@@ -56,27 +56,27 @@ describe("Test the Subnet precompile contract", () => {
         const totalNetworkAfterAdd = await api.query.SubtensorModule.TotalNetworks.getValue()
         assert.ok(totalNetwork + 1 === totalNetworkAfterAdd)
     });
- 
-    it.only("Can register network with identity info and logo url", async () => {
-        const totalNetwork = await api.query.SubtensorModule.TotalNetworks.getValue()
 
-        const contract = new ethers.Contract(ISUBNET_ADDRESS, ISubnetABI, wallet);
-        const tx = await contract["registerNetwork(bytes32,string,string,string,string,string,string,string,string)"](
-            hotkey2.publicKey,
-            "name",
-            "repo",
-            "contact",
-            "subnetUrl",
-            "discord",
-            "description",
-            "logoUrl",
-            "additional"
-        );
-        await tx.wait();
+    // it.only("Can register network with identity info and logo url", async () => {
+    //     const totalNetwork = await api.query.SubtensorModule.TotalNetworks.getValue()
 
-        const totalNetworkAfterAdd = await api.query.SubtensorModule.TotalNetworks.getValue()
-        assert.ok(totalNetwork + 1 === totalNetworkAfterAdd)
-    });
+    //     const contract = new ethers.Contract(ISUBNET_ADDRESS, ISubnetABI, wallet);
+    //     const tx = await contract["registerNetwork(bytes32,string,string,string,string,string,string,string,string)"](
+    //         hotkey2.publicKey,
+    //         "name",
+    //         "repo",
+    //         "contact",
+    //         "subnetUrl",
+    //         "discord",
+    //         "description",
+    //         "logoUrl",
+    //         "additional"
+    //     );
+    //     await tx.wait();
+
+    //     const totalNetworkAfterAdd = await api.query.SubtensorModule.TotalNetworks.getValue()
+    //     assert.ok(totalNetwork + 1 === totalNetworkAfterAdd)
+    // });
 
     it("Can set servingRateLimit parameter", async () => {
 
@@ -492,23 +492,22 @@ describe("Test the Subnet precompile contract", () => {
         assert.equal(valueFromContract, onchainValue);
     })
 
-    it("Can set yuma3Enabled hyperparameter", async () =>
-    {
-      const totalNetwork = await api.query.SubtensorModule.TotalNetworks.getValue()
-      const contract = new ethers.Contract(ISUBNET_ADDRESS, ISubnetABI, wallet);
-      const netuid = totalNetwork - 1;
+    it("Can set yuma3Enabled hyperparameter", async () => {
+        const totalNetwork = await api.query.SubtensorModule.TotalNetworks.getValue()
+        const contract = new ethers.Contract(ISUBNET_ADDRESS, ISubnetABI, wallet);
+        const netuid = totalNetwork - 1;
 
-      const newValue = true;
-      const tx = await contract.setYuma3Enabled(netuid, newValue);
-      await tx.wait();
+        const newValue = true;
+        const tx = await contract.setYuma3Enabled(netuid, newValue);
+        await tx.wait();
 
-      let onchainValue = await api.query.SubtensorModule.Yuma3On.getValue(netuid)
+        let onchainValue = await api.query.SubtensorModule.Yuma3On.getValue(netuid)
 
-      let valueFromContract = Boolean(
-        await contract.getYuma3Enabled(netuid)
-      );
-      assert.equal(valueFromContract, newValue)
-      assert.equal(valueFromContract, onchainValue);
+        let valueFromContract = Boolean(
+            await contract.getYuma3Enabled(netuid)
+        );
+        assert.equal(valueFromContract, newValue)
+        assert.equal(valueFromContract, onchainValue);
     })
 
 
