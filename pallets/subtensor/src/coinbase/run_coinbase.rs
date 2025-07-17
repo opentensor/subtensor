@@ -72,7 +72,8 @@ impl<T: Config> Pallet<T> {
             log::debug!("alpha_emission_i: {:?}", alpha_emission_i);
             // Get initial alpha_in
             let alpha_in_i: U96F32 =
-                T::SwapInterface::calculate_injected_alpha(NetUid::from(*netuid_i), tao_in_i);
+                T::SwapInterface::calculate_injected_alpha(NetUid::from(*netuid_i), tao_in_i)
+                    .min(alpha_emission_i);
             log::debug!("alpha_in_i: {:?}", alpha_in_i);
             // Get alpha_out.
             let alpha_out_i = alpha_emission_i;
