@@ -50,6 +50,7 @@ impl<T: Config> Pallet<T> {
             None,
             None,
             false,
+            true,
         )?;
 
         // Log the event.
@@ -144,6 +145,7 @@ impl<T: Config> Pallet<T> {
             None,
             None,
             true,
+            false,
         )?;
 
         // 9. Emit an event for logging/monitoring.
@@ -214,6 +216,7 @@ impl<T: Config> Pallet<T> {
             None,
             None,
             false,
+            true,
         )?;
 
         // Emit an event for logging.
@@ -286,6 +289,7 @@ impl<T: Config> Pallet<T> {
             Some(limit_price),
             Some(allow_partial),
             false,
+            true,
         )?;
 
         // Emit an event for logging.
@@ -322,10 +326,15 @@ impl<T: Config> Pallet<T> {
         maybe_limit_price: Option<u64>,
         maybe_allow_partial: Option<bool>,
         check_transfer_toggle: bool,
+        set_limit: bool,
     ) -> Result<u64, DispatchError> {
         // Calculate the maximum amount that can be executed
-        let max_amount = if let Some(limit_price) = maybe_limit_price {
-            Self::get_max_amount_move(origin_netuid, destination_netuid, limit_price)?
+        let max_amount = if origin_netuid != destination_netuid {
+            if let Some(limit_price) = maybe_limit_price {
+                Self::get_max_amount_move(origin_netuid, destination_netuid, limit_price)?
+            } else {
+                alpha_amount
+            }
         } else {
             alpha_amount
         };
@@ -351,33 +360,47 @@ impl<T: Config> Pallet<T> {
             max_amount
         };
 
-        let tao_unstaked = Self::unstake_from_subnet(
-            origin_hotkey,
-            origin_coldkey,
-            origin_netuid,
-            move_amount,
-            T::SwapInterface::min_price(),
-        )?;
+        if origin_netuid != destination_netuid {
+            // do not pay remove fees to avoid double fees in moves transactions
+            let tao_unstaked = Self::unstake_from_subnet(
+                origin_hotkey,
+                origin_coldkey,
+                origin_netuid,
+                move_amount,
+                T::SwapInterface::min_price(),
+                true,
+            )?;
 
-        // Stake the unstaked amount into the destination.
-        // Because of the fee, the tao_unstaked may be too low if initial stake is low. In that case,
-        // do not restake.
-        if tao_unstaked >= DefaultMinStake::<T>::get() {
-            // If the coldkey is not the owner, make the hotkey a delegate.
-            if Self::get_owning_coldkey_for_hotkey(destination_hotkey) != *destination_coldkey {
-                Self::maybe_become_delegate(destination_hotkey);
+            // Stake the unstaked amount into the destination.
+            // Because of the fee, the tao_unstaked may be too low if initial stake is low. In that case,
+            // do not restake.
+            if tao_unstaked >= DefaultMinStake::<T>::get() {
+                // If the coldkey is not the owner, make the hotkey a delegate.
+                if Self::get_owning_coldkey_for_hotkey(destination_hotkey) != *destination_coldkey {
+                    Self::maybe_become_delegate(destination_hotkey);
+                }
+
+                Self::stake_into_subnet(
+                    destination_hotkey,
+                    destination_coldkey,
+                    destination_netuid,
+                    tao_unstaked,
+                    T::SwapInterface::max_price(),
+                    set_limit,
+                )?;
             }
 
-            Self::stake_into_subnet(
-                destination_hotkey,
+            Ok(tao_unstaked)
+        } else {
+            Self::transfer_stake_within_subnet(
+                origin_coldkey,
+                origin_hotkey,
                 destination_coldkey,
-                destination_netuid,
-                tao_unstaked,
-                T::SwapInterface::max_price(),
-            )?;
+                destination_hotkey,
+                origin_netuid,
+                move_amount,
+            )
         }
-
-        Ok(tao_unstaked)
     }
 
     /// Returns the maximum amount of origin netuid Alpha that can be executed before we cross

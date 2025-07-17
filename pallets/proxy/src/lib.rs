@@ -266,7 +266,7 @@ pub mod pallet {
         ///
         /// The dispatch origin for this call must be _Signed_.
         ///
-        /// WARNING: This may be called on accounts created by `pure`, however if done, then
+        /// WARNING: This may be called on accounts created by `create_pure`, however if done, then
         /// the unreserved fees will be inaccessible. **All access to this account will be lost.**
         #[pallet::call_index(3)]
         #[pallet::weight(T::WeightInfo::remove_proxies(T::MaxProxies::get()))]
@@ -336,16 +336,16 @@ pub mod pallet {
         /// inaccessible.
         ///
         /// Requires a `Signed` origin, and the sender account must have been created by a call to
-        /// `pure` with corresponding parameters.
+        /// `create_pure` with corresponding parameters.
         ///
-        /// - `spawner`: The account that originally called `pure` to create this account.
-        /// - `index`: The disambiguation index originally passed to `pure`. Probably `0`.
-        /// - `proxy_type`: The proxy type originally passed to `pure`.
-        /// - `height`: The height of the chain when the call to `pure` was processed.
-        /// - `ext_index`: The extrinsic index in which the call to `pure` was processed.
+        /// - `spawner`: The account that originally called `create_pure` to create this account.
+        /// - `index`: The disambiguation index originally passed to `create_pure`. Probably `0`.
+        /// - `proxy_type`: The proxy type originally passed to `create_pure`.
+        /// - `height`: The height of the chain when the call to `create_pure` was processed.
+        /// - `ext_index`: The extrinsic index in which the call to `create_pure` was processed.
         ///
         /// Fails with `NoPermission` in case the caller is not a previously created pure
-        /// account whose `pure` call has corresponding parameters.
+        /// account whose `create_pure` call has corresponding parameters.
         #[pallet::call_index(5)]
         #[pallet::weight(T::WeightInfo::kill_pure(T::MaxProxies::get()))]
         pub fn kill_pure(
@@ -365,6 +365,13 @@ pub mod pallet {
 
             let (_, deposit) = Proxies::<T>::take(&who);
             T::Currency::unreserve(&spawner, deposit);
+
+            Self::deposit_event(Event::PureKilled {
+                pure: who,
+                spawner,
+                proxy_type,
+                disambiguation_index: index,
+            });
 
             Ok(())
         }
@@ -565,6 +572,17 @@ pub mod pallet {
             delegatee: T::AccountId,
             proxy_type: T::ProxyType,
             delay: BlockNumberFor<T>,
+        },
+        /// A pure proxy was killed by its spawner.
+        PureKilled {
+            // The pure proxy account that was destroyed.
+            pure: T::AccountId,
+            // The account that created the pure proxy.
+            spawner: T::AccountId,
+            // The proxy type of the pure proxy that was destroyed.
+            proxy_type: T::ProxyType,
+            // The index originally passed to `create_pure` when this pure proxy was created.
+            disambiguation_index: u16,
         },
     }
 

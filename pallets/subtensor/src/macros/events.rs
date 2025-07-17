@@ -353,7 +353,33 @@ mod events {
             /// the subnet ID
             netuid: NetUid,
         },
+        /// A subnet lease has been created.
+        SubnetLeaseCreated {
+            /// The beneficiary of the lease.
+            beneficiary: T::AccountId,
+            /// The lease ID
+            lease_id: LeaseId,
+            /// The subnet ID
+            netuid: NetUid,
+            /// The end block of the lease
+            end_block: Option<BlockNumberFor<T>>,
+        },
 
+        /// A subnet lease has been terminated.
+        SubnetLeaseTerminated {
+            /// The beneficiary of the lease.
+            beneficiary: T::AccountId,
+            /// The subnet ID
+            netuid: NetUid,
+        },
+
+        /// The symbol for a subnet has been updated.
+        SymbolUpdated {
+            /// The subnet ID
+            netuid: NetUid,
+            /// The symbol that has been updated.
+            symbol: Vec<u8>,
+        },
         /// Pure proxy account is set
         PureProxyAccountSet {
             /// EVM address

@@ -75,4 +75,23 @@ interface IAlpha {
     /// @param netuid The subnet identifier.
     /// @return The subnet volume.
     function getSubnetVolume(uint16 netuid) external view returns (uint256);
+
+    /// @dev Returns the amount of tao emission into the pool per block for a subnet.
+    /// @param netuid The subnet identifier.
+    /// @return The tao-in emission per block.
+    function getTaoInEmission(uint16 netuid) external view returns (uint256);
+
+    /// @dev Returns the amount of alpha emission into the pool per block for a subnet.
+    /// @param netuid The subnet identifier.
+    /// @return The alpha-in emission per block.
+    function getAlphaInEmission(uint16 netuid) external view returns (uint256);
+
+    /// @dev Returns the amount of alpha emission outside the pool per block for a subnet.
+    /// @param netuid The subnet identifier.
+    /// @return The alpha-out emission per block.
+    function getAlphaOutEmission(uint16 netuid) external view returns (uint256);
+
+    /// @dev Returns the sum of alpha prices for all subnets.
+    /// @return The sum of alpha prices.
+    function getSumAlphaPrice() external view returns (uint256);
 }

@@ -854,3 +854,139 @@ fn test_migrate_fix_root_subnet_tao() {
         assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), expected_total_stake);
     });
 }
+
+#[test]
+fn test_migrate_subnet_symbols() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_subnet_symbols";
+
+        // Create 100 subnets
+        for i in 0..100 {
+            add_network(i.into(), 1, 0);
+        }
+
+        // Shift some symbols
+        TokenSymbol::<Test>::insert(
+            NetUid::from(21),
+            SubtensorModule::get_symbol_for_subnet(NetUid::from(142)),
+        );
+        TokenSymbol::<Test>::insert(
+            NetUid::from(42),
+            SubtensorModule::get_symbol_for_subnet(NetUid::from(184)),
+        );
+        TokenSymbol::<Test>::insert(
+            NetUid::from(83),
+            SubtensorModule::get_symbol_for_subnet(NetUid::from(242)),
+        );
+        TokenSymbol::<Test>::insert(
+            NetUid::from(99),
+            SubtensorModule::get_symbol_for_subnet(NetUid::from(284)),
+        );
+
+        // Run the migration
+        let weight = crate::migrations::migrate_subnet_symbols::migrate_subnet_symbols::<Test>();
+
+        // Check that the symbols have been corrected
+        assert_eq!(
+            TokenSymbol::<Test>::get(NetUid::from(21)),
+            SubtensorModule::get_symbol_for_subnet(NetUid::from(21))
+        );
+        assert_eq!(
+            TokenSymbol::<Test>::get(NetUid::from(42)),
+            SubtensorModule::get_symbol_for_subnet(NetUid::from(42))
+        );
+        assert_eq!(
+            TokenSymbol::<Test>::get(NetUid::from(83)),
+            SubtensorModule::get_symbol_for_subnet(NetUid::from(83))
+        );
+        assert_eq!(
+            TokenSymbol::<Test>::get(NetUid::from(99)),
+            SubtensorModule::get_symbol_for_subnet(NetUid::from(99))
+        );
+
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+    });
+}
+
+#[test]
+fn test_migrate_set_registration_enable() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_set_registration_enable";
+
+        // Create 3 subnets
+        let netuids: [NetUid; 3] = [1.into(), 2.into(), 3.into()];
+        for netuid in netuids.iter() {
+            add_network(*netuid, 1, 0);
+            // Set registration to false to simulate the need for migration
+            SubtensorModule::set_network_registration_allowed(*netuid, false);
+            SubtensorModule::set_network_pow_registration_allowed(*netuid, false);
+        }
+
+        // Sanity check: registration is disabled before migration
+        for netuid in netuids.iter() {
+            assert!(!SubtensorModule::get_network_registration_allowed(*netuid));
+            assert!(!SubtensorModule::get_network_pow_registration_allowed(
+                *netuid
+            ));
+        }
+
+        // Run the migration
+        let weight =
+            crate::migrations::migrate_set_registration_enable::migrate_set_registration_enable::<
+                Test,
+            >();
+
+        // After migration, regular registration should be enabled for all subnets except root
+        for netuid in netuids.iter() {
+            assert!(SubtensorModule::get_network_registration_allowed(*netuid));
+            assert!(!SubtensorModule::get_network_pow_registration_allowed(
+                *netuid
+            ));
+        }
+
+        // Migration should be marked as run
+        assert!(HasMigrationRun::<Test>::get(
+            MIGRATION_NAME.as_bytes().to_vec()
+        ));
+
+        // Weight should be non-zero
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+    });
+}
+
+#[test]
+fn test_migrate_set_nominator_min_stake() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_set_nominator_min_stake";
+
+        let min_nomination_initial = 100_000_000;
+        let min_nomination_migrated = 10_000_000;
+        NominatorMinRequiredStake::<Test>::set(min_nomination_initial);
+
+        assert_eq!(
+            NominatorMinRequiredStake::<Test>::get(),
+            min_nomination_initial
+        );
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // Run the migration
+        let weight =
+            crate::migrations::migrate_set_nominator_min_stake::migrate_set_nominator_min_stake::<
+                Test,
+            >();
+
+        // Verify the migration ran correctly
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as run"
+        );
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+        assert_eq!(
+            NominatorMinRequiredStake::<Test>::get(),
+            min_nomination_migrated
+        );
+    });
+}

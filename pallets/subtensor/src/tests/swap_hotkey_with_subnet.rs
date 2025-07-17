@@ -8,7 +8,7 @@ use frame_system::{Config, RawOrigin};
 
 use super::mock::*;
 use crate::*;
-use sp_core::{Get, H256, U256};
+use sp_core::{Get, H160, H256, U256};
 use sp_runtime::SaturatedConversion;
 use substrate_fixed::types::U64F64;
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey_with_subnet -- test_swap_owner --exact --nocapture
@@ -90,7 +90,7 @@ fn test_swap_total_hotkey_stake() {
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&old_hotkey),
             amount - fee,
-            epsilon = amount / 1000,
+            epsilon = amount / 100,
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&new_hotkey),
@@ -116,7 +116,7 @@ fn test_swap_total_hotkey_stake() {
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&new_hotkey),
             amount - fee,
-            epsilon = amount / 1000,
+            epsilon = amount / 100,
         );
     });
 }

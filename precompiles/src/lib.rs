@@ -25,6 +25,7 @@ use subtensor_runtime_common::ProxyType;
 use pallet_admin_utils::PrecompileEnum;
 
 use crate::balance_transfer::*;
+use crate::crowdloan::*;
 use crate::ed25519::*;
 use crate::extensions::*;
 use crate::metagraph::*;
@@ -38,6 +39,7 @@ use crate::{alpha::*, pure_proxy::PureProxyPrecompile};
 
 mod alpha;
 mod balance_transfer;
+mod crowdloan;
 mod ed25519;
 mod extensions;
 mod metagraph;
@@ -58,12 +60,14 @@ where
         + pallet_admin_utils::Config
         + pallet_subtensor::Config
         + pallet_subtensor_swap::Config
-        + pallet_proxy::Config<ProxyType = ProxyType>,
+        + pallet_proxy::Config<ProxyType = ProxyType>
+        + pallet_crowdloan::Config,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_proxy::Call<R>>
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
+        + From<pallet_crowdloan::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
@@ -83,12 +87,14 @@ where
         + pallet_admin_utils::Config
         + pallet_subtensor::Config
         + pallet_subtensor_swap::Config
-        + pallet_proxy::Config<ProxyType = ProxyType>,
+        + pallet_proxy::Config<ProxyType = ProxyType>
+        + pallet_crowdloan::Config,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_proxy::Call<R>>
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
+        + From<pallet_crowdloan::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
@@ -99,7 +105,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 20] {
+    pub fn used_addresses() -> [H160; 21] {
         [
             hash(1),
             hash(2),
@@ -120,6 +126,7 @@ where
             hash(StorageQueryPrecompile::<R>::INDEX),
             hash(UidLookupPrecompile::<R>::INDEX),
             hash(AlphaPrecompile::<R>::INDEX),
+            hash(CrowdloanPrecompile::<R>::INDEX),
             hash(PureProxyPrecompile::<R>::INDEX),
         ]
     }
@@ -132,12 +139,14 @@ where
         + pallet_admin_utils::Config
         + pallet_subtensor::Config
         + pallet_subtensor_swap::Config
-        + pallet_proxy::Config<ProxyType = ProxyType>,
+        + pallet_proxy::Config<ProxyType = ProxyType>
+        + pallet_crowdloan::Config,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_proxy::Call<R>>
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
+        + From<pallet_crowdloan::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>
         + Decode,
@@ -195,6 +204,9 @@ where
             }
             a if a == hash(AlphaPrecompile::<R>::INDEX) => {
                 AlphaPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Alpha)
+            }
+            a if a == hash(CrowdloanPrecompile::<R>::INDEX) => {
+                CrowdloanPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Crowdloan)
             }
             a if a == hash(PureProxyPrecompile::<R>::INDEX) => {
                 PureProxyPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::PureProxy)
