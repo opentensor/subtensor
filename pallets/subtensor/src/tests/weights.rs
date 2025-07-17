@@ -5042,8 +5042,8 @@ fn test_do_commit_crv3_weights_success() {
         let commits = CRV3WeightCommits::<Test>::get(netuid, cur_epoch);
         assert_eq!(commits.len(), 1);
         assert_eq!(commits[0].0, hotkey);
-        assert_eq!(commits[0].1, commit_data);
-        assert_eq!(commits[0].2, reveal_round);
+        assert_eq!(commits[0].2, commit_data);
+        assert_eq!(commits[0].3, reveal_round);
     });
 }
 
@@ -5918,7 +5918,7 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
                 netuid,
                 *epoch,
                 |commits| -> DispatchResult {
-                    commits.push_back((hotkey, bounded_commit_data, reveal_round));
+                    commits.push_back((hotkey, current_block, bounded_commit_data, reveal_round));
                     Ok(())
                 }
             ));

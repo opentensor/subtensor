@@ -8,12 +8,15 @@ use codec::{Decode, Encode};
 use frame_support::{
     StorageHasher, Twox64Concat, assert_ok,
     storage::unhashed::{get, get_raw, put, put_raw},
+    storage_alias,
     traits::{StorageInstance, StoredMap},
     weights::Weight,
 };
 
-use crate::migrations::migrate_storage;
+use crate::migrations::{migrate_crv3_commits_add_block::OldCRV3WeightCommits, migrate_storage};
 use frame_system::Config;
+use pallet_drand::types::RoundNumber;
+use scale_info::prelude::collections::VecDeque;
 use sp_core::{H256, U256, crypto::Ss58Codec};
 use sp_io::hashing::twox_128;
 use sp_runtime::traits::Zero;
@@ -987,6 +990,80 @@ fn test_migrate_set_nominator_min_stake() {
         assert_eq!(
             NominatorMinRequiredStake::<Test>::get(),
             min_nomination_migrated
+        );
+    });
+}
+
+#[test]
+fn test_migrate_crv3_commits_add_block() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // 0. Constants / helpers
+        // ------------------------------
+        const MIG_NAME: &[u8] = b"crv3_commits_add_block_v1";
+        let netuid = NetUid::from(99);
+        let epoch: u64 = 7;
+        let tempo: u16 = 360;
+
+        // ------------------------------
+        // 1. Create a network so helper can compute first‑block
+        // ------------------------------
+        add_network(netuid, tempo, 0);
+
+        // ------------------------------
+        // 2. Simulate OLD storage (3‑tuple)
+        // ------------------------------
+        let who: U256 = U256::from(0xdeadbeef_u64);
+        let ciphertext: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>> =
+            vec![1u8, 2, 3].try_into().unwrap();
+        let round: RoundNumber = 42;
+
+        let old_queue: VecDeque<_> = VecDeque::from(vec![(who, ciphertext.clone(), round)]);
+
+        OldCRV3WeightCommits::<Test>::insert(netuid, epoch, old_queue.clone());
+
+        // Sanity: entry decodes under old alias
+        assert_eq!(OldCRV3WeightCommits::<Test>::get(netuid, epoch), old_queue);
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag should be false before run"
+        );
+
+        // ------------------------------
+        // 3. Run migration
+        // ------------------------------
+        let w = crate::migrations::migrate_crv3_commits_add_block::migrate_crv3_commits_add_block::<
+            Test,
+        >();
+        assert!(!w.is_zero(), "weight must be non-zero");
+
+        // ------------------------------
+        // 4. Verify results
+        // ------------------------------
+        assert!(
+            HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag not set"
+        );
+
+        // Old storage must be empty (drained)
+        assert!(
+            OldCRV3WeightCommits::<Test>::get(netuid, epoch).is_empty(),
+            "old queue should have been drained"
+        );
+
+        let new_q = CRV3WeightCommits::<Test>::get(netuid, epoch);
+        assert_eq!(new_q.len(), 1, "exactly one migrated element expected");
+
+        let (who2, commit_block, cipher2, round2) = new_q.front().cloned().unwrap();
+        assert_eq!(who2, who);
+        assert_eq!(cipher2, ciphertext);
+        assert_eq!(round2, round);
+
+        let expected_block = Pallet::<Test>::get_first_block_of_epoch(netuid, epoch);
+        assert_eq!(
+            commit_block, expected_block,
+            "commit_block should equal first block of epoch key"
         );
     });
 }

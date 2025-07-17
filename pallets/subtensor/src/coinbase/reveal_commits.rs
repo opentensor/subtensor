@@ -49,7 +49,9 @@ impl<T: Config> Pallet<T> {
         let mut entries = CRV3WeightCommits::<T>::take(netuid, reveal_epoch);
 
         // Keep popping item off the end of the queue until we sucessfully reveal a commit.
-        while let Some((who, serialized_compresssed_commit, round_number)) = entries.pop_front() {
+        while let Some((who, _commit_block, serialized_compresssed_commit, round_number)) =
+            entries.pop_front()
+        {
             let reader = &mut &serialized_compresssed_commit[..];
             let commit = match TLECiphertext::<TinyBLS381>::deserialize_compressed(reader) {
                 Ok(c) => c,

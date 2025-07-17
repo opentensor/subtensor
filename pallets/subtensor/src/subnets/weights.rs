@@ -274,7 +274,7 @@ impl<T: Config> Pallet<T> {
 
             let unrevealed_commits_for_who = commits
                 .iter()
-                .filter(|(account, _, _)| account == &who)
+                .filter(|(account, _, _, _)| account == &who)
                 .count();
             ensure!(
                 unrevealed_commits_for_who < 10,
@@ -284,7 +284,7 @@ impl<T: Config> Pallet<T> {
             // 7. Append the new commit with calculated reveal blocks.
             // Hash the commit before it is moved, for the event
             let commit_hash = BlakeTwo256::hash(&commit);
-            commits.push_back((who.clone(), commit, reveal_round));
+            commits.push_back((who.clone(), cur_block, commit, reveal_round));
 
             // 8. Emit the WeightsCommitted event
             Self::deposit_event(Event::CRV3WeightsCommitted(
