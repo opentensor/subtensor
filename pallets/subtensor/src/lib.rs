@@ -1647,7 +1647,7 @@ pub mod pallet {
     >;
     #[pallet::storage]
     /// MAP (netuid, epoch) → VecDeque<(who, ciphertext, reveal_round)>
-    /// DEPRICATED for CRV3WeightCommitsV2
+    /// DEPRECATED for CRV3WeightCommitsV2
     pub type CRV3WeightCommits<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
