@@ -38,7 +38,7 @@ where
         + Dispatchable<PostInfo = PostDispatchInfo>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
 {
-    const INDEX: u64 = 2057;
+    const INDEX: u64 = 2058;
 }
 
 #[precompile_utils::precompile]
