@@ -94,10 +94,7 @@ where
     #[precompile::public("getEmission(uint16,uint16)")]
     #[precompile::view]
     fn get_emission(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::Pallet::<R>::get_emission_for_uid(
-            netuid.into(),
-            uid,
-        ))
+        Ok(pallet_subtensor::Pallet::<R>::get_emission_for_uid(netuid.into(), uid).into())
     }
 
     #[precompile::public("getVtrust(uint16,uint16)")]

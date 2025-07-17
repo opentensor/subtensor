@@ -232,7 +232,7 @@ fn test_commit_weights_validate() {
 
         let min_stake = 500_000_000_000;
         let reserve = min_stake * 1000;
-        mock::setup_reserves(netuid, reserve, reserve);
+        mock::setup_reserves(netuid, reserve, reserve.into());
 
         // Stake some TAO and read what get_total_stake_for_hotkey it gets
         // It will be a different value due to the slippage
@@ -355,7 +355,7 @@ fn test_set_weights_validate() {
 
         // Create netuid
         add_network(netuid, 1, 0);
-        mock::setup_reserves(netuid, 1_000_000_000_000, 1_000_000_000_000);
+        mock::setup_reserves(netuid, 1_000_000_000_000, 1_000_000_000_000.into());
         // Register the hotkey
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
@@ -764,7 +764,7 @@ fn test_weights_err_setting_weights_too_fast() {
             &hotkey_account_id,
             &(U256::from(66)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::set_weights_set_rate_limit(netuid, 10);
         assert_eq!(SubtensorModule::get_weights_set_rate_limit(netuid), 10);
@@ -857,7 +857,7 @@ fn test_weights_err_has_duplicate_ids() {
             &hotkey_account_id,
             &(U256::from(77)),
             netuid,
-            1,
+            1.into(),
         );
 
         // uid 1
@@ -1048,7 +1048,7 @@ fn test_set_weights_err_invalid_uid() {
             &hotkey_account_id,
             &(U256::from(66)),
             netuid,
-            1,
+            1.into(),
         );
         let weight_keys: Vec<u16> = vec![9999]; // Does not exist
         let weight_values: Vec<u16> = vec![88]; // random value
@@ -1085,7 +1085,7 @@ fn test_set_weight_not_enough_values() {
             &account_id,
             &(U256::from(2)),
             netuid,
-            1,
+            1.into(),
         );
 
         register_ok_neuron(netuid, U256::from(3), U256::from(4), 300000);
@@ -1196,7 +1196,7 @@ fn test_set_weights_sum_larger_than_u16_max() {
             &(U256::from(1)),
             &(U256::from(2)),
             netuid,
-            1,
+            1.into(),
         );
 
         register_ok_neuron(1.into(), U256::from(3), U256::from(4), 300_000);
@@ -1696,13 +1696,13 @@ fn test_commit_reveal_weights_ok() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         // Commit at block 0
@@ -1764,13 +1764,13 @@ fn test_commit_reveal_tempo_interval() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         // Commit at block 0
@@ -1899,13 +1899,13 @@ fn test_commit_reveal_hash() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
@@ -1999,13 +1999,13 @@ fn test_commit_reveal_disabled_or_enabled() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         // Disable commit/reveal
@@ -2076,13 +2076,13 @@ fn test_toggle_commit_reveal_weights_and_set_weights() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         // Enable commit/reveal
@@ -2162,13 +2162,13 @@ fn test_tempo_change_during_commit_reveal_process() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         assert_ok!(SubtensorModule::commit_weights(
@@ -2311,13 +2311,13 @@ fn test_commit_reveal_multiple_commits() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         // 1. Commit 10 times successfully
@@ -2714,13 +2714,13 @@ fn test_expired_commits_handling_in_commit_and_reveal() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         // 1. Commit 5 times in epoch 0
@@ -2912,13 +2912,13 @@ fn test_reveal_at_exact_epoch() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         let reveal_periods: Vec<u64> = vec![0, 1, 2, 7, 40, 86, 100];
@@ -3076,13 +3076,13 @@ fn test_tempo_and_reveal_period_change_during_commit_reveal_process() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         // Step 1: Commit weights
@@ -3266,13 +3266,13 @@ fn test_commit_reveal_order_enforcement() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         // Commit three times: A, B, C
@@ -3538,13 +3538,13 @@ fn test_successful_batch_reveal() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         // 1. Commit multiple times
@@ -3616,13 +3616,13 @@ fn test_batch_reveal_with_expired_commits() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         let mut commit_info = Vec::new();
@@ -4033,13 +4033,13 @@ fn test_batch_reveal_with_out_of_order_commits() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         // 1. Commit multiple times (A, B, C)
@@ -4438,13 +4438,13 @@ fn test_get_reveal_blocks() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         // **6. Commit Weights at Block 0**
@@ -4572,13 +4572,13 @@ fn test_commit_weights_rate_limit() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         let neuron_uid =
@@ -4762,13 +4762,13 @@ fn test_reveal_crv3_commits_success() {
             &hotkey1,
             &(U256::from(3)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey2,
             &(U256::from(4)),
             netuid,
-            1,
+            1.into(),
         );
 
         let version_key = SubtensorModule::get_weights_version_key(netuid);

@@ -4,7 +4,7 @@ use core::ops::Neg;
 use frame_support::{PalletId, pallet_prelude::*, traits::Get};
 use frame_system::pallet_prelude::*;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{BalanceOps, NetUid, SubnetInfo};
+use subtensor_runtime_common::{AlphaCurrency, BalanceOps, Currency, NetUid, SubnetInfo};
 
 use crate::{
     position::{Position, PositionId},
@@ -165,7 +165,7 @@ mod pallet {
             /// The amount of TAO tokens committed to the position
             tao: u64,
             /// The amount of Alpha tokens committed to the position
-            alpha: u64,
+            alpha: AlphaCurrency,
             /// the lower tick
             tick_low: TickIndex,
             /// the upper tick
@@ -187,11 +187,11 @@ mod pallet {
             /// The amount of TAO tokens returned to the user
             tao: u64,
             /// The amount of Alpha tokens returned to the user
-            alpha: u64,
+            alpha: AlphaCurrency,
             /// The amount of TAO fees earned from the position
             fee_tao: u64,
             /// The amount of Alpha fees earned from the position
-            fee_alpha: u64,
+            fee_alpha: AlphaCurrency,
             /// the lower tick
             tick_low: TickIndex,
             /// the upper tick
@@ -218,7 +218,7 @@ mod pallet {
             /// The amount of TAO fees earned from the position
             fee_tao: u64,
             /// The amount of Alpha fees earned from the position
-            fee_alpha: u64,
+            fee_alpha: AlphaCurrency,
             /// the lower tick
             tick_low: TickIndex,
             /// the upper tick
@@ -372,6 +372,7 @@ mod pallet {
                 tick_high,
                 liquidity,
             )?;
+            let alpha = AlphaCurrency::from(alpha);
 
             // Remove TAO and Alpha balances or fail transaction if they can't be removed exactly
             let tao_provided = T::BalanceOps::decrease_balance(&coldkey, tao)?;
@@ -509,7 +510,7 @@ mod pallet {
                     position_id,
                     liquidity: liquidity_delta,
                     tao: result.tao as i64,
-                    alpha: result.alpha as i64,
+                    alpha: result.alpha.to_u64() as i64,
                     fee_tao: result.fee_tao,
                     fee_alpha: result.fee_alpha,
                     tick_low: result.tick_low,
@@ -543,7 +544,7 @@ mod pallet {
                         position_id,
                         liquidity: liquidity_delta,
                         tao: (result.tao as i64).neg(),
-                        alpha: (result.alpha as i64).neg(),
+                        alpha: (result.alpha.to_u64() as i64).neg(),
                         fee_tao: result.fee_tao,
                         fee_alpha: result.fee_alpha,
                         tick_low: result.tick_low,
@@ -556,7 +557,7 @@ mod pallet {
             if result.fee_tao > 0 {
                 T::BalanceOps::increase_balance(&coldkey, result.fee_tao);
             }
-            if result.fee_alpha > 0 {
+            if !result.fee_alpha.is_zero() {
                 T::BalanceOps::increase_stake(
                     &coldkey,
                     &hotkey.clone(),
