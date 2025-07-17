@@ -462,12 +462,9 @@ impl crate::Config for Test {
     type SwapInterface = Swap;
     type KeySwapOnSubnetCost = InitialKeySwapOnSubnetCost;
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
-<<<<<<< HEAD
     type AddressMapping = DummyAddressMap;
-=======
     type ProxyInterface = FakeProxier;
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
->>>>>>> devnet-ready
 }
 
 // Swap-related parameter types
