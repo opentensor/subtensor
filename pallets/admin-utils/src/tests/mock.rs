@@ -230,9 +230,7 @@ impl pallet_subtensor::Config for Test {
     type SwapInterface = Swap;
     type KeySwapOnSubnetCost = InitialKeySwapOnSubnetCost;
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
-<<<<<<< HEAD
     type AddressMapping = DummyAddressMap;
-=======
     type ProxyInterface = ();
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
 }
@@ -274,7 +272,6 @@ impl pallet_crowdloan::Config for Test {
     type MaximumBlockDuration = MaximumBlockDuration;
     type RefundContributorsLimit = RefundContributorsLimit;
     type MaxContributors = MaxContributors;
->>>>>>> devnet-ready
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
