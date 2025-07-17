@@ -1,13 +1,10 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 use futures::{FutureExt, channel::mpsc, future};
-use jsonrpsee::tokio;
 use node_subtensor_runtime::{RuntimeApi, TransactionConverter, opaque::Block};
 use sc_chain_spec::ChainType;
 use sc_client_api::{Backend as BackendT, BlockBackend};
-use sc_consensus::{
-    BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxBlockImport, ImportResult,
-};
+use sc_consensus::{BasicQueue, BoxBlockImport};
 use sc_consensus_grandpa::BlockNumberOps;
 use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
 use sc_network::config::SyncMode;
@@ -16,23 +13,23 @@ use sc_service::{Configuration, PartialComponents, TaskManager, error::Error as 
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, log};
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_consensus::Error as ConsensusError;
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
+use sp_consensus_slots::SlotDuration;
 use sp_core::H256;
-use sp_runtime::traits::{Block as BlockT, Header, NumberFor};
+use sp_runtime::traits::{Block as BlockT, NumberFor};
 use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::atomic::AtomicBool;
 use std::{cell::RefCell, path::Path};
-use std::{marker::PhantomData, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
 
+use crate::aura_consensus::AuraConsensus;
 use crate::cli::Sealing;
 use crate::client::{FullBackend, FullClient, HostFunctions, RuntimeExecutor};
 use crate::ethereum::{
-    BackendType, EthConfiguration, FrontierBackend, FrontierBlockImport, FrontierPartialComponents,
-    StorageOverride, StorageOverrideHandler, db_config_dir, new_frontier_partial,
-    spawn_frontier_tasks,
+    BackendType, EthConfiguration, FrontierBackend, FrontierPartialComponents, StorageOverride,
+    StorageOverrideHandler, db_config_dir, new_frontier_partial, spawn_frontier_tasks,
 };
 
 /// The minimum period of blocks on which justifications will be
@@ -40,7 +37,7 @@ use crate::ethereum::{
 const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
 
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
-type GrandpaBlockImport =
+pub type GrandpaBlockImport =
     sc_consensus_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>;
 type GrandpaLinkHalf = sc_consensus_grandpa::LinkHalf<Block, FullClient, FullSelectChain>;
 
@@ -206,142 +203,33 @@ where
     })
 }
 
-pub struct ConditionalEVMBlockImport<B: BlockT, I, F> {
-    inner: I,
-    frontier_block_import: F,
-    _marker: PhantomData<B>,
-}
+pub trait ConsensusBuilder {
+    type InherentDataProviders: sp_inherents::InherentDataProvider + 'static;
 
-impl<B, I, F> Clone for ConditionalEVMBlockImport<B, I, F>
-where
-    B: BlockT,
-    I: Clone + BlockImport<B>,
-    F: Clone + BlockImport<B>,
-{
-    fn clone(&self) -> Self {
-        ConditionalEVMBlockImport {
-            inner: self.inner.clone(),
-            frontier_block_import: self.frontier_block_import.clone(),
-            _marker: PhantomData,
-        }
-    }
-}
+    fn build_import_queue(
+        client: Arc<FullClient>,
+        config: &Configuration,
+        eth_config: &EthConfiguration,
+        task_manager: &TaskManager,
+        telemetry: Option<TelemetryHandle>,
+        grandpa_block_import: GrandpaBlockImport,
+    ) -> Result<(BasicQueue<Block>, BoxBlockImport<Block>), ServiceError>;
 
-impl<B, I, F> ConditionalEVMBlockImport<B, I, F>
-where
-    B: BlockT,
-    I: BlockImport<B>,
-    I::Error: Into<ConsensusError>,
-    F: BlockImport<B>,
-    F::Error: Into<ConsensusError>,
-{
-    pub fn new(inner: I, frontier_block_import: F) -> Self {
-        Self {
-            inner,
-            frontier_block_import,
-            _marker: PhantomData,
-        }
-    }
-}
+    fn slot_duration(client: &FullClient) -> Result<SlotDuration, ServiceError>;
 
-#[async_trait::async_trait]
-impl<B, I, F> BlockImport<B> for ConditionalEVMBlockImport<B, I, F>
-where
-    B: BlockT,
-    I: BlockImport<B> + Send + Sync,
-    I::Error: Into<ConsensusError>,
-    F: BlockImport<B> + Send + Sync,
-    F::Error: Into<ConsensusError>,
-{
-    type Error = ConsensusError;
+    fn pending_create_inherent_data_providers(
+        slot_duration: SlotDuration,
+    ) -> Result<Self::InherentDataProviders, Box<dyn std::error::Error + Send + Sync>>;
 
-    async fn check_block(&self, block: BlockCheckParams<B>) -> Result<ImportResult, Self::Error> {
-        self.inner.check_block(block).await.map_err(Into::into)
-    }
-
-    async fn import_block(&self, block: BlockImportParams<B>) -> Result<ImportResult, Self::Error> {
-        // 4345556 - mainnet runtime upgrade block with Frontier
-        if *block.header.number() < 4345557u32.into() {
-            self.inner.import_block(block).await.map_err(Into::into)
-        } else {
-            self.frontier_block_import
-                .import_block(block)
-                .await
-                .map_err(Into::into)
-        }
-    }
-}
-
-/// Build the import queue for the template runtime (aura + grandpa).
-pub fn build_aura_grandpa_import_queue(
-    client: Arc<FullClient>,
-    config: &Configuration,
-    _eth_config: &EthConfiguration,
-    task_manager: &TaskManager,
-    telemetry: Option<TelemetryHandle>,
-    grandpa_block_import: GrandpaBlockImport,
-) -> Result<(BasicQueue<Block>, BoxBlockImport<Block>), ServiceError>
-where
-    NumberFor<Block>: BlockNumberOps,
-{
-    let conditional_block_import = ConditionalEVMBlockImport::new(
-        grandpa_block_import.clone(),
-        FrontierBlockImport::new(grandpa_block_import.clone(), client.clone()),
-    );
-
-    let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
-    let create_inherent_data_providers = move |_, ()| async move {
-        let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-        let slot =
-            sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-                *timestamp,
-                slot_duration,
-            );
-        Ok((slot, timestamp))
-    };
-
-    let import_queue =
-        crate::aura_wrapped_import_queue::import_queue(sc_consensus_aura::ImportQueueParams {
-            block_import: conditional_block_import.clone(),
-            justification_import: Some(Box::new(grandpa_block_import.clone())),
-            client,
-            create_inherent_data_providers,
-            spawner: &task_manager.spawn_essential_handle(),
-            registry: config.prometheus_registry(),
-            check_for_equivocation: Default::default(),
-            telemetry,
-            compatibility_mode: sc_consensus_aura::CompatibilityMode::None,
-        })
-        .map_err::<ServiceError, _>(Into::into)?;
-
-    Ok((import_queue, Box::new(conditional_block_import)))
-}
-
-/// Build the import queue for the template runtime (manual seal).
-pub fn build_manual_seal_import_queue(
-    client: Arc<FullClient>,
-    config: &Configuration,
-    _eth_config: &EthConfiguration,
-    task_manager: &TaskManager,
-    _telemetry: Option<TelemetryHandle>,
-    grandpa_block_import: GrandpaBlockImport,
-) -> Result<(BasicQueue<Block>, BoxBlockImport<Block>), ServiceError> {
-    let conditional_block_import = ConditionalEVMBlockImport::new(
-        grandpa_block_import.clone(),
-        FrontierBlockImport::new(grandpa_block_import.clone(), client.clone()),
-    );
-    Ok((
-        sc_consensus_manual_seal::import_queue(
-            Box::new(conditional_block_import.clone()),
-            &task_manager.spawn_essential_handle(),
-            config.prometheus_registry(),
-        ),
-        Box::new(conditional_block_import),
-    ))
+    fn spawn_essential_handles(
+        task_manager: &mut TaskManager,
+        client: Arc<FullClient>,
+        triggered: Option<Arc<AtomicBool>>,
+    ) -> Result<(), ServiceError>;
 }
 
 /// Builds a new service for a full client.
-pub async fn new_full<NB>(
+pub async fn new_full<NB, CB>(
     mut config: Configuration,
     eth_config: EthConfiguration,
     sealing: Option<Sealing>,
@@ -350,6 +238,7 @@ pub async fn new_full<NB>(
 where
     NumberFor<Block>: BlockNumberOps,
     NB: sc_network::NetworkBackend<Block, <Block as BlockT>::Hash>,
+    CB: ConsensusBuilder,
 {
     // Substrate doesn't seem to support fast sync option in our configuration.
     if matches!(config.network.sync_mode, SyncMode::LightState { .. }) {
@@ -360,11 +249,7 @@ where
         return Err(ServiceError::Other("Unsupported sync mode".to_string()));
     }
 
-    let build_import_queue = if sealing.is_some() {
-        build_manual_seal_import_queue
-    } else {
-        build_aura_grandpa_import_queue
-    };
+    let build_import_queue = CB::build_import_queue;
 
     let PartialComponents {
         client,
@@ -377,28 +262,7 @@ where
         other: (mut telemetry, block_import, grandpa_link, frontier_backend, storage_override),
     } = new_partial(&config, &eth_config, build_import_queue)?;
 
-    let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
-    let client_clone = client.clone();
-    let babe_switch_clone = babe_switch.clone();
-    task_manager.spawn_essential_handle().spawn(
-        "babe-switch",
-        None,
-        Box::pin(async move {
-            let client = client_clone;
-            let babe_switch = babe_switch_clone;
-            loop {
-                // Check if the runtime is Babe once per block.
-                if let Ok(c) = sc_consensus_babe::configuration(&*client) {
-                    if !c.authorities.is_empty() {
-                        log::info!("Babe runtime detected! Intentionally failing the essential handle `babe-switch` to trigger switch to Babe service.");
-                        babe_switch.store(true, std::sync::atomic::Ordering::SeqCst);
-                        break;
-                    }
-                };
-                tokio::time::sleep(slot_duration.as_duration()).await;
-            }
-        }),
-    );
+    CB::spawn_essential_handles(&mut task_manager, client.clone(), Some(babe_switch))?;
 
     let FrontierPartialComponents {
         filter_pool,
@@ -555,20 +419,11 @@ where
             prometheus_registry.clone(),
         ));
 
-        let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
-        let pending_create_inherent_data_providers = move |_, ()| async move {
-            let current = sp_timestamp::InherentDataProvider::from_system_time();
-            let next_slot = current
-                .timestamp()
-                .as_millis()
-                .saturating_add(slot_duration.as_millis());
-            let timestamp = sp_timestamp::InherentDataProvider::new(next_slot.into());
-            let slot = sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-				*timestamp,
-				slot_duration,
-			);
-            Ok((slot, timestamp))
-        };
+        let slot_duration = CB::slot_duration(&*client)?;
+        // let pending_create_inherent_data_providers =
+        //     CB::pending_create_inherent_data_providers(slot_duration);
+        let pending_create_inherent_data_providers =
+            move |_, ()| async move { CB::pending_create_inherent_data_providers(slot_duration) };
 
         Box::new(move |subscription_task_executor| {
             let eth_deps = crate::ethereum::EthDeps {
@@ -766,23 +621,38 @@ pub async fn build_full(
 ) -> Result<TaskManager, ServiceError> {
     match config.network.network_backend {
         Some(sc_network::config::NetworkBackendType::Libp2p) => {
-            new_full::<sc_network::NetworkWorker<_, _>>(config, eth_config, sealing, babe_switch)
-                .await
+            new_full::<sc_network::NetworkWorker<_, _>, AuraConsensus>(
+                config,
+                eth_config,
+                sealing,
+                babe_switch,
+            )
+            .await
         }
         Some(sc_network::config::NetworkBackendType::Litep2p) => {
-            new_full::<sc_network::Litep2pNetworkBackend>(config, eth_config, sealing, babe_switch)
-                .await
+            new_full::<sc_network::Litep2pNetworkBackend, AuraConsensus>(
+                config,
+                eth_config,
+                sealing,
+                babe_switch,
+            )
+            .await
         }
         _ => {
             log::debug!("no network backend selected, falling back to libp2p");
-            new_full::<sc_network::NetworkWorker<_, _>>(config, eth_config, sealing, babe_switch)
-                .await
+            new_full::<sc_network::NetworkWorker<_, _>, AuraConsensus>(
+                config,
+                eth_config,
+                sealing,
+                babe_switch,
+            )
+            .await
         }
     }
 }
 
 #[allow(unused)]
-pub fn new_chain_ops(
+pub fn new_chain_ops<CB: ConsensusBuilder>(
     config: &mut Configuration,
     eth_config: &EthConfiguration,
 ) -> Result<
@@ -803,7 +673,7 @@ pub fn new_chain_ops(
         task_manager,
         other,
         ..
-    } = new_partial(config, eth_config, build_aura_grandpa_import_queue)?;
+    } = new_partial(config, eth_config, CB::build_import_queue)?;
     Ok((client, backend, import_queue, task_manager, other.3))
 }
 

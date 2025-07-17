@@ -1,15 +1,15 @@
 //! Substrate Node Subtensor CLI library.
 #![warn(missing_docs)]
 
-mod chain_spec;
-#[macro_use]
-mod babe_service;
+mod aura_consensus;
 mod aura_rpc;
 mod aura_service;
 mod aura_wrapped_import_queue;
 mod babe_rpc;
+mod babe_service;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+mod chain_spec;
 mod cli;
 mod client;
 mod command;

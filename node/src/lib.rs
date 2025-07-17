@@ -1,3 +1,4 @@
+pub mod aura_consensus;
 pub mod aura_rpc;
 pub mod aura_service;
 pub mod aura_wrapped_import_queue;
