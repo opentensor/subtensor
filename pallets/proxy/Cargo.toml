@@ -25,9 +25,9 @@ sp-runtime.workspace = true
 subtensor-macros.workspace = true
 
 [dev-dependencies]
-pallet-balances = { default-features = true, workspace = true }
-pallet-utility = { default-features = true, workspace = true }
-sp-core = { default-features = true, workspace = true }
+pallet-balances.workspace = true
+pallet-utility.workspace = true
+sp-core.workspace = true
 
 [features]
 default = ["std"]

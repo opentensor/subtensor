@@ -73,17 +73,6 @@ dependencies = [
 
 [[package]]
 name = "ahash"
-version = "0.7.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "891477e0c6a8957309ee5c45a6368af3ae14bb510732d2684ffa19af310920f9"
-dependencies = [
- "getrandom 0.2.16",
- "once_cell",
- "version_check",
-]
-
-[[package]]
-name = "ahash"
 version = "0.8.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a15f179cd60c4584b8a8c596927aadc462e27f2ca70c04e0071964a73ba7a75"
@@ -370,7 +359,7 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43d68f2d516162846c1238e755a7c4d131b892b70cc70c471a8e3ca3ed818fce"
 dependencies = [
- "ahash 0.8.12",
+ "ahash",
  "ark-ff 0.5.0",
  "ark-poly 0.5.0",
  "ark-serialize 0.5.0",
@@ -605,7 +594,7 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "579305839da207f02b89cd1679e50e67b4331e2f9294a57693e5051b7703fe27"
 dependencies = [
- "ahash 0.8.12",
+ "ahash",
  "ark-ff 0.5.0",
  "ark-serialize 0.5.0",
  "ark-std 0.5.0",
@@ -2971,19 +2960,6 @@ dependencies = [
 
 [[package]]
 name = "ethbloom"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c22d4b5885b6aa2fe5e8b9329fb8d232bf739e434e6b87347c63bdd00c120f60"
-dependencies = [
- "crunchy",
- "fixed-hash",
- "impl-rlp 0.3.0",
- "impl-serde 0.4.0",
- "tiny-keccak",
-]
-
-[[package]]
-name = "ethbloom"
 version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c321610643004cf908ec0f5f2aa0d8f1f8e14b540562a2887a1111ff1ecbf7b"
@@ -2991,8 +2967,8 @@ dependencies = [
  "crunchy",
  "fixed-hash",
  "impl-codec 0.7.1",
- "impl-rlp 0.4.0",
- "impl-serde 0.5.0",
+ "impl-rlp",
+ "impl-serde",
  "scale-info",
  "tiny-keccak",
 ]
@@ -3003,7 +2979,7 @@ version = "0.15.0"
 source = "git+https://github.com/rust-ethereum/ethereum?rev=bbb544622208ef6e9890a2dbc224248f6dd13318#bbb544622208ef6e9890a2dbc224248f6dd13318"
 dependencies = [
  "bytes",
- "ethereum-types 0.15.1",
+ "ethereum-types",
  "hash-db",
  "hash256-std-hasher",
  "parity-scale-codec",
@@ -3016,29 +2992,15 @@ dependencies = [
 
 [[package]]
 name = "ethereum-types"
-version = "0.14.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02d215cbf040552efcbe99a38372fe80ab9d00268e20012b79fcd0f073edd8ee"
-dependencies = [
- "ethbloom 0.13.0",
- "fixed-hash",
- "impl-rlp 0.3.0",
- "impl-serde 0.4.0",
- "primitive-types 0.12.2",
- "uint 0.9.5",
-]
-
-[[package]]
-name = "ethereum-types"
 version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ab15ed80916029f878e0267c3a9f92b67df55e79af370bf66199059ae2b4ee3"
 dependencies = [
- "ethbloom 0.14.1",
+ "ethbloom",
  "fixed-hash",
  "impl-codec 0.7.1",
- "impl-rlp 0.4.0",
- "impl-serde 0.5.0",
+ "impl-rlp",
+ "impl-serde",
  "primitive-types 0.13.1",
  "scale-info",
  "uint 0.10.0",
@@ -3216,7 +3178,7 @@ dependencies = [
 [[package]]
 name = "fc-api"
 version = "1.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "async-trait",
  "fp-storage",
@@ -3228,7 +3190,7 @@ dependencies = [
 [[package]]
 name = "fc-aura"
 version = "1.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "fc-rpc",
  "fp-storage",
@@ -3244,7 +3206,7 @@ dependencies = [
 [[package]]
 name = "fc-consensus"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "async-trait",
  "fp-consensus",
@@ -3260,7 +3222,7 @@ dependencies = [
 [[package]]
 name = "fc-db"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "async-trait",
  "ethereum",
@@ -3290,7 +3252,7 @@ dependencies = [
 [[package]]
 name = "fc-mapping-sync"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "fc-db",
  "fc-storage",
@@ -3313,10 +3275,10 @@ dependencies = [
 [[package]]
 name = "fc-rpc"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "ethereum",
- "ethereum-types 0.15.1",
+ "ethereum-types",
  "evm",
  "fc-api",
  "fc-mapping-sync",
@@ -3364,10 +3326,10 @@ dependencies = [
 [[package]]
 name = "fc-rpc-core"
 version = "1.1.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "ethereum",
- "ethereum-types 0.15.1",
+ "ethereum-types",
  "jsonrpsee",
  "rlp 0.6.1",
  "rustc-hex",
@@ -3379,10 +3341,10 @@ dependencies = [
 [[package]]
 name = "fc-storage"
 version = "1.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "ethereum",
- "ethereum-types 0.15.1",
+ "ethereum-types",
  "fp-rpc",
  "fp-storage",
  "parity-scale-codec",
@@ -3553,10 +3515,10 @@ dependencies = [
 [[package]]
 name = "fp-account"
 version = "1.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "hex",
- "impl-serde 0.5.0",
+ "impl-serde",
  "libsecp256k1",
  "log",
  "parity-scale-codec",
@@ -3572,7 +3534,7 @@ dependencies = [
 [[package]]
 name = "fp-consensus"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "ethereum",
  "parity-scale-codec",
@@ -3583,10 +3545,10 @@ dependencies = [
 [[package]]
 name = "fp-ethereum"
 version = "1.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "ethereum",
- "ethereum-types 0.15.1",
+ "ethereum-types",
  "fp-evm",
  "frame-support",
  "parity-scale-codec",
@@ -3595,7 +3557,7 @@ dependencies = [
 [[package]]
 name = "fp-evm"
 version = "3.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "environmental",
  "evm",
@@ -3611,10 +3573,10 @@ dependencies = [
 [[package]]
 name = "fp-rpc"
 version = "3.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "ethereum",
- "ethereum-types 0.15.1",
+ "ethereum-types",
  "fp-evm",
  "parity-scale-codec",
  "scale-info",
@@ -3627,7 +3589,7 @@ dependencies = [
 [[package]]
 name = "fp-self-contained"
 version = "1.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -3639,7 +3601,7 @@ dependencies = [
 [[package]]
 name = "fp-storage"
 version = "2.0.0"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "parity-scale-codec",
  "serde",
@@ -4370,9 +4332,6 @@ name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
-dependencies = [
- "ahash 0.7.8",
-]
 
 [[package]]
 name = "hashbrown"
@@ -4380,7 +4339,7 @@ version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43a3c133739dddd0d2990f9a4bdf8eb4b21ef50e4851ca85ab661199821d510e"
 dependencies = [
- "ahash 0.8.12",
+ "ahash",
 ]
 
 [[package]]
@@ -4389,7 +4348,7 @@ version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5274423e17b7c9fc20b6e7e208532f9b19825d82dfd615708b70edd83df41f1"
 dependencies = [
- "ahash 0.8.12",
+ "ahash",
  "allocator-api2",
  "serde",
 ]
@@ -4986,29 +4945,11 @@ dependencies = [
 
 [[package]]
 name = "impl-rlp"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f28220f89297a075ddc7245cd538076ee98b01f2a9c23a53a4f1105d5a322808"
-dependencies = [
- "rlp 0.5.2",
-]
-
-[[package]]
-name = "impl-rlp"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "54ed8ad1f3877f7e775b8cbf30ed1bd3209a95401817f19a0eb4402d13f8cf90"
 dependencies = [
  "rlp 0.6.1",
-]
-
-[[package]]
-name = "impl-serde"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebc88fc67028ae3db0c853baa36269d398d5f45b6982f95549ff5def78c935cd"
-dependencies = [
- "serde",
 ]
 
 [[package]]
@@ -5612,7 +5553,7 @@ dependencies = [
  "libp2p-core",
  "libp2p-identity",
  "libp2p-swarm",
- "lru 0.12.5",
+ "lru",
  "quick-protobuf",
  "quick-protobuf-codec",
  "smallvec",
@@ -5808,7 +5749,7 @@ dependencies = [
  "libp2p-core",
  "libp2p-identity",
  "libp2p-swarm-derive",
- "lru 0.12.5",
+ "lru",
  "multistream-select",
  "once_cell",
  "rand 0.8.5",
@@ -6158,15 +6099,6 @@ dependencies = [
  "scoped-tls",
  "tracing",
  "tracing-subscriber 0.3.19",
-]
-
-[[package]]
-name = "lru"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6e8aaa3f231bb4bd57b84b2d5dc3ae7f350265df8aa96492e0bc394a1571909"
-dependencies = [
- "hashbrown 0.12.3",
 ]
 
 [[package]]
@@ -7314,7 +7246,7 @@ dependencies = [
 [[package]]
 name = "pallet-base-fee"
 version = "1.0.0"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "fp-evm",
  "frame-support",
@@ -7425,10 +7357,10 @@ dependencies = [
 [[package]]
 name = "pallet-ethereum"
 version = "4.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "ethereum",
- "ethereum-types 0.15.1",
+ "ethereum-types",
  "evm",
  "fp-consensus",
  "fp-ethereum",
@@ -7448,7 +7380,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm"
 version = "6.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "cumulus-primitives-storage-weight-reclaim",
  "environmental",
@@ -7472,7 +7404,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-chain-id"
 version = "1.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -7483,7 +7415,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-dispatch"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "fp-evm",
  "frame-support",
@@ -7495,7 +7427,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-modexp"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "fp-evm",
  "num",
@@ -7504,7 +7436,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-sha3fips"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "fp-evm",
  "tiny-keccak",
@@ -7513,7 +7445,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-simple"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "fp-evm",
  "ripemd",
@@ -7545,7 +7477,7 @@ dependencies = [
 [[package]]
 name = "pallet-hotfix-sufficients"
 version = "1.0.0"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -8010,14 +7942,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d32c34f4f5ca7f9196001c0aba5a1f9a5a12382c8944b8b0f90233282d1e8f8"
 dependencies = [
  "cfg-if",
- "ethereum-types 0.14.1",
- "hashbrown 0.12.3",
  "impl-trait-for-tuples",
- "lru 0.8.1",
  "parity-util-mem-derive",
- "parking_lot 0.12.4",
  "primitive-types 0.12.2",
- "smallvec",
  "winapi",
 ]
 
@@ -8677,7 +8604,7 @@ dependencies = [
 [[package]]
 name = "precompile-utils"
 version = "0.1.0"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "environmental",
  "evm",
@@ -8701,7 +8628,7 @@ dependencies = [
 [[package]]
 name = "precompile-utils-macro"
 version = "0.1.0"
-source = "git+https://github.com/opentensor/frontier?rev=e9ea10878deaab714355833acb07475f6cb156ef#e9ea10878deaab714355833acb07475f6cb156ef"
+source = "git+https://github.com/opentensor/frontier?rev=ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb#ca6a0733cd2d58e725bf0855fc3ed1a3ba578beb"
 dependencies = [
  "case",
  "num_enum",
@@ -8756,8 +8683,6 @@ checksum = "0b34d9fd68ae0b74a41b21c03c2f62847aa0ffea044eee893b4c140b37e244e2"
 dependencies = [
  "fixed-hash",
  "impl-codec 0.6.0",
- "impl-rlp 0.3.0",
- "impl-serde 0.4.0",
  "uint 0.9.5",
 ]
 
@@ -8770,8 +8695,8 @@ dependencies = [
  "fixed-hash",
  "impl-codec 0.7.1",
  "impl-num-traits",
- "impl-rlp 0.4.0",
- "impl-serde 0.5.0",
+ "impl-rlp",
+ "impl-serde",
  "scale-info",
  "uint 0.10.0",
 ]
@@ -10171,7 +10096,7 @@ name = "sc-consensus-grandpa"
 version = "0.34.0"
 source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
 dependencies = [
- "ahash 0.8.12",
+ "ahash",
  "array-bytes",
  "async-trait",
  "dyn-clone",
@@ -10474,7 +10399,7 @@ name = "sc-network-gossip"
 version = "0.49.0"
 source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
 dependencies = [
- "ahash 0.8.12",
+ "ahash",
  "futures",
  "futures-timer",
  "log",
@@ -11128,7 +11053,7 @@ version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "356285bbf17bea63d9e52e96bd18f039672ac92b55b8cb997d6162a2a37d1649"
 dependencies = [
- "ahash 0.8.12",
+ "ahash",
  "cfg-if",
  "hashbrown 0.13.2",
 ]
@@ -11726,7 +11651,7 @@ dependencies = [
  "hex",
  "itertools 0.13.0",
  "log",
- "lru 0.12.5",
+ "lru",
  "parking_lot 0.12.4",
  "pin-project",
  "rand 0.8.5",
@@ -11993,7 +11918,7 @@ dependencies = [
  "futures",
  "hash-db",
  "hash256-std-hasher",
- "impl-serde 0.5.0",
+ "impl-serde",
  "itertools 0.11.0",
  "k256",
  "libsecp256k1",
@@ -12452,7 +12377,7 @@ name = "sp-storage"
 version = "19.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk#5072bf9b93dc1c9dff0161ab6efe2799036045e9"
 dependencies = [
- "impl-serde 0.5.0",
+ "impl-serde",
  "parity-scale-codec",
  "ref-cast",
  "serde",
@@ -12464,7 +12389,7 @@ name = "sp-storage"
 version = "22.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
 dependencies = [
- "impl-serde 0.5.0",
+ "impl-serde",
  "parity-scale-codec",
  "ref-cast",
  "serde",
@@ -12533,7 +12458,7 @@ name = "sp-trie"
 version = "39.1.0"
 source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
 dependencies = [
- "ahash 0.8.12",
+ "ahash",
  "hash-db",
  "memory-db",
  "nohash-hasher",
@@ -12555,7 +12480,7 @@ name = "sp-version"
 version = "39.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
 dependencies = [
- "impl-serde 0.5.0",
+ "impl-serde",
  "parity-scale-codec",
  "parity-wasm",
  "scale-info",
@@ -13047,7 +12972,7 @@ dependencies = [
 name = "subtensor-macros"
 version = "0.1.0"
 dependencies = [
- "ahash 0.8.12",
+ "ahash",
  "proc-macro2",
  "quote",
  "syn 2.0.104",
@@ -13140,7 +13065,7 @@ dependencies = [
  "frame-metadata 17.0.0",
  "futures",
  "hex",
- "impl-serde 0.5.0",
+ "impl-serde",
  "jsonrpsee",
  "parity-scale-codec",
  "polkadot-sdk",
@@ -13194,7 +13119,7 @@ dependencies = [
  "frame-metadata 17.0.0",
  "hashbrown 0.14.5",
  "hex",
- "impl-serde 0.5.0",
+ "impl-serde",
  "keccak-hash",
  "parity-scale-codec",
  "polkadot-sdk",
@@ -14411,7 +14336,7 @@ version = "0.32.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c128c039340ffd50d4195c3f8ce31aac357f06804cfc494c8b9508d4b30dca4"
 dependencies = [
- "ahash 0.8.12",
+ "ahash",
  "hashbrown 0.14.5",
  "string-interner",
 ]

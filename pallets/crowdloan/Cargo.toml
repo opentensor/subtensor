@@ -24,10 +24,10 @@ sp-std.workspace = true
 log = { workspace = true }
 
 [dev-dependencies]
-pallet-balances = { default-features = true, workspace = true }
-pallet-preimage = { default-features = true, workspace = true }
-sp-core = { default-features = true, workspace = true }
-sp-io = { default-features = true, workspace = true }
+pallet-balances.workspace = true
+pallet-preimage.workspace = true
+sp-core.workspace = true
+sp-io.workspace = true
 
 [features]
 default = ["std"]

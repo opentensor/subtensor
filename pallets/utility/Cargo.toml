@@ -24,11 +24,11 @@ sp-runtime = { workspace = true, default-features = false}
 subtensor-macros = { workspace = true }
 
 [dev-dependencies]
-pallet-balances = { default-features = true, workspace = true }
-pallet-collective = { default-features = false, path = "../collective" }
-pallet-timestamp = { default-features = true, workspace = true }
-sp-core = { default-features = true, workspace = true }
-pallet-root-testing = { workspace = true, default-features = false }
+pallet-balances.workspace = true
+pallet-collective = { path = "../collective" }
+pallet-timestamp = { workspace = true }
+sp-core.workspace = true
+pallet-root-testing = { workspace = true }
 
 [features]
 default = ["std"]
