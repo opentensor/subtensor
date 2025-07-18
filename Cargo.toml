@@ -124,11 +124,11 @@ macro_magic = { version = "0.5", features = [
 frame-support-procedural-tools = { version = "10.0.0", default-features = false }
 proc-macro-warning = { version = "1", default-features = false }
 expander = { version = "2", default-features = false }
-derive-syn-parse = "0.2"
-Inflector = "0.11"
-cfg-expr = "0.15"
-itertools = "0.10"
-regex = "1"
+derive-syn-parse = { version = "0.2", default-features = false }
+Inflector = { version = "0.11", default-features = false }
+cfg-expr = { version = "0.15", default-features = false }
+itertools = { version = "0.10", default-features = false }
+regex = { version = "1", default-features = false }
 
 frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-7", default-features = false }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-7", default-features = false }
