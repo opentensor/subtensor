@@ -64,11 +64,7 @@ impl<B: BlockT, C, CIDP, N> AuraWrappedVerifier<B, C, CIDP, N> {
 impl<B: BlockT, C, CIDP> Verifier<B> for AuraWrappedVerifier<B, C, CIDP, NumberFor<B>>
 where
     C: ProvideRuntimeApi<B> + Send + Sync + sc_client_api::backend::AuxStore,
-    // C::Api: BlockBuilderApi<B> + AuraApi<B, AuthorityId<P>> + ApiExt<B>,
     C::Api: BlockBuilderApi<B> + AuraApi<B, AuthorityId> + ApiExt<B>,
-    // P: Pair,
-    // P::Public: Codec + Debug,
-    // P::Signature: Codec,
     CIDP: CreateInherentDataProviders<B, ()> + Send + Sync,
     CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
@@ -89,17 +85,7 @@ where
 
 /// Start an import queue for the Aura consensus algorithm.
 pub fn import_queue<B, I, C, S, CIDP>(
-    ImportQueueParams {
-        block_import,
-        justification_import,
-        client,
-        create_inherent_data_providers,
-        spawner,
-        registry,
-        check_for_equivocation,
-        telemetry,
-        compatibility_mode,
-    }: ImportQueueParams<B, I, C, S, CIDP>,
+    params: ImportQueueParams<B, I, C, S, CIDP>,
 ) -> Result<DefaultImportQueue<B>, sp_consensus::Error>
 where
     B: BlockT,
@@ -118,19 +104,19 @@ where
     CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
     let verifier = AuraWrappedVerifier::<B, C, CIDP, NumberFor<B>>::new(
-        client,
-        create_inherent_data_providers,
-        telemetry,
-        check_for_equivocation,
-        compatibility_mode,
+        params.client,
+        params.create_inherent_data_providers,
+        params.telemetry,
+        params.check_for_equivocation,
+        params.compatibility_mode,
     );
 
     Ok(BasicQueue::new(
         verifier,
-        Box::new(block_import),
-        justification_import,
-        spawner,
-        registry,
+        Box::new(params.block_import),
+        params.justification_import,
+        params.spawner,
+        params.registry,
     ))
 }
 

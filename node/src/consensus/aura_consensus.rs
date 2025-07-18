@@ -37,22 +37,7 @@ impl ConsensusMechanism for AuraConsensus {
     fn start_authoring<C, SC, I, PF, SO, L, CIDP, BS, Error>(
         self,
         task_manager: &mut TaskManager,
-        StartAuthoringParams {
-            slot_duration,
-            client,
-            select_chain,
-            block_import,
-            proposer_factory,
-            sync_oracle,
-            justification_sync_link,
-            create_inherent_data_providers,
-            force_authoring,
-            backoff_authoring_blocks,
-            keystore,
-            telemetry,
-            block_proposal_slot_portion,
-            max_block_proposal_slot_portion,
-        }: StartAuthoringParams<C, SC, I, PF, SO, L, CIDP, BS>,
+        params: StartAuthoringParams<C, SC, I, PF, SO, L, CIDP, BS>,
     ) -> Result<(), sp_consensus::Error>
     where
         C: ProvideRuntimeApi<Block>
@@ -77,20 +62,20 @@ impl ConsensusMechanism for AuraConsensus {
     {
         let aura = sc_consensus_aura::start_aura::<AuraPair, Block, _, _, _, _, _, _, _, _, _>(
             sc_consensus_aura::StartAuraParams {
-                slot_duration,
-                client,
-                select_chain,
-                block_import,
-                proposer_factory,
-                sync_oracle,
-                justification_sync_link,
-                create_inherent_data_providers,
-                force_authoring,
-                backoff_authoring_blocks,
-                keystore,
-                block_proposal_slot_portion,
-                max_block_proposal_slot_portion,
-                telemetry,
+                slot_duration: params.slot_duration,
+                client: params.client,
+                select_chain: params.select_chain,
+                block_import: params.block_import,
+                proposer_factory: params.proposer_factory,
+                sync_oracle: params.sync_oracle,
+                justification_sync_link: params.justification_sync_link,
+                create_inherent_data_providers: params.create_inherent_data_providers,
+                force_authoring: params.force_authoring,
+                backoff_authoring_blocks: params.backoff_authoring_blocks,
+                keystore: params.keystore,
+                block_proposal_slot_portion: params.block_proposal_slot_portion,
+                max_block_proposal_slot_portion: params.max_block_proposal_slot_portion,
+                telemetry: params.telemetry,
                 compatibility_mode: Default::default(),
             },
         )?;

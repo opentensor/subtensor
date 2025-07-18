@@ -45,22 +45,7 @@ impl ConsensusMechanism for BabeConsensus {
     fn start_authoring<C, SC, I, PF, SO, L, CIDP, BS, Error>(
         self,
         task_manager: &mut TaskManager,
-        StartAuthoringParams {
-            slot_duration: _,
-            client,
-            select_chain,
-            block_import,
-            proposer_factory,
-            sync_oracle,
-            justification_sync_link,
-            create_inherent_data_providers,
-            force_authoring,
-            backoff_authoring_blocks,
-            keystore,
-            telemetry,
-            block_proposal_slot_portion,
-            max_block_proposal_slot_portion,
-        }: StartAuthoringParams<C, SC, I, PF, SO, L, CIDP, BS>,
+        params: StartAuthoringParams<C, SC, I, PF, SO, L, CIDP, BS>,
     ) -> Result<(), sp_consensus::Error>
     where
         C: ProvideRuntimeApi<Block>
@@ -85,22 +70,22 @@ impl ConsensusMechanism for BabeConsensus {
     {
         let babe = sc_consensus_babe::start_babe::<Block, C, SC, PF, I, SO, CIDP, BS, L, Error>(
             sc_consensus_babe::BabeParams {
-                keystore,
-                client,
-                select_chain,
-                env: proposer_factory,
-                block_import,
-                sync_oracle,
-                justification_sync_link,
-                create_inherent_data_providers,
-                force_authoring,
-                backoff_authoring_blocks,
+                keystore: params.keystore,
+                client: params.client,
+                select_chain: params.select_chain,
+                env: params.proposer_factory,
+                block_import: params.block_import,
+                sync_oracle: params.sync_oracle,
+                justification_sync_link: params.justification_sync_link,
+                create_inherent_data_providers: params.create_inherent_data_providers,
+                force_authoring: params.force_authoring,
+                backoff_authoring_blocks: params.backoff_authoring_blocks,
                 babe_link: self
                     .babe_link
                     .expect("Must build the import queue before starting authoring."),
-                block_proposal_slot_portion,
-                max_block_proposal_slot_portion,
-                telemetry,
+                block_proposal_slot_portion: params.block_proposal_slot_portion,
+                max_block_proposal_slot_portion: params.max_block_proposal_slot_portion,
+                telemetry: params.telemetry,
             },
         )?;
 
