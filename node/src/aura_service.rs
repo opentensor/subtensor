@@ -13,6 +13,7 @@ use sc_consensus_grandpa::BlockNumberOps;
 use sc_consensus_slots::BackoffAuthoringBlocksStrategy;
 use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
 use sc_consensus_slots::InherentDataProviderExt;
+use sc_consensus_slots::SlotProportion;
 use sc_network::config::SyncMode;
 use sc_network_sync::strategy::warp::{WarpSyncConfig, WarpSyncProvider};
 use sc_service::{Configuration, PartialComponents, TaskManager, error::Error as ServiceError};
@@ -24,10 +25,11 @@ use sp_blockchain::HeaderBackend;
 use sp_consensus::Proposer;
 use sp_consensus::SyncOracle;
 use sp_consensus::{Environment, SelectChain};
-use sp_consensus_aura::sr25519::AuthorityId;
+use sp_consensus_aura::sr25519::AuthorityId as AuraAuthorityId;
 use sp_consensus_slots::SlotDuration;
 use sp_core::H256;
 use sp_inherents::CreateInherentDataProviders;
+use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 use std::collections::HashSet;
 use std::str::FromStr;
@@ -215,7 +217,43 @@ where
     })
 }
 
-pub trait ConsensusBuilder {
+pub struct StartAuthoringParams<C, SC, I, PF, SO, L, CIDP, BS> {
+    /// The duration of a slot.
+    pub slot_duration: SlotDuration,
+    /// The client to interact with the chain.
+    pub client: Arc<C>,
+    /// A select chain implementation to select the best block.
+    pub select_chain: SC,
+    /// The block import.
+    pub block_import: I,
+    /// The proposer factory to build proposer instances.
+    pub proposer_factory: PF,
+    /// The sync oracle that can give us the current sync status.
+    pub sync_oracle: SO,
+    /// Hook into the sync module to control the justification sync process.
+    pub justification_sync_link: L,
+    /// Something that can create the inherent data providers.
+    pub create_inherent_data_providers: CIDP,
+    /// Should we force the authoring of blocks?
+    pub force_authoring: bool,
+    /// The backoff strategy when we miss slots.
+    pub backoff_authoring_blocks: Option<BS>,
+    /// The keystore used by the node.
+    pub keystore: KeystorePtr,
+    /// The proportion of the slot dedicated to proposing.
+    ///
+    /// The block proposing will be limited to this proportion of the slot from the starting of the
+    /// slot. However, the proposing can still take longer when there is some lenience factor
+    /// applied, because there were no blocks produced for some slots.
+    pub block_proposal_slot_portion: SlotProportion,
+    /// The maximum proportion of the slot dedicated to proposing with any lenience factor applied
+    /// due to no blocks being produced.
+    pub max_block_proposal_slot_portion: Option<SlotProportion>,
+    /// Telemetry instance used to report telemetry metrics.
+    pub telemetry: Option<TelemetryHandle>,
+}
+
+pub trait ConsensusMechanism {
     type InherentDataProviders: sp_inherents::InherentDataProvider
         + sc_consensus_slots::InherentDataProviderExt
         + 'static;
@@ -241,12 +279,12 @@ pub trait ConsensusBuilder {
 
     fn start_authoring<B, C, SC, I, PF, SO, L, CIDP, BS, Error>(
         task_manager: &mut TaskManager,
-        params: sc_consensus_aura::StartAuraParams<C, SC, I, PF, SO, L, CIDP, BS, NumberFor<B>>,
+        params: StartAuthoringParams<C, SC, I, PF, SO, L, CIDP, BS>,
     ) -> Result<(), sp_consensus::Error>
     where
         B: BlockT,
         C: ProvideRuntimeApi<B> + BlockOf + AuxStore + HeaderBackend<B> + Send + Sync + 'static,
-        C::Api: AuraApi<B, AuthorityId>,
+        C::Api: AuraApi<B, AuraAuthorityId>,
         SC: SelectChain<B> + 'static,
         I: BlockImport<B> + Send + Sync + 'static,
         PF: Environment<B, Error = Error> + Send + Sync + 'static,
@@ -275,7 +313,7 @@ pub async fn new_full<NB, CB>(
 where
     NumberFor<Block>: BlockNumberOps,
     NB: sc_network::NetworkBackend<Block, <Block as BlockT>::Hash>,
-    CB: ConsensusBuilder,
+    CB: ConsensusMechanism,
 {
     // Substrate doesn't seem to support fast sync option in our configuration.
     if matches!(config.network.sync_mode, SyncMode::LightState { .. }) {
@@ -567,7 +605,7 @@ where
 
         CB::start_authoring(
             &mut task_manager,
-            sc_consensus_aura::StartAuraParams {
+            StartAuthoringParams {
                 slot_duration,
                 client,
                 select_chain,
@@ -579,10 +617,9 @@ where
                 force_authoring,
                 backoff_authoring_blocks,
                 keystore: keystore_container.keystore(),
-                block_proposal_slot_portion: sc_consensus_aura::SlotProportion::new(2f32 / 3f32),
+                block_proposal_slot_portion: SlotProportion::new(2f32 / 3f32),
                 max_block_proposal_slot_portion: None,
                 telemetry: telemetry.as_ref().map(|x| x.handle()),
-                compatibility_mode: sc_consensus_aura::CompatibilityMode::None,
             },
         )?;
     }
@@ -678,7 +715,7 @@ pub async fn build_full(
 }
 
 #[allow(unused)]
-pub fn new_chain_ops<CB: ConsensusBuilder>(
+pub fn new_chain_ops<CB: ConsensusMechanism>(
     config: &mut Configuration,
     eth_config: &EthConfiguration,
 ) -> Result<

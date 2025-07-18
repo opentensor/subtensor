@@ -1,5 +1,5 @@
 use crate::{
-    aura_service::{ConsensusBuilder, GrandpaBlockImport},
+    aura_service::{ConsensusMechanism, GrandpaBlockImport, StartAuthoringParams},
     client::FullClient,
     conditional_evm_block_import::ConditionalEVMBlockImport,
     ethereum::EthConfiguration,
@@ -25,7 +25,7 @@ use std::{error::Error, sync::Arc};
 
 pub struct AuraConsensus;
 
-impl ConsensusBuilder for AuraConsensus {
+impl ConsensusMechanism for AuraConsensus {
     type InherentDataProviders = (
         sp_consensus_aura::inherents::InherentDataProvider,
         sp_timestamp::InherentDataProvider,
@@ -33,7 +33,7 @@ impl ConsensusBuilder for AuraConsensus {
 
     fn start_authoring<B, C, SC, I, PF, SO, L, CIDP, BS, Error>(
         task_manager: &mut TaskManager,
-        sc_consensus_aura::StartAuraParams {
+        StartAuthoringParams {
             slot_duration,
             client,
             select_chain,
@@ -48,8 +48,7 @@ impl ConsensusBuilder for AuraConsensus {
             telemetry,
             block_proposal_slot_portion,
             max_block_proposal_slot_portion,
-            compatibility_mode,
-        }: sc_consensus_aura::StartAuraParams<C, SC, I, PF, SO, L, CIDP, BS, NumberFor<B>>,
+        }: StartAuthoringParams<C, SC, I, PF, SO, L, CIDP, BS>,
     ) -> Result<(), sp_consensus::Error>
     where
         B: BlockT,
@@ -82,7 +81,7 @@ impl ConsensusBuilder for AuraConsensus {
                 block_proposal_slot_portion,
                 max_block_proposal_slot_portion,
                 telemetry,
-                compatibility_mode,
+                compatibility_mode: Default::default(),
             },
         )?;
 
