@@ -522,7 +522,7 @@ where
             select_chain.clone(),
         )?;
         Box::new(move |subscription_task_executor| {
-            let eth_deps = crate::ethereum::EthDeps {
+            let eth_deps = crate::rpc::EthDeps {
                 client: client.clone(),
                 pool: pool.clone(),
                 graph: pool.clone(),

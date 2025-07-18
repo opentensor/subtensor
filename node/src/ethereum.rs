@@ -1,4 +1,4 @@
-use fc_rpc::EthBlockDataCacheTask;
+use crate::rpc::EthDeps;
 use fc_rpc::{
     Debug, DebugApiServer, Eth, EthApiServer, EthConfig, EthDevSigner, EthFilter,
     EthFilterApiServer, EthPubSub, EthPubSubApiServer, EthSigner, EthTask, Net, NetApiServer, Web3,
@@ -13,12 +13,10 @@ use futures::future;
 use jsonrpsee::RpcModule;
 use node_subtensor_runtime::opaque::Block;
 use sc_client_api::client::BlockchainEvents;
-use sc_network::service::traits::NetworkService;
 use sc_network_sync::SyncingService;
 use sc_rpc::SubscriptionTaskExecutor;
 use sc_service::{Configuration, TaskManager, error::Error as ServiceError};
 use sc_transaction_pool_api::TransactionPool;
-use sp_core::H256;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::{OpaqueExtrinsic, traits::BlakeTwo256, traits::Block as BlockT};
 use std::path::PathBuf;
@@ -419,57 +417,4 @@ where
     extend_rpc_debug::<P, CT, CIDP>(&mut io, &deps)?;
 
     Ok(io)
-}
-
-/// Extra dependencies for Ethereum compatibility.
-pub struct EthDeps<P, CT, CIDP> {
-    /// The client instance to use.
-    pub client: Arc<FullClient>,
-    /// Transaction pool instance.
-    pub pool: Arc<P>,
-    /// Graph pool instance.
-    pub graph: Arc<P>,
-    /// Ethereum transaction converter.
-    pub converter: Option<CT>,
-    /// The Node authority flag
-    pub is_authority: bool,
-    /// Whether to enable dev signer
-    pub enable_dev_signer: bool,
-    /// Network service
-    pub network: Arc<dyn NetworkService>,
-    /// Chain syncing service
-    pub sync: Arc<SyncingService<Block>>,
-    /// Frontier Backend.
-    pub frontier_backend: Arc<dyn fc_api::Backend<Block>>,
-    /// Ethereum data access overrides.
-    pub storage_override: Arc<dyn StorageOverride<Block>>,
-    /// Cache for Ethereum block data.
-    pub block_data_cache: Arc<EthBlockDataCacheTask<Block>>,
-    /// EthFilterApi pool.
-    pub filter_pool: Option<FilterPool>,
-    /// Maximum number of logs in a query.
-    pub max_past_logs: u32,
-    /// Fee history cache.
-    pub fee_history_cache: FeeHistoryCache,
-    /// Maximum fee history cache size.
-    pub fee_history_cache_limit: FeeHistoryCacheLimit,
-    /// Maximum allowed gas limit will be ` block.gas_limit * execute_gas_limit_multiplier` when
-    /// using eth_call/eth_estimateGas.
-    pub execute_gas_limit_multiplier: u64,
-    /// Mandated parent hashes for a given block hash.
-    pub forced_parent_hashes: Option<BTreeMap<H256, H256>>,
-    /// Something that can create the inherent data providers for pending state
-    pub pending_create_inherent_data_providers: CIDP,
-}
-
-/// Default Eth RPC configuration
-pub struct DefaultEthConfig;
-
-impl fc_rpc::EthConfig<Block, FullClient> for DefaultEthConfig {
-    type EstimateGasAdapter = ();
-    type RuntimeStorageOverride = fc_rpc::frontier_backend_client::SystemAccountId20StorageOverride<
-        Block,
-        FullClient,
-        FullBackend,
-    >;
 }
