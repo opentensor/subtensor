@@ -76,10 +76,10 @@ pub fn run() -> sc_cli::Result<()> {
                 let (client, _, import_queue, task_manager, _) =
                     match cli.initial_consensus.unwrap_or_default() {
                         InitialConsensus::Babe => {
-                            service::new_chain_ops::<AuraConsensus>(&mut config, &cli.eth)?
+                            service::new_chain_ops::<BabeConsensus>(&mut config, &cli.eth)?
                         }
                         InitialConsensus::Aura => {
-                            service::new_chain_ops::<BabeConsensus>(&mut config, &cli.eth)?
+                            service::new_chain_ops::<AuraConsensus>(&mut config, &cli.eth)?
                         }
                     };
 
