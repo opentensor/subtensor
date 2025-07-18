@@ -196,4 +196,9 @@ impl ConsensusMechanism for AuraConsensus {
         }));
         Ok(())
     }
+
+    fn rpc_methods() -> Vec<jsonrpsee::Methods> {
+        // Aura requires no special RPC methods.
+        Default::default()
+    }
 }

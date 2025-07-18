@@ -2,7 +2,6 @@
 #![warn(missing_docs)]
 
 mod aura_consensus;
-mod aura_rpc;
 mod aura_service;
 mod aura_wrapped_import_queue;
 mod babe_rpc;
@@ -15,6 +14,7 @@ mod client;
 mod command;
 mod conditional_evm_block_import;
 mod ethereum;
+mod rpc;
 
 fn main() -> sc_cli::Result<()> {
     command::run()

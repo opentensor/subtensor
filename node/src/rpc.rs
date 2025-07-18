@@ -13,7 +13,7 @@ use crate::{
     client::FullClient,
     ethereum::{DefaultEthConfig, EthDeps, create_eth},
 };
-use jsonrpsee::RpcModule;
+use jsonrpsee::{Methods, RpcModule};
 use node_subtensor_runtime::opaque::Block;
 use sc_consensus_manual_seal::EngineCommand;
 use sc_rpc::SubscriptionTaskExecutor;
@@ -46,6 +46,7 @@ pub fn create_full<P, CT, CIDP>(
     frontier_pending_consensus_data_provider: Box<
         dyn fc_rpc::pending::ConsensusDataProvider<Block>,
     >,
+    other_methods: &[Methods],
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
     P: TransactionPool<
@@ -72,6 +73,10 @@ where
         eth,
     } = deps;
 
+    // TODO: Do this somewhere else, in the Consensus trait impl plob. Needed to trigger switch to
+    // Aura on start.
+    // sc_consensus_babe::configuration(&*client)?;
+
     // Custom RPC methods for Paratensor
     module.merge(SubtensorCustom::new(client.clone()).into_rpc())?;
 
@@ -92,6 +97,11 @@ where
             // send EngineCommands to the background block authorship task.
             ManualSeal::new(command_sink).into_rpc(),
         )?;
+    }
+
+    // Other methods provided by the caller
+    for m in other_methods {
+        module.merge(m.clone())?;
     }
 
     // Ethereum compatibility RPCs

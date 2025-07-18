@@ -1,6 +1,7 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 use futures::{FutureExt, channel::mpsc, future};
+use jsonrpsee::Methods;
 use node_subtensor_runtime::{RuntimeApi, TransactionConverter, opaque::Block};
 use sc_chain_spec::ChainType;
 use sc_client_api::AuxStore;
@@ -301,6 +302,8 @@ pub trait ConsensusMechanism {
         client: Arc<FullClient>,
         triggered: Option<Arc<AtomicBool>>,
     ) -> Result<(), ServiceError>;
+
+    fn rpc_methods() -> Vec<Methods>;
 }
 
 /// Builds a new service for a full client.
@@ -522,7 +525,7 @@ where
                 forced_parent_hashes: None,
                 pending_create_inherent_data_providers,
             };
-            let deps = crate::aura_rpc::FullDeps {
+            let deps = crate::rpc::FullDeps {
                 client: client.clone(),
                 pool: pool.clone(),
                 command_sink: if sealing.is_some() {
@@ -532,11 +535,12 @@ where
                 },
                 eth: eth_deps,
             };
-            crate::aura_rpc::create_full(
+            crate::rpc::create_full(
                 deps,
                 subscription_task_executor,
                 pubsub_notification_sinks.clone(),
                 CB::frontier_consensus_data_provider(client.clone()),
+                CB::rpc_methods().as_slice(),
             )
             .map_err(Into::into)
         })
@@ -765,7 +769,7 @@ fn run_manual_seal_authorship(
     thread_local!(static TIMESTAMP: RefCell<u64> = const { RefCell::new(0) });
 
     /// Provide a mock duration starting at 0 in millisecond for timestamp inherent.
-    /// Each call will increment timestamp by slot_duration making Aura think time has passed.
+    /// Each call will increment timestamp by slot_duration making the consensus logic think time has passed.
     struct MockTimestampInherentDataProvider;
 
     #[async_trait::async_trait]
