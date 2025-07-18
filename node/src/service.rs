@@ -208,7 +208,7 @@ pub fn new_partial(
 }
 
 /// Builds a new service for a full client.
-pub async fn new_full<NB, CB>(
+pub async fn new_full<NB, CM>(
     mut config: Configuration,
     eth_config: EthConfiguration,
     sealing: Option<Sealing>,
@@ -217,7 +217,7 @@ pub async fn new_full<NB, CB>(
 where
     NumberFor<Block>: BlockNumberOps,
     NB: sc_network::NetworkBackend<Block, <Block as BlockT>::Hash>,
-    CB: ConsensusMechanism,
+    CM: ConsensusMechanism,
 {
     // Substrate doesn't seem to support fast sync option in our configuration.
     if matches!(config.network.sync_mode, SyncMode::LightState { .. }) {
@@ -228,8 +228,8 @@ where
         return Err(ServiceError::Other("Unsupported sync mode".to_string()));
     }
 
-    let mut cb = CB::new();
-    let build_import_queue = cb.build_biq()?;
+    let mut consensus_mechanism = CM::new();
+    let build_import_queue = consensus_mechanism.build_biq()?;
 
     let PartialComponents {
         client,
@@ -242,7 +242,11 @@ where
         other: (mut telemetry, block_import, grandpa_link, frontier_backend, storage_override),
     } = new_partial(&config, &eth_config, build_import_queue)?;
 
-    cb.spawn_essential_handles(&mut task_manager, client.clone(), custom_service_signal)?;
+    consensus_mechanism.spawn_essential_handles(
+        &mut task_manager,
+        client.clone(),
+        custom_service_signal,
+    )?;
 
     let FrontierPartialComponents {
         filter_pool,
@@ -399,11 +403,11 @@ where
             prometheus_registry.clone(),
         ));
 
-        let slot_duration = cb.slot_duration(&*client)?;
+        let slot_duration = consensus_mechanism.slot_duration(&*client)?;
         let pending_create_inherent_data_providers =
-            move |_, ()| async move { CB::create_inherent_data_providers(slot_duration) };
+            move |_, ()| async move { CM::create_inherent_data_providers(slot_duration) };
 
-        let rpc_methods = cb.rpc_methods(
+        let rpc_methods = consensus_mechanism.rpc_methods(
             client.clone(),
             keystore_container.keystore(),
             select_chain.clone(),
@@ -446,7 +450,7 @@ where
                 deps,
                 subscription_task_executor,
                 pubsub_notification_sinks.clone(),
-                CB::frontier_consensus_data_provider(client.clone()),
+                CM::frontier_consensus_data_provider(client.clone()),
                 rpc_methods.as_slice(),
             )
             .map_err(Into::into)
@@ -510,11 +514,11 @@ where
             telemetry.as_ref().map(|x| x.handle()),
         );
 
-        let slot_duration = cb.slot_duration(&*client)?;
+        let slot_duration = consensus_mechanism.slot_duration(&*client)?;
         let create_inherent_data_providers =
-            move |_, ()| async move { CB::create_inherent_data_providers(slot_duration) };
+            move |_, ()| async move { CM::create_inherent_data_providers(slot_duration) };
 
-        cb.start_authoring(
+        consensus_mechanism.start_authoring(
             &mut task_manager,
             crate::consensus::StartAuthoringParams {
                 slot_duration,
@@ -625,7 +629,6 @@ pub async fn build_full<CM: ConsensusMechanism>(
     }
 }
 
-#[allow(unused)]
 pub fn new_chain_ops<CM: ConsensusMechanism>(
     config: &mut Configuration,
     eth_config: &EthConfiguration,
@@ -640,7 +643,7 @@ pub fn new_chain_ops<CM: ConsensusMechanism>(
     ServiceError,
 > {
     config.keystore = sc_service::config::KeystoreConfig::InMemory;
-    let mut cb = CM::new();
+    let mut consensus_mechanism = CM::new();
     let PartialComponents {
         client,
         backend,
@@ -648,7 +651,7 @@ pub fn new_chain_ops<CM: ConsensusMechanism>(
         task_manager,
         other,
         ..
-    } = new_partial(config, eth_config, cb.build_biq()?)?;
+    } = new_partial(config, eth_config, consensus_mechanism.build_biq()?)?;
     Ok((client, backend, import_queue, task_manager, other.3))
 }
 
