@@ -2,13 +2,15 @@ use crate::{
     client::{FullBackend, FullClient},
     conditional_evm_block_import::ConditionalEVMBlockImport,
     ethereum::EthConfiguration,
-    service::{BIQ, ConsensusMechanism, GrandpaBlockImport, StartAuthoringParams},
+    service::{BIQ, ConsensusMechanism, FullSelectChain, GrandpaBlockImport, StartAuthoringParams},
 };
 use fc_consensus::FrontierBlockImport;
+use jsonrpsee::Methods;
 use node_subtensor_runtime::opaque::Block;
 use sc_client_api::{AuxStore, BlockOf};
 use sc_consensus::{BlockImport, BoxBlockImport};
 use sc_consensus_babe::{BabeLink, BabeWorkerHandle};
+use sc_consensus_babe_rpc::{Babe, BabeApiServer};
 use sc_consensus_grandpa::BlockNumberOps;
 use sc_consensus_slots::{BackoffAuthoringBlocksStrategy, InherentDataProviderExt};
 use sc_service::{Configuration, TaskManager};
@@ -23,6 +25,7 @@ use sp_consensus_aura::sr25519::AuthorityId;
 use sp_consensus_babe::BabeApi;
 use sp_consensus_slots::SlotDuration;
 use sp_inherents::CreateInherentDataProviders;
+use sp_keystore::KeystorePtr;
 use sp_runtime::traits::NumberFor;
 use std::{error::Error, sync::Arc};
 
@@ -198,11 +201,18 @@ impl ConsensusMechanism for BabeConsensus {
         Ok(build_import_queue)
     }
 
-    fn slot_duration(client: &FullClient) -> Result<SlotDuration, sc_service::Error> {
-        sc_consensus_aura::slot_duration(&*client).map_err(Into::into)
+    fn slot_duration(&self, _client: &FullClient) -> Result<SlotDuration, sc_service::Error> {
+        if let Some(ref babe_link) = self.babe_link {
+            Ok(babe_link.config().slot_duration().clone())
+        } else {
+            Err(sc_service::Error::Other(
+				"Babe link not initialized. Ensure that the import queue has been built before calling slot_duration.".to_string()
+			))
+        }
     }
 
     fn spawn_essential_handles(
+        &self,
         _task_manager: &mut TaskManager,
         _client: Arc<FullClient>,
         _triggered: Option<Arc<std::sync::atomic::AtomicBool>>,
@@ -211,8 +221,27 @@ impl ConsensusMechanism for BabeConsensus {
         Ok(())
     }
 
-    fn rpc_methods() -> Vec<jsonrpsee::Methods> {
-        // TODO: Add Babe RPC.
-        Default::default()
+    fn rpc_methods(
+        &self,
+        client: Arc<FullClient>,
+        keystore: KeystorePtr,
+        select_chain: FullSelectChain,
+    ) -> Result<Vec<Methods>, sc_service::Error> {
+        if let Some(ref babe_worker_handle) = self.babe_worker_handle {
+            Ok(vec![
+                Babe::new(
+                    client.clone(),
+                    babe_worker_handle.clone(),
+                    keystore,
+                    select_chain,
+                )
+                .into_rpc()
+                .into(),
+            ])
+        } else {
+            Err(sc_service::Error::Other(
+				"Babe link not initialized. Ensure that the import queue has been built before calling slot_duration.".to_string()
+			))
+        }
     }
 }

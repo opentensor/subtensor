@@ -1,4 +1,3 @@
-pub use fc_consensus::FrontierBlockImport;
 use fc_rpc::EthBlockDataCacheTask;
 use fc_rpc::{
     Debug, DebugApiServer, Eth, EthApiServer, EthConfig, EthDevSigner, EthFilter,

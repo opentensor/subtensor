@@ -41,7 +41,6 @@ use std::{cell::RefCell, path::Path};
 use std::{sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
 
-use crate::aura_consensus::AuraConsensus;
 use crate::cli::Sealing;
 use crate::client::{FullBackend, FullClient, HostFunctions, RuntimeExecutor};
 use crate::ethereum::{
@@ -53,7 +52,7 @@ use crate::ethereum::{
 /// imported and generated.
 const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
 
-type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
+pub type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 pub type GrandpaBlockImport =
     sc_consensus_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>;
 type GrandpaLinkHalf = sc_consensus_grandpa::LinkHalf<Block, FullClient, FullSelectChain>;
@@ -270,7 +269,7 @@ pub trait ConsensusMechanism {
 
     fn build_biq(&mut self) -> Result<BIQ, sc_service::Error>;
 
-    fn slot_duration(client: &FullClient) -> Result<SlotDuration, ServiceError>;
+    fn slot_duration(&self, client: &FullClient) -> Result<SlotDuration, ServiceError>;
 
     fn create_inherent_data_providers(
         slot_duration: SlotDuration,
@@ -307,12 +306,18 @@ pub trait ConsensusMechanism {
         Error: std::error::Error + Send + From<sp_consensus::Error> + From<I::Error> + 'static;
 
     fn spawn_essential_handles(
+        &self,
         task_manager: &mut TaskManager,
         client: Arc<FullClient>,
         triggered: Option<Arc<AtomicBool>>,
     ) -> Result<(), ServiceError>;
 
-    fn rpc_methods() -> Vec<Methods>;
+    fn rpc_methods(
+        &self,
+        client: Arc<FullClient>,
+        keystore: KeystorePtr,
+        select_chain: FullSelectChain,
+    ) -> Result<Vec<Methods>, sc_service::Error>;
 }
 
 /// Builds a new service for a full client.
@@ -320,7 +325,7 @@ pub async fn new_full<NB, CB>(
     mut config: Configuration,
     eth_config: EthConfiguration,
     sealing: Option<Sealing>,
-    babe_switch: Arc<AtomicBool>,
+    custom_service_signal: Option<Arc<AtomicBool>>,
 ) -> Result<TaskManager, ServiceError>
 where
     NumberFor<Block>: BlockNumberOps,
@@ -350,7 +355,7 @@ where
         other: (mut telemetry, block_import, grandpa_link, frontier_backend, storage_override),
     } = new_partial(&config, &eth_config, build_import_queue)?;
 
-    CB::spawn_essential_handles(&mut task_manager, client.clone(), Some(babe_switch))?;
+    cb.spawn_essential_handles(&mut task_manager, client.clone(), custom_service_signal)?;
 
     let FrontierPartialComponents {
         filter_pool,
@@ -507,10 +512,15 @@ where
             prometheus_registry.clone(),
         ));
 
-        let slot_duration = CB::slot_duration(&*client)?;
+        let slot_duration = cb.slot_duration(&*client)?;
         let pending_create_inherent_data_providers =
             move |_, ()| async move { CB::create_inherent_data_providers(slot_duration) };
 
+        let rpc_methods = cb.rpc_methods(
+            client.clone(),
+            keystore_container.keystore(),
+            select_chain.clone(),
+        )?;
         Box::new(move |subscription_task_executor| {
             let eth_deps = crate::ethereum::EthDeps {
                 client: client.clone(),
@@ -550,7 +560,7 @@ where
                 subscription_task_executor,
                 pubsub_notification_sinks.clone(),
                 CB::frontier_consensus_data_provider(client.clone()),
-                CB::rpc_methods().as_slice(),
+                rpc_methods.as_slice(),
             )
             .map_err(Into::into)
         })
@@ -592,7 +602,7 @@ where
                 sealing,
                 client,
                 transaction_pool,
-                select_chain,
+                select_chain.clone(),
                 block_import,
                 &task_manager,
                 prometheus_registry.as_ref(),
@@ -613,7 +623,7 @@ where
             telemetry.as_ref().map(|x| x.handle()),
         );
 
-        let slot_duration = CB::slot_duration(&*client)?;
+        let slot_duration = cb.slot_duration(&*client)?;
         let create_inherent_data_providers =
             move |_, ()| async move { CB::create_inherent_data_providers(slot_duration) };
 
@@ -690,38 +700,38 @@ where
     Ok(task_manager)
 }
 
-pub async fn build_full(
+pub async fn build_full<CM: ConsensusMechanism>(
     config: Configuration,
     eth_config: EthConfiguration,
     sealing: Option<Sealing>,
-    babe_switch: Arc<AtomicBool>,
+    custom_service_signal: Option<Arc<AtomicBool>>,
 ) -> Result<TaskManager, ServiceError> {
     match config.network.network_backend {
         Some(sc_network::config::NetworkBackendType::Libp2p) => {
-            new_full::<sc_network::NetworkWorker<_, _>, AuraConsensus>(
+            new_full::<sc_network::NetworkWorker<_, _>, CM>(
                 config,
                 eth_config,
                 sealing,
-                babe_switch,
+                custom_service_signal,
             )
             .await
         }
         Some(sc_network::config::NetworkBackendType::Litep2p) => {
-            new_full::<sc_network::Litep2pNetworkBackend, AuraConsensus>(
+            new_full::<sc_network::Litep2pNetworkBackend, CM>(
                 config,
                 eth_config,
                 sealing,
-                babe_switch,
+                custom_service_signal,
             )
             .await
         }
         _ => {
             log::debug!("no network backend selected, falling back to libp2p");
-            new_full::<sc_network::NetworkWorker<_, _>, AuraConsensus>(
+            new_full::<sc_network::NetworkWorker<_, _>, CM>(
                 config,
                 eth_config,
                 sealing,
-                babe_switch,
+                custom_service_signal,
             )
             .await
         }
@@ -729,7 +739,7 @@ pub async fn build_full(
 }
 
 #[allow(unused)]
-pub fn new_chain_ops<CB: ConsensusMechanism>(
+pub fn new_chain_ops<CM: ConsensusMechanism>(
     config: &mut Configuration,
     eth_config: &EthConfiguration,
 ) -> Result<
@@ -743,7 +753,7 @@ pub fn new_chain_ops<CB: ConsensusMechanism>(
     ServiceError,
 > {
     config.keystore = sc_service::config::KeystoreConfig::InMemory;
-    let mut cb = CB::new();
+    let mut cb = CM::new();
     let PartialComponents {
         client,
         backend,

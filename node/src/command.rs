@@ -1,7 +1,8 @@
 use std::sync::{Arc, atomic::AtomicBool};
 
 use crate::{
-    babe_service, chain_spec,
+    babe_consensus::BabeConsensus,
+    chain_spec,
     cli::{Cli, InitialConsensus, Subcommand},
     ethereum::db_config_dir,
     service,
@@ -72,15 +73,15 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
 
             runner.async_run(|mut config| {
-                let (client, _, import_queue, task_manager, _) = match cli
-                    .initial_consensus
-                    .unwrap_or_default()
-                {
-                    InitialConsensus::Babe => {
-                        service::new_chain_ops::<AuraConsensus>(&mut config, &cli.eth)?
-                    }
-                    InitialConsensus::Aura => babe_service::new_chain_ops(&mut config, &cli.eth)?,
-                };
+                let (client, _, import_queue, task_manager, _) =
+                    match cli.initial_consensus.unwrap_or_default() {
+                        InitialConsensus::Babe => {
+                            service::new_chain_ops::<AuraConsensus>(&mut config, &cli.eth)?
+                        }
+                        InitialConsensus::Aura => {
+                            service::new_chain_ops::<BabeConsensus>(&mut config, &cli.eth)?
+                        }
+                    };
 
                 Ok((cmd.run(client, import_queue), task_manager))
             })
@@ -258,7 +259,7 @@ fn run_babe(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
     let runner = cli.create_runner(&cli.run)?;
     match runner.run_node_until_exit(|config| async move {
         let config = customise_config(arg_matches, config);
-        babe_service::build_full(config, cli.eth, cli.sealing).await
+        service::build_full::<BabeConsensus>(config, cli.eth, cli.sealing, None).await
     }) {
         Ok(_) => Ok(()),
         Err(e) => {
@@ -291,7 +292,8 @@ fn run_aura(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
     let babe_switch_clone = babe_switch.clone();
     match runner.run_node_until_exit(|config| async move {
         let config = customise_config(arg_matches, config);
-        service::build_full(config, cli.eth, cli.sealing, babe_switch_clone).await
+        service::build_full::<AuraConsensus>(config, cli.eth, cli.sealing, Some(babe_switch_clone))
+            .await
     }) {
         Ok(()) => Ok(()),
         Err(e) => {

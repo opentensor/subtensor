@@ -2,7 +2,7 @@ use crate::{
     client::{FullBackend, FullClient},
     conditional_evm_block_import::ConditionalEVMBlockImport,
     ethereum::EthConfiguration,
-    service::{BIQ, ConsensusMechanism, GrandpaBlockImport, StartAuthoringParams},
+    service::{BIQ, ConsensusMechanism, FullSelectChain, GrandpaBlockImport, StartAuthoringParams},
 };
 use fc_consensus::FrontierBlockImport;
 use jsonrpsee::tokio;
@@ -21,6 +21,7 @@ use sp_consensus_aura::sr25519::AuthorityId;
 use sp_consensus_aura::{AuraApi, sr25519::AuthorityPair as AuraPair};
 use sp_consensus_slots::SlotDuration;
 use sp_inherents::CreateInherentDataProviders;
+use sp_keystore::KeystorePtr;
 use sp_runtime::traits::NumberFor;
 use std::{error::Error, sync::Arc};
 
@@ -184,18 +185,19 @@ impl ConsensusMechanism for AuraConsensus {
         Ok(build_import_queue)
     }
 
-    fn slot_duration(client: &FullClient) -> Result<SlotDuration, sc_service::Error> {
+    fn slot_duration(&self, client: &FullClient) -> Result<SlotDuration, sc_service::Error> {
         sc_consensus_aura::slot_duration(&*client).map_err(Into::into)
     }
 
     fn spawn_essential_handles(
+        &self,
         task_manager: &mut TaskManager,
         client: Arc<FullClient>,
         triggered: Option<Arc<std::sync::atomic::AtomicBool>>,
     ) -> Result<(), sc_service::Error> {
         let client_clone = client.clone();
         let triggered_clone = triggered.clone();
-        let slot_duration = AuraConsensus::slot_duration(&client)?;
+        let slot_duration = self.slot_duration(&client)?;
         task_manager.spawn_essential_handle().spawn(
         "babe-switch",
         None,
@@ -219,8 +221,13 @@ impl ConsensusMechanism for AuraConsensus {
         Ok(())
     }
 
-    fn rpc_methods() -> Vec<jsonrpsee::Methods> {
+    fn rpc_methods(
+        &self,
+        _client: Arc<FullClient>,
+        _keystore: KeystorePtr,
+        _select_chain: FullSelectChain,
+    ) -> Result<Vec<jsonrpsee::Methods>, sc_service::Error> {
         // Aura requires no special RPC methods.
-        Default::default()
+        Ok(Default::default())
     }
 }
