@@ -4,7 +4,6 @@
 mod aura_consensus;
 mod aura_wrapped_import_queue;
 mod babe_consensus;
-// mod babe_rpc;
 // mod babe_service;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
