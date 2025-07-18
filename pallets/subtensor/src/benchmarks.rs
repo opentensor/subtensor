@@ -9,7 +9,7 @@ use frame_benchmarking::v2::*;
 use frame_support::{StorageDoubleMap, assert_ok};
 use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
 pub use pallet::*;
-use sp_core::H256;
+use sp_core::{H160, H256};
 use sp_runtime::{
     BoundedVec, Percent,
     traits::{BlakeTwo256, Hash},
@@ -20,6 +20,7 @@ use subtensor_runtime_common::{AlphaCurrency, NetUid};
 #[frame_benchmarking::v2::benchmarks]
 mod pallet_benchmarks {
     use super::*;
+    use pallet_evm::AddressMapping;
 
     #[benchmark]
     fn register() {
@@ -1379,6 +1380,16 @@ mod pallet_benchmarks {
 
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey), hotkey);
+    }
+
+    #[benchmark]
+    fn set_pure_proxy_account() {
+        let address: H160 = H160::zero();
+        let mapped_account = T::AddressMapping::into_account_id(address);
+        let proxy_account: T::AccountId = account("A", 0, 7);
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(mapped_account), address, proxy_account);
     }
 
     #[benchmark]
