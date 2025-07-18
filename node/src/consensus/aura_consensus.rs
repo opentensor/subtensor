@@ -161,7 +161,7 @@ impl ConsensusMechanism for AuraConsensus {
                     Ok((slot, timestamp))
                 };
 
-                let import_queue = crate::aura_wrapped_import_queue::import_queue(
+                let import_queue = super::aura_wrapped_import_queue::import_queue(
                     sc_consensus_aura::ImportQueueParams {
                         block_import: conditional_block_import.clone(),
                         justification_import: Some(Box::new(grandpa_block_import.clone())),

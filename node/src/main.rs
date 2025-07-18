@@ -1,7 +1,6 @@
 //! Substrate Node Subtensor CLI library.
 #![warn(missing_docs)]
 
-mod aura_wrapped_import_queue;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 mod chain_spec;
