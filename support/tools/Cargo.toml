@@ -15,5 +15,5 @@ path = "src/bump_version.rs"
 [dependencies]
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
-semver = "1.0"
-toml_edit = "0.22"
+semver = { workspace = true }
+toml_edit = { workspace = true }

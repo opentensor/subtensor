@@ -130,6 +130,13 @@ cfg-expr = { version = "0.20", default-features = false }
 itertools = { version = "0.14", default-features = false }
 regex = { version = "1", default-features = false }
 
+# Subtensor tools
+semver = { version = "1.0", default-features = false }
+toml_edit = { version = "0.22", default-features = false }
+
+# Subtensor macros
+ahash = { version = "0.8", default-features = false }
+
 frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-7", default-features = false }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-7", default-features = false }
 frame-executive = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-7", default-features = false }
