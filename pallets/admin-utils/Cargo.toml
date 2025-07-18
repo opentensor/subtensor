@@ -24,7 +24,7 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-runtime = { workspace = true }
 log = { workspace = true }
-pallet-subtensor = { version = "4.0.0-dev", default-features = false, path = "../subtensor" }
+pallet-subtensor = { workspace = true }
 sp-weights = { workspace = true }
 substrate-fixed = { workspace = true }
 pallet-evm-chain-id = { workspace = true }

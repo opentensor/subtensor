@@ -8816,7 +8816,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "regex",
- "sp-crypto-hashing 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-7)",
  "syn 2.0.104",
 ]
 

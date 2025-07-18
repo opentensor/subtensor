@@ -63,6 +63,8 @@ subtensor-precompiles = { default-features = false, path = "precompiles" }
 subtensor-runtime-common = { default-features = false, path = "common" }
 subtensor-swap-interface = { default-features = false, path = "pallets/swap-interface" }
 
+subtensor-macros = { path = "support/macros", default-features = false }
+
 async-trait = { version = "0.1", default-features = false }
 cargo-husky = { version = "1", default-features = false }
 clap = { version = "4.5.4", default-features = false }
@@ -93,7 +95,9 @@ serde_bytes = { version = "0.11.14", default-features = false }
 serde_json = { version = "1.0.121", default-features = false }
 serde_with = { version = "=2.0.0", default-features = false }
 smallvec = { version = "1.13.2", default-features = false }
-litep2p = { version = "0.9.5", features = ["websocket"], default-features = false }
+litep2p = { version = "0.9.5", features = [
+	"websocket",
+], default-features = false }
 syn = { version = "2.0.87", features = [
 	"full",
 	"visit-mut",
@@ -102,12 +106,29 @@ syn = { version = "2.0.87", features = [
 	"parsing",
 ], default-features = false }
 quote = { version = "1", default-features = false }
-proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
+proc-macro2 = { version = "1", default-features = false, features = [
+	"span-locations",
+] }
 walkdir = { version = "2", default-features = false }
 approx = { version = "0.5", default-features = false }
 alloy-primitives = { version = "0.8.23", default-features = false }
+num-traits = { version = "0.2.19", default-features = false, features = [
+	"libm",
+] }
 
-subtensor-macros = { path = "support/macros", default-features = false }
+# Procedural Fork
+procedural-fork = { default-features = false, path = "support/procedural-fork" }
+macro_magic = { version = "0.5", features = [
+	"proc_support",
+], default-features = false }
+frame-support-procedural-tools = { version = "10.0.0", default-features = false }
+proc-macro-warning = { version = "1", default-features = false }
+expander = { version = "2", default-features = false }
+derive-syn-parse = "0.2"
+Inflector = "0.11"
+cfg-expr = "0.15"
+itertools = "0.10"
+regex = "1"
 
 frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-7", default-features = false }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-7", default-features = false }
@@ -182,6 +203,7 @@ sp-tracing = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "po
 sp-transaction-pool = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-7", default-features = false }
 sp-version = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-7", default-features = false }
 sp-weights = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-7", default-features = false }
+sp-crypto-hashing = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-7", default-features = false }
 
 substrate-build-script-utils = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-7", default-features = false }
 substrate-fixed = { git = "https://github.com/encointer/substrate-fixed.git", branch = "master", default-features = false }

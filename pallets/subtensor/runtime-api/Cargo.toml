@@ -19,7 +19,7 @@ serde = { workspace = true, features = ["derive"] }
 codec = { workspace = true }
 subtensor-runtime-common = { workspace = true }
 # local
-pallet-subtensor = { version = "4.0.0-dev", path = "../../subtensor", default-features = false }
+pallet-subtensor = { workspace = true }
 
 [features]
 default = ["std"]
