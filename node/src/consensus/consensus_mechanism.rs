@@ -21,8 +21,8 @@ use sp_consensus_slots::SlotDuration;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::NumberFor;
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 use crate::client::FullClient;
 use crate::service::BIQ;
@@ -64,25 +64,34 @@ pub struct StartAuthoringParams<C, SC, I, PF, SO, L, CIDP, BS> {
     pub telemetry: Option<TelemetryHandle>,
 }
 
+/// All consensus mechanism specific node logic should be covered by this trait,
+/// so files like service.rs and rpc.rs can be generic over consensus mechanisms.
 pub trait ConsensusMechanism {
+    /// IDPs inserted into the block by the ConsensusMechanism.
     type InherentDataProviders: sp_inherents::InherentDataProvider
         + sc_consensus_slots::InherentDataProviderExt
         + 'static;
 
+    /// Creates a new instance of the ConsensusMechanism.
     fn new() -> Self;
 
+    /// Builds a `BIQ` that uses the ConsensusMechanism.
     fn build_biq(&mut self) -> Result<BIQ, sc_service::Error>;
 
+    /// Returns the slot duration.
     fn slot_duration(&self, client: &FullClient) -> Result<SlotDuration, ServiceError>;
 
+    /// Creates IDPs for the consensus mechanism.
     fn create_inherent_data_providers(
         slot_duration: SlotDuration,
     ) -> Result<Self::InherentDataProviders, Box<dyn std::error::Error + Send + Sync>>;
 
+    /// Creates the frontier consensus data provider with this mechanism.
     fn frontier_consensus_data_provider(
         client: Arc<FullClient>,
     ) -> Box<dyn fc_rpc::pending::ConsensusDataProvider<Block>>;
 
+    /// Starts authoring process for the consensus mechanism.
     fn start_authoring<C, SC, I, PF, SO, L, CIDP, BS, Error>(
         self,
         task_manager: &mut TaskManager,
@@ -109,6 +118,7 @@ pub trait ConsensusMechanism {
         BS: BackoffAuthoringBlocksStrategy<NumberFor<Block>> + Send + Sync + 'static,
         Error: std::error::Error + Send + From<sp_consensus::Error> + From<I::Error> + 'static;
 
+    /// Spawns any consensus mechanism specific essential handles.
     fn spawn_essential_handles(
         &self,
         task_manager: &mut TaskManager,
@@ -116,6 +126,7 @@ pub trait ConsensusMechanism {
         triggered: Option<Arc<AtomicBool>>,
     ) -> Result<(), ServiceError>;
 
+    /// Returns any consensus mechanism specific rpc methods to register.
     fn rpc_methods(
         &self,
         client: Arc<FullClient>,
