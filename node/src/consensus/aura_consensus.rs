@@ -1,42 +1,36 @@
+use crate::consensus::{ConsensusMechanism, StartAuthoringParams};
 use crate::{
     client::{FullBackend, FullClient},
     conditional_evm_block_import::ConditionalEVMBlockImport,
     ethereum::EthConfiguration,
-    service::{BIQ, ConsensusMechanism, FullSelectChain, GrandpaBlockImport, StartAuthoringParams},
+    service::{BIQ, FullSelectChain, GrandpaBlockImport},
 };
 use fc_consensus::FrontierBlockImport;
-use jsonrpsee::Methods;
+use jsonrpsee::tokio;
 use node_subtensor_runtime::opaque::Block;
 use sc_client_api::{AuxStore, BlockOf};
 use sc_consensus::{BlockImport, BoxBlockImport};
-use sc_consensus_babe::{BabeLink, BabeWorkerHandle};
-use sc_consensus_babe_rpc::{Babe, BabeApiServer};
 use sc_consensus_grandpa::BlockNumberOps;
 use sc_consensus_slots::{BackoffAuthoringBlocksStrategy, InherentDataProviderExt};
 use sc_service::{Configuration, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
-use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus::{Environment, Proposer, SelectChain, SyncOracle};
-use sp_consensus_aura::AuraApi;
 use sp_consensus_aura::sr25519::AuthorityId;
-use sp_consensus_babe::BabeApi;
+use sp_consensus_aura::{AuraApi, sr25519::AuthorityPair as AuraPair};
 use sp_consensus_slots::SlotDuration;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::NumberFor;
 use std::{error::Error, sync::Arc};
 
-pub struct BabeConsensus {
-    babe_link: Option<BabeLink<Block>>,
-    babe_worker_handle: Option<BabeWorkerHandle<Block>>,
-}
+pub struct AuraConsensus;
 
-impl ConsensusMechanism for BabeConsensus {
+impl ConsensusMechanism for AuraConsensus {
     type InherentDataProviders = (
-        sp_consensus_babe::inherents::InherentDataProvider,
+        sp_consensus_aura::inherents::InherentDataProvider,
         sp_timestamp::InherentDataProvider,
     );
 
@@ -44,7 +38,7 @@ impl ConsensusMechanism for BabeConsensus {
         self,
         task_manager: &mut TaskManager,
         StartAuthoringParams {
-            slot_duration: _,
+            slot_duration,
             client,
             select_chain,
             block_import,
@@ -69,7 +63,7 @@ impl ConsensusMechanism for BabeConsensus {
             + Send
             + Sync
             + 'static,
-        C::Api: AuraApi<Block, AuthorityId> + BabeApi<Block>,
+        C::Api: AuraApi<Block, AuthorityId>,
         SC: SelectChain<Block> + 'static,
         I: BlockImport<Block, Error = sp_consensus::Error> + Send + Sync + 'static,
         PF: Environment<Block, Error = Error> + Send + Sync + 'static,
@@ -81,34 +75,31 @@ impl ConsensusMechanism for BabeConsensus {
         BS: BackoffAuthoringBlocksStrategy<NumberFor<Block>> + Send + Sync + 'static,
         Error: std::error::Error + Send + From<sp_consensus::Error> + From<I::Error> + 'static,
     {
-        let babe = sc_consensus_babe::start_babe::<Block, C, SC, PF, I, SO, CIDP, BS, L, Error>(
-            sc_consensus_babe::BabeParams {
-                keystore,
+        let aura = sc_consensus_aura::start_aura::<AuraPair, Block, _, _, _, _, _, _, _, _, _>(
+            sc_consensus_aura::StartAuraParams {
+                slot_duration,
                 client,
                 select_chain,
-                env: proposer_factory,
                 block_import,
+                proposer_factory,
                 sync_oracle,
                 justification_sync_link,
                 create_inherent_data_providers,
                 force_authoring,
                 backoff_authoring_blocks,
-                babe_link: self
-                    .babe_link
-                    .expect("Must build the import queue before starting authoring."),
+                keystore,
                 block_proposal_slot_portion,
                 max_block_proposal_slot_portion,
                 telemetry,
+                compatibility_mode: Default::default(),
             },
         )?;
 
-        // the BABE authoring task is considered essential, i.e. if it
+        // the AURA authoring task is considered essential, i.e. if it
         // fails we take down the service with it.
-        task_manager.spawn_essential_handle().spawn_blocking(
-            "babe-proposer",
-            Some("block-authoring"),
-            babe,
-        );
+        task_manager
+            .spawn_essential_handle()
+            .spawn_blocking("aura", Some("block-authoring"), aura);
 
         Ok(())
     }
@@ -116,17 +107,20 @@ impl ConsensusMechanism for BabeConsensus {
     fn frontier_consensus_data_provider(
         client: Arc<FullClient>,
     ) -> Box<dyn fc_rpc::pending::ConsensusDataProvider<Block>> {
-        // TODO: When frontier is merged, update this to fc_babe::BabeConsensusDataProvider
-        // Box::new(fc_babe::BabeConsensusDataProvider::new(client))
         Box::new(fc_aura::AuraConsensusDataProvider::new(client))
     }
 
     fn create_inherent_data_providers(
         slot_duration: SlotDuration,
     ) -> Result<Self::InherentDataProviders, Box<dyn Error + Send + Sync>> {
-        let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+        let current = sp_timestamp::InherentDataProvider::from_system_time();
+        let next_slot = current
+            .timestamp()
+            .as_millis()
+            .saturating_add(slot_duration.as_millis());
+        let timestamp = sp_timestamp::InherentDataProvider::new(next_slot.into());
         let slot =
-            sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+            sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
                 *timestamp,
                 slot_duration,
             );
@@ -134,10 +128,7 @@ impl ConsensusMechanism for BabeConsensus {
     }
 
     fn new() -> Self {
-        Self {
-            babe_link: None,
-            babe_worker_handle: None,
-        }
+        Self {}
     }
 
     fn build_biq(&mut self) -> Result<BIQ, sc_service::Error>
@@ -146,102 +137,98 @@ impl ConsensusMechanism for BabeConsensus {
     {
         let build_import_queue = Box::new(
             move |client: Arc<FullClient>,
-                  backend: Arc<FullBackend>,
+                  _backend: Arc<FullBackend>,
                   config: &Configuration,
                   _eth_config: &EthConfiguration,
                   task_manager: &TaskManager,
                   telemetry: Option<TelemetryHandle>,
                   grandpa_block_import: GrandpaBlockImport,
-                  transaction_pool: Arc<TransactionPoolHandle<Block, FullClient>>| {
-                let (babe_import, babe_link) = sc_consensus_babe::block_import(
-                    sc_consensus_babe::configuration(&*client)?,
-                    grandpa_block_import.clone(),
-                    client.clone(),
-                )?;
-
+                  _transaction_pool: Arc<TransactionPoolHandle<Block, FullClient>>| {
                 let conditional_block_import = ConditionalEVMBlockImport::new(
-                    babe_import.clone(),
-                    FrontierBlockImport::new(babe_import.clone(), client.clone()),
+                    grandpa_block_import.clone(),
+                    FrontierBlockImport::new(grandpa_block_import.clone(), client.clone()),
                     client.clone(),
                 );
 
-                let slot_duration = babe_link.config().slot_duration();
+                let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
                 let create_inherent_data_providers = move |_, ()| async move {
                     let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
                     let slot =
-						sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+						sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
 							*timestamp,
 							slot_duration,
 						);
                     Ok((slot, timestamp))
                 };
 
-                let (import_queue, babe_worker_handle) =
-                    sc_consensus_babe::import_queue(sc_consensus_babe::ImportQueueParams {
-                        link: babe_link.clone(),
+                let import_queue = crate::aura_wrapped_import_queue::import_queue(
+                    sc_consensus_aura::ImportQueueParams {
                         block_import: conditional_block_import.clone(),
-                        justification_import: Some(Box::new(grandpa_block_import)),
+                        justification_import: Some(Box::new(grandpa_block_import.clone())),
                         client,
-                        select_chain: sc_consensus::LongestChain::new(backend.clone()),
                         create_inherent_data_providers,
                         spawner: &task_manager.spawn_essential_handle(),
                         registry: config.prometheus_registry(),
+                        check_for_equivocation: Default::default(),
                         telemetry,
-                        offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(
-                            transaction_pool,
-                        ),
-                    })?;
+                        compatibility_mode: sc_consensus_aura::CompatibilityMode::None,
+                    },
+                )
+                .map_err::<sc_service::Error, _>(Into::into)?;
 
-                self.babe_link = Some(babe_link);
-                self.babe_worker_handle = Some(babe_worker_handle);
-                Ok((import_queue, Box::new(babe_import) as BoxBlockImport<Block>))
+                Ok((
+                    import_queue,
+                    Box::new(conditional_block_import) as BoxBlockImport<Block>,
+                ))
             },
         );
 
         Ok(build_import_queue)
     }
 
-    fn slot_duration(&self, _client: &FullClient) -> Result<SlotDuration, sc_service::Error> {
-        if let Some(ref babe_link) = self.babe_link {
-            Ok(babe_link.config().slot_duration().clone())
-        } else {
-            Err(sc_service::Error::Other(
-				"Babe link not initialized. Ensure that the import queue has been built before calling slot_duration.".to_string()
-			))
-        }
+    fn slot_duration(&self, client: &FullClient) -> Result<SlotDuration, sc_service::Error> {
+        sc_consensus_aura::slot_duration(&*client).map_err(Into::into)
     }
 
     fn spawn_essential_handles(
         &self,
-        _task_manager: &mut TaskManager,
-        _client: Arc<FullClient>,
-        _triggered: Option<Arc<std::sync::atomic::AtomicBool>>,
+        task_manager: &mut TaskManager,
+        client: Arc<FullClient>,
+        triggered: Option<Arc<std::sync::atomic::AtomicBool>>,
     ) -> Result<(), sc_service::Error> {
-        // No additional Babe handles required.
+        let client_clone = client.clone();
+        let triggered_clone = triggered.clone();
+        let slot_duration = self.slot_duration(&client)?;
+        task_manager.spawn_essential_handle().spawn(
+        "babe-switch",
+        None,
+        Box::pin(async move {
+            let client = client_clone;
+            let triggered = triggered_clone;
+            loop {
+                // Check if the runtime is Babe once per block.
+                if let Ok(c) = sc_consensus_babe::configuration(&*client) {
+                    if !c.authorities.is_empty() {
+                        log::info!("Babe runtime detected! Intentionally failing the essential handle `babe-switch` to trigger switch to Babe service.");
+						if let Some(triggered) = triggered {
+                        	triggered.store(true, std::sync::atomic::Ordering::SeqCst);
+						};
+                        break;
+                    }
+                };
+                tokio::time::sleep(slot_duration.as_duration()).await;
+            }
+        }));
         Ok(())
     }
 
     fn rpc_methods(
         &self,
-        client: Arc<FullClient>,
-        keystore: KeystorePtr,
-        select_chain: FullSelectChain,
-    ) -> Result<Vec<Methods>, sc_service::Error> {
-        if let Some(ref babe_worker_handle) = self.babe_worker_handle {
-            Ok(vec![
-                Babe::new(
-                    client.clone(),
-                    babe_worker_handle.clone(),
-                    keystore,
-                    select_chain,
-                )
-                .into_rpc()
-                .into(),
-            ])
-        } else {
-            Err(sc_service::Error::Other(
-				"Babe link not initialized. Ensure that the import queue has been built before calling slot_duration.".to_string()
-			))
-        }
+        _client: Arc<FullClient>,
+        _keystore: KeystorePtr,
+        _select_chain: FullSelectChain,
+    ) -> Result<Vec<jsonrpsee::Methods>, sc_service::Error> {
+        // Aura requires no special RPC methods.
+        Ok(Default::default())
     }
 }

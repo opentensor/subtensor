@@ -1,15 +1,15 @@
 use std::sync::{Arc, atomic::AtomicBool};
 
 use crate::{
-    babe_consensus::BabeConsensus,
     chain_spec,
     cli::{Cli, InitialConsensus, Subcommand},
+    consensus::BabeConsensus,
     ethereum::db_config_dir,
     service,
 };
 use fc_db::{DatabaseSource, kv::frontier_database_dir};
 
-use crate::aura_consensus::AuraConsensus;
+use crate::consensus::AuraConsensus;
 use clap::{ArgMatches, CommandFactory, FromArgMatches, parser::ValueSource};
 use node_subtensor_runtime::Block;
 use sc_cli::SubstrateCli;
