@@ -6765,7 +6765,6 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "getrandom 0.2.16",
  "hex",
  "log",
  "pallet-admin-utils",
