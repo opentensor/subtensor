@@ -1,9 +1,10 @@
 use std::sync::{Arc, atomic::AtomicBool};
 
 use crate::{
-    aura_service, babe_service, chain_spec,
+    babe_service, chain_spec,
     cli::{Cli, InitialConsensus, Subcommand},
     ethereum::db_config_dir,
+    service,
 };
 use fc_db::{DatabaseSource, kv::frontier_database_dir};
 
@@ -76,7 +77,7 @@ pub fn run() -> sc_cli::Result<()> {
                     .unwrap_or_default()
                 {
                     InitialConsensus::Babe => {
-                        aura_service::new_chain_ops::<AuraConsensus>(&mut config, &cli.eth)?
+                        service::new_chain_ops::<AuraConsensus>(&mut config, &cli.eth)?
                     }
                     InitialConsensus::Aura => babe_service::new_chain_ops(&mut config, &cli.eth)?,
                 };
@@ -88,7 +89,7 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
                 let (client, _, _, task_manager, _) =
-                    aura_service::new_chain_ops::<AuraConsensus>(&mut config, &cli.eth)?;
+                    service::new_chain_ops::<AuraConsensus>(&mut config, &cli.eth)?;
                 Ok((cmd.run(client, config.database), task_manager))
             })
         }
@@ -96,7 +97,7 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
                 let (client, _, _, task_manager, _) =
-                    aura_service::new_chain_ops::<AuraConsensus>(&mut config, &cli.eth)?;
+                    service::new_chain_ops::<AuraConsensus>(&mut config, &cli.eth)?;
                 Ok((cmd.run(client, config.chain_spec), task_manager))
             })
         }
@@ -104,7 +105,7 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
                 let (client, _, import_queue, task_manager, _) =
-                    aura_service::new_chain_ops::<AuraConsensus>(&mut config, &cli.eth)?;
+                    service::new_chain_ops::<AuraConsensus>(&mut config, &cli.eth)?;
                 Ok((cmd.run(client, import_queue), task_manager))
             })
         }
@@ -159,7 +160,7 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
                 let (client, backend, _, task_manager, _) =
-                    aura_service::new_chain_ops::<AuraConsensus>(&mut config, &cli.eth)?;
+                    service::new_chain_ops::<AuraConsensus>(&mut config, &cli.eth)?;
                 let aux_revert = Box::new(move |client, _, blocks| {
                     sc_consensus_grandpa::revert(client, blocks)?;
                     Ok(())
@@ -185,10 +186,10 @@ pub fn run() -> sc_cli::Result<()> {
             runner.sync_run(|config| {
                 let PartialComponents {
                     client, backend, ..
-                } = crate::aura_service::new_partial(
+                } = crate::service::new_partial(
                     &config,
                     &cli.eth,
-                    crate::aura_service::build_manual_seal_import_queue,
+                    crate::service::build_manual_seal_import_queue,
                 )?;
 
                 // This switch needs to be in the client, since the client decides
@@ -290,7 +291,7 @@ fn run_aura(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
     let babe_switch_clone = babe_switch.clone();
     match runner.run_node_until_exit(|config| async move {
         let config = customise_config(arg_matches, config);
-        aura_service::build_full(config, cli.eth, cli.sealing, babe_switch_clone).await
+        service::build_full(config, cli.eth, cli.sealing, babe_switch_clone).await
     }) {
         Ok(()) => Ok(()),
         Err(e) => {

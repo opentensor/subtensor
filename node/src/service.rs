@@ -23,10 +23,12 @@ use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
+use sp_blockchain::HeaderMetadata;
 use sp_consensus::Proposer;
 use sp_consensus::SyncOracle;
 use sp_consensus::{Environment, SelectChain};
 use sp_consensus_aura::sr25519::AuthorityId as AuraAuthorityId;
+use sp_consensus_babe::BabeApi;
 use sp_consensus_slots::SlotDuration;
 use sp_core::H256;
 use sp_inherents::CreateInherentDataProviders;
@@ -55,8 +57,21 @@ type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 pub type GrandpaBlockImport =
     sc_consensus_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>;
 type GrandpaLinkHalf = sc_consensus_grandpa::LinkHalf<Block, FullClient, FullSelectChain>;
+pub type BIQ<'a> = Box<
+    dyn FnOnce(
+            Arc<FullClient>,
+            Arc<FullBackend>,
+            &Configuration,
+            &EthConfiguration,
+            &TaskManager,
+            Option<TelemetryHandle>,
+            GrandpaBlockImport,
+            Arc<TransactionPoolHandle<Block, FullClient>>,
+        ) -> Result<(BasicQueue<Block>, BoxBlockImport<Block>), sc_service::Error>
+        + 'a,
+>;
 
-pub fn new_partial<BIQ>(
+pub fn new_partial(
     config: &Configuration,
     eth_config: &EthConfiguration,
     build_import_queue: BIQ,
@@ -76,17 +91,7 @@ pub fn new_partial<BIQ>(
         ),
     >,
     ServiceError,
->
-where
-    BIQ: FnOnce(
-        Arc<FullClient>,
-        &Configuration,
-        &EthConfiguration,
-        &TaskManager,
-        Option<TelemetryHandle>,
-        GrandpaBlockImport,
-    ) -> Result<(BasicQueue<Block>, BoxBlockImport<Block>), ServiceError>,
-{
+> {
     let telemetry = config
         .telemetry_endpoints
         .clone()
@@ -180,15 +185,6 @@ where
         }
     };
 
-    let (import_queue, block_import) = build_import_queue(
-        client.clone(),
-        config,
-        eth_config,
-        &task_manager,
-        telemetry.as_ref().map(|x| x.handle()),
-        grandpa_block_import,
-    )?;
-
     let transaction_pool = Arc::from(
         sc_transaction_pool::Builder::new(
             task_manager.spawn_essential_handle(),
@@ -199,6 +195,17 @@ where
         .with_prometheus(config.prometheus_registry())
         .build(),
     );
+
+    let (import_queue, block_import) = build_import_queue(
+        client.clone(),
+        backend.clone(),
+        config,
+        eth_config,
+        &task_manager,
+        telemetry.as_ref().map(|x| x.handle()),
+        grandpa_block_import,
+        transaction_pool.clone(),
+    )?;
 
     Ok(PartialComponents {
         client,
@@ -259,14 +266,9 @@ pub trait ConsensusMechanism {
         + sc_consensus_slots::InherentDataProviderExt
         + 'static;
 
-    fn build_import_queue(
-        client: Arc<FullClient>,
-        config: &Configuration,
-        eth_config: &EthConfiguration,
-        task_manager: &TaskManager,
-        telemetry: Option<TelemetryHandle>,
-        grandpa_block_import: GrandpaBlockImport,
-    ) -> Result<(BasicQueue<Block>, BoxBlockImport<Block>), ServiceError>;
+    fn new() -> Self;
+
+    fn build_biq(&mut self) -> Result<BIQ, sc_service::Error>;
 
     fn slot_duration(client: &FullClient) -> Result<SlotDuration, ServiceError>;
 
@@ -278,24 +280,31 @@ pub trait ConsensusMechanism {
         client: Arc<FullClient>,
     ) -> Box<dyn fc_rpc::pending::ConsensusDataProvider<Block>>;
 
-    fn start_authoring<B, C, SC, I, PF, SO, L, CIDP, BS, Error>(
+    fn start_authoring<C, SC, I, PF, SO, L, CIDP, BS, Error>(
+        self,
         task_manager: &mut TaskManager,
         params: StartAuthoringParams<C, SC, I, PF, SO, L, CIDP, BS>,
     ) -> Result<(), sp_consensus::Error>
     where
-        B: BlockT,
-        C: ProvideRuntimeApi<B> + BlockOf + AuxStore + HeaderBackend<B> + Send + Sync + 'static,
-        C::Api: AuraApi<B, AuraAuthorityId>,
-        SC: SelectChain<B> + 'static,
-        I: BlockImport<B> + Send + Sync + 'static,
-        PF: Environment<B, Error = Error> + Send + Sync + 'static,
-        PF::Proposer: Proposer<B, Error = Error>,
+        C: ProvideRuntimeApi<Block>
+            + BlockOf
+            + AuxStore
+            + HeaderBackend<Block>
+            + HeaderMetadata<Block, Error = sp_blockchain::Error>
+            + Send
+            + Sync
+            + 'static,
+        C::Api: AuraApi<Block, AuraAuthorityId> + BabeApi<Block>,
+        SC: SelectChain<Block> + 'static,
+        I: BlockImport<Block, Error = sp_consensus::Error> + Send + Sync + 'static,
+        PF: Environment<Block, Error = Error> + Send + Sync + 'static,
+        PF::Proposer: Proposer<Block, Error = Error>,
         SO: SyncOracle + Send + Sync + Clone + 'static,
-        L: sc_consensus::JustificationSyncLink<B> + 'static,
-        CIDP: CreateInherentDataProviders<B, ()> + Send + 'static,
+        L: sc_consensus::JustificationSyncLink<Block> + 'static,
+        CIDP: CreateInherentDataProviders<Block, ()> + Send + Sync + 'static,
         CIDP::InherentDataProviders: InherentDataProviderExt + Send,
-        BS: BackoffAuthoringBlocksStrategy<NumberFor<B>> + Send + Sync + 'static,
-        Error: std::error::Error + Send + From<sp_consensus::Error> + 'static;
+        BS: BackoffAuthoringBlocksStrategy<NumberFor<Block>> + Send + Sync + 'static,
+        Error: std::error::Error + Send + From<sp_consensus::Error> + From<I::Error> + 'static;
 
     fn spawn_essential_handles(
         task_manager: &mut TaskManager,
@@ -327,7 +336,8 @@ where
         return Err(ServiceError::Other("Unsupported sync mode".to_string()));
     }
 
-    let build_import_queue = CB::build_import_queue;
+    let mut cb = CB::new();
+    let build_import_queue = cb.build_biq()?;
 
     let PartialComponents {
         client,
@@ -607,7 +617,7 @@ where
         let create_inherent_data_providers =
             move |_, ()| async move { CB::create_inherent_data_providers(slot_duration) };
 
-        CB::start_authoring(
+        cb.start_authoring(
             &mut task_manager,
             StartAuthoringParams {
                 slot_duration,
@@ -733,6 +743,7 @@ pub fn new_chain_ops<CB: ConsensusMechanism>(
     ServiceError,
 > {
     config.keystore = sc_service::config::KeystoreConfig::InMemory;
+    let mut cb = CB::new();
     let PartialComponents {
         client,
         backend,
@@ -740,7 +751,7 @@ pub fn new_chain_ops<CB: ConsensusMechanism>(
         task_manager,
         other,
         ..
-    } = new_partial(config, eth_config, CB::build_import_queue)?;
+    } = new_partial(config, eth_config, cb.build_biq()?)?;
     Ok((client, backend, import_queue, task_manager, other.3))
 }
 
