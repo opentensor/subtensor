@@ -364,7 +364,15 @@ impl Default for Data {
 
 #[freeze_struct("5ca4adbb4d2a2b20")]
 #[derive(
-    CloneNoBound, Encode, Decode, DecodeWithMemTracking, Eq, MaxEncodedLen, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
+    CloneNoBound,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    Eq,
+    MaxEncodedLen,
+    PartialEqNoBound,
+    RuntimeDebugNoBound,
+    TypeInfo,
 )]
 #[codec(mel_bound())]
 #[derive(frame_support::DefaultNoBound)]

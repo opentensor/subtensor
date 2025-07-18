@@ -1,7 +1,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 use core::fmt::{self, Display, Formatter};
 
-use codec::{Compact, CompactAs, Decode, DecodeWithMemTracking, Encode, Error as CodecError, MaxEncodedLen};
+use codec::{
+    Compact, CompactAs, Decode, DecodeWithMemTracking, Encode, Error as CodecError, MaxEncodedLen,
+};
 use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
@@ -121,7 +123,18 @@ impl TypeInfo for NetUid {
 }
 
 #[derive(
-    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, DecodeWithMemTracking, Debug, MaxEncodedLen, TypeInfo,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    Debug,
+    MaxEncodedLen,
+    TypeInfo,
 )]
 pub enum ProxyType {
     Any,

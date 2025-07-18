@@ -109,7 +109,9 @@ pub mod pallet {
         NegativeSigmoidSteepness,
     }
     /// Enum for specifying the type of precompile operation.
-    #[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, Clone, PartialEq, Eq, Debug, Copy)]
+    #[derive(
+        Encode, Decode, DecodeWithMemTracking, TypeInfo, Clone, PartialEq, Eq, Debug, Copy,
+    )]
     pub enum PrecompileEnum {
         /// Enum for balance transfer precompile
         BalanceTransfer,

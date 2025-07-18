@@ -161,7 +161,17 @@ impl<T: Config> Position<T> {
 
 #[freeze_struct("8501fa251c9d74c")]
 #[derive(
-    Clone, Copy, Decode, DecodeWithMemTracking, Default, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo,
+    Clone,
+    Copy,
+    Decode,
+    DecodeWithMemTracking,
+    Default,
+    Encode,
+    Eq,
+    MaxEncodedLen,
+    PartialEq,
+    RuntimeDebug,
+    TypeInfo,
 )]
 pub struct PositionId(u128);
 
