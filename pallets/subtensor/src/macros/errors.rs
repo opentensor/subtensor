@@ -242,5 +242,7 @@ mod errors {
         SymbolDoesNotExist,
         /// Symbol already in use.
         SymbolAlreadyInUse,
+        /// Duration is too short.
+        DurationTooShort,
     }
 }

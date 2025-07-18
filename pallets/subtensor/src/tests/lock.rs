@@ -730,7 +730,7 @@ fn test_remove_stake_after_lock_expiry() {
         let hotkey = U256::from(2);
         let initial_stake = 1_000_000_000;
         let lock_amount = AlphaCurrency::from(600_000_000);
-        let lock_duration = 10; // 10 blocks
+        let lock_duration = 7200;
 
         // Set up network and register neuron
         add_network(netuid, 0, 0);
@@ -790,8 +790,8 @@ fn test_remove_stake_multiple_locks() {
         let hotkey = U256::from(2);
         let coldkey2 = U256::from(3); // To keep additional stake
         let initial_stake = 1_000_000_000;
-        let lock_duration_1 = 10; // 10 blocks
-        let lock_duration_2 = 10; // 10 blocks
+        let lock_duration_1 = 7200;
+        let lock_duration_2 = 7200;
 
         // Set up network and register neuron
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
@@ -878,7 +878,7 @@ fn test_remove_stake_conviction_calculation() {
         let hotkey = U256::from(2);
         let initial_stake = 1_000_000_000;
         let lock_amount = AlphaCurrency::from(500_000_000);
-        let lock_duration = 10; // 10 blocks
+        let lock_duration = 7200;
 
         // Register and add stake
         add_network(netuid, 0, 0);
@@ -1039,7 +1039,7 @@ fn test_remove_stake_full_lock_removal() {
         let hotkey = U256::from(2);
         let initial_stake = 1_000_000_000;
         let lock_amount = AlphaCurrency::from(500_000_000);
-        let lock_duration = 10; // 10 blocks
+        let lock_duration = 7200;
 
         // Register and add stake
         add_network(netuid, 0, 0);
@@ -1100,14 +1100,16 @@ fn test_remove_stake_across_subnets() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let initial_stake = 1_000_000_000;
-        let lock_duration_1 = 10; // 10 blocks
-        let lock_duration_2 = 20; // 20 blocks
+        let lock_duration_1 = 7200_u64;
+        let lock_duration_2 = 14400_u64;
 
         // Set up networks and register neuron
         let netuid1 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         let netuid2 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid1, hotkey, coldkey, 11);
         register_ok_neuron(netuid2, hotkey, coldkey, 11);
+        Tempo::<Test>::insert(netuid1, (lock_duration_1 * 2) as u16);
+        Tempo::<Test>::insert(netuid2, (lock_duration_2 * 2) as u16);
 
         // Add balance to coldkey and stake on both networks
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_stake * 2);
@@ -1205,8 +1207,6 @@ fn test_remove_stake_across_subnets() {
 
         // Fast forward to after second lock expiry
         run_to_block(lock_duration_2 + 1);
-
-        println!("======================");
 
         // Remove all remaining stake from netuid2
         assert_ok!(SubtensorModule::remove_stake(
@@ -2388,6 +2388,40 @@ fn test_locks_are_updated_in_block_step() {
             SubnetOwner::<Test>::get(netuid),
             coldkey2.clone(),
             "Subnet owner should be set to the coldkey of the only lock"
+        );
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::lock::test_do_lock_too_short --exact --show-output
+#[test]
+fn test_do_lock_too_short() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let stake_amount = 500_000_000;
+        let lock_amount = AlphaCurrency::from(250_000_000);
+        let lock_duration = 10; // too short
+
+        // Set up initial balance and stake
+        add_network(netuid, 0, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000);
+        register_ok_neuron(netuid, hotkey, coldkey, 11);
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            stake_amount
+        ));
+        assert_noop!(
+            SubtensorModule::lock_stake(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                lock_duration,
+                lock_amount
+            ),
+            Error::<Test>::DurationTooShort
         );
     });
 }

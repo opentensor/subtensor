@@ -128,6 +128,12 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotEnoughStakeToWithdraw
         );
 
+        // Ensure the lock duration is at least the minimum
+        ensure!(
+            duration >= DefaultMinLockDuration::<T>::get(),
+            Error::<T>::DurationTooShort
+        );
+
         // Get the lockers current stake.
         let current_alpha_stake =
             Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);

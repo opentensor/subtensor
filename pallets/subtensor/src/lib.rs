@@ -813,6 +813,12 @@ pub mod pallet {
     }
 
     #[pallet::type_value]
+    /// Default minimum lock duration.
+    pub fn DefaultMinLockDuration<T: Config>() -> u64 {
+        7_200
+    }
+
+    #[pallet::type_value]
     /// Default unicode vector for tau symbol.
     pub fn DefaultUnicodeVecU8<T: Config>() -> Vec<u8> {
         b"\xF0\x9D\x9C\x8F".to_vec() // Unicode for tau (𝜏)
