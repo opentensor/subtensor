@@ -9,7 +9,6 @@ use sc_client_api::{Backend as BackendT, BlockBackend};
 use sc_consensus::BlockImport;
 use sc_consensus::{BasicQueue, BoxBlockImport};
 use sc_consensus_aura::AuraApi;
-use sc_consensus_aura::AuthorityId;
 use sc_consensus_grandpa::BlockNumberOps;
 use sc_consensus_slots::BackoffAuthoringBlocksStrategy;
 use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
@@ -25,7 +24,7 @@ use sp_blockchain::HeaderBackend;
 use sp_consensus::Proposer;
 use sp_consensus::SyncOracle;
 use sp_consensus::{Environment, SelectChain};
-use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
+use sp_consensus_aura::sr25519::AuthorityId;
 use sp_consensus_slots::SlotDuration;
 use sp_core::H256;
 use sp_inherents::CreateInherentDataProviders;
@@ -247,7 +246,7 @@ pub trait ConsensusBuilder {
     where
         B: BlockT,
         C: ProvideRuntimeApi<B> + BlockOf + AuxStore + HeaderBackend<B> + Send + Sync + 'static,
-        C::Api: AuraApi<B, AuthorityId<AuraPair>>,
+        C::Api: AuraApi<B, AuthorityId>,
         SC: SelectChain<B> + 'static,
         I: BlockImport<B> + Send + Sync + 'static,
         PF: Environment<B, Error = Error> + Send + Sync + 'static,

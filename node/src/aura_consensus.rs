@@ -9,7 +9,6 @@ use jsonrpsee::tokio;
 use node_subtensor_runtime::opaque::Block;
 use sc_client_api::{AuxStore, BlockOf};
 use sc_consensus::{BasicQueue, BlockImport, BoxBlockImport};
-use sc_consensus_aura::AuthorityId;
 use sc_consensus_grandpa::BlockNumberOps;
 use sc_consensus_slots::{BackoffAuthoringBlocksStrategy, InherentDataProviderExt};
 use sc_service::{Configuration, TaskManager};
@@ -17,6 +16,7 @@ use sc_telemetry::TelemetryHandle;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::{Environment, Proposer, SelectChain, SyncOracle};
+use sp_consensus_aura::sr25519::AuthorityId;
 use sp_consensus_aura::{AuraApi, sr25519::AuthorityPair as AuraPair};
 use sp_consensus_slots::SlotDuration;
 use sp_inherents::CreateInherentDataProviders;
@@ -54,7 +54,7 @@ impl ConsensusBuilder for AuraConsensus {
     where
         B: BlockT,
         C: ProvideRuntimeApi<B> + BlockOf + AuxStore + HeaderBackend<B> + Send + Sync + 'static,
-        C::Api: AuraApi<B, AuthorityId<AuraPair>>,
+        C::Api: AuraApi<B, AuthorityId>,
         SC: SelectChain<B> + 'static,
         I: BlockImport<B> + Send + Sync + 'static,
         PF: Environment<B, Error = Error> + Send + Sync + 'static,
