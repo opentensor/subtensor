@@ -242,4 +242,43 @@ impl<T: Config> Pallet<T> {
 
         Ok(())
     }
+
+    pub fn do_add_stake_limit_aggregate(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+        netuid: NetUid,
+        stake_to_be_added: u64,
+        limit_price: u64,
+        allow_partial: bool,
+    ) -> dispatch::DispatchResult {
+        let coldkey = ensure_signed(origin)?;
+
+        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
+            Self::do_add_stake_limit(
+                crate::dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+                netuid,
+                stake_to_be_added,
+                limit_price,
+                allow_partial,
+            )?;
+        }
+
+        let stake_job = StakeJob::AddStakeLimit {
+            hotkey,
+            coldkey,
+            netuid,
+            stake_to_be_added,
+            limit_price,
+            allow_partial,
+        };
+
+        let stake_job_id = NextStakeJobId::<T>::get();
+        let current_blocknumber = <frame_system::Pallet<T>>::block_number();
+
+        StakeJobs::<T>::insert(current_blocknumber, stake_job_id, stake_job);
+        NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
+
+        Ok(())
+    }
 }

@@ -382,28 +382,136 @@ mod events {
         },
 
         /// stake has been transferred from the coldkey account onto the hotkey staking account (at the end of the block)
-        AggregatedStakeAdded(T::AccountId, T::AccountId, u16, u64),
+        AggregatedStakeAdded {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of hotkey
+            hotkey: T::AccountId,
+            /// The subnet ID
+            netuid: NetUid,
+            /// Stake
+            stake_to_be_added: u64,
+        },
         /// adding aggregated stake has failed
-        FailedToAddAggregatedStake(T::AccountId, T::AccountId, u16, u64),
+        FailedToAddAggregatedStake {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of hotkey
+            hotkey: T::AccountId,
+            /// The subnet ID
+            netuid: NetUid,
+            /// Stake
+            stake_to_be_added: u64,
+        },
         /// limited stake has been transferred from the coldkey account onto the hotkey staking account (at the end of the block)
-        AggregatedLimitedStakeAdded(T::AccountId, T::AccountId, u16, u64, u64, bool),
+        AggregatedLimitedStakeAdded {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of hotkey
+            hotkey: T::AccountId,
+            /// The subnet ID
+            netuid: NetUid,
+            /// stake
+            stake_to_be_added: u64,
+            /// price limit
+            limit_price: u64,
+            /// allow partial stake removal
+            allow_partial: bool,
+        },
         /// adding limited aggregated stake has failed
-        FailedToAddAggregatedLimitedStake(T::AccountId, T::AccountId, u16, u64, u64, bool),
+        FailedToAddAggregatedLimitedStake {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of hotkey
+            hotkey: T::AccountId,
+            /// The subnet ID
+            netuid: NetUid,
+            /// stake
+            stake_to_be_added: u64,
+            /// price limit
+            limit_price: u64,
+            /// allow partial stake removal
+            allow_partial: bool,
+        },
         /// stake has been removed from the hotkey staking account into the coldkey account (at the end of the block).
-        AggregatedStakeRemoved(T::AccountId, T::AccountId, u16, u64),
+        AggregatedStakeRemoved {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of hotkey
+            hotkey: T::AccountId,
+            /// The subnet ID
+            netuid: NetUid,
+            /// alpha
+            alpha_unstaked: AlphaCurrency,
+        },
         /// removing aggregated stake has failed
-        FailedToRemoveAggregatedStake(T::AccountId, T::AccountId, u16, u64),
+        FailedToRemoveAggregatedStake {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of hotkey
+            hotkey: T::AccountId,
+            /// The subnet ID
+            netuid: NetUid,
+            /// alpha
+            alpha_unstaked: AlphaCurrency,
+        },
         /// aggregated limited stake has been removed from the hotkey staking account into the coldkey account (at the end of the block).
-        AggregatedLimitedStakeRemoved(T::AccountId, T::AccountId, u16, u64, u64, bool),
+        AggregatedLimitedStakeRemoved {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of hotkey
+            hotkey: T::AccountId,
+            /// The subnet ID
+            netuid: NetUid,
+            /// alpha
+            alpha_unstaked: AlphaCurrency,
+            /// price limit
+            limit_price: u64,
+            /// allow partial stake removal
+            allow_partial: bool,
+        },
         /// removing limited aggregated stake has failed
-        FailedToRemoveAggregatedLimitedStake(T::AccountId, T::AccountId, u16, u64, u64, bool),
+        FailedToRemoveAggregatedLimitedStake {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of hotkey
+            hotkey: T::AccountId,
+            /// The subnet ID
+            netuid: NetUid,
+            /// alpha
+            alpha_unstaked: AlphaCurrency,
+            /// price limit
+            limit_price: u64,
+            /// allow partial stake removal
+            allow_partial: bool,
+        },
         ///  aggregated unstake_all operation has succeeded
-        AggregatedUnstakeAllSucceeded(T::AccountId, T::AccountId),
+        AggregatedUnstakeAllSucceeded {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of hotkey
+            hotkey: T::AccountId,
+        },
         /// aggregated unstake_all operation has failed
-        AggregatedUnstakeAllFailed(T::AccountId, T::AccountId),
+        AggregatedUnstakeAllFailed {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of hotkey
+            hotkey: T::AccountId,
+        },
         ///  aggregated unstake_all_alpha operation has succeeded
-        AggregatedUnstakeAllAlphaSucceeded(T::AccountId, T::AccountId),
+        AggregatedUnstakeAllAlphaSucceeded {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of hotkey
+            hotkey: T::AccountId,
+        },
         /// aggregated unstake_all_alpha operation has failed
-        AggregatedUnstakeAllAlphaFailed(T::AccountId, T::AccountId),
+        AggregatedUnstakeAllAlphaFailed {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of hotkey
+            hotkey: T::AccountId,
+        },
     }
 }

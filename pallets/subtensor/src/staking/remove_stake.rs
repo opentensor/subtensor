@@ -440,4 +440,135 @@ impl<T: Config> Pallet<T> {
             Self::do_remove_stake(origin, hotkey, netuid, alpha_unstaked)
         }
     }
+
+    pub fn do_remove_stake_aggregate(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+        netuid: NetUid,
+        alpha_unstaked: AlphaCurrency,
+    ) -> dispatch::DispatchResult {
+        // We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
+        let coldkey = ensure_signed(origin)?;
+
+        // Consider the weight from on_finalize
+        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
+            Self::do_remove_stake(
+                crate::dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+                netuid,
+                alpha_unstaked,
+            )?;
+        }
+
+        // Save the staking job for the on_finalize
+        let stake_job = StakeJob::RemoveStake {
+            hotkey,
+            coldkey,
+            netuid,
+            alpha_unstaked,
+        };
+
+        let stake_job_id = NextStakeJobId::<T>::get();
+        let current_blocknumber = <frame_system::Pallet<T>>::block_number();
+
+        StakeJobs::<T>::insert(current_blocknumber, stake_job_id, stake_job);
+        NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
+
+        Ok(())
+    }
+
+    pub fn do_remove_stake_limit_aggregate(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+        netuid: NetUid,
+        alpha_unstaked: AlphaCurrency,
+        limit_price: u64,
+        allow_partial: bool,
+    ) -> dispatch::DispatchResult {
+        let coldkey = ensure_signed(origin)?;
+
+        // Consider the weight from on_finalize
+        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
+            Self::do_remove_stake_limit(
+                crate::dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+                netuid,
+                alpha_unstaked,
+                limit_price,
+                allow_partial,
+            )?;
+        }
+
+        let stake_job = StakeJob::RemoveStakeLimit {
+            hotkey,
+            coldkey,
+            netuid,
+            alpha_unstaked,
+            limit_price,
+            allow_partial,
+        };
+
+        let stake_job_id = NextStakeJobId::<T>::get();
+        let current_blocknumber = <frame_system::Pallet<T>>::block_number();
+
+        StakeJobs::<T>::insert(current_blocknumber, stake_job_id, stake_job);
+        NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
+
+        // Done and ok.
+        Ok(())
+    }
+
+    pub fn do_unstake_all_aggregate(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+    ) -> dispatch::DispatchResult {
+        // We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
+        let coldkey = ensure_signed(origin)?;
+
+        // Consider the weight from on_finalize
+        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
+            Self::do_unstake_all(
+                crate::dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+            )?;
+        }
+
+        // Save the unstake_all job for the on_finalize
+        let stake_job = StakeJob::UnstakeAll { hotkey, coldkey };
+
+        let stake_job_id = NextStakeJobId::<T>::get();
+        let current_blocknumber = <frame_system::Pallet<T>>::block_number();
+
+        StakeJobs::<T>::insert(current_blocknumber, stake_job_id, stake_job);
+        NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
+
+        Ok(())
+    }
+
+    pub fn do_unstake_all_alpha_aggregate(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+    ) -> dispatch::DispatchResult {
+        // We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
+        let coldkey = ensure_signed(origin)?;
+
+        // Consider the weight from on_finalize
+        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
+            Self::do_unstake_all_alpha(
+                crate::dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+            )?;
+        }
+
+        // Save the unstake_all_alpha job for the on_finalize
+        let stake_job = StakeJob::UnstakeAllAlpha { hotkey, coldkey };
+
+        let stake_job_id = NextStakeJobId::<T>::get();
+        let current_blocknumber = <frame_system::Pallet<T>>::block_number();
+
+        StakeJobs::<T>::insert(current_blocknumber, stake_job_id, stake_job);
+        NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
+
+        Ok(())
+    }
 }

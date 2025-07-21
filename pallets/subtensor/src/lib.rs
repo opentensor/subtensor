@@ -325,7 +325,7 @@ pub mod pallet {
             /// Subnet ID
             netuid: NetUid,
             /// Alpha value
-            alpha_unstaked: u64,
+            alpha_unstaked: AlphaCurrency,
         },
         /// Represents a job for "add_stake_limit" operation
         AddStakeLimit {
@@ -352,7 +352,7 @@ pub mod pallet {
             /// Subnet ID
             netuid: NetUid,
             /// The amount of stake to be added to the hotkey staking account.
-            alpha_unstaked: u64,
+            alpha_unstaked: AlphaCurrency,
             /// The limit price
             limit_price: u64,
             /// Allows partial execution of the amount. If set to false, this becomes
@@ -373,6 +373,20 @@ pub mod pallet {
             /// Hotkey account
             hotkey: AccountId,
         },
+    }
+
+    impl<AccountId: Clone> StakeJob<AccountId> {
+        /// Extracts coldkey from the stake job
+        pub fn coldkey(&self) -> AccountId {
+            match self {
+                StakeJob::AddStake { coldkey, .. } => coldkey.clone(),
+                StakeJob::RemoveStake { coldkey, .. } => coldkey.clone(),
+                StakeJob::AddStakeLimit { coldkey, .. } => coldkey.clone(),
+                StakeJob::RemoveStakeLimit { coldkey, .. } => coldkey.clone(),
+                StakeJob::UnstakeAll { coldkey, .. } => coldkey.clone(),
+                StakeJob::UnstakeAllAlpha { coldkey, .. } => coldkey.clone(),
+            }
+        }
     }
 
     /// ============================
