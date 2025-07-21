@@ -353,7 +353,6 @@ mod events {
             /// the subnet ID
             netuid: NetUid,
         },
-
         /// A subnet lease has been created.
         SubnetLeaseCreated {
             /// The beneficiary of the lease.
@@ -380,6 +379,13 @@ mod events {
             netuid: NetUid,
             /// The symbol that has been updated.
             symbol: Vec<u8>,
+        },
+        /// Pure proxy account is set
+        PureProxyAccountSet {
+            /// EVM address
+            address: H160,
+            /// Pure proxy account
+            account: T::AccountId,
         },
     }
 }

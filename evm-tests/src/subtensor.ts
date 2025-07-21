@@ -3,7 +3,7 @@ import { devnet, MultiAddress } from '@polkadot-api/descriptors';
 import { TypedApi, TxCallData } from 'polkadot-api';
 import { KeyPair } from "@polkadot-labs/hdkd-helpers"
 import { getAliceSigner, waitForTransactionCompletion, getSignerFromKeypair, waitForTransactionWithRetry } from './substrate'
-import { convertH160ToSS58, convertPublicKeyToSs58 } from './address-utils'
+import { convertH160ToSS58, convertPublicKeyToSs58, ethAddressToH160 } from './address-utils'
 import { tao } from './balance-math'
 import internal from "stream";
 
@@ -351,6 +351,16 @@ export async function setMaxChildkeyTake(api: TypedApi<typeof devnet>, take: num
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
     await waitForTransactionWithRetry(api, tx, alice)
+}
+
+// use the alice as wrong mapped account to send extrinsic
+export async function setPureProxyAccount(api: TypedApi<typeof devnet>, address: string, account: string) {
+    const alice = getAliceSigner()
+    const call = api.tx.SubtensorModule.set_pure_proxy_account({
+        address: ethAddressToH160(address),
+        account
+    })
+    await waitForTransactionWithRetry(api, call, alice)
 }
 
 // Swap coldkey to contract address

@@ -218,6 +218,10 @@ mod errors {
         SameNetuid,
         /// The caller does not have enough balance for the operation.
         InsufficientBalance,
+        /// Origin not match the mapped EVM account
+        OriginNotMatchMappedEVM,
+        /// Pure proxy account already set
+        PureProxyAccountExisted,
         /// Too frequent staking operations
         StakingOperationRateLimitExceeded,
         /// Invalid lease beneficiary to register the leased network.
