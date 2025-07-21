@@ -616,6 +616,7 @@ impl pallet_drand::Config for Test {
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;
     type HttpFetchTimeout = ConstU64<1_000>;
+    type OnPulseReceived = ();
 }
 
 impl frame_system::offchain::SigningTypes for Test {

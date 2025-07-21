@@ -146,6 +146,24 @@ impl<T: SigningTypes> SignedPayload<T> for PulsesPayload<T::Public, BlockNumberF
     }
 }
 
+/// Callback method to signal new pulses
+pub trait OnPulseReceived {
+    /// Callback method to signal new pulses
+    fn on_pulse_received(round: RoundNumber);
+}
+
+impl OnPulseReceived for () {
+    fn on_pulse_received(_round: RoundNumber) {}
+}
+
+// Enables a chain of method calls
+impl<X: OnPulseReceived, Y: OnPulseReceived> OnPulseReceived for (X, Y) {
+    fn on_pulse_received(round: RoundNumber) {
+        X::on_pulse_received(round);
+        Y::on_pulse_received(round);
+    }
+}
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -174,6 +192,9 @@ pub mod pallet {
         /// complete.
         #[pallet::constant]
         type HttpFetchTimeout: Get<u64>;
+        ///
+        /// Warning: calculate weight properly when change this parameter
+        type OnPulseReceived: OnPulseReceived;
     }
 
     /// the drand beacon configuration
@@ -352,6 +373,7 @@ pub mod pallet {
             // Emit event with all new rounds
             if !new_rounds.is_empty() {
                 Self::deposit_event(Event::NewPulse { rounds: new_rounds });
+                T::OnPulseReceived::on_pulse_received(last_stored_round);
             }
 
             Ok(())

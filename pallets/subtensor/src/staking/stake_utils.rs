@@ -1309,7 +1309,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // Process staking job for on_finalize() hook.
-    pub(crate) fn process_staking_jobs(_current_block_number: BlockNumberFor<T>) {
+    pub fn process_staking_jobs(_current_block_number: BlockNumberFor<T>) {
         let stake_jobs = StakeJobs::<T>::drain().collect::<Vec<_>>();
 
         // Sort jobs by job type
@@ -1356,7 +1356,7 @@ impl<T: Config> Pallet<T> {
             }
             _ => sp_std::cmp::Ordering::Equal, // unreachable
         });
-        
+
         // TODO: add other extrinsics
 
         // direct job order
@@ -1397,7 +1397,7 @@ impl<T: Config> Pallet<T> {
                                 stake_to_be_added,
                                 err
                             );
-                            // TODO: 
+                            // TODO:
                             // Self::deposit_event(Event::FailedToAddAggregatedStake(
                             //     coldkey,
                             //     hotkey,
@@ -1405,7 +1405,7 @@ impl<T: Config> Pallet<T> {
                             //     stake_to_be_added,
                             // ));
                         } else {
-                            // TODO: 
+                            // TODO:
                             // Self::deposit_event(Event::AggregatedStakeAdded(
                             //     coldkey,
                             //     hotkey,

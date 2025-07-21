@@ -104,6 +104,15 @@ use pallet_evm::{
     Account as EVMAccount, BalanceConverter, EvmBalance, FeeCalculator, Runner, SubstrateBalance,
 };
 
+pub struct StakingJobsOnDrandPulse;
+impl OnPulseReceived for StakingJobsOnDrandPulse {
+    fn on_pulse_received(_: RoundNumber) {
+        pallet_subtensor::pallet::Pallet::<Runtime>::process_staking_jobs(
+            frame_system::pallet::Pallet::<Runtime>::block_number(),
+        );
+    }
+}
+
 // Drand
 impl pallet_drand::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
@@ -111,6 +120,8 @@ impl pallet_drand::Config for Runtime {
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;
     type HttpFetchTimeout = ConstU64<1_000>;
+    // Warning: ensure the weight is calculated correctly when changing this parameter.
+    type OnPulseReceived = StakingJobsOnDrandPulse;
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {
@@ -1311,6 +1322,8 @@ impl pallet_subtensor_swap::Config for Runtime {
     type WeightInfo = pallet_subtensor_swap::weights::DefaultWeight<Runtime>;
 }
 
+use pallet_drand::OnPulseReceived;
+use pallet_drand::types::RoundNumber;
 use sp_runtime::BoundedVec;
 
 pub struct AuraPalletIntrf;
