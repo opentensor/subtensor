@@ -4189,7 +4189,8 @@ dependencies = [
 [[package]]
 name = "getrandom"
 version = "0.3.3"
-source = "git+https://github.com/rust-random/getrandom?tag=v0.3.3#82396406b28f23ba86e3e511d34a4f5dab0fda08"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26145e563e54f2cadc477553f1ec5ee650b00862f0a58bcd12cbdc5f0ea2d2f4"
 dependencies = [
  "cfg-if",
  "js-sys",
