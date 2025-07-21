@@ -176,7 +176,8 @@ fn test_swap_initialization() {
 
         // Calculate expected liquidity
         let expected_liquidity =
-            helpers_128bit::sqrt((tao as u128).saturating_mul(u64::from(alpha) as u128)) as u64;
+            helpers_128bit::sqrt((tao.to_u64() as u128).saturating_mul(alpha.to_u64() as u128))
+                as u64;
 
         // Get the protocol account
         let protocol_account_id = Pallet::<Test>::protocol_account_id();
@@ -515,14 +516,14 @@ fn test_remove_liquidity_basic() {
             let remove_result =
                 Pallet::<Test>::do_remove_liquidity(netuid, &OK_COLDKEY_ACCOUNT_ID, position_id)
                     .unwrap();
-            assert_abs_diff_eq!(remove_result.tao, tao, epsilon = tao / 1000);
+            assert_abs_diff_eq!(remove_result.tao.to_u64(), tao, epsilon = tao / 1000);
             assert_abs_diff_eq!(
                 u64::from(remove_result.alpha),
                 alpha,
                 epsilon = alpha / 1000
             );
-            assert_eq!(remove_result.fee_tao, 0);
-            assert_eq!(remove_result.fee_alpha, 0.into());
+            assert_eq!(remove_result.fee_tao, TaoCurrency::ZERO);
+            assert_eq!(remove_result.fee_alpha, AlphaCurrency::ZERO);
 
             // Liquidity position is removed
             assert_eq!(
@@ -654,8 +655,8 @@ fn test_modify_position_basic() {
                 alpha / 10,
                 epsilon = alpha / 1000
             );
-            assert!(modify_result.fee_tao > 0);
-            assert_eq!(modify_result.fee_alpha, 0.into());
+            assert!(modify_result.fee_tao > TaoCurrency::ZERO);
+            assert_eq!(modify_result.fee_alpha, AlphaCurrency::ZERO);
 
             // Liquidity position is reduced
             assert_eq!(
@@ -709,8 +710,8 @@ fn test_modify_position_basic() {
                 alpha / 100,
                 epsilon = alpha / 1000
             );
-            assert_eq!(modify_result.fee_tao, 0);
-            assert_eq!(modify_result.fee_alpha, 0.into());
+            assert_eq!(modify_result.fee_tao, TaoCurrency::ZERO);
+            assert_eq!(modify_result.fee_alpha, AlphaCurrency::ZERO);
         });
     });
 }
@@ -821,9 +822,8 @@ fn test_swap_basic() {
                 assert_eq!(
                     position.liquidity,
                     helpers_128bit::sqrt(
-                        MockLiquidityProvider::tao_reserve(netuid.into()) as u128
-                            * u64::from(MockLiquidityProvider::alpha_reserve(netuid.into()))
-                                as u128
+                        MockLiquidityProvider::tao_reserve(netuid.into()).to_u64() as u128
+                            * MockLiquidityProvider::alpha_reserve(netuid.into()).to_u64() as u128
                     ) as u64
                 );
                 assert_eq!(position.tick_low, tick_low);
@@ -931,9 +931,9 @@ fn test_swap_single_position() {
                     //////////////////////////////////////////////
                     // Initialize pool and add the user position
                     assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
-                    let tao_reserve = MockLiquidityProvider::tao_reserve(netuid.into());
+                    let tao_reserve = MockLiquidityProvider::tao_reserve(netuid.into()).to_u64();
                     let alpha_reserve =
-                        u64::from(MockLiquidityProvider::alpha_reserve(netuid.into()));
+                        MockLiquidityProvider::alpha_reserve(netuid.into()).to_u64();
                     let protocol_liquidity = (tao_reserve as f64 * alpha_reserve as f64).sqrt();
 
                     // Add liquidity
@@ -1236,8 +1236,8 @@ fn test_swap_multiple_positions() {
                 epsilon = output_amount / 10.
             );
 
-            let tao_reserve = MockLiquidityProvider::tao_reserve(netuid.into());
-            let alpha_reserve = u64::from(MockLiquidityProvider::alpha_reserve(netuid.into()));
+            let tao_reserve = MockLiquidityProvider::tao_reserve(netuid.into()).to_u64();
+            let alpha_reserve = MockLiquidityProvider::alpha_reserve(netuid.into()).to_u64();
             let output_amount = output_amount as u64;
 
             assert!(output_amount > 0);

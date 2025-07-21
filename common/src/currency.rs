@@ -54,70 +54,76 @@ pub struct TaoCurrency(u64);
 // TypeInfo and Display. It expects a wrapper structure for u64 (CurrencyT(u64)).
 macro_rules! impl_currency_reqs {
     ($currency_type:ident) => {
-		impl TypeInfo for $currency_type {
-			type Identity = <u64 as TypeInfo>::Identity;
-			fn type_info() -> scale_info::Type {
-				<u64 as TypeInfo>::type_info()
-			}
-		}
+        impl $currency_type {
+            pub const fn new(inner: u64) -> Self {
+                Self(inner)
+            }
+        }
 
-		impl Display for $currency_type {
-			fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-				Display::fmt(&self.0, f)
-			}
-		}
+        impl TypeInfo for $currency_type {
+            type Identity = <u64 as TypeInfo>::Identity;
+            fn type_info() -> scale_info::Type {
+                <u64 as TypeInfo>::type_info()
+            }
+        }
 
-		impl CompactAs for $currency_type {
-			type As = u64;
+        impl Display for $currency_type {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                Display::fmt(&self.0, f)
+            }
+        }
 
-			fn encode_as(&self) -> &Self::As {
-				&self.0
-			}
+        impl CompactAs for $currency_type {
+            type As = u64;
 
-			fn decode_from(v: Self::As) -> Result<Self, CodecError> {
-				Ok(Self(v))
-			}
-		}
+            fn encode_as(&self) -> &Self::As {
+                &self.0
+            }
 
-		impl From<Compact<$currency_type>> for $currency_type {
-			fn from(c: Compact<$currency_type>) -> Self {
-				c.0
-			}
-		}
+            fn decode_from(v: Self::As) -> Result<Self, CodecError> {
+                Ok(Self(v))
+            }
+        }
 
-		impl From<$currency_type> for u64 {
-			fn from(val: $currency_type) -> Self {
-				val.0
-			}
-		}
+        impl From<Compact<$currency_type>> for $currency_type {
+            fn from(c: Compact<$currency_type>) -> Self {
+                c.0
+            }
+        }
 
-		impl From<u64> for $currency_type {
-			fn from(value: u64) -> Self {
-				Self(value)
-			}
-		}
+        impl From<$currency_type> for u64 {
+            fn from(val: $currency_type) -> Self {
+                val.0
+            }
+        }
 
-		impl ToFixed for $currency_type {
-			fn to_fixed<F: Fixed>(self) -> F {
-				self.0.to_fixed()
-			}
+        impl From<u64> for $currency_type {
+            fn from(value: u64) -> Self {
+                Self(value)
+            }
+        }
 
-			fn checked_to_fixed<F: Fixed>(self) -> Option<F> {
-				self.0.checked_to_fixed()
-			}
+        impl ToFixed for $currency_type {
+            fn to_fixed<F: Fixed>(self) -> F {
+                self.0.to_fixed()
+            }
 
-			fn saturating_to_fixed<F: Fixed>(self) -> F {
-				self.0.saturating_to_fixed()
-			}
-			fn wrapping_to_fixed<F: Fixed>(self) -> F {
-				self.0.wrapping_to_fixed()
-			}
+            fn checked_to_fixed<F: Fixed>(self) -> Option<F> {
+                self.0.checked_to_fixed()
+            }
 
-			fn overflowing_to_fixed<F: Fixed>(self) -> (F, bool) {
-				self.0.overflowing_to_fixed()
-			}
-		}
-	}
+            fn saturating_to_fixed<F: Fixed>(self) -> F {
+                self.0.saturating_to_fixed()
+            }
+            fn wrapping_to_fixed<F: Fixed>(self) -> F {
+                self.0.wrapping_to_fixed()
+            }
+
+            fn overflowing_to_fixed<F: Fixed>(self) -> (F, bool) {
+                self.0.overflowing_to_fixed()
+            }
+        }
+    };
 }
 
 macro_rules! impl_arithmetic_operators {
@@ -261,6 +267,6 @@ impl Currency for AlphaCurrency {
 }
 
 impl Currency for TaoCurrency {
-	const MAX: Self = Self(u64::MAX);
-	const ZERO: Self = Self(0);
+    const MAX: Self = Self(u64::MAX);
+    const ZERO: Self = Self(0);
 }

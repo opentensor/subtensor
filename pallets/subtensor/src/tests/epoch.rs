@@ -11,7 +11,7 @@ use frame_support::{assert_err, assert_ok};
 use rand::{Rng, SeedableRng, distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng};
 use sp_core::{Get, U256};
 use substrate_fixed::types::I32F32;
-use subtensor_runtime_common::AlphaCurrency;
+use subtensor_runtime_common::{AlphaCurrency, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
 use super::mock::*;
@@ -576,7 +576,7 @@ fn test_1_graph() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            stake_amount
+            stake_amount.into()
         ));
 
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
@@ -593,7 +593,7 @@ fn test_1_graph() {
         SubtensorModule::epoch(netuid, 1_000_000_000.into());
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            stake_amount
+            stake_amount.into()
         );
         assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
         assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 0);
@@ -655,7 +655,7 @@ fn test_10_graph() {
         for i in 0..n {
             assert_eq!(
                 SubtensorModule::get_total_stake_for_hotkey(&(U256::from(i))),
-                1
+                TaoCurrency::from(1)
             );
             assert_eq!(SubtensorModule::get_rank_for_uid(netuid, i as u16), 0);
             assert_eq!(SubtensorModule::get_trust_for_uid(netuid, i as u16), 0);
@@ -712,7 +712,7 @@ fn test_512_graph() {
                 for uid in validators {
                     assert_eq!(
                         SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
-                        max_stake_per_validator
+                        max_stake_per_validator.into()
                     );
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
                     assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 0);
@@ -730,7 +730,7 @@ fn test_512_graph() {
                 for uid in servers {
                     assert_eq!(
                         SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
-                        0
+                        TaoCurrency::ZERO
                     );
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 146); // Note R = floor(1 / (512 - 64) * 65_535) = 146
                     assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 65535);
@@ -1315,13 +1315,13 @@ fn test_set_alpha_disabled() {
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
         let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
             netuid.into(),
-            DefaultMinStake::<Test>::get(),
+            DefaultMinStake::<Test>::get().into(),
         );
         assert_ok!(SubtensorModule::add_stake(
             signer.clone(),
             hotkey,
             netuid,
-            5 * DefaultMinStake::<Test>::get() + fee
+            (5 * DefaultMinStake::<Test>::get().to_u64() + fee).into()
         ));
         // Only owner can set alpha values
         assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey));
@@ -2290,14 +2290,14 @@ fn test_get_set_alpha() {
 
         let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
             netuid.into(),
-            DefaultMinStake::<Test>::get(),
+            DefaultMinStake::<Test>::get().into(),
         );
 
         assert_ok!(SubtensorModule::add_stake(
             signer.clone(),
             hotkey,
             netuid,
-            DefaultMinStake::<Test>::get() + fee * 2
+            (DefaultMinStake::<Test>::get().to_u64() + fee * 2).into()
         ));
 
         assert_ok!(SubtensorModule::do_set_alpha_values(

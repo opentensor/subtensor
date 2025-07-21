@@ -142,7 +142,7 @@ fn call_add_stake() -> RuntimeCall {
     RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake {
         hotkey: AccountId::from(DELEGATE),
         netuid,
-        amount_staked,
+        amount_staked: amount_staked.into(),
     })
 }
 
