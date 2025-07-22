@@ -1383,16 +1383,6 @@ mod pallet_benchmarks {
     }
 
     #[benchmark]
-    fn set_pure_proxy_account() {
-        let address: H160 = H160::zero();
-        let mapped_account = T::AddressMapping::into_account_id(address);
-        let proxy_account: T::AccountId = account("A", 0, 7);
-
-        #[extrinsic_call]
-        _(RawOrigin::Signed(mapped_account), address, proxy_account);
-    }
-
-    #[benchmark]
     fn remove_stake_full_limit() {
         let netuid = NetUid::from(1);
         let tempo: u16 = 1;

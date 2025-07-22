@@ -7,36 +7,28 @@ use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 use frame_system::RawOrigin;
 use pallet_evm::{AddressMapping, PrecompileHandle};
 use precompile_utils::EvmResult;
-use sp_core::keccak_256;
-use sp_core::{H160, H256};
-use sp_runtime::traits::Dispatchable;
+use sp_core::H256;
+use sp_runtime::traits::{Dispatchable, StaticLookup};
+use sp_std::boxed::Box;
 use sp_std::vec::Vec;
-
+use subtensor_runtime_common::ProxyType;
 pub struct PureProxyPrecompile<R>(PhantomData<R>);
 const MAX_DECODE_DEPTH: u32 = 8;
-impl<R> PureProxyPrecompile<R>
-where
-    R: frame_system::Config + pallet_evm::Config + pallet_subtensor::Config,
-    R::AccountId: From<[u8; 32]> + Into<[u8; 32]>,
-{
-    fn into_pure_proxy_account_id(address: &H160) -> R::AccountId {
-        let mut data = [0u8; 30];
-        data[0..10].copy_from_slice(b"pureproxy:");
-        data[10..30].copy_from_slice(&address[..]);
-        let hash = keccak_256(&data);
-
-        R::AccountId::from(Into::<[u8; 32]>::into(hash))
-    }
-}
 
 impl<R> PrecompileExt<R::AccountId> for PureProxyPrecompile<R>
 where
-    R: frame_system::Config + pallet_evm::Config + pallet_subtensor::Config,
+    R: frame_system::Config
+        + pallet_evm::Config
+        + pallet_subtensor::Config
+        + pallet_proxy::Config<ProxyType = ProxyType>,
     R::AccountId: From<[u8; 32]> + Into<[u8; 32]>,
+    <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
+        + From<pallet_proxy::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
+    <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
     const INDEX: u64 = 2058;
 }
@@ -44,68 +36,61 @@ where
 #[precompile_utils::precompile]
 impl<R> PureProxyPrecompile<R>
 where
-    R: frame_system::Config + pallet_evm::Config + pallet_subtensor::Config,
+    R: frame_system::Config
+        + pallet_evm::Config
+        + pallet_subtensor::Config
+        + pallet_proxy::Config<ProxyType = ProxyType>,
     R::AccountId: From<[u8; 32]> + Into<[u8; 32]>,
+    <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
+        + From<pallet_proxy::Call<R>>
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
-    <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
+    <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
     #[precompile::public("createPureProxy()")]
     #[precompile::payable]
     pub fn create_pure_proxy(handle: &mut impl PrecompileHandle) -> EvmResult<()> {
-        let caller = handle.context().caller;
-        if pallet_subtensor::PureProxyAccount::<R>::get(caller).is_none() {
-            let account = Self::into_pure_proxy_account_id(&caller);
+        let account_id = handle.caller_account_id::<R>();
 
-            let call = pallet_subtensor::Call::<R>::set_pure_proxy_account {
-                address: caller,
-                account,
-            };
+        let proxy_type: ProxyType = ProxyType::Any;
+        let delay = 0u32.into();
+        let index = 0u16.into();
 
-            handle.try_dispatch_runtime_call::<R, _>(
-                call,
-                RawOrigin::Signed(handle.caller_account_id::<R>()),
-            )
-        } else {
-            Err(PrecompileFailure::Error {
-                exit_status: ExitError::Other("Pure proxy account already created yet".into()),
-            })
-        }
+        let call = pallet_proxy::Call::<R>::create_pure {
+            proxy_type,
+            delay,
+            index,
+        };
+
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
     }
 
     #[precompile::public("pureProxyCall(uint8[])")]
     #[precompile::payable]
-    pub fn pure_proxy_call(handle: &mut impl PrecompileHandle, call: Vec<u8>) -> EvmResult<()> {
-        let caller = handle.context().caller;
-        match pallet_subtensor::PureProxyAccount::<R>::get(caller) {
-            Some(account) => {
-                let call = <R as frame_system::Config>::RuntimeCall::decode_with_depth_limit(
-                    MAX_DECODE_DEPTH,
-                    &mut &call[..],
-                )
-                .map_err(|_| PrecompileFailure::Error {
-                    exit_status: ExitError::Other("The raw call data not correctly encoded".into()),
-                })?;
+    pub fn pure_proxy_call(
+        handle: &mut impl PrecompileHandle,
+        real: H256,
+        call: Vec<u8>,
+    ) -> EvmResult<()> {
+        let account_id = handle.caller_account_id::<R>();
+        let real: R::AccountId = R::AccountId::from(real.0);
+        let real = <R as frame_system::Config>::Lookup::unlookup(real);
+        let call = <R as pallet_proxy::Config>::RuntimeCall::decode_with_depth_limit(
+            MAX_DECODE_DEPTH,
+            &mut &call[..],
+        )
+        .map_err(|_| PrecompileFailure::Error {
+            exit_status: ExitError::Other("The raw call data not correctly encoded".into()),
+        })?;
 
-                handle.try_dispatch_runtime_call::<R, <R as frame_system::Config>::RuntimeCall>(
-                    call,
-                    RawOrigin::Signed(account),
-                )
-            }
-            None => Err(PrecompileFailure::Error {
-                exit_status: ExitError::Other("Pure proxy account not created yet".into()),
-            }),
-        }
-    }
+        let proxy_type: ProxyType = ProxyType::Any;
+        let call = pallet_proxy::Call::<R>::proxy {
+            real,
+            force_proxy_type: Some(proxy_type),
+            call: Box::new(call),
+        };
 
-    #[precompile::public("getPureProxy()")]
-    #[precompile::view]
-    fn get_pure_proxy(handle: &mut impl PrecompileHandle) -> EvmResult<H256> {
-        let caller = handle.context().caller;
-        let result = pallet_subtensor::PureProxyAccount::<R>::get(caller);
-        let buf: [u8; 32] = result.map(|account| account.into()).unwrap_or([0_u8; 32]);
-
-        Ok(H256::from(buf))
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
     }
 }
