@@ -5934,3 +5934,566 @@ fn test_add_stake_aggregate_failed() {
         }));
     });
 }
+#[test]
+fn test_add_stake_aggregate_limit_ok() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
+        let amount = 900_000_000_000; // over the maximum
+
+        // add network
+        let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+
+        // Forse-set alpha in and tao reserve to make price equal 1.5
+        let tao_reserve = U96F32::from_num(150_000_000_000_u64);
+        let alpha_in = AlphaCurrency::from(100_000_000_000_u64);
+        mock::setup_reserves(netuid, tao_reserve.to_num(), alpha_in);
+        let current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+        assert_eq!(current_price, U96F32::from_num(1.5));
+
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
+
+        // Setup limit price so that it doesn't peak above 4x of current price
+        // The amount that can be executed at this price is 450 TAO only
+        // Alpha produced will be equal to 75 = 450*100/(450+150)
+        let limit_price = 24_000_000_000;
+        let expected_executed_stake = AlphaCurrency::from(75_000_000_000);
+
+        // Add stake with slippage safety and check if the result is ok
+        assert_ok!(SubtensorModule::add_stake_limit_aggregate(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            amount,
+            limit_price,
+            true
+        ));
+
+        run_to_block_ext(2, true);
+
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::StakeAdded(..))
+            )
+        }));
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedLimitedStakeAdded { .. })
+            )
+        }));
+
+        // Check if stake has increased only by 75 Alpha
+        assert_abs_diff_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey_account_id,
+                &coldkey_account_id,
+                netuid
+            ),
+            expected_executed_stake,
+            epsilon = expected_executed_stake / 1000.into(),
+        );
+
+        // Check that 450 TAO less fees balance still remains free on coldkey
+        let fee = <tests::mock::Test as pallet::Config>::SwapInterface::approx_fee_amount(
+            netuid.into(),
+            amount / 2,
+        ) as f64;
+        assert_abs_diff_eq!(
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id),
+            amount / 2 - fee as u64,
+            epsilon = amount / 2 / 1000
+        );
+
+        // Check that price has updated to ~24 = (150+450) / (100 - 75)
+        let exp_price = U96F32::from_num(24.0);
+        let current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+        assert_abs_diff_eq!(
+            exp_price.to_num::<f64>(),
+            current_price.to_num::<f64>(),
+            epsilon = 0.001,
+        );
+    });
+}
+
+#[test]
+fn test_add_stake_limit_aggregate_fail() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
+        let amount = 900_000_000_000;
+        let limit_price = 6_000_000_000;
+        // add network
+        let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+
+        assert_ok!(SubtensorModule::add_stake_limit_aggregate(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            amount,
+            limit_price,
+            true
+        ));
+
+        // Check that event was not emitted.
+        assert!(System::events().iter().all(|e| {
+            !matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::FailedToAddAggregatedLimitedStake { .. })
+            )
+        }));
+
+        // Check for the block delay
+        run_to_block_ext(2, true);
+
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::FailedToAddAggregatedLimitedStake { .. })
+            )
+        }));
+    });
+}
+
+#[test]
+fn test_remove_stake_aggregate_ok_no_emission() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1);
+        let subnet_owner_hotkey = U256::from(2);
+        let coldkey_account_id = U256::from(4343);
+        let hotkey_account_id = U256::from(4968585);
+        let amount = DefaultMinStake::<Test>::get() * 10;
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
+
+        // Some basic assertions
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            SubtensorModule::get_network_min_lock()
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            0
+        );
+        assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
+
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+            amount.into(),
+        );
+        assert_abs_diff_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            amount,
+            epsilon = amount / 1000
+        );
+
+        // Add subnet TAO for the equivalent amount added at price
+        let (amount_tao, fee) = mock::swap_alpha_to_tao(netuid, amount.into());
+        SubnetTAO::<Test>::mutate(netuid, |v| *v += amount_tao + fee);
+        TotalStake::<Test>::mutate(|v| *v += amount_tao + fee);
+
+        // Do the magic
+        assert_ok!(SubtensorModule::remove_stake_aggregate(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            amount.into()
+        ));
+
+        // Check for the block delay
+        run_to_block_ext(2, true);
+
+        // we do not expect the exact amount due to slippage
+        assert!(SubtensorModule::get_coldkey_balance(&coldkey_account_id) > amount / 10 * 9 - fee);
+        assert_abs_diff_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            0,
+            epsilon = 20000
+        );
+        assert_abs_diff_eq!(
+            SubtensorModule::get_total_stake(),
+            SubtensorModule::get_network_min_lock() + fee,
+            epsilon = SubtensorModule::get_total_stake() / 100_000
+        );
+
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::StakeRemoved(..))
+            )
+        }));
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedStakeRemoved { .. })
+            )
+        }));
+    });
+}
+
+#[test]
+fn test_remove_stake_aggregate_fail() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1);
+        let subnet_owner_hotkey = U256::from(2);
+        let coldkey_account_id = U256::from(4343);
+        let hotkey_account_id = U256::from(4968585);
+        let amount = DefaultMinStake::<Test>::get() * 10;
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
+
+        assert_ok!(SubtensorModule::remove_stake_aggregate(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            amount.into()
+        ));
+
+        // Check that event was not emitted.
+        assert!(System::events().iter().all(|e| {
+            !matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::FailedToRemoveAggregatedStake { .. })
+            )
+        }));
+
+        // Enable on_finalize code to run
+        run_to_block_ext(2, true);
+
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::FailedToRemoveAggregatedStake { .. })
+            )
+        }));
+    });
+}
+
+#[test]
+fn test_remove_stake_limit_aggregate_ok() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
+        let stake_amount = 300_000_000_000;
+
+        // add network
+        let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey_account_id,
+            stake_amount + ExistentialDeposit::get(),
+        );
+
+        // Forse-set sufficient reserves
+        let tao_reserve: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        let alpha_in = AlphaCurrency::from(100_000_000_000);
+        SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
+
+        // Stake to hotkey account, and check if the result is ok
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            stake_amount
+        ));
+        let alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+        );
+
+        // Setup limit price to 99% of current price
+        let current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+        let limit_price = (current_price.to_num::<f64>() * 990_000_000_f64) as u64;
+
+        // Alpha unstaked - calculated using formula from delta_in()
+        let expected_alpha_reduction = (0.00138 * (alpha_in.to_u64() as f64)) as u64;
+        let fee: u64 = (expected_alpha_reduction as f64 * 0.003) as u64;
+
+        // Remove stake with slippage safety
+        remove_stake_rate_limit_for_tests(&hotkey_account_id, &coldkey_account_id, netuid);
+        assert_ok!(SubtensorModule::remove_stake_limit_aggregate(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            alpha_before / 2.into(),
+            limit_price,
+            true
+        ));
+
+        // Enable on_finalize code to run
+        run_to_block_ext(2, true);
+
+        let alpha_after = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+        );
+
+        // Check if stake has decreased properly
+        assert_abs_diff_eq!(
+            alpha_before - alpha_after,
+            AlphaCurrency::from(expected_alpha_reduction + fee),
+            epsilon = AlphaCurrency::from(expected_alpha_reduction / 10),
+        );
+
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::StakeRemoved(..))
+            )
+        }));
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedLimitedStakeRemoved { .. })
+            )
+        }));
+    });
+}
+
+#[test]
+fn test_remove_stake_limit_aggregate_fail() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
+        let stake_amount = 300_000_000;
+        let unstake_amount = 150_000_000_000;
+        let limit_price = 1_350_000_000;
+        let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+            stake_amount.into(),
+        );
+
+        assert_ok!(SubtensorModule::remove_stake_limit_aggregate(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            unstake_amount.into(),
+            limit_price,
+            true
+        ));
+
+        // Check that event was not emitted.
+        assert!(System::events().iter().all(|e| {
+            !matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::FailedToRemoveAggregatedLimitedStake { .. })
+            )
+        }));
+
+        // Enable on_finalize code to run
+        run_to_block_ext(2, true);
+
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::FailedToRemoveAggregatedLimitedStake { .. })
+            )
+        }));
+    });
+}
+
+#[test]
+fn test_unstake_all_aggregate_works() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+
+        let stake_amount = 190_000_000_000; // 190 TAO
+
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(netuid, hotkey, coldkey, 192213123);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey,
+            stake_amount + ExistentialDeposit::get(),
+        );
+
+        // Give the neuron some stake to remove
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            stake_amount
+        ));
+
+        // Setup the pool so that removing all the TAO will keep liq above min
+        mock::setup_reserves(
+            netuid,
+            stake_amount * 10,
+            AlphaCurrency::from(stake_amount * 100),
+        );
+        remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
+
+        // Unstake all alpha to free balance
+        assert_ok!(SubtensorModule::unstake_all_aggregate(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+        ));
+
+        // Check for the block delay
+        run_to_block_ext(2, true);
+
+        let new_alpha =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        assert_abs_diff_eq!(new_alpha, AlphaCurrency::ZERO, epsilon = 1_000.into());
+        let new_balance = SubtensorModule::get_coldkey_balance(&coldkey);
+        assert!(new_balance > 100_000);
+
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedUnstakeAllSucceeded { .. })
+            )
+        }));
+    });
+}
+
+#[test]
+fn test_unstake_all_aggregate_fails() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+
+        // Unstake all alpha to root
+        assert_ok!(SubtensorModule::unstake_all_aggregate(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+        ));
+
+        // Check that event was not emitted.
+        assert!(System::events().iter().all(|e| {
+            !matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedUnstakeAllFailed { .. })
+            )
+        }));
+
+        // Enable on_finalize code to run
+        run_to_block_ext(2, true);
+
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedUnstakeAllFailed { .. })
+            )
+        }));
+    });
+}
+
+#[test]
+fn test_unstake_all_alpha_aggregate_works() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+
+        let stake_amount = 190_000_000_000; // 190 TAO
+
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(netuid, hotkey, coldkey, 192213123);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey,
+            stake_amount + ExistentialDeposit::get(),
+        );
+
+        // Give the neuron some stake to remove
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            stake_amount
+        ));
+
+        remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
+
+        // Setup the pool so that removing all the TAO will keep liq above min
+        mock::setup_reserves(netuid, stake_amount * 10, (stake_amount * 100).into());
+
+        // Unstake all alpha to root
+        assert_ok!(SubtensorModule::unstake_all_alpha_aggregate(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+        ));
+
+        // Check for the block delay
+        run_to_block_ext(2, true);
+
+        let new_alpha =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        assert_abs_diff_eq!(new_alpha, AlphaCurrency::ZERO, epsilon = 1_000.into());
+        let new_root = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+        );
+        assert!(new_root > 100_000.into());
+
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedUnstakeAllAlphaSucceeded { .. })
+            )
+        }));
+    });
+}
+
+#[test]
+fn test_unstake_all_alpha_aggregate_fails() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+
+        assert_ok!(SubtensorModule::unstake_all_alpha_aggregate(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+        ));
+
+        // Check that event was not emitted.
+        assert!(System::events().iter().all(|e| {
+            !matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedUnstakeAllAlphaFailed { .. })
+            )
+        }));
+
+        // Enable on_finalize code to run
+        run_to_block_ext(2, true);
+
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedUnstakeAllAlphaFailed { .. })
+            )
+        }));
+    });
+}
