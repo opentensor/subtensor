@@ -221,10 +221,11 @@ pub fn build_manual_seal_import_queue(
     grandpa_block_import: GrandpaBlockImport,
     _transaction_pool_handle: Arc<TransactionPoolHandle<Block, FullClient>>,
 ) -> Result<(BasicQueue<Block>, BoxBlockImport<Block>), ServiceError> {
-    let conditional_block_import = ConditionalEVMBlockImport::new(
-        grandpa_block_import.clone(),
-        fc_consensus::FrontierBlockImport::new(grandpa_block_import.clone(), client.clone()),
-    );
+    let conditional_block_import =
+        crate::conditional_evm_block_import::ConditionalEVMBlockImport::new(
+            grandpa_block_import.clone(),
+            fc_consensus::FrontierBlockImport::new(grandpa_block_import.clone(), client.clone()),
+        );
     Ok((
         sc_consensus_manual_seal::import_queue(
             Box::new(conditional_block_import.clone()),
