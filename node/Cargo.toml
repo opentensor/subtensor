@@ -27,7 +27,6 @@ futures = { workspace = true, features = ["thread-pool"] }
 scale-codec = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 hex = { workspace = true }
-nix = { workspace = true, features = ["process", "signal"] }
 
 # Storage import
 memmap2 = { workspace = true }
