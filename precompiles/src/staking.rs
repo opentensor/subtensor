@@ -112,11 +112,11 @@ where
         let account_id = handle.caller_account_id::<R>();
         let hotkey = R::AccountId::from(address.0);
         let netuid = try_u16_from_u256(netuid)?;
-        let amount_unstaked = amount_alpha.unique_saturated_into();
+        let amount_unstaked: u64 = amount_alpha.unique_saturated_into();
         let call = pallet_subtensor::Call::<R>::remove_stake {
             hotkey,
             netuid: netuid.into(),
-            amount_unstaked,
+            amount_unstaked: amount_unstaked.into(),
         };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
@@ -174,13 +174,13 @@ where
         let destination_hotkey = R::AccountId::from(destination_hotkey.0);
         let origin_netuid = try_u16_from_u256(origin_netuid)?;
         let destination_netuid = try_u16_from_u256(destination_netuid)?;
-        let alpha_amount = amount_alpha.unique_saturated_into();
+        let alpha_amount: u64 = amount_alpha.unique_saturated_into();
         let call = pallet_subtensor::Call::<R>::move_stake {
             origin_hotkey,
             destination_hotkey,
             origin_netuid: origin_netuid.into(),
             destination_netuid: destination_netuid.into(),
-            alpha_amount,
+            alpha_amount: alpha_amount.into(),
         };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
@@ -200,13 +200,13 @@ where
         let hotkey = R::AccountId::from(hotkey.0);
         let origin_netuid = try_u16_from_u256(origin_netuid)?;
         let destination_netuid = try_u16_from_u256(destination_netuid)?;
-        let alpha_amount = amount_alpha.unique_saturated_into();
+        let alpha_amount: u64 = amount_alpha.unique_saturated_into();
         let call = pallet_subtensor::Call::<R>::transfer_stake {
             destination_coldkey,
             hotkey,
             origin_netuid: origin_netuid.into(),
             destination_netuid: destination_netuid.into(),
-            alpha_amount,
+            alpha_amount: alpha_amount.into(),
         };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
@@ -253,7 +253,7 @@ where
             netuid.into(),
         );
 
-        Ok(stake.into())
+        Ok(u64::from(stake).into())
     }
 
     #[precompile::public("getAlphaStakedValidators(bytes32,uint256)")]
@@ -289,7 +289,7 @@ where
         let stake =
             pallet_subtensor::Pallet::<R>::get_stake_for_hotkey_on_subnet(&hotkey, netuid.into());
 
-        Ok(stake.into())
+        Ok(u64::from(stake).into())
     }
 
     #[precompile::public("getNominatorMinRequiredStake()")]
@@ -365,12 +365,12 @@ where
         let account_id = handle.caller_account_id::<R>();
         let hotkey = R::AccountId::from(address.0);
         let netuid = try_u16_from_u256(netuid)?;
-        let amount_unstaked = amount_alpha.unique_saturated_into();
+        let amount_unstaked: u64 = amount_alpha.unique_saturated_into();
         let limit_price = limit_price_rao.unique_saturated_into();
         let call = pallet_subtensor::Call::<R>::remove_stake_limit {
             hotkey,
             netuid: netuid.into(),
-            amount_unstaked,
+            amount_unstaked: amount_unstaked.into(),
             limit_price,
             allow_partial,
         };
@@ -460,7 +460,7 @@ where
         let call = pallet_subtensor::Call::<R>::remove_stake {
             hotkey,
             netuid: netuid.into(),
-            amount_unstaked,
+            amount_unstaked: amount_unstaked.into(),
         };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
@@ -520,7 +520,7 @@ where
             &coldkey,
             netuid.into(),
         );
-        let stake: SubstrateBalance = stake.into();
+        let stake: SubstrateBalance = u64::from(stake).into();
         let stake = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(stake)
             .map(|amount| amount.into_u256())
             .ok_or(ExitError::InvalidRange)?;

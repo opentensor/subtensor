@@ -8,6 +8,7 @@ pub mod migrate_chain_identity;
 pub mod migrate_coldkey_swap_scheduled;
 pub mod migrate_commit_reveal_v2;
 pub mod migrate_create_root_network;
+pub mod migrate_crv3_commits_add_block;
 pub mod migrate_delete_subnet_21;
 pub mod migrate_delete_subnet_3;
 pub mod migrate_fix_is_network_member;

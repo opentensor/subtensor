@@ -2,7 +2,7 @@ use super::*;
 use safe_math::*;
 use sp_core::Get;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid};
 use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
@@ -33,7 +33,7 @@ impl<T: Config> Pallet<T> {
         destination_hotkey: T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        alpha_amount: u64,
+        alpha_amount: AlphaCurrency,
     ) -> dispatch::DispatchResult {
         // Check that the origin is signed by the origin_hotkey.
         let coldkey = ensure_signed(origin)?;
@@ -128,7 +128,7 @@ impl<T: Config> Pallet<T> {
         hotkey: T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        alpha_amount: u64,
+        alpha_amount: AlphaCurrency,
     ) -> dispatch::DispatchResult {
         // Ensure the extrinsic is signed by the origin_coldkey.
         let coldkey = ensure_signed(origin)?;
@@ -199,7 +199,7 @@ impl<T: Config> Pallet<T> {
         hotkey: T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        alpha_amount: u64,
+        alpha_amount: AlphaCurrency,
     ) -> dispatch::DispatchResult {
         // Ensure the extrinsic is signed by the coldkey.
         let coldkey = ensure_signed(origin)?;
@@ -270,7 +270,7 @@ impl<T: Config> Pallet<T> {
         hotkey: T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        alpha_amount: u64,
+        alpha_amount: AlphaCurrency,
         limit_price: u64,
         allow_partial: bool,
     ) -> dispatch::DispatchResult {
@@ -322,15 +322,19 @@ impl<T: Config> Pallet<T> {
         destination_hotkey: &T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        alpha_amount: u64,
+        alpha_amount: AlphaCurrency,
         maybe_limit_price: Option<u64>,
         maybe_allow_partial: Option<bool>,
         check_transfer_toggle: bool,
         set_limit: bool,
     ) -> Result<u64, DispatchError> {
         // Calculate the maximum amount that can be executed
-        let max_amount = if let Some(limit_price) = maybe_limit_price {
-            Self::get_max_amount_move(origin_netuid, destination_netuid, limit_price)?
+        let max_amount = if origin_netuid != destination_netuid {
+            if let Some(limit_price) = maybe_limit_price {
+                Self::get_max_amount_move(origin_netuid, destination_netuid, limit_price)?
+            } else {
+                alpha_amount
+            }
         } else {
             alpha_amount
         };
@@ -356,36 +360,47 @@ impl<T: Config> Pallet<T> {
             max_amount
         };
 
-        // do not pay fees to avoid double fees in moves transactions
-        let tao_unstaked = Self::unstake_from_subnet(
-            origin_hotkey,
-            origin_coldkey,
-            origin_netuid,
-            move_amount,
-            T::SwapInterface::min_price(),
-            true,
-        )?;
+        if origin_netuid != destination_netuid {
+            // do not pay remove fees to avoid double fees in moves transactions
+            let tao_unstaked = Self::unstake_from_subnet(
+                origin_hotkey,
+                origin_coldkey,
+                origin_netuid,
+                move_amount,
+                T::SwapInterface::min_price(),
+                true,
+            )?;
 
-        // Stake the unstaked amount into the destination.
-        // Because of the fee, the tao_unstaked may be too low if initial stake is low. In that case,
-        // do not restake.
-        if tao_unstaked >= DefaultMinStake::<T>::get() {
-            // If the coldkey is not the owner, make the hotkey a delegate.
-            if Self::get_owning_coldkey_for_hotkey(destination_hotkey) != *destination_coldkey {
-                Self::maybe_become_delegate(destination_hotkey);
+            // Stake the unstaked amount into the destination.
+            // Because of the fee, the tao_unstaked may be too low if initial stake is low. In that case,
+            // do not restake.
+            if tao_unstaked >= DefaultMinStake::<T>::get() {
+                // If the coldkey is not the owner, make the hotkey a delegate.
+                if Self::get_owning_coldkey_for_hotkey(destination_hotkey) != *destination_coldkey {
+                    Self::maybe_become_delegate(destination_hotkey);
+                }
+
+                Self::stake_into_subnet(
+                    destination_hotkey,
+                    destination_coldkey,
+                    destination_netuid,
+                    tao_unstaked,
+                    T::SwapInterface::max_price(),
+                    set_limit,
+                )?;
             }
 
-            Self::stake_into_subnet(
-                destination_hotkey,
+            Ok(tao_unstaked)
+        } else {
+            Self::transfer_stake_within_subnet(
+                origin_coldkey,
+                origin_hotkey,
                 destination_coldkey,
-                destination_netuid,
-                tao_unstaked,
-                T::SwapInterface::max_price(),
-                set_limit,
-            )?;
+                destination_hotkey,
+                origin_netuid,
+                move_amount,
+            )
         }
-
-        Ok(tao_unstaked)
     }
 
     /// Returns the maximum amount of origin netuid Alpha that can be executed before we cross
@@ -415,7 +430,7 @@ impl<T: Config> Pallet<T> {
         origin_netuid: NetUid,
         destination_netuid: NetUid,
         limit_price: u64,
-    ) -> Result<u64, Error<T>> {
+    ) -> Result<AlphaCurrency, Error<T>> {
         let tao: U64F64 = U64F64::saturating_from_num(1_000_000_000);
 
         // Corner case: both subnet IDs are root or stao
@@ -427,7 +442,7 @@ impl<T: Config> Pallet<T> {
             if limit_price > tao.saturating_to_num::<u64>() {
                 return Err(Error::ZeroMaxStakeAmount);
             } else {
-                return Ok(u64::MAX);
+                return Ok(AlphaCurrency::MAX);
             }
         }
 
@@ -437,14 +452,15 @@ impl<T: Config> Pallet<T> {
             && (SubnetMechanism::<T>::get(destination_netuid) == 1)
         {
             if limit_price == 0 {
-                return Ok(u64::MAX);
+                return Ok(AlphaCurrency::MAX);
             } else {
                 // The destination price is reverted because the limit_price is origin_price / destination_price
                 let destination_subnet_price = tao
                     .safe_div(U64F64::saturating_from_num(limit_price))
                     .saturating_mul(tao)
                     .saturating_to_num::<u64>();
-                return Self::get_max_amount_add(destination_netuid, destination_subnet_price);
+                return Self::get_max_amount_add(destination_netuid, destination_subnet_price)
+                    .map(Into::into);
             }
         }
 
@@ -472,7 +488,7 @@ impl<T: Config> Pallet<T> {
             .saturating_add(SubnetAlphaInProvided::<T>::get(origin_netuid));
         let alpha_in_2 = SubnetAlphaIn::<T>::get(destination_netuid)
             .saturating_add(SubnetAlphaInProvided::<T>::get(destination_netuid));
-        if (alpha_in_1 == 0) || (alpha_in_2 == 0) {
+        if alpha_in_1.is_zero() || alpha_in_2.is_zero() {
             return Err(Error::ZeroMaxStakeAmount);
         }
         let alpha_in_1_float: U64F64 = U64F64::saturating_from_num(alpha_in_1);
@@ -494,7 +510,7 @@ impl<T: Config> Pallet<T> {
 
         // Corner case: limit_price is zero
         if limit_price == 0 {
-            return Ok(u64::MAX);
+            return Ok(AlphaCurrency::MAX);
         }
 
         // Main case
@@ -513,7 +529,7 @@ impl<T: Config> Pallet<T> {
             .saturating_to_num::<u64>();
 
         if final_result != 0 {
-            Ok(final_result)
+            Ok(final_result.into())
         } else {
             Err(Error::ZeroMaxStakeAmount)
         }

@@ -8,12 +8,15 @@ use codec::{Decode, Encode};
 use frame_support::{
     StorageHasher, Twox64Concat, assert_ok,
     storage::unhashed::{get, get_raw, put, put_raw},
+    storage_alias,
     traits::{StorageInstance, StoredMap},
     weights::Weight,
 };
 
 use crate::migrations::migrate_storage;
 use frame_system::Config;
+use pallet_drand::types::RoundNumber;
+use scale_info::prelude::collections::VecDeque;
 use sp_core::{H256, U256, crypto::Ss58Codec};
 use sp_io::hashing::twox_128;
 use sp_runtime::traits::Zero;
@@ -476,11 +479,11 @@ fn test_migrate_remove_zero_total_hotkey_alpha() {
         let hotkey_nonzero = U256::from(101u64);
 
         // Insert one zero-alpha entry and one non-zero entry
-        TotalHotkeyAlpha::<Test>::insert(hotkey_zero, netuid, 0u64);
-        TotalHotkeyAlpha::<Test>::insert(hotkey_nonzero, netuid, 123u64);
+        TotalHotkeyAlpha::<Test>::insert(hotkey_zero, netuid, AlphaCurrency::ZERO);
+        TotalHotkeyAlpha::<Test>::insert(hotkey_nonzero, netuid, AlphaCurrency::from(123));
 
-        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_zero, netuid), 0u64);
-        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_nonzero, netuid), 123u64);
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_zero, netuid), AlphaCurrency::ZERO);
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_nonzero, netuid), AlphaCurrency::from(123));
 
         assert!(
             !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
@@ -499,7 +502,7 @@ fn test_migrate_remove_zero_total_hotkey_alpha() {
             "Zero-alpha entry should have been removed."
         );
 
-        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_nonzero, netuid), 123u64);
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_nonzero, netuid), AlphaCurrency::from(123));
 
         assert!(
             !weight.is_zero(),
@@ -831,7 +834,11 @@ fn test_migrate_fix_root_subnet_tao() {
         for i in 0..100_000 {
             Owner::<Test>::insert(U256::from(U256::from(i)), U256::from(i + 1_000_000));
             let stake = i + 1_000_000;
-            TotalHotkeyAlpha::<Test>::insert(U256::from(U256::from(i)), NetUid::ROOT, stake);
+            TotalHotkeyAlpha::<Test>::insert(
+                U256::from(U256::from(i)),
+                NetUid::ROOT,
+                AlphaCurrency::from(stake),
+            );
             expected_total_stake += stake;
         }
 
@@ -987,6 +994,80 @@ fn test_migrate_set_nominator_min_stake() {
         assert_eq!(
             NominatorMinRequiredStake::<Test>::get(),
             min_nomination_migrated
+        );
+    });
+}
+
+#[test]
+fn test_migrate_crv3_commits_add_block() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // 0. Constants / helpers
+        // ------------------------------
+        const MIG_NAME: &[u8] = b"crv3_commits_add_block_v1";
+        let netuid = NetUid::from(99);
+        let epoch: u64 = 7;
+        let tempo: u16 = 360;
+
+        // ------------------------------
+        // 1. Create a network so helper can compute first‑block
+        // ------------------------------
+        add_network(netuid, tempo, 0);
+
+        // ------------------------------
+        // 2. Simulate OLD storage (3‑tuple)
+        // ------------------------------
+        let who: U256 = U256::from(0xdeadbeef_u64);
+        let ciphertext: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>> =
+            vec![1u8, 2, 3].try_into().unwrap();
+        let round: RoundNumber = 42;
+
+        let old_queue: VecDeque<_> = VecDeque::from(vec![(who, ciphertext.clone(), round)]);
+
+        CRV3WeightCommits::<Test>::insert(netuid, epoch, old_queue.clone());
+
+        // Sanity: entry decodes under old alias
+        assert_eq!(CRV3WeightCommits::<Test>::get(netuid, epoch), old_queue);
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag should be false before run"
+        );
+
+        // ------------------------------
+        // 3. Run migration
+        // ------------------------------
+        let w = crate::migrations::migrate_crv3_commits_add_block::migrate_crv3_commits_add_block::<
+            Test,
+        >();
+        assert!(!w.is_zero(), "weight must be non-zero");
+
+        // ------------------------------
+        // 4. Verify results
+        // ------------------------------
+        assert!(
+            HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag not set"
+        );
+
+        // Old storage must be empty (drained)
+        assert!(
+            CRV3WeightCommits::<Test>::get(netuid, epoch).is_empty(),
+            "old queue should have been drained"
+        );
+
+        let new_q = CRV3WeightCommitsV2::<Test>::get(netuid, epoch);
+        assert_eq!(new_q.len(), 1, "exactly one migrated element expected");
+
+        let (who2, commit_block, cipher2, round2) = new_q.front().cloned().unwrap();
+        assert_eq!(who2, who);
+        assert_eq!(cipher2, ciphertext);
+        assert_eq!(round2, round);
+
+        let expected_block = Pallet::<Test>::get_first_block_of_epoch(netuid, epoch);
+        assert_eq!(
+            commit_block, expected_block,
+            "commit_block should equal first block of epoch key"
         );
     });
 }

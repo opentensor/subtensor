@@ -135,7 +135,7 @@ fn test_get_delegated() {
                     .or_default()
                     .entry(*delegate)
                     .or_default();
-                stakes.insert(*netuid, expected_stake);
+                stakes.insert(*netuid, expected_stake.into());
             }
         }
 
@@ -149,7 +149,7 @@ fn test_get_delegated() {
                         coldkey_stakes_map.get(&delegate_info.delegate_ss58)
                     {
                         if let Some(expected_stake) = expected_under_delegate.get(&netuid.0) {
-                            assert_eq!(u64::from(*staked), *expected_stake);
+                            assert_eq!(u64::from(staked.0), *expected_stake);
                         } else {
                             panic!("Netuid {} not found in expected stake map", netuid.0);
                         };

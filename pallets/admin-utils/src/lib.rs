@@ -88,6 +88,8 @@ pub mod pallet {
         BondsMovingAverageMaxReached,
         /// Only root can set negative sigmoid steepness values
         NegativeSigmoidSteepness,
+        /// Reveal Peroid is not within the valid range.
+        RevealPeriodOutOfBounds,
     }
     /// Enum for specifying the type of precompile operation.
     #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, Copy)]
@@ -106,6 +108,8 @@ pub mod pallet {
         UidLookup,
         /// Enum for alpha precompile
         Alpha,
+        /// Enum for crowdloan precompile
+        Crowdloan,
     }
 
     #[pallet::type_value]
@@ -1324,6 +1328,12 @@ pub mod pallet {
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
+            );
+
+            const MAX_COMMIT_REVEAL_PEROIDS: u64 = 100;
+            ensure!(
+                interval <= MAX_COMMIT_REVEAL_PEROIDS,
+                Error::<T>::RevealPeriodOutOfBounds
             );
 
             pallet_subtensor::Pallet::<T>::set_reveal_period(netuid, interval);

@@ -14027,6 +14027,7 @@ dependencies = [
  "log",
  "pallet-admin-utils",
  "pallet-balances",
+ "pallet-crowdloan",
  "pallet-evm",
  "pallet-evm-precompile-dispatch",
  "pallet-evm-precompile-modexp",
@@ -14049,6 +14050,7 @@ dependencies = [
 name = "subtensor-runtime-common"
 version = "0.1.0"
 dependencies = [
+ "approx",
  "frame-support",
  "parity-scale-codec",
  "polkadot-runtime-common",
@@ -14056,6 +14058,7 @@ dependencies = [
  "serde",
  "sp-core",
  "sp-runtime",
+ "substrate-fixed",
  "subtensor-macros",
 ]
 

@@ -12,6 +12,9 @@ on:
   push:
     branches:
       - devnet-ready
+      - main
+      - testnet
+      - devnet
 
 permissions:
   contents: read

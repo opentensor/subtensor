@@ -34,6 +34,7 @@ pallet-subtensor = { workspace = true }
 pallet-subtensor-swap = { workspace = true }
 pallet-admin-utils = { workspace = true }
 subtensor-swap-interface = { workspace = true }
+pallet-crowdloan = { workspace = true }
 
 [lints]
 workspace = true
@@ -54,6 +55,7 @@ std = [
 	"pallet-evm-precompile-simple/std",
 	"pallet-evm/std",
 	"pallet-proxy-opentensor/std",
+	"pallet-crowdloan/std",
 	"pallet-subtensor/std",
 	"pallet-subtensor-swap/std",
 	"precompile-utils/std",

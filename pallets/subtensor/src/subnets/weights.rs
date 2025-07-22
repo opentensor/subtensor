@@ -269,12 +269,12 @@ impl<T: Config> Pallet<T> {
             false => Self::get_epoch_index(netuid, cur_block),
         };
 
-        CRV3WeightCommits::<T>::try_mutate(netuid, cur_epoch, |commits| -> DispatchResult {
+        CRV3WeightCommitsV2::<T>::try_mutate(netuid, cur_epoch, |commits| -> DispatchResult {
             // 6. Verify that the number of unrevealed commits is within the allowed limit.
 
             let unrevealed_commits_for_who = commits
                 .iter()
-                .filter(|(account, _, _)| account == &who)
+                .filter(|(account, _, _, _)| account == &who)
                 .count();
             ensure!(
                 unrevealed_commits_for_who < 10,
@@ -284,7 +284,7 @@ impl<T: Config> Pallet<T> {
             // 7. Append the new commit with calculated reveal blocks.
             // Hash the commit before it is moved, for the event
             let commit_hash = BlakeTwo256::hash(&commit);
-            commits.push_back((who.clone(), commit, reveal_round));
+            commits.push_back((who.clone(), cur_block, commit, reveal_round));
 
             // 8. Emit the WeightsCommitted event
             Self::deposit_event(Event::CRV3WeightsCommitted(
@@ -1094,5 +1094,14 @@ impl<T: Config> Pallet<T> {
     }
     pub fn get_reveal_period(netuid: NetUid) -> u64 {
         RevealPeriodEpochs::<T>::get(netuid)
+    }
+
+    pub fn get_first_block_of_epoch(netuid: NetUid, epoch: u64) -> u64 {
+        let tempo: u64 = Self::get_tempo(netuid) as u64;
+        let tempo_plus_one: u64 = tempo.saturating_add(1);
+        let netuid_plus_one: u64 = (u16::from(netuid) as u64).saturating_add(1);
+        epoch
+            .saturating_mul(tempo_plus_one)
+            .saturating_sub(netuid_plus_one)
     }
 }

@@ -14,7 +14,6 @@ mod migrations;
 
 extern crate alloc;
 
-use crate::time::*;
 use codec::{Compact, Decode, Encode};
 use core::num::NonZeroU64;
 use frame_election_provider_support::bounds::ElectionBoundsBuilder;
@@ -84,7 +83,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use subtensor_precompiles::Precompiles;
-use subtensor_runtime_common::*;
+use subtensor_runtime_common::{AlphaCurrency, time::*, *};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1098,7 +1097,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake {
                     alpha_amount,
                     ..
-                }) => *alpha_amount < SMALL_TRANSFER_LIMIT,
+                }) => *alpha_amount < SMALL_TRANSFER_LIMIT.into(),
                 _ => false,
             },
             ProxyType::Owner => {
@@ -2639,7 +2638,7 @@ impl_runtime_apis! {
             SubtensorModule::get_delegate(delegate_account)
         }
 
-        fn get_delegated(delegatee_account: AccountId32) -> Vec<(DelegateInfo<AccountId32>, (Compact<NetUid>, Compact<u64>))> {
+        fn get_delegated(delegatee_account: AccountId32) -> Vec<(DelegateInfo<AccountId32>, (Compact<NetUid>, Compact<AlphaCurrency>))> {
             SubtensorModule::get_delegated(delegatee_account)
         }
     }
