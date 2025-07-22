@@ -44,6 +44,7 @@ pallet-scheduler = { workspace = true }
 pallet-grandpa = { workspace = true }
 sp-std = { workspace = true }
 pallet-subtensor-swap = { workspace = true }
+pallet-evm = { workspace = true }
 pallet-crowdloan = { workspace = true, default-features = false }
 pallet-preimage = { workspace = true, default-features = false }
 
@@ -57,6 +58,7 @@ std = [
 	"log/std",
 	"pallet-balances/std",
 	"pallet-drand/std",
+	"pallet-evm/std",
 	"pallet-evm-chain-id/std",
 	"pallet-grandpa/std",
 	"pallet-scheduler/std",
@@ -82,6 +84,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
+	"pallet-evm/runtime-benchmarks",
 	"pallet-grandpa/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-subtensor/runtime-benchmarks",
@@ -95,6 +98,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-drand/try-runtime",
+	"pallet-evm/try-runtime",
 	"pallet-evm-chain-id/try-runtime",
 	"pallet-grandpa/try-runtime",
 	"pallet-scheduler/try-runtime",

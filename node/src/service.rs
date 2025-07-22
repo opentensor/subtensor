@@ -450,7 +450,7 @@ where
                 deps,
                 subscription_task_executor,
                 pubsub_notification_sinks.clone(),
-                CM::frontier_consensus_data_provider(client.clone()),
+                CM::frontier_consensus_data_provider(client.clone())?,
                 rpc_methods.as_slice(),
             )
             .map_err(Into::into)

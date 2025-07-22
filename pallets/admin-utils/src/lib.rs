@@ -110,6 +110,8 @@ pub mod pallet {
         Alpha,
         /// Enum for crowdloan precompile
         Crowdloan,
+        /// Pure proxy precompile
+        PureProxy,
     }
 
     #[pallet::type_value]

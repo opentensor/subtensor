@@ -52,6 +52,7 @@ pallet-drand = { path = "../drand", default-features = false }
 pallet-babe = { workspace = true }
 pallet-aura = { workspace = true }
 pallet-timestamp = { workspace = true }
+pallet-evm = { workspace = true }
 pallet-membership = { workspace = true }
 hex-literal = { workspace = true }
 num-traits = { version = "0.2.19", default-features = false, features = [
@@ -100,6 +101,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-collective/std",
 	"pallet-drand/std",
+	"pallet-evm/std",
 	"pallet-membership/std",
 	"pallet-preimage/std",
 	"pallet-scheduler/std",
@@ -151,6 +153,7 @@ runtime-benchmarks = [
 	"pallet-membership/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
+	"pallet-evm/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
@@ -170,6 +173,7 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-evm/try-runtime",
 	"pallet-membership/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-scheduler/try-runtime",

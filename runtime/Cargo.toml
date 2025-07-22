@@ -59,7 +59,7 @@ sp-version = { workspace = true }
 subtensor-runtime-common = { workspace = true }
 subtensor-precompiles = { workspace = true }
 sp-consensus-babe = { workspace = true }
-authority-discovery-primitives = { workspace = true }
+sp-authority-discovery = { workspace = true }
 runtime-common = { workspace = true }
 polkadot-core-primitives = { workspace = true }
 substrate-fixed = { workspace = true }
@@ -237,7 +237,7 @@ std = [
 	"pallet-staking-reward-fn/std",
 	"pallet-staking-runtime-api/std",
 	"runtime-common/std",
-	"authority-discovery-primitives/std",
+	"sp-authority-discovery/std",
 	"sp-consensus-babe/std",
 	"sp-npos-elections/std",
 	"sp-staking/std",

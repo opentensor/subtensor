@@ -89,7 +89,7 @@ pub trait ConsensusMechanism {
     /// Creates the frontier consensus data provider with this mechanism.
     fn frontier_consensus_data_provider(
         client: Arc<FullClient>,
-    ) -> Box<dyn fc_rpc::pending::ConsensusDataProvider<Block>>;
+    ) -> Result<Box<dyn fc_rpc::pending::ConsensusDataProvider<Block>>, sp_blockchain::Error>;
 
     /// Starts authoring process for the consensus mechanism.
     fn start_authoring<C, SC, I, PF, SO, L, CIDP, BS, Error>(

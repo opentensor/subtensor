@@ -2,6 +2,8 @@
 
 use core::num::NonZeroU64;
 
+use crate::utils::rate_limiting::TransactionType;
+use crate::*;
 use frame_support::dispatch::DispatchResultWithPostInfo;
 use frame_support::traits::{Contains, Everything, InherentBuilder, InsideBoth};
 use frame_support::weights::Weight;
@@ -25,10 +27,15 @@ use sp_std::{cell::RefCell, cmp::Ordering};
 use subtensor_runtime_common::NetUid;
 use subtensor_swap_interface::{OrderType, SwapHandler};
 
-use crate::utils::rate_limiting::TransactionType;
-use crate::*;
-
 type Block = frame_system::mocking::MockBlock<Test>;
+pub struct DummyAddressMap;
+
+impl pallet_evm::AddressMapping<AccountId> for DummyAddressMap {
+    fn into_account_id(address: sp_core::H160) -> AccountId {
+        let account = pallet_evm::HashedAddressMapping::<BlakeTwo256>::into_account_id(address);
+        U256::from_big_endian(account.as_ref())
+    }
+}
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -454,6 +461,7 @@ impl crate::Config for Test {
     type SwapInterface = Swap;
     type KeySwapOnSubnetCost = InitialKeySwapOnSubnetCost;
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
+    type AddressMapping = DummyAddressMap;
     type ProxyInterface = FakeProxier;
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
 }

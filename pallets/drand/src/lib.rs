@@ -347,7 +347,7 @@ pub mod pallet {
 
             // Update the next unsigned block number
             let current_block = frame_system::Pallet::<T>::block_number();
-            <NextUnsignedAt<T>>::put(current_block.saturating_add(One::one()));
+            <NextUnsignedAt<T>>::put(current_block);
 
             // Emit event with all new rounds
             if !new_rounds.is_empty() {

@@ -25,7 +25,6 @@ use subtensor_runtime_common::ProxyType;
 
 use pallet_admin_utils::PrecompileEnum;
 
-use crate::alpha::*;
 use crate::balance_transfer::*;
 use crate::crowdloan::*;
 use crate::ed25519::*;
@@ -37,6 +36,7 @@ use crate::staking::*;
 use crate::storage_query::*;
 use crate::subnet::*;
 use crate::uid_lookup::*;
+use crate::{alpha::*, pure_proxy::PureProxyPrecompile};
 
 mod alpha;
 mod balance_transfer;
@@ -45,6 +45,7 @@ mod ed25519;
 mod extensions;
 mod metagraph;
 mod neuron;
+mod pure_proxy;
 mod sr25519;
 mod staking;
 mod storage_query;
@@ -105,7 +106,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 20] {
+    pub fn used_addresses() -> [H160; 21] {
         [
             hash(1),
             hash(2),
@@ -127,6 +128,7 @@ where
             hash(UidLookupPrecompile::<R>::INDEX),
             hash(AlphaPrecompile::<R>::INDEX),
             hash(CrowdloanPrecompile::<R>::INDEX),
+            hash(PureProxyPrecompile::<R>::INDEX),
         ]
     }
 }
@@ -206,6 +208,9 @@ where
             }
             a if a == hash(CrowdloanPrecompile::<R>::INDEX) => {
                 CrowdloanPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Crowdloan)
+            }
+            a if a == hash(PureProxyPrecompile::<R>::INDEX) => {
+                PureProxyPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::PureProxy)
             }
             _ => None,
         }

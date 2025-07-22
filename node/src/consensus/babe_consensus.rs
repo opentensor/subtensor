@@ -102,10 +102,8 @@ impl ConsensusMechanism for BabeConsensus {
 
     fn frontier_consensus_data_provider(
         client: Arc<FullClient>,
-    ) -> Box<dyn fc_rpc::pending::ConsensusDataProvider<Block>> {
-        // TODO: When frontier is merged, update this to fc_babe::BabeConsensusDataProvider
-        // Box::new(fc_babe::BabeConsensusDataProvider::new(client))
-        Box::new(fc_aura::AuraConsensusDataProvider::new(client))
+    ) -> Result<Box<dyn fc_rpc::pending::ConsensusDataProvider<Block>>, sp_blockchain::Error> {
+        Ok(Box::new(fc_babe::BabeConsensusDataProvider::new(client)?))
     }
 
     fn create_inherent_data_providers(

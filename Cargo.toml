@@ -112,86 +112,40 @@ alloy-primitives = { version = "0.8.23", default-features = false }
 
 subtensor-macros = { path = "support/macros" }
 
-frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-frame-executive = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-frame-metadata-hash-extension = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-frame-support = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-frame-system = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-frame-system-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-frame-try-runtime = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
+frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+frame-executive = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+frame-metadata-hash-extension = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+frame-support = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+frame-system = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+frame-system-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+frame-try-runtime = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
 frame-metadata = "18.0.0"
-
-pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-grandpa = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-insecure-randomness-collective-flip = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-membership = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-multisig = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-preimage = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-proxy-opentensor = { path = "pallets/proxy", default-features = false }
-pallet-safe-mode = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-scheduler = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-sudo = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-timestamp = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-transaction-payment = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-utility-opentensor = { path = "pallets/utility", default-features = false }
-pallet-root-testing = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-
-sc-basic-authorship = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-client-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-consensus = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-consensus-grandpa = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-consensus-grandpa-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-chain-spec-derive = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-chain-spec = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-consensus-slots = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-executor = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-keystore = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-network = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-offchain = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-rpc-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-service = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-telemetry = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-transaction-pool = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sc-transaction-pool-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-
-sp-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-arithmetic = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-block-builder = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-blockchain = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-consensus = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sp-consensus-grandpa = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-genesis-builder = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-inherents = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-io = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-keyring = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-offchain = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-session = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-std = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-storage = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-timestamp = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-sp-tracing = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-transaction-pool = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-version = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-weights = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-
-substrate-build-script-utils = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-substrate-fixed = { git = "https://github.com/opentensor/substrate-fixed.git", tag = "v0.5.9" }
-substrate-frame-rpc-system = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
-substrate-wasm-builder = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6" }
 frame-election-provider-support = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
+
+pallet-aura = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+pallet-babe = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
+pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+pallet-grandpa = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+pallet-insecure-randomness-collective-flip = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+pallet-membership = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+pallet-multisig = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+pallet-preimage = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+pallet-proxy-opentensor = { path = "pallets/proxy", default-features = false }
+pallet-safe-mode = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+pallet-scheduler = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+pallet-sudo = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+pallet-timestamp = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+pallet-transaction-payment = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+pallet-utility-opentensor = { path = "pallets/utility", default-features = false }
+pallet-root-testing = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+
+# NPoS
 pallet-authority-discovery = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
 pallet-authorship = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-babe = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-pallet-aura = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
 pallet-bags-list = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
 pallet-election-provider-multi-phase = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
 pallet-fast-unstake = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
@@ -203,78 +157,117 @@ pallet-staking-runtime-api = { git = "https://github.com/paritytech/polkadot-sdk
 pallet-staking-reward-fn = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
 pallet-staking-reward-curve = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
 pallet-offences = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
+
+sc-basic-authorship = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+sc-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+sc-client-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+sc-consensus = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+sc-consensus-aura = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+sc-consensus-babe = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sc-consensus-babe-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sc-consensus-grandpa = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+sc-consensus-grandpa-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+sc-consensus-epochs = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sc-consensus-manual-seal = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sc-chain-spec-derive = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+sc-chain-spec = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+sc-consensus-slots = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+sc-executor = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+sc-keystore = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+sc-network = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+sc-network-sync = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+sc-offchain = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+sc-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+sc-rpc-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+sc-service = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+sc-telemetry = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+sc-transaction-pool = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+sc-transaction-pool-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+
+sp-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-application-crypto = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-authority-discovery = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-arithmetic = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-block-builder = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-blockchain = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-consensus = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+sp-consensus-aura = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-consensus-babe = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-consensus-slots = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-staking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-npos-elections = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-consensus-grandpa = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-genesis-builder = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-core = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-inherents = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-io = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-keyring = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-offchain = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-session = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-std = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-storage = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-timestamp = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+sp-tracing = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-transaction-pool = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-transaction-storage-proof = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-version = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+sp-weights = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
+
+substrate-build-script-utils = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+substrate-prometheus-endpoint = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+substrate-fixed = { git = "https://github.com/opentensor/substrate-fixed.git", tag = "v0.5.9" }
+substrate-frame-rpc-system = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+substrate-wasm-builder = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6" }
+
 runtime-common = { package = "polkadot-runtime-common", git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-
-sc-consensus-aura = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sc-consensus-epochs = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sc-consensus-babe = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sc-consensus-babe-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-
-sp-authority-discovery-primitives = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-authority-discovery = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-application-crypto = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-consensus-aura = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-consensus-slots = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-npos-elections = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-staking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-transaction-storage-proof = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
+polkadot-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
 polkadot-core-primitives = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
 
-authority-discovery-primitives = { package = "sp-authority-discovery", git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sp-consensus-babe = { package = "sp-consensus-babe", git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-polkadot-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-parity-scale-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
-	"derive",
-	"max-encoded-len",
-] }
-
-sc-consensus-manual-seal = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-sc-network-sync = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-substrate-prometheus-endpoint = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
-
-# frontier
-fp-evm = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
-fp-rpc = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
-fp-self-contained = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false, features = [
+# Frontier
+fp-evm = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
+fp-rpc = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
+fp-self-contained = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false, features = [
 	"serde",
 ] }
-fp-account = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
-fc-storage = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
-fc-db = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
-fc-consensus = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
-fp-consensus = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
-fp-dynamic-fee = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
-fc-api = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
-fc-rpc = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false, features = [
+fp-account = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
+fc-storage = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
+fc-db = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
+fc-consensus = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
+fp-consensus = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
+fp-dynamic-fee = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
+fc-api = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
+fc-rpc = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false, features = [
 	"rpc-binary-search-estimate",
 ] }
-fc-rpc-core = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
-fc-babe = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
-fc-aura = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
-fc-mapping-sync = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
-precompile-utils = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
+fc-rpc-core = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
+fc-aura = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
+fc-babe = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
+fc-mapping-sync = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
+precompile-utils = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
 
-# frontier frame
-pallet-base-fee = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
-pallet-dynamic-fee = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
-pallet-ethereum = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
-pallet-evm = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
-pallet-evm-precompile-dispatch = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
-pallet-evm-chain-id = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
-pallet-evm-precompile-modexp = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
-pallet-evm-precompile-sha3fips = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
-pallet-evm-precompile-simple = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
-pallet-hotfix-sufficients = { git = "https://github.com/opentensor/frontier", branch = "fc-babe", default-features = false }
+# Frontier FRAME
+pallet-base-fee = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
+pallet-dynamic-fee = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
+pallet-ethereum = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
+pallet-evm = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
+pallet-evm-precompile-dispatch = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
+pallet-evm-chain-id = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
+pallet-evm-precompile-modexp = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
+pallet-evm-precompile-sha3fips = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
+pallet-evm-precompile-simple = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
+pallet-hotfix-sufficients = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
 
-#drand
+#DRAND
 pallet-drand = { path = "pallets/drand", default-features = false }
-sp-crypto-ec-utils = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", features = [
+sp-crypto-ec-utils = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", features = [
 	"bls12-381",
 ] }
 getrandom = { version = "0.2.15", features = [
 	"custom",
 ], default-features = false }
-sp-keystore = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", default-features = false }
+sp-keystore = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
 w3f-bls = { version = "=0.1.3", default-features = false }
 ark-crypto-primitives = { version = "0.4.0", default-features = false, features = [
 	"r1cs",
@@ -298,7 +291,7 @@ sha2 = { version = "0.10.8", default-features = false }
 rand_chacha = { version = "0.3.1", default-features = false }
 tle = { git = "https://github.com/ideal-lab5/timelock", rev = "5416406cfd32799e31e1795393d4916894de4468", default-features = false }
 
-cumulus-primitives-proof-size-hostfunction = { git = "https://github.com/paritytech/polkadot-sdk.git", tag="polkadot-stable2412-6", package = "cumulus-primitives-proof-size-hostfunction", default-features = false }
+cumulus-primitives-proof-size-hostfunction = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", package = "cumulus-primitives-proof-size-hostfunction", default-features = false }
 
 [profile.release]
 panic = "unwind"
@@ -324,540 +317,5 @@ runtime-benchmarks = [
 metadata-hash = ["node-subtensor-runtime/metadata-hash"]
 pow-faucet = []
 
-[patch."https://github.com/paritytech/polkadot-sdk"]
-bridge-runtime-common = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bp-header-chain = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bp-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-frame-support = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-binary-merkle-tree = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-core = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-crypto-hashing = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-crypto-hashing-proc-macro = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-debug-derive = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-externalities = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-storage = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-runtime-interface = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-runtime-interface-proc-macro = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-std = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-tracing = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-wasm-interface = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-io = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-keystore = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-state-machine = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-panic-handler = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-trie = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-application-crypto = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-arithmetic = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-weights = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-api = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-api-proc-macro = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-metadata-ir = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-version = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-version-proc-macro = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-test-primitives = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-substrate-test-runtime-client = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-block-builder = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-block-builder = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-inherents = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-blockchain = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-consensus = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-database = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-client-api = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-substrate-prometheus-endpoint = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-executor = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-executor-common = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-allocator = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-maybe-compressed-blob = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-executor-polkavm = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-executor-wasmtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-runtime-test = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-substrate-wasm-builder = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-tracing = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-tracing-proc-macro = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-rpc = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-substrate-test-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-frame-executive = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-frame-system = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-frame-try-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-balances = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-frame-benchmarking = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-frame-support-procedural = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-frame-support-procedural-tools = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-frame-support-procedural-tools-derive = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-transaction-payment = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-frame-metadata-hash-extension = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-transaction-pool = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-frame-system-rpc-runtime-api = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-babe = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-authorship = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-session = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-timestamp = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-timestamp = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-session = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-staking = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-consensus-babe = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-consensus-slots = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-frame-election-provider-support = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-frame-election-provider-solution-type = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-npos-elections = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-substrate-test-utils = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-service = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-chain-spec = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-chain-spec-derive = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-network = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-network-common = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-consensus = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-network-types = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-utils = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-consensus-grandpa = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-network-light = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-network-sync = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-fork-tree = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-telemetry = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-genesis-builder = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-keyring = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-client-db = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-state-db = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-kitchensink-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-node-primitives = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-example-mbm = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-migrations = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-example-tasks = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-sdk = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-asset-test-utils = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-pallet-parachain-system = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-pallet-parachain-system-proc-macro = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-primitives-core = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-core-primitives = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-parachain-primitives = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-primitives = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-authority-discovery = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-primitives-test-helpers = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-staging-xcm = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-xcm-procedural = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-primitives-parachain-inherent = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-primitives-proof-size-hostfunction = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-message-queue = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-runtime-common = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-asset-rate = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-broker = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-election-provider-multi-phase = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-election-provider-support-benchmarking = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-fast-unstake = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-staking = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-bags-list = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-staking-reward-curve = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-identity = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-staking-reward-fn = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-treasury = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-utility = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-collective = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-root-testing = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-vesting = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-runtime-parachains = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-authority-discovery = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-mmr = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-mmr-primitives = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-runtime-metrics = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-staging-xcm-executor = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-frame-support-test = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-frame-support-test-pallet = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-keystore = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-slot-range-helper = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-staging-xcm-builder = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-asset-conversion = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-assets = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-salary = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-ranked-collective = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-xcm = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-xcm-runtime-apis = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-xcm-simulator = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-test-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-grandpa = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-offences = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-indices = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-sudo = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-consensus-beefy = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-offchain = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-test-runtime-constants = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-test-client = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-primitives-storage-weight-reclaim = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-test-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-pallet-aura-ext = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-aura = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-consensus-aura = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-primitives-aura = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-collator-selection = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-glutton = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-staging-parachain-info = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-test-relay-sproof-builder = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-test-service = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-client-cli = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-cli = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-mixnet = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-transaction-pool-api = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-mixnet = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-transaction-pool = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-substrate-test-runtime-transaction-pool = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-client-collator = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-client-consensus-common = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-client-pov-recovery = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-relay-chain-interface = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-overseer = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-tracing-gum = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-tracing-gum-proc-macro = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-metrics = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-test-service = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-primitives = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-erasure-coding = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-subsystem = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-subsystem-types = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-network-protocol = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-authority-discovery = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-statement-table = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-rpc = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-mmr-rpc = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-transaction-payment-rpc = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-consensus-babe = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-consensus-epochs = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-consensus-slots = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-network-test = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-consensus-babe-rpc = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-rpc-api = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-consensus-beefy = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-network-gossip = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-consensus-beefy-rpc = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-rpc = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-statement-store = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-# sc-consensus-grandpa = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
+[patch."https://github.com/paritytech/polkadot-sdk.git"]
 sc-consensus-grandpa = { git = "https://github.com/opentensor/grandpa.git", rev = "b3ba2f67d510559edfb4963523de86ed89439d74" }
-sc-consensus-grandpa-rpc = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-rpc-spec-v2 = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-sync-state-rpc = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-substrate-frame-rpc-system = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-substrate-state-trie-migration-rpc = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-service = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-frame-benchmarking-cli = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-client-parachain-inherent = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-sysinfo = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-westend-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-frame-system-benchmarking = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-beefy = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-beefy-mmr = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-conviction-voting = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-scheduler = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-preimage = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-delegated-staking = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-nomination-pools = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-democracy = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-elections-phragmen = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-membership = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-multisig = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-sdk-frame = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-examples = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-default-config-example = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-dev-mode = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-example-authorization-tx-extension = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-verify-signature = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-example-basic = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-example-frame-crate = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-example-kitchensink = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-example-offchain-worker = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-example-single-block-migrations = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-example-split = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-nomination-pools-benchmarking = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-nomination-pools-runtime-api = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-offences-benchmarking = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-im-online = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-parameters = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-proxy = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-recovery = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-referenda = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-session-benchmarking = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-society = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-staking-runtime-api = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-state-trie-migration = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-frame-remote-externalities = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-substrate-rpc-client = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-whitelist = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-xcm-benchmarks = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-westend-runtime-constants = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-mmr-gadget = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-offchain = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-approval-distribution = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-subsystem-util = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-subsystem-test-helpers = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-availability-bitfield-distribution = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-availability-distribution = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-subsystem-bench = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-availability-recovery = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-core-approval-voting = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-core-approval-voting-parallel = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-core-av-store = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-core-chain-api = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-statement-distribution = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-collator-protocol = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-dispute-distribution = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-gossip-support = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-network-bridge = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-collation-generation = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-core-backing = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-core-bitfield-signing = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-core-candidate-validation = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-core-pvf = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-core-pvf-common = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-core-pvf-execute-worker = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-core-pvf-prepare-worker = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-staging-tracking-allocator = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-rococo-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-bounties = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-child-bounties = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-nis = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-tips = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-rococo-runtime-constants = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-test-parachain-adder = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-test-parachain-halt = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-core-chain-selection = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-core-dispute-coordinator = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-core-parachains-inherent = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-core-prospective-parachains = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-core-provisioner = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-core-pvf-checker = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-node-core-runtime-api = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-basic-authorship = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-proposer-metrics = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-test-client = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-substrate-test-client = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-client-network = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-relay-chain-inprocess-interface = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-cli = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-storage-monitor = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-substrate-build-script-utils = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-client-consensus-aura = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-client-consensus-proposer = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-consensus-aura = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-client-consensus-relay-chain = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-client-service = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-relay-chain-minimal-node = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-relay-chain-rpc-interface = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-network-transactions = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-parachains-common = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-primitives-utility = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-asset-tx-payment = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-pallet-xcmp-queue = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bp-xcm-bridge-hub-router = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-xcm-bridge-hub-router = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-parachains-runtimes-test-utils = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-assets-common = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bp-messages = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bp-parachains = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bp-polkadot-core = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bp-polkadot = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bp-relayers = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bp-test-utils = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bp-xcm-bridge-hub = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bridge-hub-common = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-snowbridge-core = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-snowbridge-beacon-primitives = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-snowbridge-ethereum = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bridge-hub-test-utils = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-bridge-grandpa = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-bridge-messages = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-bridge-parachains = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-bridge-relayers = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-xcm-bridge-hub = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-pallet-dmp-queue = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-pallet-session-benchmarking = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-pallet-solo-to-para = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-pallet-xcm = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-ping = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-primitives-timestamp = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-emulated-integration-tests-common = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-xcm-emulator = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-frame-benchmarking-pallet-pov = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-generate-bags = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-alliance = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-asset-conversion-ops = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-asset-conversion-tx-payment = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-assets-freezer = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-atomic-swap = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-collective-content = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-contracts = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-contracts-proc-macro = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-contracts-uapi = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-contracts-fixtures = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-insecure-randomness-collective-flip = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-contracts-mock-network = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-core-fellowship = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-lottery = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-mixnet = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-nft-fractionalization = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-nfts = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-nfts-runtime-api = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-node-authorization = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-paged-list = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-remark = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-root-offences = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-safe-mode = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-scored-pool = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-skip-feeless-payment = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-statement = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-transaction-storage = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-transaction-storage-proof = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-tx-pause = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-uniques = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-omni-node-lib = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-consensus-manual-seal = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-consensus-pow = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-consensus-pow = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-informant = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-network-statement = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-rpc-server = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-statement-store = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-snowbridge-outbound-queue-merkle-tree = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-snowbridge-outbound-queue-runtime-api = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-snowbridge-pallet-ethereum-client = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-snowbridge-pallet-ethereum-client-fixtures = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-snowbridge-pallet-inbound-queue = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-snowbridge-pallet-inbound-queue-fixtures = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-snowbridge-router-primitives = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-snowbridge-pallet-outbound-queue = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-snowbridge-pallet-system = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-snowbridge-runtime-common = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-snowbridge-runtime-test-common = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-snowbridge-system-runtime-api = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-core-hashing = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-core-hashing-proc-macro = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-crypto-ec-utils = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-staging-chain-spec-builder = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-staging-node-inspect = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-subkey = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-substrate-bip39 = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-substrate-frame-rpc-support = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-testnet-parachains-constants = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-runtime-interface-test-wasm = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bp-asset-hub-rococo = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bp-asset-hub-westend = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bp-bridge-hub-cumulus = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bp-bridge-hub-kusama = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bp-bridge-hub-polkadot = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bp-bridge-hub-rococo = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bp-bridge-hub-westend = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bp-kusama = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bp-polkadot-bulletin = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bp-rococo = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bp-westend = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-bridge-beefy = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bp-beefy = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-relay-substrate-client = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-finality-relay = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-relay-utils = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-equivocation-detector = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-substrate-relay-helper = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-messages-relay = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-parachains-relay = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-cumulus-pov-validator = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-asset-hub-rococo-emulated-chain = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-asset-hub-rococo-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-rococo-emulated-chain = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-asset-hub-westend-emulated-chain = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-asset-hub-westend-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-westend-emulated-chain = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bridge-hub-rococo-emulated-chain = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bridge-hub-rococo-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bridge-hub-westend-emulated-chain = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bridge-hub-westend-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-collectives-westend-emulated-chain = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-collectives-westend-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-coretime-rococo-emulated-chain = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-coretime-rococo-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-coretime-westend-emulated-chain = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-coretime-westend-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-people-rococo-emulated-chain = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-people-rococo-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-people-westend-emulated-chain = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-people-westend-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-penpal-emulated-chain = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-penpal-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-rococo-system-emulated-network = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-rococo-westend-system-emulated-network = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-westend-system-emulated-network = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-asset-hub-rococo-integration-tests = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-asset-hub-westend-integration-tests = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bridge-hub-rococo-integration-tests = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-bridge-hub-westend-integration-tests = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-collectives-westend-integration-tests = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-coretime-rococo-integration-tests = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-coretime-westend-integration-tests = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-people-rococo-integration-tests = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-people-westend-integration-tests = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-contracts-rococo-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-glutton-westend-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-rococo-parachain-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-omni-node = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-parachain-bin = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-sdk-docs = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-chain-spec-guide-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-sdk-docs-first-pallet = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-sdk-docs-first-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-minimal-template-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-minimal-template = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-staging-node-cli = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-node-rpc = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-node-testing = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sc-service-test = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-substrate-cli-test-utils = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-parachain-template-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-parachain-template = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-solochain-template-runtime = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-template = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-xcm-docs = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-erasure_coding_fuzzer = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-test-malus = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-zombienet-backchannel = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-test-parachains = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-test-parachain-adder-collator = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-test-parachain-undying = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-test-parachain-undying-collator = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-voter-bags = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-remote-ext-tests-bags-list = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-bags-list-remote-tests = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-xcm-executor-integration-tests = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-xcm-simulator-example = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-xcm-simulator-fuzzer = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-polkadot-zombienet-sdk-tests = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-node-bench = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-bags-list-fuzzer = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-election-provider-e2e-test = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-frame-election-solution-type-fuzzer = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-nomination-pools-fuzzer = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-nomination-pools-test-delegate-stake = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-nomination-pools-test-transfer-stake = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-paged-list-fuzzer = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-revive = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-revive-fixtures = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-revive-proc-macro = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-revive-uapi = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-revive-mock-network = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-pallet-revive-eth-rpc = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-frame-support-test-compile-pass = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-frame-support-test-stg-frame-crate = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-api-test = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-application-crypto-test = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-arithmetic-fuzzer = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-core-fuzz = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-npos-elections-fuzzer = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-runtime-interface-test = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-sp-runtime-interface-test-wasm-deprecated = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-node-template-release = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-node-runtime-generate-bags = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-frame-omni-bencher = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-minimal-template-node = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-parachain-template-node = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-solochain-template-node = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-template-zombienet-tests = { git = "https://github.com/liamaharon/polkadot-sdk.git" , branch = "allow-aura-to-babe-upgrades-polkadot-stable2412-6" }
-
-
