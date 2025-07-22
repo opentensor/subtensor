@@ -1,5 +1,6 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
+use crate::conditional_evm_block_import::ConditionalEVMBlockImport;
 use crate::consensus::ConsensusMechanism;
 use futures::{FutureExt, channel::mpsc, future};
 use node_subtensor_runtime::{RuntimeApi, TransactionConverter, opaque::Block};
@@ -205,6 +206,32 @@ pub fn new_partial(
             storage_override,
         ),
     })
+}
+
+/// Build the import queue for the template runtime (manual seal).
+pub fn build_manual_seal_import_queue(
+    client: Arc<FullClient>,
+    _backend: Arc<FullBackend>,
+    config: &Configuration,
+    _eth_config: &EthConfiguration,
+    task_manager: &TaskManager,
+    _telemetry: Option<TelemetryHandle>,
+    grandpa_block_import: GrandpaBlockImport,
+    _transaction_pool_handle: Arc<TransactionPoolHandle<Block, FullClient>>,
+) -> Result<(BasicQueue<Block>, BoxBlockImport<Block>), ServiceError> {
+    let conditional_block_import = ConditionalEVMBlockImport::new(
+        grandpa_block_import.clone(),
+        fc_consensus::FrontierBlockImport::new(grandpa_block_import.clone(), client.clone()),
+        client.clone(),
+    );
+    Ok((
+        sc_consensus_manual_seal::import_queue(
+            Box::new(conditional_block_import.clone()),
+            &task_manager.spawn_essential_handle(),
+            config.prometheus_registry(),
+        ),
+        Box::new(conditional_block_import),
+    ))
 }
 
 /// Builds a new service for a full client.
