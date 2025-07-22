@@ -8,10 +8,13 @@ use frame_support::sp_runtime::{
 };
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
 use frame_system::RawOrigin;
+use pallet_drand::types::DrandResponseBody;
+use pallet_drand::types::Pulse;
+use pallet_drand::types::PulsesPayload;
 use pallet_subtensor_swap::Call as SwapCall;
 use pallet_subtensor_swap::tick::TickIndex;
 use safe_math::FixedExt;
-use sp_core::{Get, H256, U256};
+use sp_core::{Get, H256, Pair, U256};
 use substrate_fixed::traits::FromFixed;
 use substrate_fixed::types::{I96F32, I110F18, U64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT, NetUid};
@@ -5827,6 +5830,62 @@ fn test_add_stake_aggregate_ok_no_emission() {
             SubtensorModule::get_total_stake(),
             amount + SubtensorModule::get_network_min_lock()
         );
+
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::StakeAdded { .. })
+            )
+        }));
+
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedStakeAdded { .. })
+            )
+        }));
+    });
+}
+
+#[test]
+fn test_add_stake_aggregate_ok_with_drand_pulse() {
+    let block_number = 1u64;
+    new_test_ext(block_number).execute_with(|| {
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
+        let amount = DefaultMinStake::<Test>::get() * 10;
+        let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
+
+        // Transfer to hotkey account, and check if the result is ok
+        assert_ok!(SubtensorModule::add_stake_aggregate(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            amount
+        ));
+
+        const DRAND_PULSE: &str = "{\"round\":1000,\"randomness\":\"fe290beca10872ef2fb164d2aa4442de4566183ec51c56ff3cd603d930e54fdd\",\"signature\":\"b44679b9a59af2ec876b1a6b1ad52ea9b1615fc3982b19576350f93447cb1125e342b73a8dd2bacbe47e4b6b63ed5e39\"}";
+        let u_p: DrandResponseBody = serde_json::from_str(DRAND_PULSE).unwrap();
+        let p: Pulse = u_p.try_into_pulse().unwrap();
+        let alice = super::mock::test_crypto::Pair::from_string("//Alice", None).expect("static values are valid");
+        let signature = None;
+
+        let pulses_payload = PulsesPayload {
+            pulses: vec![p.clone()],
+            block_number,
+            public: alice.public(),
+        };
+
+        // Dispatch an unsigned extrinsic.
+        assert_ok!(Drand::write_pulse(
+            RuntimeOrigin::none(),
+            pulses_payload,
+            signature
+        ));
 
         // Check that event was emitted.
         assert!(System::events().iter().any(|e| {

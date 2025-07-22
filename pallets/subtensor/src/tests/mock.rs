@@ -16,6 +16,8 @@ use frame_support::{
 use frame_system as system;
 use frame_system::{EnsureNever, EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
 use pallet_collective::MemberCount;
+use pallet_drand::OnPulseReceived;
+use pallet_drand::types::RoundNumber;
 use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
@@ -576,7 +578,7 @@ impl pallet_crowdloan::Config for Test {
     type MaxContributors = MaxContributors;
 }
 
-mod test_crypto {
+pub(crate) mod test_crypto {
     use super::KEY_TYPE;
     use sp_core::{
         U256,
@@ -610,13 +612,22 @@ mod test_crypto {
 
 pub type TestAuthId = test_crypto::TestAuthId;
 
+pub struct StakingJobsOnDrandPulse;
+impl OnPulseReceived for StakingJobsOnDrandPulse {
+    fn on_pulse_received(_: RoundNumber) {
+        crate::pallet::Pallet::<Test>::process_staking_jobs(
+            frame_system::pallet::Pallet::<Test>::block_number(),
+        );
+    }
+}
+
 impl pallet_drand::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type AuthorityId = TestAuthId;
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;
     type HttpFetchTimeout = ConstU64<1_000>;
-    type OnPulseReceived = ();
+    type OnPulseReceived = StakingJobsOnDrandPulse;
 }
 
 impl frame_system::offchain::SigningTypes for Test {
