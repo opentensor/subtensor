@@ -20,7 +20,6 @@ use subtensor_runtime_common::{AlphaCurrency, NetUid};
 #[frame_benchmarking::v2::benchmarks]
 mod pallet_benchmarks {
     use super::*;
-    
 
     #[benchmark]
     fn register() {
