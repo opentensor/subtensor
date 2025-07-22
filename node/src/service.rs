@@ -222,7 +222,6 @@ pub fn build_manual_seal_import_queue(
     let conditional_block_import = ConditionalEVMBlockImport::new(
         grandpa_block_import.clone(),
         fc_consensus::FrontierBlockImport::new(grandpa_block_import.clone(), client.clone()),
-        client.clone(),
     );
     Ok((
         sc_consensus_manual_seal::import_queue(
