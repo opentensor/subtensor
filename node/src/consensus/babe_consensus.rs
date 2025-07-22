@@ -187,7 +187,7 @@ impl ConsensusMechanism for BabeConsensus {
 
     fn slot_duration(&self, _client: &FullClient) -> Result<SlotDuration, sc_service::Error> {
         if let Some(ref babe_link) = self.babe_link {
-            Ok(babe_link.config().slot_duration().clone())
+            Ok(babe_link.config().slot_duration())
         } else {
             Err(sc_service::Error::Other(
 				"Babe link not initialized. Ensure that the import queue has been built before calling slot_duration.".to_string()

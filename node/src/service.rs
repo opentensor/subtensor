@@ -1,6 +1,5 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-use crate::conditional_evm_block_import::ConditionalEVMBlockImport;
 use crate::consensus::ConsensusMechanism;
 use futures::{FutureExt, channel::mpsc, future};
 use node_subtensor_runtime::{RuntimeApi, TransactionConverter, opaque::Block};
@@ -40,6 +39,7 @@ pub type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 pub type GrandpaBlockImport =
     sc_consensus_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>;
 type GrandpaLinkHalf = sc_consensus_grandpa::LinkHalf<Block, FullClient, FullSelectChain>;
+#[allow(clippy::upper_case_acronyms)]
 pub type BIQ<'a> = Box<
     dyn FnOnce(
             Arc<FullClient>,
@@ -209,6 +209,8 @@ pub fn new_partial(
 }
 
 /// Build the import queue for the template runtime (manual seal).
+#[allow(clippy::too_many_arguments)]
+#[cfg(feature = "runtime-benchmarks")]
 pub fn build_manual_seal_import_queue(
     client: Arc<FullClient>,
     _backend: Arc<FullBackend>,
@@ -429,7 +431,7 @@ where
             prometheus_registry.clone(),
         ));
 
-        let slot_duration = consensus_mechanism.slot_duration(&*client)?;
+        let slot_duration = consensus_mechanism.slot_duration(&client)?;
         let pending_create_inherent_data_providers =
             move |_, ()| async move { CM::create_inherent_data_providers(slot_duration) };
 
@@ -540,7 +542,7 @@ where
             telemetry.as_ref().map(|x| x.handle()),
         );
 
-        let slot_duration = consensus_mechanism.slot_duration(&*client)?;
+        let slot_duration = consensus_mechanism.slot_duration(&client)?;
         let create_inherent_data_providers =
             move |_, ()| async move { CM::create_inherent_data_providers(slot_duration) };
 

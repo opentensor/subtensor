@@ -1,5 +1,4 @@
 use futures::future::pending;
-use log;
 use sc_client_api::AuxStore;
 use sc_client_api::BlockOf;
 use sc_client_api::UsageProvider;
@@ -74,7 +73,7 @@ where
     CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
     async fn verify(&self, block: BlockImportParams<B>) -> Result<BlockImportParams<B>, String> {
-        let number: NumberFor<B> = block.post_header().number().clone();
+        let number: NumberFor<B> = *block.post_header().number();
         log::debug!("Verifying block: {:?}", number);
         if is_babe_digest(block.header.digest()) {
             log::debug!(
@@ -129,7 +128,7 @@ fn is_babe_digest(digest: &Digest) -> bool {
     digest
         .log(|d| match d {
             DigestItem::PreRuntime(engine_id, _) => {
-                if engine_id.clone() == BABE_ENGINE_ID {
+                if *engine_id == BABE_ENGINE_ID {
                     Some(d)
                 } else {
                     None
