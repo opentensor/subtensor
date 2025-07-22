@@ -2,7 +2,7 @@ use std::sync::{Arc, atomic::AtomicBool};
 
 use crate::{
     chain_spec,
-    cli::{Cli, InitialConsensus, Subcommand},
+    cli::{Cli, Subcommand, SupportedConsensusMechanism},
     consensus::BabeConsensus,
     ethereum::db_config_dir,
     service,
@@ -71,18 +71,9 @@ pub fn run() -> sc_cli::Result<()> {
         }
         Some(Subcommand::CheckBlock(cmd)) => {
             let runner = cli.create_runner(cmd)?;
-
             runner.async_run(|mut config| {
                 let (client, _, import_queue, task_manager, _) =
-                    match cli.initial_consensus.unwrap_or_default() {
-                        InitialConsensus::Babe => {
-                            service::new_chain_ops::<BabeConsensus>(&mut config, &cli.eth)?
-                        }
-                        InitialConsensus::Aura => {
-                            service::new_chain_ops::<AuraConsensus>(&mut config, &cli.eth)?
-                        }
-                    };
-
+                    cli.initial_consensus.new_chain_ops(&mut config, &cli.eth)?;
                 Ok((cmd.run(client, import_queue), task_manager))
             })
         }
@@ -90,7 +81,7 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
                 let (client, _, _, task_manager, _) =
-                    service::new_chain_ops::<AuraConsensus>(&mut config, &cli.eth)?;
+                    cli.initial_consensus.new_chain_ops(&mut config, &cli.eth)?;
                 Ok((cmd.run(client, config.database), task_manager))
             })
         }
@@ -98,7 +89,7 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
                 let (client, _, _, task_manager, _) =
-                    service::new_chain_ops::<AuraConsensus>(&mut config, &cli.eth)?;
+                    cli.initial_consensus.new_chain_ops(&mut config, &cli.eth)?;
                 Ok((cmd.run(client, config.chain_spec), task_manager))
             })
         }
@@ -106,7 +97,7 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
                 let (client, _, import_queue, task_manager, _) =
-                    service::new_chain_ops::<AuraConsensus>(&mut config, &cli.eth)?;
+                    cli.initial_consensus.new_chain_ops(&mut config, &cli.eth)?;
                 Ok((cmd.run(client, import_queue), task_manager))
             })
         }
@@ -161,7 +152,7 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
                 let (client, backend, _, task_manager, _) =
-                    service::new_chain_ops::<AuraConsensus>(&mut config, &cli.eth)?;
+                    cli.initial_consensus.new_chain_ops(&mut config, &cli.eth)?;
                 let aux_revert = Box::new(move |client, _, blocks| {
                     sc_consensus_grandpa::revert(client, blocks)?;
                     Ok(())
@@ -246,9 +237,9 @@ pub fn run() -> sc_cli::Result<()> {
         None => {
             let arg_matches = Cli::command().get_matches();
             let cli = Cli::from_args();
-            match cli.initial_consensus.unwrap_or_default() {
-                InitialConsensus::Babe => run_babe(&arg_matches),
-                InitialConsensus::Aura => run_aura(&arg_matches),
+            match cli.initial_consensus {
+                SupportedConsensusMechanism::Babe => run_babe(&arg_matches),
+                SupportedConsensusMechanism::Aura => run_aura(&arg_matches),
             }
         }
     }
