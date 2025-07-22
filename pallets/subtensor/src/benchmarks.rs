@@ -9,7 +9,7 @@ use frame_benchmarking::v2::*;
 use frame_support::{StorageDoubleMap, assert_ok};
 use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
 pub use pallet::*;
-use sp_core::{H160, H256};
+use sp_core::H256;
 use sp_runtime::{
     BoundedVec, Percent,
     traits::{BlakeTwo256, Hash},
@@ -20,7 +20,7 @@ use subtensor_runtime_common::{AlphaCurrency, NetUid};
 #[frame_benchmarking::v2::benchmarks]
 mod pallet_benchmarks {
     use super::*;
-    use pallet_evm::AddressMapping;
+    
 
     #[benchmark]
     fn register() {
