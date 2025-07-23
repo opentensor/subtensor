@@ -1,3 +1,4 @@
+use alloc::{boxed::Box, string::String};
 use core::marker::PhantomData;
 
 use fp_evm::{ExitError, PrecompileFailure};
@@ -30,7 +31,7 @@ where
         + Dispatchable<PostInfo = PostDispatchInfo>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
 {
-    const INDEX: u64 = 2058;
+    const INDEX: u64 = 2059;
 }
 
 #[precompile_utils::precompile]
@@ -83,7 +84,7 @@ where
         Ok((share.int().to_bits(), share.frac().to_bits()))
     }
 
-    #[precompile::public("getLeaseIdForSubnet(uint32)")]
+    #[precompile::public("getLeaseIdForSubnet(uint16)")]
     #[precompile::view]
     fn get_lease_id_for_subnet(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u32> {
         let lease_id = pallet_subtensor::SubnetUidToLeaseId::<R>::get(NetUid::from(netuid)).ok_or(
@@ -96,10 +97,10 @@ where
     }
 
     #[precompile::public(
-        "registerLeasedNetworkThroughCrowdloan(uint64,uint64,uint64,uint32,uint8,bool,uint32)"
+        "createLeaseCrowdloan(uint64,uint64,uint64,uint32,uint8,bool,uint32)"
     )]
     #[precompile::payable]
-    fn register_leased_network_through_crowdloan(
+    fn create_lease_crowdloan(
         handle: &mut impl PrecompileHandle,
         crowdloan_deposit: u64,
         crowdloan_min_contribution: u64,
