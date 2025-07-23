@@ -67,7 +67,7 @@ where
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
     }
 
-    #[precompile::public("pureProxyCall(bytes32,uint8[])")]
+    #[precompile::public("pureProxyCall(uint8[])")]
     #[precompile::payable]
     pub fn pure_proxy_call(handle: &mut impl PrecompileHandle, call: Vec<u8>) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();
