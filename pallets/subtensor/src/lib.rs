@@ -1717,11 +1717,6 @@ pub mod pallet {
     pub type AssociatedEvmAddress<T: Config> =
         StorageDoubleMap<_, Twox64Concat, NetUid, Twox64Concat, u16, (H160, u64), OptionQuery>;
 
-    #[pallet::storage]
-    /// --- MAP (H160) --> T::AccountId
-    pub type PureProxyAccount<T: Config> =
-        StorageMap<_, Twox64Concat, H160, T::AccountId, OptionQuery>;
-
     /// ========================
     /// ==== Subnet Leasing ====
     /// ========================
