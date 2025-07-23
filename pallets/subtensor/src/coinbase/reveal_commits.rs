@@ -16,8 +16,9 @@ use w3f_bls::EngineBLS;
 /// encrypted, compressed, serialized, and submitted to the `commit_crv3_weights`
 /// extrinsic.
 #[derive(Encode, Decode)]
-#[freeze_struct("46e75a8326ba3665")]
+#[freeze_struct("b6833b5029be4127")]
 pub struct WeightsTlockPayload {
+    pub hotkey: Vec<u8>,
     pub uids: Vec<u16>,
     pub values: Vec<u16>,
     pub version_key: u64,
@@ -131,6 +132,29 @@ impl<T: Config> Pallet<T> {
                     continue;
                 }
             };
+
+            // Verify the hotkey in the payload matches the committer
+            let mut hotkey_reader = &payload.hotkey[..];
+            let decoded_hotkey: T::AccountId = match Decode::decode(&mut hotkey_reader) {
+                Ok(h) => h,
+                Err(e) => {
+                    log::warn!(
+                        "Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing hotkey: {:?}",
+                        netuid,
+                        who,
+                        e
+                    );
+                    continue;
+                }
+            };
+            if decoded_hotkey != who {
+                log::warn!(
+                    "Failed to reveal commit for subnet {} submitted by {:?} due to hotkey mismatch in payload",
+                    netuid,
+                    who
+                );
+                continue;
+            }
 
             if let Err(e) = Self::do_set_weights(
                 T::RuntimeOrigin::signed(who.clone()),
