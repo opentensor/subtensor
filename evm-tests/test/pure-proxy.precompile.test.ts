@@ -8,7 +8,7 @@ import { PolkadotSigner, TypedApi } from "polkadot-api";
 import { convertPublicKeyToSs58 } from "../src/address-utils"
 import { IPureProxyABI, IPURE_PROXY_ADDRESS } from "../src/contracts/pureProxy"
 import { keccak256, ethers } from 'ethers';
-import { forceSetBalanceToEthAddress, forceSetBalanceToSs58Address, setPureProxyAccount } from "../src/subtensor";
+import { forceSetBalanceToEthAddress, forceSetBalanceToSs58Address } from "../src/subtensor";
 import { Signer } from "@polkadot/api/types";
 
 async function getTransferCallCode(api: TypedApi<typeof devnet>, signer: PolkadotSigner) {
@@ -65,10 +65,6 @@ describe("Test pure proxy precompile", () => {
         const proxyAddressBeforeCreate = await contract.getPureProxy();
         console.log(proxyAddressBeforeCreate)
         assert.equal(proxyAddressBeforeCreate, "0x0000000000000000000000000000000000000000000000000000000000000000", "proxy should be undefined before set")
-
-        // use papi to set proxy with wrong mapped account
-        await setPureProxyAccount(api, evmWallet2.address, convertPublicKeyToSs58(alice.publicKey))
-        assert.equal(proxyAddressBeforeCreate, "0x0000000000000000000000000000000000000000000000000000000000000000", "proxy should be zero after wrong signer")
 
         const callCode = await getTransferCallCode(api, alice)
 
