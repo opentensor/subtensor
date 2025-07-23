@@ -9,19 +9,6 @@ export const IPureProxyABI = [
         "type": "function"
     },
     {
-        "inputs": [],
-        "name": "getPureProxy",
-        "outputs": [
-            {
-                "internalType": "bytes32",
-                "name": "",
-                "type": "bytes32"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
         "inputs": [
             {
                 "internalType": "uint8[]",
@@ -33,5 +20,18 @@ export const IPureProxyABI = [
         "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "getPureProxy",
+        "outputs": [
+            {
+                "internalType": "bytes32",
+                "name": "",
+                "type": "bytes32"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
     }
-];
+]; 
