@@ -72,8 +72,6 @@ services:
       - --no-mdns
       - --bootnodes=/dns/bootnode.test.finney.opentensor.ai/tcp/30333/p2p/12D3KooWPM4mLcKJGtyVtkggqdG84zWrd7Rij6PGQDoijh1X86Vr
       - --sync=warp
-      - --reserved-nodes=/dns/bootnode.test.finney.opentensor.ai/tcp/30333/p2p/12D3KooWPM4mLcKJGtyVtkggqdG84zWrd7Rij6PGQDoijh1X86Vr
-      - --reserved-only
       - --database paritydb
       - --db-cache 4096
       - --trie-cache-size 2048
@@ -91,5 +89,3 @@ services:
       - --no-mdns
       - --bootnodes=/dns/bootnode.test.finney.opentensor.ai/tcp/30333/p2p/12D3KooWPM4mLcKJGtyVtkggqdG84zWrd7Rij6PGQDoijh1X86Vr
       - --pruning=archive
-      - --reserved-nodes=/dns/bootnode.test.finney.opentensor.ai/tcp/30333/p2p/12D3KooWPM4mLcKJGtyVtkggqdG84zWrd7Rij6PGQDoijh1X86Vr
-      - --reserved-only
