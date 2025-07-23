@@ -521,6 +521,15 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Dispatch the given `call` from an account that the sender is authorized for through
+        /// `create_evm_pure`.
+        ///
+        /// The dispatch origin for this call must be _Signed_.
+        ///
+        /// Parameters:
+        /// - `real`: The account that the proxy will make a call on behalf of.
+        /// - `force_proxy_type`: Specify the exact proxy type to be used and checked for this call.
+        /// - `call`: The call to be made by the `real` account.
         #[pallet::call_index(10)]
         #[pallet::weight({
 			let di = call.get_dispatch_info();
@@ -558,6 +567,19 @@ pub mod pallet {
             }
         }
 
+        /// Create a pure proxy account for the given EVM address.
+        ///
+        /// The dispatch origin for this call must be _Signed_.
+        ///
+        /// Parameters:
+        /// - `proxy_type`: The type of the proxy that the sender will be registered as over the
+        ///   new account. This will almost always be the most permissive `ProxyType` possible to
+        /// - `delay`: The announcement period required of the initial proxy. Will generally be
+        ///   zero.
+        /// - `index`: A disambiguation index, in case this is called multiple times in the same
+        ///   transaction (e.g. with `utility::batch`). Unless you're using `batch` you probably just
+        ///   want to use `0`.
+        /// - `evm_address`: The EVM address of the account to create a pure proxy for.
         #[pallet::call_index(11)]
         #[pallet::weight(T::WeightInfo::create_pure(T::MaxProxies::get()))]
         pub fn create_evm_pure(
@@ -585,6 +607,12 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Kill a pure proxy account for the given EVM address.
+        ///
+        /// The dispatch origin for this call must be _Signed_.
+        ///
+        /// Parameters:
+        /// - `evm_address`: The EVM address of the account to kill.
         #[pallet::call_index(12)]
         #[pallet::weight(T::WeightInfo::kill_pure(T::MaxProxies::get()))]
         pub fn kill_evm_pure(origin: OriginFor<T>, evm_address: H160) -> DispatchResult {
