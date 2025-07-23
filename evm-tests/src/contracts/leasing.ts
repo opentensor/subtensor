@@ -1,4 +1,6 @@
-[
+export const ILEASING_ADDRESS = "0x000000000000000000000000000000000000080b";
+
+export const ILeasingABI = [
     {
         "inputs": [
             {
@@ -169,4 +171,4 @@
         "stateMutability": "payable",
         "type": "function"
     }
-]
+];

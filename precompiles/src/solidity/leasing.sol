@@ -1,6 +1,6 @@
 pragma solidity ^0.8.0;
 
-address constant ILEASING_ADDRESS = 0x0000000000000000000000000000000000000810;
+address constant ILEASING_ADDRESS = 0x000000000000000000000000000000000000080b;
 
 interface ILeasing {
     /**
@@ -31,7 +31,7 @@ interface ILeasing {
     function getLeaseIdForSubnet(uint16 netuid) external view returns (uint32);
 
     /**
-     * @dev Registers a leased network through a crowdloan.
+     * @dev Create a lease crowdloan.
      * @param crowdloanDeposit The deposit from the creator.
      * @param crowdloanMinContribution The minimum contribution required to contribute to the crowdloan.
      * @param crowdloanCap The maximum amount of funds that can be raised.
@@ -40,7 +40,7 @@ interface ILeasing {
      * @param hasLeasingEndBlock Whether the lease has an end block.
      * @param leasingEndBlock The block number at which the lease will end.
      */
-    function registerLeasedNetworkThroughCrowdloan(
+    function createLeaseCrowdloan(
         uint64 crowdloanDeposit,
         uint64 crowdloanMinContribution,
         uint64 crowdloanCap,
