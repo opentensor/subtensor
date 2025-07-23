@@ -216,15 +216,10 @@ pub mod pallet {
             call: Box<<T as Config>::RuntimeCall>,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
-
             let real = T::Lookup::lookup(real)?;
-
             let def = Self::find_proxy(&real, &who, force_proxy_type)?;
-
             ensure!(def.delay.is_zero(), Error::<T>::Unannounced);
-
             Self::do_proxy(def, real, *call);
-
             Ok(())
         }
 
