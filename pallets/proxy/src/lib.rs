@@ -579,7 +579,7 @@ pub mod pallet {
             ensure!(who == owner, Error::<T>::OriginNotMatchMappedEVM);
 
             ensure!(
-                !EVMProxies::<T>::contains_key(&evm_address),
+                !EVMProxies::<T>::contains_key(evm_address),
                 Error::<T>::EVMProxyDuplicate
             );
 
@@ -598,11 +598,11 @@ pub mod pallet {
 
             ensure!(who == owner, Error::<T>::OriginNotMatchMappedEVM);
 
-            match EVMProxies::<T>::get(&evm_address) {
+            match EVMProxies::<T>::get(evm_address) {
                 Some(proxy) => {
                     let (_, deposit) = Proxies::<T>::take(&proxy);
                     T::Currency::unreserve(&who, deposit);
-                    EVMProxies::<T>::remove(&evm_address);
+                    EVMProxies::<T>::remove(evm_address);
                     Ok(())
                 }
                 None => Err(Error::<T>::EVMProxyNotFound.into()),
@@ -998,7 +998,7 @@ impl<T: Config> Pallet<T> {
         delay: BlockNumberFor<T>,
         index: u16,
     ) -> DispatchResult {
-        let pure = Self::pure_account(&who, &proxy_type, index, None);
+        let pure = Self::pure_account(who, &proxy_type, index, None);
         ensure!(!Proxies::<T>::contains_key(&pure), Error::<T>::Duplicate);
 
         let proxy_def = ProxyDefinition {
@@ -1011,7 +1011,7 @@ impl<T: Config> Pallet<T> {
             .map_err(|_| Error::<T>::TooMany)?;
 
         let deposit = T::ProxyDepositBase::get().saturating_add(T::ProxyDepositFactor::get());
-        T::Currency::reserve(&who, deposit)?;
+        T::Currency::reserve(who, deposit)?;
 
         Proxies::<T>::insert(&pure, (bounded_proxies, deposit));
         Self::deposit_event(Event::PureCreated {
