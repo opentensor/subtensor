@@ -11,17 +11,6 @@ import { keccak256, ethers } from 'ethers';
 import { forceSetBalanceToEthAddress, forceSetBalanceToSs58Address, setPureProxyAccount } from "../src/subtensor";
 import { Signer } from "@polkadot/api/types";
 
-function getPureProxyAccount(address: string) {
-
-    const prefix = new TextEncoder().encode("pureproxy:")
-
-    const addressH160 = hexToU8a(address)
-
-    const data = new Uint8Array([...prefix, ...addressH160]);
-
-    return keccak256(data)
-}
-
 async function getTransferCallCode(api: TypedApi<typeof devnet>, signer: PolkadotSigner) {
     const transferAmount = BigInt(1000000000);
 
@@ -58,13 +47,9 @@ describe("Test pure proxy precompile", () => {
 
     it("Call createPureProxy, then use proxy to call transfer", async () => {
         const contract = new ethers.Contract(IPURE_PROXY_ADDRESS, IPureProxyABI, evmWallet)
-
         const tx = await contract.createPureProxy()
         await tx.wait()
         const proxyAddress = await contract.getPureProxy();
-
-        const expected = getPureProxyAccount(evmWallet.address)
-        assert.equal(proxyAddress, expected, "the proxy account not the same as expected")
 
         const ss58Address = convertPublicKeyToSs58(proxyAddress)
 
@@ -73,7 +58,6 @@ describe("Test pure proxy precompile", () => {
         const callCode = await getTransferCallCode(api, alice)
         const tx2 = await contract.pureProxyCall(callCode)
         await tx2.wait()
-
     })
 
     it("Call createPureProxy, edge cases", async () => {
@@ -99,9 +83,6 @@ describe("Test pure proxy precompile", () => {
         const tx = await contract.createPureProxy()
         await tx.wait()
         const proxyAddress = await contract.getPureProxy();
-
-        const expected = getPureProxyAccount(evmWallet2.address)
-        assert.equal(proxyAddress, expected, "the proxy account not the same as expected")
 
         // set the proxy again
         try {

@@ -553,7 +553,7 @@ pub mod pallet {
                     Ok(())
                 }
                 None => {
-                    return Err(Error::<T>::NotProxy.into());
+                    return Err(Error::<T>::EVMProxyNotFound.into());
                 }
             }
         }
@@ -578,8 +578,9 @@ pub mod pallet {
                 Error::<T>::EVMProxyDuplicate
             );
 
-            Self::do_create_pure(&who, proxy_type, delay, index)?;
-            EVMProxies::<T>::insert(evm_address, who.clone());
+            let pure = Self::do_create_pure(&who, proxy_type, delay, index)?;
+
+            EVMProxies::<T>::insert(evm_address, pure);
 
             Ok(())
         }
@@ -936,6 +937,7 @@ impl<T: Config> Pallet<T> {
         let f = |x: &ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>| -> bool {
             &x.delegate == delegate && force_proxy_type.as_ref().is_none_or(|y| &x.proxy_type == y)
         };
+
         Ok(Proxies::<T>::get(real)
             .0
             .into_iter()
@@ -992,7 +994,7 @@ impl<T: Config> Pallet<T> {
         proxy_type: T::ProxyType,
         delay: BlockNumberFor<T>,
         index: u16,
-    ) -> DispatchResult {
+    ) -> Result<T::AccountId, DispatchError> {
         let pure = Self::pure_account(who, &proxy_type, index, None);
         ensure!(!Proxies::<T>::contains_key(&pure), Error::<T>::Duplicate);
 
@@ -1001,6 +1003,7 @@ impl<T: Config> Pallet<T> {
             proxy_type: proxy_type.clone(),
             delay,
         };
+
         let bounded_proxies: BoundedVec<_, T::MaxProxies> = vec![proxy_def]
             .try_into()
             .map_err(|_| Error::<T>::TooMany)?;
@@ -1009,13 +1012,14 @@ impl<T: Config> Pallet<T> {
         T::Currency::reserve(who, deposit)?;
 
         Proxies::<T>::insert(&pure, (bounded_proxies, deposit));
+
         Self::deposit_event(Event::PureCreated {
-            pure,
+            pure: pure.clone(),
             who: who.clone(),
             proxy_type,
             disambiguation_index: index,
         });
 
-        Ok(())
+        Ok(pure)
     }
 }
