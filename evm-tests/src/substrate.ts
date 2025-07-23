@@ -124,25 +124,25 @@ export async function waitForTransactionWithRetry(
     api: TypedApi<typeof devnet>,
     tx: Transaction<{}, string, string, void>,
     signer: PolkadotSigner,
-  ) {
+) {
     let success = false;
     let retries = 0;
-  
+
     // set max retries times
     while (!success && retries < 5) {
-      await waitForTransactionCompletion(api, tx, signer)
-        .then(() => {success = true})
-        .catch((error) => {
-          console.log(`transaction error ${error}`);
-        });
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      retries += 1;
+        await waitForTransactionCompletion(api, tx, signer)
+            .then(() => { success = true })
+            .catch((error) => {
+                console.log(`transaction error ${error}`);
+            });
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        retries += 1;
     }
-  
+
     if (!success) {
-      console.log("Transaction failed after 5 retries");
+        console.log("Transaction failed after 5 retries");
     }
-  }
+}
 
 export async function waitForTransactionCompletion(api: TypedApi<typeof devnet>, tx: Transaction<{}, string, string, void>, signer: PolkadotSigner,) {
     const transactionPromise = await getTransactionWatchPromise(tx, signer)
@@ -201,44 +201,6 @@ export async function getTransactionWatchPromise(tx: Transaction<{}, string, str
     });
 }
 
-export async function waitForFinalizedBlock(api: TypedApi<typeof devnet>) {
-    const currentBlockNumber = await api.query.System.Number.getValue()
-    return new Promise<void>((resolve, reject) => {
-
-        const subscription = api.query.System.Number.watchValue().subscribe({
-            // TODO check why the block number event just get once
-            next(value: number) {
-                console.log("Event block number is :", value);
-
-                if (value > currentBlockNumber + 6) {
-                    console.log("Transaction is finalized in block:", value);
-                    subscription.unsubscribe();
-
-                    resolve();
-
-                }
-
-            },
-            error(err: Error) {
-                console.error("Transaction failed:", err);
-                subscription.unsubscribe();
-                // Reject the promise in case of an error
-                reject(err);
-
-            },
-            complete() {
-                console.log("Subscription complete");
-            }
-        });
-
-        setTimeout(() => {
-            subscription.unsubscribe();
-            console.log('unsubscribed!');
-            resolve()
-        }, 2000);
-    });
-}
-
 // second solution to wait for transaction finalization. pass the raw data to avoid the complex transaction type definition
 export async function waitForTransactionCompletion2(api: TypedApi<typeof devnet>, raw: Binary, signer: PolkadotSigner,) {
     const tx = await api.txFromCallData(raw);
@@ -281,14 +243,13 @@ export async function waitForNonceChange(api: TypedApi<typeof devnet>, ss58Addre
     }
 }
 
-
-// other approach to convert public key to ss58
-// export function convertPublicKeyToSs58(publicKey: Uint8Array, ss58Format: number = 42): string {
-//     // Create a keyring instance
-//     const keyring = new Keyring({ type: 'sr25519', ss58Format });
-
-//     // Add the public key to the keyring
-//     const address = keyring.encodeAddress(publicKey);
-
-//     return address
-// }
+export function waitForFinalizedBlock(api: TypedApi<typeof devnet>, end: number) {
+    return new Promise<void>((resolve) => {
+        const subscription = api.query.System.Number.watchValue("finalized").subscribe((current) => {
+            if (current > end) {
+                subscription.unsubscribe();
+                resolve();
+            }
+        })
+    })
+}

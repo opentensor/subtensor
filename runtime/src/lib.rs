@@ -68,7 +68,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use subtensor_precompiles::Precompiles;
-use subtensor_runtime_common::{time::*, *};
+use subtensor_runtime_common::{AlphaCurrency, time::*, *};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -218,7 +218,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 292,
+    spec_version: 297,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -746,7 +746,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake {
                     alpha_amount,
                     ..
-                }) => *alpha_amount < SMALL_TRANSFER_LIMIT,
+                }) => *alpha_amount < SMALL_TRANSFER_LIMIT.into(),
                 _ => false,
             },
             ProxyType::Owner => {
@@ -2314,7 +2314,7 @@ impl_runtime_apis! {
             SubtensorModule::get_delegate(delegate_account)
         }
 
-        fn get_delegated(delegatee_account: AccountId32) -> Vec<(DelegateInfo<AccountId32>, (Compact<NetUid>, Compact<u64>))> {
+        fn get_delegated(delegatee_account: AccountId32) -> Vec<(DelegateInfo<AccountId32>, (Compact<NetUid>, Compact<AlphaCurrency>))> {
             SubtensorModule::get_delegated(delegatee_account)
         }
     }
