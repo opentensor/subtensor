@@ -10,10 +10,9 @@ import { decodeAddress } from "@polkadot/util-crypto";
 import { u8aToHex } from "@polkadot/util";
 import { ILEASING_ADDRESS, ILeasingABI } from "../src/contracts/leasing";
 import { ICROWDLOAN_ADDRESS, ICrowdloanABI } from "../src/contracts/crowdloan";
-import { ISTAKING_ADDRESS, IStakingABI } from "../src/contracts/staking";
+import { INEURON_ADDRESS, INeuronABI } from "../src/contracts/neuron";
 import { assert } from "chai";
-import { convertH160ToPublicKey, convertH160ToSS58, convertPublicKeyToSs58, } from "../src/address-utils";
-import { raoToEth, tao } from "../src/balance-math";
+import { convertH160ToPublicKey, convertH160ToSS58 } from "../src/address-utils";
 
 describe("Test Leasing precompile", () => {
     let publicClient: PublicClient;
@@ -27,7 +26,7 @@ describe("Test Leasing precompile", () => {
 
     const crowdloanContract = new ethers.Contract(ICROWDLOAN_ADDRESS, ICrowdloanABI, wallet1);
     const leaseContract = new ethers.Contract(ILEASING_ADDRESS, ILeasingABI, wallet1);
-    const stakingContract = new ethers.Contract(ISTAKING_ADDRESS, IStakingABI, wallet1);
+    const neuronContract = new ethers.Contract(INEURON_ADDRESS, INeuronABI, wallet1);
 
     before(async () => {
         publicClient = await getPublicClient(ETH_LOCAL_URL);
@@ -35,7 +34,9 @@ describe("Test Leasing precompile", () => {
 
         await forceSetBalanceToEthAddress(api, wallet1.address);
         await forceSetBalanceToEthAddress(api, wallet2.address);
-        await forceSetBalanceToEthAddress(api, wallet3.address);
+
+        await neuronContract.burnedRegister(1, convertH160ToPublicKey(wallet3.address));
+        await forceSetBalanceToEthAddress(api, wallet1.address);
     });
 
     it("gets an existing lease created on substrate side, its subnet id and its contributor shares", async () => {
@@ -149,46 +150,53 @@ describe("Test Leasing precompile", () => {
         assert.notDeepEqual(contributor2, [BigInt(0), BigInt(0)]);
     });
 
-    // it("terminates a lease", async () => {
-    //     const nextCrowdloanId = await api.query.Crowdloan.NextCrowdloanId.getValue();
-    //     const crowdloanDeposit = BigInt(100_000_000_000); // 100 TAO
-    //     const crowdloanMinContribution = BigInt(1_000_000_000); // 1 TAO
-    //     const crowdloanCap = BigInt(2_000_000_000_000); // 2000 TAO
-    //     const crowdloanEnd = await api.query.System.Number.getValue() + 100;
-    //     const leasingEmissionsShare = 15;
-    //     const leasingEndBlock = await api.query.System.Number.getValue() + 200;
+    it("terminates a lease", async () => {
+        const nextCrowdloanId = await api.query.Crowdloan.NextCrowdloanId.getValue();
+        const crowdloanDeposit = BigInt(100_000_000_000); // 100 TAO
+        const crowdloanMinContribution = BigInt(1_000_000_000); // 1 TAO
+        const crowdloanCap = BigInt(2_000_000_000_000); // 2000 TAO
+        const crowdloanEnd = await api.query.System.Number.getValue() + 100;
+        const leasingEmissionsShare = 15;
+        const leasingEndBlock = await api.query.System.Number.getValue() + 200;
 
-    //     let tx = await leaseContract.createLeaseCrowdloan(
-    //         crowdloanDeposit,
-    //         crowdloanMinContribution,
-    //         crowdloanCap,
-    //         crowdloanEnd,
-    //         leasingEmissionsShare,
-    //         true, // has_leasing_end_block
-    //         leasingEndBlock
-    //     );
-    //     await tx.wait();
+        let tx = await leaseContract.createLeaseCrowdloan(
+            crowdloanDeposit,
+            crowdloanMinContribution,
+            crowdloanCap,
+            crowdloanEnd,
+            leasingEmissionsShare,
+            true, // has_leasing_end_block
+            leasingEndBlock
+        );
+        await tx.wait();
 
-    //     const crowdloanContract2 = new ethers.Contract(ICROWDLOAN_ADDRESS, ICrowdloanABI, wallet2);
-    //     tx = await crowdloanContract2.contribute(nextCrowdloanId, crowdloanCap - crowdloanDeposit);
-    //     await tx.wait();
+        const crowdloanContract2 = new ethers.Contract(ICROWDLOAN_ADDRESS, ICrowdloanABI, wallet2);
+        tx = await crowdloanContract2.contribute(nextCrowdloanId, crowdloanCap - crowdloanDeposit);
+        await tx.wait();
 
-    //     await waitForFinalizedBlock(api, crowdloanEnd);
+        await waitForFinalizedBlock(api, crowdloanEnd);
 
-    //     const nextLeaseId = await api.query.SubtensorModule.NextSubnetLeaseId.getValue();
-    //     tx = await crowdloanContract.finalize(nextCrowdloanId);
-    //     await tx.wait();
+        const nextLeaseId = await api.query.SubtensorModule.NextSubnetLeaseId.getValue();
+        tx = await crowdloanContract.finalize(nextCrowdloanId);
+        await tx.wait();
 
-    //     await waitForFinalizedBlock(api, leasingEndBlock);
+        await waitForFinalizedBlock(api, leasingEndBlock);
 
-    //     // // Associate wallet3 with wallet1 as a hotkey
-    //     tx = await stakingContract.addStake(bob.publicKey, 0, { value: raoToEth(tao(20)) });
-    //     await tx.wait();
+        let lease = await api.query.SubtensorModule.SubnetLeases.getValue(nextLeaseId);
+        assert.isDefined(lease);
+        const netuid = lease.netuid;
 
-    //     tx = await leaseContract.terminateLease(nextLeaseId, bob.publicKey);
-    //     await tx.wait();
+        const hotkey = convertH160ToPublicKey(wallet3.address);
+        tx = await leaseContract.terminateLease(nextLeaseId, hotkey);
+        await tx.wait();
 
-    //     // const lease = await api.query.SubtensorModule.SubnetLeases.getValue(nextLeaseId);
-    //     // assert.isUndefined(lease);
-    // });
+        lease = await api.query.SubtensorModule.SubnetLeases.getValue(nextLeaseId);
+        assert.isUndefined(lease);
+
+        // Ensure that the subnet ownership has been transferred
+        const ownerColdkey = await api.query.SubtensorModule.SubnetOwner.getValue(netuid);
+        const ownerHotkey = await api.query.SubtensorModule.SubnetOwnerHotkey.getValue(netuid);
+        assert.equal(ownerColdkey, convertH160ToSS58(wallet1.address));
+        assert.equal(ownerHotkey, convertH160ToSS58(wallet3.address));
+    });
 })
