@@ -33,6 +33,18 @@ use sp_runtime::{traits::BlakeTwo256, BuildStorage, DispatchError, RuntimeDebug}
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
+pub struct DummyAddressMap;
+
+impl pallet_evm::AddressMapping<u64> for DummyAddressMap {
+    fn into_account_id(address: sp_core::H160) -> u64 {
+        let account = pallet_evm::HashedAddressMapping::<BlakeTwo256>::into_account_id(address);
+        let account_id: &[u8; 32] = account.as_ref();
+        let mut bytes = [0u8; 8];
+        bytes.copy_from_slice(&account_id[0..8]);
+        u64::from_be_bytes(bytes)
+    }
+}
+
 frame_support::construct_runtime!(
     pub enum Test
     {
@@ -127,6 +139,7 @@ impl Config for Test {
     type MaxPending = ConstU32<2>;
     type AnnouncementDepositBase = ConstU64<1>;
     type AnnouncementDepositFactor = ConstU64<1>;
+    type AddressMapping = DummyAddressMap;
 }
 
 use super::{Call as ProxyCall, Event as ProxyEvent};
