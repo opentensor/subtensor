@@ -96,9 +96,7 @@ where
         Ok(lease_id.into())
     }
 
-    #[precompile::public(
-        "createLeaseCrowdloan(uint64,uint64,uint64,uint32,uint8,bool,uint32)"
-    )]
+    #[precompile::public("createLeaseCrowdloan(uint64,uint64,uint64,uint32,uint8,bool,uint32)")]
     #[precompile::payable]
     fn create_lease_crowdloan(
         handle: &mut impl PrecompileHandle,
