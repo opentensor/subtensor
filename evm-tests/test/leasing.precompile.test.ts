@@ -18,23 +18,30 @@ describe("Test Leasing precompile", () => {
     let publicClient: PublicClient;
     let api: TypedApi<typeof devnet>;
 
+    let wallet1: ethers.Wallet;
+    let wallet2: ethers.Wallet;
+    let wallet3: ethers.Wallet;
+    let leaseContract: ethers.Contract;
+    let crowdloanContract: ethers.Contract;
+    let neuronContract: ethers.Contract;
+
     const alice = getAliceSigner();
     const bob = getBobSigner();
-    const wallet1 = generateRandomEthersWallet();
-    const wallet2 = generateRandomEthersWallet();
-    const wallet3 = generateRandomEthersWallet();
 
-    const crowdloanContract = new ethers.Contract(ICROWDLOAN_ADDRESS, ICrowdloanABI, wallet1);
-    const leaseContract = new ethers.Contract(ILEASING_ADDRESS, ILeasingABI, wallet1);
-    const neuronContract = new ethers.Contract(INEURON_ADDRESS, INeuronABI, wallet1);
-
-    before(async () => {
+    beforeEach(async () => {
         publicClient = await getPublicClient(ETH_LOCAL_URL);
         api = await getDevnetApi();
 
+        wallet1 = generateRandomEthersWallet();
+        wallet2 = generateRandomEthersWallet();
+        wallet3 = generateRandomEthersWallet();
+        leaseContract = new ethers.Contract(ILEASING_ADDRESS, ILeasingABI, wallet1);
+        crowdloanContract = new ethers.Contract(ICROWDLOAN_ADDRESS, ICrowdloanABI, wallet1);
+        neuronContract = new ethers.Contract(INEURON_ADDRESS, INeuronABI, wallet1);
+
         await forceSetBalanceToEthAddress(api, wallet1.address);
         await forceSetBalanceToEthAddress(api, wallet2.address);
-
+        await forceSetBalanceToEthAddress(api, wallet3.address);
         await neuronContract.burnedRegister(1, convertH160ToPublicKey(wallet3.address));
         await forceSetBalanceToEthAddress(api, wallet1.address);
     });
@@ -42,10 +49,10 @@ describe("Test Leasing precompile", () => {
     it("gets an existing lease created on substrate side, its subnet id and its contributor shares", async () => {
         const nextCrowdloanId = await api.query.Crowdloan.NextCrowdloanId.getValue();
         const crowdloanDeposit = BigInt(100_000_000_000); // 100 TAO
-        const crowdloanCap = BigInt(2_000_000_000_000); // 2000 TAO
+        const crowdloanCap = BigInt(10_000_000_000_000); // 10000 TAO
         const crowdloanEnd = await api.query.System.Number.getValue() + 100;
         const leaseEmissionsShare = 15;
-        const leaseEnd = await api.query.System.Number.getValue() + 5000;
+        const leaseEnd = await api.query.System.Number.getValue() + 300;
 
         await api.tx.Crowdloan.create({
             deposit: crowdloanDeposit,
@@ -91,16 +98,16 @@ describe("Test Leasing precompile", () => {
         assert.deepEqual(aliceShare, [BigInt(0), BigInt(0)]);
         const bobShare = await leaseContract.getContributorShare(nextLeaseId, bob.publicKey)
         assert.notDeepEqual(bobShare, [BigInt(0), BigInt(0)]);
-    })
+    });
 
     it("registers a new leased network through a crowdloan and retrieves the lease", async () => {
         const nextCrowdloanId = await api.query.Crowdloan.NextCrowdloanId.getValue();
         const crowdloanDeposit = BigInt(100_000_000_000); // 100 TAO
         const crowdloanMinContribution = BigInt(1_000_000_000); // 1 TAO
-        const crowdloanCap = BigInt(2_000_000_000_000); // 2000 TAO
+        const crowdloanCap = BigInt(10_000_000_000_000); // 10000 TAO
         const crowdloanEnd = await api.query.System.Number.getValue() + 100;
         const leasingEmissionsShare = 15;
-        const leasingEndBlock = await api.query.System.Number.getValue() + 5000;
+        const leasingEndBlock = await api.query.System.Number.getValue() + 300;
 
         let tx = await leaseContract.createLeaseCrowdloan(
             crowdloanDeposit,
@@ -154,7 +161,7 @@ describe("Test Leasing precompile", () => {
         const nextCrowdloanId = await api.query.Crowdloan.NextCrowdloanId.getValue();
         const crowdloanDeposit = BigInt(100_000_000_000); // 100 TAO
         const crowdloanMinContribution = BigInt(1_000_000_000); // 1 TAO
-        const crowdloanCap = BigInt(2_000_000_000_000); // 2000 TAO
+        const crowdloanCap = BigInt(10_000_000_000_000); // 10000 TAO
         const crowdloanEnd = await api.query.System.Number.getValue() + 100;
         const leasingEmissionsShare = 15;
         const leasingEndBlock = await api.query.System.Number.getValue() + 200;
@@ -186,8 +193,7 @@ describe("Test Leasing precompile", () => {
         assert.isDefined(lease);
         const netuid = lease.netuid;
 
-        const hotkey = convertH160ToPublicKey(wallet3.address);
-        tx = await leaseContract.terminateLease(nextLeaseId, hotkey);
+        tx = await leaseContract.terminateLease(nextLeaseId, convertH160ToPublicKey(wallet3.address));
         await tx.wait();
 
         lease = await api.query.SubtensorModule.SubnetLeases.getValue(nextLeaseId);
