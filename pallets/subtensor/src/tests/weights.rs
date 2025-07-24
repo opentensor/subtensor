@@ -4774,6 +4774,7 @@ fn test_reveal_crv3_commits_success() {
         let version_key = SubtensorModule::get_weights_version_key(netuid);
 
         let payload = WeightsTlockPayload {
+            hotkey: hotkey1.encode(),
             values: vec![10, 20],
             uids: vec![neuron_uid1, neuron_uid2],
             version_key,
@@ -4915,6 +4916,7 @@ fn test_reveal_crv3_commits_cannot_reveal_after_reveal_epoch() {
         let version_key = SubtensorModule::get_weights_version_key(netuid);
 
         let payload = WeightsTlockPayload {
+            hotkey: hotkey1.encode(),
             values: vec![10, 20],
             uids: vec![neuron_uid1, neuron_uid2],
             version_key,
@@ -5352,6 +5354,7 @@ fn test_reveal_crv3_commits_multiple_commits_some_fail_some_succeed() {
             .expect("Failed to get neuron UID for hotkey1");
         let version_key = SubtensorModule::get_weights_version_key(netuid);
         let valid_payload = WeightsTlockPayload {
+            hotkey: hotkey1.encode(),
             values: vec![10],
             uids: vec![neuron_uid1],
             version_key,
@@ -5472,6 +5475,7 @@ fn test_reveal_crv3_commits_do_set_weights_failure() {
         // Prepare payload with mismatched uids and values lengths
         let version_key = SubtensorModule::get_weights_version_key(netuid);
         let payload = WeightsTlockPayload {
+            hotkey: hotkey.encode(),
             values: vec![10, 20], // Length 2
             uids: vec![0],        // Length 1
             version_key,
@@ -5636,6 +5640,7 @@ fn test_reveal_crv3_commits_signature_deserialization_failure() {
 
         let version_key = SubtensorModule::get_weights_version_key(netuid);
         let payload = WeightsTlockPayload {
+            hotkey: hotkey.encode(),
             values: vec![10, 20],
             uids: vec![0, 1],
             version_key,
@@ -5784,6 +5789,7 @@ fn test_reveal_crv3_commits_with_incorrect_identity_message() {
             .expect("Failed to get neuron UID for hotkey");
         let version_key = SubtensorModule::get_weights_version_key(netuid);
         let payload = WeightsTlockPayload {
+            hotkey: hotkey.encode(),
             values: vec![10],
             uids: vec![neuron_uid],
             version_key,
@@ -6008,6 +6014,7 @@ fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
                 .map(|v| (v + i as u16 + 1) * 10)
                 .collect();
             let payload = WeightsTlockPayload {
+                hotkey: hotkey.encode(),
                 values: values.clone(),
                 uids: neuron_uids.clone(),
                 version_key,
@@ -6195,6 +6202,7 @@ fn test_reveal_crv3_commits_max_neurons() {
             // Each neuron will assign weights to all neurons
             let values: Vec<u16> = vec![10; num_neurons]; // Assign weight of 10 to each neuron
             let payload = WeightsTlockPayload {
+                hotkey: hotkey.encode(),
                 values: values.clone(),
                 uids: neuron_uids.clone(),
                 version_key,
