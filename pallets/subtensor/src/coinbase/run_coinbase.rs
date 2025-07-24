@@ -217,16 +217,16 @@ impl<T: Config> Pallet<T> {
         // --- 7. Drain pending emission through the subnet based on tempo.
         // Run the epoch for *all* subnets, even if we don't emit anything.
         for &netuid in subnets.iter() {
+            // Reveal matured weights.
+            if let Err(e) = Self::reveal_crv3_commits(netuid) {
+                log::warn!(
+                    "Failed to reveal commits for subnet {} due to error: {:?}",
+                    netuid,
+                    e
+                );
+            };
             // Pass on subnets that have not reached their tempo.
             if Self::should_run_epoch(netuid, current_block) {
-                if let Err(e) = Self::reveal_crv3_commits(netuid) {
-                    log::warn!(
-                        "Failed to reveal commits for subnet {} due to error: {:?}",
-                        netuid,
-                        e
-                    );
-                };
-
                 // Restart counters.
                 BlocksSinceLastStep::<T>::insert(netuid, 0);
                 LastMechansimStepBlock::<T>::insert(netuid, current_block);

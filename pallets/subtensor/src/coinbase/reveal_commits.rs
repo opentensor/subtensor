@@ -1,13 +1,14 @@
 use super::*;
 use ark_serialize::CanonicalDeserialize;
 use codec::Decode;
-use frame_support::dispatch;
-use frame_support::traits::OriginTrait;
+use frame_support::{dispatch, traits::OriginTrait};
+use scale_info::prelude::collections::VecDeque;
 use subtensor_runtime_common::NetUid;
-use tle::curves::drand::TinyBLS381;
-use tle::stream_ciphers::AESGCMStreamCipherProvider;
-use tle::tlock::TLECiphertext;
-use tle::tlock::tld;
+use tle::{
+    curves::drand::TinyBLS381,
+    stream_ciphers::AESGCMStreamCipherProvider,
+    tlock::{TLECiphertext, tld},
+};
 use w3f_bls::EngineBLS;
 
 /// Contains all necessary information to set weights.
@@ -41,18 +42,41 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // No commits to reveal until at least epoch 2.
-        if cur_epoch < 2 {
+        // No commits to reveal until at least epoch reveal_period.
+        if cur_epoch < Self::get_reveal_period(netuid) {
             log::warn!("Failed to reveal commit for subnet {} Too early", netuid);
             return Ok(());
         }
 
         let mut entries = CRV3WeightCommitsV2::<T>::take(netuid, reveal_epoch);
+        let mut unrevealed = VecDeque::new();
 
         // Keep popping item off the end of the queue until we sucessfully reveal a commit.
-        while let Some((who, _commit_block, serialized_compresssed_commit, round_number)) =
+        while let Some((who, commit_block, serialized_compresssed_commit, round_number)) =
             entries.pop_front()
         {
+            // Try to get the round number from pallet_drand.
+            let pulse = match pallet_drand::Pulses::<T>::get(round_number) {
+                Some(p) => p,
+                None => {
+                    // Round number used was not found on the chain. Skip this commit.
+                    log::warn!(
+                        "Failed to reveal commit for subnet {} submitted by {:?} on block {} due to missing round number {}; will retry every block in reveal epoch.",
+                        netuid,
+                        who,
+                        commit_block,
+                        round_number
+                    );
+                    unrevealed.push_back((
+                        who,
+                        commit_block,
+                        serialized_compresssed_commit,
+                        round_number,
+                    ));
+                    continue;
+                }
+            };
+
             let reader = &mut &serialized_compresssed_commit[..];
             let commit = match TLECiphertext::<TinyBLS381>::deserialize_compressed(reader) {
                 Ok(c) => c,
@@ -62,21 +86,6 @@ impl<T: Config> Pallet<T> {
                         netuid,
                         who,
                         e
-                    );
-                    continue;
-                }
-            };
-
-            // Try to get the round number from pallet_drand.
-            let pulse = match pallet_drand::Pulses::<T>::get(round_number) {
-                Some(p) => p,
-                None => {
-                    // Round number used was not found on the chain. Skip this commit.
-                    log::warn!(
-                        "Failed to reveal commit for subnet {} submitted by {:?} due to missing round number {} at time of reveal.",
-                        netuid,
-                        who,
-                        round_number
                     );
                     continue;
                 }
@@ -93,7 +102,7 @@ impl<T: Config> Pallet<T> {
             ) {
                 Ok(s) => s,
                 Err(e) => {
-                    log::error!(
+                    log::warn!(
                         "Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing signature from drand pallet: {:?}",
                         netuid,
                         who,
@@ -173,6 +182,10 @@ impl<T: Config> Pallet<T> {
             } else {
                 Self::deposit_event(Event::CRV3WeightsRevealed(netuid, who));
             };
+        }
+
+        if !unrevealed.is_empty() {
+            CRV3WeightCommitsV2::<T>::insert(netuid, reveal_epoch, unrevealed);
         }
 
         Ok(())
