@@ -15,6 +15,12 @@ interface Staking {
     ) external;
 
     function addStake(bytes32 hotkey, uint256 amount, uint256 netuid) external;
+
+    function removeStake(
+        bytes32 hotkey,
+        uint256 amount,
+        uint256 netuid
+    ) external;
 }
 
 contract StakeWrap {
@@ -61,5 +67,20 @@ contract StakeWrap {
         );
         (bool success, ) = ISTAKING_ADDRESS.call{gas: gasleft()}(data);
         require(success, "addStakeLimit call failed");
+    }
+
+    function removeStake(
+        bytes32 hotkey,
+        uint256 amount,
+        uint256 netuid
+    ) external {
+        bytes memory data = abi.encodeWithSelector(
+            Staking.removeStake.selector,
+            hotkey,
+            amount,
+            netuid
+        );
+        (bool success, ) = ISTAKING_ADDRESS.call{gas: gasleft()}(data);
+        require(success, "removeStake call failed");
     }
 }
