@@ -1,6 +1,6 @@
 pragma solidity ^0.8.0;
 
-address constant ILEASING_ADDRESS = 0x000000000000000000000000000000000000080b;
+address constant ILEASING_ADDRESS = 0x000000000000000000000000000000000000080a;
 
 interface ILeasing {
     /**

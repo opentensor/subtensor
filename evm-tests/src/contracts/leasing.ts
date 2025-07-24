@@ -1,6 +1,49 @@
-export const ILEASING_ADDRESS = "0x000000000000000000000000000000000000080b";
+export const ILEASING_ADDRESS = "0x000000000000000000000000000000000000080a";
 
 export const ILeasingABI = [
+    {
+        "inputs": [
+            {
+                "internalType": "uint64",
+                "name": "crowdloanDeposit",
+                "type": "uint64"
+            },
+            {
+                "internalType": "uint64",
+                "name": "crowdloanMinContribution",
+                "type": "uint64"
+            },
+            {
+                "internalType": "uint64",
+                "name": "crowdloanCap",
+                "type": "uint64"
+            },
+            {
+                "internalType": "uint32",
+                "name": "crowdloanEnd",
+                "type": "uint32"
+            },
+            {
+                "internalType": "uint8",
+                "name": "leasingEmissionsShare",
+                "type": "uint8"
+            },
+            {
+                "internalType": "bool",
+                "name": "hasLeasingEndBlock",
+                "type": "bool"
+            },
+            {
+                "internalType": "uint32",
+                "name": "leasingEndBlock",
+                "type": "uint32"
+            }
+        ],
+        "name": "createLeaseCrowdloan",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+    },
     {
         "inputs": [
             {
@@ -113,49 +156,6 @@ export const ILeasingABI = [
     {
         "inputs": [
             {
-                "internalType": "uint64",
-                "name": "crowdloanDeposit",
-                "type": "uint64"
-            },
-            {
-                "internalType": "uint64",
-                "name": "crowdloanMinContribution",
-                "type": "uint64"
-            },
-            {
-                "internalType": "uint64",
-                "name": "crowdloanCap",
-                "type": "uint64"
-            },
-            {
-                "internalType": "uint32",
-                "name": "crowdloanEnd",
-                "type": "uint32"
-            },
-            {
-                "internalType": "uint8",
-                "name": "leasingEmissionsShare",
-                "type": "uint8"
-            },
-            {
-                "internalType": "bool",
-                "name": "hasLeasingEndBlock",
-                "type": "bool"
-            },
-            {
-                "internalType": "uint32",
-                "name": "leasingEndBlock",
-                "type": "uint32"
-            }
-        ],
-        "name": "createLeaseCrowdloan",
-        "outputs": [],
-        "stateMutability": "payable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
                 "internalType": "uint32",
                 "name": "leaseId",
                 "type": "uint32"
@@ -171,4 +171,4 @@ export const ILeasingABI = [
         "stateMutability": "payable",
         "type": "function"
     }
-];
+]
