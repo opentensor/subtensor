@@ -28,6 +28,7 @@ jobs:
         with:
           key: try-runtime
           cache-on-failure: true
+          save-if: true
 
       - name: Install substrate-spec-version
         run: cargo install substrate-spec-version
