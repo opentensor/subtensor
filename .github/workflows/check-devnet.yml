@@ -26,7 +26,8 @@ jobs:
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          key: "spec-version"
+          key: try-runtime
+          cache-on-failure: true
 
       - name: Install substrate-spec-version
         run: cargo install substrate-spec-version
