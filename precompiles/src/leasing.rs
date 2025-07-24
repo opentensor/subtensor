@@ -98,6 +98,7 @@ where
 
     #[precompile::public("createLeaseCrowdloan(uint64,uint64,uint64,uint32,uint8,bool,uint32)")]
     #[precompile::payable]
+    #[allow(clippy::too_many_arguments)]
     fn create_lease_crowdloan(
         handle: &mut impl PrecompileHandle,
         crowdloan_deposit: u64,
