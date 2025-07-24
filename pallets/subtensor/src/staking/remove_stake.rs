@@ -440,6 +440,24 @@ impl<T: Config> Pallet<T> {
             Self::do_remove_stake(origin, hotkey, netuid, alpha_unstaked)
         }
     }
+    
+    pub fn do_remove_stake_full_limit_aggregate(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+        netuid: NetUid,
+        limit_price: Option<u64>,
+    ) -> DispatchResult {
+        let coldkey = ensure_signed(origin.clone())?;
+
+        let alpha_unstaked =
+            Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+
+        if let Some(limit_price) = limit_price {
+            Self::do_remove_stake_limit_aggregate(origin, hotkey, netuid, alpha_unstaked, limit_price, false)
+        } else {
+            Self::do_remove_stake_aggregate(origin, hotkey, netuid, alpha_unstaked)
+        }
+    }
 
     pub fn do_remove_stake_aggregate(
         origin: T::RuntimeOrigin,
