@@ -429,19 +429,34 @@ impl<T: Config> Pallet<T> {
         }
 
         // Distribute mining incentives.
+        let mut total_incentive = AlphaCurrency::from(0_u64);
+        let mut burned_incentive = AlphaCurrency::from(0_u64);
         for (hotkey, incentive) in incentives {
             log::debug!("incentives: hotkey: {:?}", incentive);
 
+            total_incentive = total_incentive.saturating_add(incentive);
+
+            // Burn miner emission for all hotkeys associated with subnet owner coldkey
+            // Also, calculate the burned proportion
+            let mut skip_and_burn = false;
             if let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
                 if hotkey == owner_hotkey {
-                    log::debug!(
-                        "incentives: hotkey: {:?} is SN owner hotkey, skipping {:?}",
-                        hotkey,
-                        incentive
-                    );
-                    continue; // Skip/burn miner-emission for SN owner hotkey.
+                    skip_and_burn = true;
                 }
             }
+            if Owner::<T>::get(&hotkey) == SubnetOwner::<T>::get(netuid) {
+                skip_and_burn = true;
+            }
+            if skip_and_burn {
+                burned_incentive = burned_incentive.saturating_add(incentive);
+                log::debug!(
+                    "incentives: hotkey: {:?} is SN owner hotkey, skipping {:?}",
+                    hotkey,
+                    incentive
+                );
+                continue;
+            }
+
             // Increase stake for miner.
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey.clone(),
