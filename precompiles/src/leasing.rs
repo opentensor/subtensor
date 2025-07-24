@@ -53,7 +53,7 @@ where
     fn get_lease(_handle: &mut impl PrecompileHandle, lease_id: u32) -> EvmResult<LeaseInfo> {
         let lease =
             pallet_subtensor::SubnetLeases::<R>::get(lease_id).ok_or(PrecompileFailure::Error {
-                exit_status: ExitError::InvalidRange,
+                exit_status: ExitError::Other("Lease not found".into()),
             })?;
 
         Ok(LeaseInfo {
@@ -89,7 +89,7 @@ where
     fn get_lease_id_for_subnet(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u32> {
         let lease_id = pallet_subtensor::SubnetUidToLeaseId::<R>::get(NetUid::from(netuid)).ok_or(
             PrecompileFailure::Error {
-                exit_status: ExitError::InvalidRange,
+                exit_status: ExitError::Other("Lease not found for netuid".into()),
             },
         )?;
 
