@@ -254,7 +254,11 @@ fn run_babe(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
     }) {
         Ok(_) => Ok(()),
         Err(e) => {
-            if e.to_string().contains("BabeApi") {
+            if matches!(
+                e,
+                sc_service::Error::Client(sp_blockchain::Error::VersionInvalid(ref msg))
+                    if msg == "Unsupported or invalid BabeApi version"
+            ) {
                 log::info!(
                     "💡 Chain is using Aura consensus. Switching to Aura service until Babe block is detected.",
                 );
