@@ -218,7 +218,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 298,
+    spec_version: 299,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -453,7 +453,7 @@ impl WeightToFeePolynomial for LinearWeightToFee {
     fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
         let coefficient = WeightToFeeCoefficient {
             coeff_integer: 0,
-            coeff_frac: Perbill::from_parts(500_000),
+            coeff_frac: Perbill::from_parts(50_000),
             negative: false,
             degree: 1,
         };
