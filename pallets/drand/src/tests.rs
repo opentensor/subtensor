@@ -16,7 +16,8 @@
 
 use crate::{
     BeaconConfig, BeaconConfigurationPayload, BeaconInfoResponse, Call, DrandResponseBody,
-    ENDPOINTS, Error, Pulse, Pulses, PulsesPayload, QUICKNET_CHAIN_HASH, mock::*,
+    ENDPOINTS, Error, LastStoredRound, OldestStoredRound, Pulse, Pulses, PulsesPayload,
+    QUICKNET_CHAIN_HASH, mock::*,
 };
 use codec::Encode;
 use frame_support::{
@@ -547,5 +548,61 @@ fn test_invalid_json_then_success() {
     t.execute_with(|| {
         let actual = Drand::fetch_drand_by_round(1000u64).unwrap();
         assert_eq!(actual, expected_pulse);
+    });
+}
+
+#[test]
+fn test_pulses_are_correctly_pruned() {
+    new_test_ext().execute_with(|| {
+        let pulse = Pulse::default();
+
+        // Simulate having 864002 pulses by setting storage bounds,
+        // but only insert boundary pulses for efficiency
+        let max_kept: u64 = 864_000;
+        let last_round: u64 = max_kept + 2; // 864002
+        let oldest_round: u64 = 1;
+        let prune_count: u64 = 2;
+        let new_oldest: u64 = oldest_round + prune_count; // 3
+        let middle_round: u64 = max_kept / 2; // Example middle round that should remain
+
+        // Set storage bounds
+        OldestStoredRound::<Test>::put(oldest_round);
+        LastStoredRound::<Test>::put(last_round);
+
+        // Insert pulses at boundaries
+        // These should be pruned
+        Pulses::<Test>::insert(1, pulse.clone());
+        Pulses::<Test>::insert(2, pulse.clone());
+
+        // This should remain (new oldest)
+        Pulses::<Test>::insert(new_oldest, pulse.clone());
+
+        // Middle and last should remain
+        Pulses::<Test>::insert(middle_round, pulse.clone());
+        Pulses::<Test>::insert(last_round, pulse.clone());
+
+        // Trigger prune
+        Drand::prune_old_pulses(last_round);
+
+        // Assert new oldest
+        assert_eq!(OldestStoredRound::<Test>::get(), new_oldest);
+
+        // Assert pruned correctly
+        assert!(!Pulses::<Test>::contains_key(1), "Round 1 should be pruned");
+        assert!(!Pulses::<Test>::contains_key(2), "Round 2 should be pruned");
+
+        // Assert not pruned incorrectly
+        assert!(
+            Pulses::<Test>::contains_key(new_oldest),
+            "New oldest round should remain"
+        );
+        assert!(
+            Pulses::<Test>::contains_key(middle_round),
+            "Middle round should remain"
+        );
+        assert!(
+            Pulses::<Test>::contains_key(last_round),
+            "Last round should remain"
+        );
     });
 }
