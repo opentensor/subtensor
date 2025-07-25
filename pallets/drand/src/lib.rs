@@ -324,7 +324,7 @@ pub mod pallet {
 
             let mut last_stored_round = LastStoredRound::<T>::get();
             let mut new_rounds = Vec::new();
-            
+
             let oldest_stored_round = OldestStoredRound::<T>::get();
             let is_first_storage = last_stored_round == 0 && oldest_stored_round == 0;
             let mut first_new_round: Option<RoundNumber> = None;
