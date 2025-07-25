@@ -219,6 +219,10 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type LastStoredRound<T: Config> = StorageValue<_, RoundNumber, ValueQuery>;
 
+    /// oldest stored round
+    #[pallet::storage]
+    pub(super) type OldestStoredRound<T: Config> = StorageValue<_, RoundNumber, ValueQuery>;
+
     /// Defines the block when next unsigned transaction will be accepted.
     ///
     /// To prevent spam of unsigned (and unpaid!) transactions on the network,
@@ -320,6 +324,10 @@ pub mod pallet {
 
             let mut last_stored_round = LastStoredRound::<T>::get();
             let mut new_rounds = Vec::new();
+            
+            let oldest_stored_round = OldestStoredRound::<T>::get();
+            let is_first_storage = last_stored_round == 0 && oldest_stored_round == 0;
+            let mut first_new_round: Option<RoundNumber> = None;
 
             for pulse in &pulses_payload.pulses {
                 let is_verified = T::Verifier::verify(config.clone(), pulse.clone())
@@ -339,11 +347,24 @@ pub mod pallet {
 
                     // Collect the new round
                     new_rounds.push(pulse.round);
+
+                    // Set the first new round if this is the initial storage
+                    if is_first_storage && first_new_round.is_none() {
+                        first_new_round = Some(pulse.round);
+                    }
                 }
             }
 
             // Update LastStoredRound storage
             LastStoredRound::<T>::put(last_stored_round);
+
+            // Set OldestStoredRound if this was the first storage
+            if let Some(first_round) = first_new_round {
+                OldestStoredRound::<T>::put(first_round);
+            }
+
+            // Prune old pulses
+            Self::prune_old_pulses(last_stored_round);
 
             // Update the next unsigned block number
             let current_block = frame_system::Pallet::<T>::block_number();
@@ -627,6 +648,22 @@ impl<T: Config> Pallet<T> {
             // claim a reward.
             .propagate(true)
             .build()
+    }
+
+    fn prune_old_pulses(last_stored_round: RoundNumber) {
+        const MAX_KEPT_PULSES: u64 = 864_000; // 1 month
+
+        let mut oldest = OldestStoredRound::<T>::get();
+        if oldest == 0 {
+            return;
+        }
+
+        while last_stored_round.saturating_sub(oldest) + 1 > MAX_KEPT_PULSES {
+            Pulses::<T>::remove(oldest);
+            oldest = oldest.saturating_add(1);
+        }
+
+        OldestStoredRound::<T>::put(oldest);
     }
 }
 
