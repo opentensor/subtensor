@@ -2108,10 +2108,10 @@ where
                                 Pallet::<T>::get_commit_hash(
                                     who,
                                     *netuid,
-                                    &uids_list[i],
-                                    &values_list[i],
-                                    &salts_list[i],
-                                    version_keys[i],
+                                    &uids_list.get(i).unwrap(),
+                                    &values_list.get(i).unwrap(),
+                                    &salts_list.get(i).unwrap(),
+                                    *version_keys.get(i).unwrap(),
                                 )
                             })
                             .collect::<Vec<_>>();
