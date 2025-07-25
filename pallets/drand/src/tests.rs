@@ -16,15 +16,17 @@
 
 use crate::{
     BeaconConfig, BeaconConfigurationPayload, BeaconInfoResponse, Call, DrandResponseBody,
-    ENDPOINTS, Error, LastStoredRound, OldestStoredRound, Pulse, Pulses, PulsesPayload,
-    QUICKNET_CHAIN_HASH, mock::*,
+    ENDPOINTS, Error, HasMigrationRun, LastStoredRound, OldestStoredRound, Pulse, Pulses,
+    PulsesPayload, QUICKNET_CHAIN_HASH, migrations::migrate_prune_old_pulses, mock::*,
 };
 use codec::Encode;
 use frame_support::{
-    assert_noop, assert_ok,
+    BoundedVec, assert_noop, assert_ok,
     pallet_prelude::{InvalidTransaction, TransactionSource},
+    weights::RuntimeDbWeight,
 };
 use frame_system::RawOrigin;
+use sp_core::Get;
 use sp_runtime::{
     offchain::{
         OffchainWorkerExt,
@@ -604,5 +606,45 @@ fn test_pulses_are_correctly_pruned() {
             Pulses::<Test>::contains_key(last_round),
             "Last round should remain"
         );
+    });
+}
+
+#[test]
+fn test_migrate_prune_old_pulses() {
+    new_test_ext().execute_with(|| {
+        let migration_name = BoundedVec::truncate_from(b"migrate_prune_old_pulses".to_vec());
+        let pulse = Pulse::default();
+
+        assert_eq!(Pulses::<Test>::iter().count(), 0);
+        assert!(!HasMigrationRun::<Test>::get(&migration_name));
+        assert_eq!(OldestStoredRound::<Test>::get(), 0);
+        assert_eq!(LastStoredRound::<Test>::get(), 0);
+
+        // Test with more pulses than MAX_KEPT_PULSES
+        const MAX_KEPT: u64 = 864_000;
+        let excess: u64 = 9;
+        let total: u64 = MAX_KEPT + excess;
+        for i in 1..=total {
+            Pulses::<Test>::insert(i, pulse.clone());
+        }
+
+        let weight_large = migrate_prune_old_pulses::<Test>();
+
+        let expected_oldest = excess + 1;
+        assert_eq!(OldestStoredRound::<Test>::get(), expected_oldest);
+        assert_eq!(LastStoredRound::<Test>::get(), total);
+
+        for i in 1..=excess {
+            assert!(!Pulses::<Test>::contains_key(i));
+        }
+        for i in expected_oldest..=total {
+            assert!(Pulses::<Test>::contains_key(i));
+        }
+
+        let db_weight: RuntimeDbWeight = <Test as frame_system::Config>::DbWeight::get();
+        let num_pulses = total;
+        let num_to_delete = num_pulses - MAX_KEPT;
+        let expected_weight = db_weight.reads(1 + num_pulses) + db_weight.writes(num_to_delete + 3);
+        assert_eq!(weight_large, expected_weight);
     });
 }
