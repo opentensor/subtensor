@@ -1,7 +1,7 @@
 use super::*;
 use alloc::collections::BTreeMap;
 use safe_math::*;
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::{U64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid};
 use subtensor_swap_interface::SwapHandler;
 
@@ -405,36 +405,13 @@ impl<T: Config> Pallet<T> {
         alpha_dividends: BTreeMap<T::AccountId, U96F32>,
         tao_dividends: BTreeMap<T::AccountId, U96F32>,
     ) {
-        // Distribute the owner cut.
-        if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
-            if let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
-                // Increase stake for owner hotkey and coldkey.
-                log::debug!(
-                    "owner_hotkey: {:?} owner_coldkey: {:?}, owner_cut: {:?}",
-                    owner_hotkey,
-                    owner_coldkey,
-                    owner_cut
-                );
-                let real_owner_cut = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                    &owner_hotkey,
-                    &owner_coldkey,
-                    netuid,
-                    owner_cut,
-                );
-                // If the subnet is leased, notify the lease logic that owner cut has been distributed.
-                if let Some(lease_id) = SubnetUidToLeaseId::<T>::get(netuid) {
-                    Self::distribute_leased_network_dividends(lease_id, real_owner_cut);
-                }
-            }
-        }
-
-        // Distribute mining incentives.
-        let mut total_incentive = AlphaCurrency::from(0_u64);
-        let mut burned_incentive = AlphaCurrency::from(0_u64);
+        // Distribute mining incentives and calculate the proportion of burned incentive
+        let mut total_incentive = U64F64::saturating_from_num(0);
+        let mut burned_incentive = U64F64::saturating_from_num(0);
         for (hotkey, incentive) in incentives {
             log::debug!("incentives: hotkey: {:?}", incentive);
 
-            total_incentive = total_incentive.saturating_add(incentive);
+            total_incentive = total_incentive.saturating_add(U64F64::saturating_from_num(incentive));
 
             // Burn miner emission for all hotkeys associated with subnet owner coldkey
             // Also, calculate the burned proportion
@@ -448,7 +425,7 @@ impl<T: Config> Pallet<T> {
                 skip_and_burn = true;
             }
             if skip_and_burn {
-                burned_incentive = burned_incentive.saturating_add(incentive);
+                burned_incentive = burned_incentive.saturating_add(U64F64::saturating_from_num(incentive));
                 log::debug!(
                     "incentives: hotkey: {:?} is SN owner hotkey, skipping {:?}",
                     hotkey,
@@ -465,15 +442,43 @@ impl<T: Config> Pallet<T> {
                 incentive,
             );
         }
+        let remaining_proportion = total_incentive.saturating_sub(burned_incentive).safe_div(total_incentive);
+
+        // Distribute the owner cut.
+        if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
+            if let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
+                let owner_cut_after_burn = AlphaCurrency::from(remaining_proportion.saturating_mul(U64F64::saturating_from_num(owner_cut)).saturating_to_num::<u64>());
+
+                // Increase stake for owner hotkey and coldkey.
+                log::debug!(
+                    "owner_hotkey: {:?} owner_coldkey: {:?}, owner_cut: {:?}",
+                    owner_hotkey,
+                    owner_coldkey,
+                    owner_cut_after_burn
+                );
+                let real_owner_cut = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                    &owner_hotkey,
+                    &owner_coldkey,
+                    netuid,
+                    owner_cut_after_burn,
+                );
+                // If the subnet is leased, notify the lease logic that owner cut has been distributed.
+                if let Some(lease_id) = SubnetUidToLeaseId::<T>::get(netuid) {
+                    Self::distribute_leased_network_dividends(lease_id, real_owner_cut);
+                }
+            }
+        }
 
         // Distribute alpha divs.
         let _ = AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
-        for (hotkey, mut alpha_divs) in alpha_dividends {
+        for (hotkey, alpha_divs) in alpha_dividends {
+            let mut alpha_divs_after_burn = U96F32::saturating_from_num(remaining_proportion).saturating_mul(alpha_divs);
+
             // Get take prop
             let alpha_take: U96F32 =
-                Self::get_hotkey_take_float(&hotkey).saturating_mul(alpha_divs);
+                Self::get_hotkey_take_float(&hotkey).saturating_mul(alpha_divs_after_burn);
             // Remove take prop from alpha_divs
-            alpha_divs = alpha_divs.saturating_sub(alpha_take);
+            alpha_divs_after_burn = alpha_divs_after_burn.saturating_sub(alpha_take);
             // Give the validator their take.
             log::debug!("hotkey: {:?} alpha_take: {:?}", hotkey, alpha_take);
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -483,11 +488,11 @@ impl<T: Config> Pallet<T> {
                 tou64!(alpha_take).into(),
             );
             // Give all other nominators.
-            log::debug!("hotkey: {:?} alpha_divs: {:?}", hotkey, alpha_divs);
-            Self::increase_stake_for_hotkey_on_subnet(&hotkey, netuid, tou64!(alpha_divs).into());
+            log::debug!("hotkey: {:?} alpha_divs: {:?}", hotkey, alpha_divs_after_burn);
+            Self::increase_stake_for_hotkey_on_subnet(&hotkey, netuid, tou64!(alpha_divs_after_burn).into());
             // Record dividends for this hotkey.
             AlphaDividendsPerSubnet::<T>::mutate(netuid, &hotkey, |divs| {
-                *divs = divs.saturating_add(tou64!(alpha_divs).into());
+                *divs = divs.saturating_add(tou64!(alpha_divs_after_burn).into());
             });
             // Record total hotkey alpha based on which this value of AlphaDividendsPerSubnet
             // was calculated
@@ -497,11 +502,13 @@ impl<T: Config> Pallet<T> {
 
         // Distribute root tao divs.
         let _ = TaoDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
-        for (hotkey, mut root_tao) in tao_dividends {
+        for (hotkey, root_tao) in tao_dividends {
+            let mut root_divs_after_burn = U96F32::saturating_from_num(remaining_proportion).saturating_mul(root_tao);
+
             // Get take prop
-            let tao_take: U96F32 = Self::get_hotkey_take_float(&hotkey).saturating_mul(root_tao);
+            let tao_take: U96F32 = Self::get_hotkey_take_float(&hotkey).saturating_mul(root_divs_after_burn);
             // Remove take prop from root_tao
-            root_tao = root_tao.saturating_sub(tao_take);
+            root_divs_after_burn = root_divs_after_burn.saturating_sub(tao_take);
             // Give the validator their take.
             log::debug!("hotkey: {:?} tao_take: {:?}", hotkey, tao_take);
             let validator_stake = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -511,21 +518,21 @@ impl<T: Config> Pallet<T> {
                 tou64!(tao_take).into(),
             );
             // Give rest to nominators.
-            log::debug!("hotkey: {:?} root_tao: {:?}", hotkey, root_tao);
+            log::debug!("hotkey: {:?} root_tao: {:?}", hotkey, root_divs_after_burn);
             Self::increase_stake_for_hotkey_on_subnet(
                 &hotkey,
                 NetUid::ROOT,
-                tou64!(root_tao).into(),
+                tou64!(root_divs_after_burn).into(),
             );
             // Record root dividends for this validator on this subnet.
             TaoDividendsPerSubnet::<T>::mutate(netuid, hotkey.clone(), |divs| {
-                *divs = divs.saturating_add(tou64!(root_tao));
+                *divs = divs.saturating_add(tou64!(root_divs_after_burn));
             });
             // Update the total TAO on the subnet with root tao dividends.
             SubnetTAO::<T>::mutate(NetUid::ROOT, |total| {
                 *total = total
                     .saturating_add(validator_stake.to_u64())
-                    .saturating_add(tou64!(root_tao));
+                    .saturating_add(tou64!(root_divs_after_burn));
             });
         }
     }
