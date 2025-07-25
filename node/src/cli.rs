@@ -26,7 +26,7 @@ pub struct Cli {
     ///
     /// After starting, the consensus used by the node will automatically
     /// switch to whatever is required to continue validating / syncing.
-    #[arg(long, value_enum, ignore_case = true)]
+    #[arg(long, value_enum, ignore_case = true, default_value_t=SupportedConsensusMechanism::default())]
     pub initial_consensus: SupportedConsensusMechanism,
 
     #[command(flatten)]
