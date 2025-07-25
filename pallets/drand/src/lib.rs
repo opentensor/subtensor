@@ -329,8 +329,8 @@ pub mod pallet {
         /// Verify and write a pulse from the beacon into the runtime
         #[pallet::call_index(0)]
         #[pallet::weight(Weight::from_parts(5_708_000_000, 0)
-        .saturating_add(T::DbWeight::get().reads(2_u64))
-        .saturating_add(T::DbWeight::get().writes(3_u64)))]
+        .saturating_add(T::DbWeight::get().reads(3_u64))
+        .saturating_add(T::DbWeight::get().writes(4_u64)))]
         pub fn write_pulse(
             origin: OriginFor<T>,
             pulses_payload: PulsesPayload<T::Public, BlockNumberFor<T>>,
