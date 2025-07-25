@@ -58,6 +58,7 @@ use sp_runtime::{
 };
 
 pub mod bls12_381;
+pub mod migrations;
 pub mod types;
 pub mod utils;
 pub mod verifier;
@@ -91,6 +92,7 @@ pub const QUICKNET_CHAIN_HASH: &str =
 const CHAIN_HASH: &str = QUICKNET_CHAIN_HASH;
 
 pub const MAX_PULSES_TO_FETCH: u64 = 50;
+pub const MAX_KEPT_PULSES: u64 = 864_000; // 1 month
 
 /// Defines application identifier for crypto keys of this module.
 ///
@@ -212,6 +214,14 @@ pub mod pallet {
         }
     }
 
+    /// Define a maximum length for the migration key
+    type MigrationKeyMaxLen = ConstU32<128>;
+
+    /// Storage for migration run status
+    #[pallet::storage]
+    pub type HasMigrationRun<T: Config> =
+        StorageMap<_, Identity, BoundedVec<u8, MigrationKeyMaxLen>, bool, ValueQuery>;
+
     /// map round number to pulse
     #[pallet::storage]
     pub type Pulses<T: Config> = StorageMap<_, Blake2_128Concat, RoundNumber, Pulse, OptionQuery>;
@@ -264,6 +274,13 @@ pub mod pallet {
             if let Err(e) = Self::fetch_drand_pulse_and_send_unsigned(block_number) {
                 log::debug!("Drand: Failed to fetch pulse from drand. {:?}", e);
             }
+        }
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            let mut weight = frame_support::weights::Weight::from_parts(0, 0);
+
+            weight = weight.saturating_add(migrations::migrate_prune_old_pulses::<T>());
+
+            weight
         }
     }
 
@@ -651,8 +668,6 @@ impl<T: Config> Pallet<T> {
     }
 
     fn prune_old_pulses(last_stored_round: RoundNumber) {
-        const MAX_KEPT_PULSES: u64 = 864_000; // 1 month
-
         let mut oldest = OldestStoredRound::<T>::get();
         if oldest == 0 {
             return;
