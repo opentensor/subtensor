@@ -2118,9 +2118,7 @@ where
 
                         let batch_reveal_block = provided_hashs
                             .iter()
-                            .map(|hash| Pallet::<T>::find_commit_block_via_hash(*hash))
-                            .filter(|block| block.is_some())
-                            .map(|block| block.unwrap())
+                            .filter_map(|hash| Pallet::<T>::find_commit_block_via_hash(*hash))
                             .collect::<Vec<_>>();
 
                         if provided_hashs.len() == batch_reveal_block.len() {
