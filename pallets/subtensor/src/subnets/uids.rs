@@ -19,7 +19,7 @@ impl<T: Config> Pallet<T> {
     /// Resets the trust, emission, consensus, incentive, dividends of the neuron to default
     pub fn clear_neuron(netuid: NetUid, neuron_uid: u16) {
         let neuron_index: usize = neuron_uid.into();
-        Emission::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
+        Emission::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0.into()));
         Trust::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
         Consensus::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
         Incentive::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
@@ -101,7 +101,7 @@ impl<T: Config> Pallet<T> {
         Rank::<T>::mutate(netuid, |v| v.push(0));
         Trust::<T>::mutate(netuid, |v| v.push(0));
         Active::<T>::mutate(netuid, |v| v.push(true));
-        Emission::<T>::mutate(netuid, |v| v.push(0));
+        Emission::<T>::mutate(netuid, |v| v.push(0.into()));
         Consensus::<T>::mutate(netuid, |v| v.push(0));
         Incentive::<T>::mutate(netuid, |v| v.push(0));
         Dividends::<T>::mutate(netuid, |v| v.push(0));
@@ -151,11 +151,11 @@ impl<T: Config> Pallet<T> {
 
     /// Returns the stake of the uid on network or 0 if it doesnt exist.
     ///
-    pub fn get_stake_for_uid_and_subnetwork(netuid: NetUid, neuron_uid: u16) -> u64 {
+    pub fn get_stake_for_uid_and_subnetwork(netuid: NetUid, neuron_uid: u16) -> AlphaCurrency {
         if let Ok(hotkey) = Self::get_hotkey_for_net_and_uid(netuid, neuron_uid) {
             Self::get_stake_for_hotkey_on_subnet(&hotkey, netuid)
         } else {
-            0
+            AlphaCurrency::ZERO
         }
     }
 

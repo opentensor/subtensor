@@ -232,7 +232,7 @@ fn test_commit_weights_validate() {
 
         let min_stake = 500_000_000_000;
         let reserve = min_stake * 1000;
-        mock::setup_reserves(netuid, reserve, reserve);
+        mock::setup_reserves(netuid, reserve, reserve.into());
 
         // Stake some TAO and read what get_total_stake_for_hotkey it gets
         // It will be a different value due to the slippage
@@ -355,7 +355,7 @@ fn test_set_weights_validate() {
 
         // Create netuid
         add_network(netuid, 1, 0);
-        mock::setup_reserves(netuid, 1_000_000_000_000, 1_000_000_000_000);
+        mock::setup_reserves(netuid, 1_000_000_000_000, 1_000_000_000_000.into());
         // Register the hotkey
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
@@ -764,7 +764,7 @@ fn test_weights_err_setting_weights_too_fast() {
             &hotkey_account_id,
             &(U256::from(66)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::set_weights_set_rate_limit(netuid, 10);
         assert_eq!(SubtensorModule::get_weights_set_rate_limit(netuid), 10);
@@ -857,7 +857,7 @@ fn test_weights_err_has_duplicate_ids() {
             &hotkey_account_id,
             &(U256::from(77)),
             netuid,
-            1,
+            1.into(),
         );
 
         // uid 1
@@ -1048,7 +1048,7 @@ fn test_set_weights_err_invalid_uid() {
             &hotkey_account_id,
             &(U256::from(66)),
             netuid,
-            1,
+            1.into(),
         );
         let weight_keys: Vec<u16> = vec![9999]; // Does not exist
         let weight_values: Vec<u16> = vec![88]; // random value
@@ -1085,7 +1085,7 @@ fn test_set_weight_not_enough_values() {
             &account_id,
             &(U256::from(2)),
             netuid,
-            1,
+            1.into(),
         );
 
         register_ok_neuron(netuid, U256::from(3), U256::from(4), 300000);
@@ -1196,7 +1196,7 @@ fn test_set_weights_sum_larger_than_u16_max() {
             &(U256::from(1)),
             &(U256::from(2)),
             netuid,
-            1,
+            1.into(),
         );
 
         register_ok_neuron(1.into(), U256::from(3), U256::from(4), 300_000);
@@ -1696,13 +1696,13 @@ fn test_commit_reveal_weights_ok() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         // Commit at block 0
@@ -1764,13 +1764,13 @@ fn test_commit_reveal_tempo_interval() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         // Commit at block 0
@@ -1899,13 +1899,13 @@ fn test_commit_reveal_hash() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
@@ -1999,13 +1999,13 @@ fn test_commit_reveal_disabled_or_enabled() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         // Disable commit/reveal
@@ -2076,13 +2076,13 @@ fn test_toggle_commit_reveal_weights_and_set_weights() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         // Enable commit/reveal
@@ -2162,13 +2162,13 @@ fn test_tempo_change_during_commit_reveal_process() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         assert_ok!(SubtensorModule::commit_weights(
@@ -2311,13 +2311,13 @@ fn test_commit_reveal_multiple_commits() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         // 1. Commit 10 times successfully
@@ -2714,13 +2714,13 @@ fn test_expired_commits_handling_in_commit_and_reveal() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         // 1. Commit 5 times in epoch 0
@@ -2912,13 +2912,13 @@ fn test_reveal_at_exact_epoch() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         let reveal_periods: Vec<u64> = vec![0, 1, 2, 7, 40, 86, 100];
@@ -3076,13 +3076,13 @@ fn test_tempo_and_reveal_period_change_during_commit_reveal_process() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         // Step 1: Commit weights
@@ -3266,13 +3266,13 @@ fn test_commit_reveal_order_enforcement() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         // Commit three times: A, B, C
@@ -3538,13 +3538,13 @@ fn test_successful_batch_reveal() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         // 1. Commit multiple times
@@ -3616,13 +3616,13 @@ fn test_batch_reveal_with_expired_commits() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         let mut commit_info = Vec::new();
@@ -4033,13 +4033,13 @@ fn test_batch_reveal_with_out_of_order_commits() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         // 1. Commit multiple times (A, B, C)
@@ -4438,13 +4438,13 @@ fn test_get_reveal_blocks() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         // **6. Commit Weights at Block 0**
@@ -4572,13 +4572,13 @@ fn test_commit_weights_rate_limit() {
             &(U256::from(0)),
             &(U256::from(0)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(1)),
             netuid,
-            1,
+            1.into(),
         );
 
         let neuron_uid =
@@ -4762,13 +4762,13 @@ fn test_reveal_crv3_commits_success() {
             &hotkey1,
             &(U256::from(3)),
             netuid,
-            1,
+            1.into(),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey2,
             &(U256::from(4)),
             netuid,
-            1,
+            1.into(),
         );
 
         let version_key = SubtensorModule::get_weights_version_key(netuid);
@@ -5039,11 +5039,11 @@ fn test_do_commit_crv3_weights_success() {
 
         let cur_epoch =
             SubtensorModule::get_epoch_index(netuid, SubtensorModule::get_current_block_as_u64());
-        let commits = CRV3WeightCommits::<Test>::get(netuid, cur_epoch);
+        let commits = CRV3WeightCommitsV2::<Test>::get(netuid, cur_epoch);
         assert_eq!(commits.len(), 1);
         assert_eq!(commits[0].0, hotkey);
-        assert_eq!(commits[0].1, commit_data);
-        assert_eq!(commits[0].2, reveal_round);
+        assert_eq!(commits[0].2, commit_data);
+        assert_eq!(commits[0].3, reveal_round);
     });
 }
 
@@ -5879,7 +5879,7 @@ fn test_multiple_commits_by_same_hotkey_within_limit() {
 
         let cur_epoch =
             SubtensorModule::get_epoch_index(netuid, SubtensorModule::get_current_block_as_u64());
-        let commits = CRV3WeightCommits::<Test>::get(netuid, cur_epoch);
+        let commits = CRV3WeightCommitsV2::<Test>::get(netuid, cur_epoch);
         assert_eq!(
             commits.len(),
             10,
@@ -5914,18 +5914,18 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
                 .clone()
                 .try_into()
                 .expect("Failed to convert commit data into bounded vector");
-            assert_ok!(CRV3WeightCommits::<Test>::try_mutate(
+            assert_ok!(CRV3WeightCommitsV2::<Test>::try_mutate(
                 netuid,
                 *epoch,
                 |commits| -> DispatchResult {
-                    commits.push_back((hotkey, bounded_commit_data, reveal_round));
+                    commits.push_back((hotkey, current_block, bounded_commit_data, reveal_round));
                     Ok(())
                 }
             ));
         }
 
         for epoch in &past_epochs {
-            let commits = CRV3WeightCommits::<Test>::get(netuid, *epoch);
+            let commits = CRV3WeightCommitsV2::<Test>::get(netuid, *epoch);
             assert!(
                 !commits.is_empty(),
                 "Expected commits to be present for past epoch {}",
@@ -5936,7 +5936,7 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
         assert_ok!(SubtensorModule::reveal_crv3_commits(netuid));
 
         for epoch in &past_epochs {
-            let commits = CRV3WeightCommits::<Test>::get(netuid, *epoch);
+            let commits = CRV3WeightCommitsV2::<Test>::get(netuid, *epoch);
             assert!(
                 commits.is_empty(),
                 "Expected commits for past epoch {} to be removed",
@@ -5944,7 +5944,7 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
             );
         }
 
-        let current_epoch_commits = CRV3WeightCommits::<Test>::get(netuid, current_epoch);
+        let current_epoch_commits = CRV3WeightCommitsV2::<Test>::get(netuid, current_epoch);
         assert!(
             current_epoch_commits.is_empty(),
             "Expected no commits for current epoch {}",
@@ -6134,7 +6134,7 @@ fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
             netuid,
             SubtensorModule::get_current_block_as_u64(),
         );
-        let commits = CRV3WeightCommits::<Test>::get(netuid, cur_epoch);
+        let commits = CRV3WeightCommitsV2::<Test>::get(netuid, cur_epoch);
         assert!(
             commits.is_empty(),
             "Expected no commits left in storage after reveal"
@@ -6321,10 +6321,119 @@ fn test_reveal_crv3_commits_max_neurons() {
             netuid,
             SubtensorModule::get_current_block_as_u64(),
         );
-        let commits = CRV3WeightCommits::<Test>::get(netuid, cur_epoch);
+        let commits = CRV3WeightCommitsV2::<Test>::get(netuid, cur_epoch);
         assert!(
             commits.is_empty(),
             "Expected no commits left in storage after reveal"
         );
+    });
+}
+
+#[test]
+fn test_get_first_block_of_epoch_epoch_zero() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: NetUid = NetUid::from(1);
+        let tempo: u16 = 10;
+        add_network(netuid, tempo, 0);
+
+        let first_block = SubtensorModule::get_first_block_of_epoch(netuid, 0);
+        assert_eq!(first_block, 0);
+
+        // Cross-check: epoch at block 0 should be 0
+        assert_eq!(SubtensorModule::get_epoch_index(netuid, 0), 0);
+    });
+}
+
+#[test]
+fn test_get_first_block_of_epoch_small_epoch() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: NetUid = NetUid::from(0);
+        let tempo: u16 = 1;
+        add_network(netuid, tempo, 0);
+
+        let first_block = SubtensorModule::get_first_block_of_epoch(netuid, 1);
+        assert_eq!(first_block, 1); // 1 * 2 - 1 = 1
+
+        // Cross-check
+        assert_eq!(SubtensorModule::get_epoch_index(netuid, 1), 1);
+        assert_eq!(SubtensorModule::get_epoch_index(netuid, 0), 0);
+    });
+}
+
+#[test]
+fn test_get_first_block_of_epoch_with_offset() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: NetUid = NetUid::from(1);
+        let tempo: u16 = 10;
+        add_network(netuid, tempo, 0);
+
+        let first_block = SubtensorModule::get_first_block_of_epoch(netuid, 1);
+        assert_eq!(first_block, 9); // 1 * 11 - 2 = 9
+
+        // Cross-check
+        assert_eq!(SubtensorModule::get_epoch_index(netuid, 9), 1);
+        assert_eq!(SubtensorModule::get_epoch_index(netuid, 8), 0);
+    });
+}
+
+#[test]
+fn test_get_first_block_of_epoch_large_epoch() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: NetUid = NetUid::from(0);
+        let tempo: u16 = 100;
+        add_network(netuid, tempo, 0);
+
+        let epoch: u64 = 1000;
+        let first_block = SubtensorModule::get_first_block_of_epoch(netuid, epoch);
+        assert_eq!(first_block, epoch * 101 - 1); // No overflow for this size
+
+        // Cross-check (simulate, as large block not runnable, but math holds)
+        assert_eq!(first_block + 1, epoch * 101);
+    });
+}
+
+#[test]
+fn test_get_first_block_of_epoch_step_blocks_and_assert_with_until_next() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: NetUid = NetUid::from(1);
+        let tempo: u16 = 10;
+        add_network(netuid, tempo, 0);
+
+        let mut current_block: u64 = 0;
+        for expected_epoch in 0..10u64 {
+            let expected_first = SubtensorModule::get_first_block_of_epoch(netuid, expected_epoch);
+
+            // Step blocks until we reach the start of this epoch
+            while current_block < expected_first {
+                run_to_block(current_block + 1);
+                current_block += 1;
+            }
+
+            // Assert we are at the first block of the epoch
+            assert_eq!(current_block, expected_first);
+            assert_eq!(
+                SubtensorModule::get_epoch_index(netuid, current_block),
+                expected_epoch
+            );
+
+            // From here, blocks_until_next_epoch should point to the start of next epoch
+            let until_next = SubtensorModule::blocks_until_next_epoch(netuid, tempo, current_block);
+            let next_first = SubtensorModule::get_first_block_of_epoch(netuid, expected_epoch + 1);
+            assert_eq!(current_block + until_next + 1, next_first); // +1 since until is blocks to end, +1 to start next
+
+            // Advance to near end of this epoch
+            let last_block = next_first.saturating_sub(1);
+            run_to_block(last_block);
+            current_block = System::block_number();
+            assert_eq!(
+                SubtensorModule::get_epoch_index(netuid, current_block),
+                expected_epoch
+            );
+
+            // Until next from near end
+            let until_next_end =
+                SubtensorModule::blocks_until_next_epoch(netuid, tempo, current_block);
+            assert_eq!(current_block + until_next_end + 1, next_first);
+        }
     });
 }

@@ -5,6 +5,7 @@ use crate::*;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
+use subtensor_runtime_common::AlphaCurrency;
 
 use super::mock;
 
@@ -21,7 +22,7 @@ fn test_do_start_call_ok() {
 
         add_network_without_emission_block(netuid, tempo, 0);
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
-        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000);
+        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000.into());
 
         // account 0 is the default owner for any subnet
         assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey_account_id);
@@ -67,7 +68,7 @@ fn test_do_start_call_fail_not_owner() {
         //add network
         SubtensorModule::set_burn(netuid, burn_cost);
         add_network_without_emission_block(netuid, tempo, 0);
-        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000);
+        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000.into());
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
 
@@ -97,7 +98,7 @@ fn test_do_start_call_fail_with_cannot_start_call_now() {
         //add network
         SubtensorModule::set_burn(netuid, burn_cost);
         add_network_without_emission_block(netuid, tempo, 0);
-        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000);
+        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000.into());
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
 
@@ -128,7 +129,7 @@ fn test_do_start_call_fail_for_set_again() {
         add_network_without_emission_block(netuid, tempo, 0);
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
 
-        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000);
+        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000.into());
 
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -169,7 +170,7 @@ fn test_do_start_call_ok_with_same_block_number_after_coinbase() {
 
         add_network_without_emission_block(netuid, tempo, 0);
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
-        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000);
+        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000.into());
 
         assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey_account_id);
 
@@ -391,7 +392,7 @@ fn test_subtoken_enable_reject_trading_before_enable() {
         let hotkey_account_2_id: U256 = U256::from(3);
         let amount = DefaultMinStake::<Test>::get() * 10;
 
-        let stake_bal = 10_000_000_000; // 10 Alpha
+        let stake_bal = AlphaCurrency::from(10_000_000_000); // 10 Alpha
 
         let limit_price = 1_000_000_000; // not important
 
@@ -403,7 +404,7 @@ fn test_subtoken_enable_reject_trading_before_enable() {
 
         // Set liq high enough to not trigger other errors
         SubnetTAO::<Test>::set(netuid, 20_000_000_000);
-        SubnetAlphaIn::<Test>::set(netuid, 20_000_000_000);
+        SubnetAlphaIn::<Test>::set(netuid, AlphaCurrency::from(20_000_000_000));
 
         // Register so staking *could* work
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 0);
@@ -482,7 +483,7 @@ fn test_subtoken_enable_reject_trading_before_enable() {
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
             netuid,
-            amount,
+            amount.into(),
             limit_price,
             false,
         )
@@ -493,7 +494,7 @@ fn test_subtoken_enable_reject_trading_before_enable() {
                 RuntimeOrigin::signed(coldkey_account_id),
                 hotkey_account_id,
                 netuid,
-                amount
+                amount.into()
             ),
             Error::<Test>::SubtokenDisabled
         );
@@ -502,7 +503,7 @@ fn test_subtoken_enable_reject_trading_before_enable() {
             SubtensorModule::recycle_alpha(
                 RuntimeOrigin::signed(coldkey_account_id),
                 hotkey_account_id,
-                amount,
+                amount.into(),
                 netuid
             ),
             Error::<Test>::SubtokenDisabled
@@ -512,7 +513,7 @@ fn test_subtoken_enable_reject_trading_before_enable() {
             SubtensorModule::burn_alpha(
                 RuntimeOrigin::signed(coldkey_account_id),
                 hotkey_account_id,
-                amount,
+                amount.into(),
                 netuid
             ),
             Error::<Test>::SubtokenDisabled
@@ -525,7 +526,7 @@ fn test_subtoken_enable_reject_trading_before_enable() {
                 hotkey_account_2_id,
                 netuid,
                 netuid2,
-                amount,
+                amount.into(),
             ),
             Error::<Test>::SubtokenDisabled
         );
@@ -537,7 +538,7 @@ fn test_subtoken_enable_reject_trading_before_enable() {
                 hotkey_account_2_id,
                 netuid,
                 netuid2,
-                amount,
+                amount.into(),
             ),
             Error::<Test>::SubtokenDisabled
         );
@@ -548,7 +549,7 @@ fn test_subtoken_enable_reject_trading_before_enable() {
                 hotkey_account_id,
                 netuid,
                 netuid2,
-                amount,
+                amount.into(),
             ),
             Error::<Test>::SubtokenDisabled
         );
@@ -567,16 +568,16 @@ fn test_subtoken_enable_trading_ok_with_enable() {
         // stake big enough
         let stake_amount = DefaultMinStake::<Test>::get() * 10000;
         // unstake, transfer, swap just very little
-        let unstake_amount = DefaultMinStake::<Test>::get() * 10;
+        let unstake_amount = AlphaCurrency::from(DefaultMinStake::<Test>::get() * 10);
 
         add_network(netuid, 10, 0);
         add_network(netuid2, 10, 0);
 
         let reserve = stake_amount * 1000;
-        mock::setup_reserves(netuid, reserve, reserve);
-        mock::setup_reserves(netuid2, reserve, reserve);
-        SubnetAlphaOut::<Test>::insert(netuid, reserve);
-        SubnetAlphaOut::<Test>::insert(netuid2, reserve);
+        mock::setup_reserves(netuid, reserve, reserve.into());
+        mock::setup_reserves(netuid2, reserve, reserve.into());
+        SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(reserve));
+        SubnetAlphaOut::<Test>::insert(netuid2, AlphaCurrency::from(reserve));
 
         // Register so staking works
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 0);

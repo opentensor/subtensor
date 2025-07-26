@@ -1,6 +1,6 @@
 import * as assert from "assert";
 import { getAliceSigner, getDevnetApi } from "../src/substrate"
-import {  generateRandomEthersWallet, getPublicClient } from "../src/utils";
+import { generateRandomEthersWallet, getPublicClient } from "../src/utils";
 import { IDISPATCH_ADDRESS, ISTORAGE_QUERY_ADDRESS, ETH_LOCAL_URL } from "../src/config";
 import { devnet, MultiAddress } from "@polkadot-api/descriptors"
 import { hexToNumber, PublicClient } from "viem";
@@ -36,14 +36,14 @@ describe("Test the dispatch precompile", () => {
         // encoded call should be 0x050300d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d02286bee
         const transferCall = encodedCallDataBytes.asHex()
 
-        const aliceBalance =  (await api.query.System.Account.getValue( convertPublicKeyToSs58(alice.publicKey))).data.free
+        const aliceBalance = (await api.query.System.Account.getValue(convertPublicKeyToSs58(alice.publicKey))).data.free
         const txResponse = await wallet1.sendTransaction({
             to: IDISPATCH_ADDRESS,
             data: transferCall,
         })
         await txResponse.wait()
 
-        const aliceBalanceAfterTransfer =  (await api.query.System.Account.getValue( convertPublicKeyToSs58(alice.publicKey))).data.free
+        const aliceBalanceAfterTransfer = (await api.query.System.Account.getValue(convertPublicKeyToSs58(alice.publicKey))).data.free
 
         assert.equal(aliceBalance + transferAmount, aliceBalanceAfterTransfer)
     })

@@ -8,7 +8,7 @@ use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::Saturating;
 use substrate_fixed::types::{I32F32, U96F32};
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{AlphaCurrency, NetUid};
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
@@ -92,7 +92,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_active(netuid: NetUid) -> Vec<bool> {
         Active::<T>::get(netuid)
     }
-    pub fn get_emission(netuid: NetUid) -> Vec<u64> {
+    pub fn get_emission(netuid: NetUid) -> Vec<AlphaCurrency> {
         Emission::<T>::get(netuid)
     }
     pub fn get_consensus(netuid: NetUid) -> Vec<u16> {
@@ -171,9 +171,9 @@ impl<T: Config> Pallet<T> {
         let vec = Trust::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
     }
-    pub fn get_emission_for_uid(netuid: NetUid, uid: u16) -> u64 {
+    pub fn get_emission_for_uid(netuid: NetUid, uid: u16) -> AlphaCurrency {
         let vec = Emission::<T>::get(netuid);
-        vec.get(uid as usize).copied().unwrap_or(0)
+        vec.get(uid as usize).copied().unwrap_or_default()
     }
     pub fn get_active_for_uid(netuid: NetUid, uid: u16) -> bool {
         let vec = Active::<T>::get(netuid);
@@ -217,7 +217,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_tempo(netuid: NetUid) -> u16 {
         Tempo::<T>::get(netuid)
     }
-    pub fn get_pending_emission(netuid: NetUid) -> u64 {
+    pub fn get_pending_emission(netuid: NetUid) -> AlphaCurrency {
         PendingEmission::<T>::get(netuid)
     }
     pub fn get_last_adjustment_block(netuid: NetUid) -> u64 {
@@ -695,8 +695,10 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn set_alpha_values_32(netuid: NetUid, low: I32F32, high: I32F32) {
-        let low = (low.saturating_mul(I32F32::saturating_from_num(u16::MAX))).to_num::<u16>();
-        let high = (high.saturating_mul(I32F32::saturating_from_num(u16::MAX))).to_num::<u16>();
+        let low =
+            (low.saturating_mul(I32F32::saturating_from_num(u16::MAX))).saturating_to_num::<u16>();
+        let high =
+            (high.saturating_mul(I32F32::saturating_from_num(u16::MAX))).saturating_to_num::<u16>();
         AlphaValues::<T>::insert(netuid, (low, high));
     }
 

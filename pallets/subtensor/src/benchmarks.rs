@@ -15,6 +15,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, Hash},
 };
 use sp_std::vec;
+use subtensor_runtime_common::{AlphaCurrency, NetUid};
 
 #[frame_benchmarking::v2::benchmarks]
 mod pallet_benchmarks {
@@ -582,8 +583,8 @@ mod pallet_benchmarks {
             hotkey.clone()
         ));
 
-        let alpha_amount: u64 = 1_000_000;
-        SubnetAlphaOut::<T>::insert(netuid, alpha_amount * 2);
+        let alpha_amount = AlphaCurrency::from(1_000_000);
+        SubnetAlphaOut::<T>::insert(netuid, alpha_amount * 2.into());
 
         Subtensor::<T>::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
@@ -592,7 +593,10 @@ mod pallet_benchmarks {
             alpha_amount,
         );
 
-        assert_eq!(TotalHotkeyAlpha::<T>::get(&hotkey, netuid), alpha_amount);
+        assert_eq!(
+            TotalHotkeyAlpha::<T>::get(&hotkey, netuid),
+            alpha_amount.into()
+        );
 
         #[extrinsic_call]
         _(
@@ -622,21 +626,24 @@ mod pallet_benchmarks {
             hotkey.clone()
         ));
 
-        let alpha_amount: u64 = 1_000_000;
-        SubnetAlphaOut::<T>::insert(netuid, alpha_amount * 2);
+        let alpha_amount = 1_000_000;
+        SubnetAlphaOut::<T>::insert(netuid, AlphaCurrency::from(alpha_amount * 2));
         Subtensor::<T>::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey,
             netuid,
-            alpha_amount,
+            alpha_amount.into(),
         );
-        assert_eq!(TotalHotkeyAlpha::<T>::get(&hotkey, netuid), alpha_amount);
+        assert_eq!(
+            TotalHotkeyAlpha::<T>::get(&hotkey, netuid),
+            alpha_amount.into()
+        );
 
         #[extrinsic_call]
         _(
             RawOrigin::Signed(coldkey.clone()),
             hotkey.clone(),
-            alpha_amount,
+            alpha_amount.into(),
             netuid,
         );
     }
@@ -709,7 +716,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount);
 
         let tao_reserve = 150_000_000_000_u64;
-        let alpha_in = 100_000_000_000_u64;
+        let alpha_in = AlphaCurrency::from(100_000_000_000);
         SubnetTAO::<T>::insert(netuid, tao_reserve);
         SubnetAlphaIn::<T>::insert(netuid, alpha_in);
 
@@ -752,7 +759,7 @@ mod pallet_benchmarks {
         ));
 
         SubnetTAO::<T>::insert(netuid, deposit);
-        SubnetAlphaIn::<T>::insert(netuid, deposit);
+        SubnetAlphaIn::<T>::insert(netuid, AlphaCurrency::from(deposit));
         TotalStake::<T>::set(deposit);
 
         assert_ok!(Subtensor::<T>::add_stake_limit(
@@ -764,7 +771,7 @@ mod pallet_benchmarks {
             false
         ));
 
-        let alpha_to_move: u64 =
+        let alpha_to_move =
             Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(&origin, &coldkey, netuid);
 
         Subtensor::<T>::create_account_if_non_existent(&coldkey, &destination);
@@ -805,7 +812,7 @@ mod pallet_benchmarks {
 
         let limit: u64 = 1_000_000_000;
         let tao_reserve = 150_000_000_000_u64;
-        let alpha_in = 100_000_000_000_u64;
+        let alpha_in = AlphaCurrency::from(100_000_000_000);
         SubnetTAO::<T>::insert(netuid, tao_reserve);
         SubnetAlphaIn::<T>::insert(netuid, alpha_in);
 
@@ -828,7 +835,7 @@ mod pallet_benchmarks {
             u64_staked_amt
         ));
 
-        let amount_unstaked: u64 = 30_000_000_000;
+        let amount_unstaked = AlphaCurrency::from(30_000_000_000);
 
         // Remove stake limit for benchmark
         StakingOperationRateLimiter::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
@@ -858,7 +865,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::init_new_network(netuid2, 1);
 
         let tao_reserve = 150_000_000_000_u64;
-        let alpha_in = 100_000_000_000_u64;
+        let alpha_in = AlphaCurrency::from(100_000_000_000);
         SubnetTAO::<T>::insert(netuid1, tao_reserve);
         SubnetAlphaIn::<T>::insert(netuid1, alpha_in);
         SubnetTAO::<T>::insert(netuid2, tao_reserve);
@@ -869,7 +876,7 @@ mod pallet_benchmarks {
         let limit_stake: u64 = 6_000_000_000;
         let limit_swap: u64 = 1_000_000_000;
         let amount_to_be_staked = 440_000_000_000;
-        let amount_swapped: u64 = 30_000_000_000;
+        let amount_swapped = AlphaCurrency::from(30_000_000_000);
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount);
 
         assert_ok!(Subtensor::<T>::burned_register(
@@ -930,7 +937,7 @@ mod pallet_benchmarks {
         ));
 
         SubnetTAO::<T>::insert(netuid, deposit);
-        SubnetAlphaIn::<T>::insert(netuid, deposit);
+        SubnetAlphaIn::<T>::insert(netuid, AlphaCurrency::from(deposit));
         TotalStake::<T>::set(deposit);
 
         assert_ok!(Subtensor::<T>::add_stake_limit(
@@ -942,7 +949,7 @@ mod pallet_benchmarks {
             false
         ));
 
-        let alpha_to_transfer: u64 =
+        let alpha_to_transfer =
             Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(&hot, &coldkey, netuid);
 
         Subtensor::<T>::create_account_if_non_existent(&dest, &hot);
@@ -985,9 +992,9 @@ mod pallet_benchmarks {
         ));
 
         SubnetTAO::<T>::insert(netuid1, deposit);
-        SubnetAlphaIn::<T>::insert(netuid1, deposit);
+        SubnetAlphaIn::<T>::insert(netuid1, AlphaCurrency::from(deposit));
         SubnetTAO::<T>::insert(netuid2, deposit);
-        SubnetAlphaIn::<T>::insert(netuid2, deposit);
+        SubnetAlphaIn::<T>::insert(netuid2, AlphaCurrency::from(deposit));
         TotalStake::<T>::set(deposit);
 
         assert_ok!(Subtensor::<T>::add_stake_limit(
@@ -999,7 +1006,7 @@ mod pallet_benchmarks {
             false
         ));
 
-        let alpha_to_swap: u64 =
+        let alpha_to_swap =
             Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(&hot, &coldkey, netuid1);
 
         // Remove stake limit for benchmark
@@ -1347,7 +1354,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_burn(netuid, 1);
 
         SubnetTAO::<T>::insert(netuid, 150_000_000_000);
-        SubnetAlphaIn::<T>::insert(netuid, 100_000_000_000);
+        SubnetAlphaIn::<T>::insert(netuid, AlphaCurrency::from(100_000_000_000));
 
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), 1000000u32.into());
 
@@ -1396,7 +1403,7 @@ mod pallet_benchmarks {
 
         let limit: u64 = 1_000_000_000;
         let tao_reserve = 150_000_000_000_u64;
-        let alpha_in = 100_000_000_000_u64;
+        let alpha_in = AlphaCurrency::from(100_000_000_000);
         SubnetTAO::<T>::insert(netuid, tao_reserve);
         SubnetAlphaIn::<T>::insert(netuid, alpha_in);
 
