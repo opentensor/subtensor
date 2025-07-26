@@ -432,6 +432,8 @@ fn test_reveal_weights_validate() {
         let version_key: u64 = 0;
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1); // Add the hotkey field
+        let hotkey2: U256 = U256::from(2);
+        let tempo = 1;
         assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
         let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
 
@@ -439,17 +441,25 @@ fn test_reveal_weights_validate() {
 
         let call = RuntimeCall::SubtensorModule(SubtensorCall::reveal_weights {
             netuid,
-            uids: dests,
-            values: weights,
-            salt,
+            uids: dests.clone(),
+            values: weights.clone(),
+            salt: salt.clone(),
             version_key,
         });
 
+        let commit_hash: H256 =
+            SubtensorModule::get_commit_hash(&who, netuid, &dests, &weights, &salt, version_key);
+        let commit_block = SubtensorModule::get_current_block_as_u64();
+        let (first_reveal_block, last_reveal_block) =
+            SubtensorModule::get_reveal_blocks(netuid, commit_block);
+
         // Create netuid
-        add_network(netuid, 1, 0);
+        add_network(netuid, tempo, 0);
         // Register the hotkey
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
+        SubtensorModule::append_neuron(netuid, &hotkey2, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
+        crate::Owner::<Test>::insert(hotkey2, coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
 
         let min_stake = 500_000_000_000;
@@ -493,8 +503,53 @@ fn test_reveal_weights_validate() {
             min_stake
         );
 
+        // Try to reveal weights without a commit
+        let result_no_commit = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
+        assert_eq!(
+            result_no_commit.unwrap_err(),
+            CustomTransactionError::CommitNotFound.into()
+        );
+
+        // Add the commit to the hotkey
+        WeightCommits::<Test>::mutate(netuid, hotkey, |maybe_commits| {
+            let mut commits: VecDeque<(H256, u64, u64, u64)> =
+                maybe_commits.take().unwrap_or_default();
+            commits.push_back((
+                commit_hash,
+                commit_block,
+                first_reveal_block,
+                last_reveal_block,
+            ));
+            *maybe_commits = Some(commits);
+        });
+
+        // Try to reveal weights in wrong epoch
+        let result_invalid_epoch = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
+        assert_eq!(
+            result_invalid_epoch.unwrap_err(),
+            CustomTransactionError::CommitBlockNotInRevealRange.into()
+        );
+
+        System::set_block_number(commit_block + 2 * tempo as u64);
+
         // Submit to the signed extension validate function
-        let result_min_stake = extension.validate(
+        let result_valid_stake = extension.validate(
             RawOrigin::Signed(who).into(),
             &call.clone(),
             &info,
@@ -504,7 +559,7 @@ fn test_reveal_weights_validate() {
             TransactionSource::External,
         );
         // Now the call should pass
-        assert_ok!(result_min_stake);
+        assert_ok!(result_valid_stake);
 
         // Try with more stake than minimum
         assert_ok!(SubtensorModule::do_add_stake(
@@ -528,6 +583,24 @@ fn test_reveal_weights_validate() {
         );
         // The call should still pass
         assert_ok!(result_more_stake);
+
+        System::set_block_number(commit_block + 10 * tempo as u64);
+
+        // Submit to the signed extension validate function
+        let result_too_late = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
+
+        assert_eq!(
+            result_too_late.unwrap_err(),
+            CustomTransactionError::CommitBlockNotInRevealRange.into()
+        );
     });
 }
 
