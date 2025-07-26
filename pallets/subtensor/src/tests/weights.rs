@@ -604,6 +604,202 @@ fn test_reveal_weights_validate() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_batch_reveal_weights_validate --exact --show-output --nocapture
+#[test]
+fn test_batch_reveal_weights_validate() {
+    // Testing the signed extension validate function
+    // correctly filters batch_reveal_weights transaction for all error conditions.
+
+    new_test_ext(0).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let coldkey = U256::from(0);
+        let hotkey: U256 = U256::from(1);
+        let hotkey2: U256 = U256::from(2);
+        let tempo = 1;
+        assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
+
+        let who = hotkey; // The hotkey signs this transaction
+
+        // Create test data for batch operations
+        let uids_list: Vec<Vec<u16>> = vec![vec![0, 1], vec![1, 0]];
+        let values_list: Vec<Vec<u16>> = vec![vec![10, 20], vec![30, 40]];
+        let salts_list: Vec<Vec<u16>> =
+            vec![vec![1, 2, 3, 4, 5, 6, 7, 8], vec![8, 7, 6, 5, 4, 3, 2, 1]];
+        let version_keys: Vec<u64> = vec![0, 0];
+
+        // Create the batch reveal call
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::batch_reveal_weights {
+            netuid,
+            uids_list: uids_list.clone(),
+            values_list: values_list.clone(),
+            salts_list: salts_list.clone(),
+            version_keys: version_keys.clone(),
+        });
+
+        // Create netuid
+        add_network(netuid, tempo, 0);
+        // Register the hotkeys
+        SubtensorModule::append_neuron(netuid, &hotkey, 0);
+        SubtensorModule::append_neuron(netuid, &hotkey2, 0);
+        crate::Owner::<Test>::insert(hotkey, coldkey);
+        crate::Owner::<Test>::insert(hotkey2, coldkey);
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        let min_stake = 500_000_000_000;
+        // Set the minimum stake
+        SubtensorModule::set_stake_threshold(min_stake);
+
+        let info: crate::DispatchInfo =
+            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = crate::SubtensorTransactionExtension::<Test>::new();
+
+        // Test 1: StakeAmountTooLow - Verify stake is less than minimum
+        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
+
+        let result_no_stake = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
+        // Should fail with StakeAmountTooLow
+        assert_eq!(
+            result_no_stake.unwrap_err(),
+            CustomTransactionError::StakeAmountTooLow.into()
+        );
+
+        // Increase the stake to be equal to the minimum
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(hotkey),
+            hotkey,
+            netuid,
+            min_stake
+        ));
+
+        // Verify stake is now sufficient
+        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) >= min_stake);
+
+        // Test 2: InputLengthsUnequal - Test unequal input lengths
+        let call_unequal_lengths =
+            RuntimeCall::SubtensorModule(SubtensorCall::batch_reveal_weights {
+                netuid,
+                uids_list: vec![vec![0, 1], vec![1, 0], vec![2, 3]], // Extra element
+                values_list: values_list.clone(),
+                salts_list: salts_list.clone(),
+                version_keys: version_keys.clone(),
+            });
+
+        let result_unequal_lengths = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call_unequal_lengths,
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
+
+        assert_eq!(
+            result_unequal_lengths.unwrap_err(),
+            CustomTransactionError::InputLengthsUnequal.into()
+        );
+
+        // Should fail - but this error is checked in do_batch_reveal_weights,
+        // so the signed extension should pass but the actual call should fail
+        // We'll test the actual error in the direct function call below
+
+        // Test 3: CommitNotFound - Try to reveal without any commits
+        let result = SubtensorModule::do_batch_reveal_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            uids_list.clone(),
+            values_list.clone(),
+            salts_list.clone(),
+            version_keys.clone(),
+        );
+        assert_err!(result, Error::<Test>::NoWeightsCommitFound);
+
+        // Now create commits for testing reveal range errors
+        let commit_hashes: Vec<H256> = uids_list
+            .iter()
+            .zip(values_list.iter())
+            .zip(salts_list.iter().zip(version_keys.iter()))
+            .map(|((uids, values), (salt, version_key))| {
+                BlakeTwo256::hash_of(&(
+                    hotkey,
+                    netuid,
+                    uids.clone(),
+                    values.clone(),
+                    salt.clone(),
+                    *version_key,
+                ))
+            })
+            .collect();
+
+        // Commit weights for each hash
+        for commit_hash in &commit_hashes {
+            assert_ok!(SubtensorModule::commit_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                *commit_hash
+            ));
+        }
+
+        let commit_block = SubtensorModule::get_current_block_as_u64();
+
+        // Test 5: CommitBlockNotInRevealRange - Try to reveal too early
+        let result_too_early = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
+        assert_eq!(
+            result_too_early.unwrap_err(),
+            CustomTransactionError::CommitBlockNotInRevealRange.into()
+        );
+
+        // Move to valid reveal period
+        System::set_block_number(commit_block + 2 * tempo as u64);
+
+        // Now the call should pass the signed extension validation
+        let result_valid_time = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
+        assert_ok!(result_valid_time);
+
+        // Test 6: CommitBlockNotInRevealRange - Try to reveal too late
+        System::set_block_number(commit_block + 10 * tempo as u64);
+
+        let result_too_late = extension.validate(
+            RawOrigin::Signed(who).into(),
+            &call.clone(),
+            &info,
+            10,
+            (),
+            &TxBaseImplication(()),
+            TransactionSource::External,
+        );
+        assert_eq!(
+            result_too_late.unwrap_err(),
+            CustomTransactionError::CommitBlockNotInRevealRange.into()
+        );
+    });
+}
+
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_set_weights_is_root_error --exact --show-output --nocapture
 #[test]
 fn test_set_weights_is_root_error() {
@@ -4268,9 +4464,9 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
                     commits.push((commit_hash, salt.clone(), uids.clone(), values.clone(), version_key));
                 }
 
-                assert_ok!(SubtensorModule::commit_weights(
+            assert_ok!(SubtensorModule::commit_weights(
                     RuntimeOrigin::signed(*hotkey),
-                    netuid,
+                netuid,
                     commit_hash
                 ));
             }
@@ -4374,7 +4570,7 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
             for (_commit_hash, salt, uids, values, version_key) in commits.iter() {
                 let reveal_result = SubtensorModule::reveal_weights(
                     RuntimeOrigin::signed(*hotkey),
-                    netuid,
+            netuid,
                     uids.clone(),
                     values.clone(),
                     salt.clone(),
@@ -4388,7 +4584,7 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
                     reveal_result
                 );
             }
-        }
+}
 
         for hotkey in &hotkeys {
             commit_info_map.insert(*hotkey, Vec::new());
@@ -6079,7 +6275,7 @@ fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
             // Each neuron will assign weights to all neurons, including itself
             let values: Vec<u16> = (0..num_neurons as u16)
                 .map(|v| (v + i as u16 + 1) * 10)
-                .collect();
+            .collect();
             let payload = WeightsTlockPayload {
                 values: values.clone(),
                 uids: neuron_uids.clone(),
@@ -6184,7 +6380,7 @@ fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
             for ((uid_expected, weight_expected), (uid_actual, weight_actual)) in
                 normalized_expected_weights.iter().zip(normalized_weights.iter())
             {
-                assert_eq!(
+        assert_eq!(
                     uid_expected, uid_actual,
                     "UID mismatch: expected {}, got {}",
                     uid_expected, uid_actual
@@ -6371,7 +6567,7 @@ fn test_reveal_crv3_commits_max_neurons() {
             for ((uid_expected, weight_expected), (uid_actual, weight_actual)) in
                 normalized_expected_weights.iter().zip(normalized_weights.iter())
             {
-                assert_eq!(
+        assert_eq!(
                     uid_expected, uid_actual,
                     "UID mismatch: expected {}, got {}",
                     uid_expected, uid_actual
