@@ -147,7 +147,6 @@ impl ConsensusMechanism for BabeConsensus {
                 let conditional_block_import = ConditionalEVMBlockImport::new(
                     babe_import.clone(),
                     FrontierBlockImport::new(babe_import.clone(), client.clone()),
-                    client.clone(),
                 );
 
                 let slot_duration = babe_link.config().slot_duration();

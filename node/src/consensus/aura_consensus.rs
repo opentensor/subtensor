@@ -132,7 +132,6 @@ impl ConsensusMechanism for AuraConsensus {
                 let conditional_block_import = ConditionalEVMBlockImport::new(
                     grandpa_block_import.clone(),
                     FrontierBlockImport::new(grandpa_block_import.clone(), client.clone()),
-                    client.clone(),
                 );
 
                 let slot_duration = sc_consensus_aura::slot_duration(&*client)?;

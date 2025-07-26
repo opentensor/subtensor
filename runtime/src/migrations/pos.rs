@@ -94,16 +94,6 @@ fn initialize_pallet_staking() {
                 todo!()
             }
         };
-        match <pallet_staking::Pallet<Runtime>>::bond(
-            RawOrigin::Signed(account.clone()).into(),
-            balance,
-            pallet_staking::RewardDestination::Staked,
-        ) {
-            Ok(_) => {}
-            Err(_e) => {
-                todo!()
-            }
-        };
         match <pallet_staking::Pallet<Runtime>>::validate(
             RawOrigin::Signed(account.clone()).into(),
             ValidatorPrefs {

@@ -208,6 +208,34 @@ pub fn new_partial(
     })
 }
 
+/// Build the import queue for the template runtime (manual seal).
+#[allow(clippy::too_many_arguments)]
+#[cfg(feature = "runtime-benchmarks")]
+pub fn build_manual_seal_import_queue(
+    client: Arc<FullClient>,
+    _backend: Arc<FullBackend>,
+    config: &Configuration,
+    _eth_config: &EthConfiguration,
+    task_manager: &TaskManager,
+    _telemetry: Option<TelemetryHandle>,
+    grandpa_block_import: GrandpaBlockImport,
+    _transaction_pool_handle: Arc<TransactionPoolHandle<Block, FullClient>>,
+) -> Result<(BasicQueue<Block>, BoxBlockImport<Block>), ServiceError> {
+    let conditional_block_import =
+        crate::conditional_evm_block_import::ConditionalEVMBlockImport::new(
+            grandpa_block_import.clone(),
+            fc_consensus::FrontierBlockImport::new(grandpa_block_import.clone(), client.clone()),
+        );
+    Ok((
+        sc_consensus_manual_seal::import_queue(
+            Box::new(conditional_block_import.clone()),
+            &task_manager.spawn_essential_handle(),
+            config.prometheus_registry(),
+        ),
+        Box::new(conditional_block_import),
+    ))
+}
+
 /// Builds a new service for a full client.
 pub async fn new_full<NB, CM>(
     mut config: Configuration,

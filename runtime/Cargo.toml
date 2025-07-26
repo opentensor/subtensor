@@ -30,6 +30,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 ] }
 scale-info = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["alloc"] }
+substrate-fixed = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-subtensor = { workspace = true }
 pallet-subtensor-swap = { workspace = true }
@@ -45,7 +46,10 @@ pallet-utility-opentensor = { workspace = true }
 frame-executive = { workspace = true }
 frame-metadata-hash-extension = { workspace = true }
 sp-api = { workspace = true }
+sp-authority-discovery = { workspace = true }
 sp-block-builder = { workspace = true }
+sp-consensus-babe = { workspace = true }
+sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
 sp-storage = { workspace = true }
 sp-genesis-builder = { workspace = true }
@@ -58,11 +62,8 @@ sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
 subtensor-runtime-common = { workspace = true }
 subtensor-precompiles = { workspace = true }
-sp-consensus-babe = { workspace = true }
-sp-authority-discovery = { workspace = true }
 runtime-common = { workspace = true }
 polkadot-core-primitives = { workspace = true }
-substrate-fixed = { workspace = true }
 
 # Temporary sudo
 pallet-sudo = { workspace = true }
@@ -101,11 +102,13 @@ pallet-registry = { workspace = true }
 # Metadata commitment pallet
 pallet-commitments = { workspace = true }
 
-# PoS
+# Legacy consensus
+pallet-aura = { workspace = true }
+
+# NPoS
 frame-election-provider-support = { workspace = true }
 pallet-authority-discovery = { workspace = true }
 pallet-babe = { workspace = true }
-pallet-aura = { workspace = true }
 pallet-bags-list = { workspace = true }
 pallet-staking = { workspace = true }
 pallet-staking-runtime-api = { workspace = true }
@@ -120,7 +123,6 @@ pallet-staking-reward-fn = { workspace = true }
 pallet-staking-reward-curve = { workspace = true }
 sp-staking = { workspace = true }
 sp-npos-elections = { workspace = true }
-sp-consensus-aura = { workspace = true }
 sp-consensus-slots = { workspace = true }
 sp-consensus-grandpa = { workspace = true }
 
@@ -264,13 +266,13 @@ std = [
 	"rand_chacha/std",
 	"sha2/std",
 	"w3f-bls/std",
-	"pallet-aura/std",
 	"sp-consensus-aura/std",
 	"sp-consensus-grandpa/std",
 	"sp-consensus-slots/std",
-	"substrate-fixed/std",
 	"pallet-subtensor-swap/std",
-	"pallet-subtensor-swap-runtime-api/std"
+	"pallet-subtensor-swap-runtime-api/std",
+	"pallet-aura/std",
+	"substrate-fixed/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

@@ -29,6 +29,11 @@ use std::sync::Arc;
 
 /// A wrapped Aura verifier which will stall verification if it encounters a
 /// Babe block, rather than error out.
+///
+/// This is required to prevent rapid validation failure and subsequent
+/// re-fetching of the same block from peers, which triggers the peers to
+/// blacklist the offending node and refuse to connect with them until they
+/// are restarted
 struct AuraWrappedVerifier<B, C, CIDP, N> {
     inner: AuraVerifier<C, AuthorityPair, CIDP, N>,
     _phantom: std::marker::PhantomData<B>,
@@ -121,15 +126,7 @@ where
 
 fn is_babe_digest(digest: &Digest) -> bool {
     digest
-        .log(|d| match d {
-            DigestItem::PreRuntime(engine_id, _) => {
-                if *engine_id == BABE_ENGINE_ID {
-                    Some(d)
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        })
-        .is_some()
+        .logs()
+        .iter()
+        .any(|d| matches!(d, DigestItem::PreRuntime(engine_id, _) if engine_id == &BABE_ENGINE_ID))
 }

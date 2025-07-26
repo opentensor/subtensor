@@ -181,7 +181,7 @@ pub fn run() -> sc_cli::Result<()> {
                 } = crate::service::new_partial(
                     &config,
                     &cli.eth,
-                    crate::service::build_manual_seal_import_queue,
+                    Box::new(crate::service::build_manual_seal_import_queue),
                 )?;
 
                 // This switch needs to be in the client, since the client decides
