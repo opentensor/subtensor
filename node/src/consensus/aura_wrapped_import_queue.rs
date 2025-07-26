@@ -1,4 +1,3 @@
-use futures::future::pending;
 use sc_client_api::AuxStore;
 use sc_client_api::BlockOf;
 use sc_client_api::UsageProvider;
@@ -76,11 +75,16 @@ where
         let number: NumberFor<B> = *block.post_header().number();
         log::debug!("Verifying block: {:?}", number);
         if is_babe_digest(block.header.digest()) {
-            log::debug!(
-                "Detected Babe block! Verifier cannot continue, upgrade must be triggered elsewhere..."
-            );
-            pending::<()>().await;
-            unreachable!("Should not reach here, pending forever.");
+            // TODO: Use a BabeVerifier to verify Babe blocks. This will
+            // prevent rapid validation failure and subsequent re-fetching
+            // of the same block from peers, which triggers the peers to
+            // blacklist the offending node and refuse to connect with them until they
+            // are restarted.
+            //
+            // Unfortunately, BabeVerifier construction logic is NOT public outside of
+            // its crate in vanilla Polkadot SDK, so we are unable to use it until we
+            // migrate to our Polkadot SDK fork.
+            self.inner.verify(block).await
         } else {
             self.inner.verify(block).await
         }
