@@ -84,20 +84,38 @@ fn initialize_pallet_staking() {
             Balances::usable_balance(account) >= balance,
             "Account does not have enough balance to bond."
         );
-        <pallet_staking::Pallet<Runtime>>::bond(
+        match <pallet_staking::Pallet<Runtime>>::bond(
             RawOrigin::Signed(account.clone()).into(),
             balance,
             pallet_staking::RewardDestination::Staked,
-        )
-        .unwrap();
-        <pallet_staking::Pallet<Runtime>>::validate(
+        ) {
+            Ok(_) => {}
+            Err(_e) => {
+                todo!()
+            }
+        };
+        match <pallet_staking::Pallet<Runtime>>::bond(
+            RawOrigin::Signed(account.clone()).into(),
+            balance,
+            pallet_staking::RewardDestination::Staked,
+        ) {
+            Ok(_) => {}
+            Err(_e) => {
+                todo!()
+            }
+        };
+        match <pallet_staking::Pallet<Runtime>>::validate(
             RawOrigin::Signed(account.clone()).into(),
             ValidatorPrefs {
                 commission: Perbill::from_percent(1),
                 blocked: false,
             },
-        )
-        .unwrap();
+        ) {
+            Ok(_) => {}
+            Err(_e) => {
+                todo!()
+            }
+        };
         assert!(
             pallet_staking::ValidatorCount::<Runtime>::get()
                 <= <<Runtime as pallet_staking::Config>::ElectionProvider as ElectionProviderBase>::MaxWinners::get()
@@ -161,10 +179,10 @@ fn initialize_pallet_session() {
     let keys: Vec<(AccountId32, SessionKeys)> = babe_authorities
         .into_iter()
         .map(|babe_id| {
-            // let account = AccountId32::from_ss58check(&ss58).unwrap();
             let keys = SessionKeys {
                 babe: babe_id.clone(),
-                grandpa: babe_to_grandpa_id(babe_id.clone()).unwrap(),
+                grandpa: babe_to_grandpa_id(babe_id.clone())
+                    .expect("Failed to map Babe ID to Grandpa ID"),
             };
             let account = babe_id_to_account_id32(babe_id);
             log::info!(

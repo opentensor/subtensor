@@ -172,7 +172,7 @@ impl ConsensusMechanism for AuraConsensus {
     }
 
     fn slot_duration(&self, client: &FullClient) -> Result<SlotDuration, sc_service::Error> {
-        sc_consensus_aura::slot_duration(&*client).map_err(Into::into)
+        sc_consensus_aura::slot_duration(client).map_err(Into::into)
     }
 
     fn spawn_essential_handles(

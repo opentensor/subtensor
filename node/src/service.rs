@@ -39,6 +39,7 @@ pub type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 pub type GrandpaBlockImport =
     sc_consensus_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>;
 type GrandpaLinkHalf = sc_consensus_grandpa::LinkHalf<Block, FullClient, FullSelectChain>;
+#[allow(clippy::upper_case_acronyms)]
 pub type BIQ<'a> = Box<
     dyn FnOnce(
             Arc<FullClient>,
@@ -403,7 +404,7 @@ where
             prometheus_registry.clone(),
         ));
 
-        let slot_duration = consensus_mechanism.slot_duration(&*client)?;
+        let slot_duration = consensus_mechanism.slot_duration(&client)?;
         let pending_create_inherent_data_providers =
             move |_, ()| async move { CM::create_inherent_data_providers(slot_duration) };
 
@@ -514,7 +515,7 @@ where
             telemetry.as_ref().map(|x| x.handle()),
         );
 
-        let slot_duration = consensus_mechanism.slot_duration(&*client)?;
+        let slot_duration = consensus_mechanism.slot_duration(&client)?;
         let create_inherent_data_providers =
             move |_, ()| async move { CM::create_inherent_data_providers(slot_duration) };
 

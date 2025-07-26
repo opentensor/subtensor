@@ -692,7 +692,7 @@ parameter_types! {
     // pub const MaxAuthorities: u32 = 100_000;
     pub const MaxAuthorities: u32 = 32;
     pub NposSolutionPriority: TransactionPriority =
-        Perbill::from_percent(90) * TransactionPriority::max_value();
+        Perbill::from_percent(90) * TransactionPriority::MAX;
 }
 
 parameter_types! {
