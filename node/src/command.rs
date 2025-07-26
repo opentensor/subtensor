@@ -254,6 +254,7 @@ fn run_babe(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
     }) {
         Ok(_) => Ok(()),
         Err(e) => {
+            // Handle node needs to be in Aura mode.
             if matches!(
                 e,
                 sc_service::Error::Client(sp_blockchain::Error::VersionInvalid(ref msg))
@@ -263,10 +264,15 @@ fn run_babe(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
                     "💡 Chain is using Aura consensus. Switching to Aura service until Babe block is detected.",
                 );
                 run_aura(arg_matches)
-            } else if e.to_string().contains("lock hold by current process") {
-                log::warn!("Failed to aquire DB lock, trying again in 1s...");
+            // Handle Aura service still has DB lock. This never has been observed to take more
+            // than 1s to drop.
+            } else if matches!(e, sc_service::Error::Client(sp_blockchain::Error::Backend(ref msg))
+                if msg.starts_with("IO error: lock hold by current process"))
+            {
+                log::info!("Failed to aquire DB lock, trying again in 1s...");
                 std::thread::sleep(std::time::Duration::from_secs(1));
                 return run_babe(arg_matches);
+            // Unknown error, return it.
             } else {
                 Err(e.into())
             }
