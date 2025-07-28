@@ -546,24 +546,22 @@ pub mod pallet {
             force_proxy_type: Option<T::ProxyType>,
             call: Box<<T as Config>::RuntimeCall>,
             evm_address: H160,
+            proxy: T::AccountId,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
             let owner: T::AccountId = T::AddressMapping::into_account_id(evm_address);
 
             ensure!(who == owner, Error::<T>::OriginNotMatchMappedEVM);
 
-            match EVMProxies::<T>::get(evm_address) {
-                Some(real) => {
-                    let def = Self::find_proxy(&real, &who, force_proxy_type)?;
+            if EVMProxies::<T>::get(evm_address).contains(&proxy) {
+                let def = Self::find_proxy(&proxy, &who, force_proxy_type)?;
 
-                    ensure!(def.delay.is_zero(), Error::<T>::Unannounced);
+                ensure!(def.delay.is_zero(), Error::<T>::Unannounced);
 
-                    Self::do_proxy(def, real, *call);
-                    Ok(())
-                }
-                None => {
-                    return Err(Error::<T>::EVMProxyNotFound.into());
-                }
+                Self::do_proxy(def, proxy, *call);
+                Ok(())
+            } else {
+                return Err(Error::<T>::EVMProxyNotFound.into());
             }
         }
 
@@ -596,13 +594,13 @@ pub mod pallet {
             ensure!(who == owner, Error::<T>::OriginNotMatchMappedEVM);
 
             ensure!(
-                !EVMProxies::<T>::contains_key(evm_address),
-                Error::<T>::EVMProxyDuplicate
+                EVMProxies::<T>::get(evm_address).len() < T::MaxProxies::get() as usize,
+                Error::<T>::TooMany
             );
 
             let pure = Self::do_create_pure(&who, proxy_type, delay, index)?;
 
-            EVMProxies::<T>::insert(evm_address, pure);
+            let _ = EVMProxies::<T>::try_mutate(evm_address, |proxies| proxies.try_push(pure));
 
             Ok(())
         }
@@ -615,18 +613,25 @@ pub mod pallet {
         /// - `evm_address`: The EVM address of the account to kill.
         #[pallet::call_index(12)]
         #[pallet::weight(T::WeightInfo::kill_pure(T::MaxProxies::get()))]
-        pub fn kill_evm_pure(origin: OriginFor<T>, evm_address: H160) -> DispatchResult {
+        pub fn kill_evm_pure(
+            origin: OriginFor<T>,
+            evm_address: H160,
+            proxy: T::AccountId,
+        ) -> DispatchResult {
             let who = ensure_signed(origin)?;
 
             let owner: T::AccountId = T::AddressMapping::into_account_id(evm_address);
 
             ensure!(who == owner, Error::<T>::OriginNotMatchMappedEVM);
 
-            match EVMProxies::<T>::get(evm_address) {
-                Some(proxy) => {
+            let proxies = EVMProxies::<T>::get(evm_address);
+            let index = proxies.iter().position(|p| p == &proxy);
+
+            match index {
+                Some(i) => {
                     let (_, deposit) = Proxies::<T>::take(&proxy);
                     T::Currency::unreserve(&who, deposit);
-                    EVMProxies::<T>::remove(evm_address);
+                    EVMProxies::<T>::mutate(evm_address, |proxies| proxies.remove(i));
                     Ok(())
                 }
                 None => Err(Error::<T>::EVMProxyNotFound.into()),
@@ -738,7 +743,8 @@ pub mod pallet {
 
     /// The EVM proxies. Maps the EVM address to the account ID.
     #[pallet::storage]
-    pub type EVMProxies<T: Config> = StorageMap<_, Twox64Concat, H160, T::AccountId, OptionQuery>;
+    pub type EVMProxies<T: Config> =
+        StorageMap<_, Twox64Concat, H160, BoundedVec<T::AccountId, T::MaxProxies>, ValueQuery>;
 }
 
 impl<T: Config> Pallet<T> {
@@ -763,7 +769,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Public function to EVM proxies storage.
-    pub fn evm_proxies(address: H160) -> Option<T::AccountId> {
+    pub fn evm_proxies(address: H160) -> BoundedVec<T::AccountId, T::MaxProxies> {
         EVMProxies::<T>::get(address)
     }
 

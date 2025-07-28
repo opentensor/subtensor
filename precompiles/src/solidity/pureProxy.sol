@@ -7,7 +7,7 @@ address constant IPURE_PROXY_ADDRESS = 0x000000000000000000000000000000000000080
 interface IPureProxy {
     function createPureProxy() external;
 
-    function pureProxyCall(uint8[] memory call) external;
+    function pureProxyCall(bytes32 real, uint8[] memory call) external;
 
-    function getPureProxy() external view returns (bytes32);
+    function getPureProxy() external view returns (bytes32[] memory);
 }

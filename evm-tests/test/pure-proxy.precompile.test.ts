@@ -51,12 +51,12 @@ describe("Test pure proxy precompile", () => {
         await tx.wait()
         const proxyAddress = await contract.getPureProxy();
 
-        const ss58Address = convertPublicKeyToSs58(proxyAddress)
+        const ss58Address = convertPublicKeyToSs58(proxyAddress[0])
 
         await forceSetBalanceToSs58Address(api, ss58Address)
 
         const callCode = await getTransferCallCode(api, alice)
-        const tx2 = await contract.pureProxyCall(callCode)
+        const tx2 = await contract.pureProxyCall(proxyAddress[0], callCode)
         await tx2.wait()
     })
 
@@ -64,7 +64,7 @@ describe("Test pure proxy precompile", () => {
         const contract = new ethers.Contract(IPURE_PROXY_ADDRESS, IPureProxyABI, evmWallet2)
         const proxyAddressBeforeCreate = await contract.getPureProxy();
         console.log(proxyAddressBeforeCreate)
-        assert.equal(proxyAddressBeforeCreate, "0x0000000000000000000000000000000000000000000000000000000000000000", "proxy should be undefined before set")
+        assert.equal(proxyAddressBeforeCreate.length, 0, "proxy should be empty")
 
         const callCode = await getTransferCallCode(api, alice)
 
