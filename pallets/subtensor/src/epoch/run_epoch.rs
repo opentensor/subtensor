@@ -584,28 +584,49 @@ impl<T: Config> Pallet<T> {
         log::trace!("Weights (permit+diag+outdate): {:?}", &weights);
 
         if Self::get_commit_reveal_weights_enabled(netuid) {
-            // Precompute safe blocks for all UIDs
-            let safe_blocks: Vec<u64> = block_at_registration
-                .iter()
-                .map(|reg_block| {
-                    let reg_epoch = Self::get_epoch_index(netuid, *reg_block);
-                    let safe_epoch =
-                        reg_epoch.saturating_add(Self::get_reveal_period(netuid).saturating_mul(2));
+            let mut commit_blocks: Vec<u64> = vec![u64::MAX; n as usize]; // MAX ⇒ “no active commit”
 
-                    Self::get_first_block_of_epoch(netuid, safe_epoch)
-                })
-                .collect();
+            // helper: hotkey → uid
+            let uid_of = |acct: &T::AccountId| -> Option<usize> {
+                hotkeys
+                    .iter()
+                    .find(|(_, a)| a == acct)
+                    .map(|(uid, _)| *uid as usize)
+            };
 
-            // Mask out weights to recently registered UIDs
+            // ---------- v2 ------------------------------------------------------
+            for (who, q) in WeightCommits::<T>::iter_prefix(netuid) {
+                for (_, cb, _, _) in q.iter() {
+                    if !Self::is_commit_expired(netuid, *cb) {
+                        if let Some(i) = uid_of(&who) {
+                            commit_blocks[i] = commit_blocks[i].min(*cb);
+                        }
+                        break; // earliest active found
+                    }
+                }
+            }
+
+            // ---------- v3 ------------------------------------------------------
+            for (_epoch, q) in CRV3WeightCommitsV2::<T>::iter_prefix(netuid) {
+                for (who, cb, ..) in q.iter() {
+                    if !Self::is_commit_expired(netuid, *cb) {
+                        if let Some(i) = uid_of(who) {
+                            commit_blocks[i] = commit_blocks[i].min(*cb);
+                        }
+                    }
+                }
+            }
+
             weights = vec_mask_sparse_matrix(
                 &weights,
-                &last_update,
-                &safe_blocks,
-                &|updated, safe_block| updated < safe_block,
+                &commit_blocks,
+                &block_at_registration,
+                &|cb, reg| cb < reg,
             );
 
             log::trace!(
-                "Masking weights to miners inside reveal window (recent registrations masked)"
+                "Commit-reveal column mask applied ({} masked rows)",
+                commit_blocks.iter().filter(|&&cb| cb != u64::MAX).count()
             );
         }
 

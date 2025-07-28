@@ -3,7 +3,7 @@ import { devnet, MultiAddress } from '@polkadot-api/descriptors';
 import { TypedApi, TxCallData } from 'polkadot-api';
 import { KeyPair } from "@polkadot-labs/hdkd-helpers"
 import { getAliceSigner, waitForTransactionCompletion, getSignerFromKeypair, waitForTransactionWithRetry } from './substrate'
-import { convertH160ToSS58, convertPublicKeyToSs58 } from './address-utils'
+import { convertH160ToSS58, convertPublicKeyToSs58, ethAddressToH160 } from './address-utils'
 import { tao } from './balance-math'
 import internal from "stream";
 

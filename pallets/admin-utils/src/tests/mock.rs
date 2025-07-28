@@ -22,7 +22,6 @@ use sp_weights::Weight;
 use subtensor_runtime_common::NetUid;
 
 type Block = frame_system::mocking::MockBlock<Test>;
-
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
     pub enum Test {

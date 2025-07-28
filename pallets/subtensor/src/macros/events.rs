@@ -353,7 +353,6 @@ mod events {
             /// the subnet ID
             netuid: NetUid,
         },
-
         /// A subnet lease has been created.
         SubnetLeaseCreated {
             /// The beneficiary of the lease.
