@@ -47,9 +47,14 @@ describe("Test pure proxy precompile", () => {
 
     it("Call createPureProxy, then use proxy to call transfer", async () => {
         const contract = new ethers.Contract(IPURE_PROXY_ADDRESS, IPureProxyABI, evmWallet)
+        console.log("evmWallet", evmWallet.address)
+        const proxyAddressBeforeCreate = await contract.getPureProxy();
+        assert.equal(proxyAddressBeforeCreate.length, 0, "proxy should be empty")
+
         const tx = await contract.createPureProxy()
         await tx.wait()
         const proxyAddress = await contract.getPureProxy();
+        assert.equal(proxyAddress.length, 1, "proxy should be set")
 
         const ss58Address = convertPublicKeyToSs58(proxyAddress[0])
 
@@ -60,11 +65,22 @@ describe("Test pure proxy precompile", () => {
         await tx2.wait()
     })
 
+    it("Call createPureProxy, add multiple proxies", async () => {
+        const contract = new ethers.Contract(IPURE_PROXY_ADDRESS, IPureProxyABI, evmWallet)
+        const proxyAddressBeforeCreate = await contract.getPureProxy();
+        const initProxyCount = proxyAddressBeforeCreate.length
+
+        for (let i = 0; i < 10; i++) {
+            const tx = await contract.createPureProxy()
+            await tx.wait()
+
+            const proxyAddressAfterCreate = await contract.getPureProxy();
+            assert.equal(proxyAddressAfterCreate.length, initProxyCount + i + 1, "proxy should be set")
+        }
+    })
+
     it("Call createPureProxy, edge cases", async () => {
         const contract = new ethers.Contract(IPURE_PROXY_ADDRESS, IPureProxyABI, evmWallet2)
-        const proxyAddressBeforeCreate = await contract.getPureProxy();
-        console.log(proxyAddressBeforeCreate)
-        assert.equal(proxyAddressBeforeCreate.length, 0, "proxy should be empty")
 
         const callCode = await getTransferCallCode(api, alice)
 
@@ -97,11 +113,11 @@ describe("Test pure proxy precompile", () => {
         }
 
         // set balance for proxy account
-        const ss58Address = convertPublicKeyToSs58(proxyAddress)
+        const ss58Address = convertPublicKeyToSs58(proxyAddress[0])
         await forceSetBalanceToSs58Address(api, ss58Address)
 
         // try proxy call finally
-        const tx2 = await contract.pureProxyCall(callCode)
+        const tx2 = await contract.pureProxyCall(proxyAddress[0], callCode)
         await tx2.wait()
     })
 });
