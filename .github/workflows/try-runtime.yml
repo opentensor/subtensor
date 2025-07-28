@@ -60,7 +60,8 @@ jobs:
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          key: "try-runtime"
+          key: try-runtime
+          cache-on-failure: true
 
       - name: Run Try Runtime Checks
         uses: "paritytech/try-runtime-gha@v0.1.0"

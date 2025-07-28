@@ -6,7 +6,6 @@ use frame_support::pallet_macros::pallet_section;
 #[pallet_section]
 mod config {
 
-    use pallet_evm::AddressMapping;
     use subtensor_swap_interface::SwapHandler;
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
@@ -55,9 +54,6 @@ mod config {
 
         /// Swap interface.
         type SwapInterface: SwapHandler<Self::AccountId>;
-
-        /// Mapping evm address to account Id
-        type AddressMapping: AddressMapping<Self::AccountId>;
 
         /// Interface to allow interacting with the proxy pallet.
         type ProxyInterface: crate::ProxyInterface<Self::AccountId>;

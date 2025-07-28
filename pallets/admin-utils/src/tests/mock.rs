@@ -21,15 +21,6 @@ use sp_weights::Weight;
 use subtensor_runtime_common::NetUid;
 
 type Block = frame_system::mocking::MockBlock<Test>;
-
-pub struct DummyAddressMap;
-
-impl pallet_evm::AddressMapping<AccountId> for DummyAddressMap {
-    fn into_account_id(address: sp_core::H160) -> AccountId {
-        let account = pallet_evm::HashedAddressMapping::<BlakeTwo256>::into_account_id(address);
-        U256::from_big_endian(account.as_ref())
-    }
-}
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
     pub enum Test {
@@ -229,7 +220,6 @@ impl pallet_subtensor::Config for Test {
     type SwapInterface = Swap;
     type KeySwapOnSubnetCost = InitialKeySwapOnSubnetCost;
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
-    type AddressMapping = DummyAddressMap;
     type ProxyInterface = ();
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
 }
