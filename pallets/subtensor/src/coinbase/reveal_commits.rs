@@ -25,6 +25,15 @@ pub struct WeightsTlockPayload {
     pub version_key: u64,
 }
 
+/// For the old structure
+#[derive(Encode, Decode)]
+#[freeze_struct("304e55f41267caa")]
+pub struct LegacyWeightsTlockPayload {
+    pub uids: Vec<u16>,
+    pub values: Vec<u16>,
+    pub version_key: u64,
+}
+
 impl<T: Config> Pallet<T> {
     /// The `reveal_crv3_commits` function is run at the very beginning of epoch `n`,
     pub fn reveal_crv3_commits(netuid: NetUid) -> dispatch::DispatchResult {
@@ -51,7 +60,7 @@ impl<T: Config> Pallet<T> {
         let mut entries = CRV3WeightCommitsV2::<T>::take(netuid, reveal_epoch);
         let mut unrevealed = VecDeque::new();
 
-        // Keep popping item off the end of the queue until we sucessfully reveal a commit.
+        // Keep popping items off the front of the queue until we successfully reveal a commit.
         while let Some((who, commit_block, serialized_compresssed_commit, round_number)) =
             entries.pop_front()
         {
@@ -127,50 +136,63 @@ impl<T: Config> Pallet<T> {
                 }
             };
 
-            // Decrypt the bytes into WeightsPayload
-            let mut reader = &decrypted_bytes[..];
-            let payload: WeightsTlockPayload = match Decode::decode(&mut reader) {
-                Ok(w) => w,
-                Err(e) => {
-                    log::warn!(
-                        "Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing WeightsPayload: {:?}",
-                        netuid,
-                        who,
-                        e
-                    );
-                    continue;
+            // ------------------------------------------------------------------
+            // Try to decode payload with the new and legacy formats.
+            // ------------------------------------------------------------------
+            let (uids, values, version_key) = {
+                let mut reader_new = &decrypted_bytes[..];
+                if let Ok(payload) = WeightsTlockPayload::decode(&mut reader_new) {
+                    // Verify hotkey matches committer
+                    let mut hk_reader = &payload.hotkey[..];
+                    match T::AccountId::decode(&mut hk_reader) {
+                        Ok(decoded_hotkey) if decoded_hotkey == who => {
+                            (payload.uids, payload.values, payload.version_key)
+                        }
+                        Ok(_) => {
+                            log::warn!(
+                                "Failed to reveal commit for subnet {} submitted by {:?} due to hotkey mismatch in payload",
+                                netuid,
+                                who
+                            );
+                            continue;
+                        }
+                        Err(e) => {
+                            log::warn!(
+                                "Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing hotkey: {:?}",
+                                netuid,
+                                who,
+                                e
+                            );
+                            continue;
+                        }
+                    }
+                } else {
+                    // Fallback to legacy payload
+                    let mut reader_legacy = &decrypted_bytes[..];
+                    match LegacyWeightsTlockPayload::decode(&mut reader_legacy) {
+                        Ok(legacy) => (legacy.uids, legacy.values, legacy.version_key),
+                        Err(e) => {
+                            log::warn!(
+                                "Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing both payload formats: {:?}",
+                                netuid,
+                                who,
+                                e
+                            );
+                            continue;
+                        }
+                    }
                 }
             };
 
-            // Verify the hotkey in the payload matches the committer
-            let mut hotkey_reader = &payload.hotkey[..];
-            let decoded_hotkey: T::AccountId = match Decode::decode(&mut hotkey_reader) {
-                Ok(h) => h,
-                Err(e) => {
-                    log::warn!(
-                        "Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing hotkey: {:?}",
-                        netuid,
-                        who,
-                        e
-                    );
-                    continue;
-                }
-            };
-            if decoded_hotkey != who {
-                log::warn!(
-                    "Failed to reveal commit for subnet {} submitted by {:?} due to hotkey mismatch in payload",
-                    netuid,
-                    who
-                );
-                continue;
-            }
-
+            // ------------------------------------------------------------------
+            //                          Apply weights
+            // ------------------------------------------------------------------
             if let Err(e) = Self::do_set_weights(
                 T::RuntimeOrigin::signed(who.clone()),
                 netuid,
-                payload.uids,
-                payload.values,
-                payload.version_key,
+                uids,
+                values,
+                version_key,
             ) {
                 log::warn!(
                     "Failed to `do_set_weights` for subnet {} submitted by {:?}: {:?}",
@@ -179,9 +201,9 @@ impl<T: Config> Pallet<T> {
                     e
                 );
                 continue;
-            } else {
-                Self::deposit_event(Event::CRV3WeightsRevealed(netuid, who));
-            };
+            }
+
+            Self::deposit_event(Event::CRV3WeightsRevealed(netuid, who));
         }
 
         if !unrevealed.is_empty() {
