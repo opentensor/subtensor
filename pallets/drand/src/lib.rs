@@ -93,6 +93,7 @@ const CHAIN_HASH: &str = QUICKNET_CHAIN_HASH;
 
 pub const MAX_PULSES_TO_FETCH: u64 = 50;
 pub const MAX_KEPT_PULSES: u64 = 864_000; // 1 month
+pub const MAX_REMOVED_PULSES: u64 = 100;
 
 /// Defines application identifier for crypto keys of this module.
 ///
@@ -673,9 +674,13 @@ impl<T: Config> Pallet<T> {
             return;
         }
 
-        while last_stored_round.saturating_sub(oldest) + 1 > MAX_KEPT_PULSES {
+        let mut removed: u64 = 0;
+        while last_stored_round.saturating_sub(oldest) + 1 > MAX_KEPT_PULSES
+            && removed < MAX_REMOVED_PULSES
+        {
             Pulses::<T>::remove(oldest);
             oldest = oldest.saturating_add(1);
+            removed = removed.saturating_add(1);
         }
 
         OldestStoredRound::<T>::put(oldest);
