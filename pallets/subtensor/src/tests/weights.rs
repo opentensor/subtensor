@@ -30,7 +30,7 @@ use w3f_bls::EngineBLS;
 
 use super::mock;
 use super::mock::*;
-use crate::coinbase::reveal_commits::WeightsTlockPayload;
+use crate::coinbase::reveal_commits::{LegacyWeightsTlockPayload, WeightsTlockPayload};
 use crate::*;
 
 /***************************
@@ -6908,5 +6908,149 @@ fn test_reveal_crv3_commits_retry_on_missing_pulse() {
         // Check commit removed from storage
         let commits = CRV3WeightCommitsV2::<Test>::get(netuid, commit_epoch);
         assert!(commits.is_empty(), "Commit should be removed after successful reveal");
+    });
+}
+
+#[test]
+fn test_reveal_crv3_commits_legacy_payload_success() {
+    new_test_ext(100).execute_with(|| {
+        use ark_serialize::CanonicalSerialize;
+
+        // ─────────────────────────────────────
+        // 1 ▸ network + neurons
+        // ─────────────────────────────────────
+        let netuid = NetUid::from(1);
+        let hotkey1: AccountId = U256::from(1);
+        let hotkey2: AccountId = U256::from(2);
+        let reveal_round: u64 = 1_000;
+
+        add_network(netuid, /*tempo*/ 5, /*modality*/ 0);
+        register_ok_neuron(netuid, hotkey1, U256::from(3), 100_000);
+        register_ok_neuron(netuid, hotkey2, U256::from(4), 100_000);
+
+        SubtensorModule::set_stake_threshold(0);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        SubtensorModule::set_reveal_period(netuid, 3);
+
+        let uid1 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey1).unwrap();
+        let uid2 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey2).unwrap();
+
+        SubtensorModule::set_validator_permit_for_uid(netuid, uid1, true);
+        SubtensorModule::set_validator_permit_for_uid(netuid, uid2, true);
+
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(3), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(4), 1);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1,
+            &U256::from(3),
+            netuid,
+            1.into(),
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2,
+            &U256::from(4),
+            netuid,
+            1.into(),
+        );
+
+        // ─────────────────────────────────────
+        // 2 ▸ craft legacy payload (NO hotkey)
+        // ─────────────────────────────────────
+        let legacy_payload = LegacyWeightsTlockPayload {
+            uids: vec![uid1, uid2],
+            values: vec![10, 20],
+            version_key: SubtensorModule::get_weights_version_key(netuid),
+        };
+        let serialized_payload = legacy_payload.encode();
+
+        // encrypt with TLE
+        let esk = [2u8; 32];
+        let rng = ChaCha20Rng::seed_from_u64(0);
+
+        let pk_bytes = hex::decode(
+            "83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c\
+             8c4b450b6a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb\
+             5ed66304de9cf809bd274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a",
+        )
+        .unwrap();
+        let pk =
+            <TinyBLS381 as EngineBLS>::PublicKeyGroup::deserialize_compressed(&*pk_bytes).unwrap();
+
+        let msg_hash = {
+            let mut h = sha2::Sha256::new();
+            h.update(reveal_round.to_be_bytes());
+            h.finalize().to_vec()
+        };
+        let identity = Identity::new(b"", vec![msg_hash]);
+
+        let ct = tle::<TinyBLS381, AESGCMStreamCipherProvider, ChaCha20Rng>(
+            pk,
+            esk,
+            &serialized_payload,
+            identity,
+            rng,
+        )
+        .expect("encryption must succeed");
+
+        let mut commit_bytes = Vec::new();
+        ct.serialize_compressed(&mut commit_bytes).unwrap();
+        let bounded_commit: BoundedVec<_, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>> =
+            commit_bytes.clone().try_into().unwrap();
+
+        // ─────────────────────────────────────
+        // 3 ▸ put commit on‑chain
+        // ─────────────────────────────────────
+        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+            RuntimeOrigin::signed(hotkey1),
+            netuid,
+            bounded_commit,
+            reveal_round
+        ));
+
+        // insert pulse so reveal can succeed the first time
+        let sig_bytes = hex::decode(
+            "b44679b9a59af2ec876b1a6b1ad52ea9b1615fc3982b19576350f93447cb1125e3\
+             42b73a8dd2bacbe47e4b6b63ed5e39",
+        )
+        .unwrap();
+        pallet_drand::Pulses::<Test>::insert(
+            reveal_round,
+            Pulse {
+                round: reveal_round,
+                randomness: vec![0; 32].try_into().unwrap(),
+                signature: sig_bytes.try_into().unwrap(),
+            },
+        );
+
+        let commit_block = SubtensorModule::get_current_block_as_u64();
+        let commit_epoch = SubtensorModule::get_epoch_index(netuid, commit_block);
+
+        // ─────────────────────────────────────
+        // 4 ▸ advance epochs to trigger reveal
+        // ─────────────────────────────────────
+        step_epochs(3, netuid);
+
+        // ─────────────────────────────────────
+        // 5 ▸ assertions
+        // ─────────────────────────────────────
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let w1 = weights_sparse
+            .get(uid1 as usize)
+            .cloned()
+            .unwrap_or_default();
+        assert!(!w1.is_empty(), "weights must be set for uid1");
+
+        // find raw values for uid1 & uid2
+        let w_map: std::collections::HashMap<_, _> = w1.into_iter().collect();
+        let v1 = *w_map.get(&uid1).expect("uid1 weight");
+        let v2 = *w_map.get(&uid2).expect("uid2 weight");
+        assert!(v2 > v1, "uid2 weight should be greater than uid1 (20 > 10)");
+
+        // commit should be gone
+        assert!(
+            CRV3WeightCommitsV2::<Test>::get(netuid, commit_epoch).is_empty(),
+            "commit storage should be cleaned after reveal"
+        );
     });
 }
