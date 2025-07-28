@@ -353,16 +353,6 @@ export async function setMaxChildkeyTake(api: TypedApi<typeof devnet>, take: num
     await waitForTransactionWithRetry(api, tx, alice)
 }
 
-// use the alice as wrong mapped account to send extrinsic
-export async function setPureProxyAccount(api: TypedApi<typeof devnet>, address: string, account: string) {
-    const alice = getAliceSigner()
-    const call = api.tx.SubtensorModule.set_pure_proxy_account({
-        address: ethAddressToH160(address),
-        account
-    })
-    await waitForTransactionWithRetry(api, call, alice)
-}
-
 // Swap coldkey to contract address
 export async function swapColdkey(
     api: TypedApi<typeof devnet>,
