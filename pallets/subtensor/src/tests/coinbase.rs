@@ -325,12 +325,12 @@ fn test_coinbase_alpha_issuance_base() {
         SubtensorModule::run_coinbase(U96F32::from_num(emission));
         // tao_in = 500_000
         // alpha_in = calculate_injected_alpha
-        let tao_in = 500_000_u64;
+        let tao_in = U96F32::from_num(500_000);
         let expected_alpha_emission_1 =
-            <Test as Config>::SwapInterface::calculate_injected_alpha(netuid1, tao_in.into())
+            (<Test as Config>::SwapInterface::get_current_alpha_per_tao(netuid1) * tao_in)
                 .to_num::<u64>();
         let expected_alpha_emission_2 =
-            <Test as Config>::SwapInterface::calculate_injected_alpha(netuid2, tao_in.into())
+            (<Test as Config>::SwapInterface::get_current_alpha_per_tao(netuid2) * tao_in)
                 .to_num::<u64>();
 
         assert_ne!(expected_alpha_emission_1, 0);
@@ -388,13 +388,13 @@ fn test_coinbase_alpha_issuance_different() {
 
         // tao_in = 333_333 and 666_666
         // alpha_in = calculate_injected_alpha
-        let tao_in_1 = 333_333_u64;
-        let tao_in_2 = 666_667_u64;
+        let tao_in_1 = U96F32::from_num(333_333);
+        let tao_in_2 = U96F32::from_num(666_667);
         let expected_alpha_emission_1 =
-            <Test as Config>::SwapInterface::calculate_injected_alpha(netuid1, tao_in_1.into())
+            (<Test as Config>::SwapInterface::get_current_alpha_per_tao(netuid1) * tao_in_1)
                 .to_num::<u64>();
         let expected_alpha_emission_2 =
-            <Test as Config>::SwapInterface::calculate_injected_alpha(netuid2, tao_in_2.into())
+            (<Test as Config>::SwapInterface::get_current_alpha_per_tao(netuid1) * tao_in_2)
                 .to_num::<u64>();
 
         assert_ne!(expected_alpha_emission_1, 0);
@@ -418,7 +418,7 @@ fn test_coinbase_alpha_issuance_with_cap_trigger() {
     new_test_ext(1).execute_with(|| {
         let netuid1 = NetUid::from(1);
         let netuid2 = NetUid::from(2);
-        let emission: u64 = 1_000_000;
+        let emission: u64 = 1_000_000_000;
         add_network(netuid1, 1, 0);
         add_network(netuid2, 1, 0);
         // Make subnets dynamic.
@@ -426,12 +426,12 @@ fn test_coinbase_alpha_issuance_with_cap_trigger() {
         SubnetMechanism::<Test>::insert(netuid2, 1);
 
         // Setup prices 0.000001
-        let initial_tao: u64 = 1_000;
-        let initial_alpha = initial_tao * 1000000;
+        let initial_tao: u64 = 1_000_000_000;
+        let initial_alpha = initial_tao;
         SubnetTAO::<Test>::insert(netuid1, initial_tao);
-        SubnetAlphaIn::<Test>::insert(netuid1, AlphaCurrency::from(initial_alpha)); // Make price extremely low.
+        SubnetAlphaIn::<Test>::insert(netuid1, AlphaCurrency::from(initial_alpha));
         SubnetTAO::<Test>::insert(netuid2, initial_tao);
-        SubnetAlphaIn::<Test>::insert(netuid2, AlphaCurrency::from(initial_alpha)); // Make price extremely low.
+        SubnetAlphaIn::<Test>::insert(netuid2, AlphaCurrency::from(initial_alpha));
         mock::setup_reserves(netuid1, initial_tao, initial_alpha.into());
         mock::setup_reserves(netuid2, initial_tao, initial_alpha.into());
 
@@ -441,6 +441,10 @@ fn test_coinbase_alpha_issuance_with_cap_trigger() {
         SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
         SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
 
+        // Set alpha out to 21M/2 to partially cap alpha issuance (for netuid2 only)
+        SubnetAlphaOut::<Test>::insert(netuid1, AlphaCurrency::from(10_500_000_000_000_000_u64));
+        SubnetAlphaOut::<Test>::insert(netuid2, AlphaCurrency::from(10_500_000_000_000_000_u64));
+
         // Force the swap to initialize
         SubtensorModule::swap_tao_for_alpha(netuid1, 0, 1_000_000_000_000).unwrap();
         SubtensorModule::swap_tao_for_alpha(netuid2, 0, 1_000_000_000_000).unwrap();
@@ -448,21 +452,24 @@ fn test_coinbase_alpha_issuance_with_cap_trigger() {
         // Run coinbase
         SubtensorModule::run_coinbase(U96F32::from_num(emission));
 
-        // tao_in = 333_333, 666_666
-        let tao_in_1 = 333_333_u64;
-        let tao_in_2 = 666_666_u64;
-        let expected_alpha_emission_1 = 1_000_000_000;
-        let expected_alpha_emission_2 = 1_000_000_000;
+        let expected_alpha_emission_1 = 333_333_333;
+        let expected_alpha_emission_2 = 500_000_000;
 
-        assert_ne!(expected_alpha_emission_1, 0);
-        assert_ne!(expected_alpha_emission_2, 0);
         assert_eq!(
             u64::from(SubnetAlphaIn::<Test>::get(netuid1)),
             initial_alpha + expected_alpha_emission_1,
         );
         assert_eq!(
+            u64::from(SubnetTAO::<Test>::get(netuid1)),
+            initial_tao + expected_alpha_emission_1, // price == 1
+        );
+        assert_eq!(
             u64::from(SubnetAlphaIn::<Test>::get(netuid2)),
             initial_alpha + expected_alpha_emission_2,
+        );
+        assert_eq!(
+            u64::from(SubnetTAO::<Test>::get(netuid2)),
+            initial_tao + expected_alpha_emission_2, // price == 1
         );
     });
 }
@@ -566,13 +573,13 @@ fn test_coinbase_alpha_issuance_tiny_ema_prices() {
 
         // tao_in = 333_333 and 666_666
         // alpha_in = calculate_injected_alpha
-        let tao_in_1 = 333_333_u64;
-        let tao_in_2 = 666_667_u64;
+        let tao_in_1 = U96F32::from_num(333_333);
+        let tao_in_2 = U96F32::from_num(666_667);
         let expected_alpha_emission_1 =
-            <Test as Config>::SwapInterface::calculate_injected_alpha(netuid1, tao_in_1.into())
+            (<Test as Config>::SwapInterface::get_current_alpha_per_tao(netuid1) * tao_in_1)
                 .to_num::<u64>();
         let expected_alpha_emission_2 =
-            <Test as Config>::SwapInterface::calculate_injected_alpha(netuid2, tao_in_2.into())
+            (<Test as Config>::SwapInterface::get_current_alpha_per_tao(netuid1) * tao_in_2)
                 .to_num::<u64>();
 
         assert_ne!(expected_alpha_emission_1, 0);

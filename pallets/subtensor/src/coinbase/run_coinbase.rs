@@ -71,9 +71,14 @@ impl<T: Config> Pallet<T> {
             );
             log::debug!("alpha_emission_i: {:?}", alpha_emission_i);
             // Get initial alpha_in
-            let alpha_in_i: U96F32 =
-                T::SwapInterface::calculate_injected_alpha(NetUid::from(*netuid_i), tao_in_i)
-                    .min(alpha_emission_i);
+            let alpha_per_tao =
+                T::SwapInterface::get_current_alpha_per_tao(NetUid::from(*netuid_i));
+            let alpha_in_i: U96F32 = if alpha_per_tao.saturating_mul(tao_in_i) > alpha_emission_i {
+                tao_in_i = alpha_emission_i.safe_div(alpha_per_tao);
+                alpha_emission_i
+            } else {
+                alpha_per_tao.saturating_mul(tao_in_i)
+            };
             log::debug!("alpha_in_i: {:?}", alpha_in_i);
             // Get alpha_out.
             let alpha_out_i = alpha_emission_i;
