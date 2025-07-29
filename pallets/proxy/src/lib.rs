@@ -579,7 +579,7 @@ pub mod pallet {
         ///   want to use `0`.
         /// - `evm_address`: The EVM address of the account to create a pure proxy for.
         #[pallet::call_index(11)]
-        #[pallet::weight(T::WeightInfo::create_pure(T::MaxProxies::get()))]
+        #[pallet::weight(T::WeightInfo::create_evm_pure(T::MaxProxies::get()))]
         pub fn create_evm_pure(
             origin: OriginFor<T>,
             proxy_type: T::ProxyType,

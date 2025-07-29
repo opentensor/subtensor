@@ -60,6 +60,7 @@ pub trait WeightInfo {
 	fn remove_proxy(p: u32, ) -> Weight;
 	fn remove_proxies(p: u32, ) -> Weight;
 	fn create_pure(p: u32, ) -> Weight;
+	fn create_evm_pure(p: u32, ) -> Weight;
 	fn kill_pure(p: u32, ) -> Weight;
 	fn kill_evm_pure(p: u32, ) -> Weight;
 }
@@ -224,6 +225,22 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+
+	/// Storage: `Proxy::Proxies` (r:1 w:1)
+	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
+	/// The range of component `p` is `[1, 31]`.
+	fn create_evm_pure(p: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `173`
+		//  Estimated: `4706`
+		// Minimum execution time: 22_809_000 picoseconds.
+		Weight::from_parts(23_878_644, 4706)
+			// Standard Error: 1_600
+			.saturating_add(Weight::from_parts(10_149, 0).saturating_mul(p.into()))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+
 	/// Storage: `Proxy::Proxies` (r:1 w:1)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[0, 30]`.
@@ -414,6 +431,22 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
+
+	/// Storage: `Proxy::Proxies` (r:1 w:1)
+	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
+	/// The range of component `p` is `[1, 31]`.
+	fn create_evm_pure(p: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `173`
+		//  Estimated: `4706`
+		// Minimum execution time: 22_809_000 picoseconds.
+		Weight::from_parts(23_878_644, 4706)
+			// Standard Error: 1_600
+			.saturating_add(Weight::from_parts(10_149, 0).saturating_mul(p.into()))
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+
 	/// Storage: `Proxy::Proxies` (r:1 w:1)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[0, 30]`.
