@@ -80,10 +80,17 @@ fn initialize_pallet_staking() {
             balance,
             status
         );
-        assert!(
-            Balances::usable_balance(account) >= balance,
-            "Account does not have enough balance to bond."
-        );
+        if Balances::usable_balance(account) < balance {
+            use frame_support::traits::fungible::Mutate;
+            log::warn!(
+                "Account {:?} does not have enough balance to bond ({:?} < {:?}). Topping it up with bond amount.",
+                account,
+                Balances::usable_balance(account),
+                balance
+            );
+            // If the account does not have enough balance, we top it up with the bond amount.
+            let _ = Balances::mint_into(account, balance);
+        }
         match <pallet_staking::Pallet<Runtime>>::bond(
             RawOrigin::Signed(account.clone()).into(),
             balance,
@@ -326,6 +333,18 @@ fn babe_to_grandpa_id(babe: BabeAuthorityId) -> Option<GrandpaId> {
         // Finney Validator 20
         "5D7fthS7zBDhwi2u2JYd74t7FpQuseDkUkTuaLZoenXNpXPK" => {
             GrandpaId::from_ss58check("5DhAKQ4MFg39mQAYzndzbznLGqSV4VMUJUyRXe8QPDqD5G1D").ok()
+        }
+        // Greg Baedeker Alice
+        "5G6okTjVk3urYHR1MyJLXmF6AtSvZ9qiwzWhCatNBXV9JMJd" => {
+            GrandpaId::from_ss58check("5DRcVKY6Ccs6MotaMdaDDX7zzjeQ3V4LvyRJHDz4wgJhcC1K").ok()
+        }
+        // Greg Baedeker Bob
+        "5Fy1xpe81NRpEBMc8h4wVwmcHBM3W7L6W16qLiaJpzcTVv7A" => {
+            GrandpaId::from_ss58check("5F2BcLPjTQJWFgZZPCjR5YSb9CRUGqnKg7ZJFpgbaBrSXFrY").ok()
+        }
+        // Greg Baedeker Charlie
+        "5Fe2G9aGa7izEN1XvFNc3eMGPbJBgswGScPbBVuMcwngcow8" => {
+            GrandpaId::from_ss58check("5Gck7HYTpoK1qY6nYTDxBPPU1maSfkMnZBVY7Q2RqERoGrzX").ok()
         }
         _ => None,
     };
