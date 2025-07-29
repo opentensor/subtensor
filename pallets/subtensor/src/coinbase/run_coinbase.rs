@@ -96,7 +96,7 @@ impl<T: Config> Pallet<T> {
                 if let Ok(buy_swap_result_ok) = buy_swap_result {
                     let bought_alpha = AlphaCurrency::from(buy_swap_result_ok.amount_paid_out);
                     SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
-                        *total = total.saturating_add(bought_alpha);
+                        *total = total.saturating_sub(bought_alpha);
                     });
                 }
                 is_subsidized.insert(*netuid_i, true);
