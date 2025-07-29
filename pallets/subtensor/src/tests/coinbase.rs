@@ -2388,7 +2388,7 @@ fn test_coinbase_v3_liquidity_update() {
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
         // Force the swap to initialize
-        SubtensorModule::swap_tao_for_alpha(netuid, 0, 1_000_000_000_000).unwrap();
+        SubtensorModule::swap_tao_for_alpha(netuid, 0, 1_000_000_000_000, false).unwrap();
 
         let protocol_account_id = pallet_subtensor_swap::Pallet::<Test>::protocol_account_id();
         let position = pallet_subtensor_swap::Positions::<Test>::get((
