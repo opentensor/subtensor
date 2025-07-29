@@ -16,6 +16,7 @@ use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, log};
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_core::H256;
+use sp_runtime::key_types;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 use std::collections::HashSet;
 use std::str::FromStr;
@@ -93,6 +94,12 @@ pub fn new_partial(
             telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
             executor,
         )?;
+
+    // Prepare keystore for authoring Babe blocks.
+    log::trace!("Populating BABE key types...");
+    keystore_container
+        .local_keystore()
+        .copy_keys(key_types::AURA, key_types::BABE)?;
 
     let client = Arc::new(client);
 
