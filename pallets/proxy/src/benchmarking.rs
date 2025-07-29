@@ -267,7 +267,8 @@ benchmarks! {
                 RawOrigin::Signed(caller.clone()).into(),
                 T::ProxyType::default(),
                 BlockNumberFor::<T>::zero(),
-                index as u16
+                index as u16,
+                evm_address
             )?;
         }
 
