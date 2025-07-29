@@ -259,7 +259,7 @@ benchmarks! {
 
     kill_evm_pure {
         let evm_address = H160::from_slice(&[1; 20]);
-        let caller = AddressMapping::<T>::into_account_id(evm_address);
+        let caller: T::AccountId = AddressMapping::<T>::into_account_id(evm_address);
         T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 
         for index in 0..T::MaxProxies::get() {
