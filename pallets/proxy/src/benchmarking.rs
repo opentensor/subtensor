@@ -272,7 +272,7 @@ benchmarks! {
             )?;
         }
 
-        let proxy: T::AccountId = EVMProxies::<T>::get(evm_address).last();
+        let proxy: &T::AccountId = EVMProxies::<T>::get(evm_address).last().unwrap();
         ensure!(Proxies::<T>::contains_key(&proxy), "pure proxy not created");
     }: _(RawOrigin::Signed(caller.clone()), evm_address, proxy)
     verify {
