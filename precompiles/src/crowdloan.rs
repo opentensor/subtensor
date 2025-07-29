@@ -48,7 +48,7 @@ where
     ) -> EvmResult<CrowdloanInfo> {
         let crowdloan = pallet_crowdloan::Crowdloans::<R>::get(crowdloan_id).ok_or(
             PrecompileFailure::Error {
-                exit_status: ExitError::InvalidRange,
+                exit_status: ExitError::Other("Crowdloan not found".into()),
             },
         )?;
 
@@ -80,7 +80,7 @@ where
         let coldkey = R::AccountId::from(coldkey.0);
         let contribution = pallet_crowdloan::Contributions::<R>::get(crowdloan_id, coldkey).ok_or(
             PrecompileFailure::Error {
-                exit_status: ExitError::InvalidRange,
+                exit_status: ExitError::Other("Crowdloan or contribution not found".into()),
             },
         )?;
 
