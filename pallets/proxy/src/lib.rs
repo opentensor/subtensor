@@ -612,7 +612,7 @@ pub mod pallet {
         /// Parameters:
         /// - `evm_address`: The EVM address of the account to kill.
         #[pallet::call_index(12)]
-        #[pallet::weight(T::WeightInfo::kill_pure(T::MaxProxies::get()))]
+        #[pallet::weight(T::WeightInfo::kill_evm_pure(T::MaxProxies::get()))]
         pub fn kill_evm_pure(
             origin: OriginFor<T>,
             evm_address: H160,
