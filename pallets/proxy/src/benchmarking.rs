@@ -273,7 +273,7 @@ benchmarks! {
         }
 
         let proxies = EVMProxies::<T>::get(evm_address);
-        let last_proxy = proxies.get(T::MaxProxies::get().saturating_sub(1)).ok_or("pure proxy not created")?;
+        let last_proxy = proxies.get(T::MaxProxies::get().saturating_sub(1) as usize).ok_or("last pure proxy not found")?;
         ensure!(Proxies::<T>::contains_key(last_proxy), "pure proxy not created");
     }: _(RawOrigin::Signed(caller.clone()), evm_address, last_proxy.clone())
     verify {
