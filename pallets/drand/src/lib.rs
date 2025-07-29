@@ -92,7 +92,7 @@ pub const QUICKNET_CHAIN_HASH: &str =
 const CHAIN_HASH: &str = QUICKNET_CHAIN_HASH;
 
 pub const MAX_PULSES_TO_FETCH: u64 = 50;
-pub const MAX_KEPT_PULSES: u64 = 864_000; // 1 month
+pub const MAX_KEPT_PULSES: u64 = 216_000; // 1 week
 pub const MAX_REMOVED_PULSES: u64 = 100;
 
 /// Defines application identifier for crypto keys of this module.
