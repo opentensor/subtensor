@@ -67,6 +67,19 @@ where
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
     }
 
+    #[precompile::public("killPureProxy(bytes32)")]
+    #[precompile::payable]
+    pub fn kill_pure_proxy(handle: &mut impl PrecompileHandle, proxy: H256) -> EvmResult<()> {
+        let account_id = handle.caller_account_id::<R>();
+
+        let call = pallet_proxy::Call::<R>::kill_evm_pure {
+            proxy: proxy.0.into(),
+            evm_address: handle.context().caller,
+        };
+
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+    }
+
     #[precompile::public("pureProxyCall(bytes32,uint8[])")]
     #[precompile::payable]
     pub fn pure_proxy_call(

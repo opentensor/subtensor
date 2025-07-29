@@ -257,5 +257,26 @@ benchmarks! {
         assert!(!Proxies::<T>::contains_key(&pure_account));
     }
 
+    kill_evm_pure {
+        let evm_address = H160::from_slice(&[1; 20]);
+        let caller = AddressMapping::<T>::into_account_id(evm_address);
+        T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+
+        for index in 0..T::MaxProxies::get() {
+            Pallet::<T>::create_evm_pure(
+                RawOrigin::Signed(caller.clone()).into(),
+                T::ProxyType::default(),
+                BlockNumberFor::<T>::zero(),
+                index as u16
+            )?;
+        }
+
+        let proxy = EVMProxies::<T>::get(evm_address).last().unwrap();
+        ensure!(Proxies::<T>::contains_key(&proxy), "pure proxy not created");
+    }: _(RawOrigin::Signed(caller.clone()), evm_address, proxy)
+    verify {
+        assert!(!Proxies::<T>::contains_key(&proxy));
+    }
+
     impl_benchmark_test_suite!(Proxy, crate::tests::new_test_ext(), crate::tests::Test);
 }
