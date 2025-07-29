@@ -37,12 +37,12 @@ pub struct LegacyWeightsTlockPayload {
 impl<T: Config> Pallet<T> {
     /// The `reveal_crv3_commits` function is run at the very beginning of epoch `n`,
     pub fn reveal_crv3_commits(netuid: NetUid) -> dispatch::DispatchResult {
+        let reveal_period = Self::get_reveal_period(netuid);
         let cur_block = Self::get_current_block_as_u64();
         let cur_epoch = Self::get_epoch_index(netuid, cur_block);
 
         // Weights revealed must have been committed during epoch `cur_epoch - reveal_period`.
-        let reveal_epoch =
-            cur_epoch.saturating_sub(Self::get_reveal_period(netuid).saturating_sub(1));
+        let reveal_epoch = cur_epoch.saturating_sub(reveal_period);
 
         // Clean expired commits
         for (epoch, _) in CRV3WeightCommitsV2::<T>::iter_prefix(netuid) {
@@ -52,7 +52,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // No commits to reveal until at least epoch reveal_period.
-        if cur_epoch < Self::get_reveal_period(netuid) {
+        if cur_epoch < reveal_period {
             log::warn!("Failed to reveal commit for subnet {} Too early", netuid);
             return Ok(());
         }
