@@ -273,7 +273,7 @@ benchmarks! {
         let last_proxy = proxies.get(T::MaxProxies::get().saturating_sub(1) as usize).ok_or("last pure proxy not found")?;
         ensure!(Proxies::<T>::contains_key(last_proxy), "pure proxy not created");
         assert_last_event::<T>(Event::PureCreated {
-            pure: last_proxy,
+            pure: last_proxy.clone(),
             who: caller,
             proxy_type: T::ProxyType::default(),
             disambiguation_index: 0,
