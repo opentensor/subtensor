@@ -39,6 +39,7 @@ fn test_stake_base_case() {
                 netuid,
                 tao_to_swap,
                 <Test as Config>::SwapInterface::max_price(),
+                false,
             )
             .unwrap()
             .amount_paid_out,
