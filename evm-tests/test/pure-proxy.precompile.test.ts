@@ -77,6 +77,13 @@ describe("Test pure proxy precompile", () => {
             const proxyAddressAfterCreate = await contract.getPureProxy();
             assert.equal(proxyAddressAfterCreate.length, initProxyCount + i + 1, "proxy should be set")
         }
+
+        const proxyAddressAfterCreate = await contract.getPureProxy();
+        const newProxyCount = proxyAddressBeforeCreate.length
+        const removedProxy = proxyAddressAfterCreate.get(newProxyCount - 1)
+
+        const tx = await contract.removePureProxy(removedProxy)
+        await tx.wait()
     })
 
     it("Call createPureProxy, edge cases", async () => {
