@@ -25,6 +25,19 @@ export const IPureProxyABI = [
         "inputs": [
             {
                 "internalType": "bytes32",
+                "name": "proxy",
+                "type": "bytes32"
+            }
+        ],
+        "name": "killPureProxy",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
                 "name": "real",
                 "type": "bytes32"
             },

@@ -73,16 +73,16 @@ describe("Test pure proxy precompile", () => {
         for (let i = 0; i < 10; i++) {
             const tx = await contract.createPureProxy()
             await tx.wait()
-
             const proxyAddressAfterCreate = await contract.getPureProxy();
             assert.equal(proxyAddressAfterCreate.length, initProxyCount + i + 1, "proxy should be set")
         }
 
         const proxyAddressAfterCreate = await contract.getPureProxy();
-        const newProxyCount = proxyAddressBeforeCreate.length
-        const removedProxy = proxyAddressAfterCreate.get(newProxyCount - 1)
+        const newProxyCount = proxyAddressAfterCreate.length
+        const removedProxy = proxyAddressAfterCreate[newProxyCount - 1]
 
-        const tx = await contract.removePureProxy(removedProxy)
+
+        const tx = await contract.killPureProxy(removedProxy)
         await tx.wait()
     })
 

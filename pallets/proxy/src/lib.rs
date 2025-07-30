@@ -618,14 +618,28 @@ pub mod pallet {
             evm_address: H160,
             proxy: T::AccountId,
         ) -> DispatchResult {
+            log::error!("kill_evm_pure: {:?}", proxy);
+            log::error!("========= {:?} {:?}", file!(), line!());
             let who = ensure_signed(origin)?;
+
+            log::error!("who: {:?}", who);
+            log::error!("========= {:?} {:?}", file!(), line!());
 
             let owner: T::AccountId = T::AddressMapping::into_account_id(evm_address);
 
+            log::error!("owner: {:?}", owner);
+            log::error!("========= {:?} {:?}", file!(), line!());
+
             ensure!(who == owner, Error::<T>::OriginNotMatchMappedEVM);
+
+            log::error!("who == owner: {:?}", who == owner);
+            log::error!("========= {:?} {:?}", file!(), line!());
 
             let proxies = EVMProxies::<T>::get(evm_address);
             let index = proxies.iter().position(|p| p == &proxy);
+
+            log::error!("index: {:?}", index);
+            log::error!("========= {:?} {:?}", file!(), line!());
 
             match index {
                 Some(i) => {
