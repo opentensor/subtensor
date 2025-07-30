@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 // solhint-disable-next-line
-address constant IPURE_PROXY_ADDRESS = 0x000000000000000000000000000000000000080a;
+address constant IPURE_PROXY_ADDRESS = 0x000000000000000000000000000000000000080b;
 
 interface IPureProxy {
     function createPureProxy() external;

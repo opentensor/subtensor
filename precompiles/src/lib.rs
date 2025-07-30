@@ -29,6 +29,7 @@ use crate::balance_transfer::*;
 use crate::crowdloan::*;
 use crate::ed25519::*;
 use crate::extensions::*;
+use crate::leasing::*;
 use crate::metagraph::*;
 use crate::neuron::*;
 use crate::pure_proxy::*;
@@ -43,6 +44,7 @@ mod balance_transfer;
 mod crowdloan;
 mod ed25519;
 mod extensions;
+mod leasing;
 mod metagraph;
 mod neuron;
 mod pure_proxy;
@@ -128,6 +130,7 @@ where
             hash(UidLookupPrecompile::<R>::INDEX),
             hash(AlphaPrecompile::<R>::INDEX),
             hash(CrowdloanPrecompile::<R>::INDEX),
+            hash(LeasingPrecompile::<R>::INDEX),
             hash(PureProxyPrecompile::<R>::INDEX),
         ]
     }
@@ -208,6 +211,9 @@ where
             }
             a if a == hash(CrowdloanPrecompile::<R>::INDEX) => {
                 CrowdloanPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Crowdloan)
+            }
+            a if a == hash(LeasingPrecompile::<R>::INDEX) => {
+                LeasingPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Leasing)
             }
             a if a == hash(PureProxyPrecompile::<R>::INDEX) => {
                 PureProxyPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::PureProxy)

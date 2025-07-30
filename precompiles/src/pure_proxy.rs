@@ -30,7 +30,7 @@ where
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
-    const INDEX: u64 = 2058;
+    const INDEX: u64 = 2059;
 }
 
 #[precompile_utils::precompile]

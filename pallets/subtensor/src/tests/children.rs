@@ -3031,6 +3031,7 @@ fn test_parent_child_chain_emission() {
                 netuid,
                 total_tao.to_num::<u64>(),
                 <Test as Config>::SwapInterface::max_price(),
+                false,
             )
             .unwrap()
             .amount_paid_out,
