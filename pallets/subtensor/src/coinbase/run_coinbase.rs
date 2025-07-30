@@ -114,6 +114,8 @@ impl<T: Config> Pallet<T> {
                 && !Self::get_network_pow_registration_allowed(*netuid_i)
             {
                 tao_in_i = asfloat!(0.0);
+                alpha_in_i = asfloat!(0.0);
+                alpha_out_i = asfloat!(0.0);
             }
             // Insert values into maps
             tao_in.insert(*netuid_i, tao_in_i);
