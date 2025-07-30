@@ -387,6 +387,7 @@ impl pallet_scheduler::Config for Test {
     type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Test>;
     type OriginPrivilegeCmp = OriginPrivilegeCmp;
     type Preimages = ();
+    type BlockNumberProvider = System;
 }
 
 impl pallet_evm_chain_id::Config for Test {}
