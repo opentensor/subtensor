@@ -25,6 +25,7 @@ pub fn migrate_subnet_identities_to_v3<T: Config>() -> Weight {
         "Running migration '{}'",
         String::from_utf8_lossy(&migration_name)
     );
+
     // -----------------------------
     // 1) Migrate Subnet Identities
     // -----------------------------

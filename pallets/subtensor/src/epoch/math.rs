@@ -8,8 +8,9 @@ use sp_runtime::traits::{CheckedAdd, Saturating};
 use sp_std::cmp::Ordering;
 
 use sp_std::vec;
+use substrate_fixed::traits::FixedUnsigned;
 use substrate_fixed::transcendental::{exp, ln};
-use substrate_fixed::types::{I32F32, I64F64};
+use substrate_fixed::types::{I32F32, I64F64, U64F64};
 
 // TODO: figure out what cfg gate this needs to not be a warning in rustc
 #[allow(unused)]
@@ -63,6 +64,12 @@ pub fn fixed_to_fixed_u16_proportion(x: I32F32) -> I32F32 {
 #[allow(dead_code)]
 pub fn fixed_proportion_to_u16(x: I32F32) -> u16 {
     fixed_to_u16(x.saturating_mul(I32F32::saturating_from_num(u16::MAX)))
+}
+
+#[allow(dead_code)]
+pub fn fixed128_to_u64<T: FixedUnsigned>(x: T) -> u64 {
+    x.saturating_mul(T::from_num(u64::MAX))
+        .saturating_to_num::<u64>()
 }
 
 #[allow(dead_code)]
@@ -1329,6 +1336,20 @@ pub fn clamp_value(value: I32F32, low: I32F32, high: I32F32) -> I32F32 {
         // If the value (after the first clamping) is less than 'low', it will be set to 'low'.
         // otherwise it remains unchanged.
         .max(I32F32::from_num(low))
+}
+
+/// Clamp the input value between high and low.
+/// Note: assumes high > low
+pub fn clamp_u64f64(value: U64F64, low: U64F64, high: U64F64) -> U64F64 {
+    // First, clamp the value to ensure it does not exceed the upper bound (high).
+    // If the value is greater than 'high', it will be set to 'high'.
+    // otherwise it remains unchanged.
+    value
+        .min(U64F64::from_num(high))
+        // Next, clamp the value to ensure it does not go below the lower bound (_low).
+        // If the value (after the first clamping) is less than 'low', it will be set to 'low'.
+        // otherwise it remains unchanged.
+        .max(U64F64::from_num(low))
 }
 
 // Return matrix exponential moving average: `alpha * a_ij + one_minus_alpha * b_ij`.

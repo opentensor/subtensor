@@ -1,6 +1,6 @@
 use super::*;
 use safe_math::*;
-use substrate_fixed::types::{U96F32, U110F18};
+use substrate_fixed::types::{U64F64, U96F32, U110F18};
 use subtensor_runtime_common::NetUid;
 
 impl<T: Config + pallet_drand::Config> Pallet<T> {
@@ -17,7 +17,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         // --- 3. Run emission through network.
         Self::run_coinbase(block_emission);
         // --- 4. Update TAO weight (after run_coinbase as we expect emission in the reserves).
-        Self::update_tao_weight(block_emission);
+        Self::update_tao_weight(U64F64::saturating_from_num(block_emission));
         // --- 5. Set pending children on the epoch; but only after the coinbase has been run.
         Self::try_set_pending_children(block_number);
         // Return ok.

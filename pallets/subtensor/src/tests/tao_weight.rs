@@ -7,11 +7,12 @@ use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::{Config, RawOrigin};
 use sp_core::{Get, H160, H256, U256};
 use sp_runtime::SaturatedConversion;
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::{U64F64, U96F32};
 use subtensor_swap_interface::SwapHandler;
 
 use super::mock;
 use super::mock::*;
+use crate::epoch::math::fixed128_to_u64;
 use crate::*;
 
 // SKIP_WASM_BUILD=1 RUST_LOG=DEBUG cargo test --release -p pallet-subtensor test_update_tao_weight_basic_functionality -- --nocapture
@@ -24,7 +25,7 @@ fn test_update_tao_weight_basic_functionality() {
 
         // Set initial TAO reserves and weight
         let initial_reserves = 100_000_000_000_000u64;
-        let initial_weight = U96F32::saturating_from_num(0.15); // 15%
+        let initial_weight = U64F64::saturating_from_num(0.15); // 15%
 
         TaoReservesAtLastBlock::<Test>::set(initial_reserves);
         Pallet::<Test>::set_tao_weight_from_float(initial_weight);
@@ -37,7 +38,7 @@ fn test_update_tao_weight_basic_functionality() {
         let mut subnets = [netuid1, netuid2];
 
         // Set block emission
-        let block_emission = U96F32::saturating_from_num(1_000_000_000u64);
+        let block_emission = U64F64::saturating_from_num(1_000_000_000u64);
 
         // Execute the function
         Pallet::<Test>::update_tao_weight(block_emission);
@@ -65,7 +66,7 @@ fn test_update_tao_weight_overfilled_scenario() {
         TaoReservesAtLastBlock::<Test>::set(initial_reserves);
 
         // Set inital weight at 15%
-        Pallet::<Test>::set_tao_weight_from_float(U96F32::saturating_from_num(0.15));
+        Pallet::<Test>::set_tao_weight_from_float(U64F64::saturating_from_num(0.15));
         let initial_weight_float = Pallet::<Test>::get_tao_weight();
         let initial_weight_u64 = TaoWeight::<Test>::get();
 
@@ -76,7 +77,7 @@ fn test_update_tao_weight_overfilled_scenario() {
         SubnetTAO::<Test>::insert(netuid1, 50_010_000_000_000u64);
         SubnetTAO::<Test>::insert(netuid2, 50_000_000_000_000u64);
 
-        let block_emission = U96F32::saturating_from_num(1_000_000_000u64);
+        let block_emission = U64F64::saturating_from_num(1_000_000_000u64);
 
         // Current total: 100_010_000_000_000, Expected: 100_001_000_000_000, Diff: +9_000_000_000 (overfilled)
         Pallet::<Test>::update_tao_weight(block_emission);
@@ -110,7 +111,7 @@ fn test_update_tao_weight_underfilled_scenario() {
         TaoReservesAtLastBlock::<Test>::set(initial_reserves);
 
         // Set inital weight at 15%
-        Pallet::<Test>::set_tao_weight_from_float(U96F32::saturating_from_num(0.15));
+        Pallet::<Test>::set_tao_weight_from_float(U64F64::saturating_from_num(0.15));
         let initial_weight_float = Pallet::<Test>::get_tao_weight();
         let initial_weight_u64 = TaoWeight::<Test>::get();
 
@@ -121,7 +122,7 @@ fn test_update_tao_weight_underfilled_scenario() {
         SubnetTAO::<Test>::insert(netuid1, 50_000_000_000_000u64);
         SubnetTAO::<Test>::insert(netuid2, 50_000_000_000_000u64);
 
-        let block_emission = U96F32::saturating_from_num(1_000_000_000u64);
+        let block_emission = U64F64::saturating_from_num(1_000_000_000u64);
 
         // Current total: 1100, Expected: 1500, Diff: -400 (underfilled)
         Pallet::<Test>::update_tao_weight(block_emission);
@@ -154,7 +155,7 @@ fn test_update_tao_weight_min_bound_clamping() {
         TaoReservesAtLastBlock::<Test>::set(initial_reserves);
 
         // Set inital weight at min
-        Pallet::<Test>::set_tao_weight_from_float(U96F32::saturating_from_num(0.09));
+        Pallet::<Test>::set_tao_weight_from_float(U64F64::saturating_from_num(0.09));
         let initial_weight_float = Pallet::<Test>::get_tao_weight();
         let initial_weight_u64 = TaoWeight::<Test>::get();
 
@@ -162,7 +163,7 @@ fn test_update_tao_weight_min_bound_clamping() {
         NetworksAdded::<Test>::insert(netuid1, true);
         SubnetTAO::<Test>::insert(netuid1, 50_000_000_000_000u64);
 
-        let block_emission = U96F32::saturating_from_num(1_000_000_000u64);
+        let block_emission = U64F64::saturating_from_num(1_000_000_000u64);
 
         // Current total: 50,000, Expected: 100,001, Diff: -49,999 (underfilled)
         Pallet::<Test>::update_tao_weight(block_emission);
@@ -187,7 +188,7 @@ fn test_update_tao_weight_max_bound_clamping() {
         TaoReservesAtLastBlock::<Test>::set(initial_reserves);
 
         // Set inital weight at max
-        Pallet::<Test>::set_tao_weight_from_float(U96F32::saturating_from_num(0.18));
+        Pallet::<Test>::set_tao_weight_from_float(U64F64::saturating_from_num(0.18));
         let initial_weight_float = Pallet::<Test>::get_tao_weight();
         let initial_weight_u64 = TaoWeight::<Test>::get();
 
@@ -195,7 +196,7 @@ fn test_update_tao_weight_max_bound_clamping() {
         NetworksAdded::<Test>::insert(netuid1, true);
         SubnetTAO::<Test>::insert(netuid1, 150_000_000_000_000u64);
 
-        let block_emission = U96F32::saturating_from_num(1_000_000_000u64);
+        let block_emission = U64F64::saturating_from_num(1_000_000_000u64);
 
         // Current total: 150,000, Expected: 150,001, Diff: +49,999 (overfilled)
         Pallet::<Test>::update_tao_weight(block_emission);
@@ -220,7 +221,7 @@ fn test_update_tao_weight_equal_growth() {
         TaoReservesAtLastBlock::<Test>::set(initial_reserves);
 
         // Set inital weight at max
-        Pallet::<Test>::set_tao_weight_from_float(U96F32::saturating_from_num(0.15));
+        Pallet::<Test>::set_tao_weight_from_float(U64F64::saturating_from_num(0.15));
         let initial_weight_float = Pallet::<Test>::get_tao_weight();
         let initial_weight_u64 = TaoWeight::<Test>::get();
 
@@ -228,7 +229,7 @@ fn test_update_tao_weight_equal_growth() {
         NetworksAdded::<Test>::insert(netuid1, true);
         SubnetTAO::<Test>::insert(netuid1, 100_001_000_000_000u64);
 
-        let block_emission = U96F32::saturating_from_num(1_000_000_000u64);
+        let block_emission = U64F64::saturating_from_num(1_000_000_000u64);
 
         // Current total: 100,001, Expected: 100,001, Diff: 0 (equal growth)
         Pallet::<Test>::update_tao_weight(block_emission);
@@ -255,7 +256,7 @@ fn test_update_tao_weight_full_swing_up() {
         TaoReservesAtLastBlock::<Test>::set(initial_reserves);
 
         // Set inital weight at min
-        Pallet::<Test>::set_tao_weight_from_float(U96F32::saturating_from_num(0.09));
+        Pallet::<Test>::set_tao_weight_from_float(U64F64::saturating_from_num(0.09));
         let initial_weight_float = Pallet::<Test>::get_tao_weight();
         let initial_weight_u64 = TaoWeight::<Test>::get();
 
@@ -266,7 +267,7 @@ fn test_update_tao_weight_full_swing_up() {
         SubnetTAO::<Test>::insert(netuid1, 500_000_000_000_000u64);
         SubnetTAO::<Test>::insert(netuid2, 670_001_000_000_000u64);
 
-        let block_emission = U96F32::saturating_from_num(1_000_000_000u64);
+        let block_emission = U64F64::saturating_from_num(1_000_000_000u64);
 
         // Current total: 1_170_001_000_000_000, Expected: 900_001_000_000_000, Diff: 270_000_000_000_000
         Pallet::<Test>::update_tao_weight(block_emission);
@@ -282,13 +283,12 @@ fn test_update_tao_weight_full_swing_up() {
             initial_weight_float
         );
 
-        // Assert that new weight is roughly max weight of 0.18
-        let expected_max_weight_u64 =
-            Pallet::<Test>::convert_float_to_u64(U96F32::saturating_from_num(0.18));
+        // Assert that new weight is 0.18
+        let expected_max_weight_u64 = fixed128_to_u64(U64F64::saturating_from_num(0.18));
         let epsilon = u64::MAX / 1000; // 0.1% of the full range
         assert_abs_diff_eq!(new_weight_u64, expected_max_weight_u64, epsilon = epsilon);
-        // manually added for a bit of clarity about the final value
-        assert_eq!(new_weight_float, U96F32::saturating_from_num(0.1799587754));
+        // run coinbase uses the U96F32 version, so we test this
+        assert_eq!(new_weight_float, U96F32::saturating_from_num(0.18));
     });
 }
 
@@ -305,7 +305,7 @@ fn test_update_tao_weight_full_swing_down() {
         TaoReservesAtLastBlock::<Test>::set(initial_reserves);
 
         // Set inital weight at min
-        Pallet::<Test>::set_tao_weight_from_float(U96F32::saturating_from_num(0.18));
+        Pallet::<Test>::set_tao_weight_from_float(U64F64::saturating_from_num(0.18));
         let initial_weight_float = Pallet::<Test>::get_tao_weight();
         let initial_weight_u64 = TaoWeight::<Test>::get();
 
@@ -316,7 +316,7 @@ fn test_update_tao_weight_full_swing_down() {
         SubnetTAO::<Test>::insert(netuid1, 500_000_000_000_000u64);
         SubnetTAO::<Test>::insert(netuid2, 130_001_000_000_000u64);
 
-        let block_emission = U96F32::saturating_from_num(1_000_000_000u64);
+        let block_emission = U64F64::saturating_from_num(1_000_000_000u64);
 
         // Current total: 630_001_000_000_000, Expected: 900_001_000_000_000, Diff: -270_000_000_000_000
         Pallet::<Test>::update_tao_weight(block_emission);
@@ -333,12 +333,10 @@ fn test_update_tao_weight_full_swing_down() {
         );
 
         // Assert that new weight is roughly min weight of 0.09
-        let expected_min_weight_u64 =
-            Pallet::<Test>::convert_float_to_u64(U96F32::saturating_from_num(0.09));
+        let expected_min_weight_u64 = fixed128_to_u64(U64F64::saturating_from_num(0.09));
         let epsilon = u64::MAX / 1000; // 0.1% of the full range
         assert_abs_diff_eq!(new_weight_u64, expected_min_weight_u64, epsilon = epsilon);
-        // manually added for a bit of clarity about the final value
-        assert_eq!(new_weight_float, U96F32::saturating_from_num(0.0900412237));
+        assert_eq!(new_weight_float, U96F32::saturating_from_num(0.0899999999));
     });
 }
 
@@ -355,7 +353,7 @@ fn test_update_tao_weight_half_swing_up() {
         TaoReservesAtLastBlock::<Test>::set(initial_reserves);
 
         // Set inital weight 11% (testing for 4.5% swing)
-        Pallet::<Test>::set_tao_weight_from_float(U96F32::saturating_from_num(0.11));
+        Pallet::<Test>::set_tao_weight_from_float(U64F64::saturating_from_num(0.11));
         let initial_weight_float = Pallet::<Test>::get_tao_weight();
         let initial_weight_u64 = TaoWeight::<Test>::get();
 
@@ -366,7 +364,7 @@ fn test_update_tao_weight_half_swing_up() {
         SubnetTAO::<Test>::insert(netuid1, 500_000_000_000_000u64);
         SubnetTAO::<Test>::insert(netuid2, 535_001_000_000_000u64);
 
-        let block_emission = U96F32::saturating_from_num(1_000_000_000u64);
+        let block_emission = U64F64::saturating_from_num(1_000_000_000u64);
 
         // Current total: 1_035_001_000_000_000, Expected: 900_001_000_000_000, Diff: 135_000_000_000_000
         Pallet::<Test>::update_tao_weight(block_emission);
@@ -383,12 +381,11 @@ fn test_update_tao_weight_half_swing_up() {
         );
 
         // Assert that new weight is roughly 15.5%
-        let expected_weight_u64 =
-            Pallet::<Test>::convert_float_to_u64(U96F32::saturating_from_num(0.155));
+        let expected_weight_u64 = fixed128_to_u64(U64F64::saturating_from_num(0.155));
         let epsilon = u64::MAX / 1000; // 0.1% of the full range
         assert_abs_diff_eq!(new_weight_u64, expected_weight_u64, epsilon = epsilon);
         // manually added for a bit of clarity about the final value
-        assert_eq!(new_weight_float, U96F32::saturating_from_num(0.1549793875));
+        assert_eq!(new_weight_float, U96F32::saturating_from_num(0.1549999998));
     });
 }
 
@@ -405,7 +402,7 @@ fn test_update_tao_weight_half_swing_down() {
         TaoReservesAtLastBlock::<Test>::set(initial_reserves);
 
         // Set inital weight 16% (testing for 4.5% swing)
-        Pallet::<Test>::set_tao_weight_from_float(U96F32::saturating_from_num(0.16));
+        Pallet::<Test>::set_tao_weight_from_float(U64F64::saturating_from_num(0.16));
         let initial_weight_float = Pallet::<Test>::get_tao_weight();
         let initial_weight_u64 = TaoWeight::<Test>::get();
 
@@ -416,7 +413,7 @@ fn test_update_tao_weight_half_swing_down() {
         SubnetTAO::<Test>::insert(netuid1, 500_000_000_000_000u64);
         SubnetTAO::<Test>::insert(netuid2, 264_999_000_000_000u64);
 
-        let block_emission = U96F32::saturating_from_num(1_000_000_000u64);
+        let block_emission = U64F64::saturating_from_num(1_000_000_000u64);
 
         // Current total: 764_999_000_000_000, Expected: 900_001_000_000_000, Diff: -135_000_000_000_000
         Pallet::<Test>::update_tao_weight(block_emission);
@@ -433,12 +430,11 @@ fn test_update_tao_weight_half_swing_down() {
         );
 
         // Assert that new weight is roughly 11.5%
-        let expected_weight_u64 =
-            Pallet::<Test>::convert_float_to_u64(U96F32::saturating_from_num(0.115));
+        let expected_weight_u64 = fixed128_to_u64(U64F64::saturating_from_num(0.115));
         let epsilon = u64::MAX / 1000; // 0.1% of the full range
         assert_abs_diff_eq!(new_weight_u64, expected_weight_u64, epsilon = epsilon);
         // manually added for a bit of clarity about the final value
-        assert_eq!(new_weight_float, U96F32::saturating_from_num(0.1150199452));
+        assert_eq!(new_weight_float, U96F32::saturating_from_num(0.1149993332));
     });
 }
 
@@ -456,11 +452,11 @@ fn test_update_tao_weight_multi_block() {
         SubnetTAO::<Test>::insert(netuid1, initial_reserves);
 
         // Set inital weight 16% (testing for 1% swing)
-        Pallet::<Test>::set_tao_weight_from_float(U96F32::saturating_from_num(0.16));
+        Pallet::<Test>::set_tao_weight_from_float(U64F64::saturating_from_num(0.16));
         let initial_weight_float = Pallet::<Test>::get_tao_weight();
         let initial_weight_u64 = TaoWeight::<Test>::get();
 
-        let block_emission = U96F32::saturating_from_num(1_000_000_000u64);
+        let block_emission = U64F64::saturating_from_num(1_000_000_000u64);
         let reserves_increase_per_block = 31_000_000_000u64;
 
         // loop 1000 times to simulate updates blocks
@@ -483,18 +479,17 @@ fn test_update_tao_weight_multi_block() {
         );
 
         // Assert that new weight is roughly 17%
-        let expected_weight_u64 =
-            Pallet::<Test>::convert_float_to_u64(U96F32::saturating_from_num(0.17));
+        let expected_weight_u64 = fixed128_to_u64(U64F64::saturating_from_num(0.17));
         let epsilon = u64::MAX / 1000; // 0.1% of the full range
         assert_abs_diff_eq!(new_weight_u64, expected_weight_u64, epsilon = epsilon);
         // manually added for a bit of clarity about the final value
-        assert_eq!(new_weight_float, U96F32::saturating_from_num(0.1699951864));
+        assert_eq!(new_weight_float, U96F32::saturating_from_num(0.17));
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=DEBUG cargo test --release -p pallet-subtensor test_update_tao_weight_multi_block_with_variance -- --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=DEBUG cargo test --release -p pallet-subtensor test_update_tao_weight_variance_multi_block -- --nocapture
 #[test]
-fn test_update_tao_weight_multi_block_with_variance() {
+fn test_update_tao_weight_variance_multi_block() {
     new_test_ext(1).execute_with(|| {
         // Run 10000 blocks
         // Odd blocks increase reserves by 9 TAO above emission
@@ -509,11 +504,11 @@ fn test_update_tao_weight_multi_block_with_variance() {
         SubnetTAO::<Test>::insert(netuid1, initial_reserves);
 
         // Set inital weight 16% (testing for 1% swing)
-        Pallet::<Test>::set_tao_weight_from_float(U96F32::saturating_from_num(0.16));
+        Pallet::<Test>::set_tao_weight_from_float(U64F64::saturating_from_num(0.16));
         let initial_weight_float = Pallet::<Test>::get_tao_weight();
         let initial_weight_u64 = TaoWeight::<Test>::get();
 
-        let block_emission = U96F32::saturating_from_num(1_000_000_000u64);
+        let block_emission = U64F64::saturating_from_num(1_000_000_000u64);
         let reserves_increase_per_block = 10_000_000_000u64;
         let reserves_decrease_per_block = 2_000_000_000u64;
 
@@ -540,12 +535,11 @@ fn test_update_tao_weight_multi_block_with_variance() {
             initial_weight_float
         );
 
-        // Assert that new weight is roughly 11.5%
-        let expected_weight_u64 =
-            Pallet::<Test>::convert_float_to_u64(U96F32::saturating_from_num(0.17));
+        // Assert that new weight is roughly 17%
+        let expected_weight_u64 = fixed128_to_u64(U64F64::saturating_from_num(0.17));
         let epsilon = u64::MAX / 1000; // 0.1% of the full range
         assert_abs_diff_eq!(new_weight_u64, expected_weight_u64, epsilon = epsilon);
         // manually added for a bit of clarity about the final value
-        assert_eq!(new_weight_float, U96F32::saturating_from_num(0.169993091)); // not exactly the same as the test above
+        assert_eq!(new_weight_float, U96F32::saturating_from_num(0.17));
     });
 }
