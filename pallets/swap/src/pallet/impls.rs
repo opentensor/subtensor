@@ -1281,6 +1281,20 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool {
         EnabledUserLiquidity::<T>::get(netuid)
     }
+
+    fn get_current_alpha_per_tao(netuid: NetUid) -> U96F32 {
+        let one = SqrtPrice::saturating_from_num(1);
+        let sqrt_price_current = Self::current_price_sqrt(netuid.into());
+        let sqrt_price_min = TickIndex::min_sqrt_price();
+        let sqrt_price_max = TickIndex::max_sqrt_price();
+        let price_diff = sqrt_price_current.saturating_sub(sqrt_price_min);
+        let inv_price_diff = one
+            .safe_div(sqrt_price_current)
+            .saturating_sub(one.safe_div(sqrt_price_max));
+        price_diff
+            .saturating_mul(inv_price_diff)
+            .saturating_to_num::<U96F32>()
+    }
 }
 
 #[derive(Debug, PartialEq)]

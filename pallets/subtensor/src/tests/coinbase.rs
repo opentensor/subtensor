@@ -324,12 +324,15 @@ fn test_update_moving_price_after_time() {
 #[test]
 fn test_coinbase_alpha_issuance_base() {
     new_test_ext(1).execute_with(|| {
-        let netuid1 = NetUid::from(1);
-        let netuid2 = NetUid::from(2);
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
+        let netuid1 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+        let netuid2 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
         let emission: u64 = 1_000_000;
-        add_network(netuid1, 1, 0);
-        add_network(netuid2, 1, 0);
+
         // Set up prices 1 and 1
+        let initial: u64 = 1_000_000;
+        let initial: u64 = emission * 100;
         let initial: u64 = 1_000_000;
         SubnetTAO::<Test>::insert(netuid1, initial);
         SubnetAlphaIn::<Test>::insert(netuid1, AlphaCurrency::from(initial));
