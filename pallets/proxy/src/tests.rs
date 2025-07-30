@@ -23,7 +23,7 @@ use super::*;
 
 use crate as proxy;
 use alloc::{vec, vec::Vec};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
     assert_noop, assert_ok, derive_impl,
     traits::{ConstU32, ConstU64, Contains},
@@ -72,6 +72,7 @@ impl pallet_utility::Config for Test {
     PartialOrd,
     Encode,
     Decode,
+    DecodeWithMemTracking,
     RuntimeDebug,
     MaxEncodedLen,
     scale_info::TypeInfo,

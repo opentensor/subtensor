@@ -3,14 +3,16 @@ use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 #[cfg(feature = "approx")]
 use approx::AbsDiffEq;
-use codec::{Compact, CompactAs, Decode, Encode, Error as CodecError, MaxEncodedLen};
+use codec::{
+    Compact, CompactAs, Decode, DecodeWithMemTracking, Encode, Error as CodecError, MaxEncodedLen,
+};
 use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use substrate_fixed::traits::{Fixed, ToFixed};
 use subtensor_macros::freeze_struct;
 
-#[freeze_struct("b21dcd0434b67c67")]
+#[freeze_struct("40205476b6d995b2")]
 #[repr(transparent)]
 #[derive(
     Deserialize,
@@ -18,6 +20,7 @@ use subtensor_macros::freeze_struct;
     Clone,
     Copy,
     Decode,
+    DecodeWithMemTracking,
     Default,
     Encode,
     Eq,
