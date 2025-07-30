@@ -36,12 +36,13 @@ describe("Test Crowdloan precompile", () => {
 
     it("gets an existing crowdloan created on substrate side", async () => {
         const nextId = await api.query.Crowdloan.NextCrowdloanId.getValue();
+        const end = await api.query.System.Number.getValue() + 100;
 
         await api.tx.Crowdloan.create({
             deposit: BigInt(15_000_000_000), // 15 TAO
             min_contribution: BigInt(1_000_000_000), // 1 TAO
             cap: BigInt(100_000_000_000), // 100 TAO
-            end: 1000,
+            end,
             target_address: undefined,
             call: api.tx.System.remark({ remark: Binary.fromText("foo") }).decodedCall
         }).signAndSubmit(alice);
@@ -110,12 +111,13 @@ describe("Test Crowdloan precompile", () => {
     it("contributes/withdraws to a crowdloan created on substrate side", async () => {
         const nextId = await api.query.Crowdloan.NextCrowdloanId.getValue();
         const deposit = BigInt(15_000_000_000); // 15 TAO
+        const end = await api.query.System.Number.getValue() + 100;
 
         await api.tx.Crowdloan.create({
             deposit,
             min_contribution: BigInt(1_000_000_000), // 1 TAO
             cap: BigInt(100_000_000_000), // 100 TAO
-            end: 1000,
+            end,
             target_address: undefined,
             call: api.tx.System.remark({ remark: Binary.fromText("foo") }).decodedCall
         }).signAndSubmit(alice);

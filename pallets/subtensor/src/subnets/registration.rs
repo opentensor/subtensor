@@ -141,9 +141,13 @@ impl<T: Config> Pallet<T> {
             Self::remove_balance_from_coldkey_account(&coldkey, registration_cost)?;
 
         // Tokens are swapped and then burned.
-        let burned_alpha =
-            Self::swap_tao_for_alpha(netuid, actual_burn_amount, T::SwapInterface::max_price())?
-                .amount_paid_out;
+        let burned_alpha = Self::swap_tao_for_alpha(
+            netuid,
+            actual_burn_amount,
+            T::SwapInterface::max_price(),
+            false,
+        )?
+        .amount_paid_out;
         SubnetAlphaOut::<T>::mutate(netuid, |total| {
             *total = total.saturating_sub(burned_alpha.into())
         });

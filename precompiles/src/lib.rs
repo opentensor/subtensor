@@ -29,6 +29,7 @@ use crate::balance_transfer::*;
 use crate::crowdloan::*;
 use crate::ed25519::*;
 use crate::extensions::*;
+use crate::leasing::*;
 use crate::metagraph::*;
 use crate::neuron::*;
 use crate::sr25519::*;
@@ -42,6 +43,7 @@ mod balance_transfer;
 mod crowdloan;
 mod ed25519;
 mod extensions;
+mod leasing;
 mod metagraph;
 mod neuron;
 mod sr25519;
@@ -104,7 +106,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 20] {
+    pub fn used_addresses() -> [H160; 21] {
         [
             hash(1),
             hash(2),
@@ -126,6 +128,7 @@ where
             hash(UidLookupPrecompile::<R>::INDEX),
             hash(AlphaPrecompile::<R>::INDEX),
             hash(CrowdloanPrecompile::<R>::INDEX),
+            hash(LeasingPrecompile::<R>::INDEX),
         ]
     }
 }
@@ -205,6 +208,9 @@ where
             }
             a if a == hash(CrowdloanPrecompile::<R>::INDEX) => {
                 CrowdloanPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Crowdloan)
+            }
+            a if a == hash(LeasingPrecompile::<R>::INDEX) => {
+                LeasingPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Leasing)
             }
             _ => None,
         }
