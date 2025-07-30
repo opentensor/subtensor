@@ -20,7 +20,7 @@ env:
 
 jobs:
   update-chainspecs:
-    runs-on: SubtensorCI
+    runs-on: [self-hosted, type-ccx33]
     permissions:
       contents: write
     if: >

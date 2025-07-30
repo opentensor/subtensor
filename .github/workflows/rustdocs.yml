@@ -11,7 +11,7 @@ env:
 
 jobs:
   build:
-    runs-on: SubtensorCI
+    runs-on: [self-hosted, type-ccx33]
 
     steps:
       - name: Checkout code
@@ -45,7 +45,7 @@ jobs:
 
   deploy:
         needs: build
-        runs-on: SubtensorCI
+        runs-on: [self-hosted, type-ccx33]
 
         permissions:
             pages: write

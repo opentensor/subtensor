@@ -101,7 +101,7 @@ jobs:
 
   build-image-with-current-branch:
     needs: check-label
-    runs-on: SubtensorCI
+    runs-on: [self-hosted, type-ccx33]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
