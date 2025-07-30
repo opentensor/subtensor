@@ -70,8 +70,6 @@ where
     #[precompile::public("killPureProxy(bytes32)")]
     #[precompile::payable]
     pub fn kill_pure_proxy(handle: &mut impl PrecompileHandle, proxy: H256) -> EvmResult<()> {
-        log::error!("kill_pure_proxy: {:?}", proxy);
-        log::error!("========= {:?} {:?}", file!(), line!());
         let account_id = handle.caller_account_id::<R>();
 
         let call = pallet_proxy::Call::<R>::kill_evm_pure {
