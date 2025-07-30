@@ -29,7 +29,7 @@ use frame_support::{
     traits::{ConstU32, ConstU64, Contains},
 };
 use sp_core::H256;
-use sp_runtime::{traits::BlakeTwo256, BuildStorage, DispatchError, RuntimeDebug};
+use sp_runtime::{BuildStorage, DispatchError, RuntimeDebug, traits::BlakeTwo256};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

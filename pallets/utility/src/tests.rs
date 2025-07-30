@@ -32,8 +32,8 @@ use frame_support::{
 };
 use pallet_collective::{EnsureProportionAtLeast, Instance1};
 use sp_runtime::{
-    traits::{BadOrigin, BlakeTwo256, Dispatchable, Hash},
     BuildStorage, DispatchError, TokenError,
+    traits::{BadOrigin, BlakeTwo256, Dispatchable, Hash},
 };
 
 type BlockNumber = u64;
