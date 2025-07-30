@@ -424,7 +424,7 @@ where
         Some(WarpSyncConfig::WithProvider(warp_sync))
     };
 
-    let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
+    let (network, system_rpc_tx, tx_handler_controller, sync_service) =
         sc_service::build_network(sc_service::BuildNetworkParams {
             config: &config,
             net_config,
@@ -632,7 +632,6 @@ where
                 commands_stream,
             )?;
 
-            network_starter.start_network();
             log::info!("Manual Seal Ready");
             return Ok(task_manager);
         }
@@ -729,7 +728,6 @@ where
             .spawn_blocking("grandpa-voter", None, grandpa_voter);
     }
 
-    network_starter.start_network();
     Ok(task_manager)
 }
 
@@ -739,15 +737,11 @@ pub async fn build_full(
     sealing: Option<Sealing>,
 ) -> Result<TaskManager, ServiceError> {
     match config.network.network_backend {
-        Some(sc_network::config::NetworkBackendType::Libp2p) => {
+        sc_network::config::NetworkBackendType::Libp2p => {
             new_full::<sc_network::NetworkWorker<_, _>>(config, eth_config, sealing).await
         }
-        Some(sc_network::config::NetworkBackendType::Litep2p) => {
+        sc_network::config::NetworkBackendType::Litep2p => {
             new_full::<sc_network::Litep2pNetworkBackend>(config, eth_config, sealing).await
-        }
-        _ => {
-            log::debug!("no network backend selected, falling back to libp2p");
-            new_full::<sc_network::NetworkWorker<_, _>>(config, eth_config, sealing).await
         }
     }
 }
