@@ -683,6 +683,7 @@ pub fn test_ext_with_balances(balances: Vec<(U256, u128)>) -> sp_io::TestExterna
             .iter()
             .map(|(a, b)| (*a, *b as u64))
             .collect::<Vec<(U256, u64)>>(),
+        dev_accounts: None,
     }
     .assimilate_storage(&mut t)
     .unwrap();

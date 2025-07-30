@@ -143,6 +143,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
         .expect("Expected to not panic");
     pallet_balances::GenesisConfig::<Test> {
         balances: vec![(1, 10), (2, 10), (3, 10), (4, 10), (5, 3)],
+        dev_accounts: None,
     }
     .assimilate_storage(&mut t)
     .expect("Expected to not panic");
