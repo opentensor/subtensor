@@ -51,7 +51,7 @@ mod genesis {
             let hotkey = DefaultAccount::<T>::get();
             SubnetMechanism::<T>::insert(netuid, 1); // Make dynamic.
             Owner::<T>::insert(hotkey.clone(), hotkey.clone());
-            SubnetAlphaIn::<T>::insert(netuid, 10_000_000_000);
+            SubnetAlphaIn::<T>::insert(netuid, AlphaCurrency::from(10_000_000_000));
             SubnetTAO::<T>::insert(netuid, 10_000_000_000);
             NetworksAdded::<T>::insert(netuid, true);
             TotalNetworks::<T>::mutate(|n| *n = n.saturating_add(1));
@@ -70,14 +70,18 @@ mod genesis {
                 (hotkey.clone(), hotkey.clone(), netuid),
                 U64F64::saturating_from_num(1_000_000_000),
             );
-            TotalHotkeyAlpha::<T>::insert(hotkey.clone(), netuid, 1_000_000_000);
+            TotalHotkeyAlpha::<T>::insert(
+                hotkey.clone(),
+                netuid,
+                AlphaCurrency::from(1_000_000_000),
+            );
             TotalHotkeyShares::<T>::insert(
                 hotkey.clone(),
                 netuid,
                 U64F64::saturating_from_num(1_000_000_000),
             );
             // TotalColdkeyAlpha::<T>::insert(hotkey.clone(), netuid, 1_000_000_000);
-            SubnetAlphaOut::<T>::insert(netuid, 1_000_000_000);
+            SubnetAlphaOut::<T>::insert(netuid, AlphaCurrency::from(1_000_000_000));
             let mut staking_hotkeys = StakingHotkeys::<T>::get(hotkey.clone());
             if !staking_hotkeys.contains(&hotkey) {
                 staking_hotkeys.push(hotkey.clone());
@@ -90,7 +94,7 @@ mod genesis {
             Rank::<T>::mutate(netuid, |v| v.push(0));
             Trust::<T>::mutate(netuid, |v| v.push(0));
             Active::<T>::mutate(netuid, |v| v.push(true));
-            Emission::<T>::mutate(netuid, |v| v.push(0));
+            Emission::<T>::mutate(netuid, |v| v.push(0.into()));
             Consensus::<T>::mutate(netuid, |v| v.push(0));
             Incentive::<T>::mutate(netuid, |v| v.push(0));
             Dividends::<T>::mutate(netuid, |v| v.push(0));

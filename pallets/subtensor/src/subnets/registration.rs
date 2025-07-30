@@ -2,7 +2,7 @@ use super::*;
 use sp_core::{H256, U256};
 use sp_io::hashing::{keccak_256, sha2_256};
 use sp_runtime::Saturating;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{Currency, NetUid};
 use subtensor_swap_interface::SwapHandler;
 use system::pallet_prelude::BlockNumberFor;
 
@@ -141,10 +141,16 @@ impl<T: Config> Pallet<T> {
             Self::remove_balance_from_coldkey_account(&coldkey, registration_cost)?;
 
         // Tokens are swapped and then burned.
-        let burned_alpha: u64 =
-            Self::swap_tao_for_alpha(netuid, actual_burn_amount, T::SwapInterface::max_price())?
-                .amount_paid_out;
-        SubnetAlphaOut::<T>::mutate(netuid, |total| *total = total.saturating_sub(burned_alpha));
+        let burned_alpha = Self::swap_tao_for_alpha(
+            netuid,
+            actual_burn_amount,
+            T::SwapInterface::max_price(),
+            false,
+        )?
+        .amount_paid_out;
+        SubnetAlphaOut::<T>::mutate(netuid, |total| {
+            *total = total.saturating_sub(burned_alpha.into())
+        });
 
         // Actually perform the registration.
         let neuron_uid: u16 = Self::register_neuron(netuid, &hotkey);

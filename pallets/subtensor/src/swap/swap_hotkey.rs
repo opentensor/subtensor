@@ -2,6 +2,8 @@ use super::*;
 use frame_support::weights::Weight;
 use sp_core::Get;
 use substrate_fixed::types::U64F64;
+use subtensor_runtime_common::{Currency, NetUid};
+
 impl<T: Config> Pallet<T> {
     /// Swaps the hotkey of a coldkey account.
     ///
@@ -379,7 +381,6 @@ impl<T: Config> Pallet<T> {
             // 3.2.1 Swap the UIDS
             if let Ok(old_uid) = Uids::<T>::try_get(netuid, old_hotkey) {
                 Uids::<T>::remove(netuid, old_hotkey);
-                AssociatedEvmAddress::<T>::remove(netuid, old_uid);
                 Uids::<T>::insert(netuid, new_hotkey, old_uid);
                 weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 

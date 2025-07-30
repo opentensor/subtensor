@@ -32,7 +32,7 @@ use sp_runtime::{
     transaction_validity::{TransactionValidity, TransactionValidityError},
 };
 use sp_std::marker::PhantomData;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid};
 
 // ============================
 //	==== Benchmark Imports =====
@@ -85,14 +85,14 @@ pub mod pallet {
     };
     use frame_system::pallet_prelude::*;
     use pallet_drand::types::RoundNumber;
-    use sp_core::{ConstU32, ConstU64, H160, H256};
+    use sp_core::{ConstU32, H160, H256};
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::collections::vec_deque::VecDeque;
     use sp_std::vec;
     use sp_std::vec::Vec;
     use substrate_fixed::types::{I96F32, U64F64};
     use subtensor_macros::freeze_struct;
-    use subtensor_runtime_common::NetUid;
+    use subtensor_runtime_common::{AlphaCurrency, NetUid};
 
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
@@ -310,6 +310,11 @@ pub mod pallet {
     /// Default value for zero.
     pub fn DefaultZeroU64<T: Config>() -> u64 {
         0
+    }
+    /// Default value for Alpha cyrrency.
+    #[pallet::type_value]
+    pub fn DefaultZeroAlpha<T: Config>() -> AlphaCurrency {
+        0.into()
     }
     #[pallet::type_value]
     /// Default value for zero.
@@ -570,8 +575,8 @@ pub mod pallet {
     }
     #[pallet::type_value]
     /// Default value for pending emission.
-    pub fn DefaultPendingEmission<T: Config>() -> u64 {
-        0
+    pub fn DefaultPendingEmission<T: Config>() -> AlphaCurrency {
+        0.into()
     }
     #[pallet::type_value]
     /// Default value for blocks since last step.
@@ -816,7 +821,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default minimum stake.
     pub fn DefaultMinStake<T: Config>() -> u64 {
-        20_000_000
+        2_000_000
     }
 
     #[pallet::type_value]
@@ -1005,9 +1010,9 @@ pub mod pallet {
         NetUid,
         Blake2_128Concat,
         T::AccountId,
-        u64,
+        AlphaCurrency,
         ValueQuery,
-        DefaultZeroU64<T>,
+        DefaultZeroAlpha<T>,
     >;
     #[pallet::storage] // --- DMAP ( netuid, hotkey ) --> u64 | Last total root dividend paid to this hotkey on this subnet.
     pub type TaoDividendsPerSubnet<T: Config> = StorageDoubleMap<
@@ -1035,9 +1040,9 @@ pub mod pallet {
         T::AccountId,
         Identity,
         NetUid,
-        u64,
+        AlphaCurrency,
         ValueQuery,
-        DefaultZeroU64<T>,
+        DefaultZeroAlpha<T>,
     >;
 
     /// ==========================
@@ -1072,23 +1077,23 @@ pub mod pallet {
         StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> alpha_in_emission | Returns the amount of alph in  emission into the pool per block.
     pub type SubnetAlphaInEmission<T: Config> =
-        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
+        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> alpha_out_emission | Returns the amount of alpha out emission into the network per block.
     pub type SubnetAlphaOutEmission<T: Config> =
-        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
+        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> tao_in_emission | Returns the amount of tao emitted into this subent on the last block.
     pub type SubnetTaoInEmission<T: Config> =
         StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the pool.
     pub type SubnetAlphaIn<T: Config> =
-        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
+        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> alpha_supply_user_in_pool | Returns the amount of alpha in the pool provided by users as liquidity.
     pub type SubnetAlphaInProvided<T: Config> =
-        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
+        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
     pub type SubnetAlphaOut<T: Config> =
-        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
+        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
     #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
     pub type StakingHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
@@ -1113,9 +1118,9 @@ pub mod pallet {
         T::AccountId,
         Identity,
         NetUid,
-        u64,
+        AlphaCurrency,
         ValueQuery,
-        DefaultZeroU64<T>,
+        DefaultZeroAlpha<T>,
     >;
     #[pallet::storage] // --- DMAP ( hot, netuid ) --> alpha | Returns the total amount of alpha a hotkey owned in the last epoch.
     pub type TotalHotkeyAlphaLastEpoch<T: Config> = StorageDoubleMap<
@@ -1124,9 +1129,9 @@ pub mod pallet {
         T::AccountId,
         Identity,
         NetUid,
-        u64,
+        AlphaCurrency,
         ValueQuery,
-        DefaultZeroU64<T>,
+        DefaultZeroAlpha<T>,
     >;
     #[pallet::storage]
     /// DMAP ( hot, netuid ) --> total_alpha_shares | Returns the number of alpha shares for a hotkey on a subnet.
@@ -1193,7 +1198,8 @@ pub mod pallet {
     #[pallet::storage]
     /// ITEM( network_rate_limit )
     pub type NetworkRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkRateLimit<T>>;
-    #[pallet::storage] // --- ITEM( nominator_min_required_stake )
+    #[pallet::storage]
+    /// --- ITEM( nominator_min_required_stake ) --- Factor of DefaultMinStake in per-mill format.
     pub type NominatorMinRequiredStake<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage]
     /// ITEM( weights_version_key_rate_limit ) --- Rate limit in tempos.
@@ -1277,7 +1283,7 @@ pub mod pallet {
     #[pallet::storage]
     /// --- MAP ( netuid ) --> pending_emission
     pub type PendingEmission<T> =
-        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultPendingEmission<T>>;
+        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultPendingEmission<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> pending_root_emission
     pub type PendingRootDivs<T> =
@@ -1285,11 +1291,11 @@ pub mod pallet {
     #[pallet::storage]
     /// --- MAP ( netuid ) --> pending_alpha_swapped
     pub type PendingAlphaSwapped<T> =
-        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
+        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> pending_owner_cut
     pub type PendingOwnerCut<T> =
-        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
+        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> blocks_since_last_step
     pub type BlocksSinceLastStep<T> =
@@ -1516,8 +1522,7 @@ pub mod pallet {
         StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> emission
-    pub type Emission<T: Config> =
-        StorageMap<_, Identity, NetUid, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
+    pub type Emission<T: Config> = StorageMap<_, Identity, NetUid, Vec<AlphaCurrency>, ValueQuery>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> last_update
     pub type LastUpdate<T: Config> =
@@ -1664,15 +1669,33 @@ pub mod pallet {
         OptionQuery,
     >;
     #[pallet::storage]
-    /// --- MAP (netuid, commit_epoch) --> VecDeque<(who, serialized_compressed_commit, reveal_round)> | Stores a queue of v3 commits for an account on a given netuid.
+    /// MAP (netuid, epoch) → VecDeque<(who, ciphertext, reveal_round)>
+    /// DEPRECATED for CRV3WeightCommitsV2
     pub type CRV3WeightCommits<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
         NetUid,
         Twox64Concat,
-        u64,
+        u64, // epoch key
         VecDeque<(
             T::AccountId,
+            BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
+            RoundNumber,
+        )>,
+        ValueQuery,
+    >;
+    #[pallet::storage]
+    /// MAP (netuid, epoch) → VecDeque<(who, commit_block, ciphertext, reveal_round)>
+    /// Stores a queue of v3 commits for an account on a given netuid.
+    pub type CRV3WeightCommitsV2<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        NetUid,
+        Twox64Concat,
+        u64, // epoch key
+        VecDeque<(
+            T::AccountId,
+            u64, // commit_block
             BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
             RoundNumber,
         )>,
@@ -1742,7 +1765,7 @@ pub mod pallet {
     #[pallet::storage]
     /// --- MAP ( lease_id ) --> accumulated_dividends | The accumulated dividends for a given lease that needs to be distributed.
     pub type AccumulatedLeaseDividends<T: Config> =
-        StorageMap<_, Twox64Concat, LeaseId, u64, ValueQuery, ConstU64<0>>;
+        StorageMap<_, Twox64Concat, LeaseId, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// ==================
     /// ==== Genesis =====
@@ -2180,7 +2203,7 @@ where
                         *amount_unstaked,
                         false,
                     ),
-                    Self::get_priority_staking(who, hotkey, *amount_unstaked),
+                    Self::get_priority_staking(who, hotkey, (*amount_unstaked).into()),
                 )
                 .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
@@ -2207,7 +2230,7 @@ where
                         max_amount,
                         *allow_partial,
                     ),
-                    Self::get_priority_staking(who, hotkey, *amount_unstaked),
+                    Self::get_priority_staking(who, hotkey, (*amount_unstaked).into()),
                 )
                 .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
@@ -2252,7 +2275,7 @@ where
                         None,
                         false,
                     ),
-                    Self::get_priority_staking(who, origin_hotkey, *alpha_amount),
+                    Self::get_priority_staking(who, origin_hotkey, (*alpha_amount).into()),
                 )
                 .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
@@ -2281,7 +2304,7 @@ where
                         None,
                         true,
                     ),
-                    Self::get_priority_staking(who, hotkey, *alpha_amount),
+                    Self::get_priority_staking(who, hotkey, (*alpha_amount).into()),
                 )
                 .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
@@ -2309,7 +2332,7 @@ where
                         None,
                         false,
                     ),
-                    Self::get_priority_staking(who, hotkey, *alpha_amount),
+                    Self::get_priority_staking(who, hotkey, (*alpha_amount).into()),
                 )
                 .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
@@ -2348,7 +2371,7 @@ where
                         Some(*allow_partial),
                         false,
                     ),
-                    Self::get_priority_staking(who, hotkey, *alpha_amount),
+                    Self::get_priority_staking(who, hotkey, (*alpha_amount).into()),
                 )
                 .map(|validity| (validity, Some(who.clone()), origin.clone()))
             }
@@ -2591,7 +2614,7 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
         SubnetTAO::<T>::get(netuid).saturating_add(SubnetTaoProvided::<T>::get(netuid))
     }
 
-    fn alpha_reserve(netuid: NetUid) -> u64 {
+    fn alpha_reserve(netuid: NetUid) -> AlphaCurrency {
         SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaInProvided::<T>::get(netuid))
     }
 
@@ -2615,7 +2638,11 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
         pallet_balances::Pallet::<T>::free_balance(account_id)
     }
 
-    fn alpha_balance(netuid: NetUid, coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
+    fn alpha_balance(
+        netuid: NetUid,
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+    ) -> AlphaCurrency {
         Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid)
     }
 
@@ -2631,7 +2658,7 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
         netuid: NetUid,
-        alpha: u64,
+        alpha: AlphaCurrency,
     ) -> Result<(), DispatchError> {
         ensure!(
             Self::hotkey_account_exists(hotkey),
@@ -2652,8 +2679,8 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
         netuid: NetUid,
-        alpha: u64,
-    ) -> Result<u64, DispatchError> {
+        alpha: AlphaCurrency,
+    ) -> Result<AlphaCurrency, DispatchError> {
         ensure!(
             Self::hotkey_account_exists(hotkey),
             Error::<T>::HotKeyAccountNotExists
@@ -2677,11 +2704,11 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
         Self::decrease_provided_tao_reserve(netuid, tao);
     }
 
-    fn increase_provided_alpha_reserve(netuid: NetUid, alpha: u64) {
+    fn increase_provided_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency) {
         Self::increase_provided_alpha_reserve(netuid, alpha);
     }
 
-    fn decrease_provided_alpha_reserve(netuid: NetUid, alpha: u64) {
+    fn decrease_provided_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency) {
         Self::decrease_provided_alpha_reserve(netuid, alpha);
     }
 }

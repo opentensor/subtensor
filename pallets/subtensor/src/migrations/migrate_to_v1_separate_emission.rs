@@ -6,6 +6,7 @@ use frame_support::{
 };
 use log::{info, warn};
 use sp_std::vec::Vec;
+use subtensor_runtime_common::NetUid;
 
 /// Constant for logging purposes
 const LOG_TARGET: &str = "loadedemissionmigration";

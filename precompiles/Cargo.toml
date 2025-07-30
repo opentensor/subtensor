@@ -11,6 +11,7 @@ repository = "https://github.com/opentensor/subtensor/"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+codec = { workspace = true }
 ed25519-dalek = { workspace = true }
 fp-evm = { workspace = true }
 frame-support = { workspace = true }
@@ -34,6 +35,7 @@ pallet-subtensor = { workspace = true }
 pallet-subtensor-swap = { workspace = true }
 pallet-admin-utils = { workspace = true }
 subtensor-swap-interface = { workspace = true }
+pallet-crowdloan = { workspace = true }
 
 [lints]
 workspace = true
@@ -41,6 +43,7 @@ workspace = true
 [features]
 default = ["std"]
 std = [
+	"codec/std",
 	"ed25519-dalek/std",
 	"fp-evm/std",
 	"frame-support/std",
@@ -53,6 +56,7 @@ std = [
 	"pallet-evm-precompile-sha3fips/std",
 	"pallet-evm-precompile-simple/std",
 	"pallet-evm/std",
+	"pallet-crowdloan/std",
 	"pallet-proxy/std",
 	"pallet-subtensor/std",
 	"pallet-subtensor-swap/std",

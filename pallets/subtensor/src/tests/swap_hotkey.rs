@@ -8,6 +8,7 @@ use frame_system::{Config, RawOrigin};
 use sp_core::{Get, H160, H256, U256};
 use sp_runtime::SaturatedConversion;
 use substrate_fixed::types::U64F64;
+use subtensor_runtime_common::AlphaCurrency;
 use subtensor_swap_interface::SwapHandler;
 
 use super::mock;
@@ -72,14 +73,14 @@ fn test_swap_total_hotkey_stake() {
         //add network
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
 
-        mock::setup_reserves(netuid, amount * 100, amount * 100);
+        mock::setup_reserves(netuid, amount * 100, (amount * 100).into());
 
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount);
 
         // Add stake
         let (expected_alpha, _) = mock::swap_tao_to_alpha(netuid, amount);
-        assert!(expected_alpha > 0);
+        assert!(!expected_alpha.is_zero());
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey),
             old_hotkey,
@@ -614,8 +615,8 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
         register_ok_neuron(netuid1, old_hotkey, coldkey1, 1234);
         register_ok_neuron(netuid2, old_hotkey, coldkey1, 1234);
 
-        mock::setup_reserves(netuid1, stake * 100, stake * 100);
-        mock::setup_reserves(netuid2, stake * 100, stake * 100);
+        mock::setup_reserves(netuid1, stake * 100, (stake * 100).into());
+        mock::setup_reserves(netuid2, stake * 100, (stake * 100).into());
 
         // Add balance to both coldkeys
         SubtensorModule::add_balance_to_coldkey_account(&coldkey1, stake + 1_000);
@@ -647,8 +648,8 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
             &coldkey2,
             netuid2,
         );
-        assert!(ck1_stake > 0);
-        assert!(ck2_stake > 0);
+        assert!(!ck1_stake.is_zero());
+        assert!(!ck2_stake.is_zero());
         let total_hk_stake = SubtensorModule::get_total_stake_for_hotkey(&old_hotkey);
         assert!(total_hk_stake > 0);
 
@@ -689,7 +690,7 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
                 &coldkey1,
                 netuid1
             ),
-            0
+            AlphaCurrency::ZERO
         );
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -697,7 +698,7 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
                 &coldkey2,
                 netuid2
             ),
-            0
+            AlphaCurrency::ZERO
         );
 
         // Check subnet membership transfer
@@ -884,11 +885,15 @@ fn test_swap_stake_success() {
         let mut weight = Weight::zero();
 
         // Initialize staking variables for old_hotkey
-        TotalHotkeyAlpha::<Test>::insert(old_hotkey, netuid, amount);
-        TotalHotkeyAlphaLastEpoch::<Test>::insert(old_hotkey, netuid, amount * 2);
-        TotalHotkeyShares::<Test>::insert(old_hotkey, netuid, U64F64::from_num(shares));
+        TotalHotkeyAlpha::<Test>::insert(old_hotkey, netuid, AlphaCurrency::from(amount));
+        TotalHotkeyAlphaLastEpoch::<Test>::insert(
+            old_hotkey,
+            netuid,
+            AlphaCurrency::from(amount * 2),
+        );
+        TotalHotkeyShares::<Test>::insert(old_hotkey, netuid, shares);
         Alpha::<Test>::insert((old_hotkey, coldkey, netuid), U64F64::from_num(amount));
-        AlphaDividendsPerSubnet::<Test>::insert(netuid, old_hotkey, amount);
+        AlphaDividendsPerSubnet::<Test>::insert(netuid, old_hotkey, AlphaCurrency::from(amount));
         TaoDividendsPerSubnet::<Test>::insert(netuid, old_hotkey, amount);
 
         // Perform the swap
@@ -900,15 +905,21 @@ fn test_swap_stake_success() {
         );
 
         // Verify the swap
-        assert_eq!(TotalHotkeyAlpha::<Test>::get(old_hotkey, netuid), 0);
-        assert_eq!(TotalHotkeyAlpha::<Test>::get(new_hotkey, netuid), amount);
+        assert_eq!(
+            TotalHotkeyAlpha::<Test>::get(old_hotkey, netuid),
+            AlphaCurrency::ZERO
+        );
+        assert_eq!(
+            TotalHotkeyAlpha::<Test>::get(new_hotkey, netuid),
+            amount.into()
+        );
         assert_eq!(
             TotalHotkeyAlphaLastEpoch::<Test>::get(old_hotkey, netuid),
-            0
+            AlphaCurrency::ZERO
         );
         assert_eq!(
             TotalHotkeyAlphaLastEpoch::<Test>::get(new_hotkey, netuid),
-            amount * 2
+            AlphaCurrency::from(amount * 2)
         );
         assert_eq!(
             TotalHotkeyShares::<Test>::get(old_hotkey, netuid),
@@ -926,10 +937,13 @@ fn test_swap_stake_success() {
             Alpha::<Test>::get((new_hotkey, coldkey, netuid)),
             U64F64::from_num(amount)
         );
-        assert_eq!(AlphaDividendsPerSubnet::<Test>::get(netuid, old_hotkey), 0);
+        assert_eq!(
+            AlphaDividendsPerSubnet::<Test>::get(netuid, old_hotkey),
+            AlphaCurrency::ZERO
+        );
         assert_eq!(
             AlphaDividendsPerSubnet::<Test>::get(netuid, new_hotkey),
-            amount
+            amount.into()
         );
         assert_eq!(TaoDividendsPerSubnet::<Test>::get(netuid, old_hotkey), 0);
         assert_eq!(
@@ -1430,32 +1444,5 @@ fn test_swap_hotkey_swap_rate_limits() {
             LastTxBlockChildKeyTake::<Test>::get(new_hotkey),
             child_key_take_block
         );
-    });
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_hotkey_with_associated_evm_address --exact --nocapture
-#[test]
-fn test_swap_hotkey_with_associated_evm_address() {
-    new_test_ext(1).execute_with(|| {
-        let old_hotkey = U256::from(1);
-        let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
-        let netuid = add_dynamic_network(&old_hotkey, &coldkey);
-        let uid = Uids::<Test>::get(netuid, old_hotkey).unwrap();
-        let evm_address = H160::from_slice(&[1_u8; 20]);
-        AssociatedEvmAddress::<Test>::insert(netuid, uid, (evm_address, 1));
-
-        Owner::<Test>::insert(old_hotkey, coldkey);
-        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
-            &old_hotkey,
-            &new_hotkey,
-            &coldkey,
-            &mut weight
-        ));
-
-        assert_eq!(AssociatedEvmAddress::<Test>::get(netuid, uid), None);
-        assert!(!Owner::<Test>::contains_key(old_hotkey));
-        assert_eq!(Owner::<Test>::get(new_hotkey), coldkey);
     });
 }
