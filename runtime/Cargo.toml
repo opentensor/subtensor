@@ -4,7 +4,7 @@ version = "4.0.0-dev"
 description = "Subtensor network"
 authors = ["Opentensor Foundation <https://github.com/opentensor/>"]
 homepage = "https://opentensor.ai/"
-edition = "2024"
+edition.workspace = true
 license = "Unlicense"
 publish = false
 repository = "https://github.com/opentensor/subtensor/"
@@ -15,124 +15,117 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
-[[bin]]
-name = "spec_version"
-path = "src/spec_version.rs"
-
 [dependencies]
 subtensor-macros.workspace = true
-subtensor-custom-rpc-runtime-api = { workspace = true }
-smallvec = { workspace = true }
-log = { workspace = true }
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
-	"derive",
-] }
+subtensor-custom-rpc-runtime-api.workspace = true
+smallvec.workspace = true
+log.workspace = true
+codec = { workspace = true, features = ["derive"] }
 scale-info = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["alloc"] }
-pallet-aura = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-subtensor = { workspace = true }
-pallet-subtensor-swap = { workspace = true }
-pallet-subtensor-swap-runtime-api = { workspace = true }
-substrate-fixed = { workspace = true }
-subtensor-swap-interface = { workspace = true }
-frame-support = { workspace = true }
-pallet-grandpa = { workspace = true }
-pallet-insecure-randomness-collective-flip = { workspace = true }
-frame-system = { workspace = true }
+pallet-aura.workspace = true
+pallet-balances.workspace = true
+pallet-subtensor.workspace = true
+pallet-subtensor-swap.workspace = true
+pallet-subtensor-swap-runtime-api.workspace = true
+substrate-fixed.workspace = true
+subtensor-swap-interface.workspace = true
+frame-support.workspace = true
+pallet-grandpa.workspace = true
+pallet-insecure-randomness-collective-flip.workspace = true
+frame-system.workspace = true
 frame-try-runtime = { workspace = true, optional = true }
-pallet-timestamp = { workspace = true }
-pallet-transaction-payment = { workspace = true }
-pallet-utility = { workspace = true }
-frame-executive = { workspace = true }
-frame-metadata-hash-extension = { workspace = true }
-sp-api = { workspace = true }
-sp-block-builder = { workspace = true }
-sp-consensus-aura = { workspace = true }
-sp-core = { workspace = true }
-sp-storage = { workspace = true }
-sp-genesis-builder = { workspace = true }
-sp-inherents = { workspace = true }
-sp-offchain = { workspace = true }
-sp-runtime = { workspace = true }
-sp-session = { workspace = true }
-sp-std = { workspace = true }
-sp-transaction-pool = { workspace = true }
-sp-version = { workspace = true }
-subtensor-runtime-common = { workspace = true }
-subtensor-precompiles = { workspace = true }
+pallet-timestamp.workspace = true
+pallet-transaction-payment.workspace = true
+pallet-utility.workspace = true
+frame-executive.workspace = true
+frame-metadata-hash-extension.workspace = true
+sp-api.workspace = true
+sp-block-builder.workspace = true
+sp-consensus-aura.workspace = true
+sp-core.workspace = true
+sp-storage.workspace = true
+sp-genesis-builder.workspace = true
+sp-inherents.workspace = true
+sp-offchain.workspace = true
+sp-runtime.workspace = true
+sp-session.workspace = true
+sp-std.workspace = true
+sp-transaction-pool.workspace = true
+sp-version.workspace = true
+subtensor-runtime-common.workspace = true
+subtensor-precompiles.workspace = true
 
 # Temporary sudo
-pallet-sudo = { workspace = true }
+pallet-sudo.workspace = true
 
-pallet-admin-utils = { workspace = true }
+pallet-admin-utils.workspace = true
 
 # Used for sudo decentralization
-pallet-collective = { workspace = true }
-pallet-membership = { workspace = true }
+pallet-collective.workspace = true
+pallet-membership.workspace = true
 
 # Multisig
-pallet-multisig = { workspace = true }
+pallet-multisig.workspace = true
 
 # Proxy Pallet
-pallet-proxy = { workspace = true }
+pallet-proxy.workspace = true
 
 # Scheduler pallet
-pallet-scheduler = { workspace = true }
-pallet-preimage = { workspace = true }
+pallet-scheduler.workspace = true
+pallet-preimage.workspace = true
 
 # Safe mode pallet
-
-pallet-safe-mode = { workspace = true }
+pallet-safe-mode.workspace = true
 
 # Used for the node subtensor's RPCs
-frame-system-rpc-runtime-api = { workspace = true }
-pallet-transaction-payment-rpc-runtime-api = { workspace = true }
+frame-system-rpc-runtime-api.workspace = true
+pallet-transaction-payment-rpc-runtime-api.workspace = true
 
 # Used for runtime benchmarking
 frame-benchmarking = { workspace = true, optional = true }
 frame-system-benchmarking = { workspace = true, optional = true }
 
 # Identity registry pallet for registering project info
-pallet-registry = { workspace = true }
+pallet-registry.workspace = true
 
 # Metadata commitment pallet
-pallet-commitments = { workspace = true }
+pallet-commitments.workspace = true
 
 # Frontier
-fp-evm = { workspace = true }
-fp-rpc = { workspace = true }
-fp-self-contained = { workspace = true }
-precompile-utils = { workspace = true }
+fp-evm.workspace = true
+fp-rpc.workspace = true
+fp-self-contained = { workspace = true, features = ["serde"] }
+precompile-utils.workspace = true
 
 # Frontier FRAME
-pallet-base-fee = { workspace = true }
-pallet-ethereum = { workspace = true }
-pallet-evm = { workspace = true }
-pallet-evm-chain-id = { workspace = true }
-pallet-evm-precompile-modexp = { workspace = true }
-pallet-evm-precompile-sha3fips = { workspace = true }
-pallet-evm-precompile-simple = { workspace = true }
-pallet-hotfix-sufficients = { workspace = true }
-fp-account = { workspace = true }
+pallet-base-fee.workspace = true
+pallet-ethereum.workspace = true
+pallet-evm.workspace = true
+pallet-evm-chain-id.workspace = true
+pallet-evm-precompile-modexp.workspace = true
+pallet-evm-precompile-sha3fips.workspace = true
+pallet-evm-precompile-simple.workspace = true
+pallet-hotfix-sufficients.workspace = true
+fp-account.workspace = true
 
 #drand
-pallet-drand = { workspace = true, default-features = false }
-getrandom = { workspace = true, default-features = false }
-tle = { workspace = true }
-hex = { workspace = true }
-rand_chacha = { workspace = true }
-w3f-bls = { workspace = true }
-sha2 = { workspace = true }
-ark-serialize = { workspace = true }
+pallet-drand.workspace = true
+getrandom.workspace = true
+tle.workspace = true
+hex.workspace = true
+rand_chacha.workspace = true
+w3f-bls.workspace = true
+sha2.workspace = true
+ark-serialize = { workspace = true, features = ["derive"] }
 
 # Crowdloan
-pallet-crowdloan = { workspace = true }
+pallet-crowdloan.workspace = true
 
 [dev-dependencies]
-frame-metadata = { workspace = true }
-sp-io = { workspace = true }
-sp-tracing = { workspace = true }
+frame-metadata.workspace = true
+sp-io.workspace = true
+sp-tracing.workspace = true
 
 [build-dependencies]
 substrate-wasm-builder = { workspace = true, optional = true }
