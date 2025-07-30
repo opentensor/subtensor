@@ -224,6 +224,26 @@ impl<T: Config> Pallet<T> {
                     PendingRootDivs::<T>::mutate(*netuid_i, |total| {
                         *total = total.saturating_add(root_tao);
                     });
+                }         
+                // Accumulate alpha emission in pending.
+                PendingAlphaSwapped::<T>::mutate(*netuid_i, |total| {
+                    *total = total.saturating_add(tou64!(root_alpha).into());
+                });
+                // Accumulate alpha emission in pending.
+                PendingEmission::<T>::mutate(*netuid_i, |total| {
+                    *total = total.saturating_add(tou64!(pending_alpha).into());
+                });
+            }
+            else{
+                //subsidized.  
+                //No emissions to root. Root alpha shifted to PendingEmission
+                //This will push all validator emissions for this block to alpha holders
+                PendingEmission::<T>::mutate(*netuid_i, |total| {
+                    *total = total.saturating_add(tou64!(root_alpha).into());
+                }
+                // Accumulate alpha emission in pending.
+                PendingEmission::<T>::mutate(*netuid_i, |total| {
+                    *total = total.saturating_add(tou64!(pending_alpha).into());
                 }
             }
             // Accumulate alpha emission in pending.
