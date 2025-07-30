@@ -15,12 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{helper, InheritedCallWeightAttr};
+use super::{InheritedCallWeightAttr, helper};
 use frame_support_procedural_tools::get_doc_literals;
 use proc_macro2::Span;
 use quote::ToTokens;
 use std::collections::HashMap;
-use syn::{spanned::Spanned, ExprClosure};
+use syn::{ExprClosure, spanned::Spanned};
 
 /// List of additional token to be used for parsing.
 mod keyword {
@@ -422,8 +422,7 @@ impl CallDef {
                         };
 
                         if feeless_arg_type != arg.2 {
-                            let msg =
-                                "Invalid pallet::call, feeless_if closure argument must have \
+                            let msg = "Invalid pallet::call, feeless_if closure argument must have \
 								a reference to the same type as the dispatchable function argument";
                             return Err(syn::Error::new(feeless_arg.span(), msg));
                         }
