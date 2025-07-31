@@ -1018,7 +1018,7 @@ fn test_create_evm_pure() {
         assert_eq!(proxies.len(), 1);
 
         // The pure account should exist in Proxies storage
-        let pure_account = proxies[0];
+        let pure_account = proxies.first().unwrap();
         assert!(Proxies::<Test>::contains_key(pure_account));
 
         // Test creation with different index
