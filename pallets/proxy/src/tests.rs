@@ -1019,7 +1019,7 @@ fn test_create_evm_pure() {
 
         // The pure account should exist in Proxies storage
         let pure_account = proxies[0];
-        assert!(Proxies::<Test>::contains_key(&pure_account));
+        assert!(Proxies::<Test>::contains_key(pure_account));
 
         // Test creation with different index
         assert_ok!(Proxy::create_evm_pure(
@@ -1104,7 +1104,7 @@ fn test_kill_evm_pure() {
         assert_eq!(proxies_after.len(), 0);
 
         // The pure account should no longer exist in Proxies storage
-        assert!(!Proxies::<Test>::contains_key(&pure_account));
+        assert!(!Proxies::<Test>::contains_key(pure_account));
 
         // Test error when non-owner tries to kill
         assert_ok!(Proxy::create_evm_pure(
