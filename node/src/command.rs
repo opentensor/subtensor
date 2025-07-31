@@ -238,14 +238,14 @@ pub fn run() -> sc_cli::Result<()> {
             let arg_matches = Cli::command().get_matches();
             let cli = Cli::from_args();
             match cli.initial_consensus {
-                SupportedConsensusMechanism::Babe => run_babe(&arg_matches),
-                SupportedConsensusMechanism::Aura => run_aura(&arg_matches),
+                SupportedConsensusMechanism::Babe => start_babe_service(&arg_matches),
+                SupportedConsensusMechanism::Aura => start_aura_service(&arg_matches),
             }
         }
     }
 }
 
-fn run_babe(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
+fn start_babe_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
     let cli = Cli::from_arg_matches(arg_matches).expect("Bad arg_matches");
     let runner = cli.create_runner(&cli.run)?;
     match runner.run_node_until_exit(|config| async move {
@@ -263,7 +263,7 @@ fn run_babe(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
                 log::info!(
                     "💡 Chain is using Aura consensus. Switching to Aura service until Babe block is detected.",
                 );
-                run_aura(arg_matches)
+                start_aura_service(arg_matches)
             // Handle Aura service still has DB lock. This never has been observed to take more
             // than 1s to drop.
             } else if matches!(e, sc_service::Error::Client(sp_blockchain::Error::Backend(ref msg))
@@ -271,7 +271,7 @@ fn run_babe(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
             {
                 log::info!("Failed to aquire DB lock, trying again in 1s...");
                 std::thread::sleep(std::time::Duration::from_secs(1));
-                return run_babe(arg_matches);
+                return start_babe_service(arg_matches);
             // Unknown error, return it.
             } else {
                 Err(e.into())
@@ -280,7 +280,7 @@ fn run_babe(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
     }
 }
 
-fn run_aura(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
+fn start_aura_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
     let cli = Cli::from_arg_matches(arg_matches).expect("Bad arg_matches");
     let runner = cli.create_runner(&cli.run)?;
 
@@ -299,7 +299,7 @@ fn run_aura(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
         Ok(()) => Ok(()),
         Err(e) => {
             if babe_switch.load(std::sync::atomic::Ordering::Relaxed) {
-                run_babe(arg_matches)
+                start_babe_service(arg_matches)
             } else {
                 Err(e.into())
             }
