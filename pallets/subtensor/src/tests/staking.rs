@@ -565,7 +565,7 @@ fn test_add_stake_partial_below_min_stake_fails() {
         mock::setup_reserves(netuid, amount * 10, (amount * 10).into());
 
         // Force the swap to initialize
-        SubtensorModule::swap_tao_for_alpha(netuid, 0, 1_000_000_000_000).unwrap();
+        SubtensorModule::swap_tao_for_alpha(netuid, 0, 1_000_000_000_000, false).unwrap();
 
         // Get the current price (should be 1.0)
         let current_price =
@@ -749,6 +749,67 @@ fn test_add_stake_insufficient_liquidity() {
         // Set the liquidity at lowest possible value so that all staking requests fail
         let reserve = u64::from(mock::SwapMinimumReserve::get()) - 1;
         mock::setup_reserves(netuid, reserve, reserve.into());
+
+        // Check the error
+        assert_noop!(
+            SubtensorModule::add_stake(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                amount_staked
+            ),
+            Error::<Test>::InsufficientLiquidity
+        );
+    });
+}
+
+/// cargo test --package pallet-subtensor --lib -- tests::staking::test_add_stake_insufficient_liquidity_one_side_ok --exact --show-output
+#[test]
+fn test_add_stake_insufficient_liquidity_one_side_ok() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let amount_staked = DefaultMinStake::<Test>::get() * 10;
+
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount_staked);
+
+        // Set the liquidity at lowest possible value so that all staking requests fail
+        let reserve_alpha = u64::from(mock::SwapMinimumReserve::get());
+        let reserve_tao = u64::from(mock::SwapMinimumReserve::get()) - 1;
+        mock::setup_reserves(netuid, reserve_tao, reserve_alpha.into());
+
+        // Check the error
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            amount_staked
+        ));
+    });
+}
+
+/// cargo test --package pallet-subtensor --lib -- tests::staking::test_add_stake_insufficient_liquidity_one_side_fail --exact --show-output
+#[test]
+fn test_add_stake_insufficient_liquidity_one_side_fail() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let amount_staked = DefaultMinStake::<Test>::get() * 10;
+
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount_staked);
+
+        // Set the liquidity at lowest possible value so that all staking requests fail
+        let reserve_alpha = u64::from(mock::SwapMinimumReserve::get()) - 1;
+        let reserve_tao = u64::from(mock::SwapMinimumReserve::get());
+        mock::setup_reserves(netuid, reserve_tao, reserve_alpha.into());
 
         // Check the error
         assert_noop!(
@@ -3245,7 +3306,7 @@ fn test_max_amount_add_dynamic() {
             SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
 
             // Force the swap to initialize
-            SubtensorModule::swap_tao_for_alpha(netuid, 0, 1_000_000_000_000).unwrap();
+            SubtensorModule::swap_tao_for_alpha(netuid, 0, 1_000_000_000_000, false).unwrap();
 
             if !alpha_in.is_zero() {
                 let expected_price = U96F32::from_num(tao_in) / U96F32::from_num(alpha_in);
@@ -5644,7 +5705,7 @@ fn test_large_swap() {
         pallet_subtensor_swap::EnabledUserLiquidity::<Test>::insert(NetUid::from(netuid), true);
 
         // Force the swap to initialize
-        SubtensorModule::swap_tao_for_alpha(netuid, 0, 1_000_000_000_000).unwrap();
+        SubtensorModule::swap_tao_for_alpha(netuid, 0, 1_000_000_000_000, false).unwrap();
 
         setup_positions(netuid.into());
 

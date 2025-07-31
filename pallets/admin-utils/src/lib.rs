@@ -112,6 +112,8 @@ pub mod pallet {
         Crowdloan,
         /// Pure proxy precompile
         PureProxy,
+        /// Leasing precompile
+        Leasing,
     }
 
     #[pallet::type_value]
