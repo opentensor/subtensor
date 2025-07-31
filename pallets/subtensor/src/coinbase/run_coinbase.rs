@@ -85,7 +85,7 @@ impl<T: Config> Pallet<T> {
 
             let alpha_per_tao = T::SwapInterface::get_current_alpha_per_tao(*netuid_i);
             if price_i < tao_in_ratio {
-                tao_in_i = U96F32::saturating_from_num(block_emission).safe_div(alpha_per_tao);
+                tao_in_i = U96F32::saturating_from_num(alpha_emission_i).safe_div(alpha_per_tao);
                 alpha_in_i = alpha_emission_i;
                 let difference_tao: U96F32 = default_tao_in_i.saturating_sub(tao_in_i);
                 // Difference becomes buy.
