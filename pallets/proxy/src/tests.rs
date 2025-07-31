@@ -1166,7 +1166,7 @@ fn test_evm_proxy() {
 
         // Test successful EVM proxy call
         let call = Box::new(call_transfer(6, 1));
-        Balances::make_free_balance_be(&pure_account, 10);
+        Balances::make_free_balance_be(pure_account, 10);
 
         assert_ok!(Proxy::evm_proxy(
             RuntimeOrigin::signed(owner),
@@ -1255,7 +1255,7 @@ fn test_evm_proxy_with_delay() {
 
         // Test that immediate call fails due to delay
         let call = Box::new(call_transfer(6, 1));
-        Balances::make_free_balance_be(&pure_account, 10);
+        Balances::make_free_balance_be(pure_account, 10);
 
         assert_noop!(
             Proxy::evm_proxy(
