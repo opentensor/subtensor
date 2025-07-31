@@ -227,7 +227,7 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the minimum difficulty.
         #[pallet::call_index(4)]
-        #[pallet::weight(Weight::from_parts(19_780_000, 0)
+        #[pallet::weight(Weight::from_parts(15_470_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_min_difficulty(
@@ -430,7 +430,7 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the immunity period.
         #[pallet::call_index(13)]
-        #[pallet::weight(Weight::from_parts(19_380_000, 0)
+        #[pallet::weight(Weight::from_parts(15_240_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_immunity_period(
@@ -455,7 +455,7 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the minimum allowed weights.
         #[pallet::call_index(14)]
-        #[pallet::weight(Weight::from_parts(19_770_000, 0)
+        #[pallet::weight(Weight::from_parts(15_110_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_min_allowed_weights(
@@ -546,7 +546,7 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the activity cutoff.
         #[pallet::call_index(18)]
-        #[pallet::weight(Weight::from_parts(22_600_000, 0)
+        #[pallet::weight(Weight::from_parts(17_720_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_activity_cutoff(
@@ -659,7 +659,7 @@ pub mod pallet {
         /// It is only callable by the root account.
         /// The extrinsic will call the Subtensor pallet to set the minimum burn.
         #[pallet::call_index(22)]
-        #[pallet::weight(Weight::from_parts(19_840_000, 0)
+        #[pallet::weight(Weight::from_parts(15_330_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_min_burn(
@@ -727,7 +727,7 @@ pub mod pallet {
         /// It is only callable by the root account.
         /// The extrinsic will call the Subtensor pallet to set the maximum allowed validators.
         #[pallet::call_index(25)]
-        #[pallet::weight(Weight::from_parts(25_210_000, 0)
+        #[pallet::weight(Weight::from_parts(19_710_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_max_allowed_validators(
@@ -792,7 +792,7 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the bonds penalty.
         #[pallet::call_index(60)]
-        #[pallet::weight(Weight::from_parts(20_030_000, 0)
+        #[pallet::weight(Weight::from_parts(15_490_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_bonds_penalty(
@@ -815,7 +815,7 @@ pub mod pallet {
         /// It is only callable by the root account.
         /// The extrinsic will call the Subtensor pallet to set the maximum registrations per block.
         #[pallet::call_index(27)]
-        #[pallet::weight(Weight::from_parts(19_680_000, 0)
+        #[pallet::weight(Weight::from_parts(15_520_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_max_registrations_per_block(
