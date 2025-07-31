@@ -1,4 +1,4 @@
-use crate::epoch::math::clamp_u64f64;
+use crate::epoch::math::clamp_value;
 
 use super::*;
 use crate::epoch::math::*;
@@ -88,7 +88,7 @@ impl<T: Config> Pallet<T> {
     /// use the `get_tao_weight()` function.
     pub fn set_tao_weight_from_float(weight: U64F64) {
         let clamped_weight =
-            clamp_u64f64(weight, MinTaoWeight::<T>::get(), MaxTaoWeight::<T>::get());
+            clamp_value(weight, MinTaoWeight::<T>::get(), MaxTaoWeight::<T>::get());
 
         TaoWeight::<T>::set(fixed128_to_u64(clamped_weight));
     }
