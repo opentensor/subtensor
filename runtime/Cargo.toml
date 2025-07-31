@@ -36,6 +36,7 @@ pallet-subtensor-swap = { workspace = true }
 pallet-subtensor-swap-runtime-api = { workspace = true }
 substrate-fixed = { workspace = true }
 subtensor-swap-interface = { workspace = true }
+subtensor-transaction-fee = { workspace = true }
 frame-support = { workspace = true }
 pallet-grandpa = { workspace = true }
 pallet-insecure-randomness-collective-flip = { workspace = true }

@@ -6907,6 +6907,7 @@ dependencies = [
  "subtensor-precompiles",
  "subtensor-runtime-common",
  "subtensor-swap-interface",
+ "subtensor-transaction-fee",
  "tle",
  "w3f-bls",
 ]
@@ -13225,6 +13226,23 @@ dependencies = [
  "clap",
  "semver 1.0.26",
  "toml_edit",
+]
+
+[[package]]
+name = "subtensor-transaction-fee"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-subtensor",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "scale-info",
+ "smallvec",
+ "sp-runtime",
+ "substrate-fixed",
+ "subtensor-runtime-common",
 ]
 
 [[package]]
