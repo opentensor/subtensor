@@ -1096,7 +1096,7 @@ fn test_kill_evm_pure() {
         assert_ok!(Proxy::kill_evm_pure(
             RuntimeOrigin::signed(owner),
             evm_address,
-            pure_account
+            *pure_account
         ));
 
         // Check that the proxy was removed from EVMProxies storage
@@ -1124,7 +1124,7 @@ fn test_kill_evm_pure() {
             Proxy::kill_evm_pure(
                 RuntimeOrigin::signed(non_owner),
                 evm_address,
-                new_pure_account
+                *new_pure_account
             ),
             Error::<Test>::OriginNotMatchMappedEVM
         );
@@ -1140,7 +1140,7 @@ fn test_kill_evm_pure() {
         assert_ok!(Proxy::kill_evm_pure(
             RuntimeOrigin::signed(owner),
             evm_address,
-            new_pure_account
+            *new_pure_account
         ));
     });
 }
@@ -1162,7 +1162,7 @@ fn test_evm_proxy() {
         ));
 
         let proxies = Proxy::evm_proxies(evm_address);
-        let pure_account = proxies[0];
+        let pure_account = proxies.first().expect("EVM proxy should exist");
 
         // Test successful EVM proxy call
         let call = Box::new(call_transfer(6, 1));
@@ -1173,7 +1173,7 @@ fn test_evm_proxy() {
             Some(ProxyType::Any),
             call.clone(),
             evm_address,
-            pure_account
+            *pure_account
         ));
 
         // Verify the call was executed
@@ -1189,7 +1189,7 @@ fn test_evm_proxy() {
                 Some(ProxyType::Any),
                 call.clone(),
                 evm_address,
-                pure_account
+                *pure_account
             ),
             Error::<Test>::OriginNotMatchMappedEVM
         );
@@ -1209,7 +1209,7 @@ fn test_evm_proxy() {
 
         // Test with different proxy type
         assert_ok!(Proxy::add_proxy(
-            RuntimeOrigin::signed(pure_account),
+            RuntimeOrigin::signed(*pure_account),
             owner,
             ProxyType::JustTransfer,
             0
@@ -1220,7 +1220,7 @@ fn test_evm_proxy() {
             Some(ProxyType::JustTransfer),
             call.clone(),
             evm_address,
-            pure_account
+            *pure_account
         ));
 
         // Test without specifying proxy type (should use Any)
@@ -1229,7 +1229,7 @@ fn test_evm_proxy() {
             None,
             call,
             evm_address,
-            pure_account
+            *pure_account
         ));
     });
 }
@@ -1251,7 +1251,7 @@ fn test_evm_proxy_with_delay() {
         ));
 
         let proxies = Proxy::evm_proxies(evm_address);
-        let pure_account = proxies[0];
+        let pure_account = proxies.first().expect("EVM proxy should exist");
 
         // Test that immediate call fails due to delay
         let call = Box::new(call_transfer(6, 1));
@@ -1263,7 +1263,7 @@ fn test_evm_proxy_with_delay() {
                 Some(ProxyType::Any),
                 call,
                 evm_address,
-                pure_account
+                *pure_account
             ),
             Error::<Test>::Unannounced
         );
