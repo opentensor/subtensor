@@ -12,8 +12,13 @@ homepage = "https://bittensor.com"
 name = "bump-version"
 path = "src/bump_version.rs"
 
+[[bin]]
+name = "spec-version"
+path = "src/spec_version.rs"
+
 [dependencies]
 anyhow.workspace = true
 clap = { workspace = true, features = ["derive"] }
 semver.workspace = true
 toml_edit.workspace = true
+node-subtensor-runtime = { workspace = true, default-features = true }
