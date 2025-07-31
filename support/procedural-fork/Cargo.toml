@@ -31,7 +31,7 @@ regex.workspace = true
 
 [features]
 default = ["std"]
-std = ["sp-crypto-hashing/std"]
+std = ["sp-crypto-hashing/std", "regex/std"]
 no-metadata-docs = []
 experimental = []
 # Generate impl-trait for tuples with the given number of tuples. Will be needed as the number of

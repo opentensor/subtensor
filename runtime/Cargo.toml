@@ -144,6 +144,7 @@ std = [
 	"codec/std",
 	"scale-info/std",
 	"frame-executive/std",
+	"frame-metadata/std",
 	"frame-metadata-hash-extension/std",
 	"frame-support/std",
 	"frame-system-rpc-runtime-api/std",

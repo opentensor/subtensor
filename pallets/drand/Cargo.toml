@@ -72,6 +72,7 @@ std = [
 	"ark-scale/std",
 	"w3f-bls/std",
 	"tle/std",
+	"anyhow/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

@@ -65,7 +65,9 @@ frame-system.workspace = true
 pallet-transaction-payment.workspace = true
 pallet-commitments.workspace = true
 pallet-drand.workspace = true
-sp-crypto-ec-utils = { workspace = true, default-features = true, features = ["bls12-381"] }
+sp-crypto-ec-utils = { workspace = true, default-features = true, features = [
+	"bls12-381",
+] }
 sp-keystore.workspace = true
 cumulus-primitives-proof-size-hostfunction.workspace = true
 
@@ -125,6 +127,8 @@ rocksdb = [
 	"fc-db/rocksdb",
 	"fc-mapping-sync/rocksdb",
 	"fc-rpc/rocksdb",
+	"frame-benchmarking-cli/rocksdb",
+	"sc-cli/rocksdb",
 ]
 txpool = ["fc-rpc/txpool", "fc-rpc-core/txpool"]
 
