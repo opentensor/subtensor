@@ -324,12 +324,15 @@ fn test_update_moving_price_after_time() {
 #[test]
 fn test_coinbase_alpha_issuance_base() {
     new_test_ext(1).execute_with(|| {
-        let netuid1 = NetUid::from(1);
-        let netuid2 = NetUid::from(2);
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
+        let netuid1 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+        let netuid2 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
         let emission: u64 = 1_000_000;
-        add_network(netuid1, 1, 0);
-        add_network(netuid2, 1, 0);
+
         // Set up prices 1 and 1
+        let initial: u64 = 1_000_000;
+        let initial: u64 = emission * 100;
         let initial: u64 = 1_000_000;
         SubnetTAO::<Test>::insert(netuid1, initial);
         SubnetAlphaIn::<Test>::insert(netuid1, AlphaCurrency::from(initial));
@@ -487,6 +490,83 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
 
         assert!(price_1_after > price_1_before);
         assert!(price_2_after > price_2_before);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_alpha_issuance_price_convergence --exact --show-output --nocapture
+#[test]
+fn test_coinbase_alpha_issuance_price_convergence() {
+    new_test_ext(1).execute_with(|| {
+        let netuid0 = NetUid::from(0);
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
+        let emission: u64 = 1_000_000;
+        add_network(netuid0, 1, 0);
+        add_network(netuid1, 1, 0);
+        add_network(netuid2, 1, 0);
+
+        // Make subnets dynamic.
+        SubnetMechanism::<Test>::insert(netuid1, 1);
+        SubnetMechanism::<Test>::insert(netuid2, 1);
+
+        // Setup prices
+        let initial_tao: u64 = 10_000_000_000;
+        let initial_alpha: u64 = initial_tao * 4;
+        let initial_alpha2: u64 = initial_tao * 2;
+        mock::setup_reserves(netuid1, initial_tao, initial_alpha.into());
+        mock::setup_reserves(netuid2, initial_tao, initial_alpha2.into());
+
+        // Enable emission
+        FirstEmissionBlockNumber::<Test>::insert(netuid1, 0);
+        FirstEmissionBlockNumber::<Test>::insert(netuid2, 0);
+        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
+        SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
+
+        // Force the swap to initialize
+        SubtensorModule::swap_tao_for_alpha(netuid1, 0, 1_000_000_000_000, false).unwrap();
+        SubtensorModule::swap_tao_for_alpha(netuid2, 0, 1_000_000_000_000, false).unwrap();
+
+        // Get the prices before the run_coinbase
+        let price_1_before = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid1);
+        let price_2_before = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid2);
+
+        // Set issuance
+        SubnetAlphaOut::<Test>::insert(netuid1, AlphaCurrency::from(1_000_000_000_000));
+        SubnetAlphaOut::<Test>::insert(netuid2, AlphaCurrency::from(1_000_000_000_000));
+
+        // Setup root stake and (a tiny) weight
+        SubnetTAO::<Test>::insert(netuid0, 1_000_000_000_000_u64);
+        TaoWeight::<Test>::set((0.001 * u64::MAX as f64) as u64);
+
+        // Run coinbase 1000 times to move closer to equillibrium
+        let mut last_price_1 = price_1_before;
+        let mut last_price_2 = price_2_before;
+        for _ in 0..1000 {
+            SubtensorModule::run_coinbase(U96F32::from_num(emission));
+
+            // Get the prices after the run_coinbase
+            let price_1_after =
+                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid1);
+            let price_2_after =
+                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid2);
+
+            // Make sure prices move towards emission
+            let threshold_1 = U96F32::from_num(1. / 3.);
+            let threshold_2 = U96F32::from_num(2. / 3.);
+            if threshold_1.saturating_sub(last_price_1) > 1_000 {
+                assert!(price_1_after > last_price_1);
+            } else if last_price_1.saturating_sub(threshold_1) > 1_000 {
+                assert!(price_1_after < last_price_1);
+            }
+            if threshold_2.saturating_sub(last_price_2) > 1_000 {
+                assert!(price_2_after > last_price_2);
+            } else if last_price_2.saturating_sub(threshold_2) > 1_000 {
+                assert!(price_2_after < last_price_2);
+            }
+
+            last_price_1 = price_1_after;
+            last_price_2 = price_2_after;
+        }
     });
 }
 
