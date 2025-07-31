@@ -60,9 +60,7 @@ impl<T: Config> Pallet<T> {
     pub fn contains_invalid_root_uids(netuids: &[NetUid]) -> bool {
         for netuid in netuids {
             if !Self::if_subnet_exist(*netuid) {
-                log::debug!(
-                    "contains_invalid_root_uids: netuid {netuid:?} does not exist"
-                );
+                log::debug!("contains_invalid_root_uids: netuid {netuid:?} does not exist");
                 return true;
             }
         }
@@ -91,9 +89,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 1. Ensure that the call originates from a signed source and retrieve the caller's account ID (coldkey).
         let coldkey = ensure_signed(origin)?;
-        log::debug!(
-            "do_root_register( coldkey: {coldkey:?}, hotkey: {hotkey:?} )"
-        );
+        log::debug!("do_root_register( coldkey: {coldkey:?}, hotkey: {hotkey:?} )");
 
         // --- 2. Ensure that the number of registrations in this block doesn't exceed the allowed limit.
         ensure!(
@@ -220,9 +216,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 1. Ensure that the call originates from a signed source and retrieve the caller's account ID (coldkey).
         let coldkey = ensure_signed(origin)?;
-        log::debug!(
-            "do_root_register( coldkey: {coldkey:?}, hotkey: {hotkey:?} )"
-        );
+        log::debug!("do_root_register( coldkey: {coldkey:?}, hotkey: {hotkey:?} )");
 
         // --- 2. Check if the hotkey is already registered to the root network. If not, error out.
         ensure!(
@@ -248,9 +242,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 5. Log and announce the successful Senate adjustment.
-        log::debug!(
-            "SenateAdjusted(old_hotkey:{replaced:?} hotkey:{hotkey:?})"
-        );
+        log::debug!("SenateAdjusted(old_hotkey:{replaced:?} hotkey:{hotkey:?})");
         Self::deposit_event(Event::SenateAdjusted {
             old_member: replaced.cloned(),
             new_member: hotkey,

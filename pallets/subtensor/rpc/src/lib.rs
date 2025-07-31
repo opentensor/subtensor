@@ -235,9 +235,7 @@ where
 
         match api.get_neurons(at, netuid) {
             Ok(result) => Ok(result.encode()),
-            Err(e) => {
-                Err(Error::RuntimeError(format!("Unable to get neurons info: {e:?}")).into())
-            }
+            Err(e) => Err(Error::RuntimeError(format!("Unable to get neurons info: {e:?}")).into()),
         }
     }
 
@@ -252,9 +250,7 @@ where
 
         match api.get_neuron(at, netuid, uid) {
             Ok(result) => Ok(result.encode()),
-            Err(e) => {
-                Err(Error::RuntimeError(format!("Unable to get neuron info: {e:?}")).into())
-            }
+            Err(e) => Err(Error::RuntimeError(format!("Unable to get neuron info: {e:?}")).into()),
         }
     }
 
@@ -268,9 +264,7 @@ where
 
         match api.get_subnet_info(at, netuid) {
             Ok(result) => Ok(result.encode()),
-            Err(e) => {
-                Err(Error::RuntimeError(format!("Unable to get subnet info: {e:?}")).into())
-            }
+            Err(e) => Err(Error::RuntimeError(format!("Unable to get subnet info: {e:?}")).into()),
         }
     }
 
@@ -284,9 +278,7 @@ where
 
         match api.get_subnet_hyperparams(at, netuid) {
             Ok(result) => Ok(result.encode()),
-            Err(e) => {
-                Err(Error::RuntimeError(format!("Unable to get subnet info: {e:?}")).into())
-            }
+            Err(e) => Err(Error::RuntimeError(format!("Unable to get subnet info: {e:?}")).into()),
         }
     }
 
@@ -300,9 +292,7 @@ where
 
         match api.get_subnet_hyperparams_v2(at, netuid) {
             Ok(result) => Ok(result.encode()),
-            Err(e) => {
-                Err(Error::RuntimeError(format!("Unable to get subnet info: {e:?}")).into())
-            }
+            Err(e) => Err(Error::RuntimeError(format!("Unable to get subnet info: {e:?}")).into()),
         }
     }
 
@@ -384,9 +374,7 @@ where
 
         match api.get_subnets_info(at) {
             Ok(result) => Ok(result.encode()),
-            Err(e) => {
-                Err(Error::RuntimeError(format!("Unable to get subnets info: {e:?}")).into())
-            }
+            Err(e) => Err(Error::RuntimeError(format!("Unable to get subnets info: {e:?}")).into()),
         }
     }
 
@@ -400,9 +388,7 @@ where
 
         match api.get_subnet_info_v2(at, netuid) {
             Ok(result) => Ok(result.encode()),
-            Err(e) => {
-                Err(Error::RuntimeError(format!("Unable to get subnet info: {e:?}")).into())
-            }
+            Err(e) => Err(Error::RuntimeError(format!("Unable to get subnet info: {e:?}")).into()),
         }
     }
 
@@ -412,9 +398,7 @@ where
 
         match api.get_subnets_info_v2(at) {
             Ok(result) => Ok(result.encode()),
-            Err(e) => {
-                Err(Error::RuntimeError(format!("Unable to get subnets info: {e:?}")).into())
-            }
+            Err(e) => Err(Error::RuntimeError(format!("Unable to get subnets info: {e:?}")).into()),
         }
     }
 
@@ -438,10 +422,9 @@ where
 
         match api.get_selective_metagraph(at, netuid, metagraph_index) {
             Ok(result) => Ok(result.encode()),
-            Err(e) => Err(Error::RuntimeError(format!(
-                "Unable to get selective metagraph: {e:?}"
-            ))
-            .into()),
+            Err(e) => {
+                Err(Error::RuntimeError(format!("Unable to get selective metagraph: {e:?}")).into())
+            }
         }
     }
 }

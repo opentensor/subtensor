@@ -88,9 +88,7 @@ impl<T: Config> Pallet<T> {
     /// Emits a `TransferToggle` event upon successful completion.
     pub fn toggle_transfer(netuid: NetUid, toggle: bool) -> dispatch::DispatchResult {
         TransferToggle::<T>::insert(netuid, toggle);
-        log::debug!(
-            "TransferToggle( netuid: {netuid:?}, toggle: {toggle:?} ) "
-        );
+        log::debug!("TransferToggle( netuid: {netuid:?}, toggle: {toggle:?} ) ");
         Self::deposit_event(Event::TransferToggle(netuid, toggle));
         Ok(())
     }

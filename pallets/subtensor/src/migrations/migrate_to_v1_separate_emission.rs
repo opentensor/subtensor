@@ -63,9 +63,7 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
             if old::LoadedEmission::<T>::try_get(netuid).is_err() {
                 weight.saturating_accrue(T::DbWeight::get().writes(1));
                 old::LoadedEmission::<T>::remove(netuid);
-                warn!(
-                    "Was unable to decode old loaded_emission for netuid {netuid}"
-                );
+                warn!("Was unable to decode old loaded_emission for netuid {netuid}");
             }
         }
 

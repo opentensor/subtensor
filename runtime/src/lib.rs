@@ -1416,9 +1416,7 @@ impl BalanceConverter for SubtensorEvmBalanceConverter {
             }
         } else {
             // Log overflow
-            log::debug!(
-                "SubtensorEvmBalanceConverter::into_evm_balance( {value:?} ) overflow"
-            );
+            log::debug!("SubtensorEvmBalanceConverter::into_evm_balance( {value:?} ) overflow");
             None
         }
     }

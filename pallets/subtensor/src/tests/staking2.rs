@@ -231,9 +231,7 @@ fn test_share_based_staking() {
             + stake_amount.to_u64() as f64
                 * (secondary_stake.to_u64() as f64 / total_hotkey_stake.to_u64() as f64);
 
-        log::info!(
-            "Primary final stake: {primary_final_stake} (expected: {primary_expected})"
-        );
+        log::info!("Primary final stake: {primary_final_stake} (expected: {primary_expected})");
         log::info!(
             "Secondary final stake: {secondary_final_stake} (expected: {secondary_expected})"
         );
@@ -359,9 +357,7 @@ fn test_share_based_staking() {
             &primary_coldkey,
             netuid,
         );
-        log::info!(
-            "Stake after attempting excessive removal: {after_excessive_removal}"
-        );
+        log::info!("Stake after attempting excessive removal: {after_excessive_removal}");
         assert!(
             after_excessive_removal == available_stake,
             "Removing more stake performs no action"

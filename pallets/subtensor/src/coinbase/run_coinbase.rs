@@ -249,9 +249,7 @@ impl<T: Config> Pallet<T> {
             // Pass on subnets that have not reached their tempo.
             if Self::should_run_epoch(netuid, current_block) {
                 if let Err(e) = Self::reveal_crv3_commits(netuid) {
-                    log::warn!(
-                        "Failed to reveal commits for subnet {netuid} due to error: {e:?}"
-                    );
+                    log::warn!("Failed to reveal commits for subnet {netuid} due to error: {e:?}");
                 };
 
                 // Restart counters.
@@ -699,9 +697,7 @@ impl<T: Config> Pallet<T> {
         let childkey_take_proportion: U96F32 =
             U96F32::saturating_from_num(Self::get_childkey_take(hotkey, netuid))
                 .safe_div(U96F32::saturating_from_num(u16::MAX));
-        log::debug!(
-            "Childkey take proportion: {childkey_take_proportion:?} for hotkey {hotkey:?}"
-        );
+        log::debug!("Childkey take proportion: {childkey_take_proportion:?} for hotkey {hotkey:?}");
         // NOTE: Only the validation emission should be split amongst parents.
 
         // Grab the owner of the childkey.
@@ -788,12 +784,8 @@ impl<T: Config> Pallet<T> {
             total_child_emission_take =
                 total_child_emission_take.saturating_add(child_emission_take);
 
-            log::debug!(
-                "Child emission take: {child_emission_take:?} for hotkey {hotkey:?}"
-            );
-            log::debug!(
-                "Parent emission: {parent_emission:?} for hotkey {hotkey:?}"
-            );
+            log::debug!("Child emission take: {child_emission_take:?} for hotkey {hotkey:?}");
+            log::debug!("Parent emission: {parent_emission:?} for hotkey {hotkey:?}");
             log::debug!("remaining emission: {remaining_emission:?}");
 
             // Add the parent's emission to the distribution list

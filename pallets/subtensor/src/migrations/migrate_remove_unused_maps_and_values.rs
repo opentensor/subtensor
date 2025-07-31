@@ -23,9 +23,7 @@ fn remove_prefix<T: Config>(old_map: &str, weight: &mut Weight) {
         }
     };
 
-    log::info!(
-        "Removed {removed_entries_count:?} entries from {old_map:?} map."
-    );
+    log::info!("Removed {removed_entries_count:?} entries from {old_map:?} map.");
 
     *weight = (*weight).saturating_add(T::DbWeight::get().writes(removed_entries_count));
 }

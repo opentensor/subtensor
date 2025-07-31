@@ -75,9 +75,7 @@ impl<T: Config> Pallet<T> {
         // Log results.
         log::debug!("{netuid:?} - tao_in_emission: {tao_in_emission:?}");
         log::debug!("{netuid:?} - alpha_in_emission: {alpha_in_emission:?}");
-        log::debug!(
-            "{netuid:?} - alpha_out_emission: {alpha_out_emission:?}"
-        );
+        log::debug!("{netuid:?} - alpha_out_emission: {alpha_out_emission:?}");
 
         // Return result.
         (

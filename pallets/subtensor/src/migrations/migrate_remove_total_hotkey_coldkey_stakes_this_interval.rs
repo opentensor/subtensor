@@ -9,9 +9,7 @@ pub fn migrate_remove_total_hotkey_coldkey_stakes_this_interval<T: Config>() -> 
 
     let mut weight = T::DbWeight::get().reads(1);
     if HasMigrationRun::<T>::get(&migration_name_bytes) {
-        log::info!(
-            "Migration '{migration_name:?}' has already run. Skipping."
-        );
+        log::info!("Migration '{migration_name:?}' has already run. Skipping.");
         return weight;
     }
 

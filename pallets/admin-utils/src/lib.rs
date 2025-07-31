@@ -219,9 +219,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
 
             pallet_subtensor::Pallet::<T>::set_serving_rate_limit(netuid, serving_rate_limit);
-            log::debug!(
-                "ServingRateLimitSet( serving_rate_limit: {serving_rate_limit:?} ) "
-            );
+            log::debug!("ServingRateLimitSet( serving_rate_limit: {serving_rate_limit:?} ) ");
             Ok(())
         }
 
@@ -399,9 +397,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_adjustment_alpha(netuid, adjustment_alpha);
-            log::debug!(
-                "AdjustmentAlphaSet( adjustment_alpha: {adjustment_alpha:?} ) "
-            );
+            log::debug!("AdjustmentAlphaSet( adjustment_alpha: {adjustment_alpha:?} ) ");
             Ok(())
         }
 
@@ -678,9 +674,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_min_burn(netuid, min_burn);
-            log::debug!(
-                "MinBurnSet( netuid: {netuid:?} min_burn: {min_burn:?} ) "
-            );
+            log::debug!("MinBurnSet( netuid: {netuid:?} min_burn: {min_burn:?} ) ");
             Ok(())
         }
 
@@ -703,9 +697,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_max_burn(netuid, max_burn);
-            log::debug!(
-                "MaxBurnSet( netuid: {netuid:?} max_burn: {max_burn:?} ) "
-            );
+            log::debug!("MaxBurnSet( netuid: {netuid:?} max_burn: {max_burn:?} ) ");
             Ok(())
         }
 
@@ -727,9 +719,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_difficulty(netuid, difficulty);
-            log::debug!(
-                "DifficultySet( netuid: {netuid:?} difficulty: {difficulty:?} ) "
-            );
+            log::debug!("DifficultySet( netuid: {netuid:?} difficulty: {difficulty:?} ) ");
             Ok(())
         }
 
@@ -817,9 +807,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_bonds_penalty(netuid, bonds_penalty);
-            log::debug!(
-                "BondsPenalty( netuid: {netuid:?} bonds_penalty: {bonds_penalty:?} ) "
-            );
+            log::debug!("BondsPenalty( netuid: {netuid:?} bonds_penalty: {bonds_penalty:?} ) ");
             Ok(())
         }
 
@@ -867,9 +855,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_subnet_owner_cut(subnet_owner_cut);
-            log::debug!(
-                "SubnetOwnerCut( subnet_owner_cut: {subnet_owner_cut:?} ) "
-            );
+            log::debug!("SubnetOwnerCut( subnet_owner_cut: {subnet_owner_cut:?} ) ");
             Ok(())
         }
 
@@ -1154,9 +1140,7 @@ pub mod pallet {
         ) -> DispatchResult {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
             pallet_subtensor::Pallet::<T>::set_liquid_alpha_enabled(netuid, enabled);
-            log::debug!(
-                "LiquidAlphaEnableToggled( netuid: {netuid:?}, Enabled: {enabled:?} ) "
-            );
+            log::debug!("LiquidAlphaEnableToggled( netuid: {netuid:?}, Enabled: {enabled:?} ) ");
             Ok(())
         }
 
@@ -1290,9 +1274,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::set_dissolve_network_schedule_duration(duration);
 
             // Log the change
-            log::trace!(
-                "DissolveNetworkScheduleDurationSet( duration: {duration:?} )"
-            );
+            log::trace!("DissolveNetworkScheduleDurationSet( duration: {duration:?} )");
 
             Ok(())
         }
@@ -1336,9 +1318,7 @@ pub mod pallet {
             );
 
             pallet_subtensor::Pallet::<T>::set_reveal_period(netuid, interval);
-            log::debug!(
-                "SetWeightCommitInterval( netuid: {netuid:?}, interval: {interval:?} ) "
-            );
+            log::debug!("SetWeightCommitInterval( netuid: {netuid:?}, interval: {interval:?} ) ");
             Ok(())
         }
 
@@ -1488,9 +1468,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner(origin.clone(), netuid)?;
             pallet_subtensor::Pallet::<T>::set_subnet_owner_hotkey(netuid, &hotkey);
 
-            log::debug!(
-                "SubnetOwnerHotkeySet( netuid: {netuid:?}, hotkey: {hotkey:?} )"
-            );
+            log::debug!("SubnetOwnerHotkeySet( netuid: {netuid:?}, hotkey: {hotkey:?} )");
             Ok(())
         }
 
@@ -1558,9 +1536,7 @@ pub mod pallet {
 
             pallet_subtensor::Pallet::<T>::set_alpha_sigmoid_steepness(netuid, steepness);
 
-            log::debug!(
-                "AlphaSigmoidSteepnessSet( netuid: {netuid:?}, steepness: {steepness:?} )"
-            );
+            log::debug!("AlphaSigmoidSteepnessSet( netuid: {netuid:?}, steepness: {steepness:?} )");
             Ok(())
         }
 
@@ -1584,9 +1560,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::set_yuma3_enabled(netuid, enabled);
 
             Self::deposit_event(Event::Yuma3EnableToggled { netuid, enabled });
-            log::debug!(
-                "Yuma3EnableToggled( netuid: {netuid:?}, Enabled: {enabled:?} ) "
-            );
+            log::debug!("Yuma3EnableToggled( netuid: {netuid:?}, Enabled: {enabled:?} ) ");
             Ok(())
         }
 
@@ -1610,9 +1584,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::set_bonds_reset(netuid, enabled);
 
             Self::deposit_event(Event::BondsResetToggled { netuid, enabled });
-            log::debug!(
-                "BondsResetToggled( netuid: {netuid:?} bonds_reset: {enabled:?} ) "
-            );
+            log::debug!("BondsResetToggled( netuid: {netuid:?} bonds_reset: {enabled:?} ) ");
             Ok(())
         }
 

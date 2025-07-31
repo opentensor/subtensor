@@ -150,9 +150,7 @@ impl Parse for WhereSection {
         remove_kind(input, WhereKind::NodeBlock, &mut definitions)?;
         remove_kind(input, WhereKind::UncheckedExtrinsic, &mut definitions)?;
         if let Some(WhereDefinition {
-            kind_span,
-            kind,
-            ..
+            kind_span, kind, ..
         }) = definitions.first()
         {
             let msg = format!(

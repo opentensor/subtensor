@@ -41,9 +41,7 @@ pub fn migrate_remove_stake_map<T: Config>() -> Weight {
 
     weight = weight.saturating_add(T::DbWeight::get().writes(removed_entries_count));
 
-    log::info!(
-        "Removed {removed_entries_count:?} entries from Stake map."
-    );
+    log::info!("Removed {removed_entries_count:?} entries from Stake map.");
 
     // ------------------------------
     // Step 2: Mark Migration as Completed

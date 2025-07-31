@@ -71,9 +71,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         // --- 1. Check that the caller has signed the transaction. (the coldkey of the pairing)
         let coldkey = ensure_signed(origin)?;
-        log::debug!(
-            "do_registration( coldkey:{coldkey:?} netuid:{netuid:?} hotkey:{hotkey:?} )"
-        );
+        log::debug!("do_registration( coldkey:{coldkey:?} netuid:{netuid:?} hotkey:{hotkey:?} )");
 
         // --- 2. Ensure the passed network is valid.
         ensure!(
@@ -159,9 +157,7 @@ impl<T: Config> Pallet<T> {
         Self::increase_rao_recycled(netuid, Self::get_burn_as_u64(netuid));
 
         // --- 15. Deposit successful event.
-        log::debug!(
-            "NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?}  ) "
-        );
+        log::debug!("NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?}  ) ");
         Self::deposit_event(Event::NeuronRegistered(netuid, neuron_uid, hotkey));
 
         // --- 16. Ok and done.
@@ -326,9 +322,7 @@ impl<T: Config> Pallet<T> {
         RegistrationsThisBlock::<T>::mutate(netuid, |val| val.saturating_inc());
 
         // --- 13. Deposit successful event.
-        log::debug!(
-            "NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?}  ) "
-        );
+        log::debug!("NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?}  ) ");
         Self::deposit_event(Event::NeuronRegistered(netuid, neuron_uid, hotkey));
 
         // --- 14. Ok and done.
@@ -380,9 +374,7 @@ impl<T: Config> Pallet<T> {
         Self::add_balance_to_coldkey_account(&coldkey, balance_to_add);
 
         // --- 6. Deposit successful event.
-        log::debug!(
-            "Faucet( coldkey:{coldkey:?} amount:{balance_to_add:?} ) "
-        );
+        log::debug!("Faucet( coldkey:{coldkey:?} amount:{balance_to_add:?} ) ");
         Self::deposit_event(Event::Faucet(coldkey, balance_to_add));
 
         // --- 7. Ok and done.

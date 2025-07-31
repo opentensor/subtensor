@@ -28,9 +28,7 @@ pub fn migrate_fix_root_subnet_tao<T: Config>() -> Weight {
         hotkey_count = hotkey_count.saturating_add(1);
     }
 
-    log::info!(
-        "Total stake: {total_stake}, hotkey count: {hotkey_count}"
-    );
+    log::info!("Total stake: {total_stake}, hotkey count: {hotkey_count}");
 
     weight = weight.saturating_add(T::DbWeight::get().reads(hotkey_count).saturating_mul(2));
 

@@ -175,9 +175,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 19. Emit the tracking event.
-        log::debug!(
-            "BatchWeightsCompleted( netuids:{netuids:?}, hotkey:{hotkey:?} )"
-        );
+        log::debug!("BatchWeightsCompleted( netuids:{netuids:?}, hotkey:{hotkey:?} )");
         Self::deposit_event(Event::BatchWeightsCompleted(netuids, hotkey));
 
         // --- 20. Return ok.
@@ -231,9 +229,7 @@ impl<T: Config> Pallet<T> {
         // 1. Verify the caller's signature (hotkey).
         let who = ensure_signed(origin)?;
 
-        log::debug!(
-            "do_commit_v3_weights(hotkey: {who:?}, netuid: {netuid:?})"
-        );
+        log::debug!("do_commit_v3_weights(hotkey: {who:?}, netuid: {netuid:?})");
 
         // 2. Ensure commit-reveal is enabled.
         ensure!(
@@ -491,9 +487,7 @@ impl<T: Config> Pallet<T> {
         // --- 2. Check the caller's signature (hotkey).
         let who = ensure_signed(origin.clone())?;
 
-        log::debug!(
-            "do_batch_reveal_weights( hotkey:{who:?} netuid:{netuid:?})"
-        );
+        log::debug!("do_batch_reveal_weights( hotkey:{who:?} netuid:{netuid:?})");
 
         // --- 3. Ensure commit-reveal is enabled for the network.
         ensure!(
@@ -771,9 +765,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 19. Emit the tracking event.
-        log::debug!(
-            "WeightsSet( netuid:{netuid:?}, neuron_uid:{neuron_uid:?} )"
-        );
+        log::debug!("WeightsSet( netuid:{netuid:?}, neuron_uid:{neuron_uid:?} )");
         Self::deposit_event(Event::WeightsSet(netuid, neuron_uid));
 
         // --- 20. Return ok.
@@ -864,9 +856,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 19. Emit the tracking event.
-        log::debug!(
-            "BatchWeightsSet( netuids:{netuids:?}, hotkey:{hotkey:?} )"
-        );
+        log::debug!("BatchWeightsSet( netuids:{netuids:?}, hotkey:{hotkey:?} )");
         Self::deposit_event(Event::BatchWeightsCompleted(netuids, hotkey));
 
         // --- 20. Return ok.

@@ -251,9 +251,7 @@ fn init_run_epochs(
         }
     }
     let duration = start.elapsed();
-    log::info!(
-        "Time elapsed in (sparse={sparse}) epoch() is: {duration:?}"
-    );
+    log::info!("Time elapsed in (sparse={sparse}) epoch() is: {duration:?}");
 
     // let bonds = SubtensorModule::get_bonds( netuid );
     // for (uid, node) in vec![ (validators[0], "validator"), (servers[0], "server") ] {
@@ -2302,9 +2300,7 @@ fn test_get_set_alpha() {
         let (grabbed_alpha_low, grabbed_alpha_high): (u16, u16) =
             SubtensorModule::get_alpha_values(netuid);
 
-        log::info!(
-            "alpha_low: {grabbed_alpha_low:?} alpha_high: {grabbed_alpha_high:?}"
-        );
+        log::info!("alpha_low: {grabbed_alpha_low:?} alpha_high: {grabbed_alpha_high:?}");
         assert_eq!(grabbed_alpha_low, alpha_low);
         assert_eq!(grabbed_alpha_high, alpha_high);
 

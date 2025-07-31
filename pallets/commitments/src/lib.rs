@@ -360,9 +360,7 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(n: BlockNumberFor<T>) -> Weight {
             if let Err(e) = Self::reveal_timelocked_commitments() {
-                log::debug!(
-                    "Failed to unveil matured commitments on block {n:?}: {e:?}"
-                );
+                log::debug!("Failed to unveil matured commitments on block {n:?}: {e:?}");
             }
             Weight::from_parts(0, 0)
         }
@@ -456,9 +454,7 @@ impl<T: Config> Pallet<T> {
                         let reader = &mut &encrypted[..];
                         let commit = TLECiphertext::<TinyBLS381>::deserialize_compressed(reader)
                             .map_err(|e| {
-                                log::warn!(
-                                    "Failed to deserialize TLECiphertext for {who:?}: {e:?}"
-                                )
+                                log::warn!("Failed to deserialize TLECiphertext for {who:?}: {e:?}")
                             })
                             .ok();
 

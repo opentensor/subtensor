@@ -3151,14 +3151,10 @@ fn test_parent_child_chain_emission() {
             if hotkeys.contains(&hotkey) {
                 total_stake_now += stake;
             } else {
-                log::info!(
-                    "hotkey: {hotkey:?}, netuid: {netuid:?}, stake: {stake:?}"
-                );
+                log::info!("hotkey: {hotkey:?}, netuid: {netuid:?}, stake: {stake:?}");
             }
         }
-        log::info!(
-            "total_stake_now: {total_stake_now:?}, total_stake_new: {total_stake_new:?}"
-        );
+        log::info!("total_stake_now: {total_stake_now:?}, total_stake_new: {total_stake_new:?}");
 
         assert_abs_diff_eq!(
             total_stake_inc.to_num::<u64>(),

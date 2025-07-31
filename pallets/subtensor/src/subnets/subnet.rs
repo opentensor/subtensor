@@ -167,15 +167,11 @@ impl<T: Config> Pallet<T> {
         // --- 10. Add the caller to the neuron set.
         Self::create_account_if_non_existent(&coldkey, hotkey);
         Self::append_neuron(netuid_to_register, hotkey, current_block);
-        log::debug!(
-            "Appended neuron for netuid {netuid_to_register:?}, hotkey: {hotkey:?}"
-        );
+        log::debug!("Appended neuron for netuid {netuid_to_register:?}, hotkey: {hotkey:?}");
 
         // --- 11. Set the mechanism.
         SubnetMechanism::<T>::insert(netuid_to_register, mechid);
-        log::debug!(
-            "SubnetMechanism for netuid {netuid_to_register:?} set to: {mechid:?}"
-        );
+        log::debug!("SubnetMechanism for netuid {netuid_to_register:?} set to: {mechid:?}");
 
         // --- 12. Set the creation terms.
         NetworkLastRegistered::<T>::set(current_block);
@@ -222,9 +218,7 @@ impl<T: Config> Pallet<T> {
         NetworkPowRegistrationAllowed::<T>::set(netuid_to_register, true);
 
         // --- 17. Emit the NetworkAdded event.
-        log::info!(
-            "NetworkAdded( netuid:{netuid_to_register:?}, mechanism:{mechid:?} )"
-        );
+        log::info!("NetworkAdded( netuid:{netuid_to_register:?}, mechanism:{mechid:?} )");
         Self::deposit_event(Event::NetworkAdded(netuid_to_register, mechid));
 
         // --- 18. Return success.
