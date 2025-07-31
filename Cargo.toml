@@ -234,7 +234,7 @@ getrandom = { version = "0.2.15", default-features = false, features = [
 	"custom",
 ] }
 sp-keystore = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
-w3f-bls = { git = "https://github.com/l0r1s/bls", branch = "fix-no-std", default-features = false }
+w3f-bls = { git = "https://github.com/opentensor/bls", branch = "fix-no-std", default-features = false }
 ark-crypto-primitives = { version = "0.4.0", default-features = false }
 ark-scale = { version = "0.0.11", default-features = false }
 sp-ark-bls12-381 = { git = "https://github.com/paritytech/substrate-curves", default-features = false }
@@ -269,4 +269,4 @@ pow-faucet = []
 sc-consensus-grandpa = { git = "https://github.com/opentensor/grandpa.git", rev = "67ff75e915bd44586b8f8443e457b5b101920da8" }
 
 [patch.crates-io]
-w3f-bls = { git = "https://github.com/l0r1s/bls", branch = "fix-no-std" }
+w3f-bls = { git = "https://github.com/opentensor/bls", branch = "fix-no-std" }
