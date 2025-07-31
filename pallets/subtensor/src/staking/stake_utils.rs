@@ -126,22 +126,22 @@ impl<T: Config> Pallet<T> {
     ) -> (I64F64, I64F64, I64F64) {
         // Retrieve the global tao weight.
         let tao_weight = I64F64::saturating_from_num(Self::get_tao_weight());
-        log::debug!("tao_weight: {:?}", tao_weight);
+        log::debug!("tao_weight: {tao_weight:?}");
 
         // Step 1: Get stake of hotkey (neuron)
         let alpha_stake =
             I64F64::saturating_from_num(Self::get_inherited_for_hotkey_on_subnet(hotkey, netuid));
-        log::debug!("alpha_stake: {:?}", alpha_stake);
+        log::debug!("alpha_stake: {alpha_stake:?}");
 
         // Step 2: Get the global tao stake for the hotkey
         let tao_stake = I64F64::saturating_from_num(Self::get_tao_inherited_for_hotkey_on_subnet(
             hotkey, netuid,
         ));
-        log::debug!("tao_stake: {:?}", tao_stake);
+        log::debug!("tao_stake: {tao_stake:?}");
 
         // Step 3: Combine alpha and tao stakes
         let total_stake = alpha_stake.saturating_add(tao_stake.saturating_mul(tao_weight));
-        log::debug!("total_stake: {:?}", total_stake);
+        log::debug!("total_stake: {total_stake:?}");
 
         (total_stake, alpha_stake, tao_stake)
     }
@@ -153,7 +153,7 @@ impl<T: Config> Pallet<T> {
     ) -> (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) {
         // Retrieve the global tao weight.
         let tao_weight: I64F64 = I64F64::saturating_from_num(Self::get_tao_weight());
-        log::debug!("tao_weight: {:?}", tao_weight);
+        log::debug!("tao_weight: {tao_weight:?}");
 
         // Step 1: Get subnetwork size
         let n: u16 = Self::get_subnetwork_n(netuid);
@@ -171,7 +171,7 @@ impl<T: Config> Pallet<T> {
                 }
             })
             .collect();
-        log::debug!("alpha_stake: {:?}", alpha_stake);
+        log::debug!("alpha_stake: {alpha_stake:?}");
 
         // Step 3: Calculate the global tao stake vector.
         // Initialize a vector to store global tao stakes for each neuron.
@@ -187,7 +187,7 @@ impl<T: Config> Pallet<T> {
                 }
             })
             .collect();
-        log::trace!("tao_stake: {:?}", tao_stake);
+        log::trace!("tao_stake: {tao_stake:?}");
 
         // Step 4: Combine alpha and root tao stakes.
         // Calculate the weighted average of alpha and global tao stakes for each neuron.
@@ -196,7 +196,7 @@ impl<T: Config> Pallet<T> {
             .zip(tao_stake.iter())
             .map(|(alpha_i, tao_i)| alpha_i.saturating_add(tao_i.saturating_mul(tao_weight)))
             .collect();
-        log::trace!("total_stake: {:?}", total_stake);
+        log::trace!("total_stake: {total_stake:?}");
 
         (total_stake, alpha_stake, tao_stake)
     }
@@ -240,16 +240,10 @@ impl<T: Config> Pallet<T> {
         let parents: Vec<(u64, T::AccountId)> = Self::get_parents(hotkey, netuid);
         let children: Vec<(u64, T::AccountId)> = Self::get_children(hotkey, netuid);
         log::trace!(
-            "Parents for hotkey {:?} on subnet {}: {:?}",
-            hotkey,
-            netuid,
-            parents
+            "Parents for hotkey {hotkey:?} on subnet {netuid}: {parents:?}"
         );
         log::trace!(
-            "Children for hotkey {:?} on subnet {}: {:?}",
-            hotkey,
-            netuid,
-            children
+            "Children for hotkey {hotkey:?} on subnet {netuid}: {children:?}"
         );
 
         // Step 3: Calculate the total tao allocated to children.
@@ -258,19 +252,18 @@ impl<T: Config> Pallet<T> {
             let normalized_proportion: U96F32 = U96F32::saturating_from_num(proportion)
                 .safe_div(U96F32::saturating_from_num(u64::MAX));
             log::trace!(
-                "Normalized proportion for child: {:?}",
-                normalized_proportion
+                "Normalized proportion for child: {normalized_proportion:?}"
             );
 
             // Calculate the amount of tao to be allocated to this child.
             let tao_proportion_to_child: U96F32 =
                 U96F32::saturating_from_num(initial_tao).saturating_mul(normalized_proportion);
-            log::trace!("Tao proportion to child: {:?}", tao_proportion_to_child);
+            log::trace!("Tao proportion to child: {tao_proportion_to_child:?}");
 
             // Add this child's allocation to the total tao allocated to children.
             tao_to_children = tao_to_children.saturating_add(tao_proportion_to_child);
         }
-        log::trace!("Total tao allocated to children: {:?}", tao_to_children);
+        log::trace!("Total tao allocated to children: {tao_to_children:?}");
 
         // Step 4: Calculate the total tao inherited from parents.
         for (proportion, parent) in parents {
@@ -280,42 +273,34 @@ impl<T: Config> Pallet<T> {
                 NetUid::ROOT,
             ));
             log::trace!(
-                "Parent tao for parent {:?} on subnet {}: {:?}",
-                parent,
-                netuid,
-                parent_tao
+                "Parent tao for parent {parent:?} on subnet {netuid}: {parent_tao:?}"
             );
 
             // Convert the proportion to a normalized value between 0 and 1.
             let normalized_proportion = U96F32::saturating_from_num(proportion)
                 .safe_div(U96F32::saturating_from_num(u64::MAX));
             log::trace!(
-                "Normalized proportion from parent: {:?}",
-                normalized_proportion
+                "Normalized proportion from parent: {normalized_proportion:?}"
             );
 
             // Calculate the amount of tao to be inherited from this parent.
             let tao_proportion_from_parent: U96F32 =
                 U96F32::saturating_from_num(parent_tao).saturating_mul(normalized_proportion);
             log::trace!(
-                "Tao proportion from parent: {:?}",
-                tao_proportion_from_parent
+                "Tao proportion from parent: {tao_proportion_from_parent:?}"
             );
 
             // Add this parent's contribution to the total tao inherited from parents.
             tao_from_parents = tao_from_parents.saturating_add(tao_proportion_from_parent);
         }
-        log::trace!("Total tao inherited from parents: {:?}", tao_from_parents);
+        log::trace!("Total tao inherited from parents: {tao_from_parents:?}");
 
         // Step 5: Calculate the final inherited tao for the hotkey.
         let finalized_tao: U96F32 = initial_tao
             .saturating_sub(tao_to_children) // Subtract tao allocated to children
             .saturating_add(tao_from_parents); // Add tao inherited from parents
         log::trace!(
-            "Finalized tao for hotkey {:?} on subnet {}: {:?}",
-            hotkey,
-            netuid,
-            finalized_tao
+            "Finalized tao for hotkey {hotkey:?} on subnet {netuid}: {finalized_tao:?}"
         );
 
         // Step 6: Return the final inherited tao value.
@@ -330,10 +315,7 @@ impl<T: Config> Pallet<T> {
         let initial_alpha: U96F32 =
             U96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
         log::debug!(
-            "Initial alpha for hotkey {:?} on subnet {}: {:?}",
-            hotkey,
-            netuid,
-            initial_alpha
+            "Initial alpha for hotkey {hotkey:?} on subnet {netuid}: {initial_alpha:?}"
         );
         if netuid.is_root() {
             return initial_alpha.saturating_to_num::<u64>().into();
@@ -347,16 +329,10 @@ impl<T: Config> Pallet<T> {
         let parents: Vec<(u64, T::AccountId)> = Self::get_parents(hotkey, netuid);
         let children: Vec<(u64, T::AccountId)> = Self::get_children(hotkey, netuid);
         log::debug!(
-            "Parents for hotkey {:?} on subnet {}: {:?}",
-            hotkey,
-            netuid,
-            parents
+            "Parents for hotkey {hotkey:?} on subnet {netuid}: {parents:?}"
         );
         log::debug!(
-            "Children for hotkey {:?} on subnet {}: {:?}",
-            hotkey,
-            netuid,
-            children
+            "Children for hotkey {hotkey:?} on subnet {netuid}: {children:?}"
         );
 
         // Step 3: Calculate the total alpha allocated to children.
@@ -365,19 +341,18 @@ impl<T: Config> Pallet<T> {
             let normalized_proportion: U96F32 = U96F32::saturating_from_num(proportion)
                 .safe_div(U96F32::saturating_from_num(u64::MAX));
             log::trace!(
-                "Normalized proportion for child: {:?}",
-                normalized_proportion
+                "Normalized proportion for child: {normalized_proportion:?}"
             );
 
             // Calculate the amount of alpha to be allocated to this child.
             let alpha_proportion_to_child: U96F32 =
                 U96F32::saturating_from_num(initial_alpha).saturating_mul(normalized_proportion);
-            log::trace!("Alpha proportion to child: {:?}", alpha_proportion_to_child);
+            log::trace!("Alpha proportion to child: {alpha_proportion_to_child:?}");
 
             // Add this child's allocation to the total alpha allocated to children.
             alpha_to_children = alpha_to_children.saturating_add(alpha_proportion_to_child);
         }
-        log::debug!("Total alpha allocated to children: {:?}", alpha_to_children);
+        log::debug!("Total alpha allocated to children: {alpha_to_children:?}");
 
         // Step 4: Calculate the total alpha inherited from parents.
         for (proportion, parent) in parents {
@@ -385,34 +360,28 @@ impl<T: Config> Pallet<T> {
             let parent_alpha: U96F32 =
                 U96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(&parent, netuid));
             log::trace!(
-                "Parent alpha for parent {:?} on subnet {}: {:?}",
-                parent,
-                netuid,
-                parent_alpha
+                "Parent alpha for parent {parent:?} on subnet {netuid}: {parent_alpha:?}"
             );
 
             // Convert the proportion to a normalized value between 0 and 1.
             let normalized_proportion: U96F32 = U96F32::saturating_from_num(proportion)
                 .safe_div(U96F32::saturating_from_num(u64::MAX));
             log::trace!(
-                "Normalized proportion from parent: {:?}",
-                normalized_proportion
+                "Normalized proportion from parent: {normalized_proportion:?}"
             );
 
             // Calculate the amount of alpha to be inherited from this parent.
             let alpha_proportion_from_parent: U96F32 =
                 U96F32::saturating_from_num(parent_alpha).saturating_mul(normalized_proportion);
             log::trace!(
-                "Alpha proportion from parent: {:?}",
-                alpha_proportion_from_parent
+                "Alpha proportion from parent: {alpha_proportion_from_parent:?}"
             );
 
             // Add this parent's contribution to the total alpha inherited from parents.
             alpha_from_parents = alpha_from_parents.saturating_add(alpha_proportion_from_parent);
         }
         log::debug!(
-            "Total alpha inherited from parents: {:?}",
-            alpha_from_parents
+            "Total alpha inherited from parents: {alpha_from_parents:?}"
         );
 
         // Step 5: Calculate the final inherited alpha for the hotkey.
@@ -420,10 +389,7 @@ impl<T: Config> Pallet<T> {
             .saturating_sub(alpha_to_children) // Subtract alpha allocated to children
             .saturating_add(alpha_from_parents); // Add alpha inherited from parents
         log::trace!(
-            "Finalized alpha for hotkey {:?} on subnet {}: {:?}",
-            hotkey,
-            netuid,
-            finalized_alpha
+            "Finalized alpha for hotkey {hotkey:?} on subnet {netuid}: {finalized_alpha:?}"
         );
 
         // Step 6: Return the final inherited alpha value.

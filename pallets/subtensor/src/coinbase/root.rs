@@ -61,8 +61,7 @@ impl<T: Config> Pallet<T> {
         for netuid in netuids {
             if !Self::if_subnet_exist(*netuid) {
                 log::debug!(
-                    "contains_invalid_root_uids: netuid {:?} does not exist",
-                    netuid
+                    "contains_invalid_root_uids: netuid {netuid:?} does not exist"
                 );
                 return true;
             }
@@ -93,9 +92,7 @@ impl<T: Config> Pallet<T> {
         // --- 1. Ensure that the call originates from a signed source and retrieve the caller's account ID (coldkey).
         let coldkey = ensure_signed(origin)?;
         log::debug!(
-            "do_root_register( coldkey: {:?}, hotkey: {:?} )",
-            coldkey,
-            hotkey
+            "do_root_register( coldkey: {coldkey:?}, hotkey: {hotkey:?} )"
         );
 
         // --- 2. Ensure that the number of registrations in this block doesn't exceed the allowed limit.
@@ -135,7 +132,7 @@ impl<T: Config> Pallet<T> {
 
             // --- 12.1.2 Add the new account and make them a member of the Senate.
             Self::append_neuron(NetUid::ROOT, &hotkey, current_block_number);
-            log::debug!("add new neuron: {:?} on uid {:?}", hotkey, subnetwork_uid);
+            log::debug!("add new neuron: {hotkey:?} on uid {subnetwork_uid:?}");
         } else {
             // --- 13.1.1 The network is full. Perform replacement.
             // Find the neuron with the lowest stake value to replace.
@@ -165,10 +162,7 @@ impl<T: Config> Pallet<T> {
             Self::replace_neuron(NetUid::ROOT, lowest_uid, &hotkey, current_block_number);
 
             log::debug!(
-                "replace neuron: {:?} with {:?} on uid {:?}",
-                replaced_hotkey,
-                hotkey,
-                subnetwork_uid
+                "replace neuron: {replaced_hotkey:?} with {hotkey:?} on uid {subnetwork_uid:?}"
             );
         }
 
@@ -227,9 +221,7 @@ impl<T: Config> Pallet<T> {
         // --- 1. Ensure that the call originates from a signed source and retrieve the caller's account ID (coldkey).
         let coldkey = ensure_signed(origin)?;
         log::debug!(
-            "do_root_register( coldkey: {:?}, hotkey: {:?} )",
-            coldkey,
-            hotkey
+            "do_root_register( coldkey: {coldkey:?}, hotkey: {hotkey:?} )"
         );
 
         // --- 2. Check if the hotkey is already registered to the root network. If not, error out.
@@ -257,9 +249,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 5. Log and announce the successful Senate adjustment.
         log::debug!(
-            "SenateAdjusted(old_hotkey:{:?} hotkey:{:?})",
-            replaced,
-            hotkey
+            "SenateAdjusted(old_hotkey:{replaced:?} hotkey:{hotkey:?})"
         );
         Self::deposit_event(Event::SenateAdjusted {
             old_member: replaced.cloned(),
@@ -405,7 +395,7 @@ impl<T: Config> Pallet<T> {
         Self::remove_network(netuid);
 
         // --- 6. Emit the NetworkRemoved event.
-        log::debug!("NetworkRemoved( netuid:{:?} )", netuid);
+        log::debug!("NetworkRemoved( netuid:{netuid:?} )");
         Self::deposit_event(Event::NetworkRemoved(netuid));
 
         // --- 7. Return success.
@@ -551,14 +541,7 @@ impl<T: Config> Pallet<T> {
         }
 
         log::debug!(
-            "last_lock: {:?}, min_lock: {:?}, last_lock_block: {:?}, lock_reduction_interval: {:?}, current_block: {:?}, mult: {:?} lock_cost: {:?}",
-            last_lock,
-            min_lock,
-            last_lock_block,
-            lock_reduction_interval,
-            current_block,
-            mult,
-            lock_cost
+            "last_lock: {last_lock:?}, min_lock: {min_lock:?}, last_lock_block: {last_lock_block:?}, lock_reduction_interval: {lock_reduction_interval:?}, current_block: {current_block:?}, mult: {mult:?} lock_cost: {lock_cost:?}"
         );
 
         lock_cost

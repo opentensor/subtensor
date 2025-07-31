@@ -47,7 +47,7 @@ impl<T: Config> Pallet<T> {
         // 1. Verify the caller's signature (hotkey).
         let who = ensure_signed(origin)?;
 
-        log::debug!("do_commit_weights(hotkey: {:?}, netuid: {:?})", who, netuid);
+        log::debug!("do_commit_weights(hotkey: {who:?}, netuid: {netuid:?})");
 
         // 2. Ensure commit-reveal is enabled.
         ensure!(
@@ -145,10 +145,7 @@ impl<T: Config> Pallet<T> {
         // --- 1. Check the caller's signature. This is the hotkey of a registered account.
         let hotkey = ensure_signed(origin.clone())?;
         log::debug!(
-            "do_batch_commit_weights( origin:{:?}, netuids:{:?}, hashes:{:?} )",
-            hotkey,
-            netuids,
-            commit_hashes
+            "do_batch_commit_weights( origin:{hotkey:?}, netuids:{netuids:?}, hashes:{commit_hashes:?} )"
         );
 
         ensure!(
@@ -179,9 +176,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 19. Emit the tracking event.
         log::debug!(
-            "BatchWeightsCompleted( netuids:{:?}, hotkey:{:?} )",
-            netuids,
-            hotkey
+            "BatchWeightsCompleted( netuids:{netuids:?}, hotkey:{hotkey:?} )"
         );
         Self::deposit_event(Event::BatchWeightsCompleted(netuids, hotkey));
 
@@ -237,9 +232,7 @@ impl<T: Config> Pallet<T> {
         let who = ensure_signed(origin)?;
 
         log::debug!(
-            "do_commit_v3_weights(hotkey: {:?}, netuid: {:?})",
-            who,
-            netuid
+            "do_commit_v3_weights(hotkey: {who:?}, netuid: {netuid:?})"
         );
 
         // 2. Ensure commit-reveal is enabled.
@@ -348,7 +341,7 @@ impl<T: Config> Pallet<T> {
         // --- 1. Check the caller's signature (hotkey).
         let who = ensure_signed(origin.clone())?;
 
-        log::debug!("do_reveal_weights( hotkey:{:?} netuid:{:?})", who, netuid);
+        log::debug!("do_reveal_weights( hotkey:{who:?} netuid:{netuid:?})");
 
         // --- 2. Ensure commit-reveal is enabled for the network.
         ensure!(
@@ -499,9 +492,7 @@ impl<T: Config> Pallet<T> {
         let who = ensure_signed(origin.clone())?;
 
         log::debug!(
-            "do_batch_reveal_weights( hotkey:{:?} netuid:{:?})",
-            who,
-            netuid
+            "do_batch_reveal_weights( hotkey:{who:?} netuid:{netuid:?})"
         );
 
         // --- 3. Ensure commit-reveal is enabled for the network.
@@ -684,11 +675,7 @@ impl<T: Config> Pallet<T> {
         // --- 1. Check the caller's signature. This is the hotkey of a registered account.
         let hotkey = ensure_signed(origin)?;
         log::debug!(
-            "do_set_weights( origin:{:?} netuid:{:?}, uids:{:?}, values:{:?})",
-            hotkey,
-            netuid,
-            uids,
-            values
+            "do_set_weights( origin:{hotkey:?} netuid:{netuid:?}, uids:{uids:?}, values:{values:?})"
         );
 
         // --- Check that the netuid is not the root network.
@@ -785,9 +772,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 19. Emit the tracking event.
         log::debug!(
-            "WeightsSet( netuid:{:?}, neuron_uid:{:?} )",
-            netuid,
-            neuron_uid
+            "WeightsSet( netuid:{netuid:?}, neuron_uid:{neuron_uid:?} )"
         );
         Self::deposit_event(Event::WeightsSet(netuid, neuron_uid));
 
@@ -834,10 +819,7 @@ impl<T: Config> Pallet<T> {
         // --- 1. Check the caller's signature. This is the hotkey of a registered account.
         let hotkey = ensure_signed(origin.clone())?;
         log::debug!(
-            "do_batch_set_weights( origin:{:?} netuids:{:?}, weights:{:?}",
-            hotkey,
-            netuids,
-            weights
+            "do_batch_set_weights( origin:{hotkey:?} netuids:{netuids:?}, weights:{weights:?}"
         );
 
         ensure!(
@@ -883,9 +865,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 19. Emit the tracking event.
         log::debug!(
-            "BatchWeightsSet( netuids:{:?}, hotkey:{:?} )",
-            netuids,
-            hotkey
+            "BatchWeightsSet( netuids:{netuids:?}, hotkey:{hotkey:?} )"
         );
         Self::deposit_event(Event::BatchWeightsCompleted(netuids, hotkey));
 
@@ -902,9 +882,7 @@ impl<T: Config> Pallet<T> {
     pub fn check_version_key(netuid: NetUid, version_key: u64) -> bool {
         let network_version_key: u64 = WeightsVersionKey::<T>::get(netuid);
         log::debug!(
-            "check_version_key( network_version_key:{:?}, version_key:{:?} )",
-            network_version_key,
-            version_key
+            "check_version_key( network_version_key:{network_version_key:?}, version_key:{version_key:?} )"
         );
         network_version_key == 0 || version_key >= network_version_key
     }
@@ -930,9 +908,7 @@ impl<T: Config> Pallet<T> {
         for uid in uids {
             if !Self::is_uid_exist_on_network(netuid, *uid) {
                 log::debug!(
-                    "contains_invalid_uids( netuid:{:?}, uid:{:?} does not exist on network. )",
-                    netuid,
-                    uids
+                    "contains_invalid_uids( netuid:{netuid:?}, uid:{uids:?} does not exist on network. )"
                 );
                 return true;
             }

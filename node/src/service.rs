@@ -161,7 +161,7 @@ where
                 std::num::NonZeroU32::new(eth_config.frontier_sql_backend_num_ops_timeout),
                 storage_override.clone(),
             ))
-            .unwrap_or_else(|err| panic!("failed creating sql backend: {:?}", err));
+            .unwrap_or_else(|err| panic!("failed creating sql backend: {err:?}"));
             FrontierBackend::Sql(Arc::new(backend))
         }
     };
@@ -453,7 +453,7 @@ where
                     log::debug!("Offchain worker key generated");
                 }
                 Err(e) => {
-                    log::error!("Failed to create SR25519 key for offchain worker: {:?}", e);
+                    log::error!("Failed to create SR25519 key for offchain worker: {e:?}");
                 }
             }
         } else {

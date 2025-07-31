@@ -232,14 +232,10 @@ fn test_share_based_staking() {
                 * (secondary_stake.to_u64() as f64 / total_hotkey_stake.to_u64() as f64);
 
         log::info!(
-            "Primary final stake: {} (expected: {})",
-            primary_final_stake,
-            primary_expected
+            "Primary final stake: {primary_final_stake} (expected: {primary_expected})"
         );
         log::info!(
-            "Secondary final stake: {} (expected: {})",
-            secondary_final_stake,
-            secondary_expected
+            "Secondary final stake: {secondary_final_stake} (expected: {secondary_expected})"
         );
 
         assert!(
@@ -350,9 +346,7 @@ fn test_share_based_staking() {
         );
         let excessive_amount = available_stake + 1000.into();
         log::info!(
-            "Attempting to remove excessive stake: {} + 1000 = {}",
-            available_stake,
-            excessive_amount
+            "Attempting to remove excessive stake: {available_stake} + 1000 = {excessive_amount}"
         );
         SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &primary_hotkey,
@@ -366,8 +360,7 @@ fn test_share_based_staking() {
             netuid,
         );
         log::info!(
-            "Stake after attempting excessive removal: {}",
-            after_excessive_removal
+            "Stake after attempting excessive removal: {after_excessive_removal}"
         );
         assert!(
             after_excessive_removal == available_stake,

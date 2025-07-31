@@ -361,9 +361,7 @@ pub mod pallet {
         fn on_initialize(n: BlockNumberFor<T>) -> Weight {
             if let Err(e) = Self::reveal_timelocked_commitments() {
                 log::debug!(
-                    "Failed to unveil matured commitments on block {:?}: {:?}",
-                    n,
-                    e
+                    "Failed to unveil matured commitments on block {n:?}: {e:?}"
                 );
             }
             Weight::from_parts(0, 0)
@@ -445,9 +443,7 @@ impl<T: Config> Pallet<T> {
                             )
                             .map_err(|e| {
                                 log::warn!(
-                                    "Failed to deserialize drand signature for {:?}: {:?}",
-                                    who,
-                                    e
+                                    "Failed to deserialize drand signature for {who:?}: {e:?}"
                                 )
                             })
                             .ok();
@@ -461,9 +457,7 @@ impl<T: Config> Pallet<T> {
                         let commit = TLECiphertext::<TinyBLS381>::deserialize_compressed(reader)
                             .map_err(|e| {
                                 log::warn!(
-                                    "Failed to deserialize TLECiphertext for {:?}: {:?}",
-                                    who,
-                                    e
+                                    "Failed to deserialize TLECiphertext for {who:?}: {e:?}"
                                 )
                             })
                             .ok();
@@ -476,13 +470,13 @@ impl<T: Config> Pallet<T> {
                         let decrypted_bytes: Vec<u8> =
                             tld::<TinyBLS381, AESGCMStreamCipherProvider>(commit, sig)
                                 .map_err(|e| {
-                                    log::warn!("Failed to decrypt timelock for {:?}: {:?}", who, e)
+                                    log::warn!("Failed to decrypt timelock for {who:?}: {e:?}")
                                 })
                                 .ok()
                                 .unwrap_or_default();
 
                         if decrypted_bytes.is_empty() {
-                            log::warn!("Bytes were decrypted for {:?} but they are empty", who);
+                            log::warn!("Bytes were decrypted for {who:?} but they are empty");
                             continue;
                         }
 

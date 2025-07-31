@@ -35,10 +35,7 @@ impl<T: Config> Pallet<T> {
         // --- 1. We check the coldkey signature.
         let coldkey = ensure_signed(origin)?;
         log::debug!(
-            "do_decrease_take( origin:{:?} hotkey:{:?}, take:{:?} )",
-            coldkey,
-            hotkey,
-            take
+            "do_decrease_take( origin:{coldkey:?} hotkey:{hotkey:?}, take:{take:?} )"
         );
 
         // --- 2. Ensure we are delegating a known key.
@@ -63,10 +60,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 6. Emit the take value.
         log::debug!(
-            "TakeDecreased( coldkey:{:?}, hotkey:{:?}, take:{:?} )",
-            coldkey,
-            hotkey,
-            take
+            "TakeDecreased( coldkey:{coldkey:?}, hotkey:{hotkey:?}, take:{take:?} )"
         );
         Self::deposit_event(Event::TakeDecreased(coldkey, hotkey, take));
 

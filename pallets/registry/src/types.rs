@@ -440,7 +440,7 @@ mod tests {
                     .variants
                     .iter()
                     .find(|v| v.name == variant_name)
-                    .unwrap_or_else(|| panic!("Expected to find variant {}", variant_name));
+                    .unwrap_or_else(|| panic!("Expected to find variant {variant_name}"));
 
                 let field_arr_len = variant
                     .fields

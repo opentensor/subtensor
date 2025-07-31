@@ -760,7 +760,7 @@ pub(crate) fn step_epochs(count: u16, netuid: NetUid) {
             SubtensorModule::get_tempo(netuid),
             SubtensorModule::get_current_block_as_u64(),
         );
-        log::info!("Blocks to next epoch: {:?}", blocks_to_next_epoch);
+        log::info!("Blocks to next epoch: {blocks_to_next_epoch:?}");
         step_block(blocks_to_next_epoch as u16);
 
         assert!(SubtensorModule::should_run_epoch(
@@ -810,10 +810,7 @@ pub fn register_ok_neuron(
     );
     assert_ok!(result);
     log::info!(
-        "Register ok neuron: netuid: {:?}, coldkey: {:?}, hotkey: {:?}",
-        netuid,
-        hotkey_account_id,
-        coldkey_account_id
+        "Register ok neuron: netuid: {netuid:?}, coldkey: {hotkey_account_id:?}, hotkey: {coldkey_account_id:?}"
     );
 }
 

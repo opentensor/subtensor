@@ -517,10 +517,7 @@ pub fn register_ok_neuron(
     );
     assert_ok!(result);
     log::info!(
-        "Register ok neuron: netuid: {:?}, coldkey: {:?}, hotkey: {:?}",
-        netuid,
-        hotkey_account_id,
-        coldkey_account_id
+        "Register ok neuron: netuid: {netuid:?}, coldkey: {hotkey_account_id:?}, hotkey: {coldkey_account_id:?}"
     );
 }
 

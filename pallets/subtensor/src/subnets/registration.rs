@@ -72,10 +72,7 @@ impl<T: Config> Pallet<T> {
         // --- 1. Check that the caller has signed the transaction. (the coldkey of the pairing)
         let coldkey = ensure_signed(origin)?;
         log::debug!(
-            "do_registration( coldkey:{:?} netuid:{:?} hotkey:{:?} )",
-            coldkey,
-            netuid,
-            hotkey
+            "do_registration( coldkey:{coldkey:?} netuid:{netuid:?} hotkey:{hotkey:?} )"
         );
 
         // --- 2. Ensure the passed network is valid.
@@ -163,10 +160,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 15. Deposit successful event.
         log::debug!(
-            "NeuronRegistered( netuid:{:?} uid:{:?} hotkey:{:?}  ) ",
-            netuid,
-            neuron_uid,
-            hotkey
+            "NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?}  ) "
         );
         Self::deposit_event(Event::NeuronRegistered(netuid, neuron_uid, hotkey));
 
@@ -233,11 +227,7 @@ impl<T: Config> Pallet<T> {
         // --- 1. Check that the caller has signed the transaction.
         let signing_origin = ensure_signed(origin)?;
         log::debug!(
-            "do_registration( origin:{:?} netuid:{:?} hotkey:{:?}, coldkey:{:?} )",
-            signing_origin,
-            netuid,
-            hotkey,
-            coldkey
+            "do_registration( origin:{signing_origin:?} netuid:{netuid:?} hotkey:{hotkey:?}, coldkey:{coldkey:?} )"
         );
 
         ensure!(
@@ -337,10 +327,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 13. Deposit successful event.
         log::debug!(
-            "NeuronRegistered( netuid:{:?} uid:{:?} hotkey:{:?}  ) ",
-            netuid,
-            neuron_uid,
-            hotkey
+            "NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?}  ) "
         );
         Self::deposit_event(Event::NeuronRegistered(netuid, neuron_uid, hotkey));
 
@@ -359,7 +346,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 1. Check that the caller has signed the transaction.
         let coldkey = ensure_signed(origin)?;
-        log::debug!("do_faucet( coldkey:{:?} )", coldkey);
+        log::debug!("do_faucet( coldkey:{coldkey:?} )");
 
         // --- 2. Ensure the passed block number is valid, not in the future or too old.
         // Work must have been done within 3 blocks (stops long range attacks).
@@ -394,9 +381,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 6. Deposit successful event.
         log::debug!(
-            "Faucet( coldkey:{:?} amount:{:?} ) ",
-            coldkey,
-            balance_to_add
+            "Faucet( coldkey:{coldkey:?} amount:{balance_to_add:?} ) "
         );
         Self::deposit_event(Event::Faucet(coldkey, balance_to_add));
 
@@ -496,13 +481,7 @@ impl<T: Config> Pallet<T> {
 
         log::trace!(
             target: LOG_TARGET,
-            "Difficulty: hash: {:?}, hash_bytes: {:?}, hash_as_num: {:?}, difficulty: {:?}, value: {:?} overflowed: {:?}",
-            hash,
-            bytes,
-            num_hash,
-            difficulty,
-            value,
-            overflowed
+            "Difficulty: hash: {hash:?}, hash_bytes: {bytes:?}, hash_as_num: {num_hash:?}, difficulty: {difficulty:?}, value: {value:?} overflowed: {overflowed:?}"
         );
         !overflowed
     }
@@ -519,10 +498,7 @@ impl<T: Config> Pallet<T> {
 
         log::trace!(
             target: LOG_TARGET,
-            "block_number: {:?}, vec_hash: {:?}, real_hash: {:?}",
-            block_number,
-            vec_hash,
-            real_hash
+            "block_number: {block_number:?}, vec_hash: {vec_hash:?}, real_hash: {real_hash:?}"
         );
 
         real_hash
@@ -578,15 +554,7 @@ impl<T: Config> Pallet<T> {
         let seal_hash: H256 = H256::from_slice(&keccak_256_seal_hash_vec);
 
         log::trace!(
-            "\n hotkey:{:?} \nblock_number: {:?}, \nnonce_u64: {:?}, \nblock_hash: {:?}, \nfull_bytes: {:?}, \nsha256_seal_hash_vec: {:?},  \nkeccak_256_seal_hash_vec: {:?}, \nseal_hash: {:?}",
-            hotkey,
-            block_number_u64,
-            nonce_u64,
-            block_hash_at_number,
-            full_bytes,
-            sha256_seal_hash_vec,
-            keccak_256_seal_hash_vec,
-            seal_hash
+            "\n hotkey:{hotkey:?} \nblock_number: {block_number_u64:?}, \nnonce_u64: {nonce_u64:?}, \nblock_hash: {block_hash_at_number:?}, \nfull_bytes: {full_bytes:?}, \nsha256_seal_hash_vec: {sha256_seal_hash_vec:?},  \nkeccak_256_seal_hash_vec: {keccak_256_seal_hash_vec:?}, \nseal_hash: {seal_hash:?}"
         );
 
         seal_hash

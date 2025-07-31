@@ -581,8 +581,7 @@ where
 
         if let Err(dispatch_error) = transfer_result {
             log::error!(
-                "Transfer back to caller failed. Error: {:?}",
-                dispatch_error
+                "Transfer back to caller failed. Error: {dispatch_error:?}"
             );
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::Other("Transfer back to caller failed".into()),

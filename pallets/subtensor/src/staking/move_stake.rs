@@ -89,9 +89,7 @@ impl<T: Config> Pallet<T> {
     pub fn toggle_transfer(netuid: NetUid, toggle: bool) -> dispatch::DispatchResult {
         TransferToggle::<T>::insert(netuid, toggle);
         log::debug!(
-            "TransferToggle( netuid: {:?}, toggle: {:?} ) ",
-            netuid,
-            toggle
+            "TransferToggle( netuid: {netuid:?}, toggle: {toggle:?} ) "
         );
         Self::deposit_event(Event::TransferToggle(netuid, toggle));
         Ok(())
@@ -150,13 +148,7 @@ impl<T: Config> Pallet<T> {
 
         // 9. Emit an event for logging/monitoring.
         log::debug!(
-            "StakeTransferred(origin_coldkey: {:?}, destination_coldkey: {:?}, hotkey: {:?}, origin_netuid: {:?}, destination_netuid: {:?}, amount: {:?})",
-            coldkey,
-            destination_coldkey,
-            hotkey,
-            origin_netuid,
-            destination_netuid,
-            tao_moved
+            "StakeTransferred(origin_coldkey: {coldkey:?}, destination_coldkey: {destination_coldkey:?}, hotkey: {hotkey:?}, origin_netuid: {origin_netuid:?}, destination_netuid: {destination_netuid:?}, amount: {tao_moved:?})"
         );
         Self::deposit_event(Event::StakeTransferred(
             coldkey,
@@ -221,12 +213,7 @@ impl<T: Config> Pallet<T> {
 
         // Emit an event for logging.
         log::debug!(
-            "StakeSwapped(coldkey: {:?}, hotkey: {:?}, origin_netuid: {:?}, destination_netuid: {:?}, amount: {:?})",
-            coldkey,
-            hotkey,
-            origin_netuid,
-            destination_netuid,
-            tao_moved
+            "StakeSwapped(coldkey: {coldkey:?}, hotkey: {hotkey:?}, origin_netuid: {origin_netuid:?}, destination_netuid: {destination_netuid:?}, amount: {tao_moved:?})"
         );
         Self::deposit_event(Event::StakeSwapped(
             coldkey,
@@ -294,12 +281,7 @@ impl<T: Config> Pallet<T> {
 
         // Emit an event for logging.
         log::debug!(
-            "StakeSwapped(coldkey: {:?}, hotkey: {:?}, origin_netuid: {:?}, destination_netuid: {:?}, amount: {:?})",
-            coldkey,
-            hotkey,
-            origin_netuid,
-            destination_netuid,
-            tao_moved
+            "StakeSwapped(coldkey: {coldkey:?}, hotkey: {hotkey:?}, origin_netuid: {origin_netuid:?}, destination_netuid: {destination_netuid:?}, amount: {tao_moved:?})"
         );
         Self::deposit_event(Event::StakeSwapped(
             coldkey,

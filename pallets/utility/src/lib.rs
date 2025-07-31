@@ -157,8 +157,7 @@ pub mod pallet {
             // If you hit this error, you need to try to `Box` big dispatchable parameters.
             assert!(
                 core::mem::size_of::<<T as Config>::RuntimeCall>() as u32 <= CALL_ALIGN,
-                "Call enum size should be smaller than {} bytes.",
-                CALL_ALIGN,
+                "Call enum size should be smaller than {CALL_ALIGN} bytes.",
             );
         }
     }

@@ -43,8 +43,7 @@ pub fn migrate_commit_reveal_2<T: Config>() -> Weight {
     weight = weight.saturating_add(T::DbWeight::get().writes(removed_entries_count));
 
     log::info!(
-        "Removed {:?} entries from WeightCommitRevealInterval.",
-        removed_entries_count
+        "Removed {removed_entries_count:?} entries from WeightCommitRevealInterval."
     );
 
     // ------------------------------
@@ -68,8 +67,7 @@ pub fn migrate_commit_reveal_2<T: Config>() -> Weight {
     weight = weight.saturating_add(T::DbWeight::get().writes(removed_commits_entries));
 
     log::info!(
-        "Removed {} entries from WeightCommits.",
-        removed_commits_entries
+        "Removed {removed_commits_entries} entries from WeightCommits."
     );
 
     // ------------------------------

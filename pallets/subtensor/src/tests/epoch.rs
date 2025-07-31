@@ -252,8 +252,7 @@ fn init_run_epochs(
     }
     let duration = start.elapsed();
     log::info!(
-        "Time elapsed in (sparse={sparse}) epoch() is: {:?}",
-        duration
+        "Time elapsed in (sparse={sparse}) epoch() is: {duration:?}"
     );
 
     // let bonds = SubtensorModule::get_bonds( netuid );
@@ -2097,9 +2096,7 @@ fn test_deregistered_miner_bonds() {
         let block_number = System::block_number();
         assert!(
             block_at_registration >= block_number - 2,
-            "block at registration: {}, block number: {}",
-            block_at_registration,
-            block_number
+            "block at registration: {block_at_registration}, block number: {block_number}"
         );
 
         // set tempo to 2 blocks
@@ -2120,15 +2117,11 @@ fn test_deregistered_miner_bonds() {
         // For server1, (uid2), the bond should be higher than before.
         assert!(
             bond_0_2_new >= bond_0_2,
-            "bond_0_2_new: {}, bond_0_2: {}",
-            bond_0_2_new,
-            bond_0_2
+            "bond_0_2_new: {bond_0_2_new}, bond_0_2: {bond_0_2}"
         );
         assert!(
             bond_0_3_new <= bond_0_3,
-            "bond_0_3_new: {}, bond_0_3: {}",
-            bond_0_3_new,
-            bond_0_3
+            "bond_0_3_new: {bond_0_3_new}, bond_0_3: {bond_0_3}"
         );
     });
 }
@@ -2310,9 +2303,7 @@ fn test_get_set_alpha() {
             SubtensorModule::get_alpha_values(netuid);
 
         log::info!(
-            "alpha_low: {:?} alpha_high: {:?}",
-            grabbed_alpha_low,
-            grabbed_alpha_high
+            "alpha_low: {grabbed_alpha_low:?} alpha_high: {grabbed_alpha_high:?}"
         );
         assert_eq!(grabbed_alpha_low, alpha_low);
         assert_eq!(grabbed_alpha_high, alpha_high);
@@ -2510,7 +2501,7 @@ fn test_can_set_self_weight_as_subnet_owner() {
         assert_eq!(hotkey_emission[0].0, subnet_owner_hotkey);
         assert_eq!(hotkey_emission[1].0, other_hotkey);
 
-        log::debug!("hotkey_emission: {:?}", hotkey_emission);
+        log::debug!("hotkey_emission: {hotkey_emission:?}");
         // Both should have received incentive emission
         assert!(hotkey_emission[0].1 > 0.into());
         assert!(hotkey_emission[1].1 > 0.into());
@@ -2673,8 +2664,7 @@ fn test_epoch_outputs_single_staker_registered_no_weights() {
 pub fn assert_approx_eq(left: I32F32, right: I32F32, epsilon: I32F32) {
     if (left - right).abs() > epsilon {
         panic!(
-            "assertion failed: `(left ≈ right)`\n  left: `{:?}`,\n right: `{:?}`,\n epsilon: `{:?}`",
-            left, right, epsilon
+            "assertion failed: `(left ≈ right)`\n  left: `{left:?}`,\n right: `{right:?}`,\n epsilon: `{epsilon:?}`"
         );
     }
 }

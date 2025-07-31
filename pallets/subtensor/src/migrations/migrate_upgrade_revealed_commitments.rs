@@ -39,8 +39,7 @@ pub fn migrate_upgrade_revealed_commitments<T: Config>() -> Weight {
     weight = weight.saturating_add(T::DbWeight::get().writes(removed_entries_count));
 
     log::info!(
-        "Removed {} entries from `RevealedCommitments`.",
-        removed_entries_count
+        "Removed {removed_entries_count} entries from `RevealedCommitments`."
     );
 
     // -------------------------------------------------------------

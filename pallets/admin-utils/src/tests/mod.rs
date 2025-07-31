@@ -1269,9 +1269,7 @@ fn test_sudo_get_set_alpha() {
             SubtensorModule::get_alpha_values(netuid);
 
         log::info!(
-            "alpha_low: {:?} alpha_high: {:?}",
-            grabbed_alpha_low,
-            grabbed_alpha_high
+            "alpha_low: {grabbed_alpha_low:?} alpha_high: {grabbed_alpha_high:?}"
         );
         assert_eq!(grabbed_alpha_low, alpha_low);
         assert_eq!(grabbed_alpha_high, alpha_high);

@@ -41,7 +41,7 @@ impl<T: Config> Pallet<T> {
 
         // Get alpha price for subnet.
         let alpha_price = T::SwapInterface::current_alpha_price(netuid.into());
-        log::debug!("{:?} - alpha_price: {:?}", netuid, alpha_price);
+        log::debug!("{netuid:?} - alpha_price: {alpha_price:?}");
 
         // Get initial alpha_in
         let mut alpha_in_emission: U96F32 = U96F32::saturating_from_num(tao_emission)
@@ -51,10 +51,7 @@ impl<T: Config> Pallet<T> {
         // Check if we are emitting too much alpha_in
         if alpha_in_emission >= float_alpha_block_emission {
             log::debug!(
-                "{:?} - alpha_in_emission: {:?} > alpha_block_emission: {:?}",
-                netuid,
-                alpha_in_emission,
-                float_alpha_block_emission
+                "{netuid:?} - alpha_in_emission: {alpha_in_emission:?} > alpha_block_emission: {float_alpha_block_emission:?}"
             );
 
             // Scale down tao_in
@@ -76,12 +73,10 @@ impl<T: Config> Pallet<T> {
         let alpha_out_emission = float_alpha_block_emission;
 
         // Log results.
-        log::debug!("{:?} - tao_in_emission: {:?}", netuid, tao_in_emission);
-        log::debug!("{:?} - alpha_in_emission: {:?}", netuid, alpha_in_emission);
+        log::debug!("{netuid:?} - tao_in_emission: {tao_in_emission:?}");
+        log::debug!("{netuid:?} - alpha_in_emission: {alpha_in_emission:?}");
         log::debug!(
-            "{:?} - alpha_out_emission: {:?}",
-            netuid,
-            alpha_out_emission
+            "{netuid:?} - alpha_out_emission: {alpha_out_emission:?}"
         );
 
         // Return result.
