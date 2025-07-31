@@ -19,21 +19,21 @@ use codec::{Compact, Decode, Encode};
 use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Imbalance, InsideBoth};
 use frame_support::{
-    PalletId,
     dispatch::DispatchResultWithPostInfo,
     genesis_builder_helper::{build_state, get_preset},
     pallet_prelude::Get,
     traits::{
-        Contains, LinearStoragePrice, OnUnbalanced,
         fungible::{
             DecreaseIssuance, HoldConsideration, Imbalance as FungibleImbalance, IncreaseIssuance,
         },
+        Contains, LinearStoragePrice, OnUnbalanced,
     },
+    PalletId,
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
 use pallet_grandpa::{
-    AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList, fg_primitives,
+    fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
 use pallet_registry::CanRegisterIdentity;
 use pallet_subtensor::rpc_info::{
@@ -49,18 +49,19 @@ use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{
-    H160, H256, OpaqueMetadata, U256,
     crypto::{ByteArray, KeyTypeId},
+    OpaqueMetadata, H160, H256, U256,
 };
-use sp_runtime::Cow;
 use sp_runtime::generic::Era;
+use sp_runtime::Cow;
 use sp_runtime::{
-    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, generic, impl_opaque_keys,
+    generic, impl_opaque_keys,
     traits::{
         AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, NumberFor,
         One, PostDispatchInfoOf, UniqueSaturatedInto, Verify,
     },
     transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
+    AccountId32, ApplyExtrinsicResult, ConsensusEngineId,
 };
 use sp_std::cmp::Ordering;
 use sp_std::prelude::*;
@@ -68,22 +69,23 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use subtensor_precompiles::Precompiles;
-use subtensor_runtime_common::{AlphaCurrency, time::*, *};
+use subtensor_runtime_common::{time::*, AlphaCurrency, *};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
-    StorageValue, construct_runtime, parameter_types,
+    construct_runtime, parameter_types,
     traits::{
-        ConstBool, ConstU8, ConstU32, ConstU64, ConstU128, FindAuthor, InstanceFilter,
+        ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, FindAuthor, InstanceFilter,
         KeyOwnerProofSystem, OnFinalize, OnTimestampSet, PrivilegeCmp, Randomness, StorageInfo,
     },
     weights::{
-        IdentityFee, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
-        WeightToFeePolynomial,
         constants::{
             BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND,
         },
+        IdentityFee, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
+        WeightToFeePolynomial,
     },
+    StorageValue,
 };
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
@@ -218,7 +220,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 298,
+    spec_version: 299,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
