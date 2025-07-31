@@ -534,4 +534,45 @@ impl<T: Config> Pallet<T> {
             Err(Error::ZeroMaxStakeAmount)
         }
     }
+
+    pub fn do_move_stake_aggregate(
+        origin: T::RuntimeOrigin,
+        origin_hotkey: T::AccountId,
+        destination_hotkey: T::AccountId,
+        origin_netuid: NetUid,
+        destination_netuid: NetUid,
+        alpha_amount: AlphaCurrency,
+    ) -> dispatch::DispatchResult {
+        let coldkey = ensure_signed(origin)?;
+
+        // Consider the weight from on_finalize
+        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
+            Self::do_move_stake(
+                crate::dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                origin_hotkey.clone(),
+                destination_hotkey.clone(),
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            )?;
+        }
+
+        // Save the staking job for the on_finalize
+        let stake_job = StakeJob::MoveStake {
+            coldkey,
+            origin_hotkey,
+            destination_hotkey,
+            origin_netuid,
+            destination_netuid,
+            alpha_amount,
+        };
+
+        let stake_job_id = NextStakeJobId::<T>::get();
+        let current_blocknumber = <frame_system::Pallet<T>>::block_number();
+
+        StakeJobs::<T>::insert(current_blocknumber, stake_job_id, stake_job);
+        NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
+
+        Ok(())
+    }
 }

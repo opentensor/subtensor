@@ -1319,6 +1319,7 @@ impl<T: Config> Pallet<T> {
         let mut remove_stake_limit = vec![];
         let mut unstake_all = vec![];
         let mut unstake_all_aplha = vec![];
+        let mut move_stake = vec![];
 
         for (_, _, job) in stake_jobs.into_iter() {
             match &job {
@@ -1328,6 +1329,7 @@ impl<T: Config> Pallet<T> {
                 StakeJob::RemoveStakeLimit { .. } => remove_stake_limit.push(job),
                 StakeJob::UnstakeAll { .. } => unstake_all.push(job),
                 StakeJob::UnstakeAllAlpha { .. } => unstake_all_aplha.push(job),
+                StakeJob::MoveStake { .. } => move_stake.push(job),
             }
         }
         // Reorder jobs based on the last drand pulse
@@ -1355,6 +1357,7 @@ impl<T: Config> Pallet<T> {
         unstake_all_aplha.sort_by(|a, b| compare_coldkeys(&a.coldkey(), &b.coldkey()));
         add_stake_limit.sort_by(|a, b| compare_coldkeys(&a.coldkey(), &b.coldkey()));
         add_stake.sort_by(|a, b| compare_coldkeys(&a.coldkey(), &b.coldkey()));
+        move_stake.sort_by(|a, b| compare_coldkeys(&a.coldkey(), &b.coldkey()));
 
         let job_batches = vec![
             add_stake,
@@ -1363,6 +1366,7 @@ impl<T: Config> Pallet<T> {
             remove_stake_limit,
             unstake_all,
             unstake_all_aplha,
+            move_stake,
         ];
 
         for jobs in job_batches.into_iter() {
@@ -1578,6 +1582,53 @@ impl<T: Config> Pallet<T> {
                         hotkey,
                         netuid,
                         stake_to_be_added,
+                    });
+                }
+            }
+            StakeJob::MoveStake {
+                coldkey,
+                origin_hotkey,
+                destination_hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            } => {
+                let result = Self::do_move_stake(
+                    dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                    origin_hotkey.clone(),
+                    destination_hotkey.clone(),
+                    origin_netuid,
+                    destination_netuid,
+                    alpha_amount,
+                );
+
+                if let Err(err) = result {
+                    log::debug!(
+                        "Failed to move aggregated stake: {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
+                        coldkey,
+                        origin_hotkey,
+                        destination_hotkey,
+                        origin_netuid,
+                        destination_netuid,
+                        alpha_amount,
+                        err
+                    );
+                    Self::deposit_event(Event::FailedToMoveAggregatedStake {
+                        coldkey,
+                        origin_hotkey,
+                        destination_hotkey,
+                        origin_netuid,
+                        destination_netuid,
+                        alpha_amount,
+                    });
+                } else {
+                    Self::deposit_event(Event::AggregatedStakeMoved {
+                        coldkey,
+                        origin_hotkey,
+                        destination_hotkey,
+                        origin_netuid,
+                        destination_netuid,
+                        alpha_amount,
                     });
                 }
             }

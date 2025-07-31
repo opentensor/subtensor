@@ -513,5 +513,35 @@ mod events {
             /// the account ID of hotkey
             hotkey: T::AccountId,
         },
+        /// Aggregated version of `move_stake` executed successfully
+        AggregatedStakeMoved {
+            /// Coldkey account
+            coldkey: T::AccountId,
+            /// Origin hotkey account
+            origin_hotkey: T::AccountId,
+            /// Destination hotkey account
+            destination_hotkey: T::AccountId,
+            /// Origin subnet UID
+            origin_netuid: NetUid,
+            /// Destination subnet UID
+            destination_netuid: NetUid,
+            /// Alpha
+            alpha_amount: AlphaCurrency,
+        },
+        /// Aggregated version of `move_stake` executed successfully
+        FailedToMoveAggregatedStake {
+            /// Coldkey account
+            coldkey: T::AccountId,
+            /// Origin hotkey account
+            origin_hotkey: T::AccountId,
+            /// Destination hotkey account
+            destination_hotkey: T::AccountId,
+            /// Origin subnet UID
+            origin_netuid: NetUid,
+            /// Destination subnet UID
+            destination_netuid: NetUid,
+            /// Alpha
+            alpha_amount: AlphaCurrency,
+        },
     }
 }

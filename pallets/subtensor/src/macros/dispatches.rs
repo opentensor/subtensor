@@ -2267,7 +2267,7 @@ mod dispatches {
             Self::do_unstake_all_alpha_aggregate(origin, hotkey)
         }
 
-        /// Remove the full stake from the subnet with the price limit. 
+        /// Remove the full stake from the subnet with the price limit.
         #[pallet::call_index(119)]
         #[pallet::weight((Weight::from_parts(398_000_000, 10142)
 			.saturating_add(T::DbWeight::get().reads(30_u64))
@@ -2279,6 +2279,29 @@ mod dispatches {
             limit_price: Option<u64>,
         ) -> DispatchResult {
             Self::do_remove_stake_full_limit_aggregate(origin, hotkey, netuid, limit_price)
+        }
+
+        /// Move stake between subnets.
+        #[pallet::call_index(120)]
+        #[pallet::weight((Weight::from_parts(157_100_000, 0)
+        .saturating_add(T::DbWeight::get().reads(15_u64))
+        .saturating_add(T::DbWeight::get().writes(7_u64)), DispatchClass::Operational, Pays::Yes))]
+        pub fn move_stake_aggregate(
+            origin: T::RuntimeOrigin,
+            origin_hotkey: T::AccountId,
+            destination_hotkey: T::AccountId,
+            origin_netuid: NetUid,
+            destination_netuid: NetUid,
+            alpha_amount: AlphaCurrency,
+        ) -> DispatchResult {
+            Self::do_move_stake_aggregate(
+                origin,
+                origin_hotkey,
+                destination_hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            )
         }
     }
 }

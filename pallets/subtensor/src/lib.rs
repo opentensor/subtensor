@@ -373,6 +373,21 @@ pub mod pallet {
             /// Hotkey account
             hotkey: AccountId,
         },
+        /// Represents a job for "move_stake" operation
+        MoveStake {
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Origin hotkey account
+            origin_hotkey: AccountId,
+            /// Destination hotkey account
+            destination_hotkey: AccountId,
+            /// Origin subnet UID
+            origin_netuid: NetUid,
+            /// Destination subnet UID
+            destination_netuid: NetUid,
+            /// Alpha
+            alpha_amount: AlphaCurrency,
+        },
     }
 
     impl<AccountId: Clone> StakeJob<AccountId> {
@@ -385,6 +400,7 @@ pub mod pallet {
                 StakeJob::RemoveStakeLimit { coldkey, .. } => coldkey.clone(),
                 StakeJob::UnstakeAll { coldkey, .. } => coldkey.clone(),
                 StakeJob::UnstakeAllAlpha { coldkey, .. } => coldkey.clone(),
+                StakeJob::MoveStake { coldkey, .. } => coldkey.clone(),
             }
         }
     }

@@ -6564,4 +6564,3 @@ fn test_remove_stake_full_limit_aggregate_ok() {
         assert_abs_diff_eq!(new_balance, 9_086_000_000, epsilon = 1_000_000);
     });
 }
-
