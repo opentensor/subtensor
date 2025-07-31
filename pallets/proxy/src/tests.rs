@@ -1018,7 +1018,7 @@ fn test_create_evm_pure() {
         assert_eq!(proxies.len(), 1);
 
         // The pure account should exist in Proxies storage
-        let pure_account = proxies.first().unwrap();
+        let pure_account = proxies.first().expect("EVM proxy should exist");
         assert!(Proxies::<Test>::contains_key(pure_account));
 
         // Test creation with different index
@@ -1090,7 +1090,7 @@ fn test_kill_evm_pure() {
 
         let proxies = Proxy::evm_proxies(evm_address);
         assert_eq!(proxies.len(), 1);
-        let pure_account = proxies[0];
+        let pure_account = proxies.first().expect("EVM proxy should exist");
 
         // Test successful killing of EVM pure proxy
         assert_ok!(Proxy::kill_evm_pure(
@@ -1116,7 +1116,7 @@ fn test_kill_evm_pure() {
         ));
 
         let new_proxies = Proxy::evm_proxies(evm_address);
-        let new_pure_account = new_proxies[0];
+        let new_pure_account = new_proxies.first().expect("EVM proxy should exist");
 
         let non_owner = 998u64;
         Balances::make_free_balance_be(&non_owner, 100);
