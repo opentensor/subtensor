@@ -9,10 +9,6 @@ license = "Unlicense"
 publish = false
 repository = "https://github.com/opentensor/subtensor"
 
-[dependencies]
-node-subtensor = { path = "node", version = "4.0.0-dev" }
-node-subtensor-runtime = { path = "runtime", version = "4.0.0-dev" }
-
 [build-dependencies]
 subtensor-linting = { path = "support/linting", version = "0.1.0" }
 syn = { workspace = true, features = [
@@ -88,7 +84,6 @@ memmap2 = "0.9.4"
 ndarray = { version = "0.15.6", default-features = false }
 parity-util-mem = "0.12.0"
 rand = "0.8.5"
-scale-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
 scale-info = { version = "2.11.2", default-features = false }
 serde = { version = "1.0.214", default-features = false }
 serde-tuple-vec-map = { version = "1.0.1", default-features = false }
@@ -268,15 +263,6 @@ codegen-units = 1
 
 [features]
 default = []
-try-runtime = [
-	"node-subtensor/try-runtime",
-	"node-subtensor-runtime/try-runtime",
-]
-runtime-benchmarks = [
-	"node-subtensor/runtime-benchmarks",
-	"node-subtensor-runtime/runtime-benchmarks",
-]
-metadata-hash = ["node-subtensor-runtime/metadata-hash"]
 pow-faucet = []
 
 [patch."https://github.com/paritytech/polkadot-sdk.git"]

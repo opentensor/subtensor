@@ -6768,7 +6768,6 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
- "parity-scale-codec",
  "sc-basic-authorship",
  "sc-chain-spec",
  "sc-chain-spec-derive",
@@ -13034,8 +13033,6 @@ dependencies = [
 name = "subtensor"
 version = "0.1.0"
 dependencies = [
- "node-subtensor",
- "node-subtensor-runtime",
  "proc-macro2",
  "quote",
  "rayon",
@@ -13156,6 +13153,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "node-subtensor-runtime",
  "semver 1.0.26",
  "toml_edit",
 ]
