@@ -24,6 +24,11 @@ jobs:
       - name: Check-out repository under $GITHUB_WORKSPACE
         uses: actions/checkout@v4
 
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
 
