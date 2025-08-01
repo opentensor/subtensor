@@ -15,7 +15,10 @@ jobs:
 
     steps:
       - name: Show the distro release
-        run: lsb_release -a
+        run: |
+          apt-get update -qq
+          apt-get install -y lsb-release
+          lsb_release -a
 
       - name: Install curl (demonstrate root access)
         run: |
