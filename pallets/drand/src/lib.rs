@@ -307,7 +307,7 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// Verify and write a pulse from the beacon into the runtime
         #[pallet::call_index(0)]
-        #[pallet::weight(Weight::from_parts(5_708_000_000, 0)
+        #[pallet::weight(Weight::from_parts(4_280_000_000, 0)
         .saturating_add(T::DbWeight::get().reads(2_u64))
         .saturating_add(T::DbWeight::get().writes(3_u64)))]
         pub fn write_pulse(
@@ -363,7 +363,7 @@ pub mod pallet {
         /// * `origin`: the root user
         /// * `config`: the beacon configuration
         #[pallet::call_index(1)]
-        #[pallet::weight(Weight::from_parts(9_878_000, 0)
+        #[pallet::weight(Weight::from_parts(5_450_000, 0)
         .saturating_add(T::DbWeight::get().reads(0_u64))
         .saturating_add(T::DbWeight::get().writes(2_u64)))]
         pub fn set_beacon_config(
