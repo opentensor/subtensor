@@ -28,7 +28,7 @@ describe("Test Leasing precompile", () => {
     const alice = getAliceSigner();
     const bob = getBobSigner();
 
-    beforeEach(async () => {
+    before(async () => {
         publicClient = await getPublicClient(ETH_LOCAL_URL);
         api = await getDevnetApi();
 
