@@ -177,11 +177,6 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.ref }}
 
-      - name: Install dependencies
-        run: |
-          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" python3-pip
-
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
@@ -189,7 +184,7 @@ jobs:
 
       - name: Create Python virtual environment
         working-directory: ${{ github.workspace }}
-        run: uv venv ${{ github.workspace }}/venv
+        run: uv venv --seed --managed-python ${{ github.workspace }}/venv
 
       - name: Clone Bittensor CLI repo
         working-directory: ${{ github.workspace }}
