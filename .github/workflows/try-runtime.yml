@@ -17,8 +17,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update &&
-          sudo apt-get install -y --no-install-recommends build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config unzip
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config unzip
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1
@@ -48,8 +48,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update &&
-          sudo apt-get install -y --no-install-recommends build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config unzip
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config unzip
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1
@@ -79,8 +79,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update &&
-          sudo apt-get install -y --no-install-recommends build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config unzip
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config unzip
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1

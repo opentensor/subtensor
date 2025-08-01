@@ -31,7 +31,9 @@ jobs:
       skip-bittensor-e2e-tests: ${{ steps.get-labels.outputs.skip-bittensor-e2e-tests }}
     steps:
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y gh jq
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" gh jq
 
       - name: Check out repository
         uses: actions/checkout@v4
@@ -60,7 +62,9 @@ jobs:
       test-files: ${{ steps.get-btcli-tests.outputs.test-files }}
     steps:
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y jq
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" jq
 
       - name: Research preparation
         working-directory: ${{ github.workspace }}
@@ -85,7 +89,9 @@ jobs:
       test-files: ${{ steps.get-sdk-tests.outputs.test-files }}
     steps:
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y jq
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" jq
 
       - name: Research preparation
         working-directory: ${{ github.workspace }}
@@ -172,7 +178,9 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends python3-pip
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" python3-pip
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -275,7 +283,9 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends python3-pip
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" python3-pip
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
