@@ -13,7 +13,7 @@ concurrency:
 jobs:
   cargo-audit:
     name: cargo audit
-    runs-on: [self-hosted, type-cpx31]
+    runs-on: [self-hosted, type-ccx13, in-hel1]
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-cargo-audit') }}
     steps:
       - name: Check-out repositoroy under $GITHUB_WORKSPACE
@@ -22,7 +22,13 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update &&
-          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
+          sudo apt-get install -y --no-install-recommends build-essential clang curl libssl-dev llvm libudev-dev protobuf-compiler pkg-config
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2

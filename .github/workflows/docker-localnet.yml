@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   publish:
-    runs-on: [self-hosted, type-ccx33]
+    runs-on: [self-hosted, type-ccx33, in-hel1]
 
     steps:
       - name: Determine Docker tag and ref

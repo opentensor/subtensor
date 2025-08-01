@@ -26,10 +26,13 @@ env:
 
 jobs:
   check-label:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, type-ccx13, in-hel1]
     outputs:
       skip-bittensor-e2e-tests: ${{ steps.get-labels.outputs.skip-bittensor-e2e-tests }}
     steps:
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y gh jq
+
       - name: Check out repository
         uses: actions/checkout@v4
         with:
@@ -52,10 +55,13 @@ jobs:
   find-btcli-e2e-tests:
     needs: check-label
     if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, type-ccx13, in-hel1]
     outputs:
       test-files: ${{ steps.get-btcli-tests.outputs.test-files }}
     steps:
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y jq
+
       - name: Research preparation
         working-directory: ${{ github.workspace }}
         run: git clone https://github.com/opentensor/btcli.git
@@ -63,9 +69,6 @@ jobs:
       - name: Checkout
         working-directory: ${{ github.workspace }}/btcli
         run: git checkout staging
-
-      - name: Install dependencies
-        run: sudo apt-get install -y jq
 
       - name: Find e2e test files
         id: get-btcli-tests
@@ -77,10 +80,13 @@ jobs:
   find-sdk-e2e-tests:
     needs: check-label
     if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, type-ccx13, in-hel1]
     outputs:
       test-files: ${{ steps.get-sdk-tests.outputs.test-files }}
     steps:
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y jq
+
       - name: Research preparation
         working-directory: ${{ github.workspace }}
         run: git clone https://github.com/opentensor/bittensor.git
@@ -88,9 +94,6 @@ jobs:
       - name: Checkout
         working-directory: ${{ github.workspace }}/bittensor
         run: git checkout staging
-
-      - name: Install dependencies
-        run: sudo apt-get install -y jq
 
       - name: Find e2e test files
         id: get-sdk-tests
@@ -101,7 +104,7 @@ jobs:
 
   build-image-with-current-branch:
     needs: check-label
-    runs-on: [self-hosted, type-ccx33]
+    runs-on: [self-hosted, type-ccx33, in-hel1]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -139,7 +142,7 @@ jobs:
       - find-btcli-e2e-tests
       - build-image-with-current-branch
     if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, type-ccx13, in-hel1]
     strategy:
       fail-fast: false
       max-parallel: 16
@@ -239,7 +242,7 @@ jobs:
       - find-sdk-e2e-tests
       - build-image-with-current-branch
     if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, type-ccx13, in-hel1]
     strategy:
       fail-fast: false
       max-parallel: 16

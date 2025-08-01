@@ -10,10 +10,21 @@ jobs:
   check-devnet:
     name: check devnet
     if: github.base_ref != 'main'
-    runs-on: [self-hosted, type-ccx23]
+    runs-on: [self-hosted, type-ccx33, in-hel1]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update &&
+          sudo apt-get install -y --no-install-recommends build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config unzip
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -31,10 +42,21 @@ jobs:
   check-testnet:
     name: check testnet
     if: github.base_ref != 'main'
-    runs-on: [self-hosted, type-ccx63]
+    runs-on: [self-hosted, type-ccx33, in-hel1]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update &&
+          sudo apt-get install -y --no-install-recommends build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config unzip
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -52,10 +74,21 @@ jobs:
   check-finney:
     name: check finney
     # if: github.base_ref == 'testnet' || github.base_ref == 'devnet' || github.base_ref == 'main'
-    runs-on: [self-hosted, type-ccx63]
+    runs-on: [self-hosted, type-ccx33, in-hel1]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update &&
+          sudo apt-get install -y --no-install-recommends build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config unzip
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2

@@ -11,14 +11,19 @@ env:
 jobs:
   check-spec-version:
     name: Check spec_version bump
-    runs-on: [self-hosted, type-ccx33]
+    runs-on: [self-hosted, type-ccx33, in-hel1]
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-spec-version-bump') }}
     steps:
       - name: Dependencies
         run: |
           sudo apt-get update &&
-          sudo apt-get install -y curl clang curl libssl-dev llvm \
-                                  libudev-dev protobuf-compiler
+          sudo apt-get install -y --no-install-recommends build-essential clang curl libssl-dev llvm libudev-dev protobuf-compiler pkg-config
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
 
       - name: Check-out repository under $GITHUB_WORKSPACE
         uses: actions/checkout@v4
