@@ -171,6 +171,9 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.ref }}
 
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends python3-pip
+
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
@@ -270,6 +273,9 @@ jobs:
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends python3-pip
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
