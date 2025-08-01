@@ -403,6 +403,19 @@ pub mod pallet {
             /// Alpha
             alpha_amount: AlphaCurrency,
         },
+        /// Represents a job for "swap_stake" operation
+        SwapStake {
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Hotkey account
+            hotkey: AccountId,
+            /// Origin subnet UID
+            origin_netuid: NetUid,
+            /// Destination subnet UID
+            destination_netuid: NetUid,
+            /// Alpha
+            alpha_amount: AlphaCurrency,
+        },
     }
 
     impl<AccountId: Clone> StakeJob<AccountId> {
@@ -417,6 +430,7 @@ pub mod pallet {
                 StakeJob::UnstakeAllAlpha { coldkey, .. } => coldkey.clone(),
                 StakeJob::MoveStake { coldkey, .. } => coldkey.clone(),
                 StakeJob::TransferStake { origin_coldkey, .. } => origin_coldkey.clone(),
+                StakeJob::SwapStake { coldkey, .. } => coldkey.clone(),
             }
         }
     }

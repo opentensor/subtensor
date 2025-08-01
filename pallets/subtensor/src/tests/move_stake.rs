@@ -2267,7 +2267,7 @@ fn test_do_transfer_aggregate_fails() {
         let destination_coldkey = U256::from(2);
         let hotkey = U256::from(3);
         let alpha = 100u64.into();
-        
+
         assert_ok!(SubtensorModule::do_transfer_stake_aggregate(
             RuntimeOrigin::signed(origin_coldkey),
             destination_coldkey,
@@ -2278,12 +2278,117 @@ fn test_do_transfer_aggregate_fails() {
         ));
 
         run_to_block_ext(2, true);
-        
+
         // Check that event was emitted.
         assert!(System::events().iter().any(|e| {
             matches!(
                 &e.event,
                 RuntimeEvent::SubtensorModule(Event::FailedToTransferAggregatedStake { .. })
+            )
+        }));
+    });
+}
+
+#[test]
+fn test_do_swap_aggregate_success() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let origin_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let destination_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let stake_amount = DefaultMinStake::<Test>::get() * 10;
+
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::stake_into_subnet(
+            &hotkey,
+            &coldkey,
+            origin_netuid,
+            stake_amount,
+            <Test as Config>::SwapInterface::max_price(),
+            false,
+        )
+        .unwrap();
+        let alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            origin_netuid,
+        );
+
+        let (tao_equivalent, _) = mock::swap_alpha_to_tao_ext(origin_netuid, alpha_before, true);
+        let (expected_alpha, _) = mock::swap_tao_to_alpha(destination_netuid, tao_equivalent);
+        assert_ok!(SubtensorModule::do_swap_stake_aggregate(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            alpha_before,
+        ));
+
+        run_to_block_ext(2, true);
+
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::StakeSwapped(..))
+            )
+        }));
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedStakeSwapped { .. })
+            )
+        }));
+
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &coldkey,
+                origin_netuid
+            ),
+            AlphaCurrency::ZERO
+        );
+
+        let alpha_after = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            destination_netuid,
+        );
+
+        assert_abs_diff_eq!(alpha_after, expected_alpha, epsilon = 1000.into());
+    });
+}
+
+#[test]
+fn test_do_swap_aggregate_fail() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let origin_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let destination_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let alpha_before = 100u64.into();
+
+        assert_ok!(SubtensorModule::do_swap_stake_aggregate(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            alpha_before,
+        ));
+
+        run_to_block_ext(2, true);
+
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::FailedToSwapAggregatedStake { .. })
             )
         }));
     });

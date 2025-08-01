@@ -573,5 +573,31 @@ mod events {
             /// Alpha
             alpha_amount: AlphaCurrency,
         },
+        /// Aggregated version of `swap_stake` executed successfully
+        AggregatedStakeSwapped {
+            /// Coldkey account
+            coldkey: T::AccountId,
+            /// Hotkey account
+            hotkey: T::AccountId,
+            /// Origin subnet UID
+            origin_netuid: NetUid,
+            /// Destination subnet UID
+            destination_netuid: NetUid,
+            /// Alpha
+            alpha_amount: AlphaCurrency,
+        },
+        /// Aggregated version of `swap_stake` has failed
+        FailedToSwapAggregatedStake {
+            /// Coldkey account
+            coldkey: T::AccountId,
+            /// Hotkey account
+            hotkey: T::AccountId,
+            /// Origin subnet UID
+            origin_netuid: NetUid,
+            /// Destination subnet UID
+            destination_netuid: NetUid,
+            /// Alpha
+            alpha_amount: AlphaCurrency,
+        },
     }
 }

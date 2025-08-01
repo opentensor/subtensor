@@ -616,4 +616,42 @@ impl<T: Config> Pallet<T> {
 
         Ok(())
     }
+
+    pub fn do_swap_stake_aggregate(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+        origin_netuid: NetUid,
+        destination_netuid: NetUid,
+        alpha_amount: AlphaCurrency,
+    ) -> dispatch::DispatchResult {
+        let coldkey = ensure_signed(origin)?;
+
+        // Consider the weight from on_finalize
+        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
+            Self::do_swap_stake(
+                crate::dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            )?;
+        }
+
+        // Save the staking job for the on_finalize
+        let stake_job = StakeJob::SwapStake {
+            coldkey,
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            alpha_amount,
+        };
+
+        let stake_job_id = NextStakeJobId::<T>::get();
+        let current_blocknumber = <frame_system::Pallet<T>>::block_number();
+
+        StakeJobs::<T>::insert(current_blocknumber, stake_job_id, stake_job);
+        NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
+
+        Ok(())
+    }
 }

@@ -1321,6 +1321,7 @@ impl<T: Config> Pallet<T> {
         let mut unstake_all_aplha = vec![];
         let mut move_stake = vec![];
         let mut transfer_stake = vec![];
+        let mut swap_stake = vec![];
 
         for (_, _, job) in stake_jobs.into_iter() {
             match &job {
@@ -1332,6 +1333,7 @@ impl<T: Config> Pallet<T> {
                 StakeJob::UnstakeAllAlpha { .. } => unstake_all_aplha.push(job),
                 StakeJob::MoveStake { .. } => move_stake.push(job),
                 StakeJob::TransferStake { .. } => transfer_stake.push(job),
+                StakeJob::SwapStake { .. } => swap_stake.push(job),
             }
         }
         // Reorder jobs based on the last drand pulse
@@ -1361,6 +1363,7 @@ impl<T: Config> Pallet<T> {
         add_stake.sort_by(|a, b| compare_coldkeys(&a.coldkey(), &b.coldkey()));
         move_stake.sort_by(|a, b| compare_coldkeys(&a.coldkey(), &b.coldkey()));
         transfer_stake.sort_by(|a, b| compare_coldkeys(&a.coldkey(), &b.coldkey()));
+        swap_stake.sort_by(|a, b| compare_coldkeys(&a.coldkey(), &b.coldkey()));
 
         let job_batches = vec![
             add_stake,
@@ -1371,6 +1374,7 @@ impl<T: Config> Pallet<T> {
             unstake_all_aplha,
             move_stake,
             transfer_stake,
+            swap_stake,
         ];
 
         for jobs in job_batches.into_iter() {
@@ -1676,6 +1680,48 @@ impl<T: Config> Pallet<T> {
                     Self::deposit_event(Event::AggregatedStakeTransferred {
                         origin_coldkey,
                         destination_coldkey,
+                        hotkey,
+                        origin_netuid,
+                        destination_netuid,
+                        alpha_amount,
+                    });
+                }
+            }
+            StakeJob::SwapStake {
+                coldkey,
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            } => {
+                let result = Self::do_swap_stake(
+                    dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                    hotkey.clone(),
+                    origin_netuid,
+                    destination_netuid,
+                    alpha_amount,
+                );
+
+                if let Err(err) = result {
+                    log::debug!(
+                        "Failed to transfer aggregated stake: {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
+                        coldkey,
+                        hotkey,
+                        origin_netuid,
+                        destination_netuid,
+                        alpha_amount,
+                        err
+                    );
+                    Self::deposit_event(Event::FailedToSwapAggregatedStake {
+                        coldkey,
+                        hotkey,
+                        origin_netuid,
+                        destination_netuid,
+                        alpha_amount,
+                    });
+                } else {
+                    Self::deposit_event(Event::AggregatedStakeSwapped {
+                        coldkey,
                         hotkey,
                         origin_netuid,
                         destination_netuid,
