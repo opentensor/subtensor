@@ -1,0 +1,24 @@
+# .github/workflows/ubuntu-latest-docker.yml
+name: Ubuntu-latest in Docker on Hetzner
+on: [push]
+
+jobs:
+  demo:
+    # any Hetzner label set that guarantees Docker is present works.
+    # The “app-docker-ce” images are the simplest: plain Ubuntu + Docker.
+    runs-on: [self-hosted, type-ccx13]
+
+    # Everything below runs inside the ubuntu:latest container.
+    container:
+      image: ubuntu:latest          # ← official library image
+      options: --user root          # optional; lets you apt-install, etc.
+
+    steps:
+      - name: Show the distro release
+        run: lsb_release -a
+
+      - name: Install curl (demonstrate root access)
+        run: |
+          apt-get update -qq
+          apt-get install -y curl
+          curl -V

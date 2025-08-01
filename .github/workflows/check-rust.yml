@@ -146,7 +146,7 @@ jobs:
   # runs cargo test --workspace --all-features
   cargo-test:
     name: cargo test
-    runs-on: [self-hosted, type-ccx23, in-hel1]
+    runs-on: [self-hosted, type-ccx43, in-hel1]
     env:
       RUST_BACKTRACE: full
       SKIP_WASM_BUILD: 1
