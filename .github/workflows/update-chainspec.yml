@@ -38,7 +38,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update &&
-          sudo apt-get install -y --no-install-recommends clang curl libssl-dev llvm libudev-dev protobuf-compiler pkg-config
+          sudo apt-get install -y --no-install-recommends build-essential clang curl libssl-dev llvm libudev-dev protobuf-compiler pkg-config
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1
