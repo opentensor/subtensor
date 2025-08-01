@@ -463,16 +463,28 @@ impl<T: Config> Pallet<T> {
         for (hotkey, incentive) in incentives {
             log::debug!("incentives: hotkey: {:?}", incentive);
 
-            if let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
-                if hotkey == owner_hotkey {
-                    log::debug!(
-                        "incentives: hotkey: {:?} is SN owner hotkey, skipping {:?}",
-                        hotkey,
-                        incentive
-                    );
-                    continue; // Skip/burn miner-emission for SN owner hotkey.
+            // Skip/burn miner-emission for SN owner hotkey.
+            let mut burn = false;
+            if let Ok(subnet_owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
+                if hotkey == subnet_owner_hotkey {
+                    burn = true;
                 }
             }
+            // Also, skip/burn miner-emission for any hotkey owned by SN owner.
+            let subnet_owner_coldkey = SubnetOwner::<T>::get(netuid);
+            let hotkey_owner = Owner::<T>::get(&hotkey);
+            if hotkey_owner == subnet_owner_coldkey {
+                burn = true;
+            }
+            if burn {
+                log::debug!(
+                    "incentives: hotkey: {:?} is SN owner hotkey or associated hotkey, skipping {:?}",
+                    hotkey,
+                    incentive
+                );
+                continue;
+            }
+
             // Increase stake for miner.
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey.clone(),

@@ -1675,6 +1675,7 @@ fn test_incentive_to_subnet_owner_is_burned() {
 
         let other_ck = U256::from(2);
         let other_hk = U256::from(3);
+        Owner::<Test>::insert(other_hk, other_ck);
 
         let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
 
@@ -1711,6 +1712,55 @@ fn test_incentive_to_subnet_owner_is_burned() {
         assert_eq!(subnet_owner_stake_after, 0.into());
         let other_stake_after = SubtensorModule::get_stake_for_hotkey_on_subnet(&other_hk, netuid);
         assert!(other_stake_after > 0.into());
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_incentive_to_subnet_owners_hotkey_is_burned --exact --show-output --nocapture
+#[test]
+fn test_incentive_to_subnet_owners_hotkey_is_burned() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_ck = U256::from(0);
+        let subnet_owner_hk = U256::from(1);
+
+        // Other hk owned by owner
+        let other_hk = U256::from(3);
+        Owner::<Test>::insert(other_hk, subnet_owner_ck);
+
+        let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+
+        let pending_tao: u64 = 1_000_000_000;
+        let pending_alpha = AlphaCurrency::ZERO; // None to valis
+        let owner_cut = AlphaCurrency::ZERO;
+        let mut incentives: BTreeMap<U256, AlphaCurrency> = BTreeMap::new();
+
+        // Give incentive to other_hk
+        incentives.insert(other_hk, 10_000_000.into());
+
+        // Give incentives to subnet_owner_hk
+        incentives.insert(subnet_owner_hk, 10_000_000.into());
+
+        // Verify stake before
+        let subnet_owner_stake_before =
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&subnet_owner_hk, netuid);
+        assert_eq!(subnet_owner_stake_before, 0.into());
+        let other_stake_before = SubtensorModule::get_stake_for_hotkey_on_subnet(&other_hk, netuid);
+        assert_eq!(other_stake_before, 0.into());
+
+        // Distribute dividends and incentives
+        SubtensorModule::distribute_dividends_and_incentives(
+            netuid,
+            owner_cut,
+            incentives,
+            BTreeMap::new(),
+            BTreeMap::new(),
+        );
+
+        // Verify stake after
+        let subnet_owner_stake_after =
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&subnet_owner_hk, netuid);
+        assert_eq!(subnet_owner_stake_after, 0.into());
+        let other_stake_after = SubtensorModule::get_stake_for_hotkey_on_subnet(&other_hk, netuid);
+        assert_eq!(other_stake_after, 0.into());
     });
 }
 
