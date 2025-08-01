@@ -528,7 +528,7 @@ mod events {
             /// Alpha
             alpha_amount: AlphaCurrency,
         },
-        /// Aggregated version of `move_stake` executed successfully
+        /// Aggregated version of `move_stake` has failed
         FailedToMoveAggregatedStake {
             /// Coldkey account
             coldkey: T::AccountId,
@@ -536,6 +536,36 @@ mod events {
             origin_hotkey: T::AccountId,
             /// Destination hotkey account
             destination_hotkey: T::AccountId,
+            /// Origin subnet UID
+            origin_netuid: NetUid,
+            /// Destination subnet UID
+            destination_netuid: NetUid,
+            /// Alpha
+            alpha_amount: AlphaCurrency,
+        },
+        /// Aggregated version of `transfer_stake` executed successfully
+        AggregatedStakeTransferred {
+            /// Origin coldkey account
+            origin_coldkey: T::AccountId,
+            /// Destination coldkey account
+            destination_coldkey: T::AccountId,
+            /// Hotkey account
+            hotkey: T::AccountId,
+            /// Origin subnet UID
+            origin_netuid: NetUid,
+            /// Destination subnet UID
+            destination_netuid: NetUid,
+            /// Alpha
+            alpha_amount: AlphaCurrency,
+        },
+        /// Aggregated version of `transfer_stake` has failed
+        FailedToTransferAggregatedStake {
+            /// Origin coldkey account
+            origin_coldkey: T::AccountId,
+            /// Destination coldkey account
+            destination_coldkey: T::AccountId,
+            /// Hotkey account
+            hotkey: T::AccountId,
             /// Origin subnet UID
             origin_netuid: NetUid,
             /// Destination subnet UID

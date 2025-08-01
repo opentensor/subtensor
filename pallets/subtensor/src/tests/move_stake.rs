@@ -2181,3 +2181,110 @@ fn test_move_stake_aggregate_fails() {
         }));
     });
 }
+
+#[test]
+fn test_do_transfer_aggregate_success() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let origin_coldkey = U256::from(1);
+        let destination_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+        let stake_amount = DefaultMinStake::<Test>::get() * 10;
+
+        SubtensorModule::create_account_if_non_existent(&origin_coldkey, &hotkey);
+        SubtensorModule::create_account_if_non_existent(&destination_coldkey, &hotkey);
+        SubtensorModule::stake_into_subnet(
+            &hotkey,
+            &origin_coldkey,
+            netuid,
+            stake_amount,
+            <Test as Config>::SwapInterface::max_price(),
+            false,
+        )
+        .unwrap();
+        let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &origin_coldkey,
+            netuid,
+        );
+
+        let expected_alpha = alpha;
+        assert_ok!(SubtensorModule::do_transfer_stake_aggregate(
+            RuntimeOrigin::signed(origin_coldkey),
+            destination_coldkey,
+            hotkey,
+            netuid,
+            netuid,
+            alpha
+        ));
+
+        run_to_block_ext(2, true);
+
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::StakeTransferred(..))
+            )
+        }));
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedStakeTransferred { .. })
+            )
+        }));
+
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &origin_coldkey,
+                netuid
+            ),
+            AlphaCurrency::ZERO
+        );
+        assert_abs_diff_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &destination_coldkey,
+                netuid
+            ),
+            expected_alpha,
+            epsilon = expected_alpha / 1000.into()
+        );
+    });
+}
+
+#[test]
+fn test_do_transfer_aggregate_fails() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let origin_coldkey = U256::from(1);
+        let destination_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+        let alpha = 100u64.into();
+        
+        assert_ok!(SubtensorModule::do_transfer_stake_aggregate(
+            RuntimeOrigin::signed(origin_coldkey),
+            destination_coldkey,
+            hotkey,
+            netuid,
+            netuid,
+            alpha
+        ));
+
+        run_to_block_ext(2, true);
+        
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::FailedToTransferAggregatedStake { .. })
+            )
+        }));
+    });
+}

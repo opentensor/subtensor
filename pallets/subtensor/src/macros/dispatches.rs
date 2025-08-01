@@ -2303,5 +2303,29 @@ mod dispatches {
                 alpha_amount,
             )
         }
+
+        /// Transfers a specified amount of stake from one coldkey to another, optionally across subnets,
+        /// while keeping the same hotkey.
+        #[pallet::call_index(121)]
+        #[pallet::weight((Weight::from_parts(154_800_000, 0)
+        .saturating_add(T::DbWeight::get().reads(13_u64))
+        .saturating_add(T::DbWeight::get().writes(6_u64)), DispatchClass::Operational, Pays::Yes))]
+        pub fn transfer_stake_aggregate(
+            origin: T::RuntimeOrigin,
+            destination_coldkey: T::AccountId,
+            hotkey: T::AccountId,
+            origin_netuid: NetUid,
+            destination_netuid: NetUid,
+            alpha_amount: AlphaCurrency,
+        ) -> DispatchResult {
+            Self::do_transfer_stake_aggregate(
+                origin,
+                destination_coldkey,
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            )
+        }
     }
 }
