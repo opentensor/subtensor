@@ -2,26 +2,51 @@
 
 use frame_support::pallet_prelude::*;
 use frame_support::{
+    dispatch::{GetDispatchInfo, PostDispatchInfo}, 
     traits::{
-        Imbalance, OnUnbalanced,
+        Imbalance, IsSubType, OnUnbalanced,
         fungible::{Balanced, Credit, Debt, Inspect},
         tokens::{Precision, WithdrawConsequence},
+        UnfilteredDispatchable
     },
     weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
 
 use sp_runtime::{
     Perbill, Saturating,
-    traits::{DispatchInfoOf, PostDispatchInfoOf},
+    traits::{Dispatchable, DispatchInfoOf, PostDispatchInfoOf},
 };
 // use substrate_fixed::types::U96F32;
 // use subtensor_runtime_common::{AlphaCurrency, NetUid};
-use pallet_transaction_payment::Config as PTPConfig;
 
 use smallvec::smallvec;
 use subtensor_runtime_common::Balance;
 
 pub use pallet_transaction_payment::OnChargeTransaction;
+
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+
+    #[pallet::config]
+    pub trait Config: frame_system::Config {
+        type RuntimeCall: Parameter
+            + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
+            + GetDispatchInfo
+            + From<frame_system::Call<Self>>
+            + UnfilteredDispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+            + IsSubType<Call<Self>>
+            + IsType<<Self as frame_system::Config>::RuntimeCall>;
+    }
+
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
+
+    // #[pallet::call]
+    // impl<T: Config> Pallet<T> {
+    //     // You now have access to T::OnChargeTransaction, T::WeightToFee, etc.
+    // }
+}
 
 pub struct LinearWeightToFee;
 
@@ -47,7 +72,7 @@ pub struct FungibleAdapter<F, OU>(PhantomData<(F, OU)>);
 
 impl<T, F, OU> OnChargeTransaction<T> for FungibleAdapter<F, OU>
 where
-    T: PTPConfig,
+    T: crate::pallet::Config + frame_system::Config + pallet_transaction_payment::Config,
     F: Balanced<T::AccountId>,
     OU: OnUnbalanced<Credit<T::AccountId, F>>,
 {
@@ -56,12 +81,18 @@ where
 
     fn withdraw_fee(
         who: &<T>::AccountId,
-        call: &<T>::RuntimeCall,
-        _dispatch_info: &DispatchInfoOf<<T>::RuntimeCall>,
+        call: &<T as frame_system::Config>::RuntimeCall,
+        _dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
         fee: Self::Balance,
         _tip: Self::Balance,
     ) -> Result<Self::LiquidityInfo, TransactionValidityError> {
-        log::error!("====================== withdraw_fee. Call = {:?}", call);
+
+        match call {
+            <T as pallet::Config>::RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake { hotkey: _, netuid: _, amount_unstaked: _ }) => {
+                log::error!("=========== calling remove_stake");
+            },
+            _ => {}
+        }
 
         if fee.is_zero() {
             return Ok(None);
@@ -81,8 +112,8 @@ where
 
     fn can_withdraw_fee(
         who: &T::AccountId,
-        _call: &T::RuntimeCall,
-        _dispatch_info: &DispatchInfoOf<T::RuntimeCall>,
+        _call: &<T as frame_system::Config>::RuntimeCall,
+        _dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
         fee: Self::Balance,
         _tip: Self::Balance,
     ) -> Result<(), TransactionValidityError> {
@@ -98,8 +129,8 @@ where
 
     fn correct_and_deposit_fee(
         who: &<T>::AccountId,
-        _dispatch_info: &DispatchInfoOf<<T>::RuntimeCall>,
-        _post_info: &PostDispatchInfoOf<<T>::RuntimeCall>,
+        _dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
+        _post_info: &PostDispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
         corrected_fee: Self::Balance,
         tip: Self::Balance,
         already_withdrawn: Self::LiquidityInfo,
