@@ -23,7 +23,6 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-          override: true
 
       - name: Check-out repository under $GITHUB_WORKSPACE
         uses: actions/checkout@v4

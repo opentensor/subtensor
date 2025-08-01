@@ -44,7 +44,6 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-          override: true
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2

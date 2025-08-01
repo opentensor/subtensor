@@ -37,7 +37,6 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
-          override: true
           components: rustfmt
 
       - name: Utilize Shared Rust Cache
@@ -68,7 +67,6 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-          override: true
           components: clippy
 
       - name: Utilize Shared Rust Cache
@@ -100,7 +98,6 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-          override: true
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -133,7 +130,6 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-          override: true
           components: clippy
 
       - name: Utilize Shared Rust Cache
@@ -165,7 +161,6 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-          override: true
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -196,7 +191,6 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-          override: true
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -236,7 +230,6 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-          override: true
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
