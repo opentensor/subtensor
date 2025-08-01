@@ -186,7 +186,7 @@ mod dispatches {
         /// 	- On failure for each failed item in the batch.
         ///
         #[pallet::call_index(100)]
-        #[pallet::weight((Weight::from_parts(67_750_000, 0)
+        #[pallet::weight((Weight::from_parts(84_050_000, 0)
         .saturating_add(T::DbWeight::get().reads(8))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn batch_commit_weights(
@@ -827,7 +827,7 @@ mod dispatches {
         /// 	- The ip type v4 or v6.
         ///
         #[pallet::call_index(5)]
-        #[pallet::weight((Weight::from_parts(31_170_000, 0)
+        #[pallet::weight((Weight::from_parts(24_350_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_prometheus(
@@ -1012,7 +1012,7 @@ mod dispatches {
         ///
         #[pallet::call_index(75)]
         #[pallet::weight((
-            Weight::from_parts(46_330_000, 0)
+            Weight::from_parts(36_590_000, 0)
             .saturating_add(T::DbWeight::get().reads(5))
             .saturating_add(T::DbWeight::get().writes(2)),
     DispatchClass::Normal,
@@ -1787,7 +1787,7 @@ mod dispatches {
         ///  	- Errors stemming from transaction pallet.
         ///
         #[pallet::call_index(88)]
-        #[pallet::weight((Weight::from_parts(402_800_000, 0)
+        #[pallet::weight((Weight::from_parts(316_400_000, 0)
 		.saturating_add(T::DbWeight::get().reads(26))
 		.saturating_add(T::DbWeight::get().writes(15)), DispatchClass::Normal, Pays::Yes))]
         pub fn add_stake_limit(
@@ -1895,7 +1895,7 @@ mod dispatches {
         /// May emit a `StakeSwapped` event on success.
         #[pallet::call_index(90)]
         #[pallet::weight((
-            Weight::from_parts(426_500_000, 0)
+            Weight::from_parts(330_400_000, 0)
             .saturating_add(T::DbWeight::get().reads(32))
             .saturating_add(T::DbWeight::get().writes(17)),
             DispatchClass::Operational,
