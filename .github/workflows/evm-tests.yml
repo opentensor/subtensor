@@ -17,7 +17,7 @@ env:
 
 jobs:
   run:
-    runs-on: [self-hosted, type-ccx33, in-hel1]
+    runs-on: [self-hosted, type-ccx33]
     env:
       RUST_BACKTRACE: full
     steps:

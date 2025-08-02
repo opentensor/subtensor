@@ -11,7 +11,7 @@ env:
 
 jobs:
   build:
-    runs-on: [self-hosted, type-ccx13, in-hel1]
+    runs-on: [self-hosted, type-ccx13]
 
     steps:
       - name: Checkout code
@@ -50,7 +50,7 @@ jobs:
 
   deploy:
         needs: build
-        runs-on: [self-hosted, type-ccx13, in-hel1]
+        runs-on: [self-hosted, type-ccx13]
 
         permissions:
             pages: write

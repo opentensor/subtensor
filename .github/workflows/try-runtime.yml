@@ -10,7 +10,7 @@ jobs:
   check-devnet:
     name: check devnet
     if: github.base_ref != 'main'
-    runs-on: [self-hosted, type-ccx33, in-hel1]
+    runs-on: [self-hosted, type-ccx33]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -41,7 +41,7 @@ jobs:
   check-testnet:
     name: check testnet
     if: github.base_ref != 'main'
-    runs-on: [self-hosted, type-ccx33, in-hel1]
+    runs-on: [self-hosted, type-ccx33]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -72,7 +72,7 @@ jobs:
   check-finney:
     name: check finney
     # if: github.base_ref == 'testnet' || github.base_ref == 'devnet' || github.base_ref == 'main'
-    runs-on: [self-hosted, type-ccx33, in-hel1]
+    runs-on: [self-hosted, type-ccx33]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4

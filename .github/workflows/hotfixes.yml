@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   handle-hotfix-pr:
-    runs-on: [self-hosted, type-ccx13, in-hel1]
+    runs-on: [self-hosted, type-ccx13]
     steps:
       - name: Check if PR is a hotfix into `main`
         if: >

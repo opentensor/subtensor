@@ -26,7 +26,7 @@ env:
 
 jobs:
   check-label:
-    runs-on: [self-hosted, type-ccx13, in-hel1]
+    runs-on: [self-hosted, type-ccx13]
     outputs:
       skip-bittensor-e2e-tests: ${{ steps.get-labels.outputs.skip-bittensor-e2e-tests }}
     steps:
@@ -57,7 +57,7 @@ jobs:
   find-btcli-e2e-tests:
     needs: check-label
     if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
-    runs-on: [self-hosted, type-ccx13, in-hel1]
+    runs-on: [self-hosted, type-ccx13]
     outputs:
       test-files: ${{ steps.get-btcli-tests.outputs.test-files }}
     steps:
@@ -84,7 +84,7 @@ jobs:
   find-sdk-e2e-tests:
     needs: check-label
     if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
-    runs-on: [self-hosted, type-ccx13, in-hel1]
+    runs-on: [self-hosted, type-ccx13]
     outputs:
       test-files: ${{ steps.get-sdk-tests.outputs.test-files }}
     steps:
@@ -110,7 +110,7 @@ jobs:
 
   build-image-with-current-branch:
     needs: check-label
-    runs-on: [self-hosted, type-ccx33, in-hel1]
+    runs-on: [self-hosted, type-ccx33]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -148,7 +148,7 @@ jobs:
       - find-btcli-e2e-tests
       - build-image-with-current-branch
     if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
-    runs-on: [self-hosted, type-ccx13, in-hel1]
+    runs-on: [self-hosted, type-ccx13]
     strategy:
       fail-fast: false
       max-parallel: 16
@@ -248,7 +248,7 @@ jobs:
       - find-sdk-e2e-tests
       - build-image-with-current-branch
     if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
-    runs-on: [self-hosted, type-ccx13, in-hel1]
+    runs-on: [self-hosted, type-ccx13]
     strategy:
       fail-fast: false
       max-parallel: 16

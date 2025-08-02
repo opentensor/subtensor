@@ -9,7 +9,7 @@ on:
 
 jobs:
   assert-clean-merges:
-    runs-on: [self-hosted, type-ccx13, in-hel1]
+    runs-on: [self-hosted, type-ccx13]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
