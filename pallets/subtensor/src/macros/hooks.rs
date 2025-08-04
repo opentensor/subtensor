@@ -129,7 +129,9 @@ mod hooks {
                 // Migrate subnet symbols to fix the shift after subnet 81
                 .saturating_add(migrations::migrate_subnet_symbols::migrate_subnet_symbols::<T>())
                 // Migrate CRV3 add commit_block
-                .saturating_add(migrations::migrate_crv3_commits_add_block::migrate_crv3_commits_add_block::<T>());
+                .saturating_add(migrations::migrate_crv3_commits_add_block::migrate_crv3_commits_add_block::<T>())
+                // Disable Commit-Reveal
+                .saturating_add(migrations::migrate_disable_commit_reveal::migrate_disable_commit_reveal::<T>());
             weight
         }
 
