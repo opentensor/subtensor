@@ -218,7 +218,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 298,
+    spec_version: 299,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -2436,25 +2436,24 @@ impl_runtime_apis! {
         }
 
         fn current_epoch() -> sp_consensus_babe::Epoch {
-        sp_consensus_babe::Epoch {
-            epoch_index: Default::default(),
-            start_slot: Default::default(),
-            duration: Default::default(),
-            authorities: vec![],
-            randomness: Default::default(),
-            config: BabeEpochConfiguration::default(),
+            sp_consensus_babe::Epoch {
+                epoch_index: Default::default(),
+                start_slot: Default::default(),
+                duration: Default::default(),
+                authorities: vec![],
+                randomness: Default::default(),
+                config: BabeEpochConfiguration::default(),
             }
-
         }
 
         fn next_epoch() -> sp_consensus_babe::Epoch {
-        sp_consensus_babe::Epoch {
-            epoch_index: Default::default(),
-            start_slot: Default::default(),
-            duration: Default::default(),
-            authorities: vec![],
-            randomness: Default::default(),
-            config: BabeEpochConfiguration::default(),
+            sp_consensus_babe::Epoch {
+                epoch_index: Default::default(),
+                start_slot: Default::default(),
+                duration: Default::default(),
+                authorities: vec![],
+                randomness: Default::default(),
+                config: BabeEpochConfiguration::default(),
             }
         }
 
