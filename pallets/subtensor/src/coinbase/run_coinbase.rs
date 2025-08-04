@@ -95,7 +95,7 @@ impl<T: Config> Pallet<T> {
             log::debug!("alpha_emission_i: {:?}", alpha_emission_i);
 
             // Get initial alpha_in
-            let alpha_in_i: U96F32;
+            let mut alpha_in_i: U96F32;
             let mut tao_in_i: U96F32;
             let tao_in_ratio: U96F32 = default_tao_in_i.safe_div_or(
                 U96F32::saturating_from_num(subnet_block_emission),
@@ -128,12 +128,14 @@ impl<T: Config> Pallet<T> {
             log::debug!("alpha_in_i: {:?}", alpha_in_i);
 
             // Get alpha_out.
-            let alpha_out_i = alpha_emission_i;
+            let mut alpha_out_i = alpha_emission_i;
             // Only emit TAO if the subnetwork allows registration.
             if !Self::get_network_registration_allowed(*netuid_i)
                 && !Self::get_network_pow_registration_allowed(*netuid_i)
             {
                 tao_in_i = asfloat!(0.0);
+                alpha_in_i = asfloat!(0.0);
+                alpha_out_i = asfloat!(0.0);
             }
             // Insert values into maps
             tao_in.insert(*netuid_i, tao_in_i);
