@@ -1892,7 +1892,7 @@ mod pallet_benchmarks {
             alpha_to_move,
         );
     }
-    
+
     #[benchmark]
     fn transfer_stake_aggregate() {
         let coldkey: T::AccountId = whitelisted_caller();

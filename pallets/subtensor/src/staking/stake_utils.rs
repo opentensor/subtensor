@@ -3,6 +3,7 @@ use frame_support::traits::Randomness;
 use frame_system::pallet_prelude::BlockNumberFor;
 use safe_math::*;
 use share_pool::{SharePool, SharePoolDataOperations};
+use sp_core::blake2_128;
 use sp_std::ops::Neg;
 use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid};
@@ -1341,7 +1342,8 @@ impl<T: Config> Pallet<T> {
             T::Hash,
             BlockNumberFor<T>,
         >>::random(b"staking_ops");
-        let first_byte = randomness.as_ref().first().unwrap_or(&0);
+        let random_hash = blake2_128(randomness.as_ref());
+        let first_byte = random_hash.as_ref().first().unwrap_or(&0);
         // Extract the first bit
         let altered_order = (*first_byte & 0b10000000) != 0;
 
