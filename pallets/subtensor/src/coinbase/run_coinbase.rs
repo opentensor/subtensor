@@ -84,7 +84,6 @@ impl<T: Config> Pallet<T> {
             );
             if price_i < tao_in_ratio {
                 tao_in_i = price_i.saturating_mul(U96F32::saturating_from_num(block_emission));
-                alpha_in_i = alpha_emission_i;
                 let difference_tao: U96F32 = default_tao_in_i.saturating_sub(tao_in_i);
                 // Difference becomes buy.
                 let buy_swap_result = Self::swap_tao_for_alpha(
@@ -102,9 +101,10 @@ impl<T: Config> Pallet<T> {
                 is_subsidized.insert(*netuid_i, true);
             } else {
                 tao_in_i = default_tao_in_i;
-                alpha_in_i = tao_in_i.safe_div_or(price_i, alpha_emission_i);
                 is_subsidized.insert(*netuid_i, false);
             }
+            
+            alpha_in_i = tao_in_i.safe_div_or(price_i, block_emission);
             log::debug!("alpha_in_i: {:?}", alpha_in_i);
 
             // Get alpha_out.
