@@ -54,7 +54,7 @@ pub trait SubtensorCustomApi<BlockHash> {
     fn get_subnets_info(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetInfo_v2")]
     fn get_subnet_info_v2(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
-    #[method(name = "subnetInfo_getSubnetsInf_v2")]
+    #[method(name = "subnetInfo_getSubnetsInfo_v2")]
     fn get_subnets_info_v2(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetHyperparams")]
     fn get_subnet_hyperparams(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
