@@ -46,6 +46,8 @@ use pallet_subtensor::rpc_info::{
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_consensus_babe::BabeConfiguration;
+use sp_consensus_babe::BabeEpochConfiguration;
 use sp_core::{
     H160, H256, OpaqueMetadata, U256,
     crypto::{ByteArray, KeyTypeId},
@@ -2416,34 +2418,58 @@ impl_runtime_apis! {
     }
 
     impl sp_consensus_babe::BabeApi<Block> for Runtime {
-        fn configuration() -> sp_consensus_babe::BabeConfiguration {
-            unimplemented!();
+        fn configuration() -> BabeConfiguration {
+            let config = BabeEpochConfiguration::default();
+            BabeConfiguration {
+                slot_duration: Default::default(),
+                epoch_length: Default::default(),
+                authorities: vec![],
+                randomness: Default::default(),
+                c: config.c,
+                allowed_slots: config.allowed_slots,
+
+            }
         }
 
         fn current_epoch_start() -> sp_consensus_babe::Slot {
-            unimplemented!();
+            Default::default()
         }
 
         fn current_epoch() -> sp_consensus_babe::Epoch {
-            unimplemented!();
+        sp_consensus_babe::Epoch {
+            epoch_index: Default::default(),
+            start_slot: Default::default(),
+            duration: Default::default(),
+            authorities: vec![],
+            randomness: Default::default(),
+            config: BabeEpochConfiguration::default(),
+            }
+
         }
 
         fn next_epoch() -> sp_consensus_babe::Epoch {
-            unimplemented!();
+        sp_consensus_babe::Epoch {
+            epoch_index: Default::default(),
+            start_slot: Default::default(),
+            duration: Default::default(),
+            authorities: vec![],
+            randomness: Default::default(),
+            config: BabeEpochConfiguration::default(),
+            }
         }
 
         fn generate_key_ownership_proof(
             _slot: sp_consensus_babe::Slot,
             _authority_id: sp_consensus_babe::AuthorityId,
         ) -> Option<sp_consensus_babe::OpaqueKeyOwnershipProof> {
-            unimplemented!();
+            None
         }
 
         fn submit_report_equivocation_unsigned_extrinsic(
             _equivocation_proof: sp_consensus_babe::EquivocationProof<<Block as BlockT>::Header>,
             _key_owner_proof: sp_consensus_babe::OpaqueKeyOwnershipProof,
         ) -> Option<()> {
-            unimplemented!();
+            None
         }
     }
 
