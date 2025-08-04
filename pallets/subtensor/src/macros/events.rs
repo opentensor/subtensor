@@ -394,12 +394,5 @@ mod events {
             /// The symbol that has been updated.
             symbol: Vec<u8>,
         },
-        /// Pure proxy account is set
-        PureProxyAccountSet {
-            /// EVM address
-            address: H160,
-            /// Pure proxy account
-            account: T::AccountId,
-        },
     }
 }

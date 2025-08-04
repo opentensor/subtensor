@@ -632,6 +632,7 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         tao: TaoCurrency,
         price_limit: TaoCurrency,
+        drop_fees: bool,
     ) -> Result<SwapResult, DispatchError> {
         // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
         let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
@@ -641,7 +642,7 @@ impl<T: Config> Pallet<T> {
                 OrderType::Buy,
                 tao.into(),
                 price_limit.into(),
-                false,
+                drop_fees,
                 false,
             )?;
             let alpha_decrease =
@@ -829,7 +830,7 @@ impl<T: Config> Pallet<T> {
         set_limit: bool,
     ) -> Result<AlphaCurrency, DispatchError> {
         // Swap the tao to alpha.
-        let swap_result = Self::swap_tao_for_alpha(netuid, tao, price_limit)?;
+        let swap_result = Self::swap_tao_for_alpha(netuid, tao, price_limit, false)?;
 
         ensure!(swap_result.amount_paid_out > 0, Error::<T>::AmountTooLow);
 

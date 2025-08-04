@@ -467,12 +467,18 @@ impl<T: Config> Pallet<T> {
         limit_sqrt_price: SqrtPrice,
         drop_fees: bool,
     ) -> Result<SwapResult, Error<T>> {
-        ensure!(
-            T::SubnetInfo::tao_reserve(netuid.into()).to_u64() >= T::MinimumReserve::get().get()
-                && T::SubnetInfo::alpha_reserve(netuid.into()).to_u64()
+        match order_type {
+            OrderType::Buy => ensure!(
+                T::SubnetInfo::alpha_reserve(netuid.into()).to_u64()
                     >= T::MinimumReserve::get().get(),
-            Error::<T>::ReservesTooLow
-        );
+                Error::<T>::ReservesTooLow
+            ),
+            OrderType::Sell => ensure!(
+                T::SubnetInfo::tao_reserve(netuid.into()).to_u64()
+                    >= T::MinimumReserve::get().get(),
+                Error::<T>::ReservesTooLow
+            ),
+        }
 
         Self::maybe_initialize_v3(netuid)?;
 

@@ -145,6 +145,7 @@ impl<T: Config> Pallet<T> {
             netuid,
             actual_burn_amount,
             T::SwapInterface::max_price().into(),
+            false,
         )?
         .amount_paid_out;
         SubnetAlphaOut::<T>::mutate(netuid, |total| {

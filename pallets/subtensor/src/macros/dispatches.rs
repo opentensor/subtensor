@@ -2175,20 +2175,5 @@ mod dispatches {
             Self::deposit_event(Event::SymbolUpdated { netuid, symbol });
             Ok(())
         }
-
-        /// Sets proxy account for evm address
-        #[pallet::call_index(113)]
-        #[pallet::weight((
-             Weight::from_parts(21_010_000, 0).saturating_add(T::DbWeight::get().reads_writes(1, 1)),
-             DispatchClass::Operational,
-             Pays::Yes
-         ))]
-        pub fn set_pure_proxy_account(
-            origin: OriginFor<T>,
-            address: H160,
-            account: T::AccountId,
-        ) -> DispatchResult {
-            Self::do_set_pure_proxy_account(origin, address, account)
-        }
     }
 }
