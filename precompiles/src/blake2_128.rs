@@ -1,6 +1,6 @@
 /// The blake2_128 precompile.
 use fp_evm::{ExitSucceed, LinearCostPrecompile, PrecompileFailure};
-
+use sp_std::vec::Vec;
 pub struct BlakeTwo128;
 
 impl LinearCostPrecompile for BlakeTwo128 {
