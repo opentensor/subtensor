@@ -45,11 +45,7 @@ impl<T: Config> Pallet<T> {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::debug!(
-            "do_remove_stake( origin:{:?} hotkey:{:?}, netuid: {:?}, alpha_unstaked:{:?} )",
-            coldkey,
-            hotkey,
-            netuid,
-            alpha_unstaked
+            "do_remove_stake( origin:{coldkey:?} hotkey:{hotkey:?}, netuid: {netuid:?}, alpha_unstaked:{alpha_unstaked:?} )"
         );
 
         Self::ensure_subtoken_enabled(netuid)?;
@@ -123,7 +119,7 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
-        log::debug!("do_unstake_all( origin:{:?} hotkey:{:?} )", coldkey, hotkey);
+        log::debug!("do_unstake_all( origin:{coldkey:?} hotkey:{hotkey:?} )");
 
         // 2. Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
@@ -133,7 +129,7 @@ impl<T: Config> Pallet<T> {
 
         // 3. Get all netuids.
         let netuids = Self::get_all_subnet_netuids();
-        log::debug!("All subnet netuids: {:?}", netuids);
+        log::debug!("All subnet netuids: {netuids:?}");
 
         // 4. Iterate through all subnets and remove stake.
         for netuid in netuids.into_iter() {
@@ -213,7 +209,7 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
-        log::debug!("do_unstake_all( origin:{:?} hotkey:{:?} )", coldkey, hotkey);
+        log::debug!("do_unstake_all( origin:{coldkey:?} hotkey:{hotkey:?} )");
 
         // 2. Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
@@ -223,7 +219,7 @@ impl<T: Config> Pallet<T> {
 
         // 3. Get all netuids.
         let netuids = Self::get_all_subnet_netuids();
-        log::debug!("All subnet netuids: {:?}", netuids);
+        log::debug!("All subnet netuids: {netuids:?}");
 
         // 4. Iterate through all subnets and remove stake.
         let mut total_tao_unstaked: u64 = 0;
@@ -337,11 +333,7 @@ impl<T: Config> Pallet<T> {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::debug!(
-            "do_remove_stake( origin:{:?} hotkey:{:?}, netuid: {:?}, alpha_unstaked:{:?} )",
-            coldkey,
-            hotkey,
-            netuid,
-            alpha_unstaked
+            "do_remove_stake( origin:{coldkey:?} hotkey:{hotkey:?}, netuid: {netuid:?}, alpha_unstaked:{alpha_unstaked:?} )"
         );
 
         // 2. Calculate the maximum amount that can be executed with price limit

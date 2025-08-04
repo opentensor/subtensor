@@ -16,8 +16,8 @@
 // limitations under the License.
 
 use crate::{
-    pallet::{CompositeKeyword, Def},
     COUNTER,
+    pallet::{CompositeKeyword, Def},
 };
 use syn::spanned::Spanned;
 
@@ -38,23 +38,23 @@ pub fn expand_tt_default_parts(def: &mut Def) -> proc_macro2::TokenStream {
     let storage_part = (!def.storages.is_empty()).then(|| quote::quote!(Storage,));
 
     let event_part = def.event.as_ref().map(|event| {
-        let gen = event.gen_kind.is_generic().then(|| quote::quote!( <T> ));
-        quote::quote!( Event #gen , )
+        let generics = event.gen_kind.is_generic().then(|| quote::quote!( <T> ));
+        quote::quote!( Event #generics , )
     });
 
     let error_part = def.error.as_ref().map(|_| quote::quote!(Error<T>,));
 
     let origin_part = def.origin.as_ref().map(|origin| {
-        let gen = origin.is_generic.then(|| quote::quote!( <T> ));
-        quote::quote!( Origin #gen , )
+        let generics = origin.is_generic.then(|| quote::quote!( <T> ));
+        quote::quote!( Origin #generics , )
     });
 
     let config_part = def.genesis_config.as_ref().map(|genesis_config| {
-        let gen = genesis_config
+        let generic = genesis_config
             .gen_kind
             .is_generic()
             .then(|| quote::quote!( <T> ));
-        quote::quote!( Config #gen , )
+        quote::quote!( Config #generic , )
     });
 
     let inherent_part = def.inherent.as_ref().map(|_| quote::quote!(Inherent,));
@@ -95,23 +95,23 @@ pub fn expand_tt_default_parts(def: &mut Def) -> proc_macro2::TokenStream {
     let storage_part_v2 = (!def.storages.is_empty()).then(|| quote::quote!(+ Storage));
 
     let event_part_v2 = def.event.as_ref().map(|event| {
-        let gen = event.gen_kind.is_generic().then(|| quote::quote!(<T>));
-        quote::quote!(+ Event #gen)
+        let generic = event.gen_kind.is_generic().then(|| quote::quote!(<T>));
+        quote::quote!(+ Event #generic)
     });
 
     let error_part_v2 = def.error.as_ref().map(|_| quote::quote!(+ Error<T>));
 
     let origin_part_v2 = def.origin.as_ref().map(|origin| {
-        let gen = origin.is_generic.then(|| quote::quote!(<T>));
-        quote::quote!(+ Origin #gen)
+        let generic = origin.is_generic.then(|| quote::quote!(<T>));
+        quote::quote!(+ Origin #generic)
     });
 
     let config_part_v2 = def.genesis_config.as_ref().map(|genesis_config| {
-        let gen = genesis_config
+        let generic = genesis_config
             .gen_kind
             .is_generic()
             .then(|| quote::quote!(<T>));
-        quote::quote!(+ Config #gen)
+        quote::quote!(+ Config #generic)
     });
 
     let inherent_part_v2 = def.inherent.as_ref().map(|_| quote::quote!(+ Inherent));

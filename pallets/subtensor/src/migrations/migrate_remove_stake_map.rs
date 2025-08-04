@@ -34,17 +34,14 @@ pub fn migrate_remove_stake_map<T: Config>() -> Weight {
     let removed_entries_count = match removal_results {
         KillStorageResult::AllRemoved(removed) => removed as u64,
         KillStorageResult::SomeRemaining(removed) => {
-            log::info!("Failed To Remove Some Items During {:?}", migration_name);
+            log::info!("Failed To Remove Some Items During {migration_name:?}");
             removed as u64
         }
     };
 
     weight = weight.saturating_add(T::DbWeight::get().writes(removed_entries_count));
 
-    log::info!(
-        "Removed {:?} entries from Stake map.",
-        removed_entries_count
-    );
+    log::info!("Removed {removed_entries_count:?} entries from Stake map.");
 
     // ------------------------------
     // Step 2: Mark Migration as Completed

@@ -15,11 +15,7 @@ use sp_core::U256;
 fn close(value: u64, target: u64, eps: u64, msg: &str) {
     assert!(
         (value as i64 - target as i64).abs() <= eps as i64,
-        "{}: value = {}, target = {}, eps = {}",
-        msg,
-        value,
-        target,
-        eps
+        "{msg}: value = {value}, target = {target}, eps = {eps}"
     )
 }
 
@@ -874,7 +870,7 @@ fn test_childkey_take_functionality() {
         // Test default and max childkey take
         let default_take = SubtensorModule::get_default_childkey_take();
         let min_take = SubtensorModule::get_min_childkey_take();
-        log::info!("Default take: {}, Max take: {}", default_take, min_take);
+        log::info!("Default take: {default_take}, Max take: {min_take}");
 
         // Check if default take and max take are the same
         assert_eq!(
@@ -899,7 +895,7 @@ fn test_childkey_take_functionality() {
 
         // Verify childkey take was set correctly
         let stored_take = SubtensorModule::get_childkey_take(&hotkey, netuid);
-        log::info!("Stored take: {}", stored_take);
+        log::info!("Stored take: {stored_take}");
         assert_eq!(stored_take, new_take);
 
         // Test setting childkey take outside of allowed range
@@ -1065,12 +1061,11 @@ fn test_multiple_networks_childkey_take() {
             let stored_take = SubtensorModule::get_childkey_take(&hotkey, netuid);
             assert_eq!(
                 stored_take, take_value,
-                "Childkey take not set correctly for network {}",
-                netuid
+                "Childkey take not set correctly for network {netuid}"
             );
 
             // Log the set value
-            log::info!("Network {}: Childkey take set to {}", netuid, take_value);
+            log::info!("Network {netuid}: Childkey take set to {take_value}");
         }
 
         // Verify all networks have different childkey take values
@@ -1080,8 +1075,7 @@ fn test_multiple_networks_childkey_take() {
                 let take_j = SubtensorModule::get_childkey_take(&hotkey, j.into());
                 assert_ne!(
                     take_i, take_j,
-                    "Childkey take values should be different for networks {} and {}",
-                    i, j
+                    "Childkey take values should be different for networks {i} and {j}"
                 );
             }
         }
@@ -1533,31 +1527,24 @@ fn test_get_parents_chain() {
         let proportion = u64::MAX / 2; // 50% stake allocation
 
         log::info!(
-            "Test setup: netuid={}, coldkey={}, num_keys={}, proportion={}",
-            netuid,
-            coldkey,
-            num_keys,
-            proportion
+            "Test setup: netuid={netuid}, coldkey={coldkey}, num_keys={num_keys}, proportion={proportion}"
         );
 
         // Create a vector of hotkeys
         let hotkeys: Vec<U256> = (0..num_keys).map(|i| U256::from(i as u64 + 2)).collect();
-        log::info!("Created hotkeys: {:?}", hotkeys);
+        log::info!("Created hotkeys: {hotkeys:?}");
 
         // Add network
         add_network(netuid, 13, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, 1000);
         SubtensorModule::set_target_registrations_per_interval(netuid, 1000);
-        log::info!("Network added and parameters set: netuid={}", netuid);
+        log::info!("Network added and parameters set: netuid={netuid}");
 
         // Register all neurons
         for hotkey in &hotkeys {
             register_ok_neuron(netuid, *hotkey, coldkey, 0);
             log::info!(
-                "Registered neuron: hotkey={}, coldkey={}, netuid={}",
-                hotkey,
-                coldkey,
-                netuid
+                "Registered neuron: hotkey={hotkey}, coldkey={coldkey}, netuid={netuid}"
             );
         }
 
@@ -1590,14 +1577,12 @@ fn test_get_parents_chain() {
             assert_eq!(
                 parents.len(),
                 1,
-                "Hotkey {} should have exactly one parent",
-                i
+                "Hotkey {i} should have exactly one parent"
             );
             assert_eq!(
                 parents[0],
                 (proportion, hotkeys[i - 1]),
-                "Incorrect parent for hotkey {}",
-                i
+                "Incorrect parent for hotkey {i}"
             );
         }
 
@@ -1620,10 +1605,7 @@ fn test_get_parents_chain() {
         SubtensorModule::set_difficulty(netuid, 1);
         register_ok_neuron(netuid, new_parent, coldkey, 99 * 2);
         log::info!(
-            "Registered new parent neuron: new_parent={}, coldkey={}, netuid={}",
-            new_parent,
-            coldkey,
-            netuid
+            "Registered new parent neuron: new_parent={new_parent}, coldkey={coldkey}, netuid={netuid}"
         );
 
         mock_set_children(
@@ -1642,9 +1624,7 @@ fn test_get_parents_chain() {
 
         let last_hotkey_parents = SubtensorModule::get_parents(&last_hotkey, netuid);
         log::info!(
-            "Testing get_parents for last hotkey {} with multiple parents: {:?}",
-            last_hotkey,
-            last_hotkey_parents
+            "Testing get_parents for last hotkey {last_hotkey} with multiple parents: {last_hotkey_parents:?}"
         );
         assert_eq!(
             last_hotkey_parents.len(),
@@ -1886,9 +1866,9 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_multiple_children() {
         close(child2_stake.into(), 1000, 10, "Child2 stake incorrect");
 
         // Log the actual stake values
-        log::info!("Parent stake: {}", parent_stake);
-        log::info!("Child1 stake: {}", child1_stake);
-        log::info!("Child2 stake: {}", child2_stake);
+        log::info!("Parent stake: {parent_stake}");
+        log::info!("Child1 stake: {child1_stake}");
+        log::info!("Child2 stake: {child2_stake}");
     });
 }
 
@@ -1934,9 +1914,9 @@ fn test_get_stake_for_hotkey_on_subnet_edge_cases() {
         let child1_stake = SubtensorModule::get_inherited_for_hotkey_on_subnet(&child1, netuid);
         let child2_stake = SubtensorModule::get_inherited_for_hotkey_on_subnet(&child2, netuid);
 
-        log::info!("Parent stake: {}", parent_stake);
-        log::info!("Child1 stake: {}", child1_stake);
-        log::info!("Child2 stake: {}", child2_stake);
+        log::info!("Parent stake: {parent_stake}");
+        log::info!("Child1 stake: {child1_stake}");
+        log::info!("Child2 stake: {child2_stake}");
 
         assert_eq!(parent_stake, 0.into(), "Parent should have 0 stake");
         assert_eq!(child1_stake, 0.into(), "Child1 should have 0 stake");
@@ -2038,9 +2018,9 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
         let child1_stake_1 = SubtensorModule::get_inherited_for_hotkey_on_subnet(&child1, netuid);
         let child2_stake_1 = SubtensorModule::get_inherited_for_hotkey_on_subnet(&child2, netuid);
 
-        log::info!("Parent stake: {}", parent_stake_1);
-        log::info!("Child1 stake: {}", child1_stake_1);
-        log::info!("Child2 stake: {}", child2_stake_1);
+        log::info!("Parent stake: {parent_stake_1}");
+        log::info!("Child1 stake: {child1_stake_1}");
+        log::info!("Child2 stake: {child2_stake_1}");
 
         assert_eq!(
             parent_stake_1,
@@ -2079,10 +2059,10 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
         let grandchild_stake =
             SubtensorModule::get_inherited_for_hotkey_on_subnet(&grandchild, netuid);
 
-        log::info!("Parent stake: {}", parent_stake_2);
-        log::info!("Child1 stake: {}", child1_stake_2);
-        log::info!("Child2 stake: {}", child2_stake_2);
-        log::info!("Grandchild stake: {}", grandchild_stake);
+        log::info!("Parent stake: {parent_stake_2}");
+        log::info!("Child1 stake: {child1_stake_2}");
+        log::info!("Child2 stake: {child2_stake_2}");
+        log::info!("Grandchild stake: {grandchild_stake}");
 
         close(parent_stake_2.into(), 0, 10, "Parent stake should remain 2");
         close(
@@ -2277,7 +2257,7 @@ fn test_do_remove_stake_clears_pending_childkeys() {
             "StakeThreshold::<Test>::get() = {:?}",
             StakeThreshold::<Test>::get()
         );
-        println!("alpha                         = {:?}", alpha);
+        println!("alpha                         = {alpha:?}");
 
         // Attempt to set child
         assert_ok!(SubtensorModule::do_schedule_children(
@@ -2813,9 +2793,7 @@ fn test_set_weights_no_parent() {
         let curr_stake_threshold = SubtensorModule::get_stake_threshold();
         assert!(
             curr_stake_weight < curr_stake_threshold,
-            "{:?} is not less than {:?} ",
-            curr_stake_weight,
-            curr_stake_threshold
+            "{curr_stake_weight:?} is not less than {curr_stake_threshold:?} "
         );
 
         // Check the hotkey cannot set weights
@@ -2843,9 +2821,7 @@ fn test_set_weights_no_parent() {
         let new_stake_threshold = SubtensorModule::get_stake_threshold();
         assert!(
             new_stake_weight >= new_stake_threshold,
-            "{:?} is not greater than or equal to {:?} ",
-            new_stake_weight,
-            new_stake_threshold
+            "{new_stake_weight:?} is not greater than or equal to {new_stake_threshold:?} "
         );
 
         // Check the hotkey can set weights
@@ -3076,9 +3052,9 @@ fn test_parent_child_chain_emission() {
         let rel_stake_b = I96F32::from_num(stake_b) / total_tao;
         let rel_stake_c = I96F32::from_num(stake_c) / total_tao;
 
-        log::info!("rel_stake_a: {:?}", rel_stake_a); // 0.6666 -> 2/3
-        log::info!("rel_stake_b: {:?}", rel_stake_b); // 0.2222 -> 2/9
-        log::info!("rel_stake_c: {:?}", rel_stake_c); // 0.1111 -> 1/9
+        log::info!("rel_stake_a: {rel_stake_a:?}"); // 0.6666 -> 2/3
+        log::info!("rel_stake_b: {rel_stake_b:?}"); // 0.2222 -> 2/9
+        log::info!("rel_stake_c: {rel_stake_c:?}"); // 0.1111 -> 1/9
         assert!((rel_stake_a - I96F32::from_num(stake_a) / total_tao).abs() < 0.001);
         assert!((rel_stake_b - I96F32::from_num(stake_b) / total_tao).abs() < 0.001);
         assert!((rel_stake_c - I96F32::from_num(stake_c) / total_tao).abs() < 0.001);
@@ -3096,10 +3072,10 @@ fn test_parent_child_chain_emission() {
         let stake_c_old: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_c);
 
         let total_stake_old: I96F32 = I96F32::from_num(stake_a_old + stake_b_old + stake_c_old);
-        log::info!("Old stake for hotkey A: {:?}", stake_a_old);
-        log::info!("Old stake for hotkey B: {:?}", stake_b_old);
-        log::info!("Old stake for hotkey C: {:?}", stake_c_old);
-        log::info!("Total old stake: {:?}", total_stake_old);
+        log::info!("Old stake for hotkey A: {stake_a_old:?}");
+        log::info!("Old stake for hotkey B: {stake_b_old:?}");
+        log::info!("Old stake for hotkey C: {stake_c_old:?}");
+        log::info!("Total old stake: {total_stake_old:?}");
 
         // Set CHK take rate to 1/9
         let chk_take: I96F32 = I96F32::from_num(1_f64 / 9_f64);
@@ -3123,24 +3099,24 @@ fn test_parent_child_chain_emission() {
         let stake_b_new: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_b);
         let stake_c_new: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_c);
         let total_stake_new: I96F32 = I96F32::from_num(stake_a_new + stake_b_new + stake_c_new);
-        log::info!("Stake for hotkey A: {:?}", stake_a_new);
-        log::info!("Stake for hotkey B: {:?}", stake_b_new);
-        log::info!("Stake for hotkey C: {:?}", stake_c_new);
+        log::info!("Stake for hotkey A: {stake_a_new:?}");
+        log::info!("Stake for hotkey B: {stake_b_new:?}");
+        log::info!("Stake for hotkey C: {stake_c_new:?}");
 
         let stake_inc_a: u64 = stake_a_new - stake_a_old;
         let stake_inc_b: u64 = stake_b_new - stake_b_old;
         let stake_inc_c: u64 = stake_c_new - stake_c_old;
         let total_stake_inc: I96F32 = total_stake_new - total_stake_old;
-        log::info!("Stake increase for hotkey A: {:?}", stake_inc_a);
-        log::info!("Stake increase for hotkey B: {:?}", stake_inc_b);
-        log::info!("Stake increase for hotkey C: {:?}", stake_inc_c);
-        log::info!("Total stake increase: {:?}", total_stake_inc);
+        log::info!("Stake increase for hotkey A: {stake_inc_a:?}");
+        log::info!("Stake increase for hotkey B: {stake_inc_b:?}");
+        log::info!("Stake increase for hotkey C: {stake_inc_c:?}");
+        log::info!("Total stake increase: {total_stake_inc:?}");
         let rel_stake_inc_a = I96F32::from_num(stake_inc_a) / total_stake_inc;
         let rel_stake_inc_b = I96F32::from_num(stake_inc_b) / total_stake_inc;
         let rel_stake_inc_c = I96F32::from_num(stake_inc_c) / total_stake_inc;
-        log::info!("rel_stake_inc_a: {:?}", rel_stake_inc_a);
-        log::info!("rel_stake_inc_b: {:?}", rel_stake_inc_b);
-        log::info!("rel_stake_inc_c: {:?}", rel_stake_inc_c);
+        log::info!("rel_stake_inc_a: {rel_stake_inc_a:?}");
+        log::info!("rel_stake_inc_b: {rel_stake_inc_b:?}");
+        log::info!("rel_stake_inc_c: {rel_stake_inc_c:?}");
 
         // Verify the final stake distribution
         let stake_inc_eps: I96F32 = I96F32::from_num(1e-4); // 4 decimal places
@@ -3151,9 +3127,7 @@ fn test_parent_child_chain_emission() {
         assert!(
             (rel_stake_inc_a - expected_a).abs() // B's take on 50% CHK
             <= stake_inc_eps,
-            "A should have {:?} of total stake increase; {:?}",
-            expected_a,
-            rel_stake_inc_a
+            "A should have {expected_a:?} of total stake increase; {rel_stake_inc_a:?}"
         );
         let expected_b = I96F32::from_num(2_f64 / 9_f64)
             * (I96F32::from_num(1_f64) - (I96F32::from_num(1_f64 / 2_f64) * chk_take))
@@ -3161,18 +3135,14 @@ fn test_parent_child_chain_emission() {
         assert!(
             (rel_stake_inc_b - expected_b).abs() // C's take on 50% CHK + take from A
             <= stake_inc_eps,
-            "B should have {:?} of total stake increase; {:?}",
-            expected_b,
-            rel_stake_inc_b
+            "B should have {expected_b:?} of total stake increase; {rel_stake_inc_b:?}"
         );
         let expected_c = I96F32::from_num(1_f64 / 9_f64)
             + (I96F32::from_num(2_f64 / 9_f64) * I96F32::from_num(1_f64 / 2_f64) * chk_take);
         assert!(
             (rel_stake_inc_c - expected_c).abs() // B's take on 50% CHK
             <= stake_inc_eps,
-            "C should have {:?} of total stake increase; {:?}",
-            expected_c,
-            rel_stake_inc_c
+            "C should have {expected_c:?} of total stake increase; {rel_stake_inc_c:?}"
         );
 
         let hotkeys = [hotkey_a, hotkey_b, hotkey_c];
@@ -3181,19 +3151,10 @@ fn test_parent_child_chain_emission() {
             if hotkeys.contains(&hotkey) {
                 total_stake_now += stake;
             } else {
-                log::info!(
-                    "hotkey: {:?}, netuid: {:?}, stake: {:?}",
-                    hotkey,
-                    netuid,
-                    stake
-                );
+                log::info!("hotkey: {hotkey:?}, netuid: {netuid:?}, stake: {stake:?}");
             }
         }
-        log::info!(
-            "total_stake_now: {:?}, total_stake_new: {:?}",
-            total_stake_now,
-            total_stake_new
-        );
+        log::info!("total_stake_now: {total_stake_now:?}, total_stake_new: {total_stake_new:?}");
 
         assert_abs_diff_eq!(
             total_stake_inc.to_num::<u64>(),
@@ -3281,9 +3242,9 @@ fn test_parent_child_chain_epoch() {
         let rel_stake_b = I96F32::from_num(stake_b) / total_alpha;
         let rel_stake_c = I96F32::from_num(stake_c) / total_alpha;
 
-        log::info!("rel_stake_a: {:?}", rel_stake_a); // 0.6666 -> 2/3
-        log::info!("rel_stake_b: {:?}", rel_stake_b); // 0.2222 -> 2/9
-        log::info!("rel_stake_c: {:?}", rel_stake_c); // 0.1111 -> 1/9
+        log::info!("rel_stake_a: {rel_stake_a:?}"); // 0.6666 -> 2/3
+        log::info!("rel_stake_b: {rel_stake_b:?}"); // 0.2222 -> 2/9
+        log::info!("rel_stake_c: {rel_stake_c:?}"); // 0.1111 -> 1/9
 
         assert!(rel_stake_a > I96F32::from_num(0));
         assert!(rel_stake_b > I96F32::from_num(0));
@@ -3315,7 +3276,7 @@ fn test_parent_child_chain_epoch() {
 
         let hotkey_emission =
             SubtensorModule::epoch(netuid, hardcoded_emission.saturating_to_num::<u64>().into());
-        log::info!("hotkey_emission: {:?}", hotkey_emission);
+        log::info!("hotkey_emission: {hotkey_emission:?}");
         let total_emission: I96F32 = hotkey_emission
             .iter()
             .map(|(_, _, emission)| I96F32::from_num(*emission))
@@ -3424,9 +3385,9 @@ fn test_dividend_distribution_with_children() {
         let rel_stake_b = I96F32::from_num(stake_b) / total_alpha;
         let rel_stake_c = I96F32::from_num(stake_c) / total_alpha;
 
-        log::info!("rel_stake_a: {:?}", rel_stake_a); // 0.6666 -> 2/3
-        log::info!("rel_stake_b: {:?}", rel_stake_b); // 0.2222 -> 2/9
-        log::info!("rel_stake_c: {:?}", rel_stake_c); // 0.1111 -> 1/9
+        log::info!("rel_stake_a: {rel_stake_a:?}"); // 0.6666 -> 2/3
+        log::info!("rel_stake_b: {rel_stake_b:?}"); // 0.2222 -> 2/9
+        log::info!("rel_stake_c: {rel_stake_c:?}"); // 0.1111 -> 1/9
         let epsilon = I96F32::from_num(0.00001);
         assert!((rel_stake_a - I96F32::from_num(300_000) / total_tao).abs() <= epsilon);
         assert!((rel_stake_b - I96F32::from_num(100_000) / total_tao).abs() <= epsilon);
@@ -3452,7 +3413,7 @@ fn test_dividend_distribution_with_children() {
 
         let hotkey_emission =
             SubtensorModule::epoch(netuid, hardcoded_emission.saturating_to_num::<u64>().into());
-        log::info!("hotkey_emission: {:?}", hotkey_emission);
+        log::info!("hotkey_emission: {hotkey_emission:?}");
         let total_emission: I96F32 = hotkey_emission
             .iter()
             .map(|(_, _, emission)| I96F32::from_num(*emission))
@@ -3497,9 +3458,9 @@ fn test_dividend_distribution_with_children() {
             netuid,
             hardcoded_emission.saturating_to_num::<u64>().into(),
         );
-        log::info!("dividends_a: {:?}", dividends_a);
-        log::info!("dividends_b: {:?}", dividends_b);
-        log::info!("dividends_c: {:?}", dividends_c);
+        log::info!("dividends_a: {dividends_a:?}");
+        log::info!("dividends_b: {dividends_b:?}");
+        log::info!("dividends_c: {dividends_c:?}");
 
         // We expect A to get all of its own emission, as it has no parents.
         assert_eq!(dividends_a.len(), 1);
@@ -3607,8 +3568,8 @@ fn test_dynamic_parent_child_relationships() {
 
         let chk_take_1 = SubtensorModule::get_childkey_take(&child1, netuid);
         let chk_take_2 = SubtensorModule::get_childkey_take(&child2, netuid);
-        log::info!("child take 1: {:?}", chk_take_1);
-        log::info!("child take 2: {:?}", chk_take_2);
+        log::info!("child take 1: {chk_take_1:?}");
+        log::info!("child take 2: {chk_take_2:?}");
 
         // Add initial stakes
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_parent, 500_000 + 1_000);
@@ -3622,7 +3583,7 @@ fn test_dynamic_parent_child_relationships() {
         let total_tao = I96F32::from_num(500_000 + 50_000 + 30_000);
         let (total_alpha, _) = mock::swap_tao_to_alpha(netuid, total_tao.to_num());
         let total_alpha = I96F32::from_num(total_alpha);
-        log::info!("total_alpha: {:?}", total_alpha);
+        log::info!("total_alpha: {total_alpha:?}");
 
         // Set the stakes directly
         // This avoids needing to swap tao to alpha, impacting the initial stake distribution.
@@ -3655,9 +3616,9 @@ fn test_dynamic_parent_child_relationships() {
         let stake_parent_0 = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
         let stake_child1_0 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid);
         let stake_child2_0 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
-        log::info!("stake_parent_0: {:?}", stake_parent_0);
-        log::info!("stake_child1_0: {:?}", stake_child1_0);
-        log::info!("stake_child2_0: {:?}", stake_child2_0);
+        log::info!("stake_parent_0: {stake_parent_0:?}");
+        log::info!("stake_child1_0: {stake_child1_0:?}");
+        log::info!("stake_child2_0: {stake_child2_0:?}");
 
         let total_stake_0 = stake_parent_0 + stake_child1_0 + stake_child2_0;
 
@@ -3666,9 +3627,9 @@ fn test_dynamic_parent_child_relationships() {
         let rel_stake_child1_0 = I96F32::from_num(stake_child1_0) / total_alpha;
         let rel_stake_child2_0 = I96F32::from_num(stake_child2_0) / total_alpha;
 
-        log::info!("rel_stake_parent_0: {:?}", rel_stake_parent_0);
-        log::info!("rel_stake_child1_0: {:?}", rel_stake_child1_0);
-        log::info!("rel_stake_child2_0: {:?}", rel_stake_child2_0);
+        log::info!("rel_stake_parent_0: {rel_stake_parent_0:?}");
+        log::info!("rel_stake_child1_0: {rel_stake_child1_0:?}");
+        log::info!("rel_stake_child2_0: {rel_stake_child2_0:?}");
         let epsilon = I96F32::from_num(0.00001);
         assert!((rel_stake_parent_0 - I96F32::from_num(500_000) / total_tao).abs() <= epsilon);
         assert!((rel_stake_child1_0 - I96F32::from_num(50_000) / total_tao).abs() <= epsilon);
@@ -3703,7 +3664,7 @@ fn test_dynamic_parent_child_relationships() {
         let total_stake_1 = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid)
             + SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid)
             + SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
-        log::info!("total_stake_1: {:?}", total_stake_1);
+        log::info!("total_stake_1: {total_stake_1:?}");
 
         // Change parent-child relationships
         mock_set_children(
@@ -3720,7 +3681,7 @@ fn test_dynamic_parent_child_relationships() {
         let total_stake_2 = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid)
             + SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid)
             + SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
-        log::info!("total_stake_2: {:?}", total_stake_2);
+        log::info!("total_stake_2: {total_stake_2:?}");
 
         // Check final emission distribution
         let stake_parent_2 = SubtensorModule::get_inherited_for_hotkey_on_subnet(&parent, netuid);
@@ -3731,17 +3692,17 @@ fn test_dynamic_parent_child_relationships() {
         let _total_child2_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
 
         log::info!("Final stakes:");
-        log::info!("Parent stake: {}", stake_parent_2);
-        log::info!("Child1 stake: {}", stake_child1_2);
-        log::info!("Child2 stake: {}", stake_child2_2);
+        log::info!("Parent stake: {stake_parent_2}");
+        log::info!("Child1 stake: {stake_child1_2}");
+        log::info!("Child2 stake: {stake_child2_2}");
 
         // Payout 1
         let payout_1 = total_stake_1 - total_stake_0;
-        log::info!("payout_1: {:?}", payout_1);
+        log::info!("payout_1: {payout_1:?}");
 
         // Payout 2
         let payout_2 = total_stake_2 - total_stake_1;
-        log::info!("payout_2: {:?}", payout_2);
+        log::info!("payout_2: {payout_2:?}");
 
         let total_emission = I96F32::from_num(payout_1 + payout_2);
 
@@ -3749,7 +3710,7 @@ fn test_dynamic_parent_child_relationships() {
         let TOLERANCE = I96F32::from_num(0.001); // Allow for a small discrepancy due to potential rounding
 
         // Precise assertions with tolerance
-        log::info!("total_emission: {:?}", total_emission);
+        log::info!("total_emission: {total_emission:?}");
         let expected_parent_stake = ((I96F32::from_num(u64::from(stake_parent_0))
             + total_emission * rel_stake_parent_0)
             * I96F32::from_num(5))
@@ -3758,9 +3719,7 @@ fn test_dynamic_parent_child_relationships() {
             (I96F32::from_num(stake_parent_2) - expected_parent_stake).abs()
                 / expected_parent_stake
                 <= TOLERANCE,
-            "Parent stake should be close to {:?}, but was {}",
-            expected_parent_stake,
-            stake_parent_2
+            "Parent stake should be close to {expected_parent_stake:?}, but was {stake_parent_2}"
         );
         // Parent stake calculation:
         // Initial stake: 500,000
@@ -3773,9 +3732,7 @@ fn test_dynamic_parent_child_relationships() {
             (I96F32::from_num(stake_child1_2) - expected_child1_stake).abs()
                 / expected_child1_stake
                 <= TOLERANCE,
-            "Child1 stake should be close to {:?}, but was {}",
-            expected_child1_stake,
-            stake_child1_2
+            "Child1 stake should be close to {expected_child1_stake:?}, but was {stake_child1_2}"
         );
         // Child1 stake calculation:
         // Initial stake: 50,000
@@ -3788,9 +3745,7 @@ fn test_dynamic_parent_child_relationships() {
             (I96F32::from_num(stake_child2_2) - expected_child2_stake).abs()
                 / expected_child2_stake
                 <= TOLERANCE,
-            "Child2 stake should be close to {:?}, but was {}",
-            expected_child2_stake,
-            stake_child2_2
+            "Child2 stake should be close to {expected_child2_stake:?}, but was {stake_child2_2}"
         );
         // Child2 stake calculation:
         // Initial stake: 30,000
@@ -3945,8 +3900,8 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
         let rel_stake_a = I96F32::from_num(stake_a) / total_alpha;
         let rel_stake_b = I96F32::from_num(stake_b) / total_alpha;
 
-        log::info!("rel_stake_a: {:?}", rel_stake_a); // 0.75 -> 3/4
-        log::info!("rel_stake_b: {:?}", rel_stake_b); // 0.25 -> 1/4
+        log::info!("rel_stake_a: {rel_stake_a:?}"); // 0.75 -> 3/4
+        log::info!("rel_stake_b: {rel_stake_b:?}"); // 0.25 -> 1/4
         let epsilon = I96F32::from_num(0.0001);
         assert!((rel_stake_a - I96F32::from_num(300_000) / total_tao).abs() <= epsilon);
         assert!((rel_stake_b - I96F32::from_num(100_000) / total_tao).abs() <= epsilon);
@@ -3967,7 +3922,7 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
 
         let hotkey_emission =
             SubtensorModule::epoch(netuid, hardcoded_emission.saturating_to_num::<u64>().into());
-        log::info!("hotkey_emission: {:?}", hotkey_emission);
+        log::info!("hotkey_emission: {hotkey_emission:?}");
         let total_emission: I96F32 = hotkey_emission
             .iter()
             .map(|(_, _, emission)| I96F32::from_num(*emission))
@@ -4002,8 +3957,8 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
             netuid,
             hardcoded_emission.saturating_to_num::<u64>().into(),
         );
-        log::info!("dividends_a: {:?}", dividends_a);
-        log::info!("dividends_b: {:?}", dividends_b);
+        log::info!("dividends_a: {dividends_a:?}");
+        log::info!("dividends_b: {dividends_b:?}");
 
         // We expect A should have no impact from B, as they have the same owner.
         assert_eq!(dividends_a.len(), 1);
