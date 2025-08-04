@@ -1105,8 +1105,7 @@ fn test_migrate_disable_commit_reveal() {
         for netuid in netuids {
             assert!(
                 !CommitRevealWeightsEnabled::<Test>::get(netuid),
-                "commit-reveal should be disabled for netuid {}",
-                netuid
+                "commit-reveal should be disabled for netuid {netuid}"
             );
         }
 
@@ -1114,7 +1113,7 @@ fn test_migrate_disable_commit_reveal() {
         let collected: Vec<_> = CommitRevealWeightsEnabled::<Test>::iter().collect();
         assert_eq!(collected.len(), netuids.len(), "unexpected key count");
         for (k, v) in collected {
-            assert!(!v, "found an enabled flag after migration for netuid {}", k);
+            assert!(!v, "found an enabled flag after migration for netuid {k}");
         }
 
         // -----------------------------------------------------------------

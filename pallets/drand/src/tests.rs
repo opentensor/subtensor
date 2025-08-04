@@ -686,20 +686,18 @@ fn test_prune_maximum_of_100_pulses_per_call() {
         for r in oldest_round..expected_new_oldest {
             assert!(
                 !Pulses::<Test>::contains_key(r),
-                "Round {} should have been pruned",
-                r
+                "Round {r} should have been pruned"
             );
         }
 
         // ‣ Round 101 (new oldest) and later rounds remain
         assert!(
             Pulses::<Test>::contains_key(expected_new_oldest),
-            "Round {} should remain after pruning",
-            expected_new_oldest
+            "Round {expected_new_oldest} should remain after pruning"
         );
         assert!(
             Pulses::<Test>::contains_key(mid_round),
-            "Mid‑range round should remain after pruning"
+            "Mid-range round should remain after pruning"
         );
         assert!(
             Pulses::<Test>::contains_key(last_round),

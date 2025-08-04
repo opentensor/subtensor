@@ -250,11 +250,7 @@ impl<T: Config> Pallet<T> {
         for &netuid in subnets.iter() {
             // Reveal matured weights.
             if let Err(e) = Self::reveal_crv3_commits(netuid) {
-                log::warn!(
-                    "Failed to reveal commits for subnet {} due to error: {:?}",
-                    netuid,
-                    e
-                );
+                log::warn!("Failed to reveal commits for subnet {netuid} due to error: {e:?}");
             };
             // Pass on subnets that have not reached their tempo.
             if Self::should_run_epoch(netuid, current_block) {

@@ -70,11 +70,7 @@ impl<T: Config> Pallet<T> {
                 None => {
                     // Round number used was not found on the chain. Skip this commit.
                     log::warn!(
-                        "Failed to reveal commit for subnet {} submitted by {:?} on block {} due to missing round number {}; will retry every block in reveal epoch.",
-                        netuid,
-                        who,
-                        commit_block,
-                        round_number
+                        "Failed to reveal commit for subnet {netuid} submitted by {who:?} on block {commit_block} due to missing round number {round_number}; will retry every block in reveal epoch."
                     );
                     unrevealed.push_back((
                         who,
@@ -141,18 +137,13 @@ impl<T: Config> Pallet<T> {
                         }
                         Ok(_) => {
                             log::warn!(
-                                "Failed to reveal commit for subnet {} submitted by {:?} due to hotkey mismatch in payload",
-                                netuid,
-                                who
+                                "Failed to reveal commit for subnet {netuid} submitted by {who:?} due to hotkey mismatch in payload"
                             );
                             continue;
                         }
                         Err(e) => {
                             log::warn!(
-                                "Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing hotkey: {:?}",
-                                netuid,
-                                who,
-                                e
+                                "Failed to reveal commit for subnet {netuid} submitted by {who:?} due to error deserializing hotkey: {e:?}"
                             );
                             continue;
                         }
@@ -164,10 +155,7 @@ impl<T: Config> Pallet<T> {
                         Ok(legacy) => (legacy.uids, legacy.values, legacy.version_key),
                         Err(e) => {
                             log::warn!(
-                                "Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing both payload formats: {:?}",
-                                netuid,
-                                who,
-                                e
+                                "Failed to reveal commit for subnet {netuid} submitted by {who:?} due to error deserializing both payload formats: {e:?}"
                             );
                             continue;
                         }

@@ -5918,15 +5918,13 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
         // past_epoch (< reveal_epoch) must be gone
         assert!(
             CRV3WeightCommitsV2::<Test>::get(netuid, past_epoch).is_empty(),
-            "expired epoch {} should be cleared",
-            past_epoch
+            "expired epoch {past_epoch} should be cleared"
         );
 
         // reveal_epoch queue is *kept* because its commit could still be revealed later.
         assert!(
             !CRV3WeightCommitsV2::<Test>::get(netuid, reveal_epoch).is_empty(),
-            "reveal‑epoch {} must be retained until commit can be revealed",
-            reveal_epoch
+            "reveal-epoch {reveal_epoch} must be retained until commit can be revealed"
         );
     });
 }
@@ -6035,8 +6033,7 @@ fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
             let uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hk).unwrap() as usize;
             assert!(
                 !w_sparse.get(uid).unwrap_or(&Vec::new()).is_empty(),
-                "weights for uid {} should be set",
-                uid
+                "weights for uid {uid} should be set"
             );
         }
     });
@@ -6146,8 +6143,7 @@ fn test_reveal_crv3_commits_max_neurons() {
             let uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, hk).unwrap() as usize;
             assert!(
                 !w_sparse.get(uid).unwrap_or(&Vec::new()).is_empty(),
-                "weights for uid {} should be set",
-                uid
+                "weights for uid {uid} should be set"
             );
         }
     });
@@ -6346,8 +6342,7 @@ fn test_reveal_crv3_commits_hotkey_check() {
         );
 
         log::debug!(
-            "Commit bytes now contain {:#?}",
-            commit_bytes
+            "Commit bytes now contain {commit_bytes:#?}"
         );
 
         assert_ok!(SubtensorModule::do_commit_crv3_weights(
@@ -6463,8 +6458,7 @@ fn test_reveal_crv3_commits_hotkey_check() {
         );
 
         log::debug!(
-            "Commit bytes now contain {:#?}",
-            commit_bytes
+            "Commit bytes now contain {commit_bytes:#?}"
         );
 
         assert_ok!(SubtensorModule::do_commit_crv3_weights(
@@ -6519,16 +6513,14 @@ fn test_reveal_crv3_commits_hotkey_check() {
 
             assert!(
                 rounded_actual_weight != 0,
-                "Actual weight for uid {} is zero",
-                uid_a
+                "Actual weight for uid {uid_a} is zero"
             );
 
             let expected_weight = w_b.to_num::<i64>();
 
             assert_eq!(
                 rounded_actual_weight, expected_weight,
-                "Weight mismatch for uid {}: expected {}, got {}",
-                uid_a, expected_weight, rounded_actual_weight
+                "Weight mismatch for uid {uid_a}: expected {expected_weight}, got {rounded_actual_weight}"
             );
         }
     });
