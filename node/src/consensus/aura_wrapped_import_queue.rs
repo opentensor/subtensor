@@ -9,6 +9,7 @@ use sc_consensus::{BasicQueue, DefaultImportQueue};
 use sc_consensus_aura::AuraVerifier;
 use sc_consensus_aura::CheckForEquivocation;
 use sc_consensus_aura::ImportQueueParams;
+use sc_consensus_babe::CompatibleDigestItem as _;
 use sc_consensus_slots::InherentDataProviderExt;
 use sc_telemetry::TelemetryHandle;
 use sp_api::ApiExt;
@@ -17,9 +18,13 @@ use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::error::Error as ConsensusError;
 use sp_consensus_aura::AuraApi;
-use sp_consensus_aura::sr25519::AuthorityId;
-use sp_consensus_aura::sr25519::AuthorityPair;
+use sp_consensus_aura::sr25519::AuthorityId as AuraAuthorityId;
+use sp_consensus_aura::sr25519::AuthorityPair as AuraAuthorityPair;
+use sp_consensus_babe::AuthorityId as BabeAuthorityId;
+use sp_consensus_babe::AuthorityPair as BabeAuthorityPair;
 use sp_consensus_babe::BABE_ENGINE_ID;
+use sp_consensus_babe::BabeApi;
+use sp_core::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::Digest;
 use sp_runtime::DigestItem;
@@ -35,11 +40,17 @@ use std::sync::Arc;
 /// blacklist the offending node and refuse to connect with them until they
 /// are restarted
 struct AuraWrappedVerifier<B, C, CIDP, N> {
-    inner: AuraVerifier<C, AuthorityPair, CIDP, N>,
+    inner: AuraVerifier<C, AuraAuthorityPair, CIDP, N>,
     _phantom: std::marker::PhantomData<B>,
 }
 
-impl<B: BlockT, C, CIDP, N> AuraWrappedVerifier<B, C, CIDP, N> {
+impl<B: BlockT, C, CIDP, N> AuraWrappedVerifier<B, C, CIDP, N>
+where
+    CIDP: CreateInherentDataProviders<B, ()> + Send + Sync,
+    CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
+    C: ProvideRuntimeApi<B> + Send + Sync + sc_client_api::backend::AuxStore,
+    C::Api: BlockBuilderApi<B> + AuraApi<B, AuraAuthorityId> + ApiExt<B> + BabeApi<B>,
+{
     pub fn new(
         client: Arc<C>,
         create_inherent_data_providers: CIDP,
@@ -55,12 +66,51 @@ impl<B: BlockT, C, CIDP, N> AuraWrappedVerifier<B, C, CIDP, N> {
             compatibility_mode,
         };
         let verifier =
-            sc_consensus_aura::build_verifier::<AuthorityPair, C, CIDP, N>(verifier_params);
+            sc_consensus_aura::build_verifier::<AuraAuthorityPair, C, CIDP, N>(verifier_params);
 
         AuraWrappedVerifier {
             inner: verifier,
             _phantom: std::marker::PhantomData,
         }
+    }
+
+    /// We can't use a full [`BabeVerifier`] because we don't have a Babe link running.
+    ///
+    /// Instead, we will check the author is valid and comes from a trusted authority.
+    ///
+    /// The block will be verified in full after the node spins back up as a Babe service.
+    async fn check_babe_block(&self, block: BlockImportParams<B>) -> Result<(), String> {
+        use sp_core::crypto::Ss58Codec;
+
+        let mut header = block.header.clone();
+
+        let _pre_digest = sc_consensus_babe::find_pre_digest::<B>(&block.header)?
+            .ok_or("No predigest".to_string())?;
+        dbg!(_pre_digest);
+
+        let seal = header
+            .digest_mut()
+            .pop()
+            .ok_or_else(|| "Header Unsealed".to_string())?;
+
+        let sig = seal
+            .as_babe_seal()
+            .ok_or_else(|| "Header bad seal".to_string())?;
+
+        // the pre-hash of the header doesn't include the seal
+        // and that's what we sign
+        let pre_hash = header.hash();
+
+        // Alice pub key
+        // TODO: Make this flexible, not just check that Alice signed.
+        let public =
+            BabeAuthorityId::from_ss58check("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY")
+                .unwrap();
+        if !BabeAuthorityPair::verify(&sig, pre_hash, &public) {
+            return Err("Bad Sig".to_string());
+        }
+
+        Ok(())
     }
 }
 
@@ -68,7 +118,7 @@ impl<B: BlockT, C, CIDP, N> AuraWrappedVerifier<B, C, CIDP, N> {
 impl<B: BlockT, C, CIDP> Verifier<B> for AuraWrappedVerifier<B, C, CIDP, NumberFor<B>>
 where
     C: ProvideRuntimeApi<B> + Send + Sync + sc_client_api::backend::AuxStore,
-    C::Api: BlockBuilderApi<B> + AuraApi<B, AuthorityId> + ApiExt<B>,
+    C::Api: BlockBuilderApi<B> + AuraApi<B, AuraAuthorityId> + ApiExt<B> + BabeApi<B>,
     CIDP: CreateInherentDataProviders<B, ()> + Send + Sync,
     CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
@@ -76,6 +126,7 @@ where
         let number: NumberFor<B> = *block.post_header().number();
         log::debug!("Verifying block: {:?}", number);
         if is_babe_digest(block.header.digest()) {
+            self.check_babe_block(block).await?;
             log::debug!(
                 "Detected Babe block! Verifier cannot continue, upgrade must be triggered elsewhere..."
             );
@@ -93,7 +144,7 @@ pub fn import_queue<B, I, C, S, CIDP>(
 ) -> Result<DefaultImportQueue<B>, sp_consensus::Error>
 where
     B: BlockT,
-    C::Api: BlockBuilderApi<B> + AuraApi<B, AuthorityId> + ApiExt<B>,
+    C::Api: BlockBuilderApi<B> + AuraApi<B, AuraAuthorityId> + ApiExt<B> + BabeApi<B>,
     C: 'static
         + ProvideRuntimeApi<B>
         + BlockOf
