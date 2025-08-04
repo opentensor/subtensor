@@ -7,13 +7,13 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
     /// Executes the necessary operations for each block.
     pub fn block_step() -> Result<(), &'static str> {
         let block_number: u64 = Self::get_current_block_as_u64();
-        log::debug!("block_step for block: {:?} ", block_number);
+        log::debug!("block_step for block: {block_number:?} ");
         // --- 1. Adjust difficulties.
         Self::adjust_registration_terms_for_networks();
         // --- 2. Get the current coinbase emission.
         let block_emission: U96F32 =
             U96F32::saturating_from_num(Self::get_block_emission().unwrap_or(0));
-        log::debug!("Block emission: {:?}", block_emission);
+        log::debug!("Block emission: {block_emission:?}");
         // --- 3. Run emission through network.
         Self::run_coinbase(block_emission);
         // --- 4. Set pending children on the epoch; but only after the coinbase has been run.
@@ -43,11 +43,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
             let adjustment_interval: u16 = Self::get_adjustment_interval(netuid);
             let current_block: u64 = Self::get_current_block_as_u64();
             log::debug!(
-                "netuid: {:?} last_adjustment_block: {:?} adjustment_interval: {:?} current_block: {:?}",
-                netuid,
-                last_adjustment_block,
-                adjustment_interval,
-                current_block
+                "netuid: {netuid:?} last_adjustment_block: {last_adjustment_block:?} adjustment_interval: {adjustment_interval:?} current_block: {current_block:?}"
             );
 
             // --- 3. Check if we are at the adjustment interval for this network.

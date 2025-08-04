@@ -2189,7 +2189,7 @@ fn test_tempo_change_during_commit_reveal_process() {
         );
 
         let tempo_before_next_reveal: u16 = 200;
-        log::info!("Changing tempo to {}", tempo_before_next_reveal);
+        log::info!("Changing tempo to {tempo_before_next_reveal}");
         SubtensorModule::set_tempo(netuid, tempo_before_next_reveal);
 
         step_epochs(1, netuid);
@@ -2222,7 +2222,7 @@ fn test_tempo_change_during_commit_reveal_process() {
         );
 
         let tempo: u16 = 150;
-        log::info!("Changing tempo to {}", tempo);
+        log::info!("Changing tempo to {tempo}");
         SubtensorModule::set_tempo(netuid, tempo);
 
         step_epochs(1, netuid);
@@ -2245,7 +2245,7 @@ fn test_tempo_change_during_commit_reveal_process() {
         );
 
         let tempo: u16 = 1050;
-        log::info!("Changing tempo to {}", tempo);
+        log::info!("Changing tempo to {tempo}");
         SubtensorModule::set_tempo(netuid, tempo);
 
         assert_ok!(SubtensorModule::commit_weights(
@@ -2259,7 +2259,7 @@ fn test_tempo_change_during_commit_reveal_process() {
         );
 
         let tempo: u16 = 805;
-        log::info!("Changing tempo to {}", tempo);
+        log::info!("Changing tempo to {tempo}");
         SubtensorModule::set_tempo(netuid, tempo);
 
         step_epochs(1, netuid);
@@ -3107,9 +3107,7 @@ fn test_tempo_and_reveal_period_change_during_commit_reveal_process() {
         SubtensorModule::set_tempo(netuid, new_tempo);
         SubtensorModule::set_reveal_period(netuid, new_reveal_period);
         log::info!(
-            "Changed tempo to {} and reveal period to {}",
-            new_tempo,
-            new_reveal_period
+            "Changed tempo to {new_tempo} and reveal period to {new_reveal_period}"
         );
 
         // Step 3: Advance blocks to reach the reveal epoch according to new tempo and reveal period
@@ -3163,9 +3161,7 @@ fn test_tempo_and_reveal_period_change_during_commit_reveal_process() {
         SubtensorModule::set_tempo(netuid, new_tempo_after_reveal);
         SubtensorModule::set_reveal_period(netuid, new_reveal_period_after_reveal);
         log::info!(
-            "Changed tempo to {} and reveal period to {} after reveal",
-            new_tempo_after_reveal,
-            new_reveal_period_after_reveal
+            "Changed tempo to {new_tempo_after_reveal} and reveal period to {new_reveal_period_after_reveal} after reveal"
         );
 
         // Step 5: Commit again
@@ -4230,11 +4226,10 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
                                 || e == Error::<Test>::ExpiredWeightCommit.into()
                                 || e == Error::<Test>::InvalidRevealCommitHashNotMatch.into()
                             {
-                                log::info!("Expected error during reveal after epoch advancement: {:?}", e);
+                                log::info!("Expected error during reveal after epoch advancement: {e:?}");
                             } else {
                                 panic!(
-                                    "Unexpected error during reveal: {:?}, expected RevealTooEarly, ExpiredWeightCommit, or InvalidRevealCommitHashNotMatch",
-                                    e
+                                    "Unexpected error during reveal: {e:?}, expected RevealTooEarly, ExpiredWeightCommit, or InvalidRevealCommitHashNotMatch"
                                 );
                             }
                         }
@@ -4276,12 +4271,11 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
                                 || e == Error::<Test>::ExpiredWeightCommit.into()
                                 || e == Error::<Test>::InvalidRevealCommitHashNotMatch.into()
                             {
-                                log::info!("Expected error during reveal after epoch advancement: {:?}", e);
+                                log::info!("Expected error during reveal after epoch advancement: {e:?}");
                                 break;
                             } else {
                                 panic!(
-                                    "Unexpected error during reveal after epoch advancement: {:?}, expected RevealTooEarly, ExpiredWeightCommit, or InvalidRevealCommitHashNotMatch",
-                                    e
+                                    "Unexpected error during reveal after epoch advancement: {e:?}, expected RevealTooEarly, ExpiredWeightCommit, or InvalidRevealCommitHashNotMatch"
                                 );
                             }
                         }
@@ -4312,8 +4306,7 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
                 assert_eq!(
                     reveal_result,
                     Err(Error::<Test>::ExpiredWeightCommit.into()),
-                    "Expected ExpiredWeightCommit error, got {:?}",
-                    reveal_result
+                    "Expected ExpiredWeightCommit error, got {reveal_result:?}"
                 );
             }
         }
@@ -4815,8 +4808,7 @@ fn test_reveal_crv3_commits_success() {
         );
 
         log::debug!(
-            "Commit bytes now contain {:#?}",
-            commit_bytes
+            "Commit bytes now contain {commit_bytes:#?}"
         );
 
         assert_ok!(SubtensorModule::do_commit_crv3_weights(
@@ -4871,16 +4863,14 @@ fn test_reveal_crv3_commits_success() {
 
             assert!(
                 rounded_actual_weight != 0,
-                "Actual weight for uid {} is zero",
-                uid_a
+                "Actual weight for uid {uid_a} is zero"
             );
 
             let expected_weight = w_b.to_num::<i64>();
 
             assert_eq!(
                 rounded_actual_weight, expected_weight,
-                "Weight mismatch for uid {}: expected {}, got {}",
-                uid_a, expected_weight, rounded_actual_weight
+                "Weight mismatch for uid {uid_a}: expected {expected_weight}, got {rounded_actual_weight}"
             );
         }
     });

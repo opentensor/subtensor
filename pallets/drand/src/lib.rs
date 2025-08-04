@@ -271,9 +271,9 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: BlockNumberFor<T>) {
-            log::debug!("Drand OCW working on block: {:?}", block_number);
+            log::debug!("Drand OCW working on block: {block_number:?}");
             if let Err(e) = Self::fetch_drand_pulse_and_send_unsigned(block_number) {
-                log::debug!("Drand: Failed to fetch pulse from drand. {:?}", e);
+                log::debug!("Drand: Failed to fetch pulse from drand. {e:?}");
             }
         }
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
@@ -502,12 +502,12 @@ impl<T: Config> Pallet<T> {
     }
 
     fn fetch_drand_by_round(round: RoundNumber) -> Result<DrandResponseBody, &'static str> {
-        let relative_path = format!("/{}/public/{}", CHAIN_HASH, round);
+        let relative_path = format!("/{CHAIN_HASH}/public/{round}");
         Self::fetch_and_decode_from_any_endpoint(&relative_path)
     }
 
     fn fetch_drand_latest() -> Result<DrandResponseBody, &'static str> {
-        let relative_path = format!("/{}/public/latest", CHAIN_HASH);
+        let relative_path = format!("/{CHAIN_HASH}/public/latest");
         Self::fetch_and_decode_from_any_endpoint(&relative_path)
     }
 
@@ -517,7 +517,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<DrandResponseBody, &'static str> {
         let uris: Vec<String> = ENDPOINTS
             .iter()
-            .map(|e| format!("{}{}", e, relative_path))
+            .map(|e| format!("{e}{relative_path}"))
             .collect();
         let deadline = sp_io::offchain::timestamp().add(
             sp_runtime::offchain::Duration::from_millis(T::HttpFetchTimeout::get()),
@@ -534,7 +534,7 @@ impl<T: Config> Pallet<T> {
                     pending_requests.push((uri.clone(), pending_req));
                 }
                 Err(_) => {
-                    log::warn!("Drand: HTTP IO Error on endpoint {}", uri);
+                    log::warn!("Drand: HTTP IO Error on endpoint {uri}");
                 }
             }
         }
@@ -583,7 +583,7 @@ impl<T: Config> Pallet<T> {
                         }
                     }
                     Ok(Err(e)) => {
-                        log::warn!("Drand: HTTP error from {}: {:?}", uri, e);
+                        log::warn!("Drand: HTTP error from {uri}: {e:?}");
                     }
                     Err(pending_req) => {
                         still_pending = true;

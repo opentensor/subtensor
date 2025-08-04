@@ -53,7 +53,7 @@ impl<T: Config> Pallet<T> {
 
         // No commits to reveal until at least epoch reveal_period.
         if cur_epoch < reveal_period {
-            log::warn!("Failed to reveal commit for subnet {} Too early", netuid);
+            log::warn!("Failed to reveal commit for subnet {netuid} Too early");
             return Ok(());
         }
 
@@ -91,10 +91,7 @@ impl<T: Config> Pallet<T> {
                 Ok(c) => c,
                 Err(e) => {
                     log::warn!(
-                        "Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing the commit: {:?}",
-                        netuid,
-                        who,
-                        e
+                        "Failed to reveal commit for subnet {netuid} submitted by {who:?} due to error deserializing the commit: {e:?}"
                     );
                     continue;
                 }
@@ -112,10 +109,7 @@ impl<T: Config> Pallet<T> {
                 Ok(s) => s,
                 Err(e) => {
                     log::warn!(
-                        "Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing signature from drand pallet: {:?}",
-                        netuid,
-                        who,
-                        e
+                        "Failed to reveal commit for subnet {netuid} submitted by {who:?} due to error deserializing signature from drand pallet: {e:?}"
                     );
                     continue;
                 }
@@ -127,10 +121,7 @@ impl<T: Config> Pallet<T> {
                 Ok(d) => d,
                 Err(e) => {
                     log::warn!(
-                        "Failed to reveal commit for subnet {} submitted by {:?} due to error decrypting the commit: {:?}",
-                        netuid,
-                        who,
-                        e
+                        "Failed to reveal commit for subnet {netuid} submitted by {who:?} due to error decrypting the commit: {e:?}"
                     );
                     continue;
                 }
@@ -195,10 +186,7 @@ impl<T: Config> Pallet<T> {
                 version_key,
             ) {
                 log::warn!(
-                    "Failed to `do_set_weights` for subnet {} submitted by {:?}: {:?}",
-                    netuid,
-                    who,
-                    e
+                    "Failed to `do_set_weights` for subnet {netuid} submitted by {who:?}: {e:?}"
                 );
                 continue;
             }
