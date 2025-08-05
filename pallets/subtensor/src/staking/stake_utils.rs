@@ -1,9 +1,11 @@
 use super::*;
+use frame_support::storage::transactional;
 use frame_support::traits::Randomness;
 use frame_system::pallet_prelude::BlockNumberFor;
 use safe_math::*;
 use share_pool::{SharePool, SharePoolDataOperations};
 use sp_core::blake2_128;
+use sp_runtime::TransactionOutcome;
 use sp_std::ops::Neg;
 use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid};
@@ -1381,12 +1383,127 @@ impl<T: Config> Pallet<T> {
 
         for jobs in job_batches.into_iter() {
             for job in jobs.into_iter() {
-                Self::process_single_staking_job(job);
+                let result = transactional::with_transaction(|| {
+                    let result = Self::run_single_staking_job(job.clone());
+                    match result {
+                        Ok(()) => TransactionOutcome::Commit(Ok(())),
+                        Err(err) => TransactionOutcome::Rollback(Err(err)),
+                    }
+                });
+
+                Self::handle_single_staking_job_result(job, result);
             }
         }
     }
 
-    fn process_single_staking_job(job: StakeJob<T::AccountId>) {
+    fn run_single_staking_job(job: StakeJob<T::AccountId>) -> DispatchResult {
+        match job {
+            StakeJob::RemoveStakeLimit {
+                hotkey,
+                coldkey,
+                netuid,
+                alpha_unstaked,
+                limit_price,
+                allow_partial,
+            } => Self::do_remove_stake_limit(
+                dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+                netuid,
+                alpha_unstaked,
+                limit_price,
+                allow_partial,
+            ),
+            StakeJob::RemoveStake {
+                coldkey,
+                hotkey,
+                netuid,
+                alpha_unstaked,
+            } => Self::do_remove_stake(
+                dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+                netuid,
+                alpha_unstaked,
+            ),
+            StakeJob::UnstakeAll { hotkey, coldkey } => Self::do_unstake_all(
+                dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+            ),
+            StakeJob::UnstakeAllAlpha { hotkey, coldkey } => Self::do_unstake_all_alpha(
+                dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+            ),
+            StakeJob::AddStakeLimit {
+                hotkey,
+                coldkey,
+                netuid,
+                stake_to_be_added,
+                limit_price,
+                allow_partial,
+            } => Self::do_add_stake_limit(
+                dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+                netuid,
+                stake_to_be_added,
+                limit_price,
+                allow_partial,
+            ),
+            StakeJob::AddStake {
+                hotkey,
+                coldkey,
+                netuid,
+                stake_to_be_added,
+            } => Self::do_add_stake(
+                dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+                netuid,
+                stake_to_be_added,
+            ),
+            StakeJob::MoveStake {
+                coldkey,
+                origin_hotkey,
+                destination_hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            } => Self::do_move_stake(
+                dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                origin_hotkey.clone(),
+                destination_hotkey.clone(),
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            ),
+            StakeJob::TransferStake {
+                origin_coldkey,
+                destination_coldkey,
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            } => Self::do_transfer_stake(
+                dispatch::RawOrigin::Signed(origin_coldkey.clone()).into(),
+                destination_coldkey.clone(),
+                hotkey.clone(),
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            ),
+            StakeJob::SwapStake {
+                coldkey,
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            } => Self::do_swap_stake(
+                dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            ),
+        }
+    } // returns event of the failed job
+    fn handle_single_staking_job_result(job: StakeJob<T::AccountId>, result: DispatchResult) {
         match job {
             StakeJob::RemoveStakeLimit {
                 hotkey,
@@ -1396,16 +1513,7 @@ impl<T: Config> Pallet<T> {
                 limit_price,
                 allow_partial,
             } => {
-                let result = Self::do_remove_stake_limit(
-                    dispatch::RawOrigin::Signed(coldkey.clone()).into(),
-                    hotkey.clone(),
-                    netuid,
-                    alpha_unstaked,
-                    limit_price,
-                    allow_partial,
-                );
-
-                if let Err(err) = result {
+                if let Err(err) = &result {
                     log::debug!(
                         "Failed to remove aggregated limited stake: {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
                         coldkey,
@@ -1441,14 +1549,7 @@ impl<T: Config> Pallet<T> {
                 netuid,
                 alpha_unstaked,
             } => {
-                let result = Self::do_remove_stake(
-                    dispatch::RawOrigin::Signed(coldkey.clone()).into(),
-                    hotkey.clone(),
-                    netuid,
-                    alpha_unstaked,
-                );
-
-                if let Err(err) = result {
+                if let Err(err) = &result {
                     log::debug!(
                         "Failed to remove aggregated stake: {:?}, {:?}, {:?}, {:?}, {:?}",
                         coldkey,
@@ -1473,12 +1574,7 @@ impl<T: Config> Pallet<T> {
                 }
             }
             StakeJob::UnstakeAll { hotkey, coldkey } => {
-                let result = Self::do_unstake_all(
-                    dispatch::RawOrigin::Signed(coldkey.clone()).into(),
-                    hotkey.clone(),
-                );
-
-                if let Err(err) = result {
+                if let Err(err) = &result {
                     log::debug!(
                         "Failed to unstake all: {:?}, {:?}, {:?}",
                         coldkey,
@@ -1491,12 +1587,7 @@ impl<T: Config> Pallet<T> {
                 }
             }
             StakeJob::UnstakeAllAlpha { hotkey, coldkey } => {
-                let result = Self::do_unstake_all_alpha(
-                    dispatch::RawOrigin::Signed(coldkey.clone()).into(),
-                    hotkey.clone(),
-                );
-
-                if let Err(err) = result {
+                if let Err(err) = &result {
                     log::debug!(
                         "Failed to unstake all alpha: {:?}, {:?}, {:?}",
                         coldkey,
@@ -1519,16 +1610,7 @@ impl<T: Config> Pallet<T> {
                 limit_price,
                 allow_partial,
             } => {
-                let result = Self::do_add_stake_limit(
-                    dispatch::RawOrigin::Signed(coldkey.clone()).into(),
-                    hotkey.clone(),
-                    netuid,
-                    stake_to_be_added,
-                    limit_price,
-                    allow_partial,
-                );
-
-                if let Err(err) = result {
+                if let Err(err) = &result {
                     log::debug!(
                         "Failed to add aggregated limited stake: {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
                         coldkey,
@@ -1564,13 +1646,6 @@ impl<T: Config> Pallet<T> {
                 netuid,
                 stake_to_be_added,
             } => {
-                let result = Self::do_add_stake(
-                    dispatch::RawOrigin::Signed(coldkey.clone()).into(),
-                    hotkey.clone(),
-                    netuid,
-                    stake_to_be_added,
-                );
-
                 if let Err(err) = result {
                     log::debug!(
                         "Failed to add aggregated stake: {:?}, {:?}, {:?}, {:?}, {:?}",
@@ -1603,16 +1678,7 @@ impl<T: Config> Pallet<T> {
                 destination_netuid,
                 alpha_amount,
             } => {
-                let result = Self::do_move_stake(
-                    dispatch::RawOrigin::Signed(coldkey.clone()).into(),
-                    origin_hotkey.clone(),
-                    destination_hotkey.clone(),
-                    origin_netuid,
-                    destination_netuid,
-                    alpha_amount,
-                );
-
-                if let Err(err) = result {
+                if let Err(err) = &result {
                     log::debug!(
                         "Failed to move aggregated stake: {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
                         coldkey,
@@ -1650,16 +1716,7 @@ impl<T: Config> Pallet<T> {
                 destination_netuid,
                 alpha_amount,
             } => {
-                let result = Self::do_transfer_stake(
-                    dispatch::RawOrigin::Signed(origin_coldkey.clone()).into(),
-                    destination_coldkey.clone(),
-                    hotkey.clone(),
-                    origin_netuid,
-                    destination_netuid,
-                    alpha_amount,
-                );
-
-                if let Err(err) = result {
+                if let Err(err) = &result {
                     log::debug!(
                         "Failed to transfer aggregated stake: {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
                         origin_coldkey,
@@ -1696,15 +1753,7 @@ impl<T: Config> Pallet<T> {
                 destination_netuid,
                 alpha_amount,
             } => {
-                let result = Self::do_swap_stake(
-                    dispatch::RawOrigin::Signed(coldkey.clone()).into(),
-                    hotkey.clone(),
-                    origin_netuid,
-                    destination_netuid,
-                    alpha_amount,
-                );
-
-                if let Err(err) = result {
+                if let Err(err) = &result {
                     log::debug!(
                         "Failed to transfer aggregated stake: {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
                         coldkey,
