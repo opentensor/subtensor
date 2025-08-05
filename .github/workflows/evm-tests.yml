@@ -15,6 +15,9 @@ env:
   CARGO_TERM_COLOR: always
   VERBOSE: ${{ github.events.input.verbose }}
 
+permissions:
+  contents: read
+
 jobs:
   run:
     runs-on: [self-hosted, type-ccx33]
