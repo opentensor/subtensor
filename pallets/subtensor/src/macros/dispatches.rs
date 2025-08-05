@@ -186,7 +186,7 @@ mod dispatches {
         /// 	- On failure for each failed item in the batch.
         ///
         #[pallet::call_index(100)]
-        #[pallet::weight((Weight::from_parts(84_050_000, 0)
+        #[pallet::weight((Weight::from_parts(66_050_000, 0)
         .saturating_add(T::DbWeight::get().reads(8))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn batch_commit_weights(
@@ -331,7 +331,7 @@ mod dispatches {
         /// * `InvalidInputLengths`:
         ///   - The input vectors are of mismatched lengths.
         #[pallet::call_index(98)]
-        #[pallet::weight((Weight::from_parts(420_500_000, 0)
+        #[pallet::weight((Weight::from_parts(330_600_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))
 		.saturating_add(T::DbWeight::get().writes(2_u64)), DispatchClass::Normal, Pays::No))]
         pub fn batch_reveal_weights(
@@ -1637,7 +1637,7 @@ mod dispatches {
         ///     - The alpha stake amount to move.
         ///
         #[pallet::call_index(85)]
-        #[pallet::weight((Weight::from_parts(157_100_000, 0)
+        #[pallet::weight((Weight::from_parts(123_700_000, 0)
         .saturating_add(T::DbWeight::get().reads(15_u64))
         .saturating_add(T::DbWeight::get().writes(7_u64)), DispatchClass::Operational, Pays::Yes))]
         pub fn move_stake(
@@ -1680,7 +1680,7 @@ mod dispatches {
         /// # Events
         /// May emit a `StakeTransferred` event on success.
         #[pallet::call_index(86)]
-        #[pallet::weight((Weight::from_parts(154_800_000, 0)
+        #[pallet::weight((Weight::from_parts(118_900_000, 0)
         .saturating_add(T::DbWeight::get().reads(13_u64))
         .saturating_add(T::DbWeight::get().writes(6_u64)), DispatchClass::Operational, Pays::Yes))]
         pub fn transfer_stake(
@@ -1722,7 +1722,7 @@ mod dispatches {
         /// May emit a `StakeSwapped` event on success.
         #[pallet::call_index(87)]
         #[pallet::weight((
-            Weight::from_parts(351_300_000, 0)
+            Weight::from_parts(274_400_000, 0)
             .saturating_add(T::DbWeight::get().reads(32))
             .saturating_add(T::DbWeight::get().writes(17)),
             DispatchClass::Operational,
