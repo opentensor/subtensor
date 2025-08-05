@@ -4811,11 +4811,12 @@ fn test_reveal_crv3_commits_success() {
             "Commit bytes now contain {commit_bytes:#?}"
         );
 
-        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+        assert_ok!(SubtensorModule::do_commit_timelocked_weights(
             RuntimeOrigin::signed(hotkey1),
             netuid,
             commit_bytes.clone().try_into().expect("Failed to convert commit bytes into bounded vector"),
-            reveal_round
+            reveal_round,
+            SubtensorModule::get_commit_reveal_weights_version()
         ));
 
         let sig_bytes = hex::decode("b44679b9a59af2ec876b1a6b1ad52ea9b1615fc3982b19576350f93447cb1125e342b73a8dd2bacbe47e4b6b63ed5e39")
@@ -4939,14 +4940,15 @@ fn test_reveal_crv3_commits_cannot_reveal_after_reveal_epoch() {
         ct.serialize_compressed(&mut commit_bytes)
             .expect("Failed to serialize commit");
 
-        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+        assert_ok!(SubtensorModule::do_commit_timelocked_weights(
             RuntimeOrigin::signed(hotkey1),
             netuid,
             commit_bytes
                 .clone()
                 .try_into()
                 .expect("Failed to convert commit bytes into bounded vector"),
-            reveal_round
+            reveal_round,
+            SubtensorModule::get_commit_reveal_weights_version()
         ));
 
         // Do NOT insert the pulse at this time; this simulates the missing pulse during the reveal epoch
@@ -5016,14 +5018,15 @@ fn test_do_commit_crv3_weights_success() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
-        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+        assert_ok!(SubtensorModule::do_commit_timelocked_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
             commit_data
                 .clone()
                 .try_into()
                 .expect("Failed to convert commit data into bounded vector"),
-            reveal_round
+            reveal_round,
+            SubtensorModule::get_commit_reveal_weights_version()
         ));
 
         let cur_epoch =
@@ -5051,13 +5054,14 @@ fn test_do_commit_crv3_weights_disabled() {
 
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
         assert_err!(
-            SubtensorModule::do_commit_crv3_weights(
+            SubtensorModule::do_commit_timelocked_weights(
                 RuntimeOrigin::signed(hotkey),
                 netuid,
                 commit_data
                     .try_into()
                     .expect("Failed to convert commit data into bounded vector"),
-                reveal_round
+                reveal_round,
+                SubtensorModule::get_commit_reveal_weights_version()
             ),
             Error::<Test>::CommitRevealDisabled
         );
@@ -5080,13 +5084,14 @@ fn test_do_commit_crv3_weights_hotkey_not_registered() {
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
         assert_err!(
-            SubtensorModule::do_commit_crv3_weights(
+            SubtensorModule::do_commit_timelocked_weights(
                 RuntimeOrigin::signed(unregistered_hotkey),
                 netuid,
                 commit_data
                     .try_into()
                     .expect("Failed to convert commit data into bounded vector"),
-                reveal_round
+                reveal_round,
+                SubtensorModule::get_commit_reveal_weights_version()
             ),
             Error::<Test>::HotKeyNotRegisteredInSubNet
         );
@@ -5111,25 +5116,27 @@ fn test_do_commit_crv3_weights_committing_too_fast() {
             SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey).expect("Expected uid");
         SubtensorModule::set_last_update_for_uid(netuid, neuron_uid, 0);
 
-        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+        assert_ok!(SubtensorModule::do_commit_timelocked_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
             commit_data_1
                 .clone()
                 .try_into()
                 .expect("Failed to convert commit data into bounded vector"),
-            reveal_round
+            reveal_round,
+            SubtensorModule::get_commit_reveal_weights_version()
         ));
 
         assert_err!(
-            SubtensorModule::do_commit_crv3_weights(
+            SubtensorModule::do_commit_timelocked_weights(
                 RuntimeOrigin::signed(hotkey),
                 netuid,
                 commit_data_2
                     .clone()
                     .try_into()
                     .expect("Failed to convert commit data into bounded vector"),
-                reveal_round
+                reveal_round,
+                SubtensorModule::get_commit_reveal_weights_version()
             ),
             Error::<Test>::CommittingWeightsTooFast
         );
@@ -5137,27 +5144,29 @@ fn test_do_commit_crv3_weights_committing_too_fast() {
         step_block(2);
 
         assert_err!(
-            SubtensorModule::do_commit_crv3_weights(
+            SubtensorModule::do_commit_timelocked_weights(
                 RuntimeOrigin::signed(hotkey),
                 netuid,
                 commit_data_2
                     .clone()
                     .try_into()
                     .expect("Failed to convert commit data into bounded vector"),
-                reveal_round
+                reveal_round,
+                SubtensorModule::get_commit_reveal_weights_version()
             ),
             Error::<Test>::CommittingWeightsTooFast
         );
 
         step_block(3);
 
-        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+        assert_ok!(SubtensorModule::do_commit_timelocked_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
             commit_data_2
                 .try_into()
                 .expect("Failed to convert commit data into bounded vector"),
-            reveal_round
+            reveal_round,
+            SubtensorModule::get_commit_reveal_weights_version()
         ));
     });
 }
@@ -5184,11 +5193,12 @@ fn test_do_commit_crv3_weights_too_many_unrevealed_commits() {
                 .try_into()
                 .expect("Failed to convert commit data into bounded vector");
 
-            assert_ok!(SubtensorModule::do_commit_crv3_weights(
+            assert_ok!(SubtensorModule::do_commit_timelocked_weights(
                 RuntimeOrigin::signed(hotkey1),
                 netuid,
                 bounded_commit_data,
-                reveal_round
+                reveal_round,
+                SubtensorModule::get_commit_reveal_weights_version()
             ));
         }
 
@@ -5199,11 +5209,12 @@ fn test_do_commit_crv3_weights_too_many_unrevealed_commits() {
             .expect("Failed to convert new commit data into bounded vector");
 
         assert_err!(
-            SubtensorModule::do_commit_crv3_weights(
+            SubtensorModule::do_commit_timelocked_weights(
                 RuntimeOrigin::signed(hotkey1),
                 netuid,
                 bounded_new_commit_data,
-                reveal_round
+                reveal_round,
+                SubtensorModule::get_commit_reveal_weights_version()
             ),
             Error::<Test>::TooManyUnrevealedCommits
         );
@@ -5214,11 +5225,12 @@ fn test_do_commit_crv3_weights_too_many_unrevealed_commits() {
             .try_into()
             .expect("Failed to convert commit data into bounded vector");
 
-        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+        assert_ok!(SubtensorModule::do_commit_timelocked_weights(
             RuntimeOrigin::signed(hotkey2),
             netuid,
             bounded_commit_data_hotkey2,
-            reveal_round
+            reveal_round,
+            SubtensorModule::get_commit_reveal_weights_version()
         ));
 
         // Hotkey2 can submit up to 10 commits
@@ -5228,11 +5240,12 @@ fn test_do_commit_crv3_weights_too_many_unrevealed_commits() {
                 .try_into()
                 .expect("Failed to convert commit data into bounded vector");
 
-            assert_ok!(SubtensorModule::do_commit_crv3_weights(
+            assert_ok!(SubtensorModule::do_commit_timelocked_weights(
                 RuntimeOrigin::signed(hotkey2),
                 netuid,
                 bounded_commit_data,
-                reveal_round
+                reveal_round,
+                SubtensorModule::get_commit_reveal_weights_version()
             ));
         }
 
@@ -5243,11 +5256,12 @@ fn test_do_commit_crv3_weights_too_many_unrevealed_commits() {
             .expect("Failed to convert new commit data into bounded vector");
 
         assert_err!(
-            SubtensorModule::do_commit_crv3_weights(
+            SubtensorModule::do_commit_timelocked_weights(
                 RuntimeOrigin::signed(hotkey2),
                 netuid,
                 bounded_new_commit_data,
-                reveal_round
+                reveal_round,
+                SubtensorModule::get_commit_reveal_weights_version()
             ),
             Error::<Test>::TooManyUnrevealedCommits
         );
@@ -5258,11 +5272,12 @@ fn test_do_commit_crv3_weights_too_many_unrevealed_commits() {
         let bounded_new_commit_data = new_commit_data
             .try_into()
             .expect("Failed to convert new commit data into bounded vector");
-        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+        assert_ok!(SubtensorModule::do_commit_timelocked_weights(
             RuntimeOrigin::signed(hotkey1),
             netuid,
             bounded_new_commit_data,
-            reveal_round
+            reveal_round,
+            SubtensorModule::get_commit_reveal_weights_version()
         ));
     });
 }
@@ -5286,11 +5301,12 @@ fn test_reveal_crv3_commits_decryption_failure() {
             .try_into()
             .expect("Failed to convert commit bytes into bounded vector");
 
-        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+        assert_ok!(SubtensorModule::do_commit_timelocked_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
             bounded_commit_bytes,
-            reveal_round
+            reveal_round,
+            SubtensorModule::get_commit_reveal_weights_version()
         ));
 
         step_epochs(1, netuid);
@@ -5392,17 +5408,19 @@ fn test_reveal_crv3_commits_multiple_commits_some_fail_some_succeed() {
             .expect("Failed to serialize invalid commit");
 
         // Insert both commits
-        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+        assert_ok!(SubtensorModule::do_commit_timelocked_weights(
             RuntimeOrigin::signed(hotkey1),
             netuid,
             commit_bytes_valid.try_into().expect("Failed to convert valid commit data"),
-            reveal_round
+            reveal_round,
+            SubtensorModule::get_commit_reveal_weights_version()
         ));
-        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+        assert_ok!(SubtensorModule::do_commit_timelocked_weights(
             RuntimeOrigin::signed(hotkey2),
             netuid,
             commit_bytes_invalid.try_into().expect("Failed to convert invalid commit data"),
-            reveal_round
+            reveal_round,
+            SubtensorModule::get_commit_reveal_weights_version()
         ));
 
         // Insert the pulse
@@ -5493,11 +5511,12 @@ fn test_reveal_crv3_commits_do_set_weights_failure() {
         ct.serialize_compressed(&mut commit_bytes)
             .expect("Failed to serialize commit");
 
-        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+        assert_ok!(SubtensorModule::do_commit_timelocked_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
             commit_bytes.try_into().expect("Failed to convert commit data into bounded vector"),
-            reveal_round
+            reveal_round,
+            SubtensorModule::get_commit_reveal_weights_version()
         ));
 
         let sig_bytes = hex::decode("b44679b9a59af2ec876b1a6b1ad52ea9b1615fc3982b19576350f93447cb1125e342b73a8dd2bacbe47e4b6b63ed5e39")
@@ -5570,11 +5589,12 @@ fn test_reveal_crv3_commits_payload_decoding_failure() {
         ct.serialize_compressed(&mut commit_bytes)
             .expect("Failed to serialize commit");
 
-        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+        assert_ok!(SubtensorModule::do_commit_timelocked_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
             commit_bytes.try_into().expect("Failed to convert commit data into bounded vector"),
-            reveal_round
+            reveal_round,
+            SubtensorModule::get_commit_reveal_weights_version()
         ));
 
         let sig_bytes = hex::decode("b44679b9a59af2ec876b1a6b1ad52ea9b1615fc3982b19576350f93447cb1125e342b73a8dd2bacbe47e4b6b63ed5e39")
@@ -5654,11 +5674,12 @@ fn test_reveal_crv3_commits_signature_deserialization_failure() {
         ct.serialize_compressed(&mut commit_bytes)
             .expect("Failed to serialize commit");
 
-        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+        assert_ok!(SubtensorModule::do_commit_timelocked_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
             commit_bytes.try_into().expect("Failed to convert commit data into bounded vector"),
-            reveal_round
+            reveal_round,
+            SubtensorModule::get_commit_reveal_weights_version()
         ));
 
         pallet_drand::Pulses::<Test>::insert(
@@ -5718,11 +5739,12 @@ fn test_do_commit_crv3_weights_commit_size_exceeds_limit() {
         .expect("Failed to create BoundedVec with data at max size");
 
         // Now call the function with valid data at max size
-        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+        assert_ok!(SubtensorModule::do_commit_timelocked_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
             bounded_commit_data,
-            reveal_round
+            reveal_round,
+            SubtensorModule::get_commit_reveal_weights_version()
         ));
     });
 }
@@ -5802,11 +5824,12 @@ fn test_reveal_crv3_commits_with_incorrect_identity_message() {
         ct.serialize_compressed(&mut commit_bytes)
             .expect("Failed to serialize commit");
 
-        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+        assert_ok!(SubtensorModule::do_commit_timelocked_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
             commit_bytes.try_into().expect("Failed to convert commit data into bounded vector"),
-            reveal_round
+            reveal_round,
+            SubtensorModule::get_commit_reveal_weights_version()
         ));
 
         let sig_bytes = hex::decode("b44679b9a59af2ec876b1a6b1ad52ea9b1615fc3982b19576350f93447cb1125e342b73a8dd2bacbe47e4b6b63ed5e39")
@@ -5850,13 +5873,14 @@ fn test_multiple_commits_by_same_hotkey_within_limit() {
 
         for i in 0..10 {
             let commit_data: Vec<u8> = vec![i; 5];
-            assert_ok!(SubtensorModule::do_commit_crv3_weights(
+            assert_ok!(SubtensorModule::do_commit_timelocked_weights(
                 RuntimeOrigin::signed(hotkey),
                 netuid,
                 commit_data
                     .try_into()
                     .expect("Failed to convert commit data into bounded vector"),
-                reveal_round + i as u64
+                reveal_round + i as u64,
+                SubtensorModule::get_commit_reveal_weights_version()
             ));
         }
 
@@ -6016,11 +6040,12 @@ fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
             let mut commit_bytes = Vec::new();
             ct.serialize_compressed(&mut commit_bytes).unwrap();
 
-            assert_ok!(SubtensorModule::do_commit_crv3_weights(
+            assert_ok!(SubtensorModule::do_commit_timelocked_weights(
                 RuntimeOrigin::signed(*hk),
                 netuid,
                 commit_bytes.try_into().unwrap(),
-                reveal_round
+                reveal_round,
+                SubtensorModule::get_commit_reveal_weights_version()
             ));
         }
 
@@ -6126,11 +6151,12 @@ fn test_reveal_crv3_commits_max_neurons() {
             let mut commit_bytes = Vec::new();
             ct.serialize_compressed(&mut commit_bytes).unwrap();
 
-            assert_ok!(SubtensorModule::do_commit_crv3_weights(
+            assert_ok!(SubtensorModule::do_commit_timelocked_weights(
                 RuntimeOrigin::signed(*hk),
                 netuid,
                 commit_bytes.try_into().unwrap(),
-                reveal_round
+                reveal_round,
+                SubtensorModule::get_commit_reveal_weights_version()
             ));
         }
 
@@ -6345,11 +6371,12 @@ fn test_reveal_crv3_commits_hotkey_check() {
             "Commit bytes now contain {commit_bytes:#?}"
         );
 
-        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+        assert_ok!(SubtensorModule::do_commit_timelocked_weights(
             RuntimeOrigin::signed(hotkey1),
             netuid,
             commit_bytes.clone().try_into().expect("Failed to convert commit bytes into bounded vector"),
-            reveal_round
+            reveal_round,
+            SubtensorModule::get_commit_reveal_weights_version()
         ));
 
         let sig_bytes = hex::decode("b44679b9a59af2ec876b1a6b1ad52ea9b1615fc3982b19576350f93447cb1125e342b73a8dd2bacbe47e4b6b63ed5e39")
@@ -6461,11 +6488,12 @@ fn test_reveal_crv3_commits_hotkey_check() {
             "Commit bytes now contain {commit_bytes:#?}"
         );
 
-        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+        assert_ok!(SubtensorModule::do_commit_timelocked_weights(
             RuntimeOrigin::signed(hotkey1),
             netuid,
             commit_bytes.clone().try_into().expect("Failed to convert commit bytes into bounded vector"),
-            reveal_round
+            reveal_round,
+            SubtensorModule::get_commit_reveal_weights_version()
         ));
 
         let sig_bytes = hex::decode("b44679b9a59af2ec876b1a6b1ad52ea9b1615fc3982b19576350f93447cb1125e342b73a8dd2bacbe47e4b6b63ed5e39")
@@ -6577,11 +6605,12 @@ fn test_reveal_crv3_commits_retry_on_missing_pulse() {
         ct.serialize_compressed(&mut commit_bytes).unwrap();
 
         // submit commit
-        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+        assert_ok!(SubtensorModule::do_commit_timelocked_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
             commit_bytes.clone().try_into().unwrap(),
-            reveal_round
+            reveal_round,
+            SubtensorModule::get_commit_reveal_weights_version()
         ));
 
         // epoch in which commit was stored
@@ -6721,11 +6750,12 @@ fn test_reveal_crv3_commits_legacy_payload_success() {
         // ─────────────────────────────────────
         // 3 ▸ put commit on‑chain
         // ─────────────────────────────────────
-        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+        assert_ok!(SubtensorModule::do_commit_timelocked_weights(
             RuntimeOrigin::signed(hotkey1),
             netuid,
             bounded_commit,
-            reveal_round
+            reveal_round,
+            SubtensorModule::get_commit_reveal_weights_version()
         ));
 
         // insert pulse so reveal can succeed the first time

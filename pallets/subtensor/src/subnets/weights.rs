@@ -220,11 +220,12 @@ impl<T: Config> Pallet<T> {
     /// # Events:
     /// * `WeightsCommitted`:
     ///   - Emitted upon successfully storing the weight hash.
-    pub fn do_commit_crv3_weights(
+    pub fn do_commit_timelocked_weights(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
         commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
         reveal_round: u64,
+        commit_reveal_version: u16,
     ) -> DispatchResult {
         // 1. Verify the caller's signature (hotkey).
         let who = ensure_signed(origin)?;
@@ -235,6 +236,11 @@ impl<T: Config> Pallet<T> {
         ensure!(
             Self::get_commit_reveal_weights_enabled(netuid),
             Error::<T>::CommitRevealDisabled
+        );
+
+        ensure!(
+            commit_reveal_version == Self::get_commit_reveal_weights_version(),
+            Error::<T>::IncorrectCommitRevealVersion
         );
 
         // 3. Ensure the hotkey is registered on the network.

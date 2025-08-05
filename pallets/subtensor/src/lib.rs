@@ -766,6 +766,11 @@ pub mod pallet {
         false
     }
     #[pallet::type_value]
+    /// Default value for weight commit/reveal version.
+    pub fn DefaultCommitRevealWeightsVersion<T: Config>() -> u16 {
+        4
+    }
+    #[pallet::type_value]
     /// Senate requirements
     pub fn DefaultSenateRequiredStakePercentage<T: Config>() -> u64 {
         T::InitialSenateRequiredStakePercentage::get()
@@ -1745,6 +1750,11 @@ pub mod pallet {
     /// --- MAP ( lease_id ) --> accumulated_dividends | The accumulated dividends for a given lease that needs to be distributed.
     pub type AccumulatedLeaseDividends<T: Config> =
         StorageMap<_, Twox64Concat, LeaseId, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
+
+    #[pallet::storage]
+    /// --- ITEM ( CommitRevealWeightsVersion )
+    pub type CommitRevealWeightsVersion<T> =
+        StorageValue<_, u16, ValueQuery, DefaultCommitRevealWeightsVersion<T>>;
 
     /// ==================
     /// ==== Genesis =====

@@ -1655,6 +1655,18 @@ pub mod pallet {
             );
             Ok(())
         }
+
+        /// Sets the commit-reveal weights version for all subnets
+        #[pallet::call_index(71)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_commit_reveal_version(
+            origin: OriginFor<T>,
+            version: u16,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_commit_reveal_weights_version(version);
+            Ok(())
+        }
     }
 }
 
