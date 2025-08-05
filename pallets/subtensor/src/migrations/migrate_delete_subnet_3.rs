@@ -53,8 +53,7 @@ pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
     if onchain_version < new_storage_version && Pallet::<T>::if_subnet_exist(3.into()) {
         info!(
             target: LOG_TARGET,
-            "Removing subnet 3. Current version: {:?}",
-            onchain_version
+            "Removing subnet 3. Current version: {onchain_version:?}"
         );
 
         let netuid = NetUid::from(3);

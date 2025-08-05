@@ -46,11 +46,7 @@ impl<T: Config> Pallet<T> {
         // 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::debug!(
-            "do_add_stake( origin:{:?} hotkey:{:?}, netuid:{:?}, stake_to_be_added:{:?} )",
-            coldkey,
-            hotkey,
-            netuid,
-            stake_to_be_added
+            "do_add_stake( origin:{coldkey:?} hotkey:{hotkey:?}, netuid:{netuid:?}, stake_to_be_added:{stake_to_be_added:?} )"
         );
 
         Self::ensure_subtoken_enabled(netuid)?;
@@ -135,11 +131,7 @@ impl<T: Config> Pallet<T> {
         // 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::debug!(
-            "do_add_stake( origin:{:?} hotkey:{:?}, netuid:{:?}, stake_to_be_added:{:?} )",
-            coldkey,
-            hotkey,
-            netuid,
-            stake_to_be_added
+            "do_add_stake( origin:{coldkey:?} hotkey:{hotkey:?}, netuid:{netuid:?}, stake_to_be_added:{stake_to_be_added:?} )"
         );
 
         // 2. Calculate the maximum amount that can be executed with price limit
