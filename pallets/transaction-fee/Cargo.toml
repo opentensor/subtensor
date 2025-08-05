@@ -4,17 +4,34 @@ version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
-codec = { workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-log = { workspace = true }
-pallet-subtensor = { workspace = true }
-pallet-transaction-payment = { workspace = true }
-scale-info = { workspace = true }
-smallvec = { workspace = true }
-sp-runtime = { workspace = true }
-substrate-fixed = { workspace = true }
-subtensor-runtime-common = { workspace = true }
+codec.workspace = true
+frame-support.workspace = true
+frame-system.workspace = true
+log.workspace = true
+pallet-subtensor.workspace = true
+pallet-transaction-payment.workspace = true
+scale-info.workspace = true
+smallvec.workspace = true
+sp-runtime.workspace = true
+sp-std.workspace = true
+substrate-fixed.workspace = true
+subtensor-runtime-common.workspace = true
+
+[dev-dependencies]
+pallet-balances = { workspace = true, features = ["std"] }
+pallet-crowdloan = { workspace = true, default-features = false }
+pallet-drand = { workspace = true, default-features = false }
+pallet-evm-chain-id.workspace = true
+pallet-grandpa.workspace = true
+pallet-preimage = { workspace = true, default-features = false }
+pallet-scheduler.workspace = true
+pallet-subtensor-swap.workspace = true
+sp-consensus-aura.workspace = true
+sp-consensus-grandpa.workspace = true
+sp-core.workspace = true
+sp-io.workspace = true
+sp-tracing.workspace = true
+sp-weights.workspace = true
 
 [lints]
 workspace = true
@@ -26,10 +43,25 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
+	"pallet-balances/std",
+	"pallet-crowdloan/std",
+	"pallet-drand/std",
+	"pallet-evm-chain-id/std",
+	"pallet-grandpa/std",
+	"pallet-preimage/std",
+	"pallet-scheduler/std",
 	"pallet-subtensor/std",
+	"pallet-subtensor-swap/std",
 	"pallet-transaction-payment/std",
 	"scale-info/std",
 	"sp-runtime/std",
+	"sp-std/std",
+	"sp-consensus-aura/std",
+	"sp-consensus-grandpa/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-tracing/std",
+	"sp-weights/std",
 	"substrate-fixed/std",
 	"subtensor-runtime-common/std",
 ]
