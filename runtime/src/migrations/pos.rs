@@ -43,7 +43,7 @@ pub(crate) fn pos_upgrade() -> Weight {
 fn initialize_pallet_staking() {
     let authorities = pallet_babe::Authorities::<Runtime>::get()
         .into_iter()
-        .map(|a| babe_id_to_account_id32(a.0))
+        .map(|a| AccountId32::new(a.0.into_inner().into()))
         .collect::<Vec<_>>();
     let minimum_validator_count = 1;
     let _validator_count = authorities.len() as u32;
@@ -132,21 +132,10 @@ fn initialize_pallet_babe() {
     let authorities: Vec<(BabeAuthorityId, BabeAuthorityWeight)> =
         pallet_aura::Authorities::<Runtime>::get()
             .into_iter()
-            .map(|a| {
-                // BabeAuthorityId and AuraId are both sr25519::Public, so can convert between with
-                // Encode/Decode.
-                let encoded: Vec<u8> = a.encode();
-                log::info!(
-                    "Converting Aura authority {:?} to Babe authority",
-                    array_bytes::bytes2hex("", &a)
-                );
-                let decoded: BabeAuthorityId =
-                    BabeAuthorityId::decode(&mut &encoded[..]).expect("Failed to decode authority");
-                log::info!(
-                    "Decoded Babe authority: {:?}",
-                    array_bytes::bytes2hex("", &decoded)
-                );
-                (decoded, 1)
+            .map(|aura| {
+                // BabeAuthorityId and AuraId are both sr25519::Public, so can convert between them
+                // easily.
+                (BabeAuthorityId::from(aura.into_inner()), 1)
             })
             .collect::<Vec<_>>();
     let bounded_authorities =
@@ -181,7 +170,7 @@ fn initialize_pallet_session() {
                 grandpa: babe_to_grandpa_id(babe_id.clone())
                     .expect("Failed to map Babe ID to Grandpa ID"),
             };
-            let account = babe_id_to_account_id32(babe_id);
+            let account = AccountId32::new(babe_id.into_inner().into());
             log::info!(
                 "Built SessionKeys Account: {:?} Keys: {:?}",
                 &account,
@@ -206,13 +195,6 @@ fn initialize_pallet_session() {
         }
     }
     pallet_session::QueuedKeys::<Runtime>::put(keys);
-}
-
-/// Convert a BabeAuthorityId to AccountId32.
-fn babe_id_to_account_id32(babe: BabeAuthorityId) -> AccountId32 {
-    // Babe and AccountId32 are both sr25519::Public. We can convert between them like this.
-    let babe_id_bytes: [u8; 32] = babe.into_inner().into();
-    AccountId32::new(babe_id_bytes)
 }
 
 /// Grandpa keys are in a different encoding to Aura/Babe.
