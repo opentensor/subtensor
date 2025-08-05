@@ -137,8 +137,7 @@ pub fn run() -> sc_cli::Result<()> {
                             }
                             Err(err) => {
                                 return Err(format!(
-                                    "Cannot purge `{:?}` database: {:?}",
-                                    db_path, err,
+                                    "Cannot purge `{db_path:?}` database: {err:?}",
                                 )
                                 .into());
                             }
@@ -300,8 +299,6 @@ fn start_aura_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
         Ok(()) => Ok(()),
         Err(e) => {
             if babe_switch.load(std::sync::atomic::Ordering::Relaxed) {
-                // log::info!("Switching to Babe service in 5s...");
-                // std::thread::sleep(std::time::Duration::from_secs(5));
                 start_babe_service(arg_matches)
             } else {
                 Err(e.into())

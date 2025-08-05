@@ -21,7 +21,7 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
     };
 
     let old_state: ColdkeyHotkeys =
-        json::from_slice(&bytes).map_err(|e| format!("Error parsing genesis file: {}", e))?;
+        json::from_slice(&bytes).map_err(|e| format!("Error parsing genesis file: {e}"))?;
 
     let mut processed_stakes: Vec<(
         sp_runtime::AccountId32,

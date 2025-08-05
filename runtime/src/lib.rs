@@ -17,26 +17,26 @@ extern crate alloc;
 use codec::{Compact, Decode, Encode};
 use core::num::NonZeroU64;
 use frame_election_provider_support::bounds::ElectionBoundsBuilder;
-use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
+use frame_election_provider_support::{SequentialPhragmen, generate_solution_type, onchain};
 use frame_support::dispatch::DispatchResult;
 use frame_support::pallet_prelude::DispatchClass;
 use frame_support::traits::{Imbalance, InsideBoth};
 use frame_support::{
+    PalletId,
     dispatch::DispatchResultWithPostInfo,
     genesis_builder_helper::{build_state, get_preset},
     pallet_prelude::Get,
     traits::{
+        Contains, LinearStoragePrice, OnUnbalanced,
         fungible::{
             DecreaseIssuance, HoldConsideration, Imbalance as FungibleImbalance, IncreaseIssuance,
         },
-        Contains, LinearStoragePrice, OnUnbalanced,
     },
-    PalletId,
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
 use pallet_election_provider_multi_phase::GeometricDepositBase;
-use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
+use pallet_grandpa::{AuthorityId as GrandpaId, fg_primitives};
 use pallet_proxy_opentensor as pallet_proxy;
 use pallet_registry::CanRegisterIdentity;
 use pallet_session::historical as session_historical;
@@ -58,49 +58,47 @@ use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{
+    H160, H256, OpaqueMetadata, U256,
     crypto::{ByteArray, KeyTypeId},
-    OpaqueMetadata, H160, H256, U256,
 };
-use sp_runtime::generic::Era;
-use sp_runtime::traits::OpaqueKeys;
-use sp_runtime::transaction_validity::TransactionPriority;
 use sp_runtime::Cow;
 use sp_runtime::Percent;
 use sp_runtime::SaturatedConversion;
+use sp_runtime::generic::Era;
+use sp_runtime::traits::OpaqueKeys;
+use sp_runtime::transaction_validity::TransactionPriority;
 use sp_runtime::{
-    generic, impl_opaque_keys,
+    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, generic, impl_opaque_keys,
     traits::{
         AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, One,
         PostDispatchInfoOf, UniqueSaturatedInto, Verify,
     },
     transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
-    AccountId32, ApplyExtrinsicResult, ConsensusEngineId,
 };
-use sp_staking::currency_to_vote::SaturatingCurrencyToVote;
 use sp_staking::SessionIndex;
+use sp_staking::currency_to_vote::SaturatingCurrencyToVote;
 use sp_std::cmp::Ordering;
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use subtensor_precompiles::Precompiles;
-use subtensor_runtime_common::{time::*, AlphaCurrency, *};
+use subtensor_runtime_common::{AlphaCurrency, time::*, *};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
-    construct_runtime, parameter_types,
+    StorageValue, construct_runtime, parameter_types,
     traits::{
-        ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, FindAuthor, InstanceFilter,
+        ConstBool, ConstU8, ConstU32, ConstU64, ConstU128, FindAuthor, InstanceFilter,
         KeyOwnerProofSystem, OnFinalize, OnTimestampSet, PrivilegeCmp, Randomness, StorageInfo,
     },
     weights::{
+        IdentityFee, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
+        WeightToFeePolynomial,
         constants::{
             BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND,
         },
-        IdentityFee, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
-        WeightToFeePolynomial,
     },
-    StorageValue,
 };
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
@@ -455,6 +453,7 @@ impl pallet_session::Config for Runtime {
     type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
     type SessionHandler = <opaque::SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
     type Keys = opaque::SessionKeys;
+    type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy;
     type WeightInfo = ();
 }
 
@@ -639,6 +638,7 @@ impl pallet_staking::EraPayout<Balance> for EraPayout {
 }
 
 impl pallet_staking::Config for Runtime {
+    type OldCurrency = Balances;
     type Currency = Balances;
     type CurrencyBalance = Balance;
     type UnixTime = Timestamp;
@@ -666,10 +666,11 @@ impl pallet_staking::Config for Runtime {
     type HistoryDepth = frame_support::traits::ConstU32<84>;
     type MaxControllersInDeprecationBatch = ConstU32<5314>;
     type BenchmarkingConfig = runtime_common::StakingBenchmarkingConfig;
-    type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
+    type RuntimeHoldReason = RuntimeHoldReason;
     // type EventListeners = NominationPools;
     type EventListeners = ();
     type WeightInfo = ();
+    type Filter = ();
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -1024,6 +1025,7 @@ impl pallet_multisig::Config for Runtime {
     type DepositFactor = DepositFactor;
     type MaxSignatories = MaxSignatories;
     type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
+    type BlockNumberProvider = System;
 }
 
 // Proxy Pallet config
@@ -1358,6 +1360,7 @@ impl pallet_scheduler::Config for Runtime {
     type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Runtime>;
     type OriginPrivilegeCmp = OriginPrivilegeCmp;
     type Preimages = Preimage;
+    type BlockNumberProvider = System;
 }
 
 parameter_types! {
@@ -1725,17 +1728,13 @@ impl BalanceConverter for SubtensorEvmBalanceConverter {
             } else {
                 // Log value too large
                 log::debug!(
-                    "SubtensorEvmBalanceConverter::into_evm_balance( {:?} ) larger than U256::MAX",
-                    value
+                    "SubtensorEvmBalanceConverter::into_evm_balance( {value:?} ) larger than U256::MAX"
                 );
                 None
             }
         } else {
             // Log overflow
-            log::debug!(
-                "SubtensorEvmBalanceConverter::into_evm_balance( {:?} ) overflow",
-                value
-            );
+            log::debug!("SubtensorEvmBalanceConverter::into_evm_balance( {value:?} ) overflow");
             None
         }
     }
@@ -1750,16 +1749,14 @@ impl BalanceConverter for SubtensorEvmBalanceConverter {
             } else {
                 // Log value too large
                 log::debug!(
-                    "SubtensorEvmBalanceConverter::into_substrate_balance( {:?} ) larger than u64::MAX",
-                    value
+                    "SubtensorEvmBalanceConverter::into_substrate_balance( {value:?} ) larger than u64::MAX"
                 );
                 None
             }
         } else {
             // Log overflow
             log::debug!(
-                "SubtensorEvmBalanceConverter::into_substrate_balance( {:?} ) overflow",
-                value
+                "SubtensorEvmBalanceConverter::into_substrate_balance( {value:?} ) overflow"
             );
             None
         }
@@ -1791,6 +1788,8 @@ impl pallet_evm::Config for Runtime {
     type BalanceConverter = SubtensorEvmBalanceConverter;
     type AccountProvider = pallet_evm::FrameSystemAccountProvider<Self>;
     type GasLimitStorageGrowthRatio = ();
+    type CreateOriginFilter = ();
+    type CreateInnerOriginFilter = ();
 }
 
 parameter_types! {
@@ -2569,7 +2568,7 @@ impl_runtime_apis! {
             Vec<frame_benchmarking::BenchmarkList>,
             Vec<frame_support::traits::StorageInfo>,
         ) {
-            use frame_benchmarking::{baseline, Benchmarking, BenchmarkList};
+            use frame_benchmarking::{baseline, BenchmarkList};
             use frame_support::traits::StorageInfoTrait;
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
@@ -2585,7 +2584,7 @@ impl_runtime_apis! {
         fn dispatch_benchmark(
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
-            use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch};
+            use frame_benchmarking::{baseline, BenchmarkBatch};
             use sp_storage::TrackedStorageKey;
 
             use frame_system_benchmarking::Pallet as SystemBench;

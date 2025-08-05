@@ -581,10 +581,7 @@ where
         let transfer_result = transfer_call.dispatch(RawOrigin::Signed(Self::account_id()).into());
 
         if let Err(dispatch_error) = transfer_result {
-            log::error!(
-                "Transfer back to caller failed. Error: {:?}",
-                dispatch_error
-            );
+            log::error!("Transfer back to caller failed. Error: {dispatch_error:?}");
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::Other("Transfer back to caller failed".into()),
             });

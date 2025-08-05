@@ -18,7 +18,7 @@
 use crate::pallet::Def;
 use proc_macro2::TokenStream;
 use quote::ToTokens;
-use syn::{spanned::Spanned, Attribute, Lit, LitStr};
+use syn::{Attribute, Lit, LitStr, spanned::Spanned};
 
 const DOC: &'static str = "doc";
 const PALLET_DOC: &'static str = "pallet_doc";

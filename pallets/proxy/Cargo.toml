@@ -2,7 +2,7 @@
 name = "pallet-proxy-opentensor"
 version = "38.0.0"
 authors = ["Bittensor Nucleus Team"]
-edition = "2021"
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://bittensor.com"
 description = "FRAME proxying pallet"
@@ -15,9 +15,9 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { features = ["max-encoded-len"], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-frame-benchmarking = { optional = true, workspace = true }
+codec = { workspace = true, features = ["derive", "max-encoded-len"] }
+scale-info = { workspace = true, features = ["derive"] }
+frame-benchmarking = { workspace = true, optional = true }
 frame-support.workspace = true
 frame-system.workspace = true
 sp-io.workspace = true

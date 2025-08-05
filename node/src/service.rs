@@ -170,7 +170,7 @@ pub fn new_partial(
                 std::num::NonZeroU32::new(eth_config.frontier_sql_backend_num_ops_timeout),
                 storage_override.clone(),
             ))
-            .unwrap_or_else(|err| panic!("failed creating sql backend: {:?}", err));
+            .unwrap_or_else(|err| panic!("failed creating sql backend: {err:?}"));
             FrontierBackend::Sql(Arc::new(backend))
         }
     };
@@ -333,7 +333,7 @@ where
         Some(WarpSyncConfig::WithProvider(warp_sync))
     };
 
-    let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
+    let (network, system_rpc_tx, tx_handler_controller, sync_service) =
         sc_service::build_network(sc_service::BuildNetworkParams {
             config: &config,
             net_config,
@@ -362,7 +362,7 @@ where
                     log::debug!("Offchain worker key generated");
                 }
                 Err(e) => {
-                    log::error!("Failed to create SR25519 key for offchain worker: {:?}", e);
+                    log::error!("Failed to create SR25519 key for offchain worker: {e:?}");
                 }
             }
         } else {
@@ -537,7 +537,6 @@ where
                 commands_stream,
             )?;
 
-            network_starter.start_network();
             log::info!("Manual Seal Ready");
             return Ok(task_manager);
         }
@@ -623,7 +622,6 @@ where
             .spawn_blocking("grandpa-voter", None, grandpa_voter);
     }
 
-    network_starter.start_network();
     Ok(task_manager)
 }
 
@@ -634,33 +632,11 @@ pub async fn build_full<CM: ConsensusMechanism>(
     custom_service_signal: Option<Arc<AtomicBool>>,
 ) -> Result<TaskManager, ServiceError> {
     match config.network.network_backend {
-        Some(sc_network::config::NetworkBackendType::Libp2p) => {
-            new_full::<sc_network::NetworkWorker<_, _>, CM>(
-                config,
-                eth_config,
-                sealing,
-                custom_service_signal,
-            )
-            .await
+        sc_network::config::NetworkBackendType::Libp2p => {
+            new_full::<sc_network::NetworkWorker<_, _>, CM>(config, eth_config, sealing, custom_service_signal).await
         }
-        Some(sc_network::config::NetworkBackendType::Litep2p) => {
-            new_full::<sc_network::Litep2pNetworkBackend, CM>(
-                config,
-                eth_config,
-                sealing,
-                custom_service_signal,
-            )
-            .await
-        }
-        _ => {
-            log::debug!("no network backend selected, falling back to libp2p");
-            new_full::<sc_network::NetworkWorker<_, _>, CM>(
-                config,
-                eth_config,
-                sealing,
-                custom_service_signal,
-            )
-            .await
+        sc_network::config::NetworkBackendType::Litep2p => {
+            new_full::<sc_network::Litep2pNetworkBackend, CM>(config, eth_config, sealing, custom_service_signal).await
         }
     }
 }

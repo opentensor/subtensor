@@ -504,6 +504,7 @@ impl pallet_scheduler::Config for Test {
     type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Test>;
     type OriginPrivilegeCmp = OriginPrivilegeCmp;
     type Preimages = Preimage;
+    type BlockNumberProvider = System;
 }
 
 impl pallet_utility::Config for Test {
@@ -683,6 +684,7 @@ pub fn test_ext_with_balances(balances: Vec<(U256, u128)>) -> sp_io::TestExterna
             .iter()
             .map(|(a, b)| (*a, *b as u64))
             .collect::<Vec<(U256, u64)>>(),
+        dev_accounts: None,
     }
     .assimilate_storage(&mut t)
     .unwrap();
@@ -759,7 +761,7 @@ pub(crate) fn step_epochs(count: u16, netuid: NetUid) {
             SubtensorModule::get_tempo(netuid),
             SubtensorModule::get_current_block_as_u64(),
         );
-        log::info!("Blocks to next epoch: {:?}", blocks_to_next_epoch);
+        log::info!("Blocks to next epoch: {blocks_to_next_epoch:?}");
         step_block(blocks_to_next_epoch as u16);
 
         assert!(SubtensorModule::should_run_epoch(
@@ -809,10 +811,7 @@ pub fn register_ok_neuron(
     );
     assert_ok!(result);
     log::info!(
-        "Register ok neuron: netuid: {:?}, coldkey: {:?}, hotkey: {:?}",
-        netuid,
-        hotkey_account_id,
-        coldkey_account_id
+        "Register ok neuron: netuid: {netuid:?}, coldkey: {hotkey_account_id:?}, hotkey: {coldkey_account_id:?}"
     );
 }
 

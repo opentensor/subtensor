@@ -1,3 +1,20 @@
+//! This file defines abstraction for subnet leasing.
+//!
+//! It is used to register a new leased network through a crowdloan using the `register_leased_network` extrinsic
+//! as a call parameter to the crowdloan pallet `create` extrinsic. A new subnet will be registered
+//! paying the lock cost using the crowdloan funds and a proxy will be created for the beneficiary
+//! to operate the subnet.
+//!
+//! The crowdloan's contributions are used to compute the share of the emissions that the contributors
+//! will receive as dividends. The leftover cap is refunded to the contributors and the beneficiary.
+//!
+//! The lease can have a defined end block, after which the lease will be terminated and the subnet
+//! will be transferred to the beneficiary. In case the lease is perpetual, the lease will never be
+//! terminated and emissions will continue to be distributed to the contributors.
+//!
+//! The lease can be terminated by the beneficiary after the end block has passed (if any) and the subnet
+//! ownership will be transferred to the beneficiary.
+
 use super::*;
 use frame_support::{
     dispatch::RawOrigin,
