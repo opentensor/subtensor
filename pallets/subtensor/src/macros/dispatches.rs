@@ -283,12 +283,18 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(6_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_crv3_weights(
-            _origin: T::RuntimeOrigin,
-            _netuid: NetUid,
-            _commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
-            _reveal_round: u64,
+            origin: T::RuntimeOrigin,
+            netuid: NetUid,
+            commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
+            reveal_round: u64,
         ) -> DispatchResult {
-            Err(Error::<T>::CallDisabled.into())
+            Self::do_commit_timelocked_weights(
+                origin,
+                netuid,
+                commit,
+                reveal_round,
+                4,
+            )
         }
 
         /// ---- The implementation for batch revealing committed weights.
