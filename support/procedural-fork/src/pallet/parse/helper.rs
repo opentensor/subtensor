@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::spanned::Spanned;
 
 /// List of additional token to be used for parsing.
@@ -196,7 +196,7 @@ impl syn::parse::Parse for StaticLifetime {
 /// `span` is used in case generics is empty (empty generics has span == call_site).
 ///
 /// return the instance if found.
-pub fn check_config_def_gen(gen: &syn::Generics, span: proc_macro2::Span) -> syn::Result<()> {
+pub fn check_config_def_gen(r#gen: &syn::Generics, span: proc_macro2::Span) -> syn::Result<()> {
     let expected = "expected `I: 'static = ()`";
     pub struct CheckTraitDefGenerics;
     impl syn::parse::Parse for CheckTraitDefGenerics {
@@ -211,7 +211,7 @@ pub fn check_config_def_gen(gen: &syn::Generics, span: proc_macro2::Span) -> syn
         }
     }
 
-    syn::parse2::<CheckTraitDefGenerics>(gen.params.to_token_stream()).map_err(|e| {
+    syn::parse2::<CheckTraitDefGenerics>(r#gen.params.to_token_stream()).map_err(|e| {
         let msg = format!("Invalid generics: {}", expected);
         let mut err = syn::Error::new(span, msg);
         err.combine(e);
@@ -229,7 +229,7 @@ pub fn check_config_def_gen(gen: &syn::Generics, span: proc_macro2::Span) -> syn
 ///
 /// return the instance if found.
 pub fn check_type_def_gen_no_bounds(
-    gen: &syn::Generics,
+    r#gen: &syn::Generics,
     span: proc_macro2::Span,
 ) -> syn::Result<InstanceUsage> {
     let expected = "expected `T` or `T, I = ()`";
@@ -254,7 +254,7 @@ pub fn check_type_def_gen_no_bounds(
         }
     }
 
-    let i = syn::parse2::<Checker>(gen.params.to_token_stream())
+    let i = syn::parse2::<Checker>(r#gen.params.to_token_stream())
         .map_err(|e| {
             let msg = format!("Invalid type def generics: {}", expected);
             let mut err = syn::Error::new(span, msg);
@@ -277,7 +277,7 @@ pub fn check_type_def_gen_no_bounds(
 ///
 /// return some instance usage if there is some generic, or none otherwise.
 pub fn check_type_def_optional_gen(
-    gen: &syn::Generics,
+    r#gen: &syn::Generics,
     span: proc_macro2::Span,
 ) -> syn::Result<Option<InstanceUsage>> {
     let expected = "expected `` or `T` or `T: Config` or `T, I = ()` or \
@@ -335,7 +335,7 @@ pub fn check_type_def_optional_gen(
         }
     }
 
-    let i = syn::parse2::<Checker>(gen.params.to_token_stream())
+    let i = syn::parse2::<Checker>(r#gen.params.to_token_stream())
         .map_err(|e| {
             let msg = format!("Invalid type def generics: {}", expected);
             let mut err = syn::Error::new(span, msg);
@@ -400,7 +400,10 @@ pub fn check_pallet_struct_usage(type_: &Box<syn::Type>) -> syn::Result<Instance
 /// `span` is used in case generics is empty (empty generics has span == call_site).
 ///
 /// return whether it contains instance.
-pub fn check_impl_gen(gen: &syn::Generics, span: proc_macro2::Span) -> syn::Result<InstanceUsage> {
+pub fn check_impl_gen(
+    r#gen: &syn::Generics,
+    span: proc_macro2::Span,
+) -> syn::Result<InstanceUsage> {
     let expected = "expected `impl<T: Config>` or `impl<T: Config<I>, I: 'static>`";
     pub struct Checker(InstanceUsage);
     impl syn::parse::Parse for Checker {
@@ -428,7 +431,7 @@ pub fn check_impl_gen(gen: &syn::Generics, span: proc_macro2::Span) -> syn::Resu
         }
     }
 
-    let i = syn::parse2::<Checker>(gen.params.to_token_stream())
+    let i = syn::parse2::<Checker>(r#gen.params.to_token_stream())
         .map_err(|e| {
             let mut err = syn::Error::new(span, format!("Invalid generics: {}", expected));
             err.combine(e);
@@ -449,7 +452,7 @@ pub fn check_impl_gen(gen: &syn::Generics, span: proc_macro2::Span) -> syn::Resu
 ///
 /// return the instance if found.
 pub fn check_type_def_gen(
-    gen: &syn::Generics,
+    r#gen: &syn::Generics,
     span: proc_macro2::Span,
 ) -> syn::Result<InstanceUsage> {
     let expected = "expected `T` or `T: Config` or `T, I = ()` or \
@@ -503,7 +506,7 @@ pub fn check_type_def_gen(
         }
     }
 
-    let mut i = syn::parse2::<Checker>(gen.params.to_token_stream())
+    let mut i = syn::parse2::<Checker>(r#gen.params.to_token_stream())
         .map_err(|e| {
             let msg = format!("Invalid type def generics: {}", expected);
             let mut err = syn::Error::new(span, msg);
@@ -574,7 +577,7 @@ pub fn check_genesis_builder_usage(type_: &syn::Path) -> syn::Result<Option<Inst
 ///
 /// return the instance if found.
 pub fn check_type_value_gen(
-    gen: &syn::Generics,
+    r#gen: &syn::Generics,
     span: proc_macro2::Span,
 ) -> syn::Result<Option<InstanceUsage>> {
     let expected = "expected `` or `T: Config` or `T: Config<I>, I: 'static`";
@@ -611,7 +614,7 @@ pub fn check_type_value_gen(
         }
     }
 
-    let i = syn::parse2::<Checker>(gen.params.to_token_stream())
+    let i = syn::parse2::<Checker>(r#gen.params.to_token_stream())
         .map_err(|e| {
             let msg = format!("Invalid type def generics: {}", expected);
             let mut err = syn::Error::new(span, msg);

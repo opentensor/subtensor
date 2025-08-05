@@ -19,12 +19,12 @@
 
 //! Home of the expansion code for the Tasks API
 
-use crate::pallet::{parse::tasks::*, Def};
+use crate::pallet::{Def, parse::tasks::*};
 use derive_syn_parse::Parse;
 use inflector::Inflector;
 use proc_macro2::TokenStream as TokenStream2;
-use quote::{format_ident, quote, ToTokens};
-use syn::{parse_quote, spanned::Spanned, ItemEnum, ItemImpl};
+use quote::{ToTokens, format_ident, quote};
+use syn::{ItemEnum, ItemImpl, parse_quote, spanned::Spanned};
 
 impl TaskEnumDef {
     /// Since we optionally allow users to manually specify a `#[pallet::task_enum]`, in the

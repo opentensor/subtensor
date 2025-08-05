@@ -33,9 +33,7 @@ pub(crate) fn migrate_init_total_issuance<T: Config>() -> Weight {
     // Update the total stake in storage
     crate::TotalStake::<T>::put(total_stake);
     log::info!(
-        "Subtensor Pallet Total Stake Updated: previous: {:?}, new: {:?}",
-        prev_total_stake,
-        total_stake
+        "Subtensor Pallet Total Stake Updated: previous: {prev_total_stake:?}, new: {total_stake:?}"
     );
     // Retrieve the previous total issuance for logging purposes
     let prev_total_issuance = crate::TotalIssuance::<T>::get();
@@ -48,9 +46,7 @@ pub(crate) fn migrate_init_total_issuance<T: Config>() -> Weight {
 
     // Log the change in total issuance
     log::info!(
-        "Subtensor Pallet Total Issuance Updated: previous: {:?}, new: {:?}",
-        prev_total_issuance,
-        new_total_issuance
+        "Subtensor Pallet Total Issuance Updated: previous: {prev_total_issuance:?}, new: {new_total_issuance:?}"
     );
 
     // Return the weight of the operation

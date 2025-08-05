@@ -42,7 +42,7 @@ jobs:
           spec_version=$(PATH=$PATH:$HOME/.cargo/.bin substrate-spec-version wss://dev.chain.opentensor.ai:443 | tr -d '\n')
           echo "network spec_version: $spec_version"
           : ${spec_version:?bad spec version}
-          local_spec_version=$(cargo run -p node-subtensor-runtime --bin spec_version | tr -d '\n')
+          local_spec_version=$(cargo run -p subtensor-tools --bin spec-version | tr -d '\n')
           echo "local spec_version: $local_spec_version"
           echo "network spec_version: $spec_version"
           if (( $(echo "$local_spec_version <= $spec_version" | bc -l) )); then echo "$local_spec_version ≯ $spec_version ❌"; exit 1; fi
