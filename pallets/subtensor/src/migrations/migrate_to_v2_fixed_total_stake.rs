@@ -52,8 +52,7 @@ pub fn migrate_to_v2_fixed_total_stake<T: Config>() -> Weight {
     if onchain_version < new_storage_version {
         info!(
             target: LOG_TARGET,
-            "Fixing the TotalStake and TotalColdkeyStake storage. Current version: {:?}",
-            onchain_version
+            "Fixing the TotalStake and TotalColdkeyStake storage. Current version: {onchain_version:?}"
         );
 
         // TODO: Fix or remove migration

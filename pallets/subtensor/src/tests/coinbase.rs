@@ -16,10 +16,7 @@ use subtensor_swap_interface::SwapHandler;
 fn close(value: u64, target: u64, eps: u64) {
     assert!(
         (value as i64 - target as i64).abs() < eps as i64,
-        "Assertion failed: value = {}, target = {}, eps = {}",
-        value,
-        target,
-        eps
+        "Assertion failed: value = {value}, target = {target}, eps = {eps}"
     )
 }
 
@@ -2411,7 +2408,7 @@ fn test_run_coinbase_not_started_start_after() {
         let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
         // We expect the stake to remain unchanged.
         assert!(new_stake > init_stake);
-        log::info!("new_stake: {}", new_stake);
+        log::info!("new_stake: {new_stake}");
     });
 }
 

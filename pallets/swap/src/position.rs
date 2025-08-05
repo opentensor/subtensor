@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
 use safe_math::*;
 use substrate_fixed::types::{I64F64, U64F64};
@@ -159,9 +159,19 @@ impl<T: Config> Position<T> {
     }
 }
 
-#[freeze_struct("1f02550d787d80da")]
+#[freeze_struct("8501fa251c9d74c")]
 #[derive(
-    Clone, Copy, Decode, Default, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo,
+    Clone,
+    Copy,
+    Decode,
+    DecodeWithMemTracking,
+    Default,
+    Encode,
+    Eq,
+    MaxEncodedLen,
+    PartialEq,
+    RuntimeDebug,
+    TypeInfo,
 )]
 pub struct PositionId(u128);
 

@@ -26,7 +26,7 @@ use pallet_decl::PalletDeclaration;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::ToTokens;
 use std::collections::HashMap;
-use syn::{spanned::Spanned, Ident, Token};
+use syn::{Ident, Token, spanned::Spanned};
 
 use frame_support_procedural_tools::syn_ext as ext;
 use runtime_types::RuntimeType;
@@ -223,9 +223,9 @@ impl Def {
                         if let Some(used_pallet) = indices.insert(pallet.index, pallet.name.clone())
                         {
                             let msg = format!(
-								"Pallet indices are conflicting: Both pallets {} and {} are at index {}",
-								used_pallet, pallet.name, pallet.index,
-							);
+                                "Pallet indices are conflicting: Both pallets {} and {} are at index {}",
+                                used_pallet, pallet.name, pallet.index,
+                            );
                             let mut err = syn::Error::new(used_pallet.span(), &msg);
                             err.combine(syn::Error::new(pallet.name.span(), msg));
                             return Err(err);

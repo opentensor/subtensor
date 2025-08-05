@@ -744,7 +744,7 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
 
         // Get the current transaction rate limit
         let current_tx_rate_limit = SubtensorModule::get_tx_rate_limit();
-        log::info!("current_tx_rate_limit: {:?}", current_tx_rate_limit);
+        log::info!("current_tx_rate_limit: {current_tx_rate_limit:?}");
 
         // Set the transaction rate limit
         SubtensorModule::set_tx_rate_limit(tx_rate_limit);
