@@ -2176,7 +2176,7 @@ mod dispatches {
             Ok(())
         }
 
-        /// ---- Used to commit encrypted commit-reveal v3 weight values to later be revealed.
+        /// ---- Used to commit timelock encrypted commit-reveal weight values to later be revealed.
         ///
         /// # Args:
         /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
