@@ -126,9 +126,14 @@ jobs:
 
       - name: Run & validate benchmarks
         if: ${{ env.SKIP_BENCHMARKS != '1' }}
-        run: |
-          chmod +x scripts/benchmark_action.sh
-          scripts/benchmark_action.sh
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 180
+          max_attempts: 3
+          retry_wait_seconds: 60
+          command: |
+            chmod +x scripts/benchmark_action.sh
+            scripts/benchmark_action.sh
 
       # (6) — final check after run
       - name: Check skip label after run
