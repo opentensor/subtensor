@@ -169,7 +169,7 @@ default = ["std"]
 pow-faucet = ["pallet-subtensor/pow-faucet"]
 fast-runtime = [
 	"pallet-subtensor/fast-runtime",
-	"subtensor-runtime-common/fast-runtime"
+	"subtensor-runtime-common/fast-runtime",
 ]
 std = [
 	"frame-try-runtime?/std",
@@ -272,7 +272,7 @@ std = [
 	"pallet-subtensor-swap/std",
 	"pallet-subtensor-swap-runtime-api/std",
 	"pallet-aura/std",
-	"substrate-fixed/std"
+	"substrate-fixed/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -314,7 +314,7 @@ runtime-benchmarks = [
 	"pallet-hotfix-sufficients/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
-	"pallet-subtensor-swap/runtime-benchmarks"
+	"pallet-subtensor-swap/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
@@ -362,6 +362,6 @@ try-runtime = [
 	"pallet-evm/try-runtime",
 	"pallet-evm-chain-id/try-runtime",
 	"pallet-drand/try-runtime",
-	"pallet-aura/try-runtime"
+	"pallet-aura/try-runtime",
 ]
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]

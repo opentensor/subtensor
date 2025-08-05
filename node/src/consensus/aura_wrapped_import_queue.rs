@@ -111,7 +111,7 @@ where
         let pre_hash = header.hash();
 
         // Alice pub key
-        // TODO: Make this flexible, not just check that Alice signed.
+        // TODO: Make this based on last Aura authorities, not just Alice.
         let public =
             BabeAuthorityId::from_ss58check("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY")
                 .unwrap();
