@@ -31,7 +31,6 @@ hex.workspace = true
 memmap2.workspace = true
 serde_json.workspace = true
 
-
 sc-chain-spec-derive.workspace = true
 sc-cli.workspace = true
 sc-consensus-babe.workspace = true
