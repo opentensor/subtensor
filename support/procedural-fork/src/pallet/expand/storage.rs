@@ -18,11 +18,11 @@
 use crate::{
     counter_prefix,
     pallet::{
+        Def,
         parse::{
             helper::two128_str,
             storage::{Metadata, QueryKind, StorageDef, StorageGenerics},
         },
-        Def,
     },
 };
 use quote::ToTokens;
@@ -445,8 +445,8 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 		let docs = if cfg!(feature = "no-metadata-docs") { &no_docs } else { &storage.docs };
 
 		let ident = &storage.ident;
-		let gen = &def.type_use_generics(storage.attr_span);
-		let full_ident = quote::quote_spanned!(storage.attr_span => #ident<#gen> );
+		let generics = &def.type_use_generics(storage.attr_span);
+		let full_ident = quote::quote_spanned!(storage.attr_span => #ident<#generics> );
 
 		let cfg_attrs = &storage.cfg_attrs;
 
@@ -469,10 +469,10 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
                 super::merge_where_clauses(&[&storage.where_clause, &def.config.where_clause]);
 
             let ident = &storage.ident;
-            let gen = &def.type_use_generics(storage.attr_span);
+            let generics = &def.type_use_generics(storage.attr_span);
             let type_impl_gen = &def.type_impl_generics(storage.attr_span);
             let type_use_gen = &def.type_use_generics(storage.attr_span);
-            let full_ident = quote::quote_spanned!(storage.attr_span => #ident<#gen> );
+            let full_ident = quote::quote_spanned!(storage.attr_span => #ident<#generics> );
 
             let cfg_attrs = &storage.cfg_attrs;
 
@@ -876,8 +876,8 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
                 // crate.
                 if storage.try_decode && storage.cfg_attrs.is_empty() {
                     let ident = &storage.ident;
-                    let gen = &def.type_use_generics(storage.attr_span);
-                    Some(quote::quote_spanned!(storage.attr_span => #ident<#gen> ))
+                    let generics = &def.type_use_generics(storage.attr_span);
+                    Some(quote::quote_spanned!(storage.attr_span => #ident<#generics> ))
                 } else {
                     None
                 }

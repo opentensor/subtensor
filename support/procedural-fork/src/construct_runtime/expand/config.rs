@@ -18,7 +18,7 @@
 use crate::construct_runtime::Pallet;
 use inflector::Inflector;
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote, ToTokens};
+use quote::{ToTokens, format_ident, quote};
 use std::str::FromStr;
 use syn::Ident;
 
