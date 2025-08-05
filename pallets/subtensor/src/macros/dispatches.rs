@@ -77,7 +77,7 @@ mod dispatches {
         /// * 'MaxWeightExceeded':
         /// 	- Attempting to set weights with max value exceeding limit.
         #[pallet::call_index(0)]
-        #[pallet::weight((Weight::from_parts(20_730_000_000, 0)
+        #[pallet::weight((Weight::from_parts(15_540_000_000, 0)
         .saturating_add(T::DbWeight::get().reads(4111))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn set_weights(
@@ -965,7 +965,7 @@ mod dispatches {
         ///
         /// Weight is calculated based on the number of database reads and writes.
         #[pallet::call_index(71)]
-        #[pallet::weight((Weight::from_parts(208600000, 0)
+        #[pallet::weight((Weight::from_parts(161_700_000, 0)
         .saturating_add(T::DbWeight::get().reads(14))
         .saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Operational, Pays::No))]
         pub fn swap_coldkey(

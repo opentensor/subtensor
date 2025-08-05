@@ -787,9 +787,7 @@ fn test_no_duplicates_in_symbol_static() {
         let symbol = SYMBOLS.get(usize::from(netuid)).unwrap();
         assert!(
             seen.insert(symbol.to_vec()),
-            "Duplicate symbol found for netuid {}: {:?}",
-            netuid,
-            symbol
+            "Duplicate symbol found for netuid {netuid}: {symbol:?}"
         );
     }
 }

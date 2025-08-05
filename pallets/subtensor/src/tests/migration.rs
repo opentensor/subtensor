@@ -28,10 +28,7 @@ use subtensor_runtime_common::TaoCurrency;
 fn close(value: u64, target: u64, eps: u64) {
     assert!(
         (value as i64 - target as i64).abs() < eps as i64,
-        "Assertion failed: value = {}, target = {}, eps = {}",
-        value,
-        target,
-        eps
+        "Assertion failed: value = {value}, target = {target}, eps = {eps}"
     )
 }
 

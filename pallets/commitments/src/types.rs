@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Codec, Decode, Encode, MaxEncodedLen};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
     BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound,
     traits::{ConstU32, Get},
@@ -38,7 +38,7 @@ use subtensor_macros::freeze_struct;
 /// - A timelock-encrypted blob with a reveal round
 /// - A reset flag (`ResetBondsFlag`)
 ///   Can also be `None`.
-#[derive(Clone, Eq, PartialEq, RuntimeDebug, MaxEncodedLen)]
+#[derive(Clone, Eq, PartialEq, RuntimeDebug, DecodeWithMemTracking, MaxEncodedLen)]
 pub enum Data {
     /// No data here.
     None,
@@ -362,9 +362,17 @@ impl Default for Data {
     }
 }
 
-#[freeze_struct("25c84048dcc90813")]
+#[freeze_struct("5ca4adbb4d2a2b20")]
 #[derive(
-    CloneNoBound, Encode, Decode, Eq, MaxEncodedLen, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
+    CloneNoBound,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    Eq,
+    MaxEncodedLen,
+    PartialEqNoBound,
+    RuntimeDebugNoBound,
+    TypeInfo,
 )]
 #[codec(mel_bound())]
 #[derive(frame_support::DefaultNoBound)]

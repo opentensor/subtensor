@@ -2191,7 +2191,7 @@ fn test_tempo_change_during_commit_reveal_process() {
         );
 
         let tempo_before_next_reveal: u16 = 200;
-        log::info!("Changing tempo to {}", tempo_before_next_reveal);
+        log::info!("Changing tempo to {tempo_before_next_reveal}");
         SubtensorModule::set_tempo(netuid, tempo_before_next_reveal);
 
         step_epochs(1, netuid);
@@ -2224,7 +2224,7 @@ fn test_tempo_change_during_commit_reveal_process() {
         );
 
         let tempo: u16 = 150;
-        log::info!("Changing tempo to {}", tempo);
+        log::info!("Changing tempo to {tempo}");
         SubtensorModule::set_tempo(netuid, tempo);
 
         step_epochs(1, netuid);
@@ -2247,7 +2247,7 @@ fn test_tempo_change_during_commit_reveal_process() {
         );
 
         let tempo: u16 = 1050;
-        log::info!("Changing tempo to {}", tempo);
+        log::info!("Changing tempo to {tempo}");
         SubtensorModule::set_tempo(netuid, tempo);
 
         assert_ok!(SubtensorModule::commit_weights(
@@ -2261,7 +2261,7 @@ fn test_tempo_change_during_commit_reveal_process() {
         );
 
         let tempo: u16 = 805;
-        log::info!("Changing tempo to {}", tempo);
+        log::info!("Changing tempo to {tempo}");
         SubtensorModule::set_tempo(netuid, tempo);
 
         step_epochs(1, netuid);
@@ -3109,9 +3109,7 @@ fn test_tempo_and_reveal_period_change_during_commit_reveal_process() {
         SubtensorModule::set_tempo(netuid, new_tempo);
         SubtensorModule::set_reveal_period(netuid, new_reveal_period);
         log::info!(
-            "Changed tempo to {} and reveal period to {}",
-            new_tempo,
-            new_reveal_period
+            "Changed tempo to {new_tempo} and reveal period to {new_reveal_period}"
         );
 
         // Step 3: Advance blocks to reach the reveal epoch according to new tempo and reveal period
@@ -3165,9 +3163,7 @@ fn test_tempo_and_reveal_period_change_during_commit_reveal_process() {
         SubtensorModule::set_tempo(netuid, new_tempo_after_reveal);
         SubtensorModule::set_reveal_period(netuid, new_reveal_period_after_reveal);
         log::info!(
-            "Changed tempo to {} and reveal period to {} after reveal",
-            new_tempo_after_reveal,
-            new_reveal_period_after_reveal
+            "Changed tempo to {new_tempo_after_reveal} and reveal period to {new_reveal_period_after_reveal} after reveal"
         );
 
         // Step 5: Commit again
@@ -4232,11 +4228,10 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
                                 || e == Error::<Test>::ExpiredWeightCommit.into()
                                 || e == Error::<Test>::InvalidRevealCommitHashNotMatch.into()
                             {
-                                log::info!("Expected error during reveal after epoch advancement: {:?}", e);
+                                log::info!("Expected error during reveal after epoch advancement: {e:?}");
                             } else {
                                 panic!(
-                                    "Unexpected error during reveal: {:?}, expected RevealTooEarly, ExpiredWeightCommit, or InvalidRevealCommitHashNotMatch",
-                                    e
+                                    "Unexpected error during reveal: {e:?}, expected RevealTooEarly, ExpiredWeightCommit, or InvalidRevealCommitHashNotMatch"
                                 );
                             }
                         }
@@ -4278,12 +4273,11 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
                                 || e == Error::<Test>::ExpiredWeightCommit.into()
                                 || e == Error::<Test>::InvalidRevealCommitHashNotMatch.into()
                             {
-                                log::info!("Expected error during reveal after epoch advancement: {:?}", e);
+                                log::info!("Expected error during reveal after epoch advancement: {e:?}");
                                 break;
                             } else {
                                 panic!(
-                                    "Unexpected error during reveal after epoch advancement: {:?}, expected RevealTooEarly, ExpiredWeightCommit, or InvalidRevealCommitHashNotMatch",
-                                    e
+                                    "Unexpected error during reveal after epoch advancement: {e:?}, expected RevealTooEarly, ExpiredWeightCommit, or InvalidRevealCommitHashNotMatch"
                                 );
                             }
                         }
@@ -4314,8 +4308,7 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
                 assert_eq!(
                     reveal_result,
                     Err(Error::<Test>::ExpiredWeightCommit.into()),
-                    "Expected ExpiredWeightCommit error, got {:?}",
-                    reveal_result
+                    "Expected ExpiredWeightCommit error, got {reveal_result:?}"
                 );
             }
         }
@@ -4818,8 +4811,7 @@ fn test_reveal_crv3_commits_success() {
         );
 
         log::debug!(
-            "Commit bytes now contain {:#?}",
-            commit_bytes
+            "Commit bytes now contain {commit_bytes:#?}"
         );
 
         assert_ok!(SubtensorModule::do_commit_crv3_weights(
@@ -4874,16 +4866,14 @@ fn test_reveal_crv3_commits_success() {
 
             assert!(
                 rounded_actual_weight != 0,
-                "Actual weight for uid {} is zero",
-                uid_a
+                "Actual weight for uid {uid_a} is zero"
             );
 
             let expected_weight = w_b.to_num::<i64>();
 
             assert_eq!(
                 rounded_actual_weight, expected_weight,
-                "Weight mismatch for uid {}: expected {}, got {}",
-                uid_a, expected_weight, rounded_actual_weight
+                "Weight mismatch for uid {uid_a}: expected {expected_weight}, got {rounded_actual_weight}"
             );
         }
     });
@@ -5931,8 +5921,7 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
             let commits = CRV3WeightCommitsV2::<Test>::get(netuid, *epoch);
             assert!(
                 !commits.is_empty(),
-                "Expected commits to be present for past epoch {}",
-                epoch
+                "Expected commits to be present for past epoch {epoch}"
             );
         }
 
@@ -5942,16 +5931,14 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
             let commits = CRV3WeightCommitsV2::<Test>::get(netuid, *epoch);
             assert!(
                 commits.is_empty(),
-                "Expected commits for past epoch {} to be removed",
-                epoch
+                "Expected commits for past epoch {epoch} to be removed"
             );
         }
 
         let current_epoch_commits = CRV3WeightCommitsV2::<Test>::get(netuid, current_epoch);
         assert!(
             current_epoch_commits.is_empty(),
-            "Expected no commits for current epoch {}",
-            current_epoch
+            "Expected no commits for current epoch {current_epoch}"
         );
     });
 }
@@ -6082,8 +6069,7 @@ fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
 
             assert!(
                 !weights.is_empty(),
-                "Weights for neuron_uid {} should be set",
-                neuron_uid
+                "Weights for neuron_uid {neuron_uid} should be set"
             );
 
             // Normalize expected weights
@@ -6116,18 +6102,13 @@ fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
             {
                 assert_eq!(
                     uid_expected, uid_actual,
-                    "UID mismatch: expected {}, got {}",
-                    uid_expected, uid_actual
+                    "UID mismatch: expected {uid_expected}, got {uid_actual}"
                 );
 
                 let diff = (*weight_expected - *weight_actual).abs();
                 assert!(
                     diff <= delta,
-                    "Weight mismatch for uid {}: expected {}, got {}, diff {}",
-                    uid_expected,
-                    weight_expected,
-                    weight_actual,
-                    diff
+                    "Weight mismatch for uid {uid_expected}: expected {weight_expected}, got {weight_actual}, diff {diff}"
                 );
             }
         }
@@ -6269,8 +6250,7 @@ fn test_reveal_crv3_commits_max_neurons() {
 
             assert!(
                 !weights.is_empty(),
-                "Weights for neuron_uid {} should be set",
-                neuron_uid
+                "Weights for neuron_uid {neuron_uid} should be set"
             );
 
             // Normalize expected weights
@@ -6303,18 +6283,13 @@ fn test_reveal_crv3_commits_max_neurons() {
             {
                 assert_eq!(
                     uid_expected, uid_actual,
-                    "UID mismatch: expected {}, got {}",
-                    uid_expected, uid_actual
+                    "UID mismatch: expected {uid_expected}, got {uid_actual}"
                 );
 
                 let diff = (*weight_expected - *weight_actual).abs();
                 assert!(
                     diff <= delta,
-                    "Weight mismatch for uid {}: expected {}, got {}, diff {}",
-                    uid_expected,
-                    weight_expected,
-                    weight_actual,
-                    diff
+                    "Weight mismatch for uid {uid_expected}: expected {weight_expected}, got {weight_actual}, diff {diff}"
                 );
             }
         }

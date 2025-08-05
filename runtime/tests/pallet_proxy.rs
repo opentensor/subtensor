@@ -24,6 +24,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
                 (AccountId::from(DELEGATE), amount),
                 (AccountId::from(OTHER_ACCOUNT), amount),
             ],
+            dev_accounts: None,
         },
 
         triumvirate: pallet_collective::GenesisConfig {

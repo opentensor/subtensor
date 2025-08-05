@@ -119,7 +119,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
             if !IdentitiesV2::<T>::contains_key(owner_coldkey.clone()) {
                 // Set the identitiy for the Owner coldkey if non existent.
                 let identity = ChainIdentityOfV2 {
-                    name: format!("Owner{}", netuid).as_bytes().to_vec(),
+                    name: format!("Owner{netuid}").as_bytes().to_vec(),
                     url: Vec::new(),
                     image: Vec::new(),
                     github_repo: Vec::new(),
