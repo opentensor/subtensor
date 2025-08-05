@@ -14,6 +14,7 @@ use sc_consensus_slots::InherentDataProviderExt;
 use sc_telemetry::TelemetryHandle;
 use sp_api::ApiExt;
 use sp_api::ProvideRuntimeApi;
+use sp_application_crypto::Ss58Codec as _;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::HeaderBackend;
 use sp_blockchain::HeaderMetadata;
@@ -24,7 +25,6 @@ use sp_consensus_aura::sr25519::AuthorityPair as AuraAuthorityPair;
 use sp_consensus_babe::AuthorityId as BabeAuthorityId;
 use sp_consensus_babe::AuthorityPair as BabeAuthorityPair;
 use sp_consensus_babe::BABE_ENGINE_ID;
-use sp_consensus_babe::BabeApi;
 use sp_core::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::Digest;
@@ -51,7 +51,7 @@ where
     CIDP: CreateInherentDataProviders<B, ()> + Send + Sync,
     CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
     C: ProvideRuntimeApi<B> + Send + Sync + sc_client_api::backend::AuxStore,
-    C::Api: BlockBuilderApi<B> + AuraApi<B, AuraAuthorityId> + ApiExt<B> + BabeApi<B>,
+    C::Api: BlockBuilderApi<B> + AuraApi<B, AuraAuthorityId> + ApiExt<B>,
     C: HeaderBackend<B> + HeaderMetadata<B>,
 {
     pub fn new(
@@ -86,44 +86,56 @@ where
     ///
     /// The Babe block will be verified in full after the node spins back up as a Babe service.
     async fn check_babe_block(&self, block: BlockImportParams<B>) -> Result<(), String> {
-        use sp_core::crypto::Ss58Codec;
-
+        log::info!(
+            "Checking Babe block {:?} is legitimate",
+            block.post_header().hash()
+        );
         let mut header = block.header.clone();
-
-        let _parent_header = self
-            .client
-            .header(*block.post_header().parent_hash())
-            .map_err(|e| format!("Failed to get parent header: {}", e))?
-            .ok_or("Parent header not found".to_string())?;
-
-        let _pre_digest = sc_consensus_babe::find_pre_digest::<B>(&block.header)?
-            .ok_or("No predigest".to_string())?;
-
         let seal = header
             .digest_mut()
             .pop()
             .ok_or_else(|| "Header Unsealed".to_string())?;
-
         let sig = seal
             .as_babe_seal()
             .ok_or_else(|| "Header bad seal".to_string())?;
 
-        // the pre-hash of the header doesn't include the seal
-        // and that's what we sign
-        let pre_hash = header.hash();
-
-        // Alice pub key
-        // TODO: Make this based on last Aura authorities, not just Alice.
-        let public =
-            BabeAuthorityId::from_ss58check("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY")
-                .unwrap();
-        if !BabeAuthorityPair::verify(&sig, pre_hash, &public) {
-            return Ok(());
-            // TODO: Return Err
-            // return Err("Bad Sig".to_string());
+        let authorities = self.get_last_aura_authorities(block.header)?;
+        if let Some(a) = authorities.into_iter().find(|a| {
+            let babe_key = BabeAuthorityId::from(a.clone().into_inner());
+            BabeAuthorityPair::verify(&sig, header.hash(), &babe_key)
+        }) {
+            log::info!(
+                "Babe block has a valid signature by author: {}",
+                a.to_ss58check()
+            );
+            Ok(())
+        } else {
+            Err("Babe block has a bad signature. Rejecting.".to_string())
         }
+    }
 
-        Ok(())
+    /// Given the hash of the first Babe block mined, get the Aura authorities that existed prior to
+    /// the runtime upgrade.
+    ///
+    /// Note: We need get the Aura authorities from grandparent rather than the parent,
+    /// because the runtime upgrade clearing the Aura authorities occurs in the parent.
+    fn get_last_aura_authorities(
+        &self,
+        first_babe_block_header: B::Header,
+    ) -> Result<Vec<AuraAuthorityId>, String> {
+        let parent_header = self
+            .client
+            .header(*first_babe_block_header.parent_hash())
+            .map_err(|e| format!("Failed to get parent header: {}", e))?
+            .ok_or("Parent header not found".to_string())?;
+        let grandparent_hash = parent_header.parent_hash();
+
+        let runtime_api = self.client.runtime_api();
+        let authorities = runtime_api
+            .authorities(*grandparent_hash)
+            .map_err(|e| format!("Failed to get Aura authorities: {}", e))?;
+
+        Ok(authorities)
     }
 }
 
@@ -131,7 +143,7 @@ where
 impl<B: BlockT, C, CIDP> Verifier<B> for AuraWrappedVerifier<B, C, CIDP, NumberFor<B>>
 where
     C: ProvideRuntimeApi<B> + Send + Sync + sc_client_api::backend::AuxStore,
-    C::Api: BlockBuilderApi<B> + AuraApi<B, AuraAuthorityId> + ApiExt<B> + BabeApi<B>,
+    C::Api: BlockBuilderApi<B> + AuraApi<B, AuraAuthorityId> + ApiExt<B>,
     C: HeaderBackend<B> + HeaderMetadata<B>,
     CIDP: CreateInherentDataProviders<B, ()> + Send + Sync,
     CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
@@ -158,7 +170,7 @@ pub fn import_queue<B, I, C, S, CIDP>(
 ) -> Result<DefaultImportQueue<B>, sp_consensus::Error>
 where
     B: BlockT,
-    C::Api: BlockBuilderApi<B> + AuraApi<B, AuraAuthorityId> + ApiExt<B> + BabeApi<B>,
+    C::Api: BlockBuilderApi<B> + AuraApi<B, AuraAuthorityId> + ApiExt<B>,
     C: 'static
         + ProvideRuntimeApi<B>
         + BlockOf
