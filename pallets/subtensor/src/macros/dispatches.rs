@@ -288,13 +288,7 @@ mod dispatches {
             commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
             reveal_round: u64,
         ) -> DispatchResult {
-            Self::do_commit_timelocked_weights(
-                origin,
-                netuid,
-                commit,
-                reveal_round,
-                4,
-            )
+            Self::do_commit_timelocked_weights(origin, netuid, commit, reveal_round, 4)
         }
 
         /// ---- The implementation for batch revealing committed weights.

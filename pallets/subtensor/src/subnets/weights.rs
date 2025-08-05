@@ -251,18 +251,19 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CommitRevealDisabled
         );
 
+        // 3. Ensure correct client version
         ensure!(
             commit_reveal_version == Self::get_commit_reveal_weights_version(),
             Error::<T>::IncorrectCommitRevealVersion
         );
 
-        // 3. Ensure the hotkey is registered on the network.
+        // 4. Ensure the hotkey is registered on the network.
         ensure!(
             Self::is_hotkey_registered_on_network(netuid, &who),
             Error::<T>::HotKeyNotRegisteredInSubNet
         );
 
-        // 4. Check that the commit rate does not exceed the allowed frequency.
+        // 5. Check that the commit rate does not exceed the allowed frequency.
         let commit_block = Self::get_current_block_as_u64();
         let neuron_uid = Self::get_uid_for_net_and_hotkey(netuid, &who)?;
         ensure!(
@@ -270,7 +271,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CommittingWeightsTooFast
         );
 
-        // 5. Retrieve or initialize the VecDeque of commits for the hotkey.
+        // 6. Retrieve or initialize the VecDeque of commits for the hotkey.
         let cur_block = Self::get_current_block_as_u64();
         let cur_epoch = match Self::should_run_epoch(netuid, commit_block) {
             true => Self::get_epoch_index(netuid, cur_block).saturating_add(1),
@@ -278,7 +279,7 @@ impl<T: Config> Pallet<T> {
         };
 
         CRV3WeightCommitsV2::<T>::try_mutate(netuid, cur_epoch, |commits| -> DispatchResult {
-            // 6. Verify that the number of unrevealed commits is within the allowed limit.
+            // 7. Verify that the number of unrevealed commits is within the allowed limit.
 
             let unrevealed_commits_for_who = commits
                 .iter()
@@ -289,22 +290,22 @@ impl<T: Config> Pallet<T> {
                 Error::<T>::TooManyUnrevealedCommits
             );
 
-            // 7. Append the new commit with calculated reveal blocks.
+            // 8. Append the new commit with calculated reveal blocks.
             // Hash the commit before it is moved, for the event
             let commit_hash = BlakeTwo256::hash(&commit);
             commits.push_back((who.clone(), cur_block, commit, reveal_round));
 
-            // 8. Emit the WeightsCommitted event
+            // 9. Emit the WeightsCommitted event
             Self::deposit_event(Event::CRV3WeightsCommitted(
                 who.clone(),
                 netuid,
                 commit_hash,
             ));
 
-            // 9. Update the last commit block for the hotkey's UID.
+            // 10. Update the last commit block for the hotkey's UID.
             Self::set_last_update_for_uid(netuid, neuron_uid, commit_block);
 
-            // 10. Return success.
+            // 11. Return success.
             Ok(())
         })
     }
