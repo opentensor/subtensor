@@ -43,7 +43,7 @@ fn manual_data_type_info() {
                 .variants
                 .iter()
                 .find(|v| v.name == variant_name)
-                .unwrap_or_else(|| panic!("Expected to find variant {}", variant_name));
+                .unwrap_or_else(|| panic!("Expected to find variant {variant_name}"));
 
             let encoded = data.encode();
             assert_eq!(encoded[0], variant.index);
@@ -72,15 +72,13 @@ fn manual_data_type_info() {
                 assert_eq!(
                     encoded.len() as u32 - 1, // Subtract variant byte
                     expected_len,
-                    "Encoded length mismatch for variant {}",
-                    variant_name
+                    "Encoded length mismatch for variant {variant_name}"
                 );
             } else {
                 assert_eq!(
                     encoded.len() as u32 - 1,
                     0,
-                    "Expected no fields for {}",
-                    variant_name
+                    "Expected no fields for {variant_name}"
                 );
             }
         } else {
@@ -1551,7 +1549,7 @@ fn revealed_commitments_keeps_only_10_items() {
         let mut fields = Vec::with_capacity(TOTAL_TLES);
 
         for i in 0..TOTAL_TLES {
-            let plaintext = format!("TLE #{}", i).into_bytes();
+            let plaintext = format!("TLE #{i}").into_bytes();
             let ciphertext = produce_ciphertext(&plaintext, reveal_round);
             let timelock = Data::TimelockEncrypted {
                 encrypted: ciphertext,
@@ -1594,7 +1592,7 @@ fn revealed_commitments_keeps_only_10_items() {
 
             // We expect them to be TLE #2..TLE #11
             let expected_index = idx + 2; // since we dropped #0 and #1
-            let expected_str = format!("TLE #{}", expected_index);
+            let expected_str = format!("TLE #{expected_index}");
             assert_eq!(revealed_str, expected_str, "Check which TLE is kept");
 
             // Also check it was revealed at block 2
@@ -1619,7 +1617,7 @@ fn revealed_commitments_keeps_only_10_newest_with_individual_single_field_commit
         for i in 0..12 {
             System::<Test>::set_block_number(i as u64 + 1);
 
-            let plaintext = format!("TLE #{}", i).into_bytes();
+            let plaintext = format!("TLE #{i}").into_bytes();
             let ciphertext = produce_ciphertext(&plaintext, reveal_round);
 
             let new_timelock = Data::TimelockEncrypted {
@@ -1644,8 +1642,7 @@ fn revealed_commitments_keeps_only_10_newest_with_individual_single_field_commit
             assert_eq!(
                 revealed.len(),
                 expected_count,
-                "At iteration {}, we keep at most 10 reveals",
-                i
+                "At iteration {i}, we keep at most 10 reveals"
             );
         }
 
@@ -1662,19 +1659,17 @@ fn revealed_commitments_keeps_only_10_newest_with_individual_single_field_commit
             let revealed_str =
                 sp_std::str::from_utf8(revealed_bytes).expect("Should be valid UTF-8");
             let expected_i = idx + 2; // i=0 => "TLE #2", i=1 => "TLE #3", etc.
-            let expected_str = format!("TLE #{}", expected_i);
+            let expected_str = format!("TLE #{expected_i}");
 
             assert_eq!(
                 revealed_str, expected_str,
-                "Revealed data #{} should match the truncated TLE #{}",
-                idx, expected_i
+                "Revealed data #{idx} should match the truncated TLE #{expected_i}"
             );
 
             let expected_reveal_block = expected_i as u64 + 1;
             assert_eq!(
                 *reveal_block, expected_reveal_block,
-                "Check which block TLE #{} was revealed in",
-                expected_i
+                "Check which block TLE #{expected_i} was revealed in"
             );
         }
     });

@@ -15,10 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{pallet::Def, COUNTER};
+use crate::{COUNTER, pallet::Def};
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{spanned::Spanned, Ident};
+use syn::{Ident, spanned::Spanned};
 
 pub fn expand_origins(def: &mut Def) -> TokenStream {
     let count = COUNTER.with(|counter| counter.borrow_mut().inc());

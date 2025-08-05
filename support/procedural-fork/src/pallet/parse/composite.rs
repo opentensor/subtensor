@@ -115,7 +115,7 @@ impl CompositeDef {
                         return Err(syn::Error::new(
                             variant.ident.span(),
                             "The composite enum does not support variants with fields!",
-                        ))
+                        ));
                     }
                     syn::Fields::Unit => (),
                 }

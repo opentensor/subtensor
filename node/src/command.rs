@@ -137,8 +137,7 @@ pub fn run() -> sc_cli::Result<()> {
                             }
                             Err(err) => {
                                 return Err(format!(
-                                    "Cannot purge `{:?}` database: {:?}",
-                                    db_path, err,
+                                    "Cannot purge `{db_path:?}` database: {err:?}",
                                 )
                                 .into());
                             }

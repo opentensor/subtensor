@@ -138,7 +138,7 @@ impl<T: Config> Pallet<T> {
         SubnetIdentitiesV3::<T>::insert(netuid, identity.clone());
 
         // Log the identity set event
-        log::debug!("SubnetIdentitySet( netuid:{:?} ) ", netuid);
+        log::debug!("SubnetIdentitySet( netuid:{netuid:?} ) ");
 
         // Emit an event to notify that an identity has been set
         Self::deposit_event(Event::SubnetIdentitySet(netuid));

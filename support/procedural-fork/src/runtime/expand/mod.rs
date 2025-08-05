@@ -22,10 +22,10 @@ use crate::{
         decl_static_assertions, expand,
     },
     runtime::{
+        Def,
         parse::{
             AllPalletsDeclaration, ExplicitAllPalletsDeclaration, ImplicitAllPalletsDeclaration,
         },
-        Def,
     },
 };
 use cfg_expr::Predicate;

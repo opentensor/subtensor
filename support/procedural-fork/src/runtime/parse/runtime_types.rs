@@ -16,8 +16,8 @@
 // limitations under the License.
 
 use syn::{
-    parse::{Parse, ParseStream},
     Result,
+    parse::{Parse, ParseStream},
 };
 
 mod keyword {

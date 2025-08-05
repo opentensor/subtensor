@@ -142,7 +142,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 5. Calculate and lock the required tokens.
         let lock_amount: u64 = Self::get_network_lock_cost();
-        log::debug!("network lock_amount: {:?}", lock_amount);
+        log::debug!("network lock_amount: {lock_amount:?}");
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, lock_amount),
             Error::<T>::NotEnoughBalanceToStake
@@ -154,7 +154,7 @@ impl<T: Config> Pallet<T> {
         // --- 7. Perform the lock operation.
         let actual_tao_lock_amount: u64 =
             Self::remove_balance_from_coldkey_account(&coldkey, lock_amount)?;
-        log::debug!("actual_tao_lock_amount: {:?}", actual_tao_lock_amount);
+        log::debug!("actual_tao_lock_amount: {actual_tao_lock_amount:?}");
 
         // --- 8. Set the lock amount for use to determine pricing.
         Self::set_network_last_lock(actual_tao_lock_amount);
@@ -162,24 +162,16 @@ impl<T: Config> Pallet<T> {
         // --- 9. Set initial and custom parameters for the network.
         let default_tempo = DefaultTempo::<T>::get();
         Self::init_new_network(netuid_to_register, default_tempo);
-        log::debug!("init_new_network: {:?}", netuid_to_register);
+        log::debug!("init_new_network: {netuid_to_register:?}");
 
         // --- 10. Add the caller to the neuron set.
         Self::create_account_if_non_existent(&coldkey, hotkey);
         Self::append_neuron(netuid_to_register, hotkey, current_block);
-        log::debug!(
-            "Appended neuron for netuid {:?}, hotkey: {:?}",
-            netuid_to_register,
-            hotkey
-        );
+        log::debug!("Appended neuron for netuid {netuid_to_register:?}, hotkey: {hotkey:?}");
 
         // --- 11. Set the mechanism.
         SubnetMechanism::<T>::insert(netuid_to_register, mechid);
-        log::debug!(
-            "SubnetMechanism for netuid {:?} set to: {:?}",
-            netuid_to_register,
-            mechid
-        );
+        log::debug!("SubnetMechanism for netuid {netuid_to_register:?} set to: {mechid:?}");
 
         // --- 12. Set the creation terms.
         NetworkLastRegistered::<T>::set(current_block);
@@ -226,11 +218,7 @@ impl<T: Config> Pallet<T> {
         NetworkPowRegistrationAllowed::<T>::set(netuid_to_register, true);
 
         // --- 17. Emit the NetworkAdded event.
-        log::info!(
-            "NetworkAdded( netuid:{:?}, mechanism:{:?} )",
-            netuid_to_register,
-            mechid
-        );
+        log::info!("NetworkAdded( netuid:{netuid_to_register:?}, mechanism:{mechid:?} )");
         Self::deposit_event(Event::NetworkAdded(netuid_to_register, mechid));
 
         // --- 18. Return success.
