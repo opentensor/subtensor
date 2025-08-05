@@ -78,11 +78,13 @@ where
         }
     }
 
-    /// We can't use a full [`BabeVerifier`] because we don't have a Babe link running.
+    /// When a Babe block is encountered in Aura mode, we need to check it is legitimate
+    /// before switching to the Babe service.
     ///
-    /// Instead, we will check the author is valid and comes from a trusted authority.
+    /// We can't use a full [`BabeVerifier`] because we don't have a Babe link running, however we
+    /// can check that the block author is one of the authorities from the last verified Aura block.
     ///
-    /// The block will be verified in full after the node spins back up as a Babe service.
+    /// The Babe block will be verified in full after the node spins back up as a Babe service.
     async fn check_babe_block(&self, block: BlockImportParams<B>) -> Result<(), String> {
         use sp_core::crypto::Ss58Codec;
 
