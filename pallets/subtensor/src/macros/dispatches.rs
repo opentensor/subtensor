@@ -2198,13 +2198,8 @@ mod dispatches {
         ///    - The drand reveal round which will be avaliable during epoch `n+1` from the current
         ///      epoch.
         ///
-        /// # Raises:
-        /// * `CommitRevealV3Disabled`:
-        ///   - Attempting to commit when the commit-reveal mechanism is disabled.
-        ///
-        /// * `TooManyUnrevealedCommits`:
-        ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
-        ///
+        /// * commit_reveal_version (`u16`):
+        ///     - The client (bittensor-drand) version
         #[pallet::call_index(113)]
         #[pallet::weight((Weight::from_parts(73_750_000, 0)
 		.saturating_add(T::DbWeight::get().reads(6_u64))
