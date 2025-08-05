@@ -313,12 +313,12 @@ pub mod pallet {
     pub fn DefaultZeroU64<T: Config>() -> u64 {
         0
     }
-    /// Default value for Alpha cyrrency.
+    /// Default value for Alpha currency.
     #[pallet::type_value]
     pub fn DefaultZeroAlpha<T: Config>() -> AlphaCurrency {
         AlphaCurrency::ZERO
     }
-    /// Default value for Tao cyrrency.
+    /// Default value for Tao currency.
     #[pallet::type_value]
     pub fn DefaultZeroTao<T: Config>() -> TaoCurrency {
         TaoCurrency::ZERO

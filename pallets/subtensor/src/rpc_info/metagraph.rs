@@ -40,7 +40,7 @@ pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     alpha_in_emission: Compact<AlphaCurrency>, // amount injected outstanding per block
     tao_in_emission: Compact<TaoCurrency>, // amount of tao injected per block
     pending_alpha_emission: Compact<AlphaCurrency>, // pending alpha to be distributed
-    pending_root_emission: Compact<TaoCurrency>, // panding tao for root divs to be distributed
+    pending_root_emission: Compact<TaoCurrency>, // pending tao for root divs to be distributed
     subnet_volume: Compact<u128>,      // volume of the subnet in TAO
     moving_price: I96F32,              // subnet moving price.
 
@@ -52,34 +52,34 @@ pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     min_allowed_weights: Compact<u16>, // min allowed weights per val
     max_weights_limit: Compact<u16>,   // max allowed weights per val
     weights_version: Compact<u64>,     // allowed weights version
-    weights_rate_limit: Compact<u64>,  // rate limit on weights.
+    weights_rate_limit: Compact<u64>,  // rate limit on weights
     activity_cutoff: Compact<u16>,     // validator weights cut off period in blocks
-    max_validators: Compact<u16>,      // max allowed validators.
+    max_validators: Compact<u16>,      // max allowed validators
 
     // Registration
     num_uids: Compact<u16>,
     max_uids: Compact<u16>,
-    burn: Compact<TaoCurrency>,             // current burn cost..
-    difficulty: Compact<u64>,               // current difficulty.
-    registration_allowed: bool,             // allows registrations.
-    pow_registration_allowed: bool,         // pow registration enabled.
+    burn: Compact<TaoCurrency>,             // current burn cost
+    difficulty: Compact<u64>,               // current difficulty
+    registration_allowed: bool,             // allows registrations
+    pow_registration_allowed: bool,         // pow registration enabled
     immunity_period: Compact<u16>,          // subnet miner immunity period
     min_difficulty: Compact<u64>,           // min pow difficulty
     max_difficulty: Compact<u64>,           // max pow difficulty
     min_burn: Compact<TaoCurrency>,         // min tao burn
     max_burn: Compact<TaoCurrency>,         // max tao burn
-    adjustment_alpha: Compact<u64>,         // adjustment speed for registration params.
+    adjustment_alpha: Compact<u64>,         // adjustment speed for registration params
     adjustment_interval: Compact<u16>,      // pow and burn adjustment interval
     target_regs_per_interval: Compact<u16>, // target registrations per interval
-    max_regs_per_block: Compact<u16>,       // max registrations per block.
+    max_regs_per_block: Compact<u16>,       // max registrations per block
     serving_rate_limit: Compact<u64>,       // axon serving rate limit
 
     // CR
-    commit_reveal_weights_enabled: bool, // Is CR enabled.
+    commit_reveal_weights_enabled: bool, // Is CR enabled
     commit_reveal_period: Compact<u64>,  // Commit reveal interval
 
     // Bonds
-    liquid_alpha_enabled: bool,     // Bonds liquid enabled.
+    liquid_alpha_enabled: bool,     // Bonds liquid enabled
     alpha_high: Compact<u16>,       // Alpha param high
     alpha_low: Compact<u16>,        // Alpha param low
     bonds_moving_avg: Compact<u64>, // Bonds moving avg
@@ -88,7 +88,7 @@ pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     hotkeys: Vec<AccountId>,                    // hotkey per UID
     coldkeys: Vec<AccountId>,                   // coldkey per UID
     identities: Vec<Option<ChainIdentityOfV2>>, // coldkeys identities
-    axons: Vec<AxonInfo>,                       // UID axons.
+    axons: Vec<AxonInfo>,                       // UID axons
     active: Vec<bool>,                          // Avtive per UID
     validator_permit: Vec<bool>,                // Val permit per UID
     pruning_score: Vec<Compact<u16>>,           // Pruning per UID
@@ -118,18 +118,18 @@ pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode + Clone> {
     // Name and symbol
     name: Option<Vec<Compact<u8>>>,              // name
     symbol: Option<Vec<Compact<u8>>>,            // token symbol
-    identity: Option<Option<SubnetIdentityV3>>,  // identity information.
+    identity: Option<Option<SubnetIdentityV3>>,  // identity information
     network_registered_at: Option<Compact<u64>>, // block at registration
 
     // Keys for owner.
     owner_hotkey: Option<AccountId>,  // hotkey
-    owner_coldkey: Option<AccountId>, // coldkey.
+    owner_coldkey: Option<AccountId>, // coldkey
 
-    // Tempo terms.
-    block: Option<Compact<u64>>,                  // block at call.
+    // Tempo terms
+    block: Option<Compact<u64>>,                  // block at call
     tempo: Option<Compact<u16>>,                  // epoch tempo
     last_step: Option<Compact<u64>>,              // last epoch
-    blocks_since_last_step: Option<Compact<u64>>, // blocks since last epoch.
+    blocks_since_last_step: Option<Compact<u64>>, // blocks since last epoch
 
     // Subnet emission terms
     subnet_emission: Option<Compact<u64>>, // subnet emission via stao
@@ -152,36 +152,36 @@ pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode + Clone> {
     min_allowed_weights: Option<Compact<u16>>, // min allowed weights per val
     max_weights_limit: Option<Compact<u16>>,   // max allowed weights per val
     weights_version: Option<Compact<u64>>,     // allowed weights version
-    weights_rate_limit: Option<Compact<u64>>,  // rate limit on weights.
+    weights_rate_limit: Option<Compact<u64>>,  // rate limit on weights
     activity_cutoff: Option<Compact<u16>>,     // validator weights cut off period in blocks
-    max_validators: Option<Compact<u16>>,      // max allowed validators.
+    max_validators: Option<Compact<u16>>,      // max allowed validators
 
     // Registration
     num_uids: Option<Compact<u16>>,
     max_uids: Option<Compact<u16>>,
-    burn: Option<Compact<TaoCurrency>>,     // current burn cost..
-    difficulty: Option<Compact<u64>>,       // current difficulty.
-    registration_allowed: Option<bool>,     // allows registrations.
-    pow_registration_allowed: Option<bool>, // pow registration enabled.
-    immunity_period: Option<Compact<u16>>,  // subnet miner immunity period
-    min_difficulty: Option<Compact<u64>>,   // min pow difficulty
-    max_difficulty: Option<Compact<u64>>,   // max pow difficulty
-    min_burn: Option<Compact<TaoCurrency>>, // min tao burn
-    max_burn: Option<Compact<TaoCurrency>>, // max tao burn
-    adjustment_alpha: Option<Compact<u64>>, // adjustment speed for registration params.
+    burn: Option<Compact<TaoCurrency>>,        // current burn cost
+    difficulty: Option<Compact<u64>>,          // current difficulty
+    registration_allowed: Option<bool>,        // allows registrations
+    pow_registration_allowed: Option<bool>,    // pow registration enabled
+    immunity_period: Option<Compact<u16>>,     // subnet miner immunity period
+    min_difficulty: Option<Compact<u64>>,      // min pow difficulty
+    max_difficulty: Option<Compact<u64>>,      // max pow difficulty
+    min_burn: Option<Compact<TaoCurrency>>,    // min tao burn
+    max_burn: Option<Compact<TaoCurrency>>,    // max tao burn
+    adjustment_alpha: Option<Compact<u64>>,    // adjustment speed for registration params
     adjustment_interval: Option<Compact<u16>>, // pow and burn adjustment interval
     target_regs_per_interval: Option<Compact<u16>>, // target registrations per interval
-    max_regs_per_block: Option<Compact<u16>>, // max registrations per block.
-    serving_rate_limit: Option<Compact<u64>>, // axon serving rate limit
+    max_regs_per_block: Option<Compact<u16>>,  // max registrations per block
+    serving_rate_limit: Option<Compact<u64>>,  // axon serving rate limit
 
     // CR
-    commit_reveal_weights_enabled: Option<bool>, // Is CR enabled.
+    commit_reveal_weights_enabled: Option<bool>, // Is CR enabled
     commit_reveal_period: Option<Compact<u64>>,  // Commit reveal interval
 
     // Bonds
-    liquid_alpha_enabled: Option<bool>, // Bonds liquid enabled.
-    alpha_high: Option<Compact<u16>>,   // Alpha param high
-    alpha_low: Option<Compact<u16>>,    // Alpha param low
+    liquid_alpha_enabled: Option<bool>,     // Bonds liquid enabled
+    alpha_high: Option<Compact<u16>>,       // Alpha param high
+    alpha_low: Option<Compact<u16>>,        // Alpha param low
     bonds_moving_avg: Option<Compact<u64>>, // Bonds moving avg
 
     // Metagraph info.
@@ -205,8 +205,8 @@ pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode + Clone> {
     total_stake: Option<Vec<Compact<TaoCurrency>>>, // Total stake per UID
 
     // Dividend break down.
-    tao_dividends_per_hotkey: Option<Vec<(AccountId, Compact<TaoCurrency>)>>, // List of dividend payouts in tao via root.
-    alpha_dividends_per_hotkey: Option<Vec<(AccountId, Compact<AlphaCurrency>)>>, // List of dividend payout in alpha via subnet.
+    tao_dividends_per_hotkey: Option<Vec<(AccountId, Compact<TaoCurrency>)>>, // List of dividend payouts in tao via root
+    alpha_dividends_per_hotkey: Option<Vec<(AccountId, Compact<AlphaCurrency>)>>, // List of dividend payout in alpha via subnet
 
     // validators
     validators: Option<Vec<Compact<u16>>>, // List of validators
