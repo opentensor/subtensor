@@ -626,22 +626,10 @@ pub async fn build_full<CM: ConsensusMechanism>(
 ) -> Result<TaskManager, ServiceError> {
     match config.network.network_backend {
         sc_network::config::NetworkBackendType::Libp2p => {
-            new_full::<sc_network::NetworkWorker<_, _>, CM>(
-                config,
-                eth_config,
-                sealing,
-                custom_service_signal,
-            )
-            .await
+            new_full::<sc_network::NetworkWorker<_, _>, CM>(config, eth_config, sealing, custom_service_signal).await
         }
         sc_network::config::NetworkBackendType::Litep2p => {
-            new_full::<sc_network::Litep2pNetworkBackend, CM>(
-                config,
-                eth_config,
-                sealing,
-                custom_service_signal,
-            )
-            .await
+            new_full::<sc_network::Litep2pNetworkBackend, CM>(config, eth_config, sealing, custom_service_signal).await
         }
     }
 }
