@@ -232,7 +232,7 @@ impl<T: Config> SwapStep<T> {
         // Hold the fees
         Pallet::<T>::add_fees(self.netuid, self.order_type, self.fee);
         let delta_out = Pallet::<T>::convert_deltas(self.netuid, self.order_type, self.delta_in);
-        log::trace!("\tDelta Out        : {:?}", delta_out);
+        log::trace!("\tDelta Out        : {delta_out:?}");
 
         if self.action == SwapStepAction::Crossing {
             let mut tick = Ticks::<T>::get(self.netuid, self.edge_tick).unwrap_or_default();
@@ -465,12 +465,17 @@ impl<T: Config> Pallet<T> {
         limit_sqrt_price: SqrtPrice,
         drop_fees: bool,
     ) -> Result<SwapResult, Error<T>> {
-        ensure!(
-            T::SubnetInfo::tao_reserve(netuid.into()) >= T::MinimumReserve::get().get()
-                && u64::from(T::SubnetInfo::alpha_reserve(netuid.into()))
+        match order_type {
+            OrderType::Buy => ensure!(
+                u64::from(T::SubnetInfo::alpha_reserve(netuid.into()))
                     >= T::MinimumReserve::get().get(),
-            Error::<T>::ReservesTooLow
-        );
+                Error::<T>::ReservesTooLow
+            ),
+            OrderType::Sell => ensure!(
+                T::SubnetInfo::tao_reserve(netuid.into()) >= T::MinimumReserve::get().get(),
+                Error::<T>::ReservesTooLow
+            ),
+        }
 
         Self::maybe_initialize_v3(netuid)?;
 
@@ -493,11 +498,11 @@ impl<T: Config> Pallet<T> {
         let mut fee_acc: u64 = 0;
 
         log::trace!("======== Start Swap ========");
-        log::trace!("Amount Remaining: {}", amount_remaining);
+        log::trace!("Amount Remaining: {amount_remaining}");
 
         // Swap one tick at a time until we reach one of the stop conditions
         while amount_remaining > 0 {
-            log::trace!("\nIteration: {}", iteration_counter);
+            log::trace!("\nIteration: {iteration_counter}");
             log::trace!(
                 "\tCurrent Liquidity: {}",
                 CurrentLiquidity::<T>::get(netuid)
@@ -536,7 +541,7 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        log::trace!("\nAmount Paid Out: {}", amount_paid_out);
+        log::trace!("\nAmount Paid Out: {amount_paid_out}");
         log::trace!("======== End Swap ========");
 
         let (tao_reserve_delta, alpha_reserve_delta) = match order_type {

@@ -13,6 +13,7 @@ use pallet_evm::{
     AddressMapping, IsPrecompileResult, Precompile, PrecompileHandle, PrecompileResult,
     PrecompileSet,
 };
+use pallet_evm_precompile_bn128::{Bn128Add, Bn128Mul, Bn128Pairing};
 use pallet_evm_precompile_dispatch::Dispatch;
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;
@@ -29,6 +30,7 @@ use crate::balance_transfer::*;
 use crate::crowdloan::*;
 use crate::ed25519::*;
 use crate::extensions::*;
+use crate::leasing::*;
 use crate::metagraph::*;
 use crate::neuron::*;
 use crate::sr25519::*;
@@ -42,6 +44,7 @@ mod balance_transfer;
 mod crowdloan;
 mod ed25519;
 mod extensions;
+mod leasing;
 mod metagraph;
 mod neuron;
 mod sr25519;
@@ -104,7 +107,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 20] {
+    pub fn used_addresses() -> [H160; 24] {
         [
             hash(1),
             hash(2),
@@ -112,6 +115,9 @@ where
             hash(4),
             hash(5),
             hash(6),
+            hash(7),
+            hash(8),
+            hash(9),
             hash(1024),
             hash(1025),
             hash(Ed25519Verify::<R::AccountId>::INDEX),
@@ -126,6 +132,7 @@ where
             hash(UidLookupPrecompile::<R>::INDEX),
             hash(AlphaPrecompile::<R>::INDEX),
             hash(CrowdloanPrecompile::<R>::INDEX),
+            hash(LeasingPrecompile::<R>::INDEX),
         ]
     }
 }
@@ -163,6 +170,9 @@ where
             a if a == hash(4) => Some(Identity::execute(handle)),
             a if a == hash(5) => Some(Modexp::execute(handle)),
             a if a == hash(6) => Some(Dispatch::<R>::execute(handle)),
+            a if a == hash(7) => Some(Bn128Mul::execute(handle)),
+            a if a == hash(8) => Some(Bn128Pairing::execute(handle)),
+            a if a == hash(9) => Some(Bn128Add::execute(handle)),
             // Non-Frontier specific nor Ethereum precompiles :
             a if a == hash(1024) => Some(Sha3FIPS256::execute(handle)),
             a if a == hash(1025) => Some(ECRecoverPublicKey::execute(handle)),
@@ -205,6 +215,9 @@ where
             }
             a if a == hash(CrowdloanPrecompile::<R>::INDEX) => {
                 CrowdloanPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Crowdloan)
+            }
+            a if a == hash(LeasingPrecompile::<R>::INDEX) => {
+                LeasingPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Leasing)
             }
             _ => None,
         }

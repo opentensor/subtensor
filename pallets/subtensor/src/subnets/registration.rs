@@ -71,12 +71,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         // --- 1. Check that the caller has signed the transaction. (the coldkey of the pairing)
         let coldkey = ensure_signed(origin)?;
-        log::debug!(
-            "do_registration( coldkey:{:?} netuid:{:?} hotkey:{:?} )",
-            coldkey,
-            netuid,
-            hotkey
-        );
+        log::debug!("do_registration( coldkey:{coldkey:?} netuid:{netuid:?} hotkey:{hotkey:?} )");
 
         // --- 2. Ensure the passed network is valid.
         ensure!(
@@ -141,9 +136,13 @@ impl<T: Config> Pallet<T> {
             Self::remove_balance_from_coldkey_account(&coldkey, registration_cost)?;
 
         // Tokens are swapped and then burned.
-        let burned_alpha =
-            Self::swap_tao_for_alpha(netuid, actual_burn_amount, T::SwapInterface::max_price())?
-                .amount_paid_out;
+        let burned_alpha = Self::swap_tao_for_alpha(
+            netuid,
+            actual_burn_amount,
+            T::SwapInterface::max_price(),
+            false,
+        )?
+        .amount_paid_out;
         SubnetAlphaOut::<T>::mutate(netuid, |total| {
             *total = total.saturating_sub(burned_alpha.into())
         });
@@ -158,12 +157,7 @@ impl<T: Config> Pallet<T> {
         Self::increase_rao_recycled(netuid, Self::get_burn_as_u64(netuid));
 
         // --- 15. Deposit successful event.
-        log::debug!(
-            "NeuronRegistered( netuid:{:?} uid:{:?} hotkey:{:?}  ) ",
-            netuid,
-            neuron_uid,
-            hotkey
-        );
+        log::debug!("NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?}  ) ");
         Self::deposit_event(Event::NeuronRegistered(netuid, neuron_uid, hotkey));
 
         // --- 16. Ok and done.
@@ -229,11 +223,7 @@ impl<T: Config> Pallet<T> {
         // --- 1. Check that the caller has signed the transaction.
         let signing_origin = ensure_signed(origin)?;
         log::debug!(
-            "do_registration( origin:{:?} netuid:{:?} hotkey:{:?}, coldkey:{:?} )",
-            signing_origin,
-            netuid,
-            hotkey,
-            coldkey
+            "do_registration( origin:{signing_origin:?} netuid:{netuid:?} hotkey:{hotkey:?}, coldkey:{coldkey:?} )"
         );
 
         ensure!(
@@ -332,12 +322,7 @@ impl<T: Config> Pallet<T> {
         RegistrationsThisBlock::<T>::mutate(netuid, |val| val.saturating_inc());
 
         // --- 13. Deposit successful event.
-        log::debug!(
-            "NeuronRegistered( netuid:{:?} uid:{:?} hotkey:{:?}  ) ",
-            netuid,
-            neuron_uid,
-            hotkey
-        );
+        log::debug!("NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?}  ) ");
         Self::deposit_event(Event::NeuronRegistered(netuid, neuron_uid, hotkey));
 
         // --- 14. Ok and done.
@@ -355,7 +340,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 1. Check that the caller has signed the transaction.
         let coldkey = ensure_signed(origin)?;
-        log::debug!("do_faucet( coldkey:{:?} )", coldkey);
+        log::debug!("do_faucet( coldkey:{coldkey:?} )");
 
         // --- 2. Ensure the passed block number is valid, not in the future or too old.
         // Work must have been done within 3 blocks (stops long range attacks).
@@ -389,11 +374,7 @@ impl<T: Config> Pallet<T> {
         Self::add_balance_to_coldkey_account(&coldkey, balance_to_add);
 
         // --- 6. Deposit successful event.
-        log::debug!(
-            "Faucet( coldkey:{:?} amount:{:?} ) ",
-            coldkey,
-            balance_to_add
-        );
+        log::debug!("Faucet( coldkey:{coldkey:?} amount:{balance_to_add:?} ) ");
         Self::deposit_event(Event::Faucet(coldkey, balance_to_add));
 
         // --- 7. Ok and done.
@@ -492,13 +473,7 @@ impl<T: Config> Pallet<T> {
 
         log::trace!(
             target: LOG_TARGET,
-            "Difficulty: hash: {:?}, hash_bytes: {:?}, hash_as_num: {:?}, difficulty: {:?}, value: {:?} overflowed: {:?}",
-            hash,
-            bytes,
-            num_hash,
-            difficulty,
-            value,
-            overflowed
+            "Difficulty: hash: {hash:?}, hash_bytes: {bytes:?}, hash_as_num: {num_hash:?}, difficulty: {difficulty:?}, value: {value:?} overflowed: {overflowed:?}"
         );
         !overflowed
     }
@@ -515,10 +490,7 @@ impl<T: Config> Pallet<T> {
 
         log::trace!(
             target: LOG_TARGET,
-            "block_number: {:?}, vec_hash: {:?}, real_hash: {:?}",
-            block_number,
-            vec_hash,
-            real_hash
+            "block_number: {block_number:?}, vec_hash: {vec_hash:?}, real_hash: {real_hash:?}"
         );
 
         real_hash
@@ -574,15 +546,7 @@ impl<T: Config> Pallet<T> {
         let seal_hash: H256 = H256::from_slice(&keccak_256_seal_hash_vec);
 
         log::trace!(
-            "\n hotkey:{:?} \nblock_number: {:?}, \nnonce_u64: {:?}, \nblock_hash: {:?}, \nfull_bytes: {:?}, \nsha256_seal_hash_vec: {:?},  \nkeccak_256_seal_hash_vec: {:?}, \nseal_hash: {:?}",
-            hotkey,
-            block_number_u64,
-            nonce_u64,
-            block_hash_at_number,
-            full_bytes,
-            sha256_seal_hash_vec,
-            keccak_256_seal_hash_vec,
-            seal_hash
+            "\n hotkey:{hotkey:?} \nblock_number: {block_number_u64:?}, \nnonce_u64: {nonce_u64:?}, \nblock_hash: {block_hash_at_number:?}, \nfull_bytes: {full_bytes:?}, \nsha256_seal_hash_vec: {sha256_seal_hash_vec:?},  \nkeccak_256_seal_hash_vec: {keccak_256_seal_hash_vec:?}, \nseal_hash: {seal_hash:?}"
         );
 
         seal_hash

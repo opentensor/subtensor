@@ -358,7 +358,7 @@ fn can_execute_and_handle_valid_http_responses() {
         for endpoint in ENDPOINTS.iter() {
             state.expect_request(PendingRequest {
                 method: "GET".into(),
-                uri: format!("{}/{}/public/1000", endpoint, QUICKNET_CHAIN_HASH),
+                uri: format!("{endpoint}/{QUICKNET_CHAIN_HASH}/public/1000"),
                 response: Some(DRAND_PULSE.as_bytes().to_vec()),
                 sent: true,
                 ..Default::default()
@@ -368,7 +368,7 @@ fn can_execute_and_handle_valid_http_responses() {
         for endpoint in ENDPOINTS.iter() {
             state.expect_request(PendingRequest {
                 method: "GET".into(),
-                uri: format!("{}/{}/public/latest", endpoint, QUICKNET_CHAIN_HASH),
+                uri: format!("{endpoint}/{QUICKNET_CHAIN_HASH}/public/latest"),
                 response: Some(DRAND_PULSE.as_bytes().to_vec()),
                 sent: true,
                 ..Default::default()
@@ -424,7 +424,7 @@ fn test_all_endpoints_fail() {
         for endpoint in endpoints.iter() {
             state.expect_request(PendingRequest {
                 method: "GET".into(),
-                uri: format!("{}/{}/public/1000", endpoint, QUICKNET_CHAIN_HASH),
+                uri: format!("{endpoint}/{QUICKNET_CHAIN_HASH}/public/1000"),
                 response: Some(INVALID_JSON.as_bytes().to_vec()),
                 sent: true,
                 ..Default::default()
