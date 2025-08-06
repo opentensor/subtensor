@@ -405,7 +405,7 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the adjustment beta.
         #[pallet::call_index(12)]
-        #[pallet::weight(Weight::from_parts(19_240_000, 0)
+        #[pallet::weight(Weight::from_parts(14_850_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_max_weight_limit(
@@ -480,7 +480,7 @@ pub mod pallet {
         /// It is only callable by the root account.
         /// The extrinsic will call the Subtensor pallet to set the maximum allowed UIDs for a subnet.
         #[pallet::call_index(15)]
-        #[pallet::weight(Weight::from_parts(23_820_000, 0)
+        #[pallet::weight(Weight::from_parts(18_770_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_max_allowed_uids(
@@ -578,7 +578,7 @@ pub mod pallet {
         /// The extrinsic will call the Subtensor pallet to set the network registration allowed.
         #[pallet::call_index(19)]
         #[pallet::weight((
-			Weight::from_parts(8_696_000, 0)
+			Weight::from_parts(6_722_000, 0)
                 .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0))
 				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
@@ -1102,7 +1102,7 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the value.
         #[pallet::call_index(49)]
-        #[pallet::weight(Weight::from_parts(19_480_000, 0)
+        #[pallet::weight(Weight::from_parts(14_780_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_commit_reveal_weights_enabled(

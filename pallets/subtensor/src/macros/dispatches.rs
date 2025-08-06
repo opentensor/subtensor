@@ -280,7 +280,7 @@ mod dispatches {
         ///
         #[pallet::call_index(99)]
         #[pallet::weight((Weight::from_parts(73_750_000, 0)
-		.saturating_add(T::DbWeight::get().reads(6_u64))
+		.saturating_add(T::DbWeight::get().reads(7_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_crv3_weights(
             origin: T::RuntimeOrigin,
@@ -498,7 +498,7 @@ mod dispatches {
         /// 	- The delegate is setting a take which is not lower than the previous.
         ///
         #[pallet::call_index(65)]
-        #[pallet::weight((Weight::from_parts(37_380_000, 0)
+        #[pallet::weight((Weight::from_parts(29_320_000, 0)
 		.saturating_add(T::DbWeight::get().reads(3))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn decrease_take(
