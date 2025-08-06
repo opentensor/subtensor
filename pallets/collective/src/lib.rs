@@ -42,6 +42,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "128"]
 
+use codec::DecodeWithMemTracking;
 use frame_support::{
     dispatch::{DispatchResultWithPostInfo, GetDispatchInfo, Pays, PostDispatchInfo},
     ensure,
@@ -51,7 +52,6 @@ use frame_support::{
     },
     weights::Weight,
 };
-use codec::DecodeWithMemTracking;
 use scale_info::TypeInfo;
 use sp_io::storage;
 use sp_runtime::traits::Dispatchable;

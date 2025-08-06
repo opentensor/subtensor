@@ -1,3 +1,4 @@
+use futures::future::pending;
 use sc_client_api::AuxStore;
 use sc_client_api::BlockOf;
 use sc_client_api::UsageProvider;
@@ -9,7 +10,6 @@ use sc_consensus_aura::AuraVerifier;
 use sc_consensus_aura::CheckForEquivocation;
 use sc_consensus_aura::ImportQueueParams;
 use sc_consensus_babe::CompatibleDigestItem as _;
-use futures::future::pending;
 use sc_consensus_slots::InherentDataProviderExt;
 use sc_telemetry::TelemetryHandle;
 use sp_api::ApiExt;

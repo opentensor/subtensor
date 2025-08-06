@@ -465,7 +465,7 @@ fn test_do_set_empty_children_network_does_not_exist() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let netuid = NetUid::from(999); // Non-existent network
-                                        // Attempt to revoke child
+        // Attempt to revoke child
         assert_err!(
             SubtensorModule::do_schedule_children(
                 RuntimeOrigin::signed(coldkey),
@@ -1195,7 +1195,7 @@ fn test_do_revoke_children_multiple_network_does_not_exist() {
         let child1 = U256::from(3);
         let child2 = U256::from(4);
         let netuid = NetUid::from(999); // Non-existent network
-                                        // Attempt to revoke children
+        // Attempt to revoke children
         assert_err!(
             SubtensorModule::do_schedule_children(
                 RuntimeOrigin::signed(coldkey),
@@ -3285,7 +3285,7 @@ fn test_parent_child_chain_epoch() {
 
         // Verify emissions match expected from CHK arrangements
         let em_eps = I96F32::from_num(1e-4); // 4 decimal places
-                                             // A's pending emission:
+        // A's pending emission:
         assert!(
             ((I96F32::from_num(hotkey_emission[0].2) / total_emission) -
             I96F32::from_num(2_f64 / 3_f64 * 1_f64 / 2_f64)).abs() // 2/3 * 1/2 = 1/3; 50% -> B
@@ -3422,7 +3422,7 @@ fn test_dividend_distribution_with_children() {
 
         // Verify emissions match expected from CHK arrangements
         let em_eps: I96F32 = I96F32::from_num(1e-4); // 4 decimal places
-                                                     // A's pending emission:
+        // A's pending emission:
         assert!(
             ((I96F32::from_num(hotkey_emission[0].2) / total_emission) -
             I96F32::from_num(2_f64 / 3_f64 * 1_f64 / 2_f64)).abs() // 2/3 * 1/2 = 1/3; 50% -> B
@@ -3931,7 +3931,7 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
 
         // Verify emissions match expected from CHK arrangements
         let em_eps: I96F32 = I96F32::from_num(1e-4); // 4 decimal places
-                                                     // A's pending emission:
+        // A's pending emission:
         assert!(
             ((I96F32::from_num(hotkey_emission[0].2) / total_emission) -
             I96F32::from_num(3_f64 / 4_f64 * 1_f64 / 2_f64)).abs() // 3/4 * 1/2 = 3/8; 50% -> B
