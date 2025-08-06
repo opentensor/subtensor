@@ -2180,7 +2180,7 @@ mod dispatches {
         #[pallet::call_index(113)]
         #[pallet::weight((Weight::from_parts(99_000_000, 5127)
         .saturating_add(T::DbWeight::get().reads(14_u64))
-        .saturating_add(T::DbWeight::get().writes(12_u64)), DispatchClass::Normal, Pays::No))]
+        .saturating_add(T::DbWeight::get().writes(12_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn add_stake_aggregate(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -2194,7 +2194,7 @@ mod dispatches {
         #[pallet::call_index(114)]
         #[pallet::weight((Weight::from_parts(129_000_000, 10163)
         .saturating_add(T::DbWeight::get().reads(19_u64))
-        .saturating_add(T::DbWeight::get().writes(12_u64)), DispatchClass::Normal, Pays::No))]
+        .saturating_add(T::DbWeight::get().writes(12_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn remove_stake_aggregate(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -2208,7 +2208,7 @@ mod dispatches {
         #[pallet::call_index(115)]
         #[pallet::weight((Weight::from_parts(99_000_000, 5127)
         .saturating_add(T::DbWeight::get().reads(14_u64))
-        .saturating_add(T::DbWeight::get().writes(12_u64)), DispatchClass::Normal, Pays::No))]
+        .saturating_add(T::DbWeight::get().writes(12_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn add_stake_limit_aggregate(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -2231,7 +2231,7 @@ mod dispatches {
         #[pallet::call_index(116)]
         #[pallet::weight((Weight::from_parts(129_000_000, 10163)
         .saturating_add(T::DbWeight::get().reads(19_u64))
-        .saturating_add(T::DbWeight::get().writes(12_u64)), DispatchClass::Normal, Pays::No))]
+        .saturating_add(T::DbWeight::get().writes(12_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn remove_stake_limit_aggregate(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -2252,14 +2252,14 @@ mod dispatches {
 
         /// Unstake all subnets. The operation is postponed.
         #[pallet::call_index(117)]
-        #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::Yes))]
         pub fn unstake_all_aggregate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_unstake_all_aggregate(origin, hotkey)
         }
 
         /// Unstake all alpha from subnets. The operation is postponed.
         #[pallet::call_index(118)]
-        #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::Yes))]
         pub fn unstake_all_alpha_aggregate(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
