@@ -94,6 +94,9 @@ pallet-registry.workspace = true
 # Metadata commitment pallet
 pallet-commitments.workspace = true
 
+# For prod_or_fast macro
+runtime-common.workspace = true
+
 # NPoS
 frame-election-provider-support = { workspace = true }
 pallet-authority-discovery = { workspace = true }
@@ -156,9 +159,9 @@ substrate-wasm-builder = { workspace = true, optional = true }
 [features]
 default = ["std"]
 pow-faucet = ["pallet-subtensor/pow-faucet"]
-fast-blocks = [
-	"pallet-subtensor/fast-blocks",
-	"subtensor-runtime-common/fast-blocks",
+fast-runtime = [
+	"pallet-subtensor/fast-runtime",
+	"subtensor-runtime-common/fast-runtime",
 ]
 std = [
 	"frame-try-runtime?/std",
@@ -262,6 +265,7 @@ std = [
 	"pallet-subtensor-swap/std",
 	"pallet-subtensor-swap-runtime-api/std",
 	"subtensor-swap-interface/std",
+	"runtime-common/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -303,6 +307,7 @@ runtime-benchmarks = [
 	"pallet-drand/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-subtensor-swap/runtime-benchmarks",
+	"runtime-common/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
@@ -350,5 +355,6 @@ try-runtime = [
 	"pallet-evm-chain-id/try-runtime",
 	"pallet-drand/try-runtime",
 	"pallet-aura/try-runtime",
+	"runtime-common/try-runtime"
 ]
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]
