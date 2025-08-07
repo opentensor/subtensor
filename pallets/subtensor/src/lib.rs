@@ -766,6 +766,11 @@ pub mod pallet {
         false
     }
     #[pallet::type_value]
+    /// Default value for weight commit/reveal version.
+    pub fn DefaultCommitRevealWeightsVersion<T: Config>() -> u16 {
+        4
+    }
+    #[pallet::type_value]
     /// Senate requirements
     pub fn DefaultSenateRequiredStakePercentage<T: Config>() -> u64 {
         T::InitialSenateRequiredStakePercentage::get()
@@ -1746,6 +1751,11 @@ pub mod pallet {
     pub type AccumulatedLeaseDividends<T: Config> =
         StorageMap<_, Twox64Concat, LeaseId, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
 
+    #[pallet::storage]
+    /// --- ITEM ( CommitRevealWeightsVersion )
+    pub type CommitRevealWeightsVersion<T> =
+        StorageValue<_, u16, ValueQuery, DefaultCommitRevealWeightsVersion<T>>;
+
     /// ==================
     /// ==== Genesis =====
     /// ==================
@@ -1890,6 +1900,7 @@ pub enum CustomTransactionError {
     InvalidPort,
     BadRequest,
     ZeroMaxAmount,
+    InvalidRevealRound,
 }
 
 impl From<CustomTransactionError> for u8 {
@@ -1911,6 +1922,7 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::InvalidPort => 13,
             CustomTransactionError::BadRequest => 255,
             CustomTransactionError::ZeroMaxAmount => 14,
+            CustomTransactionError::InvalidRevealRound => 15,
         }
     }
 }
@@ -2101,8 +2113,35 @@ where
                     Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
-            Some(Call::commit_crv3_weights { netuid, .. }) => {
+            Some(Call::commit_crv3_weights {
+                netuid,
+                reveal_round,
+                ..
+            }) => {
                 if Self::check_weights_min_stake(who, *netuid) {
+                    if *reveal_round < pallet_drand::LastStoredRound::<T>::get() {
+                        return Err(CustomTransactionError::InvalidRevealRound.into());
+                    }
+                    let priority: u64 = Pallet::<T>::get_priority_set_weights(who, *netuid);
+                    let validity = ValidTransaction {
+                        priority,
+                        longevity: 1,
+                        ..Default::default()
+                    };
+                    Ok((validity, Some(who.clone()), origin))
+                } else {
+                    Err(CustomTransactionError::StakeAmountTooLow.into())
+                }
+            }
+            Some(Call::commit_timelocked_weights {
+                netuid,
+                reveal_round,
+                ..
+            }) => {
+                if Self::check_weights_min_stake(who, *netuid) {
+                    if *reveal_round < pallet_drand::LastStoredRound::<T>::get() {
+                        return Err(CustomTransactionError::InvalidRevealRound.into());
+                    }
                     let priority: u64 = Pallet::<T>::get_priority_set_weights(who, *netuid);
                     let validity = ValidTransaction {
                         priority,

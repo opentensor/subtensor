@@ -380,5 +380,10 @@ mod events {
             /// The symbol that has been updated.
             symbol: Vec<u8>,
         },
+
+        /// Commit Reveal Weights version has been updated.
+        ///
+        /// - **version**: The required version.
+        CommitRevealVersionSet(u16),
     }
 }
