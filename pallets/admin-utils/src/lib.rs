@@ -1658,7 +1658,13 @@ pub mod pallet {
 
         /// Sets the commit-reveal weights version for all subnets
         #[pallet::call_index(71)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((
+            Weight::from_parts(14_000_000, 0)
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1))
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1)),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
         pub fn sudo_set_commit_reveal_version(
             origin: OriginFor<T>,
             version: u16,
