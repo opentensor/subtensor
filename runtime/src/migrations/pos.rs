@@ -72,6 +72,12 @@ fn initialize_pallet_staking() {
     pallet_staking::MinValidatorBond::<Runtime>::put(10);
     pallet_staking::MaxValidatorsCount::<Runtime>::put(20);
     pallet_staking::MaxNominatorsCount::<Runtime>::put(100);
+    let era: sp_staking::EraIndex = 0;
+    pallet_staking::CurrentEra::<Runtime>::set(Some(era));
+    pallet_staking::ActiveEra::<Runtime>::set(Some(pallet_staking::ActiveEraInfo {
+        index: era,
+        start: None,
+    }));
 
     for &(ref account, _, balance, ref status) in &stakers {
         log::info!(
