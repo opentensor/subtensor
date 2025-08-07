@@ -1931,7 +1931,6 @@ fn test_sudo_set_yuma3_enabled() {
     });
 }
 
-
 #[test]
 fn test_sudo_set_commit_reveal_version() {
     new_test_ext().execute_with(|| {

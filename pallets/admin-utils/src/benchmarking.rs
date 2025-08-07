@@ -335,5 +335,16 @@ mod benchmarks {
 		_(RawOrigin::Root, 1u16.into()/*netuid*/, true/*enabled*/)/*set_commit_reveal_weights_enabled*/;
     }
 
+    #[benchmark]
+    fn sudo_set_commit_reveal_weights_version() {
+        pallet_subtensor::Pallet::<T>::init_new_network(
+            1u16.into(), /*netuid*/
+            1u16,        /*sudo_tempo*/
+        );
+
+        #[extrinsic_call]
+		_(RawOrigin::Root, 5u64/*version*/)/*sudo_set_commit_reveal_weights_version()*/;
+    }
+
     //impl_benchmark_test_suite!(AdminUtils, crate::mock::new_test_ext(), crate::mock::Test);
 }
