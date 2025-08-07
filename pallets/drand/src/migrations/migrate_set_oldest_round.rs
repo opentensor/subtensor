@@ -30,7 +30,7 @@ pub fn migrate_set_oldest_round<T: Config>() -> Weight {
 
     for r in Pulses::<T>::iter_keys() {
         reads = reads.saturating_add(1);
-        if min_round.map_or(true, |m| r < m) {
+        if min_round.is_none_or(|m| r < m) {
             min_round = Some(r);
         }
     }
