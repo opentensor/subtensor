@@ -41,6 +41,7 @@ pub(crate) fn pos_upgrade() -> Weight {
 }
 
 fn initialize_pallet_staking() {
+    const INITIAL_STAKE_AMOUNT: u64 = 10;
     let authorities = pallet_babe::Authorities::<Runtime>::get()
         .into_iter()
         .map(|a| AccountId32::new(a.0.into_inner().into()))
@@ -53,7 +54,7 @@ fn initialize_pallet_staking() {
             (
                 x.clone(),
                 x.clone(),
-                UNITS,
+                INITIAL_STAKE_AMOUNT,
                 pallet_staking::StakerStatus::<AccountId32>::Validator,
             )
         })
