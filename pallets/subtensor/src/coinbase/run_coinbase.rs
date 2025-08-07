@@ -19,8 +19,9 @@ macro_rules! tou64 {
     };
 }
 
-const SUBNET_EMISSION_PART: f32 = 0.98;
-const NODE_VALIDATOR_EMISSION_PART: f32 = 0.02;
+// TODO: Replace with a cleaner mechanism for adjusting node validator emission %.
+const SUBNET_EMISSION_PART: f32 = 1.0;
+const NODE_VALIDATOR_EMISSION_PART: f32 = 0.0;
 
 impl<T: Config> Pallet<T> {
     pub fn run_coinbase(total_block_emission: U96F32) {
