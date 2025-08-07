@@ -676,7 +676,7 @@ impl<T: Config> Pallet<T> {
         }
 
         let mut removed: u64 = 0;
-        while last_stored_round.saturating_sub(oldest) + 1 > MAX_KEPT_PULSES
+        while last_stored_round.saturating_sub(oldest).saturating_add(1) > MAX_KEPT_PULSES
             && removed < MAX_REMOVED_PULSES
         {
             Pulses::<T>::remove(oldest);
