@@ -290,16 +290,13 @@ codegen-units = 1
 default = []
 pow-faucet = []
 
-[patch."https://github.com/paritytech/polkadot-sdk.git"]
-sc-consensus-grandpa = { git = "https://github.com/opentensor/grandpa.git", rev = "67ff75e915bd44586b8f8443e457b5b101920da8" }
-
 [patch.crates-io]
 w3f-bls = { git = "https://github.com/opentensor/bls", branch = "fix-no-std" }
 
-# Patched with Diener (https://github.com/paritytech/diener):
+# Patch automatically generated with Diener <https://github.com/paritytech/diener>:
 # `diener patch --target https://github.com/paritytech/polkadot-sdk --point-to-git https://github.com/opentensor/polkadot-sdk.git --point-to-git-commit 901f89f44cfcbd9213c95cfd3cb74908511eac99 --crates-to-patch ../polkadot-sdk`
 #
-# Full diff of changes: <https://github.com/opentensor/polkadot-sdk/commit/901f89f44cfcbd9213c95cfd3cb74908511eac99>
+# Full diff of changes: <https://github.com/paritytech/polkadot-sdk/compare/polkadot-stable2503-6...opentensor:polkadot-sdk:polkadot-stable2503-6-otf-patches>
 [patch."https://github.com/paritytech/polkadot-sdk"]
 bridge-runtime-common = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "901f89f44cfcbd9213c95cfd3cb74908511eac99" }
 bp-header-chain = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "901f89f44cfcbd9213c95cfd3cb74908511eac99" }
