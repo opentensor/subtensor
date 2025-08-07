@@ -32,7 +32,9 @@ use frame_support::{
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
-use pallet_grandpa::{AuthorityId as GrandpaId, fg_primitives};
+use pallet_grandpa::{
+    AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList, fg_primitives,
+};
 use pallet_registry::CanRegisterIdentity;
 use pallet_subtensor::rpc_info::{
     delegate_info::DelegateInfo,
@@ -46,8 +48,6 @@ use pallet_subtensor::rpc_info::{
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_consensus_babe::BabeConfiguration;
-use sp_consensus_babe::BabeEpochConfiguration;
 use sp_core::{
     H160, H256, OpaqueMetadata, U256,
     crypto::{ByteArray, KeyTypeId},
@@ -57,8 +57,8 @@ use sp_runtime::generic::Era;
 use sp_runtime::{
     AccountId32, ApplyExtrinsicResult, ConsensusEngineId, generic, impl_opaque_keys,
     traits::{
-        AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, One,
-        PostDispatchInfoOf, UniqueSaturatedInto, Verify,
+        AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, NumberFor,
+        One, PostDispatchInfoOf, UniqueSaturatedInto, Verify,
     },
     transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
 };
@@ -218,7 +218,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 300,
+    spec_version: 299,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1899,7 +1899,7 @@ impl_runtime_apis! {
     }
 
     impl fg_primitives::GrandpaApi<Block> for Runtime {
-        fn grandpa_authorities() -> Vec<(GrandpaId, u64)> {
+        fn grandpa_authorities() -> GrandpaAuthorityList {
             Grandpa::grandpa_authorities()
         }
 
@@ -1908,23 +1908,18 @@ impl_runtime_apis! {
         }
 
         fn submit_report_equivocation_unsigned_extrinsic(
-            equivocation_proof: fg_primitives::EquivocationProof<
+            _equivocation_proof: fg_primitives::EquivocationProof<
                 <Block as BlockT>::Hash,
-                sp_runtime::traits::NumberFor<Block>,
+                NumberFor<Block>,
             >,
-            key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
+            _key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
         ) -> Option<()> {
-            let key_owner_proof = key_owner_proof.decode()?;
-
-            Grandpa::submit_unsigned_equivocation_report(
-                equivocation_proof,
-                key_owner_proof,
-            )
+            None
         }
 
         fn generate_key_ownership_proof(
             _set_id: fg_primitives::SetId,
-            _authority_id: fg_primitives::AuthorityId,
+            _authority_id: GrandpaId,
         ) -> Option<fg_primitives::OpaqueKeyOwnershipProof> {
             // NOTE: this is the only implementation possible since we've
             // defined our key owner proof type as a bottom type (i.e. a type
@@ -2415,60 +2410,6 @@ impl_runtime_apis! {
         }
     }
 
-    impl sp_consensus_babe::BabeApi<Block> for Runtime {
-        fn configuration() -> BabeConfiguration {
-            let config = BabeEpochConfiguration::default();
-            BabeConfiguration {
-                slot_duration: Default::default(),
-                epoch_length: Default::default(),
-                authorities: vec![],
-                randomness: Default::default(),
-                c: config.c,
-                allowed_slots: config.allowed_slots,
-
-            }
-        }
-
-        fn current_epoch_start() -> sp_consensus_babe::Slot {
-            Default::default()
-        }
-
-        fn current_epoch() -> sp_consensus_babe::Epoch {
-            sp_consensus_babe::Epoch {
-                epoch_index: Default::default(),
-                start_slot: Default::default(),
-                duration: Default::default(),
-                authorities: vec![],
-                randomness: Default::default(),
-                config: BabeEpochConfiguration::default(),
-            }
-        }
-
-        fn next_epoch() -> sp_consensus_babe::Epoch {
-            sp_consensus_babe::Epoch {
-                epoch_index: Default::default(),
-                start_slot: Default::default(),
-                duration: Default::default(),
-                authorities: vec![],
-                randomness: Default::default(),
-                config: BabeEpochConfiguration::default(),
-            }
-        }
-
-        fn generate_key_ownership_proof(
-            _slot: sp_consensus_babe::Slot,
-            _authority_id: sp_consensus_babe::AuthorityId,
-        ) -> Option<sp_consensus_babe::OpaqueKeyOwnershipProof> {
-            None
-        }
-
-        fn submit_report_equivocation_unsigned_extrinsic(
-            _equivocation_proof: sp_consensus_babe::EquivocationProof<<Block as BlockT>::Header>,
-            _key_owner_proof: sp_consensus_babe::OpaqueKeyOwnershipProof,
-        ) -> Option<()> {
-            None
-        }
-    }
 
     impl pallet_subtensor_swap_runtime_api::SwapRuntimeApi<Block> for Runtime {
         fn current_alpha_price(netuid: u16) -> u64 {
