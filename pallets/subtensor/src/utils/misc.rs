@@ -137,12 +137,12 @@ impl<T: Config> Pallet<T> {
         Active::<T>::insert(netuid, updated_active_vec);
     }
     pub fn set_pruning_score_for_uid(netuid: NetUid, uid: u16, pruning_score: u16) {
-        log::debug!("netuid = {:?}", netuid);
+        log::debug!("netuid = {netuid:?}");
         log::debug!(
             "SubnetworkN::<T>::get( netuid ) = {:?}",
             SubnetworkN::<T>::get(netuid)
         );
-        log::debug!("uid = {:?}", uid);
+        log::debug!("uid = {uid:?}");
         assert!(uid < SubnetworkN::<T>::get(netuid));
         PruningScores::<T>::mutate(netuid, |v| {
             if let Some(s) = v.get_mut(uid as usize) {
@@ -481,7 +481,13 @@ impl<T: Config> Pallet<T> {
         CommitRevealWeightsEnabled::<T>::set(netuid, enabled);
         Self::deposit_event(Event::CommitRevealEnabled(netuid, enabled));
     }
-
+    pub fn get_commit_reveal_weights_version() -> u16 {
+        CommitRevealWeightsVersion::<T>::get()
+    }
+    pub fn set_commit_reveal_weights_version(version: u16) {
+        CommitRevealWeightsVersion::<T>::set(version);
+        Self::deposit_event(Event::CommitRevealVersionSet(version));
+    }
     pub fn get_rho(netuid: NetUid) -> u16 {
         Rho::<T>::get(netuid)
     }

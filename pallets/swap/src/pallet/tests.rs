@@ -1715,7 +1715,7 @@ fn bbox(t: U64F64, a: U64F64, b: U64F64) -> U64F64 {
 fn print_current_price(netuid: NetUid) {
     let current_sqrt_price = Pallet::<Test>::current_price_sqrt(netuid).to_num::<f64>();
     let current_price = current_sqrt_price * current_sqrt_price;
-    log::trace!("Current price: {:.6}", current_price);
+    log::trace!("Current price: {current_price:.6}");
 }
 
 /// RUST_LOG=pallet_subtensor_swap=trace cargo test --package pallet-subtensor-swap --lib -- pallet::tests::test_wrapping_fees --exact --show-output --nocapture
@@ -1797,7 +1797,7 @@ fn test_wrapping_fees() {
 
         let fee_rate = FeeRate::<Test>::get(netuid) as f64 / u16::MAX as f64;
 
-        log::trace!("fee_rate: {:.6}", fee_rate);
+        log::trace!("fee_rate: {fee_rate:.6}");
         log::trace!("position.liquidity: {}", position.liquidity);
         log::trace!(
             "initial_box_price: {:.6}",
@@ -1819,7 +1819,7 @@ fn test_wrapping_fees() {
 
         let (fee_tao, fee_alpha) = position.collect_fees();
 
-        log::trace!("Collected fees: TAO: {}, ALPHA: {}", fee_tao, fee_alpha);
+        log::trace!("Collected fees: TAO: {fee_tao}, ALPHA: {fee_alpha}");
 
         assert_abs_diff_eq!(fee_tao, expected_fee_tao, epsilon = 1);
         assert_abs_diff_eq!(fee_alpha, expected_fee_alpha, epsilon = 1);

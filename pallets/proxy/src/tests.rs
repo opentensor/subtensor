@@ -23,13 +23,13 @@ use super::*;
 
 use crate as proxy;
 use alloc::{vec, vec::Vec};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
     assert_noop, assert_ok, derive_impl,
     traits::{ConstU32, ConstU64, Contains},
 };
 use sp_core::H256;
-use sp_runtime::{traits::BlakeTwo256, BuildStorage, DispatchError, RuntimeDebug};
+use sp_runtime::{BuildStorage, DispatchError, RuntimeDebug, traits::BlakeTwo256};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -72,6 +72,7 @@ impl pallet_utility::Config for Test {
     PartialOrd,
     Encode,
     Decode,
+    DecodeWithMemTracking,
     RuntimeDebug,
     MaxEncodedLen,
     scale_info::TypeInfo,
@@ -142,6 +143,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
         .expect("Expected to not panic");
     pallet_balances::GenesisConfig::<Test> {
         balances: vec![(1, 10), (2, 10), (3, 10), (4, 10), (5, 3)],
+        dev_accounts: None,
     }
     .assimilate_storage(&mut t)
     .expect("Expected to not panic");

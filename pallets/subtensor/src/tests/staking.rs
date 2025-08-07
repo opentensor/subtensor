@@ -1230,13 +1230,13 @@ fn test_remove_stake_from_hotkey_account_registered_in_various_networks() {
 
         let neuron_uid = match SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_id) {
             Ok(k) => k,
-            Err(e) => panic!("Error: {:?}", e),
+            Err(e) => panic!("Error: {e:?}"),
         };
 
         let neuron_uid_ex = match SubtensorModule::get_uid_for_net_and_hotkey(netuid_ex, &hotkey_id)
         {
             Ok(k) => k,
-            Err(e) => panic!("Error: {:?}", e),
+            Err(e) => panic!("Error: {e:?}"),
         };
 
         // Add some stake that can be removed
@@ -2151,10 +2151,10 @@ fn test_get_total_delegated_stake_after_unstaking() {
         let expected_delegated_stake = initial_stake - unstake_amount - existential_deposit - fee;
 
         // Debug prints
-        log::debug!("Initial stake: {}", initial_stake);
-        log::debug!("Unstake amount: {}", unstake_amount);
-        log::debug!("Existential deposit: {}", existential_deposit);
-        log::debug!("Expected delegated stake: {}", expected_delegated_stake);
+        log::debug!("Initial stake: {initial_stake}");
+        log::debug!("Unstake amount: {unstake_amount}");
+        log::debug!("Existential deposit: {existential_deposit}");
+        log::debug!("Expected delegated stake: {expected_delegated_stake}");
         log::debug!(
             "Actual delegated stake: {}",
             SubtensorModule::get_total_stake_for_coldkey(&delegate_coldkey)
@@ -2216,11 +2216,11 @@ fn test_get_total_delegated_stake_single_delegator() {
         ));
 
         // Debug prints
-        log::debug!("Delegate coldkey: {:?}", delegate_coldkey);
-        log::debug!("Delegate hotkey: {:?}", delegate_hotkey);
-        log::debug!("Delegator: {:?}", delegator);
-        log::debug!("Stake amount: {}", stake_amount);
-        log::debug!("Existential deposit: {}", existential_deposit);
+        log::debug!("Delegate coldkey: {delegate_coldkey:?}");
+        log::debug!("Delegate hotkey: {delegate_hotkey:?}");
+        log::debug!("Delegator: {delegator:?}");
+        log::debug!("Stake amount: {stake_amount}");
+        log::debug!("Existential deposit: {existential_deposit}");
         log::debug!(
             "Total stake for hotkey: {}",
             SubtensorModule::get_total_stake_for_hotkey(&delegate_hotkey)
@@ -2616,7 +2616,7 @@ fn test_remove_stake_fee_realistic_values() {
         // FIXME since fee is calculated by SwapInterface and the values here are after fees, the
         // actual_fee is 0. but it's left here to discuss in review
         let actual_fee = expected_tao - (balance_after - balance_before);
-        log::info!("Actual fee: {:?}", actual_fee);
+        log::info!("Actual fee: {actual_fee:?}");
 
         assert_abs_diff_eq!(actual_fee, expected_fee, epsilon = expected_fee / 1000);
     });

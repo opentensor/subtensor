@@ -27,10 +27,7 @@ use substrate_fixed::types::extra::U2;
 fn close(value: u64, target: u64, eps: u64) {
     assert!(
         (value as i64 - target as i64).abs() < eps as i64,
-        "Assertion failed: value = {}, target = {}, eps = {}",
-        value,
-        target,
-        eps
+        "Assertion failed: value = {value}, target = {target}, eps = {eps}"
     )
 }
 
@@ -1068,6 +1065,67 @@ fn test_migrate_crv3_commits_add_block() {
         assert_eq!(
             commit_block, expected_block,
             "commit_block should equal first block of epoch key"
+        );
+    });
+}
+
+#[test]
+fn test_migrate_disable_commit_reveal() {
+    const MIG_NAME: &[u8] = b"disable_commit_reveal_v1";
+    let netuids = [NetUid::from(1), NetUid::from(2), NetUid::from(42)];
+
+    // ---------------------------------------------------------------------
+    // 1. build initial state ─ all nets enabled
+    // ---------------------------------------------------------------------
+    new_test_ext(1).execute_with(|| {
+        for (i, netuid) in netuids.iter().enumerate() {
+            add_network(*netuid, 5u16 + i as u16, 0);
+            CommitRevealWeightsEnabled::<Test>::insert(*netuid, true);
+        }
+        assert!(
+            !HasMigrationRun::<Test>::get(MIG_NAME),
+            "migration flag should be unset before run"
+        );
+
+        // -----------------------------------------------------------------
+        // 2. run migration
+        // -----------------------------------------------------------------
+        let w = crate::migrations::migrate_disable_commit_reveal::migrate_disable_commit_reveal::<
+            Test,
+        >();
+
+        assert!(
+            HasMigrationRun::<Test>::get(MIG_NAME),
+            "migration flag not set"
+        );
+
+        // -----------------------------------------------------------------
+        // 3. verify every netuid is now disabled and only one value exists
+        // -----------------------------------------------------------------
+        for netuid in netuids {
+            assert!(
+                !CommitRevealWeightsEnabled::<Test>::get(netuid),
+                "commit-reveal should be disabled for netuid {netuid}"
+            );
+        }
+
+        // There should be no stray keys
+        let collected: Vec<_> = CommitRevealWeightsEnabled::<Test>::iter().collect();
+        assert_eq!(collected.len(), netuids.len(), "unexpected key count");
+        for (k, v) in collected {
+            assert!(!v, "found an enabled flag after migration for netuid {k}");
+        }
+
+        // -----------------------------------------------------------------
+        // 4. running again should be a no-op
+        // -----------------------------------------------------------------
+        let w2 = crate::migrations::migrate_disable_commit_reveal::migrate_disable_commit_reveal::<
+            Test,
+        >();
+        assert_eq!(
+            w2,
+            <Test as Config>::DbWeight::get().reads(1),
+            "second run should read the flag and do nothing else"
         );
     });
 }
