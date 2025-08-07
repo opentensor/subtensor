@@ -96,7 +96,6 @@ pub fn new_partial(
         )?;
 
     // Prepare keystore for authoring Babe blocks.
-    log::trace!("Populating BABE key types...");
     keystore_container
         .local_keystore()
         .copy_keys(key_types::AURA, key_types::BABE)?;
