@@ -41,20 +41,18 @@ pub(crate) fn pos_upgrade() -> Weight {
 }
 
 fn initialize_pallet_staking() {
-    const INITIAL_STAKE_AMOUNT: u64 = 10;
     let authorities = pallet_babe::Authorities::<Runtime>::get()
         .into_iter()
         .map(|a| AccountId32::new(a.0.into_inner().into()))
         .collect::<Vec<_>>();
-    let minimum_validator_count = 1;
-    let _validator_count = authorities.len() as u32;
+    let validator_count = authorities.len() as u32;
     let stakers = authorities
         .iter()
         .map(|x| {
             (
                 x.clone(),
                 x.clone(),
-                INITIAL_STAKE_AMOUNT,
+                UNITS,
                 pallet_staking::StakerStatus::<AccountId32>::Validator,
             )
         })
@@ -63,8 +61,8 @@ fn initialize_pallet_staking() {
     let force_era = pallet_staking::Forcing::NotForcing;
     let slash_reward_fraction = Perbill::from_percent(10);
 
-    pallet_staking::ValidatorCount::<Runtime>::put(11);
-    pallet_staking::MinimumValidatorCount::<Runtime>::put(minimum_validator_count);
+    pallet_staking::ValidatorCount::<Runtime>::put(validator_count);
+    pallet_staking::MinimumValidatorCount::<Runtime>::put(5);
     pallet_staking::Invulnerables::<Runtime>::put(&invulnerables);
     pallet_staking::ForceEra::<Runtime>::put(force_era);
     pallet_staking::CanceledSlashPayout::<Runtime>::put(0);

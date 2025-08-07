@@ -637,6 +637,27 @@ impl pallet_staking::EraPayout<Balance> for EraPayout {
     }
 }
 
+/// Restrict accounts allowed to participate in staking to those in the `Invulnerables` storage.
+/// This creates a type of "permissioned" NPoS system, where Root controls who is allowed to
+/// participate by controlling `Invulnerables`.
+///
+/// This is a temporary filter slated to be removed in Phase 5 of the NPoS roadmap.
+/// See <https://github.com/opentensor/subtensor/issues/1887> for more info.
+pub struct StakingBlacklistFilter;
+impl Contains<AccountId32> for StakingBlacklistFilter {
+    fn contains(account_id: &AccountId32) -> bool {
+        let invulnerables = pallet_staking::Invulnerables::<Runtime>::get();
+        for a in invulnerables.iter() {
+            if account_id == a {
+                // Do NOT filter accounts in `Invulnerables` storage.
+                return false;
+            }
+        }
+        // Filter out everyone else.
+        true
+    }
+}
+
 impl pallet_staking::Config for Runtime {
     type OldCurrency = Balances;
     type Currency = Balances;
@@ -670,7 +691,7 @@ impl pallet_staking::Config for Runtime {
     // type EventListeners = NominationPools;
     type EventListeners = ();
     type WeightInfo = ();
-    type Filter = ();
+    type Filter = StakingBlacklistFilter;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
