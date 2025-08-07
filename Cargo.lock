@@ -13232,6 +13232,7 @@ dependencies = [
 name = "subtensor-transaction-fee"
 version = "0.1.0"
 dependencies = [
+ "frame-executive",
  "frame-support",
  "frame-system",
  "log",
@@ -13258,6 +13259,7 @@ dependencies = [
  "sp-weights",
  "substrate-fixed",
  "subtensor-runtime-common",
+ "subtensor-swap-interface",
 ]
 
 [[package]]

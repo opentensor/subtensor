@@ -5,7 +5,10 @@ use frame_support::{
     pallet_prelude::*,
     traits::{
         Imbalance, IsSubType, OnUnbalanced,
-        fungible::{Balanced, Credit, Debt, Inspect},
+        fungible::{
+            Balanced, Credit, Debt, DecreaseIssuance, Imbalance as FungibleImbalance,
+            IncreaseIssuance, Inspect,
+        },
         tokens::{Precision, WithdrawConsequence},
     },
     weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
@@ -21,11 +24,13 @@ use sp_runtime::{
 use pallet_subtensor::Call as SubtensorCall;
 use pallet_transaction_payment::Config as PTPConfig;
 use pallet_transaction_payment::OnChargeTransaction;
+use subtensor_swap_interface::SwapHandler;
 
 // Misc
 use core::marker::PhantomData;
 use smallvec::smallvec;
 use sp_std::vec::Vec;
+use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{Balance, NetUid};
 
 // Tests
@@ -55,14 +60,128 @@ impl WeightToFeePolynomial for LinearWeightToFee {
 pub trait AlphaFeeHandler<T: frame_system::Config> {
     fn can_withdraw_in_alpha(
         coldkey: &AccountIdOf<T>,
-        alpha_vec: &Vec<(AccountIdOf<T>, NetUid)>,
+        alpha_vec: &[(AccountIdOf<T>, NetUid)],
         tao_amount: u64,
     ) -> bool;
     fn withdraw_in_alpha(
         coldkey: &AccountIdOf<T>,
-        alpha_vec: &Vec<(AccountIdOf<T>, NetUid)>,
+        alpha_vec: &[(AccountIdOf<T>, NetUid)],
         tao_amount: u64,
     );
+}
+
+/// Deduct the transaction fee from the Subtensor Pallet TotalIssuance when charging the transaction
+/// fee.
+pub struct TransactionFeeHandler<T>(core::marker::PhantomData<T>);
+impl<T> Default for TransactionFeeHandler<T> {
+    fn default() -> Self {
+        Self(core::marker::PhantomData)
+    }
+}
+
+impl<T>
+    OnUnbalanced<
+        FungibleImbalance<
+            u64,
+            DecreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
+            IncreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
+        >,
+    > for TransactionFeeHandler<T>
+where
+    T: frame_system::Config,
+    T: pallet_subtensor::Config,
+    T: pallet_balances::Config<Balance = u64>,
+{
+    fn on_nonzero_unbalanced(
+        imbalance: FungibleImbalance<
+            u64,
+            DecreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
+            IncreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
+        >,
+    ) {
+        let ti_before = pallet_subtensor::TotalIssuance::<T>::get();
+        pallet_subtensor::TotalIssuance::<T>::put(ti_before.saturating_sub(imbalance.peek()));
+        drop(imbalance);
+    }
+}
+
+/// Handle Alpha fees
+impl<T> AlphaFeeHandler<T> for TransactionFeeHandler<T>
+where
+    T: frame_system::Config,
+    T: pallet_subtensor::Config,
+    T: pallet_subtensor_swap::Config,
+{
+    /// This function checks if tao_amount fee can be withdraw in Alpha currency
+    /// by converting Alpha to TAO at the current price and ignoring slippage.
+    ///
+    /// If this function returns true, the transaction will be included in the block
+    /// and Alpha will be withdraw from the account, no matter whether transaction
+    /// is successful or not.
+    ///
+    /// If this function returns true, but at the time of execution the Alpha price
+    /// changes and it becomes impossible to pay tx fee with the Alpha balance,
+    /// the transaction still executes and all Alpha is withdrawn from the account.    
+    fn can_withdraw_in_alpha(
+        coldkey: &AccountIdOf<T>,
+        alpha_vec: &[(AccountIdOf<T>, NetUid)],
+        tao_amount: u64,
+    ) -> bool {
+        if alpha_vec.is_empty() {
+            // Alpha vector is empty, nothing to withdraw
+            return false;
+        }
+
+        // Divide tao_amount among all alpha entries
+        let tao_per_entry = tao_amount.checked_div(alpha_vec.len() as u64).unwrap_or(0);
+
+        // The rule here is that we should be able to withdraw at least from one entry.
+        // This is not ideal because it may not pay all fees, but UX is the priority
+        // and this approach still provides spam protection.
+        alpha_vec.iter().any(|(hotkey, netuid)| {
+            let alpha_balance = U96F32::saturating_from_num(
+                pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    hotkey, coldkey, *netuid,
+                ),
+            );
+            let alpha_price = pallet_subtensor_swap::Pallet::<T>::current_alpha_price(*netuid);
+            alpha_price.saturating_mul(alpha_balance) >= tao_per_entry
+        })
+    }
+
+    fn withdraw_in_alpha(
+        coldkey: &AccountIdOf<T>,
+        alpha_vec: &[(AccountIdOf<T>, NetUid)],
+        tao_amount: u64,
+    ) {
+        if alpha_vec.is_empty() {
+            return;
+        }
+
+        let tao_per_entry = tao_amount.checked_div(alpha_vec.len() as u64).unwrap_or(0);
+
+        alpha_vec.iter().for_each(|(hotkey, netuid)| {
+            // Divide tao_amount evenly among all alpha entries
+            let alpha_balance = U96F32::saturating_from_num(
+                pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    hotkey, coldkey, *netuid,
+                ),
+            );
+            let alpha_price = pallet_subtensor_swap::Pallet::<T>::current_alpha_price(*netuid);
+            let alpha_fee = U96F32::saturating_from_num(tao_per_entry)
+                .checked_div(alpha_price)
+                .unwrap_or(alpha_balance)
+                .min(alpha_balance)
+                .saturating_to_num::<u64>();
+
+            pallet_subtensor::Pallet::<T>::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                hotkey,
+                coldkey,
+                *netuid,
+                alpha_fee.into(),
+            );
+        });
+    }
 }
 
 /// Enum that describes either a withdrawn amount of transaction fee in TAO or the
@@ -217,12 +336,12 @@ where
         Ok(())
     }
 
-    #[cfg(feature = "runtime-benchmarks")]
+    // #[cfg(feature = "runtime-benchmarks")]
     fn endow_account(who: &AccountIdOf<T>, amount: Self::Balance) {
         let _ = F::deposit(who, amount, Precision::BestEffort);
     }
 
-    #[cfg(feature = "runtime-benchmarks")]
+    // #[cfg(feature = "runtime-benchmarks")]
     fn minimum_balance() -> Self::Balance {
         F::minimum_balance()
     }

@@ -2,24 +2,36 @@
 
 use core::num::NonZeroU64;
 
+use crate::TransactionFeeHandler;
 use frame_support::{
     PalletId, assert_ok, derive_impl, parameter_types,
     traits::{Everything, Hooks, InherentBuilder, PrivilegeCmp},
+    weights::IdentityFee,
 };
-use frame_system::{self as system, offchain::CreateTransactionBase};
-use frame_system::{EnsureNever, EnsureRoot, limits};
+use frame_system::{
+    self as system, EnsureNever, EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase,
+};
+pub use pallet_subtensor::*;
 use sp_core::U256;
 use sp_core::{ConstU64, H256};
 use sp_runtime::{
     BuildStorage, KeyTypeId, Perbill,
     testing::TestXt,
-    traits::{BlakeTwo256, ConstU32, IdentityLookup},
+    traits::{BlakeTwo256, ConstU32, IdentityLookup, One},
 };
 use sp_std::cmp::Ordering;
 use sp_weights::Weight;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{AlphaCurrency, NetUid};
+use subtensor_swap_interface::{OrderType, SwapHandler};
 
-type Block = frame_system::mocking::MockBlock<Test>;
+use crate::SubtensorTxFeeHandler;
+use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
+
+pub type Block = sp_runtime::generic::Block<
+    sp_runtime::generic::Header<u64, sp_runtime::traits::BlakeTwo256>,
+    UncheckedExtrinsic,
+>;
+
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
     pub enum Test {
@@ -33,6 +45,7 @@ frame_support::construct_runtime!(
         Swap: pallet_subtensor_swap::{Pallet, Call, Storage, Event<T>} = 9,
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 10,
         Crowdloan: pallet_crowdloan::{Pallet, Call, Storage, Event<T>} = 11,
+        TransactionPayment: pallet_transaction_payment = 12,
     }
 );
 
@@ -44,9 +57,6 @@ pub type SubtensorEvent = pallet_subtensor::Event<Test>;
 
 #[allow(dead_code)]
 pub type BalanceCall = pallet_balances::Call<Test>;
-
-#[allow(dead_code)]
-pub type TestRuntimeCall = frame_system::Call<Test>;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -69,7 +79,63 @@ pub type Balance = u64;
 pub type BlockNumber = u64;
 
 pub type TestAuthId = test_crypto::TestAuthId;
-pub type UncheckedExtrinsic = TestXt<RuntimeCall, ()>;
+
+pub type TransactionExtensions = (
+    frame_system::CheckNonZeroSender<Test>,
+    frame_system::CheckWeight<Test>,
+    pallet_transaction_payment::ChargeTransactionPayment<Test>,
+);
+
+pub type UncheckedExtrinsic = TestXt<RuntimeCall, TransactionExtensions>;
+
+impl frame_support::traits::OnRuntimeUpgrade for Test {
+    fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        frame_support::weights::Weight::zero()
+    }
+}
+impl frame_support::traits::BeforeAllRuntimeMigrations for Test {
+    fn before_all_runtime_migrations() -> frame_support::weights::Weight {
+        frame_support::weights::Weight::zero()
+    }
+}
+impl frame_support::traits::OnInitialize<BlockNumber> for Test {
+    fn on_initialize(_n: BlockNumber) -> frame_support::weights::Weight {
+        frame_support::weights::Weight::zero()
+    }
+}
+impl frame_support::traits::OnFinalize<BlockNumber> for Test {
+    fn on_finalize(_n: BlockNumber) {}
+}
+impl frame_support::traits::OnIdle<BlockNumber> for Test {
+    fn on_idle(
+        _n: BlockNumber,
+        _remaining_weight: frame_support::weights::Weight,
+    ) -> frame_support::weights::Weight {
+        frame_support::weights::Weight::zero()
+    }
+}
+impl frame_support::traits::OnPoll<BlockNumber> for Test {
+    fn on_poll(_n: BlockNumber, _remaining_weight: &mut frame_support::weights::WeightMeter) {}
+}
+impl frame_support::traits::OffchainWorker<BlockNumber> for Test {
+    fn offchain_worker(_n: BlockNumber) {}
+}
+
+parameter_types! {
+    pub const OperationalFeeMultiplier: u8 = 5;
+    pub FeeMultiplier: Multiplier = Multiplier::one();
+}
+
+impl pallet_transaction_payment::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type OnChargeTransaction = SubtensorTxFeeHandler<Balances, TransactionFeeHandler<Test>>;
+    // Convert dispatch weight to a chargeable fee.
+    type WeightToFee = crate::LinearWeightToFee;
+    type OperationalFeeMultiplier = OperationalFeeMultiplier;
+    type LengthToFee = IdentityFee<Balance>;
+    type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
+    type WeightInfo = pallet_transaction_payment::weights::SubstrateWeight<Test>;
+}
 
 parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
@@ -153,7 +219,7 @@ impl pallet_subtensor::Config for Test {
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type InitialIssuance = InitialIssuance;
-    type SudoRuntimeCall = TestRuntimeCall;
+    type SudoRuntimeCall = RuntimeCall;
     type CouncilOrigin = EnsureNever<AccountId>;
     type SenateMembers = ();
     type TriumvirateInterface = ();
@@ -441,7 +507,13 @@ where
         _account: Self::AccountId,
         nonce: Self::Nonce,
     ) -> Option<Self::Extrinsic> {
-        Some(UncheckedExtrinsic::new_signed(call, nonce, (), ()))
+        let extra: TransactionExtensions = (
+            frame_system::CheckNonZeroSender::<Test>::new(),
+            frame_system::CheckWeight::<Test>::new(),
+            pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0),
+        );
+
+        Some(UncheckedExtrinsic::new_signed(call, nonce, (), extra))
     }
 }
 
@@ -501,8 +573,132 @@ pub fn register_ok_neuron(
 }
 
 #[allow(dead_code)]
-pub fn add_network(netuid: NetUid, tempo: u16) {
-    SubtensorModule::init_new_network(netuid, tempo);
-    SubtensorModule::set_network_registration_allowed(netuid, true);
-    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
+    let netuid = SubtensorModule::get_next_netuid();
+    let lock_cost = SubtensorModule::get_network_lock_cost();
+    SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost);
+
+    assert_ok!(SubtensorModule::register_network(
+        RawOrigin::Signed(*coldkey).into(),
+        *hotkey
+    ));
+    NetworkRegistrationAllowed::<Test>::insert(netuid, true);
+    NetworkPowRegistrationAllowed::<Test>::insert(netuid, true);
+    FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
+    SubtokenEnabled::<Test>::insert(netuid, true);
+    netuid
+}
+
+pub(crate) fn setup_reserves(netuid: NetUid, tao: u64, alpha: AlphaCurrency) {
+    SubnetTAO::<Test>::set(netuid, tao);
+    SubnetAlphaIn::<Test>::set(netuid, alpha);
+}
+
+pub(crate) fn swap_alpha_to_tao_ext(
+    netuid: NetUid,
+    alpha: AlphaCurrency,
+    drop_fees: bool,
+) -> (u64, u64) {
+    if netuid.is_root() {
+        return (alpha.into(), 0);
+    }
+
+    let result = <Test as pallet::Config>::SwapInterface::swap(
+        netuid.into(),
+        OrderType::Sell,
+        alpha.into(),
+        <Test as pallet::Config>::SwapInterface::min_price(),
+        drop_fees,
+        true,
+    );
+
+    assert_ok!(&result);
+
+    let result = result.unwrap();
+
+    // we don't want to have silent 0 comparissons in tests
+    assert!(result.amount_paid_out > 0);
+
+    (result.amount_paid_out, result.fee_paid)
+}
+
+pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: AlphaCurrency) -> (u64, u64) {
+    swap_alpha_to_tao_ext(netuid, alpha, false)
+}
+
+#[allow(dead_code)]
+pub struct TestSubnet {
+    pub netuid: NetUid,
+    pub ck_owner: U256,
+    pub hk_owner: U256,
+    pub ck_neurons: Vec<U256>,
+    pub hk_neurons: Vec<U256>,
+}
+
+#[allow(dead_code)]
+pub fn setup_subnets(sncount: u16, neurons: u16) -> Vec<TestSubnet> {
+    let mut subnets: Vec<TestSubnet> = Vec::new();
+    let owner_ck_start_id = 100;
+    let owner_hk_start_id = 200;
+    let neuron_ck_start_id = 10000;
+    let neuron_hk_start_id = 20000;
+    let amount = 1_000_000_000_000;
+
+    for sn in 0..sncount {
+        let cko = U256::from(owner_ck_start_id + sn);
+        let hko = U256::from(owner_hk_start_id + sn);
+
+        // Create subnet
+        let mut subnet = TestSubnet {
+            netuid: add_dynamic_network(&cko, &hko),
+            ck_owner: cko,
+            hk_owner: hko,
+            ck_neurons: Vec::new(),
+            hk_neurons: Vec::new(),
+        };
+
+        // Set tempo to 10 blocks
+        Tempo::<Test>::insert(subnet.netuid, 10);
+
+        // Add neurons
+        for uid in 1..=neurons {
+            let coldkey = U256::from(neuron_ck_start_id + sn * 100 + uid);
+            let hotkey = U256::from(neuron_hk_start_id + sn * 100 + uid);
+            register_ok_neuron(subnet.netuid, hotkey, coldkey, 192213123);
+            subnet.ck_neurons.push(coldkey);
+            subnet.hk_neurons.push(hotkey);
+
+            // Give it some $$$ in the coldkey balance
+            SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount);
+        }
+
+        // Setup pool reserves
+        setup_reserves(subnet.netuid, amount, amount.into());
+
+        // Cause the v3 pool to initialize
+        SubtensorModule::swap_tao_for_alpha(subnet.netuid, 0, 1_000_000_000_000, false).unwrap();
+
+        subnets.push(subnet);
+    }
+
+    subnets
+}
+
+pub(crate) fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, netuid: NetUid) {
+    StakingOperationRateLimiter::<Test>::remove((hotkey, coldkey, netuid));
+}
+
+#[allow(dead_code)]
+pub fn setup_stake(sn: &TestSubnet, amount: u64) {
+    for i in 0..sn.ck_neurons.len() {
+        // Stake to hotkey account, and check if the result is ok
+        remove_stake_rate_limit_for_tests(&sn.hk_neurons[i], &sn.ck_neurons[i], sn.netuid);
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(sn.ck_neurons[i]),
+            sn.hk_neurons[i],
+            sn.netuid,
+            amount
+        ));
+        remove_stake_rate_limit_for_tests(&sn.hk_neurons[i], &sn.ck_neurons[i], sn.netuid);
+    }
 }

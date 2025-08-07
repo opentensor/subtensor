@@ -656,7 +656,7 @@ fn test_remove_stake_no_enough_stake() {
                 netuid,
                 amount.into(),
             ),
-            Error::<Test>::NotEnoughStakeToWithdraw
+            Error::<Test>::AmountTooLow
         );
     });
 }

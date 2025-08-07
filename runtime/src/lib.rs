@@ -16,19 +16,12 @@ mod migrations;
 extern crate alloc;
 
 use codec::{Compact, Decode, Encode};
-use frame_support::dispatch::DispatchResult;
-use frame_support::traits::{Imbalance, InsideBoth};
 use frame_support::{
     PalletId,
-    dispatch::DispatchResultWithPostInfo,
+    dispatch::{DispatchResult, DispatchResultWithPostInfo},
     genesis_builder_helper::{build_state, get_preset},
     pallet_prelude::Get,
-    traits::{
-        Contains, LinearStoragePrice, OnUnbalanced,
-        fungible::{
-            DecreaseIssuance, HoldConsideration, Imbalance as FungibleImbalance, IncreaseIssuance,
-        },
-    },
+    traits::{Contains, InsideBoth, LinearStoragePrice, fungible::HoldConsideration},
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
@@ -88,9 +81,7 @@ pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
-use substrate_fixed::types::U96F32;
-use subtensor_swap_interface::SwapHandler;
-use subtensor_transaction_fee::{AlphaFeeHandler, SubtensorTxFeeHandler};
+use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -453,105 +444,9 @@ parameter_types! {
     pub FeeMultiplier: Multiplier = Multiplier::one();
 }
 
-/// Deduct the transaction fee from the Subtensor Pallet TotalIssuance when charging the transaction
-/// fee.
-pub struct TransactionFeeHandler;
-impl
-    OnUnbalanced<
-        FungibleImbalance<
-            u64,
-            DecreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
-            IncreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
-        >,
-    > for TransactionFeeHandler
-{
-    /// Handles TAO fees
-    fn on_nonzero_unbalanced(
-        credit: FungibleImbalance<
-            u64,
-            DecreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
-            IncreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
-        >,
-    ) {
-        let ti_before = pallet_subtensor::TotalIssuance::<Runtime>::get();
-        pallet_subtensor::TotalIssuance::<Runtime>::put(ti_before.saturating_sub(credit.peek()));
-        drop(credit);
-    }
-}
-
-/// Handle Alpha fees
-impl AlphaFeeHandler<Runtime> for TransactionFeeHandler {
-    /// This function checks if tao_amount fee can be withdraw in Alpha currency
-    /// by converting Alpha to TAO at the current price and ignoring slippage.
-    ///
-    /// If this function returns true, the transaction will be included in the block
-    /// and Alpha will be withdraw from the account, no matter whether transaction
-    /// is successful or not.
-    ///
-    /// If this function returns true, but at the time of execution the Alpha price
-    /// changes and it becomes impossible to pay tx fee with the Alpha balance,
-    /// the transaction still executes and all Alpha is withdrawn from the account.
-    fn can_withdraw_in_alpha(
-        coldkey: &AccountId32,
-        alpha_vec: &Vec<(AccountId32, NetUid)>,
-        tao_amount: u64,
-    ) -> bool {
-        if !alpha_vec.is_empty() {
-            // Divide tao_amount among all alpha entries
-            let tao_per_entry = tao_amount.checked_div(alpha_vec.len() as u64).unwrap_or(0);
-
-            // The rule here is that we should be able to withdraw at least from one entry.
-            // This is not ideal because it may not pay all fees, but UX is the priority
-            // and this approach still provides spam protection.
-            alpha_vec.iter().any(|(hotkey, netuid)| {
-                let alpha_balance = U96F32::saturating_from_num(
-                    pallet_subtensor::Pallet::<Runtime>::get_stake_for_hotkey_and_coldkey_on_subnet(
-                        hotkey, coldkey, *netuid,
-                    ),
-                );
-                let alpha_price =
-                    pallet_subtensor_swap::Pallet::<Runtime>::current_alpha_price(*netuid);
-                alpha_price.saturating_mul(alpha_balance) >= tao_per_entry
-            })
-        } else {
-            // Alpha vector is empty, nothing withdraw
-            false
-        }
-    }
-    fn withdraw_in_alpha(
-        coldkey: &AccountId32,
-        alpha_vec: &Vec<(AccountId32, NetUid)>,
-        tao_amount: u64,
-    ) {
-        if !alpha_vec.is_empty() {
-            // Divide tao_amount evenly among all alpha entries
-            let tao_per_entry = tao_amount.checked_div(alpha_vec.len() as u64).unwrap_or(0);
-            alpha_vec.iter().for_each(|(hotkey, netuid)| {
-                let alpha_balance = U96F32::saturating_from_num(
-                    pallet_subtensor::Pallet::<Runtime>::get_stake_for_hotkey_and_coldkey_on_subnet(
-                        hotkey, coldkey, *netuid,
-                    ),
-                );
-                let alpha_price = pallet_subtensor_swap::Pallet::<Runtime>::current_alpha_price(*netuid);
-                let alpha_fee = U96F32::saturating_from_num(tao_per_entry)
-                    .checked_div(alpha_price)
-                    .unwrap_or(alpha_balance)
-                    .min(alpha_balance)
-                    .saturating_to_num::<u64>();
-                pallet_subtensor::Pallet::<Runtime>::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-                    hotkey,
-                    coldkey,
-                    *netuid,
-                    alpha_fee.into(),
-                );
-            });
-        }
-    }
-}
-
 impl pallet_transaction_payment::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type OnChargeTransaction = SubtensorTxFeeHandler<Balances, TransactionFeeHandler>;
+    type OnChargeTransaction = SubtensorTxFeeHandler<Balances, TransactionFeeHandler<Runtime>>;
     // Convert dispatch weight to a chargeable fee.
     type WeightToFee = subtensor_transaction_fee::LinearWeightToFee;
     type OperationalFeeMultiplier = OperationalFeeMultiplier;
