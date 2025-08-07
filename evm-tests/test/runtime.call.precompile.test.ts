@@ -117,40 +117,18 @@ describe("Test the dispatch precompile", () => {
 
     // Polkadot api can't decode the boolean type for now.
     // it("Double map type storage query call via precompile contract works correctly", async () => {
-
-    //     const storageItemPrefixBytes = xxhashAsU8a("IsNetworkMember", 128);
-    //     const codec = await getTypedCodecs(devnet);
-    //     const isNetworkMemberArgsCodec = codec.query.SubtensorModule.IsNetworkMember.args;
-    //     const encodedArgs = isNetworkMemberArgsCodec.enc([convertPublicKeyToSs58(alice.publicKey), netuid]);
-
-    //     console.log(encodedArgs)
-
-    //     const fullStorageKeyBytes = new Uint8Array([...palletPrefixBytes, ...storageItemPrefixBytes, ...encodedArgs]);
-
-    //     console.log(fullStorageKeyBytes)
-
-    //     const fullStorageKeyHex = u8aToHex(fullStorageKeyBytes);
-
-    //     console.log(fullStorageKeyHex)
+    //     const key = await api.query.SubtensorModule.IsNetworkMember.getKey(convertPublicKeyToSs58(alice.publicKey), netuid);
 
     //     const isNetworkMemberOnChain = await api.query.SubtensorModule.IsNetworkMember.getValue(convertPublicKeyToSs58(alice.publicKey), netuid);
-
-    //     console.log(isNetworkMemberOnChain)
-
     //     const rawCallResponse = await publicClient.call({
     //         to: ISTORAGE_QUERY_ADDRESS,
-    //         data: fullStorageKeyHex,
+    //         data: key.toString() as `0x${string}`,
     //     })
 
-    //     console.log(rawCallResponse)
-
     //     const rawResultData = rawCallResponse.data ?? "";
-
+    //     const codec = await getTypedCodecs(devnet);
     //     const isNetworkMemberValueCodec = codec.query.SubtensorModule.IsNetworkMember.value;
     //     const decodedValue = isNetworkMemberValueCodec.dec(rawResultData);
-
-    //     console.log(decodedValue)
-
     //     assert.equal(isNetworkMemberOnChain, decodedValue, "value should be the same as on chain")
     // })
 
