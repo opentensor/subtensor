@@ -15,7 +15,7 @@
     "dotenv": "16.4.7",
     "ethers": "^6.13.5",
     "mocha": "^11.1.0",
-    "polkadot-api": "^1.9.5",
+    "polkadot-api": "^1.11.0",
     "scale-ts": "^1.6.1",
     "viem": "2.23.4",
     "ws": "^8.18.2"
