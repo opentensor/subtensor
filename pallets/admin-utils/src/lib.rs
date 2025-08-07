@@ -705,7 +705,7 @@ pub mod pallet {
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the difficulty.
         #[pallet::call_index(24)]
-        #[pallet::weight(Weight::from_parts(29_520_000, 0)
+        #[pallet::weight(Weight::from_parts(15_540_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_difficulty(
