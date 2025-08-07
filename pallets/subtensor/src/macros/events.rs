@@ -380,5 +380,224 @@ mod events {
             /// The symbol that has been updated.
             symbol: Vec<u8>,
         },
+
+        /// stake has been transferred from the coldkey account onto the hotkey staking account (at the end of the block)
+        AggregatedStakeAdded {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of hotkey
+            hotkey: T::AccountId,
+            /// The subnet ID
+            netuid: NetUid,
+            /// Stake
+            stake_to_be_added: u64,
+        },
+        /// adding aggregated stake has failed
+        FailedToAddAggregatedStake {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of hotkey
+            hotkey: T::AccountId,
+            /// The subnet ID
+            netuid: NetUid,
+            /// Stake
+            stake_to_be_added: u64,
+        },
+        /// limited stake has been transferred from the coldkey account onto the hotkey staking account (at the end of the block)
+        AggregatedLimitedStakeAdded {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of hotkey
+            hotkey: T::AccountId,
+            /// The subnet ID
+            netuid: NetUid,
+            /// stake
+            stake_to_be_added: u64,
+            /// price limit
+            limit_price: u64,
+            /// allow partial stake removal
+            allow_partial: bool,
+        },
+        /// adding limited aggregated stake has failed
+        FailedToAddAggregatedLimitedStake {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of hotkey
+            hotkey: T::AccountId,
+            /// The subnet ID
+            netuid: NetUid,
+            /// stake
+            stake_to_be_added: u64,
+            /// price limit
+            limit_price: u64,
+            /// allow partial stake removal
+            allow_partial: bool,
+        },
+        /// stake has been removed from the hotkey staking account into the coldkey account (at the end of the block).
+        AggregatedStakeRemoved {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of hotkey
+            hotkey: T::AccountId,
+            /// The subnet ID
+            netuid: NetUid,
+            /// alpha
+            alpha_unstaked: AlphaCurrency,
+        },
+        /// removing aggregated stake has failed
+        FailedToRemoveAggregatedStake {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of hotkey
+            hotkey: T::AccountId,
+            /// The subnet ID
+            netuid: NetUid,
+            /// alpha
+            alpha_unstaked: AlphaCurrency,
+        },
+        /// aggregated limited stake has been removed from the hotkey staking account into the coldkey account (at the end of the block).
+        AggregatedLimitedStakeRemoved {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of hotkey
+            hotkey: T::AccountId,
+            /// The subnet ID
+            netuid: NetUid,
+            /// alpha
+            alpha_unstaked: AlphaCurrency,
+            /// price limit
+            limit_price: u64,
+            /// allow partial stake removal
+            allow_partial: bool,
+        },
+        /// removing limited aggregated stake has failed
+        FailedToRemoveAggregatedLimitedStake {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of hotkey
+            hotkey: T::AccountId,
+            /// The subnet ID
+            netuid: NetUid,
+            /// alpha
+            alpha_unstaked: AlphaCurrency,
+            /// price limit
+            limit_price: u64,
+            /// allow partial stake removal
+            allow_partial: bool,
+        },
+        ///  aggregated unstake_all operation has succeeded
+        AggregatedUnstakeAllSucceeded {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of hotkey
+            hotkey: T::AccountId,
+        },
+        /// aggregated unstake_all operation has failed
+        AggregatedUnstakeAllFailed {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of hotkey
+            hotkey: T::AccountId,
+        },
+        ///  aggregated unstake_all_alpha operation has succeeded
+        AggregatedUnstakeAllAlphaSucceeded {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of hotkey
+            hotkey: T::AccountId,
+        },
+        /// aggregated unstake_all_alpha operation has failed
+        AggregatedUnstakeAllAlphaFailed {
+            /// the account ID of coldkey
+            coldkey: T::AccountId,
+            /// the account ID of hotkey
+            hotkey: T::AccountId,
+        },
+        /// Aggregated version of `move_stake` executed successfully
+        AggregatedStakeMoved {
+            /// Coldkey account
+            coldkey: T::AccountId,
+            /// Origin hotkey account
+            origin_hotkey: T::AccountId,
+            /// Destination hotkey account
+            destination_hotkey: T::AccountId,
+            /// Origin subnet UID
+            origin_netuid: NetUid,
+            /// Destination subnet UID
+            destination_netuid: NetUid,
+            /// Alpha
+            alpha_amount: AlphaCurrency,
+        },
+        /// Aggregated version of `move_stake` has failed
+        FailedToMoveAggregatedStake {
+            /// Coldkey account
+            coldkey: T::AccountId,
+            /// Origin hotkey account
+            origin_hotkey: T::AccountId,
+            /// Destination hotkey account
+            destination_hotkey: T::AccountId,
+            /// Origin subnet UID
+            origin_netuid: NetUid,
+            /// Destination subnet UID
+            destination_netuid: NetUid,
+            /// Alpha
+            alpha_amount: AlphaCurrency,
+        },
+        /// Aggregated version of `transfer_stake` executed successfully
+        AggregatedStakeTransferred {
+            /// Origin coldkey account
+            origin_coldkey: T::AccountId,
+            /// Destination coldkey account
+            destination_coldkey: T::AccountId,
+            /// Hotkey account
+            hotkey: T::AccountId,
+            /// Origin subnet UID
+            origin_netuid: NetUid,
+            /// Destination subnet UID
+            destination_netuid: NetUid,
+            /// Alpha
+            alpha_amount: AlphaCurrency,
+        },
+        /// Aggregated version of `transfer_stake` has failed
+        FailedToTransferAggregatedStake {
+            /// Origin coldkey account
+            origin_coldkey: T::AccountId,
+            /// Destination coldkey account
+            destination_coldkey: T::AccountId,
+            /// Hotkey account
+            hotkey: T::AccountId,
+            /// Origin subnet UID
+            origin_netuid: NetUid,
+            /// Destination subnet UID
+            destination_netuid: NetUid,
+            /// Alpha
+            alpha_amount: AlphaCurrency,
+        },
+        /// Aggregated version of `swap_stake` executed successfully
+        AggregatedStakeSwapped {
+            /// Coldkey account
+            coldkey: T::AccountId,
+            /// Hotkey account
+            hotkey: T::AccountId,
+            /// Origin subnet UID
+            origin_netuid: NetUid,
+            /// Destination subnet UID
+            destination_netuid: NetUid,
+            /// Alpha
+            alpha_amount: AlphaCurrency,
+        },
+        /// Aggregated version of `swap_stake` has failed
+        FailedToSwapAggregatedStake {
+            /// Coldkey account
+            coldkey: T::AccountId,
+            /// Hotkey account
+            hotkey: T::AccountId,
+            /// Origin subnet UID
+            origin_netuid: NetUid,
+            /// Destination subnet UID
+            destination_netuid: NetUid,
+            /// Alpha
+            alpha_amount: AlphaCurrency,
+        },
     }
 }

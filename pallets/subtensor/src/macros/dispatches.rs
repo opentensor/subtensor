@@ -2175,5 +2175,182 @@ mod dispatches {
             Self::deposit_event(Event::SymbolUpdated { netuid, symbol });
             Ok(())
         }
+
+        /// Add stake. The operation is postponed.
+        #[pallet::call_index(113)]
+        #[pallet::weight((Weight::from_parts(99_000_000, 5127)
+        .saturating_add(T::DbWeight::get().reads(14_u64))
+        .saturating_add(T::DbWeight::get().writes(12_u64)), DispatchClass::Normal, Pays::Yes))]
+        pub fn add_stake_aggregate(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            amount_staked: u64,
+        ) -> DispatchResult {
+            Self::do_add_stake_aggregate(origin, hotkey, netuid, amount_staked)
+        }
+
+        /// Remove stake. The operation is postponed.
+        #[pallet::call_index(114)]
+        #[pallet::weight((Weight::from_parts(129_000_000, 10163)
+        .saturating_add(T::DbWeight::get().reads(19_u64))
+        .saturating_add(T::DbWeight::get().writes(12_u64)), DispatchClass::Normal, Pays::Yes))]
+        pub fn remove_stake_aggregate(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            amount_unstaked: AlphaCurrency,
+        ) -> DispatchResult {
+            Self::do_remove_stake_aggregate(origin, hotkey, netuid, amount_unstaked)
+        }
+
+        /// Add stake with price limit. The operation is postponed.
+        #[pallet::call_index(115)]
+        #[pallet::weight((Weight::from_parts(99_000_000, 5127)
+        .saturating_add(T::DbWeight::get().reads(14_u64))
+        .saturating_add(T::DbWeight::get().writes(12_u64)), DispatchClass::Normal, Pays::Yes))]
+        pub fn add_stake_limit_aggregate(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            amount_staked: u64,
+            limit_price: u64,
+            allow_partial: bool,
+        ) -> DispatchResult {
+            Self::do_add_stake_limit_aggregate(
+                origin,
+                hotkey,
+                netuid,
+                amount_staked,
+                limit_price,
+                allow_partial,
+            )
+        }
+
+        /// Remove stake with price limit. The operation is postponed.
+        #[pallet::call_index(116)]
+        #[pallet::weight((Weight::from_parts(129_000_000, 10163)
+        .saturating_add(T::DbWeight::get().reads(19_u64))
+        .saturating_add(T::DbWeight::get().writes(12_u64)), DispatchClass::Normal, Pays::Yes))]
+        pub fn remove_stake_limit_aggregate(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            amount_unstaked: AlphaCurrency,
+            limit_price: u64,
+            allow_partial: bool,
+        ) -> DispatchResult {
+            Self::do_remove_stake_limit_aggregate(
+                origin,
+                hotkey,
+                netuid,
+                amount_unstaked,
+                limit_price,
+                allow_partial,
+            )
+        }
+
+        /// Unstake all subnets. The operation is postponed.
+        #[pallet::call_index(117)]
+        #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::Yes))]
+        pub fn unstake_all_aggregate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+            Self::do_unstake_all_aggregate(origin, hotkey)
+        }
+
+        /// Unstake all alpha from subnets. The operation is postponed.
+        #[pallet::call_index(118)]
+        #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::Yes))]
+        pub fn unstake_all_alpha_aggregate(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+        ) -> DispatchResult {
+            Self::do_unstake_all_alpha_aggregate(origin, hotkey)
+        }
+
+        /// Remove the full stake from the subnet with the price limit.
+        #[pallet::call_index(119)]
+        #[pallet::weight((Weight::from_parts(398_000_000, 10142)
+			.saturating_add(T::DbWeight::get().reads(30_u64))
+			.saturating_add(T::DbWeight::get().writes(14_u64)), DispatchClass::Normal, Pays::Yes))]
+        pub fn remove_stake_full_limit_aggregate(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            limit_price: Option<u64>,
+        ) -> DispatchResult {
+            Self::do_remove_stake_full_limit_aggregate(origin, hotkey, netuid, limit_price)
+        }
+
+        /// Move stake between subnets.
+        #[pallet::call_index(120)]
+        #[pallet::weight((Weight::from_parts(157_100_000, 0)
+        .saturating_add(T::DbWeight::get().reads(15_u64))
+        .saturating_add(T::DbWeight::get().writes(7_u64)), DispatchClass::Operational, Pays::Yes))]
+        pub fn move_stake_aggregate(
+            origin: T::RuntimeOrigin,
+            origin_hotkey: T::AccountId,
+            destination_hotkey: T::AccountId,
+            origin_netuid: NetUid,
+            destination_netuid: NetUid,
+            alpha_amount: AlphaCurrency,
+        ) -> DispatchResult {
+            Self::do_move_stake_aggregate(
+                origin,
+                origin_hotkey,
+                destination_hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            )
+        }
+
+        /// Transfers a specified amount of stake from one coldkey to another, optionally across subnets,
+        /// while keeping the same hotkey.
+        #[pallet::call_index(121)]
+        #[pallet::weight((Weight::from_parts(154_800_000, 0)
+        .saturating_add(T::DbWeight::get().reads(13_u64))
+        .saturating_add(T::DbWeight::get().writes(6_u64)), DispatchClass::Operational, Pays::Yes))]
+        pub fn transfer_stake_aggregate(
+            origin: T::RuntimeOrigin,
+            destination_coldkey: T::AccountId,
+            hotkey: T::AccountId,
+            origin_netuid: NetUid,
+            destination_netuid: NetUid,
+            alpha_amount: AlphaCurrency,
+        ) -> DispatchResult {
+            Self::do_transfer_stake_aggregate(
+                origin,
+                destination_coldkey,
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            )
+        }
+
+        /// Swaps a specified amount of stake from one subnet to another, while keeping the same coldkey and hotkey.
+        #[pallet::call_index(122)]
+        #[pallet::weight((
+            Weight::from_parts(351_300_000, 0)
+            .saturating_add(T::DbWeight::get().reads(32))
+            .saturating_add(T::DbWeight::get().writes(17)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn swap_stake_aggregate(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+            origin_netuid: NetUid,
+            destination_netuid: NetUid,
+            alpha_amount: AlphaCurrency,
+        ) -> DispatchResult {
+            Self::do_swap_stake_aggregate(
+                origin,
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            )
+        }
     }
 }

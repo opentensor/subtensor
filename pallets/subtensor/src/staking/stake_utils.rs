@@ -1,6 +1,11 @@
 use super::*;
+use frame_support::storage::transactional;
+use frame_support::traits::Randomness;
+use frame_system::pallet_prelude::BlockNumberFor;
 use safe_math::*;
 use share_pool::{SharePool, SharePoolDataOperations};
+use sp_core::blake2_128;
+use sp_runtime::TransactionOutcome;
 use sp_std::ops::Neg;
 use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid};
@@ -1240,6 +1245,478 @@ impl<T: Config> Pallet<T> {
         );
 
         Ok(())
+    }
+
+    // Process staking job for on_finalize() hook.
+    pub fn process_staking_jobs(_current_block_number: BlockNumberFor<T>) {
+        let stake_jobs = StakeJobs::<T>::drain().collect::<Vec<_>>();
+
+        // Sort jobs by job type
+        let mut add_stake = vec![];
+        let mut remove_stake = vec![];
+        let mut add_stake_limit = vec![];
+        let mut remove_stake_limit = vec![];
+        let mut unstake_all = vec![];
+        let mut unstake_all_aplha = vec![];
+        let mut move_stake = vec![];
+        let mut transfer_stake = vec![];
+        let mut swap_stake = vec![];
+
+        for (_, _, job) in stake_jobs.into_iter() {
+            match &job {
+                StakeJob::AddStake { .. } => add_stake.push(job),
+                StakeJob::RemoveStake { .. } => remove_stake.push(job),
+                StakeJob::AddStakeLimit { .. } => add_stake_limit.push(job),
+                StakeJob::RemoveStakeLimit { .. } => remove_stake_limit.push(job),
+                StakeJob::UnstakeAll { .. } => unstake_all.push(job),
+                StakeJob::UnstakeAllAlpha { .. } => unstake_all_aplha.push(job),
+                StakeJob::MoveStake { .. } => move_stake.push(job),
+                StakeJob::TransferStake { .. } => transfer_stake.push(job),
+                StakeJob::SwapStake { .. } => swap_stake.push(job),
+            }
+        }
+        // Reorder jobs based on the last drand pulse
+        let (randomness, _) = <pallet_drand::pallet::Pallet<T> as Randomness<
+            T::Hash,
+            BlockNumberFor<T>,
+        >>::random(b"staking_ops");
+        let random_hash = blake2_128(randomness.as_ref());
+        let first_byte = random_hash.as_ref().first().unwrap_or(&0);
+        // Extract the first bit
+        let altered_order = (*first_byte & 0b10000000) != 0;
+
+        // Ascending sort by coldkey
+        let compare_coldkeys = |a_key: &T::AccountId, b_key: &T::AccountId| {
+            let direct_order = a_key.cmp(b_key);
+            if altered_order {
+                direct_order.reverse()
+            } else {
+                direct_order
+            }
+        };
+
+        remove_stake_limit.sort_by(|a, b| compare_coldkeys(&a.coldkey(), &b.coldkey()));
+        remove_stake.sort_by(|a, b| compare_coldkeys(&a.coldkey(), &b.coldkey()));
+        unstake_all.sort_by(|a, b| compare_coldkeys(&a.coldkey(), &b.coldkey()));
+        unstake_all_aplha.sort_by(|a, b| compare_coldkeys(&a.coldkey(), &b.coldkey()));
+        add_stake_limit.sort_by(|a, b| compare_coldkeys(&a.coldkey(), &b.coldkey()));
+        add_stake.sort_by(|a, b| compare_coldkeys(&a.coldkey(), &b.coldkey()));
+        move_stake.sort_by(|a, b| compare_coldkeys(&a.coldkey(), &b.coldkey()));
+        transfer_stake.sort_by(|a, b| compare_coldkeys(&a.coldkey(), &b.coldkey()));
+        swap_stake.sort_by(|a, b| compare_coldkeys(&a.coldkey(), &b.coldkey()));
+
+        let job_batches = vec![
+            add_stake,
+            add_stake_limit,
+            remove_stake,
+            remove_stake_limit,
+            unstake_all,
+            unstake_all_aplha,
+            move_stake,
+            transfer_stake,
+            swap_stake,
+        ];
+
+        for jobs in job_batches.into_iter() {
+            for job in jobs.into_iter() {
+                let result = transactional::with_transaction(|| {
+                    let result = Self::run_single_staking_job(job.clone());
+                    match result {
+                        Ok(()) => TransactionOutcome::Commit(Ok(())),
+                        Err(err) => TransactionOutcome::Rollback(Err(err)),
+                    }
+                });
+
+                Self::handle_single_staking_job_result(job, result);
+            }
+        }
+    }
+
+    fn run_single_staking_job(job: StakeJob<T::AccountId>) -> DispatchResult {
+        match job {
+            StakeJob::RemoveStakeLimit {
+                hotkey,
+                coldkey,
+                netuid,
+                alpha_unstaked,
+                limit_price,
+                allow_partial,
+            } => Self::do_remove_stake_limit(
+                dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+                netuid,
+                alpha_unstaked,
+                limit_price,
+                allow_partial,
+            ),
+            StakeJob::RemoveStake {
+                coldkey,
+                hotkey,
+                netuid,
+                alpha_unstaked,
+            } => Self::do_remove_stake(
+                dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+                netuid,
+                alpha_unstaked,
+            ),
+            StakeJob::UnstakeAll { hotkey, coldkey } => Self::do_unstake_all(
+                dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+            ),
+            StakeJob::UnstakeAllAlpha { hotkey, coldkey } => Self::do_unstake_all_alpha(
+                dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+            ),
+            StakeJob::AddStakeLimit {
+                hotkey,
+                coldkey,
+                netuid,
+                stake_to_be_added,
+                limit_price,
+                allow_partial,
+            } => Self::do_add_stake_limit(
+                dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+                netuid,
+                stake_to_be_added,
+                limit_price,
+                allow_partial,
+            ),
+            StakeJob::AddStake {
+                hotkey,
+                coldkey,
+                netuid,
+                stake_to_be_added,
+            } => Self::do_add_stake(
+                dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+                netuid,
+                stake_to_be_added,
+            ),
+            StakeJob::MoveStake {
+                coldkey,
+                origin_hotkey,
+                destination_hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            } => Self::do_move_stake(
+                dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                origin_hotkey.clone(),
+                destination_hotkey.clone(),
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            ),
+            StakeJob::TransferStake {
+                origin_coldkey,
+                destination_coldkey,
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            } => Self::do_transfer_stake(
+                dispatch::RawOrigin::Signed(origin_coldkey.clone()).into(),
+                destination_coldkey.clone(),
+                hotkey.clone(),
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            ),
+            StakeJob::SwapStake {
+                coldkey,
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            } => Self::do_swap_stake(
+                dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            ),
+        }
+    } // returns event of the failed job
+    fn handle_single_staking_job_result(job: StakeJob<T::AccountId>, result: DispatchResult) {
+        match job {
+            StakeJob::RemoveStakeLimit {
+                hotkey,
+                coldkey,
+                netuid,
+                alpha_unstaked,
+                limit_price,
+                allow_partial,
+            } => {
+                if let Err(err) = &result {
+                    log::debug!(
+                        "Failed to remove aggregated limited stake: {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        alpha_unstaked,
+                        limit_price,
+                        allow_partial,
+                        err
+                    );
+                    Self::deposit_event(Event::FailedToRemoveAggregatedLimitedStake {
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        alpha_unstaked,
+                        limit_price,
+                        allow_partial,
+                    });
+                } else {
+                    Self::deposit_event(Event::AggregatedLimitedStakeRemoved {
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        alpha_unstaked,
+                        limit_price,
+                        allow_partial,
+                    });
+                }
+            }
+            StakeJob::RemoveStake {
+                coldkey,
+                hotkey,
+                netuid,
+                alpha_unstaked,
+            } => {
+                if let Err(err) = &result {
+                    log::debug!(
+                        "Failed to remove aggregated stake: {:?}, {:?}, {:?}, {:?}, {:?}",
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        alpha_unstaked,
+                        err
+                    );
+                    Self::deposit_event(Event::FailedToRemoveAggregatedStake {
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        alpha_unstaked,
+                    });
+                } else {
+                    Self::deposit_event(Event::AggregatedStakeRemoved {
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        alpha_unstaked,
+                    });
+                }
+            }
+            StakeJob::UnstakeAll { hotkey, coldkey } => {
+                if let Err(err) = &result {
+                    log::debug!(
+                        "Failed to unstake all: {:?}, {:?}, {:?}",
+                        coldkey,
+                        hotkey,
+                        err
+                    );
+                    Self::deposit_event(Event::AggregatedUnstakeAllFailed { coldkey, hotkey });
+                } else {
+                    Self::deposit_event(Event::AggregatedUnstakeAllSucceeded { coldkey, hotkey });
+                }
+            }
+            StakeJob::UnstakeAllAlpha { hotkey, coldkey } => {
+                if let Err(err) = &result {
+                    log::debug!(
+                        "Failed to unstake all alpha: {:?}, {:?}, {:?}",
+                        coldkey,
+                        hotkey,
+                        err
+                    );
+                    Self::deposit_event(Event::AggregatedUnstakeAllAlphaFailed { coldkey, hotkey });
+                } else {
+                    Self::deposit_event(Event::AggregatedUnstakeAllAlphaSucceeded {
+                        coldkey,
+                        hotkey,
+                    });
+                }
+            }
+            StakeJob::AddStakeLimit {
+                hotkey,
+                coldkey,
+                netuid,
+                stake_to_be_added,
+                limit_price,
+                allow_partial,
+            } => {
+                if let Err(err) = &result {
+                    log::debug!(
+                        "Failed to add aggregated limited stake: {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        stake_to_be_added,
+                        limit_price,
+                        allow_partial,
+                        err
+                    );
+                    Self::deposit_event(Event::FailedToAddAggregatedLimitedStake {
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        stake_to_be_added,
+                        limit_price,
+                        allow_partial,
+                    });
+                } else {
+                    Self::deposit_event(Event::AggregatedLimitedStakeAdded {
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        stake_to_be_added,
+                        limit_price,
+                        allow_partial,
+                    });
+                }
+            }
+            StakeJob::AddStake {
+                hotkey,
+                coldkey,
+                netuid,
+                stake_to_be_added,
+            } => {
+                if let Err(err) = result {
+                    log::debug!(
+                        "Failed to add aggregated stake: {:?}, {:?}, {:?}, {:?}, {:?}",
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        stake_to_be_added,
+                        err
+                    );
+                    Self::deposit_event(Event::FailedToAddAggregatedStake {
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        stake_to_be_added,
+                    });
+                } else {
+                    Self::deposit_event(Event::AggregatedStakeAdded {
+                        coldkey,
+                        hotkey,
+                        netuid,
+                        stake_to_be_added,
+                    });
+                }
+            }
+            StakeJob::MoveStake {
+                coldkey,
+                origin_hotkey,
+                destination_hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            } => {
+                if let Err(err) = &result {
+                    log::debug!(
+                        "Failed to move aggregated stake: {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
+                        coldkey,
+                        origin_hotkey,
+                        destination_hotkey,
+                        origin_netuid,
+                        destination_netuid,
+                        alpha_amount,
+                        err
+                    );
+                    Self::deposit_event(Event::FailedToMoveAggregatedStake {
+                        coldkey,
+                        origin_hotkey,
+                        destination_hotkey,
+                        origin_netuid,
+                        destination_netuid,
+                        alpha_amount,
+                    });
+                } else {
+                    Self::deposit_event(Event::AggregatedStakeMoved {
+                        coldkey,
+                        origin_hotkey,
+                        destination_hotkey,
+                        origin_netuid,
+                        destination_netuid,
+                        alpha_amount,
+                    });
+                }
+            }
+            StakeJob::TransferStake {
+                origin_coldkey,
+                destination_coldkey,
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            } => {
+                if let Err(err) = &result {
+                    log::debug!(
+                        "Failed to transfer aggregated stake: {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
+                        origin_coldkey,
+                        destination_coldkey,
+                        hotkey,
+                        origin_netuid,
+                        destination_netuid,
+                        alpha_amount,
+                        err
+                    );
+                    Self::deposit_event(Event::FailedToTransferAggregatedStake {
+                        origin_coldkey,
+                        destination_coldkey,
+                        hotkey,
+                        origin_netuid,
+                        destination_netuid,
+                        alpha_amount,
+                    });
+                } else {
+                    Self::deposit_event(Event::AggregatedStakeTransferred {
+                        origin_coldkey,
+                        destination_coldkey,
+                        hotkey,
+                        origin_netuid,
+                        destination_netuid,
+                        alpha_amount,
+                    });
+                }
+            }
+            StakeJob::SwapStake {
+                coldkey,
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            } => {
+                if let Err(err) = &result {
+                    log::debug!(
+                        "Failed to transfer aggregated stake: {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
+                        coldkey,
+                        hotkey,
+                        origin_netuid,
+                        destination_netuid,
+                        alpha_amount,
+                        err
+                    );
+                    Self::deposit_event(Event::FailedToSwapAggregatedStake {
+                        coldkey,
+                        hotkey,
+                        origin_netuid,
+                        destination_netuid,
+                        alpha_amount,
+                    });
+                } else {
+                    Self::deposit_event(Event::AggregatedStakeSwapped {
+                        coldkey,
+                        hotkey,
+                        origin_netuid,
+                        destination_netuid,
+                        alpha_amount,
+                    });
+                }
+            }
+        }
     }
 }
 

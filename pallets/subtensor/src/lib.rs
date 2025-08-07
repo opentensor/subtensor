@@ -304,6 +304,139 @@ pub mod pallet {
         pub additional: Vec<u8>,
     }
 
+    /// Data structure for stake related jobs.
+    #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    pub enum StakeJob<AccountId> {
+        /// Represents a job for "add_stake" operation
+        AddStake {
+            /// Hotkey account
+            hotkey: AccountId,
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Subnet ID
+            netuid: NetUid,
+            /// The amount of stake to be added to the hotkey staking account.
+            stake_to_be_added: u64,
+        },
+        /// Represents a job for "remove_stake" operation
+        RemoveStake {
+            /// Hotkey account
+            hotkey: AccountId,
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Subnet ID
+            netuid: NetUid,
+            /// Alpha value
+            alpha_unstaked: AlphaCurrency,
+        },
+        /// Represents a job for "add_stake_limit" operation
+        AddStakeLimit {
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Hotkey account
+            hotkey: AccountId,
+            /// Subnet ID
+            netuid: NetUid,
+            /// The amount of stake to be added to the hotkey staking account.
+            stake_to_be_added: u64,
+            /// The limit price expressed in units of RAO per one Alpha.
+            limit_price: u64,
+            /// Allows partial execution of the amount. If set to false, this becomes
+            /// fill or kill type or order.
+            allow_partial: bool,
+        },
+        /// Represents a job for "remove_stake_limit" operation
+        RemoveStakeLimit {
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Hotkey account
+            hotkey: AccountId,
+            /// Subnet ID
+            netuid: NetUid,
+            /// The amount of stake to be added to the hotkey staking account.
+            alpha_unstaked: AlphaCurrency,
+            /// The limit price
+            limit_price: u64,
+            /// Allows partial execution of the amount. If set to false, this becomes
+            /// fill or kill type or order.
+            allow_partial: bool,
+        },
+        /// Represents a job for "unstake_all" operation
+        UnstakeAll {
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Hotkey account
+            hotkey: AccountId,
+        },
+        /// Represents a job for "unstake_all_alpha" operation
+        UnstakeAllAlpha {
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Hotkey account
+            hotkey: AccountId,
+        },
+        /// Represents a job for "move_stake" operation
+        MoveStake {
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Origin hotkey account
+            origin_hotkey: AccountId,
+            /// Destination hotkey account
+            destination_hotkey: AccountId,
+            /// Origin subnet UID
+            origin_netuid: NetUid,
+            /// Destination subnet UID
+            destination_netuid: NetUid,
+            /// Alpha
+            alpha_amount: AlphaCurrency,
+        },
+        /// Represents a job for "transfer_stake" operation
+        TransferStake {
+            /// Origin coldkey account
+            origin_coldkey: AccountId,
+            /// Destinatino coldkey account
+            destination_coldkey: AccountId,
+            /// Hotkey account
+            hotkey: AccountId,
+            /// Origin subnet UID
+            origin_netuid: NetUid,
+            /// Destination subnet UID
+            destination_netuid: NetUid,
+            /// Alpha
+            alpha_amount: AlphaCurrency,
+        },
+        /// Represents a job for "swap_stake" operation
+        SwapStake {
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Hotkey account
+            hotkey: AccountId,
+            /// Origin subnet UID
+            origin_netuid: NetUid,
+            /// Destination subnet UID
+            destination_netuid: NetUid,
+            /// Alpha
+            alpha_amount: AlphaCurrency,
+        },
+    }
+
+    impl<AccountId: Clone> StakeJob<AccountId> {
+        /// Extracts coldkey from the stake job
+        pub fn coldkey(&self) -> AccountId {
+            match self {
+                StakeJob::AddStake { coldkey, .. } => coldkey.clone(),
+                StakeJob::RemoveStake { coldkey, .. } => coldkey.clone(),
+                StakeJob::AddStakeLimit { coldkey, .. } => coldkey.clone(),
+                StakeJob::RemoveStakeLimit { coldkey, .. } => coldkey.clone(),
+                StakeJob::UnstakeAll { coldkey, .. } => coldkey.clone(),
+                StakeJob::UnstakeAllAlpha { coldkey, .. } => coldkey.clone(),
+                StakeJob::MoveStake { coldkey, .. } => coldkey.clone(),
+                StakeJob::TransferStake { origin_coldkey, .. } => origin_coldkey.clone(),
+                StakeJob::SwapStake { coldkey, .. } => coldkey.clone(),
+            }
+        }
+    }
+
     /// ============================
     /// ==== Staking + Accounts ====
     /// ============================
@@ -894,6 +1027,17 @@ pub mod pallet {
         u64,
         ValueQuery,
         DefaultZeroU64<T>,
+    >;
+
+    #[pallet::storage]
+    pub type StakeJobs<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        BlockNumberFor<T>, // first key: current block number
+        Twox64Concat,
+        u64, // second key: unique job ID
+        StakeJob<T::AccountId>,
+        OptionQuery,
     >;
 
     #[pallet::storage]
