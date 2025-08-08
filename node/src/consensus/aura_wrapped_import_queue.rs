@@ -153,11 +153,13 @@ where
         log::debug!("Verifying block: {:?}", number);
         if is_babe_digest(block.header.digest()) {
             self.check_babe_block(block).await?;
-            log::debug!(
-                "Detected Babe block! Verifier cannot continue, upgrade must be triggered elsewhere..."
-            );
+            // It is critical to pause the verifier when we detect a Babe block while we wait for
+            // the node to switch to the Babe service. Otherwise if the node rejects the valid babe
+            // block, it is possible it will repeatedly request the block over and over and get
+            // blacklisted by other nodes.
+            log::debug!("Detected valid Babe block, deliberately stalling verifier.");
             pending::<()>().await;
-            unreachable!("Should not reach here, pending forever.");
+            unreachable!("Cannot reach here, pending forever.");
         } else {
             self.inner.verify(block).await
         }
