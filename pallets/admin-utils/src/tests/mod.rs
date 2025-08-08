@@ -1930,3 +1930,24 @@ fn test_sudo_set_yuma3_enabled() {
         assert_eq!(SubtensorModule::get_yuma3_enabled(netuid), !to_be_set);
     });
 }
+
+#[test]
+fn test_sudo_set_commit_reveal_version() {
+    new_test_ext().execute_with(|| {
+        add_network(NetUid::from(1), 10);
+
+        let to_be_set: u16 = 5;
+        let init_value: u16 = SubtensorModule::get_commit_reveal_weights_version();
+
+        assert_ok!(AdminUtils::sudo_set_commit_reveal_version(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            to_be_set
+        ));
+
+        assert!(init_value != to_be_set);
+        assert_eq!(
+            SubtensorModule::get_commit_reveal_weights_version(),
+            to_be_set
+        );
+    });
+}
