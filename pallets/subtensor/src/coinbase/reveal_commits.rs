@@ -142,10 +142,16 @@ impl<T: Config> Pallet<T> {
                             continue;
                         }
                         Err(e) => {
-                            log::warn!(
-                                "Failed to reveal commit for subnet {netuid} submitted by {who:?} due to error deserializing hotkey: {e:?}"
-                            );
-                            continue;
+                            let mut reader_legacy = &decrypted_bytes[..];
+                            match LegacyWeightsTlockPayload::decode(&mut reader_legacy) {
+                                Ok(legacy) => (legacy.uids, legacy.values, legacy.version_key),
+                                Err(_) => {
+                                    log::warn!(
+                                        "Failed to reveal commit for subnet {netuid} submitted by {who:?} due to error deserializing hotkey: {e:?}"
+                                    );
+                                    continue;
+                                }
+                            }
                         }
                     }
                 } else {
