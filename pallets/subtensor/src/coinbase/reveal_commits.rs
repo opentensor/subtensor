@@ -53,7 +53,7 @@ impl<T: Config> Pallet<T> {
 
         // No commits to reveal until at least epoch reveal_period.
         if cur_epoch < reveal_period {
-            log::warn!("Failed to reveal commit for subnet {netuid} Too early");
+            log::trace!("Failed to reveal commit for subnet {netuid} Too early");
             return Ok(());
         }
 
@@ -69,7 +69,7 @@ impl<T: Config> Pallet<T> {
                 Some(p) => p,
                 None => {
                     // Round number used was not found on the chain. Skip this commit.
-                    log::warn!(
+                    log::trace!(
                         "Failed to reveal commit for subnet {netuid} submitted by {who:?} on block {commit_block} due to missing round number {round_number}; will retry every block in reveal epoch."
                     );
                     unrevealed.push_back((
@@ -86,7 +86,7 @@ impl<T: Config> Pallet<T> {
             let commit = match TLECiphertext::<TinyBLS381>::deserialize_compressed(reader) {
                 Ok(c) => c,
                 Err(e) => {
-                    log::warn!(
+                    log::trace!(
                         "Failed to reveal commit for subnet {netuid} submitted by {who:?} due to error deserializing the commit: {e:?}"
                     );
                     continue;
@@ -104,7 +104,7 @@ impl<T: Config> Pallet<T> {
             ) {
                 Ok(s) => s,
                 Err(e) => {
-                    log::warn!(
+                    log::trace!(
                         "Failed to reveal commit for subnet {netuid} submitted by {who:?} due to error deserializing signature from drand pallet: {e:?}"
                     );
                     continue;
@@ -116,7 +116,7 @@ impl<T: Config> Pallet<T> {
             ) {
                 Ok(d) => d,
                 Err(e) => {
-                    log::warn!(
+                    log::trace!(
                         "Failed to reveal commit for subnet {netuid} submitted by {who:?} due to error decrypting the commit: {e:?}"
                     );
                     continue;
@@ -136,16 +136,22 @@ impl<T: Config> Pallet<T> {
                             (payload.uids, payload.values, payload.version_key)
                         }
                         Ok(_) => {
-                            log::warn!(
+                            log::trace!(
                                 "Failed to reveal commit for subnet {netuid} submitted by {who:?} due to hotkey mismatch in payload"
                             );
                             continue;
                         }
                         Err(e) => {
-                            log::warn!(
-                                "Failed to reveal commit for subnet {netuid} submitted by {who:?} due to error deserializing hotkey: {e:?}"
-                            );
-                            continue;
+                            let mut reader_legacy = &decrypted_bytes[..];
+                            match LegacyWeightsTlockPayload::decode(&mut reader_legacy) {
+                                Ok(legacy) => (legacy.uids, legacy.values, legacy.version_key),
+                                Err(_) => {
+                                    log::trace!(
+                                        "Failed to reveal commit for subnet {netuid} submitted by {who:?} due to error deserializing hotkey: {e:?}"
+                                    );
+                                    continue;
+                                }
+                            }
                         }
                     }
                 } else {
@@ -154,7 +160,7 @@ impl<T: Config> Pallet<T> {
                     match LegacyWeightsTlockPayload::decode(&mut reader_legacy) {
                         Ok(legacy) => (legacy.uids, legacy.values, legacy.version_key),
                         Err(e) => {
-                            log::warn!(
+                            log::trace!(
                                 "Failed to reveal commit for subnet {netuid} submitted by {who:?} due to error deserializing both payload formats: {e:?}"
                             );
                             continue;
@@ -173,7 +179,7 @@ impl<T: Config> Pallet<T> {
                 values,
                 version_key,
             ) {
-                log::warn!(
+                log::trace!(
                     "Failed to `do_set_weights` for subnet {netuid} submitted by {who:?}: {e:?}"
                 );
                 continue;

@@ -245,11 +245,12 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
+        /// Beacon Configuration has changed.
         BeaconConfigChanged,
         /// Successfully set a new pulse(s).
-        NewPulse {
-            rounds: Vec<RoundNumber>,
-        },
+        NewPulse { rounds: Vec<RoundNumber> },
+        /// Oldest Stored Round has been set.
+        SetOldestStoredRound(u64),
     }
 
     #[pallet::error]
@@ -277,10 +278,10 @@ pub mod pallet {
             }
         }
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            /* let weight = */
+            /*let weight = */
             frame_support::weights::Weight::from_parts(0, 0) /*;*/
 
-            //weight = weight.saturating_add(migrations::migrate_prune_old_pulses::<T>());
+            //weight = weight.saturating_add(migrations::migrate_set_oldest_round::<T>());
 
             //weight
         }
@@ -419,6 +420,18 @@ pub mod pallet {
             <NextUnsignedAt<T>>::put(current_block.saturating_add(One::one()));
 
             Self::deposit_event(Event::BeaconConfigChanged {});
+            Ok(())
+        }
+
+        /// allows the root user to set the oldest stored round
+        #[pallet::call_index(2)]
+        #[pallet::weight(Weight::from_parts(5_630_000, 0)
+        .saturating_add(T::DbWeight::get().reads(0_u64))
+        .saturating_add(T::DbWeight::get().writes(1_u64)))]
+        pub fn set_oldest_stored_round(origin: OriginFor<T>, oldest_round: u64) -> DispatchResult {
+            ensure_root(origin)?;
+            OldestStoredRound::<T>::put(oldest_round);
+            Self::deposit_event(Event::SetOldestStoredRound(oldest_round));
             Ok(())
         }
     }
@@ -676,7 +689,7 @@ impl<T: Config> Pallet<T> {
         }
 
         let mut removed: u64 = 0;
-        while last_stored_round.saturating_sub(oldest) + 1 > MAX_KEPT_PULSES
+        while last_stored_round.saturating_sub(oldest).saturating_add(1) > MAX_KEPT_PULSES
             && removed < MAX_REMOVED_PULSES
         {
             Pulses::<T>::remove(oldest);

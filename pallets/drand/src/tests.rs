@@ -17,7 +17,8 @@
 use crate::{
     BeaconConfig, BeaconConfigurationPayload, BeaconInfoResponse, Call, DrandResponseBody,
     ENDPOINTS, Error, HasMigrationRun, LastStoredRound, MAX_KEPT_PULSES, OldestStoredRound, Pulse,
-    Pulses, PulsesPayload, QUICKNET_CHAIN_HASH, migrations::migrate_prune_old_pulses, mock::*,
+    Pulses, PulsesPayload, QUICKNET_CHAIN_HASH, migrations::migrate_prune_old_pulses,
+    migrations::migrate_set_oldest_round, mock::*,
 };
 use codec::Encode;
 use frame_support::{
@@ -703,5 +704,42 @@ fn test_prune_maximum_of_100_pulses_per_call() {
             Pulses::<Test>::contains_key(last_round),
             "LastStoredRound should remain after pruning"
         );
+    });
+}
+
+#[test]
+fn test_migrate_set_oldest_round() {
+    new_test_ext().execute_with(|| {
+        let migration_name = BoundedVec::truncate_from(b"migrate_set_oldest_round".to_vec());
+        let db_weight: RuntimeDbWeight = <Test as frame_system::Config>::DbWeight::get();
+        let pulse = Pulse::default();
+
+        assert_eq!(Pulses::<Test>::iter().count(), 0);
+        assert!(!HasMigrationRun::<Test>::get(&migration_name));
+        assert_eq!(OldestStoredRound::<Test>::get(), 0);
+        assert_eq!(LastStoredRound::<Test>::get(), 0);
+
+        // Insert out-of-order rounds: oldest should be 5
+        for r in [10u64, 7, 5].into_iter() {
+            Pulses::<Test>::insert(r, pulse.clone());
+        }
+        let num_rounds = 3u64;
+
+        // Run migration
+        let weight = migrate_set_oldest_round::<Test>();
+
+        assert_eq!(OldestStoredRound::<Test>::get(), 5);
+        // Migration does NOT touch LastStoredRound
+        assert_eq!(LastStoredRound::<Test>::get(), 0);
+        // Pulses untouched
+        assert!(Pulses::<Test>::contains_key(5));
+        assert!(Pulses::<Test>::contains_key(7));
+        assert!(Pulses::<Test>::contains_key(10));
+        // Flag set
+        assert!(HasMigrationRun::<Test>::get(&migration_name));
+
+        // Weight: reads(1 + num_rounds) + writes(2) [Oldest + HasMigrationRun]
+        let expected = db_weight.reads(1 + num_rounds) + db_weight.writes(2);
+        assert_eq!(weight, expected);
     });
 }
