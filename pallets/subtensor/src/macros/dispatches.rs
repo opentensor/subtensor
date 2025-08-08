@@ -1935,10 +1935,7 @@ mod dispatches {
             DispatchClass::Operational,
             Pays::Yes
         ))]
-        pub fn try_associate_hotkey(
-            origin: OriginFor<T>,
-            hotkey: T::AccountId,
-        ) -> DispatchResult {
+        pub fn try_associate_hotkey(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
 
             let _ = Self::do_try_associate_hotkey(&coldkey, &hotkey);
@@ -2364,13 +2361,10 @@ mod dispatches {
             netuid: NetUid,
             amount_staked: u64,
         ) -> DispatchResult {
-            crate::ensure_evm_origin(<T as Config>::RuntimeOrigin::from(origin.clone()))?;
+            let account_id = crate::ensure_evm_origin(<T as Config>::RuntimeOrigin::from(origin))?;
+            let checked_evm_origin = RawOrigin::Signed(account_id);
 
-            //RuntimeOrigin::from(Origin::Evm) as <T as frame_system::Config>::RuntimeOrigin
-
-            let _ = Self::add_stake_evm(T::EvmOriginHelper::make_evm_origin(), hotkey.clone(), netuid, amount_staked);
-
-            Self::do_add_stake(origin, hotkey, netuid, amount_staked)
+            Self::do_add_stake(checked_evm_origin.into(), hotkey, netuid, amount_staked)
         }
     }
 }

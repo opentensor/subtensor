@@ -49,6 +49,20 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
         R::RuntimeCall: GetDispatchInfo + Dispatchable<PostInfo = PostDispatchInfo>,
         R::RuntimeOrigin: From<RawOrigin<R::AccountId>>,
     {
+        Self::try_dispatch_runtime_call_with_custom_origin::<R, Call>(self, call, origin.into())
+    }
+
+    // Dispatches a runtime call, but also checks and records the gas costs. Uses custom origin.
+    fn try_dispatch_runtime_call_with_custom_origin<R, Call>(
+        &mut self,
+        call: Call,
+        origin: R::RuntimeOrigin,
+    ) -> EvmResult<()>
+    where
+        R: frame_system::Config + pallet_evm::Config,
+        R::RuntimeCall: From<Call>,
+        R::RuntimeCall: GetDispatchInfo + Dispatchable<PostInfo = PostDispatchInfo>,
+    {
         let call = R::RuntimeCall::from(call);
         let info = GetDispatchInfo::get_dispatch_info(&call);
 
@@ -69,7 +83,7 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
             None,
         )?;
 
-        match call.dispatch(R::RuntimeOrigin::from(origin)) {
+        match call.dispatch(origin) {
             Ok(post_info) => {
                 if post_info.pays_fee(&info) == Pays::Yes {
                     let actual_weight = post_info.actual_weight.unwrap_or(info.call_weight);

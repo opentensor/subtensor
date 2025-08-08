@@ -33,6 +33,7 @@ use pallet_evm::{
     AddressMapping, BalanceConverter, EvmBalance, ExitError, PrecompileFailure, PrecompileHandle,
     SubstrateBalance,
 };
+use pallet_subtensor::EvmOriginHelper;
 use precompile_utils::EvmResult;
 use sp_core::{H256, U256};
 use sp_runtime::traits::{Dispatchable, StaticLookup, UniqueSaturatedInto};
@@ -98,7 +99,9 @@ where
             amount_staked,
         };
 
-        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+        let evm_origin = R::EvmOriginHelper::make_evm_origin(account_id);
+
+        handle.try_dispatch_runtime_call_with_custom_origin::<R, _>(call, evm_origin)
     }
 
     #[precompile::public("removeStake(bytes32,uint256,uint256)")]

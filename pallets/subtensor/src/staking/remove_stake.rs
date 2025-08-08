@@ -117,10 +117,7 @@ impl<T: Config> Pallet<T> {
     /// * 'TxRateLimitExceeded':
     ///     -  Thrown if key has hit transaction rate limit
     ///
-    pub fn do_unstake_all(
-        origin: OriginFor<T>,
-        hotkey: T::AccountId,
-    ) -> dispatch::DispatchResult {
+    pub fn do_unstake_all(origin: OriginFor<T>, hotkey: T::AccountId) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::debug!("do_unstake_all( origin:{:?} hotkey:{:?} )", coldkey, hotkey);

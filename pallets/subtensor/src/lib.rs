@@ -25,6 +25,7 @@ use pallet_balances::Call as BalancesCall;
 // use pallet_scheduler as Scheduler;
 use scale_info::TypeInfo;
 use sp_core::Get;
+use sp_runtime::traits::BadOrigin;
 use sp_runtime::{
     DispatchError,
     traits::{
@@ -33,7 +34,6 @@ use sp_runtime::{
     },
     transaction_validity::{TransactionValidity, TransactionValidityError},
 };
-use sp_runtime::traits::BadOrigin;
 use sp_std::marker::PhantomData;
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid};
 
@@ -65,51 +65,21 @@ extern crate alloc;
 
 pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 
-// /// Ensure the origin `o` represents EVM transaction.
-// /// Returns `Ok` if it does or an `Err` otherwise.
-// pub fn ensure_evm_origin<OuterOrigin>(o: OuterOrigin) -> Result<(), BadOrigin>
-// where
-//     OuterOrigin: Into<Result<Origin, OuterOrigin>>,
-// {
-//     match o.into() {
-//         Ok(Origin::Evm) => Ok(()),
-//         _ => Err(BadOrigin),
-//     }
-// }
-
-// pub fn make_evm_origin<T: Config>() -> OriginFor<T> {
-//     pallet::Origin.into()
-// }
-
-// pub fn ensure_evm_origin<T:Config>(origin: OriginFor<T>) -> DispatchResult {
-//     // first, we convert from `<T as frame_system::Config>::RuntimeOrigin` to `<T as
-//     // Config>::RuntimeOrigin`
-//     let local_runtime_origin = <<T as Config>::RuntimeOrigin as From<
-//         <T as frame_system::Config>::RuntimeOrigin,
-//     >>::from(origin);
-//     // then we convert to `origin`, if possible
-//     let local_origin =
-//         local_runtime_origin.into().map_err(|_| "invalid origin type provided")?;
-//     ensure!(matches!(local_origin, Origin::Evm), "Not authorized");
-//     todo!();
-// }
-
-pub fn ensure_evm_origin<OuterOrigin>(o: OuterOrigin) -> Result<(), BadOrigin>
+pub fn ensure_evm_origin<T: Config, OuterOrigin>(o: OuterOrigin) -> Result<T::AccountId, BadOrigin>
 where
-    OuterOrigin: Into<Result<Origin, OuterOrigin>>,
+    OuterOrigin: Into<Result<Origin<T>, OuterOrigin>>,
 {
     match o.into() {
-        Ok(Origin::Evm) => Ok(()),
+        Ok(Origin::<T>::Evm { account_id }) => Ok(account_id),
         _ => Err(BadOrigin),
     }
 }
 
-
-pub trait EvmOriginHelper<O>
+pub trait EvmOriginHelper<O, A>
 where
     O: OriginTrait,
 {
-    fn make_evm_origin() -> O;
+    fn make_evm_origin(account_id: A) -> O;
 }
 
 #[deny(missing_docs)]
@@ -121,11 +91,12 @@ where
 #[import_section(config::config)]
 #[frame_support::pallet]
 pub mod pallet {
+    use crate::EvmOriginHelper;
     use crate::RateLimitKey;
     use crate::migrations;
     use crate::subnets::leasing::{LeaseId, SubnetLeaseOf};
     use frame_support::Twox64Concat;
-    use crate::EvmOriginHelper;
+    use frame_support::dispatch::RawOrigin;
     use frame_support::{
         BoundedVec,
         dispatch::GetDispatchInfo,
@@ -153,9 +124,12 @@ pub mod pallet {
     /// Origin for the EVM transactions.
     #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug, MaxEncodedLen)]
     #[pallet::origin]
-    pub enum Origin {
+    pub enum Origin<T: Config> {
         /// EVM origin.
-        Evm,
+        Evm {
+            /// Account ID
+            account_id: T::AccountId,
+        },
     }
 
     /// Origin for the pallet

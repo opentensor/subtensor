@@ -14,20 +14,12 @@ mod config {
     pub trait Config:
         frame_system::Config + pallet_drand::Config + pallet_crowdloan::Config
     {
-        // /// Required for EVM origin filtering
-        // type EvmOrigin: EnsureOrigin<OriginFor<RuntimeOrigin>>;
+        /// Helps create EVM origin by account ID
+        type EvmOriginHelper: EvmOriginHelper<<Self as frame_system::Config>::RuntimeOrigin, Self::AccountId>;
 
-
-        /// TODO:
-        type EvmOriginHelper: EvmOriginHelper<<Self as frame_system::Config>::RuntimeOrigin>;
-
-        // /// TODO:
-        // type RuntimeOrigin: From<<Self as frame_system::Config>::RuntimeOrigin>
-        // + Into<Result<crate::pallet::Origin, <Self as crate::pallet::Config>::RuntimeOrigin>>;
-
-        /// TODO:
+        /// Custom runtime origin for EVM
         type RuntimeOrigin: From<<Self as frame_system::Config>::RuntimeOrigin>
-        + Into<Result<crate::pallet::Origin, <Self as Config>::RuntimeOrigin>>;
+            + Into<Result<crate::pallet::Origin<Self>, <Self as Config>::RuntimeOrigin>>;
 
         /// call type
         type RuntimeCall: Parameter

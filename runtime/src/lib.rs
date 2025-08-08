@@ -99,7 +99,6 @@ use scale_info::TypeInfo;
 
 // Frontier
 use fp_rpc::TransactionStatus;
-use frame_support::pallet_prelude::EnsureOrigin;
 use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
 use pallet_evm::{
     Account as EVMAccount, BalanceConverter, EvmBalance, FeeCalculator, Runner, SubstrateBalance,
@@ -543,7 +542,7 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
     }
 }
 
-use pallet_subtensor::{pallet, CollectiveInterface, Config, EvmOriginHelper, MemberManagement, ProxyInterface};
+use pallet_subtensor::{CollectiveInterface, EvmOriginHelper, MemberManagement, ProxyInterface};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
@@ -1229,9 +1228,9 @@ parameter_types! {
 
 pub struct OriginHelper;
 
-impl EvmOriginHelper<RuntimeOrigin> for OriginHelper {
-    fn make_evm_origin() -> RuntimeOrigin {
-        RuntimeOrigin::from(pallet_subtensor::Origin::Evm)
+impl EvmOriginHelper<RuntimeOrigin, AccountId> for OriginHelper {
+    fn make_evm_origin(account_id: AccountId) -> RuntimeOrigin {
+        RuntimeOrigin::from(pallet_subtensor::Origin::Evm { account_id })
     }
 }
 
