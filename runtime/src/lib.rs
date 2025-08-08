@@ -543,7 +543,7 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
     }
 }
 
-use pallet_subtensor::{CollectiveInterface, Config, MemberManagement, ProxyInterface};
+use pallet_subtensor::{pallet, CollectiveInterface, Config, EvmOriginHelper, MemberManagement, ProxyInterface};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
@@ -1227,25 +1227,17 @@ parameter_types! {
     pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
 }
 
-pub struct EvmOrigin<T> {
-    marker: PhantomData<T>}
+pub struct OriginHelper;
 
-impl<T: Config> EnsureOrigin<T::RuntimeOrigin> for EvmOrigin<T> {
-    type Success = T::AccountId;
-
-    fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
-        todo!()
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn try_successful_origin() -> Result<T::RuntimeOrigin, ()>  {
-        todo!()
+impl EvmOriginHelper<RuntimeOrigin> for OriginHelper {
+    fn make_evm_origin() -> RuntimeOrigin {
+        RuntimeOrigin::from(pallet_subtensor::Origin::Evm)
     }
 }
 
-
 impl pallet_subtensor::Config for Runtime {
-    type EvmOrigin = EvmOrigin<Self>;
+    type EvmOriginHelper = OriginHelper;
+    type RuntimeOrigin = RuntimeOrigin;
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type SudoRuntimeCall = RuntimeCall;

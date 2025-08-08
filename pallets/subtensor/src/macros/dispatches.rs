@@ -2364,7 +2364,7 @@ mod dispatches {
             netuid: NetUid,
             amount_staked: u64,
         ) -> DispatchResult {
-            crate::ensure_evm_origin::<T>(origin.clone())?;
+            crate::ensure_evm_origin(<T as Config>::RuntimeOrigin::from(origin.clone()))?;
 
             //RuntimeOrigin::from(Origin::Evm) as <T as frame_system::Config>::RuntimeOrigin
 

@@ -21,9 +21,13 @@ mod config {
         /// TODO:
         type EvmOriginHelper: EvmOriginHelper<<Self as frame_system::Config>::RuntimeOrigin>;
 
+        // /// TODO:
+        // type RuntimeOrigin: From<<Self as frame_system::Config>::RuntimeOrigin>
+        // + Into<Result<crate::pallet::Origin, <Self as crate::pallet::Config>::RuntimeOrigin>>;
+
         /// TODO:
         type RuntimeOrigin: From<<Self as frame_system::Config>::RuntimeOrigin>
-        + Into<Result<crate::pallet::Origin, <Self as crate::pallet::Config>::RuntimeOrigin>>;
+        + Into<Result<crate::pallet::Origin, <Self as Config>::RuntimeOrigin>>;
 
         /// call type
         type RuntimeCall: Parameter

@@ -33,6 +33,7 @@ use sp_runtime::{
     },
     transaction_validity::{TransactionValidity, TransactionValidityError},
 };
+use sp_runtime::traits::BadOrigin;
 use sp_std::marker::PhantomData;
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid};
 
@@ -80,18 +81,29 @@ pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 //     pallet::Origin.into()
 // }
 
-pub fn ensure_evm_origin<T:Config>(origin: OriginFor<T>) -> DispatchResult {
-    // first, we convert from `<T as frame_system::Config>::RuntimeOrigin` to `<T as
-    // Config>::RuntimeOrigin`
-    let local_runtime_origin = <<T as Config>::RuntimeOrigin as From<
-        <T as frame_system::Config>::RuntimeOrigin,
-    >>::from(origin);
-    // then we convert to `origin`, if possible
-    let local_origin =
-        local_runtime_origin.into().map_err(|_| "invalid origin type provided")?;
-    ensure!(matches!(local_origin, Origin::Evm), "Not authorized");
-    todo!();
+// pub fn ensure_evm_origin<T:Config>(origin: OriginFor<T>) -> DispatchResult {
+//     // first, we convert from `<T as frame_system::Config>::RuntimeOrigin` to `<T as
+//     // Config>::RuntimeOrigin`
+//     let local_runtime_origin = <<T as Config>::RuntimeOrigin as From<
+//         <T as frame_system::Config>::RuntimeOrigin,
+//     >>::from(origin);
+//     // then we convert to `origin`, if possible
+//     let local_origin =
+//         local_runtime_origin.into().map_err(|_| "invalid origin type provided")?;
+//     ensure!(matches!(local_origin, Origin::Evm), "Not authorized");
+//     todo!();
+// }
+
+pub fn ensure_evm_origin<OuterOrigin>(o: OuterOrigin) -> Result<(), BadOrigin>
+where
+    OuterOrigin: Into<Result<Origin, OuterOrigin>>,
+{
+    match o.into() {
+        Ok(Origin::Evm) => Ok(()),
+        _ => Err(BadOrigin),
+    }
 }
+
 
 pub trait EvmOriginHelper<O>
 where
