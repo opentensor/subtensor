@@ -1174,7 +1174,7 @@ checksum = "55248b47b0caf0546f7988906588779981c43bb1bc9d0c44087278f80cdb44ba"
 [[package]]
 name = "binary-merkle-tree"
 version = "16.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "hash-db",
  "log",
@@ -2194,7 +2194,7 @@ dependencies = [
 [[package]]
 name = "cumulus-client-parachain-inherent"
 version = "0.16.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
@@ -2203,7 +2203,7 @@ dependencies = [
  "cumulus-test-relay-sproof-builder",
  "parity-scale-codec",
  "sc-client-api",
- "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "sp-inherents",
  "sp-runtime",
  "sp-state-machine",
@@ -2214,7 +2214,7 @@ dependencies = [
 [[package]]
 name = "cumulus-primitives-core"
 version = "0.18.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "parity-scale-codec",
  "polkadot-core-primitives",
@@ -2230,7 +2230,7 @@ dependencies = [
 [[package]]
 name = "cumulus-primitives-parachain-inherent"
 version = "0.18.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
@@ -2244,7 +2244,7 @@ dependencies = [
 [[package]]
 name = "cumulus-primitives-proof-size-hostfunction"
 version = "0.12.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "sp-externalities 0.30.0",
  "sp-runtime-interface 29.0.1",
@@ -2254,7 +2254,7 @@ dependencies = [
 [[package]]
 name = "cumulus-primitives-storage-weight-reclaim"
 version = "11.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-proof-size-hostfunction",
@@ -2271,7 +2271,7 @@ dependencies = [
 [[package]]
 name = "cumulus-relay-chain-interface"
 version = "0.22.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
@@ -2290,7 +2290,7 @@ dependencies = [
 [[package]]
 name = "cumulus-test-relay-sproof-builder"
 version = "0.19.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "cumulus-primitives-core",
  "parity-scale-codec",
@@ -3205,7 +3205,7 @@ dependencies = [
 [[package]]
 name = "fc-api"
 version = "1.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "async-trait",
  "fp-storage",
@@ -3217,7 +3217,7 @@ dependencies = [
 [[package]]
 name = "fc-aura"
 version = "1.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "fc-rpc",
  "fp-storage",
@@ -3233,7 +3233,7 @@ dependencies = [
 [[package]]
 name = "fc-babe"
 version = "1.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "fc-rpc",
  "sc-client-api",
@@ -3249,7 +3249,7 @@ dependencies = [
 [[package]]
 name = "fc-consensus"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "async-trait",
  "fp-consensus",
@@ -3265,7 +3265,7 @@ dependencies = [
 [[package]]
 name = "fc-db"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "async-trait",
  "ethereum",
@@ -3295,7 +3295,7 @@ dependencies = [
 [[package]]
 name = "fc-mapping-sync"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "fc-db",
  "fc-storage",
@@ -3318,7 +3318,7 @@ dependencies = [
 [[package]]
 name = "fc-rpc"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "ethereum",
  "ethereum-types 0.15.1",
@@ -3369,7 +3369,7 @@ dependencies = [
 [[package]]
 name = "fc-rpc-core"
 version = "1.1.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "ethereum",
  "ethereum-types 0.15.1",
@@ -3378,13 +3378,13 @@ dependencies = [
  "rustc-hex",
  "serde",
  "serde_json",
- "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
 ]
 
 [[package]]
 name = "fc-storage"
 version = "1.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "ethereum",
  "ethereum-types 0.15.1",
@@ -3537,7 +3537,7 @@ checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 [[package]]
 name = "fork-tree"
 version = "13.0.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "parity-scale-codec",
 ]
@@ -3564,7 +3564,7 @@ dependencies = [
 [[package]]
 name = "fp-account"
 version = "1.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "hex",
  "impl-serde 0.5.0",
@@ -3583,7 +3583,7 @@ dependencies = [
 [[package]]
 name = "fp-consensus"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "ethereum",
  "parity-scale-codec",
@@ -3594,7 +3594,7 @@ dependencies = [
 [[package]]
 name = "fp-ethereum"
 version = "1.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "ethereum",
  "ethereum-types 0.15.1",
@@ -3606,7 +3606,7 @@ dependencies = [
 [[package]]
 name = "fp-evm"
 version = "3.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "environmental",
  "evm",
@@ -3622,7 +3622,7 @@ dependencies = [
 [[package]]
 name = "fp-rpc"
 version = "3.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "ethereum",
  "ethereum-types 0.15.1",
@@ -3638,7 +3638,7 @@ dependencies = [
 [[package]]
 name = "fp-self-contained"
 version = "1.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -3650,7 +3650,7 @@ dependencies = [
 [[package]]
 name = "fp-storage"
 version = "2.0.0"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "parity-scale-codec",
  "serde",
@@ -3665,7 +3665,7 @@ checksum = "28dd6caf6059519a65843af8fe2a3ae298b14b80179855aeb4adc2c1934ee619"
 [[package]]
 name = "frame-benchmarking"
 version = "40.2.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "frame-support",
  "frame-support-procedural",
@@ -3689,7 +3689,7 @@ dependencies = [
 [[package]]
 name = "frame-benchmarking-cli"
 version = "47.2.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "Inflector",
  "array-bytes",
@@ -3763,7 +3763,7 @@ dependencies = [
 [[package]]
 name = "frame-election-provider-solution-type"
 version = "16.1.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "proc-macro-crate 3.3.0",
  "proc-macro2",
@@ -3774,7 +3774,7 @@ dependencies = [
 [[package]]
 name = "frame-election-provider-support"
 version = "40.1.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "frame-election-provider-solution-type",
  "frame-support",
@@ -3790,7 +3790,7 @@ dependencies = [
 [[package]]
 name = "frame-executive"
 version = "40.0.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "aquamarine",
  "frame-support",
@@ -3832,7 +3832,7 @@ dependencies = [
 [[package]]
 name = "frame-metadata-hash-extension"
 version = "0.8.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "array-bytes",
  "const-hex",
@@ -3848,7 +3848,7 @@ dependencies = [
 [[package]]
 name = "frame-support"
 version = "40.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "aquamarine",
  "array-bytes",
@@ -3871,7 +3871,7 @@ dependencies = [
  "sp-arithmetic",
  "sp-core",
  "sp-crypto-hashing-proc-macro",
- "sp-debug-derive 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-debug-derive 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
@@ -3879,7 +3879,7 @@ dependencies = [
  "sp-runtime",
  "sp-staking",
  "sp-state-machine",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "sp-tracing 17.1.0",
  "sp-trie",
  "sp-weights",
@@ -3889,7 +3889,7 @@ dependencies = [
 [[package]]
 name = "frame-support-procedural"
 version = "33.0.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "Inflector",
  "cfg-expr",
@@ -3902,7 +3902,7 @@ dependencies = [
  "proc-macro-warning",
  "proc-macro2",
  "quote",
- "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "syn 2.0.104",
 ]
 
@@ -3922,7 +3922,7 @@ dependencies = [
 [[package]]
 name = "frame-support-procedural-tools"
 version = "13.0.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "frame-support-procedural-tools-derive 12.0.0",
  "proc-macro-crate 3.3.0",
@@ -3945,7 +3945,7 @@ dependencies = [
 [[package]]
 name = "frame-support-procedural-tools-derive"
 version = "12.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3955,7 +3955,7 @@ dependencies = [
 [[package]]
 name = "frame-system"
 version = "40.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "cfg-if",
  "docify",
@@ -3974,7 +3974,7 @@ dependencies = [
 [[package]]
 name = "frame-system-benchmarking"
 version = "40.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -3988,7 +3988,7 @@ dependencies = [
 [[package]]
 name = "frame-system-rpc-runtime-api"
 version = "36.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "docify",
  "parity-scale-codec",
@@ -3998,7 +3998,7 @@ dependencies = [
 [[package]]
 name = "frame-try-runtime"
 version = "0.46.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -6964,7 +6964,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-staking",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "sp-storage 22.0.0",
  "sp-tracing 17.1.0",
  "sp-transaction-pool",
@@ -7337,7 +7337,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "sp-tracing 17.1.0",
  "sp-weights",
  "substrate-fixed",
@@ -7349,7 +7349,7 @@ dependencies = [
 [[package]]
 name = "pallet-aura"
 version = "39.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -7365,7 +7365,7 @@ dependencies = [
 [[package]]
 name = "pallet-authority-discovery"
 version = "40.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -7380,7 +7380,7 @@ dependencies = [
 [[package]]
 name = "pallet-authorship"
 version = "40.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -7393,7 +7393,7 @@ dependencies = [
 [[package]]
 name = "pallet-babe"
 version = "40.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -7416,7 +7416,7 @@ dependencies = [
 [[package]]
 name = "pallet-bags-list"
 version = "39.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "aquamarine",
  "docify",
@@ -7437,7 +7437,7 @@ dependencies = [
 [[package]]
 name = "pallet-balances"
 version = "41.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -7453,7 +7453,7 @@ dependencies = [
 [[package]]
 name = "pallet-base-fee"
 version = "1.0.0"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "fp-evm",
  "frame-support",
@@ -7477,7 +7477,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "subtensor-macros",
 ]
 
@@ -7502,7 +7502,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "subtensor-macros",
  "subtensor-runtime-common",
  "tle",
@@ -7524,7 +7524,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "subtensor-macros",
 ]
 
@@ -7564,7 +7564,7 @@ dependencies = [
 [[package]]
 name = "pallet-election-provider-multi-phase"
 version = "39.2.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -7586,7 +7586,7 @@ dependencies = [
 [[package]]
 name = "pallet-election-provider-support-benchmarking"
 version = "39.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -7599,7 +7599,7 @@ dependencies = [
 [[package]]
 name = "pallet-ethereum"
 version = "4.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "ethereum",
  "ethereum-types 0.15.1",
@@ -7622,7 +7622,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm"
 version = "6.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "cumulus-primitives-storage-weight-reclaim",
  "environmental",
@@ -7646,7 +7646,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-chain-id"
 version = "1.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -7657,7 +7657,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-bn128"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "fp-evm",
  "sp-core",
@@ -7667,7 +7667,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-dispatch"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "fp-evm",
  "frame-support",
@@ -7679,7 +7679,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-modexp"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "fp-evm",
  "num",
@@ -7688,7 +7688,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-sha3fips"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "fp-evm",
  "tiny-keccak",
@@ -7697,7 +7697,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-simple"
 version = "2.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "fp-evm",
  "ripemd",
@@ -7707,7 +7707,7 @@ dependencies = [
 [[package]]
 name = "pallet-fast-unstake"
 version = "39.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -7725,7 +7725,7 @@ dependencies = [
 [[package]]
 name = "pallet-grandpa"
 version = "40.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -7747,7 +7747,7 @@ dependencies = [
 [[package]]
 name = "pallet-hotfix-sufficients"
 version = "1.0.0"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -7762,7 +7762,7 @@ dependencies = [
 [[package]]
 name = "pallet-insecure-randomness-collective-flip"
 version = "28.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "parity-scale-codec",
  "polkadot-sdk-frame",
@@ -7773,7 +7773,7 @@ dependencies = [
 [[package]]
 name = "pallet-membership"
 version = "40.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -7789,7 +7789,7 @@ dependencies = [
 [[package]]
 name = "pallet-multisig"
 version = "40.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "log",
  "parity-scale-codec",
@@ -7800,7 +7800,7 @@ dependencies = [
 [[package]]
 name = "pallet-nomination-pools"
 version = "38.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -7818,7 +7818,7 @@ dependencies = [
 [[package]]
 name = "pallet-nomination-pools-runtime-api"
 version = "36.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "pallet-nomination-pools",
  "parity-scale-codec",
@@ -7828,7 +7828,7 @@ dependencies = [
 [[package]]
 name = "pallet-offences"
 version = "39.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -7843,7 +7843,7 @@ dependencies = [
 [[package]]
 name = "pallet-preimage"
 version = "40.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -7876,7 +7876,7 @@ dependencies = [
 [[package]]
 name = "pallet-proxy"
 version = "40.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "parity-scale-codec",
  "polkadot-sdk-frame",
@@ -7896,14 +7896,14 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "subtensor-macros",
 ]
 
 [[package]]
 name = "pallet-root-testing"
 version = "16.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -7917,7 +7917,7 @@ dependencies = [
 [[package]]
 name = "pallet-safe-mode"
 version = "21.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -7935,7 +7935,7 @@ dependencies = [
 [[package]]
 name = "pallet-scheduler"
 version = "41.2.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -7952,7 +7952,7 @@ dependencies = [
 [[package]]
 name = "pallet-session"
 version = "40.0.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -7973,7 +7973,7 @@ dependencies = [
 [[package]]
 name = "pallet-staking"
 version = "40.1.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -7995,7 +7995,7 @@ dependencies = [
 [[package]]
 name = "pallet-staking-reward-curve"
 version = "12.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "proc-macro-crate 3.3.0",
  "proc-macro2",
@@ -8006,7 +8006,7 @@ dependencies = [
 [[package]]
 name = "pallet-staking-reward-fn"
 version = "22.0.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "log",
  "sp-arithmetic",
@@ -8015,7 +8015,7 @@ dependencies = [
 [[package]]
 name = "pallet-staking-runtime-api"
 version = "26.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "parity-scale-codec",
  "sp-api",
@@ -8065,7 +8065,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "sp-tracing 17.1.0",
  "sp-version",
  "substrate-fixed",
@@ -8095,7 +8095,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "sp-tracing 17.1.0",
  "substrate-fixed",
  "subtensor-macros",
@@ -8122,13 +8122,13 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-api",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
 ]
 
 [[package]]
 name = "pallet-sudo"
 version = "40.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -8143,7 +8143,7 @@ dependencies = [
 [[package]]
 name = "pallet-timestamp"
 version = "39.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -8162,7 +8162,7 @@ dependencies = [
 [[package]]
 name = "pallet-transaction-payment"
 version = "40.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -8178,7 +8178,7 @@ dependencies = [
 [[package]]
 name = "pallet-transaction-payment-rpc"
 version = "43.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "jsonrpsee",
  "pallet-transaction-payment-rpc-runtime-api",
@@ -8194,7 +8194,7 @@ dependencies = [
 [[package]]
 name = "pallet-transaction-payment-rpc-runtime-api"
 version = "40.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "pallet-transaction-payment",
  "parity-scale-codec",
@@ -8225,7 +8225,7 @@ dependencies = [
 [[package]]
 name = "pallet-utility"
 version = "40.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -8571,7 +8571,7 @@ checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
 [[package]]
 name = "polkadot-core-primitives"
 version = "17.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -8582,7 +8582,7 @@ dependencies = [
 [[package]]
 name = "polkadot-node-metrics"
 version = "22.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "bs58",
  "futures",
@@ -8599,7 +8599,7 @@ dependencies = [
 [[package]]
 name = "polkadot-node-network-protocol"
 version = "22.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "async-channel 1.9.0",
  "async-trait",
@@ -8624,7 +8624,7 @@ dependencies = [
 [[package]]
 name = "polkadot-node-primitives"
 version = "19.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "bitvec",
  "bounded-vec",
@@ -8648,7 +8648,7 @@ dependencies = [
 [[package]]
 name = "polkadot-node-subsystem-types"
 version = "22.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "async-trait",
  "derive_more 0.99.20",
@@ -8676,7 +8676,7 @@ dependencies = [
 [[package]]
 name = "polkadot-overseer"
 version = "22.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "async-trait",
  "futures",
@@ -8696,7 +8696,7 @@ dependencies = [
 [[package]]
 name = "polkadot-parachain-primitives"
 version = "16.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "bounded-collections",
  "derive_more 0.99.20",
@@ -8712,7 +8712,7 @@ dependencies = [
 [[package]]
 name = "polkadot-primitives"
 version = "18.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "bitvec",
  "hex-literal",
@@ -8733,7 +8733,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-staking",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "thiserror 1.0.69",
 ]
 
@@ -8749,7 +8749,7 @@ dependencies = [
 [[package]]
 name = "polkadot-sdk-frame"
 version = "0.9.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -8784,7 +8784,7 @@ dependencies = [
 [[package]]
 name = "polkadot-statement-table"
 version = "19.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "parity-scale-codec",
  "polkadot-primitives",
@@ -8983,7 +8983,7 @@ dependencies = [
 [[package]]
 name = "precompile-utils"
 version = "0.1.0"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "environmental",
  "evm",
@@ -9007,14 +9007,14 @@ dependencies = [
 [[package]]
 name = "precompile-utils-macro"
 version = "0.1.0"
-source = "git+https://github.com/opentensor/frontier?rev=5ded07ec68ab6a451c694ed42a7202a7f7031b62#5ded07ec68ab6a451c694ed42a7202a7f7031b62"
+source = "git+https://github.com/opentensor/frontier?rev=0226f90924b83f467f10337011c091439c4bde3a#0226f90924b83f467f10337011c091439c4bde3a"
 dependencies = [
  "case",
  "num_enum",
  "prettyplease",
  "proc-macro2",
  "quote",
- "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "syn 2.0.104",
 ]
 
@@ -9198,7 +9198,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "regex",
- "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "syn 2.0.104",
 ]
 
@@ -10125,7 +10125,7 @@ version = "0.1.0"
 dependencies = [
  "num-traits",
  "sp-arithmetic",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "substrate-fixed",
 ]
 
@@ -10168,7 +10168,7 @@ dependencies = [
 [[package]]
 name = "sc-allocator"
 version = "31.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "log",
  "sp-core",
@@ -10179,7 +10179,7 @@ dependencies = [
 [[package]]
 name = "sc-authority-discovery"
 version = "0.49.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "async-trait",
  "futures",
@@ -10207,7 +10207,7 @@ dependencies = [
 [[package]]
 name = "sc-basic-authorship"
 version = "0.49.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "futures",
  "log",
@@ -10228,7 +10228,7 @@ dependencies = [
 [[package]]
 name = "sc-block-builder"
 version = "0.44.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "parity-scale-codec",
  "sp-api",
@@ -10243,7 +10243,7 @@ dependencies = [
 [[package]]
 name = "sc-chain-spec"
 version = "42.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "array-bytes",
  "docify",
@@ -10258,7 +10258,7 @@ dependencies = [
  "serde_json",
  "sp-blockchain",
  "sp-core",
- "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "sp-genesis-builder",
  "sp-io",
  "sp-runtime",
@@ -10269,7 +10269,7 @@ dependencies = [
 [[package]]
 name = "sc-chain-spec-derive"
 version = "12.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "proc-macro-crate 3.3.0",
  "proc-macro2",
@@ -10280,7 +10280,7 @@ dependencies = [
 [[package]]
 name = "sc-cli"
 version = "0.51.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "array-bytes",
  "chrono",
@@ -10322,7 +10322,7 @@ dependencies = [
 [[package]]
 name = "sc-client-api"
 version = "39.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "fnv",
  "futures",
@@ -10348,7 +10348,7 @@ dependencies = [
 [[package]]
 name = "sc-client-db"
 version = "0.46.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "hash-db",
  "kvdb",
@@ -10374,7 +10374,7 @@ dependencies = [
 [[package]]
 name = "sc-consensus"
 version = "0.48.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "async-trait",
  "futures",
@@ -10397,7 +10397,7 @@ dependencies = [
 [[package]]
 name = "sc-consensus-aura"
 version = "0.49.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "async-trait",
  "futures",
@@ -10426,7 +10426,7 @@ dependencies = [
 [[package]]
 name = "sc-consensus-babe"
 version = "0.49.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "async-trait",
  "fork-tree",
@@ -10451,7 +10451,7 @@ dependencies = [
  "sp-consensus-babe",
  "sp-consensus-slots",
  "sp-core",
- "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "sp-inherents",
  "sp-keystore",
  "sp-runtime",
@@ -10462,7 +10462,7 @@ dependencies = [
 [[package]]
 name = "sc-consensus-babe-rpc"
 version = "0.49.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "futures",
  "jsonrpsee",
@@ -10484,7 +10484,7 @@ dependencies = [
 [[package]]
 name = "sc-consensus-epochs"
 version = "0.48.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "fork-tree",
  "parity-scale-codec",
@@ -10497,7 +10497,7 @@ dependencies = [
 [[package]]
 name = "sc-consensus-grandpa"
 version = "0.34.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "ahash 0.8.12",
  "array-bytes",
@@ -10531,7 +10531,7 @@ dependencies = [
  "sp-consensus",
  "sp-consensus-grandpa",
  "sp-core",
- "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "sp-keystore",
  "sp-runtime",
  "substrate-prometheus-endpoint",
@@ -10541,7 +10541,7 @@ dependencies = [
 [[package]]
 name = "sc-consensus-grandpa-rpc"
 version = "0.34.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "finality-grandpa",
  "futures",
@@ -10561,7 +10561,7 @@ dependencies = [
 [[package]]
 name = "sc-consensus-manual-seal"
 version = "0.50.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -10596,7 +10596,7 @@ dependencies = [
 [[package]]
 name = "sc-consensus-slots"
 version = "0.48.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "async-trait",
  "futures",
@@ -10620,7 +10620,7 @@ dependencies = [
 [[package]]
 name = "sc-executor"
 version = "0.42.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.4",
@@ -10643,7 +10643,7 @@ dependencies = [
 [[package]]
 name = "sc-executor-common"
 version = "0.38.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "polkavm",
  "sc-allocator",
@@ -10656,7 +10656,7 @@ dependencies = [
 [[package]]
 name = "sc-executor-polkavm"
 version = "0.35.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "log",
  "polkavm",
@@ -10667,7 +10667,7 @@ dependencies = [
 [[package]]
 name = "sc-executor-wasmtime"
 version = "0.38.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "anyhow",
  "log",
@@ -10683,7 +10683,7 @@ dependencies = [
 [[package]]
 name = "sc-informant"
 version = "0.48.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "console",
  "futures",
@@ -10699,7 +10699,7 @@ dependencies = [
 [[package]]
 name = "sc-keystore"
 version = "35.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "array-bytes",
  "parking_lot 0.12.4",
@@ -10713,7 +10713,7 @@ dependencies = [
 [[package]]
 name = "sc-mixnet"
 version = "0.19.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "array-bytes",
  "arrayvec 0.7.6",
@@ -10741,7 +10741,7 @@ dependencies = [
 [[package]]
 name = "sc-network"
 version = "0.49.2"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "array-bytes",
  "async-channel 1.9.0",
@@ -10791,7 +10791,7 @@ dependencies = [
 [[package]]
 name = "sc-network-common"
 version = "0.48.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "bitflags 1.3.2",
  "parity-scale-codec",
@@ -10801,7 +10801,7 @@ dependencies = [
 [[package]]
 name = "sc-network-gossip"
 version = "0.49.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "ahash 0.8.12",
  "futures",
@@ -10820,7 +10820,7 @@ dependencies = [
 [[package]]
 name = "sc-network-light"
 version = "0.48.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "array-bytes",
  "async-channel 1.9.0",
@@ -10841,7 +10841,7 @@ dependencies = [
 [[package]]
 name = "sc-network-sync"
 version = "0.48.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "array-bytes",
  "async-channel 1.9.0",
@@ -10876,7 +10876,7 @@ dependencies = [
 [[package]]
 name = "sc-network-transactions"
 version = "0.48.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "array-bytes",
  "futures",
@@ -10895,7 +10895,7 @@ dependencies = [
 [[package]]
 name = "sc-network-types"
 version = "0.15.4"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "bs58",
  "bytes",
@@ -10914,7 +10914,7 @@ dependencies = [
 [[package]]
 name = "sc-offchain"
 version = "44.0.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "bytes",
  "fnv",
@@ -10948,7 +10948,7 @@ dependencies = [
 [[package]]
 name = "sc-proposer-metrics"
 version = "0.20.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "log",
  "substrate-prometheus-endpoint",
@@ -10957,7 +10957,7 @@ dependencies = [
 [[package]]
 name = "sc-rpc"
 version = "44.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "futures",
  "jsonrpsee",
@@ -10989,7 +10989,7 @@ dependencies = [
 [[package]]
 name = "sc-rpc-api"
 version = "0.48.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "jsonrpsee",
  "parity-scale-codec",
@@ -11009,7 +11009,7 @@ dependencies = [
 [[package]]
 name = "sc-rpc-server"
 version = "21.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "dyn-clone",
  "forwarded-header-value",
@@ -11033,7 +11033,7 @@ dependencies = [
 [[package]]
 name = "sc-rpc-spec-v2"
 version = "0.49.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "array-bytes",
  "futures",
@@ -11065,13 +11065,13 @@ dependencies = [
 [[package]]
 name = "sc-runtime-utilities"
 version = "0.2.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "parity-scale-codec",
  "sc-executor",
  "sc-executor-common",
  "sp-core",
- "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "sp-state-machine",
  "sp-wasm-interface 21.0.1",
  "thiserror 1.0.69",
@@ -11080,7 +11080,7 @@ dependencies = [
 [[package]]
 name = "sc-service"
 version = "0.50.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "async-trait",
  "directories",
@@ -11144,7 +11144,7 @@ dependencies = [
 [[package]]
 name = "sc-state-db"
 version = "0.38.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "log",
  "parity-scale-codec",
@@ -11155,7 +11155,7 @@ dependencies = [
 [[package]]
 name = "sc-sysinfo"
 version = "42.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "derive_more 0.99.20",
  "futures",
@@ -11168,14 +11168,14 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-core",
- "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "sp-io",
 ]
 
 [[package]]
 name = "sc-telemetry"
 version = "28.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "chrono",
  "futures",
@@ -11194,7 +11194,7 @@ dependencies = [
 [[package]]
 name = "sc-tracing"
 version = "39.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "chrono",
  "console",
@@ -11222,7 +11222,7 @@ dependencies = [
 [[package]]
 name = "sc-tracing-proc-macro"
 version = "11.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "proc-macro-crate 3.3.0",
  "proc-macro2",
@@ -11233,7 +11233,7 @@ dependencies = [
 [[package]]
 name = "sc-transaction-pool"
 version = "39.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "async-trait",
  "futures",
@@ -11251,7 +11251,7 @@ dependencies = [
  "sp-api",
  "sp-blockchain",
  "sp-core",
- "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "sp-runtime",
  "sp-tracing 17.1.0",
  "sp-transaction-pool",
@@ -11265,7 +11265,7 @@ dependencies = [
 [[package]]
 name = "sc-transaction-pool-api"
 version = "39.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "async-trait",
  "futures",
@@ -11282,7 +11282,7 @@ dependencies = [
 [[package]]
 name = "sc-utils"
 version = "18.0.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "async-channel 1.9.0",
  "futures",
@@ -11903,7 +11903,7 @@ name = "share-pool"
 version = "0.1.0"
 dependencies = [
  "safe-math",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "substrate-fixed",
 ]
 
@@ -12159,7 +12159,7 @@ dependencies = [
 [[package]]
 name = "sp-api"
 version = "36.0.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "docify",
  "hash-db",
@@ -12181,7 +12181,7 @@ dependencies = [
 [[package]]
 name = "sp-api-proc-macro"
 version = "22.0.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "Inflector",
  "blake2 0.10.6",
@@ -12195,7 +12195,7 @@ dependencies = [
 [[package]]
 name = "sp-application-crypto"
 version = "40.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -12207,7 +12207,7 @@ dependencies = [
 [[package]]
 name = "sp-arithmetic"
 version = "26.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "docify",
  "integer-sqrt",
@@ -12230,7 +12230,7 @@ dependencies = [
 [[package]]
 name = "sp-authority-discovery"
 version = "36.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -12242,7 +12242,7 @@ dependencies = [
 [[package]]
 name = "sp-block-builder"
 version = "36.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "sp-api",
  "sp-inherents",
@@ -12252,7 +12252,7 @@ dependencies = [
 [[package]]
 name = "sp-blockchain"
 version = "39.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "futures",
  "parity-scale-codec",
@@ -12271,7 +12271,7 @@ dependencies = [
 [[package]]
 name = "sp-consensus"
 version = "0.42.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "async-trait",
  "futures",
@@ -12285,7 +12285,7 @@ dependencies = [
 [[package]]
 name = "sp-consensus-aura"
 version = "0.42.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "async-trait",
  "parity-scale-codec",
@@ -12301,7 +12301,7 @@ dependencies = [
 [[package]]
 name = "sp-consensus-babe"
 version = "0.42.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "async-trait",
  "parity-scale-codec",
@@ -12319,7 +12319,7 @@ dependencies = [
 [[package]]
 name = "sp-consensus-grandpa"
 version = "23.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "finality-grandpa",
  "log",
@@ -12336,7 +12336,7 @@ dependencies = [
 [[package]]
 name = "sp-consensus-slots"
 version = "0.42.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -12347,7 +12347,7 @@ dependencies = [
 [[package]]
 name = "sp-core"
 version = "36.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "ark-vrf",
  "array-bytes",
@@ -12377,11 +12377,11 @@ dependencies = [
  "secp256k1 0.28.2",
  "secrecy 0.8.0",
  "serde",
- "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
- "sp-debug-derive 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
+ "sp-debug-derive 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "sp-externalities 0.30.0",
  "sp-runtime-interface 29.0.1",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "sp-storage 22.0.0",
  "ss58-registry",
  "substrate-bip39",
@@ -12414,7 +12414,7 @@ dependencies = [
 [[package]]
 name = "sp-crypto-ec-utils"
 version = "0.15.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-377-ext",
@@ -12448,7 +12448,7 @@ dependencies = [
 [[package]]
 name = "sp-crypto-hashing"
 version = "0.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "blake2b_simd",
  "byteorder",
@@ -12461,17 +12461,17 @@ dependencies = [
 [[package]]
 name = "sp-crypto-hashing-proc-macro"
 version = "0.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "quote",
- "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "syn 2.0.104",
 ]
 
 [[package]]
 name = "sp-database"
 version = "10.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "kvdb",
  "parking_lot 0.12.4",
@@ -12480,7 +12480,7 @@ dependencies = [
 [[package]]
 name = "sp-debug-derive"
 version = "14.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -12510,7 +12510,7 @@ dependencies = [
 [[package]]
 name = "sp-externalities"
 version = "0.30.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "environmental",
  "parity-scale-codec",
@@ -12520,7 +12520,7 @@ dependencies = [
 [[package]]
 name = "sp-genesis-builder"
 version = "0.17.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -12532,7 +12532,7 @@ dependencies = [
 [[package]]
 name = "sp-inherents"
 version = "36.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "async-trait",
  "impl-trait-for-tuples",
@@ -12545,7 +12545,7 @@ dependencies = [
 [[package]]
 name = "sp-io"
 version = "40.0.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "bytes",
  "docify",
@@ -12557,7 +12557,7 @@ dependencies = [
  "rustversion",
  "secp256k1 0.28.2",
  "sp-core",
- "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "sp-externalities 0.30.0",
  "sp-keystore",
  "sp-runtime-interface 29.0.1",
@@ -12571,7 +12571,7 @@ dependencies = [
 [[package]]
 name = "sp-keyring"
 version = "41.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "sp-core",
  "sp-runtime",
@@ -12581,7 +12581,7 @@ dependencies = [
 [[package]]
 name = "sp-keystore"
 version = "0.42.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.4",
@@ -12592,7 +12592,7 @@ dependencies = [
 [[package]]
 name = "sp-maybe-compressed-blob"
 version = "11.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "thiserror 1.0.69",
  "zstd 0.12.4",
@@ -12601,7 +12601,7 @@ dependencies = [
 [[package]]
 name = "sp-metadata-ir"
 version = "0.10.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "frame-metadata 20.0.0",
  "parity-scale-codec",
@@ -12611,7 +12611,7 @@ dependencies = [
 [[package]]
 name = "sp-mixnet"
 version = "0.14.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -12622,7 +12622,7 @@ dependencies = [
 [[package]]
 name = "sp-npos-elections"
 version = "36.2.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -12635,7 +12635,7 @@ dependencies = [
 [[package]]
 name = "sp-offchain"
 version = "36.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "sp-api",
  "sp-core",
@@ -12645,7 +12645,7 @@ dependencies = [
 [[package]]
 name = "sp-panic-handler"
 version = "13.0.2"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "backtrace",
  "regex",
@@ -12654,7 +12654,7 @@ dependencies = [
 [[package]]
 name = "sp-rpc"
 version = "34.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "rustc-hash 1.1.0",
  "serde",
@@ -12664,7 +12664,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime"
 version = "41.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "binary-merkle-tree",
  "docify",
@@ -12683,7 +12683,7 @@ dependencies = [
  "sp-arithmetic",
  "sp-core",
  "sp-io",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "sp-trie",
  "sp-weights",
  "tracing",
@@ -12711,7 +12711,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface"
 version = "29.0.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "bytes",
  "impl-trait-for-tuples",
@@ -12720,7 +12720,7 @@ dependencies = [
  "primitive-types 0.13.1",
  "sp-externalities 0.30.0",
  "sp-runtime-interface-proc-macro 18.0.0",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "sp-storage 22.0.0",
  "sp-tracing 17.1.0",
  "sp-wasm-interface 21.0.1",
@@ -12743,7 +12743,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface-proc-macro"
 version = "18.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "Inflector",
  "expander",
@@ -12756,7 +12756,7 @@ dependencies = [
 [[package]]
 name = "sp-session"
 version = "38.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -12770,7 +12770,7 @@ dependencies = [
 [[package]]
 name = "sp-staking"
 version = "38.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
@@ -12783,7 +12783,7 @@ dependencies = [
 [[package]]
 name = "sp-state-machine"
 version = "0.45.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "hash-db",
  "log",
@@ -12803,7 +12803,7 @@ dependencies = [
 [[package]]
 name = "sp-statement-store"
 version = "20.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "aes-gcm",
  "curve25519-dalek",
@@ -12816,7 +12816,7 @@ dependencies = [
  "sp-api",
  "sp-application-crypto",
  "sp-core",
- "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "sp-externalities 0.30.0",
  "sp-runtime",
  "sp-runtime-interface 29.0.1",
@@ -12827,7 +12827,7 @@ dependencies = [
 [[package]]
 name = "sp-std"
 version = "14.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 
 [[package]]
 name = "sp-std"
@@ -12849,19 +12849,19 @@ dependencies = [
 [[package]]
 name = "sp-storage"
 version = "22.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "impl-serde 0.5.0",
  "parity-scale-codec",
  "ref-cast",
  "serde",
- "sp-debug-derive 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-debug-derive 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
 ]
 
 [[package]]
 name = "sp-timestamp"
 version = "36.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "async-trait",
  "parity-scale-codec",
@@ -12885,7 +12885,7 @@ dependencies = [
 [[package]]
 name = "sp-tracing"
 version = "17.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "parity-scale-codec",
  "tracing",
@@ -12896,7 +12896,7 @@ dependencies = [
 [[package]]
 name = "sp-transaction-pool"
 version = "36.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "sp-api",
  "sp-runtime",
@@ -12905,7 +12905,7 @@ dependencies = [
 [[package]]
 name = "sp-transaction-storage-proof"
 version = "36.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "async-trait",
  "parity-scale-codec",
@@ -12919,7 +12919,7 @@ dependencies = [
 [[package]]
 name = "sp-trie"
 version = "39.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "ahash 0.8.12",
  "hash-db",
@@ -12941,7 +12941,7 @@ dependencies = [
 [[package]]
 name = "sp-version"
 version = "39.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "impl-serde 0.5.0",
  "parity-scale-codec",
@@ -12950,7 +12950,7 @@ dependencies = [
  "serde",
  "sp-crypto-hashing-proc-macro",
  "sp-runtime",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "sp-version-proc-macro",
  "thiserror 1.0.69",
 ]
@@ -12958,7 +12958,7 @@ dependencies = [
 [[package]]
 name = "sp-version-proc-macro"
 version = "15.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "parity-scale-codec",
  "proc-macro-warning",
@@ -12981,7 +12981,7 @@ dependencies = [
 [[package]]
 name = "sp-wasm-interface"
 version = "21.0.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "anyhow",
  "impl-trait-for-tuples",
@@ -12993,7 +12993,7 @@ dependencies = [
 [[package]]
 name = "sp-weights"
 version = "31.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "bounded-collections",
  "parity-scale-codec",
@@ -13001,7 +13001,7 @@ dependencies = [
  "serde",
  "smallvec",
  "sp-arithmetic",
- "sp-debug-derive 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-debug-derive 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
 ]
 
 [[package]]
@@ -13167,7 +13167,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 [[package]]
 name = "staging-xcm"
 version = "16.2.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "array-bytes",
  "bounded-collections",
@@ -13279,7 +13279,7 @@ dependencies = [
 [[package]]
 name = "substrate-bip39"
 version = "0.6.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "hmac 0.12.1",
  "pbkdf2",
@@ -13304,7 +13304,7 @@ dependencies = [
 [[package]]
 name = "substrate-build-script-utils"
 version = "11.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 
 [[package]]
 name = "substrate-fixed"
@@ -13320,7 +13320,7 @@ dependencies = [
 [[package]]
 name = "substrate-frame-rpc-system"
 version = "43.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "docify",
  "frame-system-rpc-runtime-api",
@@ -13340,7 +13340,7 @@ dependencies = [
 [[package]]
 name = "substrate-prometheus-endpoint"
 version = "0.17.2"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "http-body-util",
  "hyper 1.6.0",
@@ -13364,7 +13364,7 @@ dependencies = [
 [[package]]
 name = "substrate-wasm-builder"
 version = "26.0.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "array-bytes",
  "build-helper",
@@ -13478,7 +13478,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99)",
+ "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90)",
  "substrate-fixed",
  "subtensor-runtime-common",
  "subtensor-swap-interface",
@@ -14224,7 +14224,7 @@ dependencies = [
 [[package]]
 name = "tracing-gum"
 version = "19.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "coarsetime",
  "polkadot-primitives",
@@ -14235,7 +14235,7 @@ dependencies = [
 [[package]]
 name = "tracing-gum-proc-macro"
 version = "5.0.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "expander",
  "proc-macro-crate 3.3.0",
@@ -15657,7 +15657,7 @@ dependencies = [
 [[package]]
 name = "xcm-procedural"
 version = "11.0.2"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=901f89f44cfcbd9213c95cfd3cb74908511eac99#901f89f44cfcbd9213c95cfd3cb74908511eac99"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=b4f74c3221c3a8e5d467fcd4fd81fced9746cf90#b4f74c3221c3a8e5d467fcd4fd81fced9746cf90"
 dependencies = [
  "Inflector",
  "proc-macro2",
