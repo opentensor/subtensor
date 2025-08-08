@@ -278,11 +278,12 @@ pub mod pallet {
             }
         }
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            let weight = frame_support::weights::Weight::from_parts(0, 0);
+            /*let weight = */
+            frame_support::weights::Weight::from_parts(0, 0) /*;*/
 
             //weight = weight.saturating_add(migrations::migrate_set_oldest_round::<T>());
 
-            weight
+            //weight
         }
     }
 
