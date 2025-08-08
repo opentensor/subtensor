@@ -277,12 +277,11 @@ pub mod pallet {
             }
         }
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            /* let weight = */
-            frame_support::weights::Weight::from_parts(0, 0) /*;*/
+            let mut weight = frame_support::weights::Weight::from_parts(0, 0);
 
-            //weight = weight.saturating_add(migrations::migrate_prune_old_pulses::<T>());
+            weight = weight.saturating_add(migrations::migrate_set_oldest_round::<T>());
 
-            //weight
+            weight
         }
     }
 
@@ -676,7 +675,7 @@ impl<T: Config> Pallet<T> {
         }
 
         let mut removed: u64 = 0;
-        while last_stored_round.saturating_sub(oldest) + 1 > MAX_KEPT_PULSES
+        while last_stored_round.saturating_sub(oldest).saturating_add(1) > MAX_KEPT_PULSES
             && removed < MAX_REMOVED_PULSES
         {
             Pulses::<T>::remove(oldest);

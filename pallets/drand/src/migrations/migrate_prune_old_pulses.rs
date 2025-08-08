@@ -35,7 +35,7 @@ pub fn migrate_prune_old_pulses<T: Config>() -> Weight {
 
         let mut new_oldest = rounds[0];
         if num_pulses > MAX_KEPT_PULSES {
-            let num_to_delete = num_pulses - MAX_KEPT_PULSES;
+            let num_to_delete = num_pulses.saturating_sub(MAX_KEPT_PULSES);
             new_oldest = rounds[num_to_delete as usize];
 
             for &round in &rounds[0..num_to_delete as usize] {
