@@ -25,7 +25,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// Returns `Ok(())` if the identity is successfully set, otherwise returns an error.
     pub fn do_set_identity(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         name: Vec<u8>,
         url: Vec<u8>,
         github_repo: Vec<u8>,
@@ -96,7 +96,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// Returns `Ok(())` if the subnet identity is successfully set, otherwise returns an error.
     pub fn do_set_subnet_identity(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         subnet_name: Vec<u8>,
         github_repo: Vec<u8>,

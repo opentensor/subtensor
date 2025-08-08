@@ -38,7 +38,7 @@ impl<T: Config> Pallet<T> {
     ///     -  Thrown if key has hit transaction rate limit
     ///
     pub fn do_add_stake(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         netuid: NetUid,
         stake_to_be_added: u64,
@@ -125,7 +125,7 @@ impl<T: Config> Pallet<T> {
     ///     -  Thrown if key has hit transaction rate limit
     ///
     pub fn do_add_stake_limit(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         netuid: NetUid,
         stake_to_be_added: u64,
@@ -208,7 +208,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_add_stake_aggregate(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         netuid: NetUid,
         stake_to_be_added: u64,
@@ -244,7 +244,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_add_stake_limit_aggregate(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         netuid: NetUid,
         stake_to_be_added: u64,

@@ -37,7 +37,7 @@ impl<T: Config> Pallet<T> {
     ///     -  Thrown if key has hit transaction rate limit
     ///
     pub fn do_remove_stake(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         netuid: NetUid,
         alpha_unstaked: AlphaCurrency,
@@ -118,7 +118,7 @@ impl<T: Config> Pallet<T> {
     ///     -  Thrown if key has hit transaction rate limit
     ///
     pub fn do_unstake_all(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
     ) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
@@ -208,7 +208,7 @@ impl<T: Config> Pallet<T> {
     ///     -  Thrown if key has hit transaction rate limit
     ///
     pub fn do_unstake_all_alpha(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
     ) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
@@ -327,7 +327,7 @@ impl<T: Config> Pallet<T> {
     ///     - Thrown if there is not enough stake on the hotkey to withdwraw this amount.
     ///
     pub fn do_remove_stake_limit(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         netuid: NetUid,
         alpha_unstaked: AlphaCurrency,
@@ -424,7 +424,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_remove_stake_full_limit(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         netuid: NetUid,
         limit_price: Option<u64>,
@@ -442,7 +442,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_remove_stake_full_limit_aggregate(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         netuid: NetUid,
         limit_price: Option<u64>,
@@ -467,7 +467,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_remove_stake_aggregate(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         netuid: NetUid,
         alpha_unstaked: AlphaCurrency,
@@ -503,7 +503,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_remove_stake_limit_aggregate(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         netuid: NetUid,
         alpha_unstaked: AlphaCurrency,
@@ -544,7 +544,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_unstake_all_aggregate(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
     ) -> dispatch::DispatchResult {
         // We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
@@ -571,7 +571,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_unstake_all_alpha_aggregate(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
     ) -> dispatch::DispatchResult {
         // We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.

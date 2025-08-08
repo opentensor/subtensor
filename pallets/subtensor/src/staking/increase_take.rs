@@ -31,7 +31,7 @@ impl<T: Config> Pallet<T> {
     ///     - The delegate is setting a take which is not greater than the previous.
     ///
     pub fn do_increase_take(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         take: u16,
     ) -> dispatch::DispatchResult {

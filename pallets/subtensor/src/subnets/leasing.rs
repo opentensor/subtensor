@@ -67,7 +67,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// The leftover cap is refunded to the contributors and the beneficiary.
     pub fn do_register_leased_network(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         emissions_share: Percent,
         end_block: Option<BlockNumberFor<T>>,
     ) -> DispatchResultWithPostInfo {
@@ -191,7 +191,7 @@ impl<T: Config> Pallet<T> {
     /// The beneficiary can terminate the lease after the end block has passed and get the subnet ownership.
     /// The subnet is transferred to the beneficiary and the lease is removed from storage.
     pub fn do_terminate_lease(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         lease_id: LeaseId,
         hotkey: T::AccountId,
     ) -> DispatchResultWithPostInfo {

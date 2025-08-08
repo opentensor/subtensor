@@ -19,6 +19,8 @@ use frame_support::{
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::sp_runtime::transaction_validity::InvalidTransaction;
 use frame_support::sp_runtime::transaction_validity::ValidTransaction;
+use frame_support::traits::OriginTrait;
+use frame_system::pallet_prelude::OriginFor;
 use pallet_balances::Call as BalancesCall;
 // use pallet_scheduler as Scheduler;
 use scale_info::TypeInfo;
@@ -62,6 +64,42 @@ extern crate alloc;
 
 pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 
+// /// Ensure the origin `o` represents EVM transaction.
+// /// Returns `Ok` if it does or an `Err` otherwise.
+// pub fn ensure_evm_origin<OuterOrigin>(o: OuterOrigin) -> Result<(), BadOrigin>
+// where
+//     OuterOrigin: Into<Result<Origin, OuterOrigin>>,
+// {
+//     match o.into() {
+//         Ok(Origin::Evm) => Ok(()),
+//         _ => Err(BadOrigin),
+//     }
+// }
+
+// pub fn make_evm_origin<T: Config>() -> OriginFor<T> {
+//     pallet::Origin.into()
+// }
+
+pub fn ensure_evm_origin<T:Config>(origin: OriginFor<T>) -> DispatchResult {
+    // first, we convert from `<T as frame_system::Config>::RuntimeOrigin` to `<T as
+    // Config>::RuntimeOrigin`
+    let local_runtime_origin = <<T as Config>::RuntimeOrigin as From<
+        <T as frame_system::Config>::RuntimeOrigin,
+    >>::from(origin);
+    // then we convert to `origin`, if possible
+    let local_origin =
+        local_runtime_origin.into().map_err(|_| "invalid origin type provided")?;
+    ensure!(matches!(local_origin, Origin::Evm), "Not authorized");
+    todo!();
+}
+
+pub trait EvmOriginHelper<O>
+where
+    O: OriginTrait,
+{
+    fn make_evm_origin() -> O;
+}
+
 #[deny(missing_docs)]
 #[import_section(errors::errors)]
 #[import_section(events::events)]
@@ -75,6 +113,7 @@ pub mod pallet {
     use crate::migrations;
     use crate::subnets::leasing::{LeaseId, SubnetLeaseOf};
     use frame_support::Twox64Concat;
+    use crate::EvmOriginHelper;
     use frame_support::{
         BoundedVec,
         dispatch::GetDispatchInfo,
@@ -98,6 +137,14 @@ pub mod pallet {
     use alloc::boxed::Box;
     #[cfg(feature = "std")]
     use sp_std::prelude::Box;
+
+    /// Origin for the EVM transactions.
+    #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug, MaxEncodedLen)]
+    #[pallet::origin]
+    pub enum Origin {
+        /// EVM origin.
+        Evm,
+    }
 
     /// Origin for the pallet
     pub type PalletsOriginOf<T> =

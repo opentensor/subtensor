@@ -65,7 +65,7 @@ impl<T: Config> Pallet<T> {
     ///     - The hotkey is already registered on this network.
     ///
     pub fn do_burned_registration(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         hotkey: T::AccountId,
     ) -> DispatchResult {
@@ -222,7 +222,7 @@ impl<T: Config> Pallet<T> {
     ///     - The seal is incorrect.
     ///
     pub fn do_registration(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         block_number: u64,
         nonce: u64,
@@ -349,7 +349,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_faucet(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         block_number: u64,
         nonce: u64,
         work: Vec<u8>,

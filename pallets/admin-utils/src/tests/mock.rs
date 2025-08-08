@@ -6,6 +6,7 @@ use frame_support::{
     PalletId, assert_ok, derive_impl, parameter_types,
     traits::{Everything, Hooks, InherentBuilder, PrivilegeCmp},
 };
+use frame_support::traits::EnsureOrigin;
 use frame_system::{self as system, offchain::CreateTransactionBase};
 use frame_system::{EnsureNever, EnsureRoot, limits};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -151,7 +152,24 @@ parameter_types! {
     pub const LeaseDividendsDistributionInterval: u32 = 100; // 100 blocks
 }
 
+pub struct EvmOrigin<T> {
+    marker: std::marker::PhantomData<T>}
+
+impl<T: crate::Config> EnsureOrigin<T::RuntimeOrigin> for EvmOrigin<T> {
+    type Success = T::AccountId;
+
+    fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
+        todo!()
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn try_successful_origin() -> Result<T::RuntimeOrigin, ()>  {
+        todo!()
+    }
+}
+
 impl pallet_subtensor::Config for Test {
+    type EvmOrigin = EvmOrigin<Self>;
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;

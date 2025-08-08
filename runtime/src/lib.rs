@@ -99,6 +99,7 @@ use scale_info::TypeInfo;
 
 // Frontier
 use fp_rpc::TransactionStatus;
+use frame_support::pallet_prelude::EnsureOrigin;
 use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
 use pallet_evm::{
     Account as EVMAccount, BalanceConverter, EvmBalance, FeeCalculator, Runner, SubstrateBalance,
@@ -542,7 +543,7 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
     }
 }
 
-use pallet_subtensor::{CollectiveInterface, MemberManagement, ProxyInterface};
+use pallet_subtensor::{CollectiveInterface, Config, MemberManagement, ProxyInterface};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
@@ -1226,7 +1227,25 @@ parameter_types! {
     pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
 }
 
+pub struct EvmOrigin<T> {
+    marker: PhantomData<T>}
+
+impl<T: Config> EnsureOrigin<T::RuntimeOrigin> for EvmOrigin<T> {
+    type Success = T::AccountId;
+
+    fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
+        todo!()
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn try_successful_origin() -> Result<T::RuntimeOrigin, ()>  {
+        todo!()
+    }
+}
+
+
 impl pallet_subtensor::Config for Runtime {
+    type EvmOrigin = EvmOrigin<Self>;
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type SudoRuntimeCall = RuntimeCall;

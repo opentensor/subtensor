@@ -384,7 +384,35 @@ impl pallet_membership::Config<SenateMembership> for Test {
     type WeightInfo = pallet_membership::weights::SubstrateWeight<Test>;
 }
 
+pub struct EvmOrigin<T> {
+    marker: PhantomData<T>}
+
+impl<T: Config> EnsureOrigin<OriginFor<T>> for EvmOrigin<T> {
+    type Success = T::AccountId;
+
+    fn try_origin(o: OriginFor<T>) -> Result<Self::Success, OriginFor<T>> {
+        todo!()
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn try_successful_origin() -> Result<OriginFor<T>, ()>  {
+        todo!()
+    }
+}
+
+pub struct OriginHelper;
+
+impl EvmOriginHelper<RuntimeOrigin> for OriginHelper {
+    fn make_evm_origin() -> RuntimeOrigin {
+        RuntimeOrigin::from(pallet::Origin::Evm)
+    }
+}
+
 impl crate::Config for Test {
+    // type EvmOrigin = EvmOrigin<Self>;
+    type RuntimeOrigin = RuntimeOrigin;
+    
+    type EvmOriginHelper = OriginHelper;
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;

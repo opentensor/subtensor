@@ -12,7 +12,7 @@ use subtensor_runtime_common::{AlphaCurrency, NetUid};
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
-        o: T::RuntimeOrigin,
+        o: OriginFor<T>,
         netuid: NetUid,
     ) -> Result<(), DispatchError> {
         let coldkey = ensure_signed_or_root(o);
@@ -24,7 +24,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn ensure_subnet_owner(o: T::RuntimeOrigin, netuid: NetUid) -> Result<(), DispatchError> {
+    pub fn ensure_subnet_owner(o: OriginFor<T>, netuid: NetUid) -> Result<(), DispatchError> {
         let coldkey = ensure_signed(o);
         match coldkey {
             Ok(who) if SubnetOwner::<T>::get(netuid) == who => Ok(()),
@@ -653,7 +653,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_set_senate_required_stake_perc(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         required_percent: u64,
     ) -> DispatchResult {
         ensure_root(origin)?;
