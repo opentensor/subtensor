@@ -12,7 +12,7 @@ use frame_system::{
     self as system, EnsureNever, EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase,
 };
 pub use pallet_subtensor::*;
-use sp_core::U256;
+pub use sp_core::U256;
 use sp_core::{ConstU64, H256};
 use sp_runtime::{
     BuildStorage, KeyTypeId, Perbill,
@@ -21,11 +21,13 @@ use sp_runtime::{
 };
 use sp_std::cmp::Ordering;
 use sp_weights::Weight;
-use subtensor_runtime_common::{AlphaCurrency, NetUid};
+pub use subtensor_runtime_common::{AlphaCurrency, NetUid};
 use subtensor_swap_interface::{OrderType, SwapHandler};
 
 use crate::SubtensorTxFeeHandler;
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
+
+pub const TAO: u64 = 1_000_000_000;
 
 pub type Block = sp_runtime::generic::Block<
     sp_runtime::generic::Header<u64, sp_runtime::traits::BlakeTwo256>,
@@ -565,12 +567,6 @@ pub fn register_ok_neuron(
         coldkey_account_id,
     );
     assert_ok!(result);
-    log::info!(
-        "Register ok neuron: netuid: {:?}, coldkey: {:?}, hotkey: {:?}",
-        netuid,
-        hotkey_account_id,
-        coldkey_account_id
-    );
 }
 
 #[allow(dead_code)]
@@ -628,49 +624,55 @@ pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: AlphaCurrency) -> (u64, u
 }
 
 #[allow(dead_code)]
+pub fn add_network(netuid: NetUid, tempo: u16) {
+    SubtensorModule::init_new_network(netuid, tempo);
+    SubtensorModule::set_network_registration_allowed(netuid, true);
+    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+}
+
+#[allow(dead_code)]
 pub struct TestSubnet {
     pub netuid: NetUid,
     pub ck_owner: U256,
     pub hk_owner: U256,
-    pub ck_neurons: Vec<U256>,
-    pub hk_neurons: Vec<U256>,
 }
 
 #[allow(dead_code)]
-pub fn setup_subnets(sncount: u16, neurons: u16) -> Vec<TestSubnet> {
+pub struct TestSetup {
+    pub subnets: Vec<TestSubnet>,
+    pub coldkey: U256,
+    pub hotkeys: Vec<U256>,
+}
+
+#[allow(dead_code)]
+pub fn setup_subnets(sncount: u16, neurons: u16) -> TestSetup {
     let mut subnets: Vec<TestSubnet> = Vec::new();
     let owner_ck_start_id = 100;
     let owner_hk_start_id = 200;
-    let neuron_ck_start_id = 10000;
+    let coldkey = U256::from(10000);
     let neuron_hk_start_id = 20000;
     let amount = 1_000_000_000_000;
+    let mut hotkeys: Vec<U256> = Vec::new();
 
     for sn in 0..sncount {
         let cko = U256::from(owner_ck_start_id + sn);
         let hko = U256::from(owner_hk_start_id + sn);
 
         // Create subnet
-        let mut subnet = TestSubnet {
+        let subnet = TestSubnet {
             netuid: add_dynamic_network(&cko, &hko),
             ck_owner: cko,
             hk_owner: hko,
-            ck_neurons: Vec::new(),
-            hk_neurons: Vec::new(),
         };
 
         // Set tempo to 10 blocks
         Tempo::<Test>::insert(subnet.netuid, 10);
 
-        // Add neurons
+        // Add neurons (all the same for all subnets)
         for uid in 1..=neurons {
-            let coldkey = U256::from(neuron_ck_start_id + sn * 100 + uid);
-            let hotkey = U256::from(neuron_hk_start_id + sn * 100 + uid);
+            let hotkey = U256::from(neuron_hk_start_id + uid);
             register_ok_neuron(subnet.netuid, hotkey, coldkey, 192213123);
-            subnet.ck_neurons.push(coldkey);
-            subnet.hk_neurons.push(hotkey);
-
-            // Give it some $$$ in the coldkey balance
-            SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount);
+            hotkeys.push(hotkey);
         }
 
         // Setup pool reserves
@@ -682,7 +684,11 @@ pub fn setup_subnets(sncount: u16, neurons: u16) -> Vec<TestSubnet> {
         subnets.push(subnet);
     }
 
-    subnets
+    TestSetup {
+        subnets,
+        coldkey,
+        hotkeys,
+    }
 }
 
 pub(crate) fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, netuid: NetUid) {
@@ -690,16 +696,15 @@ pub(crate) fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, n
 }
 
 #[allow(dead_code)]
-pub fn setup_stake(sn: &TestSubnet, amount: u64) {
-    for i in 0..sn.ck_neurons.len() {
-        // Stake to hotkey account, and check if the result is ok
-        remove_stake_rate_limit_for_tests(&sn.hk_neurons[i], &sn.ck_neurons[i], sn.netuid);
-        assert_ok!(SubtensorModule::add_stake(
-            RuntimeOrigin::signed(sn.ck_neurons[i]),
-            sn.hk_neurons[i],
-            sn.netuid,
-            amount
-        ));
-        remove_stake_rate_limit_for_tests(&sn.hk_neurons[i], &sn.ck_neurons[i], sn.netuid);
-    }
+pub fn setup_stake(netuid: NetUid, coldkey: &U256, hotkey: &U256, amount: u64) {
+    // Stake to hotkey account, and check if the result is ok
+    SubtensorModule::add_balance_to_coldkey_account(coldkey, amount + ExistentialDeposit::get());
+    remove_stake_rate_limit_for_tests(hotkey, coldkey, netuid);
+    assert_ok!(SubtensorModule::add_stake(
+        RuntimeOrigin::signed(*coldkey),
+        *hotkey,
+        netuid,
+        amount
+    ));
+    remove_stake_rate_limit_for_tests(hotkey, coldkey, netuid);
 }

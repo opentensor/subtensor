@@ -68,6 +68,10 @@ pub trait AlphaFeeHandler<T: frame_system::Config> {
         alpha_vec: &[(AccountIdOf<T>, NetUid)],
         tao_amount: u64,
     );
+    fn get_all_netuids_for_coldkey_and_hotkey(
+        coldkey: &AccountIdOf<T>,
+        hotkey: &AccountIdOf<T>,
+    ) -> Vec<NetUid>;
 }
 
 /// Deduct the transaction fee from the Subtensor Pallet TotalIssuance when charging the transaction
@@ -182,6 +186,21 @@ where
             );
         });
     }
+
+    fn get_all_netuids_for_coldkey_and_hotkey(
+        coldkey: &AccountIdOf<T>,
+        hotkey: &AccountIdOf<T>,
+    ) -> Vec<NetUid> {
+        pallet_subtensor::Pallet::<T>::get_all_subnet_netuids()
+            .into_iter()
+            .filter(|netuid| pallet_subtensor::SubtokenEnabled::<T>::get(netuid))
+            .filter(|netuid| {
+                pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    hotkey, coldkey, *netuid,
+                ) != 0.into()
+            })
+            .collect()
+    }
 }
 
 /// Enum that describes either a withdrawn amount of transaction fee in TAO or the
@@ -202,10 +221,11 @@ impl<F, OU> SubtensorTxFeeHandler<F, OU> {
     /// Returns Vec<(hotkey, netuid)> if the given call should pay fees in Alpha instead of TAO.
     /// The vector represents all subnets where this hotkey has any alpha stake. Fees will be
     /// distributed evenly between subnets in case of multiple subnets.
-    pub fn fees_in_alpha<T>(call: &CallOf<T>) -> Vec<(AccountIdOf<T>, NetUid)>
+    pub fn fees_in_alpha<T>(who: &AccountIdOf<T>, call: &CallOf<T>) -> Vec<(AccountIdOf<T>, NetUid)>
     where
         T: frame_system::Config + pallet_subtensor::Config,
         CallOf<T>: IsSubType<pallet_subtensor::Call<T>>,
+        OU: AlphaFeeHandler<T>,
     {
         let mut alpha_vec: Vec<(AccountIdOf<T>, NetUid)> = Vec::new();
 
@@ -214,9 +234,58 @@ impl<F, OU> SubtensorTxFeeHandler<F, OU> {
         // TODO: Populate the list
         match call.is_sub_type() {
             Some(SubtensorCall::remove_stake { hotkey, netuid, .. }) => {
-                log::info!("fees_in_alpha: matched remove_stake => use Alpha");
                 alpha_vec.push((hotkey.clone(), *netuid))
             }
+            Some(SubtensorCall::remove_stake_limit { hotkey, netuid, .. }) => {
+                alpha_vec.push((hotkey.clone(), *netuid))
+            }
+            Some(SubtensorCall::remove_stake_full_limit { hotkey, netuid, .. }) => {
+                alpha_vec.push((hotkey.clone(), *netuid))
+            }
+            Some(SubtensorCall::unstake_all { hotkey, .. }) => {
+                let netuids = OU::get_all_netuids_for_coldkey_and_hotkey(who, hotkey);
+                netuids
+                    .into_iter()
+                    .for_each(|netuid| alpha_vec.push((hotkey.clone(), netuid)));
+            }
+            Some(SubtensorCall::unstake_all_alpha { hotkey, .. }) => {
+                let netuids = OU::get_all_netuids_for_coldkey_and_hotkey(who, hotkey);
+                netuids
+                    .into_iter()
+                    .for_each(|netuid| alpha_vec.push((hotkey.clone(), netuid)));
+            }
+            Some(SubtensorCall::move_stake {
+                origin_hotkey,
+                destination_hotkey: _,
+                origin_netuid,
+                ..
+            }) => alpha_vec.push((origin_hotkey.clone(), *origin_netuid)),
+            Some(SubtensorCall::transfer_stake {
+                destination_coldkey: _,
+                hotkey,
+                origin_netuid,
+                ..
+            }) => alpha_vec.push((hotkey.clone(), *origin_netuid)),
+            Some(SubtensorCall::swap_stake {
+                hotkey,
+                origin_netuid,
+                ..
+            }) => alpha_vec.push((hotkey.clone(), *origin_netuid)),
+            Some(SubtensorCall::swap_stake_limit {
+                hotkey,
+                origin_netuid,
+                ..
+            }) => alpha_vec.push((hotkey.clone(), *origin_netuid)),
+            Some(SubtensorCall::recycle_alpha {
+                hotkey,
+                amount: _,
+                netuid,
+            }) => alpha_vec.push((hotkey.clone(), *netuid)),
+            Some(SubtensorCall::burn_alpha {
+                hotkey,
+                amount: _,
+                netuid,
+            }) => alpha_vec.push((hotkey.clone(), *netuid)),
             _ => {}
         }
 
@@ -256,7 +325,7 @@ where
         ) {
             Ok(imbalance) => Ok(Some(WithdrawnFee::Tao(imbalance))),
             Err(_) => {
-                let alpha_vec = Self::fees_in_alpha::<T>(call);
+                let alpha_vec = Self::fees_in_alpha::<T>(who, call);
                 if !alpha_vec.is_empty() {
                     let fee_u64: u64 = fee.into();
                     OU::withdraw_in_alpha(who, &alpha_vec, fee_u64);
@@ -283,7 +352,7 @@ where
             WithdrawConsequence::Success => Ok(()),
             _ => {
                 // Fallback to fees in Alpha if possible
-                let alpha_vec = Self::fees_in_alpha::<T>(call);
+                let alpha_vec = Self::fees_in_alpha::<T>(who, call);
                 if !alpha_vec.is_empty() {
                     let fee_u64: u64 = fee.into();
                     if OU::can_withdraw_in_alpha(who, &alpha_vec, fee_u64) {
@@ -328,7 +397,7 @@ where
                     OU::on_unbalanceds(Some(fee).into_iter().chain(Some(tip)));
                 }
                 WithdrawnFee::Alpha => {
-                    // We do not refund Alpha, charges are final
+                    // Subtensor does not refund Alpha fees, charges are final
                 }
             }
         }

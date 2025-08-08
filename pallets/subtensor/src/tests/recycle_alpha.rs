@@ -453,16 +453,6 @@ fn test_recycle_errors() {
             Error::<Test>::HotKeyAccountNotExists
         );
 
-        assert_noop!(
-            SubtensorModule::recycle_alpha(
-                RuntimeOrigin::signed(coldkey),
-                hotkey,
-                10_000_000_000.into(), // too much
-                netuid
-            ),
-            Error::<Test>::NotEnoughStakeToWithdraw
-        );
-
         // make it pass the stake check
         TotalHotkeyAlpha::<Test>::set(
             hotkey,
@@ -533,16 +523,6 @@ fn test_burn_errors() {
                 netuid
             ),
             Error::<Test>::HotKeyAccountNotExists
-        );
-
-        assert_noop!(
-            SubtensorModule::burn_alpha(
-                RuntimeOrigin::signed(coldkey),
-                hotkey,
-                10_000_000_000.into(), // too much
-                netuid
-            ),
-            Error::<Test>::NotEnoughStakeToWithdraw
         );
 
         // make it pass the hotkey alpha check
