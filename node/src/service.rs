@@ -790,13 +790,13 @@ fn copy_keys(
     let to_keys: HashSet<_> = keystore.raw_public_keys(to_key_type)?.into_iter().collect();
     let to_copy: Vec<_> = from_keys.difference(&to_keys).collect();
 
-    log::debug!(target: LOG_TARGET, "from_keys: {:?}", from_keys);
-    log::debug!(target: LOG_TARGET, "to_keys: {:?}", to_keys);
+    log::debug!(target: LOG_TARGET, "from_keys: {from_keys:?}");
+    log::debug!(target: LOG_TARGET, "to_keys: {to_keys:?}");
     log::debug!(target: LOG_TARGET, "to_copy: {:?} from {:?} to {:?}", &to_copy, from_key_type, to_key_type);
 
     for public in to_copy {
-        if let Some(phrase) = keystore.key_phrase_by_type(&public, from_key_type)? {
-            if let Err(_) = keystore.insert(to_key_type, &phrase, &public) {
+        if let Some(phrase) = keystore.key_phrase_by_type(public, from_key_type)? {
+            if keystore.insert(to_key_type, &phrase, public).is_err() {
                 log::error!(
                     target: LOG_TARGET,
                     "Failed to copy key {:?} into keystore, insert operation failed.",
@@ -806,9 +806,7 @@ fn copy_keys(
         } else {
             log::error!(
                 target: LOG_TARGET,
-                "Failed to copy key from {:?} to {:?} as the key phrase is not available",
-                from_key_type,
-                to_key_type
+                "Failed to copy key from {from_key_type:?} to {to_key_type:?} as the key phrase is not available"
             );
         }
     }

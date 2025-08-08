@@ -126,14 +126,14 @@ where
         let parent_header = self
             .client
             .header(*first_babe_block_header.parent_hash())
-            .map_err(|e| format!("Failed to get parent header: {}", e))?
+            .map_err(|e| format!("Failed to get parent header: {e}"))?
             .ok_or("Parent header not found".to_string())?;
         let grandparent_hash = parent_header.parent_hash();
 
         let runtime_api = self.client.runtime_api();
         let authorities = runtime_api
             .authorities(*grandparent_hash)
-            .map_err(|e| format!("Failed to get Aura authorities: {}", e))?;
+            .map_err(|e| format!("Failed to get Aura authorities: {e}"))?;
 
         Ok(authorities)
     }
