@@ -2,6 +2,7 @@
 
 echo "start run-ci.sh"
 
+
 scripts/localnet.sh &>/dev/null &
 
 i=1
@@ -28,9 +29,11 @@ fi
 
 cd evm-tests
 
-bash get-metadata.sh
+./get-metadata.sh
 
 sleep 5
+
+npm i -g yarn
 
 yarn
 
