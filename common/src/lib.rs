@@ -168,7 +168,7 @@ impl Default for ProxyType {
 }
 
 pub trait SubnetInfo<AccountId> {
-    fn tao_reserve(netuid: NetUid) -> u64;
+    fn tao_reserve(netuid: NetUid) -> TaoCurrency;
     fn alpha_reserve(netuid: NetUid) -> AlphaCurrency;
     fn exists(netuid: NetUid) -> bool;
     fn mechanism(netuid: NetUid) -> u16;
@@ -176,10 +176,13 @@ pub trait SubnetInfo<AccountId> {
 }
 
 pub trait BalanceOps<AccountId> {
-    fn tao_balance(account_id: &AccountId) -> u64;
+    fn tao_balance(account_id: &AccountId) -> TaoCurrency;
     fn alpha_balance(netuid: NetUid, coldkey: &AccountId, hotkey: &AccountId) -> AlphaCurrency;
-    fn increase_balance(coldkey: &AccountId, tao: u64);
-    fn decrease_balance(coldkey: &AccountId, tao: u64) -> Result<u64, DispatchError>;
+    fn increase_balance(coldkey: &AccountId, tao: TaoCurrency);
+    fn decrease_balance(
+        coldkey: &AccountId,
+        tao: TaoCurrency,
+    ) -> Result<TaoCurrency, DispatchError>;
     fn increase_stake(
         coldkey: &AccountId,
         hotkey: &AccountId,
@@ -192,8 +195,8 @@ pub trait BalanceOps<AccountId> {
         netuid: NetUid,
         alpha: AlphaCurrency,
     ) -> Result<AlphaCurrency, DispatchError>;
-    fn increase_provided_tao_reserve(netuid: NetUid, tao: u64);
-    fn decrease_provided_tao_reserve(netuid: NetUid, tao: u64);
+    fn increase_provided_tao_reserve(netuid: NetUid, tao: TaoCurrency);
+    fn decrease_provided_tao_reserve(netuid: NetUid, tao: TaoCurrency);
     fn increase_provided_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency);
     fn decrease_provided_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency);
 }

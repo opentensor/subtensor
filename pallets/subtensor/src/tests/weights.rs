@@ -19,6 +19,7 @@ use sp_runtime::{
 };
 use sp_std::collections::vec_deque::VecDeque;
 use substrate_fixed::types::I32F32;
+use subtensor_runtime_common::TaoCurrency;
 use subtensor_swap_interface::SwapHandler;
 use tle::{
     curves::drand::TinyBLS381,
@@ -93,9 +94,9 @@ fn test_set_rootweights_validate() {
 
         SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
 
-        let min_stake = 500_000_000_000;
+        let min_stake = TaoCurrency::from(500_000_000_000);
         // Set the minimum stake
-        SubtensorModule::set_stake_threshold(min_stake);
+        SubtensorModule::set_stake_threshold(min_stake.into());
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
@@ -125,7 +126,7 @@ fn test_set_rootweights_validate() {
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            min_stake + fee
+            min_stake + fee.into()
         ));
 
         // Verify stake is equal to minimum
@@ -152,7 +153,7 @@ fn test_set_rootweights_validate() {
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            DefaultMinStake::<Test>::get() * 10
+            DefaultMinStake::<Test>::get() * 10.into()
         ));
 
         // Verify stake is more than minimum
@@ -233,7 +234,7 @@ fn test_commit_weights_validate() {
 
         let min_stake = 500_000_000_000;
         let reserve = min_stake * 1000;
-        mock::setup_reserves(netuid, reserve, reserve.into());
+        mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
         // Stake some TAO and read what get_total_stake_for_hotkey it gets
         // It will be a different value due to the slippage
@@ -241,12 +242,12 @@ fn test_commit_weights_validate() {
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            min_stake
+            min_stake.into()
         ));
         let min_stake_with_slippage = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
 
         // Set the minimum stake above what hotkey has
-        SubtensorModule::set_stake_threshold(min_stake_with_slippage + 1);
+        SubtensorModule::set_stake_threshold(min_stake_with_slippage.to_u64() + 1);
 
         // Submit to the signed extension validate function
         let info = crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
@@ -269,7 +270,7 @@ fn test_commit_weights_validate() {
         );
 
         // Set the minimum stake equal to what hotkey has
-        SubtensorModule::set_stake_threshold(min_stake_with_slippage);
+        SubtensorModule::set_stake_threshold(min_stake_with_slippage.into());
 
         // Submit to the signed extension validate function
         let result_min_stake = extension.validate(
@@ -289,7 +290,7 @@ fn test_commit_weights_validate() {
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            DefaultMinStake::<Test>::get() * 10
+            DefaultMinStake::<Test>::get() * 10.into()
         ));
 
         // Verify stake is more than minimum
@@ -356,17 +357,17 @@ fn test_set_weights_validate() {
 
         // Create netuid
         add_network(netuid, 1, 0);
-        mock::setup_reserves(netuid, 1_000_000_000_000, 1_000_000_000_000.into());
+        mock::setup_reserves(netuid, 1_000_000_000_000.into(), 1_000_000_000_000.into());
         // Register the hotkey
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
 
         SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
 
-        let min_stake = 500_000_000_000;
+        let min_stake = TaoCurrency::from(500_000_000_000);
 
         // Set the minimum stake
-        SubtensorModule::set_stake_threshold(min_stake);
+        SubtensorModule::set_stake_threshold(min_stake.into());
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
@@ -391,18 +392,20 @@ fn test_set_weights_validate() {
         );
 
         // Increase the stake and make it to be equal to the minimum threshold
-        let fee =
-            <Test as pallet::Config>::SwapInterface::approx_fee_amount(netuid.into(), min_stake);
+        let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
+            netuid.into(),
+            min_stake.into(),
+        );
         assert_ok!(SubtensorModule::do_add_stake(
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            min_stake + fee
+            min_stake + fee.into()
         ));
         let min_stake_with_slippage = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
 
         // Set the minimum stake to what the hotkey has
-        SubtensorModule::set_stake_threshold(min_stake_with_slippage);
+        SubtensorModule::set_stake_threshold(min_stake_with_slippage.into());
 
         // Submit to the signed extension validate function
         let result_min_stake = extension.validate(
@@ -453,9 +456,9 @@ fn test_reveal_weights_validate() {
         crate::Owner::<Test>::insert(hotkey, coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
 
-        let min_stake = 500_000_000_000;
+        let min_stake = TaoCurrency::from(500_000_000_000);
         // Set the minimum stake
-        SubtensorModule::set_stake_threshold(min_stake);
+        SubtensorModule::set_stake_threshold(min_stake.into());
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
@@ -485,7 +488,7 @@ fn test_reveal_weights_validate() {
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            min_stake + fee
+            min_stake + fee.into()
         ));
 
         // Verify stake is equal to minimum
@@ -512,7 +515,7 @@ fn test_reveal_weights_validate() {
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            DefaultMinStake::<Test>::get() * 10
+            DefaultMinStake::<Test>::get() * 10.into()
         ));
 
         // Verify stake is more than minimum
@@ -622,14 +625,14 @@ fn test_set_stake_threshold_failed() {
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            19_000_000_000_000
+            19_000_000_000_000.into()
         ));
         assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
         assert_ok!(SubtensorModule::do_add_stake(
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            20_000_000_000_000
+            20_000_000_000_000.into()
         ));
         assert!(SubtensorModule::check_weights_min_stake(&hotkey, netuid));
 
@@ -650,7 +653,7 @@ fn test_set_stake_threshold_failed() {
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            100_000_000_000_000
+            100_000_000_000_000.into()
         ));
         assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(hotkey),
