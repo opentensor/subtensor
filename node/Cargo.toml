@@ -59,8 +59,6 @@ sc-client-api.workspace = true
 sp-runtime.workspace = true
 sp-io.workspace = true
 sp-timestamp.workspace = true
-sp-staking.workspace = true
-sp-application-crypto.workspace = true
 sp-transaction-pool = { workspace = true, features = ["default"] }
 sp-inherents.workspace = true
 sp-keyring.workspace = true
@@ -69,7 +67,6 @@ sp-session.workspace = true
 frame-metadata-hash-extension.workspace = true
 frame-system.workspace = true
 pallet-transaction-payment.workspace = true
-pallet-staking.workspace = true
 pallet-commitments.workspace = true
 pallet-drand.workspace = true
 sp-crypto-ec-utils = { workspace = true, default-features = true, features = [
@@ -127,12 +124,6 @@ pallet-subtensor-swap-runtime-api = { workspace = true, features = ["std"] }
 substrate-build-script-utils.workspace = true
 
 [features]
-default = ["rocksdb", "sql", "txpool"]
-fast-runtime = [
-	"node-subtensor-runtime/fast-runtime",
-	"subtensor-runtime-common/fast-runtime",
-]
-sql = ["fc-db/sql", "fc-mapping-sync/sql"]
 rocksdb = [
 	"sc-service/rocksdb",
 	"fc-db/rocksdb",
@@ -141,6 +132,12 @@ rocksdb = [
 	"frame-benchmarking-cli/rocksdb",
 	"sc-cli/rocksdb",
 ]
+default = ["rocksdb", "sql", "txpool"]
+fast-runtime = [
+	"node-subtensor-runtime/fast-runtime",
+	"subtensor-runtime-common/fast-runtime",
+]
+sql = ["fc-db/sql", "fc-mapping-sync/sql"]
 txpool = ["fc-rpc/txpool", "fc-rpc-core/txpool"]
 
 # Dependencies that are only required if runtime benchmarking should be build.

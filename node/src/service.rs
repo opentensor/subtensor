@@ -806,9 +806,7 @@ fn copy_keys(
         } else {
             log::error!(
                 target: LOG_TARGET,
-                "Failed to copy key from {:?} to {:?} as the key phrase is not available",
-                from_key_type,
-                to_key_type
+                "Failed to copy key from {from_key_type:?} to {to_key_type:?} as the key phrase is not available"
             );
         }
     }

@@ -163,6 +163,7 @@ mod tests {
                 System : frame_system = 0,
                 RandomnessCollectiveFlip : pallet_insecure_randomness_collective_flip = 1,
                 Timestamp : pallet_timestamp = 2,
+                Aura : pallet_aura = 3,
                 Grandpa : pallet_grandpa = 4,
                 Balances : pallet_balances = 5,
                 TransactionPayment : pallet_transaction_payment = 6,
@@ -217,6 +218,7 @@ mod tests {
                 System: frame_system = 0,
                 RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip = 1,
                 Timestamp: pallet_timestamp,
+                Aura: pallet_aura,
                 Grandpa: pallet_grandpa,
                 Balances: pallet_balances,
                 TransactionPayment: pallet_transaction_payment

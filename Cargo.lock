@@ -3882,7 +3882,7 @@ dependencies = [
  "sp-arithmetic",
  "sp-core",
  "sp-crypto-hashing-proc-macro",
- "sp-debug-derive 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
+ "sp-debug-derive",
  "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
@@ -3890,7 +3890,7 @@ dependencies = [
  "sp-runtime",
  "sp-staking",
  "sp-state-machine",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
+ "sp-std",
  "sp-tracing 17.1.0",
  "sp-trie",
  "sp-weights",
@@ -6826,7 +6826,6 @@ dependencies = [
  "num-traits",
  "pallet-commitments",
  "pallet-drand",
- "pallet-staking",
  "pallet-subtensor-swap-rpc",
  "pallet-subtensor-swap-runtime-api",
  "pallet-transaction-payment",
@@ -6859,7 +6858,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-api",
- "sp-application-crypto",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
@@ -6876,7 +6874,6 @@ dependencies = [
  "sp-offchain",
  "sp-runtime",
  "sp-session",
- "sp-staking",
  "sp-timestamp",
  "sp-transaction-pool",
  "substrate-build-script-utils",
@@ -6980,7 +6977,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-staking",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
+ "sp-std",
  "sp-storage 22.0.0",
  "sp-tracing 17.1.0",
  "sp-transaction-pool",
@@ -7353,7 +7350,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
+ "sp-std",
  "sp-tracing 17.1.0",
  "sp-weights",
  "substrate-fixed",
@@ -7543,7 +7540,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
+ "sp-std",
  "subtensor-macros",
 ]
 
@@ -7568,7 +7565,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
+ "sp-std",
  "subtensor-macros",
  "subtensor-runtime-common",
  "tle",
@@ -7590,7 +7587,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
+ "sp-std",
  "subtensor-macros",
 ]
 
@@ -8009,7 +8006,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
+ "sp-std",
  "subtensor-macros",
 ]
 
@@ -8184,7 +8181,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
+ "sp-std",
  "sp-tracing 17.1.0",
  "sp-version",
  "substrate-fixed",
@@ -8214,7 +8211,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
+ "sp-std",
  "sp-tracing 17.1.0",
  "substrate-fixed",
  "subtensor-macros",
@@ -8241,7 +8238,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-api",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
+ "sp-std",
 ]
 
 [[package]]
@@ -8895,7 +8892,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-staking",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
+ "sp-std",
  "thiserror 1.0.69",
 ]
 
@@ -9001,7 +8998,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-staking",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
+ "sp-std",
  "staging-xcm",
  "staging-xcm-executor",
 ]
@@ -10394,7 +10391,7 @@ version = "0.1.0"
 dependencies = [
  "num-traits",
  "sp-arithmetic",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
+ "sp-std",
  "substrate-fixed",
 ]
 
@@ -12172,7 +12169,7 @@ name = "share-pool"
 version = "0.1.0"
 dependencies = [
  "safe-math",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
+ "sp-std",
  "substrate-fixed",
 ]
 
@@ -12658,10 +12655,10 @@ dependencies = [
  "secrecy 0.8.0",
  "serde",
  "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
- "sp-debug-derive 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
+ "sp-debug-derive",
  "sp-externalities 0.30.0",
  "sp-runtime-interface 29.0.1",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
+ "sp-std",
  "sp-storage 22.0.0",
  "ss58-registry",
  "substrate-bip39",
@@ -12761,16 +12758,6 @@ dependencies = [
 name = "sp-debug-derive"
 version = "14.0.0"
 source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741#25bcee4d4eb6c858ceb8793096074d5cb0355741"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.104",
-]
-
-[[package]]
-name = "sp-debug-derive"
-version = "14.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#0d765ce37b258640a6eeb575f6bff76d6a7b7c46"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -12911,7 +12898,7 @@ dependencies = [
  "serde",
  "sp-api",
  "sp-core",
- "sp-debug-derive 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
+ "sp-debug-derive",
  "sp-runtime",
  "thiserror 1.0.69",
 ]
@@ -12980,7 +12967,7 @@ dependencies = [
  "sp-arithmetic",
  "sp-core",
  "sp-io",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
+ "sp-std",
  "sp-trie",
  "sp-weights",
  "tracing",
@@ -12998,7 +12985,7 @@ dependencies = [
  "polkavm-derive 0.26.0",
  "sp-externalities 0.25.0",
  "sp-runtime-interface-proc-macro 17.0.0",
- "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
+ "sp-std",
  "sp-storage 19.0.0",
  "sp-tracing 16.0.0",
  "sp-wasm-interface 20.0.0",
@@ -13017,7 +13004,7 @@ dependencies = [
  "primitive-types 0.13.1",
  "sp-externalities 0.30.0",
  "sp-runtime-interface-proc-macro 18.0.0",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
+ "sp-std",
  "sp-storage 22.0.0",
  "sp-tracing 17.1.0",
  "sp-wasm-interface 21.0.1",
@@ -13127,11 +13114,6 @@ version = "14.0.0"
 source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741#25bcee4d4eb6c858ceb8793096074d5cb0355741"
 
 [[package]]
-name = "sp-std"
-version = "14.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#0d765ce37b258640a6eeb575f6bff76d6a7b7c46"
-
-[[package]]
 name = "sp-storage"
 version = "19.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk#0d765ce37b258640a6eeb575f6bff76d6a7b7c46"
@@ -13140,7 +13122,7 @@ dependencies = [
  "parity-scale-codec",
  "ref-cast",
  "serde",
- "sp-debug-derive 14.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
+ "sp-debug-derive",
 ]
 
 [[package]]
@@ -13152,7 +13134,7 @@ dependencies = [
  "parity-scale-codec",
  "ref-cast",
  "serde",
- "sp-debug-derive 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
+ "sp-debug-derive",
 ]
 
 [[package]]
@@ -13247,7 +13229,7 @@ dependencies = [
  "serde",
  "sp-crypto-hashing-proc-macro",
  "sp-runtime",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
+ "sp-std",
  "sp-version-proc-macro",
  "thiserror 1.0.69",
 ]
@@ -13298,7 +13280,7 @@ dependencies = [
  "serde",
  "smallvec",
  "sp-arithmetic",
- "sp-debug-derive 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
+ "sp-debug-derive",
 ]
 
 [[package]]
@@ -13819,7 +13801,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741)",
+ "sp-std",
  "substrate-fixed",
  "subtensor-runtime-common",
  "subtensor-swap-interface",
@@ -16233,3 +16215,13 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
+
+[[patch.unused]]
+name = "pallet-collective"
+version = "40.1.0"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741#25bcee4d4eb6c858ceb8793096074d5cb0355741"
+
+[[patch.unused]]
+name = "polkadot-sdk"
+version = "2503.0.1"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=25bcee4d4eb6c858ceb8793096074d5cb0355741#25bcee4d4eb6c858ceb8793096074d5cb0355741"
