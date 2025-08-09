@@ -1,17 +1,17 @@
-import { PublicClient } from "viem";
-import { ETH_LOCAL_URL } from "../src/config";
-import { generateRandomEthersWallet, getPublicClient } from "../src/utils";
-import { ethers } from "ethers";
-import { ICROWDLOAN_ADDRESS, ICrowdloanABI } from "../src/contracts/crowdloan";
-import { Binary, TypedApi } from "polkadot-api";
-import { devnet } from "@polkadot-api/descriptors";
-import { getAliceSigner, getDevnetApi, waitForFinalizedBlock } from "../src/substrate";
-import { forceSetBalanceToEthAddress } from "../src/subtensor";
-import { decodeAddress } from "@polkadot/util-crypto";
-import { u8aToHex } from "@polkadot/util";
-import * as assert from "assert";
-import * as chai from "chai";
-import { convertH160ToSS58 } from "../src/address-utils";
+// import { PublicClient } from "viem";
+// import { ETH_LOCAL_URL } from "../src/config";
+// import { generateRandomEthersWallet, getPublicClient } from "../src/utils";
+// import { ethers } from "ethers";
+// import { ICROWDLOAN_ADDRESS, ICrowdloanABI } from "../src/contracts/crowdloan";
+// import { Binary, TypedApi } from "polkadot-api";
+// import { devnet } from "@polkadot-api/descriptors";
+// import { getAliceSigner, getDevnetApi, waitForFinalizedBlock } from "../src/substrate";
+// import { forceSetBalanceToEthAddress } from "../src/subtensor";
+// import { decodeAddress } from "@polkadot/util-crypto";
+// import { u8aToHex } from "@polkadot/util";
+// import * as assert from "assert";
+// import * as chai from "chai";
+// import { convertH160ToSS58 } from "../src/address-utils";
 
 // describe("Test Crowdloan precompile", () => {
 //     let publicClient: PublicClient;
