@@ -29,7 +29,7 @@ fi
 cd evm-tests
 
 # required for papi in get-metadata.sh, but we cannot run yarn before papi as it adds the descriptors to the package.json which won't resolve
-npm i -g polkadot-api@1.15.0
+npm i -g polkadot-api
 
 bash get-metadata.sh
 
