@@ -92,6 +92,9 @@ pallet-registry.workspace = true
 # Metadata commitment pallet
 pallet-commitments.workspace = true
 
+# for prod_or_fast! macro
+runtime-common.workspace = true
+
 # Frontier
 fp-evm.workspace = true
 fp-rpc.workspace = true
@@ -219,6 +222,7 @@ std = [
 	"rand_chacha/std",
 	"sha2/std",
 	"w3f-bls/std",
+	"runtime-common/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -251,6 +255,7 @@ runtime-benchmarks = [
 	"pallet-evm/runtime-benchmarks",
 	"pallet-hotfix-sufficients/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
+	"runtime-common/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
@@ -287,5 +292,6 @@ try-runtime = [
 	"pallet-evm/try-runtime",
 	"pallet-evm-chain-id/try-runtime",
 	"pallet-drand/try-runtime",
+	"runtime-common/try-runtime"
 ]
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]
