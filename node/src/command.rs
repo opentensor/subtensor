@@ -253,11 +253,11 @@ fn start_babe_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
     }) {
         Ok(_) => Ok(()),
         Err(e) => {
-            // Handle node needs to be in Aura mode.
+            // Handle node needs to be in Aura mode. InvalidAuthoritiesSet error is returned when
+			// the runtime is not a valid Babe runtime.
             if matches!(
                 e,
-                sc_service::Error::Client(sp_blockchain::Error::VersionInvalid(ref msg))
-                    if msg == "Unsupported or invalid BabeApi version"
+                sc_service::Error::Consensus(sp_consensus::Error::InvalidAuthoritiesSet)
             ) {
                 log::info!(
                     "💡 Chain is using Aura consensus. Switching to Aura service until Babe block is detected.",
