@@ -67,7 +67,7 @@ pallet-commitments = { path = "../pallets/commitments" }
 pallet-drand = { workspace = true }
 sp-crypto-ec-utils = { workspace = true }
 sp-keystore = { workspace = true, default-features = false }
-cumulus-primitives-proof-size-hostfunction =  { workspace = true, default-features =  false }
+cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = false }
 
 
 # These dependencies are used for the subtensor's RPCs
@@ -119,7 +119,6 @@ substrate-build-script-utils = { workspace = true }
 
 [features]
 default = ["rocksdb", "sql", "txpool"]
-fast-blocks = ["node-subtensor-runtime/fast-blocks"]
 sql = ["fc-db/sql", "fc-mapping-sync/sql"]
 rocksdb = [
 	"sc-service/rocksdb",
@@ -127,12 +126,10 @@ rocksdb = [
 	"fc-mapping-sync/rocksdb",
 	"fc-rpc/rocksdb",
 ]
-default = ["rocksdb", "sql", "txpool"]
 fast-runtime = [
 	"node-subtensor-runtime/fast-runtime",
 	"subtensor-runtime-common/fast-runtime",
 ]
-sql = ["fc-db/sql", "fc-mapping-sync/sql"]
 txpool = ["fc-rpc/txpool", "fc-rpc-core/txpool"]
 
 # Dependencies that are only required if runtime benchmarking should be build.
