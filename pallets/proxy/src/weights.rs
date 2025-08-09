@@ -48,6 +48,7 @@
 
 use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
 use core::marker::PhantomData;
+use crate as pallet_proxy;
 
 /// Weight functions needed for `pallet_proxy`.
 pub trait WeightInfo {

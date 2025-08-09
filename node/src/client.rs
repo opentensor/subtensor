@@ -1,5 +1,5 @@
-use cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions as ProofSize;
 use node_subtensor_runtime::{RuntimeApi, opaque::Block};
+use polkadot_sdk::cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions as ProofSize;
 use sc_executor::WasmExecutor;
 
 /// Full backend.
