@@ -52,6 +52,8 @@ use pallet_subtensor::rpc_info::{
     subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
 };
 use pallet_utility_otf as pallet_utility;
+use runtime_common::prod_or_fast;
+use scale_info::TypeInfo;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -63,6 +65,7 @@ use sp_runtime::Cow;
 use sp_runtime::Percent;
 use sp_runtime::SaturatedConversion;
 use sp_runtime::generic::Era;
+use sp_runtime::traits::NumberFor;
 use sp_runtime::traits::OpaqueKeys;
 use sp_runtime::transaction_validity::TransactionPriority;
 use sp_runtime::{
@@ -398,7 +401,7 @@ parameter_types! {
         MINUTES as u64 / 4u64,
         "TAO_EPOCH_DURATION"
     );
-    pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
+    pub const ExpectedBlockTime: u64 = MILLISECS_PER_BLOCK;
     pub ReportLongevity: u64 =
         BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
 }

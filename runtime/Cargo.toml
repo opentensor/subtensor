@@ -96,6 +96,9 @@ pallet-commitments.workspace = true
 # Legacy consensus
 pallet-aura = { workspace = true }
 
+# for prod_or_fast!
+runtime-common = { workspace = true }
+
 # NPoS
 frame-election-provider-support = { workspace = true }
 pallet-authority-discovery = { workspace = true }
@@ -264,6 +267,7 @@ std = [
 	"pallet-aura/std",
 	"substrate-fixed/std",
 	"subtensor-swap-interface/std",
+	"runtime-common/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -305,6 +309,7 @@ runtime-benchmarks = [
 	"pallet-drand/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-subtensor-swap/runtime-benchmarks",
+	"runtime-common/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
@@ -352,5 +357,6 @@ try-runtime = [
 	"pallet-evm-chain-id/try-runtime",
 	"pallet-drand/try-runtime",
 	"pallet-aura/try-runtime",
+	"runtime-common/try-runtime"
 ]
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]
