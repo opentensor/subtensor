@@ -32,19 +32,20 @@ serde_json = { workspace = true }
 serde-tuple-vec-map = { workspace = true }
 serde_bytes = { workspace = true, features = ["alloc"] }
 serde_with = { workspace = true, features = ["macros"] }
-sp-runtime = { workspace = true }
-sp-std = { workspace = true }
-libsecp256k1 = { workspace = true }
-log = { workspace = true }
-substrate-fixed = { workspace = true }
-pallet-transaction-payment = { workspace = true }
-pallet-utility = { workspace = true }
-ndarray = { workspace = true }
-hex = { workspace = true }
-share-pool = { default-features = false, path = "../../primitives/share-pool" }
-safe-math = { default-features = false, path = "../../primitives/safe-math" }
-approx = { workspace = true }
-subtensor-swap-interface = { workspace = true }
+sp-runtime.workspace = true
+sp-std.workspace = true
+libsecp256k1.workspace = true
+log.workspace = true
+substrate-fixed.workspace = true
+pallet-transaction-payment.workspace = true
+pallet-utility.workspace = true
+ndarray.workspace = true
+hex.workspace = true
+share-pool.workspace = true
+safe-math.workspace = true
+approx.workspace = true
+subtensor-swap-interface.workspace = true
+runtime-common.workspace = true
 subtensor-runtime-common = { workspace = true, features = ["approx"] }
 
 pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../collective" }
@@ -128,6 +129,7 @@ std = [
 	"subtensor-runtime-common/std",
 	"pallet-proxy/std",
 	"pallet-crowdloan/std",
+	"runtime-common/std"
 ]
 default = ["std"]
 runtime-benchmarks = [
@@ -147,6 +149,7 @@ runtime-benchmarks = [
 	"pallet-crowdloan/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"runtime-common/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -163,6 +166,7 @@ try-runtime = [
 	"pallet-drand/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-crowdloan/try-runtime",
+	"runtime-common/try-runtime"
 ]
 pow-faucet = []
-fast-blocks = []
+fast-runtime = ["subtensor-runtime-common/fast-runtime"]

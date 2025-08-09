@@ -127,6 +127,12 @@ rocksdb = [
 	"fc-mapping-sync/rocksdb",
 	"fc-rpc/rocksdb",
 ]
+default = ["rocksdb", "sql", "txpool"]
+fast-runtime = [
+	"node-subtensor-runtime/fast-runtime",
+	"subtensor-runtime-common/fast-runtime",
+]
+sql = ["fc-db/sql", "fc-mapping-sync/sql"]
 txpool = ["fc-rpc/txpool", "fc-rpc-core/txpool"]
 
 # Dependencies that are only required if runtime benchmarking should be build.

@@ -193,6 +193,8 @@ sc-consensus-manual-seal = { git = "https://github.com/paritytech/polkadot-sdk.g
 sc-network-sync = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
 substrate-prometheus-endpoint = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2412-6", default-features = false }
 
+runtime-common = { package = "polkadot-runtime-common", git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+
 # Frontier
 fp-evm = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
 fp-rpc = { git = "https://github.com/opentensor/frontier", rev = "fe6976888fda696771cd15f78dbbdd71ee6c1216", default-features = false }
