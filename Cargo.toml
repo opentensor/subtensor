@@ -50,7 +50,7 @@ useless_conversion = "allow"     # until polkadot is patched
 [workspace.dependencies]
 node-subtensor-runtime = { path = "runtime", default-features = false }
 pallet-admin-utils = { path = "pallets/admin-utils", default-features = false }
-pallet-collective = { path = "pallets/collective", default-features = false }
+pallet-collective-otf = { path = "pallets/collective", default-features = false }
 pallet-commitments = { path = "pallets/commitments", default-features = false }
 pallet-registry = { path = "pallets/registry", default-features = false }
 pallet-crowdloan = { path = "pallets/crowdloan", default-features = false }
@@ -112,6 +112,11 @@ expander = "2"
 ahash = { version = "0.8", default-features = false }
 regex = { version = "1.11.1", default-features = false }
 
+# Using OTF Polkadot SDK Patches from branch `polkadot-stable2503-6-otf-patches` latest commit.
+#
+# Diff:
+# <https://github.com/paritytech/polkadot-sdk/compare/polkadot-stable2503-6...opentensor:polkadot-sdk:polkadot-stable2503-6-otf-patches>
+
 frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 frame-executive = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
@@ -123,8 +128,8 @@ frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/polkadot-s
 frame-try-runtime = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 frame-metadata = { version = "20.0.0", default-features = false }
 
-pallet-proxy-opentensor = { path = "pallets/proxy", default-features = false }
-pallet-utility-opentensor = { path = "pallets/utility", default-features = false }
+pallet-proxy-otf = { path = "pallets/proxy", default-features = false }
+pallet-utility-otf = { path = "pallets/utility", default-features = false }
 pallet-babe = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 pallet-aura = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
@@ -220,41 +225,40 @@ substrate-frame-rpc-system = { git = "https://github.com/paritytech/polkadot-sdk
 substrate-wasm-builder = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 substrate-prometheus-endpoint = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 
-cumulus-primitives-proof-size-hostfunction = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
-
-runtime-common = { package = "polkadot-runtime-common", git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 polkadot-core-primitives = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+polkadot-sdk = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+runtime-common = { package = "polkadot-runtime-common", git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 
 # Frontier
-fp-evm = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-fp-rpc = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-fp-self-contained = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-fp-account = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-fc-storage = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-fc-db = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-fc-consensus = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-fp-consensus = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-fp-dynamic-fee = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-fc-api = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-fc-rpc = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-fc-rpc-core = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-fc-aura = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-fc-babe = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-fc-mapping-sync = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-precompile-utils = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
+fp-evm = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+fp-rpc = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+fp-self-contained = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+fp-account = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+fc-storage = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+fc-db = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+fc-consensus = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+fp-consensus = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+fp-dynamic-fee = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+fc-api = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+fc-rpc = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+fc-rpc-core = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+fc-aura = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+fc-babe = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+fc-mapping-sync = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+precompile-utils = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
 
 # Frontier FRAME
-pallet-base-fee = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-pallet-dynamic-fee = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-pallet-ethereum = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-pallet-evm = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-pallet-evm-precompile-dispatch = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-pallet-evm-chain-id = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-pallet-evm-precompile-modexp = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-pallet-evm-precompile-sha3fips = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-pallet-evm-precompile-simple = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-pallet-evm-precompile-bn128 = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
-pallet-hotfix-sufficients = { git = "https://github.com/opentensor/frontier", rev = "469eb404907961cab19e64349a158949dea2614c", default-features = false }
+pallet-base-fee = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+pallet-dynamic-fee = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+pallet-ethereum = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+pallet-evm = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+pallet-evm-precompile-dispatch = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+pallet-evm-chain-id = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+pallet-evm-precompile-modexp = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+pallet-evm-precompile-sha3fips = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+pallet-evm-precompile-simple = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+pallet-evm-precompile-bn128 = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
+pallet-hotfix-sufficients = { git = "https://github.com/opentensor/frontier", rev = "7f08809c41a1fe5dc1c0ac844f8584f7214dc78f", default-features = false }
 
 #DRAND
 pallet-drand = { path = "pallets/drand", default-features = false }
@@ -298,12 +302,15 @@ pow-faucet = []
 w3f-bls = { git = "https://github.com/opentensor/bls", branch = "fix-no-std" }
 
 # Patches automatically generated with `diener`:
-# `diener patch --target https://github.com/paritytech/polkadot-sdk --point-to-git https://github.com/opentensor/polkadot-sdk.git --point-to-git-commit 25bcee4d4eb6c858ceb8793096074d5cb0355741 --crates-to-patch ../polkadot-sdk --only-dep-tree`
+# `diener patch --target https://github.com/paritytech/polkadot-sdk --point-to-git https://github.com/opentensor/polkadot-sdk.git --point-to-git-commit 25bcee4d4eb6c858ceb8793096074d5cb0355741 --crates-to-patch ../polkadot-sdk --ignore-unused`
 #
-# Using OTF Polkadot SDK Patches from branch `polkadot-stable2503-6-otf-patches` latest commit.
+# Using latest commit from `polkadot-stable2503-6-otf-patches`.
 #
 # View code changes here:
 # <https://github.com/paritytech/polkadot-sdk/compare/polkadot-stable2503-6...opentensor:polkadot-sdk:polkadot-stable2503-6-otf-patches>
+#
+# NOTE: The Diener `--ignore-unused` flag is waiting to be merged: <https://github.com/paritytech/diener/pull/46>.
+# You may install diener from `liamaharon:ignore-unused-flag` if you like in the meantime.
 [patch."https://github.com/paritytech/polkadot-sdk"]
 frame-support = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
 binary-merkle-tree = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
@@ -398,31 +405,17 @@ pallet-offences = { git = "https://github.com/opentensor/polkadot-sdk.git", rev 
 pallet-staking = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
 pallet-bags-list = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
 pallet-staking-reward-curve = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
-pallet-broker = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
-pallet-mmr = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
-sp-mmr-primitives = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
-polkadot-runtime-metrics = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
-staging-xcm-executor = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
 sc-keystore = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
-staging-xcm-builder = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
-pallet-asset-conversion = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
 pallet-transaction-payment = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
 pallet-grandpa = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
 pallet-sudo = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
-pallet-vesting = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
-polkadot-runtime-common = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
-pallet-asset-rate = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
 pallet-election-provider-multi-phase = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
 pallet-election-provider-support-benchmarking = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
 pallet-fast-unstake = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
-pallet-identity = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
 pallet-staking-reward-fn = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
-pallet-treasury = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
 pallet-utility = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
-pallet-collective = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
 pallet-root-testing = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
-slot-range-helper = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
 cumulus-primitives-storage-weight-reclaim = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
 pallet-aura = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }
 cumulus-test-relay-sproof-builder = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "25bcee4d4eb6c858ceb8793096074d5cb0355741" }

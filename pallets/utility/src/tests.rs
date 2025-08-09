@@ -30,7 +30,8 @@ use frame_support::{
     traits::{ConstU64, Contains},
     weights::Weight,
 };
-use pallet_collective::{EnsureProportionAtLeast, Instance1};
+use pallet_collective_otf as pallet_collective;
+use pallet_collective_otf::{EnsureProportionAtLeast, Instance1};
 use sp_runtime::{
     BuildStorage, DispatchError, TokenError,
     traits::{BadOrigin, BlakeTwo256, Dispatchable, Hash},

@@ -42,7 +42,7 @@ libsecp256k1.workspace = true
 log.workspace = true
 substrate-fixed.workspace = true
 pallet-transaction-payment.workspace = true
-pallet-utility-opentensor.workspace = true
+pallet-utility-otf.workspace = true
 ndarray.workspace = true
 hex.workspace = true
 share-pool.workspace = true
@@ -52,7 +52,7 @@ subtensor-swap-interface.workspace = true
 subtensor-runtime-common = { workspace = true, features = ["approx"] }
 
 pallet-drand.workspace = true
-pallet-collective.workspace = true
+pallet-collective-otf.workspace = true
 pallet-membership.workspace = true
 hex-literal.workspace = true
 num-traits = { workspace = true, features = ["libm"] }
@@ -63,7 +63,7 @@ w3f-bls.workspace = true
 sha2.workspace = true
 rand_chacha.workspace = true
 pallet-crowdloan.workspace = true
-pallet-proxy-opentensor.workspace = true
+pallet-proxy-otf.workspace = true
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
@@ -92,13 +92,14 @@ std = [
 	"ndarray/std",
 	"num-traits/std",
 	"pallet-balances/std",
-	"pallet-collective/std",
+	"pallet-collective-otf/std",
 	"pallet-drand/std",
 	"pallet-membership/std",
 	"pallet-preimage/std",
 	"pallet-scheduler/std",
 	"pallet-subtensor-swap/std",
 	"pallet-transaction-payment/std",
+	"pallet-utility-otf/std",
 	"rand_chacha/std",
 	"safe-math/std",
 	"scale-info/std",
@@ -131,9 +132,10 @@ std = [
 	"sha2/std",
 	"share-pool/std",
 	"subtensor-runtime-common/std",
+	"pallet-proxy-otf/std",
 	"pallet-crowdloan/std",
-	"pallet-utility-opentensor/std",
-	"pallet-proxy-opentensor/std"
+	"pallet-utility-otf/std",
+	"pallet-proxy-otf/std",
 ]
 default = ["std"]
 runtime-benchmarks = [
@@ -141,9 +143,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-membership/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-	"pallet-collective/runtime-benchmarks",
+	"pallet-collective-otf/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
@@ -153,10 +153,12 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-subtensor-swap/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
+	"pallet-proxy-otf/runtime-benchmarks",
 	"pallet-crowdloan/runtime-benchmarks",
+	"pallet-utility-otf/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"pallet-utility-opentensor/runtime-benchmarks",
-	"pallet-proxy-opentensor/runtime-benchmarks"
+	"pallet-utility-otf/runtime-benchmarks",
+	"pallet-proxy-otf/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -166,15 +168,17 @@ try-runtime = [
 	"pallet-preimage/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-transaction-payment/try-runtime",
+	"pallet-utility-otf/try-runtime",
 	"sp-runtime/try-runtime",
-	"pallet-collective/try-runtime",
+	"pallet-collective-otf/try-runtime",
 	"pallet-drand/try-runtime",
+	"pallet-proxy-otf/try-runtime",
+	"pallet-crowdloan/try-runtime",
+	"pallet-utility-otf/try-runtime",
+	"pallet-proxy-otf/try-runtime",
 	"pallet-aura/try-runtime",
 	"pallet-babe/try-runtime",
-	"pallet-timestamp/try-runtime",
-	"pallet-crowdloan/try-runtime",
-	"pallet-utility-opentensor/try-runtime",
-	"pallet-proxy-opentensor/try-runtime"
+	"pallet-timestamp/try-runtime"
 ]
 pow-faucet = []
 fast-runtime = ["subtensor-runtime-common/fast-runtime"]
