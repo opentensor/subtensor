@@ -2417,7 +2417,7 @@ impl_runtime_apis! {
         fn configuration() -> BabeConfiguration {
             let config = BabeEpochConfiguration::default();
             BabeConfiguration {
-                slot_duration: Default::default(),
+                slot_duration: SLOT_DURATION,
                 epoch_length: Default::default(),
                 authorities: vec![],
                 randomness: Default::default(),
