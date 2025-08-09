@@ -1,6 +1,6 @@
 use super::*;
 use sp_core::Get;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{NetUid, TaoCurrency};
 
 impl<T: Config> Pallet<T> {
     /// Fetches the total count of subnets.
@@ -141,10 +141,10 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 5. Calculate and lock the required tokens.
-        let lock_amount: u64 = Self::get_network_lock_cost();
+        let lock_amount = Self::get_network_lock_cost();
         log::debug!("network lock_amount: {lock_amount:?}");
         ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, lock_amount),
+            Self::can_remove_balance_from_coldkey_account(&coldkey, lock_amount.into()),
             Error::<T>::NotEnoughBalanceToStake
         );
 
@@ -152,8 +152,8 @@ impl<T: Config> Pallet<T> {
         let netuid_to_register = Self::get_next_netuid();
 
         // --- 7. Perform the lock operation.
-        let actual_tao_lock_amount: u64 =
-            Self::remove_balance_from_coldkey_account(&coldkey, lock_amount)?;
+        let actual_tao_lock_amount =
+            Self::remove_balance_from_coldkey_account(&coldkey, lock_amount.into())?;
         log::debug!("actual_tao_lock_amount: {actual_tao_lock_amount:?}");
 
         // --- 8. Set the lock amount for use to determine pricing.
@@ -185,7 +185,8 @@ impl<T: Config> Pallet<T> {
         // Put initial TAO from lock into subnet TAO and produce numerically equal amount of Alpha
         // The initial TAO is the locked amount, with a minimum of 1 RAO and a cap of 100 TAO.
         let pool_initial_tao = Self::get_network_min_lock();
-        let pool_initial_alpha = AlphaCurrency::from(Self::get_network_min_lock());
+        // FIXME: the result from function is used as a mixed type alpha/tao
+        let pool_initial_alpha = AlphaCurrency::from(Self::get_network_min_lock().to_u64());
         let actual_tao_lock_amount_less_pool_tao =
             actual_tao_lock_amount.saturating_sub(pool_initial_tao);
         SubnetTAO::<T>::insert(netuid_to_register, pool_initial_tao);
@@ -193,11 +194,11 @@ impl<T: Config> Pallet<T> {
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
         SubnetOwnerHotkey::<T>::insert(netuid_to_register, hotkey.clone());
 
-        if actual_tao_lock_amount_less_pool_tao > 0 {
+        if actual_tao_lock_amount_less_pool_tao > TaoCurrency::ZERO {
             Self::burn_tokens(actual_tao_lock_amount_less_pool_tao);
         }
 
-        if actual_tao_lock_amount > 0 && pool_initial_tao > 0 {
+        if actual_tao_lock_amount > TaoCurrency::ZERO && pool_initial_tao > TaoCurrency::ZERO {
             // Record in TotalStake the initial TAO in the pool.
             Self::increase_total_stake(pool_initial_tao);
         }

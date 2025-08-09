@@ -31,7 +31,7 @@ pub mod pallet {
     use pallet_subtensor::utils::rate_limiting::TransactionType;
     use sp_runtime::BoundedVec;
     use substrate_fixed::types::I96F32;
-    use subtensor_runtime_common::NetUid;
+    use subtensor_runtime_common::{NetUid, TaoCurrency};
 
     /// The main data structure of the module.
     #[pallet::pallet]
@@ -665,7 +665,7 @@ pub mod pallet {
         pub fn sudo_set_min_burn(
             origin: OriginFor<T>,
             netuid: NetUid,
-            min_burn: u64,
+            min_burn: TaoCurrency,
         ) -> DispatchResult {
             ensure_root(origin)?;
 
@@ -688,7 +688,7 @@ pub mod pallet {
         pub fn sudo_set_max_burn(
             origin: OriginFor<T>,
             netuid: NetUid,
-            max_burn: u64,
+            max_burn: TaoCurrency,
         ) -> DispatchResult {
             ensure_root(origin)?;
 
@@ -904,7 +904,7 @@ pub mod pallet {
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_total_issuance(
             origin: OriginFor<T>,
-            total_issuance: u64,
+            total_issuance: TaoCurrency,
         ) -> DispatchResult {
             ensure_root(origin)?;
 
@@ -948,7 +948,7 @@ pub mod pallet {
 		))]
         pub fn sudo_set_network_min_lock_cost(
             origin: OriginFor<T>,
-            lock_cost: u64,
+            lock_cost: TaoCurrency,
         ) -> DispatchResult {
             ensure_root(origin)?;
 
@@ -1005,7 +1005,7 @@ pub mod pallet {
         pub fn sudo_set_rao_recycled(
             origin: OriginFor<T>,
             netuid: NetUid,
-            rao_recycled: u64,
+            rao_recycled: TaoCurrency,
         ) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(

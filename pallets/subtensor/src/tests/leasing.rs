@@ -528,26 +528,27 @@ fn test_distribute_lease_network_dividends_multiple_contributors_works() {
 
         assert_eq!(
             distributed_tao,
-            beneficiary_balance_delta + contributor1_balance_delta + contributor2_balance_delta
+            (beneficiary_balance_delta + contributor1_balance_delta + contributor2_balance_delta)
+                .into()
         );
 
         let expected_contributor1_balance =
             SubnetLeaseShares::<Test>::get(lease_id, contributions[0].0)
-                .saturating_mul(U64F64::from(distributed_tao))
+                .saturating_mul(U64F64::from(distributed_tao.to_u64()))
                 .floor()
                 .to_num::<u64>();
         assert_eq!(contributor1_balance_delta, expected_contributor1_balance);
 
         let expected_contributor2_balance =
             SubnetLeaseShares::<Test>::get(lease_id, contributions[1].0)
-                .saturating_mul(U64F64::from(distributed_tao))
+                .saturating_mul(U64F64::from(distributed_tao.to_u64()))
                 .floor()
                 .to_num::<u64>();
         assert_eq!(contributor2_balance_delta, expected_contributor2_balance);
 
         // The beneficiary should have received the remaining dividends
-        let expected_beneficiary_balance =
-            distributed_tao - (expected_contributor1_balance + expected_contributor2_balance);
+        let expected_beneficiary_balance = distributed_tao.to_u64()
+            - (expected_contributor1_balance + expected_contributor2_balance);
         assert_eq!(beneficiary_balance_delta, expected_beneficiary_balance);
 
         // Ensure nothing was accumulated for later distribution
@@ -599,7 +600,7 @@ fn test_distribute_lease_network_dividends_only_beneficiary_works() {
         let distributed_tao = subnet_tao_before - SubnetTAO::<Test>::get(lease.netuid);
         let beneficiary_balance_delta = SubtensorModule::get_coldkey_balance(&beneficiary)
             .saturating_sub(beneficiary_balance_before);
-        assert_eq!(distributed_tao, beneficiary_balance_delta);
+        assert_eq!(distributed_tao, beneficiary_balance_delta.into());
 
         // Ensure nothing was accumulated for later distribution
         assert_eq!(
@@ -916,7 +917,7 @@ fn setup_leased_network(
             RuntimeOrigin::signed(lease.coldkey),
             lease.hotkey,
             netuid,
-            tao_to_stake
+            tao_to_stake.into()
         ));
     }
 

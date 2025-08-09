@@ -69,7 +69,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use subtensor_precompiles::Precompiles;
-use subtensor_runtime_common::{AlphaCurrency, time::*, *};
+use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -488,7 +488,9 @@ impl
         >,
     ) {
         let ti_before = pallet_subtensor::TotalIssuance::<Runtime>::get();
-        pallet_subtensor::TotalIssuance::<Runtime>::put(ti_before.saturating_sub(credit.peek()));
+        pallet_subtensor::TotalIssuance::<Runtime>::put(
+            ti_before.saturating_sub(credit.peek().into()),
+        );
         drop(credit);
     }
 }
@@ -2406,7 +2408,7 @@ impl_runtime_apis! {
     }
 
     impl subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block> for Runtime {
-        fn get_network_registration_cost() -> u64 {
+        fn get_network_registration_cost() -> TaoCurrency {
             SubtensorModule::get_network_lock_cost()
         }
     }
