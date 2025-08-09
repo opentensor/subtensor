@@ -22,7 +22,7 @@ use frame_support::weights::Weight;
 use safe_math::*;
 use sp_core::Get;
 use substrate_fixed::types::I64F64;
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 
 impl<T: Config> Pallet<T> {
     /// Fetches the total count of root network validators
@@ -409,7 +409,7 @@ impl<T: Config> Pallet<T> {
     pub fn remove_network(netuid: NetUid) {
         // --- 1. Return balance to subnet owner.
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
-        let reserved_amount: u64 = Self::get_subnet_locked_balance(netuid);
+        let reserved_amount = Self::get_subnet_locked_balance(netuid);
 
         // --- 2. Remove network count.
         SubnetworkN::<T>::remove(netuid);
@@ -484,8 +484,8 @@ impl<T: Config> Pallet<T> {
         BurnRegistrationsThisInterval::<T>::remove(netuid);
 
         // --- 12. Add the balance back to the owner.
-        Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount);
-        Self::set_subnet_locked_balance(netuid, 0);
+        Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount.into());
+        Self::set_subnet_locked_balance(netuid, TaoCurrency::ZERO);
         SubnetOwner::<T>::remove(netuid);
 
         // --- 13. Remove subnet identity if it exists.
@@ -514,18 +514,20 @@ impl<T: Config> Pallet<T> {
     ///  * 'u64':
     ///     - The lock cost for the network.
     ///
-    pub fn get_network_lock_cost() -> u64 {
+    pub fn get_network_lock_cost() -> TaoCurrency {
         let last_lock = Self::get_network_last_lock();
         let min_lock = Self::get_network_min_lock();
         let last_lock_block = Self::get_network_last_lock_block();
         let current_block = Self::get_current_block_as_u64();
         let lock_reduction_interval = Self::get_lock_reduction_interval();
-        let mult = if last_lock_block == 0 { 1 } else { 2 };
+        let mult: TaoCurrency = if last_lock_block == 0 { 1 } else { 2 }.into();
 
         let mut lock_cost = last_lock.saturating_mul(mult).saturating_sub(
             last_lock
+                .to_u64()
                 .safe_div(lock_reduction_interval)
-                .saturating_mul(current_block.saturating_sub(last_lock_block)),
+                .saturating_mul(current_block.saturating_sub(last_lock_block))
+                .into(),
         );
 
         if lock_cost < min_lock {
@@ -549,17 +551,17 @@ impl<T: Config> Pallet<T> {
         NetworkImmunityPeriod::<T>::set(net_immunity_period);
         Self::deposit_event(Event::NetworkImmunityPeriodSet(net_immunity_period));
     }
-    pub fn set_network_min_lock(net_min_lock: u64) {
+    pub fn set_network_min_lock(net_min_lock: TaoCurrency) {
         NetworkMinLockCost::<T>::set(net_min_lock);
         Self::deposit_event(Event::NetworkMinLockCostSet(net_min_lock));
     }
-    pub fn get_network_min_lock() -> u64 {
+    pub fn get_network_min_lock() -> TaoCurrency {
         NetworkMinLockCost::<T>::get()
     }
-    pub fn set_network_last_lock(net_last_lock: u64) {
+    pub fn set_network_last_lock(net_last_lock: TaoCurrency) {
         NetworkLastLockCost::<T>::set(net_last_lock);
     }
-    pub fn get_network_last_lock() -> u64 {
+    pub fn get_network_last_lock() -> TaoCurrency {
         NetworkLastLockCost::<T>::get()
     }
     pub fn get_network_last_lock_block() -> u64 {
@@ -575,8 +577,11 @@ impl<T: Config> Pallet<T> {
     pub fn get_lock_reduction_interval() -> u64 {
         let interval: I64F64 =
             I64F64::saturating_from_num(NetworkLockReductionInterval::<T>::get());
-        let block_emission: I64F64 =
-            I64F64::saturating_from_num(Self::get_block_emission().unwrap_or(1_000_000_000));
+        let block_emission: I64F64 = I64F64::saturating_from_num(
+            Self::get_block_emission()
+                .unwrap_or(1_000_000_000.into())
+                .to_u64(),
+        );
         let halving: I64F64 = block_emission
             .checked_div(I64F64::saturating_from_num(1_000_000_000))
             .unwrap_or(I64F64::saturating_from_num(0.0));

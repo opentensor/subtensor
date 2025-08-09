@@ -3,7 +3,7 @@ use alloc::collections::BTreeMap;
 use safe_math::*;
 use sp_runtime::Saturating;
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
 // Distribute dividends to each hotkey
@@ -110,8 +110,8 @@ impl<T: Config> Pallet<T> {
                 // Difference becomes buy.
                 let buy_swap_result = Self::swap_tao_for_alpha(
                     *netuid_i,
-                    tou64!(difference_tao),
-                    T::SwapInterface::max_price(),
+                    tou64!(difference_tao).into(),
+                    T::SwapInterface::max_price().into(),
                     true,
                 );
                 if let Ok(buy_swap_result_ok) = buy_swap_result {
@@ -166,16 +166,17 @@ impl<T: Config> Pallet<T> {
                 *total = total.saturating_add(alpha_out_i);
             });
             // Inject TAO in.
-            let tao_in_i: u64 = tou64!(*tao_in.get(netuid_i).unwrap_or(&asfloat!(0)));
-            SubnetTaoInEmission::<T>::insert(*netuid_i, tao_in_i);
+            let tao_in_i: TaoCurrency =
+                tou64!(*tao_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
+            SubnetTaoInEmission::<T>::insert(*netuid_i, TaoCurrency::from(tao_in_i));
             SubnetTAO::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(tao_in_i);
+                *total = total.saturating_add(tao_in_i.into());
             });
             TotalStake::<T>::mutate(|total| {
-                *total = total.saturating_add(tao_in_i);
+                *total = total.saturating_add(tao_in_i.into());
             });
             TotalIssuance::<T>::mutate(|total| {
-                *total = total.saturating_add(tao_in_i);
+                *total = total.saturating_add(tao_in_i.into());
             });
             // Adjust protocol liquidity based on new reserves
             T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
@@ -238,14 +239,14 @@ impl<T: Config> Pallet<T> {
                 let swap_result = Self::swap_alpha_for_tao(
                     *netuid_i,
                     tou64!(root_alpha).into(),
-                    T::SwapInterface::min_price(),
+                    T::SwapInterface::min_price().into(),
                     true,
                 );
                 if let Ok(ok_result) = swap_result {
                     let root_tao: u64 = ok_result.amount_paid_out;
                     // Accumulate root divs for subnet.
                     PendingRootDivs::<T>::mutate(*netuid_i, |total| {
-                        *total = total.saturating_add(root_tao);
+                        *total = total.saturating_add(root_tao.into());
                     });
                 }
             }
@@ -269,12 +270,12 @@ impl<T: Config> Pallet<T> {
         // --- 7. Drain pending emission through the subnet based on tempo.
         // Run the epoch for *all* subnets, even if we don't emit anything.
         for &netuid in subnets.iter() {
+            // Reveal matured weights.
+            if let Err(e) = Self::reveal_crv3_commits(netuid) {
+                log::warn!("Failed to reveal commits for subnet {netuid} due to error: {e:?}");
+            };
             // Pass on subnets that have not reached their tempo.
             if Self::should_run_epoch(netuid, current_block) {
-                if let Err(e) = Self::reveal_crv3_commits(netuid) {
-                    log::warn!("Failed to reveal commits for subnet {netuid} due to error: {e:?}");
-                };
-
                 // Restart counters.
                 BlocksSinceLastStep::<T>::insert(netuid, 0);
                 LastMechansimStepBlock::<T>::insert(netuid, current_block);
@@ -285,7 +286,7 @@ impl<T: Config> Pallet<T> {
 
                 // Get and drain the subnet pending root divs.
                 let pending_tao = PendingRootDivs::<T>::get(netuid);
-                PendingRootDivs::<T>::insert(netuid, 0);
+                PendingRootDivs::<T>::insert(netuid, TaoCurrency::ZERO);
 
                 // Get this amount as alpha that was swapped for pending root divs.
                 let pending_swapped = PendingAlphaSwapped::<T>::get(netuid);
@@ -345,7 +346,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn calculate_dividend_distribution(
         pending_alpha: AlphaCurrency,
-        pending_tao: u64,
+        pending_tao: TaoCurrency,
         tao_weight: U96F32,
         stake_map: BTreeMap<T::AccountId, (AlphaCurrency, AlphaCurrency)>,
         dividends: BTreeMap<T::AccountId, U96F32>,
@@ -547,13 +548,13 @@ impl<T: Config> Pallet<T> {
             );
             // Record root dividends for this validator on this subnet.
             TaoDividendsPerSubnet::<T>::mutate(netuid, hotkey.clone(), |divs| {
-                *divs = divs.saturating_add(tou64!(root_tao));
+                *divs = divs.saturating_add(tou64!(root_tao).into());
             });
             // Update the total TAO on the subnet with root tao dividends.
             SubnetTAO::<T>::mutate(NetUid::ROOT, |total| {
                 *total = total
-                    .saturating_add(validator_stake.to_u64())
-                    .saturating_add(tou64!(root_tao));
+                    .saturating_add(validator_stake.to_u64().into())
+                    .saturating_add(tou64!(root_tao).into());
             });
         }
     }
@@ -575,7 +576,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn calculate_dividend_and_incentive_distribution(
         netuid: NetUid,
-        pending_tao: u64,
+        pending_tao: TaoCurrency,
         pending_validator_alpha: AlphaCurrency,
         hotkey_emission: Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)>,
         tao_weight: U96F32,
@@ -605,7 +606,7 @@ impl<T: Config> Pallet<T> {
     pub fn drain_pending_emission(
         netuid: NetUid,
         pending_alpha: AlphaCurrency,
-        pending_tao: u64,
+        pending_tao: TaoCurrency,
         pending_swapped: AlphaCurrency,
         owner_cut: AlphaCurrency,
     ) {

@@ -9,6 +9,7 @@ use crate::{
 use fc_consensus::FrontierBlockImport;
 use jsonrpsee::Methods;
 use node_subtensor_runtime::opaque::Block;
+use num_traits::Zero as _;
 use sc_client_api::{AuxStore, BlockOf};
 use sc_consensus::{BlockImport, BoxBlockImport};
 use sc_consensus_babe::{BabeLink, BabeWorkerHandle};
@@ -138,8 +139,13 @@ impl ConsensusMechanism for BabeConsensus {
                   telemetry: Option<TelemetryHandle>,
                   grandpa_block_import: GrandpaBlockImport,
                   transaction_pool: Arc<TransactionPoolHandle<Block, FullClient>>| {
+                let configuration = sc_consensus_babe::configuration(&*client)?;
+                if configuration.authorities.len().is_zero() {
+                    return Err(sc_service::Error::Consensus(sp_consensus::Error::InvalidAuthoritiesSet));
+                }
+
                 let (babe_import, babe_link) = sc_consensus_babe::block_import(
-                    sc_consensus_babe::configuration(&*client)?,
+                    configuration,
                     grandpa_block_import.clone(),
                     client.clone(),
                 )?;
