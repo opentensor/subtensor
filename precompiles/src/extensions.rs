@@ -91,12 +91,12 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
                     );
                 }
 
-                log::debug!("Dispatch succeeded. Post info: {:?}", post_info);
+                log::debug!("Dispatch succeeded. Post info: {post_info:?}");
 
                 Ok(())
             }
             Err(e) => {
-                log::error!("Dispatch failed. Error: {:?}", e);
+                log::error!("Dispatch failed. Error: {e:?}");
                 log::warn!("Returning error PrecompileFailure::Error");
                 Err(PrecompileFailure::Error {
                     exit_status: ExitError::Other(
@@ -141,7 +141,7 @@ pub(crate) trait PrecompileExt<AccountId: From<[u8; 32]>>: Precompile {
         } else {
             Some(Err(PrecompileFailure::Error {
                 exit_status: ExitError::Other(
-                    format!("Precompile {:?} is disabled", precompile_enum).into(),
+                    format!("Precompile {precompile_enum:?} is disabled").into(),
                 ),
             }))
         }

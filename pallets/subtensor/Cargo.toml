@@ -4,7 +4,7 @@ version = "4.0.0-dev"
 description = "FRAME pallet for runtime logic of Subtensor Blockchain."
 authors = ["Bittensor Nucleus Team"]
 homepage = "https://bittensor.com"
-edition = "2024"
+edition.workspace = true
 license = "Unlicense"
 publish = false
 repository = "https://github.com/opentensor/subtensor"
@@ -17,19 +17,17 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 subtensor-macros.workspace = true
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
-	"derive",
-] }
-sp-core = { workspace = true }
-pallet-balances = { workspace = true }
+codec = { workspace = true, features = ["derive"] }
+sp-core.workspace = true
+pallet-balances.workspace = true
 scale-info = { workspace = true, features = ["derive"] }
 frame-benchmarking = { workspace = true, optional = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-sp-io = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+sp-io.workspace = true
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
-serde-tuple-vec-map = { workspace = true }
+serde_json.workspace = true
+serde-tuple-vec-map.workspace = true
 serde_bytes = { workspace = true, features = ["alloc"] }
 serde_with = { workspace = true, features = ["macros"] }
 sp-runtime.workspace = true
@@ -48,35 +46,32 @@ subtensor-swap-interface.workspace = true
 runtime-common.workspace = true
 subtensor-runtime-common = { workspace = true, features = ["approx"] }
 
-pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../collective" }
-pallet-drand = { path = "../drand", default-features = false }
-pallet-evm = { workspace = true }
-pallet-membership = { workspace = true }
-hex-literal = { workspace = true }
-num-traits = { version = "0.2.19", default-features = false, features = [
-	"libm",
-] }
-tle = { workspace = true, default-features = false }
-ark-bls12-381 = { workspace = true, default-features = false }
-ark-serialize = { workspace = true, default-features = false }
-w3f-bls = { workspace = true, default-features = false }
-sha2 = { workspace = true }
-rand_chacha = { workspace = true }
-pallet-crowdloan = { workspace = true, default-features = false }
-pallet-proxy = { workspace = true, default-features = false }
+pallet-drand.workspace = true
+pallet-collective.workspace = true
+pallet-membership.workspace = true
+hex-literal.workspace = true
+num-traits = { workspace = true, features = ["libm"] }
+tle.workspace = true
+ark-bls12-381 = { workspace = true, features = ["curve"] }
+ark-serialize = { workspace = true, features = ["derive"] }
+w3f-bls.workspace = true
+sha2.workspace = true
+rand_chacha.workspace = true
+pallet-crowdloan.workspace = true
+pallet-proxy.workspace = true
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
-pallet-scheduler = { workspace = true }
-pallet-subtensor-swap = { workspace = true }
-sp-version = { workspace = true }
+pallet-scheduler.workspace = true
+pallet-subtensor-swap.workspace = true
+sp-version.workspace = true
 # Substrate
-sp-tracing = { workspace = true }
+sp-tracing.workspace = true
 parity-util-mem = { workspace = true, features = ["primitive-types"] }
-rand = { workspace = true }
-sp-core = { workspace = true }
-sp-std = { workspace = true }
-pallet-preimage = { workspace = true }
+rand.workspace = true
+sp-core.workspace = true
+sp-std.workspace = true
+pallet-preimage.workspace = true
 
 [features]
 std = [
@@ -94,7 +89,6 @@ std = [
 	"pallet-balances/std",
 	"pallet-collective/std",
 	"pallet-drand/std",
-	"pallet-evm/std",
 	"pallet-membership/std",
 	"pallet-preimage/std",
 	"pallet-scheduler/std",
@@ -138,7 +132,6 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
-	"pallet-evm/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
@@ -155,7 +148,6 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
-	"pallet-evm/try-runtime",
 	"pallet-membership/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-scheduler/try-runtime",

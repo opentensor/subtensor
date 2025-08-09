@@ -18,7 +18,7 @@
 use super::helper;
 use frame_support_procedural_tools::{get_doc_literals, is_using_frame_crate};
 use quote::ToTokens;
-use syn::{spanned::Spanned, token, Token};
+use syn::{Token, spanned::Spanned, token};
 
 /// List of additional token to be used for parsing.
 mod keyword {
@@ -239,8 +239,7 @@ fn check_event_type(
 
     // Check event has no generics
     if !type_.generics.params.is_empty() || type_.generics.where_clause.is_some() {
-        let msg =
-            "Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must have\
+        let msg = "Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must have\
 					no generics nor where_clause";
         return Err(syn::Error::new(trait_item.span(), msg));
     }
@@ -265,15 +264,13 @@ fn check_event_type(
         .find_map(|s| syn::parse2::<FromEventParse>(s.to_token_stream()).ok());
 
     let Some(from_event_bound) = from_event_bound else {
-        let msg =
-            "Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must \
+        let msg = "Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must \
 				bound: `From<Event>` or `From<Event<Self>>` or `From<Event<Self, I>>`";
         return Err(syn::Error::new(type_.span(), msg));
     };
 
     if from_event_bound.is_generic && (from_event_bound.has_instance != trait_has_instance) {
-        let msg =
-            "Invalid `type RuntimeEvent`, associated type `RuntimeEvent` bounds inconsistent \
+        let msg = "Invalid `type RuntimeEvent`, associated type `RuntimeEvent` bounds inconsistent \
 					`From<Event..>`. Config and generic Event must be both with instance or \
 					without instance";
         return Err(syn::Error::new(type_.span(), msg));
@@ -299,7 +296,7 @@ fn has_expected_system_config(path: syn::Path, frame_system: &syn::Path) -> bool
         // We can't use the path to `frame_system` from `frame` if `frame_system` is not being
         // in scope through `frame`.
         {
-            return false
+            return false;
         }
         (false, true) =>
         // We know that the only valid frame_system path is one that is `frame_system`, as
@@ -417,7 +414,7 @@ impl ConfigDef {
                 helper::take_first_item_pallet_attr::<PalletAttr>(trait_item)
             {
                 match (pallet_attr.typ, &trait_item) {
-                    (PalletAttrType::Constant(_), syn::TraitItem::Type(ref typ)) => {
+                    (PalletAttrType::Constant(_), syn::TraitItem::Type(typ)) => {
                         if already_constant {
                             return Err(syn::Error::new(
                                 pallet_attr._bracket.span.join(),
@@ -431,15 +428,15 @@ impl ConfigDef {
                         return Err(syn::Error::new(
                             trait_item.span(),
                             "Invalid #[pallet::constant] in #[pallet::config], expected type item",
-                        ))
+                        ));
                     }
                     (PalletAttrType::NoDefault(_), _) => {
                         if !enable_default {
                             return Err(syn::Error::new(
-								pallet_attr._bracket.span.join(),
-								"`#[pallet:no_default]` can only be used if `#[pallet::config(with_default)]` \
-								has been specified"
-							));
+                                pallet_attr._bracket.span.join(),
+                                "`#[pallet:no_default]` can only be used if `#[pallet::config(with_default)]` \
+								has been specified",
+                            ));
                         }
                         if already_no_default {
                             return Err(syn::Error::new(
@@ -453,10 +450,10 @@ impl ConfigDef {
                     (PalletAttrType::NoBounds(_), _) => {
                         if !enable_default {
                             return Err(syn::Error::new(
-								pallet_attr._bracket.span.join(),
-								"`#[pallet:no_default_bounds]` can only be used if `#[pallet::config(with_default)]` \
-								has been specified"
-							));
+                                pallet_attr._bracket.span.join(),
+                                "`#[pallet:no_default_bounds]` can only be used if `#[pallet::config(with_default)]` \
+								has been specified",
+                            ));
                         }
                         if already_no_default_bounds {
                             return Err(syn::Error::new(

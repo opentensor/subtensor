@@ -24,6 +24,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
                 (AccountId::from(DELEGATE), amount),
                 (AccountId::from(OTHER_ACCOUNT), amount),
             ],
+            dev_accounts: None,
         },
 
         triumvirate: pallet_collective::GenesisConfig {
@@ -142,7 +143,7 @@ fn call_add_stake() -> RuntimeCall {
     RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake {
         hotkey: AccountId::from(DELEGATE),
         netuid,
-        amount_staked,
+        amount_staked: amount_staked.into(),
     })
 }
 

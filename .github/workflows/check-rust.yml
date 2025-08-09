@@ -40,6 +40,9 @@ jobs:
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
+        with:
+          key: cargo-fmt
+          cache-on-failure: true
 
       - name: cargo fmt
         run: cargo +nightly fmt --check --all
@@ -61,6 +64,9 @@ jobs:
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
+        with:
+          key: clippy-default-features
+          cache-on-failure: true
 
       - name: cargo clippy --workspace --all-targets -- -D warnings
         run: cargo clippy --workspace --all-targets -- -D warnings
@@ -83,6 +89,9 @@ jobs:
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
+        with:
+          key: lints
+          cache-on-failure: true
 
       - name: check lints
         run: |
@@ -107,6 +116,9 @@ jobs:
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
+        with:
+          key: clippy-all-features
+          cache-on-failure: true
 
       - name: cargo clippy --workspace --all-targets --all-features -- -D warnings
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
@@ -129,6 +141,9 @@ jobs:
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
+        with:
+          key: cargo-test
+          cache-on-failure: true
 
       - name: cargo test --workspace --all-features
         run: cargo test --workspace --all-features
@@ -151,6 +166,9 @@ jobs:
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
+        with:
+          key: cargo-fix
+          cache-on-failure: true
 
       - name: cargo fix --workspace
         run: |
@@ -177,6 +195,9 @@ jobs:
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
+        with:
+          key: zepter
+          cache-on-failure: true
 
       - name: Install Zepter
         run: cargo install --locked -q zepter && zepter --version

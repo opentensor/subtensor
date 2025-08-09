@@ -22,15 +22,6 @@ use sp_weights::Weight;
 use subtensor_runtime_common::NetUid;
 
 type Block = frame_system::mocking::MockBlock<Test>;
-
-pub struct DummyAddressMap;
-
-impl pallet_evm::AddressMapping<AccountId> for DummyAddressMap {
-    fn into_account_id(address: sp_core::H160) -> AccountId {
-        let account = pallet_evm::HashedAddressMapping::<BlakeTwo256>::into_account_id(address);
-        U256::from_big_endian(account.as_ref())
-    }
-}
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
     pub enum Test {
@@ -230,7 +221,6 @@ impl pallet_subtensor::Config for Test {
     type SwapInterface = Swap;
     type KeySwapOnSubnetCost = InitialKeySwapOnSubnetCost;
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
-    type AddressMapping = DummyAddressMap;
     type ProxyInterface = ();
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
 }
@@ -397,6 +387,7 @@ impl pallet_scheduler::Config for Test {
     type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Test>;
     type OriginPrivilegeCmp = OriginPrivilegeCmp;
     type Preimages = ();
+    type BlockNumberProvider = System;
 }
 
 impl pallet_evm_chain_id::Config for Test {}
@@ -526,10 +517,7 @@ pub fn register_ok_neuron(
     );
     assert_ok!(result);
     log::info!(
-        "Register ok neuron: netuid: {:?}, coldkey: {:?}, hotkey: {:?}",
-        netuid,
-        hotkey_account_id,
-        coldkey_account_id
+        "Register ok neuron: netuid: {netuid:?}, coldkey: {hotkey_account_id:?}, hotkey: {coldkey_account_id:?}"
     );
 }
 

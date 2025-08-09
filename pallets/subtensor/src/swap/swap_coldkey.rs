@@ -33,7 +33,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_swap_coldkey(
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
-        swap_cost: u64,
+        swap_cost: TaoCurrency,
     ) -> DispatchResultWithPostInfo {
         // 2. Initialize the weight for this operation
         let mut weight: Weight = T::DbWeight::get().reads(2);
@@ -58,12 +58,13 @@ impl<T: Config> Pallet<T> {
 
         // 6. Ensure sufficient balance for the swap cost
         ensure!(
-            Self::can_remove_balance_from_coldkey_account(old_coldkey, swap_cost),
+            Self::can_remove_balance_from_coldkey_account(old_coldkey, swap_cost.into()),
             Error::<T>::NotEnoughBalanceToPaySwapColdKey
         );
 
         // 7. Remove and burn the swap cost from the old coldkey's account
-        let actual_burn_amount = Self::remove_balance_from_coldkey_account(old_coldkey, swap_cost)?;
+        let actual_burn_amount =
+            Self::remove_balance_from_coldkey_account(old_coldkey, swap_cost.into())?;
         Self::burn_tokens(actual_burn_amount);
 
         // 8. Update the weight for the balance operations

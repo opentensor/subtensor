@@ -20,11 +20,12 @@ use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
 use std::collections::{HashMap, HashSet};
 use syn::{
+    Attribute, Error, Ident, Path, Result, Token,
     ext::IdentExt,
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
     spanned::Spanned,
-    token, Attribute, Error, Ident, Path, Result, Token,
+    token,
 };
 
 mod keyword {
@@ -149,9 +150,7 @@ impl Parse for WhereSection {
         remove_kind(input, WhereKind::NodeBlock, &mut definitions)?;
         remove_kind(input, WhereKind::UncheckedExtrinsic, &mut definitions)?;
         if let Some(WhereDefinition {
-            ref kind_span,
-            ref kind,
-            ..
+            kind_span, kind, ..
         }) = definitions.first()
         {
             let msg = format!(

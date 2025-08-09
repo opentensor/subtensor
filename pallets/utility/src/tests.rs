@@ -32,8 +32,8 @@ use frame_support::{
 };
 use pallet_collective::{EnsureProportionAtLeast, Instance1};
 use sp_runtime::{
-    traits::{BadOrigin, BlakeTwo256, Dispatchable, Hash},
     BuildStorage, DispatchError, TokenError,
+    traits::{BadOrigin, BlakeTwo256, Dispatchable, Hash},
 };
 
 type BlockNumber = u64;
@@ -260,6 +260,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
         .expect("Failed to build storage for test");
     pallet_balances::GenesisConfig::<Test> {
         balances: vec![(1, 10), (2, 10), (3, 10), (4, 10), (5, 2)],
+        dev_accounts: None,
     }
     .assimilate_storage(&mut t)
     .expect("Failed to build storage for test");

@@ -43,11 +43,7 @@ impl<T: Config> Pallet<T> {
         // Check that the caller has signed the transaction. (the coldkey of the pairing)
         let coldkey = ensure_signed(origin)?;
         log::trace!(
-            "do_set_children( coldkey:{:?} hotkey:{:?} netuid:{:?} children:{:?} )",
-            coldkey,
-            netuid,
-            hotkey,
-            children
+            "do_set_children( coldkey:{coldkey:?} hotkey:{netuid:?} netuid:{hotkey:?} children:{children:?} )"
         );
 
         // Ensure the hotkey passes the rate limit.
@@ -107,7 +103,7 @@ impl<T: Config> Pallet<T> {
         // grandparent stake in this case)
         ensure!(
             children.is_empty()
-                || Self::get_total_stake_for_hotkey(&hotkey) >= StakeThreshold::<T>::get()
+                || Self::get_total_stake_for_hotkey(&hotkey) >= StakeThreshold::<T>::get().into()
                 || SubnetOwnerHotkey::<T>::try_get(netuid)
                     .is_ok_and(|owner_hotkey| owner_hotkey.eq(&hotkey)),
             Error::<T>::NotEnoughStakeToSetChildkeys
@@ -354,11 +350,7 @@ impl<T: Config> Pallet<T> {
 
         // Emit the event
         Self::deposit_event(Event::ChildKeyTakeSet(hotkey.clone(), take));
-        log::debug!(
-            "Childkey take set for hotkey: {:?} and take: {:?}",
-            hotkey,
-            take
-        );
+        log::debug!("Childkey take set for hotkey: {hotkey:?} and take: {take:?}");
         Ok(())
     }
 

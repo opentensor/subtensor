@@ -77,7 +77,7 @@ mod dispatches {
         /// * 'MaxWeightExceeded':
         /// 	- Attempting to set weights with max value exceeding limit.
         #[pallet::call_index(0)]
-        #[pallet::weight((Weight::from_parts(20_730_000_000, 0)
+        #[pallet::weight((Weight::from_parts(15_540_000_000, 0)
         .saturating_add(T::DbWeight::get().reads(4111))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn set_weights(
@@ -280,7 +280,7 @@ mod dispatches {
         ///
         #[pallet::call_index(99)]
         #[pallet::weight((Weight::from_parts(73_750_000, 0)
-		.saturating_add(T::DbWeight::get().reads(6_u64))
+		.saturating_add(T::DbWeight::get().reads(7_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_crv3_weights(
             origin: T::RuntimeOrigin,
@@ -288,7 +288,7 @@ mod dispatches {
             commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
             reveal_round: u64,
         ) -> DispatchResult {
-            Self::do_commit_crv3_weights(origin, netuid, commit, reveal_round)
+            Self::do_commit_timelocked_weights(origin, netuid, commit, reveal_round, 4)
         }
 
         /// ---- The implementation for batch revealing committed weights.
@@ -498,7 +498,7 @@ mod dispatches {
         /// 	- The delegate is setting a take which is not lower than the previous.
         ///
         #[pallet::call_index(65)]
-        #[pallet::weight((Weight::from_parts(37_380_000, 0)
+        #[pallet::weight((Weight::from_parts(29_320_000, 0)
 		.saturating_add(T::DbWeight::get().reads(3))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn decrease_take(
@@ -592,7 +592,7 @@ mod dispatches {
             origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: NetUid,
-            amount_staked: u64,
+            amount_staked: TaoCurrency,
         ) -> DispatchResult {
             Self::do_add_stake(origin, hotkey, netuid, amount_staked)
         }
@@ -965,14 +965,14 @@ mod dispatches {
         ///
         /// Weight is calculated based on the number of database reads and writes.
         #[pallet::call_index(71)]
-        #[pallet::weight((Weight::from_parts(208600000, 0)
+        #[pallet::weight((Weight::from_parts(161_700_000, 0)
         .saturating_add(T::DbWeight::get().reads(14))
         .saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Operational, Pays::No))]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
             old_coldkey: T::AccountId,
             new_coldkey: T::AccountId,
-            swap_cost: u64,
+            swap_cost: TaoCurrency,
         ) -> DispatchResultWithPostInfo {
             // Ensure it's called with root privileges (scheduler has root privileges)
             ensure_root(origin)?;
@@ -1015,9 +1015,9 @@ mod dispatches {
             Weight::from_parts(46_330_000, 0)
             .saturating_add(T::DbWeight::get().reads(5))
             .saturating_add(T::DbWeight::get().writes(2)),
-    DispatchClass::Normal,
-    Pays::Yes
-))]
+			DispatchClass::Normal,
+			Pays::Yes
+		))]
         pub fn set_childkey_take(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1348,7 +1348,7 @@ mod dispatches {
             // Calculate the swap cost and ensure sufficient balance
             let swap_cost = Self::get_key_swap_cost();
             ensure!(
-                Self::can_remove_balance_from_coldkey_account(&who, swap_cost),
+                Self::can_remove_balance_from_coldkey_account(&who, swap_cost.into()),
                 Error::<T>::NotEnoughBalanceToPaySwapColdKey
             );
 
@@ -1794,8 +1794,8 @@ mod dispatches {
             origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: NetUid,
-            amount_staked: u64,
-            limit_price: u64,
+            amount_staked: TaoCurrency,
+            limit_price: TaoCurrency,
             allow_partial: bool,
         ) -> DispatchResult {
             Self::do_add_stake_limit(
@@ -1859,7 +1859,7 @@ mod dispatches {
             hotkey: T::AccountId,
             netuid: NetUid,
             amount_unstaked: AlphaCurrency,
-            limit_price: u64,
+            limit_price: TaoCurrency,
             allow_partial: bool,
         ) -> DispatchResult {
             Self::do_remove_stake_limit(
@@ -1907,7 +1907,7 @@ mod dispatches {
             origin_netuid: NetUid,
             destination_netuid: NetUid,
             alpha_amount: AlphaCurrency,
-            limit_price: u64,
+            limit_price: TaoCurrency,
             allow_partial: bool,
         ) -> DispatchResult {
             Self::do_swap_stake_limit(
@@ -2082,7 +2082,7 @@ mod dispatches {
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
             netuid: NetUid,
-            limit_price: Option<u64>,
+            limit_price: Option<TaoCurrency>,
         ) -> DispatchResult {
             Self::do_remove_stake_full_limit(origin, hotkey, netuid, limit_price)
         }
@@ -2176,19 +2176,48 @@ mod dispatches {
             Ok(())
         }
 
-        /// Sets proxy account for evm address
+        /// ---- Used to commit timelock encrypted commit-reveal weight values to later be revealed.
+        ///
+        /// # Args:
+        /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
+        ///   - The committing hotkey.
+        ///
+        /// * `netuid` (`u16`):
+        ///   - The u16 network identifier.
+        ///
+        /// * `commit` (`Vec<u8>`):
+        ///   - The encrypted compressed commit.
+        ///     The steps for this are:
+        ///     1. Instantiate [`WeightsTlockPayload`]
+        ///     2. Serialize it using the `parity_scale_codec::Encode` trait
+        ///     3. Encrypt it following the steps (here)[https://github.com/ideal-lab5/tle/blob/f8e6019f0fb02c380ebfa6b30efb61786dede07b/timelock/src/tlock.rs#L283-L336]
+        ///        to produce a [`TLECiphertext<TinyBLS381>`] type.
+        ///     4. Serialize and compress using the `ark-serialize` `CanonicalSerialize` trait.
+        ///
+        /// * reveal_round (`u64`):
+        ///    - The drand reveal round which will be avaliable during epoch `n+1` from the current
+        ///      epoch.
+        ///
+        /// * commit_reveal_version (`u16`):
+        ///     - The client (bittensor-drand) version
         #[pallet::call_index(113)]
-        #[pallet::weight((
-             Weight::from_parts(21_010_000, 0).saturating_add(T::DbWeight::get().reads_writes(1, 1)),
-             DispatchClass::Operational,
-             Pays::Yes
-         ))]
-        pub fn set_pure_proxy_account(
-            origin: OriginFor<T>,
-            address: H160,
-            account: T::AccountId,
+        #[pallet::weight((Weight::from_parts(73_750_000, 0)
+		.saturating_add(T::DbWeight::get().reads(7_u64))
+		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        pub fn commit_timelocked_weights(
+            origin: T::RuntimeOrigin,
+            netuid: NetUid,
+            commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
+            reveal_round: u64,
+            commit_reveal_version: u16,
         ) -> DispatchResult {
-            Self::do_set_pure_proxy_account(origin, address, account)
+            Self::do_commit_timelocked_weights(
+                origin,
+                netuid,
+                commit,
+                reveal_round,
+                commit_reveal_version,
+            )
         }
     }
 }
