@@ -3,11 +3,9 @@
 #![allow(clippy::arithmetic_side_effects)]
 
 extern crate alloc;
-use alloc::vec::Vec;
 
 #[allow(unused)]
 use crate::Pallet as AdminUtils;
-use frame_benchmarking::v1::account;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 
@@ -16,17 +14,6 @@ use super::*;
 #[benchmarks]
 mod benchmarks {
     use super::*;
-
-    #[benchmark]
-    fn schedule_grandpa_change(a: Linear<0, 32>) {
-        let next_authorities = (1..=a)
-            .map(|idx| account("Authority", idx, 0u32))
-            .collect::<Vec<(sp_consensus_grandpa::AuthorityId, u64)>>();
-        let in_blocks = BlockNumberFor::<T>::from(42u32);
-
-        #[extrinsic_call]
-        _(RawOrigin::Root, next_authorities, in_blocks, None);
-    }
 
     #[benchmark]
     fn sudo_set_default_take() {

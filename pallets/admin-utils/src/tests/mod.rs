@@ -1510,28 +1510,6 @@ fn test_sudo_non_root_cannot_set_evm_chain_id() {
 }
 
 #[test]
-fn test_schedule_grandpa_change() {
-    new_test_ext().execute_with(|| {
-        assert_eq!(Grandpa::grandpa_authorities(), vec![]);
-
-        let bob: GrandpaId = ed25519::Pair::from_legacy_string("//Bob", None)
-            .public()
-            .into();
-
-        assert_ok!(AdminUtils::schedule_grandpa_change(
-            RuntimeOrigin::root(),
-            vec![(bob.clone(), 1)],
-            41,
-            None
-        ));
-
-        Grandpa::on_finalize(42);
-
-        assert_eq!(Grandpa::grandpa_authorities(), vec![(bob, 1)]);
-    });
-}
-
-#[test]
 fn test_sudo_toggle_evm_precompile() {
     new_test_ext().execute_with(|| {
         let precompile_id = crate::PrecompileEnum::BalanceTransfer;
