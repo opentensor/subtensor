@@ -56,7 +56,6 @@ sp-version.workspace = true
 sp-authority-discovery.workspace = true
 subtensor-runtime-common.workspace = true
 subtensor-precompiles.workspace = true
-polkadot-core-primitives.workspace = true
 
 # Temporary sudo
 pallet-sudo.workspace = true
@@ -265,7 +264,6 @@ std = [
 	"pallet-aura/std",
 	"substrate-fixed/std",
 	"subtensor-swap-interface/std",
-	"polkadot-core-primitives/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
