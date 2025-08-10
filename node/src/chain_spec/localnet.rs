@@ -36,8 +36,7 @@ pub fn localnet_config(single_authority: bool) -> Result<ChainSpec, String> {
     .with_id("bittensor")
     .with_chain_type(ChainType::Development)
     .with_genesis_config_patch(localnet_genesis(
-        // Initial PoA authorities (Validators)
-        // aura | grandpa
+        // Initial NPoS authorities
         if single_authority {
             // single authority allows you to run the network using a single node
             vec![get_authority_keys_from_seed("Alice")]
