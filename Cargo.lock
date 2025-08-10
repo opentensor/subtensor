@@ -17889,6 +17889,7 @@ version = "0.1.0"
 dependencies = [
  "approx",
  "frame-support",
+ "log",
  "parity-scale-codec",
  "polkadot-runtime-common",
  "scale-info",

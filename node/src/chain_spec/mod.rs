@@ -12,12 +12,13 @@ use sc_service::ChainType;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::crypto::Ss58Codec;
-use sp_core::{H256, Pair, Public, bounded_vec, sr25519};
+use sp_core::{H256, Pair, Public, bounded_vec, ed25519, sr25519};
 use sp_runtime::AccountId32;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use std::collections::HashSet;
 use std::env;
 use std::str::FromStr;
+use subtensor_runtime_common::keys::KnownSs58;
 use subtensor_runtime_common::{AccountId, Signature};
 
 // The URL for the telemetry server.
@@ -80,25 +81,29 @@ impl AuthorityKeys {
     pub fn grandpa(&self) -> &GrandpaId {
         &self.grandpa
     }
+
+    pub fn from_seed(seed: &str) -> AuthorityKeys {
+        AuthorityKeys::new(
+            get_account_id_from_seed::<sr25519::Public>(seed),
+            get_from_seed::<BabeId>(seed),
+            get_from_seed::<GrandpaId>(seed),
+        )
+    }
+
+    pub fn from_known_ss58(known: KnownSs58) -> AuthorityKeys {
+        let sr25519_pub = ss58_to_public::<sr25519::Public>(known.sr25519);
+        let ed25519_pub = ss58_to_public::<ed25519::Public>(known.ed25519);
+        // Account and Babe are SR25519, Grandpa is ED25519
+        AuthorityKeys::new(
+            AccountId32::from(sr25519_pub.clone()),
+            BabeId::from(sr25519_pub),
+            GrandpaId::from(ed25519_pub),
+        )
+    }
 }
 
-pub fn get_authority_keys_from_seed(seed: &str) -> AuthorityKeys {
-    AuthorityKeys::new(
-        get_account_id_from_seed::<sr25519::Public>(seed),
-        get_from_seed::<BabeId>(seed),
-        get_from_seed::<GrandpaId>(seed),
-    )
-}
-
-pub fn authority_keys_from_ss58(babe: &str, grandpa: &str) -> AuthorityKeys {
-    let babe = get_from_ss58_addr::<BabeId>(babe);
-    // Babe and AccountId32 use the same crypto, so we can derive using each other.
-    let account_id = AccountId32::new(babe.clone().into_inner().into());
-    AuthorityKeys::new(account_id, babe, get_from_ss58_addr::<GrandpaId>(grandpa))
-}
-
-fn get_from_ss58_addr<TPublic: Public>(addr: &str) -> <TPublic::Pair as Pair>::Public {
-    Ss58Codec::from_ss58check(addr).unwrap()
+fn ss58_to_public<TPublic: Public>(addr: &str) -> <TPublic::Pair as Pair>::Public {
+    Ss58Codec::from_ss58check(addr).expect("Invalid SS58 address")
 }
 
 // Includes for nakamoto genesis

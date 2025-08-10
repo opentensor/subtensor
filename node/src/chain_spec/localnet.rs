@@ -39,12 +39,12 @@ pub fn localnet_config(single_authority: bool) -> Result<ChainSpec, String> {
         // Initial NPoS authorities
         if single_authority {
             // single authority allows you to run the network using a single node
-            vec![get_authority_keys_from_seed("Alice")]
+            vec![AuthorityKeys::from_seed("Alice")]
         } else {
             vec![
-                get_authority_keys_from_seed("Alice"),
-                get_authority_keys_from_seed("Bob"),
-                get_authority_keys_from_seed("Charlie"),
+                AuthorityKeys::from_seed("Alice"),
+                AuthorityKeys::from_seed("Bob"),
+                AuthorityKeys::from_seed("Charlie"),
             ]
         },
         // Pre-funded accounts

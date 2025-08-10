@@ -2,6 +2,7 @@
 #![allow(clippy::unwrap_used)]
 
 use super::*;
+use subtensor_runtime_common::keys::known_ss58;
 
 pub fn devnet_config() -> Result<ChainSpec, String> {
     let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
@@ -26,26 +27,11 @@ pub fn devnet_config() -> Result<ChainSpec, String> {
     .with_genesis_config_patch(devnet_genesis(
         vec![
             // Devnet keys
-            authority_keys_from_ss58(
-                "5D5ABUyMsdmJdH7xrsz9vREq5eGXr5pXhHxix2dENQR62dEo",
-                "5H3qMjQjoeZxZ98jzDmoCwbz2sugd5fDN1wrr8Phf49zemKL",
-            ),
-            authority_keys_from_ss58(
-                "5GbRc5sNDdhcPAU9suV2g9P5zyK1hjAQ9JHeeadY1mb8kXoM",
-                "5GbkysfaCjK3cprKPhi3CUwaB5xWpBwcfrkzs6FmqHxej8HZ",
-            ),
-            authority_keys_from_ss58(
-                "5CoVWwBwXz2ndEChGcS46VfSTb3RMUZzZzAYdBKo263zDhEz",
-                "5HTLp4BvPp99iXtd8YTBZA1sMfzo8pd4mZzBJf7HYdCn2boU",
-            ),
-            authority_keys_from_ss58(
-                "5EekcbqupwbgWqF8hWGY4Pczsxp9sbarjDehqk7bdyLhDCwC",
-                "5GAemcU4Pzyfe8DwLwDFx3aWzyg3FuqYUCCw2h4sdDZhyFvE",
-            ),
-            authority_keys_from_ss58(
-                "5GgdEQyS5DZzUwKuyucEPEZLxFKGmasUFm1mqM3sx1MRC5RV",
-                "5EibpMomXmgekxcfs25SzFBpGWUsG9Lc8ALNjXN3TYH5Tube",
-            ),
+            AuthorityKeys::from_known_ss58(known_ss58::TESTNET_VALI_1),
+            AuthorityKeys::from_known_ss58(known_ss58::TESTNET_VALI_2),
+            AuthorityKeys::from_known_ss58(known_ss58::TESTNET_VALI_3),
+            AuthorityKeys::from_known_ss58(known_ss58::TESTNET_VALI_4),
+            AuthorityKeys::from_known_ss58(known_ss58::TESTNET_VALI_5),
         ],
         // Devnet sudo
         Ss58Codec::from_ss58check("5GpzQgpiAKHMWNSH3RN4GLf96GVTDct9QxYEFAY7LWcVzTbx").unwrap(),

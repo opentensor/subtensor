@@ -3,6 +3,7 @@
 
 use super::*;
 use hex::FromHex;
+use subtensor_runtime_common::keys::known_ss58;
 
 pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
     let path: PathBuf = std::path::PathBuf::from("./snapshot.json");
@@ -88,12 +89,27 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
     ])
     .with_genesis_config_patch(finney_genesis(
         // Initial validators
-		// Obviously, these are just dummy values. Should be replaced with actual authority keys
-		// when running in prod.
         vec![
-			get_authority_keys_from_seed("Alice"),
-            get_authority_keys_from_seed("Bob"),
-            get_authority_keys_from_seed("Charlie"),
+            AuthorityKeys::from_known_ss58(known_ss58::FINNEY_VALI_1),
+            AuthorityKeys::from_known_ss58(known_ss58::FINNEY_VALI_2),
+            AuthorityKeys::from_known_ss58(known_ss58::FINNEY_VALI_3),
+            AuthorityKeys::from_known_ss58(known_ss58::FINNEY_VALI_4),
+            AuthorityKeys::from_known_ss58(known_ss58::FINNEY_VALI_5),
+            AuthorityKeys::from_known_ss58(known_ss58::FINNEY_VALI_6),
+			AuthorityKeys::from_known_ss58(known_ss58::FINNEY_VALI_7),
+			AuthorityKeys::from_known_ss58(known_ss58::FINNEY_VALI_8),
+			AuthorityKeys::from_known_ss58(known_ss58::FINNEY_VALI_9),
+			AuthorityKeys::from_known_ss58(known_ss58::FINNEY_VALI_10),
+			AuthorityKeys::from_known_ss58(known_ss58::FINNEY_VALI_11),
+			AuthorityKeys::from_known_ss58(known_ss58::FINNEY_VALI_12),
+			AuthorityKeys::from_known_ss58(known_ss58::FINNEY_VALI_13),
+			AuthorityKeys::from_known_ss58(known_ss58::FINNEY_VALI_14),
+			AuthorityKeys::from_known_ss58(known_ss58::FINNEY_VALI_15),
+			AuthorityKeys::from_known_ss58(known_ss58::FINNEY_VALI_16),
+			AuthorityKeys::from_known_ss58(known_ss58::FINNEY_VALI_17),
+			AuthorityKeys::from_known_ss58(known_ss58::FINNEY_VALI_18),
+			AuthorityKeys::from_known_ss58(known_ss58::FINNEY_VALI_19),
+			AuthorityKeys::from_known_ss58(known_ss58::FINNEY_VALI_20),
         ],
         // Sudo account
         Ss58Codec::from_ss58check("5FCM3DBXWiGcwYYQtT8z4ZD93TqYpYxjaAfgv6aMStV1FTCT").unwrap(),

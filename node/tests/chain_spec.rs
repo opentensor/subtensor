@@ -34,7 +34,7 @@ fn test_get_account_id_from_seed_panics() {
 #[test]
 fn test_authority_keys_from_seed() {
     let seed = "WoOt";
-    let keys = get_authority_keys_from_seed(seed);
+    let keys = AuthorityKeys::from_seed(seed);
 
     let expected_babe_id = "5Gj3QEiZaFJPFK1yN4Lkj6FLM4V7GEBCewVBVniuvZ75S2Fd";
     let expected_grandpa_id = "5H7623Nvxq655p9xrLQPip1mwssFRMfL5fvT5LUSa4nWwLSm";
@@ -47,5 +47,5 @@ fn test_authority_keys_from_seed() {
 #[should_panic(expected = "static values are valid; qed: InvalidFormat")]
 fn test_authority_keys_from_seed_panics() {
     let bad_seed = "";
-    get_authority_keys_from_seed(bad_seed);
+    AuthorityKeys::from_seed(bad_seed);
 }

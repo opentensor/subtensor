@@ -1,6 +1,8 @@
 // Allowed since it's actually better to panic during chain setup when there is an error
 #![allow(clippy::unwrap_used)]
 
+use subtensor_runtime_common::keys::known_ss58;
+
 use super::*;
 
 pub fn finney_testnet_config() -> Result<ChainSpec, String> {
@@ -61,9 +63,13 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
     .with_genesis_config_patch(testnet_genesis(
         // Initial validators
         vec![
-			get_authority_keys_from_seed("Alice"),
-            get_authority_keys_from_seed("Bob"),
-            get_authority_keys_from_seed("Charlie"),
+            // Testnet keys
+            AuthorityKeys::from_known_ss58(known_ss58::TESTNET_VALI_1),
+            AuthorityKeys::from_known_ss58(known_ss58::TESTNET_VALI_2),
+            AuthorityKeys::from_known_ss58(known_ss58::TESTNET_VALI_3),
+            AuthorityKeys::from_known_ss58(known_ss58::TESTNET_VALI_4),
+            AuthorityKeys::from_known_ss58(known_ss58::TESTNET_VALI_5),
+            AuthorityKeys::from_known_ss58(known_ss58::TESTNET_VALI_6),
         ],
         // Sudo account
         Ss58Codec::from_ss58check("5GpzQgpiAKHMWNSH3RN4GLf96GVTDct9QxYEFAY7LWcVzTbx").unwrap(),

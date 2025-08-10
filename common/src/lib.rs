@@ -17,6 +17,7 @@ use subtensor_macros::freeze_struct;
 pub use currency::*;
 
 mod currency;
+pub mod keys;
 
 /// Balance of an account.
 pub type Balance = u64;
