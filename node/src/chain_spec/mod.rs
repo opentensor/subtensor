@@ -90,17 +90,16 @@ pub fn get_authority_keys_from_seed(seed: &str) -> AuthorityKeys {
     )
 }
 
-// pub fn get_authority_keys_from_ss   account: &s    babe: &s    grandpa: &// ) -> AuthorityKeys {
-//     AuthorityKeys::new(
-//         AccountId32::from_str(account).unwrap(),
-//         get_from_ss58_addr::<BabeId>(babe),
-//         get_from_ss58_addr::<GrandpaId>(grandpa),
-//     )
-// }
+pub fn authority_keys_from_ss58(babe: &str, grandpa: &str) -> AuthorityKeys {
+    let babe = get_from_ss58_addr::<BabeId>(babe);
+    // Babe and AccountId32 use the same crypto, so we can derive using each other.
+    let account_id = AccountId32::new(babe.clone().into_inner().into());
+    AuthorityKeys::new(account_id, babe, get_from_ss58_addr::<GrandpaId>(grandpa))
+}
 
-// fn get_from_ss58_addr<TPublic: Public>(addr: &str) -> <TPublic::Pair as Pair>::Public {
-//     Ss58Codec::from_ss58check(addr).unwrap()
-// }
+fn get_from_ss58_addr<TPublic: Public>(addr: &str) -> <TPublic::Pair as Pair>::Public {
+    Ss58Codec::from_ss58check(addr).unwrap()
+}
 
 // Includes for nakamoto genesis
 use serde::{Deserialize, Serialize};
