@@ -82,7 +82,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns:
     /// * 'DispatchResult': A result type indicating success or failure of the registration.
     ///
-    pub fn do_root_register(origin: T::RuntimeOrigin, hotkey: T::AccountId) -> DispatchResult {
+    pub fn do_root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
         // --- 0. Get the unique identifier (UID) for the root network.
         let current_block_number: u64 = Self::get_current_block_as_u64();
         ensure!(
@@ -218,7 +218,7 @@ impl<T: Config> Pallet<T> {
     // # Returns:
     // * 'DispatchResult': A result type indicating success or failure of the registration.
     //
-    pub fn do_adjust_senate(origin: T::RuntimeOrigin, hotkey: T::AccountId) -> DispatchResult {
+    pub fn do_adjust_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
         ensure!(
             Self::if_subnet_exist(NetUid::ROOT),
             Error::<T>::RootNetworkDoesNotExist
@@ -325,7 +325,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_vote_root(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: &T::AccountId,
         proposal: T::Hash,
         index: u32,
@@ -373,7 +373,7 @@ impl<T: Config> Pallet<T> {
     /// Facilitates the removal of a user's subnetwork.
     ///
     /// # Args:
-    /// * 'origin': ('T::RuntimeOrigin'): The calling origin. Must be signed.
+    /// * 'origin': ('OriginFor<T>'): The calling origin. Must be signed.
     /// * 'netuid': ('u16'): The unique identifier of the network to be removed.
     ///
     /// # Event:

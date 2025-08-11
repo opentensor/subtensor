@@ -156,7 +156,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(7))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_weights(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             netuid: NetUid,
             commit_hash: H256,
         ) -> DispatchResult {
@@ -239,7 +239,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(16))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn reveal_weights(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             netuid: NetUid,
             uids: Vec<u16>,
             values: Vec<u16>,
@@ -283,7 +283,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(6_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_crv3_weights(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             netuid: NetUid,
             commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
             reveal_round: u64,
@@ -335,7 +335,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(16))
 		.saturating_add(T::DbWeight::get().writes(2_u64)), DispatchClass::Normal, Pays::No))]
         pub fn batch_reveal_weights(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             netuid: NetUid,
             uids_list: Vec<Vec<u16>>,
             values_list: Vec<Vec<u16>>,
@@ -1285,7 +1285,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
         pub fn set_children(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: NetUid,
             children: Vec<(u64, T::AccountId)>,
@@ -1641,7 +1641,7 @@ mod dispatches {
         .saturating_add(T::DbWeight::get().reads(15_u64))
         .saturating_add(T::DbWeight::get().writes(7_u64)), DispatchClass::Operational, Pays::Yes))]
         pub fn move_stake(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             origin_hotkey: T::AccountId,
             destination_hotkey: T::AccountId,
             origin_netuid: NetUid,
@@ -1684,7 +1684,7 @@ mod dispatches {
         .saturating_add(T::DbWeight::get().reads(13_u64))
         .saturating_add(T::DbWeight::get().writes(6_u64)), DispatchClass::Operational, Pays::Yes))]
         pub fn transfer_stake(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             destination_coldkey: T::AccountId,
             hotkey: T::AccountId,
             origin_netuid: NetUid,
@@ -1729,7 +1729,7 @@ mod dispatches {
             Pays::Yes
         ))]
         pub fn swap_stake(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             hotkey: T::AccountId,
             origin_netuid: NetUid,
             destination_netuid: NetUid,
@@ -1902,7 +1902,7 @@ mod dispatches {
             Pays::Yes
         ))]
         pub fn swap_stake_limit(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             hotkey: T::AccountId,
             origin_netuid: NetUid,
             destination_netuid: NetUid,
@@ -1935,10 +1935,7 @@ mod dispatches {
             DispatchClass::Operational,
             Pays::Yes
         ))]
-        pub fn try_associate_hotkey(
-            origin: T::RuntimeOrigin,
-            hotkey: T::AccountId,
-        ) -> DispatchResult {
+        pub fn try_associate_hotkey(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
 
             let _ = Self::do_try_associate_hotkey(&coldkey, &hotkey);
@@ -1960,7 +1957,7 @@ mod dispatches {
             DispatchClass::Operational,
             Pays::Yes
         ))]
-        pub fn start_call(origin: T::RuntimeOrigin, netuid: NetUid) -> DispatchResult {
+        pub fn start_call(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
             Self::do_start_call(origin, netuid)?;
             Ok(())
         }
@@ -1999,7 +1996,7 @@ mod dispatches {
             Pays::Yes
         ))]
         pub fn associate_evm_key(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             netuid: NetUid,
             evm_key: H160,
             block_number: u64,
@@ -2025,7 +2022,7 @@ mod dispatches {
             Pays::Yes
         ))]
         pub fn recycle_alpha(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             hotkey: T::AccountId,
             amount: AlphaCurrency,
             netuid: NetUid,
@@ -2050,7 +2047,7 @@ mod dispatches {
             Pays::Yes
         ))]
         pub fn burn_alpha(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             hotkey: T::AccountId,
             amount: AlphaCurrency,
             netuid: NetUid,
@@ -2079,7 +2076,7 @@ mod dispatches {
 			.saturating_add(T::DbWeight::get().reads(30_u64))
 			.saturating_add(T::DbWeight::get().writes(14_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn remove_stake_full_limit(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: NetUid,
             limit_price: Option<u64>,
@@ -2106,7 +2103,7 @@ mod dispatches {
         #[pallet::call_index(110)]
         #[pallet::weight(SubnetLeasingWeightInfo::<T>::do_register_leased_network(T::MaxContributors::get()))]
         pub fn register_leased_network(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             emissions_share: Percent,
             end_block: Option<BlockNumberFor<T>>,
         ) -> DispatchResultWithPostInfo {
@@ -2132,7 +2129,7 @@ mod dispatches {
         #[pallet::call_index(111)]
         #[pallet::weight(SubnetLeasingWeightInfo::<T>::do_terminate_lease(T::MaxContributors::get()))]
         pub fn terminate_lease(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             lease_id: LeaseId,
             hotkey: T::AccountId,
         ) -> DispatchResultWithPostInfo {
@@ -2273,7 +2270,7 @@ mod dispatches {
 			.saturating_add(T::DbWeight::get().reads(30_u64))
 			.saturating_add(T::DbWeight::get().writes(14_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn remove_stake_full_limit_aggregate(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: NetUid,
             limit_price: Option<u64>,
@@ -2287,7 +2284,7 @@ mod dispatches {
         .saturating_add(T::DbWeight::get().reads(15_u64))
         .saturating_add(T::DbWeight::get().writes(7_u64)), DispatchClass::Operational, Pays::Yes))]
         pub fn move_stake_aggregate(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             origin_hotkey: T::AccountId,
             destination_hotkey: T::AccountId,
             origin_netuid: NetUid,
@@ -2338,7 +2335,7 @@ mod dispatches {
             Pays::Yes
         ))]
         pub fn swap_stake_aggregate(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             hotkey: T::AccountId,
             origin_netuid: NetUid,
             destination_netuid: NetUid,
@@ -2351,6 +2348,23 @@ mod dispatches {
                 destination_netuid,
                 alpha_amount,
             )
+        }
+
+        /// add_stake with EVM origin
+        #[pallet::call_index(123)]
+        #[pallet::weight((Weight::from_parts(345_500_000, 0)
+		.saturating_add(T::DbWeight::get().reads(26))
+		.saturating_add(T::DbWeight::get().writes(15)), DispatchClass::Normal, Pays::Yes))]
+        pub fn add_stake_evm(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            amount_staked: u64,
+        ) -> DispatchResult {
+            let account_id = crate::ensure_evm_origin(<T as Config>::RuntimeOrigin::from(origin))?;
+            let checked_evm_origin = RawOrigin::Signed(account_id);
+
+            Self::do_add_stake(checked_evm_origin.into(), hotkey, netuid, amount_staked)
         }
     }
 }

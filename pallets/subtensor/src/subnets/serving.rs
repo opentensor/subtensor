@@ -56,7 +56,7 @@ impl<T: Config> Pallet<T> {
     ///     - Attempting to set prometheus information withing the rate limit min.
     ///
     pub fn do_serve_axon(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         version: u32,
         ip: u128,
@@ -160,7 +160,7 @@ impl<T: Config> Pallet<T> {
     ///     - Attempting to set prometheus information withing the rate limit min.
     ///
     pub fn do_serve_prometheus(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         version: u32,
         ip: u128,

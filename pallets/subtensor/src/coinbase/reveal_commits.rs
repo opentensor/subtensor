@@ -133,7 +133,7 @@ impl<T: Config> Pallet<T> {
             };
 
             if let Err(e) = Self::do_set_weights(
-                T::RuntimeOrigin::signed(who.clone()),
+                OriginFor::<T>::signed(who.clone()),
                 netuid,
                 payload.uids,
                 payload.values,

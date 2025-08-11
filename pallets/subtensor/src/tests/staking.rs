@@ -7012,3 +7012,37 @@ fn test_verify_all_job_type_sort_by_coldkey() {
     run_by_pulse(DRAND_PULSE1); // direct order
     run_by_pulse(DRAND_PULSE2); // reversed
 }
+
+#[test]
+fn test_add_stake_evm_origin_check() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
+        let amount = DefaultMinStake::<Test>::get() * 10;
+
+        //add network
+        let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+
+        setup_reserves(netuid, amount * 1_000_000, (amount * 10_000_000).into());
+
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
+
+        assert_err!(
+            SubtensorModule::add_stake_evm(
+                RuntimeOrigin::signed(coldkey_account_id),
+                hotkey_account_id,
+                netuid,
+                amount
+            ),
+            DispatchError::BadOrigin
+        );
+
+        assert_ok!(SubtensorModule::add_stake_evm(
+            <Test as Config>::EvmOriginHelper::make_evm_origin(coldkey_account_id).into(),
+            hotkey_account_id,
+            netuid,
+            amount
+        ));
+    });
+}

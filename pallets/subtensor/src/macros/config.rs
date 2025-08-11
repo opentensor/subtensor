@@ -1,6 +1,7 @@
 #![allow(clippy::crate_in_macro_def)]
 
 use frame_support::pallet_macros::pallet_section;
+
 /// A [`pallet_section`] that defines the errors for a pallet.
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
@@ -13,9 +14,16 @@ mod config {
     pub trait Config:
         frame_system::Config + pallet_drand::Config + pallet_crowdloan::Config
     {
+        /// Helps create EVM origin by account ID
+        type EvmOriginHelper: EvmOriginHelper<<Self as frame_system::Config>::RuntimeOrigin, Self::AccountId>;
+
+        /// Custom runtime origin for EVM
+        type RuntimeOrigin: From<<Self as frame_system::Config>::RuntimeOrigin>
+            + Into<Result<crate::pallet::Origin<Self>, <Self as Config>::RuntimeOrigin>>;
+
         /// call type
         type RuntimeCall: Parameter
-            + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+            + Dispatchable<RuntimeOrigin = OriginFor<Self>>
             + From<Call<Self>>
             + IsType<<Self as frame_system::Config>::RuntimeCall>
             + From<frame_system::Call<Self>>;
@@ -25,11 +33,11 @@ mod config {
 
         /// A sudo-able call.
         type SudoRuntimeCall: Parameter
-            + UnfilteredDispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+            + UnfilteredDispatchable<RuntimeOrigin = OriginFor<Self>>
             + GetDispatchInfo;
 
         /// Origin checking for council majority
-        type CouncilOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+        type CouncilOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
 
         ///  Currency type that will be used to place deposits on neurons
         type Currency: fungible::Balanced<Self::AccountId, Balance = u64>

@@ -19,10 +19,13 @@ use frame_support::{
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::sp_runtime::transaction_validity::InvalidTransaction;
 use frame_support::sp_runtime::transaction_validity::ValidTransaction;
+use frame_support::traits::OriginTrait;
+use frame_system::pallet_prelude::OriginFor;
 use pallet_balances::Call as BalancesCall;
 // use pallet_scheduler as Scheduler;
 use scale_info::TypeInfo;
 use sp_core::Get;
+use sp_runtime::traits::BadOrigin;
 use sp_runtime::{
     DispatchError,
     traits::{
@@ -62,6 +65,23 @@ extern crate alloc;
 
 pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 
+pub fn ensure_evm_origin<T: Config, OuterOrigin>(o: OuterOrigin) -> Result<T::AccountId, BadOrigin>
+where
+    OuterOrigin: Into<Result<Origin<T>, OuterOrigin>>,
+{
+    match o.into() {
+        Ok(Origin::<T>::Evm { account_id }) => Ok(account_id),
+        _ => Err(BadOrigin),
+    }
+}
+
+pub trait EvmOriginHelper<O, A>
+where
+    O: OriginTrait,
+{
+    fn make_evm_origin(account_id: A) -> O;
+}
+
 #[deny(missing_docs)]
 #[import_section(errors::errors)]
 #[import_section(events::events)]
@@ -71,10 +91,12 @@ pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 #[import_section(config::config)]
 #[frame_support::pallet]
 pub mod pallet {
+    use crate::EvmOriginHelper;
     use crate::RateLimitKey;
     use crate::migrations;
     use crate::subnets::leasing::{LeaseId, SubnetLeaseOf};
     use frame_support::Twox64Concat;
+    use frame_support::dispatch::RawOrigin;
     use frame_support::{
         BoundedVec,
         dispatch::GetDispatchInfo,
@@ -98,6 +120,17 @@ pub mod pallet {
     use alloc::boxed::Box;
     #[cfg(feature = "std")]
     use sp_std::prelude::Box;
+
+    /// Origin for the EVM transactions.
+    #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug, MaxEncodedLen)]
+    #[pallet::origin]
+    pub enum Origin<T: Config> {
+        /// EVM origin.
+        Evm {
+            /// Account ID
+            account_id: T::AccountId,
+        },
+    }
 
     /// Origin for the pallet
     pub type PalletsOriginOf<T> =

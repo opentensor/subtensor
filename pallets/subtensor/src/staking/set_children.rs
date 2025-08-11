@@ -35,7 +35,7 @@ impl<T: Config> Pallet<T> {
     ///     - Too many children in request
     ///
     pub fn do_schedule_children(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         netuid: NetUid,
         children: Vec<(u64, T::AccountId)>,

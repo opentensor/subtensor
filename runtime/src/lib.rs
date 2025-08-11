@@ -542,7 +542,7 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
     }
 }
 
-use pallet_subtensor::{CollectiveInterface, MemberManagement, ProxyInterface};
+use pallet_subtensor::{CollectiveInterface, EvmOriginHelper, MemberManagement, ProxyInterface};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
@@ -1226,7 +1226,17 @@ parameter_types! {
     pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
 }
 
+pub struct OriginHelper;
+
+impl EvmOriginHelper<RuntimeOrigin, AccountId> for OriginHelper {
+    fn make_evm_origin(account_id: AccountId) -> RuntimeOrigin {
+        RuntimeOrigin::from(pallet_subtensor::Origin::Evm { account_id })
+    }
+}
+
 impl pallet_subtensor::Config for Runtime {
+    type EvmOriginHelper = OriginHelper;
+    type RuntimeOrigin = RuntimeOrigin;
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type SudoRuntimeCall = RuntimeCall;

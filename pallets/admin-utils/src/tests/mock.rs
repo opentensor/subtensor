@@ -8,6 +8,7 @@ use frame_support::{
 };
 use frame_system::{self as system, offchain::CreateTransactionBase};
 use frame_system::{EnsureNever, EnsureRoot, limits};
+use pallet_subtensor::EvmOriginHelper;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityList as GrandpaAuthorityList;
 use sp_core::U256;
@@ -28,7 +29,7 @@ frame_support::construct_runtime!(
         System: frame_system = 1,
         Balances: pallet_balances = 2,
         AdminUtils: crate = 3,
-        SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>, Error<T>} = 4,
+        SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>, Error<T>, Origin<T>} = 4,
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 5,
         Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 6,
         Grandpa: pallet_grandpa = 7,
@@ -151,8 +152,15 @@ parameter_types! {
     pub const LeaseDividendsDistributionInterval: u32 = 100; // 100 blocks
 }
 
+impl EvmOriginHelper<RuntimeOrigin, AccountId> for () {
+    fn make_evm_origin(_: AccountId) -> RuntimeOrigin {
+        RuntimeOrigin::none()
+    }
+}
 impl pallet_subtensor::Config for Test {
+    type EvmOriginHelper = ();
     type RuntimeEvent = RuntimeEvent;
+    type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type InitialIssuance = InitialIssuance;

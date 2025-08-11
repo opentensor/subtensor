@@ -508,7 +508,7 @@ mod pallet_benchmarks {
         let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
         let (nonce, work) =
             Subtensor::<T>::create_work_for_block_number(netuid, block_number, 3, &hotkey);
-        let origin = T::RuntimeOrigin::from(RawOrigin::Signed(hotkey.clone()));
+        let origin = OriginFor::<T>::from(RawOrigin::Signed(hotkey.clone()));
         assert_ok!(Subtensor::<T>::register(
             origin.clone(),
             netuid,

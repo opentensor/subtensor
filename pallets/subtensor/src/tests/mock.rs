@@ -40,7 +40,7 @@ frame_support::construct_runtime!(
         TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 4,
         Senate: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 5,
         SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 6,
-        SubtensorModule: crate::{Pallet, Call, Storage, Event<T>} = 7,
+        SubtensorModule: crate::{Pallet, Call, Storage, Event<T>, Origin<T>} = 7,
         Utility: pallet_utility::{Pallet, Call, Storage, Event} = 8,
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 9,
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 10,
@@ -384,7 +384,19 @@ impl pallet_membership::Config<SenateMembership> for Test {
     type WeightInfo = pallet_membership::weights::SubstrateWeight<Test>;
 }
 
+pub struct OriginHelper;
+
+impl EvmOriginHelper<RuntimeOrigin, AccountId> for OriginHelper {
+    fn make_evm_origin(account_id: AccountId) -> RuntimeOrigin {
+        RuntimeOrigin::from(Origin::Evm { account_id })
+    }
+}
+
 impl crate::Config for Test {
+    // type EvmOrigin = EvmOrigin<Self>;
+    type RuntimeOrigin = RuntimeOrigin;
+
+    type EvmOriginHelper = OriginHelper;
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
