@@ -7,7 +7,7 @@ use frame_support::traits::{
 };
 use safe_math::*;
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{NetUid, TaoCurrency};
 use subtensor_swap_interface::{OrderType, SwapHandler};
 
 use super::*;
@@ -27,24 +27,24 @@ impl<T: Config> Pallet<T> {
 
     // Returns the total amount of stake in the staking table.
     //
-    pub fn get_total_stake() -> u64 {
+    pub fn get_total_stake() -> TaoCurrency {
         TotalStake::<T>::get()
     }
 
     // Increases the total amount of stake by the passed amount.
     //
-    pub fn increase_total_stake(increment: u64) {
+    pub fn increase_total_stake(increment: TaoCurrency) {
         TotalStake::<T>::put(Self::get_total_stake().saturating_add(increment));
     }
 
     // Decreases the total amount of stake by the passed amount.
     //
-    pub fn decrease_total_stake(decrement: u64) {
+    pub fn decrease_total_stake(decrement: TaoCurrency) {
         TotalStake::<T>::put(Self::get_total_stake().saturating_sub(decrement));
     }
 
     /// Returns the total amount of stake (in TAO) under a hotkey (delegative or otherwise)
-    pub fn get_total_stake_for_hotkey(hotkey: &T::AccountId) -> u64 {
+    pub fn get_total_stake_for_hotkey(hotkey: &T::AccountId) -> TaoCurrency {
         Self::get_all_subnet_netuids()
             .into_iter()
             .map(|netuid| {
@@ -58,11 +58,12 @@ impl<T: Config> Pallet<T> {
             })
             .sum::<U96F32>()
             .saturating_to_num::<u64>()
+            .into()
     }
 
     // Returns the total amount of stake under a coldkey
     //
-    pub fn get_total_stake_for_coldkey(coldkey: &T::AccountId) -> u64 {
+    pub fn get_total_stake_for_coldkey(coldkey: &T::AccountId) -> TaoCurrency {
         let hotkeys = StakingHotkeys::<T>::get(coldkey);
         hotkeys
             .iter()
@@ -90,6 +91,7 @@ impl<T: Config> Pallet<T> {
                     .sum::<u64>()
             })
             .sum::<u64>()
+            .into()
     }
 
     // Creates a cold - hot pairing account if the hotkey is not already an active account.
@@ -200,13 +202,13 @@ impl<T: Config> Pallet<T> {
                     coldkey,
                     netuid,
                     alpha_stake,
-                    T::SwapInterface::min_price(),
+                    T::SwapInterface::min_price().into(),
                     false,
                 );
 
                 if let Ok(cleared_stake) = maybe_cleared_stake {
                     // Add the stake to the coldkey account.
-                    Self::add_balance_to_coldkey_account(coldkey, cleared_stake);
+                    Self::add_balance_to_coldkey_account(coldkey, cleared_stake.into());
                 } else {
                     // Just clear small alpha
                     let alpha =
@@ -269,9 +271,9 @@ impl<T: Config> Pallet<T> {
     pub fn remove_balance_from_coldkey_account(
         coldkey: &T::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
-    ) -> Result<u64, DispatchError> {
+    ) -> Result<TaoCurrency, DispatchError> {
         if amount == 0 {
-            return Ok(0);
+            return Ok(TaoCurrency::ZERO);
         }
 
         let credit = <T as Config>::Currency::withdraw(
@@ -288,7 +290,7 @@ impl<T: Config> Pallet<T> {
             return Err(Error::<T>::ZeroBalanceAfterWithdrawn.into());
         }
 
-        Ok(credit)
+        Ok(credit.into())
     }
 
     pub fn kill_coldkey_account(

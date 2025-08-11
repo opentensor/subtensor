@@ -245,11 +245,12 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
+        /// Beacon Configuration has changed.
         BeaconConfigChanged,
         /// Successfully set a new pulse(s).
-        NewPulse {
-            rounds: Vec<RoundNumber>,
-        },
+        NewPulse { rounds: Vec<RoundNumber> },
+        /// Oldest Stored Round has been set.
+        SetOldestStoredRound(u64),
     }
 
     #[pallet::error]
@@ -277,11 +278,12 @@ pub mod pallet {
             }
         }
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            let mut weight = frame_support::weights::Weight::from_parts(0, 0);
+            /*let weight = */
+            frame_support::weights::Weight::from_parts(0, 0) /*;*/
 
-            weight = weight.saturating_add(migrations::migrate_set_oldest_round::<T>());
+            //weight = weight.saturating_add(migrations::migrate_set_oldest_round::<T>());
 
-            weight
+            //weight
         }
     }
 
@@ -329,7 +331,7 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// Verify and write a pulse from the beacon into the runtime
         #[pallet::call_index(0)]
-        #[pallet::weight(Weight::from_parts(5_708_000_000, 0)
+        #[pallet::weight(Weight::from_parts(4_294_000_000, 0)
         .saturating_add(T::DbWeight::get().reads(3_u64))
         .saturating_add(T::DbWeight::get().writes(4_u64)))]
         pub fn write_pulse(
@@ -402,7 +404,7 @@ pub mod pallet {
         /// * `origin`: the root user
         /// * `config`: the beacon configuration
         #[pallet::call_index(1)]
-        #[pallet::weight(Weight::from_parts(9_878_000, 0)
+        #[pallet::weight(Weight::from_parts(5_450_000, 0)
         .saturating_add(T::DbWeight::get().reads(0_u64))
         .saturating_add(T::DbWeight::get().writes(2_u64)))]
         pub fn set_beacon_config(
@@ -418,6 +420,18 @@ pub mod pallet {
             <NextUnsignedAt<T>>::put(current_block.saturating_add(One::one()));
 
             Self::deposit_event(Event::BeaconConfigChanged {});
+            Ok(())
+        }
+
+        /// allows the root user to set the oldest stored round
+        #[pallet::call_index(2)]
+        #[pallet::weight(Weight::from_parts(3_350_000, 0)
+        .saturating_add(T::DbWeight::get().reads(0_u64))
+        .saturating_add(T::DbWeight::get().writes(1_u64)))]
+        pub fn set_oldest_stored_round(origin: OriginFor<T>, oldest_round: u64) -> DispatchResult {
+            ensure_root(origin)?;
+            OldestStoredRound::<T>::put(oldest_round);
+            Self::deposit_event(Event::SetOldestStoredRound(oldest_round));
             Ok(())
         }
     }
