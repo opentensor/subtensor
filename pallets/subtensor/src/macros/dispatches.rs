@@ -2435,5 +2435,85 @@ mod dispatches {
                 allow_partial,
             )
         }
+
+        /// move_stake with EVM origin
+        #[pallet::call_index(127)]
+        #[pallet::weight((Weight::from_parts(157_100_000, 0)
+        .saturating_add(T::DbWeight::get().reads(15_u64))
+        .saturating_add(T::DbWeight::get().writes(7_u64)), DispatchClass::Operational, Pays::Yes))]
+        pub fn move_stake_evm(
+            origin: OriginFor<T>,
+            origin_hotkey: T::AccountId,
+            destination_hotkey: T::AccountId,
+            origin_netuid: NetUid,
+            destination_netuid: NetUid,
+            alpha_amount: AlphaCurrency,
+        ) -> DispatchResult {
+            let account_id = crate::ensure_evm_origin(<T as Config>::RuntimeOrigin::from(origin))?;
+            let verified_evm_origin = RawOrigin::Signed(account_id);
+            
+            Self::do_move_stake(
+                verified_evm_origin.into(),
+                origin_hotkey,
+                destination_hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            )
+        }
+
+        /// transfer_stake with EVM origin
+        #[pallet::call_index(128)]
+        #[pallet::weight((Weight::from_parts(154_800_000, 0)
+        .saturating_add(T::DbWeight::get().reads(13_u64))
+        .saturating_add(T::DbWeight::get().writes(6_u64)), DispatchClass::Operational, Pays::Yes))]
+        pub fn transfer_stake_evm(
+            origin: OriginFor<T>,
+            destination_coldkey: T::AccountId,
+            hotkey: T::AccountId,
+            origin_netuid: NetUid,
+            destination_netuid: NetUid,
+            alpha_amount: AlphaCurrency,
+        ) -> DispatchResult {
+            let account_id = crate::ensure_evm_origin(<T as Config>::RuntimeOrigin::from(origin))?;
+            let verified_evm_origin = RawOrigin::Signed(account_id);
+            
+            Self::do_transfer_stake(
+                verified_evm_origin.into(),
+                destination_coldkey,
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            )
+        }
+
+        /// swap_stake with EVM origin
+        #[pallet::call_index(129)]
+        #[pallet::weight((
+            Weight::from_parts(351_300_000, 0)
+            .saturating_add(T::DbWeight::get().reads(32))
+            .saturating_add(T::DbWeight::get().writes(17)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn swap_stake(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            origin_netuid: NetUid,
+            destination_netuid: NetUid,
+            alpha_amount: AlphaCurrency,
+        ) -> DispatchResult {
+            let account_id = crate::ensure_evm_origin(<T as Config>::RuntimeOrigin::from(origin))?;
+            let verified_evm_origin = RawOrigin::Signed(account_id);
+            
+            Self::do_swap_stake(
+                verified_evm_origin.into(),
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            )
+        }
     }
 }

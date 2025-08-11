@@ -179,7 +179,7 @@ where
         let origin_netuid = try_u16_from_u256(origin_netuid)?;
         let destination_netuid = try_u16_from_u256(destination_netuid)?;
         let alpha_amount: u64 = amount_alpha.unique_saturated_into();
-        let call = pallet_subtensor::Call::<R>::move_stake {
+        let call = pallet_subtensor::Call::<R>::move_stake_evm {
             origin_hotkey,
             destination_hotkey,
             origin_netuid: origin_netuid.into(),
@@ -187,7 +187,9 @@ where
             alpha_amount: alpha_amount.into(),
         };
 
-        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+        let evm_origin = R::EvmOriginHelper::make_evm_origin(account_id);
+
+        handle.try_dispatch_runtime_call_with_custom_origin::<R, _>(call, evm_origin)
     }
 
     #[precompile::public("transferStake(bytes32,bytes32,uint256,uint256,uint256)")]
@@ -205,7 +207,7 @@ where
         let origin_netuid = try_u16_from_u256(origin_netuid)?;
         let destination_netuid = try_u16_from_u256(destination_netuid)?;
         let alpha_amount: u64 = amount_alpha.unique_saturated_into();
-        let call = pallet_subtensor::Call::<R>::transfer_stake {
+        let call = pallet_subtensor::Call::<R>::transfer_stake_evm {
             destination_coldkey,
             hotkey,
             origin_netuid: origin_netuid.into(),
@@ -213,7 +215,9 @@ where
             alpha_amount: alpha_amount.into(),
         };
 
-        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+        let evm_origin = R::EvmOriginHelper::make_evm_origin(account_id);
+
+        handle.try_dispatch_runtime_call_with_custom_origin::<R, _>(call, evm_origin)
     }
 
     #[precompile::public("getTotalColdkeyStake(bytes32)")]
