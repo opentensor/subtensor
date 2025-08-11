@@ -135,13 +135,15 @@ where
         let account_id = handle.caller_account_id::<R>();
         let hotkey = R::AccountId::from(hotkey.0);
         let netuid = try_u16_from_u256(netuid)?;
-        let call = pallet_subtensor::Call::<R>::remove_stake_full_limit {
+        let call = pallet_subtensor::Call::<R>::remove_stake_full_limit_evm {
             hotkey,
             netuid: netuid.into(),
             limit_price,
         };
 
-        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+        let evm_origin = R::EvmOriginHelper::make_evm_origin(account_id);
+
+        handle.try_dispatch_runtime_call_with_custom_origin::<R, _>(call, evm_origin)
     }
 
     #[precompile::public("removeStakeFull(bytes32,uint256)")]

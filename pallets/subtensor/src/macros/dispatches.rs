@@ -2451,7 +2451,7 @@ mod dispatches {
         ) -> DispatchResult {
             let account_id = crate::ensure_evm_origin(<T as Config>::RuntimeOrigin::from(origin))?;
             let verified_evm_origin = RawOrigin::Signed(account_id);
-            
+
             Self::do_move_stake(
                 verified_evm_origin.into(),
                 origin_hotkey,
@@ -2477,7 +2477,7 @@ mod dispatches {
         ) -> DispatchResult {
             let account_id = crate::ensure_evm_origin(<T as Config>::RuntimeOrigin::from(origin))?;
             let verified_evm_origin = RawOrigin::Signed(account_id);
-            
+
             Self::do_transfer_stake(
                 verified_evm_origin.into(),
                 destination_coldkey,
@@ -2488,32 +2488,21 @@ mod dispatches {
             )
         }
 
-        /// swap_stake with EVM origin
+        /// remove_stake_full_limit with EVM origin
         #[pallet::call_index(129)]
-        #[pallet::weight((
-            Weight::from_parts(351_300_000, 0)
-            .saturating_add(T::DbWeight::get().reads(32))
-            .saturating_add(T::DbWeight::get().writes(17)),
-            DispatchClass::Operational,
-            Pays::Yes
-        ))]
-        pub fn swap_stake(
+        #[pallet::weight((Weight::from_parts(398_000_000, 10142)
+			.saturating_add(T::DbWeight::get().reads(30_u64))
+			.saturating_add(T::DbWeight::get().writes(14_u64)), DispatchClass::Normal, Pays::Yes))]
+        pub fn remove_stake_full_limit_evm(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
-            origin_netuid: NetUid,
-            destination_netuid: NetUid,
-            alpha_amount: AlphaCurrency,
+            netuid: NetUid,
+            limit_price: Option<u64>,
         ) -> DispatchResult {
             let account_id = crate::ensure_evm_origin(<T as Config>::RuntimeOrigin::from(origin))?;
             let verified_evm_origin = RawOrigin::Signed(account_id);
-            
-            Self::do_swap_stake(
-                verified_evm_origin.into(),
-                hotkey,
-                origin_netuid,
-                destination_netuid,
-                alpha_amount,
-            )
+
+            Self::do_remove_stake_full_limit(verified_evm_origin.into(), hotkey, netuid, limit_price)
         }
     }
 }
