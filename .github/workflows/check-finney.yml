@@ -4,6 +4,10 @@ on:
   pull_request:
     branches: [finney, main]
     types: [labeled, unlabeled, synchronize, opened]
+    
+concurrency:
+  group: check-finney-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always

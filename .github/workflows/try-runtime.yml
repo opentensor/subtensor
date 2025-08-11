@@ -3,6 +3,10 @@ name: Try Runtime
 on:
   pull_request:
 
+concurrency:
+  group: try-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
 

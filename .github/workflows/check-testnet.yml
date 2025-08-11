@@ -5,6 +5,10 @@ on:
     branches: [testnet, testnet-ready]
     types: [labeled, unlabeled, synchronize, opened]
 
+concurrency:
+  group: check-testnet-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
 
