@@ -141,7 +141,9 @@ impl ConsensusMechanism for BabeConsensus {
                   transaction_pool: Arc<TransactionPoolHandle<Block, FullClient>>| {
                 let configuration = sc_consensus_babe::configuration(&*client)?;
                 if configuration.authorities.len().is_zero() {
-                    return Err(sc_service::Error::Consensus(sp_consensus::Error::InvalidAuthoritiesSet));
+                    return Err(sc_service::Error::Consensus(
+                        sp_consensus::Error::InvalidAuthoritiesSet,
+                    ));
                 }
 
                 let (babe_import, babe_link) = sc_consensus_babe::block_import(
