@@ -48,25 +48,26 @@ unwrap-used = "deny"
 useless_conversion = "allow"     # until polkadot is patched
 
 [workspace.dependencies]
-node-subtensor-runtime = { path = "runtime", default-features = false }
-pallet-admin-utils = { path = "pallets/admin-utils", default-features = false }
-pallet-collective = { path = "pallets/collective", default-features = false }
-pallet-commitments = { path = "pallets/commitments", default-features = false }
-pallet-registry = { path = "pallets/registry", default-features = false }
-pallet-crowdloan = { path = "pallets/crowdloan", default-features = false }
-pallet-subtensor = { path = "pallets/subtensor", default-features = false }
-pallet-subtensor-swap = { path = "pallets/swap", default-features = false }
-pallet-subtensor-swap-runtime-api = { path = "pallets/swap/runtime-api", default-features = false }
-pallet-subtensor-swap-rpc = { path = "pallets/swap/rpc", default-features = false }
-safe-math = { path = "primitives/safe-math", default-features = false }
+node-subtensor-runtime = { default-features = false, path = "runtime" }
+pallet-admin-utils = { default-features = false, path = "pallets/admin-utils" }
+pallet-collective = { default-features = false, path = "pallets/collective" }
+pallet-commitments = { default-features = false, path = "pallets/commitments" }
+pallet-registry = { default-features = false, path = "pallets/registry" }
+pallet-crowdloan = { default-features = false, path = "pallets/crowdloan" }
+pallet-subtensor = { default-features = false, path = "pallets/subtensor" }
+pallet-subtensor-swap = { default-features = false, path = "pallets/swap" }
+pallet-subtensor-swap-runtime-api = { default-features = false, path = "pallets/swap/runtime-api" }
+pallet-subtensor-swap-rpc = { default-features = false, path = "pallets/swap/rpc" }
+procedural-fork = { path = "support/procedural-fork", default-features = false }
+safe-math = { default-features = false, path = "primitives/safe-math" }
 share-pool = { path = "primitives/share-pool", default-features = false }
 subtensor-macros = { path = "support/macros", default-features = false }
-subtensor-custom-rpc = { path = "pallets/subtensor/rpc", default-features = false }
-subtensor-custom-rpc-runtime-api = { path = "pallets/subtensor/runtime-api", default-features = false }
-subtensor-precompiles = { path = "precompiles", default-features = false }
-subtensor-runtime-common = { path = "common", default-features = false }
-subtensor-swap-interface = { path = "pallets/swap-interface", default-features = false }
-procedural-fork = { path = "support/procedural-fork", default-features = false }
+subtensor-custom-rpc = { default-features = false, path = "pallets/subtensor/rpc" }
+subtensor-custom-rpc-runtime-api = { default-features = false, path = "pallets/subtensor/runtime-api" }
+subtensor-precompiles = { default-features = false, path = "precompiles" }
+subtensor-runtime-common = { default-features = false, path = "common" }
+subtensor-swap-interface = { default-features = false, path = "pallets/swap-interface" }
+subtensor-transaction-fee = { default-features = false, path = "pallets/transaction-fee" }
 
 ed25519-dalek = { version = "2.1.0", default-features = false }
 async-trait = "0.1"
