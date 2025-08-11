@@ -368,6 +368,10 @@ impl<T: Config> Pallet<T> {
                 .collect::<sp_std::vec::Vec<_>>();
 
         if let Some(position) = positions.get_mut(0) {
+            // Claim protocol fees
+            position.collect_fees();
+
+            // Adjust liquidity
             let current_sqrt_price = Pallet::<T>::current_price_sqrt(netuid);
             let maybe_token_amounts = position.to_token_amounts(current_sqrt_price);
             if let Ok((tao, alpha)) = maybe_token_amounts {
