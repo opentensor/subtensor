@@ -1015,9 +1015,9 @@ mod dispatches {
             Weight::from_parts(36_590_000, 0)
             .saturating_add(T::DbWeight::get().reads(5))
             .saturating_add(T::DbWeight::get().writes(2)),
-			DispatchClass::Normal,
-			Pays::Yes
-		))]
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
         pub fn set_childkey_take(
             origin: OriginFor<T>,
             hotkey: T::AccountId,

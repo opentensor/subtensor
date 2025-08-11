@@ -6900,6 +6900,7 @@ dependencies = [
  "subtensor-precompiles",
  "subtensor-runtime-common",
  "subtensor-swap-interface",
+ "subtensor-transaction-fee",
  "tle",
  "w3f-bls",
 ]
@@ -13190,6 +13191,40 @@ dependencies = [
  "node-subtensor-runtime",
  "semver 1.0.26",
  "toml_edit",
+]
+
+[[package]]
+name = "subtensor-transaction-fee"
+version = "0.1.0"
+dependencies = [
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "pallet-crowdloan",
+ "pallet-drand",
+ "pallet-evm-chain-id",
+ "pallet-grandpa",
+ "pallet-preimage",
+ "pallet-scheduler",
+ "pallet-subtensor",
+ "pallet-subtensor-swap",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "scale-info",
+ "smallvec",
+ "sp-consensus-aura",
+ "sp-consensus-grandpa",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
+ "sp-tracing 17.1.0",
+ "sp-weights",
+ "substrate-fixed",
+ "subtensor-runtime-common",
+ "subtensor-swap-interface",
 ]
 
 [[package]]
