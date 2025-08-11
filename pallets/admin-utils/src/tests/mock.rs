@@ -8,7 +8,6 @@ use frame_support::{
 };
 use frame_system::{self as system, offchain::CreateTransactionBase};
 use frame_system::{EnsureNever, EnsureRoot, limits};
-use sp_consensus_grandpa::AuthorityList as GrandpaAuthorityList;
 use sp_core::U256;
 use sp_core::{ConstU64, H256};
 use sp_runtime::{
@@ -348,20 +347,8 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
     }
 }
 
-pub struct GrandpaInterfaceImpl;
-impl crate::GrandpaInterface<Test> for GrandpaInterfaceImpl {
-    fn schedule_change(
-        next_authorities: GrandpaAuthorityList,
-        in_blocks: BlockNumber,
-        forced: Option<BlockNumber>,
-    ) -> sp_runtime::DispatchResult {
-        Grandpa::schedule_change(next_authorities, in_blocks, forced)
-    }
-}
-
 impl crate::Config for Test {
     type RuntimeEvent = RuntimeEvent;
-    type Grandpa = GrandpaInterfaceImpl;
     type Balance = Balance;
 }
 

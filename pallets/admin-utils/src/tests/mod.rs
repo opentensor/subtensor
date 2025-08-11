@@ -2,14 +2,14 @@ use frame_support::sp_runtime::DispatchError;
 use frame_support::{
     assert_err, assert_noop, assert_ok,
     dispatch::{DispatchClass, GetDispatchInfo, Pays},
-    traits::Hooks,
 };
 use frame_system::Config;
 use pallet_subtensor::{Error as SubtensorError, SubnetOwner, Tempo, WeightsVersionKeyRateLimit};
 // use pallet_subtensor::{migrations, Event};
 use pallet_subtensor::Event;
-use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{Get, Pair, U256, ed25519};
+use sp_core::{Get, U256};
+use sp_runtime::Percent;
+use sp_runtime::traits::Zero;
 use substrate_fixed::types::I96F32;
 use subtensor_runtime_common::{Currency, NetUid, TaoCurrency};
 
@@ -1925,6 +1925,39 @@ fn test_sudo_set_commit_reveal_version() {
         assert!(init_value != to_be_set);
         assert_eq!(
             SubtensorModule::get_commit_reveal_weights_version(),
+            to_be_set
+        );
+    });
+}
+
+#[test]
+fn test_sudo_set_node_validator_emissions_percent() {
+    new_test_ext().execute_with(|| {
+        // Default value is zero.
+        assert_eq!(
+            pallet_subtensor::NodeValidatorEmissionsPercent::<Test>::get(),
+            Zero::zero()
+        );
+
+        // Cannot set value higher than 99.
+        assert_err!(
+            AdminUtils::sudo_set_node_validator_emissions_percent(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                Percent::from_parts(100u8)
+            ),
+            pallet_subtensor::Error::<Test>::NodeValidatorEmissionsPercentTooHigh
+        );
+
+        // Can set valid value.
+        let to_be_set = Percent::from_parts(5u8);
+        let init_value: Percent = pallet_subtensor::NodeValidatorEmissionsPercent::<Test>::get();
+        assert!(init_value != to_be_set);
+        assert_ok!(AdminUtils::sudo_set_node_validator_emissions_percent(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            to_be_set
+        ));
+        assert_eq!(
+            pallet_subtensor::NodeValidatorEmissionsPercent::<Test>::get(),
             to_be_set
         );
     });

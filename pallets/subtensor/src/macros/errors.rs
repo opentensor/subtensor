@@ -244,5 +244,7 @@ mod errors {
         SymbolAlreadyInUse,
         /// Incorrect commit-reveal version.
         IncorrectCommitRevealVersion,
+        /// Node validator emissions percent cannot exceed 100%.
+        NodeValidatorEmissionsPercentTooHigh,
     }
 }

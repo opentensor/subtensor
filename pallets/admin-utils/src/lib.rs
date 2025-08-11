@@ -1620,8 +1620,7 @@ pub mod pallet {
             percent: sp_runtime::Percent,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            pallet_subtensor::Pallet::<T>::set_node_validator_emissions_percent(percent);
-            Ok(())
+            pallet_subtensor::Pallet::<T>::set_node_validator_emissions_percent(percent)
         }
     }
 }
