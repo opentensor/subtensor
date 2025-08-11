@@ -35,7 +35,7 @@ pub fn migrate_set_min_burn<T: Config>() -> Weight {
             continue;
         }
         // Set min burn to the newest initial min burn
-        Pallet::<T>::set_min_burn(*netuid, T::InitialMinBurn::get());
+        Pallet::<T>::set_min_burn(*netuid, T::InitialMinBurn::get().into());
         weight = weight.saturating_add(T::DbWeight::get().writes(1));
     }
 

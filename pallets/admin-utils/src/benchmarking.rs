@@ -266,7 +266,7 @@ mod benchmarks {
         );
 
         #[extrinsic_call]
-		_(RawOrigin::Root, 1u16.into()/*netuid*/, 10u64/*max_burn*/)/*sudo_set_max_burn*/;
+		_(RawOrigin::Root, 1u16.into()/*netuid*/, 10.into()/*max_burn*/)/*sudo_set_max_burn*/;
     }
 
     #[benchmark]
@@ -277,7 +277,7 @@ mod benchmarks {
         );
 
         #[extrinsic_call]
-		_(RawOrigin::Root, 1u16.into()/*netuid*/, 10u64/*min_burn*/)/*sudo_set_min_burn*/;
+		_(RawOrigin::Root, 1u16.into()/*netuid*/, 10.into()/*min_burn*/)/*sudo_set_min_burn*/;
     }
 
     #[benchmark]
@@ -333,6 +333,17 @@ mod benchmarks {
 
         #[extrinsic_call]
 		_(RawOrigin::Root, 1u16.into()/*netuid*/, true/*enabled*/)/*set_commit_reveal_weights_enabled*/;
+    }
+
+    #[benchmark]
+    fn sudo_set_commit_reveal_version() {
+        pallet_subtensor::Pallet::<T>::init_new_network(
+            1u16.into(), /*netuid*/
+            1u16,        /*sudo_tempo*/
+        );
+
+        #[extrinsic_call]
+		_(RawOrigin::Root, 5u16/*version*/)/*sudo_set_commit_reveal_version()*/;
     }
 
     //impl_benchmark_test_suite!(AdminUtils, crate::mock::new_test_ext(), crate::mock::Test);

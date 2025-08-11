@@ -1,3 +1,5 @@
+import * as assert from "assert";
+
 import { PublicClient } from "viem";
 import { ETH_LOCAL_URL } from "../src/config";
 import { generateRandomEthersWallet, getPublicClient } from "../src/utils";
@@ -9,7 +11,6 @@ import { getAliceSigner, getDevnetApi, waitForFinalizedBlock } from "../src/subs
 import { forceSetBalanceToEthAddress } from "../src/subtensor";
 import { decodeAddress } from "@polkadot/util-crypto";
 import { u8aToHex } from "@polkadot/util";
-import { assert } from "chai";
 import { convertH160ToSS58 } from "../src/address-utils";
 
 describe("Test Crowdloan precompile", () => {
@@ -36,12 +37,13 @@ describe("Test Crowdloan precompile", () => {
 
     it("gets an existing crowdloan created on substrate side", async () => {
         const nextId = await api.query.Crowdloan.NextCrowdloanId.getValue();
+        const end = await api.query.System.Number.getValue() + 100;
 
         await api.tx.Crowdloan.create({
             deposit: BigInt(15_000_000_000), // 15 TAO
             min_contribution: BigInt(1_000_000_000), // 1 TAO
             cap: BigInt(100_000_000_000), // 100 TAO
-            end: 1000,
+            end,
             target_address: undefined,
             call: api.tx.System.remark({ remark: Binary.fromText("foo") }).decodedCall
         }).signAndSubmit(alice);
@@ -49,7 +51,7 @@ describe("Test Crowdloan precompile", () => {
         const crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
         const crowdloanInfo = await crowdloanContract.getCrowdloan(nextId);
 
-        assert.isDefined(crowdloan);
+        assert.ok(crowdloan);
         assert.equal(crowdloanInfo[0], u8aToHex(decodeAddress(crowdloan.creator)));
         assert.equal(crowdloanInfo[1], crowdloan.deposit);
         assert.equal(crowdloanInfo[2], crowdloan.min_contribution);
@@ -82,7 +84,7 @@ describe("Test Crowdloan precompile", () => {
         await tx.wait();
 
         const crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
-        assert.isDefined(crowdloan);
+        assert.ok(crowdloan);
         assert.equal(crowdloan.creator, convertH160ToSS58(wallet1.address));
         assert.equal(crowdloan.deposit, deposit);
         assert.equal(crowdloan.min_contribution, minContribution);
@@ -110,18 +112,19 @@ describe("Test Crowdloan precompile", () => {
     it("contributes/withdraws to a crowdloan created on substrate side", async () => {
         const nextId = await api.query.Crowdloan.NextCrowdloanId.getValue();
         const deposit = BigInt(15_000_000_000); // 15 TAO
+        const end = await api.query.System.Number.getValue() + 100;
 
         await api.tx.Crowdloan.create({
             deposit,
             min_contribution: BigInt(1_000_000_000), // 1 TAO
             cap: BigInt(100_000_000_000), // 100 TAO
-            end: 1000,
+            end,
             target_address: undefined,
             call: api.tx.System.remark({ remark: Binary.fromText("foo") }).decodedCall
         }).signAndSubmit(alice);
 
         let crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
-        assert.isDefined(crowdloan);
+        assert.ok(crowdloan);
         assert.equal(crowdloan.raised, deposit);
         assert.equal(crowdloan.contributors_count, 1);
 
@@ -136,10 +139,10 @@ describe("Test Crowdloan precompile", () => {
         await tx.wait();
 
         let balanceAfter = await api.query.System.Account.getValue(convertH160ToSS58(wallet1.address));
-        assert.approximately(Number(balanceBefore.data.free - balanceAfter.data.free), Number(contribution), 1_000_000);
+        assert.ok(Number(balanceBefore.data.free - balanceAfter.data.free) - Number(contribution) < 1_000_000);
 
         crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
-        assert.isDefined(crowdloan);
+        assert.ok(crowdloan);
         assert.equal(crowdloan.raised, deposit + contribution);
         assert.equal(crowdloan.contributors_count, 2);
 
@@ -153,10 +156,10 @@ describe("Test Crowdloan precompile", () => {
         await tx2.wait();
 
         balanceAfter = await api.query.System.Account.getValue(convertH160ToSS58(wallet1.address));
-        assert.approximately(Number(balanceAfter.data.free), Number(balanceBefore.data.free + contribution), 1_000_000);
+        assert.ok(Number(balanceAfter.data.free) - Number(balanceBefore.data.free + contribution) < 1_000_000);
 
         crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
-        assert.isDefined(crowdloan);
+        assert.ok(crowdloan);
         assert.equal(crowdloan.raised, deposit);
         assert.equal(crowdloan.contributors_count, 1);
 
@@ -186,10 +189,10 @@ describe("Test Crowdloan precompile", () => {
         await tx.wait();
 
         let balanceAfter = await api.query.System.Account.getValue(convertH160ToSS58(wallet1.address));
-        assert.approximately(Number(balanceBefore.data.free - balanceAfter.data.free), Number(deposit), 1_000_000);
+        assert.ok(Number(balanceBefore.data.free - balanceAfter.data.free) - Number(deposit) < 1_000_000);
 
         let crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
-        assert.isDefined(crowdloan);
+        assert.ok(crowdloan);
         assert.equal(crowdloan.raised, deposit);
         assert.equal(crowdloan.contributors_count, 1);
 
@@ -205,10 +208,10 @@ describe("Test Crowdloan precompile", () => {
         await tx.wait();
 
         balanceAfter = await api.query.System.Account.getValue(convertH160ToSS58(wallet2.address));
-        assert.approximately(Number(balanceBefore.data.free - balanceAfter.data.free), Number(contribution), 1_000_000);
+        assert.ok(Number(balanceBefore.data.free - balanceAfter.data.free) - Number(contribution) < 1_000_000);
 
         crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
-        assert.isDefined(crowdloan);
+        assert.ok(crowdloan);
         assert.equal(crowdloan.raised, deposit + contribution);
         assert.equal(crowdloan.contributors_count, 2);
 
@@ -222,10 +225,10 @@ describe("Test Crowdloan precompile", () => {
         await tx2.wait();
 
         balanceAfter = await api.query.System.Account.getValue(convertH160ToSS58(wallet2.address));
-        assert.approximately(Number(balanceAfter.data.free), Number(balanceBefore.data.free + contribution), 1_000_000);
+        assert.ok(Number(balanceAfter.data.free) - Number(balanceBefore.data.free + contribution) < 1_000_000);
 
         crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
-        assert.isDefined(crowdloan);
+        assert.ok(crowdloan);
         assert.equal(crowdloan.raised, deposit);
         assert.equal(crowdloan.contributors_count, 1);
 
@@ -266,11 +269,11 @@ describe("Test Crowdloan precompile", () => {
         await tx.wait();
 
         const crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
-        assert.isDefined(crowdloan);
-        assert.isTrue(crowdloan.finalized);
+        assert.ok(crowdloan);
+        assert.equal(crowdloan.finalized, true);
 
         const crowdloanInfo = await crowdloanContract.getCrowdloan(nextId);
-        assert.isTrue(crowdloanInfo[9]);
+        assert.equal(crowdloanInfo[9], true);
 
         const balanceAfter = await api.query.System.Account.getValue(convertH160ToSS58(targetAddress.address));
         assert.equal(balanceAfter.data.free, cap);
@@ -314,7 +317,7 @@ describe("Test Crowdloan precompile", () => {
         await waitForFinalizedBlock(api, end);
 
         let crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
-        assert.isDefined(crowdloan);
+        assert.ok(crowdloan);
         assert.equal(crowdloan.raised, deposit + contribution * BigInt(3));
         assert.equal(crowdloan.contributors_count, 4);
 
@@ -326,14 +329,14 @@ describe("Test Crowdloan precompile", () => {
         await tx.wait();
 
         const balanceAfter2 = await api.query.System.Account.getValue(convertH160ToSS58(wallet2.address));
-        assert.approximately(Number(balanceAfter2.data.free), Number(balanceBefore2.data.free), 1_000_000);
+        assert.ok(Number(balanceAfter2.data.free) - Number(balanceBefore2.data.free) < 1_000_000);
         const balanceAfter3 = await api.query.System.Account.getValue(convertH160ToSS58(wallet3.address));
-        assert.approximately(Number(balanceAfter3.data.free), Number(balanceBefore3.data.free), 1_000_000);
+        assert.ok(Number(balanceAfter3.data.free) - Number(balanceBefore3.data.free) < 1_000_000);
         const balanceAfter4 = await api.query.System.Account.getValue(convertH160ToSS58(wallet4.address));
-        assert.approximately(Number(balanceAfter4.data.free), Number(balanceBefore4.data.free), 1_000_000);
+        assert.ok(Number(balanceAfter4.data.free) - Number(balanceBefore4.data.free) < 1_000_000);
 
         crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
-        assert.isDefined(crowdloan);
+        assert.ok(crowdloan);
         assert.equal(crowdloan.raised, deposit);
         assert.equal(crowdloan.contributors_count, 1);
 
@@ -345,10 +348,10 @@ describe("Test Crowdloan precompile", () => {
         await tx.wait();
 
         crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
-        assert.isUndefined(crowdloan);
+        assert.equal(crowdloan, undefined);
 
         const balanceAfter1 = await api.query.System.Account.getValue(convertH160ToSS58(wallet1.address));
-        assert.approximately(Number(balanceAfter1.data.free), Number(balanceBefore1.data.free), 2_000_000);
+        assert.ok(Number(balanceAfter1.data.free) - Number(balanceBefore1.data.free) < 2_000_000);
     });
 
     it("updates the min contribution", async () => {
@@ -370,7 +373,7 @@ describe("Test Crowdloan precompile", () => {
         await tx.wait();
 
         const crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
-        assert.isDefined(crowdloan);
+        assert.ok(crowdloan);
         assert.equal(crowdloan.min_contribution, BigInt(1_000_000_000));
 
         const newMinContribution = BigInt(2_000_000_000);
@@ -378,7 +381,7 @@ describe("Test Crowdloan precompile", () => {
         await tx.wait();
 
         const updatedCrowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
-        assert.isDefined(updatedCrowdloan);
+        assert.ok(updatedCrowdloan);
         assert.equal(updatedCrowdloan.min_contribution, newMinContribution);
 
         const updatedCrowdloanInfo = await crowdloanContract.getCrowdloan(nextId);
@@ -404,7 +407,7 @@ describe("Test Crowdloan precompile", () => {
         await tx.wait();
 
         const crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
-        assert.isDefined(crowdloan);
+        assert.ok(crowdloan);
         assert.equal(crowdloan.end, end);
 
         const newEnd = end + 200;
@@ -412,7 +415,7 @@ describe("Test Crowdloan precompile", () => {
         await tx2.wait();
 
         const updatedCrowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
-        assert.isDefined(updatedCrowdloan);
+        assert.ok(updatedCrowdloan);
         assert.equal(updatedCrowdloan.end, newEnd);
 
         const updatedCrowdloanInfo = await crowdloanContract.getCrowdloan(nextId);
@@ -438,7 +441,7 @@ describe("Test Crowdloan precompile", () => {
         await tx.wait();
 
         const crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
-        assert.isDefined(crowdloan);
+        assert.ok(crowdloan);
         assert.equal(crowdloan.cap, BigInt(200_000_000_000));
 
         const newCap = BigInt(300_000_000_000);
@@ -446,7 +449,7 @@ describe("Test Crowdloan precompile", () => {
         await tx2.wait();
 
         const updatedCrowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
-        assert.isDefined(updatedCrowdloan);
+        assert.ok(updatedCrowdloan);
         assert.equal(updatedCrowdloan.cap, newCap);
 
         const updatedCrowdloanInfo = await crowdloanContract.getCrowdloan(nextId);

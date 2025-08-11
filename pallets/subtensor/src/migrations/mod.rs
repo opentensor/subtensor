@@ -11,6 +11,7 @@ pub mod migrate_create_root_network;
 pub mod migrate_crv3_commits_add_block;
 pub mod migrate_delete_subnet_21;
 pub mod migrate_delete_subnet_3;
+pub mod migrate_disable_commit_reveal;
 pub mod migrate_fix_is_network_member;
 pub mod migrate_fix_root_subnet_tao;
 pub mod migrate_identities_v2;
@@ -57,7 +58,7 @@ pub(crate) fn migrate_storage<T: Config>(
         return weight;
     }
 
-    log::info!("Running migration '{}'", migration_name);
+    log::info!("Running migration '{migration_name}'");
 
     let pallet_name = twox_128(pallet_name.as_bytes());
     let storage_name = twox_128(storage_name.as_bytes());
@@ -66,7 +67,7 @@ pub(crate) fn migrate_storage<T: Config>(
     // Remove all entries.
     let removed_entries_count = match clear_prefix(&prefix, Some(u32::MAX)) {
         KillStorageResult::AllRemoved(removed) => {
-            log::info!("Removed all entries from {:?}.", storage_name);
+            log::info!("Removed all entries from {storage_name:?}.");
 
             // Mark migration as completed
             HasMigrationRun::<T>::insert(&migration_name_bytes, true);
@@ -75,7 +76,7 @@ pub(crate) fn migrate_storage<T: Config>(
             removed as u64
         }
         KillStorageResult::SomeRemaining(removed) => {
-            log::info!("Failed to remove all entries from {:?}", storage_name);
+            log::info!("Failed to remove all entries from {storage_name:?}");
             removed as u64
         }
     };
@@ -83,9 +84,7 @@ pub(crate) fn migrate_storage<T: Config>(
     weight = weight.saturating_add(T::DbWeight::get().writes(removed_entries_count as u64));
 
     log::info!(
-        "Migration '{:?}' completed successfully. {:?} entries removed.",
-        migration_name,
-        removed_entries_count
+        "Migration '{migration_name:?}' completed successfully. {removed_entries_count:?} entries removed."
     );
 
     weight

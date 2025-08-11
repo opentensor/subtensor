@@ -68,7 +68,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use subtensor_precompiles::Precompiles;
-use subtensor_runtime_common::{AlphaCurrency, time::*, *};
+use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -218,7 +218,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 299,
+    spec_version: 301,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -487,7 +487,9 @@ impl
         >,
     ) {
         let ti_before = pallet_subtensor::TotalIssuance::<Runtime>::get();
-        pallet_subtensor::TotalIssuance::<Runtime>::put(ti_before.saturating_sub(credit.peek()));
+        pallet_subtensor::TotalIssuance::<Runtime>::put(
+            ti_before.saturating_sub(credit.peek().into()),
+        );
         drop(credit);
     }
 }
@@ -671,6 +673,7 @@ impl pallet_multisig::Config for Runtime {
     type DepositFactor = DepositFactor;
     type MaxSignatories = MaxSignatories;
     type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
+    type BlockNumberProvider = System;
 }
 
 // Proxy Pallet config
@@ -1005,6 +1008,7 @@ impl pallet_scheduler::Config for Runtime {
     type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Runtime>;
     type OriginPrivilegeCmp = OriginPrivilegeCmp;
     type Preimages = Preimage;
+    type BlockNumberProvider = System;
 }
 
 parameter_types! {
@@ -1408,17 +1412,13 @@ impl BalanceConverter for SubtensorEvmBalanceConverter {
             } else {
                 // Log value too large
                 log::debug!(
-                    "SubtensorEvmBalanceConverter::into_evm_balance( {:?} ) larger than U256::MAX",
-                    value
+                    "SubtensorEvmBalanceConverter::into_evm_balance( {value:?} ) larger than U256::MAX"
                 );
                 None
             }
         } else {
             // Log overflow
-            log::debug!(
-                "SubtensorEvmBalanceConverter::into_evm_balance( {:?} ) overflow",
-                value
-            );
+            log::debug!("SubtensorEvmBalanceConverter::into_evm_balance( {value:?} ) overflow");
             None
         }
     }
@@ -1433,16 +1433,14 @@ impl BalanceConverter for SubtensorEvmBalanceConverter {
             } else {
                 // Log value too large
                 log::debug!(
-                    "SubtensorEvmBalanceConverter::into_substrate_balance( {:?} ) larger than u64::MAX",
-                    value
+                    "SubtensorEvmBalanceConverter::into_substrate_balance( {value:?} ) larger than u64::MAX"
                 );
                 None
             }
         } else {
             // Log overflow
             log::debug!(
-                "SubtensorEvmBalanceConverter::into_substrate_balance( {:?} ) overflow",
-                value
+                "SubtensorEvmBalanceConverter::into_substrate_balance( {value:?} ) overflow"
             );
             None
         }
@@ -1473,6 +1471,8 @@ impl pallet_evm::Config for Runtime {
     type BalanceConverter = SubtensorEvmBalanceConverter;
     type AccountProvider = pallet_evm::FrameSystemAccountProvider<Self>;
     type GasLimitStorageGrowthRatio = ();
+    type CreateOriginFilter = ();
+    type CreateInnerOriginFilter = ();
 }
 
 parameter_types! {
@@ -2243,7 +2243,7 @@ impl_runtime_apis! {
             Vec<frame_benchmarking::BenchmarkList>,
             Vec<frame_support::traits::StorageInfo>,
         ) {
-            use frame_benchmarking::{baseline, Benchmarking, BenchmarkList};
+            use frame_benchmarking::{baseline, BenchmarkList};
             use frame_support::traits::StorageInfoTrait;
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
@@ -2259,7 +2259,7 @@ impl_runtime_apis! {
         fn dispatch_benchmark(
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
-            use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch};
+            use frame_benchmarking::{baseline, BenchmarkBatch};
             use sp_storage::TrackedStorageKey;
 
             use frame_system_benchmarking::Pallet as SystemBench;
@@ -2407,7 +2407,7 @@ impl_runtime_apis! {
     }
 
     impl subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block> for Runtime {
-        fn get_network_registration_cost() -> u64 {
+        fn get_network_registration_cost() -> TaoCurrency {
             SubtensorModule::get_network_lock_cost()
         }
     }

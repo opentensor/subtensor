@@ -257,10 +257,7 @@ fn init_run_epochs(
         }
     }
     let duration = start.elapsed();
-    log::info!(
-        "Time elapsed in (sparse={sparse}) epoch() is: {:?}",
-        duration
-    );
+    log::info!("Time elapsed in (sparse={sparse}) epoch() is: {duration:?}");
 
     // let bonds = SubtensorModule::get_bonds( netuid );
     // for (uid, node) in [ (validators[0], "validator"), (servers[0], "server") ] {

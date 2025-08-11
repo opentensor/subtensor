@@ -1,15 +1,13 @@
-import * as assert from "assert";
 import { devnet, MultiAddress } from '@polkadot-api/descriptors';
-import { createClient, TypedApi, Transaction, PolkadotSigner, Binary } from 'polkadot-api';
-import { getWsProvider } from 'polkadot-api/ws-provider/web';
+import { TypedApi, Transaction, PolkadotSigner, Binary } from 'polkadot-api';
 import { sr25519CreateDerive } from "@polkadot-labs/hdkd"
-import { convertPublicKeyToSs58 } from "../src/address-utils"
 import { DEV_PHRASE, entropyToMiniSecret, mnemonicToEntropy, KeyPair } from "@polkadot-labs/hdkd-helpers"
 import { getPolkadotSigner } from "polkadot-api/signer"
 import { randomBytes } from 'crypto';
 import { Keyring } from '@polkadot/keyring';
 import { SS58_PREFIX, TX_TIMEOUT } from "./config";
 import { getClient } from "./setup"
+
 let api: TypedApi<typeof devnet> | undefined = undefined
 
 // define url string as type to extend in the future
@@ -24,25 +22,35 @@ export async function getDevnetApi() {
     return api
 }
 
-export function getAlice() {
+export function getKeypairFromPath(path: string) {
     const entropy = mnemonicToEntropy(DEV_PHRASE)
     const miniSecret = entropyToMiniSecret(entropy)
     const derive = sr25519CreateDerive(miniSecret)
-    const hdkdKeyPair = derive("//Alice")
+    const hdkdKeyPair = derive(path)
 
     return hdkdKeyPair
 }
 
-export function getAliceSigner() {
-    const alice = getAlice()
+export const getAlice = () => getKeypairFromPath("//Alice")
+export const getBob = () => getKeypairFromPath("//Bob")
+export const getCharlie = () => getKeypairFromPath("//Charlie")
+export const getDave = () => getKeypairFromPath("//Dave")
+
+export function getSignerFromPath(path: string) {
+    const keypair = getKeypairFromPath(path)
     const polkadotSigner = getPolkadotSigner(
-        alice.publicKey,
+        keypair.publicKey,
         "Sr25519",
-        alice.sign,
+        keypair.sign,
     )
 
     return polkadotSigner
 }
+
+export const getAliceSigner = () => getSignerFromPath("//Alice")
+export const getBobSigner = () => getSignerFromPath("//Bob")
+export const getCharlieSigner = () => getSignerFromPath("//Charlie")
+export const getDaveSigner = () => getSignerFromPath("//Dave")
 
 export function getRandomSubstrateSigner() {
     const keypair = getRandomSubstrateKeypair();
