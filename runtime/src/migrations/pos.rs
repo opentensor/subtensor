@@ -61,14 +61,14 @@ fn initialize_pallet_staking() {
     let slash_reward_fraction = Perbill::from_percent(10);
 
     pallet_staking::ValidatorCount::<Runtime>::put(validator_count);
-    pallet_staking::MinimumValidatorCount::<Runtime>::put(5);
+    pallet_staking::MinimumValidatorCount::<Runtime>::put(1);
     pallet_staking::Invulnerables::<Runtime>::put(&invulnerables);
     pallet_staking::ForceEra::<Runtime>::put(force_era);
     pallet_staking::CanceledSlashPayout::<Runtime>::put(0);
     pallet_staking::SlashRewardFraction::<Runtime>::put(slash_reward_fraction);
     pallet_staking::MinNominatorBond::<Runtime>::put(10);
     pallet_staking::MinValidatorBond::<Runtime>::put(10);
-    pallet_staking::MaxValidatorsCount::<Runtime>::put(20);
+    pallet_staking::MaxValidatorsCount::<Runtime>::put(25);
     pallet_staking::MaxNominatorsCount::<Runtime>::put(100);
     let era: sp_staking::EraIndex = 0;
     pallet_staking::CurrentEra::<Runtime>::set(Some(era));
