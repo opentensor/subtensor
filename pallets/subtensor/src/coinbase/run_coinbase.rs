@@ -19,30 +19,28 @@ macro_rules! tou64 {
     };
 }
 
-// TODO: Replace with a cleaner mechanism for adjusting node validator emission %.
-const SUBNET_EMISSION_PART: f32 = 1.0;
-const NODE_VALIDATOR_EMISSION_PART: f32 = 0.0;
-
 impl<T: Config> Pallet<T> {
     pub fn run_coinbase(total_block_emission: U96F32) {
         // --- 0. Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
         log::debug!("Current block: {current_block:?}");
 
-        let subnet_block_emission =
-            total_block_emission.saturating_mul(U96F32::from_num(SUBNET_EMISSION_PART));
+        // Calculate `subnet_block_emission` and `node_validator_block_emission` from
+        // `total_block_emission`.
+        let node_validator_emission_percent =
+            U96F32::from_num(NodeValidatorEmissionsPercent::<T>::get().deconstruct())
+                .saturating_div(U96F32::from_num(100));
+        let subnet_emission_percent =
+            U96F32::from_num(1).saturating_sub(node_validator_emission_percent);
+
+        let subnet_block_emission = total_block_emission.saturating_mul(subnet_emission_percent);
         let node_validator_block_emission =
-            total_block_emission.saturating_mul(U96F32::from_num(NODE_VALIDATOR_EMISSION_PART));
+            total_block_emission.saturating_mul(node_validator_emission_percent);
+
+        // Increment pending validator emissions to be paid out at the end of the era.
         PendingNodeValidatorEmissions::<T>::mutate(|cur| {
             cur.saturating_accrue(node_validator_block_emission.to_num::<u64>());
         });
-
-        log::debug!("total_block_emission:\n{:?}\n", total_block_emission);
-        log::debug!(
-            "node_validator_block_emission:\n{:?}\n",
-            node_validator_block_emission
-        );
-        log::debug!("subnetwork_block_emission:\n{:?}\n", subnet_block_emission);
 
         // --- 1. Get all netuids (filter out root)
         let subnets: Vec<NetUid> = Self::get_all_subnet_netuids()

@@ -488,6 +488,10 @@ impl<T: Config> Pallet<T> {
         CommitRevealWeightsVersion::<T>::set(version);
         Self::deposit_event(Event::CommitRevealVersionSet(version));
     }
+    pub fn set_node_validator_emissions_percent(percent: sp_runtime::Percent) {
+        NodeValidatorEmissionsPercent::<T>::set(percent.clone());
+        Self::deposit_event(Event::NodeValidatorEmissionsPercentSet(percent));
+    }
     pub fn get_rho(netuid: NetUid) -> u16 {
         Rho::<T>::get(netuid)
     }

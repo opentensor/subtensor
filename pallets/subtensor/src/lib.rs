@@ -353,6 +353,11 @@ pub mod pallet {
     pub fn DefaultDelegateTake<T: Config>() -> u16 {
         T::InitialDefaultDelegateTake::get()
     }
+    #[pallet::type_value]
+    /// Default NodeValidatorEmissionsPercent
+    pub fn DefaultNodeValidatorEmissionsPercent<T: Config>() -> Percent {
+        Percent::zero()
+    }
 
     #[pallet::type_value]
     /// Default childkey take.
@@ -928,6 +933,10 @@ pub mod pallet {
     #[pallet::storage]
     /// --- ITEM ( default_delegate_take )
     pub type MaxDelegateTake<T> = StorageValue<_, u16, ValueQuery, DefaultDelegateTake<T>>;
+    #[pallet::storage]
+    /// --- ITEM Percentage of block emissions to be set aside for node validators.
+    pub type NodeValidatorEmissionsPercent<T> =
+        StorageValue<_, Percent, ValueQuery, DefaultNodeValidatorEmissionsPercent<T>>;
     #[pallet::storage]
     /// --- ITEM ( min_delegate_take )
     pub type MinDelegateTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinDelegateTake<T>>;

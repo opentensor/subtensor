@@ -1605,5 +1605,23 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::set_commit_reveal_weights_version(version);
             Ok(())
         }
+
+        /// Sets the commit-reveal weights version for all subnets
+        #[pallet::call_index(72)]
+        #[pallet::weight((
+            Weight::from_parts(6_171_000, 0)
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1))
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0_u64)),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
+        pub fn sudo_set_node_validator_emissions_percent(
+            origin: OriginFor<T>,
+            percent: sp_runtime::Percent,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_node_validator_emissions_percent(percent);
+            Ok(())
+        }
     }
 }
