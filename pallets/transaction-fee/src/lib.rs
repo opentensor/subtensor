@@ -31,7 +31,7 @@ use core::marker::PhantomData;
 use smallvec::smallvec;
 use sp_std::vec::Vec;
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::{Balance, NetUid};
+use subtensor_runtime_common::{Balance, Currency, NetUid};
 
 // Tests
 #[cfg(test)]
@@ -104,7 +104,9 @@ where
         >,
     ) {
         let ti_before = pallet_subtensor::TotalIssuance::<T>::get();
-        pallet_subtensor::TotalIssuance::<T>::put(ti_before.saturating_sub(imbalance.peek()));
+        pallet_subtensor::TotalIssuance::<T>::put(
+            ti_before.saturating_sub(imbalance.peek().into()),
+        );
         drop(imbalance);
     }
 }

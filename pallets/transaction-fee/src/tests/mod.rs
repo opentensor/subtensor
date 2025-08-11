@@ -474,7 +474,7 @@ fn test_remove_stake_failing_transaction_tao_fees() {
         SubtensorModule::add_balance_to_coldkey_account(&sn.coldkey, TAO);
 
         // Make unstaking fail by reducing liquidity to critical
-        SubnetTAO::<Test>::insert(sn.subnets[0].netuid, 1);
+        SubnetTAO::<Test>::insert(sn.subnets[0].netuid, TaoCurrency::from(1));
 
         // Remove stake
         let balance_before = Balances::free_balance(sn.coldkey);
@@ -532,7 +532,7 @@ fn test_remove_stake_failing_transaction_alpha_fees() {
         );
 
         // Make unstaking fail by reducing liquidity to critical
-        SubnetTAO::<Test>::insert(sn.subnets[0].netuid, 1);
+        SubnetTAO::<Test>::insert(sn.subnets[0].netuid, TaoCurrency::from(1));
 
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(sn.coldkey);
@@ -618,7 +618,7 @@ fn test_remove_stake_limit_fees_alpha() {
             hotkey: sn.hotkeys[0],
             netuid: sn.subnets[0].netuid,
             amount_unstaked: unstake_amount,
-            limit_price: 1_000,
+            limit_price: 1_000.into(),
             allow_partial: false,
         });
 
@@ -1034,7 +1034,7 @@ fn test_swap_stake_limit_fees_alpha() {
             origin_netuid: sn.subnets[0].netuid,
             destination_netuid: sn.subnets[1].netuid,
             alpha_amount: unstake_amount,
-            limit_price: 1_000,
+            limit_price: 1_000.into(),
             allow_partial: false,
         });
 

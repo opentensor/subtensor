@@ -9,7 +9,7 @@ use jsonrpsee::{
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{AccountId32, traits::Block as BlockT};
 use std::sync::Arc;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{NetUid, TaoCurrency};
 
 use sp_api::ProvideRuntimeApi;
 
@@ -75,7 +75,7 @@ pub trait SubtensorCustomApi<BlockHash> {
     #[method(name = "subnetInfo_getSubnetState")]
     fn get_subnet_state(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getLockCost")]
-    fn get_network_lock_cost(&self, at: Option<BlockHash>) -> RpcResult<u64>;
+    fn get_network_lock_cost(&self, at: Option<BlockHash>) -> RpcResult<TaoCurrency>;
     #[method(name = "subnetInfo_getSelectiveMetagraph")]
     fn get_selective_metagraph(
         &self,
@@ -402,7 +402,7 @@ where
         }
     }
 
-    fn get_network_lock_cost(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<u64> {
+    fn get_network_lock_cost(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<TaoCurrency> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 

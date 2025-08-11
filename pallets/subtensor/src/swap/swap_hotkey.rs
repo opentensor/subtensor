@@ -93,14 +93,15 @@ impl<T: Config> Pallet<T> {
 
         // 13. Ensure the coldkey has enough balance to pay for the swap
         ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost),
+            Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost.into()),
             Error::<T>::NotEnoughBalanceToPaySwapHotKey
         );
 
         weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 0));
 
         // 14. Remove the swap cost from the coldkey's account
-        let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, swap_cost)?;
+        let actual_burn_amount =
+            Self::remove_balance_from_coldkey_account(&coldkey, swap_cost.into())?;
 
         // 18. Burn the tokens
         Self::burn_tokens(actual_burn_amount);

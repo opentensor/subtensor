@@ -21,7 +21,7 @@ use sp_runtime::{
 };
 use sp_std::cmp::Ordering;
 use sp_weights::Weight;
-pub use subtensor_runtime_common::{AlphaCurrency, NetUid};
+pub use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
 use subtensor_swap_interface::{OrderType, SwapHandler};
 
 use crate::SubtensorTxFeeHandler;
@@ -573,7 +573,7 @@ pub fn register_ok_neuron(
 pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
     let netuid = SubtensorModule::get_next_netuid();
     let lock_cost = SubtensorModule::get_network_lock_cost();
-    SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost);
+    SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost.into());
 
     assert_ok!(SubtensorModule::register_network(
         RawOrigin::Signed(*coldkey).into(),
@@ -586,7 +586,7 @@ pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
     netuid
 }
 
-pub(crate) fn setup_reserves(netuid: NetUid, tao: u64, alpha: AlphaCurrency) {
+pub(crate) fn setup_reserves(netuid: NetUid, tao: TaoCurrency, alpha: AlphaCurrency) {
     SubnetTAO::<Test>::set(netuid, tao);
     SubnetAlphaIn::<Test>::set(netuid, alpha);
 }
@@ -676,10 +676,16 @@ pub fn setup_subnets(sncount: u16, neurons: u16) -> TestSetup {
         }
 
         // Setup pool reserves
-        setup_reserves(subnet.netuid, amount, amount.into());
+        setup_reserves(subnet.netuid, amount.into(), amount.into());
 
         // Cause the v3 pool to initialize
-        SubtensorModule::swap_tao_for_alpha(subnet.netuid, 0, 1_000_000_000_000, false).unwrap();
+        SubtensorModule::swap_tao_for_alpha(
+            subnet.netuid,
+            0.into(),
+            1_000_000_000_000.into(),
+            false,
+        )
+        .unwrap();
 
         subnets.push(subnet);
     }
@@ -704,7 +710,7 @@ pub fn setup_stake(netuid: NetUid, coldkey: &U256, hotkey: &U256, amount: u64) {
         RuntimeOrigin::signed(*coldkey),
         *hotkey,
         netuid,
-        amount
+        amount.into()
     ));
     remove_stake_rate_limit_for_tests(hotkey, coldkey, netuid);
 }
