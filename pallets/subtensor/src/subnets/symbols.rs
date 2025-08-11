@@ -949,8 +949,7 @@ impl<T: Config> Pallet<T> {
 
         if available_symbol.is_none() {
             log::warn!(
-                "All available symbols have been exhausted for netuid: {:?}. Using default symbol.",
-                netuid
+                "All available symbols have been exhausted for netuid: {netuid:?}. Using default symbol."
             );
         }
 

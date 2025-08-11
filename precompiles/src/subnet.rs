@@ -8,7 +8,7 @@ use precompile_utils::{EvmResult, prelude::BoundedString};
 use sp_core::H256;
 use sp_runtime::traits::Dispatchable;
 use sp_std::vec;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{Currency, NetUid};
 
 use crate::{PrecompileExt, PrecompileHandleExt};
 
@@ -516,7 +516,7 @@ where
     #[precompile::public("getMinBurn(uint16)")]
     #[precompile::view]
     fn get_min_burn(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::MinBurn::<R>::get(NetUid::from(netuid)))
+        Ok(pallet_subtensor::MinBurn::<R>::get(NetUid::from(netuid)).to_u64())
     }
 
     #[precompile::public("setMinBurn(uint16,uint64)")]
@@ -533,7 +533,7 @@ where
     #[precompile::public("getMaxBurn(uint16)")]
     #[precompile::view]
     fn get_max_burn(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::MaxBurn::<R>::get(NetUid::from(netuid)))
+        Ok(pallet_subtensor::MaxBurn::<R>::get(NetUid::from(netuid)).to_u64())
     }
 
     #[precompile::public("setMaxBurn(uint16,uint64)")]

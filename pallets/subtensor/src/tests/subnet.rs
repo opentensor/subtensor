@@ -5,7 +5,7 @@ use crate::*;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
-use subtensor_runtime_common::AlphaCurrency;
+use subtensor_runtime_common::{AlphaCurrency, TaoCurrency};
 
 use super::mock;
 
@@ -22,7 +22,7 @@ fn test_do_start_call_ok() {
 
         add_network_without_emission_block(netuid, tempo, 0);
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
-        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000.into());
+        mock::setup_reserves(netuid, 1_000_000_000.into(), 1_000_000_000.into());
 
         // account 0 is the default owner for any subnet
         assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey_account_id);
@@ -64,11 +64,11 @@ fn test_do_start_call_fail_not_owner() {
         let tempo: u16 = 13;
         let coldkey_account_id = U256::from(0);
         let wrong_owner_account_id = U256::from(2);
-        let burn_cost = 1000;
+        let burn_cost = TaoCurrency::from(1000);
         //add network
         SubtensorModule::set_burn(netuid, burn_cost);
         add_network_without_emission_block(netuid, tempo, 0);
-        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000.into());
+        mock::setup_reserves(netuid, 1_000_000_000.into(), 1_000_000_000.into());
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
 
@@ -94,11 +94,11 @@ fn test_do_start_call_fail_with_cannot_start_call_now() {
         let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let coldkey_account_id = U256::from(0);
-        let burn_cost = 1000;
+        let burn_cost = TaoCurrency::from(1000);
         //add network
         SubtensorModule::set_burn(netuid, burn_cost);
         add_network_without_emission_block(netuid, tempo, 0);
-        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000.into());
+        mock::setup_reserves(netuid, 1_000_000_000.into(), 1_000_000_000.into());
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
 
@@ -123,13 +123,13 @@ fn test_do_start_call_fail_for_set_again() {
         let tempo: u16 = 13;
         let coldkey_account_id = U256::from(0);
         let hotkey_account_id = U256::from(1);
-        let burn_cost = 1000;
+        let burn_cost = TaoCurrency::from(1000);
 
         SubtensorModule::set_burn(netuid, burn_cost);
         add_network_without_emission_block(netuid, tempo, 0);
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
 
-        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000.into());
+        mock::setup_reserves(netuid, 1_000_000_000.into(), 1_000_000_000.into());
 
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -170,7 +170,7 @@ fn test_do_start_call_ok_with_same_block_number_after_coinbase() {
 
         add_network_without_emission_block(netuid, tempo, 0);
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
-        mock::setup_reserves(netuid, 1_000_000_000, 1_000_000_000.into());
+        mock::setup_reserves(netuid, 1_000_000_000.into(), 1_000_000_000.into());
 
         assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey_account_id);
 
@@ -205,7 +205,7 @@ fn test_register_network_min_burn_at_default() {
         let cost = SubtensorModule::get_network_lock_cost();
 
         // Give coldkey enough for lock
-        SubtensorModule::add_balance_to_coldkey_account(&sn_owner_coldkey, cost);
+        SubtensorModule::add_balance_to_coldkey_account(&sn_owner_coldkey, cost.into());
 
         // Register network
         assert_ok!(SubtensorModule::register_network(
@@ -220,7 +220,7 @@ fn test_register_network_min_burn_at_default() {
         };
 
         // Check min burn is set to default
-        assert_eq!(MinBurn::<Test>::get(netuid), InitialMinBurn::get());
+        assert_eq!(MinBurn::<Test>::get(netuid), InitialMinBurn::get().into());
 
         // Check registration allowed
         assert!(NetworkRegistrationAllowed::<Test>::get(netuid));
@@ -235,7 +235,7 @@ fn test_register_network_use_symbol_for_subnet_if_available() {
             let coldkey = U256::from(1_000_000 + i);
             let hotkey = U256::from(2_000_000 + i);
             let cost = SubtensorModule::get_network_lock_cost();
-            SubtensorModule::add_balance_to_coldkey_account(&coldkey, cost);
+            SubtensorModule::add_balance_to_coldkey_account(&coldkey, cost.into());
 
             assert_ok!(SubtensorModule::register_network(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey),
@@ -266,7 +266,7 @@ fn test_register_network_use_next_available_symbol_if_symbol_for_subnet_is_taken
             let coldkey = U256::from(1_000_000 + i);
             let hotkey = U256::from(2_000_000 + i);
             let cost = SubtensorModule::get_network_lock_cost();
-            SubtensorModule::add_balance_to_coldkey_account(&coldkey, cost);
+            SubtensorModule::add_balance_to_coldkey_account(&coldkey, cost.into());
 
             assert_ok!(SubtensorModule::register_network(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey),
@@ -294,7 +294,7 @@ fn test_register_network_use_next_available_symbol_if_symbol_for_subnet_is_taken
         let coldkey = U256::from(1_000_000 + 50);
         let hotkey = U256::from(2_000_000 + 50);
         let cost = SubtensorModule::get_network_lock_cost();
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, cost);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, cost.into());
 
         assert_ok!(SubtensorModule::register_network(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
@@ -321,7 +321,7 @@ fn test_register_network_use_default_symbol_if_all_symbols_are_taken() {
             let coldkey = U256::from(1_000_000 + i);
             let hotkey = U256::from(2_000_000 + i);
             let cost = SubtensorModule::get_network_lock_cost();
-            SubtensorModule::add_balance_to_coldkey_account(&coldkey, cost);
+            SubtensorModule::add_balance_to_coldkey_account(&coldkey, cost.into());
 
             assert_ok!(SubtensorModule::register_network(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey),
@@ -333,7 +333,7 @@ fn test_register_network_use_default_symbol_if_all_symbols_are_taken() {
         let coldkey = U256::from(1_000_000 + 50);
         let hotkey = U256::from(2_000_000 + 50);
         let cost = SubtensorModule::get_network_lock_cost();
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, cost);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, cost.into());
 
         assert_ok!(SubtensorModule::register_network(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
@@ -390,11 +390,11 @@ fn test_subtoken_enable_reject_trading_before_enable() {
         let hotkey_account_id: U256 = U256::from(1);
         let coldkey_account_id = U256::from(2);
         let hotkey_account_2_id: U256 = U256::from(3);
-        let amount = DefaultMinStake::<Test>::get() * 10;
+        let amount = DefaultMinStake::<Test>::get().to_u64() * 10;
 
         let stake_bal = AlphaCurrency::from(10_000_000_000); // 10 Alpha
 
-        let limit_price = 1_000_000_000; // not important
+        let limit_price = TaoCurrency::from(1_000_000_000); // not important
 
         add_network_disable_subtoken(netuid, 10, 0);
         add_network_disable_subtoken(netuid2, 10, 0);
@@ -403,7 +403,7 @@ fn test_subtoken_enable_reject_trading_before_enable() {
         assert!(!SubtokenEnabled::<Test>::get(netuid2));
 
         // Set liq high enough to not trigger other errors
-        SubnetTAO::<Test>::set(netuid, 20_000_000_000);
+        SubnetTAO::<Test>::set(netuid, TaoCurrency::from(20_000_000_000));
         SubnetAlphaIn::<Test>::set(netuid, AlphaCurrency::from(20_000_000_000));
 
         // Register so staking *could* work
@@ -428,7 +428,7 @@ fn test_subtoken_enable_reject_trading_before_enable() {
                 RuntimeOrigin::signed(coldkey_account_id),
                 hotkey_account_id,
                 netuid,
-                amount
+                amount.into()
             ),
             Error::<Test>::SubtokenDisabled
         );
@@ -438,7 +438,7 @@ fn test_subtoken_enable_reject_trading_before_enable() {
                 RuntimeOrigin::signed(coldkey_account_id),
                 hotkey_account_id,
                 netuid,
-                amount,
+                amount.into(),
                 limit_price,
                 false
             ),
@@ -566,16 +566,16 @@ fn test_subtoken_enable_trading_ok_with_enable() {
         let coldkey_account_id = U256::from(2);
         let hotkey_account_2_id: U256 = U256::from(3);
         // stake big enough
-        let stake_amount = DefaultMinStake::<Test>::get() * 10000;
+        let stake_amount = DefaultMinStake::<Test>::get() * 10000.into();
         // unstake, transfer, swap just very little
-        let unstake_amount = AlphaCurrency::from(DefaultMinStake::<Test>::get() * 10);
+        let unstake_amount = AlphaCurrency::from(DefaultMinStake::<Test>::get().to_u64() * 10);
 
         add_network(netuid, 10, 0);
         add_network(netuid2, 10, 0);
 
-        let reserve = stake_amount * 1000;
-        mock::setup_reserves(netuid, reserve, reserve.into());
-        mock::setup_reserves(netuid2, reserve, reserve.into());
+        let reserve = stake_amount.to_u64() * 1000;
+        mock::setup_reserves(netuid, reserve.into(), reserve.into());
+        mock::setup_reserves(netuid2, reserve.into(), reserve.into());
         SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(reserve));
         SubnetAlphaOut::<Test>::insert(netuid2, AlphaCurrency::from(reserve));
 
@@ -585,7 +585,10 @@ fn test_subtoken_enable_trading_ok_with_enable() {
         register_ok_neuron(netuid, hotkey_account_2_id, coldkey_account_id, 0);
         register_ok_neuron(netuid2, hotkey_account_2_id, coldkey_account_id, 100);
 
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, stake_amount * 10);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey_account_id,
+            stake_amount.to_u64() * 10,
+        );
 
         // all trading extrinsic should be possible now that subtoken is enabled.
         assert_ok!(SubtensorModule::add_stake(
@@ -685,14 +688,17 @@ fn test_subtoken_enable_ok_for_burn_register_before_enable() {
         let coldkey_account_id = U256::from(2);
         let hotkey_account_2_id: U256 = U256::from(3);
 
-        let burn_cost = 1000;
+        let burn_cost = TaoCurrency::from(1000);
         // Set the burn cost
         SubtensorModule::set_burn(netuid, burn_cost);
         // Add the networks with subtoken disabled
         add_network_disable_subtoken(netuid, 10, 0);
         add_network_disable_subtoken(netuid2, 10, 0);
         // Give enough to burned register
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, burn_cost * 2 + 5_000);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey_account_id,
+            burn_cost.to_u64() * 2 + 5_000,
+        );
 
         // Should be possible to burned register before enable is activated
         assert_ok!(SubtensorModule::burned_register(
@@ -781,9 +787,7 @@ fn test_no_duplicates_in_symbol_static() {
         let symbol = SYMBOLS.get(usize::from(netuid)).unwrap();
         assert!(
             seen.insert(symbol.to_vec()),
-            "Duplicate symbol found for netuid {}: {:?}",
-            netuid,
-            symbol
+            "Duplicate symbol found for netuid {netuid}: {symbol:?}"
         );
     }
 }

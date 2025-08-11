@@ -43,17 +43,18 @@ pub fn migrate_total_issuance<T: Config>(test: bool) -> Weight {
     // Execute migration if the current storage version is 5 or if in test mode
     if Pallet::<T>::on_chain_storage_version() == StorageVersion::new(5) || test {
         // Calculate the sum of all stake values
-        let stake_sum: u64 = Owner::<T>::iter()
+        let stake_sum = Owner::<T>::iter()
             .map(|(hotkey, _coldkey)| Pallet::<T>::get_total_stake_for_hotkey(&hotkey))
-            .fold(0, |acc, stake| acc.saturating_add(stake));
+            .fold(TaoCurrency::ZERO, |acc, stake| acc.saturating_add(stake));
         // Add weight for reading all Owner and TotalHotkeyStake entries
         weight = weight.saturating_add(
             T::DbWeight::get().reads((Owner::<T>::iter().count() as u64).saturating_mul(2)),
         );
 
         // Calculate the sum of all locked subnet values
-        let locked_sum: u64 =
-            SubnetLocked::<T>::iter().fold(0, |acc, (_, locked)| acc.saturating_add(locked));
+        let locked_sum = SubnetLocked::<T>::iter().fold(TaoCurrency::ZERO, |acc, (_, locked)| {
+            acc.saturating_add(locked)
+        });
         // Add weight for reading all subnet locked entries
         weight = weight
             .saturating_add(T::DbWeight::get().reads(SubnetLocked::<T>::iter().count() as u64));
@@ -67,9 +68,9 @@ pub fn migrate_total_issuance<T: Config>(test: bool) -> Weight {
         match TryInto::<u64>::try_into(total_balance) {
             Ok(total_balance_sum) => {
                 // Compute the total issuance value
-                let total_issuance_value: u64 = stake_sum
-                    .saturating_add(total_balance_sum)
-                    .saturating_add(locked_sum);
+                let total_issuance_value = stake_sum
+                    .saturating_add(total_balance_sum.into())
+                    .saturating_add(locked_sum.into());
 
                 // Update the total issuance in storage
                 TotalIssuance::<T>::put(total_issuance_value);

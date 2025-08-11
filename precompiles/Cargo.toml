@@ -1,7 +1,7 @@
 [package]
 name = "subtensor-precompiles"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
 authors = ["Opentensor Foundation <https://github.com/opentensor/>"]
 homepage = "https://opentensor.ai/"
 publish = false
@@ -11,31 +11,32 @@ repository = "https://github.com/opentensor/subtensor/"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { workspace = true }
-ed25519-dalek = { workspace = true }
-fp-evm = { workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-log = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-evm = { workspace = true }
-pallet-evm-precompile-dispatch = { workspace = true }
-pallet-evm-precompile-modexp = { workspace = true }
-pallet-evm-precompile-sha3fips = { workspace = true }
-pallet-evm-precompile-simple = { workspace = true }
-pallet-proxy = { workspace = true }
-precompile-utils = { workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-sp-std = { workspace = true }
-subtensor-runtime-common = { workspace = true }
-substrate-fixed = { workspace = true }
-pallet-subtensor = { workspace = true }
-pallet-subtensor-swap = { workspace = true }
-pallet-admin-utils = { workspace = true }
-subtensor-swap-interface = { workspace = true }
-pallet-crowdloan = { workspace = true }
+codec = { workspace = true, features = ["derive"] }
+ed25519-dalek = { workspace = true, features = ["alloc"] }
+fp-evm.workspace = true
+frame-support.workspace = true
+frame-system.workspace = true
+log.workspace = true
+pallet-balances.workspace = true
+pallet-evm.workspace = true
+pallet-evm-precompile-dispatch.workspace = true
+pallet-evm-precompile-modexp.workspace = true
+pallet-evm-precompile-sha3fips.workspace = true
+pallet-evm-precompile-simple.workspace = true
+pallet-evm-precompile-bn128.workspace = true
+pallet-proxy.workspace = true
+precompile-utils.workspace = true
+sp-core.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+sp-std.workspace = true
+subtensor-runtime-common.workspace = true
+substrate-fixed.workspace = true
+pallet-subtensor.workspace = true
+pallet-subtensor-swap.workspace = true
+pallet-admin-utils.workspace = true
+subtensor-swap-interface.workspace = true
+pallet-crowdloan.workspace = true
 
 [lints]
 workspace = true
@@ -55,6 +56,7 @@ std = [
 	"pallet-evm-precompile-modexp/std",
 	"pallet-evm-precompile-sha3fips/std",
 	"pallet-evm-precompile-simple/std",
+	"pallet-evm-precompile-bn128/std",
 	"pallet-evm/std",
 	"pallet-crowdloan/std",
 	"pallet-proxy/std",

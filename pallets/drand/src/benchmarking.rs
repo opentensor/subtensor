@@ -79,5 +79,15 @@ mod benchmarks {
         assert_eq!(Pulses::<T>::get(p.round), Some(p));
     }
 
+    #[benchmark]
+    fn set_oldest_stored_round() {
+        let oldest_stored_round: u64 = 10;
+
+        #[extrinsic_call]
+        set_oldest_stored_round(RawOrigin::Root, oldest_stored_round);
+
+        assert_eq!(OldestStoredRound::<T>::get(), oldest_stored_round);
+    }
+
     impl_benchmark_test_suite!(Drand, crate::mock::new_test_ext(), crate::mock::Test);
 }
