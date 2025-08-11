@@ -1606,7 +1606,7 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Sets the commit-reveal weights version for all subnets
+        /// Sets the node validator emissions percent.
         #[pallet::call_index(72)]
         #[pallet::weight((
             Weight::from_parts(6_171_000, 0)
