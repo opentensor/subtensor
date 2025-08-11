@@ -28,7 +28,7 @@ use frame_support::{
     assert_noop, assert_ok, derive_impl,
     traits::{ConstU32, ConstU64, Contains},
 };
-use pallet_utility_opentensor as pallet_utility;
+use pallet_utility_otf as pallet_utility;
 use sp_core::H256;
 use sp_runtime::{BuildStorage, DispatchError, RuntimeDebug, traits::BlakeTwo256};
 

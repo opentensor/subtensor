@@ -7,15 +7,14 @@ The accounts to which permission is delegated may be required to announce the ac
 wish to execute some duration prior to execution happens. In this case, the target account may
 reject the announcement and in doing so, veto the execution.
 
-- [`Config`](https://docs.rs/pallet-proxy-opentensor/latest/pallet_proxy/pallet/trait.Config.html)
-- [`Call`](https://docs.rs/pallet-proxy-opentensor/latest/pallet_proxy/pallet/enum.Call.html)
+- [`Config`](https://docs.rs/pallet-proxy-otf/latest/pallet_proxy/pallet/trait.Config.html)
+- [`Call`](https://docs.rs/pallet-proxy-otf/latest/pallet_proxy/pallet/enum.Call.html)
 
 ## Overview
 
 ## Interface
 
 ### Dispatchable Functions
-
 
 License: Apache-2.0
 
