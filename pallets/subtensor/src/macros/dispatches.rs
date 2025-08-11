@@ -2370,8 +2370,8 @@ mod dispatches {
         /// remove_stake with EVM origin
         #[pallet::call_index(124)]
         #[pallet::weight((Weight::from_parts(196_800_000, 0)
-		.saturating_add(T::DbWeight::get().reads(19))
-		.saturating_add(T::DbWeight::get().writes(10)), DispatchClass::Normal, Pays::Yes))]
+        .saturating_add(T::DbWeight::get().reads(19))
+        .saturating_add(T::DbWeight::get().writes(10)), DispatchClass::Normal, Pays::Yes))]
         pub fn remove_stake_evm(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -2382,6 +2382,58 @@ mod dispatches {
             let verified_evm_origin = RawOrigin::Signed(account_id);
 
             Self::do_remove_stake(verified_evm_origin.into(), hotkey, netuid, amount_unstaked)
+        }
+
+        /// add_stake_limit with EVM origin
+        #[pallet::call_index(125)]
+        #[pallet::weight((Weight::from_parts(402_800_000, 0)
+        .saturating_add(T::DbWeight::get().reads(26))
+        .saturating_add(T::DbWeight::get().writes(15)), DispatchClass::Normal, Pays::Yes))]
+        pub fn add_stake_limit_evm(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            amount_staked: u64,
+            limit_price: u64,
+            allow_partial: bool,
+        ) -> DispatchResult {
+            let account_id = crate::ensure_evm_origin(<T as Config>::RuntimeOrigin::from(origin))?;
+            let verified_evm_origin = RawOrigin::Signed(account_id);
+
+            Self::do_add_stake_limit(
+                verified_evm_origin.into(),
+                hotkey,
+                netuid,
+                amount_staked,
+                limit_price,
+                allow_partial,
+            )
+        }
+
+        /// remove_stake_limit with EVM origin
+        #[pallet::call_index(126)]
+        #[pallet::weight((Weight::from_parts(403_800_000, 0)
+            .saturating_add(T::DbWeight::get().reads(30))
+            .saturating_add(T::DbWeight::get().writes(14)), DispatchClass::Normal, Pays::Yes))]
+        pub fn remove_stake_limit_evm(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            amount_unstaked: AlphaCurrency,
+            limit_price: u64,
+            allow_partial: bool,
+        ) -> DispatchResult {
+            let account_id = crate::ensure_evm_origin(<T as Config>::RuntimeOrigin::from(origin))?;
+            let verified_evm_origin = RawOrigin::Signed(account_id);
+
+            Self::do_remove_stake_limit(
+                verified_evm_origin.into(),
+                hotkey,
+                netuid,
+                amount_unstaked,
+                limit_price,
+                allow_partial,
+            )
         }
     }
 }

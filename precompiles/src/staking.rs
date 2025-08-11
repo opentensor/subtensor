@@ -346,7 +346,7 @@ where
         let limit_price = limit_price_rao.unique_saturated_into();
         let hotkey = R::AccountId::from(address.0);
         let netuid = try_u16_from_u256(netuid)?;
-        let call = pallet_subtensor::Call::<R>::add_stake_limit {
+        let call = pallet_subtensor::Call::<R>::add_stake_limit_evm {
             hotkey,
             netuid: netuid.into(),
             amount_staked,
@@ -354,7 +354,9 @@ where
             allow_partial,
         };
 
-        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+        let evm_origin = R::EvmOriginHelper::make_evm_origin(account_id);
+
+        handle.try_dispatch_runtime_call_with_custom_origin::<R, _>(call, evm_origin)
     }
 
     #[precompile::public("removeStakeLimit(bytes32,uint256,uint256,bool,uint256)")]
@@ -371,15 +373,16 @@ where
         let netuid = try_u16_from_u256(netuid)?;
         let amount_unstaked: u64 = amount_alpha.unique_saturated_into();
         let limit_price = limit_price_rao.unique_saturated_into();
-        let call = pallet_subtensor::Call::<R>::remove_stake_limit {
+        let call = pallet_subtensor::Call::<R>::remove_stake_limit_evm {
             hotkey,
             netuid: netuid.into(),
             amount_unstaked: amount_unstaked.into(),
             limit_price,
             allow_partial,
         };
+        let evm_origin = R::EvmOriginHelper::make_evm_origin(account_id);
 
-        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+        handle.try_dispatch_runtime_call_with_custom_origin::<R, _>(call, evm_origin)
     }
 }
 
