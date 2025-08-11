@@ -1611,7 +1611,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
         SubtokenEnabled::<T>::insert(netuid, true);
 
-        let reg_fee = Subtensor::<T>::get_burn_as_u64(netuid);
+        let reg_fee = Subtensor::<T>::get_burn(netuid);
         Subtensor::<T>::add_balance_to_coldkey_account(&hotkey, reg_fee.saturating_mul(2));
 
         assert_ok!(Subtensor::<T>::burned_register(
