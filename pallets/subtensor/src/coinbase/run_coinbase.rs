@@ -1,7 +1,6 @@
 use super::*;
 use alloc::collections::BTreeMap;
 use safe_math::*;
-use sp_runtime::Saturating;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
@@ -36,9 +35,10 @@ impl<T: Config> Pallet<T> {
             total_block_emission.saturating_sub(node_validator_block_emission);
 
         // Increment pending validator emissions to be paid out at the end of the era.
-        PendingNodeValidatorEmissions::<T>::mutate(|cur| {
-            cur.saturating_accrue(node_validator_block_emission.to_num::<u64>());
-        });
+        let next_pending_node_validator_emissions = node_validator_block_emission
+            .to_num::<u64>()
+            .saturating_add(PendingNodeValidatorEmissions::<T>::get().into());
+        PendingNodeValidatorEmissions::<T>::set(next_pending_node_validator_emissions.into());
 
         // --- 1. Get all netuids (filter out root)
         let subnets: Vec<NetUid> = Self::get_all_subnet_netuids()

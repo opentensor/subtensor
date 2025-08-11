@@ -399,7 +399,7 @@ fn test_coinbase_default_node_validator_issuance() {
             (initial + emission / 2).into()
         );
         // Check by default 0% of emissions go to node validators.
-        assert_eq!(PendingNodeValidatorEmissions::<Test>::get(), 0u64);
+        assert_eq!(PendingNodeValidatorEmissions::<Test>::get(), 0u64.into());
     });
 }
 
@@ -422,7 +422,7 @@ fn test_coinbase_some_node_validator_issuance() {
         SubnetAlphaIn::<Test>::insert(netuid1, AlphaCurrency::from(subnet_initial));
         SubnetTAO::<Test>::insert(netuid2, TaoCurrency::from(subnet_initial));
         SubnetAlphaIn::<Test>::insert(netuid2, AlphaCurrency::from(subnet_initial));
-        PendingNodeValidatorEmissions::<Test>::set(node_vali_initial);
+        PendingNodeValidatorEmissions::<Test>::set(node_vali_initial.into());
 
         // Set node vali cut to 10%.
         NodeValidatorEmissionsPercent::<Test>::set(Percent::from_percent(10u8));
@@ -443,7 +443,7 @@ fn test_coinbase_some_node_validator_issuance() {
         );
         assert_eq!(
             PendingNodeValidatorEmissions::<Test>::get(),
-            node_vali_initial + expected_node_vali_cut - 1 // 1 rao rounding error
+            (node_vali_initial + expected_node_vali_cut - 1).into() // 1 rao rounding error
         );
     });
 }

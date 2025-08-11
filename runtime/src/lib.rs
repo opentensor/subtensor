@@ -634,7 +634,7 @@ impl pallet_staking::EraPayout<Balance> for EraPayout {
         _era_duration_millis: u64,
     ) -> (Balance, Balance) {
         let era_emissions = pallet_subtensor::PendingNodeValidatorEmissions::<Runtime>::take();
-        (era_emissions, 0u64)
+        (era_emissions.into(), 0u64)
     }
 }
 

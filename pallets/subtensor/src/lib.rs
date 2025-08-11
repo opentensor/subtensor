@@ -1206,7 +1206,7 @@ pub mod pallet {
         StorageValue<_, u64, ValueQuery, DefaultWeightsVersionKeyRateLimit<T>>;
     #[pallet::storage]
     /// ITEM ( pending_node_validator_emission )
-    pub type PendingNodeValidatorEmissions<T> = StorageValue<_, u64, ValueQuery>;
+    pub type PendingNodeValidatorEmissions<T> = StorageValue<_, TaoCurrency, ValueQuery>;
 
     /// ============================
     /// ==== Rate Limiting =====
