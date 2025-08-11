@@ -2308,7 +2308,7 @@ mod dispatches {
         .saturating_add(T::DbWeight::get().reads(13_u64))
         .saturating_add(T::DbWeight::get().writes(6_u64)), DispatchClass::Operational, Pays::Yes))]
         pub fn transfer_stake_aggregate(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             destination_coldkey: T::AccountId,
             hotkey: T::AccountId,
             origin_netuid: NetUid,

@@ -33,6 +33,7 @@ use pallet_evm::{
     AddressMapping, BalanceConverter, EvmBalance, ExitError, PrecompileFailure, PrecompileHandle,
     SubstrateBalance,
 };
+use pallet_subtensor::EvmOriginHelper;
 use precompile_utils::EvmResult;
 use sp_core::{H256, U256};
 use sp_runtime::traits::{Dispatchable, StaticLookup, UniqueSaturatedInto};
@@ -92,13 +93,15 @@ where
         let amount_staked = amount_rao.unique_saturated_into();
         let hotkey = R::AccountId::from(address.0);
         let netuid = try_u16_from_u256(netuid)?;
-        let call = pallet_subtensor::Call::<R>::add_stake {
+        let call = pallet_subtensor::Call::<R>::add_stake_evm {
             hotkey,
             netuid: netuid.into(),
             amount_staked,
         };
 
-        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+        let evm_origin = R::EvmOriginHelper::make_evm_origin(account_id);
+
+        handle.try_dispatch_runtime_call_with_custom_origin::<R, _>(call, evm_origin)
     }
 
     #[precompile::public("removeStake(bytes32,uint256,uint256)")]
