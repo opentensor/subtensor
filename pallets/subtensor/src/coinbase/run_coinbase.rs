@@ -30,12 +30,10 @@ impl<T: Config> Pallet<T> {
         let node_validator_emission_percent =
             U96F32::from_num(NodeValidatorEmissionsPercent::<T>::get().deconstruct())
                 .saturating_div(U96F32::from_num(100));
-        let subnet_emission_percent =
-            U96F32::from_num(1).saturating_sub(node_validator_emission_percent);
-
-        let subnet_block_emission = total_block_emission.saturating_mul(subnet_emission_percent);
         let node_validator_block_emission =
             total_block_emission.saturating_mul(node_validator_emission_percent);
+        let subnet_block_emission =
+            total_block_emission.saturating_sub(node_validator_block_emission);
 
         // Increment pending validator emissions to be paid out at the end of the era.
         PendingNodeValidatorEmissions::<T>::mutate(|cur| {

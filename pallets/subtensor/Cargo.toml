@@ -178,7 +178,7 @@ try-runtime = [
 	"pallet-proxy-otf/try-runtime",
 	"pallet-aura/try-runtime",
 	"pallet-babe/try-runtime",
-	"pallet-timestamp/try-runtime"
+	"pallet-timestamp/try-runtime",
 ]
 pow-faucet = []
 fast-runtime = ["subtensor-runtime-common/fast-runtime"]
