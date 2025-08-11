@@ -186,7 +186,7 @@ mod dispatches {
         /// 	- On failure for each failed item in the batch.
         ///
         #[pallet::call_index(100)]
-        #[pallet::weight((Weight::from_parts(66_050_000, 0)
+        #[pallet::weight((Weight::from_parts(81_450_000, 0)
         .saturating_add(T::DbWeight::get().reads(8))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn batch_commit_weights(
@@ -279,7 +279,7 @@ mod dispatches {
         ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
         ///
         #[pallet::call_index(99)]
-        #[pallet::weight((Weight::from_parts(66_840_000, 0)
+        #[pallet::weight((Weight::from_parts(50_980_000, 0)
 		.saturating_add(T::DbWeight::get().reads(7_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_crv3_weights(
@@ -413,7 +413,7 @@ mod dispatches {
         /// 	- Attempting to set weights with max value exceeding limit.
         ///
         #[pallet::call_index(8)]
-        #[pallet::weight((Weight::from_parts(2_220_000, 0)
+        #[pallet::weight((Weight::from_parts(2_700_000, 0)
 		.saturating_add(T::DbWeight::get().reads(0_u64))
 		.saturating_add(T::DbWeight::get().writes(0_u64)), DispatchClass::Normal, Pays::No))]
         pub fn set_tao_weights(
@@ -454,7 +454,7 @@ mod dispatches {
         /// 	- The hotkey we are delegating is not owned by the calling coldket.
         ///
         #[pallet::call_index(1)]
-        #[pallet::weight((Weight::from_parts(2_480_000, 0)
+        #[pallet::weight((Weight::from_parts(3_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(0))
 		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Normal, Pays::Yes))]
         pub fn become_delegate(_origin: OriginFor<T>, _hotkey: T::AccountId) -> DispatchResult {
@@ -1575,7 +1575,7 @@ mod dispatches {
         /// * `TxRateLimitExceeded`:
         ///     - Thrown if key has hit transaction rate limit
         #[pallet::call_index(83)]
-        #[pallet::weight((Weight::from_parts(31_390_000, 0)
+        #[pallet::weight((Weight::from_parts(21_160_000, 0)
         .saturating_add(T::DbWeight::get().reads(6))
         .saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Operational, Pays::Yes))]
         pub fn unstake_all(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
@@ -1931,7 +1931,7 @@ mod dispatches {
         /// Will charge based on the weight even if the hotkey is already associated with a coldkey.
         #[pallet::call_index(91)]
         #[pallet::weight((
-            Weight::from_parts(21_270_000, 0).saturating_add(T::DbWeight::get().reads_writes(3, 3)),
+            Weight::from_parts(27_620_000, 0).saturating_add(T::DbWeight::get().reads_writes(3, 3)),
             DispatchClass::Operational,
             Pays::Yes
         ))]
