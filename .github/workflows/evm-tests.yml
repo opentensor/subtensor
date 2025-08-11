@@ -11,6 +11,10 @@ on:
         required: false
         default: ""
 
+concurrency:
+  group: evm-tests-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
   VERBOSE: ${{ github.events.input.verbose }}
