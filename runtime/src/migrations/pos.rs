@@ -171,6 +171,8 @@ fn initialize_pallet_session() {
         .map(|babe_id| {
             let keys = SessionKeys {
                 babe: babe_id.clone(),
+                // TODO: In pre/post upgrade checks check every grandpa key is migrated exactly once.
+                // This is CRITICAL to ensure there are no mistakes in the mapping!
                 grandpa: sr25519_to_ed25519(babe_id.clone())
                     .expect("Failed to map Babe ID to Grandpa ID")
                     .into(),

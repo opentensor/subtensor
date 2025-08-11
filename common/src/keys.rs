@@ -44,7 +44,7 @@ pub mod known_ss58 {
 
     pub const ALICE: KnownSs58 = KnownSs58 {
         sr25519: "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
-        ed25519: "5H3qMjQjoeZxZ98jzDmoCwbz2sugd5fDN1wrr8Phf49zemKL",
+        ed25519: "5FA9nQDVg267DEd8m1ZypXLBnvN7SFxYwV7ndqSYGiN9TTpu",
     };
 
     pub const TESTNET_VALI_1: KnownSs58 = KnownSs58 {
