@@ -252,6 +252,9 @@ runtime-benchmarks = [
 	"pallet-evm/runtime-benchmarks",
 	"pallet-hotfix-sufficients/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
+
+	# Smart Tx fees pallet
+	"subtensor-transaction-fee/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",

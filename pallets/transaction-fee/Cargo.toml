@@ -18,15 +18,15 @@ sp-std.workspace = true
 substrate-fixed.workspace = true
 subtensor-runtime-common.workspace = true
 subtensor-swap-interface.workspace = true
+pallet-crowdloan = { workspace = true, default-features = false }
+pallet-drand = { workspace = true, default-features = false }
+pallet-grandpa = { workspace = true, default-features = false, optional = true }
+pallet-preimage = { workspace = true, default-features = false, optional = true }
+pallet-scheduler = { workspace = true, default-features = false, optional = true }
 
 [dev-dependencies]
 frame-executive.workspace = true
-pallet-crowdloan = { workspace = true, default-features = false }
-pallet-drand = { workspace = true, default-features = false }
 pallet-evm-chain-id.workspace = true
-pallet-grandpa.workspace = true
-pallet-preimage = { workspace = true, default-features = false }
-pallet-scheduler.workspace = true
 scale-info.workspace = true
 sp-consensus-aura.workspace = true
 sp-consensus-grandpa.workspace = true
@@ -75,6 +75,11 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-crowdloan/runtime-benchmarks",
+	"pallet-drand/runtime-benchmarks",
+	"pallet-grandpa/runtime-benchmarks",
+	"pallet-preimage/runtime-benchmarks",
+	"pallet-scheduler/runtime-benchmarks",	
 	"pallet-subtensor/runtime-benchmarks",
 	"pallet-subtensor-swap/runtime-benchmarks",
 ]

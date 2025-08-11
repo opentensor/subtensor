@@ -407,12 +407,12 @@ where
         Ok(())
     }
 
-    // #[cfg(feature = "runtime-benchmarks")]
+    #[cfg(feature = "runtime-benchmarks")]
     fn endow_account(who: &AccountIdOf<T>, amount: Self::Balance) {
         let _ = F::deposit(who, amount, Precision::BestEffort);
     }
 
-    // #[cfg(feature = "runtime-benchmarks")]
+    #[cfg(feature = "runtime-benchmarks")]
     fn minimum_balance() -> Self::Balance {
         F::minimum_balance()
     }
