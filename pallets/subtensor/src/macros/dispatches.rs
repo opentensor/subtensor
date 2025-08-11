@@ -585,7 +585,7 @@ mod dispatches {
         ///  	- Errors stemming from transaction pallet.
         ///
         #[pallet::call_index(2)]
-        #[pallet::weight((Weight::from_parts(345_500_000, 0)
+        #[pallet::weight((Weight::from_parts(270_800_000, 0)
 		.saturating_add(T::DbWeight::get().reads(26))
 		.saturating_add(T::DbWeight::get().writes(15)), DispatchClass::Normal, Pays::Yes))]
         pub fn add_stake(
@@ -924,7 +924,7 @@ mod dispatches {
 
         /// User register a new subnetwork via burning token
         #[pallet::call_index(7)]
-        #[pallet::weight((Weight::from_parts(354_400_000, 0)
+        #[pallet::weight((Weight::from_parts(278_400_000, 0)
 		.saturating_add(T::DbWeight::get().reads(49))
 		.saturating_add(T::DbWeight::get().writes(43)), DispatchClass::Normal, Pays::No))]
         pub fn burned_register(
