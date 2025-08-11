@@ -155,19 +155,10 @@ fn finney_genesis(
 ) -> serde_json::Value {
     serde_json::json!({
         "balances": { "balances": balances.to_vec() },
-        "session": {
-            "keys": initial_authorities
+        "aura": { "authorities": initial_authorities.iter().map(|x| (x.account().clone())).collect::<Vec<_>>() },
+        "grandpa": { "authorities": initial_authorities
                 .iter()
-                .map(|x| {
-                    (
-                        x.account(),
-                        x.account(),
-                        node_subtensor_runtime::opaque::SessionKeys {
-                            babe: x.babe().clone(),
-                            grandpa: x.grandpa().clone(),
-                        },
-                    )
-                })
+                .map(|x| (x.grandpa().clone(), 1))
                 .collect::<Vec<_>>(),
         },
         "sudo": { "key": Some(<AccountId32 as Ss58Codec>::from_ss58check("5FCM3DBXWiGcwYYQtT8z4ZD93TqYpYxjaAfgv6aMStV1FTCT").unwrap()) },

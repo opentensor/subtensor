@@ -1,7 +1,13 @@
 // Allowed since it's actually better to panic during chain setup when there is an error
 #![allow(clippy::unwrap_used)]
 
+use std::collections::HashMap;
+
 use super::*;
+use node_subtensor_runtime::{BABE_GENESIS_EPOCH_CONFIG, UNITS};
+use pallet_staking::Forcing;
+use sp_runtime::Perbill;
+use sp_staking::StakerStatus;
 use subtensor_runtime_common::keys::known_ss58;
 
 pub fn devnet_config() -> Result<ChainSpec, String> {
@@ -37,10 +43,6 @@ pub fn devnet_config() -> Result<ChainSpec, String> {
         Ss58Codec::from_ss58check("5GpzQgpiAKHMWNSH3RN4GLf96GVTDct9QxYEFAY7LWcVzTbx").unwrap(),
         // Pre-funded accounts
         vec![],
-        true,
-        vec![],
-        vec![],
-        0,
     ))
     .with_properties(properties)
     .build())
@@ -51,23 +53,24 @@ pub fn devnet_config() -> Result<ChainSpec, String> {
 fn devnet_genesis(
     initial_authorities: Vec<AuthorityKeys>,
     root_key: AccountId,
-    _endowed_accounts: Vec<AccountId>,
-    _enable_println: bool,
-    _stakes: Vec<(AccountId, Vec<(AccountId, (u64, u16))>)>,
-    _balances: Vec<(AccountId, u64)>,
-    _balances_issuance: u64,
+    balances: Vec<(AccountId, u64)>,
 ) -> serde_json::Value {
+    const STAKE: u64 = 1000 * UNITS;
+
+    let mut balances: HashMap<AccountId, u64> = balances.into_iter().collect();
+    for a in initial_authorities.iter() {
+        let bal = balances.get(a.account()).unwrap_or(&0);
+        balances.insert(a.account().clone(), bal + 1500 * UNITS);
+    }
     serde_json::json!({
-        "balances": {
-            "balances": vec![(root_key.clone(), 1_000_000_000_000u128)],
-        },
+        "balances": { "balances": balances.into_iter().collect::<Vec<_>>() },
         "session": {
             "keys": initial_authorities
                 .iter()
                 .map(|x| {
                     (
-                        x.account(),
-                        x.account(),
+                        x.account().clone(),
+                        x.account().clone(),
                         node_subtensor_runtime::opaque::SessionKeys {
                             babe: x.babe().clone(),
                             grandpa: x.grandpa().clone(),
@@ -75,6 +78,20 @@ fn devnet_genesis(
                     )
                 })
                 .collect::<Vec<_>>(),
+        },
+        "staking": {
+            "minimumValidatorCount": 1,
+            "validatorCount": initial_authorities.len() as u32,
+            "stakers": initial_authorities
+                .iter()
+                .map(|x| (x.account().clone(), x.account().clone(), STAKE, StakerStatus::<AccountId>::Validator))
+                .collect::<Vec<_>>(),
+            "invulnerables": initial_authorities.iter().map(|x| x.account().clone()).collect::<Vec<_>>(),
+            "forceEra": Forcing::NotForcing,
+            "slashRewardFraction": Perbill::from_percent(10),
+        },
+        "babe": {
+            "epochConfig": BABE_GENESIS_EPOCH_CONFIG,
         },
         "sudo": {
             "key": Some(root_key),
