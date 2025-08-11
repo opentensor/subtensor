@@ -1612,7 +1612,7 @@ mod pallet_benchmarks {
         SubtokenEnabled::<T>::insert(netuid, true);
 
         let reg_fee = Subtensor::<T>::get_burn(netuid);
-        Subtensor::<T>::add_balance_to_coldkey_account(&hotkey, reg_fee.saturating_mul(2));
+        Subtensor::<T>::add_balance_to_coldkey_account(&hotkey, reg_fee.saturating_mul(2).into());
 
         assert_ok!(Subtensor::<T>::burned_register(
             RawOrigin::Signed(hotkey.clone()).into(),
