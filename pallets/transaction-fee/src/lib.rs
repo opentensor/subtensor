@@ -47,7 +47,7 @@ impl WeightToFeePolynomial for LinearWeightToFee {
     fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
         let coefficient = WeightToFeeCoefficient {
             coeff_integer: 0,
-            coeff_frac: Perbill::from_parts(500_000), // 0.5 unit per weight
+            coeff_frac: Perbill::from_parts(50_000), // 0.05 unit per weight
             negative: false,
             degree: 1,
         };

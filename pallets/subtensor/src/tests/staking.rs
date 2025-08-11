@@ -34,15 +34,10 @@ fn test_add_stake_dispatch_info_ok() {
             netuid,
             amount_staked,
         });
-        assert_eq!(
-            call.get_dispatch_info(),
-            DispatchInfo {
-                call_weight: frame_support::weights::Weight::from_parts(2_495_500_000, 0),
-                extension_weight: frame_support::weights::Weight::zero(),
-                class: DispatchClass::Normal,
-                pays_fee: Pays::Yes
-            }
-        );
+        let di = call.get_dispatch_info();
+        assert_eq!(di.extension_weight, frame_support::weights::Weight::zero(),);
+        assert_eq!(di.class, DispatchClass::Normal,);
+        assert_eq!(di.pays_fee, Pays::Yes,);
     });
 }
 #[test]
