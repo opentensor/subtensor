@@ -2362,9 +2362,26 @@ mod dispatches {
             amount_staked: u64,
         ) -> DispatchResult {
             let account_id = crate::ensure_evm_origin(<T as Config>::RuntimeOrigin::from(origin))?;
-            let checked_evm_origin = RawOrigin::Signed(account_id);
+            let verified_evm_origin = RawOrigin::Signed(account_id);
 
-            Self::do_add_stake(checked_evm_origin.into(), hotkey, netuid, amount_staked)
+            Self::do_add_stake(verified_evm_origin.into(), hotkey, netuid, amount_staked)
+        }
+
+        /// remove_stake with EVM origin
+        #[pallet::call_index(124)]
+        #[pallet::weight((Weight::from_parts(196_800_000, 0)
+		.saturating_add(T::DbWeight::get().reads(19))
+		.saturating_add(T::DbWeight::get().writes(10)), DispatchClass::Normal, Pays::Yes))]
+        pub fn remove_stake_evm(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            amount_unstaked: AlphaCurrency,
+        ) -> DispatchResult {
+            let account_id = crate::ensure_evm_origin(<T as Config>::RuntimeOrigin::from(origin))?;
+            let verified_evm_origin = RawOrigin::Signed(account_id);
+
+            Self::do_remove_stake(verified_evm_origin.into(), hotkey, netuid, amount_unstaked)
         }
     }
 }
