@@ -693,7 +693,7 @@ mod dispatches {
         /// 	- Attempting to set prometheus information withing the rate limit min.
         ///
         #[pallet::call_index(4)]
-        #[pallet::weight((Weight::from_parts(28_150_000, 0)
+        #[pallet::weight((Weight::from_parts(43_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_axon(
@@ -827,7 +827,7 @@ mod dispatches {
         /// 	- The ip type v4 or v6.
         ///
         #[pallet::call_index(5)]
-        #[pallet::weight((Weight::from_parts(30_170_000, 0)
+        #[pallet::weight((Weight::from_parts(22_480_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_prometheus(
@@ -915,7 +915,7 @@ mod dispatches {
 
         /// Attempt to adjust the senate membership to include a hotkey
         #[pallet::call_index(63)]
-        #[pallet::weight((Weight::from_parts(48_160_000, 0)
+        #[pallet::weight((Weight::from_parts(63_690_000, 0)
 		.saturating_add(T::DbWeight::get().reads(7))
 		.saturating_add(T::DbWeight::get().writes(4)), DispatchClass::Normal, Pays::Yes))]
         pub fn adjust_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
@@ -924,7 +924,7 @@ mod dispatches {
 
         /// User register a new subnetwork via burning token
         #[pallet::call_index(7)]
-        #[pallet::weight((Weight::from_parts(278_400_000, 0)
+        #[pallet::weight((Weight::from_parts(378_800_000, 0)
 		.saturating_add(T::DbWeight::get().reads(49))
 		.saturating_add(T::DbWeight::get().writes(43)), DispatchClass::Normal, Pays::No))]
         pub fn burned_register(
@@ -1956,7 +1956,7 @@ mod dispatches {
         /// Emits a `FirstEmissionBlockNumberSet` event on success.
         #[pallet::call_index(92)]
         #[pallet::weight((
-            Weight::from_parts(24_370_000, 0).saturating_add(T::DbWeight::get().reads_writes(4, 2)),
+            Weight::from_parts(32_710_000, 0).saturating_add(T::DbWeight::get().reads_writes(4, 2)),
             DispatchClass::Operational,
             Pays::Yes
         ))]
@@ -2020,7 +2020,7 @@ mod dispatches {
         /// Emits a `TokensRecycled` event on success.
         #[pallet::call_index(101)]
         #[pallet::weight((
-            Weight::from_parts(76_470_000, 0).saturating_add(T::DbWeight::get().reads_writes(7, 4)),
+            Weight::from_parts(100_700_000, 0).saturating_add(T::DbWeight::get().reads_writes(7, 4)),
             DispatchClass::Operational,
             Pays::Yes
         ))]
@@ -2045,7 +2045,7 @@ mod dispatches {
         /// Emits a `TokensBurned` event on success.
         #[pallet::call_index(102)]
         #[pallet::weight((
-            Weight::from_parts(74_650_000, 0).saturating_add(T::DbWeight::get().reads_writes(7, 3)),
+            Weight::from_parts(97_500_000, 0).saturating_add(T::DbWeight::get().reads_writes(7, 3)),
             DispatchClass::Operational,
             Pays::Yes
         ))]
