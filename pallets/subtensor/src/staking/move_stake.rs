@@ -2,7 +2,7 @@ use super::*;
 use safe_math::*;
 use sp_core::Get;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
@@ -256,7 +256,7 @@ impl<T: Config> Pallet<T> {
         origin_netuid: NetUid,
         destination_netuid: NetUid,
         alpha_amount: AlphaCurrency,
-        limit_price: u64,
+        limit_price: TaoCurrency,
         allow_partial: bool,
     ) -> dispatch::DispatchResult {
         // Ensure the extrinsic is signed by the coldkey.
@@ -303,11 +303,20 @@ impl<T: Config> Pallet<T> {
         origin_netuid: NetUid,
         destination_netuid: NetUid,
         alpha_amount: AlphaCurrency,
-        maybe_limit_price: Option<u64>,
+        maybe_limit_price: Option<TaoCurrency>,
         maybe_allow_partial: Option<bool>,
         check_transfer_toggle: bool,
         set_limit: bool,
-    ) -> Result<u64, DispatchError> {
+    ) -> Result<TaoCurrency, DispatchError> {
+        // Cap the alpha_amount at available Alpha because user might be paying transaxtion fees
+        // in Alpha and their total is already reduced by now.
+        let alpha_available = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
+            origin_hotkey,
+            origin_coldkey,
+            origin_netuid,
+        );
+        let alpha_amount = alpha_amount.min(alpha_available);
+
         // Calculate the maximum amount that can be executed
         let max_amount = if origin_netuid != destination_netuid {
             if let Some(limit_price) = maybe_limit_price {
@@ -347,7 +356,7 @@ impl<T: Config> Pallet<T> {
                 origin_coldkey,
                 origin_netuid,
                 move_amount,
-                T::SwapInterface::min_price(),
+                T::SwapInterface::min_price().into(),
                 true,
             )?;
 
@@ -365,7 +374,7 @@ impl<T: Config> Pallet<T> {
                     destination_coldkey,
                     destination_netuid,
                     tao_unstaked,
-                    T::SwapInterface::max_price(),
+                    T::SwapInterface::max_price().into(),
                     set_limit,
                 )?;
             }
@@ -409,7 +418,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_max_amount_move(
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        limit_price: u64,
+        limit_price: TaoCurrency,
     ) -> Result<AlphaCurrency, Error<T>> {
         let tao: U64F64 = U64F64::saturating_from_num(1_000_000_000);
 
@@ -419,7 +428,7 @@ impl<T: Config> Pallet<T> {
         if (origin_netuid.is_root() || SubnetMechanism::<T>::get(origin_netuid) == 0)
             && (destination_netuid.is_root() || SubnetMechanism::<T>::get(destination_netuid) == 0)
         {
-            if limit_price > tao.saturating_to_num::<u64>() {
+            if limit_price > tao.saturating_to_num::<u64>().into() {
                 return Err(Error::ZeroMaxStakeAmount);
             } else {
                 return Ok(AlphaCurrency::MAX);
@@ -431,7 +440,7 @@ impl<T: Config> Pallet<T> {
         if (origin_netuid.is_root() || SubnetMechanism::<T>::get(origin_netuid) == 0)
             && (SubnetMechanism::<T>::get(destination_netuid) == 1)
         {
-            if limit_price == 0 {
+            if limit_price.is_zero() {
                 return Ok(AlphaCurrency::MAX);
             } else {
                 // The destination price is reverted because the limit_price is origin_price / destination_price
@@ -439,8 +448,12 @@ impl<T: Config> Pallet<T> {
                     .safe_div(U64F64::saturating_from_num(limit_price))
                     .saturating_mul(tao)
                     .saturating_to_num::<u64>();
-                return Self::get_max_amount_add(destination_netuid, destination_subnet_price)
-                    .map(Into::into);
+                // FIXME: mixed types alpha/tao
+                return Self::get_max_amount_add(
+                    destination_netuid,
+                    destination_subnet_price.into(),
+                )
+                .map(Into::into);
             }
         }
 
@@ -449,7 +462,7 @@ impl<T: Config> Pallet<T> {
         if (destination_netuid.is_root() || SubnetMechanism::<T>::get(destination_netuid) == 0)
             && (SubnetMechanism::<T>::get(origin_netuid) == 1)
         {
-            return Self::get_max_amount_remove(origin_netuid, limit_price);
+            return Self::get_max_amount_remove(origin_netuid, limit_price).into();
         }
 
         // Corner case: SubnetTAO for any of two subnets is zero
@@ -457,7 +470,7 @@ impl<T: Config> Pallet<T> {
             .saturating_add(SubnetTaoProvided::<T>::get(origin_netuid));
         let subnet_tao_2 = SubnetTAO::<T>::get(destination_netuid)
             .saturating_add(SubnetTaoProvided::<T>::get(destination_netuid));
-        if (subnet_tao_1 == 0) || (subnet_tao_2 == 0) {
+        if subnet_tao_1.is_zero() || subnet_tao_2.is_zero() {
             return Err(Error::ZeroMaxStakeAmount);
         }
         let subnet_tao_1_float: U64F64 = U64F64::saturating_from_num(subnet_tao_1);
@@ -489,7 +502,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // Corner case: limit_price is zero
-        if limit_price == 0 {
+        if limit_price.is_zero() {
             return Ok(AlphaCurrency::MAX);
         }
 

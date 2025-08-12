@@ -62,7 +62,7 @@ where
     #[precompile::public("getTaoInPool(uint16)")]
     #[precompile::view]
     fn get_tao_in_pool(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::SubnetTAO::<R>::get(NetUid::from(netuid)))
+        Ok(pallet_subtensor::SubnetTAO::<R>::get(NetUid::from(netuid)).to_u64())
     }
 
     #[precompile::public("getAlphaInPool(uint16)")]
@@ -164,9 +164,9 @@ where
     #[precompile::public("getTaoInEmission(uint16)")]
     #[precompile::view]
     fn get_tao_in_emission(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
-        Ok(U256::from(pallet_subtensor::SubnetTaoInEmission::<R>::get(
-            NetUid::from(netuid),
-        )))
+        Ok(U256::from(
+            pallet_subtensor::SubnetTaoInEmission::<R>::get(NetUid::from(netuid)).to_u64(),
+        ))
     }
 
     #[precompile::public("getAlphaInEmission(uint16)")]

@@ -14,7 +14,7 @@ use sp_runtime::{
     BuildStorage,
     traits::{BlakeTwo256, IdentityLookup},
 };
-use subtensor_runtime_common::{AlphaCurrency, BalanceOps, NetUid, SubnetInfo};
+use subtensor_runtime_common::{AlphaCurrency, BalanceOps, NetUid, SubnetInfo, TaoCurrency};
 
 use crate::pallet::EnabledUserLiquidity;
 
@@ -87,12 +87,13 @@ parameter_types! {
 pub struct MockLiquidityProvider;
 
 impl SubnetInfo<AccountId> for MockLiquidityProvider {
-    fn tao_reserve(netuid: NetUid) -> u64 {
+    fn tao_reserve(netuid: NetUid) -> TaoCurrency {
         match netuid.into() {
             123u16 => 10_000,
             WRAPPING_FEES_NETUID => 100_000_000_000,
             _ => 1_000_000_000_000,
         }
+        .into()
     }
 
     fn alpha_reserve(netuid: NetUid) -> AlphaCurrency {
@@ -119,13 +120,14 @@ impl SubnetInfo<AccountId> for MockLiquidityProvider {
 pub struct MockBalanceOps;
 
 impl BalanceOps<AccountId> for MockBalanceOps {
-    fn tao_balance(account_id: &AccountId) -> u64 {
+    fn tao_balance(account_id: &AccountId) -> TaoCurrency {
         match *account_id {
             OK_COLDKEY_ACCOUNT_ID => 100_000_000_000_000,
             OK_COLDKEY_ACCOUNT_ID_2 => 100_000_000_000_000,
             OK_COLDKEY_ACCOUNT_ID_RICH => 900_000_000_000_000_000_u64,
             _ => 1_000_000_000,
         }
+        .into()
     }
 
     fn alpha_balance(
@@ -144,9 +146,12 @@ impl BalanceOps<AccountId> for MockBalanceOps {
         .into()
     }
 
-    fn increase_balance(_coldkey: &AccountId, _tao: u64) {}
+    fn increase_balance(_coldkey: &AccountId, _tao: TaoCurrency) {}
 
-    fn decrease_balance(_coldkey: &AccountId, tao: u64) -> Result<u64, DispatchError> {
+    fn decrease_balance(
+        _coldkey: &AccountId,
+        tao: TaoCurrency,
+    ) -> Result<TaoCurrency, DispatchError> {
         Ok(tao)
     }
 
@@ -168,8 +173,8 @@ impl BalanceOps<AccountId> for MockBalanceOps {
         Ok(alpha)
     }
 
-    fn increase_provided_tao_reserve(_netuid: NetUid, _tao: u64) {}
-    fn decrease_provided_tao_reserve(_netuid: NetUid, _tao: u64) {}
+    fn increase_provided_tao_reserve(_netuid: NetUid, _tao: TaoCurrency) {}
+    fn decrease_provided_tao_reserve(_netuid: NetUid, _tao: TaoCurrency) {}
     fn increase_provided_alpha_reserve(_netuid: NetUid, _alpha: AlphaCurrency) {}
     fn decrease_provided_alpha_reserve(_netuid: NetUid, _alpha: AlphaCurrency) {}
 }

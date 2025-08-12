@@ -2,7 +2,7 @@
 
 use frame_support::pallet_prelude::*;
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::{AlphaCurrency, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OrderType {
@@ -28,7 +28,11 @@ pub trait SwapHandler<AccountId> {
     fn current_alpha_price(netuid: NetUid) -> U96F32;
     fn max_price() -> u64;
     fn min_price() -> u64;
-    fn adjust_protocol_liquidity(netuid: NetUid, tao_delta: u64, alpha_delta: AlphaCurrency);
+    fn adjust_protocol_liquidity(
+        netuid: NetUid,
+        tao_delta: TaoCurrency,
+        alpha_delta: AlphaCurrency,
+    );
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool;
 }
 

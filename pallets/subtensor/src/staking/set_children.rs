@@ -103,7 +103,7 @@ impl<T: Config> Pallet<T> {
         // grandparent stake in this case)
         ensure!(
             children.is_empty()
-                || Self::get_total_stake_for_hotkey(&hotkey) >= StakeThreshold::<T>::get()
+                || Self::get_total_stake_for_hotkey(&hotkey) >= StakeThreshold::<T>::get().into()
                 || SubnetOwnerHotkey::<T>::try_get(netuid)
                     .is_ok_and(|owner_hotkey| owner_hotkey.eq(&hotkey)),
             Error::<T>::NotEnoughStakeToSetChildkeys
