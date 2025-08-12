@@ -1,7 +1,7 @@
 use crate::keys::sr25519_to_ed25519;
 use crate::opaque::SessionKeys;
-use frame_election_provider_support::ElectionProviderBase;
-use frame_election_provider_support::SortedListProvider;
+// use frame_election_provider_support::ElectionProviderBase;
+// use frame_election_provider_support::SortedListProvider;
 use frame_support::WeakBoundedVec;
 use frame_support::pallet_prelude::Weight;
 use frame_support::traits::OnRuntimeUpgrade;
@@ -21,7 +21,7 @@ use crate::*;
 
 pub struct Migration<T>(sp_std::marker::PhantomData<T>);
 
-impl<T> Migration<T>
+impl<T> OnRuntimeUpgrade for Migration<T>
 where
     T: frame_system::Config
         + pallet_babe::Config
@@ -29,8 +29,8 @@ where
         + pallet_staking::Config<AccountId = AccountId32, CurrencyBalance = Balance>
         + pallet_session::Config<ValidatorId = AccountId32, Keys = opaque::SessionKeys>,
 {
-    pub(crate) fn pos_upgrade() -> Weight {
-        // Nothing to do if we have already migrated to Babe.
+    fn on_runtime_upgrade() -> Weight {
+        // Nothing to do if we have already migrated.
         //
         // This check is critical for the runtime upgrade to be idempotent!
         let babe_authorities = pallet_babe::Authorities::<T>::get();
@@ -50,7 +50,16 @@ where
 
         T::DbWeight::get().reads(0)
     }
+}
 
+impl<T> Migration<T>
+where
+    T: frame_system::Config
+        + pallet_babe::Config
+        + pallet_aura::Config<AuthorityId = AuraId>
+        + pallet_staking::Config<AccountId = AccountId32, CurrencyBalance = Balance>
+        + pallet_session::Config<ValidatorId = AccountId32, Keys = opaque::SessionKeys>,
+{
     fn initialize_pallet_staking() -> Weight {
         let mut reads = 0u64;
         let mut writes = 0u64;
@@ -243,18 +252,5 @@ where
         pallet_session::QueuedKeys::<T>::put(keys);
 
         T::DbWeight::get().reads_writes(reads, writes)
-    }
-}
-
-impl<T> OnRuntimeUpgrade for Migration<T>
-where
-    T: frame_system::Config
-        + pallet_babe::Config
-        + pallet_aura::Config<AuthorityId = AuraId>
-        + pallet_staking::Config<AccountId = AccountId32, CurrencyBalance = Balance>
-        + pallet_session::Config<ValidatorId = AccountId32, Keys = opaque::SessionKeys>,
-{
-    fn on_runtime_upgrade() -> Weight {
-        Migration::<T>::pos_upgrade()
     }
 }

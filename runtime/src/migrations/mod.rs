@@ -1,2 +1,2 @@
 //! Export migrations from here.
-pub mod pos;
+pub mod babe_npos;

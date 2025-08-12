@@ -1994,7 +1994,7 @@ type Migrations = (
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
         Runtime,
     >,
-    crate::migrations::pos::Migration<Runtime>,
+    crate::migrations::babe_npos::Migration<Runtime>,
 );
 
 // Unchecked extrinsic type as expected by this runtime.
