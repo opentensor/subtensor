@@ -50,6 +50,12 @@ impl<T: Config> Pallet<T> {
 
         Self::ensure_subtoken_enabled(netuid)?;
 
+        // 1.1. Cap the alpha_unstaked at available Alpha because user might be paying transaxtion fees
+        // in Alpha and their total is already reduced by now.
+        let alpha_available =
+            Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        let alpha_unstaked = alpha_unstaked.min(alpha_available);
+
         // 2. Validate the user input
         Self::validate_remove_stake(
             &coldkey,

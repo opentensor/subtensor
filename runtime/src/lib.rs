@@ -18,20 +18,13 @@ use codec::{Compact, Decode, Encode};
 use core::num::NonZeroU64;
 use frame_election_provider_support::bounds::ElectionBoundsBuilder;
 use frame_election_provider_support::{SequentialPhragmen, generate_solution_type, onchain};
-use frame_support::dispatch::DispatchResult;
 use frame_support::pallet_prelude::DispatchClass;
-use frame_support::traits::{Imbalance, InsideBoth};
 use frame_support::{
     PalletId,
-    dispatch::DispatchResultWithPostInfo,
+    dispatch::{DispatchResult, DispatchResultWithPostInfo},
     genesis_builder_helper::{build_state, get_preset},
     pallet_prelude::Get,
-    traits::{
-        Contains, LinearStoragePrice, OnUnbalanced,
-        fungible::{
-            DecreaseIssuance, HoldConsideration, Imbalance as FungibleImbalance, IncreaseIssuance,
-        },
-    },
+    traits::{Contains, InsideBoth, LinearStoragePrice, fungible::HoldConsideration},
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
 use pallet_collective_otf as pallet_collective;
@@ -54,7 +47,6 @@ use pallet_subtensor::rpc_info::{
 use pallet_utility_otf as pallet_utility;
 use runtime_common::prod_or_fast;
 use scale_info::TypeInfo;
-use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{
@@ -104,7 +96,9 @@ pub use frame_support::{
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
-use pallet_transaction_payment::{ConstFeeMultiplier, FungibleAdapter, Multiplier};
+use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
+use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
+
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
@@ -819,60 +813,16 @@ impl pallet_balances::Config for Runtime {
     type DoneSlashHandler = ();
 }
 
-pub struct LinearWeightToFee;
-
-impl WeightToFeePolynomial for LinearWeightToFee {
-    type Balance = Balance;
-
-    fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-        let coefficient = WeightToFeeCoefficient {
-            coeff_integer: 0,
-            coeff_frac: Perbill::from_parts(500_000),
-            negative: false,
-            degree: 1,
-        };
-
-        smallvec!(coefficient)
-    }
-}
-
 parameter_types! {
     pub const OperationalFeeMultiplier: u8 = 5;
     pub FeeMultiplier: Multiplier = Multiplier::one();
 }
 
-/// Deduct the transaction fee from the Subtensor Pallet TotalIssuance when dropping the transaction
-/// fee.
-pub struct TransactionFeeHandler;
-impl
-    OnUnbalanced<
-        FungibleImbalance<
-            u64,
-            DecreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
-            IncreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
-        >,
-    > for TransactionFeeHandler
-{
-    fn on_nonzero_unbalanced(
-        credit: FungibleImbalance<
-            u64,
-            DecreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
-            IncreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
-        >,
-    ) {
-        let ti_before = pallet_subtensor::TotalIssuance::<Runtime>::get();
-        pallet_subtensor::TotalIssuance::<Runtime>::put(
-            ti_before.saturating_sub(credit.peek().into()),
-        );
-        drop(credit);
-    }
-}
-
 impl pallet_transaction_payment::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type OnChargeTransaction = FungibleAdapter<Balances, TransactionFeeHandler>;
+    type OnChargeTransaction = SubtensorTxFeeHandler<Balances, TransactionFeeHandler<Runtime>>;
     // Convert dispatch weight to a chargeable fee.
-    type WeightToFee = LinearWeightToFee;
+    type WeightToFee = subtensor_transaction_fee::LinearWeightToFee;
     type OperationalFeeMultiplier = OperationalFeeMultiplier;
     type LengthToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;

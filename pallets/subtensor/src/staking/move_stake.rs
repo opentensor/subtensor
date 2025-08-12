@@ -308,6 +308,15 @@ impl<T: Config> Pallet<T> {
         check_transfer_toggle: bool,
         set_limit: bool,
     ) -> Result<TaoCurrency, DispatchError> {
+        // Cap the alpha_amount at available Alpha because user might be paying transaxtion fees
+        // in Alpha and their total is already reduced by now.
+        let alpha_available = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
+            origin_hotkey,
+            origin_coldkey,
+            origin_netuid,
+        );
+        let alpha_amount = alpha_amount.min(alpha_available);
+
         // Calculate the maximum amount that can be executed
         let max_amount = if origin_netuid != destination_netuid {
             if let Some(limit_price) = maybe_limit_price {

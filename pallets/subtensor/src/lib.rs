@@ -2004,6 +2004,13 @@ where
         Pallet::<T>::check_weights_min_stake(who, netuid)
     }
 
+    pub fn validity_ok(priority: u64) -> ValidTransaction {
+        ValidTransaction {
+            priority,
+            ..Default::default()
+        }
+    }
+
     pub fn result_to_validity(result: Result<(), Error<T>>, priority: u64) -> TransactionValidity {
         if let Err(err) = result {
             Err(match err {
@@ -2080,11 +2087,7 @@ where
             Some(Call::commit_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who, *netuid) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                    let validity = ValidTransaction {
-                        priority,
-                        longevity: 1,
-                        ..Default::default()
-                    };
+                    let validity = Self::validity_ok(priority);
                     Ok((validity, Some(who.clone()), origin))
                 } else {
                     Err(CustomTransactionError::StakeAmountTooLow.into())
@@ -2093,11 +2096,7 @@ where
             Some(Call::reveal_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who, *netuid) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                    let validity = ValidTransaction {
-                        priority,
-                        longevity: 1,
-                        ..Default::default()
-                    };
+                    let validity = Self::validity_ok(priority);
                     Ok((validity, Some(who.clone()), origin))
                 } else {
                     Err(CustomTransactionError::StakeAmountTooLow.into())
@@ -2106,11 +2105,7 @@ where
             Some(Call::batch_reveal_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who, *netuid) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                    let validity = ValidTransaction {
-                        priority,
-                        longevity: 1,
-                        ..Default::default()
-                    };
+                    let validity = Self::validity_ok(priority);
                     Ok((validity, Some(who.clone()), origin))
                 } else {
                     Err(CustomTransactionError::StakeAmountTooLow.into())
@@ -2119,11 +2114,7 @@ where
             Some(Call::set_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who, *netuid) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                    let validity = ValidTransaction {
-                        priority,
-                        longevity: 1,
-                        ..Default::default()
-                    };
+                    let validity = Self::validity_ok(priority);
                     Ok((validity, Some(who.clone()), origin))
                 } else {
                     Err(CustomTransactionError::StakeAmountTooLow.into())
@@ -2132,11 +2123,7 @@ where
             Some(Call::set_tao_weights { netuid, hotkey, .. }) => {
                 if Self::check_weights_min_stake(hotkey, *netuid) {
                     let priority: u64 = Self::get_priority_set_weights(hotkey, *netuid);
-                    let validity = ValidTransaction {
-                        priority,
-                        longevity: 1,
-                        ..Default::default()
-                    };
+                    let validity = Self::validity_ok(priority);
                     Ok((validity, Some(who.clone()), origin))
                 } else {
                     Err(CustomTransactionError::StakeAmountTooLow.into())
@@ -2152,11 +2139,7 @@ where
                         return Err(CustomTransactionError::InvalidRevealRound.into());
                     }
                     let priority: u64 = Pallet::<T>::get_priority_set_weights(who, *netuid);
-                    let validity = ValidTransaction {
-                        priority,
-                        longevity: 1,
-                        ..Default::default()
-                    };
+                    let validity = Self::validity_ok(priority);
                     Ok((validity, Some(who.clone()), origin))
                 } else {
                     Err(CustomTransactionError::StakeAmountTooLow.into())
@@ -2172,11 +2155,7 @@ where
                         return Err(CustomTransactionError::InvalidRevealRound.into());
                     }
                     let priority: u64 = Pallet::<T>::get_priority_set_weights(who, *netuid);
-                    let validity = ValidTransaction {
-                        priority,
-                        longevity: 1,
-                        ..Default::default()
-                    };
+                    let validity = Self::validity_ok(priority);
                     Ok((validity, Some(who.clone()), origin))
                 } else {
                     Err(CustomTransactionError::StakeAmountTooLow.into())
@@ -2184,243 +2163,128 @@ where
             }
             Some(Call::add_stake {
                 hotkey,
-                netuid,
+                netuid: _,
                 amount_staked,
             }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
                     return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
                 }
-
-                // Fully validate the user input
-                Self::result_to_validity(
-                    Pallet::<T>::validate_add_stake(
-                        who,
-                        hotkey,
-                        *netuid,
-                        *amount_staked,
-                        *amount_staked,
-                        false,
-                    ),
-                    Self::get_priority_staking(who, hotkey, (*amount_staked).to_u64()),
-                )
-                .map(|validity| (validity, Some(who.clone()), origin.clone()))
+                let validity = Self::validity_ok(Self::get_priority_staking(
+                    who,
+                    hotkey,
+                    (*amount_staked).into(),
+                ));
+                Ok((validity, Some(who.clone()), origin))
             }
             Some(Call::add_stake_limit {
                 hotkey,
-                netuid,
+                netuid: _,
                 amount_staked,
-                limit_price,
-                allow_partial,
+                ..
             }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
                     return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
                 }
 
-                // Calculate the maximum amount that can be executed with price limit
-                let Ok(max_amount) = Pallet::<T>::get_max_amount_add(*netuid, *limit_price) else {
-                    return Err(CustomTransactionError::ZeroMaxAmount.into());
-                };
-
-                // Fully validate the user input
-                Self::result_to_validity(
-                    Pallet::<T>::validate_add_stake(
-                        who,
-                        hotkey,
-                        *netuid,
-                        *amount_staked,
-                        max_amount.into(),
-                        *allow_partial,
-                    ),
-                    Self::get_priority_staking(who, hotkey, (*amount_staked).to_u64()),
-                )
-                .map(|validity| (validity, Some(who.clone()), origin.clone()))
+                let validity = Self::validity_ok(Self::get_priority_staking(
+                    who,
+                    hotkey,
+                    (*amount_staked).into(),
+                ));
+                Ok((validity, Some(who.clone()), origin))
             }
             Some(Call::remove_stake {
                 hotkey,
-                netuid,
+                netuid: _,
                 amount_unstaked,
             }) => {
-                // Fully validate the user input
-                Self::result_to_validity(
-                    Pallet::<T>::validate_remove_stake(
-                        who,
-                        hotkey,
-                        *netuid,
-                        *amount_unstaked,
-                        *amount_unstaked,
-                        false,
-                    ),
-                    Self::get_priority_staking(who, hotkey, (*amount_unstaked).to_u64()),
-                )
-                .map(|validity| (validity, Some(who.clone()), origin.clone()))
+                let validity = Self::validity_ok(Self::get_priority_staking(
+                    who,
+                    hotkey,
+                    (*amount_unstaked).into(),
+                ));
+                Ok((validity, Some(who.clone()), origin))
             }
             Some(Call::remove_stake_limit {
                 hotkey,
-                netuid,
+                netuid: _,
                 amount_unstaked,
-                limit_price,
-                allow_partial,
+                ..
             }) => {
-                // Calculate the maximum amount that can be executed with price limit
-                let Ok(max_amount) = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price)
-                else {
-                    return Err(CustomTransactionError::ZeroMaxAmount.into());
-                };
-
-                // Fully validate the user input
-                Self::result_to_validity(
-                    Pallet::<T>::validate_remove_stake(
-                        who,
-                        hotkey,
-                        *netuid,
-                        *amount_unstaked,
-                        max_amount,
-                        *allow_partial,
-                    ),
-                    Self::get_priority_staking(who, hotkey, (*amount_unstaked).into()),
-                )
-                .map(|validity| (validity, Some(who.clone()), origin.clone()))
-            }
-            Some(Call::unstake_all { hotkey }) => {
-                // Fully validate the user input
-                Self::result_to_validity(
-                    Pallet::<T>::validate_unstake_all(who, hotkey, false),
-                    Self::get_priority_vanilla(),
-                )
-                .map(|validity| (validity, Some(who.clone()), origin.clone()))
-            }
-            Some(Call::unstake_all_alpha { hotkey }) => {
-                // Fully validate the user input
-                Self::result_to_validity(
-                    Pallet::<T>::validate_unstake_all(who, hotkey, true),
-                    Self::get_priority_vanilla(),
-                )
-                .map(|validity| (validity, Some(who.clone()), origin.clone()))
+                let validity = Self::validity_ok(Self::get_priority_staking(
+                    who,
+                    hotkey,
+                    (*amount_unstaked).into(),
+                ));
+                Ok((validity, Some(who.clone()), origin))
             }
             Some(Call::move_stake {
                 origin_hotkey,
-                destination_hotkey,
-                origin_netuid,
-                destination_netuid,
+                destination_hotkey: _,
+                origin_netuid: _,
+                destination_netuid: _,
                 alpha_amount,
             }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
                     return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
                 }
-
-                // Fully validate the user input
-                Self::result_to_validity(
-                    Pallet::<T>::validate_stake_transition(
-                        who,
-                        who,
-                        origin_hotkey,
-                        destination_hotkey,
-                        *origin_netuid,
-                        *destination_netuid,
-                        *alpha_amount,
-                        *alpha_amount,
-                        None,
-                        false,
-                    ),
-                    Self::get_priority_staking(who, origin_hotkey, (*alpha_amount).into()),
-                )
-                .map(|validity| (validity, Some(who.clone()), origin.clone()))
+                let validity = Self::validity_ok(Self::get_priority_staking(
+                    who,
+                    origin_hotkey,
+                    (*alpha_amount).into(),
+                ));
+                Ok((validity, Some(who.clone()), origin))
             }
             Some(Call::transfer_stake {
-                destination_coldkey,
+                destination_coldkey: _,
                 hotkey,
-                origin_netuid,
-                destination_netuid,
+                origin_netuid: _,
+                destination_netuid: _,
                 alpha_amount,
             }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
                     return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
                 }
-
-                // Fully validate the user input
-                Self::result_to_validity(
-                    Pallet::<T>::validate_stake_transition(
-                        who,
-                        destination_coldkey,
-                        hotkey,
-                        hotkey,
-                        *origin_netuid,
-                        *destination_netuid,
-                        *alpha_amount,
-                        *alpha_amount,
-                        None,
-                        true,
-                    ),
-                    Self::get_priority_staking(who, hotkey, (*alpha_amount).into()),
-                )
-                .map(|validity| (validity, Some(who.clone()), origin.clone()))
+                let validity = Self::validity_ok(Self::get_priority_staking(
+                    who,
+                    hotkey,
+                    (*alpha_amount).into(),
+                ));
+                Ok((validity, Some(who.clone()), origin))
             }
             Some(Call::swap_stake {
                 hotkey,
-                origin_netuid,
-                destination_netuid,
+                origin_netuid: _,
+                destination_netuid: _,
                 alpha_amount,
             }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
                     return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
                 }
-
-                // Fully validate the user input
-                Self::result_to_validity(
-                    Pallet::<T>::validate_stake_transition(
-                        who,
-                        who,
-                        hotkey,
-                        hotkey,
-                        *origin_netuid,
-                        *destination_netuid,
-                        *alpha_amount,
-                        *alpha_amount,
-                        None,
-                        false,
-                    ),
-                    Self::get_priority_staking(who, hotkey, (*alpha_amount).into()),
-                )
-                .map(|validity| (validity, Some(who.clone()), origin.clone()))
+                let validity = Self::validity_ok(Self::get_priority_staking(
+                    who,
+                    hotkey,
+                    (*alpha_amount).into(),
+                ));
+                Ok((validity, Some(who.clone()), origin))
             }
             Some(Call::swap_stake_limit {
                 hotkey,
-                origin_netuid,
-                destination_netuid,
+                origin_netuid: _,
+                destination_netuid: _,
                 alpha_amount,
-                limit_price,
-                allow_partial,
+                ..
             }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
                     return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
                 }
 
-                // Get the max amount possible to exchange
-                let Ok(max_amount) = Pallet::<T>::get_max_amount_move(
-                    *origin_netuid,
-                    *destination_netuid,
-                    *limit_price,
-                ) else {
-                    return Err(CustomTransactionError::ZeroMaxAmount.into());
-                };
-
-                // Fully validate the user input
-                Self::result_to_validity(
-                    Pallet::<T>::validate_stake_transition(
-                        who,
-                        who,
-                        hotkey,
-                        hotkey,
-                        *origin_netuid,
-                        *destination_netuid,
-                        *alpha_amount,
-                        max_amount,
-                        Some(*allow_partial),
-                        false,
-                    ),
-                    Self::get_priority_staking(who, hotkey, (*alpha_amount).into()),
-                )
-                .map(|validity| (validity, Some(who.clone()), origin.clone()))
+                let validity = Self::validity_ok(Self::get_priority_staking(
+                    who,
+                    hotkey,
+                    (*alpha_amount).into(),
+                ));
+                Ok((validity, Some(who.clone()), origin))
             }
             Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
@@ -2443,21 +2307,14 @@ where
                 Ok((validity, Some(who.clone()), origin))
             }
             Some(Call::register_network { .. }) => {
-                let validity = ValidTransaction {
-                    priority: Self::get_priority_vanilla(),
-                    ..Default::default()
-                };
-
+                let validity = Self::validity_ok(Self::get_priority_vanilla());
                 Ok((validity, Some(who.clone()), origin))
             }
             Some(Call::dissolve_network { .. }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
                     Err(CustomTransactionError::ColdkeyInSwapSchedule.into())
                 } else {
-                    let validity = ValidTransaction {
-                        priority: Self::get_priority_vanilla(),
-                        ..Default::default()
-                    };
+                    let validity = Self::validity_ok(Self::get_priority_vanilla());
                     Ok((validity, Some(who.clone()), origin))
                 }
             }
@@ -2499,10 +2356,7 @@ where
                         return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
                     }
                 }
-                let validity = ValidTransaction {
-                    priority: Self::get_priority_vanilla(),
-                    ..Default::default()
-                };
+                let validity = Self::validity_ok(Self::get_priority_vanilla());
                 Ok((validity, Some(who.clone()), origin))
             }
         }

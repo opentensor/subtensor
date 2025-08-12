@@ -14,6 +14,10 @@ on:
       - devnet-ready
       - devnet
       - testnet
+      
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -23,7 +27,7 @@ permissions:
 
 jobs:
   publish:
-    runs-on: SubtensorCI
+    runs-on: [self-hosted, type-ccx33]
 
     steps:
       - name: Determine Docker tag and ref

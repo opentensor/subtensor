@@ -56,6 +56,7 @@ sp-version.workspace = true
 sp-authority-discovery.workspace = true
 subtensor-runtime-common.workspace = true
 subtensor-precompiles.workspace = true
+subtensor-transaction-fee.workspace = true
 
 # Temporary sudo
 pallet-sudo.workspace = true
@@ -159,6 +160,51 @@ sp-tracing.workspace = true
 substrate-wasm-builder = { workspace = true, optional = true }
 
 [features]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system-benchmarking/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-grandpa/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-utility-otf/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"pallet-safe-mode/runtime-benchmarks",
+	"pallet-subtensor/runtime-benchmarks",
+	"pallet-collective-otf/runtime-benchmarks",
+	"pallet-membership/runtime-benchmarks",
+	"pallet-proxy-otf/runtime-benchmarks",
+	"pallet-registry/runtime-benchmarks",
+	"pallet-commitments/runtime-benchmarks",
+	"pallet-admin-utils/runtime-benchmarks",
+	"pallet-multisig/runtime-benchmarks",
+	"pallet-preimage/runtime-benchmarks",
+	"pallet-scheduler/runtime-benchmarks",
+	"pallet-sudo/runtime-benchmarks",
+	"pallet-crowdloan/runtime-benchmarks",
+	"pallet-babe/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"pallet-election-provider-multi-phase/runtime-benchmarks",
+	"frame-election-provider-support/runtime-benchmarks",
+	"pallet-bags-list/runtime-benchmarks",
+	"pallet-fast-unstake/runtime-benchmarks",
+	"pallet-nomination-pools/runtime-benchmarks",
+	"pallet-offences/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
+
+	# EVM + Frontier
+	"pallet-ethereum/runtime-benchmarks",
+	"pallet-evm/runtime-benchmarks",
+	"pallet-hotfix-sufficients/runtime-benchmarks",
+	"pallet-drand/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
+	"pallet-subtensor-swap/runtime-benchmarks",
+	"runtime-common/runtime-benchmarks",
+
+	# Smart Tx fees pallet
+	"subtensor-transaction-fee/runtime-benchmarks",
+]
 default = ["std"]
 pow-faucet = ["pallet-subtensor/pow-faucet"]
 fast-runtime = [
@@ -210,6 +256,7 @@ std = [
 	"pallet-registry/std",
 	"pallet-admin-utils/std",
 	"subtensor-custom-rpc-runtime-api/std",
+	"subtensor-transaction-fee/std",
 	"serde_json/std",
 	"sp-io/std",
 	"sp-tracing/std",
@@ -267,49 +314,7 @@ std = [
 	"pallet-aura/std",
 	"substrate-fixed/std",
 	"subtensor-swap-interface/std",
-	"runtime-common/std"
-]
-runtime-benchmarks = [
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system-benchmarking/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-grandpa/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
-	"pallet-utility-otf/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-	"pallet-safe-mode/runtime-benchmarks",
-	"pallet-subtensor/runtime-benchmarks",
-	"pallet-collective-otf/runtime-benchmarks",
-	"pallet-membership/runtime-benchmarks",
-	"pallet-proxy-otf/runtime-benchmarks",
-	"pallet-registry/runtime-benchmarks",
-	"pallet-commitments/runtime-benchmarks",
-	"pallet-admin-utils/runtime-benchmarks",
-	"pallet-multisig/runtime-benchmarks",
-	"pallet-preimage/runtime-benchmarks",
-	"pallet-scheduler/runtime-benchmarks",
-	"pallet-sudo/runtime-benchmarks",
-	"pallet-crowdloan/runtime-benchmarks",
-	"pallet-babe/runtime-benchmarks",
-	"pallet-staking/runtime-benchmarks",
-	"pallet-election-provider-multi-phase/runtime-benchmarks",
-	"frame-election-provider-support/runtime-benchmarks",
-	"pallet-bags-list/runtime-benchmarks",
-	"pallet-fast-unstake/runtime-benchmarks",
-	"pallet-nomination-pools/runtime-benchmarks",
-	"pallet-offences/runtime-benchmarks",
-	"sp-staking/runtime-benchmarks",
-
-	# EVM + Frontier
-	"pallet-ethereum/runtime-benchmarks",
-	"pallet-evm/runtime-benchmarks",
-	"pallet-hotfix-sufficients/runtime-benchmarks",
-	"pallet-drand/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks",
-	"pallet-subtensor-swap/runtime-benchmarks",
-	"runtime-common/runtime-benchmarks"
+	"runtime-common/std",
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
@@ -357,6 +362,6 @@ try-runtime = [
 	"pallet-evm-chain-id/try-runtime",
 	"pallet-drand/try-runtime",
 	"pallet-aura/try-runtime",
-	"runtime-common/try-runtime"
+	"runtime-common/try-runtime",
 ]
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]
