@@ -222,7 +222,7 @@ parameter_types! {
 /// RAO per TAO
 pub const UNITS: Balance = 1_000_000_000;
 
-/// TODO: Check this
+/// Babe epoch duration.
 pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = prod_or_fast!(4 * HOURS, MINUTES / 6);
 
 // Opaque types. These are used by the CLI to instantiate machinery that don't need to know
@@ -713,9 +713,7 @@ impl pallet_offences::Config for Runtime {
 }
 
 parameter_types! {
-    // TODO: Polkadot default 👇
-    // pub const MaxAuthorities: u32 = 100_000;
-    pub const MaxAuthorities: u32 = 32;
+    pub const MaxAuthorities: u32 = 100_000;
     pub NposSolutionPriority: TransactionPriority =
         Perbill::from_percent(90) * TransactionPriority::MAX;
 }
