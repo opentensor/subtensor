@@ -62,4 +62,19 @@ contract StakeWrap {
         (bool success, ) = ISTAKING_ADDRESS.call{gas: gasleft()}(data);
         require(success, "addStakeLimit call failed");
     }
+
+    function removeStake(
+        bytes32 hotkey,
+        uint256 netuid,
+        uint256 amount
+    ) external {
+        bytes memory data = abi.encodeWithSelector(
+            Staking.removeStake.selector,
+            hotkey,
+            amount,
+            netuid
+        );
+        (bool success, ) = ISTAKING_ADDRESS.call{gas: gasleft()}(data);
+        require(success, "addStake call failed");
+    }
 }

@@ -76,9 +76,30 @@ describe("Test staking precompile add from deployed contract", () => {
     const tx = await deployedContract.stake(
       hotkey.publicKey,
       netuid,
-      tao(2000),
+      tao(2),
     );
     await tx.wait();
+
+    const stake = await api.query.SubtensorModule.Alpha.getValue(
+      convertPublicKeyToSs58(hotkey.publicKey),
+      convertH160ToSS58(contract.target.toString()),
+      netuid
+    )
+    console.log(" == before remove stake is ", stake)
+
+    const tx2 = await deployedContract.removeStake(
+      hotkey.publicKey,
+      netuid,
+      tao(1),
+    );
+    await tx2.wait();
+
+    const stake2 = await api.query.SubtensorModule.Alpha.getValue(
+      convertPublicKeyToSs58(hotkey.publicKey),
+      convertH160ToSS58(contract.target.toString()),
+      netuid
+    )
+    console.log(" == after remove stake is ", stake2)
 
   });
 
