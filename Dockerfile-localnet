@@ -27,7 +27,7 @@ WORKDIR /build
 RUN set -o pipefail && curl https://sh.rustup.rs -sSf | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 RUN rustup toolchain install
-RUN rustup target add wasm32-unknown-unknown
+RUN rustup target add wasm32v1-none
 
 ## Build fast-blocks node
 RUN ./scripts/localnet.sh --build-only
