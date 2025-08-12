@@ -9,7 +9,8 @@ codec = { workspace = true, features = ["derive"] }
 scale-info.workspace = true
 sp-api.workspace = true
 sp-std.workspace = true
+subtensor-swap-interface.workspace = true
 
 [features]
 default = ["std"]
-std = ["codec/std", "scale-info/std", "sp-api/std", "sp-std/std"]
+std = ["codec/std", "scale-info/std", "sp-api/std", "sp-std/std", "subtensor-swap-interface/std"]

@@ -1,5 +1,6 @@
 //! RPC interface for the Swap pallet
 
+use codec::Encode;
 use std::sync::Arc;
 
 use jsonrpsee::{
@@ -17,6 +18,20 @@ pub use pallet_subtensor_swap_runtime_api::SwapRuntimeApi;
 pub trait SwapRpcApi<BlockHash> {
     #[method(name = "swap_currentAlphaPrice")]
     fn current_alpha_price(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<u64>;
+    #[method(name = "swap_sinSwapTaoForAlpha")]
+    fn sim_swap_tao_for_alpha(
+        &self,
+        netuid: u16,
+        tao: u64,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
+    #[method(name = "swap_sinSwapAlphaForTao")]
+    fn sim_swap_alpha_for_tao(
+        &self,
+        netuid: u16,
+        alpha: u64,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
 }
 
 /// Error type of this RPC api.
@@ -74,5 +89,41 @@ where
         api.current_alpha_price(at, netuid).map_err(|e| {
             Error::RuntimeError(format!("Unable to get current alpha price: {e:?}")).into()
         })
+    }
+
+    fn sim_swap_tao_for_alpha(
+        &self,
+        netuid: u16,
+        tao: u64,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        match api.sim_swap_tao_for_alpha(at, netuid, tao) {
+            Ok(result) => Ok(result.encode()),
+            Err(e) => Err(Error::RuntimeError(format!(
+                "Unable to simulate tao -> alpha swap: {e:?}"
+            ))
+            .into()),
+        }
+    }
+
+    fn sim_swap_alpha_for_tao(
+        &self,
+        netuid: u16,
+        alpha: u64,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        match api.sim_swap_alpha_for_tao(at, netuid, alpha) {
+            Ok(result) => Ok(result.encode()),
+            Err(e) => Err(Error::RuntimeError(format!(
+                "Unable to simulate alpha -> tao swap: {e:?}"
+            ))
+            .into()),
+        }
     }
 }

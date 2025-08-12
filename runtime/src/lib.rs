@@ -61,6 +61,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use subtensor_precompiles::Precompiles;
 use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
+use subtensor_swap_interface::{OrderType, SwapHandler, SwapResult};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -212,7 +213,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 302,
+    spec_version: 301,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -2370,6 +2371,34 @@ impl_runtime_apis! {
             pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into())
                 .saturating_mul(U96F32::from_num(1_000_000_000))
                 .saturating_to_num()
+        }
+
+        fn sim_swap_tao_for_alpha(netuid: u16, tao: u64) -> SwapResult {
+            pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
+                netuid.into(),
+                OrderType::Buy,
+                tao,
+            ).unwrap_or(SwapResult {
+                amount_paid_in: 0,
+                amount_paid_out: 0,
+                fee_paid: 0,
+                tao_reserve_delta: 0,
+                alpha_reserve_delta: 0,
+            })
+        }
+
+        fn sim_swap_alpha_for_tao(netuid: u16, alpha: u64) -> SwapResult {
+            pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
+                netuid.into(),
+                OrderType::Sell,
+                alpha,
+            ).unwrap_or(SwapResult {
+                amount_paid_in: 0,
+                amount_paid_out: 0,
+                fee_paid: 0,
+                tao_reserve_delta: 0,
+                alpha_reserve_delta: 0,
+            })
         }
     }
 }

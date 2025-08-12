@@ -11,6 +11,7 @@ sp-api.workspace = true
 sp-blockchain.workspace = true
 sp-runtime.workspace = true
 pallet-subtensor-swap-runtime-api.workspace = true
+subtensor-swap-interface.workspace = true
 
 [features]
 default = ["std"]
@@ -19,4 +20,5 @@ std = [
 	"pallet-subtensor-swap-runtime-api/std",
 	"sp-api/std",
 	"sp-runtime/std",
+	"subtensor-swap-interface/std",
 ]
