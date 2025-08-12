@@ -493,7 +493,7 @@ impl<T: Config> Pallet<T> {
             percent.deconstruct() < 100u8,
             Error::<T>::NodeValidatorEmissionsPercentTooHigh
         );
-        NodeValidatorEmissionsPercent::<T>::set(percent.clone());
+        NodeValidatorEmissionsPercent::<T>::set(percent);
         Self::deposit_event(Event::NodeValidatorEmissionsPercentSet(percent));
         Ok(())
     }

@@ -95,7 +95,7 @@ impl AuthorityKeys {
         let ed25519_pub = ss58_to_public::<ed25519::Public>(known.ed25519);
         // Account and Babe are SR25519, Grandpa is ED25519
         AuthorityKeys::new(
-            AccountId32::from(sr25519_pub.clone()),
+            AccountId32::from(sr25519_pub),
             BabeId::from(sr25519_pub),
             GrandpaId::from(ed25519_pub),
         )

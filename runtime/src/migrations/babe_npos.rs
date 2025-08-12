@@ -123,11 +123,7 @@ where
         let authorities: Vec<(BabeAuthorityId, BabeAuthorityWeight)> =
             pallet_aura::Authorities::<T>::get()
                 .into_iter()
-                .map(|aura| {
-                    // BabeAuthorityId and AuraId are both sr25519::Public, so can convert between them
-                    // easily.
-                    (BabeAuthorityId::from(aura.into_inner()), 1)
-                })
+                .map(|aura| (BabeAuthorityId::from(aura.into_inner()), 1))
                 .collect::<Vec<_>>();
         let bounded_authorities =
             WeakBoundedVec::<_, <T as pallet_babe::Config>::MaxAuthorities>::try_from(
@@ -167,10 +163,7 @@ where
             .collect::<Vec<_>>();
         reads.saturating_accrue(babe_authorities.len() as u64);
 
-        log::info!(
-            "Initializing pallet_session with authorities: {:?}",
-            babe_authorities
-        );
+        log::info!("Initializing pallet_session with authorities: {babe_authorities:?}");
 
         let keys: Vec<(AccountId32, SessionKeys)> = babe_authorities
             .into_iter()
@@ -331,12 +324,7 @@ where
         writes.saturating_accrue(11u64);
 
         for &(ref account, _, balance, ref status) in &stakers {
-            log::info!(
-                "inserting genesis staker: {:?} => {:?} => {:?}",
-                account,
-                balance,
-                status
-            );
+            log::info!("inserting genesis staker: {account:?} => {balance:?} => {status:?}");
             if Balances::usable_balance(account) < balance {
                 use frame_support::traits::fungible::Mutate;
                 log::warn!(
@@ -355,11 +343,7 @@ where
                 pallet_staking::RewardDestination::Staked,
             ) {
                 log::error!(
-                    "Failed to bond {:?} with balance {:?} and status {:?}: {:?}",
-                    account,
-                    balance,
-                    status,
-                    e
+                    "Failed to bond {account:?} with balance {balance:?} and status {status:?}: {e:?}"
                 );
             };
             writes.saturating_inc();
@@ -370,7 +354,7 @@ where
                     blocked: false,
                 },
             ) {
-                log::error!("Failed to set {:?} as validator: {:?}", account, e);
+                log::error!("Failed to set {account:?} as validator: {e:?}");
             };
             writes.saturating_inc();
         }

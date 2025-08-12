@@ -60,7 +60,7 @@ fn devnet_genesis(
     let mut balances: HashMap<AccountId, u64> = balances.into_iter().collect();
     for a in initial_authorities.iter() {
         let bal = balances.get(a.account()).unwrap_or(&0);
-        balances.insert(a.account().clone(), bal + 1500 * UNITS);
+        balances.insert(a.account().clone(), bal.saturating_add(1500 * UNITS));
     }
     serde_json::json!({
         "balances": { "balances": balances.into_iter().collect::<Vec<_>>() },

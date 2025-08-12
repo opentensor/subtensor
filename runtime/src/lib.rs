@@ -462,12 +462,12 @@ parameter_types! {
     // in testing: 1min or half of the session for each
     pub SignedPhase: u32 = prod_or_fast!(
         EPOCH_DURATION_IN_SLOTS / 4,
-        (1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2),
+        MINUTES.min(EpochDuration::get().saturated_into::<u32>() / 2),
         "TAO_SIGNED_PHASE"
     );
     pub UnsignedPhase: u32 = prod_or_fast!(
         EPOCH_DURATION_IN_SLOTS / 4,
-        (1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2),
+        MINUTES.min(EpochDuration::get().saturated_into::<u32>() / 2),
         "TAO_UNSIGNED_PHASE"
     );
 
@@ -479,7 +479,7 @@ parameter_types! {
     // 0.01 TAO per KB of solution data.
     pub const SignedDepositByte: Balance = deposit(0, 10) / 1024;
     // Each good submission will get 1 TAO as reward
-    pub SignedRewardBase: Balance = 1 * UNITS;
+    pub SignedRewardBase: Balance = UNITS;
 
     // 4 hour session, 1 hour unsigned phase, 32 offchain executions.
     pub OffchainRepeat: BlockNumber = UnsignedPhase::get() / 32;

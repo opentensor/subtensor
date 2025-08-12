@@ -17,8 +17,7 @@ pub fn sr25519_to_ed25519(
     let res = known_ss58::ALL
         .iter()
         .find(|known| known.sr25519 == sr25519_pub.to_ss58check())
-        .map(|known| ed25519::Public::from_ss58check(known.ed25519).ok())
-        .flatten();
+        .and_then(|known| ed25519::Public::from_ss58check(known.ed25519).ok());
 
     match res {
         Some(ed25519_pub) => {
