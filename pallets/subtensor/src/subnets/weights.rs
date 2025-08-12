@@ -182,49 +182,56 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// ---- The implementation for committing commit-reveal v3 weights.
+    /// ---- Commits a timelocked, encrypted weight payload (Commit-Reveal v3).
     ///
-    /// # Args:
-    /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
-    ///   - The signature of the committing hotkey.
+    /// # Args
+    /// * `origin` (`<T as frame_system::Config>::RuntimeOrigin`):  
+    ///   The signed origin of the committing hotkey.
+    /// * `netuid` (`NetUid` = `u16`):  
+    ///   Unique identifier for the subnet on which the commit is made.
+    /// * `commit` (`BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>`):  
+    ///   The encrypted weight payload, produced as follows:  
+    ///   1. Build a [`WeightsPayload`] structure.  
+    ///   2. SCALE-encode it (`parity_scale_codec::Encode`).  
+    ///   3. Encrypt it following the steps  
+    ///      [here](https://github.com/ideal-lab5/tle/blob/f8e6019f0fb02c380ebfa6b30efb61786dede07b/timelock/src/tlock.rs#L283-L336) to  
+    ///      produce a [`TLECiphertext<TinyBLS381>`].  
+    ///   4. Compress & serialise.
+    /// * `reveal_round` (`u64`):  
+    ///   DRAND round whose output becomes known during epoch `n + 1`; the payload  
+    ///   must be revealed in that epoch.
+    /// * `commit_reveal_version` (`u16`):  
+    ///   Version tag that **must** match [`get_commit_reveal_weights_version`] for  
+    ///   the call to succeed. Used to gate runtime upgrades.
     ///
-    /// * `netuid` (`u16`):
-    ///   - The u16 network identifier.
+    /// # Behaviour
+    /// 1. Verifies the caller’s signature and registration on `netuid`.  
+    /// 2. Ensures commit-reveal is enabled **and** the supplied
+    ///    `commit_reveal_version` is current.  
+    /// 3. Enforces per-neuron rate-limiting via [`Pallet::check_rate_limit`].  
+    /// 4. Rejects the call when the hotkey already has ≥ 10 unrevealed commits in
+    ///    the current epoch.  
+    /// 5. Appends `(hotkey, commit_block, commit, reveal_round)` to  
+    ///    `CRV3WeightCommitsV2[netuid][epoch]`.  
+    /// 6. Emits `CRV3WeightsCommitted` with the Blake2 hash of `commit`.  
+    /// 7. Updates `LastUpdateForUid` so subsequent rate-limit checks include this
+    ///    commit.
     ///
-    /// * `commit` (`Vec<u8>`):
-    ///   - The encrypted compressed commit.
-    ///     The steps for this are:
-    ///     1. Instantiate [`WeightsPayload`]
-    ///     2. Serialize it using the `parity_scale_codec::Encode` trait
-    ///     3. Encrypt it following the steps (here)[https://github.com/ideal-lab5/tle/blob/f8e6019f0fb02c380ebfa6b30efb61786dede07b/timelock/src/tlock.rs#L283-L336]
-    ///        to produce a [`TLECiphertext<TinyBLS381>`] type.
-    ///     4. Serialize and compress using the `ark-serialize` `CanonicalSerialize` trait.
+    /// # Raises
+    /// * `CommitRevealDisabled` – Commit-reveal is disabled on `netuid`.  
+    /// * `IncorrectCommitRevealVersion` – Provided version ≠ runtime version.  
+    /// * `HotKeyNotRegisteredInSubNet` – Caller’s hotkey is not registered.  
+    /// * `CommittingWeightsTooFast` – Caller exceeds commit-rate limit.  
+    /// * `TooManyUnrevealedCommits` – Caller already has 10 unrevealed commits.
     ///
-    /// * reveal_round (`u64`):
-    ///    - The drand reveal round which will be avaliable during epoch `n+1` from the current
-    ///      epoch.
-    ///
-    /// # Raises:
-    /// * `CommitRevealDisabled`:
-    ///   - Raised if commit-reveal v3 is disabled for the specified network.
-    ///
-    /// * `HotKeyNotRegisteredInSubNet`:
-    ///   - Raised if the hotkey is not registered on the specified network.
-    ///
-    /// * `CommittingWeightsTooFast`:
-    ///   - Raised if the hotkey's commit rate exceeds the permitted limit.
-    ///
-    /// * `TooManyUnrevealedCommits`:
-    ///   - Raised if the hotkey has reached the maximum number of unrevealed commits.
-    ///
-    /// # Events:
-    /// * `WeightsCommitted`:
-    ///   - Emitted upon successfully storing the weight hash.
-    pub fn do_commit_crv3_weights(
+    /// # Events
+    /// * `CRV3WeightsCommitted(hotkey, netuid, commit_hash)` – Fired after the commit is successfully stored.
+    pub fn do_commit_timelocked_weights(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
         commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
         reveal_round: u64,
+        commit_reveal_version: u16,
     ) -> DispatchResult {
         // 1. Verify the caller's signature (hotkey).
         let who = ensure_signed(origin)?;
@@ -237,13 +244,19 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CommitRevealDisabled
         );
 
-        // 3. Ensure the hotkey is registered on the network.
+        // 3. Ensure correct client version
+        ensure!(
+            commit_reveal_version == Self::get_commit_reveal_weights_version(),
+            Error::<T>::IncorrectCommitRevealVersion
+        );
+
+        // 4. Ensure the hotkey is registered on the network.
         ensure!(
             Self::is_hotkey_registered_on_network(netuid, &who),
             Error::<T>::HotKeyNotRegisteredInSubNet
         );
 
-        // 4. Check that the commit rate does not exceed the allowed frequency.
+        // 5. Check that the commit rate does not exceed the allowed frequency.
         let commit_block = Self::get_current_block_as_u64();
         let neuron_uid = Self::get_uid_for_net_and_hotkey(netuid, &who)?;
         ensure!(
@@ -251,7 +264,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CommittingWeightsTooFast
         );
 
-        // 5. Retrieve or initialize the VecDeque of commits for the hotkey.
+        // 6. Retrieve or initialize the VecDeque of commits for the hotkey.
         let cur_block = Self::get_current_block_as_u64();
         let cur_epoch = match Self::should_run_epoch(netuid, commit_block) {
             true => Self::get_epoch_index(netuid, cur_block).saturating_add(1),
@@ -259,7 +272,7 @@ impl<T: Config> Pallet<T> {
         };
 
         CRV3WeightCommitsV2::<T>::try_mutate(netuid, cur_epoch, |commits| -> DispatchResult {
-            // 6. Verify that the number of unrevealed commits is within the allowed limit.
+            // 7. Verify that the number of unrevealed commits is within the allowed limit.
 
             let unrevealed_commits_for_who = commits
                 .iter()
@@ -270,22 +283,22 @@ impl<T: Config> Pallet<T> {
                 Error::<T>::TooManyUnrevealedCommits
             );
 
-            // 7. Append the new commit with calculated reveal blocks.
+            // 8. Append the new commit with calculated reveal blocks.
             // Hash the commit before it is moved, for the event
             let commit_hash = BlakeTwo256::hash(&commit);
             commits.push_back((who.clone(), cur_block, commit, reveal_round));
 
-            // 8. Emit the WeightsCommitted event
+            // 9. Emit the WeightsCommitted event
             Self::deposit_event(Event::CRV3WeightsCommitted(
                 who.clone(),
                 netuid,
                 commit_hash,
             ));
 
-            // 9. Update the last commit block for the hotkey's UID.
+            // 10. Update the last commit block for the hotkey's UID.
             Self::set_last_update_for_uid(netuid, neuron_uid, commit_block);
 
-            // 10. Return success.
+            // 11. Return success.
             Ok(())
         })
     }

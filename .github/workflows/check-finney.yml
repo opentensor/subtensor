@@ -4,6 +4,10 @@ on:
   pull_request:
     branches: [finney, main]
     types: [labeled, unlabeled, synchronize, opened]
+    
+concurrency:
+  group: check-finney-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
@@ -11,14 +15,18 @@ env:
 jobs:
   check-spec-version:
     name: Check spec_version bump
-    runs-on: SubtensorCI
+    runs-on: [self-hosted, type-ccx33]
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-spec-version-bump') }}
     steps:
       - name: Dependencies
         run: |
-          sudo apt-get update &&
-          sudo apt-get install -y curl clang curl libssl-dev llvm \
-                                  libudev-dev protobuf-compiler
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl libssl-dev llvm libudev-dev protobuf-compiler pkg-config
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
 
       - name: Check-out repository under $GITHUB_WORKSPACE
         uses: actions/checkout@v4
