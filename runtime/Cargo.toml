@@ -23,17 +23,18 @@ log.workspace = true
 codec = { workspace = true, features = ["derive"] }
 scale-info = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["alloc"] }
-pallet-aura.workspace = true
-pallet-balances.workspace = true
-pallet-subtensor.workspace = true
-pallet-subtensor-swap.workspace = true
-pallet-subtensor-swap-runtime-api.workspace = true
-substrate-fixed.workspace = true
-subtensor-swap-interface.workspace = true
-frame-support.workspace = true
-pallet-grandpa.workspace = true
-pallet-insecure-randomness-collective-flip.workspace = true
-frame-system.workspace = true
+pallet-aura = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-subtensor = { workspace = true }
+pallet-subtensor-swap = { workspace = true }
+pallet-subtensor-swap-runtime-api = { workspace = true }
+substrate-fixed = { workspace = true }
+subtensor-swap-interface = { workspace = true }
+subtensor-transaction-fee = { workspace = true }
+frame-support = { workspace = true }
+pallet-grandpa = { workspace = true }
+pallet-insecure-randomness-collective-flip = { workspace = true }
+frame-system = { workspace = true }
 frame-try-runtime = { workspace = true, optional = true }
 pallet-timestamp.workspace = true
 pallet-transaction-payment.workspace = true
@@ -191,6 +192,7 @@ std = [
 	"pallet-registry/std",
 	"pallet-admin-utils/std",
 	"subtensor-custom-rpc-runtime-api/std",
+	"subtensor-transaction-fee/std",
 	"serde_json/std",
 	"sp-io/std",
 	"sp-tracing/std",
@@ -222,7 +224,7 @@ std = [
 	"rand_chacha/std",
 	"sha2/std",
 	"w3f-bls/std",
-	"runtime-common/std"
+	"runtime-common/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -249,13 +251,16 @@ runtime-benchmarks = [
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-crowdloan/runtime-benchmarks",
+	"runtime-common/runtime-benchmarks",
 
 	# EVM + Frontier
 	"pallet-ethereum/runtime-benchmarks",
 	"pallet-evm/runtime-benchmarks",
 	"pallet-hotfix-sufficients/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
-	"runtime-common/runtime-benchmarks"
+
+	# Smart Tx fees pallet
+	"subtensor-transaction-fee/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
@@ -292,6 +297,6 @@ try-runtime = [
 	"pallet-evm/try-runtime",
 	"pallet-evm-chain-id/try-runtime",
 	"pallet-drand/try-runtime",
-	"runtime-common/try-runtime"
+	"runtime-common/try-runtime",
 ]
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]
