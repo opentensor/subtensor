@@ -167,15 +167,11 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotEnoughBalanceToStake
         );
 
-        // --- 6. Determine the netuid to register.
-        let netuid_to_register = Self::get_next_netuid();
-
         // --- 7. Perform the lock operation.
         let actual_tao_lock_amount =
             Self::remove_balance_from_coldkey_account(&coldkey, lock_amount.into())?;
         log::debug!("actual_tao_lock_amount: {actual_tao_lock_amount:?}");
 
-        // --- 8. Set the lock amount for use to determine pricing.
         // --- 8. Set the lock amount for use to determine pricing.
         Self::set_network_last_lock(actual_tao_lock_amount);
 
@@ -208,11 +204,11 @@ impl<T: Config> Pallet<T> {
         NetworkLastRegistered::<T>::set(current_block);
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
 
-        // --- 13. Set the symbol.
+        // --- 15. Set the symbol.
         let symbol = Self::get_next_available_symbol(netuid_to_register);
         TokenSymbol::<T>::insert(netuid_to_register, symbol);
 
-        // --- 15. Init the pool by putting the lock as the initial alpha.
+        // --- 16. Init the pool by putting the lock as the initial alpha.
         TokenSymbol::<T>::insert(
             netuid_to_register,
             Self::get_symbol_for_subnet(netuid_to_register),
@@ -239,7 +235,7 @@ impl<T: Config> Pallet<T> {
             Self::increase_total_stake(pool_initial_tao);
         }
 
-        // --- 16. Add the identity if it exists
+        // --- 17. Add the identity if it exists
         if let Some(identity_value) = identity {
             ensure!(
                 Self::is_valid_subnet_identity(&identity_value),
@@ -250,12 +246,11 @@ impl<T: Config> Pallet<T> {
             Self::deposit_event(Event::SubnetIdentitySet(netuid_to_register));
         }
 
-
-        // --- 17. Emit the NetworkAdded event.
+        // --- 18. Emit the NetworkAdded event.
         log::info!("NetworkAdded( netuid:{netuid_to_register:?}, mechanism:{mechid:?} )");
         Self::deposit_event(Event::NetworkAdded(netuid_to_register, mechid));
 
-        // --- 18. Return success.
+        // --- 19. Return success.
         Ok(())
     }
 

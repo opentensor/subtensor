@@ -462,6 +462,10 @@ impl<T: Config> Pallet<T> {
         SubnetVolume::<T>::remove(netuid);
         SubnetMovingPrice::<T>::remove(netuid);
 
+        // --- 12. Add the balance back to the owner.
+        SubnetOwner::<T>::remove(netuid);
+
+        // --- 13. Remove subnet identity if it exists.
         if SubnetIdentitiesV3::<T>::contains_key(netuid) {
             SubnetIdentitiesV3::<T>::remove(netuid);
             Self::deposit_event(Event::SubnetIdentityRemoved(netuid));
@@ -584,49 +588,54 @@ impl<T: Config> Pallet<T> {
 
         // 2. Basic info.
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
-        let lock_cost: u64 = Self::get_subnet_locked_balance(netuid);
+        let lock_cost_u64: u64 = Self::get_subnet_locked_balance(netuid).into();
 
         // Owner-cut already received from emissions.
-        let total_emission: u64 = Emission::<T>::get(netuid).iter().sum();
+        let total_emission_u64: u64 = Emission::<T>::get(netuid)
+            .into_iter()
+            .map(Into::<u64>::into)
+            .sum();
         let owner_fraction = Self::get_float_subnet_owner_cut();
-        let owner_received_emission = U96F32::from_num(total_emission)
+        let owner_received_emission_u64 = U96F32::from_num(total_emission_u64)
             .saturating_mul(owner_fraction)
             .floor()
             .saturating_to_num::<u64>();
 
-        // 3. Gather α-out stakers.
-        let mut total_alpha_out: u128 = 0;
+        // 3. Gather α-out stakers (U64F64 -> use raw bits as weights).
+        let mut total_alpha_bits: u128 = 0;
         let mut stakers: Vec<(T::AccountId, T::AccountId, u128)> = Vec::new();
 
         for ((hot, cold, this_netuid), alpha) in Alpha::<T>::iter() {
             if this_netuid == netuid {
-                let a = alpha.saturating_to_num::<u128>();
-                total_alpha_out = total_alpha_out.saturating_add(a);
-                stakers.push((hot, cold, a));
+                let a_bits: u128 = alpha.to_bits(); // <- was `alpha.into()`; that doesn't exist
+                total_alpha_bits = total_alpha_bits.saturating_add(a_bits);
+                stakers.push((hot, cold, a_bits));
             }
         }
 
-        // 4. Pro-rata distribution – TAO restaked to ROOT.
-        let subnet_tao: u128 = SubnetTAO::<T>::get(netuid) as u128;
+        // 4. Pro‑rata distribution – TAO restaked to ROOT.
+        let subnet_tao_u64: u64 = SubnetTAO::<T>::get(netuid).into();
         let root_netuid = NetUid::ROOT;
 
-        if total_alpha_out > 0 && subnet_tao > 0 && !stakers.is_empty() {
+        if total_alpha_bits > 0 && subnet_tao_u64 > 0 && !stakers.is_empty() {
             struct Portion<A, C> {
                 hot: A,
                 cold: C,
                 share: u64,
                 rem: u128,
             }
+
+            let pot_u128 = subnet_tao_u64 as u128;
             let mut portions: Vec<Portion<_, _>> = Vec::with_capacity(stakers.len());
             let mut distributed: u128 = 0;
 
-            for (hot, cold, a) in &stakers {
-                let prod = subnet_tao.saturating_mul(*a);
-                let share_u128 = prod.checked_div(total_alpha_out).unwrap_or_default();
+            for (hot, cold, a_bits) in &stakers {
+                let prod = pot_u128.saturating_mul(*a_bits);
+                let share_u128 = prod.checked_div(total_alpha_bits).unwrap_or_default();
                 let share_u64 = share_u128.min(u64::MAX as u128) as u64;
                 distributed = distributed.saturating_add(share_u64 as u128);
 
-                let rem = prod.checked_rem(total_alpha_out).unwrap_or_default();
+                let rem = prod.checked_rem(total_alpha_bits).unwrap_or_default();
                 portions.push(Portion {
                     hot: hot.clone(),
                     cold: cold.clone(),
@@ -635,11 +644,12 @@ impl<T: Config> Pallet<T> {
                 });
             }
 
-            // Handle leftover (< stakers.len()).
-            let leftover = subnet_tao.saturating_sub(distributed);
+            // Largest‑remainder method; clamp for wasm32 (usize = 32‑bit).
+            let leftover = pot_u128.saturating_sub(distributed);
             if leftover > 0 {
                 portions.sort_by(|a, b| b.rem.cmp(&a.rem));
-                for p in portions.iter_mut().take(leftover as usize) {
+                let give = core::cmp::min(leftover, portions.len() as u128) as usize;
+                for p in portions.iter_mut().take(give) {
                     p.share = p.share.saturating_add(1);
                 }
             }
@@ -647,8 +657,14 @@ impl<T: Config> Pallet<T> {
             // Restake into root and clean α records.
             for p in portions {
                 if p.share > 0 {
-                    // Zero-fee restake of TAO into the root network.
-                    Self::stake_into_subnet(&p.hot, &p.cold, root_netuid, p.share, 0u64)?;
+                    Self::stake_into_subnet(
+                        &p.hot,
+                        &p.cold,
+                        root_netuid,
+                        p.share.into(),
+                        TaoCurrency::from(0),
+                        false,
+                    )?;
                 }
                 Alpha::<T>::remove((&p.hot, &p.cold, netuid));
             }
@@ -659,42 +675,44 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // 5. Reset α in/out counters.
-        SubnetAlphaIn::<T>::insert(netuid, 0);
-        SubnetAlphaOut::<T>::insert(netuid, 0);
+        // 5. Reset α in/out counters — use typed zeros (no inference issues).
+        SubnetAlphaIn::<T>::insert(netuid, AlphaCurrency::from(0));
+        SubnetAlphaOut::<T>::insert(netuid, AlphaCurrency::from(0));
 
         // 6. Refund remaining lock to subnet owner.
-        let refund = lock_cost.saturating_sub(owner_received_emission);
-        Self::set_subnet_locked_balance(netuid, 0);
-        if refund > 0 {
-            Self::add_balance_to_coldkey_account(&owner_coldkey, refund);
+        let refund_u64 = lock_cost_u64.saturating_sub(owner_received_emission_u64);
+        Self::set_subnet_locked_balance(netuid, TaoCurrency::from(0));
+        if refund_u64 > 0 {
+            // This helper expects runtime Balance (u64), not TaoCurrency.
+            Self::add_balance_to_coldkey_account(&owner_coldkey, refund_u64);
         }
 
         Ok(())
     }
-
     pub fn get_network_to_prune() -> Option<NetUid> {
         let current_block: u64 = Self::get_current_block_as_u64();
         let total_networks: u16 = TotalNetworks::<T>::get();
 
         let mut candidate_netuid: Option<NetUid> = None;
-        let mut candidate_emission = u64::MAX;
-        let mut candidate_timestamp = u64::MAX;
+        let mut candidate_emission: u64 = u64::MAX;
+        let mut candidate_timestamp: u64 = u64::MAX;
 
         for net in 1..=total_networks {
             let netuid: NetUid = net.into();
             let registered_at = NetworkRegisteredAt::<T>::get(netuid);
 
-            // Skip immune networks
+            // Skip immune networks.
             if current_block < registered_at.saturating_add(Self::get_network_immunity_period()) {
                 continue;
             }
 
-            // We want total emission across all UIDs in this subnet:
-            let emission_vec = Emission::<T>::get(netuid);
-            let total_emission = emission_vec.iter().sum::<u64>();
+            // Sum AlphaCurrency as u64 for comparison.
+            let total_emission: u64 = Emission::<T>::get(netuid)
+                .into_iter()
+                .map(Into::<u64>::into)
+                .sum();
 
-            // If tie on total_emission, earliest registration wins
+            // If tie on total_emission, earliest registration wins.
             if total_emission < candidate_emission
                 || (total_emission == candidate_emission && registered_at < candidate_timestamp)
             {
