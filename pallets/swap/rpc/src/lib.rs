@@ -18,14 +18,14 @@ pub use pallet_subtensor_swap_runtime_api::SwapRuntimeApi;
 pub trait SwapRpcApi<BlockHash> {
     #[method(name = "swap_currentAlphaPrice")]
     fn current_alpha_price(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<u64>;
-    #[method(name = "swap_sinSwapTaoForAlpha")]
+    #[method(name = "swap_simSwapTaoForAlpha")]
     fn sim_swap_tao_for_alpha(
         &self,
         netuid: u16,
         tao: u64,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
-    #[method(name = "swap_sinSwapAlphaForTao")]
+    #[method(name = "swap_simSwapAlphaForTao")]
     fn sim_swap_alpha_for_tao(
         &self,
         netuid: u16,
