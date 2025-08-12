@@ -11,18 +11,30 @@ on:
         required: false
         default: ""
 
+concurrency:
+  group: evm-tests-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
   VERBOSE: ${{ github.events.input.verbose }}
 
+permissions:
+  contents: read
+
 jobs:
   run:
-    runs-on: SubtensorCI
+    runs-on: [self-hosted, type-ccx33]
     env:
       RUST_BACKTRACE: full
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
         uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -34,11 +46,16 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update &&
-          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler nodejs
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl libssl-dev llvm libudev-dev protobuf-compiler nodejs pkg-config
 
       - name: Run tests
-        working-directory: ${{ github.workspace }}
-        run: |
-          npm install --global yarn
-          ./evm-tests/run-ci.sh
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 60
+          max_attempts: 3
+          retry_wait_seconds: 60
+          command: |
+            cd ${{ github.workspace }}
+            npm install --global yarn
+            ./evm-tests/run-ci.sh

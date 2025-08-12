@@ -368,12 +368,20 @@ impl<T: Config> Pallet<T> {
                 .collect::<sp_std::vec::Vec<_>>();
 
         if let Some(position) = positions.get_mut(0) {
+            // Claim protocol fees and add them to liquidity
+            let (tao_fees, alpha_fees) = position.collect_fees();
+
+            // Adjust liquidity
             let current_sqrt_price = Pallet::<T>::current_price_sqrt(netuid);
             let maybe_token_amounts = position.to_token_amounts(current_sqrt_price);
             if let Ok((tao, alpha)) = maybe_token_amounts {
                 // Get updated reserves, calculate liquidity
-                let new_tao_reserve = tao.saturating_add(tao_delta.to_u64());
-                let new_alpha_reserve = alpha.saturating_add(alpha_delta.to_u64());
+                let new_tao_reserve = tao
+                    .saturating_add(tao_delta.to_u64())
+                    .saturating_add(tao_fees);
+                let new_alpha_reserve = alpha
+                    .saturating_add(alpha_delta.to_u64())
+                    .saturating_add(alpha_fees);
                 let new_liquidity = helpers_128bit::sqrt(
                     (new_tao_reserve as u128).saturating_mul(new_alpha_reserve as u128),
                 ) as u64;

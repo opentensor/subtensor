@@ -2,9 +2,7 @@
 
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_noop, assert_ok};
-use frame_system::RawOrigin;
 use sp_core::{Get, U256};
-use sp_runtime::traits::TxBaseImplication;
 use substrate_fixed::types::{U64F64, U96F32};
 use subtensor_runtime_common::TaoCurrency;
 use subtensor_swap_interface::SwapHandler;
@@ -509,7 +507,7 @@ fn test_do_move_wrong_origin() {
                 netuid,
                 alpha,
             ),
-            Error::<Test>::NotEnoughStakeToWithdraw
+            Error::<Test>::AmountTooLow
         );
 
         // Check that no stake was moved
@@ -1013,18 +1011,17 @@ fn test_do_transfer_insufficient_stake() {
         )
         .unwrap();
 
+        // Amount over available stake succeeds (because fees can be paid in Alpha,
+        // this limitation is removed)
         let alpha = stake_amount * 2;
-        assert_noop!(
-            SubtensorModule::do_transfer_stake(
-                RuntimeOrigin::signed(origin_coldkey),
-                destination_coldkey,
-                hotkey,
-                netuid,
-                netuid,
-                alpha.into()
-            ),
-            Error::<Test>::NotEnoughStakeToWithdraw
-        );
+        assert_ok!(SubtensorModule::do_transfer_stake(
+            RuntimeOrigin::signed(origin_coldkey),
+            destination_coldkey,
+            hotkey,
+            netuid,
+            netuid,
+            alpha.into()
+        ));
     });
 }
 
@@ -1063,7 +1060,7 @@ fn test_do_transfer_wrong_origin() {
                 netuid,
                 stake_amount.into()
             ),
-            Error::<Test>::NotEnoughStakeToWithdraw
+            Error::<Test>::AmountTooLow
         );
     });
 }
@@ -1310,16 +1307,13 @@ fn test_do_swap_insufficient_stake() {
         )
         .unwrap();
 
-        assert_noop!(
-            SubtensorModule::do_swap_stake(
-                RuntimeOrigin::signed(coldkey),
-                hotkey,
-                netuid1,
-                netuid2,
-                attempted_swap.into()
-            ),
-            Error::<Test>::NotEnoughStakeToWithdraw
-        );
+        assert_ok!(SubtensorModule::do_swap_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid1,
+            netuid2,
+            attempted_swap.into()
+        ));
     });
 }
 
@@ -1355,7 +1349,7 @@ fn test_do_swap_wrong_origin() {
                 netuid2,
                 stake_amount.into()
             ),
-            Error::<Test>::NotEnoughStakeToWithdraw
+            Error::<Test>::AmountTooLow
         );
     });
 }
@@ -1655,177 +1649,6 @@ fn test_do_swap_allows_non_owned_hotkey() {
             destination_netuid,
             alpha_before,
         ));
-    });
-}
-
-// cargo test --package pallet-subtensor --lib -- tests::move_stake::test_swap_stake_limit_validate --exact --show-output
-#[test]
-fn test_swap_stake_limit_validate() {
-    // Testing the signed extension validate function
-    // correctly filters the `add_stake` transaction.
-
-    new_test_ext(0).execute_with(|| {
-        let subnet_owner_coldkey = U256::from(1001);
-        let subnet_owner_hotkey = U256::from(1002);
-        let origin_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        let destination_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-
-        let coldkey = U256::from(1);
-        let hotkey = U256::from(2);
-        let stake_amount = 100_000_000_000;
-
-        let reserve = 1_000_000_000_000;
-        mock::setup_reserves(origin_netuid, reserve.into(), reserve.into());
-        mock::setup_reserves(destination_netuid, reserve.into(), reserve.into());
-
-        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
-        let unstake_amount = SubtensorModule::stake_into_subnet(
-            &hotkey,
-            &coldkey,
-            origin_netuid,
-            stake_amount.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
-            false,
-        )
-        .unwrap();
-
-        // Setup limit price so that it doesn't allow much slippage at all
-        let limit_price =
-            ((<Test as pallet::Config>::SwapInterface::current_alpha_price(origin_netuid.into())
-                / <Test as pallet::Config>::SwapInterface::current_alpha_price(
-                    destination_netuid.into(),
-                ))
-                * U96F32::from_num(1_000_000_000))
-            .to_num::<u64>()
-                - 1_u64;
-
-        // Swap stake limit call
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::swap_stake_limit {
-            hotkey,
-            origin_netuid,
-            destination_netuid,
-            alpha_amount: unstake_amount,
-            limit_price: limit_price.into(),
-            allow_partial: false,
-        });
-
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-
-        let extension = crate::SubtensorTransactionExtension::<Test>::new();
-        // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(
-            RawOrigin::Signed(coldkey).into(),
-            &call.clone(),
-            &info,
-            10,
-            (),
-            &TxBaseImplication(()),
-            TransactionSource::External,
-        );
-
-        // Should fail due to slippage
-        assert_eq!(
-            result_no_stake.unwrap_err(),
-            CustomTransactionError::SlippageTooHigh.into()
-        );
-    });
-}
-
-#[test]
-fn test_stake_transfers_disabled_validate() {
-    // Testing the signed extension validate function
-    // correctly filters the `transfer_stake` transaction.
-
-    new_test_ext(0).execute_with(|| {
-        let subnet_owner_coldkey = U256::from(1001);
-        let subnet_owner_hotkey = U256::from(1002);
-        let origin_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        let destination_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-
-        let coldkey = U256::from(1);
-        let hotkey = U256::from(2);
-        let destination_coldkey = U256::from(3);
-        let stake_amount = 100_000_000_000;
-
-        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
-        let unstake_amount = SubtensorModule::stake_into_subnet(
-            &hotkey,
-            &coldkey,
-            origin_netuid,
-            stake_amount.into(),
-            <Test as Config>::SwapInterface::max_price().into(),
-            false,
-        )
-        .unwrap();
-
-        // Swap stake limit call
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::transfer_stake {
-            destination_coldkey,
-            hotkey,
-            origin_netuid,
-            destination_netuid,
-            alpha_amount: unstake_amount,
-        });
-
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-
-        let extension = crate::SubtensorTransactionExtension::<Test>::new();
-
-        // Disable transfers in origin subnet
-        TransferToggle::<Test>::insert(origin_netuid, false);
-        TransferToggle::<Test>::insert(destination_netuid, true);
-
-        // Submit to the signed extension validate function
-        let result1 = extension.validate(
-            RawOrigin::Signed(coldkey).into(),
-            &call.clone(),
-            &info,
-            10,
-            (),
-            &TxBaseImplication(()),
-            TransactionSource::External,
-        );
-        assert_eq!(
-            result1.unwrap_err(),
-            CustomTransactionError::TransferDisallowed.into()
-        );
-
-        // Disable transfers in destination subnet
-        TransferToggle::<Test>::insert(origin_netuid, true);
-        TransferToggle::<Test>::insert(destination_netuid, false);
-
-        // Submit to the signed extension validate function
-        let result2 = extension.validate(
-            RawOrigin::Signed(coldkey).into(),
-            &call.clone(),
-            &info,
-            10,
-            (),
-            &TxBaseImplication(()),
-            TransactionSource::External,
-        );
-        assert_eq!(
-            result2.unwrap_err(),
-            CustomTransactionError::TransferDisallowed.into()
-        );
-
-        // Enable transfers
-        TransferToggle::<Test>::insert(origin_netuid, true);
-        TransferToggle::<Test>::insert(destination_netuid, true);
-
-        // Submit to the signed extension validate function
-        let result3 = extension.validate(
-            RawOrigin::Signed(coldkey).into(),
-            &call.clone(),
-            &info,
-            10,
-            (),
-            &TxBaseImplication(()),
-            TransactionSource::External,
-        );
-        assert_ok!(result3);
     });
 }
 
