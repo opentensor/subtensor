@@ -23,7 +23,7 @@ jobs:
   # runs cargo fmt
   cargo-fmt:
     name: cargo fmt
-    runs-on: SubtensorCI
+    runs-on: [self-hosted, type-ccx13]
     env:
       RUST_BACKTRACE: full
     steps:
@@ -31,22 +31,28 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y build-essential
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential
 
       - name: Install Rust Nightly
-        run: |
-          rustup install nightly
-          rustup component add --toolchain nightly-x86_64-unknown-linux-gnu rustfmt
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          components: rustfmt
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
+        with:
+          key: cargo-fmt
+          cache-on-failure: true
 
       - name: cargo fmt
         run: cargo +nightly fmt --check --all
 
   cargo-clippy-default-features:
     name: cargo clippy
-    runs-on: SubtensorCI
+    runs-on: [self-hosted, type-ccx13]
     env:
       RUST_BACKTRACE: full
       SKIP_WASM_BUILD: 1
@@ -56,18 +62,27 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update &&
-          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
+        with:
+          key: clippy-default-features
+          cache-on-failure: true
 
       - name: cargo clippy --workspace --all-targets -- -D warnings
         run: cargo clippy --workspace --all-targets -- -D warnings
 
   cargo-check-lints:
     name: check custom lints
-    runs-on: SubtensorCI
+    runs-on: [self-hosted, type-ccx13]
     env:
       RUSTFLAGS: -D warnings
       RUST_BACKTRACE: full
@@ -78,11 +93,19 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update &&
-          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
+        with:
+          key: lints
+          cache-on-failure: true
 
       - name: check lints
         run: |
@@ -92,7 +115,7 @@ jobs:
 
   cargo-clippy-all-features:
     name: cargo clippy --all-features
-    runs-on: SubtensorCI
+    runs-on: [self-hosted, type-ccx13]
     env:
       RUST_BACKTRACE: full
       SKIP_WASM_BUILD: 1
@@ -102,11 +125,20 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update &&
-          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
+        with:
+          key: clippy-all-features
+          cache-on-failure: true
 
       - name: cargo clippy --workspace --all-targets --all-features -- -D warnings
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
@@ -114,7 +146,7 @@ jobs:
   # runs cargo test --workspace --all-features
   cargo-test:
     name: cargo test
-    runs-on: SubtensorCI
+    runs-on: [self-hosted, type-ccx43]
     env:
       RUST_BACKTRACE: full
       SKIP_WASM_BUILD: 1
@@ -124,11 +156,19 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update &&
-          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
+        with:
+          key: cargo-test
+          cache-on-failure: true
 
       - name: cargo test --workspace --all-features
         run: cargo test --workspace --all-features
@@ -136,7 +176,7 @@ jobs:
   # ensures cargo fix has no trivial changes that can be applied
   cargo-fix:
     name: cargo fix
-    runs-on: SubtensorCI
+    runs-on: [self-hosted, type-ccx13]
     env:
       RUST_BACKTRACE: full
       SKIP_WASM_BUILD: 1
@@ -146,11 +186,19 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update &&
-          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
+        with:
+          key: cargo-fix
+          cache-on-failure: true
 
       - name: cargo fix --workspace
         run: |
@@ -167,7 +215,7 @@ jobs:
 
   check-feature-propagation:
     name: zepter run check
-    runs-on: SubtensorCI
+    runs-on: [self-hosted, type-ccx13]
 
     steps:
       - name: Checkout
@@ -175,8 +223,21 @@ jobs:
         with:
           fetch-depth: 0 # Dont clone historic commits.
 
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl libssl-dev llvm libudev-dev protobuf-compiler pkg-config
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
+        with:
+          key: zepter
+          cache-on-failure: true
 
       - name: Install Zepter
         run: cargo install --locked -q zepter && zepter --version

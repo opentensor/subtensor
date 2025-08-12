@@ -8,6 +8,7 @@ use frame_support::{
 use log::info;
 use sp_core::Get;
 use sp_std::vec::Vec;
+use subtensor_runtime_common::NetUid;
 
 /// Constant for logging purposes
 const LOG_TARGET: &str = "migrate_transfer_ownership";
@@ -50,15 +51,14 @@ pub fn migrate_transfer_ownership_to_foundation<T: Config>(coldkey: [u8; 32]) ->
     if onchain_version < new_storage_version {
         info!(
             target: LOG_TARGET,
-            "Migrating subnet 1 and 11 to foundation control. Current version: {:?}",
-            onchain_version
+            "Migrating subnet 1 and 11 to foundation control. Current version: {onchain_version:?}"
         );
 
         // Decode the foundation's coldkey into an AccountId
         // TODO: Consider error handling for decoding failure
         let coldkey_account: T::AccountId = T::AccountId::decode(&mut &coldkey[..])
             .expect("coldkey should be a valid 32-byte array");
-        info!(target: LOG_TARGET, "Foundation coldkey: {:?}", coldkey_account);
+        info!(target: LOG_TARGET, "Foundation coldkey: {coldkey_account:?}");
 
         // Get the current block number
         let current_block = Pallet::<T>::get_current_block_as_u64();

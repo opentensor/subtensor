@@ -16,18 +16,12 @@ mod migrations;
 extern crate alloc;
 
 use codec::{Compact, Decode, Encode};
-use frame_support::traits::{Imbalance, InsideBoth};
 use frame_support::{
     PalletId,
-    dispatch::DispatchResultWithPostInfo,
+    dispatch::{DispatchResult, DispatchResultWithPostInfo},
     genesis_builder_helper::{build_state, get_preset},
     pallet_prelude::Get,
-    traits::{
-        Contains, LinearStoragePrice, OnUnbalanced,
-        fungible::{
-            DecreaseIssuance, HoldConsideration, Imbalance as FungibleImbalance, IncreaseIssuance,
-        },
-    },
+    traits::{Contains, InsideBoth, LinearStoragePrice, fungible::HoldConsideration},
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
@@ -44,7 +38,6 @@ use pallet_subtensor::rpc_info::{
     stake_info::StakeInfo,
     subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
 };
-use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{
@@ -67,7 +60,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use subtensor_precompiles::Precompiles;
-use subtensor_runtime_common::{time::*, *};
+use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -87,7 +80,9 @@ pub use frame_support::{
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
-use pallet_transaction_payment::{ConstFeeMultiplier, FungibleAdapter, Multiplier};
+use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
+use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
+
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
@@ -217,7 +212,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 279,
+    spec_version: 301,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -444,58 +439,16 @@ impl pallet_balances::Config for Runtime {
     type DoneSlashHandler = ();
 }
 
-pub struct LinearWeightToFee;
-
-impl WeightToFeePolynomial for LinearWeightToFee {
-    type Balance = Balance;
-
-    fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-        let coefficient = WeightToFeeCoefficient {
-            coeff_integer: 0,
-            coeff_frac: Perbill::from_parts(500_000),
-            negative: false,
-            degree: 1,
-        };
-
-        smallvec!(coefficient)
-    }
-}
-
 parameter_types! {
     pub const OperationalFeeMultiplier: u8 = 5;
     pub FeeMultiplier: Multiplier = Multiplier::one();
 }
 
-/// Deduct the transaction fee from the Subtensor Pallet TotalIssuance when dropping the transaction
-/// fee.
-pub struct TransactionFeeHandler;
-impl
-    OnUnbalanced<
-        FungibleImbalance<
-            u64,
-            DecreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
-            IncreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
-        >,
-    > for TransactionFeeHandler
-{
-    fn on_nonzero_unbalanced(
-        credit: FungibleImbalance<
-            u64,
-            DecreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
-            IncreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
-        >,
-    ) {
-        let ti_before = pallet_subtensor::TotalIssuance::<Runtime>::get();
-        pallet_subtensor::TotalIssuance::<Runtime>::put(ti_before.saturating_sub(credit.peek()));
-        drop(credit);
-    }
-}
-
 impl pallet_transaction_payment::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type OnChargeTransaction = FungibleAdapter<Balances, TransactionFeeHandler>;
+    type OnChargeTransaction = SubtensorTxFeeHandler<Balances, TransactionFeeHandler<Runtime>>;
     // Convert dispatch weight to a chargeable fee.
-    type WeightToFee = LinearWeightToFee;
+    type WeightToFee = subtensor_transaction_fee::LinearWeightToFee;
     type OperationalFeeMultiplier = OperationalFeeMultiplier;
     type LengthToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
@@ -530,7 +483,7 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
     }
 }
 
-use pallet_subtensor::{CollectiveInterface, MemberManagement};
+use pallet_subtensor::{CollectiveInterface, MemberManagement, ProxyInterface};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
@@ -670,6 +623,7 @@ impl pallet_multisig::Config for Runtime {
     type DepositFactor = DepositFactor;
     type MaxSignatories = MaxSignatories;
     type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
+    type BlockNumberProvider = System;
 }
 
 // Proxy Pallet config
@@ -708,18 +662,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(
                         pallet_subtensor::Call::remove_stake_limit { .. }
                     )
-                    // | RuntimeCall::SubtensorModule(
-                    //     pallet_subtensor::Call::add_stake_aggregate { .. }
-                    // )
-                    // | RuntimeCall::SubtensorModule(
-                    //     pallet_subtensor::Call::add_stake_limit_aggregate { .. }
-                    // )
-                    // | RuntimeCall::SubtensorModule(
-                    //     pallet_subtensor::Call::remove_stake_aggregate { .. }
-                    // )
-                    // | RuntimeCall::SubtensorModule(
-                    //     pallet_subtensor::Call::remove_stake_limit_aggregate { .. }
-                    // )
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::remove_stake_full_limit { .. }
+                    )
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::unstake_all { .. })
                     | RuntimeCall::SubtensorModule(
                         pallet_subtensor::Call::unstake_all_alpha { .. }
@@ -754,17 +699,25 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake {
                     alpha_amount,
                     ..
-                }) => *alpha_amount < SMALL_TRANSFER_LIMIT,
+                }) => *alpha_amount < SMALL_TRANSFER_LIMIT.into(),
                 _ => false,
             },
             ProxyType::Owner => {
-                matches!(c, RuntimeCall::AdminUtils(..))
-                    && !matches!(
-                        c,
-                        RuntimeCall::AdminUtils(
-                            pallet_admin_utils::Call::sudo_set_sn_owner_hotkey { .. }
+                matches!(
+                    c,
+                    RuntimeCall::AdminUtils(..)
+                        | RuntimeCall::SubtensorModule(
+                            pallet_subtensor::Call::set_subnet_identity { .. }
                         )
+                        | RuntimeCall::SubtensorModule(
+                            pallet_subtensor::Call::update_symbol { .. }
+                        )
+                ) && !matches!(
+                    c,
+                    RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_sn_owner_hotkey { .. }
                     )
+                )
             }
             ProxyType::NonCritical => !matches!(
                 c,
@@ -800,18 +753,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake_limit { .. })
                     | RuntimeCall::SubtensorModule(
                         pallet_subtensor::Call::remove_stake_limit { .. }
-                    ) // | RuntimeCall::SubtensorModule(
-                      //     pallet_subtensor::Call::add_stake_aggregate { .. }
-                      // )
-                      // | RuntimeCall::SubtensorModule(
-                      //     pallet_subtensor::Call::add_stake_limit_aggregate { .. }
-                      // )
-                      // | RuntimeCall::SubtensorModule(
-                      //     pallet_subtensor::Call::remove_stake_aggregate { .. }
-                      // )
-                      // | RuntimeCall::SubtensorModule(
-                      //     pallet_subtensor::Call::remove_stake_limit_aggregate { .. }
-                      // )
+                    )
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::remove_stake_full_limit { .. }
+                    )
             ),
             ProxyType::Registration => matches!(
                 c,
@@ -844,6 +789,67 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey { .. })
             ),
+            ProxyType::SubnetLeaseBeneficiary => matches!(
+                c,
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::start_call { .. })
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_serving_rate_limit { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_min_difficulty { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_max_difficulty { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_weights_version_key { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_adjustment_alpha { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_max_weight_limit { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_immunity_period { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_min_allowed_weights { .. }
+                    )
+                    | RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_kappa { .. })
+                    | RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_rho { .. })
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_activity_cutoff { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_network_registration_allowed { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_network_pow_registration_allowed { .. }
+                    )
+                    | RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_max_burn { .. })
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_bonds_moving_average { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_bonds_penalty { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_commit_reveal_weights_enabled { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_liquid_alpha_enabled { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_alpha_values { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_commit_reveal_weights_interval { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_toggle_transfer { .. }
+                    )
+            ),
         }
     }
     fn is_superset(&self, o: &Self) -> bool {
@@ -875,6 +881,30 @@ impl pallet_proxy::Config for Runtime {
     type CallHasher = BlakeTwo256;
     type AnnouncementDepositBase = AnnouncementDepositBase;
     type AnnouncementDepositFactor = AnnouncementDepositFactor;
+}
+
+pub struct Proxier;
+impl ProxyInterface<AccountId> for Proxier {
+    fn add_lease_beneficiary_proxy(lease: &AccountId, beneficiary: &AccountId) -> DispatchResult {
+        pallet_proxy::Pallet::<Runtime>::add_proxy_delegate(
+            lease,
+            beneficiary.clone(),
+            ProxyType::SubnetLeaseBeneficiary,
+            0,
+        )
+    }
+
+    fn remove_lease_beneficiary_proxy(
+        lease: &AccountId,
+        beneficiary: &AccountId,
+    ) -> DispatchResult {
+        pallet_proxy::Pallet::<Runtime>::remove_proxy_delegate(
+            lease,
+            beneficiary.clone(),
+            ProxyType::SubnetLeaseBeneficiary,
+            0,
+        )
+    }
 }
 
 parameter_types! {
@@ -928,6 +958,7 @@ impl pallet_scheduler::Config for Runtime {
     type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Runtime>;
     type OriginPrivilegeCmp = OriginPrivilegeCmp;
     type Preimages = Preimage;
+    type BlockNumberProvider = System;
 }
 
 parameter_types! {
@@ -1135,6 +1166,7 @@ parameter_types! {
     };
     pub const SubtensorInitialKeySwapOnSubnetCost: u64 = 1_000_000; // 0.001 TAO
     pub const HotkeySwapOnSubnetInterval : BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
+    pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1207,6 +1239,8 @@ impl pallet_subtensor::Config for Runtime {
     type SwapInterface = Swap;
     type KeySwapOnSubnetCost = SubtensorInitialKeySwapOnSubnetCost;
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
+    type ProxyInterface = Proxier;
+    type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
 }
 
 parameter_types! {
@@ -1328,17 +1362,13 @@ impl BalanceConverter for SubtensorEvmBalanceConverter {
             } else {
                 // Log value too large
                 log::debug!(
-                    "SubtensorEvmBalanceConverter::into_evm_balance( {:?} ) larger than U256::MAX",
-                    value
+                    "SubtensorEvmBalanceConverter::into_evm_balance( {value:?} ) larger than U256::MAX"
                 );
                 None
             }
         } else {
             // Log overflow
-            log::debug!(
-                "SubtensorEvmBalanceConverter::into_evm_balance( {:?} ) overflow",
-                value
-            );
+            log::debug!("SubtensorEvmBalanceConverter::into_evm_balance( {value:?} ) overflow");
             None
         }
     }
@@ -1353,16 +1383,14 @@ impl BalanceConverter for SubtensorEvmBalanceConverter {
             } else {
                 // Log value too large
                 log::debug!(
-                    "SubtensorEvmBalanceConverter::into_substrate_balance( {:?} ) larger than u64::MAX",
-                    value
+                    "SubtensorEvmBalanceConverter::into_substrate_balance( {value:?} ) larger than u64::MAX"
                 );
                 None
             }
         } else {
             // Log overflow
             log::debug!(
-                "SubtensorEvmBalanceConverter::into_substrate_balance( {:?} ) overflow",
-                value
+                "SubtensorEvmBalanceConverter::into_substrate_balance( {value:?} ) overflow"
             );
             None
         }
@@ -1393,6 +1421,8 @@ impl pallet_evm::Config for Runtime {
     type BalanceConverter = SubtensorEvmBalanceConverter;
     type AccountProvider = pallet_evm::FrameSystemAccountProvider<Self>;
     type GasLimitStorageGrowthRatio = ();
+    type CreateOriginFilter = ();
+    type CreateInnerOriginFilter = ();
 }
 
 parameter_types! {
@@ -1660,6 +1690,7 @@ mod benches {
         [pallet_subtensor, SubtensorModule]
         [pallet_drand, Drand]
         [pallet_crowdloan, Crowdloan]
+        [pallet_subtensor_swap, Swap]
     );
 }
 
@@ -2162,7 +2193,7 @@ impl_runtime_apis! {
             Vec<frame_benchmarking::BenchmarkList>,
             Vec<frame_support::traits::StorageInfo>,
         ) {
-            use frame_benchmarking::{baseline, Benchmarking, BenchmarkList};
+            use frame_benchmarking::{baseline, BenchmarkList};
             use frame_support::traits::StorageInfoTrait;
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
@@ -2178,7 +2209,7 @@ impl_runtime_apis! {
         fn dispatch_benchmark(
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
-            use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch};
+            use frame_benchmarking::{baseline, BenchmarkBatch};
             use sp_storage::TrackedStorageKey;
 
             use frame_system_benchmarking::Pallet as SystemBench;
@@ -2233,7 +2264,7 @@ impl_runtime_apis! {
             SubtensorModule::get_delegate(delegate_account)
         }
 
-        fn get_delegated(delegatee_account: AccountId32) -> Vec<(DelegateInfo<AccountId32>, (Compact<NetUid>, Compact<u64>))> {
+        fn get_delegated(delegatee_account: AccountId32) -> Vec<(DelegateInfo<AccountId32>, (Compact<NetUid>, Compact<AlphaCurrency>))> {
             SubtensorModule::get_delegated(delegatee_account)
         }
     }
@@ -2326,7 +2357,7 @@ impl_runtime_apis! {
     }
 
     impl subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block> for Runtime {
-        fn get_network_registration_cost() -> u64 {
+        fn get_network_registration_cost() -> TaoCurrency {
             SubtensorModule::get_network_lock_cost()
         }
     }

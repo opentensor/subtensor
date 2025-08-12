@@ -189,7 +189,7 @@ fn init_run_epochs(
             &U256::from(key),
             &U256::from(key),
             netuid,
-            stake,
+            stake.into(),
         );
     }
     assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
@@ -200,7 +200,7 @@ fn init_run_epochs(
         SubtensorModule::get_max_allowed_validators(netuid),
         validators.len() as u16
     );
-    SubtensorModule::epoch(netuid, 1_000_000_000); // run first epoch to set allowed validators
+    SubtensorModule::epoch(netuid, 1_000_000_000.into()); // run first epoch to set allowed validators
     run_to_block(1); // run to next block to ensure weights are set on nodes after their registration block
 
     // === Set weights
@@ -251,16 +251,13 @@ fn init_run_epochs(
     let start = Instant::now();
     for _ in 0..epochs {
         if sparse {
-            SubtensorModule::epoch(netuid, 1_000_000_000);
+            SubtensorModule::epoch(netuid, 1_000_000_000.into());
         } else {
-            SubtensorModule::epoch_dense(netuid, 1_000_000_000);
+            SubtensorModule::epoch_dense(netuid, 1_000_000_000.into());
         }
     }
     let duration = start.elapsed();
-    log::info!(
-        "Time elapsed in (sparse={sparse}) epoch() is: {:?}",
-        duration
-    );
+    log::info!("Time elapsed in (sparse={sparse}) epoch() is: {duration:?}");
 
     // let bonds = SubtensorModule::get_bonds( netuid );
     // for (uid, node) in [ (validators[0], "validator"), (servers[0], "server") ] {

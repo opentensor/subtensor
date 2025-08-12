@@ -2,21 +2,21 @@ extern crate alloc;
 
 use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
 use super::*;
 
-#[freeze_struct("56f5e9f33e5ec9da")]
+#[freeze_struct("28269be895d7b5ba")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct StakeInfo<AccountId: TypeInfo + Encode + Decode> {
     hotkey: AccountId,
     coldkey: AccountId,
     netuid: Compact<NetUid>,
-    stake: Compact<u64>,
+    stake: Compact<AlphaCurrency>,
     locked: Compact<u64>,
-    emission: Compact<u64>,
-    tao_emission: Compact<u64>,
+    emission: Compact<AlphaCurrency>,
+    tao_emission: Compact<TaoCurrency>,
     drain: Compact<u64>,
     is_registered: bool,
 }
@@ -36,14 +36,14 @@ impl<T: Config> Pallet<T> {
             let mut stake_info_for_coldkey: Vec<StakeInfo<T::AccountId>> = Vec::new();
             for netuid_i in netuids.clone().iter() {
                 for hotkey_i in staking_hotkeys.clone().iter() {
-                    let alpha: u64 = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    let alpha = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
                         hotkey_i, coldkey_i, *netuid_i,
                     );
-                    if alpha == 0 {
+                    if alpha.is_zero() {
                         continue;
                     }
-                    let emission: u64 = AlphaDividendsPerSubnet::<T>::get(*netuid_i, &hotkey_i);
-                    let tao_emission: u64 = TaoDividendsPerSubnet::<T>::get(*netuid_i, &hotkey_i);
+                    let emission = AlphaDividendsPerSubnet::<T>::get(*netuid_i, &hotkey_i);
+                    let tao_emission = TaoDividendsPerSubnet::<T>::get(*netuid_i, &hotkey_i);
                     let is_registered: bool =
                         Self::is_hotkey_registered_on_network(*netuid_i, hotkey_i);
                     stake_info_for_coldkey.push(StakeInfo {
@@ -95,13 +95,13 @@ impl<T: Config> Pallet<T> {
         coldkey_account: T::AccountId,
         netuid: NetUid,
     ) -> Option<StakeInfo<T::AccountId>> {
-        let alpha: u64 = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
+        let alpha = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_account,
             &coldkey_account,
             netuid,
         );
-        let emission: u64 = AlphaDividendsPerSubnet::<T>::get(netuid, &hotkey_account);
-        let tao_emission: u64 = TaoDividendsPerSubnet::<T>::get(netuid, &hotkey_account);
+        let emission = AlphaDividendsPerSubnet::<T>::get(netuid, &hotkey_account);
+        let tao_emission = TaoDividendsPerSubnet::<T>::get(netuid, &hotkey_account);
         let is_registered: bool = Self::is_hotkey_registered_on_network(netuid, &hotkey_account);
 
         Some(StakeInfo {
@@ -124,7 +124,11 @@ impl<T: Config> Pallet<T> {
         _destination_coldkey_account: T::AccountId,
         amount: u64,
     ) -> u64 {
-        let netuid = destination.or(origin).map(|v| v.1).unwrap_or_default();
-        T::SwapInterface::approx_fee_amount(netuid.into(), amount)
+        if destination == origin {
+            0_u64
+        } else {
+            let netuid = destination.or(origin).map(|v| v.1).unwrap_or_default();
+            T::SwapInterface::approx_fee_amount(netuid.into(), amount)
+        }
     }
 }

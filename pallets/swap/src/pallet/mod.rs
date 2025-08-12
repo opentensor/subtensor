@@ -1,9 +1,12 @@
 use core::num::NonZeroU64;
+use core::ops::Neg;
 
 use frame_support::{PalletId, pallet_prelude::*, traits::Get};
 use frame_system::pallet_prelude::*;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{BalanceOps, NetUid, SubnetInfo};
+use subtensor_runtime_common::{
+    AlphaCurrency, BalanceOps, Currency, NetUid, SubnetInfo, TaoCurrency,
+};
 
 use crate::{
     position::{Position, PositionId},
@@ -67,7 +70,7 @@ mod pallet {
     /// Default fee rate if not set
     #[pallet::type_value]
     pub fn DefaultFeeRate() -> u16 {
-        196 // 0.3 %
+        33 // ~0.05 %
     }
 
     /// The fee rate applied to swaps per subnet, normalized value between 0 and u16::MAX
@@ -149,11 +152,11 @@ mod pallet {
         /// First enable even indicates a switch from V2 to V3 swap.
         UserLiquidityToggled { netuid: NetUid, enable: bool },
 
-        /// Event emitted when liquidity is added to a subnet's liquidity pool.
+        /// Event emitted when a liquidity position is added to a subnet's liquidity pool.
         LiquidityAdded {
             /// The coldkey account that owns the position
             coldkey: T::AccountId,
-            /// The hotkey account associated with the position
+            /// The hotkey account where Alpha comes from
             hotkey: T::AccountId,
             /// The subnet identifier
             netuid: NetUid,
@@ -162,27 +165,66 @@ mod pallet {
             /// The amount of liquidity added to the position
             liquidity: u64,
             /// The amount of TAO tokens committed to the position
-            tao: u64,
+            tao: TaoCurrency,
             /// The amount of Alpha tokens committed to the position
-            alpha: u64,
+            alpha: AlphaCurrency,
+            /// the lower tick
+            tick_low: TickIndex,
+            /// the upper tick
+            tick_high: TickIndex,
         },
 
-        /// Event emitted when liquidity is removed from a subnet's liquidity pool.
+        /// Event emitted when a liquidity position is removed from a subnet's liquidity pool.
         LiquidityRemoved {
             /// The coldkey account that owns the position
             coldkey: T::AccountId,
+            /// The hotkey account where Alpha goes to
+            hotkey: T::AccountId,
             /// The subnet identifier
             netuid: NetUid,
             /// Unique identifier for the liquidity position
             position_id: PositionId,
+            /// The amount of liquidity removed from the position
+            liquidity: u64,
             /// The amount of TAO tokens returned to the user
-            tao: u64,
+            tao: TaoCurrency,
             /// The amount of Alpha tokens returned to the user
-            alpha: u64,
+            alpha: AlphaCurrency,
             /// The amount of TAO fees earned from the position
-            fee_tao: u64,
+            fee_tao: TaoCurrency,
             /// The amount of Alpha fees earned from the position
-            fee_alpha: u64,
+            fee_alpha: AlphaCurrency,
+            /// the lower tick
+            tick_low: TickIndex,
+            /// the upper tick
+            tick_high: TickIndex,
+        },
+
+        /// Event emitted when a liquidity position is modified in a subnet's liquidity pool.
+        /// Modifying causes the fees to be claimed.
+        LiquidityModified {
+            /// The coldkey account that owns the position
+            coldkey: T::AccountId,
+            /// The hotkey account where Alpha comes from or goes to
+            hotkey: T::AccountId,
+            /// The subnet identifier
+            netuid: NetUid,
+            /// Unique identifier for the liquidity position
+            position_id: PositionId,
+            /// The amount of liquidity added to or removed from the position
+            liquidity: i64,
+            /// The amount of TAO tokens returned to the user
+            tao: i64,
+            /// The amount of Alpha tokens returned to the user
+            alpha: i64,
+            /// The amount of TAO fees earned from the position
+            fee_tao: TaoCurrency,
+            /// The amount of Alpha fees earned from the position
+            fee_alpha: AlphaCurrency,
+            /// the lower tick
+            tick_low: TickIndex,
+            /// the upper tick
+            tick_high: TickIndex,
         },
     }
 
@@ -332,6 +374,8 @@ mod pallet {
                 tick_high,
                 liquidity,
             )?;
+            let alpha = AlphaCurrency::from(alpha);
+            let tao = TaoCurrency::from(tao);
 
             // Remove TAO and Alpha balances or fail transaction if they can't be removed exactly
             let tao_provided = T::BalanceOps::decrease_balance(&coldkey, tao)?;
@@ -354,6 +398,8 @@ mod pallet {
                 liquidity,
                 tao,
                 alpha,
+                tick_low,
+                tick_high,
             });
 
             Ok(())
@@ -402,12 +448,16 @@ mod pallet {
             // Emit an event
             Self::deposit_event(Event::LiquidityRemoved {
                 coldkey,
+                hotkey,
                 netuid: netuid.into(),
                 position_id,
+                liquidity: result.liquidity,
                 tao: result.tao,
                 alpha: result.alpha,
                 fee_tao: result.fee_tao,
                 fee_alpha: result.fee_alpha,
+                tick_low: result.tick_low.into(),
+                tick_high: result.tick_high.into(),
             });
 
             Ok(())
@@ -456,14 +506,18 @@ mod pallet {
                 );
 
                 // Emit an event
-                Self::deposit_event(Event::LiquidityAdded {
+                Self::deposit_event(Event::LiquidityModified {
                     coldkey: coldkey.clone(),
                     hotkey: hotkey.clone(),
                     netuid,
                     position_id,
-                    liquidity: liquidity_delta as u64,
-                    tao: result.tao,
-                    alpha: result.alpha,
+                    liquidity: liquidity_delta,
+                    tao: result.tao.to_u64() as i64,
+                    alpha: result.alpha.to_u64() as i64,
+                    fee_tao: result.fee_tao,
+                    fee_alpha: result.fee_alpha,
+                    tick_low: result.tick_low,
+                    tick_high: result.tick_high,
                 });
             } else {
                 // Credit the returned tao and alpha to the account
@@ -471,22 +525,42 @@ mod pallet {
                 T::BalanceOps::increase_stake(&coldkey, &hotkey, netuid.into(), result.alpha)?;
 
                 // Emit an event
-                Self::deposit_event(Event::LiquidityRemoved {
-                    coldkey: coldkey.clone(),
-                    netuid,
-                    position_id,
-                    tao: result.tao,
-                    alpha: result.alpha,
-                    fee_tao: result.fee_tao,
-                    fee_alpha: result.fee_alpha,
-                });
+                if result.removed {
+                    Self::deposit_event(Event::LiquidityRemoved {
+                        coldkey: coldkey.clone(),
+                        hotkey: hotkey.clone(),
+                        netuid,
+                        position_id,
+                        liquidity: liquidity_delta.unsigned_abs(),
+                        tao: result.tao,
+                        alpha: result.alpha,
+                        fee_tao: result.fee_tao,
+                        fee_alpha: result.fee_alpha,
+                        tick_low: result.tick_low,
+                        tick_high: result.tick_high,
+                    });
+                } else {
+                    Self::deposit_event(Event::LiquidityModified {
+                        coldkey: coldkey.clone(),
+                        hotkey: hotkey.clone(),
+                        netuid,
+                        position_id,
+                        liquidity: liquidity_delta,
+                        tao: (result.tao.to_u64() as i64).neg(),
+                        alpha: (result.alpha.to_u64() as i64).neg(),
+                        fee_tao: result.fee_tao,
+                        fee_alpha: result.fee_alpha,
+                        tick_low: result.tick_low,
+                        tick_high: result.tick_high,
+                    });
+                }
             }
 
             // Credit accrued fees to user account (no matter if liquidity is added or removed)
-            if result.fee_tao > 0 {
+            if result.fee_tao > TaoCurrency::ZERO {
                 T::BalanceOps::increase_balance(&coldkey, result.fee_tao);
             }
-            if result.fee_alpha > 0 {
+            if !result.fee_alpha.is_zero() {
                 T::BalanceOps::increase_stake(
                     &coldkey,
                     &hotkey.clone(),

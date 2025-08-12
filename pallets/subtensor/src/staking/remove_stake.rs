@@ -1,7 +1,7 @@
 use subtensor_swap_interface::{OrderType, SwapHandler};
 
 use super::*;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
@@ -16,8 +16,8 @@ impl<T: Config> Pallet<T> {
     /// * 'netuid' (u16):
     ///     - Subnetwork UID
     ///
-    /// * 'stake_to_be_added' (u64):
-    ///     -  The amount of stake to be added to the hotkey staking account.
+    /// * 'alpha_unstaked' (Alpha):
+    ///     -  The amount of stake to be removed from the staking account.
     ///
     /// # Event:
     /// * StakeRemoved;
@@ -40,19 +40,21 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
         netuid: NetUid,
-        alpha_unstaked: u64,
+        alpha_unstaked: AlphaCurrency,
     ) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::debug!(
-            "do_remove_stake( origin:{:?} hotkey:{:?}, netuid: {:?}, alpha_unstaked:{:?} )",
-            coldkey,
-            hotkey,
-            netuid,
-            alpha_unstaked
+            "do_remove_stake( origin:{coldkey:?} hotkey:{hotkey:?}, netuid: {netuid:?}, alpha_unstaked:{alpha_unstaked:?} )"
         );
 
         Self::ensure_subtoken_enabled(netuid)?;
+
+        // 1.1. Cap the alpha_unstaked at available Alpha because user might be paying transaxtion fees
+        // in Alpha and their total is already reduced by now.
+        let alpha_available =
+            Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        let alpha_unstaked = alpha_unstaked.min(alpha_available);
 
         // 2. Validate the user input
         Self::validate_remove_stake(
@@ -65,22 +67,23 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // 3. Swap the alpba to tao and update counters for this subnet.
-        let tao_unstaked: u64 = Self::unstake_from_subnet(
+        let tao_unstaked = Self::unstake_from_subnet(
             &hotkey,
             &coldkey,
             netuid,
             alpha_unstaked,
-            T::SwapInterface::min_price(),
+            T::SwapInterface::min_price().into(),
+            false,
         )?;
 
         // 4. We add the balance to the coldkey. If the above fails we will not credit this coldkey.
-        Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
+        Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked.into());
 
         // 5. If the stake is below the minimum, we clear the nomination from storage.
         Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
 
         // 6. Check if stake lowered below MinStake and remove Pending children if it did
-        if Self::get_total_stake_for_hotkey(&hotkey) < StakeThreshold::<T>::get() {
+        if Self::get_total_stake_for_hotkey(&hotkey) < StakeThreshold::<T>::get().into() {
             Self::get_all_subnet_netuids().iter().for_each(|netuid| {
                 PendingChildKeys::<T>::remove(netuid, &hotkey);
             })
@@ -122,7 +125,7 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
-        log::debug!("do_unstake_all( origin:{:?} hotkey:{:?} )", coldkey, hotkey);
+        log::debug!("do_unstake_all( origin:{coldkey:?} hotkey:{hotkey:?} )");
 
         // 2. Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
@@ -132,7 +135,7 @@ impl<T: Config> Pallet<T> {
 
         // 3. Get all netuids.
         let netuids = Self::get_all_subnet_netuids();
-        log::debug!("All subnet netuids: {:?}", netuids);
+        log::debug!("All subnet netuids: {netuids:?}");
 
         // 4. Iterate through all subnets and remove stake.
         for netuid in netuids.into_iter() {
@@ -157,18 +160,19 @@ impl<T: Config> Pallet<T> {
                 continue;
             }
 
-            if alpha_unstaked > 0 {
+            if !alpha_unstaked.is_zero() {
                 // Swap the alpha to tao and update counters for this subnet.
-                let tao_unstaked: u64 = Self::unstake_from_subnet(
+                let tao_unstaked = Self::unstake_from_subnet(
                     &hotkey,
                     &coldkey,
                     netuid,
                     alpha_unstaked,
-                    T::SwapInterface::min_price(),
+                    T::SwapInterface::min_price().into(),
+                    false,
                 )?;
 
                 // Add the balance to the coldkey. If the above fails we will not credit this coldkey.
-                Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
+                Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked.into());
 
                 // If the stake is below the minimum, we clear the nomination from storage.
                 Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
@@ -211,7 +215,7 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
-        log::debug!("do_unstake_all( origin:{:?} hotkey:{:?} )", coldkey, hotkey);
+        log::debug!("do_unstake_all( origin:{coldkey:?} hotkey:{hotkey:?} )");
 
         // 2. Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
@@ -221,10 +225,10 @@ impl<T: Config> Pallet<T> {
 
         // 3. Get all netuids.
         let netuids = Self::get_all_subnet_netuids();
-        log::debug!("All subnet netuids: {:?}", netuids);
+        log::debug!("All subnet netuids: {netuids:?}");
 
         // 4. Iterate through all subnets and remove stake.
-        let mut total_tao_unstaked: u64 = 0;
+        let mut total_tao_unstaked = TaoCurrency::ZERO;
         for netuid in netuids.into_iter() {
             if !SubtokenEnabled::<T>::get(netuid) {
                 continue;
@@ -249,14 +253,15 @@ impl<T: Config> Pallet<T> {
                     continue;
                 }
 
-                if alpha_unstaked > 0 {
+                if !alpha_unstaked.is_zero() {
                     // Swap the alpha to tao and update counters for this subnet.
                     let tao_unstaked = Self::unstake_from_subnet(
                         &hotkey,
                         &coldkey,
                         netuid,
                         alpha_unstaked,
-                        T::SwapInterface::min_price(),
+                        T::SwapInterface::min_price().into(),
+                        false,
                     )?;
 
                     // Increment total
@@ -274,7 +279,8 @@ impl<T: Config> Pallet<T> {
             &coldkey,
             NetUid::ROOT,
             total_tao_unstaked,
-            T::SwapInterface::max_price(),
+            T::SwapInterface::max_price().into(),
+            false, // no limit for Root subnet
         )?;
 
         // 5. Done and ok.
@@ -326,18 +332,14 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
         netuid: NetUid,
-        alpha_unstaked: u64,
-        limit_price: u64,
+        alpha_unstaked: AlphaCurrency,
+        limit_price: TaoCurrency,
         allow_partial: bool,
     ) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::debug!(
-            "do_remove_stake( origin:{:?} hotkey:{:?}, netuid: {:?}, alpha_unstaked:{:?} )",
-            coldkey,
-            hotkey,
-            netuid,
-            alpha_unstaked
+            "do_remove_stake( origin:{coldkey:?} hotkey:{hotkey:?}, netuid: {netuid:?}, alpha_unstaked:{alpha_unstaked:?} )"
         );
 
         // 2. Calculate the maximum amount that can be executed with price limit
@@ -358,17 +360,23 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // 4. Swap the alpha to tao and update counters for this subnet.
-        let tao_unstaked =
-            Self::unstake_from_subnet(&hotkey, &coldkey, netuid, possible_alpha, limit_price)?;
+        let tao_unstaked = Self::unstake_from_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            possible_alpha,
+            limit_price,
+            false,
+        )?;
 
         // 5. We add the balance to the coldkey. If the above fails we will not credit this coldkey.
-        Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
+        Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked.into());
 
         // 6. If the stake is below the minimum, we clear the nomination from storage.
         Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
 
         // 7. Check if stake lowered below MinStake and remove Pending children if it did
-        if Self::get_total_stake_for_hotkey(&hotkey) < StakeThreshold::<T>::get() {
+        if Self::get_total_stake_for_hotkey(&hotkey) < StakeThreshold::<T>::get().into() {
             Self::get_all_subnet_netuids().iter().for_each(|netuid| {
                 PendingChildKeys::<T>::remove(netuid, &hotkey);
             })
@@ -379,28 +387,55 @@ impl<T: Config> Pallet<T> {
     }
 
     // Returns the maximum amount of RAO that can be executed with price limit
-    pub fn get_max_amount_remove(netuid: NetUid, limit_price: u64) -> Result<u64, Error<T>> {
+    pub fn get_max_amount_remove(
+        netuid: NetUid,
+        limit_price: TaoCurrency,
+    ) -> Result<AlphaCurrency, Error<T>> {
         // Corner case: root and stao
         // There's no slippage for root or stable subnets, so if limit price is 1e9 rao or
         // lower, then max_amount equals u64::MAX, otherwise it is 0.
         if netuid.is_root() || SubnetMechanism::<T>::get(netuid) == 0 {
-            if limit_price <= 1_000_000_000 {
-                return Ok(u64::MAX);
+            if limit_price <= 1_000_000_000.into() {
+                return Ok(AlphaCurrency::MAX);
             } else {
                 return Err(Error::ZeroMaxStakeAmount);
             }
         }
 
         // Use reverting swap to estimate max limit amount
-        let result =
-            T::SwapInterface::swap(netuid.into(), OrderType::Sell, u64::MAX, limit_price, true)
-                .map(|r| r.amount_paid_in.saturating_add(r.fee_paid))
-                .map_err(|_| Error::ZeroMaxStakeAmount)?;
+        let result = T::SwapInterface::swap(
+            netuid.into(),
+            OrderType::Sell,
+            u64::MAX,
+            limit_price.into(),
+            false,
+            true,
+        )
+        .map(|r| r.amount_paid_in.saturating_add(r.fee_paid))
+        .map_err(|_| Error::ZeroMaxStakeAmount)?;
 
         if result != 0 {
-            Ok(result)
+            Ok(result.into())
         } else {
             Err(Error::ZeroMaxStakeAmount)
+        }
+    }
+
+    pub fn do_remove_stake_full_limit(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+        netuid: NetUid,
+        limit_price: Option<TaoCurrency>,
+    ) -> DispatchResult {
+        let coldkey = ensure_signed(origin.clone())?;
+
+        let alpha_unstaked =
+            Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+
+        if let Some(limit_price) = limit_price {
+            Self::do_remove_stake_limit(origin, hotkey, netuid, alpha_unstaked, limit_price, false)
+        } else {
+            Self::do_remove_stake(origin, hotkey, netuid, alpha_unstaked)
         }
     }
 }

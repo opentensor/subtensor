@@ -3,7 +3,7 @@ import { devnet, MultiAddress } from '@polkadot-api/descriptors';
 import { TypedApi, TxCallData } from 'polkadot-api';
 import { KeyPair } from "@polkadot-labs/hdkd-helpers"
 import { getAliceSigner, waitForTransactionCompletion, getSignerFromKeypair, waitForTransactionWithRetry } from './substrate'
-import { convertH160ToSS58, convertPublicKeyToSs58 } from './address-utils'
+import { convertH160ToSS58, convertPublicKeyToSs58, ethAddressToH160 } from './address-utils'
 import { tao } from './balance-math'
 import internal from "stream";
 
@@ -351,4 +351,39 @@ export async function setMaxChildkeyTake(api: TypedApi<typeof devnet>, take: num
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
     await waitForTransactionWithRetry(api, tx, alice)
+}
+
+// Swap coldkey to contract address
+export async function swapColdkey(
+    api: TypedApi<typeof devnet>,
+    coldkey: KeyPair,
+    contractAddress: string,
+) {
+    const alice = getAliceSigner();
+    const internal_tx = api.tx.SubtensorModule.swap_coldkey({
+        old_coldkey: convertPublicKeyToSs58(coldkey.publicKey),
+        new_coldkey: convertH160ToSS58(contractAddress),
+        swap_cost: tao(10),
+    });
+    const tx = api.tx.Sudo.sudo({
+        call: internal_tx.decodedCall,
+    });
+    await waitForTransactionWithRetry(api, tx, alice);
+}
+
+// Set target registrations per interval to 1000
+export async function setTargetRegistrationsPerInterval(
+    api: TypedApi<typeof devnet>,
+    netuid: number,
+) {
+    const alice = getAliceSigner();
+    const internal_tx = api.tx.AdminUtils
+        .sudo_set_target_registrations_per_interval({
+            netuid,
+            target_registrations_per_interval: 1000,
+        });
+    const tx = api.tx.Sudo.sudo({
+        call: internal_tx.decodedCall,
+    });
+    await waitForTransactionWithRetry(api, tx, alice);
 }

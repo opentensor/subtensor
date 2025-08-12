@@ -3,7 +3,7 @@ use safe_math::*;
 use share_pool::{SharePool, SharePoolDataOperations};
 use sp_std::ops::Neg;
 use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 use subtensor_swap_interface::{OrderType, SwapHandler, SwapResult};
 
 impl<T: Config> Pallet<T> {
@@ -17,7 +17,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     /// * `u64` - The total alpha issuance for the specified subnet.
-    pub fn get_alpha_issuance(netuid: NetUid) -> u64 {
+    pub fn get_alpha_issuance(netuid: NetUid) -> AlphaCurrency {
         SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaOut::<T>::get(netuid))
     }
 
@@ -126,22 +126,22 @@ impl<T: Config> Pallet<T> {
     ) -> (I64F64, I64F64, I64F64) {
         // Retrieve the global tao weight.
         let tao_weight = I64F64::saturating_from_num(Self::get_tao_weight());
-        log::debug!("tao_weight: {:?}", tao_weight);
+        log::debug!("tao_weight: {tao_weight:?}");
 
         // Step 1: Get stake of hotkey (neuron)
         let alpha_stake =
             I64F64::saturating_from_num(Self::get_inherited_for_hotkey_on_subnet(hotkey, netuid));
-        log::debug!("alpha_stake: {:?}", alpha_stake);
+        log::debug!("alpha_stake: {alpha_stake:?}");
 
         // Step 2: Get the global tao stake for the hotkey
         let tao_stake = I64F64::saturating_from_num(Self::get_tao_inherited_for_hotkey_on_subnet(
             hotkey, netuid,
         ));
-        log::debug!("tao_stake: {:?}", tao_stake);
+        log::debug!("tao_stake: {tao_stake:?}");
 
         // Step 3: Combine alpha and tao stakes
         let total_stake = alpha_stake.saturating_add(tao_stake.saturating_mul(tao_weight));
-        log::debug!("total_stake: {:?}", total_stake);
+        log::debug!("total_stake: {total_stake:?}");
 
         (total_stake, alpha_stake, tao_stake)
     }
@@ -153,7 +153,7 @@ impl<T: Config> Pallet<T> {
     ) -> (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) {
         // Retrieve the global tao weight.
         let tao_weight: I64F64 = I64F64::saturating_from_num(Self::get_tao_weight());
-        log::debug!("tao_weight: {:?}", tao_weight);
+        log::debug!("tao_weight: {tao_weight:?}");
 
         // Step 1: Get subnetwork size
         let n: u16 = Self::get_subnetwork_n(netuid);
@@ -171,7 +171,7 @@ impl<T: Config> Pallet<T> {
                 }
             })
             .collect();
-        log::debug!("alpha_stake: {:?}", alpha_stake);
+        log::debug!("alpha_stake: {alpha_stake:?}");
 
         // Step 3: Calculate the global tao stake vector.
         // Initialize a vector to store global tao stakes for each neuron.
@@ -187,7 +187,7 @@ impl<T: Config> Pallet<T> {
                 }
             })
             .collect();
-        log::trace!("tao_stake: {:?}", tao_stake);
+        log::trace!("tao_stake: {tao_stake:?}");
 
         // Step 4: Combine alpha and root tao stakes.
         // Calculate the weighted average of alpha and global tao stakes for each neuron.
@@ -196,7 +196,7 @@ impl<T: Config> Pallet<T> {
             .zip(tao_stake.iter())
             .map(|(alpha_i, tao_i)| alpha_i.saturating_add(tao_i.saturating_mul(tao_weight)))
             .collect();
-        log::trace!("total_stake: {:?}", total_stake);
+        log::trace!("total_stake: {total_stake:?}");
 
         (total_stake, alpha_stake, tao_stake)
     }
@@ -228,7 +228,10 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Note
     /// This function uses saturating arithmetic to prevent overflows.
-    pub fn get_tao_inherited_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: NetUid) -> u64 {
+    pub fn get_tao_inherited_for_hotkey_on_subnet(
+        hotkey: &T::AccountId,
+        netuid: NetUid,
+    ) -> TaoCurrency {
         let initial_tao: U96F32 =
             U96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, NetUid::ROOT));
 
@@ -239,38 +242,25 @@ impl<T: Config> Pallet<T> {
         // Step 2: Retrieve the lists of parents and children for the hotkey on the subnet.
         let parents: Vec<(u64, T::AccountId)> = Self::get_parents(hotkey, netuid);
         let children: Vec<(u64, T::AccountId)> = Self::get_children(hotkey, netuid);
-        log::trace!(
-            "Parents for hotkey {:?} on subnet {}: {:?}",
-            hotkey,
-            netuid,
-            parents
-        );
-        log::trace!(
-            "Children for hotkey {:?} on subnet {}: {:?}",
-            hotkey,
-            netuid,
-            children
-        );
+        log::trace!("Parents for hotkey {hotkey:?} on subnet {netuid}: {parents:?}");
+        log::trace!("Children for hotkey {hotkey:?} on subnet {netuid}: {children:?}");
 
         // Step 3: Calculate the total tao allocated to children.
         for (proportion, _) in children {
             // Convert the proportion to a normalized value between 0 and 1.
             let normalized_proportion: U96F32 = U96F32::saturating_from_num(proportion)
                 .safe_div(U96F32::saturating_from_num(u64::MAX));
-            log::trace!(
-                "Normalized proportion for child: {:?}",
-                normalized_proportion
-            );
+            log::trace!("Normalized proportion for child: {normalized_proportion:?}");
 
             // Calculate the amount of tao to be allocated to this child.
             let tao_proportion_to_child: U96F32 =
                 U96F32::saturating_from_num(initial_tao).saturating_mul(normalized_proportion);
-            log::trace!("Tao proportion to child: {:?}", tao_proportion_to_child);
+            log::trace!("Tao proportion to child: {tao_proportion_to_child:?}");
 
             // Add this child's allocation to the total tao allocated to children.
             tao_to_children = tao_to_children.saturating_add(tao_proportion_to_child);
         }
-        log::trace!("Total tao allocated to children: {:?}", tao_to_children);
+        log::trace!("Total tao allocated to children: {tao_to_children:?}");
 
         // Step 4: Calculate the total tao inherited from parents.
         for (proportion, parent) in parents {
@@ -279,61 +269,43 @@ impl<T: Config> Pallet<T> {
                 &parent,
                 NetUid::ROOT,
             ));
-            log::trace!(
-                "Parent tao for parent {:?} on subnet {}: {:?}",
-                parent,
-                netuid,
-                parent_tao
-            );
+            log::trace!("Parent tao for parent {parent:?} on subnet {netuid}: {parent_tao:?}");
 
             // Convert the proportion to a normalized value between 0 and 1.
             let normalized_proportion = U96F32::saturating_from_num(proportion)
                 .safe_div(U96F32::saturating_from_num(u64::MAX));
-            log::trace!(
-                "Normalized proportion from parent: {:?}",
-                normalized_proportion
-            );
+            log::trace!("Normalized proportion from parent: {normalized_proportion:?}");
 
             // Calculate the amount of tao to be inherited from this parent.
             let tao_proportion_from_parent: U96F32 =
                 U96F32::saturating_from_num(parent_tao).saturating_mul(normalized_proportion);
-            log::trace!(
-                "Tao proportion from parent: {:?}",
-                tao_proportion_from_parent
-            );
+            log::trace!("Tao proportion from parent: {tao_proportion_from_parent:?}");
 
             // Add this parent's contribution to the total tao inherited from parents.
             tao_from_parents = tao_from_parents.saturating_add(tao_proportion_from_parent);
         }
-        log::trace!("Total tao inherited from parents: {:?}", tao_from_parents);
+        log::trace!("Total tao inherited from parents: {tao_from_parents:?}");
 
         // Step 5: Calculate the final inherited tao for the hotkey.
         let finalized_tao: U96F32 = initial_tao
             .saturating_sub(tao_to_children) // Subtract tao allocated to children
             .saturating_add(tao_from_parents); // Add tao inherited from parents
-        log::trace!(
-            "Finalized tao for hotkey {:?} on subnet {}: {:?}",
-            hotkey,
-            netuid,
-            finalized_tao
-        );
+        log::trace!("Finalized tao for hotkey {hotkey:?} on subnet {netuid}: {finalized_tao:?}");
 
         // Step 6: Return the final inherited tao value.
-        finalized_tao.saturating_to_num::<u64>()
+        finalized_tao.saturating_to_num::<u64>().into()
     }
 
-    pub fn get_inherited_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: NetUid) -> u64 {
+    pub fn get_inherited_for_hotkey_on_subnet(
+        hotkey: &T::AccountId,
+        netuid: NetUid,
+    ) -> AlphaCurrency {
         // Step 1: Retrieve the initial total stake (alpha) for the hotkey on the specified subnet.
         let initial_alpha: U96F32 =
             U96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
-        log::debug!(
-            "Initial alpha for hotkey {:?} on subnet {}: {:?}",
-            hotkey,
-            netuid,
-            initial_alpha
-        );
+        log::debug!("Initial alpha for hotkey {hotkey:?} on subnet {netuid}: {initial_alpha:?}");
         if netuid.is_root() {
-            return initial_alpha.saturating_to_num::<u64>();
+            return initial_alpha.saturating_to_num::<u64>().into();
         }
 
         // Initialize variables to track alpha allocated to children and inherited from parents.
@@ -343,88 +315,58 @@ impl<T: Config> Pallet<T> {
         // Step 2: Retrieve the lists of parents and children for the hotkey on the subnet.
         let parents: Vec<(u64, T::AccountId)> = Self::get_parents(hotkey, netuid);
         let children: Vec<(u64, T::AccountId)> = Self::get_children(hotkey, netuid);
-        log::debug!(
-            "Parents for hotkey {:?} on subnet {}: {:?}",
-            hotkey,
-            netuid,
-            parents
-        );
-        log::debug!(
-            "Children for hotkey {:?} on subnet {}: {:?}",
-            hotkey,
-            netuid,
-            children
-        );
+        log::debug!("Parents for hotkey {hotkey:?} on subnet {netuid}: {parents:?}");
+        log::debug!("Children for hotkey {hotkey:?} on subnet {netuid}: {children:?}");
 
         // Step 3: Calculate the total alpha allocated to children.
         for (proportion, _) in children {
             // Convert the proportion to a normalized value between 0 and 1.
             let normalized_proportion: U96F32 = U96F32::saturating_from_num(proportion)
                 .safe_div(U96F32::saturating_from_num(u64::MAX));
-            log::trace!(
-                "Normalized proportion for child: {:?}",
-                normalized_proportion
-            );
+            log::trace!("Normalized proportion for child: {normalized_proportion:?}");
 
             // Calculate the amount of alpha to be allocated to this child.
             let alpha_proportion_to_child: U96F32 =
                 U96F32::saturating_from_num(initial_alpha).saturating_mul(normalized_proportion);
-            log::trace!("Alpha proportion to child: {:?}", alpha_proportion_to_child);
+            log::trace!("Alpha proportion to child: {alpha_proportion_to_child:?}");
 
             // Add this child's allocation to the total alpha allocated to children.
             alpha_to_children = alpha_to_children.saturating_add(alpha_proportion_to_child);
         }
-        log::debug!("Total alpha allocated to children: {:?}", alpha_to_children);
+        log::debug!("Total alpha allocated to children: {alpha_to_children:?}");
 
         // Step 4: Calculate the total alpha inherited from parents.
         for (proportion, parent) in parents {
             // Retrieve the parent's total stake on this subnet.
             let parent_alpha: U96F32 =
                 U96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(&parent, netuid));
-            log::trace!(
-                "Parent alpha for parent {:?} on subnet {}: {:?}",
-                parent,
-                netuid,
-                parent_alpha
-            );
+            log::trace!("Parent alpha for parent {parent:?} on subnet {netuid}: {parent_alpha:?}");
 
             // Convert the proportion to a normalized value between 0 and 1.
             let normalized_proportion: U96F32 = U96F32::saturating_from_num(proportion)
                 .safe_div(U96F32::saturating_from_num(u64::MAX));
-            log::trace!(
-                "Normalized proportion from parent: {:?}",
-                normalized_proportion
-            );
+            log::trace!("Normalized proportion from parent: {normalized_proportion:?}");
 
             // Calculate the amount of alpha to be inherited from this parent.
             let alpha_proportion_from_parent: U96F32 =
                 U96F32::saturating_from_num(parent_alpha).saturating_mul(normalized_proportion);
-            log::trace!(
-                "Alpha proportion from parent: {:?}",
-                alpha_proportion_from_parent
-            );
+            log::trace!("Alpha proportion from parent: {alpha_proportion_from_parent:?}");
 
             // Add this parent's contribution to the total alpha inherited from parents.
             alpha_from_parents = alpha_from_parents.saturating_add(alpha_proportion_from_parent);
         }
-        log::debug!(
-            "Total alpha inherited from parents: {:?}",
-            alpha_from_parents
-        );
+        log::debug!("Total alpha inherited from parents: {alpha_from_parents:?}");
 
         // Step 5: Calculate the final inherited alpha for the hotkey.
         let finalized_alpha: U96F32 = initial_alpha
             .saturating_sub(alpha_to_children) // Subtract alpha allocated to children
             .saturating_add(alpha_from_parents); // Add alpha inherited from parents
         log::trace!(
-            "Finalized alpha for hotkey {:?} on subnet {}: {:?}",
-            hotkey,
-            netuid,
-            finalized_alpha
+            "Finalized alpha for hotkey {hotkey:?} on subnet {netuid}: {finalized_alpha:?}"
         );
 
         // Step 6: Return the final inherited alpha value.
-        finalized_alpha.saturating_to_num::<u64>()
+        finalized_alpha.saturating_to_num::<u64>().into()
     }
 
     /// Checks if a specific hotkey-coldkey pair has enough stake on a subnet to fulfill a given decrement.
@@ -444,19 +386,23 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Note
     /// This function only checks the stake for the specific hotkey-coldkey pair, not the total stake of the hotkey or coldkey individually.
-    pub fn has_enough_stake_on_subnet(
+    pub fn calculate_reduced_stake_on_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: NetUid,
-        decrement: u64,
-    ) -> bool {
+        decrement: AlphaCurrency,
+    ) -> Result<AlphaCurrency, Error<T>> {
         // Retrieve the current stake for this hotkey-coldkey pair on the subnet
         let current_stake =
             Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
 
         // Compare the current stake with the requested decrement
         // Return true if the current stake is greater than or equal to the decrement
-        current_stake >= decrement
+        if current_stake >= decrement {
+            Ok(current_stake.saturating_sub(decrement))
+        } else {
+            Err(Error::<T>::NotEnoughStakeToWithdraw)
+        }
     }
 
     /// Retrieves the alpha (stake) value for a given hotkey and coldkey pair on a specific subnet.
@@ -480,9 +426,9 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: NetUid,
-    ) -> u64 {
+    ) -> AlphaCurrency {
         let alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
-        alpha_share_pool.try_get_value(coldkey).unwrap_or(0)
+        alpha_share_pool.try_get_value(coldkey).unwrap_or(0).into()
     }
 
     /// Retrieves the total stake (alpha) for a given hotkey on a specific subnet.
@@ -499,7 +445,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Note
     /// This function returns the cumulative stake across all coldkeys associated with this hotkey on the subnet.
-    pub fn get_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: NetUid) -> u64 {
+    pub fn get_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: NetUid) -> AlphaCurrency {
         // Retrieve and return the total alpha this hotkey owns on this subnet.
         // This value represents the sum of stakes from all coldkeys associated with this hotkey.
         TotalHotkeyAlpha::<T>::get(hotkey, netuid)
@@ -514,9 +460,13 @@ impl<T: Config> Pallet<T> {
     /// * `netuid` - The unique identifier of the subnet.
     /// * `amount` - The amount of alpha to be added.
     ///
-    pub fn increase_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: NetUid, amount: u64) {
+    pub fn increase_stake_for_hotkey_on_subnet(
+        hotkey: &T::AccountId,
+        netuid: NetUid,
+        amount: AlphaCurrency,
+    ) {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
-        alpha_share_pool.update_value_for_all(amount as i64);
+        alpha_share_pool.update_value_for_all(amount.to_u64() as i64);
     }
 
     /// Decrease hotkey stake on a subnet.
@@ -547,9 +497,9 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: NetUid,
-        amount: u64,
-    ) -> u64 {
-        if amount > 0 {
+        amount: AlphaCurrency,
+    ) -> AlphaCurrency {
+        if !amount.is_zero() {
             let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
             if !staking_hotkeys.contains(hotkey) {
                 staking_hotkeys.push(hotkey.clone());
@@ -559,20 +509,22 @@ impl<T: Config> Pallet<T> {
 
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
         // We expect to add a positive amount here.
-        let actual_alpha = alpha_share_pool.update_value_for_one(coldkey, amount as i64);
+        let amount = amount.to_u64() as i64;
+        let actual_alpha = alpha_share_pool.update_value_for_one(coldkey, amount);
 
         // We should return a positive amount, or 0 if the operation failed.
         // e.g. the stake was removed due to precision issues.
-        actual_alpha.max(0).unsigned_abs()
+        actual_alpha.max(0).unsigned_abs().into()
     }
 
     pub fn try_increase_stake_for_hotkey_and_coldkey_on_subnet(
         hotkey: &T::AccountId,
         netuid: NetUid,
-        amount: u64,
+        amount: AlphaCurrency,
     ) -> bool {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
-        alpha_share_pool.sim_update_value_for_one(amount as i64)
+        let amount = amount.to_u64() as i64;
+        alpha_share_pool.sim_update_value_for_one(amount)
     }
 
     /// Sell shares in the hotkey on a given subnet
@@ -589,9 +541,10 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: NetUid,
-        amount: u64,
-    ) -> u64 {
+        amount: AlphaCurrency,
+    ) -> AlphaCurrency {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
+        let amount = amount.to_u64();
 
         // We expect a negative value here
         let mut actual_alpha = 0;
@@ -605,7 +558,7 @@ impl<T: Config> Pallet<T> {
         // Get the negation of the removed alpha, and clamp at 0.
         // This ensures we return a positive value, but only if
         // `actual_alpha` was negative (i.e. a decrease in stake).
-        actual_alpha.neg().max(0).unsigned_abs()
+        actual_alpha.neg().max(0).unsigned_abs().into()
     }
 
     /// Swaps TAO for the alpha token on the subnet.
@@ -613,35 +566,37 @@ impl<T: Config> Pallet<T> {
     /// Updates TaoIn, AlphaIn, and AlphaOut
     pub fn swap_tao_for_alpha(
         netuid: NetUid,
-        tao: u64,
-        price_limit: u64,
+        tao: TaoCurrency,
+        price_limit: TaoCurrency,
+        drop_fees: bool,
     ) -> Result<SwapResult, DispatchError> {
         // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
         let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
         if mechanism_id == 1 {
-            let swap_result =
-                T::SwapInterface::swap(netuid.into(), OrderType::Buy, tao, price_limit, false)?;
+            let swap_result = T::SwapInterface::swap(
+                netuid.into(),
+                OrderType::Buy,
+                tao.into(),
+                price_limit.into(),
+                drop_fees,
+                false,
+            )?;
+            let alpha_decrease =
+                AlphaCurrency::from(swap_result.alpha_reserve_delta.unsigned_abs());
 
             // Decrease Alpha reserves.
-            Self::decrease_provided_alpha_reserve(
-                netuid.into(),
-                swap_result
-                    .alpha_reserve_delta
-                    .abs()
-                    .try_into()
-                    .unwrap_or(0),
-            );
+            Self::decrease_provided_alpha_reserve(netuid.into(), alpha_decrease);
 
             // Increase Alpha outstanding.
             SubnetAlphaOut::<T>::mutate(netuid, |total| {
-                *total = total.saturating_add(swap_result.amount_paid_out);
+                *total = total.saturating_add(swap_result.amount_paid_out.into());
             });
 
             // Increase only the protocol TAO reserve. We only use the sum of
             // (SubnetTAO + SubnetTaoProvided) in tao_reserve(), so it is irrelevant
             // which one to increase.
             SubnetTAO::<T>::mutate(netuid, |total| {
-                *total = total.saturating_add(swap_result.tao_reserve_delta as u64);
+                *total = total.saturating_add((swap_result.tao_reserve_delta as u64).into());
             });
 
             // Increase Total Tao reserves.
@@ -649,7 +604,7 @@ impl<T: Config> Pallet<T> {
 
             // Increase total subnet TAO volume.
             SubnetVolume::<T>::mutate(netuid, |total| {
-                *total = total.saturating_add(tao.into());
+                *total = total.saturating_add(tao.to_u64() as u128);
             });
 
             // Return the alpha received.
@@ -657,8 +612,8 @@ impl<T: Config> Pallet<T> {
         } else {
             // Step 3.b.1: Stable mechanism, just return the value 1:1
             Ok(SwapResult {
-                amount_paid_in: tao,
-                amount_paid_out: tao,
+                amount_paid_in: tao.into(),
+                amount_paid_out: tao.into(),
                 fee_paid: 0,
                 tao_reserve_delta: 0,
                 alpha_reserve_delta: 0,
@@ -671,38 +626,50 @@ impl<T: Config> Pallet<T> {
     /// Updates TaoIn, AlphaIn, and AlphaOut
     pub fn swap_alpha_for_tao(
         netuid: NetUid,
-        alpha: u64,
-        price_limit: u64,
+        alpha: AlphaCurrency,
+        price_limit: TaoCurrency,
+        drop_fees: bool,
     ) -> Result<SwapResult, DispatchError> {
         // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
         let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
         // Step 2: Swap alpha and attain tao
         if mechanism_id == 1 {
-            let swap_result =
-                T::SwapInterface::swap(netuid.into(), OrderType::Sell, alpha, price_limit, false)?;
+            let swap_result = T::SwapInterface::swap(
+                netuid.into(),
+                OrderType::Sell,
+                alpha.into(),
+                price_limit.into(),
+                drop_fees,
+                false,
+            )?;
 
             // Increase only the protocol Alpha reserve. We only use the sum of
             // (SubnetAlphaIn + SubnetAlphaInProvided) in alpha_reserve(), so it is irrelevant
             // which one to increase.
             SubnetAlphaIn::<T>::mutate(netuid, |total| {
-                *total = total.saturating_add(swap_result.alpha_reserve_delta as u64);
+                *total = total.saturating_add((swap_result.alpha_reserve_delta as u64).into());
             });
 
             // Decrease Alpha outstanding.
             // TODO: Deprecate, not accurate in v3 anymore
             SubnetAlphaOut::<T>::mutate(netuid, |total| {
-                *total = total.saturating_sub(alpha);
+                *total = total.saturating_sub((swap_result.alpha_reserve_delta as u64).into());
             });
 
             // Decrease tao reserves.
             Self::decrease_provided_tao_reserve(
                 netuid.into(),
-                swap_result.tao_reserve_delta.abs().try_into().unwrap_or(0),
+                swap_result
+                    .tao_reserve_delta
+                    .abs()
+                    .try_into()
+                    .unwrap_or(0)
+                    .into(),
             );
 
             // Reduce total TAO reserves.
             TotalStake::<T>::mutate(|total| {
-                *total = total.saturating_sub(swap_result.amount_paid_out)
+                *total = total.saturating_sub(swap_result.amount_paid_out.into())
             });
 
             // Increase total subnet TAO volume.
@@ -715,8 +682,8 @@ impl<T: Config> Pallet<T> {
         } else {
             // Step 3.b.1: Stable mechanism, just return the value 1:1
             Ok(SwapResult {
-                amount_paid_in: alpha,
-                amount_paid_out: alpha,
+                amount_paid_in: alpha.into(),
+                amount_paid_out: alpha.into(),
                 fee_paid: 0,
                 tao_reserve_delta: 0,
                 alpha_reserve_delta: 0,
@@ -731,23 +698,26 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: NetUid,
-        alpha: u64,
-        price_limit: u64,
-    ) -> Result<u64, DispatchError> {
-        //  Decrease alpha on subneet
+        alpha: AlphaCurrency,
+        price_limit: TaoCurrency,
+        drop_fees: bool,
+    ) -> Result<TaoCurrency, DispatchError> {
+        //  Decrease alpha on subnet
         let actual_alpha_decrease =
             Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
 
         // Swap the alpha for TAO.
-        let swap_result = Self::swap_alpha_for_tao(netuid, actual_alpha_decrease, price_limit)?;
+        let swap_result =
+            Self::swap_alpha_for_tao(netuid, actual_alpha_decrease, price_limit, drop_fees)?;
 
         // Refund the unused alpha (in case if limit price is hit)
         let refund = actual_alpha_decrease.saturating_sub(
             swap_result
                 .amount_paid_in
-                .saturating_add(swap_result.fee_paid),
+                .saturating_add(swap_result.fee_paid)
+                .into(),
         );
-        if refund > 0 {
+        if !refund.is_zero() {
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, refund);
         }
 
@@ -765,7 +735,7 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::StakeRemoved(
             coldkey.clone(),
             hotkey.clone(),
-            swap_result.amount_paid_out,
+            swap_result.amount_paid_out.into(),
             actual_alpha_decrease,
             netuid,
             swap_result.fee_paid,
@@ -781,7 +751,7 @@ impl<T: Config> Pallet<T> {
             swap_result.fee_paid
         );
 
-        Ok(swap_result.amount_paid_out)
+        Ok(swap_result.amount_paid_out.into())
     }
 
     /// Stakes TAO into a subnet for a given hotkey and coldkey pair.
@@ -791,11 +761,12 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: NetUid,
-        tao: u64,
-        price_limit: u64,
-    ) -> Result<u64, DispatchError> {
+        tao: TaoCurrency,
+        price_limit: TaoCurrency,
+        set_limit: bool,
+    ) -> Result<AlphaCurrency, DispatchError> {
         // Swap the tao to alpha.
-        let swap_result = Self::swap_tao_for_alpha(netuid, tao, price_limit)?;
+        let swap_result = Self::swap_tao_for_alpha(netuid, tao, price_limit, false)?;
 
         ensure!(swap_result.amount_paid_out > 0, Error::<T>::AmountTooLow);
 
@@ -803,7 +774,7 @@ impl<T: Config> Pallet<T> {
             Self::try_increase_stake_for_hotkey_and_coldkey_on_subnet(
                 hotkey,
                 netuid,
-                swap_result.amount_paid_out,
+                swap_result.amount_paid_out.into(),
             ),
             Error::<T>::InsufficientLiquidity
         );
@@ -813,11 +784,12 @@ impl<T: Config> Pallet<T> {
             hotkey,
             coldkey,
             netuid,
-            swap_result.amount_paid_out,
-        ) == 0
+            swap_result.amount_paid_out.into(),
+        )
+        .is_zero()
             || swap_result.amount_paid_out == 0
         {
-            return Ok(0);
+            return Ok(AlphaCurrency::ZERO);
         }
 
         // Step 4: Update the list of hotkeys staking for this coldkey
@@ -829,12 +801,16 @@ impl<T: Config> Pallet<T> {
 
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
+        if set_limit {
+            Self::set_stake_operation_limit(hotkey, coldkey, netuid.into());
+        }
+
         // Deposit and log the staking event.
         Self::deposit_event(Event::StakeAdded(
             coldkey.clone(),
             hotkey.clone(),
             tao,
-            swap_result.amount_paid_out,
+            swap_result.amount_paid_out.into(),
             netuid,
             swap_result.fee_paid,
         ));
@@ -849,7 +825,85 @@ impl<T: Config> Pallet<T> {
             swap_result.fee_paid,
         );
 
-        Ok(swap_result.amount_paid_out)
+        Ok(swap_result.amount_paid_out.into())
+    }
+
+    /// Transfers stake between coldkeys and/or hotkey within one subnet without running it
+    /// through swap.
+    ///
+    /// Does not incur any swapping nor fees
+    pub fn transfer_stake_within_subnet(
+        origin_coldkey: &T::AccountId,
+        origin_hotkey: &T::AccountId,
+        destination_coldkey: &T::AccountId,
+        destination_hotkey: &T::AccountId,
+        netuid: NetUid,
+        alpha: AlphaCurrency,
+    ) -> Result<TaoCurrency, DispatchError> {
+        // Decrease alpha on origin keys
+        let actual_alpha_decrease = Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+            origin_hotkey,
+            origin_coldkey,
+            netuid,
+            alpha,
+        );
+
+        // Increase alpha on destination keys
+        let actual_alpha_moved = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            destination_hotkey,
+            destination_coldkey,
+            netuid,
+            actual_alpha_decrease,
+        );
+
+        // Calculate TAO equivalent based on current price (it is accurate because
+        // there's no slippage in this move)
+        let current_price =
+            <T as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+        let tao_equivalent: TaoCurrency = current_price
+            .saturating_mul(U96F32::saturating_from_num(actual_alpha_moved))
+            .saturating_to_num::<u64>()
+            .into();
+
+        // Ensure tao_equivalent is above DefaultMinStake
+        ensure!(
+            tao_equivalent >= DefaultMinStake::<T>::get(),
+            Error::<T>::AmountTooLow
+        );
+
+        // Step 3: Update StakingHotkeys if the hotkey's total alpha, across all subnets, is zero
+        // TODO: fix.
+        // if Self::get_stake(hotkey, coldkey) == 0 {
+        //     StakingHotkeys::<T>::mutate(coldkey, |hotkeys| {
+        //         hotkeys.retain(|k| k != hotkey);
+        //     });
+        // }
+
+        LastColdkeyHotkeyStakeBlock::<T>::insert(
+            destination_coldkey,
+            destination_hotkey,
+            Self::get_current_block_as_u64(),
+        );
+
+        // Deposit and log the unstaking event.
+        Self::deposit_event(Event::StakeRemoved(
+            origin_coldkey.clone(),
+            origin_hotkey.clone(),
+            tao_equivalent,
+            actual_alpha_decrease,
+            netuid,
+            0_u64, // 0 fee
+        ));
+        Self::deposit_event(Event::StakeAdded(
+            destination_coldkey.clone(),
+            destination_hotkey.clone(),
+            tao_equivalent,
+            actual_alpha_moved,
+            netuid,
+            0_u64, // 0 fee
+        ));
+
+        Ok(tao_equivalent)
     }
 
     pub fn get_alpha_share_pool(
@@ -865,8 +919,8 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
         netuid: NetUid,
-        stake_to_be_added: u64,
-        max_amount: u64,
+        mut stake_to_be_added: TaoCurrency,
+        max_amount: TaoCurrency,
         allow_partial: bool,
     ) -> Result<(), Error<T>> {
         // Ensure that the subnet exists.
@@ -876,15 +930,15 @@ impl<T: Config> Pallet<T> {
         Self::ensure_subtoken_enabled(netuid)?;
 
         // Get the minimum balance (and amount) that satisfies the transaction
+        let min_stake = DefaultMinStake::<T>::get();
         let min_amount = {
-            let min_stake = DefaultMinStake::<T>::get();
-            let fee = T::SwapInterface::sim_swap(netuid.into(), OrderType::Buy, min_stake)
+            let fee = T::SwapInterface::sim_swap(netuid.into(), OrderType::Buy, min_stake.into())
                 .map(|res| res.fee_paid)
                 .unwrap_or(T::SwapInterface::approx_fee_amount(
                     netuid.into(),
-                    min_stake,
+                    min_stake.into(),
                 ));
-            min_stake.saturating_add(fee)
+            min_stake.saturating_add(fee.into())
         };
 
         // Ensure that the stake_to_be_added is at least the min_amount
@@ -894,11 +948,13 @@ impl<T: Config> Pallet<T> {
         // slippage over desired
         if !allow_partial {
             ensure!(stake_to_be_added <= max_amount, Error::<T>::SlippageTooHigh);
+        } else {
+            stake_to_be_added = max_amount.min(stake_to_be_added);
         }
 
         // Ensure the callers coldkey has enough stake to perform the transaction.
         ensure!(
-            Self::can_remove_balance_from_coldkey_account(coldkey, stake_to_be_added),
+            Self::can_remove_balance_from_coldkey_account(coldkey, stake_to_be_added.into()),
             Error::<T>::NotEnoughBalanceToStake
         );
 
@@ -908,12 +964,18 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyAccountNotExists
         );
 
-        let expected_alpha =
-            T::SwapInterface::sim_swap(netuid.into(), OrderType::Buy, stake_to_be_added)
+        let swap_result =
+            T::SwapInterface::sim_swap(netuid.into(), OrderType::Buy, stake_to_be_added.into())
                 .map_err(|_| Error::<T>::InsufficientLiquidity)?;
 
+        // Check that actual withdrawn TAO amount is not lower than the minimum stake
         ensure!(
-            expected_alpha.amount_paid_out > 0,
+            TaoCurrency::from(swap_result.amount_paid_in) >= min_stake,
+            Error::<T>::AmountTooLow
+        );
+
+        ensure!(
+            swap_result.amount_paid_out > 0,
             Error::<T>::InsufficientLiquidity
         );
 
@@ -921,7 +983,7 @@ impl<T: Config> Pallet<T> {
         let try_stake_result = Self::try_increase_stake_for_hotkey_and_coldkey_on_subnet(
             hotkey,
             netuid,
-            expected_alpha.amount_paid_out,
+            swap_result.amount_paid_out.into(),
         );
         ensure!(try_stake_result, Error::<T>::InsufficientLiquidity);
 
@@ -934,22 +996,34 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
         netuid: NetUid,
-        alpha_unstaked: u64,
-        max_amount: u64,
+        alpha_unstaked: AlphaCurrency,
+        max_amount: AlphaCurrency,
         allow_partial: bool,
     ) -> Result<(), Error<T>> {
         // Ensure that the subnet exists.
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
+        Self::ensure_stake_operation_limit_not_exceeded(hotkey, coldkey, netuid.into())?;
+
         // Ensure that the subnet is enabled.
         // Self::ensure_subtoken_enabled(netuid)?;
 
+        // Do not allow zero unstake amount
+        ensure!(!alpha_unstaked.is_zero(), Error::<T>::AmountTooLow);
+
         // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
-        match T::SwapInterface::sim_swap(netuid.into(), OrderType::Sell, alpha_unstaked) {
-            Ok(res) => ensure!(
-                res.amount_paid_out > DefaultMinStake::<T>::get(),
-                Error::<T>::AmountTooLow
-            ),
+        // Bypass this check if the user unstakes full amount
+        let remaining_alpha_stake =
+            Self::calculate_reduced_stake_on_subnet(hotkey, coldkey, netuid, alpha_unstaked)?;
+        match T::SwapInterface::sim_swap(netuid.into(), OrderType::Sell, alpha_unstaked.into()) {
+            Ok(res) => {
+                if !remaining_alpha_stake.is_zero() {
+                    ensure!(
+                        TaoCurrency::from(res.amount_paid_out) >= DefaultMinStake::<T>::get(),
+                        Error::<T>::AmountTooLow
+                    );
+                }
+            }
             Err(_) => return Err(Error::<T>::InsufficientLiquidity),
         }
 
@@ -963,12 +1037,6 @@ impl<T: Config> Pallet<T> {
         ensure!(
             Self::hotkey_account_exists(hotkey),
             Error::<T>::HotKeyAccountNotExists
-        );
-
-        // Ensure that the hotkey has enough stake to withdraw.
-        ensure!(
-            Self::has_enough_stake_on_subnet(hotkey, coldkey, netuid, alpha_unstaked),
-            Error::<T>::NotEnoughStakeToWithdraw
         );
 
         Ok(())
@@ -1020,8 +1088,8 @@ impl<T: Config> Pallet<T> {
         destination_hotkey: &T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        alpha_amount: u64,
-        max_amount: u64,
+        alpha_amount: AlphaCurrency,
+        max_amount: AlphaCurrency,
         maybe_allow_partial: Option<bool>,
         check_transfer_toggle: bool,
     ) -> Result<(), Error<T>> {
@@ -1029,6 +1097,12 @@ impl<T: Config> Pallet<T> {
         if origin_coldkey == destination_coldkey && origin_hotkey == destination_hotkey {
             ensure!(origin_netuid != destination_netuid, Error::<T>::SameNetuid);
         }
+
+        Self::ensure_stake_operation_limit_not_exceeded(
+            origin_hotkey,
+            origin_coldkey,
+            origin_netuid.into(),
+        )?;
 
         // Ensure that both subnets exist.
         ensure!(
@@ -1075,21 +1149,27 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotEnoughStakeToWithdraw
         );
 
-        // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
-        let tao_equivalent =
-            T::SwapInterface::sim_swap(origin_netuid.into(), OrderType::Sell, alpha_amount)
-                .map(|res| res.amount_paid_out)
-                .map_err(|_| Error::<T>::InsufficientLiquidity)?;
-        ensure!(
-            tao_equivalent > DefaultMinStake::<T>::get(),
-            Error::<T>::AmountTooLow
-        );
+        // If origin and destination netuid are different, do the swap-related checks
+        if origin_netuid != destination_netuid {
+            // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
+            let tao_equivalent = T::SwapInterface::sim_swap(
+                origin_netuid.into(),
+                OrderType::Sell,
+                alpha_amount.into(),
+            )
+            .map(|res| res.amount_paid_out)
+            .map_err(|_| Error::<T>::InsufficientLiquidity)?;
+            ensure!(
+                TaoCurrency::from(tao_equivalent) > DefaultMinStake::<T>::get(),
+                Error::<T>::AmountTooLow
+            );
 
-        // Ensure that if partial execution is not allowed, the amount will not cause
-        // slippage over desired
-        if let Some(allow_partial) = maybe_allow_partial {
-            if !allow_partial {
-                ensure!(alpha_amount <= max_amount, Error::<T>::SlippageTooHigh);
+            // Ensure that if partial execution is not allowed, the amount will not cause
+            // slippage over desired
+            if let Some(allow_partial) = maybe_allow_partial {
+                if !allow_partial {
+                    ensure!(alpha_amount <= max_amount, Error::<T>::SlippageTooHigh);
+                }
             }
         }
 
@@ -1099,53 +1179,76 @@ impl<T: Config> Pallet<T> {
                 TransferToggle::<T>::get(origin_netuid),
                 Error::<T>::TransferDisallowed
             );
-            ensure!(
-                TransferToggle::<T>::get(destination_netuid),
-                Error::<T>::TransferDisallowed
-            );
+            if origin_netuid != destination_netuid {
+                ensure!(
+                    TransferToggle::<T>::get(destination_netuid),
+                    Error::<T>::TransferDisallowed
+                );
+            }
         }
 
         Ok(())
     }
 
-    pub fn increase_provided_tao_reserve(netuid: NetUid, tao: u64) {
+    pub fn increase_provided_tao_reserve(netuid: NetUid, tao: TaoCurrency) {
         SubnetTaoProvided::<T>::mutate(netuid, |total| {
             *total = total.saturating_add(tao);
         });
     }
 
-    pub fn decrease_provided_tao_reserve(netuid: NetUid, tao: u64) {
+    pub fn decrease_provided_tao_reserve(netuid: NetUid, tao: TaoCurrency) {
         // First, decrease SubnetTaoProvided, then deduct the rest from SubnetTAO
         let subnet_tao = SubnetTAO::<T>::get(netuid);
         let subnet_tao_provided = SubnetTaoProvided::<T>::get(netuid);
         let remainder = subnet_tao_provided.saturating_sub(tao);
         let carry_over = tao.saturating_sub(subnet_tao_provided);
-        if carry_over == 0 {
+        if carry_over.is_zero() {
             SubnetTaoProvided::<T>::set(netuid, remainder);
         } else {
-            SubnetTaoProvided::<T>::set(netuid, 0_u64);
+            SubnetTaoProvided::<T>::set(netuid, TaoCurrency::ZERO);
             SubnetTAO::<T>::set(netuid, subnet_tao.saturating_sub(carry_over));
         }
     }
 
-    pub fn increase_provided_alpha_reserve(netuid: NetUid, alpha: u64) {
+    pub fn increase_provided_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency) {
         SubnetAlphaInProvided::<T>::mutate(netuid, |total| {
             *total = total.saturating_add(alpha);
         });
     }
 
-    pub fn decrease_provided_alpha_reserve(netuid: NetUid, alpha: u64) {
+    pub fn decrease_provided_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency) {
         // First, decrease SubnetAlphaInProvided, then deduct the rest from SubnetAlphaIn
         let subnet_alpha = SubnetAlphaIn::<T>::get(netuid);
         let subnet_alpha_provided = SubnetAlphaInProvided::<T>::get(netuid);
         let remainder = subnet_alpha_provided.saturating_sub(alpha);
         let carry_over = alpha.saturating_sub(subnet_alpha_provided);
-        if carry_over == 0 {
+        if carry_over.is_zero() {
             SubnetAlphaInProvided::<T>::set(netuid, remainder);
         } else {
-            SubnetAlphaInProvided::<T>::set(netuid, 0_u64);
+            SubnetAlphaInProvided::<T>::set(netuid, AlphaCurrency::ZERO);
             SubnetAlphaIn::<T>::set(netuid, subnet_alpha.saturating_sub(carry_over));
         }
+    }
+
+    pub fn set_stake_operation_limit(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        netuid: NetUid,
+    ) {
+        StakingOperationRateLimiter::<T>::insert((hotkey, coldkey, netuid), true);
+    }
+
+    pub fn ensure_stake_operation_limit_not_exceeded(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        netuid: NetUid,
+    ) -> Result<(), Error<T>> {
+        ensure!(
+            !StakingOperationRateLimiter::<T>::contains_key((hotkey, coldkey, netuid)),
+            Error::<T>::StakingOperationRateLimitExceeded
+        );
+
+        Ok(())
     }
 }
 
@@ -1196,7 +1299,7 @@ impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>>
             crate::TotalHotkeyAlpha::<T>::insert(
                 &(self.hotkey),
                 self.netuid,
-                value.saturating_to_num::<u64>(),
+                AlphaCurrency::from(value.saturating_to_num::<u64>()),
             );
         } else {
             crate::TotalHotkeyAlpha::<T>::remove(&(self.hotkey), self.netuid);

@@ -5,7 +5,7 @@ use fp_evm::{ExitError, PrecompileFailure, PrecompileHandle};
 use pallet_subtensor::AxonInfo as SubtensorModuleAxonInfo;
 use precompile_utils::{EvmResult, solidity::Codec};
 use sp_core::{ByteArray, H256};
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{Currency, NetUid};
 
 use crate::PrecompileExt;
 
@@ -41,9 +41,7 @@ where
                 exit_status: ExitError::InvalidRange,
             })?;
 
-        Ok(pallet_subtensor::Pallet::<R>::get_total_stake_for_hotkey(
-            &hotkey,
-        ))
+        Ok(pallet_subtensor::Pallet::<R>::get_total_stake_for_hotkey(&hotkey).to_u64())
     }
 
     #[precompile::public("getRank(uint16,uint16)")]
@@ -94,10 +92,7 @@ where
     #[precompile::public("getEmission(uint16,uint16)")]
     #[precompile::view]
     fn get_emission(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::Pallet::<R>::get_emission_for_uid(
-            netuid.into(),
-            uid,
-        ))
+        Ok(pallet_subtensor::Pallet::<R>::get_emission_for_uid(netuid.into(), uid).into())
     }
 
     #[precompile::public("getVtrust(uint16,uint16)")]

@@ -4,9 +4,9 @@ use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I96F32;
 use subtensor_macros::freeze_struct;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
 
-#[freeze_struct("ddf2c1fdd5bb7e7")]
+#[freeze_struct("e526a1c6d2303d32")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct DynamicInfo<AccountId: TypeInfo + Encode + Decode> {
     netuid: Compact<NetUid>,
@@ -18,14 +18,14 @@ pub struct DynamicInfo<AccountId: TypeInfo + Encode + Decode> {
     last_step: Compact<u64>,
     blocks_since_last_step: Compact<u64>,
     emission: Compact<u64>,
-    alpha_in: Compact<u64>,
-    alpha_out: Compact<u64>,
-    tao_in: Compact<u64>,
-    alpha_out_emission: Compact<u64>,
-    alpha_in_emission: Compact<u64>,
-    tao_in_emission: Compact<u64>,
-    pending_alpha_emission: Compact<u64>,
-    pending_root_emission: Compact<u64>,
+    alpha_in: Compact<AlphaCurrency>,
+    alpha_out: Compact<AlphaCurrency>,
+    tao_in: Compact<TaoCurrency>,
+    alpha_out_emission: Compact<AlphaCurrency>,
+    alpha_in_emission: Compact<AlphaCurrency>,
+    tao_in_emission: Compact<TaoCurrency>,
+    pending_alpha_emission: Compact<AlphaCurrency>,
+    pending_root_emission: Compact<TaoCurrency>,
     subnet_volume: Compact<u128>,
     network_registered_at: Compact<u64>,
     subnet_identity: Option<SubnetIdentityV3>,
@@ -48,7 +48,7 @@ impl<T: Config> Pallet<T> {
                 .into_iter()
                 .map(Compact)
                 .collect(),
-            token_symbol: Self::get_symbol_for_subnet(netuid)
+            token_symbol: TokenSymbol::<T>::get(netuid)
                 .into_iter()
                 .map(Compact)
                 .collect(),

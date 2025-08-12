@@ -139,7 +139,7 @@ impl PalletStorageAttrInfo {
                     return Err(syn::Error::new(
                         attr.attr_span(),
                         "Invalid attribute: Duplicate attribute",
-                    ))
+                    ));
                 }
             }
         }
@@ -741,13 +741,13 @@ fn process_generics(
     if args
         .args
         .iter()
-        .all(|gen| matches!(gen, syn::GenericArgument::Type(_)))
+        .all(|r#gen| matches!(r#gen, syn::GenericArgument::Type(_)))
     {
         let args = args
             .args
             .iter()
-            .map(|gen| match gen {
-                syn::GenericArgument::Type(gen) => gen.clone(),
+            .map(|r#gen| match r#gen {
+                syn::GenericArgument::Type(r#gen) => r#gen.clone(),
                 _ => unreachable!("It is asserted above that all generics are types"),
             })
             .collect::<Vec<_>>();
@@ -755,13 +755,13 @@ fn process_generics(
     } else if args
         .args
         .iter()
-        .all(|gen| matches!(gen, syn::GenericArgument::AssocType(_)))
+        .all(|r#gen| matches!(r#gen, syn::GenericArgument::AssocType(_)))
     {
         let args = args
             .args
             .iter()
-            .map(|gen| match gen {
-                syn::GenericArgument::AssocType(gen) => gen.clone(),
+            .map(|r#gen| match r#gen {
+                syn::GenericArgument::AssocType(r#gen) => r#gen.clone(),
                 _ => unreachable!("It is asserted above that all generics are bindings"),
             })
             .collect::<Vec<_>>();
@@ -915,7 +915,7 @@ impl StorageDef {
                             .last()
                             .map_or(false, |s| s.ident == "OptionQuery") =>
                     {
-                        return Ok(Some(QueryKind::OptionQuery))
+                        return Ok(Some(QueryKind::OptionQuery));
                     }
                     Type::Path(TypePath {
                         path: Path { segments, .. },
@@ -931,7 +931,7 @@ impl StorageDef {
                             .last()
                             .map_or(false, |s| s.ident == "ValueQuery") =>
                     {
-                        return Ok(Some(QueryKind::ValueQuery))
+                        return Ok(Some(QueryKind::ValueQuery));
                     }
                     _ => return Ok(None),
                 };
@@ -1003,10 +1003,10 @@ impl StorageDef {
                     }
                     gen_arg => {
                         let msg = format!(
-							"Invalid pallet::storage, unexpected generic argument kind, expected a \
+                            "Invalid pallet::storage, unexpected generic argument kind, expected a \
 							type path to a `PalletError` enum variant, found `{}`",
-							gen_arg.to_token_stream().to_string(),
-						);
+                            gen_arg.to_token_stream().to_string(),
+                        );
                         Err(syn::Error::new(gen_arg.span(), msg))
                     }
                 }

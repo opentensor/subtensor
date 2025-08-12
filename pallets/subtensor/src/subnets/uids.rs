@@ -19,7 +19,7 @@ impl<T: Config> Pallet<T> {
     /// Resets the trust, emission, consensus, incentive, dividends of the neuron to default
     pub fn clear_neuron(netuid: NetUid, neuron_uid: u16) {
         let neuron_index: usize = neuron_uid.into();
-        Emission::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
+        Emission::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0.into()));
         Trust::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
         Consensus::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
         Incentive::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
@@ -35,10 +35,7 @@ impl<T: Config> Pallet<T> {
         block_number: u64,
     ) {
         log::debug!(
-            "replace_neuron( netuid: {:?} | uid_to_replace: {:?} | new_hotkey: {:?} ) ",
-            netuid,
-            uid_to_replace,
-            new_hotkey
+            "replace_neuron( netuid: {netuid:?} | uid_to_replace: {uid_to_replace:?} | new_hotkey: {new_hotkey:?} ) "
         );
 
         // 1. Get the old hotkey under this position.
@@ -49,11 +46,7 @@ impl<T: Config> Pallet<T> {
             if sn_owner_hotkey == old_hotkey.clone() {
                 log::warn!(
                     "replace_neuron: Skipped replacement because neuron is the subnet owner hotkey. \
-                    netuid: {:?}, uid_to_replace: {:?}, new_hotkey: {:?}, owner_hotkey: {:?}",
-                    netuid,
-                    uid_to_replace,
-                    new_hotkey,
-                    sn_owner_hotkey
+                    netuid: {netuid:?}, uid_to_replace: {uid_to_replace:?}, new_hotkey: {new_hotkey:?}, owner_hotkey: {sn_owner_hotkey:?}"
                 );
                 return;
             }
@@ -61,6 +54,7 @@ impl<T: Config> Pallet<T> {
 
         // 2. Remove previous set memberships.
         Uids::<T>::remove(netuid, old_hotkey.clone());
+        AssociatedEvmAddress::<T>::remove(netuid, uid_to_replace);
         IsNetworkMember::<T>::remove(old_hotkey.clone(), netuid);
         #[allow(unknown_lints)]
         Keys::<T>::remove(netuid, uid_to_replace);
@@ -87,10 +81,7 @@ impl<T: Config> Pallet<T> {
         // 1. Get the next uid. This is always equal to subnetwork_n.
         let next_uid: u16 = Self::get_subnetwork_n(netuid);
         log::debug!(
-            "append_neuron( netuid: {:?} | next_uid: {:?} | new_hotkey: {:?} ) ",
-            netuid,
-            new_hotkey,
-            next_uid
+            "append_neuron( netuid: {netuid:?} | next_uid: {new_hotkey:?} | new_hotkey: {next_uid:?} ) "
         );
 
         // 2. Get and increase the uid count.
@@ -100,7 +91,7 @@ impl<T: Config> Pallet<T> {
         Rank::<T>::mutate(netuid, |v| v.push(0));
         Trust::<T>::mutate(netuid, |v| v.push(0));
         Active::<T>::mutate(netuid, |v| v.push(true));
-        Emission::<T>::mutate(netuid, |v| v.push(0));
+        Emission::<T>::mutate(netuid, |v| v.push(0.into()));
         Consensus::<T>::mutate(netuid, |v| v.push(0));
         Incentive::<T>::mutate(netuid, |v| v.push(0));
         Dividends::<T>::mutate(netuid, |v| v.push(0));
@@ -150,11 +141,11 @@ impl<T: Config> Pallet<T> {
 
     /// Returns the stake of the uid on network or 0 if it doesnt exist.
     ///
-    pub fn get_stake_for_uid_and_subnetwork(netuid: NetUid, neuron_uid: u16) -> u64 {
+    pub fn get_stake_for_uid_and_subnetwork(netuid: NetUid, neuron_uid: u16) -> AlphaCurrency {
         if let Ok(hotkey) = Self::get_hotkey_for_net_and_uid(netuid, neuron_uid) {
             Self::get_stake_for_hotkey_on_subnet(&hotkey, netuid)
         } else {
-            0
+            AlphaCurrency::ZERO
         }
     }
 

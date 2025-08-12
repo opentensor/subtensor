@@ -6,6 +6,7 @@ use frame_support::{
 };
 use log::info;
 use sp_std::vec::Vec;
+use subtensor_runtime_common::NetUid;
 
 /// Constant for logging purposes
 const LOG_TARGET: &str = "migrate_delete_subnet_3";
@@ -52,8 +53,7 @@ pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
     if onchain_version < new_storage_version && Pallet::<T>::if_subnet_exist(3.into()) {
         info!(
             target: LOG_TARGET,
-            "Removing subnet 3. Current version: {:?}",
-            onchain_version
+            "Removing subnet 3. Current version: {onchain_version:?}"
         );
 
         let netuid = NetUid::from(3);

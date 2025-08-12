@@ -4,16 +4,19 @@ use frame_support::IterableStorageDoubleMap;
 use safe_math::*;
 use sp_std::vec;
 use substrate_fixed::types::{I32F32, I64F64, I96F32};
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{AlphaCurrency, NetUid};
 
 impl<T: Config> Pallet<T> {
     /// Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.
     /// (Dense version used only for testing purposes.)
     #[allow(clippy::indexing_slicing)]
-    pub fn epoch_dense(netuid: NetUid, rao_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
+    pub fn epoch_dense(
+        netuid: NetUid,
+        rao_emission: AlphaCurrency,
+    ) -> Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> {
         // Get subnetwork size.
         let n: u16 = Self::get_subnetwork_n(netuid);
-        log::trace!("n: {:?}", n);
+        log::trace!("n: {n:?}");
 
         // ======================
         // == Active & updated ==
@@ -21,15 +24,15 @@ impl<T: Config> Pallet<T> {
 
         // Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
-        log::trace!("current_block: {:?}", current_block);
+        log::trace!("current_block: {current_block:?}");
 
         // Get tempo.
         let tempo: u64 = Self::get_tempo(netuid).into();
-        log::trace!("tempo: {:?}", tempo);
+        log::trace!("tempo: {tempo:?}");
 
         // Get activity cutoff.
         let activity_cutoff: u64 = Self::get_activity_cutoff(netuid) as u64;
-        log::trace!("activity_cutoff: {:?}", activity_cutoff);
+        log::trace!("activity_cutoff: {activity_cutoff:?}");
 
         // Last update vector.
         let last_update: Vec<u64> = Self::get_last_update(netuid);
@@ -109,19 +112,19 @@ impl<T: Config> Pallet<T> {
 
         // Get validator permits.
         let validator_permits: Vec<bool> = Self::get_validator_permit(netuid);
-        log::trace!("validator_permits: {:?}", validator_permits);
+        log::trace!("validator_permits: {validator_permits:?}");
 
         // Logical negation of validator_permits.
         let validator_forbids: Vec<bool> = validator_permits.iter().map(|&b| !b).collect();
 
         // Get max allowed validators.
         let max_allowed_validators: u16 = Self::get_max_allowed_validators(netuid);
-        log::trace!("max_allowed_validators: {:?}", max_allowed_validators);
+        log::trace!("max_allowed_validators: {max_allowed_validators:?}");
 
         // Get new validator permits.
         let new_validator_permits: Vec<bool> =
             is_topk_nonzero(&stake, max_allowed_validators as usize);
-        log::trace!("new_validator_permits: {:?}", new_validator_permits);
+        log::trace!("new_validator_permits: {new_validator_permits:?}");
 
         // ==================
         // == Active Stake ==
@@ -314,18 +317,18 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|se: &I32F32| I96F32::saturating_from_num(*se).saturating_mul(float_rao_emission))
             .collect();
-        let server_emission: Vec<u64> = server_emission
+        let server_emission: Vec<AlphaCurrency> = server_emission
             .iter()
-            .map(|e: &I96F32| e.saturating_to_num::<u64>())
+            .map(|e: &I96F32| e.saturating_to_num::<u64>().into())
             .collect();
 
         let validator_emission: Vec<I96F32> = normalized_validator_emission
             .iter()
             .map(|ve: &I32F32| I96F32::saturating_from_num(*ve).saturating_mul(float_rao_emission))
             .collect();
-        let validator_emission: Vec<u64> = validator_emission
+        let validator_emission: Vec<AlphaCurrency> = validator_emission
             .iter()
-            .map(|e: &I96F32| e.saturating_to_num::<u64>())
+            .map(|e: &I96F32| e.saturating_to_num::<u64>().into())
             .collect();
 
         // Used only to track combined emission in the storage.
@@ -333,9 +336,9 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|ce: &I32F32| I96F32::saturating_from_num(*ce).saturating_mul(float_rao_emission))
             .collect();
-        let combined_emission: Vec<u64> = combined_emission
+        let combined_emission: Vec<AlphaCurrency> = combined_emission
             .iter()
-            .map(|e: &I96F32| e.saturating_to_num::<u64>())
+            .map(|e: &I96F32| AlphaCurrency::from(e.saturating_to_num::<u64>()))
             .collect();
 
         log::trace!("nSE: {:?}", &normalized_server_emission);
@@ -352,7 +355,7 @@ impl<T: Config> Pallet<T> {
         // ===================
         // == Value storage ==
         // ===================
-        let cloned_emission: Vec<u64> = combined_emission.clone();
+        let cloned_emission = combined_emission.clone();
         let cloned_stake_weight: Vec<u16> = stake
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))
@@ -439,10 +442,13 @@ impl<T: Config> Pallet<T> {
     ///     - Print debugging outputs.
     ///
     #[allow(clippy::indexing_slicing)]
-    pub fn epoch(netuid: NetUid, rao_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
+    pub fn epoch(
+        netuid: NetUid,
+        rao_emission: AlphaCurrency,
+    ) -> Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> {
         // Get subnetwork size.
-        let n: u16 = Self::get_subnetwork_n(netuid);
-        log::trace!("Number of Neurons in Network: {:?}", n);
+        let n = Self::get_subnetwork_n(netuid);
+        log::trace!("Number of Neurons in Network: {n:?}");
 
         // ======================
         // == Active & updated ==
@@ -450,15 +456,15 @@ impl<T: Config> Pallet<T> {
 
         // Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
-        log::trace!("current_block: {:?}", current_block);
+        log::trace!("current_block: {current_block:?}");
 
         // Get tempo.
         let tempo: u64 = Self::get_tempo(netuid).into();
-        log::trace!("tempo:\n{:?}\n", tempo);
+        log::trace!("tempo:\n{tempo:?}\n");
 
         // Get activity cutoff.
         let activity_cutoff: u64 = Self::get_activity_cutoff(netuid) as u64;
-        log::trace!("activity_cutoff: {:?}", activity_cutoff);
+        log::trace!("activity_cutoff: {activity_cutoff:?}");
 
         // Last update vector.
         let last_update: Vec<u64> = Self::get_last_update(netuid);
@@ -516,19 +522,19 @@ impl<T: Config> Pallet<T> {
 
         // Get current validator permits.
         let validator_permits: Vec<bool> = Self::get_validator_permit(netuid);
-        log::trace!("validator_permits: {:?}", validator_permits);
+        log::trace!("validator_permits: {validator_permits:?}");
 
         // Logical negation of validator_permits.
         let validator_forbids: Vec<bool> = validator_permits.iter().map(|&b| !b).collect();
 
         // Get max allowed validators.
         let max_allowed_validators: u16 = Self::get_max_allowed_validators(netuid);
-        log::trace!("max_allowed_validators: {:?}", max_allowed_validators);
+        log::trace!("max_allowed_validators: {max_allowed_validators:?}");
 
         // Get new validator permits.
         let new_validator_permits: Vec<bool> =
             is_topk_nonzero(&stake, max_allowed_validators as usize);
-        log::trace!("new_validator_permits: {:?}", new_validator_permits);
+        log::trace!("new_validator_permits: {new_validator_permits:?}");
 
         // ==================
         // == Active Stake ==
@@ -576,6 +582,53 @@ impl<T: Config> Pallet<T> {
             &|updated, registered| updated <= registered,
         );
         log::trace!("Weights (permit+diag+outdate): {:?}", &weights);
+
+        if Self::get_commit_reveal_weights_enabled(netuid) {
+            let mut commit_blocks: Vec<u64> = vec![u64::MAX; n as usize]; // MAX ⇒ “no active commit”
+
+            // helper: hotkey → uid
+            let uid_of = |acct: &T::AccountId| -> Option<usize> {
+                hotkeys
+                    .iter()
+                    .find(|(_, a)| a == acct)
+                    .map(|(uid, _)| *uid as usize)
+            };
+
+            // ---------- v2 ------------------------------------------------------
+            for (who, q) in WeightCommits::<T>::iter_prefix(netuid) {
+                for (_, cb, _, _) in q.iter() {
+                    if !Self::is_commit_expired(netuid, *cb) {
+                        if let Some(i) = uid_of(&who) {
+                            commit_blocks[i] = commit_blocks[i].min(*cb);
+                        }
+                        break; // earliest active found
+                    }
+                }
+            }
+
+            // ---------- v3 ------------------------------------------------------
+            for (_epoch, q) in CRV3WeightCommitsV2::<T>::iter_prefix(netuid) {
+                for (who, cb, ..) in q.iter() {
+                    if !Self::is_commit_expired(netuid, *cb) {
+                        if let Some(i) = uid_of(who) {
+                            commit_blocks[i] = commit_blocks[i].min(*cb);
+                        }
+                    }
+                }
+            }
+
+            weights = vec_mask_sparse_matrix(
+                &weights,
+                &commit_blocks,
+                &block_at_registration,
+                &|cb, reg| cb < reg,
+            );
+
+            log::trace!(
+                "Commit-reveal column mask applied ({} masked rows)",
+                commit_blocks.iter().filter(|&&cb| cb != u64::MAX).count()
+            );
+        }
 
         // Normalize remaining weights.
         inplace_row_normalize_sparse(&mut weights);
@@ -758,18 +811,18 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|se: &I32F32| I96F32::saturating_from_num(*se).saturating_mul(float_rao_emission))
             .collect();
-        let server_emission: Vec<u64> = server_emission
+        let server_emission: Vec<AlphaCurrency> = server_emission
             .iter()
-            .map(|e: &I96F32| e.saturating_to_num::<u64>())
+            .map(|e: &I96F32| e.saturating_to_num::<u64>().into())
             .collect();
 
         let validator_emission: Vec<I96F32> = normalized_validator_emission
             .iter()
             .map(|ve: &I32F32| I96F32::saturating_from_num(*ve).saturating_mul(float_rao_emission))
             .collect();
-        let validator_emission: Vec<u64> = validator_emission
+        let validator_emission: Vec<AlphaCurrency> = validator_emission
             .iter()
-            .map(|e: &I96F32| e.saturating_to_num::<u64>())
+            .map(|e: &I96F32| e.saturating_to_num::<u64>().into())
             .collect();
 
         // Only used to track emission in storage.
@@ -777,9 +830,9 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|ce: &I32F32| I96F32::saturating_from_num(*ce).saturating_mul(float_rao_emission))
             .collect();
-        let combined_emission: Vec<u64> = combined_emission
+        let combined_emission: Vec<AlphaCurrency> = combined_emission
             .iter()
-            .map(|e: &I96F32| e.saturating_to_num::<u64>())
+            .map(|e: &I96F32| AlphaCurrency::from(e.saturating_to_num::<u64>()))
             .collect();
 
         log::trace!(
@@ -809,7 +862,7 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))
             .collect::<Vec<u16>>();
-        let cloned_emission: Vec<u64> = combined_emission.clone();
+        let cloned_emission = combined_emission.clone();
         let cloned_ranks: Vec<u16> = ranks
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))
@@ -1041,7 +1094,7 @@ impl<T: Config> Pallet<T> {
         let ema_bonds = mat_ema_sparse(bonds_delta, bonds, alpha);
 
         // Log the computed EMA bonds for debugging purposes.
-        log::trace!("Exponential Moving Average Bonds Normal: {:?}", ema_bonds);
+        log::trace!("Exponential Moving Average Bonds Normal: {ema_bonds:?}");
 
         // Return the computed EMA bonds.
         ema_bonds
@@ -1075,7 +1128,7 @@ impl<T: Config> Pallet<T> {
         let ema_bonds = mat_ema(bonds_delta, bonds, alpha);
 
         // Log the computed EMA bonds for debugging purposes.
-        log::trace!("Exponential Moving Average Bonds Normal: {:?}", ema_bonds);
+        log::trace!("Exponential Moving Average Bonds Normal: {ema_bonds:?}");
 
         // Return the computed EMA bonds.
         ema_bonds
@@ -1355,10 +1408,7 @@ impl<T: Config> Pallet<T> {
         AlphaValues::<T>::insert(netuid, (alpha_low, alpha_high));
 
         log::debug!(
-            "AlphaValuesSet( netuid: {:?}, AlphaLow: {:?}, AlphaHigh: {:?} ) ",
-            netuid,
-            alpha_low,
-            alpha_high,
+            "AlphaValuesSet( netuid: {netuid:?}, AlphaLow: {alpha_low:?}, AlphaHigh: {alpha_high:?} ) ",
         );
         Ok(())
     }
@@ -1382,12 +1432,10 @@ impl<T: Config> Pallet<T> {
                         .collect::<Vec<&(u16, u16)>>(),
                 );
             }
-            log::debug!("Reset bonds for {:?}, netuid {:?}", account_id, netuid);
+            log::debug!("Reset bonds for {account_id:?}, netuid {netuid:?}");
         } else {
             log::warn!(
-                "Uid not found for {:?}, netuid {:?} - skipping bonds reset",
-                account_id,
-                netuid
+                "Uid not found for {account_id:?}, netuid {netuid:?} - skipping bonds reset"
             );
         }
 

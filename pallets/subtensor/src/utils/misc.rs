@@ -8,7 +8,7 @@ use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::Saturating;
 use substrate_fixed::types::{I32F32, U96F32};
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
@@ -71,7 +71,7 @@ impl<T: Config> Pallet<T> {
     // ========================
     // ==== Global Getters ====
     // ========================
-    pub fn get_total_issuance() -> u64 {
+    pub fn get_total_issuance() -> TaoCurrency {
         TotalIssuance::<T>::get()
     }
     pub fn get_current_block_as_u64() -> u64 {
@@ -92,7 +92,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_active(netuid: NetUid) -> Vec<bool> {
         Active::<T>::get(netuid)
     }
-    pub fn get_emission(netuid: NetUid) -> Vec<u64> {
+    pub fn get_emission(netuid: NetUid) -> Vec<AlphaCurrency> {
         Emission::<T>::get(netuid)
     }
     pub fn get_consensus(netuid: NetUid) -> Vec<u16> {
@@ -137,12 +137,12 @@ impl<T: Config> Pallet<T> {
         Active::<T>::insert(netuid, updated_active_vec);
     }
     pub fn set_pruning_score_for_uid(netuid: NetUid, uid: u16, pruning_score: u16) {
-        log::debug!("netuid = {:?}", netuid);
+        log::debug!("netuid = {netuid:?}");
         log::debug!(
             "SubnetworkN::<T>::get( netuid ) = {:?}",
             SubnetworkN::<T>::get(netuid)
         );
-        log::debug!("uid = {:?}", uid);
+        log::debug!("uid = {uid:?}");
         assert!(uid < SubnetworkN::<T>::get(netuid));
         PruningScores::<T>::mutate(netuid, |v| {
             if let Some(s) = v.get_mut(uid as usize) {
@@ -171,9 +171,9 @@ impl<T: Config> Pallet<T> {
         let vec = Trust::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
     }
-    pub fn get_emission_for_uid(netuid: NetUid, uid: u16) -> u64 {
+    pub fn get_emission_for_uid(netuid: NetUid, uid: u16) -> AlphaCurrency {
         let vec = Emission::<T>::get(netuid);
-        vec.get(uid as usize).copied().unwrap_or(0)
+        vec.get(uid as usize).copied().unwrap_or_default()
     }
     pub fn get_active_for_uid(netuid: NetUid, uid: u16) -> bool {
         let vec = Active::<T>::get(netuid);
@@ -217,7 +217,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_tempo(netuid: NetUid) -> u16 {
         Tempo::<T>::get(netuid)
     }
-    pub fn get_pending_emission(netuid: NetUid) -> u64 {
+    pub fn get_pending_emission(netuid: NetUid) -> AlphaCurrency {
         PendingEmission::<T>::get(netuid)
     }
     pub fn get_last_adjustment_block(netuid: NetUid) -> u64 {
@@ -270,25 +270,25 @@ impl<T: Config> Pallet<T> {
     // ========================
     // === Token Management ===
     // ========================
-    pub fn burn_tokens(amount: u64) {
+    pub fn burn_tokens(amount: TaoCurrency) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(amount));
     }
-    pub fn coinbase(amount: u64) {
+    pub fn coinbase(amount: TaoCurrency) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(amount));
     }
 
-    pub fn set_subnet_locked_balance(netuid: NetUid, amount: u64) {
+    pub fn set_subnet_locked_balance(netuid: NetUid, amount: TaoCurrency) {
         SubnetLocked::<T>::insert(netuid, amount);
     }
-    pub fn get_subnet_locked_balance(netuid: NetUid) -> u64 {
+    pub fn get_subnet_locked_balance(netuid: NetUid) -> TaoCurrency {
         SubnetLocked::<T>::get(netuid)
     }
-    pub fn get_total_subnet_locked() -> u64 {
+    pub fn get_total_subnet_locked() -> TaoCurrency {
         let mut total_subnet_locked: u64 = 0;
         for (_, locked) in SubnetLocked::<T>::iter() {
-            total_subnet_locked.saturating_accrue(locked);
+            total_subnet_locked.saturating_accrue(locked.into());
         }
-        total_subnet_locked
+        total_subnet_locked.into()
     }
 
     // ========================
@@ -481,7 +481,13 @@ impl<T: Config> Pallet<T> {
         CommitRevealWeightsEnabled::<T>::set(netuid, enabled);
         Self::deposit_event(Event::CommitRevealEnabled(netuid, enabled));
     }
-
+    pub fn get_commit_reveal_weights_version() -> u16 {
+        CommitRevealWeightsVersion::<T>::get()
+    }
+    pub fn set_commit_reveal_weights_version(version: u16) {
+        CommitRevealWeightsVersion::<T>::set(version);
+        Self::deposit_event(Event::CommitRevealVersionSet(version));
+    }
     pub fn get_rho(netuid: NetUid) -> u16 {
         Rho::<T>::get(netuid)
     }
@@ -528,25 +534,25 @@ impl<T: Config> Pallet<T> {
         ));
     }
 
-    pub fn get_burn_as_u64(netuid: NetUid) -> u64 {
+    pub fn get_burn(netuid: NetUid) -> TaoCurrency {
         Burn::<T>::get(netuid)
     }
-    pub fn set_burn(netuid: NetUid, burn: u64) {
+    pub fn set_burn(netuid: NetUid, burn: TaoCurrency) {
         Burn::<T>::insert(netuid, burn);
     }
 
-    pub fn get_min_burn_as_u64(netuid: NetUid) -> u64 {
+    pub fn get_min_burn(netuid: NetUid) -> TaoCurrency {
         MinBurn::<T>::get(netuid)
     }
-    pub fn set_min_burn(netuid: NetUid, min_burn: u64) {
+    pub fn set_min_burn(netuid: NetUid, min_burn: TaoCurrency) {
         MinBurn::<T>::insert(netuid, min_burn);
         Self::deposit_event(Event::MinBurnSet(netuid, min_burn));
     }
 
-    pub fn get_max_burn_as_u64(netuid: NetUid) -> u64 {
+    pub fn get_max_burn(netuid: NetUid) -> TaoCurrency {
         MaxBurn::<T>::get(netuid)
     }
-    pub fn set_max_burn(netuid: NetUid, max_burn: u64) {
+    pub fn set_max_burn(netuid: NetUid, max_burn: TaoCurrency) {
         MaxBurn::<T>::insert(netuid, max_burn);
         Self::deposit_event(Event::MaxBurnSet(netuid, max_burn));
     }
@@ -627,18 +633,18 @@ impl<T: Config> Pallet<T> {
         StakingHotkeys::<T>::get(coldkey)
     }
 
-    pub fn set_total_issuance(total_issuance: u64) {
+    pub fn set_total_issuance(total_issuance: TaoCurrency) {
         TotalIssuance::<T>::put(total_issuance);
     }
 
-    pub fn get_rao_recycled(netuid: NetUid) -> u64 {
+    pub fn get_rao_recycled(netuid: NetUid) -> TaoCurrency {
         RAORecycledForRegistration::<T>::get(netuid)
     }
-    pub fn set_rao_recycled(netuid: NetUid, rao_recycled: u64) {
+    pub fn set_rao_recycled(netuid: NetUid, rao_recycled: TaoCurrency) {
         RAORecycledForRegistration::<T>::insert(netuid, rao_recycled);
         Self::deposit_event(Event::RAORecycledForRegistrationSet(netuid, rao_recycled));
     }
-    pub fn increase_rao_recycled(netuid: NetUid, inc_rao_recycled: u64) {
+    pub fn increase_rao_recycled(netuid: NetUid, inc_rao_recycled: TaoCurrency) {
         let curr_rao_recycled = Self::get_rao_recycled(netuid);
         let rao_recycled = curr_rao_recycled.saturating_add(inc_rao_recycled);
         Self::set_rao_recycled(netuid, rao_recycled);
@@ -667,16 +673,28 @@ impl<T: Config> Pallet<T> {
         SubnetOwner::<T>::iter_values().any(|owner| *address == owner)
     }
 
+    /// The NominatorMinRequiredStake is the factor by which we multiply
+    /// the DefaultMinStake to get nominator minimum stake. With DefaulMinStake
+    /// of 0.001 TAO and NominatorMinRequiredStake of 100_000_000, the
+    /// minimum nomination stake will be 0.1 TAO.
     pub fn get_nominator_min_required_stake() -> u64 {
-        NominatorMinRequiredStake::<T>::get()
+        // Get the factor (It is stored in per-million format)
+        let factor = NominatorMinRequiredStake::<T>::get();
+
+        // Return the default minimum stake multiplied by factor
+        // 21M * 10^9 * 10^6 fits u64, hence no need for fixed type usage here
+        DefaultMinStake::<T>::get()
+            .to_u64()
+            .saturating_mul(factor)
+            .safe_div(1_000_000)
     }
 
     pub fn set_nominator_min_required_stake(min_stake: u64) {
         NominatorMinRequiredStake::<T>::put(min_stake);
     }
 
-    pub fn get_key_swap_cost() -> u64 {
-        T::KeySwapCost::get()
+    pub fn get_key_swap_cost() -> TaoCurrency {
+        T::KeySwapCost::get().into()
     }
 
     pub fn get_alpha_values(netuid: NetUid) -> (u16, u16) {
@@ -684,8 +702,10 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn set_alpha_values_32(netuid: NetUid, low: I32F32, high: I32F32) {
-        let low = (low.saturating_mul(I32F32::saturating_from_num(u16::MAX))).to_num::<u16>();
-        let high = (high.saturating_mul(I32F32::saturating_from_num(u16::MAX))).to_num::<u16>();
+        let low =
+            (low.saturating_mul(I32F32::saturating_from_num(u16::MAX))).saturating_to_num::<u16>();
+        let high =
+            (high.saturating_mul(I32F32::saturating_from_num(u16::MAX))).saturating_to_num::<u16>();
         AlphaValues::<T>::insert(netuid, (low, high));
     }
 

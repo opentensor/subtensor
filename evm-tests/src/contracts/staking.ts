@@ -253,6 +253,19 @@ export const IStakingV2ABI = [
         "type": "function"
     },
     {
+        "inputs": [],
+        "name": "getNominatorMinRequiredStake",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
         "inputs": [
             {
                 "internalType": "bytes32",
@@ -289,69 +302,110 @@ export const IStakingV2ABI = [
         "type": "function"
     },
     {
-      "inputs": [
-          {
-              "internalType": "bytes32",
-              "name": "hotkey",
-              "type": "bytes32"
-          },
-          {
-              "internalType": "uint256",
-              "name": "amount",
-              "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "limit_price",
-            "type": "uint256"
-          },
-          {
-              "internalType": "bool",
-              "name": "allow_partial",
-              "type": "bool"
-          },
-          {
-              "internalType": "uint256",
-              "name": "netuid",
-              "type": "uint256"
-          }
-      ],
-      "name": "addStakeLimit",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-  },
-  {
-    "inputs": [
-        {
-            "internalType": "bytes32",
-            "name": "hotkey",
-            "type": "bytes32"
-        },
-        {
-            "internalType": "uint256",
-            "name": "amount",
-            "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "limit_price",
-          "type": "uint256"
-        },
-        {
-            "internalType": "bool",
-            "name": "allow_partial",
-            "type": "bool"
-        },
-        {
-            "internalType": "uint256",
-            "name": "netuid",
-            "type": "uint256"
-        }
-    ],
-    "name": "removeStakeLimit",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "hotkey",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "limit_price",
+                "type": "uint256"
+            },
+            {
+                "internalType": "bool",
+                "name": "allow_partial",
+                "type": "bool"
+            },
+            {
+                "internalType": "uint256",
+                "name": "netuid",
+                "type": "uint256"
+            }
+        ],
+        "name": "addStakeLimit",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "hotkey",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "limit_price",
+                "type": "uint256"
+            },
+            {
+                "internalType": "bool",
+                "name": "allow_partial",
+                "type": "bool"
+            },
+            {
+                "internalType": "uint256",
+                "name": "netuid",
+                "type": "uint256"
+            }
+        ],
+        "name": "removeStakeLimit",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "hotkey",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "uint256",
+                "name": "netuid",
+                "type": "uint256"
+            },
+        ],
+        "name": "removeStakeFull",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "hotkey",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "uint256",
+                "name": "netuid",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "limit_price",
+                "type": "uint256"
+            }
+        ],
+        "name": "removeStakeFullLimit",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    }
 ];

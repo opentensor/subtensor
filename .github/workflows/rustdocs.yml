@@ -6,16 +6,25 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: rustdocs-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   build:
-    runs-on: SubtensorCI
+    runs-on: [self-hosted, type-ccx13]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl libssl-dev llvm libudev-dev protobuf-compiler pkg-config
 
       - name: Install rustup
         uses: actions-rs/toolchain@v1
@@ -39,13 +48,13 @@ jobs:
         run: |
             echo "<meta http-equiv=refresh content=0;url=wasm_oidc_plugin/index.html>" > target/doc/index.html
       - name: Upload documentation
-        uses: actions/upload-pages-artifact@v1
+        uses: actions/upload-pages-artifact@v3
         with:
             path: ./target/doc
 
   deploy:
         needs: build
-        runs-on: SubtensorCI
+        runs-on: [self-hosted, type-ccx13]
 
         permissions:
             pages: write
