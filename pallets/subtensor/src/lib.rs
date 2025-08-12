@@ -53,7 +53,6 @@ pub mod swap;
 pub mod utils;
 use crate::utils::rate_limiting::TransactionType;
 use macros::{config, dispatches, errors, events, genesis, hooks};
-// use subnets::weights::{find_commit_block_via_hash, get_commit_hash, is_reveal_block_range};
 
 #[cfg(test)]
 mod tests;
@@ -2108,11 +2107,7 @@ where
                         Some(commit_block) => {
                             if Pallet::<T>::is_reveal_block_range(*netuid, commit_block) {
                                 let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                                let validity = ValidTransaction {
-                                    priority,
-                                    longevity: 1,
-                                    ..Default::default()
-                                };
+                                let validity = Self::validity_ok(priority);
                                 Ok((validity, Some(who.clone()), origin))
                             } else {
                                 Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
