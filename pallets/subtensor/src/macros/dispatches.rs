@@ -279,7 +279,7 @@ mod dispatches {
         ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
         ///
         #[pallet::call_index(99)]
-        #[pallet::weight((Weight::from_parts(50_980_000, 0)
+        #[pallet::weight((Weight::from_parts(62_300_000, 0)
 		.saturating_add(T::DbWeight::get().reads(7_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_crv3_weights(
@@ -827,7 +827,7 @@ mod dispatches {
         /// 	- The ip type v4 or v6.
         ///
         #[pallet::call_index(5)]
-        #[pallet::weight((Weight::from_parts(22_470_000, 0)
+        #[pallet::weight((Weight::from_parts(22_640_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_prometheus(
@@ -1045,7 +1045,7 @@ mod dispatches {
         ///
         #[pallet::call_index(69)]
         #[pallet::weight((
-            Weight::from_parts(3_630_000, 0)
+            Weight::from_parts(4_690_000, 0)
             .saturating_add(T::DbWeight::get().reads(0))
             .saturating_add(T::DbWeight::get().writes(1)),
             DispatchClass::Operational,
@@ -1327,7 +1327,7 @@ mod dispatches {
         /// - Consider adding checks to prevent scheduling too far into the future.
         /// TODO: Benchmark this call
         #[pallet::call_index(73)]
-        #[pallet::weight((Weight::from_parts(28_770_000, 0)
+        #[pallet::weight((Weight::from_parts(47_820_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Operational, Pays::Yes))]
         pub fn schedule_swap_coldkey(
@@ -1931,7 +1931,7 @@ mod dispatches {
         /// Will charge based on the weight even if the hotkey is already associated with a coldkey.
         #[pallet::call_index(91)]
         #[pallet::weight((
-            Weight::from_parts(19_930_000, 0).saturating_add(T::DbWeight::get().reads_writes(3, 3)),
+            Weight::from_parts(26_380_000, 0).saturating_add(T::DbWeight::get().reads_writes(3, 3)),
             DispatchClass::Operational,
             Pays::Yes
         ))]
@@ -2156,7 +2156,7 @@ mod dispatches {
         /// Emits a `SymbolUpdated` event on success.
         #[pallet::call_index(112)]
         #[pallet::weight((
-            Weight::from_parts(19_290_000, 0).saturating_add(T::DbWeight::get().reads_writes(4, 1)),
+            Weight::from_parts(27_410_000, 0).saturating_add(T::DbWeight::get().reads_writes(4, 1)),
             DispatchClass::Operational,
             Pays::Yes
         ))]

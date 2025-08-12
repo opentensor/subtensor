@@ -36,7 +36,7 @@ curl https://sh.rustup.rs -sSf | sh -s -- -y
 source "$HOME/.cargo/env"
 rustup default stable
 
-rustup update nightly
-rustup target add wasm32-unknown-unknown --toolchain nightly
+rustup update
+rustup target add wasm32v1-none
 
 echo "*** Rust installation complete"
