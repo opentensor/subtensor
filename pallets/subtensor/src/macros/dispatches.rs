@@ -827,7 +827,7 @@ mod dispatches {
         /// 	- The ip type v4 or v6.
         ///
         #[pallet::call_index(5)]
-        #[pallet::weight((Weight::from_parts(30_170_000, 0)
+        #[pallet::weight((Weight::from_parts(23_180_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_prometheus(
@@ -1931,7 +1931,7 @@ mod dispatches {
         /// Will charge based on the weight even if the hotkey is already associated with a coldkey.
         #[pallet::call_index(91)]
         #[pallet::weight((
-            Weight::from_parts(19_930_000, 0).saturating_add(T::DbWeight::get().reads_writes(3, 3)),
+            Weight::from_parts(26_380_000, 0).saturating_add(T::DbWeight::get().reads_writes(3, 3)),
             DispatchClass::Operational,
             Pays::Yes
         ))]
@@ -2156,7 +2156,7 @@ mod dispatches {
         /// Emits a `SymbolUpdated` event on success.
         #[pallet::call_index(112)]
         #[pallet::weight((
-            Weight::from_parts(19_290_000, 0).saturating_add(T::DbWeight::get().reads_writes(4, 1)),
+            Weight::from_parts(27_410_000, 0).saturating_add(T::DbWeight::get().reads_writes(4, 1)),
             DispatchClass::Operational,
             Pays::Yes
         ))]
