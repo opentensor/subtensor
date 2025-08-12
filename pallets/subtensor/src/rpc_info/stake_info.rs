@@ -2,12 +2,12 @@ extern crate alloc;
 
 use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
 use super::*;
 
-#[freeze_struct("cff08b08c64eb867")]
+#[freeze_struct("28269be895d7b5ba")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct StakeInfo<AccountId: TypeInfo + Encode + Decode> {
     hotkey: AccountId,
@@ -16,7 +16,7 @@ pub struct StakeInfo<AccountId: TypeInfo + Encode + Decode> {
     stake: Compact<AlphaCurrency>,
     locked: Compact<u64>,
     emission: Compact<AlphaCurrency>,
-    tao_emission: Compact<u64>,
+    tao_emission: Compact<TaoCurrency>,
     drain: Compact<u64>,
     is_registered: bool,
 }
@@ -43,7 +43,7 @@ impl<T: Config> Pallet<T> {
                         continue;
                     }
                     let emission = AlphaDividendsPerSubnet::<T>::get(*netuid_i, &hotkey_i);
-                    let tao_emission: u64 = TaoDividendsPerSubnet::<T>::get(*netuid_i, &hotkey_i);
+                    let tao_emission = TaoDividendsPerSubnet::<T>::get(*netuid_i, &hotkey_i);
                     let is_registered: bool =
                         Self::is_hotkey_registered_on_network(*netuid_i, hotkey_i);
                     stake_info_for_coldkey.push(StakeInfo {
@@ -101,7 +101,7 @@ impl<T: Config> Pallet<T> {
             netuid,
         );
         let emission = AlphaDividendsPerSubnet::<T>::get(netuid, &hotkey_account);
-        let tao_emission: u64 = TaoDividendsPerSubnet::<T>::get(netuid, &hotkey_account);
+        let tao_emission = TaoDividendsPerSubnet::<T>::get(netuid, &hotkey_account);
         let is_registered: bool = Self::is_hotkey_registered_on_network(netuid, &hotkey_account);
 
         Some(StakeInfo {

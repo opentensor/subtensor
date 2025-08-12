@@ -22,7 +22,7 @@ use frame_support::weights::Weight;
 use safe_math::*;
 use sp_core::Get;
 use substrate_fixed::types::I64F64;
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 
 impl<T: Config> Pallet<T> {
     /// Fetches the total count of root network validators
@@ -60,10 +60,7 @@ impl<T: Config> Pallet<T> {
     pub fn contains_invalid_root_uids(netuids: &[NetUid]) -> bool {
         for netuid in netuids {
             if !Self::if_subnet_exist(*netuid) {
-                log::debug!(
-                    "contains_invalid_root_uids: netuid {:?} does not exist",
-                    netuid
-                );
+                log::debug!("contains_invalid_root_uids: netuid {netuid:?} does not exist");
                 return true;
             }
         }
@@ -92,11 +89,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 1. Ensure that the call originates from a signed source and retrieve the caller's account ID (coldkey).
         let coldkey = ensure_signed(origin)?;
-        log::debug!(
-            "do_root_register( coldkey: {:?}, hotkey: {:?} )",
-            coldkey,
-            hotkey
-        );
+        log::debug!("do_root_register( coldkey: {coldkey:?}, hotkey: {hotkey:?} )");
 
         // --- 2. Ensure that the number of registrations in this block doesn't exceed the allowed limit.
         ensure!(
@@ -135,7 +128,7 @@ impl<T: Config> Pallet<T> {
 
             // --- 12.1.2 Add the new account and make them a member of the Senate.
             Self::append_neuron(NetUid::ROOT, &hotkey, current_block_number);
-            log::debug!("add new neuron: {:?} on uid {:?}", hotkey, subnetwork_uid);
+            log::debug!("add new neuron: {hotkey:?} on uid {subnetwork_uid:?}");
         } else {
             // --- 13.1.1 The network is full. Perform replacement.
             // Find the neuron with the lowest stake value to replace.
@@ -165,10 +158,7 @@ impl<T: Config> Pallet<T> {
             Self::replace_neuron(NetUid::ROOT, lowest_uid, &hotkey, current_block_number);
 
             log::debug!(
-                "replace neuron: {:?} with {:?} on uid {:?}",
-                replaced_hotkey,
-                hotkey,
-                subnetwork_uid
+                "replace neuron: {replaced_hotkey:?} with {hotkey:?} on uid {subnetwork_uid:?}"
             );
         }
 
@@ -226,11 +216,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 1. Ensure that the call originates from a signed source and retrieve the caller's account ID (coldkey).
         let coldkey = ensure_signed(origin)?;
-        log::debug!(
-            "do_root_register( coldkey: {:?}, hotkey: {:?} )",
-            coldkey,
-            hotkey
-        );
+        log::debug!("do_root_register( coldkey: {coldkey:?}, hotkey: {hotkey:?} )");
 
         // --- 2. Check if the hotkey is already registered to the root network. If not, error out.
         ensure!(
@@ -256,11 +242,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 5. Log and announce the successful Senate adjustment.
-        log::debug!(
-            "SenateAdjusted(old_hotkey:{:?} hotkey:{:?})",
-            replaced,
-            hotkey
-        );
+        log::debug!("SenateAdjusted(old_hotkey:{replaced:?} hotkey:{hotkey:?})");
         Self::deposit_event(Event::SenateAdjusted {
             old_member: replaced.cloned(),
             new_member: hotkey,
@@ -405,7 +387,7 @@ impl<T: Config> Pallet<T> {
         Self::remove_network(netuid);
 
         // --- 6. Emit the NetworkRemoved event.
-        log::debug!("NetworkRemoved( netuid:{:?} )", netuid);
+        log::debug!("NetworkRemoved( netuid:{netuid:?} )");
         Self::deposit_event(Event::NetworkRemoved(netuid));
 
         // --- 7. Return success.
@@ -427,7 +409,7 @@ impl<T: Config> Pallet<T> {
     pub fn remove_network(netuid: NetUid) {
         // --- 1. Return balance to subnet owner.
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
-        let reserved_amount: u64 = Self::get_subnet_locked_balance(netuid);
+        let reserved_amount = Self::get_subnet_locked_balance(netuid);
 
         // --- 2. Remove network count.
         SubnetworkN::<T>::remove(netuid);
@@ -502,8 +484,8 @@ impl<T: Config> Pallet<T> {
         BurnRegistrationsThisInterval::<T>::remove(netuid);
 
         // --- 12. Add the balance back to the owner.
-        Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount);
-        Self::set_subnet_locked_balance(netuid, 0);
+        Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount.into());
+        Self::set_subnet_locked_balance(netuid, TaoCurrency::ZERO);
         SubnetOwner::<T>::remove(netuid);
 
         // --- 13. Remove subnet identity if it exists.
@@ -532,18 +514,20 @@ impl<T: Config> Pallet<T> {
     ///  * 'u64':
     ///     - The lock cost for the network.
     ///
-    pub fn get_network_lock_cost() -> u64 {
+    pub fn get_network_lock_cost() -> TaoCurrency {
         let last_lock = Self::get_network_last_lock();
         let min_lock = Self::get_network_min_lock();
         let last_lock_block = Self::get_network_last_lock_block();
         let current_block = Self::get_current_block_as_u64();
         let lock_reduction_interval = Self::get_lock_reduction_interval();
-        let mult = if last_lock_block == 0 { 1 } else { 2 };
+        let mult: TaoCurrency = if last_lock_block == 0 { 1 } else { 2 }.into();
 
         let mut lock_cost = last_lock.saturating_mul(mult).saturating_sub(
             last_lock
+                .to_u64()
                 .safe_div(lock_reduction_interval)
-                .saturating_mul(current_block.saturating_sub(last_lock_block)),
+                .saturating_mul(current_block.saturating_sub(last_lock_block))
+                .into(),
         );
 
         if lock_cost < min_lock {
@@ -551,14 +535,7 @@ impl<T: Config> Pallet<T> {
         }
 
         log::debug!(
-            "last_lock: {:?}, min_lock: {:?}, last_lock_block: {:?}, lock_reduction_interval: {:?}, current_block: {:?}, mult: {:?} lock_cost: {:?}",
-            last_lock,
-            min_lock,
-            last_lock_block,
-            lock_reduction_interval,
-            current_block,
-            mult,
-            lock_cost
+            "last_lock: {last_lock:?}, min_lock: {min_lock:?}, last_lock_block: {last_lock_block:?}, lock_reduction_interval: {lock_reduction_interval:?}, current_block: {current_block:?}, mult: {mult:?} lock_cost: {lock_cost:?}"
         );
 
         lock_cost
@@ -574,17 +551,17 @@ impl<T: Config> Pallet<T> {
         NetworkImmunityPeriod::<T>::set(net_immunity_period);
         Self::deposit_event(Event::NetworkImmunityPeriodSet(net_immunity_period));
     }
-    pub fn set_network_min_lock(net_min_lock: u64) {
+    pub fn set_network_min_lock(net_min_lock: TaoCurrency) {
         NetworkMinLockCost::<T>::set(net_min_lock);
         Self::deposit_event(Event::NetworkMinLockCostSet(net_min_lock));
     }
-    pub fn get_network_min_lock() -> u64 {
+    pub fn get_network_min_lock() -> TaoCurrency {
         NetworkMinLockCost::<T>::get()
     }
-    pub fn set_network_last_lock(net_last_lock: u64) {
+    pub fn set_network_last_lock(net_last_lock: TaoCurrency) {
         NetworkLastLockCost::<T>::set(net_last_lock);
     }
-    pub fn get_network_last_lock() -> u64 {
+    pub fn get_network_last_lock() -> TaoCurrency {
         NetworkLastLockCost::<T>::get()
     }
     pub fn get_network_last_lock_block() -> u64 {
@@ -600,8 +577,11 @@ impl<T: Config> Pallet<T> {
     pub fn get_lock_reduction_interval() -> u64 {
         let interval: I64F64 =
             I64F64::saturating_from_num(NetworkLockReductionInterval::<T>::get());
-        let block_emission: I64F64 =
-            I64F64::saturating_from_num(Self::get_block_emission().unwrap_or(1_000_000_000));
+        let block_emission: I64F64 = I64F64::saturating_from_num(
+            Self::get_block_emission()
+                .unwrap_or(1_000_000_000.into())
+                .to_u64(),
+        );
         let halving: I64F64 = block_emission
             .checked_div(I64F64::saturating_from_num(1_000_000_000))
             .unwrap_or(I64F64::saturating_from_num(0.0));

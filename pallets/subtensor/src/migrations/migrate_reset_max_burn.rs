@@ -31,7 +31,7 @@ pub fn migrate_reset_max_burn<T: Config>() -> Weight {
 
     for netuid in MaxBurn::<T>::iter_keys() {
         MaxBurn::<T>::mutate(netuid, |max| {
-            *max = 100_000_000_000;
+            *max = 100_000_000_000.into();
         });
         reset_entries_count = reset_entries_count.saturating_add(1);
     }
@@ -39,7 +39,7 @@ pub fn migrate_reset_max_burn<T: Config>() -> Weight {
     weight = weight
         .saturating_add(T::DbWeight::get().reads_writes(reset_entries_count, reset_entries_count));
 
-    log::info!("Reset {} subnets from MaxBurn.", reset_entries_count);
+    log::info!("Reset {reset_entries_count} subnets from MaxBurn.");
 
     // ------------------------------
     // Step 2: Mark Migration as Completed

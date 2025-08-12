@@ -21,16 +21,16 @@ use derive_syn_parse::Parse;
 use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{
+    Attribute, Error, Expr, ExprBlock, ExprCall, ExprPath, FnArg, Item, ItemFn, ItemMod, Pat, Path,
+    PathArguments, PathSegment, Result, ReturnType, Signature, Stmt, Token, Type, TypePath,
+    Visibility, WhereClause,
     parse::{Nothing, ParseStream},
     parse_quote,
     punctuated::Punctuated,
     spanned::Spanned,
     token::{Comma, Gt, Lt, PathSep},
-    Attribute, Error, Expr, ExprBlock, ExprCall, ExprPath, FnArg, Item, ItemFn, ItemMod, Pat, Path,
-    PathArguments, PathSegment, Result, ReturnType, Signature, Stmt, Token, Type, TypePath,
-    Visibility, WhereClause,
 };
 
 mod keywords {
@@ -297,9 +297,9 @@ fn ensure_valid_return_type(item_fn: &ItemFn) -> Result<()> {
         let non_unit = |span| return Err(Error::new(span, "expected `()`"));
         let Type::Path(TypePath { path, qself: _ }) = &**typ else {
             return Err(Error::new(
-					typ.span(),
-					"Only `Result<(), BenchmarkError>` or a blank return type is allowed on benchmark function definitions",
-				));
+                typ.span(),
+                "Only `Result<(), BenchmarkError>` or a blank return type is allowed on benchmark function definitions",
+            ));
         };
         let seg = path
             .segments
@@ -363,9 +363,9 @@ fn parse_params(item_fn: &ItemFn) -> Result<Vec<ParamDef>> {
         let var_span = ident.span();
         let invalid_param_name = || {
             return Err(Error::new(
-					var_span,
-					"Benchmark parameter names must consist of a single lowercase letter (a-z) and no other characters.",
-				));
+                var_span,
+                "Benchmark parameter names must consist of a single lowercase letter (a-z) and no other characters.",
+            ));
         };
         let name = ident.ident.to_token_stream().to_string();
         if name.len() > 1 {
@@ -404,9 +404,9 @@ fn parse_params(item_fn: &ItemFn) -> Result<Vec<ParamDef>> {
 /// Used in several places where the `#[extrinsic_call]` or `#[body]` annotation is missing
 fn missing_call<T>(item_fn: &ItemFn) -> Result<T> {
     return Err(Error::new(
-		item_fn.block.brace_token.span.join(),
-		"No valid #[extrinsic_call] or #[block] annotation could be found in benchmark function body."
-	));
+        item_fn.block.brace_token.span.join(),
+        "No valid #[extrinsic_call] or #[block] annotation could be found in benchmark function body.",
+    ));
 }
 
 /// Finds the `BenchmarkCallDef` and its index (within the list of stmts for the fn) and
@@ -455,7 +455,7 @@ fn parse_call_def(item_fn: &ItemFn) -> Result<(usize, BenchmarkCallDef)> {
             return Err(Error::new(
                 call_defs[1].1.attr_span(),
                 "Only one #[extrinsic_call] or #[block] attribute is allowed per benchmark.",
-            ))
+            ));
         }
     })
 }

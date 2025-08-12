@@ -39,7 +39,7 @@ fn test_registration_subscribe_ok_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                call_weight: frame_support::weights::Weight::from_parts(3_166_200_000, 0),
+                call_weight: frame_support::weights::Weight::from_parts(3_111_800_000, 0),
                 extension_weight: frame_support::weights::Weight::zero(),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
@@ -317,10 +317,10 @@ fn test_burned_registration_under_limit() {
         let who: <Test as frame_system::Config>::AccountId = coldkey_account_id;
         let burn_cost = 1000;
         // Set the burn cost
-        SubtensorModule::set_burn(netuid, burn_cost);
+        SubtensorModule::set_burn(netuid, burn_cost.into());
 
         let reserve = 1_000_000_000_000;
-        mock::setup_reserves(netuid, reserve, reserve.into());
+        mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
         add_network(netuid, 13, 0); // Add the network
         // Give it some TAO to the coldkey balance; more than the burn cost
@@ -417,10 +417,10 @@ fn test_burned_registration_rate_allows_burn_adjustment() {
 
         let burn_cost = 1000;
         // Set the burn cost
-        SubtensorModule::set_burn(netuid, burn_cost);
+        SubtensorModule::set_burn(netuid, burn_cost.into());
 
         let reserve = 1_000_000_000_000;
-        mock::setup_reserves(netuid, reserve, reserve.into());
+        mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
         add_network(netuid, 13, 0); // Add the network
         // Give it some TAO to the coldkey balance; more than the burn cost
@@ -473,11 +473,11 @@ fn test_burned_registration_ok() {
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
         //add network
-        SubtensorModule::set_burn(netuid, burn_cost);
+        SubtensorModule::set_burn(netuid, burn_cost.into());
         add_network(netuid, tempo, 0);
 
         let reserve = 1_000_000_000_000;
-        mock::setup_reserves(netuid, reserve, reserve.into());
+        mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -524,7 +524,7 @@ fn test_burn_registration_without_neuron_slot() {
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
         //add network
-        SubtensorModule::set_burn(netuid, burn_cost);
+        SubtensorModule::set_burn(netuid, burn_cost.into());
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -553,7 +553,7 @@ fn test_burn_registration_doesnt_write_on_failure() {
 
         // Add network and set burn cost
         add_network(netuid, tempo, 0);
-        SubtensorModule::set_burn(netuid, burn_cost);
+        SubtensorModule::set_burn(netuid, burn_cost.into());
         // Give coldkey balance to pay for registration
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, initial_balance);
         // Set max allowed uids to 0 so registration will fail, but only on last check.
@@ -590,7 +590,7 @@ fn test_burn_adjustment() {
         let adjustment_interval = 1;
         let target_registrations_per_interval = 1;
         add_network(netuid, tempo, 0);
-        SubtensorModule::set_burn(netuid, init_burn_cost);
+        SubtensorModule::set_burn(netuid, init_burn_cost.into());
         SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
         SubtensorModule::set_adjustment_alpha(netuid, 58000); // Set to old value.
         SubtensorModule::set_target_registrations_per_interval(
@@ -599,7 +599,7 @@ fn test_burn_adjustment() {
         );
 
         let reserve = 1_000_000_000_000;
-        mock::setup_reserves(netuid, reserve, reserve.into());
+        mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
         // Register key 1.
         let hotkey_account_id_1 = U256::from(1);
@@ -626,11 +626,11 @@ fn test_burn_adjustment() {
         step_block(1);
 
         // Check the adjusted burn is above the initial min burn.
-        assert!(SubtensorModule::get_burn_as_u64(netuid) > init_burn_cost);
+        assert!(SubtensorModule::get_burn(netuid) > init_burn_cost.into());
         assert_abs_diff_eq!(
-            SubtensorModule::get_burn_as_u64(netuid),
-            init_burn_cost.saturating_mul(3).saturating_div(2), // 1.5x
-            epsilon = 1000
+            SubtensorModule::get_burn(netuid),
+            (init_burn_cost.saturating_mul(3).saturating_div(2)).into(), // 1.5x
+            epsilon = 1000.into()
         );
     });
 }
@@ -649,17 +649,17 @@ fn test_burn_registration_pruning_scenarios() {
         const NOT_IMMUNE: bool = false;
 
         // Initial setup
-        SubtensorModule::set_burn(netuid, burn_cost);
+        SubtensorModule::set_burn(netuid, burn_cost.into());
         SubtensorModule::set_max_allowed_uids(netuid, max_allowed_uids);
         SubtensorModule::set_target_registrations_per_interval(netuid, max_allowed_uids);
         SubtensorModule::set_immunity_period(netuid, immunity_period);
 
         let reserve = 1_000_000_000_000;
-        mock::setup_reserves(netuid, reserve, reserve.into());
+        mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
         add_network(netuid, tempo, 0);
 
-        let mint_balance = burn_cost * u64::from(max_allowed_uids) + 1_000_000_000;
+        let mint_balance = burn_cost * max_allowed_uids as u64 + 1_000_000_000;
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, mint_balance);
 
         // Register first half of neurons
@@ -1560,8 +1560,8 @@ fn test_burn_registration_increase_recycled_rao() {
             Balances::deposit_creating(&coldkey_account_id, Balance::from(1_000_000_000_000_u64));
 
         let reserve = 1_000_000_000_000;
-        mock::setup_reserves(netuid, reserve, reserve.into());
-        mock::setup_reserves(netuid2, reserve, reserve.into());
+        mock::setup_reserves(netuid, reserve.into(), reserve.into());
+        mock::setup_reserves(netuid2, reserve.into(), reserve.into());
 
         add_network(netuid, 13, 0);
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 0);
@@ -1571,7 +1571,7 @@ fn test_burn_registration_increase_recycled_rao() {
 
         run_to_block(1);
 
-        let burn_amount = SubtensorModule::get_burn_as_u64(netuid);
+        let burn_amount = SubtensorModule::get_burn(netuid);
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid,
@@ -1581,7 +1581,7 @@ fn test_burn_registration_increase_recycled_rao() {
 
         run_to_block(2);
 
-        let burn_amount2 = SubtensorModule::get_burn_as_u64(netuid2);
+        let burn_amount2 = SubtensorModule::get_burn(netuid2);
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid2,
@@ -1592,7 +1592,10 @@ fn test_burn_registration_increase_recycled_rao() {
             netuid2,
             U256::from(2)
         ));
-        assert_eq!(SubtensorModule::get_rao_recycled(netuid2), burn_amount2 * 2);
+        assert_eq!(
+            SubtensorModule::get_rao_recycled(netuid2),
+            burn_amount2 * 2.into()
+        );
         // Validate netuid is not affected.
         assert_eq!(SubtensorModule::get_rao_recycled(netuid), burn_amount);
     });
