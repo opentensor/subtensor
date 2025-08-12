@@ -25,6 +25,7 @@ impl<T> OnRuntimeUpgrade for Migration<T>
 where
     T: frame_system::Config
         + pallet_babe::Config
+        + pallet_grandpa::Config
         + pallet_aura::Config<AuthorityId = AuraId>
         + pallet_staking::Config<AccountId = AccountId32, CurrencyBalance = Balance>
         + pallet_session::Config<ValidatorId = AccountId32, Keys = opaque::SessionKeys>,
@@ -72,6 +73,7 @@ impl<T> Migration<T>
 where
     T: frame_system::Config
         + pallet_babe::Config
+        + pallet_grandpa::Config
         + pallet_aura::Config<AuthorityId = AuraId>
         + pallet_staking::Config<AccountId = AccountId32, CurrencyBalance = Balance>
         + pallet_session::Config<ValidatorId = AccountId32, Keys = opaque::SessionKeys>,
@@ -87,7 +89,7 @@ where
         use sp_std::collections::btree_set::BTreeSet;
 
         let pre_aura_authorities: Vec<AuraId> =
-            Vec::<AuraId>::decode(&mut &pre_state[..]).map_err(|_| "Failed to decode pre-state")?;
+            Decode::decode(&mut &pre_state[..]).map_err(|_| "Failed to decode pre-state")?;
         let expected_authorities: Vec<(BabeAuthorityId, BabeAuthorityWeight)> =
             pre_aura_authorities
                 .into_iter()
@@ -144,13 +146,81 @@ where
 
     #[cfg(feature = "try-runtime")]
     fn pallet_session_pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
-        Ok(Default::default())
+        use sp_std::collections::btree_set::BTreeSet;
+
+        let aura_authorities: Vec<AuraId> =
+            pallet_aura::Authorities::<T>::get().into_iter().collect();
+        let grandpa_authorities: BTreeSet<(GrandpaId, u64)> =
+            pallet_grandpa::Authorities::<T>::get()
+                .into_iter()
+                .collect();
+        Ok((aura_authorities, grandpa_authorities).encode())
     }
 
     #[cfg(feature = "try-runtime")]
-    fn pallet_session_post_upgrade(_pre_state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
-        // TODO: Check every grandpa key is migrated exactly once.
-        todo!()
+    fn pallet_session_post_upgrade(pre_state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
+        use sp_std::collections::btree_set::BTreeSet;
+
+        let (aura_authorities, grandpa_authorities): (Vec<AuraId>, BTreeSet<(GrandpaId, u64)>) =
+            Decode::decode(&mut &pre_state[..])
+                .expect("Failed to decode pallet_session_post_upgrade state");
+
+        let expected_keys: Vec<(AccountId32, SessionKeys)> = aura_authorities
+            .into_iter()
+            .map(|aura_authority| {
+                let babe_authority = BabeAuthorityId::from(aura_authority.into_inner());
+                let keys = SessionKeys {
+                    babe: babe_authority.clone(),
+                    grandpa: sr25519_to_ed25519(babe_authority.clone())
+                        .expect("Failed to map Babe ID to Grandpa ID")
+                        .into(),
+                };
+                let account = AccountId32::new(babe_authority.into_inner().into());
+                (account, keys)
+            })
+            .collect();
+
+        if pallet_session::QueuedKeys::<T>::get() != expected_keys {
+            return Err("QueuedKeys does not match expected value.".into());
+        }
+        if pallet_session::CurrentIndex::<T>::get() != 0 {
+            return Err("CurrentIndex does not match expected value.".into());
+        }
+        if pallet_session::Validators::<T>::get()
+            != expected_keys
+                .iter()
+                .map(|(account, _)| account.clone())
+                .collect::<Vec<_>>()
+        {
+            return Err("Validators does not match expected value.".into());
+        }
+        let key_ids = <T as pallet_session::Config>::Keys::key_ids();
+        for (account, session_keys) in expected_keys.iter() {
+            if pallet_session::NextKeys::<T>::get(account) != Some(session_keys.clone()) {
+                return Err("NextKeys does not match expected value.".into());
+            }
+
+            for id in key_ids.iter() {
+                if pallet_session::KeyOwner::<T>::get((id, session_keys.get_raw(*id)))
+                    != Some(account.clone())
+                {
+                    return Err("KeyOwner does not match expected value.".into());
+                }
+            }
+        }
+
+        // Check every grandpa key was migrated exactly once. This check is important to ensure
+        // there are no incorrect entires in our `sr25519_to_ed25519` mapping.
+        for (account, session_keys) in expected_keys.iter() {
+            if grandpa_authorities.take(session_keys.grandpa).is_none() {
+                return Err("Issue with sr25519_to_ed25519 grandpa keys mapping".into());
+            }
+        }
+        if !grandpa_authorities.is_empty() {
+            return Err("Not all grandpa keys were migrated".into());
+        }
+
+        Ok(())
     }
 
     fn pallet_session_runtime_upgrade() -> Weight {
