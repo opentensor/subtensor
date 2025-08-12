@@ -827,7 +827,7 @@ mod dispatches {
         /// 	- The ip type v4 or v6.
         ///
         #[pallet::call_index(5)]
-        #[pallet::weight((Weight::from_parts(30_170_000, 0)
+        #[pallet::weight((Weight::from_parts(21_890_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_prometheus(
@@ -1193,8 +1193,8 @@ mod dispatches {
 
         /// User register a new subnetwork
         #[pallet::call_index(59)]
-        #[pallet::weight((Weight::from_parts(260_500_000, 0)
-		.saturating_add(T::DbWeight::get().reads(34))
+        #[pallet::weight((Weight::from_parts(200_400_000, 0)
+		.saturating_add(T::DbWeight::get().reads(37_u64))
 		.saturating_add(T::DbWeight::get().writes(51)), DispatchClass::Operational, Pays::No))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
@@ -1538,8 +1538,8 @@ mod dispatches {
 
         /// User register a new subnetwork
         #[pallet::call_index(79)]
-        #[pallet::weight((Weight::from_parts(239_700_000, 0)
-                .saturating_add(T::DbWeight::get().reads(33))
+        #[pallet::weight((Weight::from_parts(180_900_000, 0)
+                .saturating_add(T::DbWeight::get().reads(36_u64))
                 .saturating_add(T::DbWeight::get().writes(50)), DispatchClass::Operational, Pays::No))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
