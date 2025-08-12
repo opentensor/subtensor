@@ -373,7 +373,7 @@ impl frame_system::Config for Runtime {
 impl pallet_aura::Config for Runtime {
     type AuthorityId = AuraId;
     type DisabledValidators = ();
-    type MaxAuthorities = ConstU32<32>;
+    type MaxAuthorities = MaxAuthorities;
     type AllowMultipleBlocksPerSlot = ConstBool<false>;
     type SlotDuration = pallet_aura::MinimumPeriodTimesTwo<Runtime>;
 }
@@ -707,7 +707,7 @@ impl pallet_offences::Config for Runtime {
 }
 
 parameter_types! {
-    pub const MaxAuthorities: u32 = 100_000;
+    pub const MaxAuthorities: u32 = 2_000;
     pub NposSolutionPriority: TransactionPriority =
         Perbill::from_percent(90) * TransactionPriority::MAX;
 }
