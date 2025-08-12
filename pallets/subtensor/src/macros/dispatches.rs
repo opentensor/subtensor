@@ -827,7 +827,7 @@ mod dispatches {
         /// 	- The ip type v4 or v6.
         ///
         #[pallet::call_index(5)]
-        #[pallet::weight((Weight::from_parts(30_170_000, 0)
+        #[pallet::weight((Weight::from_parts(22_690_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_prometheus(
@@ -1045,7 +1045,7 @@ mod dispatches {
         ///
         #[pallet::call_index(69)]
         #[pallet::weight((
-            Weight::from_parts(3_630_000, 0)
+            Weight::from_parts(5_408_000, 0)
             .saturating_add(T::DbWeight::get().reads(0))
             .saturating_add(T::DbWeight::get().writes(1)),
             DispatchClass::Operational,
@@ -1575,7 +1575,7 @@ mod dispatches {
         /// * `TxRateLimitExceeded`:
         ///     - Thrown if key has hit transaction rate limit
         #[pallet::call_index(83)]
-        #[pallet::weight((Weight::from_parts(21_160_000, 0)
+        #[pallet::weight((Weight::from_parts(26_040_000, 0)
         .saturating_add(T::DbWeight::get().reads(6))
         .saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Operational, Pays::Yes))]
         pub fn unstake_all(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
