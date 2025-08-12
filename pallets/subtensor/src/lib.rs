@@ -448,6 +448,24 @@ pub mod pallet {
             destination_netuid: NetUid,
             /// Alpha
             alpha_amount: AlphaCurrency,
+        },        
+        /// Represents a job for "swap_stake_limit" operation
+        SwapStakeLimit {
+            /// Coldkey account
+            coldkey: AccountId,
+            /// Hotkey account
+            hotkey: AccountId,
+            /// Origin subnet UID
+            origin_netuid: NetUid,
+            /// Destination subnet UID
+            destination_netuid: NetUid,
+            /// Alpha
+            alpha_amount: AlphaCurrency,
+            /// The limit price
+            limit_price: u64,
+            /// Allows partial execution of the amount. If set to false, this becomes
+            /// fill or kill type or order.
+            allow_partial: bool,
         },
     }
 
@@ -464,6 +482,7 @@ pub mod pallet {
                 StakeJob::MoveStake { coldkey, .. } => coldkey.clone(),
                 StakeJob::TransferStake { origin_coldkey, .. } => origin_coldkey.clone(),
                 StakeJob::SwapStake { coldkey, .. } => coldkey.clone(),
+                StakeJob::SwapStakeLimit { coldkey, .. } => coldkey.clone(),
             }
         }
     }

@@ -654,4 +654,47 @@ impl<T: Config> Pallet<T> {
 
         Ok(())
     }
+    pub fn do_swap_stake_limit_aggregate(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            origin_netuid: NetUid,
+            destination_netuid: NetUid,
+            alpha_amount: AlphaCurrency,
+            limit_price: u64,
+            allow_partial: bool,
+    ) -> dispatch::DispatchResult {
+        let coldkey = ensure_signed(origin)?;
+
+        // Consider the weight from on_finalize
+        if cfg!(feature = "runtime-benchmarks") && !cfg!(test) {
+            Self::do_swap_stake_limit(
+                crate::dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+                limit_price,
+                allow_partial,           
+            )?;
+        }
+
+        // Save the staking job for the on_finalize
+        let stake_job = StakeJob::SwapStakeLimit {
+            coldkey,
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            alpha_amount,
+            limit_price,
+            allow_partial,           
+        };
+
+        let stake_job_id = NextStakeJobId::<T>::get();
+        let current_blocknumber = <frame_system::Pallet<T>>::block_number();
+
+        StakeJobs::<T>::insert(current_blocknumber, stake_job_id, stake_job);
+        NextStakeJobId::<T>::set(stake_job_id.saturating_add(1));
+
+        Ok(())
+    }
 }

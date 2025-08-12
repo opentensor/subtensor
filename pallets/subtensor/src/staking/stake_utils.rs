@@ -1325,6 +1325,7 @@ impl<T: Config> Pallet<T> {
         let mut move_stake = vec![];
         let mut transfer_stake = vec![];
         let mut swap_stake = vec![];
+        let mut swap_stake_limit = vec![];
 
         for (_, _, job) in stake_jobs.into_iter() {
             match &job {
@@ -1337,6 +1338,7 @@ impl<T: Config> Pallet<T> {
                 StakeJob::MoveStake { .. } => move_stake.push(job),
                 StakeJob::TransferStake { .. } => transfer_stake.push(job),
                 StakeJob::SwapStake { .. } => swap_stake.push(job),
+                StakeJob::SwapStakeLimit { .. } => swap_stake_limit.push(job),
             }
         }
         // Reorder jobs based on the last drand pulse
@@ -1368,6 +1370,7 @@ impl<T: Config> Pallet<T> {
         move_stake.sort_by(|a, b| compare_coldkeys(&a.coldkey(), &b.coldkey()));
         transfer_stake.sort_by(|a, b| compare_coldkeys(&a.coldkey(), &b.coldkey()));
         swap_stake.sort_by(|a, b| compare_coldkeys(&a.coldkey(), &b.coldkey()));
+        swap_stake_limit.sort_by(|a, b| compare_coldkeys(&a.coldkey(), &b.coldkey()));
 
         let job_batches = vec![
             add_stake,
@@ -1379,6 +1382,7 @@ impl<T: Config> Pallet<T> {
             move_stake,
             transfer_stake,
             swap_stake,
+            swap_stake_limit,
         ];
 
         for jobs in job_batches.into_iter() {
@@ -1500,6 +1504,23 @@ impl<T: Config> Pallet<T> {
                 origin_netuid,
                 destination_netuid,
                 alpha_amount,
+            ),       
+            StakeJob::SwapStakeLimit {
+                coldkey,
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+                limit_price, 
+                allow_partial,
+            } => Self::do_swap_stake_limit(
+                dispatch::RawOrigin::Signed(coldkey.clone()).into(),
+                hotkey.clone(),
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+                limit_price,
+                allow_partial,
             ),
         }
     } // returns event of the failed job
@@ -1755,7 +1776,7 @@ impl<T: Config> Pallet<T> {
             } => {
                 if let Err(err) = &result {
                     log::debug!(
-                        "Failed to transfer aggregated stake: {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
+                        "Failed to swap aggregated stake: {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
                         coldkey,
                         hotkey,
                         origin_netuid,
@@ -1777,6 +1798,48 @@ impl<T: Config> Pallet<T> {
                         origin_netuid,
                         destination_netuid,
                         alpha_amount,
+                    });
+                }
+            }        
+            StakeJob::SwapStakeLimit {
+                coldkey,
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+                limit_price, 
+                allow_partial,
+            } => {
+                if let Err(err) = &result {
+                    log::debug!(
+                        "Failed to swap limited aggregated stake: {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
+                        coldkey,
+                        hotkey,
+                        origin_netuid,
+                        destination_netuid,
+                        alpha_amount,
+                        limit_price, 
+                        allow_partial,
+                        err
+                    );
+                    Self::deposit_event(Event::FailedToSwapLimitedAggregatedStake {
+                        coldkey,
+                        hotkey,
+                        origin_netuid,
+                        destination_netuid,
+                        alpha_amount,
+                        limit_price,
+                        allow_partial,
+                    });
+                } else {
+                    Self::deposit_event(Event::AggregatedLimitedStakeSwapped {
+                        coldkey,
+                        hotkey,
+                        origin_netuid,
+                        destination_netuid,
+                        alpha_amount,
+                        limit_price,
+                        allow_partial,
                     });
                 }
             }

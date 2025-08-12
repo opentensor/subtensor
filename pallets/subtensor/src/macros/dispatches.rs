@@ -2504,5 +2504,34 @@ mod dispatches {
 
             Self::do_remove_stake_full_limit(verified_evm_origin.into(), hotkey, netuid, limit_price)
         }
+
+        /// Aggregated version of swap_stake_limit
+        #[pallet::call_index(130)]
+        #[pallet::weight((
+            Weight::from_parts(426_500_000, 0)
+            .saturating_add(T::DbWeight::get().reads(32))
+            .saturating_add(T::DbWeight::get().writes(17)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn swap_stake_limit_aggregate(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            origin_netuid: NetUid,
+            destination_netuid: NetUid,
+            alpha_amount: AlphaCurrency,
+            limit_price: u64,
+            allow_partial: bool,
+        ) -> DispatchResult {
+            Self::do_swap_stake_limit_aggregate(
+                origin,
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+                limit_price,
+                allow_partial,
+            )
+        }
     }
 }

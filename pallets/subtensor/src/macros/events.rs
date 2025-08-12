@@ -599,5 +599,39 @@ mod events {
             /// Alpha
             alpha_amount: AlphaCurrency,
         },
+        /// Aggregated version of `swap_stake_limit` executed successfully
+        AggregatedLimitedStakeSwapped {
+            /// Coldkey account
+            coldkey: T::AccountId,
+            /// Hotkey account
+            hotkey: T::AccountId,
+            /// Origin subnet UID
+            origin_netuid: NetUid,
+            /// Destination subnet UID
+            destination_netuid: NetUid,
+            /// Alpha
+            alpha_amount: AlphaCurrency,
+            /// price limit
+            limit_price: u64,
+            /// allow partial stake removal
+            allow_partial: bool,
+        },        
+        /// Aggregated version of `swap_stake_limit` executed successfully
+        FailedToSwapLimitedAggregatedStake {
+            /// Coldkey account
+            coldkey: T::AccountId,
+            /// Hotkey account
+            hotkey: T::AccountId,
+            /// Origin subnet UID
+            origin_netuid: NetUid,
+            /// Destination subnet UID
+            destination_netuid: NetUid,
+            /// Alpha
+            alpha_amount: AlphaCurrency,
+            /// price limit
+            limit_price: u64,
+            /// allow partial stake removal
+            allow_partial: bool,
+        },
     }
 }

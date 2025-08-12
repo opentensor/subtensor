@@ -6595,7 +6595,9 @@ fn test_verify_all_job_type_sort_by_coldkey() {
                 U256::from(1500), // move_stake
                 U256::from(1600), // move_stake
                 U256::from(1700), // transfer_stake
-                U256::from(1800), // transfer_stake
+                U256::from(1800), // transfer_stake      
+                U256::from(1900), // swap_stake_limit
+                U256::from(2000), // swap_stake_limit
             ];
 
             let coldkey_count = coldkeys.len();
@@ -6613,6 +6615,19 @@ fn test_verify_all_job_type_sort_by_coldkey() {
 
                 let swap_hotkey1 = U256::from(13000);
                 let swap_hotkey2 = U256::from(13001);
+
+                let netuid1 = add_dynamic_network(&swap_coldkey1, &swap_hotkey1);
+                let netuid2 = add_dynamic_network(&swap_coldkey2, &swap_hotkey2);
+
+                (netuid1, netuid2)
+            };
+            
+            let (swap_stake_limit_destination_uid1, swap_stake_limit_destination_uid2) = {
+                let swap_coldkey1 = U256::from(1310);
+                let swap_coldkey2 = U256::from(1311);
+
+                let swap_hotkey1 = U256::from(13010);
+                let swap_hotkey2 = U256::from(13011);
 
                 let netuid1 = add_dynamic_network(&swap_coldkey1, &swap_hotkey1);
                 let netuid2 = add_dynamic_network(&swap_coldkey2, &swap_hotkey2);
@@ -6676,11 +6691,13 @@ fn test_verify_all_job_type_sort_by_coldkey() {
 
             let extra_netuids = vec![
                 swap_stake_destination_uid1,
-                swap_stake_destination_uid1,
+                swap_stake_destination_uid2,
                 move_stake_destination_uid1,
                 move_stake_destination_uid2,
                 transfer_stake_destination_uid1,
                 transfer_stake_destination_uid2,
+                swap_stake_limit_destination_uid1,
+                swap_stake_limit_destination_uid2,
             ];
             for netuid in &extra_netuids {
                 SubnetTAO::<Test>::insert(*netuid, tao_reserve.to_num::<u64>());
@@ -6893,7 +6910,67 @@ fn test_verify_all_job_type_sort_by_coldkey() {
                 hotkeys[17],
                 netuids[17],
                 transfer_stake_destination_uid2.into(),
-                alpha
+                alpha,
+            ));
+            
+            fn swap_stake_limit_helper(
+                origin_netuid: NetUid, 
+                destination_netuid: NetUid, 
+                hotkey: U256, coldkey: U256
+            ) -> (AlphaCurrency, u64) {
+                let stake_amount = AlphaCurrency::from(150_000_000_000);
+                let move_amount = AlphaCurrency::from(150_000_000_000);
+                let limit_price = 990_000_000u64;
+
+                SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey,
+                    &coldkey,
+                    origin_netuid,
+                    stake_amount,
+                );
+
+                let tao_reserve: U96F32 = U96F32::from_num(150_000_000_000_u64);
+                let alpha_in = AlphaCurrency::from(100_000_000_000);
+                SubnetTAO::<Test>::insert(origin_netuid, tao_reserve.to_num::<u64>());
+                SubnetAlphaIn::<Test>::insert(origin_netuid, alpha_in);
+                SubnetTAO::<Test>::insert(destination_netuid, (tao_reserve * 100_000).to_num::<u64>());
+                SubnetAlphaIn::<Test>::insert(destination_netuid, alpha_in * 100_000.into());
+
+                (move_amount, limit_price)
+            }
+            
+            let (swap_stake_limit_alpha, limit_price) = swap_stake_limit_helper(
+                    netuids[18],
+                    swap_stake_limit_destination_uid1.into(),
+                    hotkeys[18],
+                    coldkeys[18]
+            );
+
+            assert_ok!(SubtensorModule::swap_stake_limit_aggregate(
+                RuntimeOrigin::signed(coldkeys[18]),
+                hotkeys[18],
+                netuids[18],
+                swap_stake_limit_destination_uid1.into(),
+                swap_stake_limit_alpha,
+                limit_price,
+                true
+            ));
+
+            let (swap_stake_limit_alpha, limit_price) = swap_stake_limit_helper(
+                netuids[19],
+                swap_stake_limit_destination_uid2.into(),
+                hotkeys[19],
+                coldkeys[19]
+            );
+
+            assert_ok!(SubtensorModule::swap_stake_limit_aggregate(
+                RuntimeOrigin::signed(coldkeys[19]),
+                hotkeys[19],
+                netuids[19],
+                swap_stake_limit_destination_uid1.into(),
+                swap_stake_limit_alpha,
+                limit_price,
+                true
             ));
 
             // Finalize block
@@ -6909,6 +6986,7 @@ fn test_verify_all_job_type_sort_by_coldkey() {
             let mut swap_stake_coldkeys = vec![];
             let mut move_stake_coldkeys = vec![];
             let mut transfer_stake_coldkeys = vec![];
+            let mut swap_stake_limit_coldkeys = vec![];
 
             for event in System::events().iter().map(|e| &e.event) {
                 match event {
@@ -6963,6 +7041,12 @@ fn test_verify_all_job_type_sort_by_coldkey() {
                         ..
                     }) => {
                         transfer_stake_coldkeys.push(*origin_coldkey);
+                    }            
+                    RuntimeEvent::SubtensorModule(Event::AggregatedLimitedStakeSwapped {
+                        coldkey,
+                        ..
+                    }) => {
+                        swap_stake_limit_coldkeys.push(*coldkey);
                     }
                     _ => {}
                 }
@@ -6991,6 +7075,7 @@ fn test_verify_all_job_type_sort_by_coldkey() {
                 assert_eq!(swap_stake_coldkeys, vec![coldkeys[12], coldkeys[13]]);
                 assert_eq!(move_stake_coldkeys, vec![coldkeys[14], coldkeys[15]]);
                 assert_eq!(transfer_stake_coldkeys, vec![coldkeys[16], coldkeys[17]]);
+                assert_eq!(swap_stake_limit_coldkeys, vec![coldkeys[18], coldkeys[19]]);
             } else {
                 // reverse order
                 assert_eq!(add_coldkeys, vec![coldkeys[1], coldkeys[0]]);
@@ -7002,6 +7087,7 @@ fn test_verify_all_job_type_sort_by_coldkey() {
                 assert_eq!(swap_stake_coldkeys, vec![coldkeys[13], coldkeys[12]]);
                 assert_eq!(move_stake_coldkeys, vec![coldkeys[15], coldkeys[14]]);
                 assert_eq!(transfer_stake_coldkeys, vec![coldkeys[17], coldkeys[16]]);
+                assert_eq!(swap_stake_limit_coldkeys, vec![coldkeys[19], coldkeys[18]]);
             }
         });
     }
@@ -7044,5 +7130,117 @@ fn test_add_stake_evm_origin_check() {
             netuid,
             amount
         ));
+    });
+}
+
+#[test]
+fn test_swap_stake_limit_aggregate_ok() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let stake_amount = AlphaCurrency::from(150_000_000_000);
+        let move_amount = AlphaCurrency::from(150_000_000_000);
+
+        // add network
+        let origin_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let destination_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(origin_netuid, hotkey, coldkey, 192213123);
+        register_ok_neuron(destination_netuid, hotkey, coldkey, 192213123);
+
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            origin_netuid,
+            stake_amount,
+        );
+
+        // Forse-set alpha in and tao reserve to make price equal 1.5 on both origin and destination,
+        // but there's much more liquidity on destination, so its price wouldn't go up when restaked
+        let tao_reserve: U96F32 = U96F32::from_num(150_000_000_000_u64);
+        let alpha_in = AlphaCurrency::from(100_000_000_000);
+        SubnetTAO::<Test>::insert(origin_netuid, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(origin_netuid, alpha_in);
+        SubnetTAO::<Test>::insert(destination_netuid, (tao_reserve * 100_000).to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(destination_netuid, alpha_in * 100_000.into());
+        let current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(origin_netuid.into());
+        assert_eq!(current_price, U96F32::from_num(1.5));
+
+        // The relative price between origin and destination subnets is 1.
+        // Setup limit relative price so that it doesn't drop by more than 1% from current price
+        let limit_price = 990_000_000;
+
+        // Move stake with slippage safety - executes partially
+        assert_ok!(SubtensorModule::swap_stake_limit_aggregate(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            move_amount,
+            limit_price,
+            true,
+        ));
+
+        // Check for the block delay
+        run_to_block_ext(2, true);
+
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AggregatedLimitedStakeSwapped { .. })
+            )
+        }));
+
+        let new_alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            origin_netuid,
+        );
+
+        assert_abs_diff_eq!(
+            new_alpha,
+            AlphaCurrency::from(149_000_000_000),
+            epsilon = 100_000_000.into()
+        );
+    });
+}
+
+#[test]
+fn test_swap_stake_limit_aggregate_fail() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let move_amount = AlphaCurrency::from(150_000_000_000);
+        let limit_price = 990_000_000;
+        let origin_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let destination_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        // Move stake with slippage safety - executes partially
+        assert_ok!(SubtensorModule::swap_stake_limit_aggregate(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            move_amount,
+            limit_price,
+            true,
+        ));
+
+        // Check for the block delay
+        run_to_block_ext(2, true);
+
+        // Check that event was emitted.
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::FailedToSwapLimitedAggregatedStake{ .. })
+            )
+        }));
     });
 }

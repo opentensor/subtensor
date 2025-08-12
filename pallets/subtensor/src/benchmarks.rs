@@ -1999,4 +1999,68 @@ mod pallet_benchmarks {
             alpha_to_swap,
         );
     }
+
+    #[benchmark]
+    fn swap_stake_limit_aggregate() {
+        let coldkey: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+        let hot: T::AccountId = account("A", 0, 1);
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
+        let allow: bool = true;
+
+        SubtokenEnabled::<T>::insert(netuid1, true);
+        Subtensor::<T>::init_new_network(netuid1, 1);
+        SubtokenEnabled::<T>::insert(netuid2, true);
+        Subtensor::<T>::init_new_network(netuid2, 1);
+
+        let tao_reserve = 150_000_000_000_u64;
+        let alpha_in = AlphaCurrency::from(100_000_000_000);
+        SubnetTAO::<T>::insert(netuid1, tao_reserve);
+        SubnetAlphaIn::<T>::insert(netuid1, alpha_in);
+        SubnetTAO::<T>::insert(netuid2, tao_reserve);
+
+        Subtensor::<T>::increase_total_stake(1_000_000_000_000);
+
+        let amount = 900_000_000_000;
+        let limit_stake: u64 = 6_000_000_000;
+        let limit_swap: u64 = 1_000_000_000;
+        let amount_to_be_staked = 440_000_000_000;
+        let amount_swapped = AlphaCurrency::from(30_000_000_000);
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount);
+
+        assert_ok!(Subtensor::<T>::burned_register(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            netuid1,
+            hot.clone()
+        ));
+
+        assert_ok!(Subtensor::<T>::burned_register(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            netuid2,
+            hot.clone()
+        ));
+
+        assert_ok!(Subtensor::<T>::add_stake_limit(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            hot.clone(),
+            netuid1,
+            amount_to_be_staked,
+            limit_stake,
+            allow
+        ));
+
+        // Remove stake limit for benchmark
+        StakingOperationRateLimiter::<T>::remove((hot.clone(), coldkey.clone(), netuid1));
+
+        #[extrinsic_call]
+        _(
+            RawOrigin::Signed(coldkey.clone()),
+            hot.clone(),
+            netuid1,
+            netuid2,
+            amount_swapped,
+            limit_swap,
+            allow,
+        );
+    }
 }
