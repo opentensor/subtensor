@@ -26,8 +26,8 @@ pub(crate) fn migrate_init_total_issuance<T: Config>() -> Weight {
     let prev_total_stake = crate::TotalStake::<T>::get();
 
     // Calculate new total stake using the sum of all subnet TAO
-    let total_subnet_tao: u64 =
-        crate::SubnetTAO::<T>::iter().fold(0, |acc, (_, v)| acc.saturating_add(v));
+    let total_subnet_tao =
+        crate::SubnetTAO::<T>::iter().fold(TaoCurrency::ZERO, |acc, (_, v)| acc.saturating_add(v));
 
     let total_stake = total_subnet_tao;
     // Update the total stake in storage
@@ -39,7 +39,9 @@ pub(crate) fn migrate_init_total_issuance<T: Config>() -> Weight {
     let prev_total_issuance = crate::TotalIssuance::<T>::get();
 
     // Calculate the new total issuance
-    let new_total_issuance = total_account_balances.saturating_add(total_stake);
+    let new_total_issuance: TaoCurrency = total_account_balances
+        .saturating_add(total_stake.to_u64())
+        .into();
 
     // Update the total issuance in storage
     crate::TotalIssuance::<T>::put(new_total_issuance);
