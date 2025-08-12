@@ -2159,11 +2159,7 @@ where
                             if Pallet::<T>::is_batch_reveal_block_range(*netuid, batch_reveal_block)
                             {
                                 let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                                let validity = ValidTransaction {
-                                    priority,
-                                    longevity: 1,
-                                    ..Default::default()
-                                };
+                                let validity = Self::validity_ok(priority);
                                 Ok((validity, Some(who.clone()), origin))
                             } else {
                                 Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
@@ -2174,9 +2170,6 @@ where
                     } else {
                         Err(CustomTransactionError::InputLengthsUnequal.into())
                     }
-                    let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                    let validity = Self::validity_ok(priority);
-                    Ok((validity, Some(who.clone()), origin))
                 } else {
                     Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
