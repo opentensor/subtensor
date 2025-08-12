@@ -16,24 +16,17 @@ mod migrations;
 extern crate alloc;
 
 use codec::{Compact, Decode, Encode};
-use frame_support::dispatch::DispatchResult;
-use frame_support::traits::{Imbalance, InsideBoth};
 use frame_support::{
-    PalletId,
-    dispatch::DispatchResultWithPostInfo,
+    dispatch::{DispatchResult, DispatchResultWithPostInfo},
     genesis_builder_helper::{build_state, get_preset},
     pallet_prelude::Get,
-    traits::{
-        Contains, LinearStoragePrice, OnUnbalanced,
-        fungible::{
-            DecreaseIssuance, HoldConsideration, Imbalance as FungibleImbalance, IncreaseIssuance,
-        },
-    },
+    traits::{fungible::HoldConsideration, Contains, InsideBoth, LinearStoragePrice},
+    PalletId,
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
 use pallet_collective_otf as pallet_collective;
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
-use pallet_grandpa::{AuthorityId as GrandpaId, fg_primitives};
+use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_proxy_otf as pallet_proxy;
 use pallet_registry::CanRegisterIdentity;
 use pallet_subtensor::rpc_info::{
@@ -46,25 +39,25 @@ use pallet_subtensor::rpc_info::{
     subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
 };
 use pallet_utility_otf as pallet_utility;
-use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_babe::BabeConfiguration;
 use sp_consensus_babe::BabeEpochConfiguration;
 use sp_core::{
-    H160, H256, OpaqueMetadata, U256,
     crypto::{ByteArray, KeyTypeId},
+    OpaqueMetadata, H160, H256, U256,
 };
-use sp_runtime::Cow;
 use sp_runtime::generic::Era;
 use sp_runtime::traits::NumberFor;
+use sp_runtime::Cow;
 use sp_runtime::{
-    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, generic, impl_opaque_keys,
+    generic, impl_opaque_keys,
     traits::{
         AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, One,
         PostDispatchInfoOf, UniqueSaturatedInto, Verify,
     },
     transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
+    AccountId32, ApplyExtrinsicResult, ConsensusEngineId,
 };
 use sp_std::cmp::Ordering;
 use sp_std::prelude::*;
@@ -72,27 +65,30 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use subtensor_precompiles::Precompiles;
-use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
+use subtensor_runtime_common::{time::*, AlphaCurrency, TaoCurrency, *};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
-    StorageValue, construct_runtime, parameter_types,
+    construct_runtime, parameter_types,
     traits::{
-        ConstBool, ConstU8, ConstU32, ConstU64, ConstU128, FindAuthor, InstanceFilter,
+        ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, FindAuthor, InstanceFilter,
         KeyOwnerProofSystem, OnFinalize, OnTimestampSet, PrivilegeCmp, Randomness, StorageInfo,
     },
     weights::{
-        IdentityFee, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
-        WeightToFeePolynomial,
         constants::{
             BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND,
         },
+        IdentityFee, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
+        WeightToFeePolynomial,
     },
+    StorageValue,
 };
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
-use pallet_transaction_payment::{ConstFeeMultiplier, FungibleAdapter, Multiplier};
+use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
+use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
+
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
@@ -449,60 +445,16 @@ impl pallet_balances::Config for Runtime {
     type DoneSlashHandler = ();
 }
 
-pub struct LinearWeightToFee;
-
-impl WeightToFeePolynomial for LinearWeightToFee {
-    type Balance = Balance;
-
-    fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-        let coefficient = WeightToFeeCoefficient {
-            coeff_integer: 0,
-            coeff_frac: Perbill::from_parts(500_000),
-            negative: false,
-            degree: 1,
-        };
-
-        smallvec!(coefficient)
-    }
-}
-
 parameter_types! {
     pub const OperationalFeeMultiplier: u8 = 5;
     pub FeeMultiplier: Multiplier = Multiplier::one();
 }
 
-/// Deduct the transaction fee from the Subtensor Pallet TotalIssuance when dropping the transaction
-/// fee.
-pub struct TransactionFeeHandler;
-impl
-    OnUnbalanced<
-        FungibleImbalance<
-            u64,
-            DecreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
-            IncreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
-        >,
-    > for TransactionFeeHandler
-{
-    fn on_nonzero_unbalanced(
-        credit: FungibleImbalance<
-            u64,
-            DecreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
-            IncreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
-        >,
-    ) {
-        let ti_before = pallet_subtensor::TotalIssuance::<Runtime>::get();
-        pallet_subtensor::TotalIssuance::<Runtime>::put(
-            ti_before.saturating_sub(credit.peek().into()),
-        );
-        drop(credit);
-    }
-}
-
 impl pallet_transaction_payment::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type OnChargeTransaction = FungibleAdapter<Balances, TransactionFeeHandler>;
+    type OnChargeTransaction = SubtensorTxFeeHandler<Balances, TransactionFeeHandler<Runtime>>;
     // Convert dispatch weight to a chargeable fee.
-    type WeightToFee = LinearWeightToFee;
+    type WeightToFee = subtensor_transaction_fee::LinearWeightToFee;
     type OperationalFeeMultiplier = OperationalFeeMultiplier;
     type LengthToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
