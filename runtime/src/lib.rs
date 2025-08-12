@@ -1953,7 +1953,7 @@ construct_runtime!(
         Crowdloan: pallet_crowdloan = 27,
         Swap: pallet_subtensor_swap = 28,
 
-        // PoS Consensus.
+        // NPoS Consensus.
         // Authorship must be before session in order to note author in the correct session and era
         // for staking.
         Authorship: pallet_authorship = 30,
@@ -1994,7 +1994,7 @@ type Migrations = (
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
         Runtime,
     >,
-    crate::migrations::pos::Migration, // pallet_subtensor::migrations::migrate_aura_to_babe::aura_to_babe::Migration<Runtime>,
+    crate::migrations::pos::Migration<Runtime>,
 );
 
 // Unchecked extrinsic type as expected by this runtime.
