@@ -155,6 +155,8 @@ runtime-benchmarks = [
 	"pallet-drand/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"polkadot-sdk/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks"
 ]
 pow-faucet = []
 
@@ -168,6 +170,7 @@ try-runtime = [
 	"pallet-commitments/try-runtime",
 	"pallet-drand/try-runtime",
 	"polkadot-sdk/try-runtime",
+	"pallet-staking/try-runtime"
 ]
 
 metadata-hash = ["node-subtensor-runtime/metadata-hash"]
