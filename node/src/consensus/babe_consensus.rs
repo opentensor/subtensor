@@ -140,9 +140,16 @@ impl ConsensusMechanism for BabeConsensus {
                   grandpa_block_import: GrandpaBlockImport,
                   transaction_pool: Arc<TransactionPoolHandle<Block, FullClient>>| {
                 let configuration = sc_consensus_babe::configuration(&*client)?;
-                if configuration.authorities.len().is_zero() {
-                    return Err(sc_service::Error::Consensus(
-                        sp_consensus::Error::InvalidAuthoritiesSet,
+                // When Babe slot duration is zero, it means we are running an Aura runtime with a
+                // placeholder BabeApi, therefore the BabeApi is invalid.
+                //
+                // In this case, we return the same error if there was no BabeApi at all,
+                // signalling to the node that it needs an Aura service.
+                if configuration.slot_duration.is_zero() {
+                    return Err(sc_service::Error::Client(
+                        sp_blockchain::Error::VersionInvalid(
+                            "Unsupported or invalid BabeApi version".to_string(),
+                        ),
                     ));
                 }
 

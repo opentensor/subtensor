@@ -57,7 +57,6 @@ use sp_runtime::Cow;
 use sp_runtime::Percent;
 use sp_runtime::SaturatedConversion;
 use sp_runtime::generic::Era;
-use sp_runtime::traits::NumberFor;
 use sp_runtime::traits::OpaqueKeys;
 use sp_runtime::transaction_validity::TransactionPriority;
 use sp_runtime::{
@@ -2201,13 +2200,18 @@ impl_runtime_apis! {
         }
 
         fn submit_report_equivocation_unsigned_extrinsic(
-            _equivocation_proof: fg_primitives::EquivocationProof<
+            equivocation_proof: fg_primitives::EquivocationProof<
                 <Block as BlockT>::Hash,
-                NumberFor<Block>,
+                sp_runtime::traits::NumberFor<Block>,
             >,
-            _key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
+            key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
         ) -> Option<()> {
-            None
+            let key_owner_proof = key_owner_proof.decode()?;
+
+            Grandpa::submit_unsigned_equivocation_report(
+                equivocation_proof,
+                key_owner_proof,
+            )
         }
 
         fn generate_key_ownership_proof(
