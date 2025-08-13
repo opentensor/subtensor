@@ -453,16 +453,30 @@ impl<T: Config> Pallet<T> {
             }
         }
 
+        let maybe_owner_hotkey = SubnetOwnerHotkey::<T>::try_get(netuid);
+
         // Distribute mining incentives.
         for (hotkey, incentive) in incentives {
             log::debug!("incentives: hotkey: {incentive:?}");
 
-            if let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
-                if hotkey == owner_hotkey {
-                    log::debug!(
-                        "incentives: hotkey: {hotkey:?} is SN owner hotkey, skipping {incentive:?}"
-                    );
-                    continue; // Skip/burn miner-emission for SN owner hotkey.
+            if maybe_owner_hotkey.is_ok_and(|owner_hotkey| hotkey == owner_hotkey) {
+                log::debug!("incentives: hotkey: {hotkey:?} is SN owner hotkey");
+                match RecycleOrBurn::<T>::try_get(netuid) {
+                    Ok(RecycleOrBurn::Recycle) => {
+                        log::debug!("recycling {incentive:?}");
+                        // recycle the incentive
+
+                        // Recycle means we should decrease the alpha issuance tracker.
+                        SubnetAlphaOut::<T>::mutate(netuid, |total| {
+                            *total = total.saturating_sub(incentive);
+                        });
+
+                        continue;
+                    }
+                    Ok(RecycleOrBurn::Burn) | Err(_) => {
+                        log::debug!("burning {incentive:?}"); // Skip/burn miner-emission for SN owner hotkey.
+                        continue;
+                    }
                 }
             }
             // Increase stake for miner.

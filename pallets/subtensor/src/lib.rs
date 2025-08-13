@@ -304,6 +304,46 @@ pub mod pallet {
         pub additional: Vec<u8>,
     }
 
+    /// Enum for recycle or burn for the owner_uid(s)
+    ///
+    /// Can specify
+    #[derive(TypeInfo, Clone, PartialEq, Eq, Debug)]
+    #[default = Self::Burn(U16::MAX)] // default to burn everything
+    pub enum RecycleOrBurnEnum {
+        Burn(u16), // u16-normalized weight
+        Recycle(u16),
+    }
+    impl codec::EncodeLike for RecycleOrBurnEnum {
+        fn encode_to<E: codec::Encoder>(&self, e: &mut E) -> Result<(), E::Error> {
+            match self {
+                Self::Burn(weight) => {
+                    e.encode_u8(0)?;
+                    e.encode_u16(*weight)
+                }
+                Self::Recycle(weight) => {
+                    e.encode_u8(1)?;
+                    e.encode_u16(*weight)
+                }
+            }
+        }
+    }
+    impl codec::DecodeLike for RecycleOrBurnEnum {
+        fn decode<D: codec::Decoder>(d: &mut D) -> Result<Self, D::Error> {
+            let tag = d.read_byte()?;
+            match tag {
+                0 => {
+                    let weight = d.read_u16()?;
+                    Ok(Self::Burn(weight))
+                }
+                1 => {
+                    let weight = d.read_u16()?;
+                    Ok(Self::Recycle(weight))
+                }
+                _ => Err(codec::Error::from("invalid tag")),
+            }
+        }
+    }
+
     /// ============================
     /// ==== Staking + Accounts ====
     /// ============================
@@ -550,6 +590,11 @@ pub mod pallet {
     /// Default value for subnet owner cut.
     pub fn DefaultSubnetOwnerCut<T: Config>() -> u16 {
         T::InitialSubnetOwnerCut::get()
+    }
+    #[pallet::type_value]
+    /// Default value for recycle or burn.
+    pub fn DefaultRecycleOrBurn<T: Config>() -> RecycleOrBurnEnum {
+        RecycleOrBurnEnum::Burn(U16::MAX) // default to burn
     }
     #[pallet::type_value]
     /// Default value for network rate limit.
@@ -1302,6 +1347,10 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> subnet_owner_hotkey
     pub type SubnetOwnerHotkey<T: Config> =
         StorageMap<_, Identity, NetUid, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> recycle_or_burn
+    pub type RecycleOrBurn<T: Config> =
+        StorageMap<_, Identity, NetUid, RecycleOrBurnEnum, ValueQuery, DefaultRecycleOrBurn<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> serving_rate_limit
     pub type ServingRateLimit<T> =
