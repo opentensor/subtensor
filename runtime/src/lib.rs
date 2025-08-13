@@ -601,7 +601,7 @@ parameter_types! {
     // 28 eras for unbonding (28 days).
     pub BondingDuration: sp_staking::EraIndex = prod_or_fast!(
         28,
-        1,
+        2,
         "BONDING_DURATION"
     );
     pub SlashDeferDuration: sp_staking::EraIndex = prod_or_fast!(
