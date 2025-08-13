@@ -891,7 +891,7 @@ mod dispatches {
         #[pallet::call_index(6)]
         #[pallet::weight((Weight::from_parts(161_800_000, 0)
 		.saturating_add(T::DbWeight::get().reads(26))
-		.saturating_add(T::DbWeight::get().writes(23)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().writes(23)), DispatchClass::Normal, Pays::No))]
         pub fn register(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -926,7 +926,7 @@ mod dispatches {
         #[pallet::call_index(7)]
         #[pallet::weight((Weight::from_parts(278_400_000, 0)
 		.saturating_add(T::DbWeight::get().reads(49))
-		.saturating_add(T::DbWeight::get().writes(43)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().writes(43)), DispatchClass::Normal, Pays::No))]
         pub fn burned_register(
             origin: OriginFor<T>,
             netuid: NetUid,
