@@ -157,4 +157,6 @@ try-runtime = [
 	"pallet-crowdloan/try-runtime",
 ]
 pow-faucet = []
-fast-blocks = []
+fast-blocks = [
+	"subtensor-runtime-common/fast-blocks"
+]

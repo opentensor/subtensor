@@ -2,7 +2,7 @@
 title: Installation
 ---
 This guide is for reference only, please check the latest information on getting starting with Substrate
-[here](https://docs.polkadot.com/main-docs/install/).
+[here](https://docs.polkadot.com/develop/parachains/install-polkadot-sdk/).
 
 This page will guide you through the **2 steps** needed to prepare a computer for **Substrate** development.
 Since Substrate is built with [the Rust programming language](https://www.rust-lang.org/), the first
@@ -65,18 +65,15 @@ Open the Terminal application and execute the following commands:
 # Install Homebrew if necessary https://brew.sh/
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
 
-# Make sure Homebrew is up-to-date, install openssl
+# Make sure Homebrew is up-to-date, install protobuf and openssl
 brew update
-brew install openssl
+brew install protobuf openssl
 ```
 
 ### Windows
 
 **_PLEASE NOTE:_** Native Windows development of Substrate is _not_ very well supported! It is _highly_
-recommend to use [Windows Subsystem Linux](https://docs.microsoft.com/en-us/windows/wsl/install-win10)
-(WSL) and follow the instructions for [Ubuntu/Debian](#ubuntudebian).
-Please refer to the separate
-[guide for native Windows development](https://docs.polkadot.com/main-docs/install/windows/).
+recommend to use [Windows Subsystem Linux](https://docs.microsoft.com/en-us/windows/wsl/install-win10) (WSL) and follow the following [instructions](https://docs.polkadot.com/develop/parachains/install-polkadot-sdk/#windows-wsl).
 
 ## Rust developer environment
 
@@ -90,13 +87,12 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source ~/.cargo/env
 ```
 
-Configure the Rust toolchain to default to the latest stable version, add nightly and the nightly wasm target:
+Configure the Rust toolchain to default to the latest stable version:
 
 ```bash
 rustup default stable
 rustup update
-rustup update nightly
-rustup target add wasm32-unknown-unknown --toolchain nightly
+rustup target add wasm32v1-none
 ```
 
 ## Test your set-up
@@ -125,38 +121,26 @@ rustup home:  /home/user/.rustup
 
 installed toolchains
 --------------------
-
 stable-x86_64-unknown-linux-gnu (default)
-nightly-2020-10-06-x86_64-unknown-linux-gnu
 nightly-x86_64-unknown-linux-gnu
-
-installed targets for active toolchain
---------------------------------------
-
-wasm32-unknown-unknown
-x86_64-unknown-linux-gnu
 
 active toolchain
 ----------------
-
-stable-x86_64-unknown-linux-gnu (default)
-rustc 1.50.0 (cb75ad5db 2021-02-10)
+name: stable-x86_64-unknown-linux-gnu
+active because: it's the default toolchain
+installed targets:
+  x86_64-unknown-linux-gnu
+  wasm32v1-none
 ```
 
 As you can see above, the default toolchain is stable, and the
-`nightly-x86_64-unknown-linux-gnu` toolchain as well as its `wasm32-unknown-unknown` target is installed.
-You also see that `nightly-2020-10-06-x86_64-unknown-linux-gnu` is installed, but is not used unless explicitly defined as illustrated in the [specify your nightly version](#specifying-nightly-version)
+`stable-x86_64-unknown-linux-gnu` toolchain as well as its `wasm32v1-none` target is installed.
+You also see that `nightly-x86_64-unknown-linux-gnu` is installed, but is not used unless explicitly defined as illustrated in the [specify your nightly version](#specifying-nightly-version)
 section.
 
 ### WebAssembly compilation
 
-Substrate uses [WebAssembly](https://webassembly.org) (Wasm) to produce portable blockchain
-runtimes. You will need to configure your Rust compiler to use
-[`nightly` builds](https://doc.rust-lang.org/book/appendix-07-nightly-rust.html) to allow you to
-compile Substrate runtime code to the Wasm target.
-
-> There are upstream issues in Rust that need to be resolved before all of Substrate can use the stable Rust toolchain.
-> [This is our tracking issue](https://github.com/paritytech/substrate/issues/1252) if you're curious as to why and how this will be resolved.
+Substrate uses [WebAssembly](https://webassembly.org) (Wasm) to produce portable blockchain runtimes.
 
 #### Latest nightly for Substrate `master`
 
@@ -168,7 +152,7 @@ To ensure your Rust compiler is always up to date, you should run:
 ```bash
 rustup update
 rustup update nightly
-rustup target add wasm32-unknown-unknown --toolchain nightly
+rustup target add wasm32v1-none --toolchain nightly
 ```
 
 > NOTE: It may be necessary to occasionally rerun `rustup update` if a change in the upstream Substrate
@@ -197,7 +181,7 @@ rustup install nightly-<yyyy-MM-dd>
 Now, configure the nightly version to work with the Wasm compilation target:
 
 ```bash
-rustup target add wasm32-unknown-unknown --toolchain nightly-<yyyy-MM-dd>
+rustup target add wasm32v1-none --toolchain nightly-<yyyy-MM-dd>
 ```
 
 ### Specifying nightly version
@@ -220,6 +204,6 @@ specific nightly version, follow these steps:
 ```bash
 rustup uninstall nightly
 rustup install nightly-<yyyy-MM-dd>
-rustup target add wasm32-unknown-unknown --toolchain nightly-<yyyy-MM-dd>
+rustup target add wasm32v1-none --toolchain nightly-<yyyy-MM-dd>
 ```
 
