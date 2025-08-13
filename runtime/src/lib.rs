@@ -49,7 +49,6 @@ use sp_core::{
 };
 use sp_runtime::Cow;
 use sp_runtime::generic::Era;
-use sp_runtime::traits::NumberFor;
 use sp_runtime::{
     AccountId32, ApplyExtrinsicResult, ConsensusEngineId, generic, impl_opaque_keys,
     traits::{
@@ -1866,7 +1865,7 @@ impl_runtime_apis! {
         fn submit_report_equivocation_unsigned_extrinsic(
             equivocation_proof: fg_primitives::EquivocationProof<
                 <Block as BlockT>::Hash,
-                NumberFor<Block>,
+                sp_runtime::traits::NumberFor<Block>,
             >,
             key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
         ) -> Option<()> {
@@ -2375,7 +2374,7 @@ impl_runtime_apis! {
         fn configuration() -> BabeConfiguration {
             let config = BabeEpochConfiguration::default();
             BabeConfiguration {
-                slot_duration: SLOT_DURATION,
+                slot_duration: Default::default(),
                 epoch_length: Default::default(),
                 authorities: vec![],
                 randomness: Default::default(),
