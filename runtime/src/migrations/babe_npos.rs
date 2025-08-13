@@ -1,7 +1,5 @@
 use crate::keys::sr25519_to_ed25519;
 use crate::opaque::SessionKeys;
-// use frame_election_provider_support::ElectionProviderBase;
-// use frame_election_provider_support::SortedListProvider;
 use frame_support::WeakBoundedVec;
 use frame_support::pallet_prelude::Weight;
 use frame_support::traits::OnRuntimeUpgrade;
@@ -19,6 +17,8 @@ use sp_std::vec::Vec;
 
 use crate::*;
 
+const INITIAL_STAKE: u64 = UNITS;
+
 pub struct Migration<T>(sp_std::marker::PhantomData<T>);
 
 impl<T> OnRuntimeUpgrade for Migration<T>
@@ -28,7 +28,8 @@ where
         + pallet_grandpa::Config
         + pallet_aura::Config<AuthorityId = AuraId>
         + pallet_staking::Config<AccountId = AccountId32, CurrencyBalance = Balance>
-        + pallet_session::Config<ValidatorId = AccountId32, Keys = opaque::SessionKeys>,
+        + pallet_session::Config<ValidatorId = AccountId32, Keys = opaque::SessionKeys>
+        + pallet_bags_list::Config<VoterBagsListInstance>,
 {
     fn on_runtime_upgrade() -> Weight {
         // Nothing to do if we have already migrated.
@@ -76,7 +77,8 @@ where
         + pallet_grandpa::Config
         + pallet_aura::Config<AuthorityId = AuraId>
         + pallet_staking::Config<AccountId = AccountId32, CurrencyBalance = Balance>
-        + pallet_session::Config<ValidatorId = AccountId32, Keys = opaque::SessionKeys>,
+        + pallet_session::Config<ValidatorId = AccountId32, Keys = opaque::SessionKeys>
+        + pallet_bags_list::Config<VoterBagsListInstance>,
 {
     #[cfg(feature = "try-runtime")]
     fn pallet_babe_pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
@@ -150,10 +152,10 @@ where
 
         let aura_authorities: Vec<AuraId> =
             pallet_aura::Authorities::<T>::get().into_iter().collect();
-        let grandpa_authorities: BTreeSet<(GrandpaId, u64)> =
-            pallet_grandpa::Authorities::<T>::get()
-                .into_iter()
-                .collect();
+        let grandpa_authorities: BTreeSet<GrandpaId> = pallet_grandpa::Authorities::<T>::get()
+            .into_iter()
+            .map(|(account, _)| account)
+            .collect();
         Ok((aura_authorities, grandpa_authorities).encode())
     }
 
@@ -161,7 +163,7 @@ where
     fn pallet_session_post_upgrade(pre_state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
         use sp_std::collections::btree_set::BTreeSet;
 
-        let (aura_authorities, grandpa_authorities): (Vec<AuraId>, BTreeSet<(GrandpaId, u64)>) =
+        let (aura_authorities, mut grandpa_authorities): (Vec<AuraId>, BTreeSet<GrandpaId>) =
             Decode::decode(&mut &pre_state[..])
                 .expect("Failed to decode pallet_session_post_upgrade state");
 
@@ -211,9 +213,9 @@ where
 
         // Check every grandpa key was migrated exactly once. This check is important to ensure
         // there are no incorrect entires in our `sr25519_to_ed25519` mapping.
-        for (account, session_keys) in expected_keys.iter() {
-            if grandpa_authorities.take(session_keys.grandpa).is_none() {
-                return Err("Issue with sr25519_to_ed25519 grandpa keys mapping".into());
+        for (_, session_keys) in expected_keys.iter() {
+            if grandpa_authorities.take(&session_keys.grandpa).is_none() {
+                return Err("All Grandpa keys were not migrated exactly once".into());
             }
         }
         if !grandpa_authorities.is_empty() {
@@ -281,15 +283,22 @@ where
 
     #[cfg(feature = "try-runtime")]
     fn pallet_staking_pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
-        Ok(Default::default())
+        let expected_stakers = pallet_aura::Authorities::<T>::get()
+            .into_iter()
+            .map(|aura| AccountId32::from(aura.into_inner()))
+            .collect::<Vec<AccountId32>>();
+        Ok(expected_stakers.encode())
     }
 
     #[cfg(feature = "try-runtime")]
-    fn pallet_staking_post_upgrade(_pre_state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
-        let expected_validator_count = 0;
-        let expected_invulnerables = vec![];
-        let expected_stakers: sp_runtime::Vec<()> = vec![];
-        if pallet_staking::ValidatorCount::<T>::get() != expected_validator_count {
+    fn pallet_staking_post_upgrade(pre_state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
+        use frame_support::ensure;
+
+        let expected_stakers: Vec<AccountId32> =
+            Decode::decode(&mut &pre_state[..]).map_err(|_| "Failed to decode pre-state")?;
+        let expected_validator_count = expected_stakers.len();
+        let expected_invulnerables = expected_stakers.clone();
+        if pallet_staking::ValidatorCount::<T>::get() != expected_validator_count as u32 {
             return Err("ValidatorCount count does not match expected value.".into());
         }
         if pallet_staking::MinimumValidatorCount::<T>::get() != 1u32 {
@@ -331,20 +340,37 @@ where
             }
         }
 
-        for _staker in expected_stakers.iter() {
-            // TODO: Check bond <pallet_staking::Pallet<T>>::bond
-            // TODO: Check are validating <pallet_staking::Pallet<T>>::validate
-            // TODO: Check this
-            //    assert!(
-            //    pallet_staking::ValidatorCount::<T>::get()
-            //        <= <<T as pallet_staking::Config>::ElectionProvider as ElectionProviderBase>::MaxWinners::get()
-            // );
-            // TODO: Check this
-            // assert_eq!(
-            //     <T as pallet_staking::Config>::VoterList::count(),
-            //     pallet_staking::Nominators::<T>::count() + pallet_staking::Validators::<T>::count(),
-            //     "not all genesis stakers were inserted into sorted list provider, something is wrong."
-            // );
+        use sp_staking::StakingAccount;
+        for staker in expected_stakers.iter() {
+            use frame_election_provider_support::SortedListProvider as _;
+
+            let ledger = pallet_staking::Pallet::<T>::ledger(StakingAccount::Stash(staker.clone()))
+                .map_err(|_| return "Expected staker stash not found in ledger.")?;
+
+            ensure!(
+                pallet_staking::Bonded::<T>::get(staker.clone()) == Some(staker.clone()),
+                "Stash does not match controller for staker"
+            );
+            ensure!(
+                ledger.total >= INITIAL_STAKE,
+                "Staker has insufficient total balance in ledger."
+            );
+            ensure!(
+                ledger.active >= INITIAL_STAKE,
+                "Staker has insufficient active balance in ledger."
+            );
+            ensure!(
+                ledger.unlocking.is_empty(),
+                "Staker has unlocking balance which is not expected."
+            );
+            ensure!(
+                pallet_staking::Validators::<T>::contains_key(staker.clone()),
+                "Expected staker to be in Validator list"
+            );
+            ensure!(
+                pallet_bags_list::Pallet::<T, VoterBagsListInstance>::contains(&staker),
+                "Expected staker to be in voter list"
+            );
         }
 
         Ok(())
@@ -367,7 +393,7 @@ where
                 (
                     x.clone(),
                     x.clone(),
-                    UNITS,
+                    INITIAL_STAKE,
                     pallet_staking::StakerStatus::<AccountId32>::Validator,
                 )
             })
