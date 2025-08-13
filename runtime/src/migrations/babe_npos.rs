@@ -17,7 +17,8 @@ use sp_std::vec::Vec;
 
 use crate::*;
 
-const INITIAL_STAKE: u64 = UNITS * 2;
+const INITIAL_STAKE: u64 = UNITS; // 1 TAO
+const MINIMUM_BOND: u64 = UNITS / 2; // 0.5 TAO
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
@@ -80,19 +81,31 @@ where
 
     #[cfg(feature = "try-runtime")]
     fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
+        let aura_authorities: Vec<AuraId> =
+            pallet_aura::Authorities::<T>::get().into_iter().collect();
+        // Already migrated, this is being called in MBM logic. Nothing to do.
+        if aura_authorities.is_empty() {
+            return Ok(None::<PreUpgradeData>.encode());
+        }
         let babe = Migration::<T>::pallet_babe_pre_upgrade()?;
         let session = Migration::<T>::pallet_session_pre_upgrade()?;
         let staking = Migration::<T>::pallet_staking_pre_upgrade()?;
-        Ok(PreUpgradeData::new(babe, session, staking).encode())
+        Ok(Some(PreUpgradeData::new(babe, session, staking)).encode())
     }
 
     #[cfg(feature = "try-runtime")]
     fn post_upgrade(pre_state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
-        let pre_data: PreUpgradeData =
+        let pre_data: Option<PreUpgradeData> =
             Decode::decode(&mut &pre_state[..]).map_err(|_| "Failed to decode pre-state")?;
+        let pre_data = match pre_data {
+            Some(data) => data,
+            None => return Ok(()), // Nothing to do if pre_data is None, we're in some MBM step
+                                   // after the migration has occured.
+        };
         Migration::<T>::pallet_babe_post_upgrade(pre_data.babe)?;
         Migration::<T>::pallet_session_post_upgrade(pre_data.session)?;
         Migration::<T>::pallet_staking_post_upgrade(pre_data.staking)?;
+        log::info!("All Babe NPoS post_upgrade checks passed!");
         Ok(())
     }
 }
@@ -360,11 +373,11 @@ where
             "SlashRewardFraction does not match expected value."
         );
         ensure!(
-            pallet_staking::MinNominatorBond::<T>::get() == UNITS,
+            pallet_staking::MinNominatorBond::<T>::get() == MINIMUM_BOND,
             "MinNominatorBond does not match expected value."
         );
         ensure!(
-            pallet_staking::MinValidatorBond::<T>::get() == UNITS,
+            pallet_staking::MinValidatorBond::<T>::get() == MINIMUM_BOND,
             "MinValidatorBond does not match expected value."
         );
         ensure!(
@@ -400,11 +413,11 @@ where
                 "Stash does not match controller for staker"
             );
             ensure!(
-                ledger.total >= INITIAL_STAKE,
+                ledger.total >= INITIAL_STAKE - EXISTENTIAL_DEPOSIT,
                 "Staker has insufficient total balance in ledger."
             );
             ensure!(
-                ledger.active >= INITIAL_STAKE,
+                ledger.active >= INITIAL_STAKE - EXISTENTIAL_DEPOSIT,
                 "Staker has insufficient active balance in ledger."
             );
             ensure!(
@@ -456,8 +469,8 @@ where
         pallet_staking::ForceEra::<T>::put(force_era);
         pallet_staking::CanceledSlashPayout::<T>::put(0);
         pallet_staking::SlashRewardFraction::<T>::put(slash_reward_fraction);
-        pallet_staking::MinNominatorBond::<T>::put(UNITS);
-        pallet_staking::MinValidatorBond::<T>::put(UNITS);
+        pallet_staking::MinNominatorBond::<T>::put(MINIMUM_BOND);
+        pallet_staking::MinValidatorBond::<T>::put(MINIMUM_BOND);
         pallet_staking::MaxValidatorsCount::<T>::put(MaxAuthorities::get());
         let era: sp_staking::EraIndex = 0;
         pallet_staking::CurrentEra::<T>::set(Some(era));
@@ -467,28 +480,28 @@ where
         }));
         writes.saturating_accrue(11u64);
 
-        for &(ref account, _, balance, ref status) in &stakers {
-            log::info!("inserting genesis staker: {account:?} => {balance:?} => {status:?}");
-            if Balances::usable_balance(account) < balance {
+        for &(ref account, _, bond, ref status) in &stakers {
+            log::info!("inserting genesis staker: {account:?} => {bond:?} => {status:?}");
+            if Balances::usable_balance(account) < bond {
                 use frame_support::traits::fungible::Mutate;
                 log::warn!(
                     "Account {:?} does not have enough balance to bond ({:?} < {:?}). Topping it up with bond amount.",
                     account,
                     Balances::usable_balance(account),
-                    balance
+                    bond
                 );
                 // If the account does not have enough balance, we top it up with the bond amount.
-                let _ = Balances::mint_into(account, balance);
-                pallet_subtensor::TotalIssuance::<T>::mutate(|total| *total += balance.into());
+                let _ = Balances::mint_into(account, bond);
+                pallet_subtensor::TotalIssuance::<T>::mutate(|total| *total += bond.into());
                 writes.saturating_inc();
             }
             if let Err(e) = <pallet_staking::Pallet<T>>::bond(
                 RawOrigin::Signed(account.clone()).into(),
-                balance,
+                bond,
                 pallet_staking::RewardDestination::Staked,
             ) {
                 log::error!(
-                    "Failed to bond {account:?} with balance {balance:?} and status {status:?}: {e:?}"
+                    "Failed to bond {account:?} with balance {bond:?} and status {status:?}: {e:?}"
                 );
             };
             writes.saturating_inc();
