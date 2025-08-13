@@ -2365,8 +2365,8 @@ where
                 Ok((validity, Some(who.clone()), origin))
             }
             Some(Call::register_network { .. }) => {
-                let current_block = Self::get_current_block_as_u64();
-                let last_lock_block = Self::get_network_last_lock_block();
+                let current_block = Pallet::<T>::get_current_block_as_u64();
+                let last_lock_block = Pallet::<T>::get_network_last_lock_block();
                 if current_block.saturating_sub(last_lock_block) >= NetworkRateLimit::<T>::get() {
                     return Err(CustomTransactionError::RateLimitExceeded.into());
                 }
