@@ -1,5 +1,4 @@
-use fc_aura::AuraConsensusDataProvider;
-pub use fc_consensus::FrontierBlockImport;
+use crate::rpc::EthDeps;
 use fc_rpc::{
     Debug, DebugApiServer, Eth, EthApiServer, EthConfig, EthDevSigner, EthFilter,
     EthFilterApiServer, EthPubSub, EthPubSubApiServer, EthSigner, EthTask, Net, NetApiServer, Web3,
@@ -28,7 +27,6 @@ use std::{
 };
 
 use crate::client::{FullBackend, FullClient};
-use crate::rpc::EthDeps;
 
 pub type FrontierBackend = fc_db::Backend<Block, FullClient>;
 
@@ -198,6 +196,7 @@ pub async fn spawn_frontier_tasks(
 fn extend_rpc_aet_api<P, CT, CIDP, EC>(
     io: &mut RpcModule<()>,
     deps: &EthDeps<P, CT, CIDP>,
+    pending_consensus_data_provider: Option<Box<dyn fc_rpc::pending::ConsensusDataProvider<Block>>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
     P: TransactionPool<
@@ -233,9 +232,7 @@ where
             deps.execute_gas_limit_multiplier,
             deps.forced_parent_hashes.clone(),
             deps.pending_create_inherent_data_providers.clone(),
-            Some(Box::new(AuraConsensusDataProvider::new(
-                deps.client.clone(),
-            ))),
+            pending_consensus_data_provider,
         )
         .replace_config::<EC>()
         .into_rpc(),
@@ -393,6 +390,7 @@ pub fn create_eth<P, CT, CIDP, EC>(
             fc_mapping_sync::EthereumBlockNotification<Block>,
         >,
     >,
+    pending_consensus_data_provider: Option<Box<dyn fc_rpc::pending::ConsensusDataProvider<Block>>>,
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
     P: TransactionPool<
@@ -406,7 +404,7 @@ where
     CIDP: CreateInherentDataProviders<Block, ()> + Send + Clone + 'static,
     EC: EthConfig<Block, FullClient>,
 {
-    extend_rpc_aet_api::<P, CT, CIDP, EC>(&mut io, &deps)?;
+    extend_rpc_aet_api::<P, CT, CIDP, EC>(&mut io, &deps, pending_consensus_data_provider)?;
     extend_rpc_eth_filter::<P, CT, CIDP>(&mut io, &deps)?;
     extend_rpc_eth_pubsub::<P, CT, CIDP>(
         &mut io,
