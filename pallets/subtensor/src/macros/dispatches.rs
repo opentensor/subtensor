@@ -693,7 +693,7 @@ mod dispatches {
         /// 	- Attempting to set prometheus information withing the rate limit min.
         ///
         #[pallet::call_index(4)]
-        #[pallet::weight((Weight::from_parts(28_150_000, 0)
+        #[pallet::weight((Weight::from_parts(36_090_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_axon(
@@ -891,7 +891,7 @@ mod dispatches {
         #[pallet::call_index(6)]
         #[pallet::weight((Weight::from_parts(161_800_000, 0)
 		.saturating_add(T::DbWeight::get().reads(26))
-		.saturating_add(T::DbWeight::get().writes(23)), DispatchClass::Normal, Pays::No))]
+		.saturating_add(T::DbWeight::get().writes(23)), DispatchClass::Normal, Pays::Yes))]
         pub fn register(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -926,7 +926,7 @@ mod dispatches {
         #[pallet::call_index(7)]
         #[pallet::weight((Weight::from_parts(278_400_000, 0)
 		.saturating_add(T::DbWeight::get().reads(49))
-		.saturating_add(T::DbWeight::get().writes(43)), DispatchClass::Normal, Pays::No))]
+		.saturating_add(T::DbWeight::get().writes(43)), DispatchClass::Normal, Pays::Yes))]
         pub fn burned_register(
             origin: OriginFor<T>,
             netuid: NetUid,
