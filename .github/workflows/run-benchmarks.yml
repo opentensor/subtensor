@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   validate-benchmarks:
-    runs-on: [self-hosted, type-ccx33]
+    runs-on: Benchmarking
 
     env:
       SKIP_BENCHMARKS: "0"
