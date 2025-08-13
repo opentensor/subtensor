@@ -10440,6 +10440,7 @@ dependencies = [
  "pallet-utility-otf",
  "parity-scale-codec",
  "parity-util-mem",
+ "polkadot-runtime-common",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "safe-math",

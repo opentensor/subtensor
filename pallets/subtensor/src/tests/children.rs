@@ -4036,7 +4036,7 @@ fn test_pending_cooldown_as_expected() {
     let curr_block = 1;
 
     // TODO: Fix when CHK splitting patched
-    // let expected_cooldown = prod_or_fast!(7_200, 15);
+    // let expected_cooldown = prod_or_fast!(7200, 15);
 
     new_test_ext(curr_block).execute_with(|| {
         let coldkey = U256::from(1);

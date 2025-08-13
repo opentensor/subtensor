@@ -19,8 +19,8 @@ sp-core.workspace = true
 sp-runtime.workspace = true
 substrate-fixed.workspace = true
 subtensor-macros.workspace = true
-approx = { workspace = true, optional = true }
 runtime-common.workspace = true
+approx = { workspace = true, optional = true }
 log.workspace = true
 
 [lints]
@@ -39,5 +39,5 @@ std = [
 	"sp-runtime/std",
 	"substrate-fixed/std",
 	"runtime-common/std",
-	"log/std"
+	"log/std",
 ]

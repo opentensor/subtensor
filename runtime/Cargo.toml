@@ -361,6 +361,7 @@ try-runtime = [
 	"pallet-evm/try-runtime",
 	"pallet-evm-chain-id/try-runtime",
 	"pallet-drand/try-runtime",
+	"runtime-common/try-runtime",
 	"pallet-aura/try-runtime",
 	"runtime-common/try-runtime",
 ]

@@ -1462,7 +1462,8 @@ impl pallet_commitments::GetTempoInterface for Runtime {
 
 pub const INITIAL_SUBNET_TEMPO: u16 = prod_or_fast!(360, 10);
 
-pub const INITIAL_CHILDKEY_TAKE_RATELIMIT: u64 = prod_or_fast!(216000, 5); // 30 days at 12 seconds per block
+// 30 days at 12 seconds per block = 216000
+pub const INITIAL_CHILDKEY_TAKE_RATELIMIT: u64 = prod_or_fast!(216000, 5);
 
 // Configure the pallet subtensor.
 parameter_types! {
@@ -1524,7 +1525,8 @@ parameter_types! {
     pub const InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const SubtensorInitialTaoWeight: u64 = 971_718_665_099_567_868; // 0.05267697438728329% tao weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
-    pub const DurationOfStartCall: u64 = prod_or_fast!(7 * 24 * 60 * 60 / 12, 10); // 7 days or 10 blocks
+    // 7 * 24 * 60 * 60 / 12 = 7 days
+    pub const DurationOfStartCall: u64 = prod_or_fast!(7 * 24 * 60 * 60 / 12, 10);
     pub const SubtensorInitialKeySwapOnSubnetCost: u64 = 1_000_000; // 0.001 TAO
     pub const HotkeySwapOnSubnetInterval : BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
@@ -1894,8 +1896,10 @@ parameter_types! {
     pub const CrowdloanPalletId: PalletId = PalletId(*b"bt/cloan");
     pub const MinimumDeposit: Balance = 10_000_000_000; // 10 TAO
     pub const AbsoluteMinimumContribution: Balance = 100_000_000; // 0.1 TAO
-    pub const MinimumBlockDuration: BlockNumber = prod_or_fast!(50400, 50); // 7 days minimum (7 * 24 * 60 * 60 / 12)
-    pub const MaximumBlockDuration: BlockNumber = prod_or_fast!(432000, 20000); // 60 days maximum (60 * 24 * 60 * 60 / 12)
+    // 7 days minimum (7 * 24 * 60 * 60 / 12)
+    pub const MinimumBlockDuration: BlockNumber = prod_or_fast!(50400, 50);
+    // 60 days maximum (60 * 24 * 60 * 60 / 12)
+    pub const MaximumBlockDuration: BlockNumber = prod_or_fast!(432000, 20000);
     pub const RefundContributorsLimit: u32 = 50;
     pub const MaxContributors: u32 = 500;
 }
