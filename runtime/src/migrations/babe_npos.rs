@@ -17,7 +17,29 @@ use sp_std::vec::Vec;
 
 use crate::*;
 
-const INITIAL_STAKE: u64 = UNITS;
+const INITIAL_STAKE: u64 = UNITS * 2;
+
+#[cfg(feature = "try-runtime")]
+use frame_support::ensure;
+
+#[cfg(feature = "try-runtime")]
+#[derive(Encode, Decode)]
+struct PreUpgradeData {
+    pub babe: Vec<u8>,
+    pub session: Vec<u8>,
+    pub staking: Vec<u8>,
+}
+
+#[cfg(feature = "try-runtime")]
+impl PreUpgradeData {
+    pub fn new(babe: Vec<u8>, session: Vec<u8>, staking: Vec<u8>) -> Self {
+        Self {
+            babe,
+            session,
+            staking,
+        }
+    }
+}
 
 pub struct Migration<T>(sp_std::marker::PhantomData<T>);
 
@@ -26,6 +48,7 @@ where
     T: frame_system::Config
         + pallet_babe::Config
         + pallet_grandpa::Config
+        + pallet_subtensor::Config
         + pallet_aura::Config<AuthorityId = AuraId>
         + pallet_staking::Config<AccountId = AccountId32, CurrencyBalance = Balance>
         + pallet_session::Config<ValidatorId = AccountId32, Keys = opaque::SessionKeys>
@@ -43,30 +66,34 @@ where
         // IMPORTANT: These steps depend on each other.
         //
         // **Do not rearange them!
-        Migration::<T>::pallet_babe_runtime_upgrade();
-        Migration::<T>::pallet_session_runtime_upgrade();
-        Migration::<T>::pallet_staking_runtime_upgrade();
+        let babe_weight = Migration::<T>::pallet_babe_runtime_upgrade();
+        let session_weight = Migration::<T>::pallet_session_runtime_upgrade();
+        let staking_weight = Migration::<T>::pallet_staking_runtime_upgrade();
 
         // Brick the Aura pallet so no new Aura blocks can be produced after this runtime upgrade.
         let _ = pallet_aura::Authorities::<T>::take();
 
-        T::DbWeight::get().reads(0)
+        babe_weight
+            .saturating_add(session_weight)
+            .saturating_add(staking_weight)
     }
 
     #[cfg(feature = "try-runtime")]
     fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
-        Migration::<T>::pallet_babe_pre_upgrade()?;
-        Migration::<T>::pallet_session_pre_upgrade()?;
-        Migration::<T>::pallet_staking_pre_upgrade()?;
-        todo!()
+        let babe = Migration::<T>::pallet_babe_pre_upgrade()?;
+        let session = Migration::<T>::pallet_session_pre_upgrade()?;
+        let staking = Migration::<T>::pallet_staking_pre_upgrade()?;
+        Ok(PreUpgradeData::new(babe, session, staking).encode())
     }
 
     #[cfg(feature = "try-runtime")]
-    fn post_upgrade(_pre_state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
-        Migration::<T>::pallet_babe_post_upgrade(Default::default())?;
-        Migration::<T>::pallet_session_post_upgrade(Default::default())?;
-        Migration::<T>::pallet_staking_post_upgrade(Default::default())?;
-        todo!()
+    fn post_upgrade(pre_state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
+        let pre_data: PreUpgradeData =
+            Decode::decode(&mut &pre_state[..]).map_err(|_| "Failed to decode pre-state")?;
+        Migration::<T>::pallet_babe_post_upgrade(pre_data.babe)?;
+        Migration::<T>::pallet_session_post_upgrade(pre_data.session)?;
+        Migration::<T>::pallet_staking_post_upgrade(pre_data.staking)?;
+        Ok(())
     }
 }
 
@@ -75,6 +102,7 @@ where
     T: frame_system::Config
         + pallet_babe::Config
         + pallet_grandpa::Config
+        + pallet_subtensor::Config
         + pallet_aura::Config<AuthorityId = AuraId>
         + pallet_staking::Config<AccountId = AccountId32, CurrencyBalance = Balance>
         + pallet_session::Config<ValidatorId = AccountId32, Keys = opaque::SessionKeys>
@@ -82,7 +110,7 @@ where
 {
     #[cfg(feature = "try-runtime")]
     fn pallet_babe_pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
-        let authorities = pallet_aura::Authorities::<T>::get();
+        let authorities: Vec<AuraId> = pallet_aura::Authorities::<T>::get().into_iter().collect();
         Ok(authorities.encode())
     }
 
@@ -106,20 +134,24 @@ where
                 .into_iter()
                 .collect();
         for (authority, weight) in expected_authorities.iter() {
-            if !actual_authorities.contains(&(authority.clone(), *weight)) {
-                return Err("Authorities not initialized correctly".into());
-            }
-            if !actual_next_authorities.contains(&(authority.clone(), *weight)) {
-                return Err("NextAuthorities not initialized correctly".into());
-            }
+            ensure!(
+                actual_authorities.contains(&(authority.clone(), *weight)),
+                "Authorities not initialized correctly"
+            );
+            ensure!(
+                actual_next_authorities.contains(&(authority.clone(), *weight)),
+                "NextAuthorities not initialized correctly"
+            );
         }
 
-        if pallet_babe::SegmentIndex::<T>::get() != 0 {
-            return Err("SegmentIndex does not match expected value.".into());
-        }
-        if pallet_babe::EpochConfig::<T>::get() != Some(BABE_GENESIS_EPOCH_CONFIG) {
-            return Err("EpochConfig does not match expected value.".into());
-        }
+        ensure!(
+            pallet_babe::SegmentIndex::<T>::get().is_zero(),
+            "SegmentIndex does not match expected value."
+        );
+        ensure!(
+            pallet_babe::EpochConfig::<T>::get() == Some(BABE_GENESIS_EPOCH_CONFIG),
+            "EpochConfig does not match expected value."
+        );
         Ok(())
     }
 
@@ -182,12 +214,14 @@ where
             })
             .collect();
 
-        if pallet_session::QueuedKeys::<T>::get() != expected_keys {
-            return Err("QueuedKeys does not match expected value.".into());
-        }
-        if pallet_session::CurrentIndex::<T>::get() != 0 {
-            return Err("CurrentIndex does not match expected value.".into());
-        }
+        ensure!(
+            pallet_session::QueuedKeys::<T>::get() == expected_keys,
+            "QueuedKeys does not match expected value."
+        );
+        ensure!(
+            pallet_session::CurrentIndex::<T>::get().is_zero(),
+            "CurrentIndex is not zero."
+        );
         if pallet_session::Validators::<T>::get()
             != expected_keys
                 .iter()
@@ -198,29 +232,32 @@ where
         }
         let key_ids = <T as pallet_session::Config>::Keys::key_ids();
         for (account, session_keys) in expected_keys.iter() {
-            if pallet_session::NextKeys::<T>::get(account) != Some(session_keys.clone()) {
-                return Err("NextKeys does not match expected value.".into());
-            }
+            ensure!(
+                pallet_session::NextKeys::<T>::get(account) == Some(session_keys.clone()),
+                "NextKeys does not match expected value."
+            );
 
             for id in key_ids.iter() {
-                if pallet_session::KeyOwner::<T>::get((id, session_keys.get_raw(*id)))
-                    != Some(account.clone())
-                {
-                    return Err("KeyOwner does not match expected value.".into());
-                }
+                ensure!(
+                    pallet_session::KeyOwner::<T>::get((id, session_keys.get_raw(*id)))
+                        == Some(account.clone()),
+                    "KeyOwner does not match expected value."
+                );
             }
         }
 
         // Check every grandpa key was migrated exactly once. This check is important to ensure
         // there are no incorrect entires in our `sr25519_to_ed25519` mapping.
         for (_, session_keys) in expected_keys.iter() {
-            if grandpa_authorities.take(&session_keys.grandpa).is_none() {
-                return Err("All Grandpa keys were not migrated exactly once".into());
-            }
+            ensure!(
+                grandpa_authorities.take(&session_keys.grandpa).is_some(),
+                "All Grandpa keys were not migrated exactly once"
+            );
         }
-        if !grandpa_authorities.is_empty() {
-            return Err("Not all grandpa keys were migrated".into());
-        }
+        ensure!(
+            grandpa_authorities.is_empty(),
+            "Not all grandpa keys were migrated"
+        );
 
         Ok(())
     }
@@ -298,39 +335,50 @@ where
             Decode::decode(&mut &pre_state[..]).map_err(|_| "Failed to decode pre-state")?;
         let expected_validator_count = expected_stakers.len();
         let expected_invulnerables = expected_stakers.clone();
-        if pallet_staking::ValidatorCount::<T>::get() != expected_validator_count as u32 {
-            return Err("ValidatorCount count does not match expected value.".into());
-        }
-        if pallet_staking::MinimumValidatorCount::<T>::get() != 1u32 {
-            return Err("MinimumValidatorCount does not match expected value.".into());
-        }
-        if pallet_staking::Invulnerables::<T>::get() != expected_invulnerables {
-            return Err("Invulnerables does not match expected value.".into());
-        }
-        if pallet_staking::ForceEra::<T>::get() != pallet_staking::Forcing::NotForcing {
-            return Err("ForceEra does not match expected value.".into());
-        }
-        if pallet_staking::CanceledSlashPayout::<T>::get() != 0u64 {
-            return Err("CanceledSlashPayout does not match expected value.".into());
-        }
-        if pallet_staking::SlashRewardFraction::<T>::get() != Perbill::from_percent(10) {
-            return Err("SlashRewardFraction does not match expected value.".into());
-        }
-        if pallet_staking::MinNominatorBond::<T>::get() != 10u64 {
-            return Err("MinNominatorBond does not match expected value.".into());
-        }
-        if pallet_staking::MinValidatorBond::<T>::get() != 10u64 {
-            return Err("MinValidatorBond does not match expected value.".into());
-        }
-        if pallet_staking::MaxValidatorsCount::<T>::get() != Some(MaxAuthorities::get()) {
-            return Err("MaxValidatorsCount does not match expected value.".into());
-        }
-        if pallet_staking::MaxNominatorsCount::<T>::get() != None {
-            return Err("MaxNominatorsCount does not match expected value.".into());
-        }
-        if pallet_staking::CurrentEra::<T>::get() != Some(0u32) {
-            return Err("CurrentEra does not match expected value.".into());
-        }
+        ensure!(
+            pallet_staking::ValidatorCount::<T>::get() == expected_validator_count as u32,
+            "ValidatorCount count does not match expected value."
+        );
+        ensure!(
+            pallet_staking::MinimumValidatorCount::<T>::get() == 1u32,
+            "MinimumValidatorCount does not match expected value."
+        );
+        ensure!(
+            pallet_staking::Invulnerables::<T>::get() == expected_invulnerables,
+            "Invulnerables does not match expected value."
+        );
+        ensure!(
+            pallet_staking::ForceEra::<T>::get() == pallet_staking::Forcing::NotForcing,
+            "ForceEra does not match expected value."
+        );
+        ensure!(
+            pallet_staking::CanceledSlashPayout::<T>::get().is_zero(),
+            "CanceledSlashPayout does not match expected value."
+        );
+        ensure!(
+            pallet_staking::SlashRewardFraction::<T>::get() == Perbill::from_percent(10),
+            "SlashRewardFraction does not match expected value."
+        );
+        ensure!(
+            pallet_staking::MinNominatorBond::<T>::get() == UNITS,
+            "MinNominatorBond does not match expected value."
+        );
+        ensure!(
+            pallet_staking::MinValidatorBond::<T>::get() == UNITS,
+            "MinValidatorBond does not match expected value."
+        );
+        ensure!(
+            pallet_staking::MaxValidatorsCount::<T>::get() == Some(MaxAuthorities::get()),
+            "MaxValidatorsCount does not match expected value."
+        );
+        ensure!(
+            pallet_staking::MaxNominatorsCount::<T>::get().is_none(),
+            "MaxNominatorsCount does not match expected value."
+        );
+        ensure!(
+            pallet_staking::CurrentEra::<T>::get() == Some(0u32),
+            "CurrentEra does not match expected value."
+        );
         match pallet_staking::ActiveEra::<T>::get() {
             Some(active_era) if active_era.index.is_zero() && active_era.start.is_none() => {
                 // ActiveEra matches expected value.
@@ -408,8 +456,8 @@ where
         pallet_staking::ForceEra::<T>::put(force_era);
         pallet_staking::CanceledSlashPayout::<T>::put(0);
         pallet_staking::SlashRewardFraction::<T>::put(slash_reward_fraction);
-        pallet_staking::MinNominatorBond::<T>::put(10);
-        pallet_staking::MinValidatorBond::<T>::put(10);
+        pallet_staking::MinNominatorBond::<T>::put(UNITS);
+        pallet_staking::MinValidatorBond::<T>::put(UNITS);
         pallet_staking::MaxValidatorsCount::<T>::put(MaxAuthorities::get());
         let era: sp_staking::EraIndex = 0;
         pallet_staking::CurrentEra::<T>::set(Some(era));
@@ -431,6 +479,7 @@ where
                 );
                 // If the account does not have enough balance, we top it up with the bond amount.
                 let _ = Balances::mint_into(account, balance);
+                pallet_subtensor::TotalIssuance::<T>::mutate(|total| *total += balance.into());
                 writes.saturating_inc();
             }
             if let Err(e) = <pallet_staking::Pallet<T>>::bond(
