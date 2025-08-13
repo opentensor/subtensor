@@ -406,7 +406,7 @@ where
             use frame_election_provider_support::SortedListProvider as _;
 
             let ledger = pallet_staking::Pallet::<T>::ledger(StakingAccount::Stash(staker.clone()))
-                .map_err(|_| return "Expected staker stash not found in ledger.")?;
+                .map_err(|_| "Expected staker stash not found in ledger.")?;
 
             ensure!(
                 pallet_staking::Bonded::<T>::get(staker.clone()) == Some(staker.clone()),
@@ -429,7 +429,7 @@ where
                 "Expected staker to be in Validator list"
             );
             ensure!(
-                pallet_bags_list::Pallet::<T, VoterBagsListInstance>::contains(&staker),
+                pallet_bags_list::Pallet::<T, VoterBagsListInstance>::contains(staker),
                 "Expected staker to be in voter list"
             );
         }
