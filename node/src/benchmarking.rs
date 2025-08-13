@@ -5,8 +5,8 @@
 use crate::client::FullClient;
 
 use node_subtensor_runtime as runtime;
-use node_subtensor_runtime::check_nonce;
 use node_subtensor_runtime::pallet_subtensor;
+use node_subtensor_runtime::{check_nonce, transaction_payment_wrapper};
 use runtime::{BalancesCall, SystemCall};
 use sc_cli::Result;
 use sc_client_api::BlockBackend;
@@ -134,7 +134,9 @@ pub fn create_benchmark_extrinsic(
         )),
         check_nonce::CheckNonce::<runtime::Runtime>::from(nonce),
         frame_system::CheckWeight::<runtime::Runtime>::new(),
-        pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
+        transaction_payment_wrapper::ChargeTransactionPaymentWrapper::new(
+            pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
+        ),
         pallet_subtensor::SubtensorTransactionExtension::<runtime::Runtime>::new(),
         frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(true),
     );
