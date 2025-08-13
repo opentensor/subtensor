@@ -160,6 +160,8 @@ where
         alpha_vec: &[(AccountIdOf<T>, NetUid)],
         tao_amount: u64,
     ) {
+        log::error("====== Withdrawing alpha fees");
+
         if alpha_vec.is_empty() {
             return;
         }
