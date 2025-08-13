@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used)]
 
 use approx::assert_abs_diff_eq;
-use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
+use frame_support::dispatch::DispatchInfo;
 use frame_support::sp_runtime::{DispatchError, transaction_validity::TransactionSource};
 use frame_support::traits::Currency;
 use frame_support::{assert_err, assert_noop, assert_ok};
