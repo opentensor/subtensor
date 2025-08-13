@@ -84,7 +84,7 @@ where
     fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
         let aura_authorities: Vec<AuraId> =
             pallet_aura::Authorities::<T>::get().into_iter().collect();
-        // Already migrated, this is being called in MBM logic. Nothing to do.
+        // Already migrated, nothing to do.
         if aura_authorities.is_empty() {
             return Ok(None::<PreUpgradeData>.encode());
         }
@@ -100,8 +100,8 @@ where
             Decode::decode(&mut &pre_state[..]).map_err(|_| "Failed to decode pre-state")?;
         let pre_data = match pre_data {
             Some(data) => data,
-            None => return Ok(()), // Nothing to do if pre_data is None, we're in some MBM step
-                                   // after the migration has occured.
+            // Already migrated, nothing to do.
+            None => return Ok(()),
         };
         Migration::<T>::pallet_babe_post_upgrade(pre_data.babe)?;
         Migration::<T>::pallet_session_post_upgrade(pre_data.session)?;
