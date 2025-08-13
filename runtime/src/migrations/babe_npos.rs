@@ -24,6 +24,7 @@ const MINIMUM_BOND: u64 = UNITS / 2; // 0.5 TAO
 use frame_support::ensure;
 
 #[cfg(feature = "try-runtime")]
+#[subtensor_macros::freeze_struct("3b9ce711e30e150e")]
 #[derive(Encode, Decode)]
 struct PreUpgradeData {
     pub babe: Vec<u8>,
