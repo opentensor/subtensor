@@ -862,7 +862,7 @@ fn test_migrate_fix_root_subnet_tao() {
     });
 }
 
-// cargo test --package pallet-subtensor --lib -- tests::migration::test_migrate_fix_root_tao_and_alpha_in --exact --show-output 
+// cargo test --package pallet-subtensor --lib -- tests::migration::test_migrate_fix_root_tao_and_alpha_in --exact --show-output
 #[test]
 fn test_migrate_fix_root_tao_and_alpha_in() {
     new_test_ext(1).execute_with(|| {
