@@ -208,12 +208,6 @@ impl<T: Config> Pallet<T> {
         let symbol = Self::get_next_available_symbol(netuid_to_register);
         TokenSymbol::<T>::insert(netuid_to_register, symbol);
 
-        // --- 16. Init the pool by putting the lock as the initial alpha.
-        TokenSymbol::<T>::insert(
-            netuid_to_register,
-            Self::get_symbol_for_subnet(netuid_to_register),
-        ); // Set subnet token symbol.
-
         // Put initial TAO from lock into subnet TAO and produce numerically equal amount of Alpha
         // The initial TAO is the locked amount, with a minimum of 1 RAO and a cap of 100 TAO.
         let pool_initial_tao = Self::get_network_min_lock();
