@@ -5,6 +5,7 @@ use codec::{
     Compact, CompactAs, Decode, DecodeWithMemTracking, Encode, Error as CodecError, MaxEncodedLen,
 };
 use frame_support::pallet_prelude::*;
+use runtime_common::prod_or_fast;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
@@ -210,12 +211,7 @@ pub mod time {
     /// slot_duration()`.
     ///
     /// Change this to adjust the block time.
-    #[cfg(not(feature = "fast-blocks"))]
-    pub const MILLISECS_PER_BLOCK: u64 = 12000;
-
-    /// Fast blocks for development
-    #[cfg(feature = "fast-blocks")]
-    pub const MILLISECS_PER_BLOCK: u64 = 250;
+    pub const MILLISECS_PER_BLOCK: u64 = prod_or_fast!(12000, 250);
 
     // NOTE: Currently it is not possible to change the slot duration after the chain has started.
     //       Attempting to do so will brick block production.
