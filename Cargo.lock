@@ -1032,7 +1032,7 @@ dependencies = [
  "cumulus-primitives-core",
  "frame-support",
  "impl-trait-for-tuples",
- "pallet-asset-conversion",
+ "pallet-asset-conversion 22.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-assets",
  "pallet-xcm",
  "parachains-common",
@@ -1041,8 +1041,8 @@ dependencies = [
  "sp-api",
  "sp-runtime",
  "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
+ "staging-xcm-builder 20.1.1 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "staging-xcm-executor 19.1.2 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "tracing",
 ]
 
@@ -1809,7 +1809,7 @@ source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c79
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
- "pallet-message-queue",
+ "pallet-message-queue 43.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "parity-scale-codec",
  "scale-info",
  "snowbridge-core",
@@ -1817,8 +1817,8 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
+ "staging-xcm-builder 20.1.1 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "staging-xcm-executor 19.1.2 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
 ]
 
 [[package]]
@@ -2962,10 +2962,10 @@ dependencies = [
  "frame-system",
  "impl-trait-for-tuples",
  "log",
- "pallet-message-queue",
+ "pallet-message-queue 43.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
- "polkadot-runtime-parachains",
+ "polkadot-runtime-parachains 19.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "scale-info",
  "sp-core",
  "sp-externalities 0.30.0",
@@ -2977,7 +2977,7 @@ dependencies = [
  "sp-trie",
  "sp-version",
  "staging-xcm",
- "staging-xcm-builder",
+ "staging-xcm-builder 20.1.1 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "trie-db",
 ]
 
@@ -3065,17 +3065,17 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
- "pallet-message-queue",
+ "pallet-message-queue 43.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "parity-scale-codec",
- "polkadot-runtime-common",
- "polkadot-runtime-parachains",
+ "polkadot-runtime-common 19.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "polkadot-runtime-parachains 19.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "scale-info",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
+ "staging-xcm-builder 20.1.1 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "staging-xcm-executor 19.1.2 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
 ]
 
 [[package]]
@@ -3167,13 +3167,13 @@ dependencies = [
  "cumulus-primitives-core",
  "frame-support",
  "log",
- "pallet-asset-conversion",
+ "pallet-asset-conversion 22.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "parity-scale-codec",
- "polkadot-runtime-common",
+ "polkadot-runtime-common 19.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "sp-runtime",
  "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
+ "staging-xcm-builder 20.1.1 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "staging-xcm-executor 19.1.2 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
 ]
 
 [[package]]
@@ -7643,7 +7643,7 @@ dependencies = [
  "sp-consensus",
  "sp-consensus-beefy",
  "sp-core",
- "sp-mmr-primitives",
+ "sp-mmr-primitives 36.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "sp-runtime",
 ]
 
@@ -7658,7 +7658,7 @@ dependencies = [
  "sp-api",
  "sp-blockchain",
  "sp-core",
- "sp-mmr-primitives",
+ "sp-mmr-primitives 36.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "sp-runtime",
 ]
 
@@ -8153,6 +8153,7 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-utility-otf",
  "parity-scale-codec",
+ "polkadot-runtime-common 19.1.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
  "precompile-utils",
  "rand_chacha 0.3.1",
  "scale-info",
@@ -8569,11 +8570,29 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-collective",
- "pallet-identity",
+ "pallet-identity 40.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
  "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-asset-conversion"
+version = "22.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-core",
  "sp-io",
  "sp-runtime",
 ]
@@ -8605,7 +8624,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
- "pallet-asset-conversion",
+ "pallet-asset-conversion 22.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "parity-scale-codec",
  "scale-info",
  "sp-arithmetic",
@@ -8622,10 +8641,24 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "pallet-asset-conversion",
+ "pallet-asset-conversion 22.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-transaction-payment",
  "parity-scale-codec",
  "scale-info",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-asset-rate"
+version = "19.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
  "sp-runtime",
 ]
 
@@ -8880,7 +8913,7 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-beefy",
- "pallet-mmr",
+ "pallet-mmr 40.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-session",
  "parity-scale-codec",
  "scale-info",
@@ -8902,7 +8935,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
- "pallet-treasury",
+ "pallet-treasury 39.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
@@ -8994,6 +9027,24 @@ dependencies = [
 [[package]]
 name = "pallet-broker"
 version = "0.19.2"
+source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
+dependencies = [
+ "bitvec",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-broker"
+version = "0.19.2"
 source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187#881e32b6c9e4c794502fc1fa0f854a4e07ade187"
 dependencies = [
  "bitvec",
@@ -9019,7 +9070,7 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-bounties",
- "pallet-treasury",
+ "pallet-treasury 39.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
@@ -9148,7 +9199,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "staging-xcm",
- "staging-xcm-builder",
+ "staging-xcm-builder 20.1.1 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "wasm-instrument",
  "wasmi 0.32.3",
 ]
@@ -9164,13 +9215,13 @@ dependencies = [
  "pallet-balances",
  "pallet-contracts",
  "pallet-contracts-uapi",
- "pallet-message-queue",
+ "pallet-message-queue 43.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-timestamp",
  "pallet-xcm",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
- "polkadot-runtime-parachains",
+ "polkadot-runtime-parachains 19.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "scale-info",
  "sp-api",
  "sp-core",
@@ -9179,8 +9230,8 @@ dependencies = [
  "sp-runtime",
  "sp-tracing 17.1.0",
  "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
+ "staging-xcm-builder 20.1.1 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "staging-xcm-executor 19.1.2 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "xcm-simulator",
 ]
 
@@ -9575,6 +9626,22 @@ dependencies = [
 [[package]]
 name = "pallet-identity"
 version = "40.1.0"
+source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
+dependencies = [
+ "enumflags2",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-identity"
+version = "40.1.0"
 source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187#881e32b6c9e4c794502fc1fa0f854a4e07ade187"
 dependencies = [
  "enumflags2",
@@ -9665,6 +9732,25 @@ dependencies = [
 [[package]]
 name = "pallet-message-queue"
 version = "43.1.0"
+source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
+dependencies = [
+ "environmental",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-weights",
+]
+
+[[package]]
+name = "pallet-message-queue"
+version = "43.1.0"
 source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187#881e32b6c9e4c794502fc1fa0f854a4e07ade187"
 dependencies = [
  "environmental",
@@ -9735,13 +9821,25 @@ dependencies = [
 [[package]]
 name = "pallet-mmr"
 version = "40.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
+dependencies = [
+ "log",
+ "parity-scale-codec",
+ "polkadot-sdk-frame",
+ "scale-info",
+ "sp-mmr-primitives 36.1.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
+]
+
+[[package]]
+name = "pallet-mmr"
+version = "40.0.0"
 source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187#881e32b6c9e4c794502fc1fa0f854a4e07ade187"
 dependencies = [
  "log",
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
- "sp-mmr-primitives",
+ "sp-mmr-primitives 36.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
 ]
 
 [[package]]
@@ -10095,7 +10193,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "staging-xcm",
- "staging-xcm-builder",
+ "staging-xcm-builder 20.1.1 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "substrate-bn",
  "subxt-signer",
 ]
@@ -10123,7 +10221,7 @@ dependencies = [
  "frame-system",
  "pallet-assets",
  "pallet-balances",
- "pallet-message-queue",
+ "pallet-message-queue 43.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-revive",
  "pallet-revive-uapi",
  "pallet-timestamp",
@@ -10131,15 +10229,15 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
- "polkadot-runtime-parachains",
+ "polkadot-runtime-parachains 19.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "scale-info",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-tracing 17.1.0",
  "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
+ "staging-xcm-builder 20.1.1 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "staging-xcm-executor 19.1.2 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "xcm-simulator",
 ]
 
@@ -10434,6 +10532,7 @@ dependencies = [
  "pallet-utility-otf",
  "parity-scale-codec",
  "parity-util-mem",
+ "polkadot-runtime-common 19.1.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "safe-math",
@@ -10551,7 +10650,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
- "pallet-treasury",
+ "pallet-treasury 39.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -10621,6 +10720,25 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-transaction-storage-proof",
+]
+
+[[package]]
+name = "pallet-treasury"
+version = "39.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
+dependencies = [
+ "docify",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "impl-trait-for-tuples",
+ "log",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -10723,6 +10841,20 @@ dependencies = [
 [[package]]
 name = "pallet-vesting"
 version = "40.1.0"
+source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-vesting"
+version = "40.1.0"
 source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187#881e32b6c9e4c794502fc1fa0f854a4e07ade187"
 dependencies = [
  "frame-benchmarking",
@@ -10761,8 +10893,8 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
+ "staging-xcm-builder 20.1.1 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "staging-xcm-executor 19.1.2 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "tracing",
  "xcm-runtime-apis",
 ]
@@ -10780,8 +10912,8 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
+ "staging-xcm-builder 20.1.1 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "staging-xcm-executor 19.1.2 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
 ]
 
 [[package]]
@@ -10802,8 +10934,8 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
+ "staging-xcm-builder 20.1.1 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "staging-xcm-executor 19.1.2 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
 ]
 
 [[package]]
@@ -10822,7 +10954,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "staging-xcm",
- "staging-xcm-builder",
+ "staging-xcm-builder 20.1.1 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
 ]
 
 [[package]]
@@ -10840,7 +10972,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
- "pallet-message-queue",
+ "pallet-message-queue 43.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-xcm",
  "parity-scale-codec",
  "polkadot-primitives",
@@ -10851,7 +10983,7 @@ dependencies = [
  "sp-runtime",
  "staging-parachain-info",
  "staging-xcm",
- "staging-xcm-executor",
+ "staging-xcm-executor 19.1.2 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
 ]
 
 [[package]]
@@ -12056,7 +12188,7 @@ dependencies = [
 [[package]]
 name = "polkadot-runtime-common"
 version = "19.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187#881e32b6c9e4c794502fc1fa0f854a4e07ade187"
+source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
 dependencies = [
  "bitvec",
  "frame-benchmarking",
@@ -12066,28 +12198,28 @@ dependencies = [
  "impl-trait-for-tuples",
  "libsecp256k1",
  "log",
- "pallet-asset-rate",
+ "pallet-asset-rate 19.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
  "pallet-authorship",
  "pallet-babe",
  "pallet-balances",
- "pallet-broker",
+ "pallet-broker 0.19.2 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
  "pallet-election-provider-multi-phase",
  "pallet-fast-unstake",
- "pallet-identity",
+ "pallet-identity 40.1.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
  "pallet-session",
  "pallet-staking",
  "pallet-staking-reward-fn",
  "pallet-timestamp",
  "pallet-transaction-payment",
- "pallet-treasury",
- "pallet-vesting",
+ "pallet-treasury 39.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
+ "pallet-vesting 40.1.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
  "parity-scale-codec",
  "polkadot-primitives",
- "polkadot-runtime-parachains",
+ "polkadot-runtime-parachains 19.1.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
  "rustc-hex",
  "scale-info",
  "serde",
- "slot-range-helper",
+ "slot-range-helper 17.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
  "sp-api",
  "sp-core",
  "sp-inherents",
@@ -12098,9 +12230,71 @@ dependencies = [
  "sp-session",
  "sp-staking",
  "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
+ "staging-xcm-builder 20.1.1 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
+ "staging-xcm-executor 19.1.2 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
  "static_assertions",
+]
+
+[[package]]
+name = "polkadot-runtime-common"
+version = "19.1.0"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187#881e32b6c9e4c794502fc1fa0f854a4e07ade187"
+dependencies = [
+ "bitvec",
+ "frame-benchmarking",
+ "frame-election-provider-support",
+ "frame-support",
+ "frame-system",
+ "impl-trait-for-tuples",
+ "libsecp256k1",
+ "log",
+ "pallet-asset-rate 19.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "pallet-authorship",
+ "pallet-babe",
+ "pallet-balances",
+ "pallet-broker 0.19.2 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "pallet-election-provider-multi-phase",
+ "pallet-fast-unstake",
+ "pallet-identity 40.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "pallet-session",
+ "pallet-staking",
+ "pallet-staking-reward-fn",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-treasury 39.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "pallet-vesting 40.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "parity-scale-codec",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains 19.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "rustc-hex",
+ "scale-info",
+ "serde",
+ "slot-range-helper 17.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "sp-api",
+ "sp-core",
+ "sp-inherents",
+ "sp-io",
+ "sp-keyring",
+ "sp-npos-elections",
+ "sp-runtime",
+ "sp-session",
+ "sp-staking",
+ "staging-xcm",
+ "staging-xcm-builder 20.1.1 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "staging-xcm-executor 19.1.2 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "static_assertions",
+]
+
+[[package]]
+name = "polkadot-runtime-metrics"
+version = "20.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
+dependencies = [
+ "bs58",
+ "frame-benchmarking",
+ "parity-scale-codec",
+ "polkadot-primitives",
+ "sp-tracing 17.1.0",
 ]
 
 [[package]]
@@ -12113,6 +12307,53 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-primitives",
  "sp-tracing 17.1.0",
+]
+
+[[package]]
+name = "polkadot-runtime-parachains"
+version = "19.1.0"
+source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
+dependencies = [
+ "bitflags 1.3.2",
+ "bitvec",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "impl-trait-for-tuples",
+ "log",
+ "pallet-authority-discovery",
+ "pallet-authorship",
+ "pallet-babe",
+ "pallet-balances",
+ "pallet-broker 0.19.2 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
+ "pallet-message-queue 43.1.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
+ "pallet-mmr 40.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
+ "pallet-session",
+ "pallet-staking",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "polkadot-core-primitives",
+ "polkadot-parachain-primitives",
+ "polkadot-primitives",
+ "polkadot-runtime-metrics 20.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "scale-info",
+ "serde",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-inherents",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-session",
+ "sp-staking",
+ "sp-std",
+ "staging-xcm",
+ "staging-xcm-executor 19.1.2 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
+ "static_assertions",
 ]
 
 [[package]]
@@ -12131,9 +12372,9 @@ dependencies = [
  "pallet-authorship",
  "pallet-babe",
  "pallet-balances",
- "pallet-broker",
- "pallet-message-queue",
- "pallet-mmr",
+ "pallet-broker 0.19.2 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "pallet-message-queue 43.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "pallet-mmr 40.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-session",
  "pallet-staking",
  "pallet-timestamp",
@@ -12141,7 +12382,7 @@ dependencies = [
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
- "polkadot-runtime-metrics",
+ "polkadot-runtime-metrics 20.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "scale-info",
@@ -12158,7 +12399,7 @@ dependencies = [
  "sp-staking",
  "sp-std",
  "staging-xcm",
- "staging-xcm-executor",
+ "staging-xcm-executor 19.1.2 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "static_assertions",
 ]
 
@@ -12201,10 +12442,10 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-try-runtime",
  "pallet-alliance",
- "pallet-asset-conversion",
+ "pallet-asset-conversion 22.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-asset-conversion-ops",
  "pallet-asset-conversion-tx-payment",
- "pallet-asset-rate",
+ "pallet-asset-rate 19.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-asset-rewards",
  "pallet-asset-tx-payment",
  "pallet-assets",
@@ -12224,7 +12465,7 @@ dependencies = [
  "pallet-bridge-messages",
  "pallet-bridge-parachains",
  "pallet-bridge-relayers",
- "pallet-broker",
+ "pallet-broker 0.19.2 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-child-bounties",
  "pallet-collator-selection",
  "pallet-collective",
@@ -12242,17 +12483,17 @@ dependencies = [
  "pallet-fast-unstake",
  "pallet-glutton",
  "pallet-grandpa",
- "pallet-identity",
+ "pallet-identity 40.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-im-online",
  "pallet-indices",
  "pallet-insecure-randomness-collective-flip",
  "pallet-lottery",
  "pallet-membership",
- "pallet-message-queue",
+ "pallet-message-queue 43.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-meta-tx",
  "pallet-migrations",
  "pallet-mixnet",
- "pallet-mmr",
+ "pallet-mmr 40.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-multisig",
  "pallet-nft-fractionalization",
  "pallet-nfts",
@@ -12290,12 +12531,12 @@ dependencies = [
  "pallet-tips",
  "pallet-transaction-payment",
  "pallet-transaction-storage",
- "pallet-treasury",
+ "pallet-treasury 39.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-tx-pause",
  "pallet-uniques",
  "pallet-utility",
  "pallet-verify-signature",
- "pallet-vesting",
+ "pallet-vesting 40.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-whitelist",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
@@ -12307,8 +12548,8 @@ dependencies = [
  "polkadot-omni-node-lib",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
- "polkadot-runtime-common",
- "polkadot-runtime-parachains",
+ "polkadot-runtime-common 19.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "polkadot-runtime-parachains 19.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "polkadot-sdk-frame",
  "polkadot-service",
  "sc-client-db",
@@ -12318,8 +12559,8 @@ dependencies = [
  "staging-node-inspect",
  "staging-parachain-info",
  "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
+ "staging-xcm-builder 20.1.1 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "staging-xcm-executor 19.1.2 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "xcm-runtime-apis",
 ]
 
@@ -12412,7 +12653,7 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-primitives",
  "polkadot-rpc",
- "polkadot-runtime-parachains",
+ "polkadot-runtime-parachains 19.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "polkadot-statement-distribution",
  "rococo-runtime",
  "sc-authority-discovery",
@@ -12450,7 +12691,7 @@ dependencies = [
  "sp-inherents",
  "sp-io",
  "sp-keyring",
- "sp-mmr-primitives",
+ "sp-mmr-primitives 36.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "sp-offchain",
  "sp-runtime",
  "sp-session",
@@ -13651,7 +13892,7 @@ dependencies = [
  "frame-try-runtime",
  "hex-literal",
  "log",
- "pallet-asset-rate",
+ "pallet-asset-rate 19.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-babe",
@@ -13664,11 +13905,11 @@ dependencies = [
  "pallet-democracy",
  "pallet-elections-phragmen",
  "pallet-grandpa",
- "pallet-identity",
+ "pallet-identity 40.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-indices",
- "pallet-message-queue",
+ "pallet-message-queue 43.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-migrations",
- "pallet-mmr",
+ "pallet-mmr 40.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-multisig",
  "pallet-nis",
  "pallet-offences",
@@ -13689,17 +13930,17 @@ dependencies = [
  "pallet-tips",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
- "pallet-treasury",
+ "pallet-treasury 39.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-utility",
- "pallet-vesting",
+ "pallet-vesting 40.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-whitelist",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
- "polkadot-runtime-common",
- "polkadot-runtime-parachains",
+ "polkadot-runtime-common 19.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "polkadot-runtime-parachains 19.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "rococo-runtime-constants",
  "scale-info",
  "serde",
@@ -13717,7 +13958,7 @@ dependencies = [
  "sp-inherents",
  "sp-io",
  "sp-keyring",
- "sp-mmr-primitives",
+ "sp-mmr-primitives 36.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "sp-offchain",
  "sp-runtime",
  "sp-session",
@@ -13726,8 +13967,8 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
+ "staging-xcm-builder 20.1.1 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "staging-xcm-executor 19.1.2 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "substrate-wasm-builder",
  "xcm-runtime-apis",
 ]
@@ -13739,13 +13980,13 @@ source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c79
 dependencies = [
  "frame-support",
  "polkadot-primitives",
- "polkadot-runtime-common",
+ "polkadot-runtime-common 19.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "smallvec",
  "sp-core",
  "sp-runtime",
  "sp-weights",
  "staging-xcm",
- "staging-xcm-builder",
+ "staging-xcm-builder 20.1.1 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
 ]
 
 [[package]]
@@ -16074,6 +16315,17 @@ checksum = "826167069c09b99d56f31e9ae5c99049e932a98c9dc2dac47645b08dbbf76ba7"
 [[package]]
 name = "slot-range-helper"
 version = "17.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
+dependencies = [
+ "enumn",
+ "parity-scale-codec",
+ "paste",
+ "sp-runtime",
+]
+
+[[package]]
+name = "slot-range-helper"
+version = "17.0.0"
 source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187#881e32b6c9e4c794502fc1fa0f854a4e07ade187"
 dependencies = [
  "enumn",
@@ -16354,8 +16606,8 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
+ "staging-xcm-builder 20.1.1 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "staging-xcm-executor 19.1.2 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
 ]
 
 [[package]]
@@ -16593,7 +16845,7 @@ dependencies = [
  "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "sp-io",
  "sp-keystore",
- "sp-mmr-primitives",
+ "sp-mmr-primitives 36.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "sp-runtime",
  "sp-weights",
  "strum 0.26.3",
@@ -16890,6 +17142,23 @@ dependencies = [
  "scale-info",
  "sp-api",
  "sp-application-crypto",
+]
+
+[[package]]
+name = "sp-mmr-primitives"
+version = "36.1.0"
+source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
+dependencies = [
+ "log",
+ "parity-scale-codec",
+ "polkadot-ckb-merkle-mountain-range",
+ "scale-info",
+ "serde",
+ "sp-api",
+ "sp-core",
+ "sp-debug-derive",
+ "sp-runtime",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -17517,13 +17786,13 @@ dependencies = [
 [[package]]
 name = "staging-xcm-builder"
 version = "20.1.1"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187#881e32b6c9e4c794502fc1fa0f854a4e07ade187"
+source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
 dependencies = [
  "environmental",
  "frame-support",
  "frame-system",
  "impl-trait-for-tuples",
- "pallet-asset-conversion",
+ "pallet-asset-conversion 22.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
  "pallet-transaction-payment",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
@@ -17534,7 +17803,51 @@ dependencies = [
  "sp-runtime",
  "sp-weights",
  "staging-xcm",
- "staging-xcm-executor",
+ "staging-xcm-executor 19.1.2 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
+ "tracing",
+]
+
+[[package]]
+name = "staging-xcm-builder"
+version = "20.1.1"
+source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187#881e32b6c9e4c794502fc1fa0f854a4e07ade187"
+dependencies = [
+ "environmental",
+ "frame-support",
+ "frame-system",
+ "impl-trait-for-tuples",
+ "pallet-asset-conversion 22.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "scale-info",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-weights",
+ "staging-xcm",
+ "staging-xcm-executor 19.1.2 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "tracing",
+]
+
+[[package]]
+name = "staging-xcm-executor"
+version = "19.1.2"
+source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6#598feddb893f5ad3923a62e41a2f179b6e10c30c"
+dependencies = [
+ "environmental",
+ "frame-benchmarking",
+ "frame-support",
+ "impl-trait-for-tuples",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-weights",
+ "staging-xcm",
  "tracing",
 ]
 
@@ -17882,6 +18195,7 @@ dependencies = [
  "approx",
  "frame-support",
  "parity-scale-codec",
+ "polkadot-runtime-common 19.1.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
  "scale-info",
  "serde",
  "sp-core",
@@ -19608,7 +19922,7 @@ dependencies = [
  "frame-try-runtime",
  "hex-literal",
  "log",
- "pallet-asset-rate",
+ "pallet-asset-rate 19.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-babe",
@@ -19623,13 +19937,13 @@ dependencies = [
  "pallet-elections-phragmen",
  "pallet-fast-unstake",
  "pallet-grandpa",
- "pallet-identity",
+ "pallet-identity 40.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-indices",
  "pallet-membership",
- "pallet-message-queue",
+ "pallet-message-queue 43.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-meta-tx",
  "pallet-migrations",
- "pallet-mmr",
+ "pallet-mmr 40.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-multisig",
  "pallet-nomination-pools",
  "pallet-nomination-pools-benchmarking",
@@ -19653,18 +19967,18 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
- "pallet-treasury",
+ "pallet-treasury 39.0.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-utility",
  "pallet-verify-signature",
- "pallet-vesting",
+ "pallet-vesting 40.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "pallet-whitelist",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
- "polkadot-runtime-common",
- "polkadot-runtime-parachains",
+ "polkadot-runtime-common 19.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "polkadot-runtime-parachains 19.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "scale-info",
  "serde",
  "serde_derive",
@@ -19682,7 +19996,7 @@ dependencies = [
  "sp-inherents",
  "sp-io",
  "sp-keyring",
- "sp-mmr-primitives",
+ "sp-mmr-primitives 36.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "sp-npos-elections",
  "sp-offchain",
  "sp-runtime",
@@ -19692,8 +20006,8 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
+ "staging-xcm-builder 20.1.1 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "staging-xcm-executor 19.1.2 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "substrate-wasm-builder",
  "westend-runtime-constants",
  "xcm-runtime-apis",
@@ -19706,13 +20020,13 @@ source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c79
 dependencies = [
  "frame-support",
  "polkadot-primitives",
- "polkadot-runtime-common",
+ "polkadot-runtime-common 19.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "smallvec",
  "sp-core",
  "sp-runtime",
  "sp-weights",
  "staging-xcm",
- "staging-xcm-builder",
+ "staging-xcm-builder 20.1.1 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
 ]
 
 [[package]]
@@ -20301,7 +20615,7 @@ dependencies = [
  "sp-api",
  "sp-weights",
  "staging-xcm",
- "staging-xcm-executor",
+ "staging-xcm-executor 19.1.2 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
 ]
 
 [[package]]
@@ -20316,13 +20630,13 @@ dependencies = [
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
- "polkadot-runtime-parachains",
+ "polkadot-runtime-parachains 19.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
  "scale-info",
  "sp-io",
  "sp-runtime",
  "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
+ "staging-xcm-builder 20.1.1 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
+ "staging-xcm-executor 19.1.2 (git+https://github.com/opentensor/polkadot-sdk.git?rev=881e32b6c9e4c794502fc1fa0f854a4e07ade187)",
 ]
 
 [[package]]
