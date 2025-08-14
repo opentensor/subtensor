@@ -133,9 +133,9 @@ rocksdb = [
 	"sc-cli/rocksdb",
 ]
 default = ["rocksdb", "sql", "txpool"]
-fast-blocks = [
-	"node-subtensor-runtime/fast-blocks",
-	"subtensor-runtime-common/fast-blocks"
+fast-runtime = [
+	"node-subtensor-runtime/fast-runtime",
+	"subtensor-runtime-common/fast-runtime",
 ]
 sql = ["fc-db/sql", "fc-mapping-sync/sql"]
 txpool = ["fc-rpc/txpool", "fc-rpc-core/txpool"]
