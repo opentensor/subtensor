@@ -1194,8 +1194,8 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(235_400_000, 0)
-		.saturating_add(T::DbWeight::get().reads(36))
-		.saturating_add(T::DbWeight::get().writes(52)), DispatchClass::Operational, Pays::No))]
+		.saturating_add(T::DbWeight::get().reads(37_u64))
+		.saturating_add(T::DbWeight::get().writes(51_u64)), DispatchClass::Operational, Pays::No))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
         }
@@ -1539,8 +1539,8 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(79)]
         #[pallet::weight((Weight::from_parts(234_200_000, 0)
-                .saturating_add(T::DbWeight::get().reads(35))
-                .saturating_add(T::DbWeight::get().writes(51)), DispatchClass::Operational, Pays::No))]
+                .saturating_add(T::DbWeight::get().reads(36_u64))
+                .saturating_add(T::DbWeight::get().writes(50_u64)), DispatchClass::Operational, Pays::No))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -2201,7 +2201,7 @@ mod dispatches {
         /// * commit_reveal_version (`u16`):
         ///     - The client (bittensor-drand) version
         #[pallet::call_index(113)]
-        #[pallet::weight((Weight::from_parts(65_780_000, 0)
+        #[pallet::weight((Weight::from_parts(80_450_000, 0)
 		.saturating_add(T::DbWeight::get().reads(7_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_timelocked_weights(
