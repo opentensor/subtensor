@@ -3,7 +3,7 @@ use core::marker::PhantomData;
 use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 use frame_support::traits::ConstU32;
 use frame_system::RawOrigin;
-use pallet_evm::{AddressMapping, PrecompileHandle};
+use pallet_evm::{AddressMapping, ExitError, PrecompileFailure, PrecompileHandle};
 use precompile_utils::{EvmResult, prelude::BoundedString};
 use sp_core::H256;
 use sp_runtime::traits::Dispatchable;
@@ -373,16 +373,10 @@ where
 
     #[precompile::public("setKappa(uint16,uint16)")]
     #[precompile::payable]
-    fn set_kappa(handle: &mut impl PrecompileHandle, netuid: u16, kappa: u16) -> EvmResult<()> {
-        let call = pallet_admin_utils::Call::<R>::sudo_set_kappa {
-            netuid: netuid.into(),
-            kappa,
-        };
-
-        handle.try_dispatch_runtime_call::<R, _>(
-            call,
-            RawOrigin::Signed(handle.caller_account_id::<R>()),
-        )
+    fn set_kappa(_handle: &mut impl PrecompileHandle, _netuid: u16, _kappa: u16) -> EvmResult<()> {
+        return Err(PrecompileFailure::Error {
+            exit_status: ExitError::Other("Bad origin".into()),
+        });
     }
 
     #[precompile::public("getRho(uint16)")]
