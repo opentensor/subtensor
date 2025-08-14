@@ -12,7 +12,8 @@ use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT, NetUid};
 
 use super::mock;
 use super::mock::*;
-use crate::{AxonInfoOf, CustomTransactionError, Error, SubtensorTransactionExtension};
+use crate::transaction_extension::SubtensorTransactionExtension;
+use crate::{AxonInfoOf, CustomTransactionError, Error};
 
 /********************************************
     subscribing::subscribe() tests

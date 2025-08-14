@@ -2,6 +2,7 @@
 
 use ark_serialize::CanonicalDeserialize;
 use ark_serialize::CanonicalSerialize;
+use frame_support::dispatch::DispatchInfo;
 use frame_support::{
     assert_err, assert_ok,
     dispatch::{DispatchClass, DispatchResult, GetDispatchInfo, Pays},
@@ -13,6 +14,7 @@ use scale_info::prelude::collections::HashMap;
 use sha2::Digest;
 use sp_core::Encode;
 use sp_core::{Get, H256, U256};
+use sp_runtime::traits::{DispatchInfoOf, TransactionExtension};
 use sp_runtime::{
     BoundedVec, DispatchError,
     traits::{BlakeTwo256, ConstU32, Hash, TxBaseImplication},
@@ -32,8 +34,8 @@ use w3f_bls::EngineBLS;
 use super::mock;
 use super::mock::*;
 use crate::coinbase::reveal_commits::{LegacyWeightsTlockPayload, WeightsTlockPayload};
+use crate::transaction_extension::SubtensorTransactionExtension;
 use crate::*;
-
 /***************************
   pub fn set_weights() tests
 *****************************/
@@ -100,10 +102,10 @@ fn test_set_rootweights_validate() {
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorTransactionExtension::<Test>::new();
+        let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(
             RawOrigin::Signed(who).into(),
@@ -250,8 +252,8 @@ fn test_commit_weights_validate() {
         SubtensorModule::set_stake_threshold(min_stake_with_slippage.to_u64() + 1);
 
         // Submit to the signed extension validate function
-        let info = crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-        let extension = crate::SubtensorTransactionExtension::<Test>::new();
+        let info = DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(
             RawOrigin::Signed(who).into(),
@@ -371,10 +373,10 @@ fn test_set_weights_validate() {
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorTransactionExtension::<Test>::new();
+        let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(
             RawOrigin::Signed(who).into(),
@@ -472,10 +474,10 @@ fn test_reveal_weights_validate() {
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorTransactionExtension::<Test>::new();
+        let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(
             RawOrigin::Signed(who).into(),
@@ -654,9 +656,9 @@ fn test_batch_reveal_weights_validate() {
         // Set the minimum stake
         SubtensorModule::set_stake_threshold(min_stake.into());
 
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-        let extension = crate::SubtensorTransactionExtension::<Test>::new();
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = SubtensorTransactionExtension::<Test>::new();
 
         // Test 1: StakeAmountTooLow - Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
