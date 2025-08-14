@@ -12,10 +12,10 @@ use sp_runtime::traits::{Dispatchable, StaticLookup};
 use sp_std::boxed::Box;
 use sp_std::vec::Vec;
 use subtensor_runtime_common::ProxyType;
-pub struct PureProxyPrecompile<R>(PhantomData<R>);
+pub struct ProxyPrecompile<R>(PhantomData<R>);
 const MAX_DECODE_DEPTH: u32 = 8;
 
-impl<R> PrecompileExt<R::AccountId> for PureProxyPrecompile<R>
+impl<R> PrecompileExt<R::AccountId> for ProxyPrecompile<R>
 where
     R: frame_system::Config
         + pallet_evm::Config
@@ -34,7 +34,7 @@ where
 }
 
 #[precompile_utils::precompile]
-impl<R> PureProxyPrecompile<R>
+impl<R> ProxyPrecompile<R>
 where
     R: frame_system::Config
         + pallet_evm::Config
@@ -80,9 +80,9 @@ where
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
     }
 
-    #[precompile::public("pureProxyCall(bytes32,uint8[])")]
+    #[precompile::public("proxyCall(bytes32,uint8[])")]
     #[precompile::payable]
-    pub fn pure_proxy_call(
+    pub fn proxy_call(
         handle: &mut impl PrecompileHandle,
         real: H256,
         call: Vec<u8>,

@@ -1,6 +1,6 @@
-export const IPURE_PROXY_ADDRESS = "0x000000000000000000000000000000000000080b";
+export const IPROXY_ADDRESS = "0x000000000000000000000000000000000000080b";
 
-export const IPureProxyABI = [
+export const IProxyABI = [
     {
         "inputs": [],
         "name": "createPureProxy",
@@ -47,7 +47,7 @@ export const IPureProxyABI = [
                 "type": "uint8[]"
             }
         ],
-        "name": "pureProxyCall",
+        "name": "proxyCall",
         "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function"

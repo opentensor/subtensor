@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-address constant IPURE_PROXY_ADDRESS = 0x000000000000000000000000000000000000080b;
+address constant IPROXY_ADDRESS = 0x000000000000000000000000000000000000080b;
 
-interface IPureProxy {
+interface IProxy {
     function createPureProxy() external;
 
-    function pureProxyCall(bytes32 real, uint8[] memory call) external;
+    function proxyCall(bytes32 real, uint8[] memory call) external;
 
     function getPureProxy() external view returns (bytes32[] memory);
 

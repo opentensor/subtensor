@@ -6,7 +6,7 @@ import { devnet, MultiAddress } from "@polkadot-api/descriptors"
 import { hexToU8a } from "@polkadot/util";
 import { PolkadotSigner, TypedApi } from "polkadot-api";
 import { convertPublicKeyToSs58 } from "../src/address-utils"
-import { IPureProxyABI, IPURE_PROXY_ADDRESS } from "../src/contracts/pureProxy"
+import { IProxyABI, IPROXY_ADDRESS } from "../src/contracts/proxy"
 import { keccak256, ethers } from 'ethers';
 import { forceSetBalanceToEthAddress, forceSetBalanceToSs58Address } from "../src/subtensor";
 import { Signer } from "@polkadot/api/types";
@@ -46,7 +46,7 @@ describe("Test pure proxy precompile", () => {
     })
 
     it("Call createPureProxy, then use proxy to call transfer", async () => {
-        const contract = new ethers.Contract(IPURE_PROXY_ADDRESS, IPureProxyABI, evmWallet)
+        const contract = new ethers.Contract(IPROXY_ADDRESS, IProxyABI, evmWallet)
         console.log("evmWallet", evmWallet.address)
         const proxyAddressBeforeCreate = await contract.getPureProxy();
         assert.equal(proxyAddressBeforeCreate.length, 0, "proxy should be empty")
@@ -61,12 +61,12 @@ describe("Test pure proxy precompile", () => {
         await forceSetBalanceToSs58Address(api, ss58Address)
 
         const callCode = await getTransferCallCode(api, alice)
-        const tx2 = await contract.pureProxyCall(proxyAddress[0], callCode)
+        const tx2 = await contract.proxyCall(proxyAddress[0], callCode)
         await tx2.wait()
     })
 
     it("Call createPureProxy, add multiple proxies", async () => {
-        const contract = new ethers.Contract(IPURE_PROXY_ADDRESS, IPureProxyABI, evmWallet)
+        const contract = new ethers.Contract(IPROXY_ADDRESS, IProxyABI, evmWallet)
         const proxyAddressBeforeCreate = await contract.getPureProxy();
         const initProxyCount = proxyAddressBeforeCreate.length
 
@@ -87,13 +87,13 @@ describe("Test pure proxy precompile", () => {
     })
 
     it("Call createPureProxy, edge cases", async () => {
-        const contract = new ethers.Contract(IPURE_PROXY_ADDRESS, IPureProxyABI, evmWallet2)
+        const contract = new ethers.Contract(IPROXY_ADDRESS, IProxyABI, evmWallet2)
 
         const callCode = await getTransferCallCode(api, alice)
 
         // call without proxy
         try {
-            const tx = await contract.pureProxyCall(callCode)
+            const tx = await contract.proxyCall(callCode)
             await tx.wait()
         } catch (error) {
             assert.notEqual(error, undefined, "should fail if proxy not set")
@@ -113,7 +113,7 @@ describe("Test pure proxy precompile", () => {
 
         // send extrinsic without token
         try {
-            const tx = await contract.pureProxyCall(callCode)
+            const tx = await contract.proxyCall(callCode)
             await tx.wait()
         } catch (error) {
             assert.notEqual(error, undefined, "should fail if proxy without balance")
@@ -124,7 +124,7 @@ describe("Test pure proxy precompile", () => {
         await forceSetBalanceToSs58Address(api, ss58Address)
 
         // try proxy call finally
-        const tx2 = await contract.pureProxyCall(proxyAddress[0], callCode)
+        const tx2 = await contract.proxyCall(proxyAddress[0], callCode)
         await tx2.wait()
     })
 });
