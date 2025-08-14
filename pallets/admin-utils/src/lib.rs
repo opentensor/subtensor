@@ -512,7 +512,7 @@ pub mod pallet {
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_kappa(origin: OriginFor<T>, netuid: NetUid, kappa: u16) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            ensure_root(origin)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
