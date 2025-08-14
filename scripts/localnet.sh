@@ -20,24 +20,24 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 # The base directory of the subtensor project
 BASE_DIR="$SCRIPT_DIR/.."
 
-# Get the value of fast_blocks from the first argument
-fast_blocks=${1:-"True"}
+# Get the value of fast_runtime from the first argument
+fast_runtime=${1:-"True"}
 
 # Define the target directory for compilation
-if [ "$fast_blocks" == "False" ]; then
-  # Block of code to execute if fast_blocks is False
-  echo "fast_blocks is Off"
+if [ "$fast_runtime" == "False" ]; then
+  # Block of code to execute if fast_runtime is False
+  echo "fast_runtime is Off"
   : "${CHAIN:=local}"
   : "${BUILD_BINARY:=1}"
   : "${FEATURES:="pow-faucet"}"
-  BUILD_DIR="$BASE_DIR/target/non-fast-blocks"
+  BUILD_DIR="$BASE_DIR/target/non-fast-runtime"
 else
-  # Block of code to execute if fast_blocks is not False
-  echo "fast_blocks is On"
+  # Block of code to execute if fast_runtime is not False
+  echo "fast_runtime is On"
   : "${CHAIN:=local}"
   : "${BUILD_BINARY:=1}"
-  : "${FEATURES:="pow-faucet fast-blocks"}"
-  BUILD_DIR="$BASE_DIR/target/fast-blocks"
+  : "${FEATURES:="pow-faucet fast-runtime"}"
+  BUILD_DIR="$BASE_DIR/target/fast-runtime"
 fi
 
 # Ensure the build directory exists
