@@ -13,7 +13,9 @@ use sp_runtime::transaction_validity::{
     TransactionPriority, TransactionSource, TransactionValidity, TransactionValidityError,
 };
 use sp_std::vec::Vec;
+use subtensor_macros::freeze_struct;
 
+#[freeze_struct("5f10cb9db06873c0")]
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct ChargeTransactionPaymentWrapper<T: Config> {
