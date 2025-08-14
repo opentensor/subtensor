@@ -693,7 +693,7 @@ mod dispatches {
         /// 	- Attempting to set prometheus information withing the rate limit min.
         ///
         #[pallet::call_index(4)]
-        #[pallet::weight((Weight::from_parts(36_090_000, 0)
+        #[pallet::weight((Weight::from_parts(28_240_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_axon(
@@ -1465,7 +1465,7 @@ mod dispatches {
         /// 	- The ip type v4 or v6.
         ///
         #[pallet::call_index(68)]
-        #[pallet::weight((Weight::from_parts(32_110_000, 0)
+        #[pallet::weight((Weight::from_parts(25_120_000, 0)
 		.saturating_add(T::DbWeight::get().reads(3))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::Yes))]
         pub fn set_identity(
@@ -1609,8 +1609,8 @@ mod dispatches {
         ///     - Thrown if key has hit transaction rate limit
         #[pallet::call_index(84)]
         #[pallet::weight((Weight::from_parts(294_800_000, 0)
-        .saturating_add(T::DbWeight::get().reads(33))
-        .saturating_add(T::DbWeight::get().writes(16)), DispatchClass::Operational, Pays::Yes))]
+        .saturating_add(T::DbWeight::get().reads(38_u64))
+        .saturating_add(T::DbWeight::get().writes(21_u64)), DispatchClass::Operational, Pays::Yes))]
         pub fn unstake_all_alpha(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_unstake_all_alpha(origin, hotkey)
         }
@@ -1723,8 +1723,8 @@ mod dispatches {
         #[pallet::call_index(87)]
         #[pallet::weight((
             Weight::from_parts(274_400_000, 0)
-            .saturating_add(T::DbWeight::get().reads(32))
-            .saturating_add(T::DbWeight::get().writes(17)),
+            .saturating_add(T::DbWeight::get().reads(37_u64))
+            .saturating_add(T::DbWeight::get().writes(22_u64)),
             DispatchClass::Operational,
             Pays::Yes
         ))]
@@ -1851,7 +1851,7 @@ mod dispatches {
         /// 	- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
         ///
         #[pallet::call_index(89)]
-        #[pallet::weight((Weight::from_parts(459_900_000, 0)
+        #[pallet::weight((Weight::from_parts(300_500_000, 0)
 		.saturating_add(T::DbWeight::get().reads(30))
 		.saturating_add(T::DbWeight::get().writes(14)), DispatchClass::Normal, Pays::Yes))]
         pub fn remove_stake_limit(
@@ -1896,8 +1896,8 @@ mod dispatches {
         #[pallet::call_index(90)]
         #[pallet::weight((
             Weight::from_parts(330_400_000, 0)
-            .saturating_add(T::DbWeight::get().reads(32))
-            .saturating_add(T::DbWeight::get().writes(17)),
+            .saturating_add(T::DbWeight::get().reads(37_u64))
+            .saturating_add(T::DbWeight::get().writes(22_u64)),
             DispatchClass::Operational,
             Pays::Yes
         ))]
@@ -1956,7 +1956,7 @@ mod dispatches {
         /// Emits a `FirstEmissionBlockNumberSet` event on success.
         #[pallet::call_index(92)]
         #[pallet::weight((
-            Weight::from_parts(32_730_000, 0).saturating_add(T::DbWeight::get().reads_writes(4, 2)),
+            Weight::from_parts(22_560_000, 0).saturating_add(T::DbWeight::get().reads_writes(4, 2)),
             DispatchClass::Operational,
             Pays::Yes
         ))]
