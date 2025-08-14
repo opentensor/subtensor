@@ -374,9 +374,9 @@ where
     #[precompile::public("setKappa(uint16,uint16)")]
     #[precompile::payable]
     fn set_kappa(_handle: &mut impl PrecompileHandle, _netuid: u16, _kappa: u16) -> EvmResult<()> {
-        return Err(PrecompileFailure::Error {
+        Err(PrecompileFailure::Error {
             exit_status: ExitError::Other("Bad origin".into()),
-        });
+        })
     }
 
     #[precompile::public("getRho(uint16)")]
