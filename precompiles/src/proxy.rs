@@ -107,14 +107,4 @@ where
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
     }
-
-    #[precompile::public("getPureProxy()")]
-    #[precompile::view]
-    pub fn get_pure_proxy(handle: &mut impl PrecompileHandle) -> EvmResult<Vec<H256>> {
-        let proxy_account = pallet_proxy::Pallet::<R>::evm_proxies(handle.context().caller);
-        Ok(proxy_account
-            .into_iter()
-            .map(|p| H256::from(p.into()))
-            .collect())
-    }
 }

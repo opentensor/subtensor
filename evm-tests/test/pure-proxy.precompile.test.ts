@@ -48,12 +48,9 @@ describe("Test pure proxy precompile", () => {
     it("Call createPureProxy, then use proxy to call transfer", async () => {
         const contract = new ethers.Contract(IPROXY_ADDRESS, IProxyABI, evmWallet)
         console.log("evmWallet", evmWallet.address)
-        const proxyAddressBeforeCreate = await contract.getPureProxy();
-        assert.equal(proxyAddressBeforeCreate.length, 0, "proxy should be empty")
 
         const tx = await contract.createPureProxy()
-        await tx.wait()
-        const proxyAddress = await contract.getPureProxy();
+        const proxyAddress = await tx.wait()
         assert.equal(proxyAddress.length, 1, "proxy should be set")
 
         const ss58Address = convertPublicKeyToSs58(proxyAddress[0])
@@ -67,22 +64,16 @@ describe("Test pure proxy precompile", () => {
 
     it("Call createPureProxy, add multiple proxies", async () => {
         const contract = new ethers.Contract(IPROXY_ADDRESS, IProxyABI, evmWallet)
-        const proxyAddressBeforeCreate = await contract.getPureProxy();
-        const initProxyCount = proxyAddressBeforeCreate.length
 
+        let proxies = []
         for (let i = 0; i < 10; i++) {
             const tx = await contract.createPureProxy()
-            await tx.wait()
-            const proxyAddressAfterCreate = await contract.getPureProxy();
-            assert.equal(proxyAddressAfterCreate.length, initProxyCount + i + 1, "proxy should be set")
+            const proxyAddressAfterCreate = await tx.wait()
+            assert.equal(proxyAddressAfterCreate.length,  i + 1, "proxy should be set")
+            proxies.push(proxyAddressAfterCreate[0])
         }
 
-        const proxyAddressAfterCreate = await contract.getPureProxy();
-        const newProxyCount = proxyAddressAfterCreate.length
-        const removedProxy = proxyAddressAfterCreate[newProxyCount - 1]
-
-
-        const tx = await contract.killPureProxy(removedProxy)
+        const tx = await contract.killPureProxy(proxies[proxies.length - 1])
         await tx.wait()
     })
 
@@ -100,8 +91,7 @@ describe("Test pure proxy precompile", () => {
         }
 
         const tx = await contract.createPureProxy()
-        await tx.wait()
-        const proxyAddress = await contract.getPureProxy();
+        const proxyAddress = await tx.wait()
 
         // set the proxy again
         try {

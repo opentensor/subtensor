@@ -8,7 +8,5 @@ interface IProxy {
 
     function proxyCall(bytes32 real, uint8[] memory call) external;
 
-    function getPureProxy() external view returns (bytes32[] memory);
-
     function killPureProxy(bytes32 proxy) external;
 }
