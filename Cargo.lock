@@ -17893,6 +17893,7 @@ dependencies = [
  "frame-support",
  "log",
  "parity-scale-codec",
+ "polkadot-runtime-common",
  "scale-info",
  "serde",
  "sp-core",
