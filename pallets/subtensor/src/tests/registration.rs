@@ -42,7 +42,7 @@ fn test_registration_subscribe_ok_dispatch_info_ok() {
                 call_weight: frame_support::weights::Weight::from_parts(3_111_800_000, 0),
                 extension_weight: frame_support::weights::Weight::zero(),
                 class: DispatchClass::Normal,
-                pays_fee: Pays::No
+                pays_fee: Pays::Yes
             }
         );
     });
