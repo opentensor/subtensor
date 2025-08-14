@@ -20,6 +20,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 name = "node-subtensor"
 
 [dependencies]
+log.workspace = true
 async-trait.workspace = true
 clap = { workspace = true, features = ["derive"] }
 futures = { workspace = true, features = ["thread-pool"] }
@@ -30,7 +31,11 @@ hex.workspace = true
 memmap2.workspace = true
 serde_json.workspace = true
 
+sc-chain-spec-derive.workspace = true
 sc-cli.workspace = true
+sc-consensus-babe.workspace = true
+sp-consensus.workspace = true
+sp-consensus-slots.workspace = true
 sp-core.workspace = true
 sc-executor.workspace = true
 sc-service.workspace = true
@@ -42,12 +47,12 @@ sc-offchain.workspace = true
 sc-network.workspace = true
 sc-consensus-aura.workspace = true
 sp-consensus-aura.workspace = true
-sp-consensus.workspace = true
+sp-consensus-babe.workspace = true
+sc-consensus-babe-rpc.workspace = true
 sc-consensus.workspace = true
 sc-consensus-grandpa.workspace = true
 sc-consensus-grandpa-rpc.workspace = true
 sp-consensus-grandpa.workspace = true
-sc-chain-spec-derive.workspace = true
 sc-chain-spec.workspace = true
 sc-consensus-slots.workspace = true
 sc-client-api.workspace = true
@@ -89,12 +94,14 @@ frame-benchmarking.workspace = true
 frame-benchmarking-cli.workspace = true
 
 # Needed for Frontier
+fc-mapping-sync.workspace = true
+fc-storage.workspace = true
+fc-babe.workspace = true
 sc-consensus-manual-seal.workspace = true
 sc-network-sync.workspace = true
 substrate-prometheus-endpoint.workspace = true
 
 # Frontier
-fc-storage.workspace = true
 fc-db.workspace = true
 fc-consensus.workspace = true
 fc-api.workspace = true
@@ -102,7 +109,6 @@ fc-rpc = { workspace = true, features = ["rpc-binary-search-estimate"] }
 fc-rpc-core.workspace = true
 fp-rpc.workspace = true
 fc-aura.workspace = true
-fc-mapping-sync.workspace = true
 fp-consensus.workspace = true
 num-traits = { workspace = true, features = ["std"] }
 
@@ -118,9 +124,6 @@ pallet-subtensor-swap-runtime-api = { workspace = true, features = ["std"] }
 substrate-build-script-utils.workspace = true
 
 [features]
-default = ["rocksdb", "sql", "txpool"]
-fast-blocks = ["node-subtensor-runtime/fast-blocks"]
-sql = ["fc-db/sql", "fc-mapping-sync/sql"]
 rocksdb = [
 	"sc-service/rocksdb",
 	"fc-db/rocksdb",
@@ -129,6 +132,12 @@ rocksdb = [
 	"frame-benchmarking-cli/rocksdb",
 	"sc-cli/rocksdb",
 ]
+default = ["rocksdb", "sql", "txpool"]
+fast-runtime = [
+	"node-subtensor-runtime/fast-runtime",
+	"subtensor-runtime-common/fast-runtime",
+]
+sql = ["fc-db/sql", "fc-mapping-sync/sql"]
 txpool = ["fc-rpc/txpool", "fc-rpc-core/txpool"]
 
 # Dependencies that are only required if runtime benchmarking should be build.
