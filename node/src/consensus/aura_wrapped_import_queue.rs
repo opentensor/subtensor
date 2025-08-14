@@ -4,6 +4,7 @@ use sc_client_api::BlockOf;
 use sc_client_api::UsageProvider;
 use sc_consensus::BlockImport;
 use sc_consensus::BlockImportParams;
+use sc_consensus::ForkChoiceStrategy;
 use sc_consensus::Verifier;
 use sc_consensus::{BasicQueue, DefaultImportQueue};
 use sc_consensus_aura::AuraVerifier;
@@ -148,7 +149,25 @@ where
     CIDP: CreateInherentDataProviders<B, ()> + Send + Sync,
     CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
-    async fn verify(&self, block: BlockImportParams<B>) -> Result<BlockImportParams<B>, String> {
+    async fn verify(
+        &self,
+        mut block: BlockImportParams<B>,
+    ) -> Result<BlockImportParams<B>, String> {
+        // Skip checks that include execution, if being told so or when importing only state.
+        //
+        // This is done for example when gap syncing and it is expected that the block after the gap
+        // was checked/chosen properly, e.g. by warp syncing to this block using a finality proof.
+        // Or when we are importing state only and can not verify the seal.
+        //
+        // This matches the behavior of the stock [`AuraVerifier`]:
+        // https://github.com/opentensor/polkadot-sdk/blob/881e32b6c9e4c794502fc1fa0f854a4e07ade187/substrate/client/consensus/aura/src/import_queue.rs#L180-L190
+        if block.with_state() || block.state_action.skip_execution_checks() {
+            // When we are importing only the state of a block, it will be the best block.
+            block.fork_choice = Some(ForkChoiceStrategy::Custom(block.with_state()));
+
+            return Ok(block);
+        }
+
         let number: NumberFor<B> = *block.post_header().number();
         log::debug!("Verifying block: {:?}", number);
         if is_babe_digest(block.header.digest()) {
