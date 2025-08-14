@@ -64,7 +64,7 @@ fn test_migration_transfer_nets_to_foundation() {
         add_network(11.into(), 1, 0);
 
         log::info!("{:?}", SubtensorModule::get_subnet_owner(1.into()));
-        //assert_eq!(SubtensorModule::<T>::get_subnet_owner(1), );
+        //assert_eq!(SubtensorModule::<Test>::get_subnet_owner(1), );
 
         // Run the migration to transfer ownership
         let hex =
@@ -859,6 +859,45 @@ fn test_migrate_fix_root_subnet_tao() {
             SubnetTAO::<Test>::get(NetUid::ROOT),
             expected_total_stake.into()
         );
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::migration::test_migrate_fix_root_tao_and_alpha_in --exact --show-output 
+#[test]
+fn test_migrate_fix_root_tao_and_alpha_in() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_fix_root_tao_and_alpha_in";
+
+        // Set counters initially
+        let initial_value = 1_000_000_000_000;
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(initial_value));
+        SubnetAlphaIn::<Test>::insert(NetUid::ROOT, AlphaCurrency::from(initial_value));
+        SubnetAlphaOut::<Test>::insert(NetUid::ROOT, AlphaCurrency::from(initial_value));
+        SubnetVolume::<Test>::insert(NetUid::ROOT, initial_value as u128);
+        TotalStake::<Test>::set(TaoCurrency::from(initial_value));
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // Run the migration
+        let weight =
+            crate::migrations::migrate_fix_root_tao_and_alpha_in::migrate_fix_root_tao_and_alpha_in::<Test>();
+
+        // Verify the migration ran correctly
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as run"
+        );
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+
+        // Verify counters have changed
+        assert!(SubnetTAO::<Test>::get(NetUid::ROOT) != initial_value.into());
+        assert!(SubnetAlphaIn::<Test>::get(NetUid::ROOT) != initial_value.into());
+        assert!(SubnetAlphaOut::<Test>::get(NetUid::ROOT) != initial_value.into());
+        assert!(SubnetVolume::<Test>::get(NetUid::ROOT) != initial_value as u128);
+        assert!(TotalStake::<Test>::get() != initial_value.into());
     });
 }
 
