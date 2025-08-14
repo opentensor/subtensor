@@ -222,6 +222,8 @@ substrate-prometheus-endpoint = { git = "https://github.com/paritytech/polkadot-
 
 cumulus-primitives-proof-size-hostfunction = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 
+runtime-common = { package = "polkadot-runtime-common", git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+
 # Frontier
 fp-evm = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
 fp-rpc = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }

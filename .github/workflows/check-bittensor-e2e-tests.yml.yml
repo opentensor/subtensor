@@ -118,7 +118,7 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.ref }}
 
-      - name: Patch non-fast-block node
+      - name: Patch non-fast-runtime node
         run: |
           chmod +x ./scripts/localnet_patch.sh
           ./scripts/localnet_patch.sh

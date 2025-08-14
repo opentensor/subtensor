@@ -8,6 +8,9 @@
 use frame_system::{self as system, ensure_signed};
 pub use pallet::*;
 
+use codec::{Decode, DecodeWithMemTracking, Encode};
+use frame_support::sp_runtime::transaction_validity::InvalidTransaction;
+use frame_support::sp_runtime::transaction_validity::ValidTransaction;
 use frame_support::{
     dispatch::{self, DispatchInfo, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo},
     ensure,
@@ -15,10 +18,6 @@ use frame_support::{
     pallet_prelude::*,
     traits::{IsSubType, tokens::fungible},
 };
-
-use codec::{Decode, DecodeWithMemTracking, Encode};
-use frame_support::sp_runtime::transaction_validity::InvalidTransaction;
-use frame_support::sp_runtime::transaction_validity::ValidTransaction;
 use pallet_balances::Call as BalancesCall;
 // use pallet_scheduler as Scheduler;
 use scale_info::TypeInfo;
@@ -85,6 +84,7 @@ pub mod pallet {
     };
     use frame_system::pallet_prelude::*;
     use pallet_drand::types::RoundNumber;
+    use runtime_common::prod_or_fast;
     use sp_core::{ConstU32, H160, H256};
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::collections::vec_deque::VecDeque;
@@ -810,11 +810,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for applying pending items (e.g. childkeys).
     pub fn DefaultPendingCooldown<T: Config>() -> u64 {
-        if cfg!(feature = "fast-blocks") {
-            return 15;
-        }
-
-        7_200
+        prod_or_fast!(7_200, 15)
     }
 
     #[pallet::type_value]
