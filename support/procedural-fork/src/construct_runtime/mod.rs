@@ -222,7 +222,7 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use std::{collections::HashSet, str::FromStr};
-use syn::{spanned::Spanned, Ident, Result};
+use syn::{Ident, Result, spanned::Spanned};
 
 /// The fixed name of the system pallet.
 const SYSTEM_PALLET_NAME: &str = "System";

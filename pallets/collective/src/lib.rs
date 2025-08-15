@@ -42,6 +42,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "128"]
 
+use codec::DecodeWithMemTracking;
 use frame_support::{
     dispatch::{DispatchResultWithPostInfo, GetDispatchInfo, Pays, PostDispatchInfo},
     ensure,
@@ -126,7 +127,17 @@ impl DefaultVote for MoreThanMajorityThenPrimeDefaultVote {
 }
 
 /// Origin for the collective module.
-#[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(
+    PartialEq,
+    Eq,
+    Clone,
+    RuntimeDebug,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    TypeInfo,
+    MaxEncodedLen,
+)]
 #[scale_info(skip_type_params(I))]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
 pub enum RawOrigin<AccountId, I> {

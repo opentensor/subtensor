@@ -4,9 +4,9 @@ use frame_support::storage::IterableStorageMap;
 extern crate alloc;
 use codec::Compact;
 use substrate_fixed::types::I32F32;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{NetUid, TaoCurrency};
 
-#[freeze_struct("dd2293544ffd8f2e")]
+#[freeze_struct("edd6bd3273dfea76")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetInfo<AccountId: TypeInfo + Encode + Decode> {
     netuid: Compact<NetUid>,
@@ -25,11 +25,11 @@ pub struct SubnetInfo<AccountId: TypeInfo + Encode + Decode> {
     network_modality: Compact<u16>,
     network_connect: Vec<[u16; 2]>,
     emission_values: Compact<u64>,
-    burn: Compact<u64>,
+    burn: Compact<TaoCurrency>,
     owner: AccountId,
 }
 
-#[freeze_struct("4e60a45245fc2ad1")]
+#[freeze_struct("e5f66b14b33331c3")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetInfov2<AccountId: TypeInfo + Encode + Decode> {
     netuid: Compact<NetUid>,
@@ -48,12 +48,12 @@ pub struct SubnetInfov2<AccountId: TypeInfo + Encode + Decode> {
     network_modality: Compact<u16>,
     network_connect: Vec<[u16; 2]>,
     emission_value: Compact<u64>,
-    burn: Compact<u64>,
+    burn: Compact<TaoCurrency>,
     owner: AccountId,
     identity: Option<SubnetIdentityV3>,
 }
 
-#[freeze_struct("7b506df55bd44646")]
+#[freeze_struct("24f0815487879ed3")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetHyperparams {
     rho: Compact<u16>,
@@ -70,8 +70,8 @@ pub struct SubnetHyperparams {
     activity_cutoff: Compact<u16>,
     pub registration_allowed: bool,
     target_regs_per_interval: Compact<u16>,
-    min_burn: Compact<u64>,
-    max_burn: Compact<u64>,
+    min_burn: Compact<TaoCurrency>,
+    max_burn: Compact<TaoCurrency>,
     bonds_moving_avg: Compact<u64>,
     max_regs_per_block: Compact<u16>,
     serving_rate_limit: Compact<u64>,
@@ -85,7 +85,7 @@ pub struct SubnetHyperparams {
     liquid_alpha_enabled: bool,
 }
 
-#[freeze_struct("a13c536303dec16f")]
+#[freeze_struct("2153c3f3bb01ef66")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetHyperparamsV2 {
     rho: Compact<u16>,
@@ -102,8 +102,8 @@ pub struct SubnetHyperparamsV2 {
     activity_cutoff: Compact<u16>,
     pub registration_allowed: bool,
     target_regs_per_interval: Compact<u16>,
-    min_burn: Compact<u64>,
-    max_burn: Compact<u64>,
+    min_burn: Compact<TaoCurrency>,
+    max_burn: Compact<TaoCurrency>,
     bonds_moving_avg: Compact<u64>,
     max_regs_per_block: Compact<u16>,
     serving_rate_limit: Compact<u64>,
@@ -142,7 +142,7 @@ impl<T: Config> Pallet<T> {
         let blocks_since_last_step = Self::get_blocks_since_last_step(netuid);
         let tempo = Self::get_tempo(netuid);
         let network_modality = <NetworkModality<T>>::get(netuid);
-        let burn: Compact<u64> = Self::get_burn_as_u64(netuid).into();
+        let burn = Compact::from(Self::get_burn(netuid));
         // DEPRECATED
         let network_connect: Vec<[u16; 2]> = Vec::<[u16; 2]>::new();
         // DEPRECATED for ( _netuid_, con_req) in < NetworkConnect<T> as IterableStorageDoubleMap<u16, u16, u16> >::iter_prefix(netuid) {
@@ -211,7 +211,7 @@ impl<T: Config> Pallet<T> {
         let blocks_since_last_step = Self::get_blocks_since_last_step(netuid);
         let tempo = Self::get_tempo(netuid);
         let network_modality = <NetworkModality<T>>::get(netuid);
-        let burn: Compact<u64> = Self::get_burn_as_u64(netuid).into();
+        let burn = Compact::from(Self::get_burn(netuid));
         let identity: Option<SubnetIdentityV3> = SubnetIdentitiesV3::<T>::get(netuid);
 
         // DEPRECATED
@@ -284,8 +284,8 @@ impl<T: Config> Pallet<T> {
         let activity_cutoff = Self::get_activity_cutoff(netuid);
         let registration_allowed = Self::get_network_registration_allowed(netuid);
         let target_regs_per_interval = Self::get_target_registrations_per_interval(netuid);
-        let min_burn = Self::get_min_burn_as_u64(netuid);
-        let max_burn = Self::get_max_burn_as_u64(netuid);
+        let min_burn = Self::get_min_burn(netuid);
+        let max_burn = Self::get_max_burn(netuid);
         let bonds_moving_avg = Self::get_bonds_moving_average(netuid);
         let max_regs_per_block = Self::get_max_registrations_per_block(netuid);
         let serving_rate_limit = Self::get_serving_rate_limit(netuid);
@@ -347,8 +347,8 @@ impl<T: Config> Pallet<T> {
         let activity_cutoff = Self::get_activity_cutoff(netuid);
         let registration_allowed = Self::get_network_registration_allowed(netuid);
         let target_regs_per_interval = Self::get_target_registrations_per_interval(netuid);
-        let min_burn = Self::get_min_burn_as_u64(netuid);
-        let max_burn = Self::get_max_burn_as_u64(netuid);
+        let min_burn = Self::get_min_burn(netuid);
+        let max_burn = Self::get_max_burn(netuid);
         let bonds_moving_avg = Self::get_bonds_moving_average(netuid);
         let max_regs_per_block = Self::get_max_registrations_per_block(netuid);
         let serving_rate_limit = Self::get_serving_rate_limit(netuid);

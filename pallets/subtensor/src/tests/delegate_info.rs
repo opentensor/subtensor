@@ -29,9 +29,7 @@ fn test_return_per_1000_tao() {
     let eps: f64 = 0.0005e9; // Precision within 0.0005 TAO
     assert!(
         diff_from_expected.abs() <= eps,
-        "Difference from expected: {} is greater than precision: {}",
-        diff_from_expected,
-        eps
+        "Difference from expected: {diff_from_expected} is greater than precision: {eps}"
     );
 }
 
@@ -125,7 +123,7 @@ fn test_get_delegated() {
                     RuntimeOrigin::signed(*delegatee),
                     *delegate,
                     *netuid,
-                    *amount
+                    (*amount).into()
                 ));
                 let expected_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                     delegate, delegatee, *netuid,
@@ -160,7 +158,7 @@ fn test_get_delegated() {
                         );
                     };
                 } else {
-                    panic!("Coldkey {} not found in expected stake map", coldkey);
+                    panic!("Coldkey {coldkey} not found in expected stake map");
                 }
             }
         }

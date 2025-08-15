@@ -1,13 +1,16 @@
+use std::sync::{Arc, atomic::AtomicBool};
+
 use crate::{
     chain_spec,
-    cli::{Cli, Subcommand},
+    cli::{Cli, Subcommand, SupportedConsensusMechanism},
+    consensus::BabeConsensus,
     ethereum::db_config_dir,
     service,
 };
 use fc_db::{DatabaseSource, kv::frontier_database_dir};
 
-use clap::{CommandFactory, FromArgMatches, parser::ValueSource};
-use futures::TryFutureExt;
+use crate::consensus::AuraConsensus;
+use clap::{ArgMatches, CommandFactory, FromArgMatches, parser::ValueSource};
 use node_subtensor_runtime::Block;
 use sc_cli::SubstrateCli;
 use sc_service::{
@@ -70,7 +73,7 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
                 let (client, _, import_queue, task_manager, _) =
-                    service::new_chain_ops(&mut config, &cli.eth)?;
+                    cli.initial_consensus.new_chain_ops(&mut config, &cli.eth)?;
                 Ok((cmd.run(client, import_queue), task_manager))
             })
         }
@@ -78,7 +81,7 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
                 let (client, _, _, task_manager, _) =
-                    service::new_chain_ops(&mut config, &cli.eth)?;
+                    cli.initial_consensus.new_chain_ops(&mut config, &cli.eth)?;
                 Ok((cmd.run(client, config.database), task_manager))
             })
         }
@@ -86,7 +89,7 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
                 let (client, _, _, task_manager, _) =
-                    service::new_chain_ops(&mut config, &cli.eth)?;
+                    cli.initial_consensus.new_chain_ops(&mut config, &cli.eth)?;
                 Ok((cmd.run(client, config.chain_spec), task_manager))
             })
         }
@@ -94,7 +97,7 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
                 let (client, _, import_queue, task_manager, _) =
-                    service::new_chain_ops(&mut config, &cli.eth)?;
+                    cli.initial_consensus.new_chain_ops(&mut config, &cli.eth)?;
                 Ok((cmd.run(client, import_queue), task_manager))
             })
         }
@@ -134,8 +137,7 @@ pub fn run() -> sc_cli::Result<()> {
                             }
                             Err(err) => {
                                 return Err(format!(
-                                    "Cannot purge `{:?}` database: {:?}",
-                                    db_path, err,
+                                    "Cannot purge `{db_path:?}` database: {err:?}",
                                 )
                                 .into());
                             }
@@ -149,7 +151,7 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
                 let (client, backend, _, task_manager, _) =
-                    service::new_chain_ops(&mut config, &cli.eth)?;
+                    cli.initial_consensus.new_chain_ops(&mut config, &cli.eth)?;
                 let aux_revert = Box::new(move |client, _, blocks| {
                     sc_consensus_grandpa::revert(client, blocks)?;
                     Ok(())
@@ -178,7 +180,7 @@ pub fn run() -> sc_cli::Result<()> {
                 } = crate::service::new_partial(
                     &config,
                     &cli.eth,
-                    crate::service::build_manual_seal_import_queue,
+                    Box::new(crate::service::build_manual_seal_import_queue),
                 )?;
 
                 // This switch needs to be in the client, since the client decides
@@ -230,34 +232,105 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.sync_run(|config| cmd.run::<Block>(&config))
         }
+        // Start with the initial consensus type asked.
         None => {
-            let runner = cli.create_runner(&cli.run)?;
-            runner.run_node_until_exit(|config| async move {
-                let mut config = override_default_heap_pages(config, 60_000);
-
-                // If the operator did **not** supply `--rpc-rate-limit`, disable the limiter.
-                if cli.run.rpc_params.rpc_rate_limit.is_none() {
-                    config.rpc.rate_limit = None;
-                }
-                // If the operator did **not** supply `--rpc-max-subscriptions-per-connection` set to high value.
-                config.rpc.max_subs_per_conn =
-                    match arg_matches.value_source("rpc_max_subscriptions_per_connection") {
-                        Some(ValueSource::CommandLine) => {
-                            cli.run.rpc_params.rpc_max_subscriptions_per_connection
-                        }
-                        _ => 10000,
-                    };
-                // If the operator did **not** supply `--rpc-max-connections` set to high value.
-                config.rpc.max_connections = match arg_matches.value_source("rpc_max_connections") {
-                    Some(ValueSource::CommandLine) => cli.run.rpc_params.rpc_max_connections,
-                    _ => 10000,
-                };
-                service::build_full(config, cli.eth, cli.sealing)
-                    .map_err(Into::into)
-                    .await
-            })
+            let arg_matches = Cli::command().get_matches();
+            let cli = Cli::from_args();
+            match cli.initial_consensus {
+                SupportedConsensusMechanism::Babe => start_babe_service(&arg_matches),
+                SupportedConsensusMechanism::Aura => start_aura_service(&arg_matches),
+            }
         }
     }
+}
+
+fn start_babe_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
+    let cli = Cli::from_arg_matches(arg_matches).expect("Bad arg_matches");
+    let runner = cli.create_runner(&cli.run)?;
+    match runner.run_node_until_exit(|config| async move {
+        let config = customise_config(arg_matches, config);
+        service::build_full::<BabeConsensus>(config, cli.eth, cli.sealing, None).await
+    }) {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            // Handle node needs to be in Aura mode.
+            if matches!(
+                e,
+                sc_service::Error::Client(sp_blockchain::Error::VersionInvalid(ref msg))
+                    if msg == "Unsupported or invalid BabeApi version"
+            ) {
+                log::info!(
+                    "💡 Chain is using Aura consensus. Switching to Aura service until Babe block is detected.",
+                );
+                start_aura_service(arg_matches)
+            // Handle Aura service still has DB lock. This never has been observed to take more
+            // than 1s to drop.
+            } else if matches!(e, sc_service::Error::Client(sp_blockchain::Error::Backend(ref msg))
+                if msg.starts_with("IO error: lock hold by current process"))
+            {
+                log::info!("Failed to aquire DB lock, trying again in 1s...");
+                std::thread::sleep(std::time::Duration::from_secs(1));
+                return start_babe_service(arg_matches);
+            // Unknown error, return it.
+            } else {
+                Err(e.into())
+            }
+        }
+    }
+}
+
+fn start_aura_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
+    let cli = Cli::from_arg_matches(arg_matches).expect("Bad arg_matches");
+    let runner = cli.create_runner(&cli.run)?;
+
+    // Unlike when the Babe node fails to build due to missing BabeApi in the runtime,
+    // there is no way to detect the exit reason for the Aura node when it encounters a Babe block.
+    //
+    // Passing this atomic bool is a hacky solution, allowing the node to set it to true to indicate
+    // a Babe service should be spawned on exit instead of a regular shutdown.
+    let babe_switch = Arc::new(AtomicBool::new(false));
+    let babe_switch_clone = babe_switch.clone();
+    match runner.run_node_until_exit(|config| async move {
+        let config = customise_config(arg_matches, config);
+        service::build_full::<AuraConsensus>(config, cli.eth, cli.sealing, Some(babe_switch_clone))
+            .await
+    }) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            if babe_switch.load(std::sync::atomic::Ordering::Relaxed) {
+                start_babe_service(arg_matches)
+            } else {
+                Err(e.into())
+            }
+        }
+    }
+}
+
+fn customise_config(arg_matches: &ArgMatches, config: Configuration) -> Configuration {
+    let cli = Cli::from_arg_matches(arg_matches).expect("Bad arg_matches");
+
+    let mut config = override_default_heap_pages(config, 60_000);
+
+    // If the operator did **not** supply `--rpc-rate-limit`, disable the limiter.
+    if cli.run.rpc_params.rpc_rate_limit.is_none() {
+        config.rpc.rate_limit = None;
+    }
+
+    // If the operator did **not** supply `--rpc-max-subscriptions-per-connection` set to high value.
+    config.rpc.max_subs_per_conn = match arg_matches
+        .value_source("rpc-max-subscriptions-per-connection")
+    {
+        Some(ValueSource::CommandLine) => cli.run.rpc_params.rpc_max_subscriptions_per_connection,
+        _ => 10000,
+    };
+
+    // If the operator did **not** supply `--rpc-max-connections` set to high value.
+    config.rpc.max_connections = match arg_matches.value_source("rpc-max-connections") {
+        Some(ValueSource::CommandLine) => cli.run.rpc_params.rpc_max_connections,
+        _ => 10000,
+    };
+
+    config
 }
 
 /// Override default heap pages

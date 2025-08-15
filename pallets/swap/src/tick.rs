@@ -7,7 +7,7 @@ use core::hash::Hash;
 use core::ops::{Add, AddAssign, BitOr, Deref, Neg, Shl, Shr, Sub, SubAssign};
 
 use alloy_primitives::{I256, U256};
-use codec::{Decode, Encode, Error as CodecError, Input, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, Error as CodecError, Input, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
 use safe_math::*;
 use sp_std::vec;
@@ -95,13 +95,14 @@ impl Tick {
 }
 
 /// Struct representing a tick index
-#[freeze_struct("31577b3ad1f55092")]
+#[freeze_struct("13c1f887258657f2")]
 #[derive(
     Debug,
     Default,
     Clone,
     Copy,
     Encode,
+    DecodeWithMemTracking,
     TypeInfo,
     MaxEncodedLen,
     PartialEq,

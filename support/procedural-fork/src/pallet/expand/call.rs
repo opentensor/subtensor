@@ -16,16 +16,16 @@
 // limitations under the License.
 
 use crate::{
+    COUNTER,
     pallet::{
+        Def,
         expand::warnings::{weight_constant_warning, weight_witness_warning},
         parse::call::CallWeightDef,
-        Def,
     },
-    COUNTER,
 };
-use proc_macro2::TokenStream as TokenStream2;
 use proc_macro_warning::Warning;
-use quote::{quote, ToTokens};
+use proc_macro2::TokenStream as TokenStream2;
+use quote::{ToTokens, quote};
 use syn::spanned::Spanned;
 
 ///

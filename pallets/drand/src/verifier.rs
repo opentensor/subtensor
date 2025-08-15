@@ -68,12 +68,12 @@ impl Verifier for QuicknetVerifier {
         // decode public key (pk)
         let pk =
             ArkScale::<G2AffineOpt>::decode(&mut beacon_config.public_key.into_inner().as_slice())
-                .map_err(|e| format!("Failed to decode public key: {}", e))?;
+                .map_err(|e| format!("Failed to decode public key: {e}"))?;
 
         // decode signature (sigma)
         let signature =
             ArkScale::<G1AffineOpt>::decode(&mut pulse.signature.into_inner().as_slice())
-                .map_err(|e| format!("Failed to decode signature: {}", e))?;
+                .map_err(|e| format!("Failed to decode signature: {e}"))?;
 
         // m = sha256({} || {round})
         let message = message(pulse.round, &[]);
@@ -81,15 +81,15 @@ impl Verifier for QuicknetVerifier {
         // H(m) \in G1
         let message_hash = hasher
             .hash(&message)
-            .map_err(|e| format!("Failed to hash message: {}", e))?;
+            .map_err(|e| format!("Failed to hash message: {e}"))?;
 
         let mut bytes = Vec::new();
         message_hash
             .serialize_compressed(&mut bytes)
-            .map_err(|e| format!("Failed to serialize message hash: {}", e))?;
+            .map_err(|e| format!("Failed to serialize message hash: {e}"))?;
 
         let message_on_curve = ArkScale::<G1AffineOpt>::decode(&mut &bytes[..])
-            .map_err(|e| format!("Failed to decode message on curve: {}", e))?;
+            .map_err(|e| format!("Failed to decode message on curve: {e}"))?;
 
         let g2 = G2AffineOpt::generator();
 

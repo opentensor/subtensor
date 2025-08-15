@@ -11,7 +11,7 @@ use frame_support::{assert_err, assert_ok};
 use rand::{Rng, SeedableRng, distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng};
 use sp_core::{Get, U256};
 use substrate_fixed::types::I32F32;
-use subtensor_runtime_common::AlphaCurrency;
+use subtensor_runtime_common::{AlphaCurrency, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
 use super::mock::*;
@@ -251,10 +251,7 @@ fn init_run_epochs(
         }
     }
     let duration = start.elapsed();
-    log::info!(
-        "Time elapsed in (sparse={sparse}) epoch() is: {:?}",
-        duration
-    );
+    log::info!("Time elapsed in (sparse={sparse}) epoch() is: {duration:?}");
 
     // let bonds = SubtensorModule::get_bonds( netuid );
     // for (uid, node) in vec![ (validators[0], "validator"), (servers[0], "server") ] {
@@ -576,7 +573,7 @@ fn test_1_graph() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            stake_amount
+            stake_amount.into()
         ));
 
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
@@ -593,7 +590,7 @@ fn test_1_graph() {
         SubtensorModule::epoch(netuid, 1_000_000_000.into());
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            stake_amount
+            stake_amount.into()
         );
         assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
         assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 0);
@@ -655,7 +652,7 @@ fn test_10_graph() {
         for i in 0..n {
             assert_eq!(
                 SubtensorModule::get_total_stake_for_hotkey(&(U256::from(i))),
-                1
+                TaoCurrency::from(1)
             );
             assert_eq!(SubtensorModule::get_rank_for_uid(netuid, i as u16), 0);
             assert_eq!(SubtensorModule::get_trust_for_uid(netuid, i as u16), 0);
@@ -712,7 +709,7 @@ fn test_512_graph() {
                 for uid in validators {
                     assert_eq!(
                         SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
-                        max_stake_per_validator
+                        max_stake_per_validator.into()
                     );
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
                     assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 0);
@@ -730,7 +727,7 @@ fn test_512_graph() {
                 for uid in servers {
                     assert_eq!(
                         SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
-                        0
+                        TaoCurrency::ZERO
                     );
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 146); // Note R = floor(1 / (512 - 64) * 65_535) = 146
                     assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 65535);
@@ -1315,13 +1312,13 @@ fn test_set_alpha_disabled() {
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
         let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
             netuid.into(),
-            DefaultMinStake::<Test>::get(),
+            DefaultMinStake::<Test>::get().into(),
         );
         assert_ok!(SubtensorModule::add_stake(
             signer.clone(),
             hotkey,
             netuid,
-            5 * DefaultMinStake::<Test>::get() + fee
+            (5 * DefaultMinStake::<Test>::get().to_u64() + fee).into()
         ));
         // Only owner can set alpha values
         assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey));
@@ -2097,9 +2094,7 @@ fn test_deregistered_miner_bonds() {
         let block_number = System::block_number();
         assert!(
             block_at_registration >= block_number - 2,
-            "block at registration: {}, block number: {}",
-            block_at_registration,
-            block_number
+            "block at registration: {block_at_registration}, block number: {block_number}"
         );
 
         // set tempo to 2 blocks
@@ -2120,15 +2115,11 @@ fn test_deregistered_miner_bonds() {
         // For server1, (uid2), the bond should be higher than before.
         assert!(
             bond_0_2_new >= bond_0_2,
-            "bond_0_2_new: {}, bond_0_2: {}",
-            bond_0_2_new,
-            bond_0_2
+            "bond_0_2_new: {bond_0_2_new}, bond_0_2: {bond_0_2}"
         );
         assert!(
             bond_0_3_new <= bond_0_3,
-            "bond_0_3_new: {}, bond_0_3: {}",
-            bond_0_3_new,
-            bond_0_3
+            "bond_0_3_new: {bond_0_3_new}, bond_0_3: {bond_0_3}"
         );
     });
 }
@@ -2290,14 +2281,14 @@ fn test_get_set_alpha() {
 
         let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
             netuid.into(),
-            DefaultMinStake::<Test>::get(),
+            DefaultMinStake::<Test>::get().into(),
         );
 
         assert_ok!(SubtensorModule::add_stake(
             signer.clone(),
             hotkey,
             netuid,
-            DefaultMinStake::<Test>::get() + fee * 2
+            (DefaultMinStake::<Test>::get().to_u64() + fee * 2).into()
         ));
 
         assert_ok!(SubtensorModule::do_set_alpha_values(
@@ -2309,11 +2300,7 @@ fn test_get_set_alpha() {
         let (grabbed_alpha_low, grabbed_alpha_high): (u16, u16) =
             SubtensorModule::get_alpha_values(netuid);
 
-        log::info!(
-            "alpha_low: {:?} alpha_high: {:?}",
-            grabbed_alpha_low,
-            grabbed_alpha_high
-        );
+        log::info!("alpha_low: {grabbed_alpha_low:?} alpha_high: {grabbed_alpha_high:?}");
         assert_eq!(grabbed_alpha_low, alpha_low);
         assert_eq!(grabbed_alpha_high, alpha_high);
 
@@ -2510,7 +2497,7 @@ fn test_can_set_self_weight_as_subnet_owner() {
         assert_eq!(hotkey_emission[0].0, subnet_owner_hotkey);
         assert_eq!(hotkey_emission[1].0, other_hotkey);
 
-        log::debug!("hotkey_emission: {:?}", hotkey_emission);
+        log::debug!("hotkey_emission: {hotkey_emission:?}");
         // Both should have received incentive emission
         assert!(hotkey_emission[0].1 > 0.into());
         assert!(hotkey_emission[1].1 > 0.into());
@@ -2673,8 +2660,7 @@ fn test_epoch_outputs_single_staker_registered_no_weights() {
 pub fn assert_approx_eq(left: I32F32, right: I32F32, epsilon: I32F32) {
     if (left - right).abs() > epsilon {
         panic!(
-            "assertion failed: `(left ≈ right)`\n  left: `{:?}`,\n right: `{:?}`,\n epsilon: `{:?}`",
-            left, right, epsilon
+            "assertion failed: `(left ≈ right)`\n  left: `{left:?}`,\n right: `{right:?}`,\n epsilon: `{epsilon:?}`"
         );
     }
 }

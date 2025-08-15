@@ -16,7 +16,7 @@ impl<T: Config> Pallet<T> {
     ) -> Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> {
         // Get subnetwork size.
         let n: u16 = Self::get_subnetwork_n(netuid);
-        log::trace!("n: {:?}", n);
+        log::trace!("n: {n:?}");
 
         // ======================
         // == Active & updated ==
@@ -24,15 +24,15 @@ impl<T: Config> Pallet<T> {
 
         // Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
-        log::trace!("current_block: {:?}", current_block);
+        log::trace!("current_block: {current_block:?}");
 
         // Get tempo.
         let tempo: u64 = Self::get_tempo(netuid).into();
-        log::trace!("tempo: {:?}", tempo);
+        log::trace!("tempo: {tempo:?}");
 
         // Get activity cutoff.
         let activity_cutoff: u64 = Self::get_activity_cutoff(netuid) as u64;
-        log::trace!("activity_cutoff: {:?}", activity_cutoff);
+        log::trace!("activity_cutoff: {activity_cutoff:?}");
 
         // Last update vector.
         let last_update: Vec<u64> = Self::get_last_update(netuid);
@@ -112,19 +112,19 @@ impl<T: Config> Pallet<T> {
 
         // Get validator permits.
         let validator_permits: Vec<bool> = Self::get_validator_permit(netuid);
-        log::trace!("validator_permits: {:?}", validator_permits);
+        log::trace!("validator_permits: {validator_permits:?}");
 
         // Logical negation of validator_permits.
         let validator_forbids: Vec<bool> = validator_permits.iter().map(|&b| !b).collect();
 
         // Get max allowed validators.
         let max_allowed_validators: u16 = Self::get_max_allowed_validators(netuid);
-        log::trace!("max_allowed_validators: {:?}", max_allowed_validators);
+        log::trace!("max_allowed_validators: {max_allowed_validators:?}");
 
         // Get new validator permits.
         let new_validator_permits: Vec<bool> =
             is_topk_nonzero(&stake, max_allowed_validators as usize);
-        log::trace!("new_validator_permits: {:?}", new_validator_permits);
+        log::trace!("new_validator_permits: {new_validator_permits:?}");
 
         // ==================
         // == Active Stake ==
@@ -448,7 +448,7 @@ impl<T: Config> Pallet<T> {
     ) -> Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> {
         // Get subnetwork size.
         let n = Self::get_subnetwork_n(netuid);
-        log::trace!("Number of Neurons in Network: {:?}", n);
+        log::trace!("Number of Neurons in Network: {n:?}");
 
         // ======================
         // == Active & updated ==
@@ -456,15 +456,15 @@ impl<T: Config> Pallet<T> {
 
         // Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
-        log::trace!("current_block: {:?}", current_block);
+        log::trace!("current_block: {current_block:?}");
 
         // Get tempo.
         let tempo: u64 = Self::get_tempo(netuid).into();
-        log::trace!("tempo:\n{:?}\n", tempo);
+        log::trace!("tempo:\n{tempo:?}\n");
 
         // Get activity cutoff.
         let activity_cutoff: u64 = Self::get_activity_cutoff(netuid) as u64;
-        log::trace!("activity_cutoff: {:?}", activity_cutoff);
+        log::trace!("activity_cutoff: {activity_cutoff:?}");
 
         // Last update vector.
         let last_update: Vec<u64> = Self::get_last_update(netuid);
@@ -522,19 +522,19 @@ impl<T: Config> Pallet<T> {
 
         // Get current validator permits.
         let validator_permits: Vec<bool> = Self::get_validator_permit(netuid);
-        log::trace!("validator_permits: {:?}", validator_permits);
+        log::trace!("validator_permits: {validator_permits:?}");
 
         // Logical negation of validator_permits.
         let validator_forbids: Vec<bool> = validator_permits.iter().map(|&b| !b).collect();
 
         // Get max allowed validators.
         let max_allowed_validators: u16 = Self::get_max_allowed_validators(netuid);
-        log::trace!("max_allowed_validators: {:?}", max_allowed_validators);
+        log::trace!("max_allowed_validators: {max_allowed_validators:?}");
 
         // Get new validator permits.
         let new_validator_permits: Vec<bool> =
             is_topk_nonzero(&stake, max_allowed_validators as usize);
-        log::trace!("new_validator_permits: {:?}", new_validator_permits);
+        log::trace!("new_validator_permits: {new_validator_permits:?}");
 
         // ==================
         // == Active Stake ==
@@ -1094,7 +1094,7 @@ impl<T: Config> Pallet<T> {
         let ema_bonds = mat_ema_sparse(bonds_delta, bonds, alpha);
 
         // Log the computed EMA bonds for debugging purposes.
-        log::trace!("Exponential Moving Average Bonds Normal: {:?}", ema_bonds);
+        log::trace!("Exponential Moving Average Bonds Normal: {ema_bonds:?}");
 
         // Return the computed EMA bonds.
         ema_bonds
@@ -1128,7 +1128,7 @@ impl<T: Config> Pallet<T> {
         let ema_bonds = mat_ema(bonds_delta, bonds, alpha);
 
         // Log the computed EMA bonds for debugging purposes.
-        log::trace!("Exponential Moving Average Bonds Normal: {:?}", ema_bonds);
+        log::trace!("Exponential Moving Average Bonds Normal: {ema_bonds:?}");
 
         // Return the computed EMA bonds.
         ema_bonds
@@ -1408,10 +1408,7 @@ impl<T: Config> Pallet<T> {
         AlphaValues::<T>::insert(netuid, (alpha_low, alpha_high));
 
         log::debug!(
-            "AlphaValuesSet( netuid: {:?}, AlphaLow: {:?}, AlphaHigh: {:?} ) ",
-            netuid,
-            alpha_low,
-            alpha_high,
+            "AlphaValuesSet( netuid: {netuid:?}, AlphaLow: {alpha_low:?}, AlphaHigh: {alpha_high:?} ) ",
         );
         Ok(())
     }
@@ -1435,12 +1432,10 @@ impl<T: Config> Pallet<T> {
                         .collect::<Vec<&(u16, u16)>>(),
                 );
             }
-            log::debug!("Reset bonds for {:?}, netuid {:?}", account_id, netuid);
+            log::debug!("Reset bonds for {account_id:?}, netuid {netuid:?}");
         } else {
             log::warn!(
-                "Uid not found for {:?}, netuid {:?} - skipping bonds reset",
-                account_id,
-                netuid
+                "Uid not found for {account_id:?}, netuid {netuid:?} - skipping bonds reset"
             );
         }
 

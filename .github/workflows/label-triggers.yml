@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   comment_on_breaking_change:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, type-ccx13]
     steps:
       - name: Check if 'breaking change' label is added
         if: github.event.label.name == 'breaking-change'

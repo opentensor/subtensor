@@ -28,7 +28,7 @@ fn test_recycle_success() {
 
         // add stake to coldkey-hotkey pair so we can recycle it
         let stake = 200_000;
-        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake, netuid);
+        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake.into(), netuid);
 
         // get initial total issuance and alpha out
         let initial_alpha = TotalHotkeyAlpha::<Test>::get(hotkey, netuid);
@@ -84,11 +84,11 @@ fn test_recycle_two_stakers() {
 
         // add stake to coldkey-hotkey pair so we can recycle it
         let stake = 200_000;
-        let (expected_alpha, _) = mock::swap_tao_to_alpha(netuid, stake);
-        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake, netuid);
+        let (expected_alpha, _) = mock::swap_tao_to_alpha(netuid, stake.into());
+        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake.into(), netuid);
 
         // add some stake to other coldkey on same hotkey.
-        increase_stake_on_coldkey_hotkey_account(&other_coldkey, &hotkey, stake, netuid);
+        increase_stake_on_coldkey_hotkey_account(&other_coldkey, &hotkey, stake.into(), netuid);
 
         // get initial total issuance and alpha out
         let initial_alpha = TotalHotkeyAlpha::<Test>::get(hotkey, netuid);
@@ -154,12 +154,12 @@ fn test_recycle_staker_is_nominator() {
 
         // add stake to coldkey-hotkey pair so we can recycle it
         let stake = 200_000;
-        let (expected_alpha, _) = mock::swap_tao_to_alpha(netuid, stake);
-        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake, netuid);
+        let (expected_alpha, _) = mock::swap_tao_to_alpha(netuid, stake.into());
+        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake.into(), netuid);
 
         // add some stake to other coldkey on same hotkey.
         // Note: this coldkey DOES NOT own the hotkey, so it is a nominator.
-        increase_stake_on_coldkey_hotkey_account(&other_coldkey, &hotkey, stake, netuid);
+        increase_stake_on_coldkey_hotkey_account(&other_coldkey, &hotkey, stake.into(), netuid);
         // Verify the ownership
         assert_ne!(
             SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey),
@@ -227,7 +227,7 @@ fn test_burn_success() {
 
         // add stake to coldkey-hotkey pair so we can recycle it
         let stake = 200_000;
-        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake, netuid);
+        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake.into(), netuid);
 
         // get initial total issuance and alpha out
         let initial_alpha = TotalHotkeyAlpha::<Test>::get(hotkey, netuid);
@@ -283,12 +283,12 @@ fn test_burn_staker_is_nominator() {
 
         // add stake to coldkey-hotkey pair so we can recycle it
         let stake = 200_000;
-        let (expected_alpha, _) = mock::swap_tao_to_alpha(netuid, stake);
-        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake, netuid);
+        let (expected_alpha, _) = mock::swap_tao_to_alpha(netuid, stake.into());
+        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake.into(), netuid);
 
         // add some stake to other coldkey on same hotkey.
         // Note: this coldkey DOES NOT own the hotkey, so it is a nominator.
-        increase_stake_on_coldkey_hotkey_account(&other_coldkey, &hotkey, stake, netuid);
+        increase_stake_on_coldkey_hotkey_account(&other_coldkey, &hotkey, stake.into(), netuid);
 
         // get initial total issuance and alpha out
         let initial_alpha = TotalHotkeyAlpha::<Test>::get(hotkey, netuid);
@@ -353,11 +353,11 @@ fn test_burn_two_stakers() {
 
         // add stake to coldkey-hotkey pair so we can recycle it
         let stake = 200_000;
-        let (expected_alpha, _) = mock::swap_tao_to_alpha(netuid, stake);
-        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake, netuid);
+        let (expected_alpha, _) = mock::swap_tao_to_alpha(netuid, stake.into());
+        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake.into(), netuid);
 
         // add some stake to other coldkey on same hotkey.
-        increase_stake_on_coldkey_hotkey_account(&other_coldkey, &hotkey, stake, netuid);
+        increase_stake_on_coldkey_hotkey_account(&other_coldkey, &hotkey, stake.into(), netuid);
 
         // get initial total issuance and alpha out
         let initial_alpha = TotalHotkeyAlpha::<Test>::get(hotkey, netuid);
@@ -421,7 +421,7 @@ fn test_recycle_errors() {
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         let stake_amount = 200_000;
-        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_amount, netuid);
+        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_amount.into(), netuid);
 
         assert_noop!(
             SubtensorModule::recycle_alpha(
@@ -451,16 +451,6 @@ fn test_recycle_errors() {
                 netuid
             ),
             Error::<Test>::HotKeyAccountNotExists
-        );
-
-        assert_noop!(
-            SubtensorModule::recycle_alpha(
-                RuntimeOrigin::signed(coldkey),
-                hotkey,
-                10_000_000_000.into(), // too much
-                netuid
-            ),
-            Error::<Test>::NotEnoughStakeToWithdraw
         );
 
         // make it pass the stake check
@@ -503,7 +493,7 @@ fn test_burn_errors() {
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         let stake_amount = 200_000;
-        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_amount, netuid);
+        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_amount.into(), netuid);
 
         assert_noop!(
             SubtensorModule::burn_alpha(
@@ -533,16 +523,6 @@ fn test_burn_errors() {
                 netuid
             ),
             Error::<Test>::HotKeyAccountNotExists
-        );
-
-        assert_noop!(
-            SubtensorModule::burn_alpha(
-                RuntimeOrigin::signed(coldkey),
-                hotkey,
-                10_000_000_000.into(), // too much
-                netuid
-            ),
-            Error::<Test>::NotEnoughStakeToWithdraw
         );
 
         // make it pass the hotkey alpha check

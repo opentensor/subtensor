@@ -72,7 +72,7 @@ where
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         api.current_alpha_price(at, netuid).map_err(|e| {
-            Error::RuntimeError(format!("Unable to get current alpha price: {:?}", e)).into()
+            Error::RuntimeError(format!("Unable to get current alpha price: {e:?}")).into()
         })
     }
 }

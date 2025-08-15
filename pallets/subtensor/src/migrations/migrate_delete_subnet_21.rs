@@ -51,7 +51,7 @@ pub fn migrate_delete_subnet_21<T: Config>() -> Weight {
 
     // Only runs if we haven't already updated version past above new_storage_version and subnet 21 exists.
     if onchain_version < new_storage_version && Pallet::<T>::if_subnet_exist(NetUid::from(21)) {
-        info!(target: LOG_TARGET, ">>> Removing subnet 21 {:?}", onchain_version);
+        info!(target: LOG_TARGET, ">>> Removing subnet 21 {onchain_version:?}");
 
         let netuid = NetUid::from(21);
 

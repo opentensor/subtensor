@@ -4,7 +4,9 @@ use core::ops::Neg;
 use frame_support::{PalletId, pallet_prelude::*, traits::Get};
 use frame_system::pallet_prelude::*;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AlphaCurrency, BalanceOps, Currency, NetUid, SubnetInfo};
+use subtensor_runtime_common::{
+    AlphaCurrency, BalanceOps, Currency, NetUid, SubnetInfo, TaoCurrency,
+};
 
 use crate::{
     position::{Position, PositionId},
@@ -163,7 +165,7 @@ mod pallet {
             /// The amount of liquidity added to the position
             liquidity: u64,
             /// The amount of TAO tokens committed to the position
-            tao: u64,
+            tao: TaoCurrency,
             /// The amount of Alpha tokens committed to the position
             alpha: AlphaCurrency,
             /// the lower tick
@@ -185,11 +187,11 @@ mod pallet {
             /// The amount of liquidity removed from the position
             liquidity: u64,
             /// The amount of TAO tokens returned to the user
-            tao: u64,
+            tao: TaoCurrency,
             /// The amount of Alpha tokens returned to the user
             alpha: AlphaCurrency,
             /// The amount of TAO fees earned from the position
-            fee_tao: u64,
+            fee_tao: TaoCurrency,
             /// The amount of Alpha fees earned from the position
             fee_alpha: AlphaCurrency,
             /// the lower tick
@@ -216,7 +218,7 @@ mod pallet {
             /// The amount of Alpha tokens returned to the user
             alpha: i64,
             /// The amount of TAO fees earned from the position
-            fee_tao: u64,
+            fee_tao: TaoCurrency,
             /// The amount of Alpha fees earned from the position
             fee_alpha: AlphaCurrency,
             /// the lower tick
@@ -373,6 +375,7 @@ mod pallet {
                 liquidity,
             )?;
             let alpha = AlphaCurrency::from(alpha);
+            let tao = TaoCurrency::from(tao);
 
             // Remove TAO and Alpha balances or fail transaction if they can't be removed exactly
             let tao_provided = T::BalanceOps::decrease_balance(&coldkey, tao)?;
@@ -509,7 +512,7 @@ mod pallet {
                     netuid,
                     position_id,
                     liquidity: liquidity_delta,
-                    tao: result.tao as i64,
+                    tao: result.tao.to_u64() as i64,
                     alpha: result.alpha.to_u64() as i64,
                     fee_tao: result.fee_tao,
                     fee_alpha: result.fee_alpha,
@@ -543,7 +546,7 @@ mod pallet {
                         netuid,
                         position_id,
                         liquidity: liquidity_delta,
-                        tao: (result.tao as i64).neg(),
+                        tao: (result.tao.to_u64() as i64).neg(),
                         alpha: (result.alpha.to_u64() as i64).neg(),
                         fee_tao: result.fee_tao,
                         fee_alpha: result.fee_alpha,
@@ -554,7 +557,7 @@ mod pallet {
             }
 
             // Credit accrued fees to user account (no matter if liquidity is added or removed)
-            if result.fee_tao > 0 {
+            if result.fee_tao > TaoCurrency::ZERO {
                 T::BalanceOps::increase_balance(&coldkey, result.fee_tao);
             }
             if !result.fee_alpha.is_zero() {

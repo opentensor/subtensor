@@ -41,7 +41,7 @@ fn freeze_struct_impl(
     visit_item_struct_mut(&mut visitor, &mut item_clone);
 
     let calculated_hash = generate_hash(&item_clone);
-    let calculated_hash_hex = format!("{:x}", calculated_hash);
+    let calculated_hash_hex = format!("{calculated_hash:x}");
 
     if attr.is_empty() {
         return Err(Error::new_spanned(
@@ -60,11 +60,10 @@ fn freeze_struct_impl(
         return Err(Error::new_spanned(
             item,
             format!(
-                "You have made a non-trivial change to this struct and the provided hashcode no longer matches:\n{} != {}\n\n\
+                "You have made a non-trivial change to this struct and the provided hashcode no longer matches:\n{provided_hash_hex} != {calculated_hash_hex}\n\n\
                 If this was intentional, please update the hashcode in the `freeze_struct` attribute to:\n\
-                {}\n\nNote that if you are changing a storage struct in any way, including simply re-ordering fields, \
-                you will need a migration to prevent data corruption.",
-                provided_hash_hex, calculated_hash_hex, calculated_hash_hex
+                {calculated_hash_hex}\n\nNote that if you are changing a storage struct in any way, including simply re-ordering fields, \
+                you will need a migration to prevent data corruption."
             ),
         ));
     }

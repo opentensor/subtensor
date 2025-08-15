@@ -1,13 +1,14 @@
 use super::*;
 use ark_serialize::CanonicalDeserialize;
 use codec::Decode;
-use frame_support::dispatch;
-use frame_support::traits::OriginTrait;
+use frame_support::{dispatch, traits::OriginTrait};
+use scale_info::prelude::collections::VecDeque;
 use subtensor_runtime_common::NetUid;
-use tle::curves::drand::TinyBLS381;
-use tle::stream_ciphers::AESGCMStreamCipherProvider;
-use tle::tlock::TLECiphertext;
-use tle::tlock::tld;
+use tle::{
+    curves::drand::TinyBLS381,
+    stream_ciphers::AESGCMStreamCipherProvider,
+    tlock::{TLECiphertext, tld},
+};
 use w3f_bls::EngineBLS;
 
 /// Contains all necessary information to set weights.
@@ -16,8 +17,18 @@ use w3f_bls::EngineBLS;
 /// encrypted, compressed, serialized, and submitted to the `commit_crv3_weights`
 /// extrinsic.
 #[derive(Encode, Decode)]
-#[freeze_struct("46e75a8326ba3665")]
+#[freeze_struct("b6833b5029be4127")]
 pub struct WeightsTlockPayload {
+    pub hotkey: Vec<u8>,
+    pub uids: Vec<u16>,
+    pub values: Vec<u16>,
+    pub version_key: u64,
+}
+
+/// For the old structure
+#[derive(Encode, Decode)]
+#[freeze_struct("304e55f41267caa")]
+pub struct LegacyWeightsTlockPayload {
     pub uids: Vec<u16>,
     pub values: Vec<u16>,
     pub version_key: u64,
@@ -26,12 +37,12 @@ pub struct WeightsTlockPayload {
 impl<T: Config> Pallet<T> {
     /// The `reveal_crv3_commits` function is run at the very beginning of epoch `n`,
     pub fn reveal_crv3_commits(netuid: NetUid) -> dispatch::DispatchResult {
+        let reveal_period = Self::get_reveal_period(netuid);
         let cur_block = Self::get_current_block_as_u64();
         let cur_epoch = Self::get_epoch_index(netuid, cur_block);
 
         // Weights revealed must have been committed during epoch `cur_epoch - reveal_period`.
-        let reveal_epoch =
-            cur_epoch.saturating_sub(Self::get_reveal_period(netuid).saturating_sub(1));
+        let reveal_epoch = cur_epoch.saturating_sub(reveal_period);
 
         // Clean expired commits
         for (epoch, _) in CRV3WeightCommitsV2::<T>::iter_prefix(netuid) {
@@ -40,42 +51,43 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // No commits to reveal until at least epoch 2.
-        if cur_epoch < 2 {
-            log::warn!("Failed to reveal commit for subnet {} Too early", netuid);
+        // No commits to reveal until at least epoch reveal_period.
+        if cur_epoch < reveal_period {
+            log::trace!("Failed to reveal commit for subnet {netuid} Too early");
             return Ok(());
         }
 
         let mut entries = CRV3WeightCommitsV2::<T>::take(netuid, reveal_epoch);
+        let mut unrevealed = VecDeque::new();
 
-        // Keep popping item off the end of the queue until we sucessfully reveal a commit.
-        while let Some((who, _commit_block, serialized_compresssed_commit, round_number)) =
+        // Keep popping items off the front of the queue until we successfully reveal a commit.
+        while let Some((who, commit_block, serialized_compresssed_commit, round_number)) =
             entries.pop_front()
         {
-            let reader = &mut &serialized_compresssed_commit[..];
-            let commit = match TLECiphertext::<TinyBLS381>::deserialize_compressed(reader) {
-                Ok(c) => c,
-                Err(e) => {
-                    log::warn!(
-                        "Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing the commit: {:?}",
-                        netuid,
-                        who,
-                        e
-                    );
-                    continue;
-                }
-            };
-
             // Try to get the round number from pallet_drand.
             let pulse = match pallet_drand::Pulses::<T>::get(round_number) {
                 Some(p) => p,
                 None => {
                     // Round number used was not found on the chain. Skip this commit.
-                    log::warn!(
-                        "Failed to reveal commit for subnet {} submitted by {:?} due to missing round number {} at time of reveal.",
-                        netuid,
+                    log::trace!(
+                        "Failed to reveal commit for subnet {netuid} submitted by {who:?} on block {commit_block} due to missing round number {round_number}; will retry every block in reveal epoch."
+                    );
+                    unrevealed.push_back((
                         who,
-                        round_number
+                        commit_block,
+                        serialized_compresssed_commit,
+                        round_number,
+                    ));
+                    continue;
+                }
+            };
+
+            let reader = &mut &serialized_compresssed_commit[..];
+            let commit = match TLECiphertext::<TinyBLS381>::deserialize_compressed(reader) {
+                Ok(c) => c,
+                Err(e) => {
+                    log::trace!(
+                        "Failed to reveal commit for subnet {netuid} submitted by {who:?} due to error deserializing the commit: {e:?}"
                     );
                     continue;
                 }
@@ -92,11 +104,8 @@ impl<T: Config> Pallet<T> {
             ) {
                 Ok(s) => s,
                 Err(e) => {
-                    log::error!(
-                        "Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing signature from drand pallet: {:?}",
-                        netuid,
-                        who,
-                        e
+                    log::trace!(
+                        "Failed to reveal commit for subnet {netuid} submitted by {who:?} due to error deserializing signature from drand pallet: {e:?}"
                     );
                     continue;
                 }
@@ -107,48 +116,80 @@ impl<T: Config> Pallet<T> {
             ) {
                 Ok(d) => d,
                 Err(e) => {
-                    log::warn!(
-                        "Failed to reveal commit for subnet {} submitted by {:?} due to error decrypting the commit: {:?}",
-                        netuid,
-                        who,
-                        e
+                    log::trace!(
+                        "Failed to reveal commit for subnet {netuid} submitted by {who:?} due to error decrypting the commit: {e:?}"
                     );
                     continue;
                 }
             };
 
-            // Decrypt the bytes into WeightsPayload
-            let mut reader = &decrypted_bytes[..];
-            let payload: WeightsTlockPayload = match Decode::decode(&mut reader) {
-                Ok(w) => w,
-                Err(e) => {
-                    log::warn!(
-                        "Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing WeightsPayload: {:?}",
-                        netuid,
-                        who,
-                        e
-                    );
-                    continue;
+            // ------------------------------------------------------------------
+            // Try to decode payload with the new and legacy formats.
+            // ------------------------------------------------------------------
+            let (uids, values, version_key) = {
+                let mut reader_new = &decrypted_bytes[..];
+                if let Ok(payload) = WeightsTlockPayload::decode(&mut reader_new) {
+                    // Verify hotkey matches committer
+                    let mut hk_reader = &payload.hotkey[..];
+                    match T::AccountId::decode(&mut hk_reader) {
+                        Ok(decoded_hotkey) if decoded_hotkey == who => {
+                            (payload.uids, payload.values, payload.version_key)
+                        }
+                        Ok(_) => {
+                            log::trace!(
+                                "Failed to reveal commit for subnet {netuid} submitted by {who:?} due to hotkey mismatch in payload"
+                            );
+                            continue;
+                        }
+                        Err(e) => {
+                            let mut reader_legacy = &decrypted_bytes[..];
+                            match LegacyWeightsTlockPayload::decode(&mut reader_legacy) {
+                                Ok(legacy) => (legacy.uids, legacy.values, legacy.version_key),
+                                Err(_) => {
+                                    log::trace!(
+                                        "Failed to reveal commit for subnet {netuid} submitted by {who:?} due to error deserializing hotkey: {e:?}"
+                                    );
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Fallback to legacy payload
+                    let mut reader_legacy = &decrypted_bytes[..];
+                    match LegacyWeightsTlockPayload::decode(&mut reader_legacy) {
+                        Ok(legacy) => (legacy.uids, legacy.values, legacy.version_key),
+                        Err(e) => {
+                            log::trace!(
+                                "Failed to reveal commit for subnet {netuid} submitted by {who:?} due to error deserializing both payload formats: {e:?}"
+                            );
+                            continue;
+                        }
+                    }
                 }
             };
 
+            // ------------------------------------------------------------------
+            //                          Apply weights
+            // ------------------------------------------------------------------
             if let Err(e) = Self::do_set_weights(
                 T::RuntimeOrigin::signed(who.clone()),
                 netuid,
-                payload.uids,
-                payload.values,
-                payload.version_key,
+                uids,
+                values,
+                version_key,
             ) {
-                log::warn!(
-                    "Failed to `do_set_weights` for subnet {} submitted by {:?}: {:?}",
-                    netuid,
-                    who,
-                    e
+                log::trace!(
+                    "Failed to `do_set_weights` for subnet {netuid} submitted by {who:?}: {e:?}"
                 );
                 continue;
-            } else {
-                Self::deposit_event(Event::CRV3WeightsRevealed(netuid, who));
-            };
+            }
+
+            Self::deposit_event(Event::CRV3WeightsRevealed(netuid, who));
+        }
+
+        if !unrevealed.is_empty() {
+            CRV3WeightCommitsV2::<T>::insert(netuid, reveal_epoch, unrevealed);
         }
 
         Ok(())

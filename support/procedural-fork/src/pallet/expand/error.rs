@@ -16,11 +16,11 @@
 // limitations under the License.
 
 use crate::{
-    pallet::{
-        parse::error::{VariantDef, VariantField},
-        Def,
-    },
     COUNTER,
+    pallet::{
+        Def,
+        parse::error::{VariantDef, VariantField},
+    },
 };
 use frame_support_procedural_tools::get_doc_literals;
 use quote::ToTokens;

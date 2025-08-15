@@ -11,7 +11,7 @@ use pallet_subtensor::Event;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{Get, Pair, U256, ed25519};
 use substrate_fixed::types::I96F32;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{Currency, NetUid, TaoCurrency};
 
 use crate::Error;
 use crate::pallet::PrecompileEnable;
@@ -426,7 +426,7 @@ fn test_sudo_set_max_weight_limit() {
 #[test]
 fn test_sudo_set_issuance() {
     new_test_ext().execute_with(|| {
-        let to_be_set: u64 = 10;
+        let to_be_set = TaoCurrency::from(10);
         assert_eq!(
             AdminUtils::sudo_set_total_issuance(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
@@ -894,9 +894,9 @@ fn test_sudo_set_bonds_penalty() {
 fn test_sudo_set_rao_recycled() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
-        let to_be_set: u64 = 10;
+        let to_be_set = TaoCurrency::from(10);
         add_network(netuid, 10);
-        let init_value: u64 = SubtensorModule::get_rao_recycled(netuid);
+        let init_value = SubtensorModule::get_rao_recycled(netuid);
 
         // Need to run from genesis block
         run_to_block(1);
@@ -1035,7 +1035,7 @@ mod sudo_set_nominator_min_required_stake {
             let default_min_stake = pallet_subtensor::DefaultMinStake::<Test>::get();
             assert_eq!(
                 SubtensorModule::get_nominator_min_required_stake(),
-                10 * default_min_stake / 1_000_000
+                10 * default_min_stake.to_u64() / 1_000_000
             );
 
             assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
@@ -1044,7 +1044,7 @@ mod sudo_set_nominator_min_required_stake {
             ));
             assert_eq!(
                 SubtensorModule::get_nominator_min_required_stake(),
-                5 * default_min_stake / 1_000_000
+                5 * default_min_stake.to_u64() / 1_000_000
             );
         });
     }
@@ -1060,7 +1060,7 @@ mod sudo_set_nominator_min_required_stake {
             ));
             assert_eq!(
                 SubtensorModule::get_nominator_min_required_stake(),
-                to_be_set * default_min_stake / 1_000_000
+                to_be_set * default_min_stake.to_u64() / 1_000_000
             );
         });
     }
@@ -1268,11 +1268,7 @@ fn test_sudo_get_set_alpha() {
         let (grabbed_alpha_low, grabbed_alpha_high): (u16, u16) =
             SubtensorModule::get_alpha_values(netuid);
 
-        log::info!(
-            "alpha_low: {:?} alpha_high: {:?}",
-            grabbed_alpha_low,
-            grabbed_alpha_high
-        );
+        log::info!("alpha_low: {grabbed_alpha_low:?} alpha_high: {grabbed_alpha_high:?}");
         assert_eq!(grabbed_alpha_low, alpha_low);
         assert_eq!(grabbed_alpha_high, alpha_high);
 
@@ -1656,7 +1652,7 @@ fn test_sets_a_lower_value_clears_small_nominations() {
         ));
         assert_eq!(
             SubtensorModule::get_nominator_min_required_stake(),
-            initial_nominator_min_required_stake * default_min_stake / 1_000_000_u64
+            initial_nominator_min_required_stake * default_min_stake.to_u64() / 1_000_000
         );
 
         // Stake to the hotkey as staker_coldkey
@@ -1674,7 +1670,7 @@ fn test_sets_a_lower_value_clears_small_nominations() {
         ));
         assert_eq!(
             SubtensorModule::get_nominator_min_required_stake(),
-            nominator_min_required_stake_0 * default_min_stake / 1_000_000_u64
+            nominator_min_required_stake_0 * default_min_stake.to_u64() / 1_000_000
         );
 
         // Check this nomination is not cleared
@@ -1692,7 +1688,7 @@ fn test_sets_a_lower_value_clears_small_nominations() {
         ));
         assert_eq!(
             SubtensorModule::get_nominator_min_required_stake(),
-            nominator_min_required_stake_1 * default_min_stake / 1_000_000_u64
+            nominator_min_required_stake_1 * default_min_stake.to_u64() / 1_000_000
         );
 
         // Check this nomination is cleared
@@ -1932,5 +1928,26 @@ fn test_sudo_set_yuma3_enabled() {
             !to_be_set
         ));
         assert_eq!(SubtensorModule::get_yuma3_enabled(netuid), !to_be_set);
+    });
+}
+
+#[test]
+fn test_sudo_set_commit_reveal_version() {
+    new_test_ext().execute_with(|| {
+        add_network(NetUid::from(1), 10);
+
+        let to_be_set: u16 = 5;
+        let init_value: u16 = SubtensorModule::get_commit_reveal_weights_version();
+
+        assert_ok!(AdminUtils::sudo_set_commit_reveal_version(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            to_be_set
+        ));
+
+        assert!(init_value != to_be_set);
+        assert_eq!(
+            SubtensorModule::get_commit_reveal_weights_version(),
+            to_be_set
+        );
     });
 }

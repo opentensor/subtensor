@@ -52,7 +52,7 @@ mod genesis {
             SubnetMechanism::<T>::insert(netuid, 1); // Make dynamic.
             Owner::<T>::insert(hotkey.clone(), hotkey.clone());
             SubnetAlphaIn::<T>::insert(netuid, AlphaCurrency::from(10_000_000_000));
-            SubnetTAO::<T>::insert(netuid, 10_000_000_000);
+            SubnetTAO::<T>::insert(netuid, TaoCurrency::from(10_000_000_000));
             NetworksAdded::<T>::insert(netuid, true);
             TotalNetworks::<T>::mutate(|n| *n = n.saturating_add(1));
             SubnetworkN::<T>::insert(netuid, 0);
@@ -63,7 +63,7 @@ mod genesis {
             Tempo::<T>::insert(netuid, 100);
             NetworkRegistrationAllowed::<T>::insert(netuid, true);
             SubnetOwner::<T>::insert(netuid, hotkey.clone());
-            SubnetLocked::<T>::insert(netuid, 1);
+            SubnetLocked::<T>::insert(netuid, TaoCurrency::from(1));
             LargestLocked::<T>::insert(netuid, 1);
             Alpha::<T>::insert(
                 // Lock the initial funds making this key the owner.

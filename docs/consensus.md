@@ -297,11 +297,10 @@ ssh -L 8888:localhost:8888 root@<your_vps_ip_address> -p <your_vps_port> -i ~/.s
    ```bash
    sudo apt-get update && sudo apt install -y build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler python3 python3-pip \
    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
-   && source ~/.cargo/env && rustup default stable && rustup update \
-   && rustup target add wasm32-unknown-unknown \
-   && rustup toolchain install nightly \
-   && rustup target add --toolchain nightly wasm32-unknown-unknown
-
+   && source ~/.cargo/env \
+   && rustup default stable \
+   && rustup update \
+   && rustup target add wasm32v1-none
    ```
 
 3. **Clone the Subtensor repository and checkout the relevant branch:**

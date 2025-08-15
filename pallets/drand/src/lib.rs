@@ -58,6 +58,7 @@ use sp_runtime::{
 };
 
 pub mod bls12_381;
+pub mod migrations;
 pub mod types;
 pub mod utils;
 pub mod verifier;
@@ -91,6 +92,8 @@ pub const QUICKNET_CHAIN_HASH: &str =
 const CHAIN_HASH: &str = QUICKNET_CHAIN_HASH;
 
 pub const MAX_PULSES_TO_FETCH: u64 = 50;
+pub const MAX_KEPT_PULSES: u64 = 216_000; // 1 week
+pub const MAX_REMOVED_PULSES: u64 = 100;
 
 /// Defines application identifier for crypto keys of this module.
 ///
@@ -212,12 +215,24 @@ pub mod pallet {
         }
     }
 
+    /// Define a maximum length for the migration key
+    type MigrationKeyMaxLen = ConstU32<128>;
+
+    /// Storage for migration run status
+    #[pallet::storage]
+    pub type HasMigrationRun<T: Config> =
+        StorageMap<_, Identity, BoundedVec<u8, MigrationKeyMaxLen>, bool, ValueQuery>;
+
     /// map round number to pulse
     #[pallet::storage]
     pub type Pulses<T: Config> = StorageMap<_, Blake2_128Concat, RoundNumber, Pulse, OptionQuery>;
 
     #[pallet::storage]
-    pub(super) type LastStoredRound<T: Config> = StorageValue<_, RoundNumber, ValueQuery>;
+    pub type LastStoredRound<T: Config> = StorageValue<_, RoundNumber, ValueQuery>;
+
+    /// oldest stored round
+    #[pallet::storage]
+    pub type OldestStoredRound<T: Config> = StorageValue<_, RoundNumber, ValueQuery>;
 
     /// Defines the block when next unsigned transaction will be accepted.
     ///
@@ -230,11 +245,12 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
+        /// Beacon Configuration has changed.
         BeaconConfigChanged,
         /// Successfully set a new pulse(s).
-        NewPulse {
-            rounds: Vec<RoundNumber>,
-        },
+        NewPulse { rounds: Vec<RoundNumber> },
+        /// Oldest Stored Round has been set.
+        SetOldestStoredRound(u64),
     }
 
     #[pallet::error]
@@ -256,10 +272,18 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: BlockNumberFor<T>) {
-            log::debug!("Drand OCW working on block: {:?}", block_number);
+            log::debug!("Drand OCW working on block: {block_number:?}");
             if let Err(e) = Self::fetch_drand_pulse_and_send_unsigned(block_number) {
-                log::debug!("Drand: Failed to fetch pulse from drand. {:?}", e);
+                log::debug!("Drand: Failed to fetch pulse from drand. {e:?}");
             }
+        }
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            /*let weight = */
+            frame_support::weights::Weight::from_parts(0, 0) /*;*/
+
+            //weight = weight.saturating_add(migrations::migrate_set_oldest_round::<T>());
+
+            //weight
         }
     }
 
@@ -307,9 +331,9 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// Verify and write a pulse from the beacon into the runtime
         #[pallet::call_index(0)]
-        #[pallet::weight(Weight::from_parts(5_708_000_000, 0)
-        .saturating_add(T::DbWeight::get().reads(2_u64))
-        .saturating_add(T::DbWeight::get().writes(3_u64)))]
+        #[pallet::weight(Weight::from_parts(4_294_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(3_u64))
+        .saturating_add(T::DbWeight::get().writes(4_u64)))]
         pub fn write_pulse(
             origin: OriginFor<T>,
             pulses_payload: PulsesPayload<T::Public, BlockNumberFor<T>>,
@@ -320,6 +344,10 @@ pub mod pallet {
 
             let mut last_stored_round = LastStoredRound::<T>::get();
             let mut new_rounds = Vec::new();
+
+            let oldest_stored_round = OldestStoredRound::<T>::get();
+            let is_first_storage = last_stored_round == 0 && oldest_stored_round == 0;
+            let mut first_new_round: Option<RoundNumber> = None;
 
             for pulse in &pulses_payload.pulses {
                 let is_verified = T::Verifier::verify(config.clone(), pulse.clone())
@@ -339,11 +367,24 @@ pub mod pallet {
 
                     // Collect the new round
                     new_rounds.push(pulse.round);
+
+                    // Set the first new round if this is the initial storage
+                    if is_first_storage && first_new_round.is_none() {
+                        first_new_round = Some(pulse.round);
+                    }
                 }
             }
 
             // Update LastStoredRound storage
             LastStoredRound::<T>::put(last_stored_round);
+
+            // Set OldestStoredRound if this was the first storage
+            if let Some(first_round) = first_new_round {
+                OldestStoredRound::<T>::put(first_round);
+            }
+
+            // Prune old pulses
+            Self::prune_old_pulses(last_stored_round);
 
             // Update the next unsigned block number
             let current_block = frame_system::Pallet::<T>::block_number();
@@ -363,7 +404,7 @@ pub mod pallet {
         /// * `origin`: the root user
         /// * `config`: the beacon configuration
         #[pallet::call_index(1)]
-        #[pallet::weight(Weight::from_parts(9_878_000, 0)
+        #[pallet::weight(Weight::from_parts(8_766_000, 0)
         .saturating_add(T::DbWeight::get().reads(0_u64))
         .saturating_add(T::DbWeight::get().writes(2_u64)))]
         pub fn set_beacon_config(
@@ -379,6 +420,18 @@ pub mod pallet {
             <NextUnsignedAt<T>>::put(current_block.saturating_add(One::one()));
 
             Self::deposit_event(Event::BeaconConfigChanged {});
+            Ok(())
+        }
+
+        /// allows the root user to set the oldest stored round
+        #[pallet::call_index(2)]
+        #[pallet::weight(Weight::from_parts(5_370_000, 0)
+        .saturating_add(T::DbWeight::get().reads(0_u64))
+        .saturating_add(T::DbWeight::get().writes(1_u64)))]
+        pub fn set_oldest_stored_round(origin: OriginFor<T>, oldest_round: u64) -> DispatchResult {
+            ensure_root(origin)?;
+            OldestStoredRound::<T>::put(oldest_round);
+            Self::deposit_event(Event::SetOldestStoredRound(oldest_round));
             Ok(())
         }
     }
@@ -462,12 +515,12 @@ impl<T: Config> Pallet<T> {
     }
 
     fn fetch_drand_by_round(round: RoundNumber) -> Result<DrandResponseBody, &'static str> {
-        let relative_path = format!("/{}/public/{}", CHAIN_HASH, round);
+        let relative_path = format!("/{CHAIN_HASH}/public/{round}");
         Self::fetch_and_decode_from_any_endpoint(&relative_path)
     }
 
     fn fetch_drand_latest() -> Result<DrandResponseBody, &'static str> {
-        let relative_path = format!("/{}/public/latest", CHAIN_HASH);
+        let relative_path = format!("/{CHAIN_HASH}/public/latest");
         Self::fetch_and_decode_from_any_endpoint(&relative_path)
     }
 
@@ -477,7 +530,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<DrandResponseBody, &'static str> {
         let uris: Vec<String> = ENDPOINTS
             .iter()
-            .map(|e| format!("{}{}", e, relative_path))
+            .map(|e| format!("{e}{relative_path}"))
             .collect();
         let deadline = sp_io::offchain::timestamp().add(
             sp_runtime::offchain::Duration::from_millis(T::HttpFetchTimeout::get()),
@@ -494,7 +547,7 @@ impl<T: Config> Pallet<T> {
                     pending_requests.push((uri.clone(), pending_req));
                 }
                 Err(_) => {
-                    log::warn!("Drand: HTTP IO Error on endpoint {}", uri);
+                    log::warn!("Drand: HTTP IO Error on endpoint {uri}");
                 }
             }
         }
@@ -543,7 +596,7 @@ impl<T: Config> Pallet<T> {
                         }
                     }
                     Ok(Err(e)) => {
-                        log::warn!("Drand: HTTP error from {}: {:?}", uri, e);
+                        log::warn!("Drand: HTTP error from {uri}: {e:?}");
                     }
                     Err(pending_req) => {
                         still_pending = true;
@@ -627,6 +680,24 @@ impl<T: Config> Pallet<T> {
             // claim a reward.
             .propagate(true)
             .build()
+    }
+
+    fn prune_old_pulses(last_stored_round: RoundNumber) {
+        let mut oldest = OldestStoredRound::<T>::get();
+        if oldest == 0 {
+            return;
+        }
+
+        let mut removed: u64 = 0;
+        while last_stored_round.saturating_sub(oldest).saturating_add(1) > MAX_KEPT_PULSES
+            && removed < MAX_REMOVED_PULSES
+        {
+            Pulses::<T>::remove(oldest);
+            oldest = oldest.saturating_add(1);
+            removed = removed.saturating_add(1);
+        }
+
+        OldestStoredRound::<T>::put(oldest);
     }
 }
 

@@ -21,8 +21,8 @@
 use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use inflector::Inflector;
 use proc_macro2::{Span, TokenStream};
-use quote::{format_ident, quote, ToTokens};
-use syn::{parse2, spanned::Spanned, visit_mut, visit_mut::VisitMut, Result, Token};
+use quote::{ToTokens, format_ident, quote};
+use syn::{Result, Token, parse2, spanned::Spanned, visit_mut, visit_mut::VisitMut};
 
 /// Parse and expand a `#[dynamic_params(..)]` module.
 pub fn dynamic_params(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {

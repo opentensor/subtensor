@@ -1,3 +1,20 @@
+//! This file defines abstraction for subnet leasing.
+//!
+//! It is used to register a new leased network through a crowdloan using the `register_leased_network` extrinsic
+//! as a call parameter to the crowdloan pallet `create` extrinsic. A new subnet will be registered
+//! paying the lock cost using the crowdloan funds and a proxy will be created for the beneficiary
+//! to operate the subnet.
+//!
+//! The crowdloan's contributions are used to compute the share of the emissions that the contributors
+//! will receive as dividends. The leftover cap is refunded to the contributors and the beneficiary.
+//!
+//! The lease can have a defined end block, after which the lease will be terminated and the subnet
+//! will be transferred to the beneficiary. In case the lease is perpetual, the lease will never be
+//! terminated and emissions will continue to be distributed to the contributors.
+//!
+//! The lease can be terminated by the beneficiary after the end block has passed (if any) and the subnet
+//! ownership will be transferred to the beneficiary.
+
 use super::*;
 use frame_support::{
     dispatch::RawOrigin,
@@ -7,7 +24,7 @@ use frame_system::pallet_prelude::*;
 use sp_core::blake2_256;
 use sp_runtime::{Percent, traits::TrailingZeroInput};
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AlphaCurrency, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
 pub type LeaseId = u32;
@@ -293,7 +310,7 @@ impl<T: Config> Pallet<T> {
             &lease.coldkey,
             lease.netuid,
             total_contributors_cut_alpha,
-            T::SwapInterface::min_price(),
+            T::SwapInterface::min_price().into(),
             false,
         ) {
             Ok(tao_unstaked) => tao_unstaked,
@@ -306,19 +323,19 @@ impl<T: Config> Pallet<T> {
 
         // Distribute the contributors cut to the contributors and accumulate the tao
         // distributed so far to obtain how much tao is left to distribute to the beneficiary
-        let mut tao_distributed = 0u64;
+        let mut tao_distributed = TaoCurrency::ZERO;
         for (contributor, share) in SubnetLeaseShares::<T>::iter_prefix(lease_id) {
             let tao_for_contributor = share
-                .saturating_mul(U64F64::from(tao_unstaked))
+                .saturating_mul(U64F64::from(tao_unstaked.to_u64()))
                 .floor()
                 .saturating_to_num::<u64>();
             Self::add_balance_to_coldkey_account(&contributor, tao_for_contributor);
-            tao_distributed = tao_distributed.saturating_add(tao_for_contributor);
+            tao_distributed = tao_distributed.saturating_add(tao_for_contributor.into());
         }
 
         // Distribute the leftover tao to the beneficiary
         let beneficiary_cut_tao = tao_unstaked.saturating_sub(tao_distributed);
-        Self::add_balance_to_coldkey_account(&lease.beneficiary, beneficiary_cut_tao);
+        Self::add_balance_to_coldkey_account(&lease.beneficiary, beneficiary_cut_tao.into());
 
         // Reset the accumulated dividends
         AccumulatedLeaseDividends::<T>::insert(lease_id, AlphaCurrency::ZERO);

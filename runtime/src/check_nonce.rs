@@ -1,7 +1,7 @@
 // Customized from the original implementation in the Polkadot SDK.
 // https://github.com/paritytech/polkadot-sdk/blob/b600af050d6b6c8da59ae2a2a793ee2d8827ab1e/substrate/frame/system/src/extensions/check_nonce.rs
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
     RuntimeDebugNoBound,
     dispatch::{DispatchInfo, Pays},
@@ -34,8 +34,8 @@ use subtensor_macros::freeze_struct;
 /// step. This means that other extensions ahead of `CheckNonce` in the pipeline must not alter the
 /// nonce during their own preparation step, or else the transaction may be rejected during dispatch
 /// or lead to an inconsistent account state..
-#[freeze_struct("feac7c9db94d39ac")]
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[freeze_struct("cc77e8303313108b")]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckNonce<T: Config>(#[codec(compact)] pub T::Nonce);
 

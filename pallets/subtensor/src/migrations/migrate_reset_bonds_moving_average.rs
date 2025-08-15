@@ -39,10 +39,7 @@ pub fn migrate_reset_bonds_moving_average<T: Config>() -> Weight {
     weight = weight
         .saturating_add(T::DbWeight::get().reads_writes(reset_entries_count, reset_entries_count));
 
-    log::info!(
-        "Reset {} subnets from BondsMovingAverage.",
-        reset_entries_count
-    );
+    log::info!("Reset {reset_entries_count} subnets from BondsMovingAverage.");
 
     // ------------------------------
     // Step 2: Mark Migration as Completed

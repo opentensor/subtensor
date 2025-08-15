@@ -51,7 +51,7 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
     if onchain_version < 1 {
         info!(
             target: LOG_TARGET,
-            ">>> Updating the LoadedEmission to a new format {:?}", onchain_version
+            ">>> Updating the LoadedEmission to a new format {onchain_version:?}"
         );
 
         // Collect all network IDs (netuids) from old LoadedEmission storage
@@ -63,10 +63,7 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
             if old::LoadedEmission::<T>::try_get(netuid).is_err() {
                 weight.saturating_accrue(T::DbWeight::get().writes(1));
                 old::LoadedEmission::<T>::remove(netuid);
-                warn!(
-                    "Was unable to decode old loaded_emission for netuid {}",
-                    netuid
-                );
+                warn!("Was unable to decode old loaded_emission for netuid {netuid}");
             }
         }
 
@@ -75,7 +72,7 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
             |netuid: NetUid,
              netuid_emissions: Vec<(AccountIdOf<T>, u64)>|
              -> Option<Vec<(AccountIdOf<T>, u64, u64)>> {
-                info!(target: LOG_TARGET, "     Do migration of netuid: {:?}...", netuid);
+                info!(target: LOG_TARGET, "     Do migration of netuid: {netuid:?}...");
 
                 // Convert old format (server, validator_emission) to new format (server, server_emission, validator_emission)
                 // Assume all loaded emission is validator emissions

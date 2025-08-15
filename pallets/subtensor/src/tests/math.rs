@@ -13,11 +13,11 @@ use substrate_fixed::{
 };
 
 fn assert_float_compare(a: I32F32, b: I32F32, epsilon: I32F32) {
-    assert!(I32F32::abs(a - b) <= epsilon, "a({:?}) != b({:?})", a, b);
+    assert!(I32F32::abs(a - b) <= epsilon, "a({a:?}) != b({b:?})");
 }
 
 fn assert_float_compare_64(a: I64F64, b: I64F64, epsilon: I64F64) {
-    assert!(I64F64::abs(a - b) <= epsilon, "a({:?}) != b({:?})", a, b);
+    assert!(I64F64::abs(a - b) <= epsilon, "a({a:?}) != b({b:?})");
 }
 
 fn assert_vec_compare(va: &[I32F32], vb: &[I32F32], epsilon: I32F32) {
@@ -87,9 +87,7 @@ fn assert_mat_approx_eq(left: &[Vec<I32F32>], right: &[Vec<I32F32>], epsilon: I3
         for (left_val, right_val) in left_row.iter().zip(right_row.iter()) {
             assert!(
                 (left_val - right_val).abs() <= epsilon,
-                "left: {:?}, right: {:?}",
-                left_val,
-                right_val
+                "left: {left_val:?}, right: {right_val:?}"
             );
         }
     }
@@ -2505,9 +2503,9 @@ fn test_fixed_proportion_to_u16() {
 fn test_fixed_proportion_to_u16_saturates() {
     let expected = u16::MAX;
     let input = I32F32::from_num(expected);
-    log::trace!("Testing with input: {:?}", input); // Debug output
+    log::trace!("Testing with input: {input:?}"); // Debug output
     let result = fixed_proportion_to_u16(input);
-    log::trace!("Testing with result: {:?}", result); // Debug output
+    log::trace!("Testing with result: {result:?}"); // Debug output
     assert_eq!(result, expected);
 }
 

@@ -40,7 +40,7 @@ pub mod validate_unsigned;
 #[cfg(test)]
 pub mod tests;
 
-use composite::{keyword::CompositeKeyword, CompositeDef};
+use composite::{CompositeDef, keyword::CompositeKeyword};
 use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use quote::ToTokens;
 use syn::spanned::Spanned;
@@ -109,108 +109,122 @@ impl Def {
             let pallet_attr: Option<PalletAttr> = helper::take_first_item_pallet_attr(item)?;
 
             match pallet_attr {
-				Some(PalletAttr::Config(_, with_default)) if config.is_none() =>
-					config = Some(config::ConfigDef::try_from(
-						&frame_system,
-						index,
-						item,
-						with_default,
-					)?),
-				Some(PalletAttr::Pallet(span)) if pallet_struct.is_none() => {
-					let p = pallet_struct::PalletStructDef::try_from(span, index, item)?;
-					pallet_struct = Some(p);
-				},
-				Some(PalletAttr::Hooks(span)) if hooks.is_none() => {
-					let m = hooks::HooksDef::try_from(span, item)?;
-					hooks = Some(m);
-				},
-				Some(PalletAttr::RuntimeCall(cw, span)) if call.is_none() =>
-					call = Some(call::CallDef::try_from(span, index, item, dev_mode, cw)?),
-				Some(PalletAttr::Tasks(_)) if tasks.is_none() => {
-					let item_tokens = item.to_token_stream();
-					// `TasksDef::parse` needs to know if attr was provided so we artificially
-					// re-insert it here
-					tasks = Some(syn::parse2::<tasks::TasksDef>(quote::quote! {
-						#[pallet::tasks_experimental]
-						#item_tokens
-					})?);
+                Some(PalletAttr::Config(_, with_default)) if config.is_none() => {
+                    config = Some(config::ConfigDef::try_from(
+                        &frame_system,
+                        index,
+                        item,
+                        with_default,
+                    )?)
+                }
+                Some(PalletAttr::Pallet(span)) if pallet_struct.is_none() => {
+                    let p = pallet_struct::PalletStructDef::try_from(span, index, item)?;
+                    pallet_struct = Some(p);
+                }
+                Some(PalletAttr::Hooks(span)) if hooks.is_none() => {
+                    let m = hooks::HooksDef::try_from(span, item)?;
+                    hooks = Some(m);
+                }
+                Some(PalletAttr::RuntimeCall(cw, span)) if call.is_none() => {
+                    call = Some(call::CallDef::try_from(span, index, item, dev_mode, cw)?)
+                }
+                Some(PalletAttr::Tasks(_)) if tasks.is_none() => {
+                    let item_tokens = item.to_token_stream();
+                    // `TasksDef::parse` needs to know if attr was provided so we artificially
+                    // re-insert it here
+                    tasks = Some(syn::parse2::<tasks::TasksDef>(quote::quote! {
+                        #[pallet::tasks_experimental]
+                        #item_tokens
+                    })?);
 
-					// replace item with a no-op because it will be handled by the expansion of tasks
-					*item = syn::Item::Verbatim(quote::quote!());
-				}
-				Some(PalletAttr::TaskCondition(span)) => return Err(syn::Error::new(
-					span,
-					"`#[pallet::task_condition]` can only be used on items within an `impl` statement."
-				)),
-				Some(PalletAttr::TaskIndex(span)) => return Err(syn::Error::new(
-					span,
-					"`#[pallet::task_index]` can only be used on items within an `impl` statement."
-				)),
-				Some(PalletAttr::TaskList(span)) => return Err(syn::Error::new(
-					span,
-					"`#[pallet::task_list]` can only be used on items within an `impl` statement."
-				)),
-				Some(PalletAttr::RuntimeTask(_)) if task_enum.is_none() =>
-					task_enum = Some(syn::parse2::<tasks::TaskEnumDef>(item.to_token_stream())?),
-				Some(PalletAttr::Error(span)) if error.is_none() =>
-					error = Some(error::ErrorDef::try_from(span, index, item)?),
-				Some(PalletAttr::RuntimeEvent(span)) if event.is_none() =>
-					event = Some(event::EventDef::try_from(span, index, item)?),
-				Some(PalletAttr::GenesisConfig(_)) if genesis_config.is_none() => {
-					let g = genesis_config::GenesisConfigDef::try_from(index, item)?;
-					genesis_config = Some(g);
-				},
-				Some(PalletAttr::GenesisBuild(span)) if genesis_build.is_none() => {
-					let g = genesis_build::GenesisBuildDef::try_from(span, item)?;
-					genesis_build = Some(g);
-				},
-				Some(PalletAttr::RuntimeOrigin(_)) if origin.is_none() =>
-					origin = Some(origin::OriginDef::try_from(item)?),
-				Some(PalletAttr::Inherent(_)) if inherent.is_none() =>
-					inherent = Some(inherent::InherentDef::try_from(item)?),
-				Some(PalletAttr::Storage(span)) =>
-					storages.push(storage::StorageDef::try_from(span, index, item, dev_mode)?),
-				Some(PalletAttr::ValidateUnsigned(_)) if validate_unsigned.is_none() => {
-					let v = validate_unsigned::ValidateUnsignedDef::try_from(item)?;
-					validate_unsigned = Some(v);
-				},
-				Some(PalletAttr::TypeValue(span)) =>
-					type_values.push(type_value::TypeValueDef::try_from(span, index, item)?),
-				Some(PalletAttr::ExtraConstants(_)) =>
-					extra_constants =
-						Some(extra_constants::ExtraConstantsDef::try_from(item)?),
-				Some(PalletAttr::Composite(span)) => {
-					let composite =
-						composite::CompositeDef::try_from(span, &frame_support, item)?;
-					if composites.iter().any(|def| {
-						match (&def.composite_keyword, &composite.composite_keyword) {
-							(
-								CompositeKeyword::FreezeReason(_),
-								CompositeKeyword::FreezeReason(_),
-							) |
-							(CompositeKeyword::HoldReason(_), CompositeKeyword::HoldReason(_)) |
-							(CompositeKeyword::LockId(_), CompositeKeyword::LockId(_)) |
-							(
-								CompositeKeyword::SlashReason(_),
-								CompositeKeyword::SlashReason(_),
-							) => true,
-							_ => false,
-						}
-					}) {
-						let msg = format!(
-							"Invalid duplicated `{}` definition",
-							composite.composite_keyword
-						);
-						return Err(syn::Error::new(composite.composite_keyword.span(), &msg))
-					}
-					composites.push(composite);
-				},
-				Some(attr) => {
-					let msg = "Invalid duplicated attribute";
-					return Err(syn::Error::new(attr.span(), msg))
-				},
-				None => (),
-			}
+                    // replace item with a no-op because it will be handled by the expansion of tasks
+                    *item = syn::Item::Verbatim(quote::quote!());
+                }
+                Some(PalletAttr::TaskCondition(span)) => {
+                    return Err(syn::Error::new(
+                        span,
+                        "`#[pallet::task_condition]` can only be used on items within an `impl` statement.",
+                    ));
+                }
+                Some(PalletAttr::TaskIndex(span)) => {
+                    return Err(syn::Error::new(
+                        span,
+                        "`#[pallet::task_index]` can only be used on items within an `impl` statement.",
+                    ));
+                }
+                Some(PalletAttr::TaskList(span)) => {
+                    return Err(syn::Error::new(
+                        span,
+                        "`#[pallet::task_list]` can only be used on items within an `impl` statement.",
+                    ));
+                }
+                Some(PalletAttr::RuntimeTask(_)) if task_enum.is_none() => {
+                    task_enum = Some(syn::parse2::<tasks::TaskEnumDef>(item.to_token_stream())?)
+                }
+                Some(PalletAttr::Error(span)) if error.is_none() => {
+                    error = Some(error::ErrorDef::try_from(span, index, item)?)
+                }
+                Some(PalletAttr::RuntimeEvent(span)) if event.is_none() => {
+                    event = Some(event::EventDef::try_from(span, index, item)?)
+                }
+                Some(PalletAttr::GenesisConfig(_)) if genesis_config.is_none() => {
+                    let g = genesis_config::GenesisConfigDef::try_from(index, item)?;
+                    genesis_config = Some(g);
+                }
+                Some(PalletAttr::GenesisBuild(span)) if genesis_build.is_none() => {
+                    let g = genesis_build::GenesisBuildDef::try_from(span, item)?;
+                    genesis_build = Some(g);
+                }
+                Some(PalletAttr::RuntimeOrigin(_)) if origin.is_none() => {
+                    origin = Some(origin::OriginDef::try_from(item)?)
+                }
+                Some(PalletAttr::Inherent(_)) if inherent.is_none() => {
+                    inherent = Some(inherent::InherentDef::try_from(item)?)
+                }
+                Some(PalletAttr::Storage(span)) => {
+                    storages.push(storage::StorageDef::try_from(span, index, item, dev_mode)?)
+                }
+                Some(PalletAttr::ValidateUnsigned(_)) if validate_unsigned.is_none() => {
+                    let v = validate_unsigned::ValidateUnsignedDef::try_from(item)?;
+                    validate_unsigned = Some(v);
+                }
+                Some(PalletAttr::TypeValue(span)) => {
+                    type_values.push(type_value::TypeValueDef::try_from(span, index, item)?)
+                }
+                Some(PalletAttr::ExtraConstants(_)) => {
+                    extra_constants = Some(extra_constants::ExtraConstantsDef::try_from(item)?)
+                }
+                Some(PalletAttr::Composite(span)) => {
+                    let composite = composite::CompositeDef::try_from(span, &frame_support, item)?;
+                    if composites.iter().any(|def| {
+                        match (&def.composite_keyword, &composite.composite_keyword) {
+                            (
+                                CompositeKeyword::FreezeReason(_),
+                                CompositeKeyword::FreezeReason(_),
+                            )
+                            | (CompositeKeyword::HoldReason(_), CompositeKeyword::HoldReason(_))
+                            | (CompositeKeyword::LockId(_), CompositeKeyword::LockId(_))
+                            | (
+                                CompositeKeyword::SlashReason(_),
+                                CompositeKeyword::SlashReason(_),
+                            ) => true,
+                            _ => false,
+                        }
+                    }) {
+                        let msg = format!(
+                            "Invalid duplicated `{}` definition",
+                            composite.composite_keyword
+                        );
+                        return Err(syn::Error::new(composite.composite_keyword.span(), &msg));
+                    }
+                    composites.push(composite);
+                }
+                Some(attr) => {
+                    let msg = "Invalid duplicated attribute";
+                    return Err(syn::Error::new(attr.span(), msg));
+                }
+                None => (),
+            }
         }
 
         if genesis_config.is_some() != genesis_build.is_some() {
@@ -277,15 +291,15 @@ impl Def {
                 return Err(syn::Error::new(
                     *item_span,
                     "Missing `#[pallet::tasks_experimental]` impl",
-                ))
+                ));
             }
             (None, Some(tasks)) => {
                 if tasks.tasks_attr.is_none() {
                     return Err(syn::Error::new(
-						tasks.item_impl.impl_token.span(),
-						"A `#[pallet::tasks_experimental]` attribute must be attached to your `Task` impl if the \
+                        tasks.item_impl.impl_token.span(),
+                        "A `#[pallet::tasks_experimental]` attribute must be attached to your `Task` impl if the \
 						task enum has been omitted",
-					));
+                    ));
                 } else {
                 }
             }

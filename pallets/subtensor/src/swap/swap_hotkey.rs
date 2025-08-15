@@ -89,18 +89,19 @@ impl<T: Config> Pallet<T> {
         // Start to do everything for swap hotkey on all subnets case
         // 12. Get the cost for swapping the key
         let swap_cost = Self::get_key_swap_cost();
-        log::debug!("Swap cost: {:?}", swap_cost);
+        log::debug!("Swap cost: {swap_cost:?}");
 
         // 13. Ensure the coldkey has enough balance to pay for the swap
         ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost),
+            Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost.into()),
             Error::<T>::NotEnoughBalanceToPaySwapHotKey
         );
 
         weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 0));
 
         // 14. Remove the swap cost from the coldkey's account
-        let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, swap_cost)?;
+        let actual_burn_amount =
+            Self::remove_balance_from_coldkey_account(&coldkey, swap_cost.into())?;
 
         // 18. Burn the tokens
         Self::burn_tokens(actual_burn_amount);
@@ -288,7 +289,7 @@ impl<T: Config> Pallet<T> {
 
         // 3. Get the cost for swapping the key on the subnet
         let swap_cost = T::KeySwapOnSubnetCost::get();
-        log::debug!("Swap cost in subnet {:?}: {:?}", netuid, swap_cost);
+        log::debug!("Swap cost in subnet {netuid:?}: {swap_cost:?}");
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
 
         // 4. Ensure the coldkey has enough balance to pay for the swap

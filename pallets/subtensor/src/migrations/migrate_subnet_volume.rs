@@ -28,7 +28,7 @@ pub fn migrate_subnet_volume<T: Config>() -> Weight {
         Some(old_value as u128) // Convert and store as u128
     });
 
-    log::info!("Migrated {} entries in SubnetVolume", migrated);
+    log::info!("Migrated {migrated} entries in SubnetVolume");
     weight = weight.saturating_add(T::DbWeight::get().reads_writes(migrated, migrated));
 
     // Mark the migration as completed

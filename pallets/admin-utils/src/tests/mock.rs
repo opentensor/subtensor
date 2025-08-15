@@ -387,6 +387,7 @@ impl pallet_scheduler::Config for Test {
     type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Test>;
     type OriginPrivilegeCmp = OriginPrivilegeCmp;
     type Preimages = ();
+    type BlockNumberProvider = System;
 }
 
 impl pallet_evm_chain_id::Config for Test {}
@@ -516,10 +517,7 @@ pub fn register_ok_neuron(
     );
     assert_ok!(result);
     log::info!(
-        "Register ok neuron: netuid: {:?}, coldkey: {:?}, hotkey: {:?}",
-        netuid,
-        hotkey_account_id,
-        coldkey_account_id
+        "Register ok neuron: netuid: {netuid:?}, coldkey: {hotkey_account_id:?}, hotkey: {coldkey_account_id:?}"
     );
 }
 

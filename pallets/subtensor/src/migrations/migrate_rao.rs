@@ -59,7 +59,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
     // Convert subnets and give them lock.
     // Set global weight to 18% from the start
     // Set min lock
-    NetworkMinLockCost::<T>::set(1_000_000_000);
+    NetworkMinLockCost::<T>::set(TaoCurrency::from(1_000_000_000));
     // Set tao weight.
     TaoWeight::<T>::set(3_320_413_933_267_719_290);
     for netuid in netuids.iter() {
@@ -77,7 +77,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
         // The initial TAO is the locked amount, with a minimum of 1 RAO and a cap of 100 TAO.
         let pool_initial_tao = Pallet::<T>::get_network_min_lock();
         if lock < pool_initial_tao {
-            let difference: u64 = pool_initial_tao.saturating_sub(lock);
+            let difference = pool_initial_tao.saturating_sub(lock);
             TotalIssuance::<T>::mutate(|total| {
                 *total = total.saturating_add(difference);
             });
@@ -91,13 +91,13 @@ pub fn migrate_rao<T: Config>() -> Weight {
         //         .checked_div(I96F32::from_num(1_000_000_000))
         //         .unwrap_or(I96F32::from_num(0.0)),
         // );
-        Pallet::<T>::add_balance_to_coldkey_account(&owner, remaining_lock);
-        SubnetLocked::<T>::insert(netuid, 0); // Clear lock amount.
+        Pallet::<T>::add_balance_to_coldkey_account(&owner, remaining_lock.into());
+        SubnetLocked::<T>::insert(netuid, TaoCurrency::ZERO); // Clear lock amount.
         SubnetTAO::<T>::insert(netuid, pool_initial_tao);
         TotalStake::<T>::mutate(|total| {
             *total = total.saturating_add(pool_initial_tao);
         }); // Increase total stake.
-        SubnetAlphaIn::<T>::insert(netuid, AlphaCurrency::from(pool_initial_tao)); // Set initial alpha to pool initial tao.
+        SubnetAlphaIn::<T>::insert(netuid, AlphaCurrency::from(pool_initial_tao.to_u64())); // Set initial alpha to pool initial tao.
         SubnetAlphaOut::<T>::insert(netuid, AlphaCurrency::ZERO); // Set zero subnet alpha out.
         SubnetMechanism::<T>::insert(netuid, 1); // Convert to dynamic immediately with initialization.
 
@@ -119,7 +119,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
             if !IdentitiesV2::<T>::contains_key(owner_coldkey.clone()) {
                 // Set the identitiy for the Owner coldkey if non existent.
                 let identity = ChainIdentityOfV2 {
-                    name: format!("Owner{}", netuid).as_bytes().to_vec(),
+                    name: format!("Owner{netuid}").as_bytes().to_vec(),
                     url: Vec::new(),
                     image: Vec::new(),
                     github_repo: Vec::new(),

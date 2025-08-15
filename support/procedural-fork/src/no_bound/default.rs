@@ -17,7 +17,7 @@
 
 use proc_macro2::Span;
 use quote::{quote, quote_spanned};
-use syn::{spanned::Spanned, Data, DeriveInput, Fields};
+use syn::{Data, DeriveInput, Fields, spanned::Spanned};
 
 /// Derive Default but do not bound any generic.
 pub fn derive_default_no_bound(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -152,7 +152,7 @@ pub fn derive_default_no_bound(input: proc_macro::TokenStream) -> proc_macro::To
                 "Union type not supported by `derive(DefaultNoBound)`",
             )
             .to_compile_error()
-            .into()
+            .into();
         }
     };
 

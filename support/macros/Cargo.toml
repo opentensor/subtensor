@@ -1,7 +1,7 @@
 [package]
 name = "subtensor-macros"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
 license = "MIT"
 
 description = "support macros for Subtensor"
@@ -12,10 +12,16 @@ homepage = "https://bittensor.com/"
 proc-macro = true
 
 [dependencies]
-syn.workspace = true
+syn = { workspace = true, features = [
+    "full",
+    "visit-mut",
+    "visit",
+    "extra-traits",
+    "parsing",
+] }
 proc-macro2.workspace = true
 quote.workspace = true
-ahash = "0.8"
+ahash.workspace = true
 
 [lints]
 workspace = true

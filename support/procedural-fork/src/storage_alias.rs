@@ -20,15 +20,15 @@
 use crate::{counter_prefix, pallet::parse::helper};
 use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use proc_macro2::{Span, TokenStream};
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{
+    Attribute, Error, Ident, Result, Token, Type, TypeParam, Visibility, WhereClause,
     parenthesized,
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
     spanned::Spanned,
     token,
     visit::Visit,
-    Attribute, Error, Ident, Result, Token, Type, TypeParam, Visibility, WhereClause,
 };
 
 /// Extension trait for [`Type`].
@@ -607,7 +607,7 @@ fn generate_storage_instance(
                     return Err(Error::new_spanned(
                         prefix,
                         "Prefix type `verbatim` requires that the prefix is an ident.",
-                    ))
+                    ));
                 }
             };
 

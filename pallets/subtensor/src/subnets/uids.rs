@@ -35,10 +35,7 @@ impl<T: Config> Pallet<T> {
         block_number: u64,
     ) {
         log::debug!(
-            "replace_neuron( netuid: {:?} | uid_to_replace: {:?} | new_hotkey: {:?} ) ",
-            netuid,
-            uid_to_replace,
-            new_hotkey
+            "replace_neuron( netuid: {netuid:?} | uid_to_replace: {uid_to_replace:?} | new_hotkey: {new_hotkey:?} ) "
         );
 
         // 1. Get the old hotkey under this position.
@@ -49,11 +46,7 @@ impl<T: Config> Pallet<T> {
             if sn_owner_hotkey == old_hotkey.clone() {
                 log::warn!(
                     "replace_neuron: Skipped replacement because neuron is the subnet owner hotkey. \
-                    netuid: {:?}, uid_to_replace: {:?}, new_hotkey: {:?}, owner_hotkey: {:?}",
-                    netuid,
-                    uid_to_replace,
-                    new_hotkey,
-                    sn_owner_hotkey
+                    netuid: {netuid:?}, uid_to_replace: {uid_to_replace:?}, new_hotkey: {new_hotkey:?}, owner_hotkey: {sn_owner_hotkey:?}"
                 );
                 return;
             }
@@ -88,10 +81,7 @@ impl<T: Config> Pallet<T> {
         // 1. Get the next uid. This is always equal to subnetwork_n.
         let next_uid: u16 = Self::get_subnetwork_n(netuid);
         log::debug!(
-            "append_neuron( netuid: {:?} | next_uid: {:?} | new_hotkey: {:?} ) ",
-            netuid,
-            new_hotkey,
-            next_uid
+            "append_neuron( netuid: {netuid:?} | next_uid: {new_hotkey:?} | new_hotkey: {next_uid:?} ) "
         );
 
         // 2. Get and increase the uid count.

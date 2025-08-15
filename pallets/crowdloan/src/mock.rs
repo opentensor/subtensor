@@ -38,6 +38,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
             (U256::from(4), 10),
             (U256::from(5), 3),
         ],
+        dev_accounts: None,
     }
     .assimilate_storage(&mut t)
     .expect("Expected to not panic");
@@ -242,6 +243,7 @@ impl TestState {
                 .iter()
                 .map(|(who, balance)| (*who, *balance))
                 .collect::<Vec<_>>(),
+            dev_accounts: None,
         }
         .assimilate_storage(&mut t)
         .unwrap();

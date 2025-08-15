@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use enumflags2::{BitFlags, bitflags};
 use frame_support::{
     BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound,
@@ -37,7 +37,7 @@ use subtensor_macros::freeze_struct;
 /// than 32-bytes then it will be truncated when encoding.
 ///
 /// Can also be `None`.
-#[derive(Clone, Eq, PartialEq, RuntimeDebug, MaxEncodedLen)]
+#[derive(Clone, Eq, PartialEq, RuntimeDebug, DecodeWithMemTracking, MaxEncodedLen)]
 pub enum Data {
     /// No data here.
     None,
@@ -280,9 +280,17 @@ impl TypeInfo for IdentityFields {
 ///
 /// NOTE: This should be stored at the end of the storage item to facilitate the addition of extra
 /// fields in a backwards compatible way through a specialized `Decode` impl.
-#[freeze_struct("98e2d7fc7536226b")]
+#[freeze_struct("4015f12f49280ee")]
 #[derive(
-    CloneNoBound, Encode, Decode, Eq, MaxEncodedLen, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
+    CloneNoBound,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    Eq,
+    MaxEncodedLen,
+    PartialEqNoBound,
+    RuntimeDebugNoBound,
+    TypeInfo,
 )]
 #[codec(mel_bound())]
 #[derive(frame_support::DefaultNoBound)]
@@ -432,7 +440,7 @@ mod tests {
                     .variants
                     .iter()
                     .find(|v| v.name == variant_name)
-                    .unwrap_or_else(|| panic!("Expected to find variant {}", variant_name));
+                    .unwrap_or_else(|| panic!("Expected to find variant {variant_name}"));
 
                 let field_arr_len = variant
                     .fields

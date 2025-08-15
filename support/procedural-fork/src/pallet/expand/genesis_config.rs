@@ -15,10 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{pallet::Def, COUNTER};
+use crate::{COUNTER, pallet::Def};
 use frame_support_procedural_tools::get_doc_literals;
 use quote::ToTokens;
-use syn::{spanned::Spanned, Ident};
+use syn::{Ident, spanned::Spanned};
 
 ///
 /// * add various derive trait on GenesisConfig struct.

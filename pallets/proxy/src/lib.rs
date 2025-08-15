@@ -39,18 +39,18 @@ use alloc::{boxed::Box, vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::{Pays, Weight};
 use frame_support::{
+    BoundedVec,
     dispatch::GetDispatchInfo,
     ensure,
     traits::{Currency, Get, InstanceFilter, IsSubType, IsType, OriginTrait, ReservableCurrency},
-    BoundedVec,
 };
 use frame_system::{self as system, ensure_signed, pallet_prelude::BlockNumberFor};
 pub use pallet::*;
-use scale_info::{prelude::cmp::Ordering, TypeInfo};
+use scale_info::{TypeInfo, prelude::cmp::Ordering};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-    traits::{Dispatchable, Hash, Saturating, StaticLookup, TrailingZeroInput, Zero},
     DispatchError, DispatchResult, RuntimeDebug,
+    traits::{Dispatchable, Hash, Saturating, StaticLookup, TrailingZeroInput, Zero},
 };
 use subtensor_macros::freeze_struct;
 pub use weights::WeightInfo;
@@ -412,7 +412,7 @@ pub mod pallet {
                 height: system::Pallet::<T>::block_number(),
             };
 
-            Announcements::<T>::try_mutate(&who, |(ref mut pending, ref mut deposit)| {
+            Announcements::<T>::try_mutate(&who, |(pending, deposit)| {
                 pending
                     .try_push(announcement)
                     .map_err(|_| Error::<T>::TooMany)?;
@@ -709,7 +709,7 @@ impl<T: Config> Pallet<T> {
         delay: BlockNumberFor<T>,
     ) -> DispatchResult {
         ensure!(delegator != &delegatee, Error::<T>::NoSelfProxy);
-        Proxies::<T>::try_mutate(delegator, |(ref mut proxies, ref mut deposit)| {
+        Proxies::<T>::try_mutate(delegator, |(proxies, deposit)| {
             let proxy_def = ProxyDefinition {
                 delegate: delegatee.clone(),
                 proxy_type: proxy_type.clone(),
@@ -876,8 +876,8 @@ impl<T: Config> Pallet<T> {
             match c.is_sub_type() {
                 // Proxy call cannot add or remove a proxy with more permissions than it already
                 // has.
-                Some(Call::add_proxy { ref proxy_type, .. })
-                | Some(Call::remove_proxy { ref proxy_type, .. })
+                Some(Call::add_proxy { proxy_type, .. })
+                | Some(Call::remove_proxy { proxy_type, .. })
                     if !def.proxy_type.is_superset(proxy_type) =>
                 {
                     false

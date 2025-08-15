@@ -242,5 +242,9 @@ mod errors {
         SymbolDoesNotExist,
         /// Symbol already in use.
         SymbolAlreadyInUse,
+        /// Incorrect commit-reveal version.
+        IncorrectCommitRevealVersion,
+        /// Generic error for out-of-range parameter value
+        InvalidValue,
     }
 }

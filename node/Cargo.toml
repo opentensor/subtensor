@@ -4,7 +4,7 @@ version = "4.0.0-dev"
 description = "A fresh FRAME-based Substrate node, ready for hacking."
 authors = ["Substrate DevHub <https://github.com/substrate-developer-hub>"]
 homepage = "https://substrate.io/"
-edition = "2024"
+edition.workspace = true
 license = "Unlicense"
 publish = false
 repository = "https://github.com/opentensor/subtensor"
@@ -20,91 +20,97 @@ targets = ["x86_64-unknown-linux-gnu"]
 name = "node-subtensor"
 
 [dependencies]
-async-trait = { workspace = true }
+log.workspace = true
+async-trait.workspace = true
 clap = { workspace = true, features = ["derive"] }
 futures = { workspace = true, features = ["thread-pool"] }
-scale-codec = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-hex = { workspace = true }
+hex.workspace = true
 
 # Storage import
-memmap2 = { workspace = true }
-serde_json = { workspace = true }
+memmap2.workspace = true
+serde_json.workspace = true
 
-sc-cli = { workspace = true }
-sp-core = { workspace = true }
-sc-executor = { workspace = true }
-sc-service = { workspace = true }
-sc-telemetry = { workspace = true }
-sc-keystore = { workspace = true }
-sc-transaction-pool = { workspace = true }
-sc-transaction-pool-api = { workspace = true }
-sc-offchain = { workspace = true }
-sc-network = { workspace = true }
-sc-consensus-aura = { workspace = true }
-sp-consensus-aura = { workspace = true }
-sp-consensus = { workspace = true }
-sc-consensus = { workspace = true }
-sc-consensus-grandpa = { workspace = true }
-sc-consensus-grandpa-rpc = { workspace = true }
-sp-consensus-grandpa = { workspace = true }
-sc-chain-spec-derive = { workspace = true }
-sc-chain-spec = { workspace = true }
-sc-consensus-slots = { workspace = true }
-sc-client-api = { workspace = true }
-sp-runtime = { workspace = true }
-sp-io = { workspace = true }
-sp-timestamp = { workspace = true }
+sc-chain-spec-derive.workspace = true
+sc-cli.workspace = true
+sc-consensus-babe.workspace = true
+sp-consensus.workspace = true
+sp-consensus-slots.workspace = true
+sp-core.workspace = true
+sc-executor.workspace = true
+sc-service.workspace = true
+sc-telemetry.workspace = true
+sc-keystore.workspace = true
+sc-transaction-pool.workspace = true
+sc-transaction-pool-api.workspace = true
+sc-offchain.workspace = true
+sc-network.workspace = true
+sc-consensus-aura.workspace = true
+sp-consensus-aura.workspace = true
+sp-consensus-babe.workspace = true
+sc-consensus-babe-rpc.workspace = true
+sc-consensus.workspace = true
+sc-consensus-grandpa.workspace = true
+sc-consensus-grandpa-rpc.workspace = true
+sp-consensus-grandpa.workspace = true
+sc-chain-spec.workspace = true
+sc-consensus-slots.workspace = true
+sc-client-api.workspace = true
+sp-runtime.workspace = true
+sp-io.workspace = true
+sp-timestamp.workspace = true
 sp-transaction-pool = { workspace = true, features = ["default"] }
-sp-inherents = { workspace = true }
-sp-keyring = { workspace = true }
-sp-offchain = { workspace = true }
-sp-session = { workspace = true }
-frame-metadata-hash-extension = { workspace = true }
-frame-system = { workspace = true }
-pallet-transaction-payment = { workspace = true }
-pallet-commitments = { path = "../pallets/commitments" }
-pallet-drand = { workspace = true }
-sp-crypto-ec-utils = { workspace = true }
-sp-keystore = { workspace = true, default-features = false }
-cumulus-primitives-proof-size-hostfunction =  { workspace = true, default-features =  false }
+sp-inherents.workspace = true
+sp-keyring.workspace = true
+sp-offchain.workspace = true
+sp-session.workspace = true
+frame-metadata-hash-extension.workspace = true
+frame-system.workspace = true
+pallet-transaction-payment.workspace = true
+pallet-commitments.workspace = true
+pallet-drand.workspace = true
+sp-crypto-ec-utils = { workspace = true, default-features = true, features = [
+	"bls12-381",
+] }
+sp-keystore.workspace = true
+cumulus-primitives-proof-size-hostfunction.workspace = true
 
 
 # These dependencies are used for the subtensor's RPCs
 jsonrpsee = { workspace = true, features = ["server"] }
-sc-rpc = { workspace = true }
-sp-api = { workspace = true }
-sc-rpc-api = { workspace = true }
-sp-blockchain = { workspace = true }
-sp-block-builder = { workspace = true }
-sc-basic-authorship = { workspace = true }
-substrate-frame-rpc-system = { workspace = true }
-pallet-transaction-payment-rpc = { workspace = true }
-frame-system-rpc-runtime-api = { workspace = true }
-pallet-transaction-payment-rpc-runtime-api = { workspace = true }
+sc-rpc.workspace = true
+sp-api.workspace = true
+sc-rpc-api.workspace = true
+sp-blockchain.workspace = true
+sp-block-builder.workspace = true
+sc-basic-authorship.workspace = true
+substrate-frame-rpc-system.workspace = true
+pallet-transaction-payment-rpc.workspace = true
+frame-system-rpc-runtime-api.workspace = true
+pallet-transaction-payment-rpc-runtime-api.workspace = true
 
 # These dependencies are used for runtime benchmarking
-frame-benchmarking = { workspace = true }
-frame-benchmarking-cli = { workspace = true }
+frame-benchmarking.workspace = true
+frame-benchmarking-cli.workspace = true
 
 # Needed for Frontier
-sc-consensus-manual-seal = { workspace = true }
-sc-network-sync = { workspace = true }
-substrate-prometheus-endpoint = { workspace = true }
+fc-mapping-sync.workspace = true
+fc-storage.workspace = true
+fc-babe.workspace = true
+sc-consensus-manual-seal.workspace = true
+sc-network-sync.workspace = true
+substrate-prometheus-endpoint.workspace = true
 
 # Frontier
-fc-storage = { workspace = true }
-fc-db = { workspace = true }
-fc-consensus = { workspace = true }
-fc-api = { workspace = true }
-fc-rpc = { workspace = true }
-fc-rpc-core = { workspace = true }
-fp-rpc = { workspace = true }
-fc-aura = { workspace = true }
-fc-mapping-sync = { workspace = true }
-fp-consensus = { workspace = true }
-thiserror = { workspace = true }
-num-traits = { version = "0.2", features = ["std"] }
+fc-db.workspace = true
+fc-consensus.workspace = true
+fc-api.workspace = true
+fc-rpc = { workspace = true, features = ["rpc-binary-search-estimate"] }
+fc-rpc-core.workspace = true
+fp-rpc.workspace = true
+fc-aura.workspace = true
+fp-consensus.workspace = true
+num-traits = { workspace = true, features = ["std"] }
 
 # Local Dependencies
 node-subtensor-runtime = { workspace = true, features = ["std"] }
@@ -115,18 +121,23 @@ pallet-subtensor-swap-rpc = { workspace = true, features = ["std"] }
 pallet-subtensor-swap-runtime-api = { workspace = true, features = ["std"] }
 
 [build-dependencies]
-substrate-build-script-utils = { workspace = true }
+substrate-build-script-utils.workspace = true
 
 [features]
-default = ["rocksdb", "sql", "txpool"]
-fast-blocks = ["node-subtensor-runtime/fast-blocks"]
-sql = ["fc-db/sql", "fc-mapping-sync/sql"]
 rocksdb = [
 	"sc-service/rocksdb",
 	"fc-db/rocksdb",
 	"fc-mapping-sync/rocksdb",
 	"fc-rpc/rocksdb",
+	"frame-benchmarking-cli/rocksdb",
+	"sc-cli/rocksdb",
 ]
+default = ["rocksdb", "sql", "txpool"]
+fast-runtime = [
+	"node-subtensor-runtime/fast-runtime",
+	"subtensor-runtime-common/fast-runtime",
+]
+sql = ["fc-db/sql", "fc-mapping-sync/sql"]
 txpool = ["fc-rpc/txpool", "fc-rpc-core/txpool"]
 
 # Dependencies that are only required if runtime benchmarking should be build.

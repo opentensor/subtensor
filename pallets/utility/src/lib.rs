@@ -61,7 +61,7 @@ extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
-    dispatch::{extract_actual_weight, GetDispatchInfo, PostDispatchInfo},
+    dispatch::{GetDispatchInfo, PostDispatchInfo, extract_actual_weight},
     traits::{IsSubType, OriginTrait, UnfilteredDispatchable},
 };
 use sp_core::TypeId;
@@ -157,8 +157,7 @@ pub mod pallet {
             // If you hit this error, you need to try to `Box` big dispatchable parameters.
             assert!(
                 core::mem::size_of::<<T as Config>::RuntimeCall>() as u32 <= CALL_ALIGN,
-                "Call enum size should be smaller than {} bytes.",
-                CALL_ALIGN,
+                "Call enum size should be smaller than {CALL_ALIGN} bytes.",
             );
         }
     }

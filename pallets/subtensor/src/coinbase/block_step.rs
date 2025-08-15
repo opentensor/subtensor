@@ -1,19 +1,22 @@
 use super::*;
 use safe_math::*;
 use substrate_fixed::types::{U96F32, U110F18};
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{NetUid, TaoCurrency};
 
 impl<T: Config + pallet_drand::Config> Pallet<T> {
     /// Executes the necessary operations for each block.
     pub fn block_step() -> Result<(), &'static str> {
         let block_number: u64 = Self::get_current_block_as_u64();
-        log::debug!("block_step for block: {:?} ", block_number);
+        log::debug!("block_step for block: {block_number:?} ");
         // --- 1. Adjust difficulties.
         Self::adjust_registration_terms_for_networks();
         // --- 2. Get the current coinbase emission.
-        let block_emission: U96F32 =
-            U96F32::saturating_from_num(Self::get_block_emission().unwrap_or(0));
-        log::debug!("Block emission: {:?}", block_emission);
+        let block_emission: U96F32 = U96F32::saturating_from_num(
+            Self::get_block_emission()
+                .unwrap_or(TaoCurrency::ZERO)
+                .to_u64(),
+        );
+        log::debug!("Block emission: {block_emission:?}");
         // --- 3. Run emission through network.
         Self::run_coinbase(block_emission);
         // --- 4. Set pending children on the epoch; but only after the coinbase has been run.
@@ -43,11 +46,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
             let adjustment_interval: u16 = Self::get_adjustment_interval(netuid);
             let current_block: u64 = Self::get_current_block_as_u64();
             log::debug!(
-                "netuid: {:?} last_adjustment_block: {:?} adjustment_interval: {:?} current_block: {:?}",
-                netuid,
-                last_adjustment_block,
-                adjustment_interval,
-                current_block
+                "netuid: {netuid:?} last_adjustment_block: {last_adjustment_block:?} adjustment_interval: {adjustment_interval:?} current_block: {current_block:?}"
             );
 
             // --- 3. Check if we are at the adjustment interval for this network.
@@ -56,7 +55,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                 log::debug!("interval reached.");
 
                 // --- 4. Get the current counters for this network w.r.t burn and difficulty values.
-                let current_burn: u64 = Self::get_burn_as_u64(netuid);
+                let current_burn = Self::get_burn(netuid);
                 let current_difficulty: u64 = Self::get_difficulty_as_u64(netuid);
                 let registrations_this_interval: u16 =
                     Self::get_registrations_this_interval(netuid);
@@ -228,10 +227,10 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
     ///
     pub fn upgraded_burn(
         netuid: NetUid,
-        current_burn: u64,
+        current_burn: TaoCurrency,
         registrations_this_interval: u16,
         target_registrations_per_interval: u16,
-    ) -> u64 {
+    ) -> TaoCurrency {
         let updated_burn: U110F18 = U110F18::saturating_from_num(current_burn)
             .saturating_mul(U110F18::saturating_from_num(
                 registrations_this_interval.saturating_add(target_registrations_per_interval),
@@ -248,12 +247,12 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                     .saturating_sub(alpha)
                     .saturating_mul(updated_burn),
             );
-        if next_value >= U110F18::saturating_from_num(Self::get_max_burn_as_u64(netuid)) {
-            Self::get_max_burn_as_u64(netuid)
-        } else if next_value <= U110F18::saturating_from_num(Self::get_min_burn_as_u64(netuid)) {
-            return Self::get_min_burn_as_u64(netuid);
+        if next_value >= U110F18::saturating_from_num(Self::get_max_burn(netuid)) {
+            Self::get_max_burn(netuid)
+        } else if next_value <= U110F18::saturating_from_num(Self::get_min_burn(netuid)) {
+            return Self::get_min_burn(netuid);
         } else {
-            return next_value.saturating_to_num::<u64>();
+            return next_value.saturating_to_num::<u64>().into();
         }
     }
 }

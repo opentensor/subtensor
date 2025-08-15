@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{pallet::Def, NUMBER_OF_INSTANCE};
+use crate::{NUMBER_OF_INSTANCE, pallet::Def};
 use proc_macro2::Span;
 
 ///
