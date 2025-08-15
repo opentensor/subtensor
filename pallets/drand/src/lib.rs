@@ -331,9 +331,9 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// Verify and write a pulse from the beacon into the runtime
         #[pallet::call_index(0)]
-        #[pallet::weight(Weight::from_parts(4_294_000_000, 0)
+        #[pallet::weight((Weight::from_parts(4_294_000_000, 0)
         .saturating_add(T::DbWeight::get().reads(3_u64))
-        .saturating_add(T::DbWeight::get().writes(4_u64)))]
+        .saturating_add(T::DbWeight::get().writes(4_u64)), DispatchClass::Operational))]
         pub fn write_pulse(
             origin: OriginFor<T>,
             pulses_payload: PulsesPayload<T::Public, BlockNumberFor<T>>,
@@ -404,9 +404,9 @@ pub mod pallet {
         /// * `origin`: the root user
         /// * `config`: the beacon configuration
         #[pallet::call_index(1)]
-        #[pallet::weight(Weight::from_parts(5_450_000, 0)
+        #[pallet::weight((Weight::from_parts(5_450_000, 0)
         .saturating_add(T::DbWeight::get().reads(0_u64))
-        .saturating_add(T::DbWeight::get().writes(2_u64)))]
+        .saturating_add(T::DbWeight::get().writes(2_u64)), DispatchClass::Operational))]
         pub fn set_beacon_config(
             origin: OriginFor<T>,
             config_payload: BeaconConfigurationPayload<T::Public, BlockNumberFor<T>>,
@@ -425,9 +425,9 @@ pub mod pallet {
 
         /// allows the root user to set the oldest stored round
         #[pallet::call_index(2)]
-        #[pallet::weight(Weight::from_parts(3_350_000, 0)
+        #[pallet::weight((Weight::from_parts(3_350_000, 0)
         .saturating_add(T::DbWeight::get().reads(0_u64))
-        .saturating_add(T::DbWeight::get().writes(1_u64)))]
+        .saturating_add(T::DbWeight::get().writes(1_u64)), DispatchClass::Operational))]
         pub fn set_oldest_stored_round(origin: OriginFor<T>, oldest_round: u64) -> DispatchResult {
             ensure_root(origin)?;
             OldestStoredRound::<T>::put(oldest_round);
