@@ -36,7 +36,7 @@ pub trait SwapHandler<AccountId> {
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool;
 }
 
-#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
+#[derive(Debug, PartialEq)]
 pub struct SwapResult {
     pub amount_paid_in: u64,
     pub amount_paid_out: u64,
