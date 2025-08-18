@@ -15,4 +15,12 @@ subtensor-swap-interface.workspace = true
 
 [features]
 default = ["std"]
-std = ["codec/std", "scale-info/std", "sp-api/std", "sp-std/std", "subtensor-runtime-common/std", "subtensor-swap-interface/std"]
+std = [
+    "codec/std",
+    "frame-support/std",
+    "scale-info/std",
+    "sp-api/std",
+    "sp-std/std",
+    "subtensor-runtime-common/std",
+    "subtensor-swap-interface/std"
+]
