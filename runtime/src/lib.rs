@@ -36,6 +36,7 @@ use pallet_subtensor::rpc_info::{
     stake_info::StakeInfo,
     subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
 };
+use pallet_subtensor_swap_runtime_api::SimSwapResult;
 use runtime_common::prod_or_fast;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -62,7 +63,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use subtensor_precompiles::Precompiles;
 use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
-use subtensor_swap_interface::{OrderType, SwapHandler, SwapResult};
+use subtensor_swap_interface::{OrderType, SwapHandler};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -2417,32 +2418,48 @@ impl_runtime_apis! {
                 .saturating_to_num()
         }
 
-        fn sim_swap_tao_for_alpha(netuid: NetUid, tao: TaoCurrency) -> SwapResult {
+        fn sim_swap_tao_for_alpha(netuid: NetUid, tao: TaoCurrency) -> SimSwapResult {
             pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
                 netuid.into(),
                 OrderType::Buy,
                 tao.into(),
-            ).unwrap_or(SwapResult {
-                amount_paid_in: 0,
-                amount_paid_out: 0,
-                fee_paid: 0,
-                tao_reserve_delta: 0,
-                alpha_reserve_delta: 0,
-            })
+            )
+            .map_or_else(
+                |_| SimSwapResult {
+                    tao_amount:   0.into(),
+                    alpha_amount: 0.into(),
+                    tao_fee:      0.into(),
+                    alpha_fee:    0.into(),
+                },
+                |sr| SimSwapResult {
+                    tao_amount:   sr.amount_paid_in.into(),
+                    alpha_amount: sr.amount_paid_out.into(),
+                    tao_fee:      sr.fee_paid.into(),
+                    alpha_fee:    0.into(),
+                },
+            )
         }
 
-        fn sim_swap_alpha_for_tao(netuid: NetUid, alpha: AlphaCurrency) -> SwapResult {
+        fn sim_swap_alpha_for_tao(netuid: NetUid, alpha: AlphaCurrency) -> SimSwapResult {
             pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
                 netuid.into(),
                 OrderType::Sell,
                 alpha.into(),
-            ).unwrap_or(SwapResult {
-                amount_paid_in: 0,
-                amount_paid_out: 0,
-                fee_paid: 0,
-                tao_reserve_delta: 0,
-                alpha_reserve_delta: 0,
-            })
+            )
+            .map_or_else(
+                |_| SimSwapResult {
+                    tao_amount:   0.into(),
+                    alpha_amount: 0.into(),
+                    tao_fee:      0.into(),
+                    alpha_fee:    0.into(),
+                },
+                |sr| SimSwapResult {
+                    tao_amount:   sr.amount_paid_out.into(),
+                    alpha_amount: sr.amount_paid_in.into(),
+                    tao_fee:      0.into(),
+                    alpha_fee:    sr.fee_paid.into(),
+                },
+            )
         }
     }
 }

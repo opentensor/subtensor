@@ -6,6 +6,7 @@ edition.workspace = true
 
 [dependencies]
 codec = { workspace = true, features = ["derive"] }
+frame-support.workspace = true
 scale-info.workspace = true
 sp-api.workspace = true
 sp-std.workspace = true

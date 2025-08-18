@@ -8232,6 +8232,7 @@ dependencies = [
 name = "pallet-subtensor-swap-runtime-api"
 version = "1.0.0"
 dependencies = [
+ "frame-support",
  "parity-scale-codec",
  "scale-info",
  "sp-api",
