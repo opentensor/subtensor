@@ -15,13 +15,32 @@ interface Staking {
     ) external;
 
     function addStake(bytes32 hotkey, uint256 amount, uint256 netuid) external;
+
+    function removeStake(
+        bytes32 hotkey,
+        uint256 amount,
+        uint256 netuid
+    ) external;
 }
 
 contract StakeWrap {
-    constructor() {}
+    address public owner;
+    constructor() {
+        owner = msg.sender;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this function");
+        _;
+    }
+
     receive() external payable {}
 
-    function stake(bytes32 hotkey, uint256 netuid, uint256 amount) external {
+    function stake(
+        bytes32 hotkey,
+        uint256 netuid,
+        uint256 amount
+    ) external onlyOwner {
         // can't call precompile like this way, the call never go to runtime precompile
         //Staking(ISTAKING_ADDRESS).addStake(hotkey, amount, netuid);
 
@@ -41,7 +60,7 @@ contract StakeWrap {
         uint256 limitPrice,
         uint256 amount,
         bool allowPartial
-    ) external {
+    ) external onlyOwner {
         // can't call precompile like this way, the call never go to runtime precompile
         // Staking(ISTAKING_ADDRESS).addStakeLimit(
         //     hotkey,
@@ -67,7 +86,7 @@ contract StakeWrap {
         bytes32 hotkey,
         uint256 netuid,
         uint256 amount
-    ) external {
+    ) external onlyOwner {
         bytes memory data = abi.encodeWithSelector(
             Staking.removeStake.selector,
             hotkey,
