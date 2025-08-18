@@ -27,25 +27,25 @@ WORKDIR /build
 RUN set -o pipefail && curl https://sh.rustup.rs -sSf | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 RUN rustup toolchain install
-RUN rustup target add wasm32-unknown-unknown
+RUN rustup target add wasm32v1-none
 
-## Build fast-blocks node
+## Build fast-runtime node
 RUN ./scripts/localnet.sh --build-only
-# Build non-fast-blocks
+# Build non-fast-runtime
 RUN ./scripts/localnet.sh False --build-only
 
 # Verify the binaries was produced
-RUN test -e /build/target/fast-blocks/release/node-subtensor
-RUN test -e /build/target/non-fast-blocks/release/node-subtensor
+RUN test -e /build/target/fast-runtime/release/node-subtensor
+RUN test -e /build/target/non-fast-runtime/release/node-subtensor
 
 FROM $BASE_IMAGE AS subtensor-localnet
 
 # Copy binaries
-COPY --from=builder /build/target/fast-blocks/release/node-subtensor target/fast-blocks/release/node-subtensor
-RUN chmod +x target/fast-blocks/release/node-subtensor
+COPY --from=builder /build/target/fast-runtime/release/node-subtensor target/fast-runtime/release/node-subtensor
+RUN chmod +x target/fast-runtime/release/node-subtensor
 
-COPY --from=builder /build/target/non-fast-blocks/release/node-subtensor target/non-fast-blocks/release/node-subtensor
-RUN chmod +x target/non-fast-blocks/release/node-subtensor
+COPY --from=builder /build/target/non-fast-runtime/release/node-subtensor target/non-fast-runtime/release/node-subtensor
+RUN chmod +x target/non-fast-runtime/release/node-subtensor
 
 COPY --from=builder /build/snapshot.json /snapshot.json
 

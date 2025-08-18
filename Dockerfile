@@ -18,7 +18,7 @@ LABEL ai.opentensor.image.authors="operations@opentensor.ai" \
 
 # Rust targets
 RUN rustup update stable && \
-  rustup target add wasm32-unknown-unknown --toolchain stable
+  rustup target add wasm32v1-none --toolchain stable
 
 # Build prerequisites
 ENV RUST_BACKTRACE=1

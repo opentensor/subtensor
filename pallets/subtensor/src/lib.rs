@@ -8,6 +8,9 @@
 use frame_system::{self as system, ensure_signed};
 pub use pallet::*;
 
+use codec::{Decode, DecodeWithMemTracking, Encode};
+use frame_support::sp_runtime::transaction_validity::InvalidTransaction;
+use frame_support::sp_runtime::transaction_validity::ValidTransaction;
 use frame_support::{
     dispatch::{self, DispatchInfo, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo},
     ensure,
@@ -15,10 +18,6 @@ use frame_support::{
     pallet_prelude::*,
     traits::{IsSubType, tokens::fungible},
 };
-
-use codec::{Decode, DecodeWithMemTracking, Encode};
-use frame_support::sp_runtime::transaction_validity::InvalidTransaction;
-use frame_support::sp_runtime::transaction_validity::ValidTransaction;
 use pallet_balances::Call as BalancesCall;
 // use pallet_scheduler as Scheduler;
 use scale_info::TypeInfo;
@@ -85,6 +84,7 @@ pub mod pallet {
     };
     use frame_system::pallet_prelude::*;
     use pallet_drand::types::RoundNumber;
+    use runtime_common::prod_or_fast;
     use sp_core::{ConstU32, H160, H256};
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::collections::vec_deque::VecDeque;
@@ -810,11 +810,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for applying pending items (e.g. childkeys).
     pub fn DefaultPendingCooldown<T: Config>() -> u64 {
-        if cfg!(feature = "fast-blocks") {
-            return 15;
-        }
-
-        7_200
+        prod_or_fast!(7_200, 15)
     }
 
     #[pallet::type_value]
@@ -1918,6 +1914,9 @@ pub enum CustomTransactionError {
     BadRequest,
     ZeroMaxAmount,
     InvalidRevealRound,
+    CommitNotFound,
+    CommitBlockNotInRevealRange,
+    InputLengthsUnequal,
 }
 
 impl From<CustomTransactionError> for u8 {
@@ -1940,6 +1939,9 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::BadRequest => 255,
             CustomTransactionError::ZeroMaxAmount => 14,
             CustomTransactionError::InvalidRevealRound => 15,
+            CustomTransactionError::CommitNotFound => 16,
+            CustomTransactionError::CommitBlockNotInRevealRange => 17,
+            CustomTransactionError::InputLengthsUnequal => 18,
         }
     }
 }
@@ -2081,20 +2083,84 @@ where
                     Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
-            Some(Call::reveal_weights { netuid, .. }) => {
+            Some(Call::reveal_weights {
+                netuid,
+                uids,
+                values,
+                salt,
+                version_key,
+            }) => {
                 if Self::check_weights_min_stake(who, *netuid) {
-                    let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                    let validity = Self::validity_ok(priority);
-                    Ok((validity, Some(who.clone()), origin))
+                    let provided_hash = Pallet::<T>::get_commit_hash(
+                        who,
+                        *netuid,
+                        uids,
+                        values,
+                        salt,
+                        *version_key,
+                    );
+                    match Pallet::<T>::find_commit_block_via_hash(provided_hash) {
+                        Some(commit_block) => {
+                            if Pallet::<T>::is_reveal_block_range(*netuid, commit_block) {
+                                let priority: u64 = Self::get_priority_set_weights(who, *netuid);
+                                let validity = Self::validity_ok(priority);
+                                Ok((validity, Some(who.clone()), origin))
+                            } else {
+                                Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
+                            }
+                        }
+                        None => Err(CustomTransactionError::CommitNotFound.into()),
+                    }
                 } else {
                     Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
-            Some(Call::batch_reveal_weights { netuid, .. }) => {
+            Some(Call::batch_reveal_weights {
+                netuid,
+                uids_list,
+                values_list,
+                salts_list,
+                version_keys,
+            }) => {
                 if Self::check_weights_min_stake(who, *netuid) {
-                    let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                    let validity = Self::validity_ok(priority);
-                    Ok((validity, Some(who.clone()), origin))
+                    let num_reveals = uids_list.len();
+                    if num_reveals == values_list.len()
+                        && num_reveals == salts_list.len()
+                        && num_reveals == version_keys.len()
+                    {
+                        let provided_hashs = (0..num_reveals)
+                            .map(|i| {
+                                Pallet::<T>::get_commit_hash(
+                                    who,
+                                    *netuid,
+                                    uids_list.get(i).unwrap_or(&Vec::new()),
+                                    values_list.get(i).unwrap_or(&Vec::new()),
+                                    salts_list.get(i).unwrap_or(&Vec::new()),
+                                    *version_keys.get(i).unwrap_or(&0_u64),
+                                )
+                            })
+                            .collect::<Vec<_>>();
+
+                        let batch_reveal_block = provided_hashs
+                            .iter()
+                            .filter_map(|hash| Pallet::<T>::find_commit_block_via_hash(*hash))
+                            .collect::<Vec<_>>();
+
+                        if provided_hashs.len() == batch_reveal_block.len() {
+                            if Pallet::<T>::is_batch_reveal_block_range(*netuid, batch_reveal_block)
+                            {
+                                let priority: u64 = Self::get_priority_set_weights(who, *netuid);
+                                let validity = Self::validity_ok(priority);
+                                Ok((validity, Some(who.clone()), origin))
+                            } else {
+                                Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
+                            }
+                        } else {
+                            Err(CustomTransactionError::CommitNotFound.into())
+                        }
+                    } else {
+                        Err(CustomTransactionError::InputLengthsUnequal.into())
+                    }
                 } else {
                     Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
