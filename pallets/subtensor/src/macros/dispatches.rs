@@ -413,7 +413,7 @@ mod dispatches {
         /// 	- Attempting to set weights with max value exceeding limit.
         ///
         #[pallet::call_index(8)]
-        #[pallet::weight((Weight::from_parts(3_176_000, 0)
+        #[pallet::weight((Weight::from_parts(4_087_000, 0)
 		.saturating_add(T::DbWeight::get().reads(0_u64))
 		.saturating_add(T::DbWeight::get().writes(0_u64)), DispatchClass::Normal, Pays::No))]
         pub fn set_tao_weights(
@@ -693,7 +693,7 @@ mod dispatches {
         /// 	- Attempting to set prometheus information withing the rate limit min.
         ///
         #[pallet::call_index(4)]
-        #[pallet::weight((Weight::from_parts(26_200_000, 0)
+        #[pallet::weight((Weight::from_parts(35_030_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_axon(
@@ -827,7 +827,7 @@ mod dispatches {
         /// 	- The ip type v4 or v6.
         ///
         #[pallet::call_index(5)]
-        #[pallet::weight((Weight::from_parts(28_660_000, 0)
+        #[pallet::weight((Weight::from_parts(37_030_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_prometheus(
@@ -915,7 +915,7 @@ mod dispatches {
 
         /// Attempt to adjust the senate membership to include a hotkey
         #[pallet::call_index(63)]
-        #[pallet::weight((Weight::from_parts(60_720_000, 0)
+        #[pallet::weight((Weight::from_parts(74_850_000, 0)
 		.saturating_add(T::DbWeight::get().reads(7))
 		.saturating_add(T::DbWeight::get().writes(4)), DispatchClass::Normal, Pays::Yes))]
         pub fn adjust_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
