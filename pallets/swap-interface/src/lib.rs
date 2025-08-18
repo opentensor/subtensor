@@ -34,6 +34,7 @@ pub trait SwapHandler<AccountId> {
         alpha_delta: AlphaCurrency,
     );
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool;
+    fn liquidate_all_liquidity_providers(netuid: NetUid) -> DispatchResult;
 }
 
 #[derive(Debug, PartialEq)]
