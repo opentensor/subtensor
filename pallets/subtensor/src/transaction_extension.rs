@@ -2,14 +2,13 @@ use crate::{
     BalancesCall, Call, ColdkeySwapScheduled, Config, CustomTransactionError, Error, Pallet,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode};
-use frame_support::dispatch;
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
 use frame_support::pallet_prelude::Weight;
 use frame_support::traits::IsSubType;
 use scale_info::TypeInfo;
 use sp_runtime::traits::{
-    AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Implication, PostDispatchInfoOf,
-    TransactionExtension, ValidateResult,
+    AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Implication, TransactionExtension,
+    ValidateResult,
 };
 use sp_runtime::transaction_validity::{
     TransactionSource, TransactionValidity, TransactionValidityError, ValidTransaction,
@@ -38,19 +37,15 @@ where
     pub fn new() -> Self {
         Self(Default::default())
     }
-    pub fn check_weights_min_stake(who: &T::AccountId, netuid: NetUid) -> bool {
-        Pallet::<T>::check_weights_min_stake(who, netuid)
-    }
-
-    pub fn get_priority_set_weights(who: &T::AccountId, netuid: NetUid) -> u64 {
-        Pallet::<T>::get_priority_set_weights(who, netuid)
-    }
-
     pub fn validity_ok(priority: u64) -> ValidTransaction {
         ValidTransaction {
             priority,
             ..Default::default()
         }
+    }
+
+    pub fn check_weights_min_stake(who: &T::AccountId, netuid: NetUid) -> bool {
+        Pallet::<T>::check_weights_min_stake(who, netuid)
     }
 
     pub fn result_to_validity(result: Result<(), Error<T>>, priority: u64) -> TransactionValidity {
@@ -128,9 +123,7 @@ where
         match call.is_sub_type() {
             Some(Call::commit_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who, *netuid) {
-                    let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                    let validity = Self::validity_ok(priority);
-                    Ok((validity, Some(who.clone()), origin))
+                    Ok((Default::default(), Some(who.clone()), origin))
                 } else {
                     Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
@@ -154,9 +147,7 @@ where
                     match Pallet::<T>::find_commit_block_via_hash(provided_hash) {
                         Some(commit_block) => {
                             if Pallet::<T>::is_reveal_block_range(*netuid, commit_block) {
-                                let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                                let validity = Self::validity_ok(priority);
-                                Ok((validity, Some(who.clone()), origin))
+                                Ok((Default::default(), Some(who.clone()), origin))
                             } else {
                                 Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
                             }
@@ -180,7 +171,7 @@ where
                         && num_reveals == salts_list.len()
                         && num_reveals == version_keys.len()
                     {
-                        let provided_hashs = (0..num_reveals)
+                        let provided_hashes = (0..num_reveals)
                             .map(|i| {
                                 Pallet::<T>::get_commit_hash(
                                     who,
@@ -193,17 +184,15 @@ where
                             })
                             .collect::<Vec<_>>();
 
-                        let batch_reveal_block = provided_hashs
+                        let batch_reveal_block = provided_hashes
                             .iter()
                             .filter_map(|hash| Pallet::<T>::find_commit_block_via_hash(*hash))
                             .collect::<Vec<_>>();
 
-                        if provided_hashs.len() == batch_reveal_block.len() {
+                        if provided_hashes.len() == batch_reveal_block.len() {
                             if Pallet::<T>::is_batch_reveal_block_range(*netuid, batch_reveal_block)
                             {
-                                let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                                let validity = Self::validity_ok(priority);
-                                Ok((validity, Some(who.clone()), origin))
+                                Ok((Default::default(), Some(who.clone()), origin))
                             } else {
                                 Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
                             }
@@ -219,18 +208,14 @@ where
             }
             Some(Call::set_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who, *netuid) {
-                    let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                    let validity = Self::validity_ok(priority);
-                    Ok((validity, Some(who.clone()), origin))
+                    Ok((Default::default(), Some(who.clone()), origin))
                 } else {
                     Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
             Some(Call::set_tao_weights { netuid, hotkey, .. }) => {
                 if Self::check_weights_min_stake(hotkey, *netuid) {
-                    let priority: u64 = Self::get_priority_set_weights(hotkey, *netuid);
-                    let validity = Self::validity_ok(priority);
-                    Ok((validity, Some(who.clone()), origin))
+                    Ok((Default::default(), Some(who.clone()), origin))
                 } else {
                     Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
@@ -244,9 +229,7 @@ where
                     if *reveal_round < pallet_drand::LastStoredRound::<T>::get() {
                         return Err(CustomTransactionError::InvalidRevealRound.into());
                     }
-                    let priority: u64 = Pallet::<T>::get_priority_set_weights(who, *netuid);
-                    let validity = Self::validity_ok(priority);
-                    Ok((validity, Some(who.clone()), origin))
+                    Ok((Default::default(), Some(who.clone()), origin))
                 } else {
                     Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
@@ -260,9 +243,7 @@ where
                     if *reveal_round < pallet_drand::LastStoredRound::<T>::get() {
                         return Err(CustomTransactionError::InvalidRevealRound.into());
                     }
-                    let priority: u64 = Pallet::<T>::get_priority_set_weights(who, *netuid);
-                    let validity = Self::validity_ok(priority);
-                    Ok((validity, Some(who.clone()), origin))
+                    Ok((Default::default(), Some(who.clone()), origin))
                 } else {
                     Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
@@ -387,16 +368,6 @@ where
         _info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
         _len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
-        Ok(())
-    }
-
-    fn post_dispatch(
-        _pre: Self::Pre,
-        _info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
-        _post_info: &mut PostDispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
-        _len: usize,
-        _result: &dispatch::DispatchResult,
-    ) -> Result<(), TransactionValidityError> {
         Ok(())
     }
 }

@@ -1800,19 +1800,6 @@ pub mod pallet {
 
     // ---- Subtensor helper functions.
     impl<T: Config> Pallet<T> {
-        /// Returns the transaction priority for setting weights.
-        pub fn get_priority_set_weights(hotkey: &T::AccountId, netuid: NetUid) -> u64 {
-            if let Ok(uid) = Self::get_uid_for_net_and_hotkey(netuid, hotkey) {
-                let current_block_number: u64 = Self::get_current_block_as_u64();
-                let priority: u64 =
-                    current_block_number.saturating_sub(Self::get_last_update_for_uid(netuid, uid));
-
-                return priority;
-            }
-
-            0
-        }
-
         /// Is the caller allowed to set weights
         pub fn check_weights_min_stake(hotkey: &T::AccountId, netuid: NetUid) -> bool {
             // Blacklist weights transactions for low stake peers.
