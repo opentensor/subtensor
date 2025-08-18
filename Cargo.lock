@@ -8224,6 +8224,7 @@ dependencies = [
  "sp-api",
  "sp-blockchain",
  "sp-runtime",
+ "subtensor-runtime-common",
  "subtensor-swap-interface",
 ]
 
@@ -8235,6 +8236,7 @@ dependencies = [
  "scale-info",
  "sp-api",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
+ "subtensor-runtime-common",
  "subtensor-swap-interface",
 ]
 

@@ -2409,7 +2409,7 @@ impl_runtime_apis! {
     }
 
     impl pallet_subtensor_swap_runtime_api::SwapRuntimeApi<Block> for Runtime {
-        fn current_alpha_price(netuid: u16) -> u64 {
+        fn current_alpha_price(netuid: NetUid) -> u64 {
             use substrate_fixed::types::U96F32;
 
             pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into())
@@ -2417,11 +2417,11 @@ impl_runtime_apis! {
                 .saturating_to_num()
         }
 
-        fn sim_swap_tao_for_alpha(netuid: u16, tao: u64) -> SwapResult {
+        fn sim_swap_tao_for_alpha(netuid: NetUid, tao: TaoCurrency) -> SwapResult {
             pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
                 netuid.into(),
                 OrderType::Buy,
-                tao,
+                tao.into(),
             ).unwrap_or(SwapResult {
                 amount_paid_in: 0,
                 amount_paid_out: 0,
@@ -2431,11 +2431,11 @@ impl_runtime_apis! {
             })
         }
 
-        fn sim_swap_alpha_for_tao(netuid: u16, alpha: u64) -> SwapResult {
+        fn sim_swap_alpha_for_tao(netuid: NetUid, alpha: AlphaCurrency) -> SwapResult {
             pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
                 netuid.into(),
                 OrderType::Sell,
-                alpha,
+                alpha.into(),
             ).unwrap_or(SwapResult {
                 amount_paid_in: 0,
                 amount_paid_out: 0,
