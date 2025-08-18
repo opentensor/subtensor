@@ -58,6 +58,7 @@ use sp_runtime::{
 };
 
 pub mod bls12_381;
+pub mod drand_priority;
 pub mod migrations;
 pub mod types;
 pub mod utils;
@@ -331,9 +332,9 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// Verify and write a pulse from the beacon into the runtime
         #[pallet::call_index(0)]
-        #[pallet::weight((Weight::from_parts(4_294_000_000, 0)
+        #[pallet::weight(Weight::from_parts(4_294_000_000, 0)
         .saturating_add(T::DbWeight::get().reads(3_u64))
-        .saturating_add(T::DbWeight::get().writes(4_u64)), DispatchClass::Operational))]
+        .saturating_add(T::DbWeight::get().writes(4_u64)))]
         pub fn write_pulse(
             origin: OriginFor<T>,
             pulses_payload: PulsesPayload<T::Public, BlockNumberFor<T>>,

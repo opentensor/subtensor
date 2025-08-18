@@ -152,6 +152,7 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
             ),
             pallet_subtensor::transaction_extension::SubtensorTransactionExtension::<Runtime>::new(
             ),
+            pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
             frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
         );
 
@@ -1646,6 +1647,7 @@ pub type TransactionExtensions = (
     frame_system::CheckWeight<Runtime>,
     ChargeTransactionPaymentWrapper<Runtime>,
     pallet_subtensor::transaction_extension::SubtensorTransactionExtension<Runtime>,
+    pallet_drand::drand_priority::DrandPriority<Runtime>,
     frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 

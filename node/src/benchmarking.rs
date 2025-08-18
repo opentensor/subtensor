@@ -141,6 +141,7 @@ pub fn create_benchmark_extrinsic(
             pallet_subtensor::transaction_extension::SubtensorTransactionExtension::<
                 runtime::Runtime,
             >::new(),
+            pallet_drand::drand_priority::DrandPriority::<runtime::Runtime>::new(),
             frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(true),
         );
 
@@ -153,6 +154,7 @@ pub fn create_benchmark_extrinsic(
             runtime::VERSION.transaction_version,
             genesis_hash,
             best_hash,
+            (),
             (),
             (),
             (),
