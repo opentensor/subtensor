@@ -1,8 +1,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::pallet_prelude::*;
+use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
 
+#[freeze_struct("3a4fd213b5de5eb6")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SimSwapResult {
     pub tao_amount: TaoCurrency,

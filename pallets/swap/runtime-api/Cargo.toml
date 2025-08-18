@@ -10,6 +10,7 @@ frame-support.workspace = true
 scale-info.workspace = true
 sp-api.workspace = true
 sp-std.workspace = true
+subtensor-macros.workspace = true
 subtensor-runtime-common = { workspace = true, default-features = false }
 subtensor-swap-interface.workspace = true
 
