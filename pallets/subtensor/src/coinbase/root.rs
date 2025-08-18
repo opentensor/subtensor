@@ -616,11 +616,11 @@ impl<T: Config> Pallet<T> {
         let cur_price: U96F32 = T::SwapInterface::current_alpha_price(netuid.into());
 
         // Convert owner α to τ at current price; floor to integer τ.
-        let owner_emission_tau_u64: u64 = U96F32::from_num(owner_alpha_u64)
+        let owner_emission_tao_u64: u64 = U96F32::from_num(owner_alpha_u64)
             .saturating_mul(cur_price)
             .floor()
             .saturating_to_num::<u64>();
-        let owner_emission_tau: TaoCurrency = owner_emission_tau_u64.into();
+        let owner_emission_tau: TaoCurrency = owner_emission_tao_u64.into();
 
         // 4) Enumerate all α entries on this subnet to build distribution weights and cleanup lists.
         //    - collect keys to remove,
