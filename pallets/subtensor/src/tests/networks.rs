@@ -4,7 +4,7 @@ use crate::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
-use substrate_fixed::types::U64F64;
+use substrate_fixed::types::{U64F64, U96F32};
 use subtensor_runtime_common::TaoCurrency;
 use subtensor_swap_interface::SwapHandler;
 
@@ -170,13 +170,13 @@ fn dissolve_owner_cut_refund_logic() {
         let oh = U256::from(71);
         let net = add_dynamic_network(&oh, &oc);
 
-        // staker
+        // One staker and a TAO pot (not relevant to refund amount).
         let sh = U256::from(77);
         let sc = U256::from(88);
         Alpha::<Test>::insert((sh, sc, net), U64F64::from_num(100u128));
         SubnetTAO::<Test>::insert(net, TaoCurrency::from(1_000));
 
-        // lock & emission
+        // Lock & emissions: total emitted α = 800.
         let lock: TaoCurrency = TaoCurrency::from(2_000);
         SubtensorModule::set_subnet_locked_balance(net, lock);
         Emission::<Test>::insert(
@@ -184,17 +184,36 @@ fn dissolve_owner_cut_refund_logic() {
             vec![AlphaCurrency::from(200), AlphaCurrency::from(600)],
         );
 
-        // 18 % owner-cut
+        // Owner cut = 11796 / 65535 (about 18%).
         SubnetOwnerCut::<Test>::put(11_796u16);
-        let frac = 11_796f64 / 65_535f64;
-        let owner_em: TaoCurrency = TaoCurrency::from((800f64 * frac).floor() as u64);
-        let expect = lock.saturating_sub(owner_em);
+
+        // Compute expected refund with the SAME math as the pallet.
+        let frac: U96F32 = SubtensorModule::get_float_subnet_owner_cut();
+        let total_emitted_alpha: u64 = 800;
+        let owner_alpha_u64: u64 = U96F32::from_num(total_emitted_alpha)
+            .saturating_mul(frac)
+            .floor()
+            .saturating_to_num::<u64>();
+
+        // Current α→τ price for this subnet.
+        let price: U96F32 =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(net.into());
+        let owner_emission_tau_u64: u64 = U96F32::from_num(owner_alpha_u64)
+            .saturating_mul(price)
+            .floor()
+            .saturating_to_num::<u64>();
+
+        let expected_refund: TaoCurrency =
+            lock.saturating_sub(TaoCurrency::from(owner_emission_tau_u64));
 
         let before = SubtensorModule::get_coldkey_balance(&oc);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
         let after = SubtensorModule::get_coldkey_balance(&oc);
 
-        assert_eq!(TaoCurrency::from(after), TaoCurrency::from(before) + expect);
+        assert_eq!(
+            TaoCurrency::from(after),
+            TaoCurrency::from(before) + expected_refund
+        );
     });
 }
 
@@ -534,7 +553,6 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         // Runtime-exact min amount = min_stake + fee
         let min_amount = {
             let min_stake = DefaultMinStake::<Test>::get();
-            // Use the same helper pallet uses in validate_add_stake
             let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
                 netuid.into(),
                 min_stake.into(),
@@ -587,7 +605,7 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
                 AlphaCurrency::from(1_500),
             ],
         );
-        SubnetOwnerCut::<Test>::put(32_768u16); // = 0.5 in fixed-point
+        SubnetOwnerCut::<Test>::put(32_768u16); // ~ 0.5 in fixed-point
 
         // ── 4) balances & α on ROOT before ──────────────────────────────────
         let root = NetUid::ROOT;
@@ -617,6 +635,22 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
             share[idx[i]] += 1;
         }
 
+        // ── 5b) expected owner refund with price-aware emission deduction ───
+        let frac: U96F32 = SubtensorModule::get_float_subnet_owner_cut();
+        let total_emitted_alpha: u64 = 1_000 + 2_000 + 1_500; // 4500 α
+        let owner_alpha_u64: u64 = U96F32::from_num(total_emitted_alpha)
+            .saturating_mul(frac)
+            .floor()
+            .saturating_to_num::<u64>();
+
+        let price: U96F32 =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+        let owner_emission_tao_u64: u64 = U96F32::from_num(owner_alpha_u64)
+            .saturating_mul(price)
+            .floor()
+            .saturating_to_num::<u64>();
+        let expected_refund: u64 = lock.saturating_sub(owner_emission_tao_u64);
+
         // ── 6) run burn-and-restake ────────────────────────────────────────
         assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(netuid));
 
@@ -643,8 +677,6 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         }
 
         // owner refund
-        let owner_em = (4_500u128 * 32_768u128 / 65_535u128) as u64; // same math pallet uses
-        let expected_refund = lock.saturating_sub(owner_em);
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&owner_cold),
             owner_before + expected_refund

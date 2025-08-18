@@ -23,6 +23,7 @@ use safe_math::*;
 use sp_core::Get;
 use substrate_fixed::types::{I64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
     /// Fetches the total count of root network validators
@@ -590,22 +591,40 @@ impl<T: Config> Pallet<T> {
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
         let lock_cost: TaoCurrency = Self::get_subnet_locked_balance(netuid);
 
-        // 3) Compute owner's received emission cut with saturation.
-        let total_emission_u128: u128 = Emission::<T>::get(netuid)
-            .into_iter()
-            .fold(0u128, |acc, e| {
-                acc.saturating_add(Into::<u64>::into(e) as u128)
-            });
+        // 3) Compute owner's received emission in TAO at current price.
+        //
+        //    Emission::<T> is Vec<AlphaCurrency>. We:
+        //      - sum emitted α,
+        //      - apply owner fraction to get owner α,
+        //      - convert owner α to τ using current price,
+        //      - use that τ value for the refund formula.
+        let total_emitted_alpha_u128: u128 =
+            Emission::<T>::get(netuid)
+                .into_iter()
+                .fold(0u128, |acc, e_alpha| {
+                    let e_u64: u64 = Into::<u64>::into(e_alpha);
+                    acc.saturating_add(e_u64 as u128)
+                });
 
         let owner_fraction: U96F32 = Self::get_float_subnet_owner_cut();
-        let owner_received_emission_u64: u64 = U96F32::from_num(total_emission_u128)
+        let owner_alpha_u64: u64 = U96F32::from_num(total_emitted_alpha_u128)
             .saturating_mul(owner_fraction)
             .floor()
             .saturating_to_num::<u64>();
 
-        // 4) Enumerate all alpha entries on this subnet:
+        // Current α→τ price (TAO per 1 α) for this subnet.
+        let cur_price: U96F32 = T::SwapInterface::current_alpha_price(netuid.into());
+
+        // Convert owner α to τ at current price; floor to integer τ.
+        let owner_emission_tau_u64: u64 = U96F32::from_num(owner_alpha_u64)
+            .saturating_mul(cur_price)
+            .floor()
+            .saturating_to_num::<u64>();
+        let owner_emission_tau: TaoCurrency = owner_emission_tau_u64.into();
+
+        // 4) Enumerate all α entries on this subnet to build distribution weights and cleanup lists.
         //    - collect keys to remove,
-        //    - collect per-(hot,cold) actual alpha value for pro-rata (with fallback to raw share),
+        //    - per (hot,cold) α VALUE (not shares) with fallback to raw share if pool uninitialized,
         //    - track hotkeys to clear pool totals.
         let mut keys_to_remove: Vec<(T::AccountId, T::AccountId)> = Vec::new();
         let mut hotkeys_seen: Vec<T::AccountId> = Vec::new();
@@ -622,11 +641,11 @@ impl<T: Config> Pallet<T> {
                 hotkeys_seen.push(hot.clone());
             }
 
-            // Primary: actual alpha value via share pool.
+            // Primary: actual α value via share pool.
             let pool = Self::get_alpha_share_pool(hot.clone(), netuid);
             let actual_val_u64 = pool.try_get_value(&cold).unwrap_or(0);
 
-            // Fallback: if pool uninitialized (denominator/shared_value=0), treat raw Alpha share as value.
+            // Fallback: if pool uninitialized, treat raw Alpha share as value.
             let val_u64 = if actual_val_u64 == 0 {
                 share_u64f64.saturating_to_num::<u64>()
             } else {
@@ -650,7 +669,7 @@ impl<T: Config> Pallet<T> {
             TotalStake::<T>::mutate(|total| *total = total.saturating_sub(pot_tao));
         }
 
-        // 6) Pro‑rata distribution of the pot by alpha value (largest‑remainder).
+        // 6) Pro‑rata distribution of the pot by α value (largest‑remainder).
         if pot_u64 > 0 && total_alpha_value_u128 > 0 && !stakers.is_empty() {
             struct Portion<A, C> {
                 hot: A,
@@ -687,7 +706,7 @@ impl<T: Config> Pallet<T> {
                 }
             }
 
-            // Restake each portion into ROOT (stable 1:1), no limit required.
+            // Restake each portion into ROOT (stable 1:1), no price limit required.
             let root_netuid = NetUid::ROOT;
             for p in portions {
                 if p.share > 0 {
@@ -719,20 +738,20 @@ impl<T: Config> Pallet<T> {
         SubnetAlphaOut::<T>::remove(netuid);
 
         // 8) Refund remaining lock to subnet owner:
-        //    refund = max(0, lock_cost - owner_received_emission).
-        let refund_u64: u64 =
-            Into::<u64>::into(lock_cost).saturating_sub(owner_received_emission_u64);
+        //    refund = max(0, lock_cost(τ) − owner_received_emission_in_τ).
+        let refund: TaoCurrency = lock_cost.saturating_sub(owner_emission_tau);
 
         // Clear the locked balance on the subnet.
         Self::set_subnet_locked_balance(netuid, TaoCurrency::ZERO);
 
-        if refund_u64 > 0 {
-            // Add back to owner’s coldkey free balance (expects runtime Balance, not TaoCurrency).
-            Self::add_balance_to_coldkey_account(&owner_coldkey, refund_u64);
+        if !refund.is_zero() {
+            // Add back to owner’s coldkey free balance (expects runtime Balance u64).
+            Self::add_balance_to_coldkey_account(&owner_coldkey, refund.to_u64());
         }
 
         Ok(())
     }
+
     pub fn get_network_to_prune() -> Option<NetUid> {
         let current_block: u64 = Self::get_current_block_as_u64();
         let total_networks: u16 = TotalNetworks::<T>::get();
