@@ -20,6 +20,7 @@ pub fn migrate_fix_root_tao_and_alpha_in<T: Config>() -> Weight {
     );
 
     // Update counters
+    // TODO: Will be filled with real numbers once the runtime 302 is on mainnet
     SubnetTAO::<T>::mutate(NetUid::ROOT, |amount| {
         *amount = amount.saturating_add(TaoCurrency::from(100_000_000_000));
     });
