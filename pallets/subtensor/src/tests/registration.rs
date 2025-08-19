@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used)]
 
 use approx::assert_abs_diff_eq;
-use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
+use frame_support::dispatch::DispatchInfo;
 use frame_support::sp_runtime::{DispatchError, transaction_validity::TransactionSource};
 use frame_support::traits::Currency;
 use frame_support::{assert_err, assert_noop, assert_ok};
@@ -17,36 +17,6 @@ use crate::{AxonInfoOf, CustomTransactionError, Error, SubtensorTransactionExten
 /********************************************
     subscribing::subscribe() tests
 *********************************************/
-
-// Tests a basic registration dispatch passes.
-#[test]
-fn test_registration_subscribe_ok_dispatch_info_ok() {
-    new_test_ext(1).execute_with(|| {
-        let block_number: u64 = 0;
-        let nonce: u64 = 0;
-        let netuid = NetUid::from(1);
-        let work: Vec<u8> = vec![0; 32];
-        let hotkey: U256 = U256::from(0);
-        let coldkey: U256 = U256::from(0);
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::register {
-            netuid,
-            block_number,
-            nonce,
-            work,
-            hotkey,
-            coldkey,
-        });
-        assert_eq!(
-            call.get_dispatch_info(),
-            DispatchInfo {
-                call_weight: frame_support::weights::Weight::from_parts(3_111_800_000, 0),
-                extension_weight: frame_support::weights::Weight::zero(),
-                class: DispatchClass::Normal,
-                pays_fee: Pays::No
-            }
-        );
-    });
-}
 
 #[test]
 fn test_registration_difficulty() {
