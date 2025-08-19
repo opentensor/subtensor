@@ -495,12 +495,14 @@ impl<T: Config> Pallet<T> {
         }
 
         // Distribute mining incentives.
+        let subnet_owner_coldkey = SubnetOwner::<T>::get(netuid);
+        let owner_hotkeys = Self::get_immune_owner_hotkeys(netuid, &subnet_owner_coldkey);
+        log::debug!("incentives: owner hotkeys: {owner_hotkeys:?}");
         for (hotkey, incentive) in incentives {
             log::debug!("incentives: hotkey: {incentive:?}");
 
             // Skip/burn miner-emission for immune keys
-            let subnet_owner_coldkey = SubnetOwner::<T>::get(netuid);
-            if Self::get_immune_owner_hotkeys(netuid, &subnet_owner_coldkey).contains(&hotkey) {
+            if owner_hotkeys.contains(&hotkey) {
                 log::debug!(
                     "incentives: hotkey: {hotkey:?} is SN owner hotkey or associated hotkey, skipping {incentive:?}"
                 );
