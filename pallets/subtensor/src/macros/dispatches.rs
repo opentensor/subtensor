@@ -693,7 +693,7 @@ mod dispatches {
         /// 	- Attempting to set prometheus information withing the rate limit min.
         ///
         #[pallet::call_index(4)]
-        #[pallet::weight((Weight::from_parts(43_680_000, 0)
+        #[pallet::weight((Weight::from_parts(33_780_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_axon(
@@ -2156,7 +2156,7 @@ mod dispatches {
         /// Emits a `SymbolUpdated` event on success.
         #[pallet::call_index(112)]
         #[pallet::weight((
-            Weight::from_parts(26_880_000, 0).saturating_add(T::DbWeight::get().reads_writes(4, 1)),
+            Weight::from_parts(35_510_000, 0).saturating_add(T::DbWeight::get().reads_writes(4, 1)),
             DispatchClass::Operational,
             Pays::Yes
         ))]
@@ -2201,7 +2201,7 @@ mod dispatches {
         /// * commit_reveal_version (`u16`):
         ///     - The client (bittensor-drand) version
         #[pallet::call_index(113)]
-        #[pallet::weight((Weight::from_parts(81_920_000, 0)
+        #[pallet::weight((Weight::from_parts(64_220_000, 0)
 		.saturating_add(T::DbWeight::get().reads(7_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_timelocked_weights(
