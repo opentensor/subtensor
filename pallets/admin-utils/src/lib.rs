@@ -509,7 +509,7 @@ pub mod pallet {
         /// The extrinsic will call the Subtensor pallet to set the kappa.
         #[pallet::call_index(16)]
         #[pallet::weight(Weight::from_parts(16_740_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_kappa(origin: OriginFor<T>, netuid: NetUid, kappa: u16) -> DispatchResult {
             if pallet_subtensor::Pallet::<T>::get_kappa_can_set_by_owner(netuid) {
@@ -1300,7 +1300,7 @@ pub mod pallet {
         /// # Weight
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(57)]
-        #[pallet::weight(Weight::from_parts(19_320_000, 0)
+        #[pallet::weight(Weight::from_parts(15_130_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_commit_reveal_weights_interval(
