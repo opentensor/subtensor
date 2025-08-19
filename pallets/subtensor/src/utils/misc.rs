@@ -248,6 +248,10 @@ impl<T: Config> Pallet<T> {
         BlockAtRegistration::<T>::get(netuid, neuron_uid)
     }
 
+    pub fn get_kappa_can_set_by_owner(netuid: NetUid) -> bool {
+        KappaCanSetByOwner::<T>::get(netuid)
+    }
+
     // ========================
     // ===== Take checks ======
     // ========================
@@ -803,5 +807,19 @@ impl<T: Config> Pallet<T> {
             Ok(owner_hotkey) => Uids::<T>::get(netuid, &owner_hotkey),
             Err(_) => None,
         }
+    }
+
+    /// Set if Kappa can be set by owner
+    ///
+    /// # Arguments
+    ///
+    /// * `netuid` - The unique identifier for the subnet.
+    /// * `can_set` - Whether Kappa can be set by owner.
+    ///
+    /// # Effects
+    ///
+    /// * Update the KappaCanSetByOwner storage.
+    pub fn set_kappa_can_set_by_owner(netuid: NetUid, can_set: bool) {
+        KappaCanSetByOwner::<T>::insert(netuid, can_set);
     }
 }

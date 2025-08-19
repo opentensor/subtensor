@@ -585,6 +585,7 @@ fn test_sudo_set_kappa() {
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
         let init_value: u16 = SubtensorModule::get_kappa(netuid);
+        let can_set_by_owner: bool = SubtensorModule::get_kappa_can_set_by_owner(netuid);
         assert_eq!(
             AdminUtils::sudo_set_kappa(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -601,6 +602,8 @@ fn test_sudo_set_kappa() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
+
+        assert_eq!(can_set_by_owner, true);
         assert_eq!(SubtensorModule::get_kappa(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_kappa(
             <<Test as Config>::RuntimeOrigin>::root(),
@@ -608,6 +611,65 @@ fn test_sudo_set_kappa() {
             to_be_set
         ));
         assert_eq!(SubtensorModule::get_kappa(netuid), to_be_set);
+    });
+}
+
+#[test]
+fn test_subnet_owner_set_kappa() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        let to_be_set: u16 = 10;
+        add_network(netuid, 10);
+
+        let owner = pallet_subtensor::pallet::SubnetOwner::<Test>::get(netuid);
+        let init_value: u16 = SubtensorModule::get_kappa(netuid);
+        let can_set_by_owner: bool = SubtensorModule::get_kappa_can_set_by_owner(netuid);
+        assert_eq!(
+            AdminUtils::sudo_set_kappa(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        assert_eq!(
+            AdminUtils::sudo_set_kappa(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid.next(),
+                to_be_set
+            ),
+            Err(Error::<Test>::SubnetDoesNotExist.into())
+        );
+
+        assert_eq!(can_set_by_owner, true);
+        assert_eq!(SubtensorModule::get_kappa(netuid), init_value);
+        assert_ok!(AdminUtils::sudo_set_kappa(
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            netuid,
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_kappa(netuid), to_be_set);
+
+        assert_ok!(AdminUtils::sudo_set_kappa_can_set_by_owner(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            false
+        ));
+        assert_eq!(SubtensorModule::get_kappa_can_set_by_owner(netuid), false);
+
+        assert_eq!(
+            AdminUtils::sudo_set_kappa(
+                <<Test as Config>::RuntimeOrigin>::signed(owner),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        assert_ok!(AdminUtils::sudo_set_kappa(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
     });
 }
 

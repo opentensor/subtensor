@@ -512,7 +512,11 @@ pub mod pallet {
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_kappa(origin: OriginFor<T>, netuid: NetUid, kappa: u16) -> DispatchResult {
-            ensure_root(origin)?;
+            if pallet_subtensor::Pallet::<T>::get_kappa_can_set_by_owner(netuid) {
+                pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            } else {
+                ensure_root(origin)?;
+            }
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -1671,6 +1675,30 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_commit_reveal_weights_version(version);
+            Ok(())
+        }
+
+        /// The extrinsic sets the kappa for a subnet.
+        /// It is only callable by the root account or subnet owner.
+        /// The extrinsic will call the Subtensor pallet to set the kappa.
+        #[pallet::call_index(72)]
+        #[pallet::weight(Weight::from_parts(16_740_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        pub fn sudo_set_kappa_can_set_by_owner(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            kappa_can_set_by_owner: bool,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+
+            pallet_subtensor::Pallet::<T>::set_kappa_can_set_by_owner(
+                netuid,
+                kappa_can_set_by_owner,
+            );
+            log::debug!(
+                "KappaCanSetByOwnerSet( netuid: {netuid:?} kappaCanSet: {kappa_can_set_by_owner:?} ) "
+            );
             Ok(())
         }
     }

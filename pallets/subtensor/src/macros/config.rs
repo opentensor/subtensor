@@ -15,7 +15,7 @@ mod config {
     {
         /// call type
         type RuntimeCall: Parameter
-            + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+            + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
             + From<Call<Self>>
             + IsType<<Self as frame_system::Config>::RuntimeCall>
             + From<frame_system::Call<Self>>;
@@ -25,11 +25,11 @@ mod config {
 
         /// A sudo-able call.
         type SudoRuntimeCall: Parameter
-            + UnfilteredDispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+            + UnfilteredDispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
             + GetDispatchInfo;
 
         /// Origin checking for council majority
-        type CouncilOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+        type CouncilOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
 
         ///  Currency type that will be used to place deposits on neurons
         type Currency: fungible::Balanced<Self::AccountId, Balance = u64>

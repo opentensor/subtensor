@@ -1464,6 +1464,11 @@ pub mod pallet {
     pub type SubtokenEnabled<T> =
         StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultFalse<T>>;
 
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> If Kappa can be set by owner
+    pub type KappaCanSetByOwner<T> =
+        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultTrue<T>>;
+
     /// =======================================
     /// ==== Subnetwork Consensus Storage  ====
     /// =======================================
