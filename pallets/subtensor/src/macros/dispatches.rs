@@ -279,7 +279,7 @@ mod dispatches {
         ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
         ///
         #[pallet::call_index(99)]
-        #[pallet::weight((Weight::from_parts(82_090_000, 0)
+        #[pallet::weight((Weight::from_parts(62_630_000, 0)
 		.saturating_add(T::DbWeight::get().reads(7_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_crv3_weights(
