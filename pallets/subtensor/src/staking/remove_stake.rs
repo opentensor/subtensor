@@ -452,7 +452,6 @@ impl<T: Config> Pallet<T> {
         let lock_cost: TaoCurrency = Self::get_subnet_locked_balance(netuid);
 
         // 3) Compute owner's received emission in TAO at current price.
-        //
         //    Emission::<T> is Vec<AlphaCurrency>. We:
         //      - sum emitted α,
         //      - apply owner fraction to get owner α,
@@ -480,7 +479,7 @@ impl<T: Config> Pallet<T> {
             .saturating_mul(cur_price)
             .floor()
             .saturating_to_num::<u64>();
-        let owner_emission_tau: TaoCurrency = owner_emission_tao_u64.into();
+        let owner_emission_tao: TaoCurrency = owner_emission_tao_u64.into();
 
         // 4) Enumerate all α entries on this subnet to build distribution weights and cleanup lists.
         //    - collect keys to remove,
@@ -524,17 +523,17 @@ impl<T: Config> Pallet<T> {
         let pot_u64: u64 = pot_tao.into();
 
         if pot_u64 > 0 {
-            // Remove TAO from dissolving subnet BEFORE restaking to ROOT to keep TotalStake consistent.
             SubnetTAO::<T>::remove(netuid);
             TotalStake::<T>::mutate(|total| *total = total.saturating_sub(pot_tao));
         }
 
-        // 6) Pro‑rata distribution of the pot by α value (largest‑remainder).
+        // 6) Pro‑rata distribution of the pot by α value (largest‑remainder),
+        //    **credited directly to each staker's COLDKEY free balance**.
         if pot_u64 > 0 && total_alpha_value_u128 > 0 && !stakers.is_empty() {
             struct Portion<A, C> {
-                hot: A,
+                _hot: A,
                 cold: C,
-                share: u64, // TAO to restake on ROOT
+                share: u64, // TAO to credit to coldkey balance
                 rem: u128,  // remainder for largest‑remainder method
             }
 
@@ -550,7 +549,7 @@ impl<T: Config> Pallet<T> {
 
                 let rem: u128 = prod.checked_rem(total_alpha_value_u128).unwrap_or_default();
                 portions.push(Portion {
-                    hot: hot.clone(),
+                    _hot: hot.clone(),
                     cold: cold.clone(),
                     share: share_u64,
                     rem,
@@ -566,18 +565,10 @@ impl<T: Config> Pallet<T> {
                 }
             }
 
-            // Restake each portion into ROOT (stable 1:1), no price limit required.
-            let root_netuid = NetUid::ROOT;
+            // Credit each share directly to coldkey free balance.
             for p in portions {
                 if p.share > 0 {
-                    Self::stake_into_subnet(
-                        &p.hot,
-                        &p.cold,
-                        root_netuid,
-                        TaoCurrency::from(p.share),
-                        TaoCurrency::from(0),
-                        false,
-                    )?;
+                    Self::add_balance_to_coldkey_account(&p.cold, p.share);
                 }
             }
         }
@@ -599,13 +590,12 @@ impl<T: Config> Pallet<T> {
 
         // 8) Refund remaining lock to subnet owner:
         //    refund = max(0, lock_cost(τ) − owner_received_emission_in_τ).
-        let refund: TaoCurrency = lock_cost.saturating_sub(owner_emission_tau);
+        let refund: TaoCurrency = lock_cost.saturating_sub(owner_emission_tao);
 
         // Clear the locked balance on the subnet.
         Self::set_subnet_locked_balance(netuid, TaoCurrency::ZERO);
 
         if !refund.is_zero() {
-            // Add back to owner’s coldkey free balance (expects runtime Balance u64).
             Self::add_balance_to_coldkey_account(&owner_coldkey, refund.to_u64());
         }
 
