@@ -13,9 +13,9 @@ let
     rev = "1fe6ed37fd9beb92afe90671c0c2a662a03463dd";
   };
   nixpkgs = import pinned { overlays = [ mozillaOverlay ]; };
-  toolchain = with nixpkgs; (rustChannelOf { date = "2021-09-14"; channel = "nightly"; });
+  toolchain = with nixpkgs; (rustChannelOf { date = "2025-06-23"; channel = "stable"; });
   rust-wasm = toolchain.rust.override {
-    targets = [ "wasm32-unknown-unknown" ];
+    targets = [ "wasm32v1-none" ];
   };
 in
 with nixpkgs; pkgs.mkShell {

@@ -377,14 +377,8 @@ impl<T: Config> Pallet<T> {
             }
 
             // --- 5. Hash the provided data.
-            let provided_hash: H256 = BlakeTwo256::hash_of(&(
-                who.clone(),
-                netuid,
-                uids.clone(),
-                values.clone(),
-                salt.clone(),
-                version_key,
-            ));
+            let provided_hash: H256 =
+                Self::get_commit_hash(&who, netuid, &uids, &values, &salt, version_key);
 
             // --- 6. After removing expired commits, check if any commits are left.
             if commits.is_empty() {
@@ -1082,5 +1076,31 @@ impl<T: Config> Pallet<T> {
         epoch
             .saturating_mul(tempo_plus_one)
             .saturating_sub(netuid_plus_one)
+    }
+
+    pub fn get_commit_hash(
+        who: &T::AccountId,
+        netuid: NetUid,
+        uids: &[u16],
+        values: &[u16],
+        salt: &[u16],
+        version_key: u64,
+    ) -> H256 {
+        BlakeTwo256::hash_of(&(who.clone(), netuid, uids, values, salt, version_key))
+    }
+
+    pub fn find_commit_block_via_hash(hash: H256) -> Option<u64> {
+        WeightCommits::<T>::iter().find_map(|(_, _, commits)| {
+            commits
+                .iter()
+                .find(|(h, _, _, _)| *h == hash)
+                .map(|(_, commit_block, _, _)| *commit_block)
+        })
+    }
+
+    pub fn is_batch_reveal_block_range(netuid: NetUid, commit_block: Vec<u64>) -> bool {
+        commit_block
+            .iter()
+            .all(|block| Self::is_reveal_block_range(netuid, *block))
     }
 }
