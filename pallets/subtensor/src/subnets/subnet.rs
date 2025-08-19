@@ -134,9 +134,8 @@ impl<T: Config> Pallet<T> {
 
         // --- 4. Rate limit for network registrations.
         let current_block = Self::get_current_block_as_u64();
-        let last_lock_block = Self::get_network_last_lock_block();
         ensure!(
-            current_block.saturating_sub(last_lock_block) >= NetworkRateLimit::<T>::get(),
+            Self::passes_rate_limit(&TransactionType::RegisterNetwork, &coldkey),
             Error::<T>::NetworkTxRateLimitExceeded
         );
 
@@ -174,7 +173,12 @@ impl<T: Config> Pallet<T> {
         log::debug!("SubnetMechanism for netuid {netuid_to_register:?} set to: {mechid:?}");
 
         // --- 12. Set the creation terms.
-        NetworkLastRegistered::<T>::set(current_block);
+        Self::set_last_transaction_block_on_subnet(
+            &coldkey,
+            netuid_to_register,
+            &TransactionType::RegisterNetwork,
+            current_block,
+        );
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
 
         // --- 13. Set the symbol.
