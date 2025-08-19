@@ -603,7 +603,7 @@ fn test_sudo_set_kappa() {
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
 
-        assert_eq!(can_set_by_owner, true);
+        assert!(can_set_by_owner);
         assert_eq!(SubtensorModule::get_kappa(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_kappa(
             <<Test as Config>::RuntimeOrigin>::root(),
@@ -641,7 +641,7 @@ fn test_subnet_owner_set_kappa() {
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
 
-        assert_eq!(can_set_by_owner, true);
+        assert!(can_set_by_owner);
         assert_eq!(SubtensorModule::get_kappa(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_kappa(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
@@ -655,7 +655,7 @@ fn test_subnet_owner_set_kappa() {
             netuid,
             false
         ));
-        assert_eq!(SubtensorModule::get_kappa_can_set_by_owner(netuid), false);
+        assert!(!SubtensorModule::get_kappa_can_set_by_owner(netuid));
 
         assert_eq!(
             AdminUtils::sudo_set_kappa(
