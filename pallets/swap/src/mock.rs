@@ -11,7 +11,7 @@ use frame_support::{
 use frame_system::{self as system};
 use sp_core::H256;
 use sp_runtime::{
-    BuildStorage,
+    BuildStorage, Vec,
     traits::{BlakeTwo256, IdentityLookup},
 };
 use subtensor_runtime_common::{AlphaCurrency, BalanceOps, NetUid, SubnetInfo, TaoCurrency};
@@ -114,6 +114,10 @@ impl SubnetInfo<AccountId> for MockLiquidityProvider {
 
     fn is_owner(account_id: &AccountId, _netuid: NetUid) -> bool {
         *account_id != NOT_SUBNET_OWNER
+    }
+
+    fn get_owned_hotkeys(_coldkey: &AccountId) -> Vec<AccountId> {
+        Vec::<AccountId>::new()
     }
 }
 

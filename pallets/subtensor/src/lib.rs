@@ -2593,6 +2593,9 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
     fn is_owner(account_id: &T::AccountId, netuid: NetUid) -> bool {
         SubnetOwner::<T>::get(netuid) == *account_id
     }
+    fn get_owned_hotkeys(coldkey: &T::AccountId) -> Vec<T::AccountId> {
+        OwnedHotkeys::<T>::get(coldkey)
+    }
 }
 
 impl<T: Config + pallet_balances::Config<Balance = u64>>

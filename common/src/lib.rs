@@ -9,7 +9,7 @@ use runtime_common::prod_or_fast;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
-    MultiSignature,
+    MultiSignature, Vec,
     traits::{IdentifyAccount, Verify},
 };
 use subtensor_macros::freeze_struct;
@@ -174,6 +174,7 @@ pub trait SubnetInfo<AccountId> {
     fn exists(netuid: NetUid) -> bool;
     fn mechanism(netuid: NetUid) -> u16;
     fn is_owner(account_id: &AccountId, netuid: NetUid) -> bool;
+    fn get_owned_hotkeys(coldkey: &AccountId) -> Vec<AccountId>;
 }
 
 pub trait BalanceOps<AccountId> {
