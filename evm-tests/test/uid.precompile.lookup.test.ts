@@ -11,7 +11,7 @@ import { PolkadotSigner, TypedApi } from "polkadot-api";
 import { toViemAddress, convertPublicKeyToSs58 } from "../src/address-utils"
 import { IUIDLookupABI, IUID_LOOKUP_ADDRESS } from "../src/contracts/uidLookup"
 import { keccak256 } from 'ethers';
-import { addNewSubnetwork, forceSetBalanceToSs58Address, startCall } from "../src/subtensor";
+import { forceSetBalanceToSs58Address, startCall } from "../src/subtensor";
 
 describe("Test the UID Lookup precompile", () => {
     const hotkey = getRandomSubstrateKeypair();
@@ -37,7 +37,7 @@ describe("Test the UID Lookup precompile", () => {
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(hotkey.publicKey))
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(coldkey.publicKey))
 
-        netuid = await addNewSubnetwork(api, hotkey, coldkey)
+        netuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1;
         await startCall(api, netuid, coldkey)
 
         const maybeUid = await api.query.SubtensorModule.Uids.getValue(netuid, convertPublicKeyToSs58(hotkey.publicKey))
