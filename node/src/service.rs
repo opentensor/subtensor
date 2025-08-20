@@ -284,12 +284,6 @@ where
         other: (mut telemetry, block_import, grandpa_link, frontier_backend, storage_override),
     } = new_partial(&config, &eth_config, build_import_queue)?;
 
-    consensus_mechanism.spawn_essential_handles(
-        &mut task_manager,
-        client.clone(),
-        custom_service_signal,
-    )?;
-
     let FrontierPartialComponents {
         filter_pool,
         fee_history_cache,
@@ -319,10 +313,13 @@ where
     let warp_sync_config = if sealing.is_some() {
         None
     } else {
-        let set_id: u64 = if config.chain_spec.chain_type() == ChainType::Live {
-            3 // mainnet patch
-        } else {
-            2 // testnet patch
+        let set_id = match config.chain_spec.chain_type() {
+            // Finney patch
+            ChainType::Live => 3,
+            // Testnet patch
+            ChainType::Development => 2,
+            // All others
+            _ => 0,
         };
         log::warn!(
             "Grandpa warp sync patch enabled. Chain type = {:?}. Set ID = {set_id}",
@@ -338,6 +335,13 @@ where
 
         Some(WarpSyncConfig::WithProvider(warp_sync))
     };
+
+    consensus_mechanism.spawn_essential_handles(
+        &mut task_manager,
+        client.clone(),
+        custom_service_signal,
+        warp_sync_config.is_some(),
+    )?;
 
     let (network, system_rpc_tx, tx_handler_controller, sync_service) =
         sc_service::build_network(sc_service::BuildNetworkParams {

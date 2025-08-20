@@ -34,6 +34,7 @@ serde_json.workspace = true
 sc-chain-spec-derive.workspace = true
 sc-cli.workspace = true
 sc-consensus-babe.workspace = true
+sc-consensus-epochs.workspace = true
 sp-consensus.workspace = true
 sp-consensus-slots.workspace = true
 sp-core.workspace = true

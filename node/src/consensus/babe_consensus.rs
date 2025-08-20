@@ -215,6 +215,7 @@ impl ConsensusMechanism for BabeConsensus {
         _task_manager: &mut TaskManager,
         _client: Arc<FullClient>,
         _triggered: Option<Arc<std::sync::atomic::AtomicBool>>,
+        _warp_sync_enabled: bool,
     ) -> Result<(), sc_service::Error> {
         // No additional Babe handles required.
         Ok(())

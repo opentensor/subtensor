@@ -254,7 +254,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 303,
+    spec_version: 304,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -398,19 +398,6 @@ parameter_types! {
     pub ReportLongevity: u64 =
         BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
 }
-
-/// 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
-/// The choice of is done in accordance to the slot duration and expected target
-/// block time, for safely resisting network delays of maximum two seconds.
-/// <https://research.web3.foundation/en/latest/polkadot/BABE/Babe/#6-practical-results>
-pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
-
-/// The BABE epoch configuration at genesis.
-pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
-    sp_consensus_babe::BabeEpochConfiguration {
-        c: PRIMARY_PROBABILITY,
-        allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryVRFSlots,
-    };
 
 impl pallet_babe::Config for Runtime {
     type EpochDuration = EpochDuration;
@@ -722,6 +709,25 @@ impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
 parameter_types! {
     pub MaxSetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
 }
+
+/// 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
+/// The choice of is done in accordance to the slot duration and expected target
+/// block time, for safely resisting network delays of maximum two seconds.
+/// <https://research.web3.foundation/en/latest/polkadot/BABE/Babe/#6-practical-results>
+///
+/// Staging this Babe constant prior to enacting the full Babe upgrade so the node
+/// can build itself a `BabeConfiguration` prior to the upgrade taking place.
+pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
+
+/// The BABE epoch configuration at genesis.
+///
+/// Staging this Babe constant prior to enacting the full Babe upgrade so the node
+/// can build itself a `BabeConfiguration` prior to the upgrade taking place.
+pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
+    sp_consensus_babe::BabeEpochConfiguration {
+        c: PRIMARY_PROBABILITY,
+        allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryVRFSlots,
+    };
 
 impl pallet_timestamp::Config for Runtime {
     // A timestamp: milliseconds since the unix epoch.
