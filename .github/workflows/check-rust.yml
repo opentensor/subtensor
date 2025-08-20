@@ -244,3 +244,12 @@ jobs:
 
       - name: Check features
         run: zepter run check
+
+  cargo-machete:
+    name: Cargo Machete
+    runs-on: [self-hosted, type-ccx13]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Machete
+        uses: bnjbvr/cargo-machete@main
