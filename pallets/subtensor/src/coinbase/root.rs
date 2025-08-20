@@ -477,9 +477,7 @@ impl<T: Config> Pallet<T> {
 
         // --- Log final removal.
         log::debug!(
-            "remove_network: netuid={}, owner={:?} removed successfully",
-            netuid,
-            owner_coldkey
+            "remove_network: netuid={netuid}, owner={owner_coldkey:?} removed successfully"
         );
     }
 

@@ -117,6 +117,7 @@ fn dissolve_single_alpha_out_staker_gets_all_tao() {
     });
 }
 
+#[allow(clippy::indexing_slicing)]
 #[test]
 fn dissolve_two_stakers_pro_rata_distribution() {
     new_test_ext(0).execute_with(|| {
@@ -142,8 +143,8 @@ fn dissolve_two_stakers_pro_rata_distribution() {
 
         // Expected τ shares with largest remainder
         let total = a1 + a2;
-        let prod1 = (a1 as u128) * (pot as u128);
-        let prod2 = (a2 as u128) * (pot as u128);
+        let prod1 = a1 * (pot as u128);
+        let prod2 = a2 * (pot as u128);
         let share1 = (prod1 / total) as u64;
         let share2 = (prod2 / total) as u64;
         let mut distributed = share1 + share2;
@@ -151,12 +152,8 @@ fn dissolve_two_stakers_pro_rata_distribution() {
         if distributed < pot {
             rem.sort_by_key(|&(_c, r)| core::cmp::Reverse(r));
             let leftover = pot - distributed;
-            for i in 0..(leftover as usize) {
-                if rem[i].0 == s1_cold {
-                    distributed += 1;
-                } else {
-                    distributed += 1;
-                }
+            for _ in 0..leftover as usize {
+                distributed += 1;
             }
         }
         // Recompute exact expected shares using the same logic
@@ -694,8 +691,7 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
             assert_eq!(
                 SubtensorModule::get_coldkey_balance(&cold[i]),
                 bal_before[i] + share[i],
-                "staker {} cold-key balance changed unexpectedly",
-                i
+                "staker {i} cold-key balance changed unexpectedly"
             );
         }
 
@@ -1235,6 +1231,7 @@ fn test_tempo_greater_than_weight_set_rate_limit() {
     })
 }
 
+#[allow(clippy::indexing_slicing)]
 #[test]
 fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state() {
     new_test_ext(0).execute_with(|| {
@@ -1399,7 +1396,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         // Capture **pair‑level** α snapshot per net (pre‑LP).
         for ((hot, cold, net), amt) in Alpha::<Test>::iter() {
             if let Some(&ni) = net_index.get(&net) {
-                if lp_sets_per_net[ni].iter().any(|&c| c == cold) {
+                if lp_sets_per_net[ni].contains(&cold) {
                     let a: u128 = amt.saturating_to_num();
                     if a > 0 {
                         alpha_pairs_per_net
@@ -1459,7 +1456,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
             let mut base_sum_net: u64 = 0;
             for ((_, cold), a) in pairs.iter().copied() {
                 // quota = a * pot / total_alpha
-                let prod: u128 = (a as u128).saturating_mul(pot as u128);
+                let prod: u128 = a.saturating_mul(pot as u128);
                 let base: u64 = (prod / total_alpha) as u64;
                 base_sum_net = base_sum_net.saturating_add(base);
                 *base_share_cold.entry(cold).or_default() =
@@ -1510,18 +1507,11 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
 
             assert!(
                 actual >= base,
-                "cold {:?} actual pot {} is below base {}",
-                cold,
-                actual,
-                base
+                "cold {cold:?} actual pot {actual} is below base {base}"
             );
             assert!(
                 actual <= base.saturating_add(pairs),
-                "cold {:?} actual pot {} exceeds base + pairs ({} + {})",
-                cold,
-                actual,
-                base,
-                pairs
+                "cold {cold:?} actual pot {actual} exceeds base + pairs ({base} + {pairs})"
             );
 
             extra_accum = extra_accum.saturating_add(actual.saturating_sub(base));
@@ -1543,8 +1533,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
             assert_eq!(
                 after.saturating_sub(mid),
                 principal_actual.saturating_add(actual_pot),
-                "cold {:?} τ balance incorrect vs 'after_adds'",
-                cold
+                "cold {cold:?} τ balance incorrect vs 'after_adds'"
             );
         }
 
@@ -1552,44 +1541,37 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         for &net in nets.iter() {
             assert!(
                 Alpha::<Test>::iter().all(|((_h, _c, n), _)| n != net),
-                "alpha ledger not fully cleared for net {:?}",
-                net
+                "alpha ledger not fully cleared for net {net:?}"
             );
             assert!(
                 !SubtensorModule::if_subnet_exist(net),
-                "subnet {:?} still exists",
-                net
+                "subnet {net:?} still exists"
             );
             assert!(
                 pallet_subtensor_swap::Ticks::<Test>::iter_prefix(net)
                     .next()
                     .is_none(),
-                "ticks not cleared for net {:?}",
-                net
+                "ticks not cleared for net {net:?}"
             );
             assert!(
                 !pallet_subtensor_swap::Positions::<Test>::iter()
                     .any(|((n, _owner, _pid), _)| n == net),
-                "swap positions not fully cleared for net {:?}",
-                net
+                "swap positions not fully cleared for net {net:?}"
             );
             assert_eq!(
                 pallet_subtensor_swap::FeeGlobalTao::<Test>::get(net).saturating_to_num::<u64>(),
                 0,
-                "FeeGlobalTao nonzero for net {:?}",
-                net
+                "FeeGlobalTao nonzero for net {net:?}"
             );
             assert_eq!(
                 pallet_subtensor_swap::FeeGlobalAlpha::<Test>::get(net).saturating_to_num::<u64>(),
                 0,
-                "FeeGlobalAlpha nonzero for net {:?}",
-                net
+                "FeeGlobalAlpha nonzero for net {net:?}"
             );
             assert_eq!(
                 pallet_subtensor_swap::CurrentLiquidity::<Test>::get(net),
                 0,
-                "CurrentLiquidity not zero for net {:?}",
-                net
+                "CurrentLiquidity not zero for net {net:?}"
             );
             assert!(
                 !pallet_subtensor_swap::SwapV3Initialized::<Test>::get(net),
@@ -1603,8 +1585,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
                 pallet_subtensor_swap::TickIndexBitmapWords::<Test>::iter_prefix((net,))
                     .next()
                     .is_none(),
-                "TickIndexBitmapWords not cleared for net {:?}",
-                net
+                "TickIndexBitmapWords not cleared for net {net:?}"
             );
         }
 
@@ -1679,15 +1660,13 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
             assert_eq!(
                 after_tau,
                 before_tau.saturating_sub(min_amount_required),
-                "τ did not decrease by the min required restake amount for cold {:?}",
-                cold
+                "τ did not decrease by the min required restake amount for cold {cold:?}"
             );
 
             // α minted equals the simulated swap’s net out for that same τ.
             assert_eq!(
                 a_delta, expected_alpha_out,
-                "α minted mismatch for cold {:?} (hot {:?}) on new net (αΔ {}, expected {})",
-                cold, hot1, a_delta, expected_alpha_out
+                "α minted mismatch for cold {cold:?} (hot {hot1:?}) on new net (αΔ {a_delta}, expected {expected_alpha_out})"
             );
         }
 

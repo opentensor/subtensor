@@ -1217,7 +1217,6 @@ impl<T: Config> Pallet<T> {
     /// - If the coldkey owns multiple hotkeys, split pro‑rata by current α stake on this subnet.
     ///   If all stakes are zero, split evenly.
     /// - If no hotkeys exist, fall back to (coldkey, coldkey).
-    ///
     pub fn refund_alpha(netuid: NetUid, coldkey: &T::AccountId, alpha_total: AlphaCurrency) {
         if alpha_total.is_zero() {
             return;
@@ -1237,44 +1236,53 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|hk| {
                 let bal = T::BalanceOps::alpha_balance(netuid, coldkey, hk);
-                bal.to_u64() as u128
+                u128::from(bal.to_u64())
             })
             .collect();
 
-        let sum_weights: u128 = weights.iter().copied().sum();
-        let n: u128 = hotkeys.len() as u128;
+        let sum_weights: u128 = weights
+            .iter()
+            .copied()
+            .fold(0u128, |acc, w| acc.saturating_add(w));
+        let n: u128 = u128::from(hotkeys.len() as u64);
 
-        let total_alpha_u128: u128 = alpha_total.to_u64() as u128;
+        let total_alpha_u128: u128 = u128::from(alpha_total.to_u64());
 
         // 3) Compute integer shares with remainder handling.
         let mut shares: sp_std::vec::Vec<(T::AccountId, u64)> =
             sp_std::vec::Vec::with_capacity(hotkeys.len());
+
         if sum_weights > 0 {
             // Pro‑rata by weights.
             let mut assigned: u128 = 0;
             for (hk, w) in hotkeys.iter().cloned().zip(weights.iter().copied()) {
-                let part: u128 = (total_alpha_u128.saturating_mul(w)) / sum_weights;
-                shares.push((hk, part as u64));
+                let numerator = total_alpha_u128.saturating_mul(w);
+                let part: u128 = numerator.checked_div(sum_weights).unwrap_or(0);
+                shares.push((hk, u64::try_from(part).unwrap_or(u64::MAX)));
                 assigned = assigned.saturating_add(part);
             }
-            let mut remainder: u64 = total_alpha_u128
-                .saturating_sub(assigned)
-                .try_into()
-                .unwrap_or(0);
-            let len = shares.len();
-            let mut i = 0usize;
-            while remainder > 0 && i < len {
-                shares[i].1 = shares[i].1.saturating_add(1);
-                remainder = remainder.saturating_sub(1);
-                i += 1;
+
+            // Distribute remainder one‑by‑one.
+            let mut remainder: u128 = total_alpha_u128.saturating_sub(assigned);
+            let mut i: usize = 0;
+            while remainder > 0 && i < shares.len() {
+                if let Some(pair) = shares.get_mut(i) {
+                    pair.1 = pair.1.saturating_add(1);
+                    remainder = remainder.saturating_sub(1);
+                    i = i.saturating_add(1);
+                } else {
+                    break;
+                }
             }
         } else {
             // Even split.
-            let base: u64 = (total_alpha_u128 / n) as u64;
-            let mut remainder: u64 = (total_alpha_u128 % n) as u64;
+            let base_u128 = total_alpha_u128.checked_div(n).unwrap_or(0);
+            let mut remainder_u128 = total_alpha_u128.checked_rem(n).unwrap_or(0);
+
+            let base: u64 = u64::try_from(base_u128).unwrap_or(u64::MAX);
             for hk in hotkeys.into_iter() {
-                let add_one = if remainder > 0 {
-                    remainder = remainder.saturating_sub(1);
+                let add_one: u64 = if remainder_u128 > 0 {
+                    remainder_u128 = remainder_u128.saturating_sub(1);
                     1
                 } else {
                     0
@@ -1296,12 +1304,7 @@ impl<T: Config> Pallet<T> {
                 Ok(_) => successes.push(hk.clone()),
                 Err(e) => {
                     log::warn!(
-                        "refund_alpha_to_hotkeys: increase_stake failed (cold={:?}, hot={:?}, netuid={:?}, amt={:?}): {:?}",
-                        coldkey,
-                        hk,
-                        netuid,
-                        amt_u64,
-                        e
+                        "refund_alpha_to_hotkeys: increase_stake failed (cold={coldkey:?}, hot={hk:?}, netuid={netuid:?}, amt={amt_u64:?}): {e:?}"
                     );
                     leftover = leftover.saturating_add(*amt_u64);
                 }
@@ -1310,13 +1313,13 @@ impl<T: Config> Pallet<T> {
 
         // 5) Retry: spread any leftover across the hotkeys that succeeded in step 4.
         if leftover > 0 && !successes.is_empty() {
-            let count = successes.len() as u64;
-            let base = leftover / count;
-            let mut rem = leftover % count;
+            let count_u64 = successes.len() as u64;
+            let base = leftover.checked_div(count_u64).unwrap_or(0);
+            let mut rem = leftover.checked_rem(count_u64).unwrap_or(0);
 
             for hk in successes.iter() {
                 let add: u64 = base.saturating_add(if rem > 0 {
-                    rem -= 1;
+                    rem = rem.saturating_sub(1);
                     1
                 } else {
                     0
@@ -1341,7 +1344,7 @@ impl<T: Config> Pallet<T> {
     ///   * Remove **all** positions via `do_remove_liquidity`.
     ///   * **Refund** each owner:
     ///       - TAO = Σ(position.tao + position.fee_tao) → credited to the owner's **coldkey** free balance.
-    ///       - ALPHA = Σ(position.alpha + position.fee_alpha) → credited back
+    ///       - ALPHA = Σ(position.alpha + position.fee_alpha) → credited back via `refund_alpha`.
     ///   * Decrease "provided reserves" (principal only) for non‑protocol owners.
     ///   * Clear ActiveTickIndexManager entries, ticks, fee globals, price, tick, liquidity,
     ///     init flag, bitmap words, fee rate knob, and user LP flag.
@@ -1398,15 +1401,14 @@ impl<T: Config> Pallet<T> {
                 }
             }
 
-            // 3) Process refunds per owner (no skipping).
+            // 3) Process refunds per owner.
             for (owner, (tao_sum, alpha_sum)) in refunds.into_iter() {
                 // TAO → coldkey free balance
                 if tao_sum > TaoCurrency::ZERO {
                     T::BalanceOps::increase_balance(&owner, tao_sum);
                 }
 
-                // α → split across all owned hotkeys (never skip). Skip α for protocol account
-                // because protocol liquidity does not map to user stake.
+                // α → split across all hotkeys owned by `owner`.
                 if !alpha_sum.is_zero() && owner != protocol_account {
                     Self::refund_alpha(netuid, &owner, alpha_sum);
                 }
@@ -1440,9 +1442,7 @@ impl<T: Config> Pallet<T> {
             EnabledUserLiquidity::<T>::remove(netuid);
 
             log::debug!(
-                "dissolve_all_liquidity_providers: netuid={:?}, mode=V3, user_lp_enabled={}, v3_state_cleared + refunds",
-                netuid,
-                user_lp_enabled
+                "dissolve_all_liquidity_providers: netuid={netuid:?}, mode=V3, user_lp_enabled={user_lp_enabled}, v3_state_cleared + refunds"
             );
 
             return Ok(());
@@ -1450,10 +1450,8 @@ impl<T: Config> Pallet<T> {
 
         // -------- V2 / non‑V3: no positions to close; still nuke any V3 residues --------
 
-        // Positions (StorageNMap) – prefix is (netuid,)
         let _ = Positions::<T>::clear_prefix((netuid,), u32::MAX, None);
 
-        // Active ticks set via ticks present (if any)
         let active_ticks: sp_std::vec::Vec<TickIndex> =
             Ticks::<T>::iter_prefix(netuid).map(|(ti, _)| ti).collect();
         for ti in active_ticks {
@@ -1475,9 +1473,7 @@ impl<T: Config> Pallet<T> {
         EnabledUserLiquidity::<T>::remove(netuid);
 
         log::debug!(
-            "dissolve_all_liquidity_providers: netuid={:?}, mode=V2-or-nonV3, user_lp_enabled={}, state_cleared",
-            netuid,
-            user_lp_enabled
+            "dissolve_all_liquidity_providers: netuid={netuid:?}, mode=V2-or-nonV3, user_lp_enabled={user_lp_enabled}, state_cleared"
         );
 
         Ok(())
