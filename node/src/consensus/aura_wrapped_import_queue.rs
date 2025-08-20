@@ -1,38 +1,132 @@
-use futures::future::pending;
+use crate::client::FullClient;
+use crate::conditional_evm_block_import::ConditionalEVMBlockImport;
+use crate::service::GrandpaBlockImport;
+use fc_consensus::FrontierBlockImport;
+use node_subtensor_runtime::opaque::Block;
 use sc_client_api::AuxStore;
 use sc_client_api::BlockOf;
 use sc_client_api::UsageProvider;
+use sc_consensus::BlockCheckParams;
 use sc_consensus::BlockImport;
 use sc_consensus::BlockImportParams;
-use sc_consensus::ForkChoiceStrategy;
+use sc_consensus::BoxJustificationImport;
+use sc_consensus::ImportResult;
 use sc_consensus::Verifier;
 use sc_consensus::{BasicQueue, DefaultImportQueue};
 use sc_consensus_aura::AuraVerifier;
 use sc_consensus_aura::CheckForEquivocation;
-use sc_consensus_aura::ImportQueueParams;
-use sc_consensus_babe::CompatibleDigestItem as _;
+use sc_consensus_aura::CompatibilityMode;
+use sc_consensus_babe::BabeBlockImport;
+use sc_consensus_babe::BabeLink;
+use sc_consensus_babe::BabeVerifier;
+use sc_consensus_babe::Epoch;
+use sc_consensus_epochs::SharedEpochChanges;
 use sc_consensus_slots::InherentDataProviderExt;
 use sc_telemetry::TelemetryHandle;
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ApiExt;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::HeaderBackend;
 use sp_blockchain::HeaderMetadata;
+use sp_consensus::SelectChain;
 use sp_consensus::error::Error as ConsensusError;
 use sp_consensus_aura::AuraApi;
 use sp_consensus_aura::sr25519::AuthorityId as AuraAuthorityId;
 use sp_consensus_aura::sr25519::AuthorityPair as AuraAuthorityPair;
-use sp_consensus_babe::AuthorityId as BabeAuthorityId;
-use sp_consensus_babe::AuthorityPair as BabeAuthorityPair;
 use sp_consensus_babe::BABE_ENGINE_ID;
-use sp_core::Pair;
-use sp_core::crypto::Ss58Codec;
+use sp_consensus_babe::BabeApi;
+use sp_consensus_babe::BabeConfiguration;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::Digest;
 use sp_runtime::DigestItem;
 use sp_runtime::traits::NumberFor;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 use std::sync::Arc;
+use substrate_prometheus_endpoint::Registry;
+
+#[derive(Clone)]
+pub struct AuraWrappedBlockImport {
+    inner_aura: ConditionalEVMBlockImport<
+        Block,
+        GrandpaBlockImport,
+        FrontierBlockImport<Block, GrandpaBlockImport, FullClient>,
+    >,
+    inner_babe: ConditionalEVMBlockImport<
+        Block,
+        BabeBlockImport<Block, FullClient, GrandpaBlockImport>,
+        FrontierBlockImport<
+            Block,
+            BabeBlockImport<Block, FullClient, GrandpaBlockImport>,
+            FullClient,
+        >,
+    >,
+    babe_link: BabeLink<Block>,
+}
+
+impl AuraWrappedBlockImport {
+    pub fn new(
+        client: Arc<FullClient>,
+        grandpa_block_import: GrandpaBlockImport,
+        babe_config: BabeConfiguration,
+    ) -> Self {
+        let inner_aura = ConditionalEVMBlockImport::new(
+            grandpa_block_import.clone(),
+            FrontierBlockImport::new(grandpa_block_import.clone(), client.clone()),
+        );
+
+        let (babe_import, babe_link) = sc_consensus_babe::block_import(
+            babe_config,
+            grandpa_block_import.clone(),
+            client.clone(),
+        )
+        .unwrap();
+
+        let inner_babe = ConditionalEVMBlockImport::new(
+            babe_import.clone(),
+            FrontierBlockImport::new(babe_import.clone(), client.clone()),
+        );
+
+        AuraWrappedBlockImport {
+            inner_aura,
+            inner_babe,
+            babe_link,
+        }
+    }
+
+    pub fn babe_link(&self) -> &BabeLink<Block> {
+        &self.babe_link
+    }
+}
+
+#[async_trait::async_trait]
+impl BlockImport<Block> for AuraWrappedBlockImport {
+    type Error = ConsensusError;
+
+    async fn check_block(
+        &self,
+        block: BlockCheckParams<Block>,
+    ) -> Result<ImportResult, Self::Error> {
+        self.inner_aura.check_block(block).await.map_err(Into::into)
+    }
+
+    async fn import_block(
+        &self,
+        block: BlockImportParams<Block>,
+    ) -> Result<ImportResult, Self::Error> {
+        if is_babe_digest(block.header.digest()) {
+            self.inner_babe
+                .import_block(block)
+                .await
+                .map_err(Into::into)
+        } else {
+            self.inner_aura
+                .import_block(block)
+                .await
+                .map_err(Into::into)
+        }
+    }
+}
 
 /// A wrapped Aura verifier which will stall verification if it encounters a
 /// Babe block, rather than error out.
@@ -41,19 +135,19 @@ use std::sync::Arc;
 /// re-fetching of the same block from peers, which triggers the peers to
 /// blacklist the offending node and refuse to connect with them until they
 /// are restarted
-struct AuraWrappedVerifier<B, C, CIDP, N> {
-    inner: AuraVerifier<C, AuraAuthorityPair, CIDP, N>,
-    client: Arc<C>,
-    _phantom: std::marker::PhantomData<B>,
+struct AuraWrappedVerifier<B: BlockT, C, CIDP, N, SC> {
+    inner_aura: AuraVerifier<C, AuraAuthorityPair, CIDP, N>,
+    inner_babe: BabeVerifier<B, C, SC, CIDP>,
 }
 
-impl<B: BlockT, C, CIDP, N> AuraWrappedVerifier<B, C, CIDP, N>
+impl<B: BlockT, C, CIDP, N, SC> AuraWrappedVerifier<B, C, CIDP, N, SC>
 where
-    CIDP: CreateInherentDataProviders<B, ()> + Send + Sync,
+    CIDP: CreateInherentDataProviders<B, ()> + Send + Sync + Clone,
     CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
     C: ProvideRuntimeApi<B> + Send + Sync + sc_client_api::backend::AuxStore,
-    C::Api: BlockBuilderApi<B> + AuraApi<B, AuraAuthorityId> + ApiExt<B>,
-    C: HeaderBackend<B> + HeaderMetadata<B>,
+    C::Api: BlockBuilderApi<B> + BabeApi<B> + AuraApi<B, AuraAuthorityId> + ApiExt<B>,
+    C: HeaderBackend<B> + HeaderMetadata<B, Error = sp_blockchain::Error>,
+    SC: SelectChain<B> + 'static,
 {
     pub fn new(
         client: Arc<C>,
@@ -61,137 +155,98 @@ where
         telemetry: Option<TelemetryHandle>,
         check_for_equivocation: CheckForEquivocation,
         compatibility_mode: sc_consensus_aura::CompatibilityMode<N>,
+        select_chain: SC,
+        babe_config: BabeConfiguration,
+        epoch_changes: SharedEpochChanges<B, Epoch>,
+        offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
     ) -> Self {
-        let verifier_params = sc_consensus_aura::BuildVerifierParams::<C, CIDP, _> {
+        let aura_params = sc_consensus_aura::BuildVerifierParams::<C, CIDP, _> {
             client: client.clone(),
-            create_inherent_data_providers,
-            telemetry,
+            create_inherent_data_providers: create_inherent_data_providers.clone(),
+            telemetry: telemetry.clone(),
             check_for_equivocation,
             compatibility_mode,
         };
-        let verifier =
-            sc_consensus_aura::build_verifier::<AuraAuthorityPair, C, CIDP, N>(verifier_params);
+        let inner_aura =
+            sc_consensus_aura::build_verifier::<AuraAuthorityPair, C, CIDP, N>(aura_params);
+
+        let inner_babe = BabeVerifier::new(
+            client.clone(),
+            select_chain,
+            create_inherent_data_providers,
+            babe_config,
+            epoch_changes,
+            telemetry,
+            offchain_tx_pool_factory,
+        );
 
         AuraWrappedVerifier {
-            inner: verifier,
-            client,
-            _phantom: std::marker::PhantomData,
+            inner_aura,
+            inner_babe,
         }
-    }
-
-    /// When a Babe block is encountered in Aura mode, we need to check it is legitimate
-    /// before switching to the Babe service.
-    ///
-    /// We can't use a full [`BabeVerifier`] because we don't have a Babe link running, however we
-    /// can check that the block author is one of the authorities from the last verified Aura block.
-    ///
-    /// The Babe block will be verified in full after the node spins back up as a Babe service.
-    async fn check_babe_block(&self, block: BlockImportParams<B>) -> Result<(), String> {
-        log::info!(
-            "Checking Babe block {:?} is legitimate",
-            block.post_header().hash()
-        );
-        let mut header = block.header.clone();
-        let seal = header
-            .digest_mut()
-            .pop()
-            .ok_or_else(|| "Header Unsealed".to_string())?;
-        let sig = seal
-            .as_babe_seal()
-            .ok_or_else(|| "Header bad seal".to_string())?;
-
-        let authorities = self.get_last_aura_authorities(block.header)?;
-        if let Some(a) = authorities.into_iter().find(|a| {
-            let babe_key = BabeAuthorityId::from(a.clone().into_inner());
-            BabeAuthorityPair::verify(&sig, header.hash(), &babe_key)
-        }) {
-            log::info!(
-                "Babe block has a valid signature by author: {}",
-                a.to_ss58check()
-            );
-            Ok(())
-        } else {
-            Err("Babe block has a bad signature. Rejecting.".to_string())
-        }
-    }
-
-    /// Given the hash of the first Babe block mined, get the Aura authorities that existed prior to
-    /// the runtime upgrade.
-    ///
-    /// Note: We need get the Aura authorities from grandparent rather than the parent,
-    /// because the runtime upgrade clearing the Aura authorities occurs in the parent.
-    fn get_last_aura_authorities(
-        &self,
-        first_babe_block_header: B::Header,
-    ) -> Result<Vec<AuraAuthorityId>, String> {
-        let parent_header = self
-            .client
-            .header(*first_babe_block_header.parent_hash())
-            .map_err(|e| format!("Failed to get parent header: {e}"))?
-            .ok_or("Parent header not found".to_string())?;
-        let grandparent_hash = parent_header.parent_hash();
-
-        let runtime_api = self.client.runtime_api();
-        let authorities = runtime_api
-            .authorities(*grandparent_hash)
-            .map_err(|e| format!("Failed to get Aura authorities: {e}"))?;
-
-        Ok(authorities)
     }
 }
 
 #[async_trait::async_trait]
-impl<B: BlockT, C, CIDP> Verifier<B> for AuraWrappedVerifier<B, C, CIDP, NumberFor<B>>
+impl<B: BlockT, C, CIDP, SC> Verifier<B> for AuraWrappedVerifier<B, C, CIDP, NumberFor<B>, SC>
 where
     C: ProvideRuntimeApi<B> + Send + Sync + sc_client_api::backend::AuxStore,
-    C::Api: BlockBuilderApi<B> + AuraApi<B, AuraAuthorityId> + ApiExt<B>,
-    C: HeaderBackend<B> + HeaderMetadata<B>,
-    CIDP: CreateInherentDataProviders<B, ()> + Send + Sync,
+    C::Api: BlockBuilderApi<B> + BabeApi<B> + AuraApi<B, AuraAuthorityId> + ApiExt<B>,
+    C: HeaderBackend<B> + HeaderMetadata<B, Error = sp_blockchain::Error>,
+    CIDP: CreateInherentDataProviders<B, ()> + Send + Sync + Clone,
     CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
+    SC: SelectChain<B> + 'static,
 {
-    async fn verify(
-        &self,
-        mut block: BlockImportParams<B>,
-    ) -> Result<BlockImportParams<B>, String> {
-        // Skip checks that include execution, if being told so or when importing only state.
-        //
-        // This is done for example when gap syncing and it is expected that the block after the gap
-        // was checked/chosen properly, e.g. by warp syncing to this block using a finality proof.
-        // Or when we are importing state only and can not verify the seal.
-        //
-        // This matches the behavior of the stock [`AuraVerifier`]:
-        // https://github.com/opentensor/polkadot-sdk/blob/881e32b6c9e4c794502fc1fa0f854a4e07ade187/substrate/client/consensus/aura/src/import_queue.rs#L180-L190
-        if block.with_state() || block.state_action.skip_execution_checks() {
-            // When we are importing only the state of a block, it will be the best block.
-            block.fork_choice = Some(ForkChoiceStrategy::Custom(block.with_state()));
-
-            return Ok(block);
-        }
-
+    async fn verify(&self, block: BlockImportParams<B>) -> Result<BlockImportParams<B>, String> {
         let number: NumberFor<B> = *block.post_header().number();
         log::debug!("Verifying block: {:?}", number);
         if is_babe_digest(block.header.digest()) {
-            self.check_babe_block(block).await?;
-            // It is critical to pause the verifier when we detect a Babe block while we wait for
-            // the node to switch to the Babe service. Otherwise if the node rejects the valid babe
-            // block, it is possible it will repeatedly request the block over and over and get
-            // blacklisted by other nodes.
-            log::debug!("Detected valid Babe block, deliberately stalling verifier.");
-            pending::<()>().await;
-            unreachable!("Cannot reach here, pending forever.");
+            self.inner_babe.verify(block).await
         } else {
-            self.inner.verify(block).await
+            self.inner_aura.verify(block).await
         }
     }
 }
 
+/// Parameters of [`import_queue`].
+pub struct ImportQueueParams<'a, Block: BlockT, I, C, S, CIDP, SC> {
+    /// The block import to use.
+    pub block_import: I,
+    /// The justification import.
+    pub justification_import: Option<BoxJustificationImport<Block>>,
+    /// The client to interact with the chain.
+    pub client: Arc<C>,
+    /// Something that can create the inherent data providers.
+    pub create_inherent_data_providers: CIDP,
+    /// The spawner to spawn background tasks.
+    pub spawner: &'a S,
+    /// The prometheus registry.
+    pub registry: Option<&'a Registry>,
+    /// Should we check for equivocation?
+    pub check_for_equivocation: CheckForEquivocation,
+    /// Telemetry instance used to report telemetry metrics.
+    pub telemetry: Option<TelemetryHandle>,
+    /// Compatibility mode that should be used.
+    ///
+    /// If in doubt, use `Default::default()`.
+    pub compatibility_mode: CompatibilityMode<NumberFor<Block>>,
+    /// SelectChain strategy to use.
+    pub select_chain: SC,
+    /// The configuration for the BABE consensus algorithm.
+    pub babe_config: BabeConfiguration,
+    /// The epoch changes for the BABE consensus algorithm.
+    pub epoch_changes: SharedEpochChanges<Block, Epoch>,
+    /// The offchain transaction pool factory.
+    pub offchain_tx_pool_factory: OffchainTransactionPoolFactory<Block>,
+}
+
 /// Start an import queue for the Aura consensus algorithm.
-pub fn import_queue<B, I, C, S, CIDP>(
-    params: ImportQueueParams<B, I, C, S, CIDP>,
+pub fn import_queue<B, I, C, S, CIDP, SC>(
+    params: ImportQueueParams<B, I, C, S, CIDP, SC>,
 ) -> Result<DefaultImportQueue<B>, sp_consensus::Error>
 where
     B: BlockT,
-    C::Api: BlockBuilderApi<B> + AuraApi<B, AuraAuthorityId> + ApiExt<B>,
+    C::Api: BlockBuilderApi<B> + BabeApi<B> + AuraApi<B, AuraAuthorityId> + ApiExt<B>,
     C: 'static
         + ProvideRuntimeApi<B>
         + BlockOf
@@ -200,18 +255,23 @@ where
         + AuxStore
         + UsageProvider<B>
         + HeaderBackend<B>
-        + HeaderMetadata<B>,
+        + HeaderMetadata<B, Error = sp_blockchain::Error>,
     I: BlockImport<B, Error = ConsensusError> + Send + Sync + 'static,
     S: sp_core::traits::SpawnEssentialNamed,
-    CIDP: CreateInherentDataProviders<B, ()> + Sync + Send + 'static,
+    CIDP: CreateInherentDataProviders<B, ()> + Sync + Send + Clone + 'static,
     CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
+    SC: SelectChain<B> + 'static,
 {
-    let verifier = AuraWrappedVerifier::<B, C, CIDP, NumberFor<B>>::new(
+    let verifier = AuraWrappedVerifier::<B, C, CIDP, NumberFor<B>, SC>::new(
         params.client,
         params.create_inherent_data_providers,
         params.telemetry,
         params.check_for_equivocation,
         params.compatibility_mode,
+        params.select_chain,
+        params.babe_config,
+        params.epoch_changes,
+        params.offchain_tx_pool_factory,
     );
 
     Ok(BasicQueue::new(

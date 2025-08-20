@@ -124,6 +124,7 @@ pub trait ConsensusMechanism {
         task_manager: &mut TaskManager,
         client: Arc<FullClient>,
         triggered: Option<Arc<AtomicBool>>,
+        warp_sync_enabled: bool,
     ) -> Result<(), ServiceError>;
 
     /// Returns any consensus mechanism specific rpc methods to register.
