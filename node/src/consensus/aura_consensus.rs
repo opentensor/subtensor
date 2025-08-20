@@ -253,6 +253,9 @@ where
     };
 
     let runtime_api = client.runtime_api();
+    // TODO: This stuff should all be made agnostic to Aura/Babe and moved to the service.rs file.
+    // First try to fetch the configuration the regular Babe way, only if that fails fallback to the
+    // Aura method.
     let authorities = runtime_api
         .authorities(at_hash)?
         .into_iter()
