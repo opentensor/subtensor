@@ -11,6 +11,7 @@ use sc_client_api::{AuxStore, BlockOf, UsageProvider};
 use sc_consensus::{BlockImport, BoxBlockImport};
 use sc_consensus_grandpa::BlockNumberOps;
 use sc_consensus_slots::{BackoffAuthoringBlocksStrategy, InherentDataProviderExt};
+use sc_network_sync::SyncingService;
 use sc_service::{Configuration, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
@@ -195,7 +196,7 @@ impl ConsensusMechanism for AuraConsensus {
         task_manager: &mut TaskManager,
         client: Arc<FullClient>,
         triggered: Option<Arc<std::sync::atomic::AtomicBool>>,
-        warp_sync_enabled: bool,
+        sync_service: Arc<SyncingService<Block>>,
     ) -> Result<(), sc_service::Error> {
         let client_clone = client.clone();
         let triggered_clone = triggered.clone();
@@ -209,25 +210,19 @@ impl ConsensusMechanism for AuraConsensus {
                 loop {
                     // Check if the runtime is Babe once per block.
                     if let Ok(c) = sc_consensus_babe::configuration(&*client) {
-                        if !c.authorities.is_empty() {
-                            log::info!("Babe runtime detected! Intentionally failing the essential handle `babe-switch` to trigger switch to Babe service.");
+						let warp_syncing = sync_service.status().await.is_ok_and(|status| status.warp_sync.is_some());
+						if !c.authorities.is_empty() && !warp_syncing {
+							log::info!("Babe runtime detected! Intentionally failing the essential handle `babe-switch` to trigger switch to Babe service.");
 							if let Some(triggered) = triggered {
 								triggered.store(true, std::sync::atomic::Ordering::SeqCst);
 							};
-                            break;
-                        }
+							break;
+						}
                     };
                     tokio::time::sleep(slot_duration.as_duration()).await;
                 }
             }),
         );
-        if warp_sync_enabled {
-            log::info!(
-                "Detected Babe block in Aura mode while warp syncing. Warp sync does not allow restarting sync midway, so the node will NOT switch to Babe mode. Once your node has finished warp syncing, it is recommended to restart it so it can properly switch into Babe mode."
-            );
-            // Stall forever
-            std::thread::park();
-        }
         Ok(())
     }
 

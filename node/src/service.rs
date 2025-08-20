@@ -336,13 +336,6 @@ where
         Some(WarpSyncConfig::WithProvider(warp_sync))
     };
 
-    consensus_mechanism.spawn_essential_handles(
-        &mut task_manager,
-        client.clone(),
-        custom_service_signal,
-        warp_sync_config.is_some(),
-    )?;
-
     let (network, system_rpc_tx, tx_handler_controller, sync_service) =
         sc_service::build_network(sc_service::BuildNetworkParams {
             config: &config,
@@ -356,6 +349,13 @@ where
             block_relay: None,
             metrics,
         })?;
+
+    consensus_mechanism.spawn_essential_handles(
+        &mut task_manager,
+        client.clone(),
+        custom_service_signal,
+        sync_service.clone(),
+    )?;
 
     if config.offchain_worker.enabled && config.role.is_authority() {
         let public_keys = keystore_container
