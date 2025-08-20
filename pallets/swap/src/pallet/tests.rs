@@ -1977,7 +1977,7 @@ fn test_liquidate_v3_removes_positions_ticks_and_state() {
         assert!(had_bitmap_words);
 
         // ACT: Liquidate & reset swap state
-        assert_ok!(Pallet::<Test>::do_liquidate_all_liquidity_providers(netuid));
+        assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
 
         // ASSERT: positions cleared (both user and protocol)
         assert_eq!(
@@ -2062,7 +2062,7 @@ fn test_liquidate_v3_with_user_liquidity_disabled() {
         ));
 
         // ACT
-        assert_ok!(Pallet::<Test>::do_liquidate_all_liquidity_providers(netuid));
+        assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
 
         // ASSERT: positions & ticks gone, state reset
         assert_eq!(
@@ -2107,7 +2107,7 @@ fn test_liquidate_non_v3_uninitialized_ok_and_clears() {
         );
 
         // ACT
-        assert_ok!(Pallet::<Test>::do_liquidate_all_liquidity_providers(netuid));
+        assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
 
         // ASSERT: Defensive clears leave no residues and do not panic
         assert!(
@@ -2160,9 +2160,9 @@ fn test_liquidate_idempotent() {
         ));
 
         // 1st liquidation
-        assert_ok!(Pallet::<Test>::do_liquidate_all_liquidity_providers(netuid));
+        assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
         // 2nd liquidation (no state left) — must still succeed
-        assert_ok!(Pallet::<Test>::do_liquidate_all_liquidity_providers(netuid));
+        assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
 
         // State remains empty
         assert!(
@@ -2184,8 +2184,8 @@ fn test_liquidate_idempotent() {
         let netuid = NetUid::from(8);
 
         // Never initialize V3
-        assert_ok!(Pallet::<Test>::do_liquidate_all_liquidity_providers(netuid));
-        assert_ok!(Pallet::<Test>::do_liquidate_all_liquidity_providers(netuid));
+        assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
+        assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
 
         assert!(
             Positions::<Test>::iter_prefix_values((netuid, OK_COLDKEY_ACCOUNT_ID))
@@ -2252,7 +2252,7 @@ fn liquidate_v3_refunds_user_funds_and_clears_state() {
         <Test as Config>::BalanceOps::increase_provided_alpha_reserve(netuid.into(), alpha_taken);
 
         // Liquidate everything on the subnet.
-        assert_ok!(Pallet::<Test>::do_liquidate_all_liquidity_providers(netuid));
+        assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
 
         // Expect balances restored to BEFORE snapshots (no swaps ran -> zero fees).
         // TAO: we withdrew 'need_tao' above and liquidation refunded it, so we should be back to 'tao_before'.

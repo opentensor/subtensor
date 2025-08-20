@@ -1218,11 +1218,7 @@ impl<T: Config> Pallet<T> {
     ///   If all stakes are zero, split evenly.
     /// - If no hotkeys exist, fall back to (coldkey, coldkey).
     ///
-    pub fn refund_alpha_to_hotkeys(
-        netuid: NetUid,
-        coldkey: &T::AccountId,
-        alpha_total: AlphaCurrency,
-    ) {
+    pub fn refund_alpha(netuid: NetUid, coldkey: &T::AccountId, alpha_total: AlphaCurrency) {
         if alpha_total.is_zero() {
             return;
         }
@@ -1339,21 +1335,20 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Liquidate (force-close) all LPs for `netuid`, refund providers, and reset all swap state.
+    /// Dissolve all LPs for `netuid`, refund providers, and reset all swap state.
     ///
     /// - **V3 path** (mechanism == 1 && SwapV3Initialized):
-    ///   * Remove **all** positions (user + protocol) via `do_remove_liquidity`.
+    ///   * Remove **all** positions via `do_remove_liquidity`.
     ///   * **Refund** each owner:
     ///       - TAO = Σ(position.tao + position.fee_tao) → credited to the owner's **coldkey** free balance.
-    ///       - ALPHA = Σ(position.alpha + position.fee_alpha) → credited back across **all owned hotkeys**
-    ///         using `refund_alpha_to_hotkeys` (pro‑rata by current α stake; even split if all zero; never skipped).
+    ///       - ALPHA = Σ(position.alpha + position.fee_alpha) → credited back
     ///   * Decrease "provided reserves" (principal only) for non‑protocol owners.
     ///   * Clear ActiveTickIndexManager entries, ticks, fee globals, price, tick, liquidity,
     ///     init flag, bitmap words, fee rate knob, and user LP flag.
     ///
     /// - **V2 / non‑V3 path**:
     ///   * No per‑position records exist; still defensively clear the same V3 storages (safe no‑ops).
-    pub fn do_liquidate_all_liquidity_providers(netuid: NetUid) -> DispatchResult {
+    pub fn do_dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult {
         let mechid = T::SubnetInfo::mechanism(netuid.into());
         let v3_initialized = SwapV3Initialized::<T>::get(netuid);
         let user_lp_enabled =
@@ -1383,7 +1378,6 @@ impl<T: Config> Pallet<T> {
             let mut refunds: BTreeMap<T::AccountId, (TaoCurrency, AlphaCurrency)> = BTreeMap::new();
 
             for CloseItem { owner, pos_id } in to_close.into_iter() {
-                // Remove position first; this returns principal + accrued fees amounts.
                 let rm = Self::do_remove_liquidity(netuid, &owner, pos_id)?;
 
                 // Accumulate (TAO, α) refund: principal + fees.
@@ -1398,7 +1392,6 @@ impl<T: Config> Pallet<T> {
                     })
                     .or_insert((tao_add, alpha_add));
 
-                // Mirror "user-provided" reserves by principal only (fees have been paid out).
                 if owner != protocol_account {
                     T::BalanceOps::decrease_provided_tao_reserve(netuid, rm.tao);
                     T::BalanceOps::decrease_provided_alpha_reserve(netuid, rm.alpha);
@@ -1415,7 +1408,7 @@ impl<T: Config> Pallet<T> {
                 // α → split across all owned hotkeys (never skip). Skip α for protocol account
                 // because protocol liquidity does not map to user stake.
                 if !alpha_sum.is_zero() && owner != protocol_account {
-                    Self::refund_alpha_to_hotkeys(netuid, &owner, alpha_sum);
+                    Self::refund_alpha(netuid, &owner, alpha_sum);
                 }
             }
 
@@ -1443,13 +1436,11 @@ impl<T: Config> Pallet<T> {
 
             // Active tick bitmap words (StorageNMap) – prefix is **(netuid,)**.
             let _ = TickIndexBitmapWords::<T>::clear_prefix((netuid,), u32::MAX, None);
-
-            // Remove knobs (safe on deregistration).
             FeeRate::<T>::remove(netuid);
             EnabledUserLiquidity::<T>::remove(netuid);
 
             log::debug!(
-                "liquidate_all_liquidity_providers: netuid={:?}, mode=V3, user_lp_enabled={}, v3_state_cleared + refunds",
+                "dissolve_all_liquidity_providers: netuid={:?}, mode=V3, user_lp_enabled={}, v3_state_cleared + refunds",
                 netuid,
                 user_lp_enabled
             );
@@ -1484,7 +1475,7 @@ impl<T: Config> Pallet<T> {
         EnabledUserLiquidity::<T>::remove(netuid);
 
         log::debug!(
-            "liquidate_all_liquidity_providers: netuid={:?}, mode=V2-or-nonV3, user_lp_enabled={}, state_cleared",
+            "dissolve_all_liquidity_providers: netuid={:?}, mode=V2-or-nonV3, user_lp_enabled={}, state_cleared",
             netuid,
             user_lp_enabled
         );
@@ -1576,8 +1567,8 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool {
         EnabledUserLiquidity::<T>::get(netuid)
     }
-    fn liquidate_all_liquidity_providers(netuid: NetUid) -> DispatchResult {
-        Self::do_liquidate_all_liquidity_providers(netuid)
+    fn dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult {
+        Self::do_dissolve_all_liquidity_providers(netuid)
     }
 }
 

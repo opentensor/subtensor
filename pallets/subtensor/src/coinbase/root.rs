@@ -374,7 +374,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // 2. --- Perform the cleanup before removing the network.
-        T::SwapInterface::liquidate_all_liquidity_providers(netuid)?;
+        T::SwapInterface::dissolve_all_liquidity_providers(netuid)?;
         Self::destroy_alpha_in_out_stakes(netuid)?;
 
         // 3. --- Remove the network
