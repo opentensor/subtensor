@@ -872,7 +872,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for subnet limit.
     pub fn DefaultSubnetLimit<T: Config>() -> u16 {
-        256
+        128
     }
 
     #[pallet::storage]
