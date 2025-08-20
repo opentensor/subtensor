@@ -2,7 +2,9 @@
 
 use frame_support::pallet_prelude::*;
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, Currency, CurrencyReserve, NetUid, TaoCurrency};
+
+pub mod order;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OrderType {
@@ -11,23 +13,33 @@ pub enum OrderType {
 }
 
 pub trait SwapHandler<AccountId> {
-    fn swap(
+    fn swap<PaidIn, PaidOut, ReserveIn, ReserveOut>(
         netuid: NetUid,
         order_t: OrderType,
-        amount: u64,
-        price_limit: u64,
+        amount: PaidIn,
+        price_limit: TaoCurrency,
         drop_fees: bool,
         should_rollback: bool,
-    ) -> Result<SwapResult, DispatchError>;
-    fn sim_swap(
+    ) -> Result<SwapResult<PaidIn, PaidOut>, DispatchError>
+    where
+        PaidIn: Currency,
+        PaidOut: Currency,
+        ReserveIn: CurrencyReserve<PaidIn>,
+        ReserveOut: CurrencyReserve<PaidOut>;
+    fn sim_swap<PaidIn, PaidOut, ReserveIn, ReserveOut>(
         netuid: NetUid,
         order_t: OrderType,
-        amount: u64,
-    ) -> Result<SwapResult, DispatchError>;
-    fn approx_fee_amount(netuid: NetUid, amount: u64) -> u64;
+        amount: PaidIn,
+    ) -> Result<SwapResult<PaidIn, PaidOut>, DispatchError>
+    where
+        PaidIn: Currency,
+        PaidOut: Currency,
+        ReserveIn: CurrencyReserve<PaidIn>,
+        ReserveOut: CurrencyReserve<PaidOut>;
+    fn approx_fee_amount<T: Currency>(netuid: NetUid, amount: T) -> T;
     fn current_alpha_price(netuid: NetUid) -> U96F32;
-    fn max_price() -> u64;
-    fn min_price() -> u64;
+    fn max_price<C: Currency>() -> C;
+    fn min_price<C: Currency>() -> C;
     fn adjust_protocol_liquidity(
         netuid: NetUid,
         tao_delta: TaoCurrency,
@@ -36,12 +48,16 @@ pub trait SwapHandler<AccountId> {
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool;
 }
 
-#[derive(Debug, PartialEq)]
-pub struct SwapResult {
-    pub amount_paid_in: u64,
-    pub amount_paid_out: u64,
-    pub fee_paid: u64,
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
+pub struct SwapResult<PaidIn, PaidOut>
+where
+    PaidIn: Currency,
+    PaidOut: Currency,
+{
+    pub amount_paid_in: PaidIn,
+    pub amount_paid_out: PaidOut,
+    pub fee_paid: PaidIn,
     // For calculation of new tao/alpha reserves
-    pub tao_reserve_delta: i64,
-    pub alpha_reserve_delta: i64,
+    pub tao_reserve_delta: i128,
+    pub alpha_reserve_delta: i128,
 }

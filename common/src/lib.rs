@@ -169,11 +169,15 @@ impl Default for ProxyType {
 }
 
 pub trait SubnetInfo<AccountId> {
-    fn tao_reserve(netuid: NetUid) -> TaoCurrency;
-    fn alpha_reserve(netuid: NetUid) -> AlphaCurrency;
     fn exists(netuid: NetUid) -> bool;
     fn mechanism(netuid: NetUid) -> u16;
     fn is_owner(account_id: &AccountId, netuid: NetUid) -> bool;
+}
+
+pub trait CurrencyReserve<C: Currency> {
+    fn reserve(netuid: NetUid) -> C;
+    fn increase_provided(netuid: NetUid, amount: C);
+    fn decrease_provided(netuid: NetUid, amount: C);
 }
 
 pub trait BalanceOps<AccountId> {
@@ -196,10 +200,6 @@ pub trait BalanceOps<AccountId> {
         netuid: NetUid,
         alpha: AlphaCurrency,
     ) -> Result<AlphaCurrency, DispatchError>;
-    fn increase_provided_tao_reserve(netuid: NetUid, tao: TaoCurrency);
-    fn decrease_provided_tao_reserve(netuid: NetUid, tao: TaoCurrency);
-    fn increase_provided_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency);
-    fn decrease_provided_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency);
 }
 
 pub mod time {
