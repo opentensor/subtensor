@@ -211,9 +211,9 @@ impl ConsensusMechanism for AuraConsensus {
                     if let Ok(c) = sc_consensus_babe::configuration(&*client) {
                         if !c.authorities.is_empty() {
                             log::info!("Babe runtime detected! Intentionally failing the essential handle `babe-switch` to trigger switch to Babe service.");
-							if let Some(triggered) = triggered {
-								triggered.store(true, std::sync::atomic::Ordering::SeqCst);
-							};
+                            if let Some(triggered) = triggered {
+                                triggered.store(true, std::sync::atomic::Ordering::SeqCst);
+                            };
                             break;
                         }
                     };
