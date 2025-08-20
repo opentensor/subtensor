@@ -45,8 +45,9 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 use std::sync::Arc;
 use substrate_prometheus_endpoint::Registry;
 
+/// `BlockImport` implementations that supports importing both Aura and Babe blocks.
 #[derive(Clone)]
-pub struct AuraWrappedBlockImport {
+pub struct HybridBlockImport {
     inner_aura: ConditionalEVMBlockImport<
         Block,
         GrandpaBlockImport,
@@ -64,7 +65,7 @@ pub struct AuraWrappedBlockImport {
     babe_link: BabeLink<Block>,
 }
 
-impl AuraWrappedBlockImport {
+impl HybridBlockImport {
     pub fn new(
         client: Arc<FullClient>,
         grandpa_block_import: GrandpaBlockImport,
@@ -87,7 +88,7 @@ impl AuraWrappedBlockImport {
             FrontierBlockImport::new(babe_import.clone(), client.clone()),
         );
 
-        AuraWrappedBlockImport {
+        HybridBlockImport {
             inner_aura,
             inner_babe,
             babe_link,
@@ -100,7 +101,7 @@ impl AuraWrappedBlockImport {
 }
 
 #[async_trait::async_trait]
-impl BlockImport<Block> for AuraWrappedBlockImport {
+impl BlockImport<Block> for HybridBlockImport {
     type Error = ConsensusError;
 
     async fn check_block(
@@ -128,19 +129,13 @@ impl BlockImport<Block> for AuraWrappedBlockImport {
     }
 }
 
-/// A wrapped Aura verifier which will stall verification if it encounters a
-/// Babe block, rather than error out.
-///
-/// This is required to prevent rapid validation failure and subsequent
-/// re-fetching of the same block from peers, which triggers the peers to
-/// blacklist the offending node and refuse to connect with them until they
-/// are restarted
-struct AuraWrappedVerifier<B: BlockT, C, CIDP, N, SC> {
+/// `Verifier` implementation that supports verifying both Aura and Babe blocks.
+struct HybridVerifier<B: BlockT, C, CIDP, N, SC> {
     inner_aura: AuraVerifier<C, AuraAuthorityPair, CIDP, N>,
     inner_babe: BabeVerifier<B, C, SC, CIDP>,
 }
 
-impl<B: BlockT, C, CIDP, N, SC> AuraWrappedVerifier<B, C, CIDP, N, SC>
+impl<B: BlockT, C, CIDP, N, SC> HybridVerifier<B, C, CIDP, N, SC>
 where
     CIDP: CreateInherentDataProviders<B, ()> + Send + Sync + Clone,
     CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
@@ -180,7 +175,7 @@ where
             offchain_tx_pool_factory,
         );
 
-        AuraWrappedVerifier {
+        HybridVerifier {
             inner_aura,
             inner_babe,
         }
@@ -188,7 +183,7 @@ where
 }
 
 #[async_trait::async_trait]
-impl<B: BlockT, C, CIDP, SC> Verifier<B> for AuraWrappedVerifier<B, C, CIDP, NumberFor<B>, SC>
+impl<B: BlockT, C, CIDP, SC> Verifier<B> for HybridVerifier<B, C, CIDP, NumberFor<B>, SC>
 where
     C: ProvideRuntimeApi<B> + Send + Sync + sc_client_api::backend::AuxStore,
     C::Api: BlockBuilderApi<B> + BabeApi<B> + AuraApi<B, AuraAuthorityId> + ApiExt<B>,
@@ -208,8 +203,8 @@ where
     }
 }
 
-/// Parameters of [`import_queue`].
-pub struct ImportQueueParams<'a, Block: BlockT, I, C, S, CIDP, SC> {
+/// Parameters for our [`import_queue`].
+pub struct HybridImportQueueParams<'a, Block: BlockT, I, C, S, CIDP, SC> {
     /// The block import to use.
     pub block_import: I,
     /// The justification import.
@@ -240,9 +235,9 @@ pub struct ImportQueueParams<'a, Block: BlockT, I, C, S, CIDP, SC> {
     pub offchain_tx_pool_factory: OffchainTransactionPoolFactory<Block>,
 }
 
-/// Start an import queue for the Aura consensus algorithm.
+/// Start a hybrid import queue that supports importing both Aura and Babe blocks.
 pub fn import_queue<B, I, C, S, CIDP, SC>(
-    params: ImportQueueParams<B, I, C, S, CIDP, SC>,
+    params: HybridImportQueueParams<B, I, C, S, CIDP, SC>,
 ) -> Result<DefaultImportQueue<B>, sp_consensus::Error>
 where
     B: BlockT,
@@ -262,7 +257,7 @@ where
     CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
     SC: SelectChain<B> + 'static,
 {
-    let verifier = AuraWrappedVerifier::<B, C, CIDP, NumberFor<B>, SC>::new(
+    let verifier = HybridVerifier::<B, C, CIDP, NumberFor<B>, SC>::new(
         params.client,
         params.create_inherent_data_providers,
         params.telemetry,

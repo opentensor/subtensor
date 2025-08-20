@@ -1,4 +1,4 @@
-use crate::consensus::aura_wrapped_import_queue::AuraWrappedBlockImport;
+use crate::consensus::hybrid_import_queue::HybridBlockImport;
 use crate::consensus::{ConsensusMechanism, StartAuthoringParams};
 use crate::{
     client::{FullBackend, FullClient},
@@ -132,11 +132,11 @@ impl ConsensusMechanism for AuraConsensus {
                   telemetry: Option<TelemetryHandle>,
                   grandpa_block_import: GrandpaBlockImport,
                   transaction_pool: Arc<TransactionPoolHandle<Block, FullClient>>| {
-                let babe_config = get_babe_configuration(&*client)?;
-                let conditional_block_import = AuraWrappedBlockImport::new(
+                let expected_babe_config = get_expected_babe_configuration(&*client)?;
+                let conditional_block_import = HybridBlockImport::new(
                     client.clone(),
                     grandpa_block_import.clone(),
-                    babe_config.clone(),
+                    expected_babe_config.clone(),
                 );
 
                 let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
@@ -150,8 +150,13 @@ impl ConsensusMechanism for AuraConsensus {
                     Ok((slot, timestamp))
                 };
 
-                let import_queue = super::aura_wrapped_import_queue::import_queue(
-                    crate::consensus::aura_wrapped_import_queue::ImportQueueParams {
+                // Aura needs the hybrid import queue, because it needs to
+                // 1. Validate the first Babe block it encounters before switching into Babe
+                //    consensus mode
+                // 2. Import the entire blockchain without restarting during warp sync, because
+                //    warp sync does not allow restarting sync midway.
+                let import_queue = super::hybrid_import_queue::import_queue(
+                    crate::consensus::hybrid_import_queue::HybridImportQueueParams {
                         block_import: conditional_block_import.clone(),
                         justification_import: Some(Box::new(grandpa_block_import.clone())),
                         client,
@@ -162,7 +167,7 @@ impl ConsensusMechanism for AuraConsensus {
                         telemetry,
                         compatibility_mode: sc_consensus_aura::CompatibilityMode::None,
                         select_chain: sc_consensus::LongestChain::new(backend.clone()),
-                        babe_config,
+                        babe_config: expected_babe_config,
                         epoch_changes: conditional_block_import.babe_link().epoch_changes().clone(),
                         offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(
                             transaction_pool,
@@ -239,9 +244,11 @@ impl ConsensusMechanism for AuraConsensus {
 
 /// Returns what the Babe configuration is expected to be at the first Babe block.
 ///
-/// This is required to validate Babe blocks prior to merging <https://github.com/opentensor/subtensor/pull/1708>
-/// with the Babe runtime containing its configuration.
-fn get_babe_configuration<B: BlockT, C>(client: &C) -> sp_blockchain::Result<BabeConfiguration>
+/// This is required for the hybrid import queue, so it is ready to validate the first encountered
+/// babe block(s) before switching to Babe consensus.
+fn get_expected_babe_configuration<B: BlockT, C>(
+    client: &C,
+) -> sp_blockchain::Result<BabeConfiguration>
 where
     C: AuxStore + ProvideRuntimeApi<B> + UsageProvider<B>,
     C::Api: AuraApi<B, AuraAuthorityId>,
@@ -253,9 +260,6 @@ where
     };
 
     let runtime_api = client.runtime_api();
-    // TODO: This stuff should all be made agnostic to Aura/Babe and moved to the service.rs file.
-    // First try to fetch the configuration the regular Babe way, only if that fails fallback to the
-    // Aura method.
     let authorities = runtime_api
         .authorities(at_hash)?
         .into_iter()
