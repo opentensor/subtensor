@@ -5,14 +5,19 @@
 
 #![warn(missing_docs)]
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::sync::Arc;
 
 use futures::channel::mpsc;
 
-pub use fc_rpc::EthBlockDataCacheTask;
+use crate::{
+    client::{FullBackend, FullClient},
+    ethereum::create_eth,
+};
+use fc_rpc::EthBlockDataCacheTask;
 pub use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
-use fc_storage::StorageOverride;
-use jsonrpsee::RpcModule;
+/// Frontier DB backend type.
+pub use fc_storage::StorageOverride;
+use jsonrpsee::{Methods, RpcModule};
 use node_subtensor_runtime::opaque::Block;
 use sc_consensus_manual_seal::EngineCommand;
 use sc_network::service::traits::NetworkService;
@@ -22,12 +27,8 @@ use sc_transaction_pool_api::TransactionPool;
 use sp_core::H256;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::{OpaqueExtrinsic, traits::BlakeTwo256, traits::Block as BlockT};
+use std::collections::BTreeMap;
 use subtensor_runtime_common::Hash;
-
-use crate::{
-    client::{FullBackend, FullClient},
-    ethereum::create_eth,
-};
 
 /// Extra dependencies for Ethereum compatibility.
 pub struct EthDeps<P, CT, CIDP> {
@@ -103,6 +104,10 @@ pub fn create_full<P, CT, CIDP>(
             fc_mapping_sync::EthereumBlockNotification<Block>,
         >,
     >,
+    frontier_pending_consensus_data_provider: Box<
+        dyn fc_rpc::pending::ConsensusDataProvider<Block>,
+    >,
+    other_methods: &[Methods],
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
     P: TransactionPool<
@@ -136,7 +141,7 @@ where
     module.merge(Swap::new(client.clone()).into_rpc())?;
 
     module.merge(System::new(client.clone(), pool.clone()).into_rpc())?;
-    module.merge(TransactionPayment::new(client).into_rpc())?;
+    module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
 
     // Extend this RPC with a custom API by using the following syntax.
     // `YourRpcStruct` should have a reference to a client, which is needed
@@ -151,12 +156,18 @@ where
         )?;
     }
 
+    // Other methods provided by the caller
+    for m in other_methods {
+        module.merge(m.clone())?;
+    }
+
     // Ethereum compatibility RPCs
     let module = create_eth::<_, _, _, DefaultEthConfig>(
         module,
         eth,
         subscription_task_executor,
         pubsub_notification_sinks,
+        Some(frontier_pending_consensus_data_provider),
     )?;
 
     Ok(module)

@@ -43,6 +43,7 @@ share-pool.workspace = true
 safe-math.workspace = true
 approx.workspace = true
 subtensor-swap-interface.workspace = true
+runtime-common.workspace = true
 subtensor-runtime-common = { workspace = true, features = ["approx"] }
 
 pallet-drand.workspace = true
@@ -122,6 +123,7 @@ std = [
 	"subtensor-runtime-common/std",
 	"pallet-proxy/std",
 	"pallet-crowdloan/std",
+	"runtime-common/std"
 ]
 default = ["std"]
 runtime-benchmarks = [
@@ -140,6 +142,7 @@ runtime-benchmarks = [
 	"pallet-crowdloan/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"runtime-common/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -155,6 +158,7 @@ try-runtime = [
 	"pallet-drand/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-crowdloan/try-runtime",
+	"runtime-common/try-runtime"
 ]
 pow-faucet = []
-fast-blocks = []
+fast-runtime = ["subtensor-runtime-common/fast-runtime"]

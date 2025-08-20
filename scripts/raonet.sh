@@ -3,10 +3,10 @@
 # Check if `--no-purge` passed as a parameter
 NO_PURGE=0
 for arg in "$@"; do
-    if [ "$arg" = "--no-purge" ]; then
-        NO_PURGE=1
-        break
-    fi
+  if [ "$arg" = "--no-purge" ]; then
+    NO_PURGE=1
+    break
+  fi
 done
 
 # Determine the directory this script resides in. This allows invoking it from any location.
@@ -16,18 +16,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 BASE_DIR="$SCRIPT_DIR/.."
 
 # get parameters
-# Get the value of fast_blocks from the first argument
+# Get the value of fast_runtime from the first argument
 raonet=${1:-"True"}
 
-# Check the value of fast_blocks
+# Check the value of fast_runtime
 if [ "$raonet" == "False" ]; then
-  # Block of code to execute if fast_blocks is False
+  # Block of code to execute if fast_runtime is False
   echo "raonet is Off"
   : "${CHAIN:=raonet}"
   : "${BUILD_BINARY:=1}"
   : "${FEATURES:="raonet"}"
 else
-  # Block of code to execute if fast_blocks is not False
+  # Block of code to execute if fast_runtime is not False
   echo "raonet is On"
   : "${CHAIN:=raonet}"
   : "${BUILD_BINARY:=1}"
