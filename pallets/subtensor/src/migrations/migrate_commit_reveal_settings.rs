@@ -29,7 +29,11 @@ pub fn migrate_commit_reveal_settings<T: Config>() -> Weight {
     let netuids: Vec<NetUid> = <NetworksAdded<T> as IterableStorageMap<NetUid, bool>>::iter()
         .map(|(netuid, _)| netuid)
         .collect();
-    weight = weight.saturating_add(T::DbWeight::get().reads(netuids.len() as u64 * 2));
+    weight = weight.saturating_add(
+        T::DbWeight::get()
+            .reads(netuids.len() as u64)
+            .saturating_mul(2),
+    );
 
     for netuid in netuids.iter() {
         if netuid.is_root() {
