@@ -466,11 +466,12 @@ impl<T: Config> Pallet<T> {
         SubnetTaoInEmission::<T>::remove(netuid);
         SubnetVolume::<T>::remove(netuid);
         SubnetMovingPrice::<T>::remove(netuid);
-
-        // --- 12. Add the balance back to the owner.
+        TokenSymbol::<T>::remove(netuid);
+        SubnetMechanism::<T>::remove(netuid);
+        SubnetOwnerHotkey::<T>::remove(netuid);
         SubnetOwner::<T>::remove(netuid);
 
-        // --- 13. Remove subnet identity if it exists.
+        // --- 11. Remove subnet identity if it exists.
         if SubnetIdentitiesV3::<T>::contains_key(netuid) {
             SubnetIdentitiesV3::<T>::remove(netuid);
             Self::deposit_event(Event::SubnetIdentityRemoved(netuid));
