@@ -13,7 +13,8 @@ import { blake2AsU8a } from "@polkadot/util-crypto"
 import {
     forceSetBalanceToEthAddress, forceSetBalanceToSs58Address, addNewSubnetwork, setCommitRevealWeightsEnabled, setWeightsSetRateLimit, burnedRegister,
     setTempo, setCommitRevealWeightsInterval,
-    startCall
+    startCall,
+    disableCommitRevealWeights
 } from "../src/subtensor"
 
 // hardcode some values for reveal hash
@@ -65,6 +66,7 @@ describe("Test neuron precompile reveal weights", () => {
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(coldkey.publicKey))
         await forceSetBalanceToEthAddress(api, wallet.address)
         let netuid = await addNewSubnetwork(api, hotkey, coldkey)
+        await disableCommitRevealWeights(api, netuid)
         await startCall(api, netuid, coldkey)
 
         console.log("test the case on subnet ", netuid)
