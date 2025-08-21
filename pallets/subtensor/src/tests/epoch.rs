@@ -3709,7 +3709,7 @@ fn test_epoch_does_not_mask_outside_window_but_masks_inside() {
         let reveal: u16 = 2;
 
         add_network(netuid, tempo, 0);
-        SubtensorModule::set_reveal_period(netuid, reveal as u64);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, reveal as u64));
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         SubtensorModule::set_target_registrations_per_interval(netuid, u16::MAX);
 
