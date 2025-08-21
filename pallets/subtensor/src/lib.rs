@@ -1457,6 +1457,26 @@ pub mod pallet {
     pub type SubtokenEnabled<T> =
         StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultFalse<T>>;
 
+    #[pallet::type_value]
+    /// Default value for burn keys limit
+    pub fn DefaultImmuneOwnerUidsLimit<T: Config>() -> u16 {
+        1
+    }
+    #[pallet::type_value]
+    /// Maximum value for burn keys limit
+    pub fn MaxImmuneOwnerUidsLimit<T: Config>() -> u16 {
+        10
+    }
+    #[pallet::type_value]
+    /// Minimum value for burn keys limit
+    pub fn MinImmuneOwnerUidsLimit<T: Config>() -> u16 {
+        1
+    }
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> Burn key limit
+    pub type ImmuneOwnerUidsLimit<T> =
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultImmuneOwnerUidsLimit<T>>;
+
     /// =======================================
     /// ==== Subnetwork Consensus Storage  ====
     /// =======================================

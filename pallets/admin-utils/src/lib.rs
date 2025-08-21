@@ -1673,6 +1673,21 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::set_commit_reveal_weights_version(version);
             Ok(())
         }
+
+        /// Sets the number of immune owner neurons
+        #[pallet::call_index(72)]
+        #[pallet::weight(Weight::from_parts(15_000_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        pub fn sudo_set_owner_immune_neuron_limit(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            immune_neurons: u16,
+        ) -> DispatchResult {
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            pallet_subtensor::Pallet::<T>::set_owner_immune_neuron_limit(netuid, immune_neurons)?;
+            Ok(())
+        }
     }
 }
 
