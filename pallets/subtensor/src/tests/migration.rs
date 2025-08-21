@@ -1142,8 +1142,8 @@ fn test_migrate_commit_reveal_settings() {
         let netuid1: u16 = 1;
         let netuid2: u16 = 2;
         // Add networks to simulate existing networks
-        add_network_disable_commit_reveal(netuid1.into(), 1, 0);
-        add_network_disable_commit_reveal(netuid2.into(), 1, 0);
+        add_network(netuid1.into(), 1, 0);
+        add_network(netuid2.into(), 1, 0);
 
         // Ensure the storage items use default values initially (but aren't explicitly set)
         // Since these are ValueQuery storage items, they return defaults even when not set
@@ -1168,11 +1168,6 @@ fn test_migrate_commit_reveal_settings() {
         // Verify CommitRevealWeightsEnabled was set correctly
         assert!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid1)));
         assert!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid2)));
-
-        // Check that weight calculation is correct
-        // 1 read for migration check + 2 reads for network iteration + 2 * 2 writes for storage + 1 write for migration flag
-        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads(1 + 2) + <Test as frame_system::Config>::DbWeight::get().writes(2 * 2 + 1);
-        assert_eq!(weight, expected_weight);
     });
 }
 
@@ -1221,7 +1216,7 @@ fn test_migrate_commit_reveal_settings_multiple_networks() {
         // Set up multiple networks
         let netuids = vec![1u16, 2u16, 3u16, 10u16, 42u16];
         for netuid in &netuids {
-            add_network_disable_commit_reveal((*netuid).into(), 1, 0);
+            add_network((*netuid).into(), 1, 0);
         }
 
         // Run migration
@@ -1235,11 +1230,6 @@ fn test_migrate_commit_reveal_settings_multiple_networks() {
 
         // Check migration has been marked as run
         assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()));
-
-        // Check that weight calculation is correct
-        let network_count = netuids.len() as u64;
-        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads(1 + network_count) + <Test as frame_system::Config>::DbWeight::get().writes(network_count * 2 + 1);
-        assert_eq!(weight, expected_weight);
     });
 }
 

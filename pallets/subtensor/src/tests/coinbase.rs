@@ -2421,6 +2421,7 @@ fn test_run_coinbase_not_started_start_after() {
         let sn_owner_ck = U256::from(8);
 
         add_network_without_emission_block(netuid, tempo, 0);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
 
         SubnetOwner::<Test>::insert(netuid, sn_owner_ck);

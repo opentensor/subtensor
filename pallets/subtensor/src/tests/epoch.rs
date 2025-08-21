@@ -2669,7 +2669,7 @@ pub fn assert_approx_eq(left: I32F32, right: I32F32, epsilon: I32F32) {
 fn setup_yuma_3_scenario(netuid: NetUid, n: u16, sparse: bool, max_stake: u64, stakes: Vec<u64>) {
     let block_number = System::block_number();
     let tempo: u16 = 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
-    add_network(netuid, tempo, 0);
+    add_network_disable_commit_reveal(netuid, tempo, 0);
 
     SubtensorModule::set_max_allowed_uids(netuid, n);
     assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
