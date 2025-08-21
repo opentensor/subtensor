@@ -3567,7 +3567,7 @@ fn test_epoch_masks_incoming_to_sniped_uid_prevents_inheritance() {
         let reveal: u64 = 2;
 
         add_network(netuid, tempo, 0);
-        SubtensorModule::set_reveal_period(netuid, reveal);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, reveal));
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         SubtensorModule::set_max_allowed_uids(netuid, 3);
         SubtensorModule::set_target_registrations_per_interval(netuid, u16::MAX);
