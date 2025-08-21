@@ -1180,7 +1180,6 @@ fn test_migrate_commit_reveal_settings() {
 fn test_migrate_commit_reveal_settings_already_run() {
     new_test_ext(1).execute_with(|| {
         const MIGRATION_NAME: &str = "migrate_commit_reveal_settings";
-        
         // Mark migration as already run
         HasMigrationRun::<Test>::insert(MIGRATION_NAME.as_bytes().to_vec(), true);
 
@@ -1221,7 +1220,6 @@ fn test_migrate_commit_reveal_settings_multiple_networks() {
 
         // Set up multiple networks
         let netuids = vec![1u16, 2u16, 3u16, 10u16, 42u16];
-        
         for netuid in &netuids {
             add_network((*netuid).into(), 1, 0);
         }
