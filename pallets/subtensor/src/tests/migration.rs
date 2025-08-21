@@ -1238,8 +1238,7 @@ fn test_migrate_commit_reveal_settings_multiple_networks() {
 
         // Check that weight calculation is correct
         let network_count = netuids.len() as u64;
-        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads(1 + network_count) 
-            + <Test as frame_system::Config>::DbWeight::get().writes(network_count * 2 + 1);
+        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads(1 + network_count) + <Test as frame_system::Config>::DbWeight::get().writes(network_count * 2 + 1);
         assert_eq!(weight, expected_weight);
     });
 }

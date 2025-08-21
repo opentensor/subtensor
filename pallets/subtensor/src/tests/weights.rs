@@ -3435,9 +3435,7 @@ fn test_tempo_and_reveal_period_change_during_commit_reveal_process() {
             netuid,
             new_reveal_period_after_reveal
         ));
-        log::info!( 
-            "Changed tempo to {new_tempo_after_reveal} and reveal period to {new_reveal_period_after_reveal} after reveal"
-        );
+        log::info!("Changed tempo to {new_tempo_after_reveal} and reveal period to {new_reveal_period_after_reveal} after reveal");
 
         // Step 5: Commit again
         let new_salt: Vec<u16> = vec![43; 8];
