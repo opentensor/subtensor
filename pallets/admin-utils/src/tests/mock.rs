@@ -443,7 +443,7 @@ impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Test
 where
     RuntimeCall: From<LocalCall>,
 {
-    fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+    fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
         UncheckedExtrinsic::new_inherent(call)
     }
 }

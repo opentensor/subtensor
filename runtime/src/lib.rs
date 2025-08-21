@@ -123,8 +123,8 @@ where
     type RuntimeCall = RuntimeCall;
 }
 
-impl frame_system::offchain::CreateInherent<pallet_drand::Call<Runtime>> for Runtime {
-    fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+impl frame_system::offchain::CreateBare<pallet_drand::Call<Runtime>> for Runtime {
+    fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
         UncheckedExtrinsic::new_bare(call)
     }
 }
