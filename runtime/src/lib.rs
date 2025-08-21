@@ -389,11 +389,7 @@ impl pallet_grandpa::Config for Runtime {
 }
 
 parameter_types! {
-    pub EpochDuration: u64 = prod_or_fast!(
-        EPOCH_DURATION_IN_SLOTS as u64,
-        MINUTES as u64 / 4u64,
-        "TAO_EPOCH_DURATION"
-    );
+    pub EpochDuration: u64 = EPOCH_DURATION_IN_SLOTS as u64;
     pub const ExpectedBlockTime: u64 = MILLISECS_PER_BLOCK;
     pub ReportLongevity: u64 =
         BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
@@ -583,7 +579,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 
 parameter_types! {
     // Six sessions in an era (24 hours).
-    pub const SessionsPerEra: SessionIndex = prod_or_fast!(6, 1);
+    pub const SessionsPerEra: SessionIndex = prod_or_fast!(6, 2);
 
     // 28 eras for unbonding (28 days).
     pub BondingDuration: sp_staking::EraIndex = prod_or_fast!(
