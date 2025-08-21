@@ -1132,3 +1132,135 @@ fn test_migrate_disable_commit_reveal() {
         );
     });
 }
+
+#[test]
+fn test_migrate_commit_reveal_settings() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_commit_reveal_settings";
+
+        // Set up some networks first
+        let netuid1: u16 = 1;
+        let netuid2: u16 = 2;
+        
+        // Add networks to simulate existing networks
+        add_network(netuid1.into(), 1, 0);
+        add_network(netuid2.into(), 1, 0);
+
+        // Ensure the storage items use default values initially (but aren't explicitly set)
+        // Since these are ValueQuery storage items, they return defaults even when not set
+        assert_eq!(RevealPeriodEpochs::<Test>::get(NetUid::from(netuid1)), 1u64);
+        assert_eq!(RevealPeriodEpochs::<Test>::get(NetUid::from(netuid2)), 1u64);
+        assert_eq!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid1)), true);
+        assert_eq!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid2)), true);
+
+        // Check migration hasn't run
+        assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()));
+
+        // Run migration
+        let weight = crate::migrations::migrate_commit_reveal_settings::migrate_commit_reveal_settings::<Test>();
+
+        // Check migration has been marked as run
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()));
+
+        // Verify RevealPeriodEpochs was set correctly
+        assert_eq!(RevealPeriodEpochs::<Test>::get(NetUid::from(netuid1)), 1u64);
+        assert_eq!(RevealPeriodEpochs::<Test>::get(NetUid::from(netuid2)), 1u64);
+
+        // Verify CommitRevealWeightsEnabled was set correctly
+        assert_eq!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid1)), true);
+        assert_eq!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid2)), true);
+
+        // Check that weight calculation is correct
+        // 1 read for migration check + 2 reads for network iteration + 2 * 2 writes for storage + 1 write for migration flag
+        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads(1 + 2) + <Test as frame_system::Config>::DbWeight::get().writes(2 * 2 + 1);
+        assert_eq!(weight, expected_weight);
+    });
+}
+
+#[test]
+fn test_migrate_commit_reveal_settings_already_run() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_commit_reveal_settings";
+        
+        // Mark migration as already run
+        HasMigrationRun::<Test>::insert(MIGRATION_NAME.as_bytes().to_vec(), true);
+
+        // Run migration
+        let weight = crate::migrations::migrate_commit_reveal_settings::migrate_commit_reveal_settings::<Test>();
+
+        // Should only have read weight for checking migration status
+        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads(1);
+        assert_eq!(weight, expected_weight);
+    });
+}
+
+#[test]
+fn test_migrate_commit_reveal_settings_no_networks() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_commit_reveal_settings";
+
+        // Check migration hasn't run
+        assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()));
+
+        // Run migration
+        let weight = crate::migrations::migrate_commit_reveal_settings::migrate_commit_reveal_settings::<Test>();
+
+        // Check migration has been marked as run
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()));
+
+        // Check that weight calculation is correct (no networks, so no additional reads/writes)
+        // 1 read for migration check + 0 reads for networks + 0 writes for storage + 1 write for migration flag
+        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads(1 + 0) + <Test as frame_system::Config>::DbWeight::get().writes(0 + 1);
+        assert_eq!(weight, expected_weight);
+    });
+}
+
+#[test]
+fn test_migrate_commit_reveal_settings_multiple_networks() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_commit_reveal_settings";
+
+        // Set up multiple networks
+        let netuids = vec![1u16, 2u16, 3u16, 10u16, 42u16];
+        
+        for netuid in &netuids {
+            add_network((*netuid).into(), 1, 0);
+        }
+
+        // Run migration
+        let weight = crate::migrations::migrate_commit_reveal_settings::migrate_commit_reveal_settings::<Test>();
+
+        // Verify all networks have correct settings
+        for netuid in &netuids {
+            assert_eq!(RevealPeriodEpochs::<Test>::get(NetUid::from(*netuid)), 1u64);
+            assert_eq!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(*netuid)), true);
+        }
+
+        // Check migration has been marked as run
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()));
+
+        // Check that weight calculation is correct
+        let network_count = netuids.len() as u64;
+        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads(1 + network_count) 
+            + <Test as frame_system::Config>::DbWeight::get().writes(network_count * 2 + 1);
+        assert_eq!(weight, expected_weight);
+    });
+}
+
+#[test]
+fn test_migrate_commit_reveal_settings_values_access() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid.into(), 1, 0);
+
+        // Run migration
+        crate::migrations::migrate_commit_reveal_settings::migrate_commit_reveal_settings::<Test>();
+
+        // Test that we can access the values using the pallet functions
+        assert_eq!(SubtensorModule::get_reveal_period(NetUid::from(netuid)), 1u64);
+        
+        // Test direct storage access
+        assert_eq!(RevealPeriodEpochs::<Test>::get(NetUid::from(netuid)), 1u64);
+        assert_eq!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid)), true);
+    });
+}

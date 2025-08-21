@@ -244,5 +244,9 @@ mod errors {
         SymbolAlreadyInUse,
         /// Incorrect commit-reveal version.
         IncorrectCommitRevealVersion,
+        /// Reveal period is too large.
+        RevealPeriodTooLarge,
+        /// Reveal period is too small.
+        RevealPeriodTooSmall,
     }
 }

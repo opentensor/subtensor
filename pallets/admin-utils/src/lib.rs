@@ -1311,14 +1311,10 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
 
-            const MAX_COMMIT_REVEAL_PEROIDS: u64 = 100;
-            ensure!(
-                interval <= MAX_COMMIT_REVEAL_PEROIDS,
-                Error::<T>::RevealPeriodOutOfBounds
-            );
-
-            pallet_subtensor::Pallet::<T>::set_reveal_period(netuid, interval);
             log::debug!("SetWeightCommitInterval( netuid: {netuid:?}, interval: {interval:?} ) ");
+
+            pallet_subtensor::Pallet::<T>::set_reveal_period(netuid, interval)?;
+
             Ok(())
         }
 

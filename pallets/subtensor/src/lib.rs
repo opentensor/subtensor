@@ -113,6 +113,11 @@ pub mod pallet {
     /// Minimum balance required to perform a coldkey swap
     pub const MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP: TaoCurrency = TaoCurrency::new(100_000_000); // 0.1 TAO in RAO
 
+    /// Minimum commit reveal periods
+    pub const MIN_COMMIT_REVEAL_PEROIDS: u64 = 1;
+    /// Maximum commit reveal periods
+    pub const MAX_COMMIT_REVEAL_PEROIDS: u64 = 100;
+
     #[pallet::pallet]
     #[pallet::without_storage_info]
     #[pallet::storage_version(STORAGE_VERSION)]
@@ -768,7 +773,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for weight commit/reveal enabled.
     pub fn DefaultCommitRevealWeightsEnabled<T: Config>() -> bool {
-        false
+        true
     }
     #[pallet::type_value]
     /// Default value for weight commit/reveal version.
