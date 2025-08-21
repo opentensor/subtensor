@@ -1141,7 +1141,6 @@ fn test_migrate_commit_reveal_settings() {
         // Set up some networks first
         let netuid1: u16 = 1;
         let netuid2: u16 = 2;
-        
         // Add networks to simulate existing networks
         add_network(netuid1.into(), 1, 0);
         add_network(netuid2.into(), 1, 0);
@@ -1257,10 +1256,15 @@ fn test_migrate_commit_reveal_settings_values_access() {
         crate::migrations::migrate_commit_reveal_settings::migrate_commit_reveal_settings::<Test>();
 
         // Test that we can access the values using the pallet functions
-        assert_eq!(SubtensorModule::get_reveal_period(NetUid::from(netuid)), 1u64);
-        
+        assert_eq!(
+            SubtensorModule::get_reveal_period(NetUid::from(netuid)),
+            1u64
+        );
+
         // Test direct storage access
         assert_eq!(RevealPeriodEpochs::<Test>::get(NetUid::from(netuid)), 1u64);
-        assert!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid)));
+        assert!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(
+            netuid
+        )));
     });
 }
