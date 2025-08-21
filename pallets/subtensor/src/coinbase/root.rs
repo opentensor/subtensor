@@ -16,13 +16,10 @@
 // DEALINGS IN THE SOFTWARE.
 
 use super::*;
-use frame_support::dispatch::Pays;
-use frame_support::storage::IterableStorageDoubleMap;
-use frame_support::weights::Weight;
+use frame_support::{dispatch::Pays, weights::Weight};
 use safe_math::*;
 use sp_core::Get;
-use substrate_fixed::types::I64F64;
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::{I64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
@@ -418,10 +415,11 @@ impl<T: Config> Pallet<T> {
         let _ = Weights::<T>::clear_prefix(netuid, u32::MAX, None);
 
         // --- 9. Also zero out any weights *in the root network* that point to this netuid.
-        for (uid_i, weights_i) in
-            <Weights<T> as IterableStorageDoubleMap<NetUid, u16, Vec<(u16, u16)>>>::iter_prefix(
-                NetUid::ROOT,
-            )
+        for (uid_i, weights_i) in <Weights<T> as frame_support::storage::IterableStorageDoubleMap<
+            NetUid,
+            u16,
+            sp_std::vec::Vec<(u16, u16)>,
+        >>::iter_prefix(NetUid::ROOT)
         {
             let mut modified_weights = weights_i.clone();
             for (subnet_id, weight) in modified_weights.iter_mut() {
@@ -449,6 +447,8 @@ impl<T: Config> Pallet<T> {
         for (_uid, key) in keys {
             IsNetworkMember::<T>::remove(key, netuid);
         }
+
+        // --- 11. Core per-net parameters (already present + a few that were missing).
         Tempo::<T>::remove(netuid);
         Kappa::<T>::remove(netuid);
         Difficulty::<T>::remove(netuid);
@@ -460,27 +460,221 @@ impl<T: Config> Pallet<T> {
         RegistrationsThisInterval::<T>::remove(netuid);
         POWRegistrationsThisInterval::<T>::remove(netuid);
         BurnRegistrationsThisInterval::<T>::remove(netuid);
+
+        // --- 12. AMM / price / accounting (expanded).
         SubnetTAO::<T>::remove(netuid);
         SubnetAlphaInEmission::<T>::remove(netuid);
         SubnetAlphaOutEmission::<T>::remove(netuid);
         SubnetTaoInEmission::<T>::remove(netuid);
         SubnetVolume::<T>::remove(netuid);
         SubnetMovingPrice::<T>::remove(netuid);
+
+        // Additional AMM & pool surfaces that can exist independently of dissolve paths:
+        SubnetAlphaIn::<T>::remove(netuid);
+        SubnetAlphaInProvided::<T>::remove(netuid);
+        SubnetAlphaOut::<T>::remove(netuid);
+        SubnetTaoProvided::<T>::remove(netuid);
+
+        // --- 13. Token / mechanism / registration toggles that were previously left behind.
         TokenSymbol::<T>::remove(netuid);
         SubnetMechanism::<T>::remove(netuid);
         SubnetOwnerHotkey::<T>::remove(netuid);
-        SubnetOwner::<T>::remove(netuid);
+        NetworkRegistrationAllowed::<T>::remove(netuid);
+        NetworkPowRegistrationAllowed::<T>::remove(netuid);
 
-        // --- 11. Remove subnet identity if it exists.
+        // --- 14. Locks & toggles.
+        TransferToggle::<T>::remove(netuid);
+        SubnetLocked::<T>::remove(netuid);
+        LargestLocked::<T>::remove(netuid);
+
+        // --- 15. Mechanism step / emissions bookkeeping.
+        FirstEmissionBlockNumber::<T>::remove(netuid);
+        PendingEmission::<T>::remove(netuid);
+        PendingRootDivs::<T>::remove(netuid);
+        PendingAlphaSwapped::<T>::remove(netuid);
+        PendingOwnerCut::<T>::remove(netuid);
+        BlocksSinceLastStep::<T>::remove(netuid);
+        LastMechansimStepBlock::<T>::remove(netuid);
+
+        // --- 16. Serving / rho / curves, and other per-net controls.
+        ServingRateLimit::<T>::remove(netuid);
+        Rho::<T>::remove(netuid);
+        AlphaSigmoidSteepness::<T>::remove(netuid);
+
+        MaxAllowedValidators::<T>::remove(netuid);
+        AdjustmentInterval::<T>::remove(netuid);
+        BondsMovingAverage::<T>::remove(netuid);
+        BondsPenalty::<T>::remove(netuid);
+        BondsResetOn::<T>::remove(netuid);
+        WeightsSetRateLimit::<T>::remove(netuid);
+        ValidatorPruneLen::<T>::remove(netuid);
+        ScalingLawPower::<T>::remove(netuid);
+        TargetRegistrationsPerInterval::<T>::remove(netuid);
+        AdjustmentAlpha::<T>::remove(netuid);
+        CommitRevealWeightsEnabled::<T>::remove(netuid);
+
+        Burn::<T>::remove(netuid);
+        MinBurn::<T>::remove(netuid);
+        MaxBurn::<T>::remove(netuid);
+        MinDifficulty::<T>::remove(netuid);
+        MaxDifficulty::<T>::remove(netuid);
+        LastAdjustmentBlock::<T>::remove(netuid);
+        RegistrationsThisBlock::<T>::remove(netuid);
+        EMAPriceHalvingBlocks::<T>::remove(netuid);
+        RAORecycledForRegistration::<T>::remove(netuid);
+        MaxRegistrationsPerBlock::<T>::remove(netuid);
+        WeightsVersionKey::<T>::remove(netuid);
+
+        // --- 17. Subtoken / feature flags.
+        LiquidAlphaOn::<T>::remove(netuid);
+        Yuma3On::<T>::remove(netuid);
+        AlphaValues::<T>::remove(netuid);
+        SubtokenEnabled::<T>::remove(netuid);
+        ImmuneOwnerUidsLimit::<T>::remove(netuid);
+
+        // --- 18. Consensus aux vectors.
+        StakeWeight::<T>::remove(netuid);
+        LoadedEmission::<T>::remove(netuid);
+
+        // --- 19. DMAPs where netuid is the FIRST key: can clear by prefix.
+        let _ = BlockAtRegistration::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = Axons::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = NeuronCertificates::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = Prometheus::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = TaoDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = PendingChildKeys::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = AssociatedEvmAddress::<T>::clear_prefix(netuid, u32::MAX, None);
+
+        // Commit-reveal / weights commits (all per-net prefixes):
+        let _ = WeightCommits::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = TimelockedWeightCommits::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = CRV3WeightCommits::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = CRV3WeightCommitsV2::<T>::clear_prefix(netuid, u32::MAX, None);
+        RevealPeriodEpochs::<T>::remove(netuid);
+
+        // Last hotkey swap (DMAP where netuid is FIRST key → easy)
+        let _ = LastHotkeySwapOnNetuid::<T>::clear_prefix(netuid, u32::MAX, None);
+
+        // --- 20. Identity maps across versions (netuid-scoped).
+        SubnetIdentities::<T>::remove(netuid);
+        SubnetIdentitiesV2::<T>::remove(netuid);
         if SubnetIdentitiesV3::<T>::contains_key(netuid) {
             SubnetIdentitiesV3::<T>::remove(netuid);
             Self::deposit_event(Event::SubnetIdentityRemoved(netuid));
         }
 
-        // --- Log final removal.
+        // --- 21. DMAP / NMAP where netuid is NOT the first key → iterate & remove.
+
+        // ChildkeyTake: (hot, netuid) → u16
+        {
+            let to_rm: sp_std::vec::Vec<T::AccountId> = ChildkeyTake::<T>::iter()
+                .filter_map(|(hot, n, _)| if n == netuid { Some(hot) } else { None })
+                .collect();
+            for hot in to_rm {
+                ChildkeyTake::<T>::remove(&hot, netuid);
+            }
+        }
+        // ChildKeys: (parent, netuid) → Vec<...>
+        {
+            let to_rm: sp_std::vec::Vec<T::AccountId> = ChildKeys::<T>::iter()
+                .filter_map(|(parent, n, _)| if n == netuid { Some(parent) } else { None })
+                .collect();
+            for parent in to_rm {
+                ChildKeys::<T>::remove(&parent, netuid);
+            }
+        }
+        // ParentKeys: (child, netuid) → Vec<...>
+        {
+            let to_rm: sp_std::vec::Vec<T::AccountId> = ParentKeys::<T>::iter()
+                .filter_map(|(child, n, _)| if n == netuid { Some(child) } else { None })
+                .collect();
+            for child in to_rm {
+                ParentKeys::<T>::remove(&child, netuid);
+            }
+        }
+        // LastHotkeyEmissionOnNetuid: (hot, netuid) → α
+        {
+            let to_rm: sp_std::vec::Vec<T::AccountId> = LastHotkeyEmissionOnNetuid::<T>::iter()
+                .filter_map(|(hot, n, _)| if n == netuid { Some(hot) } else { None })
+                .collect();
+            for hot in to_rm {
+                LastHotkeyEmissionOnNetuid::<T>::remove(&hot, netuid);
+            }
+        }
+        // TotalHotkeyAlpha / TotalHotkeyAlphaLastEpoch / TotalHotkeyShares: (hot, netuid) → ...
+        {
+            let to_rm_alpha: sp_std::vec::Vec<T::AccountId> = TotalHotkeyAlpha::<T>::iter()
+                .filter_map(|(hot, n, _)| if n == netuid { Some(hot) } else { None })
+                .collect();
+            for hot in to_rm_alpha {
+                TotalHotkeyAlpha::<T>::remove(&hot, netuid);
+            }
+
+            let to_rm_alpha_last: sp_std::vec::Vec<T::AccountId> =
+                TotalHotkeyAlphaLastEpoch::<T>::iter()
+                    .filter_map(|(hot, n, _)| if n == netuid { Some(hot) } else { None })
+                    .collect();
+            for hot in to_rm_alpha_last {
+                TotalHotkeyAlphaLastEpoch::<T>::remove(&hot, netuid);
+            }
+
+            let to_rm_shares: sp_std::vec::Vec<T::AccountId> = TotalHotkeyShares::<T>::iter()
+                .filter_map(|(hot, n, _)| if n == netuid { Some(hot) } else { None })
+                .collect();
+            for hot in to_rm_shares {
+                TotalHotkeyShares::<T>::remove(&hot, netuid);
+            }
+        }
+        // Alpha shares NMAP: (hot, cold, netuid) → U64F64
+        {
+            let to_rm: sp_std::vec::Vec<(T::AccountId, T::AccountId)> = Alpha::<T>::iter()
+                .filter_map(
+                    |((hot, cold, n), _)| if n == netuid { Some((hot, cold)) } else { None },
+                )
+                .collect();
+            for (hot, cold) in to_rm {
+                Alpha::<T>::remove((hot, cold, netuid));
+            }
+        }
+        // TransactionKeyLastBlock NMAP: (hot, netuid, name) → u64
+        {
+            let to_rm: sp_std::vec::Vec<(T::AccountId, u16)> = TransactionKeyLastBlock::<T>::iter()
+                .filter_map(
+                    |((hot, n, name), _)| if n == netuid { Some((hot, name)) } else { None },
+                )
+                .collect();
+            for (hot, name) in to_rm {
+                TransactionKeyLastBlock::<T>::remove((hot, netuid, name));
+            }
+        }
+        // StakingOperationRateLimiter NMAP: (hot, cold, netuid) → bool
+        {
+            let to_rm: sp_std::vec::Vec<(T::AccountId, T::AccountId)> =
+                StakingOperationRateLimiter::<T>::iter()
+                    .filter_map(
+                        |((hot, cold, n), _)| {
+                            if n == netuid { Some((hot, cold)) } else { None }
+                        },
+                    )
+                    .collect();
+            for (hot, cold) in to_rm {
+                StakingOperationRateLimiter::<T>::remove((hot, cold, netuid));
+            }
+        }
+
+        // --- 22. Subnet leasing: remove mapping and any lease-scoped state linked to this netuid.
+        if let Some(lease_id) = SubnetUidToLeaseId::<T>::take(netuid) {
+            SubnetLeases::<T>::remove(lease_id);
+            let _ = SubnetLeaseShares::<T>::clear_prefix(lease_id, u32::MAX, None);
+            AccumulatedLeaseDividends::<T>::remove(lease_id);
+        }
+
+        // --- Final removal logging.
         log::debug!(
             "remove_network: netuid={netuid}, owner={owner_coldkey:?} removed successfully"
         );
+        Self::deposit_event(Event::NetworkRemoved(netuid));
     }
 
     #[allow(clippy::arithmetic_side_effects)]

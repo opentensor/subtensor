@@ -286,12 +286,15 @@ fn dissolve_clears_all_per_subnet_storages() {
         // ------------------------------------------------------------------
         // Populate each storage item with a minimal value of the CORRECT type
         // ------------------------------------------------------------------
+        // Core ownership / bookkeeping
         SubnetOwner::<Test>::insert(net, owner_cold);
+        SubnetOwnerHotkey::<Test>::insert(net, owner_hot);
         SubnetworkN::<Test>::insert(net, 0u16);
         NetworkModality::<Test>::insert(net, 0u16);
         NetworksAdded::<Test>::insert(net, true);
         NetworkRegisteredAt::<Test>::insert(net, 0u64);
 
+        // Consensus vectors
         Rank::<Test>::insert(net, vec![1u16]);
         Trust::<Test>::insert(net, vec![1u16]);
         Active::<Test>::insert(net, vec![true]);
@@ -301,10 +304,10 @@ fn dissolve_clears_all_per_subnet_storages() {
         Dividends::<Test>::insert(net, vec![1u16]);
         PruningScores::<Test>::insert(net, vec![1u16]);
         LastUpdate::<Test>::insert(net, vec![0u64]);
-
         ValidatorPermit::<Test>::insert(net, vec![true]);
         ValidatorTrust::<Test>::insert(net, vec![1u16]);
 
+        // Per‑net params
         Tempo::<Test>::insert(net, 1u16);
         Kappa::<Test>::insert(net, 1u16);
         Difficulty::<Test>::insert(net, 1u64);
@@ -319,13 +322,14 @@ fn dissolve_clears_all_per_subnet_storages() {
         POWRegistrationsThisInterval::<Test>::insert(net, 1u16);
         BurnRegistrationsThisInterval::<Test>::insert(net, 1u16);
 
+        // Pool / AMM counters
         SubnetTAO::<Test>::insert(net, TaoCurrency::from(1));
         SubnetAlphaInEmission::<Test>::insert(net, AlphaCurrency::from(1));
         SubnetAlphaOutEmission::<Test>::insert(net, AlphaCurrency::from(1));
         SubnetTaoInEmission::<Test>::insert(net, TaoCurrency::from(1));
         SubnetVolume::<Test>::insert(net, 1u128);
 
-        // Fields that will be ZEROED (not removed)
+        // Items now REMOVED (not zeroed) by dissolution
         SubnetAlphaIn::<Test>::insert(net, AlphaCurrency::from(2));
         SubnetAlphaOut::<Test>::insert(net, AlphaCurrency::from(3));
 
@@ -333,7 +337,97 @@ fn dissolve_clears_all_per_subnet_storages() {
         Keys::<Test>::insert(net, 0u16, owner_hot);
         Bonds::<Test>::insert(net, 0u16, vec![(0u16, 1u16)]);
         Weights::<Test>::insert(net, 0u16, vec![(1u16, 1u16)]);
-        IsNetworkMember::<Test>::insert(owner_cold, net, true);
+
+        // Membership entry for the SAME hotkey as Keys
+        IsNetworkMember::<Test>::insert(owner_hot, net, true);
+
+
+        // Token / price / provided reserves
+        TokenSymbol::<Test>::insert(net, b"XX".to_vec());
+        SubnetMovingPrice::<Test>::insert(net, substrate_fixed::types::I96F32::from_num(1));
+        SubnetTaoProvided::<Test>::insert(net, TaoCurrency::from(1));
+        SubnetAlphaInProvided::<Test>::insert(net, AlphaCurrency::from(1));
+
+        // Subnet locks
+        TransferToggle::<Test>::insert(net, true);
+        SubnetLocked::<Test>::insert(net, TaoCurrency::from(1));
+        LargestLocked::<Test>::insert(net, 1u64);
+
+        // Subnet parameters & pending counters
+        FirstEmissionBlockNumber::<Test>::insert(net, 1u64);
+        SubnetMechanism::<Test>::insert(net, 1u16);
+        NetworkRegistrationAllowed::<Test>::insert(net, true);
+        NetworkPowRegistrationAllowed::<Test>::insert(net, true);
+        PendingEmission::<Test>::insert(net, AlphaCurrency::from(1));
+        PendingRootDivs::<Test>::insert(net, TaoCurrency::from(1));
+        PendingAlphaSwapped::<Test>::insert(net, AlphaCurrency::from(1));
+        PendingOwnerCut::<Test>::insert(net, AlphaCurrency::from(1));
+        BlocksSinceLastStep::<Test>::insert(net, 1u64);
+        LastMechansimStepBlock::<Test>::insert(net, 1u64);
+        ServingRateLimit::<Test>::insert(net, 1u64);
+        Rho::<Test>::insert(net, 1u16);
+        AlphaSigmoidSteepness::<Test>::insert(net, 1i16);
+
+        // Weights/versioning/targets/limits
+        WeightsVersionKey::<Test>::insert(net, 1u64);
+        MaxAllowedValidators::<Test>::insert(net, 1u16);
+        AdjustmentInterval::<Test>::insert(net, 2u16);
+        BondsMovingAverage::<Test>::insert(net, 1u64);
+        BondsPenalty::<Test>::insert(net, 1u16);
+        BondsResetOn::<Test>::insert(net, true);
+        WeightsSetRateLimit::<Test>::insert(net, 1u64);
+        ValidatorPruneLen::<Test>::insert(net, 1u64);
+        ScalingLawPower::<Test>::insert(net, 1u16);
+        TargetRegistrationsPerInterval::<Test>::insert(net, 1u16);
+        AdjustmentAlpha::<Test>::insert(net, 1u64);
+        CommitRevealWeightsEnabled::<Test>::insert(net, true);
+
+        // Burn/difficulty/adjustment
+        Burn::<Test>::insert(net, TaoCurrency::from(1));
+        MinBurn::<Test>::insert(net, TaoCurrency::from(1));
+        MaxBurn::<Test>::insert(net, TaoCurrency::from(2));
+        MinDifficulty::<Test>::insert(net, 1u64);
+        MaxDifficulty::<Test>::insert(net, 2u64);
+        LastAdjustmentBlock::<Test>::insert(net, 1u64);
+        RegistrationsThisBlock::<Test>::insert(net, 1u16);
+        EMAPriceHalvingBlocks::<Test>::insert(net, 1u64);
+        RAORecycledForRegistration::<Test>::insert(net, TaoCurrency::from(1));
+
+        // Feature toggles
+        LiquidAlphaOn::<Test>::insert(net, true);
+        Yuma3On::<Test>::insert(net, true);
+        AlphaValues::<Test>::insert(net, (1u16, 2u16));
+        SubtokenEnabled::<Test>::insert(net, true);
+        ImmuneOwnerUidsLimit::<Test>::insert(net, 1u16);
+
+        // Per‑subnet vectors / indexes
+        StakeWeight::<Test>::insert(net, vec![1u16]);
+
+        // Uid/registration
+        Uids::<Test>::insert(net, owner_hot, 0u16);
+        BlockAtRegistration::<Test>::insert(net, 0u16, 1u64);
+
+        // Per‑subnet dividends
+        AlphaDividendsPerSubnet::<Test>::insert(net, owner_hot, AlphaCurrency::from(1));
+        TaoDividendsPerSubnet::<Test>::insert(net, owner_hot, TaoCurrency::from(1));
+
+        // Parent/child topology + takes
+        ChildkeyTake::<Test>::insert(owner_hot, net, 1u16);
+        PendingChildKeys::<Test>::insert(net, owner_cold, (vec![(1u64, owner_hot)], 1u64));
+        ChildKeys::<Test>::insert(owner_cold, net, vec![(1u64, owner_hot)]);
+        ParentKeys::<Test>::insert(owner_hot, net, vec![(1u64, owner_cold)]);
+
+        // Hotkey swap timestamp for subnet
+        LastHotkeySwapOnNetuid::<Test>::insert(net, owner_cold, 1u64);
+
+        // Axon/prometheus tx key timing (NMap) — ***correct key-tuple insertion***
+        TransactionKeyLastBlock::<Test>::insert((owner_hot, net, 1u16), 1u64);
+
+        // EVM association indexed by (netuid, uid)
+        AssociatedEvmAddress::<Test>::insert(net, 0u16, (sp_core::H160::zero(), 1u64));
+
+        // (Optional) subnet -> lease link
+        SubnetUidToLeaseId::<Test>::insert(net, 42u32);
 
         // ------------------------------------------------------------------
         // Dissolve
@@ -344,11 +438,13 @@ fn dissolve_clears_all_per_subnet_storages() {
         // Items that must be COMPLETELY REMOVED
         // ------------------------------------------------------------------
         assert!(!SubnetOwner::<Test>::contains_key(net));
+        assert!(!SubnetOwnerHotkey::<Test>::contains_key(net));
         assert!(!SubnetworkN::<Test>::contains_key(net));
         assert!(!NetworkModality::<Test>::contains_key(net));
         assert!(!NetworksAdded::<Test>::contains_key(net));
         assert!(!NetworkRegisteredAt::<Test>::contains_key(net));
 
+        // Consensus vectors removed
         assert!(!Rank::<Test>::contains_key(net));
         assert!(!Trust::<Test>::contains_key(net));
         assert!(!Active::<Test>::contains_key(net));
@@ -362,6 +458,7 @@ fn dissolve_clears_all_per_subnet_storages() {
         assert!(!ValidatorPermit::<Test>::contains_key(net));
         assert!(!ValidatorTrust::<Test>::contains_key(net));
 
+        // Per‑net params removed
         assert!(!Tempo::<Test>::contains_key(net));
         assert!(!Kappa::<Test>::contains_key(net));
         assert!(!Difficulty::<Test>::contains_key(net));
@@ -376,25 +473,116 @@ fn dissolve_clears_all_per_subnet_storages() {
         assert!(!POWRegistrationsThisInterval::<Test>::contains_key(net));
         assert!(!BurnRegistrationsThisInterval::<Test>::contains_key(net));
 
+        // Pool / AMM counters removed
         assert!(!SubnetTAO::<Test>::contains_key(net));
         assert!(!SubnetAlphaInEmission::<Test>::contains_key(net));
         assert!(!SubnetAlphaOutEmission::<Test>::contains_key(net));
         assert!(!SubnetTaoInEmission::<Test>::contains_key(net));
         assert!(!SubnetVolume::<Test>::contains_key(net));
 
-        // ------------------------------------------------------------------
-        // Items expected to be PRESENT but ZERO
-        // ------------------------------------------------------------------
-        assert_eq!(SubnetAlphaIn::<Test>::get(net), 0.into());
-        assert_eq!(SubnetAlphaOut::<Test>::get(net), 0.into());
+        // These are now REMOVED
+        assert!(!SubnetAlphaIn::<Test>::contains_key(net));
+        assert!(!SubnetAlphaOut::<Test>::contains_key(net));
 
-        // ------------------------------------------------------------------
         // Collections fully cleared
-        // ------------------------------------------------------------------
         assert!(Keys::<Test>::iter_prefix(net).next().is_none());
         assert!(Bonds::<Test>::iter_prefix(net).next().is_none());
         assert!(Weights::<Test>::iter_prefix(net).next().is_none());
         assert!(!IsNetworkMember::<Test>::contains_key(owner_hot, net));
+
+        // Token / price / provided reserves
+        assert!(!TokenSymbol::<Test>::contains_key(net));
+        assert!(!SubnetMovingPrice::<Test>::contains_key(net));
+        assert!(!SubnetTaoProvided::<Test>::contains_key(net));
+        assert!(!SubnetAlphaInProvided::<Test>::contains_key(net));
+
+        // Subnet locks
+        assert!(!TransferToggle::<Test>::contains_key(net));
+        assert!(!SubnetLocked::<Test>::contains_key(net));
+        assert!(!LargestLocked::<Test>::contains_key(net));
+
+        // Subnet parameters & pending counters
+        assert!(!FirstEmissionBlockNumber::<Test>::contains_key(net));
+        assert!(!SubnetMechanism::<Test>::contains_key(net));
+        assert!(!NetworkRegistrationAllowed::<Test>::contains_key(net));
+        assert!(!NetworkPowRegistrationAllowed::<Test>::contains_key(net));
+        assert!(!PendingEmission::<Test>::contains_key(net));
+        assert!(!PendingRootDivs::<Test>::contains_key(net));
+        assert!(!PendingAlphaSwapped::<Test>::contains_key(net));
+        assert!(!PendingOwnerCut::<Test>::contains_key(net));
+        assert!(!BlocksSinceLastStep::<Test>::contains_key(net));
+        assert!(!LastMechansimStepBlock::<Test>::contains_key(net));
+        assert!(!ServingRateLimit::<Test>::contains_key(net));
+        assert!(!Rho::<Test>::contains_key(net));
+        assert!(!AlphaSigmoidSteepness::<Test>::contains_key(net));
+
+        // Weights/versioning/targets/limits
+        assert!(!WeightsVersionKey::<Test>::contains_key(net));
+        assert!(!MaxAllowedValidators::<Test>::contains_key(net));
+        assert!(!AdjustmentInterval::<Test>::contains_key(net));
+        assert!(!BondsMovingAverage::<Test>::contains_key(net));
+        assert!(!BondsPenalty::<Test>::contains_key(net));
+        assert!(!BondsResetOn::<Test>::contains_key(net));
+        assert!(!WeightsSetRateLimit::<Test>::contains_key(net));
+        assert!(!ValidatorPruneLen::<Test>::contains_key(net));
+        assert!(!ScalingLawPower::<Test>::contains_key(net));
+        assert!(!TargetRegistrationsPerInterval::<Test>::contains_key(net));
+        assert!(!AdjustmentAlpha::<Test>::contains_key(net));
+        assert!(!CommitRevealWeightsEnabled::<Test>::contains_key(net));
+
+        // Burn/difficulty/adjustment
+        assert!(!Burn::<Test>::contains_key(net));
+        assert!(!MinBurn::<Test>::contains_key(net));
+        assert!(!MaxBurn::<Test>::contains_key(net));
+        assert!(!MinDifficulty::<Test>::contains_key(net));
+        assert!(!MaxDifficulty::<Test>::contains_key(net));
+        assert!(!LastAdjustmentBlock::<Test>::contains_key(net));
+        assert!(!RegistrationsThisBlock::<Test>::contains_key(net));
+        assert!(!EMAPriceHalvingBlocks::<Test>::contains_key(net));
+        assert!(!RAORecycledForRegistration::<Test>::contains_key(net));
+
+        // Feature toggles
+        assert!(!LiquidAlphaOn::<Test>::contains_key(net));
+        assert!(!Yuma3On::<Test>::contains_key(net));
+        assert!(!AlphaValues::<Test>::contains_key(net));
+        assert!(!SubtokenEnabled::<Test>::contains_key(net));
+        assert!(!ImmuneOwnerUidsLimit::<Test>::contains_key(net));
+
+        // Per‑subnet vectors / indexes
+        assert!(!StakeWeight::<Test>::contains_key(net));
+
+        // Uid/registration
+        assert!(Uids::<Test>::get(net, owner_hot).is_none());
+        assert!(!BlockAtRegistration::<Test>::contains_key(net, 0u16));
+
+        // Per‑subnet dividends
+        assert!(!AlphaDividendsPerSubnet::<Test>::contains_key(
+            net, owner_hot
+        ));
+        assert!(!TaoDividendsPerSubnet::<Test>::contains_key(net, owner_hot));
+
+        // Parent/child topology + takes
+        assert!(!ChildkeyTake::<Test>::contains_key(owner_hot, net));
+        assert!(!PendingChildKeys::<Test>::contains_key(net, owner_cold));
+        assert!(!ChildKeys::<Test>::contains_key(owner_cold, net));
+        assert!(!ParentKeys::<Test>::contains_key(owner_hot, net));
+
+        // Hotkey swap timestamp for subnet
+        assert!(!LastHotkeySwapOnNetuid::<Test>::contains_key(
+            net, owner_cold
+        ));
+
+        // Axon/prometheus tx key timing (NMap) — ValueQuery (defaults to 0)
+        assert_eq!(
+            TransactionKeyLastBlock::<Test>::get((owner_hot, net, 1u16)),
+            0u64
+        );
+
+        // EVM association
+        assert!(AssociatedEvmAddress::<Test>::get(net, 0u16).is_none());
+
+        // Subnet -> lease link
+        assert!(!SubnetUidToLeaseId::<Test>::contains_key(net));
 
         // ------------------------------------------------------------------
         // Final subnet removal confirmation
