@@ -5,7 +5,7 @@ use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
 use sp_std::collections::btree_map::BTreeMap;
-use substrate_fixed::types::{U64F64, U96F32};
+use substrate_fixed::types::{U64F64, U96F32, I96F32};
 use subtensor_runtime_common::TaoCurrency;
 use subtensor_swap_interface::SwapHandler;
 
@@ -731,7 +731,7 @@ fn prune_none_when_all_networks_immune() {
 }
 
 #[test]
-fn prune_selects_network_with_lowest_emission() {
+fn prune_selects_network_with_lowest_price() {
     new_test_ext(0).execute_with(|| {
         let n1 = add_dynamic_network(&U256::from(20), &U256::from(10));
         let n2 = add_dynamic_network(&U256::from(40), &U256::from(30));
@@ -740,16 +740,16 @@ fn prune_selects_network_with_lowest_emission() {
         let imm = SubtensorModule::get_network_immunity_period();
         System::set_block_number(imm + 10);
 
-        // n1 has lower total emission
-        Emission::<Test>::insert(n1, vec![AlphaCurrency::from(5)]);
-        Emission::<Test>::insert(n2, vec![AlphaCurrency::from(100)]);
+        // n1 has lower price → should be pruned
+        SubnetMovingPrice::<Test>::insert(n1, I96F32::from_num(1));
+        SubnetMovingPrice::<Test>::insert(n2, I96F32::from_num(10));
 
         assert_eq!(SubtensorModule::get_network_to_prune(), Some(n1));
     });
 }
 
 #[test]
-fn prune_ignores_immune_network_even_if_lower_emission() {
+fn prune_ignores_immune_network_even_if_lower_price() {
     new_test_ext(0).execute_with(|| {
         // create mature network n1 first
         let n1 = add_dynamic_network(&U256::from(22), &U256::from(11));
@@ -760,9 +760,9 @@ fn prune_ignores_immune_network_even_if_lower_emission() {
         // create second network n2 *inside* immunity
         let n2 = add_dynamic_network(&U256::from(44), &U256::from(33));
 
-        // emissions: n1 bigger, n2 smaller but immune
-        Emission::<Test>::insert(n1, vec![AlphaCurrency::from(50)]);
-        Emission::<Test>::insert(n2, vec![AlphaCurrency::from(1)]);
+        // prices: n2 lower but immune; n1 must be selected
+        SubnetMovingPrice::<Test>::insert(n1, I96F32::from_num(5));
+        SubnetMovingPrice::<Test>::insert(n2, I96F32::from_num(1));
 
         System::set_block_number(imm + 10); // still immune for n2
         assert_eq!(SubtensorModule::get_network_to_prune(), Some(n1));
@@ -770,7 +770,7 @@ fn prune_ignores_immune_network_even_if_lower_emission() {
 }
 
 #[test]
-fn prune_tie_on_emission_earlier_registration_wins() {
+fn prune_tie_on_price_earlier_registration_wins() {
     new_test_ext(0).execute_with(|| {
         // n1 registered first
         let n1 = add_dynamic_network(&U256::from(66), &U256::from(55));
@@ -783,11 +783,10 @@ fn prune_tie_on_emission_earlier_registration_wins() {
         let imm = SubtensorModule::get_network_immunity_period();
         System::set_block_number(imm + 20);
 
-        // identical emissions → tie
-        Emission::<Test>::insert(n1, vec![AlphaCurrency::from(123)]);
-        Emission::<Test>::insert(n2, vec![AlphaCurrency::from(123)]);
+        // identical prices → tie; earlier (n1) must be chosen
+        SubnetMovingPrice::<Test>::insert(n1, I96F32::from_num(7));
+        SubnetMovingPrice::<Test>::insert(n2, I96F32::from_num(7));
 
-        // earlier (n1) must be chosen
         assert_eq!(SubtensorModule::get_network_to_prune(), Some(n1));
     });
 }
