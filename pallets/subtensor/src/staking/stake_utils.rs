@@ -1036,6 +1036,8 @@ impl<T: Config> Pallet<T> {
             ensure!(alpha_unstaked <= max_amount, Error::<T>::SlippageTooHigh);
         }
 
+        
+
         // Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
             Self::hotkey_account_exists(hotkey),

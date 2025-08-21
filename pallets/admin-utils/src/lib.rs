@@ -107,8 +107,6 @@ pub mod pallet {
         BondsMovingAverageMaxReached,
         /// Only root can set negative sigmoid steepness values
         NegativeSigmoidSteepness,
-        /// Reveal Peroid is not within the valid range.
-        RevealPeriodOutOfBounds,
     }
     /// Enum for specifying the type of precompile operation.
     #[derive(
