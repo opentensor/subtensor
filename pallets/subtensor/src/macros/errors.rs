@@ -244,7 +244,7 @@ mod errors {
         SymbolAlreadyInUse,
         /// Incorrect commit-reveal version.
         IncorrectCommitRevealVersion,
-        /// Subnet limit reached & no eligible subnet to prune
+        /// Subnet limit reached & there is no eligible subnet to prune
         SubnetLimitReached,
     }
 }

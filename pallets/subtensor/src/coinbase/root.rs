@@ -22,6 +22,7 @@ use frame_support::weights::Weight;
 use safe_math::*;
 use sp_core::Get;
 use substrate_fixed::types::I64F64;
+use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
@@ -583,14 +584,19 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_network_to_prune() -> Option<NetUid> {
         let current_block: u64 = Self::get_current_block_as_u64();
-        let total_networks: u16 = TotalNetworks::<T>::get();
 
         let mut candidate_netuid: Option<NetUid> = None;
-        let mut candidate_emission: u64 = u64::MAX;
+        let mut candidate_price: U96F32 = U96F32::saturating_from_num(u128::MAX);
         let mut candidate_timestamp: u64 = u64::MAX;
 
-        for net in 1..=total_networks {
-            let netuid: NetUid = net.into();
+        for (netuid, added) in NetworksAdded::<T>::iter() {
+            if !added || netuid == NetUid::ROOT {
+                continue;
+            }
+            if !Self::if_subnet_exist(netuid) {
+                continue;
+            }
+
             let registered_at = NetworkRegisteredAt::<T>::get(netuid);
 
             // Skip immune networks.
@@ -598,18 +604,14 @@ impl<T: Config> Pallet<T> {
                 continue;
             }
 
-            // Sum AlphaCurrency as u64 for comparison.
-            let total_emission: u64 = Emission::<T>::get(netuid)
-                .into_iter()
-                .map(Into::<u64>::into)
-                .sum();
+            let price: U96F32 = T::SwapInterface::current_alpha_price(netuid.into());
 
-            // If tie on total_emission, earliest registration wins.
-            if total_emission < candidate_emission
-                || (total_emission == candidate_emission && registered_at < candidate_timestamp)
+            // If tie on price, earliest registration wins.
+            if price < candidate_price
+                || (price == candidate_price && registered_at < candidate_timestamp)
             {
                 candidate_netuid = Some(netuid);
-                candidate_emission = total_emission;
+                candidate_price = price;
                 candidate_timestamp = registered_at;
             }
         }
