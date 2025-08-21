@@ -607,7 +607,7 @@ impl<T: Config> Pallet<T> {
             }
 
             // ---------- v3 ------------------------------------------------------
-            for (_epoch, q) in CRV3WeightCommitsV2::<T>::iter_prefix(netuid) {
+            for (_epoch, q) in TimelockedWeightCommits::<T>::iter_prefix(netuid) {
                 for (who, cb, ..) in q.iter() {
                     if !Self::is_commit_expired(netuid, *cb) {
                         if let Some(i) = uid_of(who) {

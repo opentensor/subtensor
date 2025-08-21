@@ -130,6 +130,8 @@ mod hooks {
                 .saturating_add(migrations::migrate_subnet_symbols::migrate_subnet_symbols::<T>())
                 // Migrate CRV3 add commit_block
                 .saturating_add(migrations::migrate_crv3_commits_add_block::migrate_crv3_commits_add_block::<T>())
+                //Migrate CRV3 to TimelockedCommits
+                .saturating_add(migrations::migrate_crv3_v2_to_timelocked::migrate_crv3_v2_to_timelocked::<T>())
                 // Migrate Immunity Period
                 .saturating_add(migrations::migrate_network_immunity_period::migrate_network_immunity_period::<T>());
             weight
