@@ -1150,8 +1150,8 @@ fn test_migrate_commit_reveal_settings() {
         // Since these are ValueQuery storage items, they return defaults even when not set
         assert_eq!(RevealPeriodEpochs::<Test>::get(NetUid::from(netuid1)), 1u64);
         assert_eq!(RevealPeriodEpochs::<Test>::get(NetUid::from(netuid2)), 1u64);
-        assert_eq!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid1)), true);
-        assert_eq!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid2)), true);
+        assert!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid1)));
+        assert!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid2)));
 
         // Check migration hasn't run
         assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()));
@@ -1167,8 +1167,8 @@ fn test_migrate_commit_reveal_settings() {
         assert_eq!(RevealPeriodEpochs::<Test>::get(NetUid::from(netuid2)), 1u64);
 
         // Verify CommitRevealWeightsEnabled was set correctly
-        assert_eq!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid1)), true);
-        assert_eq!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid2)), true);
+        assert!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid1)));
+        assert!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid2)));
 
         // Check that weight calculation is correct
         // 1 read for migration check + 2 reads for network iteration + 2 * 2 writes for storage + 1 write for migration flag
@@ -1210,7 +1210,7 @@ fn test_migrate_commit_reveal_settings_no_networks() {
 
         // Check that weight calculation is correct (no networks, so no additional reads/writes)
         // 1 read for migration check + 0 reads for networks + 0 writes for storage + 1 write for migration flag
-        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads(1 + 0) + <Test as frame_system::Config>::DbWeight::get().writes(0 + 1);
+        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads(1) + <Test as frame_system::Config>::DbWeight::get().writes(1);
         assert_eq!(weight, expected_weight);
     });
 }
@@ -1233,7 +1233,7 @@ fn test_migrate_commit_reveal_settings_multiple_networks() {
         // Verify all networks have correct settings
         for netuid in &netuids {
             assert_eq!(RevealPeriodEpochs::<Test>::get(NetUid::from(*netuid)), 1u64);
-            assert_eq!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(*netuid)), true);
+            assert!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(*netuid)));
         }
 
         // Check migration has been marked as run
@@ -1261,6 +1261,6 @@ fn test_migrate_commit_reveal_settings_values_access() {
         
         // Test direct storage access
         assert_eq!(RevealPeriodEpochs::<Test>::get(NetUid::from(netuid)), 1u64);
-        assert_eq!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid)), true);
+        assert!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid)));
     });
 }
