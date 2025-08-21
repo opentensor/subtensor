@@ -210,14 +210,17 @@ impl ConsensusMechanism for AuraConsensus {
                 loop {
                     // Check if the runtime is Babe once per block.
                     if let Ok(c) = sc_consensus_babe::configuration(&*client) {
-						let warp_syncing = sync_service.status().await.is_ok_and(|status| status.warp_sync.is_some());
-						if !c.authorities.is_empty() && !warp_syncing {
-							log::info!("Babe runtime detected! Intentionally failing the essential handle `babe-switch` to trigger switch to Babe service.");
-							if let Some(triggered) = triggered {
-								triggered.store(true, std::sync::atomic::Ordering::SeqCst);
-							};
-							break;
-						}
+                        // Aura Consensus uses the hybrid import queue which is able to import both
+                        // Aura and Babe blocks. Wait until sync finishes before switching to the
+                        // Babe service to not break warp sync.
+                        let syncing = sync_service.status().await.is_ok_and(|status| status.warp_sync.is_some() || status.state_sync.is_some());
+                        if !c.authorities.is_empty() && !syncing {
+                            log::info!("Babe runtime detected! Intentionally failing the essential handle `babe-switch` to trigger switch to Babe service.");
+                            if let Some(triggered) = triggered {
+                                triggered.store(true, std::sync::atomic::Ordering::SeqCst);
+                            };
+                            break;
+                        }
                     };
                     tokio::time::sleep(slot_duration.as_duration()).await;
                 }
@@ -260,8 +263,8 @@ where
         .into_iter()
         .map(|a| (BabeAuthorityId::from(a.into_inner()), 1))
         .collect();
-    let slot_duration = runtime_api.slot_duration(at_hash)?.as_millis();
 
+    let slot_duration = runtime_api.slot_duration(at_hash)?.as_millis();
     let epoch_config = node_subtensor_runtime::BABE_GENESIS_EPOCH_CONFIG;
     let config = sp_consensus_babe::BabeConfiguration {
         slot_duration,
