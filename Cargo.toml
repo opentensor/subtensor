@@ -112,6 +112,7 @@ proc-macro-warning = { version = "1", default-features = false }
 expander = "2"
 ahash = { version = "0.8", default-features = false }
 regex = { version = "1.11.1", default-features = false }
+ethereum = { version = "0.18.2", default-features = false }
 
 frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2506-1", default-features = false }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2506-1", default-features = false }

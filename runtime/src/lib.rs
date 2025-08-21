@@ -65,6 +65,7 @@ use sp_version::RuntimeVersion;
 use subtensor_precompiles::Precompiles;
 use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
 use subtensor_swap_interface::{OrderType, SwapHandler};
+use ethereum::AuthorizationList;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1955,6 +1956,7 @@ impl_runtime_apis! {
             nonce: Option<U256>,
             estimate: bool,
             access_list: Option<Vec<(H160, Vec<H256>)>>,
+            authorization_list: Option<AuthorizationList>,
         ) -> Result<pallet_evm::CallInfo, sp_runtime::DispatchError> {
             use pallet_evm::GasWeightMapping as _;
 
@@ -2016,6 +2018,7 @@ impl_runtime_apis! {
                 max_priority_fee_per_gas,
                 nonce,
                 access_list.unwrap_or_default(),
+                authorization_list.unwrap_or_default(),
                 false,
                 true,
                 weight_limit,
@@ -2034,6 +2037,7 @@ impl_runtime_apis! {
             nonce: Option<U256>,
             estimate: bool,
             access_list: Option<Vec<(H160, Vec<H256>)>>,
+            authorization_list: Option<AuthorizationList>,
         ) -> Result<pallet_evm::CreateInfo, sp_runtime::DispatchError> {
             use pallet_evm::GasWeightMapping as _;
 
@@ -2098,6 +2102,7 @@ impl_runtime_apis! {
                 access_list.unwrap_or_default(),
                 whitelist,
                 whitelist_disabled,
+                authorization_list.unwrap_or_default(),
                 false,
                 true,
                 weight_limit,
