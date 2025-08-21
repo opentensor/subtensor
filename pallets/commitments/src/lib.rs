@@ -208,7 +208,7 @@ pub mod pallet {
             Weight::from_parts(33_480_000, 0)
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64)),
-            DispatchClass::Operational,
+            DispatchClass::Normal,
             Pays::No
         ))]
         pub fn set_commitment(
