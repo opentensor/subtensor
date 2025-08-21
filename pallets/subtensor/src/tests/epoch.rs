@@ -1004,7 +1004,7 @@ fn test_bonds() {
 		let max_stake: u64 = 4;
 		let stakes: Vec<u64> = vec![1, 2, 3, 4, 0, 0, 0, 0];
         let block_number = System::block_number();
-		add_network(netuid, tempo, 0);
+		add_network_disable_commit_reveal(netuid, tempo, 0);
 		SubtensorModule::set_max_allowed_uids( netuid, n );
 		assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
 		SubtensorModule::set_max_registrations_per_block( netuid, n );
@@ -1351,7 +1351,7 @@ fn test_active_stake() {
         let tempo: u16 = 1;
         let block_number: u64 = System::block_number();
         let stake: u64 = 1;
-        add_network(netuid, tempo, 0);
+        add_network_disable_commit_reveal(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
         SubtensorModule::set_max_registrations_per_block(netuid, n);
@@ -1567,7 +1567,7 @@ fn test_outdated_weights() {
         let tempo: u16 = 0;
         let mut block_number: u64 = System::block_number();
         let stake: u64 = 1;
-        add_network(netuid, tempo, 0);
+        add_network_disable_commit_reveal(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, n);
@@ -1757,7 +1757,7 @@ fn test_zero_weights() {
         let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
         let mut block_number: u64 = 0;
         let stake: u64 = 1;
-        add_network(netuid, tempo, 0);
+        add_network_disable_commit_reveal(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, n);
@@ -1960,7 +1960,7 @@ fn test_deregistered_miner_bonds() {
         let high_tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
 
         let stake: u64 = 1;
-        add_network(netuid, high_tempo, 0);
+        add_network_disable_commit_reveal(netuid, high_tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, n);

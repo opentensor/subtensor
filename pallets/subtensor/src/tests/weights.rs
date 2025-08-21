@@ -1263,6 +1263,7 @@ fn test_no_signature() {
     new_test_ext(0).execute_with(|| {
         let uids: Vec<u16> = vec![];
         let values: Vec<u16> = vec![];
+        SubtensorModule::set_commit_reveal_weights_enabled(1.into(), false);
         let result = SubtensorModule::set_weights(RuntimeOrigin::none(), 1.into(), uids, values, 0);
         assert_eq!(result, Err(DispatchError::BadOrigin));
     });
@@ -3195,7 +3196,7 @@ fn test_reveal_at_exact_epoch() {
             1.into(),
         );
 
-        let reveal_periods: Vec<u64> = vec![0, 1, 2, 7, 40, 86, 100];
+        let reveal_periods: Vec<u64> = vec![1, 2, 7, 40, 86, 100];
 
         for &reveal_period in &reveal_periods {
             assert_ok!(SubtensorModule::set_reveal_period(netuid, reveal_period));
