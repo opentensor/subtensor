@@ -1142,8 +1142,8 @@ fn test_migrate_commit_reveal_settings() {
         let netuid1: u16 = 1;
         let netuid2: u16 = 2;
         // Add networks to simulate existing networks
-        add_network(netuid1.into(), 1, 0);
-        add_network(netuid2.into(), 1, 0);
+        add_network_disable_commit_reveal(netuid1.into(), 1, 0);
+        add_network_disable_commit_reveal(netuid2.into(), 1, 0);
 
         // Ensure the storage items use default values initially (but aren't explicitly set)
         // Since these are ValueQuery storage items, they return defaults even when not set
@@ -1221,7 +1221,7 @@ fn test_migrate_commit_reveal_settings_multiple_networks() {
         // Set up multiple networks
         let netuids = vec![1u16, 2u16, 3u16, 10u16, 42u16];
         for netuid in &netuids {
-            add_network((*netuid).into(), 1, 0);
+            add_network_disable_commit_reveal((*netuid).into(), 1, 0);
         }
 
         // Run migration

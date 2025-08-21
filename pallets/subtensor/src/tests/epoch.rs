@@ -159,7 +159,7 @@ fn init_run_epochs(
     bonds_penalty: u16,
 ) {
     // === Create the network
-    add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
+    add_network_disable_commit_reveal(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
 
     // === Set bonds penalty
     SubtensorModule::set_bonds_penalty(netuid, bonds_penalty);
@@ -560,7 +560,7 @@ fn test_1_graph() {
         let hotkey = U256::from(0);
         let uid: u16 = 0;
         let stake_amount: u64 = 1_000_000_000;
-        add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
+        add_network_disable_commit_reveal(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
         SubtensorModule::set_max_allowed_uids(netuid, 1);
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey,
@@ -630,7 +630,7 @@ fn test_10_graph() {
         // each with 1 stake and self weights.
         let n: usize = 10;
         let netuid = NetUid::from(1);
-        add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
+        add_network_disable_commit_reveal(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
         SubtensorModule::set_max_allowed_uids(netuid, n as u16);
         for i in 0..10 {
             add_node(netuid, U256::from(i), U256::from(i), i as u16, 1)

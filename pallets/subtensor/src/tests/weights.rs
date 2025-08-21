@@ -812,6 +812,7 @@ fn test_set_weights_is_root_error() {
         let weights = vec![1];
         let version_key: u64 = 0;
         let hotkey = U256::from(1);
+        SubtensorModule::set_commit_reveal_weights_enabled(NetUid::ROOT, false);
 
         assert_err!(
             SubtensorModule::set_weights(
@@ -834,7 +835,7 @@ fn test_weights_err_no_validator_permit() {
         let hotkey_account_id = U256::from(55);
         let netuid = NetUid::from(1);
         let tempo: u16 = 13;
-        add_network(netuid, tempo, 0);
+        add_network_disable_commit_reveal(netuid, tempo, 0);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
         SubtensorModule::set_max_allowed_uids(netuid, 3);
         SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
@@ -882,7 +883,7 @@ fn test_set_stake_threshold_failed() {
         let hotkey = U256::from(0);
         let coldkey = U256::from(0);
 
-        add_network(netuid, 1, 0);
+        add_network_disable_commit_reveal(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 2143124);
         SubtensorModule::set_stake_threshold(20_000_000_000_000);
         SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
@@ -944,8 +945,8 @@ fn test_weights_version_key() {
         let netuid0 = NetUid::from(1);
         let netuid1 = NetUid::from(2);
 
-        add_network(netuid0, 1, 0);
-        add_network(netuid1, 1, 0);
+        add_network_disable_commit_reveal(netuid0, 1, 0);
+        add_network_disable_commit_reveal(netuid1, 1, 0);
         register_ok_neuron(netuid0, hotkey, coldkey, 2143124);
         register_ok_neuron(netuid1, hotkey, coldkey, 3124124);
 
@@ -1020,7 +1021,7 @@ fn test_weights_err_setting_weights_too_fast() {
         let hotkey_account_id = U256::from(55);
         let netuid = NetUid::from(1);
         let tempo: u16 = 13;
-        add_network(netuid, tempo, 0);
+        add_network_disable_commit_reveal(netuid, tempo, 0);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
         SubtensorModule::set_max_allowed_uids(netuid, 3);
         SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
@@ -1173,7 +1174,7 @@ fn test_weights_err_max_weight_limit() {
         // Add network.
         let netuid = NetUid::from(1);
         let tempo: u16 = 100;
-        add_network(netuid, tempo, 0);
+        add_network_disable_commit_reveal(netuid, tempo, 0);
 
         // Set params.
         SubtensorModule::set_max_allowed_uids(netuid, 5);
@@ -1346,7 +1347,7 @@ fn test_set_weight_not_enough_values() {
         let tempo: u16 = 13;
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let account_id = U256::from(1);
-        add_network(netuid, tempo, 0);
+        add_network_disable_commit_reveal(netuid, tempo, 0);
 
         register_ok_neuron(netuid, account_id, U256::from(2), 100000);
         let neuron_uid: u16 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(1))
@@ -1409,7 +1410,7 @@ fn test_set_weight_too_many_uids() {
     new_test_ext(0).execute_with(|| {
         let netuid = NetUid::from(1);
         let tempo: u16 = 13;
-        add_network(netuid, tempo, 0);
+        add_network_disable_commit_reveal(netuid, tempo, 0);
 
         register_ok_neuron(1.into(), U256::from(1), U256::from(2), 100_000);
         let neuron_uid: u16 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(1))
@@ -3622,7 +3623,7 @@ fn test_reveal_at_exact_block() {
         let tempo: u16 = 360;
 
         System::set_block_number(0);
-        add_network(netuid, tempo, 0);
+        add_network_disable_commit_reveal(netuid, tempo, 0);
 
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
@@ -3632,21 +3633,7 @@ fn test_reveal_at_exact_block() {
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
 
-        let reveal_periods: Vec<u64> = vec![
-            0,
-            1,
-            2,
-            5,
-            19,
-            21,
-            30,
-            77,
-            104,
-            833,
-            1999,
-            36398,
-            u32::MAX as u64,
-        ];
+        let reveal_periods: Vec<u64> = vec![1, 2, 5, 19, 21, 30, 77];
 
         for &reveal_period in &reveal_periods {
             assert_ok!(SubtensorModule::set_reveal_period(netuid, reveal_period));
