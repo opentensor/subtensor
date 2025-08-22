@@ -2,6 +2,7 @@
 
 use ark_serialize::CanonicalDeserialize;
 use ark_serialize::CanonicalSerialize;
+use frame_support::dispatch::DispatchInfo;
 use frame_support::{
     assert_err, assert_ok,
     dispatch::{DispatchClass, DispatchResult, GetDispatchInfo, Pays},
@@ -13,6 +14,7 @@ use scale_info::prelude::collections::HashMap;
 use sha2::Digest;
 use sp_core::Encode;
 use sp_core::{Get, H256, U256};
+use sp_runtime::traits::{DispatchInfoOf, TransactionExtension};
 use sp_runtime::{
     BoundedVec, DispatchError,
     traits::{BlakeTwo256, ConstU32, Hash, TxBaseImplication},
@@ -32,8 +34,8 @@ use w3f_bls::EngineBLS;
 use super::mock;
 use super::mock::*;
 use crate::coinbase::reveal_commits::{LegacyWeightsTlockPayload, WeightsTlockPayload};
+use crate::transaction_extension::SubtensorTransactionExtension;
 use crate::*;
-
 /***************************
   pub fn set_weights() tests
 *****************************/
@@ -100,10 +102,10 @@ fn test_set_rootweights_validate() {
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorTransactionExtension::<Test>::new();
+        let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(
             RawOrigin::Signed(who).into(),
@@ -250,8 +252,8 @@ fn test_commit_weights_validate() {
         SubtensorModule::set_stake_threshold(min_stake_with_slippage.to_u64() + 1);
 
         // Submit to the signed extension validate function
-        let info = crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-        let extension = crate::SubtensorTransactionExtension::<Test>::new();
+        let info = DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(
             RawOrigin::Signed(who).into(),
@@ -371,10 +373,10 @@ fn test_set_weights_validate() {
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorTransactionExtension::<Test>::new();
+        let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(
             RawOrigin::Signed(who).into(),
@@ -472,10 +474,10 @@ fn test_reveal_weights_validate() {
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorTransactionExtension::<Test>::new();
+        let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(
             RawOrigin::Signed(who).into(),
@@ -654,9 +656,9 @@ fn test_batch_reveal_weights_validate() {
         // Set the minimum stake
         SubtensorModule::set_stake_threshold(min_stake.into());
 
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-        let extension = crate::SubtensorTransactionExtension::<Test>::new();
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = SubtensorTransactionExtension::<Test>::new();
 
         // Test 1: StakeAmountTooLow - Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
@@ -5303,7 +5305,7 @@ fn test_do_commit_crv3_weights_success() {
 
         let cur_epoch =
             SubtensorModule::get_epoch_index(netuid, SubtensorModule::get_current_block_as_u64());
-        let commits = CRV3WeightCommitsV2::<Test>::get(netuid, cur_epoch);
+        let commits = TimelockedWeightCommits::<Test>::get(netuid, cur_epoch);
         assert_eq!(commits.len(), 1);
         assert_eq!(commits[0].0, hotkey);
         assert_eq!(commits[0].2, commit_data);
@@ -6158,7 +6160,7 @@ fn test_multiple_commits_by_same_hotkey_within_limit() {
 
         let cur_epoch =
             SubtensorModule::get_epoch_index(netuid, SubtensorModule::get_current_block_as_u64());
-        let commits = CRV3WeightCommitsV2::<Test>::get(netuid, cur_epoch);
+        let commits = TimelockedWeightCommits::<Test>::get(netuid, cur_epoch);
         assert_eq!(
             commits.len(),
             10,
@@ -6192,7 +6194,7 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
         for &epoch in &[past_epoch, reveal_epoch] {
             let bounded_commit = vec![epoch as u8; 5].try_into().expect("bounded vec");
 
-            assert_ok!(CRV3WeightCommitsV2::<Test>::try_mutate(
+            assert_ok!(TimelockedWeightCommits::<Test>::try_mutate(
                 netuid,
                 epoch,
                 |q| -> DispatchResult {
@@ -6203,8 +6205,8 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
         }
 
         // Sanity – both epochs presently hold a commit.
-        assert!(!CRV3WeightCommitsV2::<Test>::get(netuid, past_epoch).is_empty());
-        assert!(!CRV3WeightCommitsV2::<Test>::get(netuid, reveal_epoch).is_empty());
+        assert!(!TimelockedWeightCommits::<Test>::get(netuid, past_epoch).is_empty());
+        assert!(!TimelockedWeightCommits::<Test>::get(netuid, reveal_epoch).is_empty());
 
         // ---------------------------------------------------------------------
         // Run the reveal pass WITHOUT a pulse – only expiry housekeeping runs.
@@ -6213,13 +6215,13 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
 
         // past_epoch (< reveal_epoch) must be gone
         assert!(
-            CRV3WeightCommitsV2::<Test>::get(netuid, past_epoch).is_empty(),
+            TimelockedWeightCommits::<Test>::get(netuid, past_epoch).is_empty(),
             "expired epoch {past_epoch} should be cleared"
         );
 
         // reveal_epoch queue is *kept* because its commit could still be revealed later.
         assert!(
-            !CRV3WeightCommitsV2::<Test>::get(netuid, reveal_epoch).is_empty(),
+            !TimelockedWeightCommits::<Test>::get(netuid, reveal_epoch).is_empty(),
             "reveal-epoch {reveal_epoch} must be retained until commit can be revealed"
         );
     });
@@ -6895,7 +6897,7 @@ fn test_reveal_crv3_commits_retry_on_missing_pulse() {
         ));
 
         // epoch in which commit was stored
-        let stored_epoch = CRV3WeightCommitsV2::<Test>::iter_prefix(netuid)
+        let stored_epoch = TimelockedWeightCommits::<Test>::iter_prefix(netuid)
             .next()
             .map(|(e, _)| e)
             .expect("commit stored");
@@ -6909,7 +6911,7 @@ fn test_reveal_crv3_commits_retry_on_missing_pulse() {
         // run *one* block inside reveal epoch without pulse → commit should stay queued
         step_block(1);
         assert!(
-            !CRV3WeightCommitsV2::<Test>::get(netuid, stored_epoch).is_empty(),
+            !TimelockedWeightCommits::<Test>::get(netuid, stored_epoch).is_empty(),
             "commit must remain queued when pulse is missing"
         );
 
@@ -6937,7 +6939,7 @@ fn test_reveal_crv3_commits_retry_on_missing_pulse() {
         assert!(!weights.is_empty(), "weights must be set after pulse");
 
         assert!(
-            CRV3WeightCommitsV2::<Test>::get(netuid, stored_epoch).is_empty(),
+            TimelockedWeightCommits::<Test>::get(netuid, stored_epoch).is_empty(),
             "queue should be empty after successful reveal"
         );
     });
@@ -7080,7 +7082,7 @@ fn test_reveal_crv3_commits_legacy_payload_success() {
 
         // commit should be gone
         assert!(
-            CRV3WeightCommitsV2::<Test>::get(netuid, commit_epoch).is_empty(),
+            TimelockedWeightCommits::<Test>::get(netuid, commit_epoch).is_empty(),
             "commit storage should be cleaned after reveal"
         );
     });

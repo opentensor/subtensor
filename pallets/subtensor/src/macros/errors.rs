@@ -244,5 +244,7 @@ mod errors {
         SymbolAlreadyInUse,
         /// Incorrect commit-reveal version.
         IncorrectCommitRevealVersion,
+        /// Generic error for out-of-range parameter value
+        InvalidValue,
     }
 }
