@@ -387,18 +387,3 @@ export async function setTargetRegistrationsPerInterval(
     });
     await waitForTransactionWithRetry(api, tx, alice);
 }
-
-export async function disableCommitRevealWeights(api: TypedApi<typeof devnet>, netuid: number) {
-    const alice = getAliceSigner()
-    const enabled = await api.query.SubtensorModule.CommitRevealWeightsEnabled.getValue(netuid)
-
-    if (enabled === true) {
-        const internalCall = api.tx.AdminUtils.sudo_set_commit_reveal_weights_enabled({ netuid, enabled: false })
-        const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
-        await waitForTransactionWithRetry(api, tx, alice)
-    }
-
-    const newEnabled = await api.query.SubtensorModule.CommitRevealWeightsEnabled.getValue(netuid)
-    // could create multiple subnetworks during retry, just return the first created one
-    assert.equal(newEnabled, false)
-}

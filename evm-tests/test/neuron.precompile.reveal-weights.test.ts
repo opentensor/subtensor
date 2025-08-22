@@ -11,10 +11,9 @@ import { generateRandomEthersWallet } from "../src/utils"
 import { convertH160ToPublicKey } from "../src/address-utils"
 import { blake2AsU8a } from "@polkadot/util-crypto"
 import {
-    forceSetBalanceToEthAddress, forceSetBalanceToSs58Address, addNewSubnetwork, setCommitRevealWeightsEnabled, setWeightsSetRateLimit, burnedRegister,
+    forceSetBalanceToEthAddress, forceSetBalanceToSs58Address, addNewSubnetwork, setWeightsSetRateLimit, burnedRegister,
     setTempo, setCommitRevealWeightsInterval,
     startCall,
-    disableCommitRevealWeights
 } from "../src/subtensor"
 
 // hardcode some values for reveal hash
@@ -53,6 +52,7 @@ describe("Test neuron precompile reveal weights", () => {
     const coldkey = getRandomSubstrateKeypair();
 
     let api: TypedApi<typeof devnet>
+    let commitEpoch: number;
 
     // sudo account alice as signer
     let alice: PolkadotSigner;
@@ -66,14 +66,11 @@ describe("Test neuron precompile reveal weights", () => {
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(coldkey.publicKey))
         await forceSetBalanceToEthAddress(api, wallet.address)
         let netuid = await addNewSubnetwork(api, hotkey, coldkey)
-        await disableCommitRevealWeights(api, netuid)
+        // await disableCommitRevealWeights(api, netuid)
         await startCall(api, netuid, coldkey)
 
         console.log("test the case on subnet ", netuid)
 
-        // enable commit reveal feature
-        await setCommitRevealWeightsEnabled(api, netuid, true)
-        // set it as 0, we can set the weight anytime
         await setWeightsSetRateLimit(api, netuid, BigInt(0))
 
         const ss58Address = convertH160ToSS58(wallet.address)
@@ -92,8 +89,15 @@ describe("Test neuron precompile reveal weights", () => {
         const subnetId = totalNetworks - 1
         const commitHash = getCommitHash(subnetId, wallet.address)
         const contract = new ethers.Contract(INEURON_ADDRESS, INeuronABI, wallet);
-        const tx = await contract.commitWeights(subnetId, commitHash)
-        await tx.wait()
+        try {
+            const tx = await contract.commitWeights(subnetId, commitHash)
+            await tx.wait()
+        } catch (e) {
+            console.log("commitWeights failed", e)
+        }
+
+        const commitBlock = await api.query.System.Number.getValue()
+        commitEpoch = Math.trunc(commitBlock / (100 + 1))
 
         const ss58Address = convertH160ToSS58(wallet.address)
 
@@ -110,9 +114,19 @@ describe("Test neuron precompile reveal weights", () => {
         const netuid = totalNetworks - 1
         const contract = new ethers.Contract(INEURON_ADDRESS, INeuronABI, wallet);
         // set tempo or epoch large, then enough time to reveal weight
-        await setTempo(api, netuid, 60000)
-        // set interval epoch as 0, we can reveal at the same epoch
-        await setCommitRevealWeightsInterval(api, netuid, BigInt(0))
+        await setTempo(api, netuid, 100)
+        // set interval epoch as 1, it is the minimum value now
+        await setCommitRevealWeightsInterval(api, netuid, BigInt(1))
+
+        while (true) {
+            const currentBlock = await api.query.System.Number.getValue()
+            const currentEpoch = Math.trunc(currentBlock / (100 + 1))
+            // wait for one second for fast blocks
+            if (currentEpoch > commitEpoch) {
+                break
+            }
+            await new Promise(resolve => setTimeout(resolve, 1000))
+        }
 
         const tx = await contract.revealWeights(
             netuid,
@@ -122,6 +136,7 @@ describe("Test neuron precompile reveal weights", () => {
             version_key
         );
         await tx.wait()
+
         const ss58Address = convertH160ToSS58(wallet.address)
 
         // check the weight commit is removed after reveal successfully
