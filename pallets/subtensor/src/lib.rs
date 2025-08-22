@@ -8,28 +8,20 @@
 use frame_system::{self as system, ensure_signed};
 pub use pallet::*;
 
-use codec::{Decode, DecodeWithMemTracking, Encode};
+use codec::{Decode, Encode};
 use frame_support::sp_runtime::transaction_validity::InvalidTransaction;
-use frame_support::sp_runtime::transaction_validity::ValidTransaction;
 use frame_support::{
-    dispatch::{self, DispatchInfo, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo},
+    dispatch::{self, DispatchResult, DispatchResultWithPostInfo},
     ensure,
     pallet_macros::import_section,
     pallet_prelude::*,
-    traits::{IsSubType, tokens::fungible},
+    traits::tokens::fungible,
 };
 use pallet_balances::Call as BalancesCall;
 // use pallet_scheduler as Scheduler;
 use scale_info::TypeInfo;
 use sp_core::Get;
-use sp_runtime::{
-    DispatchError,
-    traits::{
-        AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Implication, PostDispatchInfoOf,
-        TransactionExtension, ValidateResult,
-    },
-    transaction_validity::{TransactionValidity, TransactionValidityError},
-};
+use sp_runtime::{DispatchError, transaction_validity::TransactionValidityError};
 use sp_std::marker::PhantomData;
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 
@@ -55,6 +47,7 @@ use macros::{config, dispatches, errors, events, genesis, hooks};
 
 #[cfg(test)]
 mod tests;
+pub mod transaction_extension;
 
 // apparently this is stabilized since rust 1.36
 extern crate alloc;
@@ -1469,6 +1462,26 @@ pub mod pallet {
     pub type SubtokenEnabled<T> =
         StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultFalse<T>>;
 
+    #[pallet::type_value]
+    /// Default value for burn keys limit
+    pub fn DefaultImmuneOwnerUidsLimit<T: Config>() -> u16 {
+        1
+    }
+    #[pallet::type_value]
+    /// Maximum value for burn keys limit
+    pub fn MaxImmuneOwnerUidsLimit<T: Config>() -> u16 {
+        10
+    }
+    #[pallet::type_value]
+    /// Minimum value for burn keys limit
+    pub fn MinImmuneOwnerUidsLimit<T: Config>() -> u16 {
+        1
+    }
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> Burn key limit
+    pub type ImmuneOwnerUidsLimit<T> =
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultImmuneOwnerUidsLimit<T>>;
+
     /// =======================================
     /// ==== Subnetwork Consensus Storage  ====
     /// =======================================
@@ -1669,6 +1682,23 @@ pub mod pallet {
         OptionQuery,
     >;
     #[pallet::storage]
+    /// MAP (netuid, epoch) → VecDeque<(who, commit_block, ciphertext, reveal_round)>
+    /// Stores a queue of weight commits for an account on a given subnet.
+    pub type TimelockedWeightCommits<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        NetUid,
+        Twox64Concat,
+        u64, // epoch key
+        VecDeque<(
+            T::AccountId,
+            u64, // commit_block
+            BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
+            RoundNumber,
+        )>,
+        ValueQuery,
+    >;
+    #[pallet::storage]
     /// MAP (netuid, epoch) → VecDeque<(who, ciphertext, reveal_round)>
     /// DEPRECATED for CRV3WeightCommitsV2
     pub type CRV3WeightCommits<T: Config> = StorageDoubleMap<
@@ -1686,7 +1716,7 @@ pub mod pallet {
     >;
     #[pallet::storage]
     /// MAP (netuid, epoch) → VecDeque<(who, commit_block, ciphertext, reveal_round)>
-    /// Stores a queue of v3 commits for an account on a given netuid.
+    /// DEPRECATED for TimelockedWeightCommits
     pub type CRV3WeightCommitsV2<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
@@ -1808,40 +1838,6 @@ pub mod pallet {
 
     // ---- Subtensor helper functions.
     impl<T: Config> Pallet<T> {
-        /// Returns the transaction priority for setting weights.
-        pub fn get_priority_set_weights(hotkey: &T::AccountId, netuid: NetUid) -> u64 {
-            if let Ok(uid) = Self::get_uid_for_net_and_hotkey(netuid, hotkey) {
-                // TODO rethink this.
-                let _stake = Self::get_inherited_for_hotkey_on_subnet(hotkey, netuid);
-                let current_block_number: u64 = Self::get_current_block_as_u64();
-                let default_priority: u64 =
-                    current_block_number.saturating_sub(Self::get_last_update_for_uid(netuid, uid));
-                return default_priority.saturating_add(u32::MAX as u64);
-            }
-            0
-        }
-
-        // FIXME this function is used both to calculate for alpha stake amount as well as tao
-        // amount
-        /// Returns the transaction priority for stake operations.
-        pub fn get_priority_staking(
-            coldkey: &T::AccountId,
-            hotkey: &T::AccountId,
-            stake_amount: u64,
-        ) -> u64 {
-            match LastColdkeyHotkeyStakeBlock::<T>::get(coldkey, hotkey) {
-                Some(last_stake_block) => {
-                    let current_block_number = Self::get_current_block_as_u64();
-                    let default_priority = current_block_number.saturating_sub(last_stake_block);
-
-                    default_priority
-                        .saturating_add(u32::MAX as u64)
-                        .saturating_add(stake_amount)
-                }
-                None => stake_amount,
-            }
-        }
-
         /// Is the caller allowed to set weights
         pub fn check_weights_min_stake(hotkey: &T::AccountId, netuid: NetUid) -> bool {
             // Blacklist weights transactions for low stake peers.
@@ -1882,22 +1878,6 @@ pub mod pallet {
             Ok(())
         }
     }
-}
-
-/************************************************************
-    CallType definition
-************************************************************/
-#[derive(Debug, PartialEq, Default)]
-pub enum CallType {
-    SetWeights,
-    AddStake,
-    RemoveStake,
-    AddDelegate,
-    Register,
-    Serve,
-    RegisterNetwork,
-    #[default]
-    Other,
 }
 
 #[derive(Debug, PartialEq)]
@@ -1954,533 +1934,6 @@ impl From<CustomTransactionError> for u8 {
 impl From<CustomTransactionError> for TransactionValidityError {
     fn from(variant: CustomTransactionError) -> Self {
         TransactionValidityError::Invalid(InvalidTransaction::Custom(variant.into()))
-    }
-}
-
-#[freeze_struct("2e02eb32e5cb25d3")]
-#[derive(Default, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
-pub struct SubtensorTransactionExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
-
-impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for SubtensorTransactionExtension<T> {
-    fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-        write!(f, "SubtensorTransactionExtension")
-    }
-}
-
-impl<T: Config + Send + Sync + TypeInfo> SubtensorTransactionExtension<T>
-where
-    <T as frame_system::Config>::RuntimeCall:
-        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-    <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
-{
-    pub fn new() -> Self {
-        Self(Default::default())
-    }
-
-    pub fn get_priority_vanilla() -> u64 {
-        // Return high priority so that every extrinsic except set_weights function will
-        // have a higher priority than the set_weights call
-        u64::MAX
-    }
-
-    pub fn get_priority_set_weights(who: &T::AccountId, netuid: NetUid) -> u64 {
-        Pallet::<T>::get_priority_set_weights(who, netuid)
-    }
-
-    pub fn get_priority_staking(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-        stake_amount: u64,
-    ) -> u64 {
-        Pallet::<T>::get_priority_staking(coldkey, hotkey, stake_amount)
-    }
-
-    pub fn check_weights_min_stake(who: &T::AccountId, netuid: NetUid) -> bool {
-        Pallet::<T>::check_weights_min_stake(who, netuid)
-    }
-
-    pub fn validity_ok(priority: u64) -> ValidTransaction {
-        ValidTransaction {
-            priority,
-            ..Default::default()
-        }
-    }
-
-    pub fn result_to_validity(result: Result<(), Error<T>>, priority: u64) -> TransactionValidity {
-        if let Err(err) = result {
-            Err(match err {
-                Error::<T>::AmountTooLow => CustomTransactionError::StakeAmountTooLow.into(),
-                Error::<T>::SubnetNotExists => CustomTransactionError::SubnetDoesntExist.into(),
-                Error::<T>::NotEnoughBalanceToStake => CustomTransactionError::BalanceTooLow.into(),
-                Error::<T>::HotKeyAccountNotExists => {
-                    CustomTransactionError::HotkeyAccountDoesntExist.into()
-                }
-                Error::<T>::NotEnoughStakeToWithdraw => {
-                    CustomTransactionError::NotEnoughStakeToWithdraw.into()
-                }
-                Error::<T>::InsufficientLiquidity => {
-                    CustomTransactionError::InsufficientLiquidity.into()
-                }
-                Error::<T>::SlippageTooHigh => CustomTransactionError::SlippageTooHigh.into(),
-                Error::<T>::TransferDisallowed => CustomTransactionError::TransferDisallowed.into(),
-                Error::<T>::HotKeyNotRegisteredInNetwork => {
-                    CustomTransactionError::HotKeyNotRegisteredInNetwork.into()
-                }
-                Error::<T>::InvalidIpAddress => CustomTransactionError::InvalidIpAddress.into(),
-                Error::<T>::ServingRateLimitExceeded => {
-                    CustomTransactionError::ServingRateLimitExceeded.into()
-                }
-                Error::<T>::InvalidPort => CustomTransactionError::InvalidPort.into(),
-                _ => CustomTransactionError::BadRequest.into(),
-            })
-        } else {
-            Ok(ValidTransaction {
-                priority,
-                ..Default::default()
-            })
-        }
-    }
-}
-
-impl<T: Config + Send + Sync + TypeInfo + pallet_balances::Config>
-    TransactionExtension<<T as frame_system::Config>::RuntimeCall>
-    for SubtensorTransactionExtension<T>
-where
-    <T as frame_system::Config>::RuntimeCall:
-        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-    <T as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
-    <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
-    <T as frame_system::Config>::RuntimeCall: IsSubType<BalancesCall<T>>,
-{
-    const IDENTIFIER: &'static str = "SubtensorTransactionExtension";
-
-    type Implicit = ();
-    type Val = Option<T::AccountId>;
-    type Pre = Option<CallType>;
-
-    fn weight(&self, _call: &<T as frame_system::Config>::RuntimeCall) -> Weight {
-        // TODO: benchmark transaction extension
-        Weight::zero()
-    }
-
-    fn validate(
-        &self,
-        origin: <T as frame_system::Config>::RuntimeOrigin,
-        call: &<T as frame_system::Config>::RuntimeCall,
-        _info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
-        _len: usize,
-        _self_implicit: Self::Implicit,
-        _inherited_implication: &impl Implication,
-        _source: TransactionSource,
-    ) -> ValidateResult<Self::Val, <T as frame_system::Config>::RuntimeCall> {
-        // Ensure the transaction is signed, else we just skip the extension.
-        let Some(who) = origin.as_system_origin_signer() else {
-            return Ok((Default::default(), None, origin));
-        };
-
-        match call.is_sub_type() {
-            Some(Call::commit_weights { netuid, .. }) => {
-                if Self::check_weights_min_stake(who, *netuid) {
-                    let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                    let validity = Self::validity_ok(priority);
-                    Ok((validity, Some(who.clone()), origin))
-                } else {
-                    Err(CustomTransactionError::StakeAmountTooLow.into())
-                }
-            }
-            Some(Call::reveal_weights {
-                netuid,
-                uids,
-                values,
-                salt,
-                version_key,
-            }) => {
-                if Self::check_weights_min_stake(who, *netuid) {
-                    let provided_hash = Pallet::<T>::get_commit_hash(
-                        who,
-                        *netuid,
-                        uids,
-                        values,
-                        salt,
-                        *version_key,
-                    );
-                    match Pallet::<T>::find_commit_block_via_hash(provided_hash) {
-                        Some(commit_block) => {
-                            if Pallet::<T>::is_reveal_block_range(*netuid, commit_block) {
-                                let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                                let validity = Self::validity_ok(priority);
-                                Ok((validity, Some(who.clone()), origin))
-                            } else {
-                                Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
-                            }
-                        }
-                        None => Err(CustomTransactionError::CommitNotFound.into()),
-                    }
-                } else {
-                    Err(CustomTransactionError::StakeAmountTooLow.into())
-                }
-            }
-            Some(Call::batch_reveal_weights {
-                netuid,
-                uids_list,
-                values_list,
-                salts_list,
-                version_keys,
-            }) => {
-                if Self::check_weights_min_stake(who, *netuid) {
-                    let num_reveals = uids_list.len();
-                    if num_reveals == values_list.len()
-                        && num_reveals == salts_list.len()
-                        && num_reveals == version_keys.len()
-                    {
-                        let provided_hashs = (0..num_reveals)
-                            .map(|i| {
-                                Pallet::<T>::get_commit_hash(
-                                    who,
-                                    *netuid,
-                                    uids_list.get(i).unwrap_or(&Vec::new()),
-                                    values_list.get(i).unwrap_or(&Vec::new()),
-                                    salts_list.get(i).unwrap_or(&Vec::new()),
-                                    *version_keys.get(i).unwrap_or(&0_u64),
-                                )
-                            })
-                            .collect::<Vec<_>>();
-
-                        let batch_reveal_block = provided_hashs
-                            .iter()
-                            .filter_map(|hash| Pallet::<T>::find_commit_block_via_hash(*hash))
-                            .collect::<Vec<_>>();
-
-                        if provided_hashs.len() == batch_reveal_block.len() {
-                            if Pallet::<T>::is_batch_reveal_block_range(*netuid, batch_reveal_block)
-                            {
-                                let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                                let validity = Self::validity_ok(priority);
-                                Ok((validity, Some(who.clone()), origin))
-                            } else {
-                                Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
-                            }
-                        } else {
-                            Err(CustomTransactionError::CommitNotFound.into())
-                        }
-                    } else {
-                        Err(CustomTransactionError::InputLengthsUnequal.into())
-                    }
-                } else {
-                    Err(CustomTransactionError::StakeAmountTooLow.into())
-                }
-            }
-            Some(Call::set_weights { netuid, .. }) => {
-                if Self::check_weights_min_stake(who, *netuid) {
-                    let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                    let validity = Self::validity_ok(priority);
-                    Ok((validity, Some(who.clone()), origin))
-                } else {
-                    Err(CustomTransactionError::StakeAmountTooLow.into())
-                }
-            }
-            Some(Call::set_tao_weights { netuid, hotkey, .. }) => {
-                if Self::check_weights_min_stake(hotkey, *netuid) {
-                    let priority: u64 = Self::get_priority_set_weights(hotkey, *netuid);
-                    let validity = Self::validity_ok(priority);
-                    Ok((validity, Some(who.clone()), origin))
-                } else {
-                    Err(CustomTransactionError::StakeAmountTooLow.into())
-                }
-            }
-            Some(Call::commit_crv3_weights {
-                netuid,
-                reveal_round,
-                ..
-            }) => {
-                if Self::check_weights_min_stake(who, *netuid) {
-                    if *reveal_round < pallet_drand::LastStoredRound::<T>::get() {
-                        return Err(CustomTransactionError::InvalidRevealRound.into());
-                    }
-                    let priority: u64 = Pallet::<T>::get_priority_set_weights(who, *netuid);
-                    let validity = Self::validity_ok(priority);
-                    Ok((validity, Some(who.clone()), origin))
-                } else {
-                    Err(CustomTransactionError::StakeAmountTooLow.into())
-                }
-            }
-            Some(Call::commit_timelocked_weights {
-                netuid,
-                reveal_round,
-                ..
-            }) => {
-                if Self::check_weights_min_stake(who, *netuid) {
-                    if *reveal_round < pallet_drand::LastStoredRound::<T>::get() {
-                        return Err(CustomTransactionError::InvalidRevealRound.into());
-                    }
-                    let priority: u64 = Pallet::<T>::get_priority_set_weights(who, *netuid);
-                    let validity = Self::validity_ok(priority);
-                    Ok((validity, Some(who.clone()), origin))
-                } else {
-                    Err(CustomTransactionError::StakeAmountTooLow.into())
-                }
-            }
-            Some(Call::add_stake {
-                hotkey,
-                netuid: _,
-                amount_staked,
-            }) => {
-                if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
-                }
-                let validity = Self::validity_ok(Self::get_priority_staking(
-                    who,
-                    hotkey,
-                    (*amount_staked).into(),
-                ));
-                Ok((validity, Some(who.clone()), origin))
-            }
-            Some(Call::add_stake_limit {
-                hotkey,
-                netuid: _,
-                amount_staked,
-                ..
-            }) => {
-                if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
-                }
-
-                let validity = Self::validity_ok(Self::get_priority_staking(
-                    who,
-                    hotkey,
-                    (*amount_staked).into(),
-                ));
-                Ok((validity, Some(who.clone()), origin))
-            }
-            Some(Call::remove_stake {
-                hotkey,
-                netuid: _,
-                amount_unstaked,
-            }) => {
-                let validity = Self::validity_ok(Self::get_priority_staking(
-                    who,
-                    hotkey,
-                    (*amount_unstaked).into(),
-                ));
-                Ok((validity, Some(who.clone()), origin))
-            }
-            Some(Call::remove_stake_limit {
-                hotkey,
-                netuid: _,
-                amount_unstaked,
-                ..
-            }) => {
-                let validity = Self::validity_ok(Self::get_priority_staking(
-                    who,
-                    hotkey,
-                    (*amount_unstaked).into(),
-                ));
-                Ok((validity, Some(who.clone()), origin))
-            }
-            Some(Call::move_stake {
-                origin_hotkey,
-                destination_hotkey: _,
-                origin_netuid: _,
-                destination_netuid: _,
-                alpha_amount,
-            }) => {
-                if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
-                }
-                let validity = Self::validity_ok(Self::get_priority_staking(
-                    who,
-                    origin_hotkey,
-                    (*alpha_amount).into(),
-                ));
-                Ok((validity, Some(who.clone()), origin))
-            }
-            Some(Call::transfer_stake {
-                destination_coldkey: _,
-                hotkey,
-                origin_netuid: _,
-                destination_netuid: _,
-                alpha_amount,
-            }) => {
-                if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
-                }
-                let validity = Self::validity_ok(Self::get_priority_staking(
-                    who,
-                    hotkey,
-                    (*alpha_amount).into(),
-                ));
-                Ok((validity, Some(who.clone()), origin))
-            }
-            Some(Call::swap_stake {
-                hotkey,
-                origin_netuid: _,
-                destination_netuid: _,
-                alpha_amount,
-            }) => {
-                if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
-                }
-                let validity = Self::validity_ok(Self::get_priority_staking(
-                    who,
-                    hotkey,
-                    (*alpha_amount).into(),
-                ));
-                Ok((validity, Some(who.clone()), origin))
-            }
-            Some(Call::swap_stake_limit {
-                hotkey,
-                origin_netuid: _,
-                destination_netuid: _,
-                alpha_amount,
-                ..
-            }) => {
-                if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
-                }
-
-                let validity = Self::validity_ok(Self::get_priority_staking(
-                    who,
-                    hotkey,
-                    (*alpha_amount).into(),
-                ));
-                Ok((validity, Some(who.clone()), origin))
-            }
-            Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {
-                if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
-                }
-
-                let registrations_this_interval =
-                    Pallet::<T>::get_registrations_this_interval(*netuid);
-                let max_registrations_per_interval =
-                    Pallet::<T>::get_target_registrations_per_interval(*netuid);
-                if registrations_this_interval >= (max_registrations_per_interval.saturating_mul(3))
-                {
-                    // If the registration limit for the interval is exceeded, reject the transaction
-                    return Err(CustomTransactionError::RateLimitExceeded.into());
-                }
-                let validity = ValidTransaction {
-                    priority: Self::get_priority_vanilla(),
-                    ..Default::default()
-                };
-                Ok((validity, Some(who.clone()), origin))
-            }
-            Some(Call::register_network { .. }) => {
-                let validity = Self::validity_ok(Self::get_priority_vanilla());
-                Ok((validity, Some(who.clone()), origin))
-            }
-            Some(Call::dissolve_network { .. }) => {
-                if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    Err(CustomTransactionError::ColdkeyInSwapSchedule.into())
-                } else {
-                    let validity = Self::validity_ok(Self::get_priority_vanilla());
-                    Ok((validity, Some(who.clone()), origin))
-                }
-            }
-            Some(Call::serve_axon {
-                netuid,
-                version,
-                ip,
-                port,
-                ip_type,
-                protocol,
-                placeholder1,
-                placeholder2,
-            }) => {
-                // Fully validate the user input
-                Self::result_to_validity(
-                    Pallet::<T>::validate_serve_axon(
-                        who,
-                        *netuid,
-                        *version,
-                        *ip,
-                        *port,
-                        *ip_type,
-                        *protocol,
-                        *placeholder1,
-                        *placeholder2,
-                    ),
-                    Self::get_priority_vanilla(),
-                )
-                .map(|validity| (validity, Some(who.clone()), origin.clone()))
-            }
-            _ => {
-                if let Some(
-                    BalancesCall::transfer_keep_alive { .. }
-                    | BalancesCall::transfer_all { .. }
-                    | BalancesCall::transfer_allow_death { .. },
-                ) = call.is_sub_type()
-                {
-                    if ColdkeySwapScheduled::<T>::contains_key(who) {
-                        return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
-                    }
-                }
-                let validity = Self::validity_ok(Self::get_priority_vanilla());
-                Ok((validity, Some(who.clone()), origin))
-            }
-        }
-    }
-
-    // NOTE: Add later when we put in a pre and post dispatch step.
-    fn prepare(
-        self,
-        val: Self::Val,
-        _origin: &<T as frame_system::Config>::RuntimeOrigin,
-        call: &<T as frame_system::Config>::RuntimeCall,
-        _info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
-        _len: usize,
-    ) -> Result<Self::Pre, TransactionValidityError> {
-        // The transaction is not signed, given val is None, so we just skip this step.
-        if val.is_none() {
-            return Ok(None);
-        }
-
-        match call.is_sub_type() {
-            Some(Call::add_stake { .. }) => Ok(Some(CallType::AddStake)),
-            Some(Call::remove_stake { .. }) => Ok(Some(CallType::RemoveStake)),
-            Some(Call::set_weights { .. }) => Ok(Some(CallType::SetWeights)),
-            Some(Call::commit_weights { .. }) => Ok(Some(CallType::SetWeights)),
-            Some(Call::reveal_weights { .. }) => Ok(Some(CallType::SetWeights)),
-            Some(Call::register { .. }) => Ok(Some(CallType::Register)),
-            Some(Call::serve_axon { .. }) => Ok(Some(CallType::Serve)),
-            Some(Call::serve_axon_tls { .. }) => Ok(Some(CallType::Serve)),
-            Some(Call::register_network { .. }) => Ok(Some(CallType::RegisterNetwork)),
-            _ => Ok(Some(CallType::Other)),
-        }
-    }
-
-    fn post_dispatch(
-        pre: Self::Pre,
-        _info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
-        _post_info: &mut PostDispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
-        _len: usize,
-        _result: &dispatch::DispatchResult,
-    ) -> Result<(), TransactionValidityError> {
-        // Skip this step if the transaction is not signed, meaning pre is None.
-        let call_type = match pre {
-            Some(call_type) => call_type,
-            None => return Ok(()),
-        };
-
-        match call_type {
-            CallType::SetWeights => {
-                log::debug!("Not Implemented!");
-            }
-            CallType::AddStake => {
-                log::debug!("Not Implemented! Need to add potential transaction fees here.");
-            }
-            CallType::RemoveStake => {
-                log::debug!("Not Implemented! Need to add potential transaction fees here.");
-            }
-            CallType::Register => {
-                log::debug!("Not Implemented!");
-            }
-            _ => {
-                log::debug!("Not Implemented!");
-            }
-        }
-
-        Ok(())
     }
 }
 

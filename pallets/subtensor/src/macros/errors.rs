@@ -248,5 +248,7 @@ mod errors {
         RevealPeriodTooLarge,
         /// Reveal period is too small.
         RevealPeriodTooSmall,
+        /// Generic error for out-of-range parameter value
+        InvalidValue,
     }
 }
