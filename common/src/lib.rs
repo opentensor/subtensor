@@ -223,6 +223,40 @@ pub mod time {
     pub const DAYS: BlockNumber = HOURS * 24;
 }
 
+#[freeze_struct("8e576b32bb1bb664")]
+#[repr(transparent)]
+#[derive(
+    Deserialize,
+    Serialize,
+    Clone,
+    Copy,
+    Decode,
+    DecodeWithMemTracking,
+    Default,
+    Encode,
+    Eq,
+    Hash,
+    MaxEncodedLen,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    RuntimeDebug,
+)]
+#[serde(transparent)]
+pub struct SubId(u8);
+
+impl From<u8> for SubId {
+    fn from(value: u8) -> Self {
+        Self(value)
+    }
+}
+
+impl From<SubId> for u16 {
+    fn from(val: SubId) -> Self {
+        u16::from(val.0)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

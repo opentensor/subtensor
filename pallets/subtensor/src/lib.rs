@@ -1797,6 +1797,38 @@ pub mod pallet {
     pub type CommitRevealWeightsVersion<T> =
         StorageValue<_, u16, ValueQuery, DefaultCommitRevealWeightsVersion<T>>;
 
+    /// ======================
+    /// ==== Sub-subnets =====
+    /// ======================
+    #[pallet::type_value]
+    /// -- ITEM (Default number of sub-subnets)
+    pub fn DefaultSubsubnetCount<T: Config>() -> u8 {
+        1
+    }
+    #[pallet::type_value]
+    /// -- ITEM (Maximum number of sub-subnets)
+    pub fn MaxSubsubnetCount<T: Config>() -> u8 {
+        8
+    }
+    #[pallet::type_value]
+    /// -- ITEM (Number of tempos in subnet super-block)
+    pub fn SuperBlockTempos<T: Config>() -> u16 {
+        20
+    }
+    #[pallet::type_value]
+    /// -- ITEM (Maximum allowed sub-subnet count decrease per super-block)
+    pub fn GlobalSubsubnetDecreasePerSuperblock<T: Config>() -> u8 {
+        1
+    }
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> Number of sub-subnets desired by root or subnet owner.
+    pub type SubsubnetCountDesired<T: Config> =
+        StorageMap<_, Twox64Concat, NetUid, u8, ValueQuery, DefaultSubsubnetCount<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> Current number of sub-subnets
+    pub type SubsubnetCountCurrent<T: Config> =
+        StorageMap<_, Twox64Concat, NetUid, u8, ValueQuery, DefaultSubsubnetCount<T>>;
+
     /// ==================
     /// ==== Genesis =====
     /// ==================
