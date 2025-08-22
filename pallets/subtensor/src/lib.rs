@@ -1457,6 +1457,26 @@ pub mod pallet {
     pub type SubtokenEnabled<T> =
         StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultFalse<T>>;
 
+    #[pallet::type_value]
+    /// Default value for burn keys limit
+    pub fn DefaultImmuneOwnerUidsLimit<T: Config>() -> u16 {
+        1
+    }
+    #[pallet::type_value]
+    /// Maximum value for burn keys limit
+    pub fn MaxImmuneOwnerUidsLimit<T: Config>() -> u16 {
+        10
+    }
+    #[pallet::type_value]
+    /// Minimum value for burn keys limit
+    pub fn MinImmuneOwnerUidsLimit<T: Config>() -> u16 {
+        1
+    }
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> Burn key limit
+    pub type ImmuneOwnerUidsLimit<T> =
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultImmuneOwnerUidsLimit<T>>;
+
     /// =======================================
     /// ==== Subnetwork Consensus Storage  ====
     /// =======================================
@@ -1657,6 +1677,23 @@ pub mod pallet {
         OptionQuery,
     >;
     #[pallet::storage]
+    /// MAP (netuid, epoch) → VecDeque<(who, commit_block, ciphertext, reveal_round)>
+    /// Stores a queue of weight commits for an account on a given subnet.
+    pub type TimelockedWeightCommits<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        NetUid,
+        Twox64Concat,
+        u64, // epoch key
+        VecDeque<(
+            T::AccountId,
+            u64, // commit_block
+            BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
+            RoundNumber,
+        )>,
+        ValueQuery,
+    >;
+    #[pallet::storage]
     /// MAP (netuid, epoch) → VecDeque<(who, ciphertext, reveal_round)>
     /// DEPRECATED for CRV3WeightCommitsV2
     pub type CRV3WeightCommits<T: Config> = StorageDoubleMap<
@@ -1674,7 +1711,7 @@ pub mod pallet {
     >;
     #[pallet::storage]
     /// MAP (netuid, epoch) → VecDeque<(who, commit_block, ciphertext, reveal_round)>
-    /// Stores a queue of v3 commits for an account on a given netuid.
+    /// DEPRECATED for TimelockedWeightCommits
     pub type CRV3WeightCommitsV2<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,

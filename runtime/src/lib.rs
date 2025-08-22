@@ -37,6 +37,7 @@ use pallet_subtensor::rpc_info::{
     stake_info::StakeInfo,
     subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
 };
+use pallet_subtensor_swap_runtime_api::SimSwapResult;
 use runtime_common::prod_or_fast;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -63,6 +64,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use subtensor_precompiles::Precompiles;
 use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
+use subtensor_swap_interface::{OrderType, SwapHandler};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -218,7 +220,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 302,
+    spec_version: 303,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -2415,12 +2417,56 @@ impl_runtime_apis! {
     }
 
     impl pallet_subtensor_swap_runtime_api::SwapRuntimeApi<Block> for Runtime {
-        fn current_alpha_price(netuid: u16) -> u64 {
+        fn current_alpha_price(netuid: NetUid) -> u64 {
             use substrate_fixed::types::U96F32;
 
             pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into())
                 .saturating_mul(U96F32::from_num(1_000_000_000))
                 .saturating_to_num()
+        }
+
+        fn sim_swap_tao_for_alpha(netuid: NetUid, tao: TaoCurrency) -> SimSwapResult {
+            pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
+                netuid.into(),
+                OrderType::Buy,
+                tao.into(),
+            )
+            .map_or_else(
+                |_| SimSwapResult {
+                    tao_amount:   0.into(),
+                    alpha_amount: 0.into(),
+                    tao_fee:      0.into(),
+                    alpha_fee:    0.into(),
+                },
+                |sr| SimSwapResult {
+                    tao_amount:   sr.amount_paid_in.into(),
+                    alpha_amount: sr.amount_paid_out.into(),
+                    tao_fee:      sr.fee_paid.into(),
+                    alpha_fee:    0.into(),
+                },
+            )
+        }
+
+        fn sim_swap_alpha_for_tao(netuid: NetUid, alpha: AlphaCurrency) -> SimSwapResult {
+            pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
+                netuid.into(),
+                OrderType::Sell,
+                alpha.into(),
+            )
+            .map_or_else(
+                |_| SimSwapResult {
+                    tao_amount:   0.into(),
+                    alpha_amount: 0.into(),
+                    tao_fee:      0.into(),
+                    alpha_fee:    0.into(),
+                },
+                |sr| SimSwapResult {
+                    tao_amount:   sr.amount_paid_out.into(),
+                    alpha_amount: sr.amount_paid_in.into(),
+                    tao_fee:      0.into(),
+                    alpha_fee:    sr.fee_paid.into(),
+                },
+            )
         }
     }
 }
