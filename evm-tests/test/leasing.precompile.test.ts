@@ -44,7 +44,7 @@ describe("Test Leasing precompile", () => {
 
     it("gets an existing lease created on substrate side, its subnet id and its contributor shares", async () => {
         const nextCrowdloanId = await api.query.Crowdloan.NextCrowdloanId.getValue();
-        const crowdloanDeposit = BigInt(100_000_000_000); // 100 TAO
+        const crowdloanDeposit = BigInt(5_000_000_000); // 5 TAO
         const crowdloanCap = await api.query.SubtensorModule.NetworkLastLockCost.getValue() * BigInt(2);
         const crowdloanEnd = await api.query.System.Number.getValue() + 100;
         const leaseEmissionsShare = 15;
@@ -98,7 +98,7 @@ describe("Test Leasing precompile", () => {
 
     it("registers a new leased network through a crowdloan and retrieves the lease", async () => {
         const nextCrowdloanId = await api.query.Crowdloan.NextCrowdloanId.getValue();
-        const crowdloanDeposit = BigInt(100_000_000_000); // 100 TAO
+        const crowdloanDeposit = BigInt(5_000_000_000); // 5 TAO
         const crowdloanMinContribution = BigInt(1_000_000_000); // 1 TAO
         const crowdloanCap = await api.query.SubtensorModule.NetworkLastLockCost.getValue() * BigInt(2);
         const crowdloanEnd = await api.query.System.Number.getValue() + 100;
@@ -159,7 +159,7 @@ describe("Test Leasing precompile", () => {
         await tx.wait();
 
         const nextCrowdloanId = await api.query.Crowdloan.NextCrowdloanId.getValue();
-        const crowdloanDeposit = BigInt(100_000_000_000); // 100 TAO
+        const crowdloanDeposit = BigInt(5_000_000_000); // 5 TAO
         const crowdloanMinContribution = BigInt(1_000_000_000); // 1 TAO
         const crowdloanCap = await api.query.SubtensorModule.NetworkLastLockCost.getValue() * BigInt(2);
         const crowdloanEnd = await api.query.System.Number.getValue() + 100;
