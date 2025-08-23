@@ -3,6 +3,12 @@ name = "subtensor-transaction-fee"
 version = "0.1.0"
 edition.workspace = true
 
+[package.metadata.cargo-machete]
+ignored = [
+    "codec",                   # Used in serialization features
+    "log"                      # Used in logging features
+]
+
 [dependencies]
 codec.workspace = true
 frame-support.workspace = true

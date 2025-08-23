@@ -15,6 +15,46 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[package.metadata.cargo-machete]
+ignored = [
+    "ark-serialize",           # Used in drand pallet features and arkworks integration
+    "fp-account",              # Used in EVM/Frontier features
+    "fp-evm",                  # Used in EVM/Frontier features 
+    "frame-election-provider-support", # Used in NPoS features
+    "getrandom",               # Used in drand randomness features
+    "hex",                     # Used in various serialization and crypto features
+    "pallet-authority-discovery", # Used in consensus features
+    "pallet-authorship",       # Used in consensus features
+    "pallet-babe",             # Used in consensus features
+    "pallet-bags-list",        # Used in NPoS features
+    "pallet-election-provider-multi-phase", # Used in NPoS features
+    "pallet-evm-precompile-modexp", # Used in EVM features
+    "pallet-evm-precompile-sha3fips", # Used in EVM features
+    "pallet-evm-precompile-simple", # Used in EVM features
+    "pallet-fast-unstake",    # Used in NPoS features
+    "pallet-hotfix-sufficients", # Used in EVM/Frontier features
+    "pallet-nomination-pools", # Used in NPoS features
+    "pallet-nomination-pools-runtime-api", # Used in NPoS features
+    "pallet-offences",         # Used in consensus features
+    "pallet-session",          # Used in consensus features
+    "pallet-staking",          # Used in NPoS features
+    "pallet-staking-reward-curve", # Used in NPoS features
+    "pallet-staking-reward-fn", # Used in NPoS features
+    "pallet-staking-runtime-api", # Used in NPoS features
+    "precompile-utils",        # Used in EVM precompile features
+    "rand_chacha",             # Used in drand randomness features
+    "serde_json",              # Used in various serialization features
+    "sha2",                    # Used in crypto features
+    "smallvec",                # Used in various optimized collections
+    "sp-authority-discovery",  # Used in consensus features
+    "sp-consensus-grandpa",    # Used in consensus features
+    "sp-consensus-slots",      # Used in consensus features
+    "sp-npos-elections",       # Used in NPoS features
+    "sp-staking",              # Used in NPoS features
+    "tle",                     # Used in drand features
+    "w3f-bls"                  # Used in drand BLS signature features
+]
+
 [dependencies]
 subtensor-macros.workspace = true
 subtensor-custom-rpc-runtime-api.workspace = true

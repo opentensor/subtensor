@@ -4,6 +4,11 @@ version = "1.0.0"
 description = "RPC interface for the Swap pallet"
 edition.workspace = true
 
+[package.metadata.cargo-machete]
+ignored = [
+    "subtensor-swap-interface" # Used in swap interface features
+]
+
 [dependencies]
 codec = { workspace = true, features = ["derive"] }
 jsonrpsee.workspace = true

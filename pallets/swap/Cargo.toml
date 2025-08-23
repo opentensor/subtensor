@@ -3,6 +3,13 @@ name = "pallet-subtensor-swap"
 version = "0.1.0"
 edition.workspace = true
 
+[package.metadata.cargo-machete]
+ignored = [
+    "pallet-subtensor-swap-runtime-api", # Used in runtime API features
+    "scale-info",              # Used in metadata features
+    "serde"                    # Used in serialization features
+]
+
 [dependencies]
 alloy-primitives.workspace = true
 approx.workspace = true

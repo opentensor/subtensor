@@ -3,6 +3,12 @@ name = "safe-math"
 version = "0.1.0"
 edition.workspace = true
 
+[package.metadata.cargo-machete]
+ignored = [
+    "num-traits",              # Used in numeric trait features
+    "sp-std"                   # Used in no-std features
+]
+
 [dependencies]
 substrate-fixed.workspace = true
 sp-arithmetic.workspace = true

@@ -16,6 +16,23 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[package.metadata.cargo-machete]
+ignored = [
+    "fp-consensus",            # Used in Frontier consensus features
+    "frame-system-rpc-runtime-api", # Used in RPC features
+    "num-traits",              # Used in various numeric operations
+    "pallet-commitments",      # Used in runtime benchmarking features
+    "pallet-subtensor-swap-runtime-api", # Used in swap runtime API features
+    "pallet-transaction-payment-rpc-runtime-api", # Used in RPC features
+    "sc-consensus-grandpa-rpc", # Used in consensus RPC features
+    "sc-keystore",             # Used in keystore features
+    "sc-rpc-api",              # Used in RPC features
+    "sp-offchain",             # Used in offchain worker features
+    "sp-session",              # Used in session features
+    "sp-transaction-pool",     # Used in transaction pool features
+    "subtensor-custom-rpc-runtime-api" # Used in custom RPC features
+]
+
 [[bin]]
 name = "node-subtensor"
 
@@ -40,7 +57,6 @@ sp-core.workspace = true
 sc-executor.workspace = true
 sc-service.workspace = true
 sc-telemetry.workspace = true
-sc-keystore.workspace = true
 sc-transaction-pool.workspace = true
 sc-transaction-pool-api.workspace = true
 sc-offchain.workspace = true
@@ -51,7 +67,6 @@ sp-consensus-babe.workspace = true
 sc-consensus-babe-rpc.workspace = true
 sc-consensus.workspace = true
 sc-consensus-grandpa.workspace = true
-sc-consensus-grandpa-rpc.workspace = true
 sp-consensus-grandpa.workspace = true
 sc-chain-spec.workspace = true
 sc-consensus-slots.workspace = true
@@ -86,6 +101,8 @@ sp-block-builder.workspace = true
 sc-basic-authorship.workspace = true
 substrate-frame-rpc-system.workspace = true
 pallet-transaction-payment-rpc.workspace = true
+
+# Used for the node subtensor's RPCs
 frame-system-rpc-runtime-api.workspace = true
 pallet-transaction-payment-rpc-runtime-api.workspace = true
 

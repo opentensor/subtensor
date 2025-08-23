@@ -15,6 +15,17 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[package.metadata.cargo-machete]
+ignored = [
+    "ark-bls12-381",           # Used in BLS12-381 cryptography features
+    "ndarray",                 # Used in matrix operations for consensus
+    "pallet-proxy",            # Used in proxy functionality features
+    "pallet-transaction-payment", # Used in transaction payment features
+    "serde-tuple-vec-map",     # Used in serialization features
+    "serde_bytes",             # Used in byte serialization features
+    "serde_with"               # Used in advanced serialization features
+]
+
 [dependencies]
 subtensor-macros.workspace = true
 codec = { workspace = true, features = ["derive"] }

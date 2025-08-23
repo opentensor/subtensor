@@ -8,6 +8,13 @@ description = "A pallet that adds custom RPC calls to subtensor"
 license = "MIT"
 publish = false
 
+[package.metadata.cargo-machete]
+ignored = [
+    "pallet-subtensor",        # Used in subtensor integration features
+    "serde",                   # Used in serialization features
+    "sp-rpc"                   # Used in RPC features
+]
+
 [lints]
 workspace = true
 

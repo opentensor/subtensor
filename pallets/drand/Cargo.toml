@@ -11,6 +11,14 @@ publish = false
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[package.metadata.cargo-machete]
+ignored = [
+    "anyhow",                  # Used in error handling features
+    "ark-bls12-381",           # Used in BLS12-381 cryptography features
+    "ark-crypto-primitives",   # Used in arkworks crypto features
+    "ark-ff"                   # Used in finite field features
+]
+
 [dependencies]
 codec = { workspace = true, features = ["derive"] }
 scale-info = { workspace = true, features = ["derive"] }
@@ -19,7 +27,6 @@ serde_json.workspace = true
 log.workspace = true
 hex = { workspace = true, features = ["serde"] }
 sha2.workspace = true
-anyhow.workspace = true
 # frame deps
 frame-benchmarking = { workspace = true, optional = true }
 frame-support.workspace = true
@@ -36,6 +43,7 @@ ark-ec.workspace = true
 ark-std.workspace = true
 ark-crypto-primitives = { workspace = true, features = ["r1cs", "snark"] }
 ark-scale = { workspace = true, features = ["hazmat"] }
+anyhow.workspace = true
 w3f-bls.workspace = true
 sp-keyring.workspace = true
 subtensor-macros.workspace = true

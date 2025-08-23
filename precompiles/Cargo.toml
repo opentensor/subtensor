@@ -10,6 +10,11 @@ repository = "https://github.com/opentensor/subtensor/"
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[package.metadata.cargo-machete]
+ignored = [
+    "codec"                    # Used in serialization features
+]
+
 [dependencies]
 codec = { workspace = true, features = ["derive"] }
 ed25519-dalek = { workspace = true, features = ["alloc"] }

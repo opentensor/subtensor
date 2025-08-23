@@ -8,6 +8,12 @@ description = "A pallet that adds a custom runtime API to Subtensor"
 license = "MIT"
 publish = false
 
+[package.metadata.cargo-machete]
+ignored = [
+    "frame-support",           # Used in frame features
+    "serde"                    # Used in serialization features
+]
+
 [lints]
 workspace = true
 
