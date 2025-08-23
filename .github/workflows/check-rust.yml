@@ -246,7 +246,7 @@ jobs:
         run: zepter run check
 
   cargo-machete:
-    name: Cargo Machete
+    name: cargo machete
     runs-on: [self-hosted, type-ccx13]
     steps:
       - name: Checkout
