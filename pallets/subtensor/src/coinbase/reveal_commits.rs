@@ -45,9 +45,9 @@ impl<T: Config> Pallet<T> {
         let reveal_epoch = cur_epoch.saturating_sub(reveal_period);
 
         // Clean expired commits
-        for (epoch, _) in CRV3WeightCommitsV2::<T>::iter_prefix(netuid) {
+        for (epoch, _) in TimelockedWeightCommits::<T>::iter_prefix(netuid) {
             if epoch < reveal_epoch {
-                CRV3WeightCommitsV2::<T>::remove(netuid, epoch);
+                TimelockedWeightCommits::<T>::remove(netuid, epoch);
             }
         }
 
@@ -57,7 +57,7 @@ impl<T: Config> Pallet<T> {
             return Ok(());
         }
 
-        let mut entries = CRV3WeightCommitsV2::<T>::take(netuid, reveal_epoch);
+        let mut entries = TimelockedWeightCommits::<T>::take(netuid, reveal_epoch);
         let mut unrevealed = VecDeque::new();
 
         // Keep popping items off the front of the queue until we successfully reveal a commit.
@@ -185,11 +185,11 @@ impl<T: Config> Pallet<T> {
                 continue;
             }
 
-            Self::deposit_event(Event::CRV3WeightsRevealed(netuid, who));
+            Self::deposit_event(Event::TimelockedWeightsRevealed(netuid, who));
         }
 
         if !unrevealed.is_empty() {
-            CRV3WeightCommitsV2::<T>::insert(netuid, reveal_epoch, unrevealed);
+            TimelockedWeightCommits::<T>::insert(netuid, reveal_epoch, unrevealed);
         }
 
         Ok(())
