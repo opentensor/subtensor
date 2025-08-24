@@ -1214,84 +1214,85 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Distribute `alpha_total` back to the coldkey's hotkeys for `netuid`.
-    /// - If the coldkey owns multiple hotkeys, split pro‑rata by current α stake on this subnet.
-    ///   If all stakes are zero, split evenly.
-    /// - If no hotkeys exist, fall back to (coldkey, coldkey).
+    /// - Pro‑rata by current α stake on this subnet; if all zero, split evenly.
+    /// - Deterministic "largest remainders" rounding to ensure exact conservation.
+    /// - Robust to partial deposit failures: retries across successes, final fallback to (cold, cold).
     pub fn refund_alpha(netuid: NetUid, coldkey: &T::AccountId, alpha_total: AlphaCurrency) {
         if alpha_total.is_zero() {
             return;
         }
 
-        // 1) Fetch owned hotkeys via SubnetInfo; no direct dependency on pallet_subtensor.
+        // 1) Recipient set
         let mut hotkeys: sp_std::vec::Vec<T::AccountId> = T::SubnetInfo::get_owned_hotkeys(coldkey);
-
-        // Fallback: if no hotkeys are currently owned, use coldkey as its own hotkey.
         if hotkeys.is_empty() {
             hotkeys.push(coldkey.clone());
         }
 
-        // 2) Build weights based on current α stake on this subnet.
-        //    If sum_weights == 0, we'll split evenly.
+        // 2) Weights = current α stake per hotkey; if all zero -> even split
         let weights: sp_std::vec::Vec<u128> = hotkeys
             .iter()
-            .map(|hk| {
-                let bal = T::BalanceOps::alpha_balance(netuid, coldkey, hk);
-                u128::from(bal.to_u64())
-            })
+            .map(|hk| u128::from(T::BalanceOps::alpha_balance(netuid, coldkey, hk).to_u64()))
             .collect();
 
         let sum_weights: u128 = weights
             .iter()
             .copied()
             .fold(0u128, |acc, w| acc.saturating_add(w));
-        let n: u128 = u128::from(hotkeys.len() as u64);
+        let total_u128: u128 = u128::from(alpha_total.to_u64());
+        let n = hotkeys.len();
 
-        let total_alpha_u128: u128 = u128::from(alpha_total.to_u64());
-
-        // 3) Compute integer shares with remainder handling.
-        let mut shares: sp_std::vec::Vec<(T::AccountId, u64)> =
-            sp_std::vec::Vec::with_capacity(hotkeys.len());
+        // (account, planned_amount_u64)
+        let mut shares: sp_std::vec::Vec<(T::AccountId, u64)> = sp_std::vec::Vec::with_capacity(n);
 
         if sum_weights > 0 {
-            // Pro‑rata by weights.
-            let mut assigned: u128 = 0;
-            for (hk, w) in hotkeys.iter().cloned().zip(weights.iter().copied()) {
-                let numerator = total_alpha_u128.saturating_mul(w);
-                let part: u128 = numerator.checked_div(sum_weights).unwrap_or(0);
-                shares.push((hk, u64::try_from(part).unwrap_or(u64::MAX)));
-                assigned = assigned.saturating_add(part);
+            // 3a) Pro‑rata base + largest remainders (deterministic)
+            let mut bases: sp_std::vec::Vec<u128> = sp_std::vec::Vec::with_capacity(n);
+            let mut remainders: sp_std::vec::Vec<(usize, u128)> =
+                sp_std::vec::Vec::with_capacity(n);
+
+            let mut base_sum: u128 = 0;
+            for (i, (&w, hk)) in weights.iter().zip(hotkeys.iter()).enumerate() {
+                let numer = total_u128.saturating_mul(w);
+                let base = numer.checked_div(sum_weights).unwrap_or(0);
+                let rem = numer.checked_rem(sum_weights).unwrap_or(0);
+                bases.push(base);
+                remainders.push((i, rem));
+                base_sum = base_sum.saturating_add(base);
+                shares.push((hk.clone(), u64::try_from(base).unwrap_or(u64::MAX)));
             }
 
-            // Distribute remainder one‑by‑one.
-            let mut remainder: u128 = total_alpha_u128.saturating_sub(assigned);
-            let mut i: usize = 0;
-            while remainder > 0 && i < shares.len() {
-                if let Some(pair) = shares.get_mut(i) {
-                    pair.1 = pair.1.saturating_add(1);
-                    remainder = remainder.saturating_sub(1);
-                    i = i.saturating_add(1);
-                } else {
-                    break;
+            // Distribute leftover ones to the largest remainders; tie‑break by index for determinism
+            let mut leftover = total_u128.saturating_sub(base_sum);
+            if leftover > 0 {
+                remainders.sort_by(|a, b| {
+                    // Descending by remainder, then ascending by index
+                    b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0))
+                });
+                let mut k = 0usize;
+                while leftover > 0 && k < remainders.len() {
+                    let idx = remainders[k].0;
+                    if let Some((_, amt)) = shares.get_mut(idx) {
+                        *amt = amt.saturating_add(1);
+                    }
+                    leftover = leftover.saturating_sub(1);
+                    k = k.saturating_add(1);
                 }
             }
         } else {
-            // Even split.
-            let base_u128 = total_alpha_u128.checked_div(n).unwrap_or(0);
-            let mut remainder_u128 = total_alpha_u128.checked_rem(n).unwrap_or(0);
-
-            let base: u64 = u64::try_from(base_u128).unwrap_or(u64::MAX);
-            for hk in hotkeys.into_iter() {
-                let add_one: u64 = if remainder_u128 > 0 {
-                    remainder_u128 = remainder_u128.saturating_sub(1);
-                    1
-                } else {
-                    0
-                };
-                shares.push((hk, base.saturating_add(add_one)));
+            // 3b) Even split with deterministic round‑robin remainder
+            let base = total_u128.checked_div(n as u128).unwrap_or(0);
+            let mut rem = total_u128.checked_rem(n as u128).unwrap_or(0);
+            for hk in hotkeys.iter() {
+                let mut amt = u64::try_from(base).unwrap_or(u64::MAX);
+                if rem > 0 {
+                    amt = amt.saturating_add(1);
+                    rem = rem.saturating_sub(1);
+                }
+                shares.push((hk.clone(), amt));
             }
         }
 
-        // 4) Deposit to (coldkey, hotkey). On failure, collect leftover and retry on successes.
+        // 4) Deposit to (coldkey, each hotkey). Track leftover if any deposit fails.
         let mut leftover: u64 = 0;
         let mut successes: sp_std::vec::Vec<T::AccountId> = sp_std::vec::Vec::new();
 
@@ -1304,7 +1305,7 @@ impl<T: Config> Pallet<T> {
                 Ok(_) => successes.push(hk.clone()),
                 Err(e) => {
                     log::warn!(
-                        "refund_alpha_to_hotkeys: increase_stake failed (cold={coldkey:?}, hot={hk:?}, netuid={netuid:?}, amt={amt_u64:?}): {e:?}"
+                        "refund_alpha: increase_stake failed (cold={coldkey:?}, hot={hk:?}, netuid={netuid:?}, amt={amt_u64:?}): {e:?}"
                     );
                     leftover = leftover.saturating_add(*amt_u64);
                 }
@@ -1313,10 +1314,11 @@ impl<T: Config> Pallet<T> {
 
         // 5) Retry: spread any leftover across the hotkeys that succeeded in step 4.
         if leftover > 0 && !successes.is_empty() {
-            let count_u64 = successes.len() as u64;
-            let base = leftover.checked_div(count_u64).unwrap_or(0);
-            let mut rem = leftover.checked_rem(count_u64).unwrap_or(0);
+            let count = successes.len() as u64;
+            let base = leftover.checked_div(count).unwrap_or(0);
+            let mut rem = leftover.checked_rem(count).unwrap_or(0);
 
+            let mut leftover_retry: u64 = 0;
             for hk in successes.iter() {
                 let add: u64 = base.saturating_add(if rem > 0 {
                     rem = rem.saturating_sub(1);
@@ -1327,12 +1329,17 @@ impl<T: Config> Pallet<T> {
                 if add == 0 {
                     continue;
                 }
-                let _ = T::BalanceOps::increase_stake(coldkey, hk, netuid, add.into());
+                if let Err(e) = T::BalanceOps::increase_stake(coldkey, hk, netuid, add.into()) {
+                    log::warn!(
+                        "refund_alpha(retry): increase_stake failed (cold={coldkey:?}, hot={hk:?}, netuid={netuid:?}, amt={add:?}): {e:?}"
+                    );
+                    leftover_retry = leftover_retry.saturating_add(add);
+                }
             }
-            leftover = 0;
+            leftover = leftover_retry;
         }
 
-        // 6) Final fallback: if for some reason every deposit failed, deposit to (coldkey, coldkey).
+        // 6) Final fallback: deposit any remainder to (coldkey, coldkey).
         if leftover > 0 {
             let _ = T::BalanceOps::increase_stake(coldkey, coldkey, netuid, leftover.into());
         }
