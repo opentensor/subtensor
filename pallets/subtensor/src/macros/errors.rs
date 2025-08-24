@@ -248,5 +248,7 @@ mod errors {
         InvalidValue,
         /// Subnet limit reached & there is no eligible subnet to prune
         SubnetLimitReached,
+        /// Insufficient funds to meet the subnet lock cost
+        CannotAffordLockCost,
     }
 }

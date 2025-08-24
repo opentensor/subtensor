@@ -116,7 +116,7 @@ impl<T: Config> Pallet<T> {
     /// * `MechanismDoesNotExist`           – unsupported `mechid`.  
     /// * `NetworkTxRateLimitExceeded`      – caller hit the register-network rate limit.  
     /// * `SubnetLimitReached`              – limit hit **and** no eligible subnet to prune.  
-    /// * `NotEnoughBalanceToStake`         – caller lacks the lock cost.  
+    /// * `CannotAffordLockCost`            – caller lacks the lock cost.  
     /// * `BalanceWithdrawalError`          – failed to lock balance.  
     /// * `InvalidIdentity`                 – supplied `identity` failed validation.
     ///
@@ -167,7 +167,7 @@ impl<T: Config> Pallet<T> {
         log::debug!("network lock_amount: {lock_amount:?}");
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, lock_amount.into()),
-            Error::<T>::NotEnoughBalanceToStake
+            Error::<T>::CannotAffordLockCost
         );
 
         // --- 7. Perform the lock operation.

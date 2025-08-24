@@ -1245,7 +1245,7 @@ fn register_network_fails_before_prune_keeps_existing() {
                 1,
                 None,
             ),
-            Error::<Test>::NotEnoughBalanceToStake
+            Error::<Test>::CannotAffordLockCost
         );
 
         assert!(SubtensorModule::if_subnet_exist(net));
