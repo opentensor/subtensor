@@ -211,11 +211,10 @@ impl<T: Config> Pallet<T> {
         let symbol = Self::get_next_available_symbol(netuid_to_register);
         TokenSymbol::<T>::insert(netuid_to_register, symbol);
 
-        // Put initial TAO from lock into subnet TAO and produce numerically equal amount of Alpha
-        // The initial TAO is the locked amount, with a minimum of 1 RAO and a cap of 100 TAO.
-        let pool_initial_tao = Self::get_network_min_lock();
-        // FIXME: the result from function is used as a mixed type alpha/tao
-        let pool_initial_alpha = AlphaCurrency::from(Self::get_network_min_lock().to_u64());
+        // The initial TAO is the locked amount
+        // Put initial TAO from lock into subnet TAO and produce numerically equal amount of Alpha.
+        let pool_initial_tao: TaoCurrency = Self::get_network_min_lock();
+        let pool_initial_alpha: AlphaCurrency = pool_initial_tao.to_u64().into();
         let actual_tao_lock_amount_less_pool_tao =
             actual_tao_lock_amount.saturating_sub(pool_initial_tao);
 
@@ -224,22 +223,13 @@ impl<T: Config> Pallet<T> {
         SubnetAlphaIn::<T>::insert(netuid_to_register, pool_initial_alpha);
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
         SubnetOwnerHotkey::<T>::insert(netuid_to_register, hotkey.clone());
-
-        // ----- NEW: Make registration defaults explicit to mirror de‑registration cleanup -----
-        // Transfer gating and lock accounting
         TransferToggle::<T>::insert(netuid_to_register, true);
         SubnetLocked::<T>::insert(netuid_to_register, pool_initial_tao);
         LargestLocked::<T>::insert(netuid_to_register, pool_initial_tao.to_u64());
-
-        // User‑provided reserves (liquidity) and out‑supply baselines
         SubnetTaoProvided::<T>::insert(netuid_to_register, TaoCurrency::ZERO);
         SubnetAlphaInProvided::<T>::insert(netuid_to_register, AlphaCurrency::from(0));
         SubnetAlphaOut::<T>::insert(netuid_to_register, AlphaCurrency::from(0));
-
-        // Market telemetry baselines
         SubnetVolume::<T>::insert(netuid_to_register, 0u128);
-
-        // Track burned/recycled amount for this registration
         RAORecycledForRegistration::<T>::insert(
             netuid_to_register,
             actual_tao_lock_amount_less_pool_tao,
@@ -302,6 +292,8 @@ impl<T: Config> Pallet<T> {
         Self::set_immunity_period(netuid, 5000);
         Self::set_min_difficulty(netuid, u64::MAX);
         Self::set_max_difficulty(netuid, u64::MAX);
+        Self::set_commit_reveal_weights_enabled(netuid, true);
+        Self::set_yuma3_enabled(netuid, true);
 
         // Make network parameters explicit.
         if !Tempo::<T>::contains_key(netuid) {
