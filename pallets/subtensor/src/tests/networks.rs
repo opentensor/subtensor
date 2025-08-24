@@ -3,7 +3,6 @@ use crate::migrations::migrate_network_immunity_period;
 use crate::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
-use pallet_subtensor_swap::{AlphaSqrtPrice, SwapV3Initialized};
 use sp_core::U256;
 use sp_std::collections::btree_map::BTreeMap;
 use substrate_fixed::types::{I96F32, U64F64, U96F32};
@@ -1007,38 +1006,22 @@ fn prune_selection_complex_state_exhaustive() {
         System::set_block_number(imm + 6);
         let n6 = add_dynamic_network(&U256::from(106), &U256::from(206)); // immune at first
 
-        // (Root is ignored by the selector; we may still set it for completeness.)
+        // (Root is ignored by the selector.)
         let root = NetUid::ROOT;
 
         // ---------------------------------------------------------------------
-        // Drive price via V3 sqrt-price path: price = (sqrt_price)^2
-        // Ensure V3 is initialized so current_alpha_price() uses sqrt-price.
+        // Drive pruning via the EMA/moving price used by `get_network_to_prune()`.
+        // We set the moving prices directly to create deterministic selections.
+        //
+        // Intended prices:
+        // n1: 25, n2: 25, n3: 100, n4: 1, n5: 0 (immune initially), n6: 0 (immune initially)
         // ---------------------------------------------------------------------
-        for net in [n1, n2, n3, n4, n5, n6] {
-            assert_ok!(
-                pallet_subtensor_swap::Pallet::<Test>::toggle_user_liquidity(
-                    RuntimeOrigin::root(),
-                    net,
-                    true
-                )
-            );
-            SwapV3Initialized::<Test>::insert(net, true);
-        }
-
-        // sqrt prices → prices:
-        // n1: sqrt=5  → price 25
-        // n2: sqrt=5  → price 25
-        // n3: sqrt=10 → price 100
-        // n4: sqrt=1  → price 1  (lowest among matured initially)
-        // n5: sqrt=0  → price 0  (lowest overall but immune initially)
-        // n6: sqrt=0  → price 0  (lowest overall but immune initially)
-        AlphaSqrtPrice::<Test>::insert(n1, U64F64::from_num(5));
-        AlphaSqrtPrice::<Test>::insert(n2, U64F64::from_num(5));
-        AlphaSqrtPrice::<Test>::insert(n3, U64F64::from_num(10));
-        AlphaSqrtPrice::<Test>::insert(n4, U64F64::from_num(1));
-        AlphaSqrtPrice::<Test>::insert(n5, U64F64::from_num(0));
-        AlphaSqrtPrice::<Test>::insert(n6, U64F64::from_num(0));
-        AlphaSqrtPrice::<Test>::insert(root, U64F64::from_num(0));
+        SubnetMovingPrice::<Test>::insert(n1, I96F32::from_num(25));
+        SubnetMovingPrice::<Test>::insert(n2, I96F32::from_num(25));
+        SubnetMovingPrice::<Test>::insert(n3, I96F32::from_num(100));
+        SubnetMovingPrice::<Test>::insert(n4, I96F32::from_num(1));
+        SubnetMovingPrice::<Test>::insert(n5, I96F32::from_num(0));
+        SubnetMovingPrice::<Test>::insert(n6, I96F32::from_num(0));
 
         // ---------------------------------------------------------------------
         // Phase A: Only n1..n4 are mature → lowest price (n4=1) should win.
@@ -1052,11 +1035,11 @@ fn prune_selection_complex_state_exhaustive() {
 
         // ---------------------------------------------------------------------
         // Phase B: Tie on price with *same registration time* (n1 vs n2).
-        // Raise n4's price to 25 (sqrt=5) so {n1=25, n2=25, n3=100, n4=25}.
+        // Raise n4's price to 25 so {n1=25, n2=25, n3=100, n4=25}.
         // n1 and n2 share the *same registered_at*. The tie should keep the
         // first encountered (stable iteration by key order) → n1.
         // ---------------------------------------------------------------------
-        AlphaSqrtPrice::<Test>::insert(n4, U64F64::from_num(5)); // price now 25
+        SubnetMovingPrice::<Test>::insert(n4, I96F32::from_num(25)); // n4 now 25
         assert_eq!(
             SubtensorModule::get_network_to_prune(),
             Some(n1),
@@ -1065,10 +1048,10 @@ fn prune_selection_complex_state_exhaustive() {
 
         // ---------------------------------------------------------------------
         // Phase C: Tie on price with *different registration times*.
-        // Make n3 price=25 as well (sqrt=5). Now n1,n2,n3,n4 all have price=25.
-        // Earliest registration time among them is n1 (block 0).
+        // Make n3 price=25 as well. Now n1,n2,n3,n4 all have price=25.
+        // Earliest registration among them is n1 (block 0).
         // ---------------------------------------------------------------------
-        AlphaSqrtPrice::<Test>::insert(n3, U64F64::from_num(5)); // price now 25
+        SubnetMovingPrice::<Test>::insert(n3, I96F32::from_num(25));
         assert_eq!(
             SubtensorModule::get_network_to_prune(),
             Some(n1),
@@ -1140,10 +1123,10 @@ fn prune_selection_complex_state_exhaustive() {
 
         // ---------------------------------------------------------------------
         // Phase H: Dynamic price changes.
-        // Make n6 expensive (sqrt=10 → price=100); make n3 cheapest (sqrt=1 → price=1).
+        // Make n6 expensive (price 100); make n3 cheapest (price 1).
         // ---------------------------------------------------------------------
-        AlphaSqrtPrice::<Test>::insert(n6, U64F64::from_num(10)); // price 100
-        AlphaSqrtPrice::<Test>::insert(n3, U64F64::from_num(1)); // price 1
+        SubnetMovingPrice::<Test>::insert(n6, I96F32::from_num(100));
+        SubnetMovingPrice::<Test>::insert(n3, I96F32::from_num(1));
         assert_eq!(
             SubtensorModule::get_network_to_prune(),
             Some(n3),
@@ -1155,7 +1138,7 @@ fn prune_selection_complex_state_exhaustive() {
         // Give n2 the same price as n3; n2 registered at block 0, n3 at block 1.
         // n2 should be chosen.
         // ---------------------------------------------------------------------
-        AlphaSqrtPrice::<Test>::insert(n2, U64F64::from_num(1)); // price 1
+        SubnetMovingPrice::<Test>::insert(n2, I96F32::from_num(1));
         assert_eq!(
             SubtensorModule::get_network_to_prune(),
             Some(n2),
@@ -1174,8 +1157,7 @@ fn prune_selection_complex_state_exhaustive() {
         );
         NetworksAdded::<Test>::insert(n2, true);
 
-        // Root is always ignored even if cheapest.
-        AlphaSqrtPrice::<Test>::insert(root, U64F64::from_num(0));
+        // Root is always ignored even if cheapest (get_moving_alpha_price returns 1 for ROOT).
         assert_ne!(
             SubtensorModule::get_network_to_prune(),
             Some(root),

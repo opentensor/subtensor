@@ -799,7 +799,7 @@ impl<T: Config> Pallet<T> {
                 continue;
             }
 
-            let price: U96F32 = T::SwapInterface::current_alpha_price(netuid.into());
+            let price: U96F32 = Self::get_moving_alpha_price(netuid);
 
             // If tie on price, earliest registration wins.
             if price < candidate_price
