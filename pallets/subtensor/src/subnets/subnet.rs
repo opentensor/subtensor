@@ -149,7 +149,10 @@ impl<T: Config> Pallet<T> {
         // --- 5. Check if we need to prune a subnet (if at SubnetLimit).
         //         But do not prune yet; we only do it after all checks pass.
         let subnet_limit = Self::get_max_subnets();
-        let current_count = TotalNetworks::<T>::get();
+        let current_count: u16 = NetworksAdded::<T>::iter()
+            .filter(|(netuid, added)| *added && *netuid != NetUid::ROOT)
+            .count() as u16;
+
         let mut recycle_netuid: Option<NetUid> = None;
         if current_count >= subnet_limit {
             if let Some(netuid) = Self::get_network_to_prune() {

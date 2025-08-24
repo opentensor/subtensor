@@ -228,13 +228,13 @@ fn dissolve_owner_cut_refund_logic() {
         // Current α→τ price for this subnet.
         let price: U96F32 =
             <Test as pallet::Config>::SwapInterface::current_alpha_price(net.into());
-        let owner_emission_tau_u64: u64 = U96F32::from_num(owner_alpha_u64)
+        let owner_emission_tao_u64: u64 = U96F32::from_num(owner_alpha_u64)
             .saturating_mul(price)
             .floor()
             .saturating_to_num::<u64>();
 
         let expected_refund: TaoCurrency =
-            lock.saturating_sub(TaoCurrency::from(owner_emission_tau_u64));
+            lock.saturating_sub(TaoCurrency::from(owner_emission_tao_u64));
 
         let before = SubtensorModule::get_coldkey_balance(&oc);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
@@ -340,7 +340,6 @@ fn dissolve_clears_all_per_subnet_storages() {
 
         // Membership entry for the SAME hotkey as Keys
         IsNetworkMember::<Test>::insert(owner_hot, net, true);
-
 
         // Token / price / provided reserves
         TokenSymbol::<Test>::insert(net, b"XX".to_vec());
@@ -1999,7 +1998,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
             let [hot1, _hot2] = cold_to_hots[&cold];
             register_ok_neuron(net_new, hot1, cold, 7777);
 
-            let before_tau = SubtensorModule::get_coldkey_balance(&cold);
+            let before_tao = SubtensorModule::get_coldkey_balance(&cold);
             let a_prev: u64 = Alpha::<Test>::get((hot1, cold, net_new)).saturating_to_num();
 
             // Expected α for this exact τ, using the same sim path as the pallet.
@@ -2018,14 +2017,14 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
                 min_amount_required.into()
             ));
 
-            let after_tau = SubtensorModule::get_coldkey_balance(&cold);
+            let after_tao = SubtensorModule::get_coldkey_balance(&cold);
             let a_new: u64 = Alpha::<Test>::get((hot1, cold, net_new)).saturating_to_num();
             let a_delta = a_new.saturating_sub(a_prev);
 
             // τ decreased by exactly the amount we sent.
             assert_eq!(
-                after_tau,
-                before_tau.saturating_sub(min_amount_required),
+                after_tao,
+                before_tao.saturating_sub(min_amount_required),
                 "τ did not decrease by the min required restake amount for cold {cold:?}"
             );
 
