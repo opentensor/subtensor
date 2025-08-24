@@ -2276,3 +2276,192 @@ fn liquidate_v3_refunds_user_funds_and_clears_state() {
         assert!(!SwapV3Initialized::<Test>::contains_key(netuid));
     });
 }
+
+#[test]
+fn refund_alpha_single_provider_exact() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(11);
+        let cold = OK_COLDKEY_ACCOUNT_ID;
+        let hot = OK_HOTKEY_ACCOUNT_ID;
+
+        assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+
+        // --- Create an alpha‑only position (range entirely above current tick → TAO = 0, ALPHA > 0).
+        let ct = CurrentTick::<Test>::get(netuid);
+        let tick_low = ct.next().expect("current tick should not be MAX in tests");
+        let tick_high = TickIndex::MAX;
+
+        let liquidity = 1_000_000_u64;
+        let (_pos_id, tao_needed, alpha_needed) =
+            Pallet::<Test>::do_add_liquidity(netuid, &cold, &hot, tick_low, tick_high, liquidity)
+                .expect("add alpha-only liquidity");
+        assert_eq!(tao_needed, 0, "alpha‑only position must not require TAO");
+        assert!(alpha_needed > 0, "alpha‑only position must require ALPHA");
+
+        // --- Snapshot BEFORE we withdraw funds (baseline for conservation).
+        let alpha_before_hot =
+            <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &cold, &hot);
+        let alpha_before_owner =
+            <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &cold, &cold);
+        let alpha_before_total = alpha_before_hot + alpha_before_owner;
+
+        // --- Mimic extrinsic bookkeeping: withdraw α and record provided reserve.
+        let alpha_taken = <Test as Config>::BalanceOps::decrease_stake(
+            &cold,
+            &hot,
+            netuid.into(),
+            alpha_needed.into(),
+        )
+        .expect("decrease ALPHA");
+        <Test as Config>::BalanceOps::increase_provided_alpha_reserve(netuid.into(), alpha_taken);
+
+        // --- Act: dissolve (calls refund_alpha inside).
+        assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
+
+        // --- Assert: refunded back to the owner (may credit to (cold,cold)).
+        let alpha_after_hot =
+            <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &cold, &hot);
+        let alpha_after_owner =
+            <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &cold, &cold);
+        let alpha_after_total = alpha_after_hot + alpha_after_owner;
+        assert_eq!(
+            alpha_after_total, alpha_before_total,
+            "ALPHA principal must be conserved to the owner"
+        );
+
+        // --- State is cleared.
+        assert!(Ticks::<Test>::iter_prefix(netuid).next().is_none());
+        assert_eq!(Pallet::<Test>::count_positions(netuid, &cold), 0);
+        assert!(!SwapV3Initialized::<Test>::contains_key(netuid));
+    });
+}
+
+#[test]
+fn refund_alpha_multiple_providers_proportional_to_principal() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(12);
+        let c1 = OK_COLDKEY_ACCOUNT_ID;
+        let h1 = OK_HOTKEY_ACCOUNT_ID;
+        let c2 = OK_COLDKEY_ACCOUNT_ID_2;
+        let h2 = OK_HOTKEY_ACCOUNT_ID_2;
+
+        assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+
+        // Use the same "above current tick" trick for alpha‑only positions.
+        let ct = CurrentTick::<Test>::get(netuid);
+        let tick_low = ct.next().expect("current tick should not be MAX in tests");
+        let tick_high = TickIndex::MAX;
+
+        // Provider #1 (smaller α)
+        let liq1 = 700_000_u64;
+        let (_p1, t1, a1) =
+            Pallet::<Test>::do_add_liquidity(netuid, &c1, &h1, tick_low, tick_high, liq1)
+                .expect("add alpha-only liquidity #1");
+        assert_eq!(t1, 0);
+        assert!(a1 > 0);
+
+        // Provider #2 (larger α)
+        let liq2 = 2_100_000_u64;
+        let (_p2, t2, a2) =
+            Pallet::<Test>::do_add_liquidity(netuid, &c2, &h2, tick_low, tick_high, liq2)
+                .expect("add alpha-only liquidity #2");
+        assert_eq!(t2, 0);
+        assert!(a2 > 0);
+
+        // Baselines BEFORE withdrawing
+        let a1_before_hot = <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &c1, &h1);
+        let a1_before_owner = <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &c1, &c1);
+        let a1_before = a1_before_hot + a1_before_owner;
+
+        let a2_before_hot = <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &c2, &h2);
+        let a2_before_owner = <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &c2, &c2);
+        let a2_before = a2_before_hot + a2_before_owner;
+
+        // Withdraw α and account reserves for each provider.
+        let a1_taken =
+            <Test as Config>::BalanceOps::decrease_stake(&c1, &h1, netuid.into(), a1.into())
+                .expect("decrease α #1");
+        <Test as Config>::BalanceOps::increase_provided_alpha_reserve(netuid.into(), a1_taken);
+
+        let a2_taken =
+            <Test as Config>::BalanceOps::decrease_stake(&c2, &h2, netuid.into(), a2.into())
+                .expect("decrease α #2");
+        <Test as Config>::BalanceOps::increase_provided_alpha_reserve(netuid.into(), a2_taken);
+
+        // Act
+        assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
+
+        // Each owner is restored to their exact baseline.
+        let a1_after_hot = <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &c1, &h1);
+        let a1_after_owner = <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &c1, &c1);
+        let a1_after = a1_after_hot + a1_after_owner;
+        assert_eq!(
+            a1_after, a1_before,
+            "owner #1 must receive their α principal back"
+        );
+
+        let a2_after_hot = <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &c2, &h2);
+        let a2_after_owner = <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &c2, &c2);
+        let a2_after = a2_after_hot + a2_after_owner;
+        assert_eq!(
+            a2_after, a2_before,
+            "owner #2 must receive their α principal back"
+        );
+    });
+}
+
+#[test]
+fn refund_alpha_same_cold_multiple_hotkeys_conserved_to_owner() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(13);
+        let cold = OK_COLDKEY_ACCOUNT_ID;
+        let hot1 = OK_HOTKEY_ACCOUNT_ID;
+        let hot2 = OK_HOTKEY_ACCOUNT_ID_2;
+
+        assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+
+        // Two alpha‑only positions on different hotkeys of the same owner.
+        let ct = CurrentTick::<Test>::get(netuid);
+        let tick_low = ct.next().expect("current tick should not be MAX in tests");
+        let tick_high = TickIndex::MAX;
+
+        let (_p1, _t1, a1) =
+            Pallet::<Test>::do_add_liquidity(netuid, &cold, &hot1, tick_low, tick_high, 900_000)
+                .expect("add alpha-only pos (hot1)");
+        let (_p2, _t2, a2) =
+            Pallet::<Test>::do_add_liquidity(netuid, &cold, &hot2, tick_low, tick_high, 1_500_000)
+                .expect("add alpha-only pos (hot2)");
+        assert!(a1 > 0 && a2 > 0);
+
+        // Baseline BEFORE: sum over (cold,hot1) + (cold,hot2) + (cold,cold).
+        let before_hot1 = <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &cold, &hot1);
+        let before_hot2 = <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &cold, &hot2);
+        let before_owner = <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &cold, &cold);
+        let before_total = before_hot1 + before_hot2 + before_owner;
+
+        // Withdraw α from both hotkeys; track provided‑reserve.
+        let t1 =
+            <Test as Config>::BalanceOps::decrease_stake(&cold, &hot1, netuid.into(), a1.into())
+                .expect("decr α #hot1");
+        <Test as Config>::BalanceOps::increase_provided_alpha_reserve(netuid.into(), t1);
+
+        let t2 =
+            <Test as Config>::BalanceOps::decrease_stake(&cold, &hot2, netuid.into(), a2.into())
+                .expect("decr α #hot2");
+        <Test as Config>::BalanceOps::increase_provided_alpha_reserve(netuid.into(), t2);
+
+        // Act
+        assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
+
+        // The total α "owned" by the coldkey is conserved (credit may land on (cold,cold)).
+        let after_hot1 = <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &cold, &hot1);
+        let after_hot2 = <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &cold, &hot2);
+        let after_owner = <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &cold, &cold);
+        let after_total = after_hot1 + after_hot2 + after_owner;
+
+        assert_eq!(
+            after_total, before_total,
+            "owner’s α must be conserved across hot ledgers + (owner,owner)"
+        );
+    });
+}
