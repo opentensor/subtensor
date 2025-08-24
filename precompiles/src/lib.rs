@@ -18,7 +18,7 @@ use pallet_evm_precompile_dispatch::Dispatch;
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;
 use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripemd160, Sha256};
-use sp_core::{H160, U256, crypto::ByteArray};
+use sp_core::{crypto::ByteArray, H160, U256};
 use sp_runtime::traits::Dispatchable;
 use sp_runtime::traits::StaticLookup;
 use subtensor_runtime_common::ProxyType;
@@ -47,7 +47,6 @@ mod extensions;
 mod leasing;
 mod metagraph;
 mod neuron;
-mod proxy;
 mod sr25519;
 mod staking;
 mod storage_query;
@@ -76,6 +75,7 @@ where
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
+    <R as pallet_proxy::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>,
 {
     fn default() -> Self {
         Self::new()
@@ -103,6 +103,7 @@ where
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
+    <R as pallet_proxy::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>,
 {
     pub fn new() -> Self {
         Self(Default::default())
@@ -161,6 +162,7 @@ where
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
+    <R as pallet_proxy::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>,
 {
     fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<PrecompileResult> {
         match handle.code_address() {

@@ -107,6 +107,31 @@ interface IStaking {
     ) external;
 
     /**
+     * @dev Proxy a subtensor transferStake call.
+     *
+     * This function allows contracts to transfer staked TAO to another coldkey and netuid by
+     * effectively calling `transfer_stake` on the subtensor pallet via a proxy.
+     *
+     * @param proxied_coldkey The proxied coldkey public key (32 bytes).
+     * @param destination_coldkey The destination coldkey public key (32 bytes).
+     * @param hotkey The hotkey public key (32 bytes).
+     * @param origin_netuid The subnet to move stake from (uint256).
+     * @param destination_netuid The subnet to move stake to (uint256).
+     * @param amount The amount to move in rao.
+     *
+     * Requirements:
+     * - `proxied_coldkey` must have given transfer proxy permission to the caller of proxy the call.
+     */
+    function proxyTransferStake(
+        bytes32 proxied_coldkey,
+        bytes32 destination_coldkey,
+        bytes32 hotkey,
+        uint256 origin_netuid,
+        uint256 destination_netuid,
+        uint256 amount
+    ) external;
+
+    /**
      * @dev Returns the amount of RAO staked by the coldkey.
      *
      * This function allows external accounts and contracts to query the amount of RAO staked by the coldkey

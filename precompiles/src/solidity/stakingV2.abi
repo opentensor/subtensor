@@ -371,5 +371,43 @@
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "proxied_coldkey",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "destination_coldkey",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "hotkey",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint256",
+        "name": "origin_netuid",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "destination_netuid",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "proxyTransferStake",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   }
 ]

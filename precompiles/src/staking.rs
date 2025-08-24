@@ -61,6 +61,7 @@ where
         + Dispatchable<PostInfo = PostDispatchInfo>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
+    <R as pallet_proxy::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>,
 {
     const INDEX: u64 = 2053;
 }
@@ -209,6 +210,39 @@ where
         };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+    }
+
+    #[precompile::public("proxyTransferStake(bytes32,bytes32,bytes32,uint256,uint256,uint256)")]
+    fn proxy_transfer_stake(
+        handle: &mut impl PrecompileHandle,
+        proxied_coldkey: H256,
+        destination_coldkey: H256,
+        hotkey: H256,
+        origin_netuid: U256,
+        destination_netuid: U256,
+        amount_alpha: U256,
+    ) -> EvmResult<()> {
+        let account_id = handle.caller_account_id::<R>();
+        let destination_coldkey = R::AccountId::from(destination_coldkey.0);
+        let hotkey = R::AccountId::from(hotkey.0);
+        let origin_netuid = try_u16_from_u256(origin_netuid)?;
+        let destination_netuid = try_u16_from_u256(destination_netuid)?;
+        let alpha_amount: u64 = amount_alpha.unique_saturated_into();
+        let call = pallet_subtensor::Call::<R>::transfer_stake {
+            destination_coldkey,
+            hotkey,
+            origin_netuid: origin_netuid.into(),
+            destination_netuid: destination_netuid.into(),
+            alpha_amount: alpha_amount.into(),
+        };
+
+        let proxy_call = pallet_proxy::Call::<R>::proxy {
+            real: <R::Lookup as StaticLookup>::unlookup(R::AccountId::from(proxied_coldkey.0)),
+            force_proxy_type: Some(ProxyType::Transfer),
+            call: Box::new(<R as frame_system::Config>::RuntimeCall::from(call).into()),
+        };
+
+        handle.try_dispatch_runtime_call::<R, _>(proxy_call, RawOrigin::Signed(account_id))
     }
 
     #[precompile::public("getTotalColdkeyStake(bytes32)")]
