@@ -1362,23 +1362,22 @@ impl<T: Config> Pallet<T> {
         let mechid = T::SubnetInfo::mechanism(netuid.into());
         let v3_initialized = SwapV3Initialized::<T>::get(netuid);
         let user_lp_enabled =
-            <Self as subtensor_swap_interface::SwapHandler<T::AccountId>>::is_user_liquidity_enabled(netuid);
+        <Self as subtensor_swap_interface::SwapHandler<T::AccountId>>::is_user_liquidity_enabled(netuid);
 
         let is_v3_mode = mechid == 1 && v3_initialized;
 
         if is_v3_mode {
             // -------- V3: close every position, aggregate refunds, clear state --------
 
-            // 1) Snapshot all (owner, position_id) under this netuid to avoid iterator aliasing.
+            // 1) Snapshot all (owner, position_id).
             struct CloseItem<A> {
                 owner: A,
                 pos_id: PositionId,
             }
             let mut to_close: sp_std::vec::Vec<CloseItem<T::AccountId>> = sp_std::vec::Vec::new();
-            for ((n, owner, pos_id), _pos) in Positions::<T>::iter() {
-                if n == netuid {
-                    to_close.push(CloseItem { owner, pos_id });
-                }
+
+            for ((owner, pos_id), _pos) in Positions::<T>::iter_prefix((netuid,)) {
+                to_close.push(CloseItem { owner, pos_id });
             }
 
             let protocol_account = Self::protocol_account_id();
@@ -1428,14 +1427,10 @@ impl<T: Config> Pallet<T> {
                 ActiveTickIndexManager::<T>::remove(netuid, ti);
             }
 
-            // 5) Clear storage:
-            // Positions (StorageNMap) – prefix is **(netuid,)** not just netuid.
+            // 5) Clear storage for this netuid.
             let _ = Positions::<T>::clear_prefix((netuid,), u32::MAX, None);
-
-            // Ticks (DoubleMap) – OK to pass netuid as first key.
             let _ = Ticks::<T>::clear_prefix(netuid, u32::MAX, None);
 
-            // Fee globals, price/tick/liquidity, v3 init flag.
             FeeGlobalTao::<T>::remove(netuid);
             FeeGlobalAlpha::<T>::remove(netuid);
             CurrentLiquidity::<T>::remove(netuid);
@@ -1443,7 +1438,6 @@ impl<T: Config> Pallet<T> {
             AlphaSqrtPrice::<T>::remove(netuid);
             SwapV3Initialized::<T>::remove(netuid);
 
-            // Active tick bitmap words (StorageNMap) – prefix is **(netuid,)**.
             let _ = TickIndexBitmapWords::<T>::clear_prefix((netuid,), u32::MAX, None);
             FeeRate::<T>::remove(netuid);
             EnabledUserLiquidity::<T>::remove(netuid);

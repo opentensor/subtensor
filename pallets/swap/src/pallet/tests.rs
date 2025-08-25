@@ -2295,8 +2295,8 @@ fn refund_alpha_single_provider_exact() {
         let (_pos_id, tao_needed, alpha_needed) =
             Pallet::<Test>::do_add_liquidity(netuid, &cold, &hot, tick_low, tick_high, liquidity)
                 .expect("add alpha-only liquidity");
-        assert_eq!(tao_needed, 0, "alpha‑only position must not require TAO");
-        assert!(alpha_needed > 0, "alpha‑only position must require ALPHA");
+        assert_eq!(tao_needed, 0, "alpha-only position must not require TAO");
+        assert!(alpha_needed > 0, "alpha-only position must require ALPHA");
 
         // --- Snapshot BEFORE we withdraw funds (baseline for conservation).
         let alpha_before_hot =
