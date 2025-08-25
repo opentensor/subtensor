@@ -448,7 +448,7 @@ impl<T: Config> Pallet<T> {
             IsNetworkMember::<T>::remove(key, netuid);
         }
 
-        // --- 11. Core per-net parameters (already present + a few that were missing).
+        // --- 11. Core per-net parameters.
         Tempo::<T>::remove(netuid);
         Kappa::<T>::remove(netuid);
         Difficulty::<T>::remove(netuid);
@@ -461,21 +461,16 @@ impl<T: Config> Pallet<T> {
         POWRegistrationsThisInterval::<T>::remove(netuid);
         BurnRegistrationsThisInterval::<T>::remove(netuid);
 
-        // --- 12. AMM / price / accounting (expanded).
-        SubnetTAO::<T>::remove(netuid);
+        // --- 12. AMM / price / accounting.
+        // SubnetTAO, SubnetAlpha{In,InProvided,Out} are already cleared during dissolve/destroy.
         SubnetAlphaInEmission::<T>::remove(netuid);
         SubnetAlphaOutEmission::<T>::remove(netuid);
         SubnetTaoInEmission::<T>::remove(netuid);
         SubnetVolume::<T>::remove(netuid);
         SubnetMovingPrice::<T>::remove(netuid);
-
-        // Additional AMM & pool surfaces that can exist independently of dissolve paths:
-        SubnetAlphaIn::<T>::remove(netuid);
-        SubnetAlphaInProvided::<T>::remove(netuid);
-        SubnetAlphaOut::<T>::remove(netuid);
         SubnetTaoProvided::<T>::remove(netuid);
 
-        // --- 13. Token / mechanism / registration toggles that were previously left behind.
+        // --- 13. Token / mechanism / registration toggles.
         TokenSymbol::<T>::remove(netuid);
         SubnetMechanism::<T>::remove(netuid);
         SubnetOwnerHotkey::<T>::remove(netuid);
@@ -536,7 +531,7 @@ impl<T: Config> Pallet<T> {
         StakeWeight::<T>::remove(netuid);
         LoadedEmission::<T>::remove(netuid);
 
-        // --- 19. DMAPs where netuid is the FIRST key: can clear by prefix.
+        // --- 19. DMAPs where netuid is the FIRST key: clear by prefix.
         let _ = BlockAtRegistration::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = Axons::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = NeuronCertificates::<T>::clear_prefix(netuid, u32::MAX, None);
@@ -602,39 +597,15 @@ impl<T: Config> Pallet<T> {
                 LastHotkeyEmissionOnNetuid::<T>::remove(&hot, netuid);
             }
         }
-        // TotalHotkeyAlpha / TotalHotkeyAlphaLastEpoch / TotalHotkeyShares: (hot, netuid) → ...
+        // TotalHotkeyAlphaLastEpoch: (hot, netuid) → ...
+        // (TotalHotkeyAlpha and TotalHotkeyShares were already removed during dissolve.)
         {
-            let to_rm_alpha: sp_std::vec::Vec<T::AccountId> = TotalHotkeyAlpha::<T>::iter()
-                .filter_map(|(hot, n, _)| if n == netuid { Some(hot) } else { None })
-                .collect();
-            for hot in to_rm_alpha {
-                TotalHotkeyAlpha::<T>::remove(&hot, netuid);
-            }
-
             let to_rm_alpha_last: sp_std::vec::Vec<T::AccountId> =
                 TotalHotkeyAlphaLastEpoch::<T>::iter()
                     .filter_map(|(hot, n, _)| if n == netuid { Some(hot) } else { None })
                     .collect();
             for hot in to_rm_alpha_last {
                 TotalHotkeyAlphaLastEpoch::<T>::remove(&hot, netuid);
-            }
-
-            let to_rm_shares: sp_std::vec::Vec<T::AccountId> = TotalHotkeyShares::<T>::iter()
-                .filter_map(|(hot, n, _)| if n == netuid { Some(hot) } else { None })
-                .collect();
-            for hot in to_rm_shares {
-                TotalHotkeyShares::<T>::remove(&hot, netuid);
-            }
-        }
-        // Alpha shares NMAP: (hot, cold, netuid) → U64F64
-        {
-            let to_rm: sp_std::vec::Vec<(T::AccountId, T::AccountId)> = Alpha::<T>::iter()
-                .filter_map(
-                    |((hot, cold, n), _)| if n == netuid { Some((hot, cold)) } else { None },
-                )
-                .collect();
-            for (hot, cold) in to_rm {
-                Alpha::<T>::remove((hot, cold, netuid));
             }
         }
         // TransactionKeyLastBlock NMAP: (hot, netuid, name) → u64
@@ -674,7 +645,6 @@ impl<T: Config> Pallet<T> {
         log::debug!(
             "remove_network: netuid={netuid}, owner={owner_coldkey:?} removed successfully"
         );
-        Self::deposit_event(Event::NetworkRemoved(netuid));
     }
 
     #[allow(clippy::arithmetic_side_effects)]
