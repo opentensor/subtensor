@@ -1252,3 +1252,52 @@ fn test_migrate_crv3_v2_to_timelocked() {
         assert_eq!(round2, round);
     });
 }
+
+#[test]
+fn test_migrate_subnet_limit_to_default() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // 0. Constants / helpers
+        // ------------------------------
+        const MIG_NAME: &[u8] = b"subnet_limit_to_default";
+
+        // Compute a non-default value safely
+        let default: u16 = DefaultSubnetLimit::<Test>::get();
+        let not_default: u16 = default.wrapping_add(1);
+
+        // ------------------------------
+        // 1. Pre-state: ensure a non-default value is stored
+        // ------------------------------
+        SubnetLimit::<Test>::put(not_default);
+        assert_eq!(
+            SubnetLimit::<Test>::get(),
+            not_default,
+            "precondition failed: SubnetLimit should be non-default before migration"
+        );
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag should be false before run"
+        );
+
+        // ------------------------------
+        // 2. Run migration
+        // ------------------------------
+        let w = crate::migrations::migrate_subnet_limit_to_default::migrate_subnet_limit_to_default::<Test>();
+        assert!(!w.is_zero(), "weight must be non-zero");
+
+        // ------------------------------
+        // 3. Verify results
+        // ------------------------------
+        assert!(
+            HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag not set"
+        );
+
+        assert_eq!(
+            SubnetLimit::<Test>::get(),
+            default,
+            "SubnetLimit should be reset to the configured default"
+        );
+    });
+}

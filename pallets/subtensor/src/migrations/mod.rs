@@ -37,6 +37,7 @@ pub mod migrate_set_registration_enable;
 pub mod migrate_set_subtoken_enabled;
 pub mod migrate_stake_threshold;
 pub mod migrate_subnet_identities_to_v3;
+pub mod migrate_subnet_limit_to_default;
 pub mod migrate_subnet_symbols;
 pub mod migrate_subnet_volume;
 pub mod migrate_to_v1_separate_emission;

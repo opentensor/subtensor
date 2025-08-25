@@ -135,7 +135,9 @@ mod hooks {
                 // Migrate to fix root counters
                 .saturating_add(migrations::migrate_fix_root_tao_and_alpha_in::migrate_fix_root_tao_and_alpha_in::<T>())
                 // Migrate Immunity Period
-                .saturating_add(migrations::migrate_network_immunity_period::migrate_network_immunity_period::<T>());
+                .saturating_add(migrations::migrate_network_immunity_period::migrate_network_immunity_period::<T>())
+                // Migrate Subnet Limit
+                .saturating_add(migrations::migrate_subnet_limit_to_default::migrate_subnet_limit_to_default::<T>());
 
             weight
         }
