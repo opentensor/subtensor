@@ -4034,7 +4034,6 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
 #[test]
 fn test_pending_cooldown_as_expected() {
     let curr_block = 1;
-
     // TODO: Fix when CHK splitting patched
     // let expected_cooldown = prod_or_fast!(7200, 15);
 

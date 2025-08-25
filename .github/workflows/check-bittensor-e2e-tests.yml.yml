@@ -180,7 +180,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          enable-cache: "false"
+          enable-cache: 'false'
 
       - name: Create Python virtual environment
         working-directory: ${{ github.workspace }}
@@ -211,11 +211,11 @@ jobs:
       - name: Retag Docker Image
         run: docker tag localnet ghcr.io/opentensor/subtensor-localnet:devnet-ready
 
-      #      - name: Run tests
-      #        working-directory: ${{ github.workspace }}/btcli
-      #        run: |
-      #          source ${{ github.workspace }}/venv/bin/activate
-      #          uv run pytest ${{ matrix.test-file }} -s
+#      - name: Run tests
+#        working-directory: ${{ github.workspace }}/btcli
+#        run: |
+#          source ${{ github.workspace }}/venv/bin/activate
+#          uv run pytest ${{ matrix.test-file }} -s
 
       - name: Run with retry
         working-directory: ${{ github.workspace }}/btcli
@@ -280,7 +280,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          enable-cache: "false"
+          enable-cache: 'false'
 
       - name: Create Python virtual environment
         working-directory: ${{ github.workspace }}
@@ -311,11 +311,11 @@ jobs:
       - name: Retag Docker Image
         run: docker tag localnet ghcr.io/opentensor/subtensor-localnet:devnet-ready
 
-      #      - name: Run tests
-      #        working-directory: ${{ github.workspace }}/bittensor
-      #        run: |
-      #          source ${{ github.workspace }}/venv/bin/activate
-      #          uv run pytest ${{ matrix.test-file }} -s
+#      - name: Run tests
+#        working-directory: ${{ github.workspace }}/bittensor
+#        run: |
+#          source ${{ github.workspace }}/venv/bin/activate
+#          uv run pytest ${{ matrix.test-file }} -s
 
       - name: Run with retry
         working-directory: ${{ github.workspace }}/bittensor
