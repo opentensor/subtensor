@@ -758,9 +758,6 @@ impl<T: Config> Pallet<T> {
             if !added || netuid == NetUid::ROOT {
                 continue;
             }
-            if !Self::if_subnet_exist(netuid) {
-                continue;
-            }
 
             let registered_at = NetworkRegisteredAt::<T>::get(netuid);
 
