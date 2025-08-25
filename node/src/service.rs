@@ -780,6 +780,10 @@ fn run_manual_seal_authorship(
 ///
 /// Used for the Aura to Babe migration, where Aura validators need their keystore to copy their
 /// Aura keys over to Babe. This works because Aura and Babe keys use identical crypto.
+///
+/// While not required to retain beyond the initial Aura to Babe migration, it is nice to leave it
+/// so the node always retains the ability to perform Aura to Babe migrations in the future, in case
+/// there is a requirement to do something like regenesis testnet.
 fn copy_keys(
     keystore: &LocalKeystore,
     from_key_type: KeyTypeId,
