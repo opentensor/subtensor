@@ -81,7 +81,7 @@ impl HybridBlockImport {
             grandpa_block_import.clone(),
             client.clone(),
         )
-        .unwrap();
+        .expect("Failed to create Babe block_import");
 
         let inner_babe = ConditionalEVMBlockImport::new(
             babe_import.clone(),
@@ -144,6 +144,7 @@ where
     C: HeaderBackend<B> + HeaderMetadata<B, Error = sp_blockchain::Error>,
     SC: SelectChain<B> + 'static,
 {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         client: Arc<C>,
         create_inherent_data_providers: CIDP,
