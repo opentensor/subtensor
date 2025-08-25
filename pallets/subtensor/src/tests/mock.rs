@@ -872,6 +872,19 @@ pub fn add_dynamic_network_without_emission_block(hotkey: &U256, coldkey: &U256)
     netuid
 }
 
+#[allow(dead_code)]
+pub fn add_dynamic_network_disable_commit_reveal(hotkey: &U256, coldkey: &U256) -> NetUid {
+    let netuid = add_dynamic_network(hotkey, coldkey);
+    SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+    netuid
+}
+
+#[allow(dead_code)]
+pub fn add_network_disable_commit_reveal(netuid: NetUid, tempo: u16, _modality: u16) {
+    add_network(netuid, tempo, _modality);
+    SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+}
+
 // Helper function to set up a neuron with stake
 #[allow(dead_code)]
 pub fn setup_neuron_with_stake(netuid: NetUid, hotkey: U256, coldkey: U256, stake: TaoCurrency) {

@@ -60,6 +60,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         Subtensor::<T>::set_max_registrations_per_block(netuid, 4096);
         Subtensor::<T>::set_target_registrations_per_interval(netuid, 4096);
+        Subtensor::<T>::set_commit_reveal_weights_enabled(netuid, false);
 
         let mut seed: u32 = 1;
         let mut dests = Vec::new();
