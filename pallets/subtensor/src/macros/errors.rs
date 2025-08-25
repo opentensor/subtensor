@@ -246,5 +246,7 @@ mod errors {
         IncorrectCommitRevealVersion,
         /// Node validator emissions percent cannot exceed 100%.
         NodeValidatorEmissionsPercentTooHigh,
+        /// Generic error for out-of-range parameter value
+        InvalidValue,
     }
 }

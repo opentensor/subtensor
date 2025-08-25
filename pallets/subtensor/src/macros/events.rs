@@ -404,5 +404,18 @@ mod events {
         ///
         /// - Inner: The new percent set aside for node validators.
         NodeValidatorEmissionsPercentSet(Percent),
+        /// Timelocked weights have been successfully committed.
+        ///
+        /// - **who**: The account ID of the user committing the weights.
+        /// - **netuid**: The network identifier.
+        /// - **commit_hash**: The hash representing the committed weights.
+        /// - **reveal_round**: The round at which weights can be revealed.
+        TimelockedWeightsCommitted(T::AccountId, NetUid, H256, u64),
+
+        /// Timelocked Weights have been successfully revealed.
+        ///
+        /// - **netuid**: The network identifier.
+        /// - **who**: The account ID of the user revealing the weights.
+        TimelockedWeightsRevealed(NetUid, T::AccountId),
     }
 }

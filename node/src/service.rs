@@ -318,7 +318,7 @@ where
             ChainType::Live => 3,
             // Testnet patch
             ChainType::Development => 2,
-            // All others
+            // All others (e.g. localnet)
             _ => 0,
         };
         log::warn!(

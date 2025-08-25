@@ -487,7 +487,7 @@ sc-consensus-grandpa = { git = "https://github.com/opentensor/polkadot-sdk.git",
 sc-consensus-grandpa-rpc = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "d13f915d8a1f55af53fd51fdb4544c47badddc7e" }
 substrate-frame-rpc-system = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "d13f915d8a1f55af53fd51fdb4544c47badddc7e" }
 sc-basic-authorship = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "d13f915d8a1f55af53fd51fdb4544c47badddc7e" }
-# `diener patch --target https://github.com/paritytech/polkadot-sdk --point-to-git https://github.com/opentensor/polkadot-sdk.git --point-to-git-commit d13f915d8a1f55af53fd51fdb4544c47badddc7e --crates-to-patch ../polkadot-sdk --ignore-unused`
+sc-proposer-metrics = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "d13f915d8a1f55af53fd51fdb4544c47badddc7e" }
 substrate-build-script-utils = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "d13f915d8a1f55af53fd51fdb4544c47badddc7e" }
 sc-consensus-aura = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "d13f915d8a1f55af53fd51fdb4544c47badddc7e" }
 pallet-insecure-randomness-collective-flip = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "d13f915d8a1f55af53fd51fdb4544c47badddc7e" }

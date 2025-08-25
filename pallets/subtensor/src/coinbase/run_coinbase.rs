@@ -443,6 +443,47 @@ impl<T: Config> Pallet<T> {
         (prop_alpha_dividends, tao_dividends)
     }
 
+    fn get_immune_owner_hotkeys(netuid: NetUid, coldkey: &T::AccountId) -> Vec<T::AccountId> {
+        // Gather (block, uid, hotkey) only for hotkeys that have a UID and a registration block.
+        let mut triples: Vec<(u64, u16, T::AccountId)> = OwnedHotkeys::<T>::get(coldkey)
+            .into_iter()
+            .filter_map(|hotkey| {
+                // Uids must exist, filter_map ignores hotkeys without UID
+                Uids::<T>::get(netuid, &hotkey).map(|uid| {
+                    let block = BlockAtRegistration::<T>::get(netuid, uid);
+                    (block, uid, hotkey)
+                })
+            })
+            .collect();
+
+        // Sort by BlockAtRegistration (descending), then by uid (ascending)
+        // Recent registration is priority so that we can let older keys expire (get non-immune)
+        triples.sort_by(|(b1, u1, _), (b2, u2, _)| b2.cmp(b1).then(u1.cmp(u2)));
+
+        // Keep first ImmuneOwnerUidsLimit
+        let limit = ImmuneOwnerUidsLimit::<T>::get(netuid).into();
+        if triples.len() > limit {
+            triples.truncate(limit);
+        }
+
+        // Project to just hotkeys
+        let mut immune_hotkeys: Vec<T::AccountId> =
+            triples.into_iter().map(|(_, _, hk)| hk).collect();
+
+        // Insert subnet owner hotkey in the beginning of the list if valid and not
+        // already present
+        if let Ok(owner_hk) = SubnetOwnerHotkey::<T>::try_get(netuid) {
+            if Uids::<T>::get(netuid, &owner_hk).is_some() && !immune_hotkeys.contains(&owner_hk) {
+                immune_hotkeys.insert(0, owner_hk);
+                if immune_hotkeys.len() > limit {
+                    immune_hotkeys.truncate(limit);
+                }
+            }
+        }
+
+        immune_hotkeys
+    }
+
     pub fn distribute_dividends_and_incentives(
         netuid: NetUid,
         owner_cut: AlphaCurrency,
@@ -471,17 +512,20 @@ impl<T: Config> Pallet<T> {
         }
 
         // Distribute mining incentives.
+        let subnet_owner_coldkey = SubnetOwner::<T>::get(netuid);
+        let owner_hotkeys = Self::get_immune_owner_hotkeys(netuid, &subnet_owner_coldkey);
+        log::debug!("incentives: owner hotkeys: {owner_hotkeys:?}");
         for (hotkey, incentive) in incentives {
             log::debug!("incentives: hotkey: {incentive:?}");
 
-            if let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
-                if hotkey == owner_hotkey {
-                    log::debug!(
-                        "incentives: hotkey: {hotkey:?} is SN owner hotkey, skipping {incentive:?}"
-                    );
-                    continue; // Skip/burn miner-emission for SN owner hotkey.
-                }
+            // Skip/burn miner-emission for immune keys
+            if owner_hotkeys.contains(&hotkey) {
+                log::debug!(
+                    "incentives: hotkey: {hotkey:?} is SN owner hotkey or associated hotkey, skipping {incentive:?}"
+                );
+                continue;
             }
+
             // Increase stake for miner.
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey.clone(),
