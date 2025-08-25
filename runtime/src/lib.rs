@@ -39,8 +39,8 @@ use pallet_subtensor::rpc_info::{
     stake_info::StakeInfo,
     subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
 };
-use pallet_utility_otf as pallet_utility;
 use pallet_subtensor_swap_runtime_api::SimSwapResult;
+use pallet_utility_otf as pallet_utility;
 use runtime_common::prod_or_fast;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
