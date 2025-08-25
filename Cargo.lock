@@ -9335,6 +9335,7 @@ dependencies = [
  "sp-keyring",
  "sp-keystore",
  "sp-runtime",
+ "sp-std",
  "subtensor-macros",
  "tle",
  "w3f-bls",
@@ -10499,16 +10500,22 @@ dependencies = [
  "sp-api",
  "sp-blockchain",
  "sp-runtime",
+ "subtensor-runtime-common",
+ "subtensor-swap-interface",
 ]
 
 [[package]]
 name = "pallet-subtensor-swap-runtime-api"
 version = "1.0.0"
 dependencies = [
+ "frame-support",
  "parity-scale-codec",
  "scale-info",
  "sp-api",
  "sp-std",
+ "subtensor-macros",
+ "subtensor-runtime-common",
+ "subtensor-swap-interface",
 ]
 
 [[package]]

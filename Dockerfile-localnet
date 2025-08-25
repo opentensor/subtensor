@@ -52,6 +52,10 @@ COPY --from=builder /build/snapshot.json /snapshot.json
 COPY --from=builder /build/scripts/localnet.sh scripts/localnet.sh
 RUN chmod +x /scripts/localnet.sh
 
+# Copy WebAssembly artifacts
+COPY --from=builder /build/target/fast-runtime/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm target/fast-runtime/release/node_subtensor_runtime.compact.compressed.wasm
+COPY --from=builder /build/target/non-fast-runtime/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm target/non-fast-runtime/release/node_subtensor_runtime.compact.compressed.wasm
+
 ## Ubdate certificates
 RUN apt-get update && apt-get install -y ca-certificates
 

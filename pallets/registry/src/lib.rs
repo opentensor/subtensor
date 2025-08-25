@@ -113,7 +113,7 @@ pub mod pallet {
         #[pallet::call_index(0)]
         #[pallet::weight((
 			T::WeightInfo::set_identity(),
-			DispatchClass::Operational
+			DispatchClass::Normal
 		))]
         pub fn set_identity(
             origin: OriginFor<T>,
