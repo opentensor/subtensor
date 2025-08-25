@@ -2157,7 +2157,7 @@ mod dispatches {
         #[pallet::call_index(112)]
         #[pallet::weight((
             Weight::from_parts(26_200_000, 0).saturating_add(T::DbWeight::get().reads_writes(4, 1)),
-            DispatchClass::Operational,
+            DispatchClass::Normal,
             Pays::Yes
         ))]
         pub fn update_symbol(
