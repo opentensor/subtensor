@@ -246,6 +246,10 @@ mod errors {
         IncorrectCommitRevealVersion,
         /// Node validator emissions percent cannot exceed 100%.
         NodeValidatorEmissionsPercentTooHigh,
+        /// Reveal period is too large.
+        RevealPeriodTooLarge,
+        /// Reveal period is too small.
+        RevealPeriodTooSmall,
         /// Generic error for out-of-range parameter value
         InvalidValue,
     }
