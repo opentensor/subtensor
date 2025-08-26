@@ -46,9 +46,7 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed, pallet_prelude::BlockNumberFor};
 pub use pallet::*;
-use pallet_evm::AddressMapping;
 use scale_info::{TypeInfo, prelude::cmp::Ordering};
-use sp_core::H160;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
     DispatchError, DispatchResult, RuntimeDebug,
@@ -140,9 +138,6 @@ pub mod pallet {
             + Default
             + MaxEncodedLen;
 
-        /// The address mapping for the EVM.
-        type AddressMapping: AddressMapping<Self::AccountId>;
-
         /// The base amount of currency needed to reserve for creating a proxy.
         ///
         /// This is held for an additional storage item whose value size is
@@ -219,7 +214,9 @@ pub mod pallet {
             let real = T::Lookup::lookup(real)?;
             let def = Self::find_proxy(&real, &who, force_proxy_type)?;
             ensure!(def.delay.is_zero(), Error::<T>::Unannounced);
+
             Self::do_proxy(def, real, *call);
+
             Ok(())
         }
 
@@ -307,7 +304,28 @@ pub mod pallet {
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
 
-            Self::do_create_pure(&who, proxy_type, delay, index)?;
+            let pure = Self::pure_account(&who, &proxy_type, index, None);
+            ensure!(!Proxies::<T>::contains_key(&pure), Error::<T>::Duplicate);
+
+            let proxy_def = ProxyDefinition {
+                delegate: who.clone(),
+                proxy_type: proxy_type.clone(),
+                delay,
+            };
+            let bounded_proxies: BoundedVec<_, T::MaxProxies> = vec![proxy_def]
+                .try_into()
+                .map_err(|_| Error::<T>::TooMany)?;
+
+            let deposit = T::ProxyDepositBase::get().saturating_add(T::ProxyDepositFactor::get());
+            T::Currency::reserve(&who, deposit)?;
+
+            Proxies::<T>::insert(&pure, (bounded_proxies, deposit));
+            Self::deposit_event(Event::PureCreated {
+                pure,
+                who,
+                proxy_type,
+                disambiguation_index: index,
+            });
 
             Ok(())
         }
@@ -520,123 +538,6 @@ pub mod pallet {
 
             Ok(())
         }
-
-        /// Dispatch the given `call` from an account that the sender is authorized for through
-        /// `create_evm_pure`.
-        ///
-        /// The dispatch origin for this call must be _Signed_.
-        ///
-        /// Parameters:
-        /// - `real`: The account that the proxy will make a call on behalf of.
-        /// - `force_proxy_type`: Specify the exact proxy type to be used and checked for this call.
-        /// - `call`: The call to be made by the `real` account.
-        #[pallet::call_index(10)]
-        #[pallet::weight({
-			let di = call.get_dispatch_info();
-			let inner_call_weight = match di.pays_fee {
-				Pays::Yes => di.call_weight,
-				Pays::No => Weight::zero(),
-			};
-			let base_weight = T::WeightInfo::proxy(T::MaxProxies::get())
-				.saturating_add(T::DbWeight::get().reads_writes(3, 1));
-			(base_weight.saturating_add(inner_call_weight), di.class)
-		})]
-        pub fn evm_proxy(
-            origin: OriginFor<T>,
-            force_proxy_type: Option<T::ProxyType>,
-            call: Box<<T as Config>::RuntimeCall>,
-            evm_address: H160,
-            proxy: T::AccountId,
-        ) -> DispatchResult {
-            let who = ensure_signed(origin)?;
-            let owner: T::AccountId = T::AddressMapping::into_account_id(evm_address);
-
-            ensure!(who == owner, Error::<T>::OriginNotMatchMappedEVM);
-
-            if EVMProxies::<T>::get(evm_address).contains(&proxy) {
-                let def = Self::find_proxy(&proxy, &who, force_proxy_type)?;
-
-                ensure!(def.delay.is_zero(), Error::<T>::Unannounced);
-
-                Self::do_proxy(def, proxy, *call);
-                Ok(())
-            } else {
-                return Err(Error::<T>::EVMProxyNotFound.into());
-            }
-        }
-
-        /// Create a pure proxy account for the given EVM address.
-        ///
-        /// The dispatch origin for this call must be _Signed_.
-        ///
-        /// Parameters:
-        /// - `proxy_type`: The type of the proxy that the sender will be registered as over the
-        ///   new account. This will almost always be the most permissive `ProxyType` possible to
-        /// - `delay`: The announcement period required of the initial proxy. Will generally be
-        ///   zero.
-        /// - `index`: A disambiguation index, in case this is called multiple times in the same
-        ///   transaction (e.g. with `utility::batch`). Unless you're using `batch` you probably just
-        ///   want to use `0`.
-        /// - `evm_address`: The EVM address of the account to create a pure proxy for.
-        #[pallet::call_index(11)]
-        #[pallet::weight(T::WeightInfo::create_evm_pure(T::MaxProxies::get()))]
-        pub fn create_evm_pure(
-            origin: OriginFor<T>,
-            proxy_type: T::ProxyType,
-            delay: BlockNumberFor<T>,
-            index: u16,
-            evm_address: H160,
-        ) -> DispatchResult {
-            let who = ensure_signed(origin)?;
-
-            let owner: T::AccountId = T::AddressMapping::into_account_id(evm_address);
-
-            ensure!(who == owner, Error::<T>::OriginNotMatchMappedEVM);
-
-            ensure!(
-                EVMProxies::<T>::get(evm_address).len() < T::MaxProxies::get() as usize,
-                Error::<T>::TooMany
-            );
-
-            let pure = Self::do_create_pure(&who, proxy_type, delay, index)?;
-
-            let _ = EVMProxies::<T>::try_mutate(evm_address, |proxies| proxies.try_push(pure));
-
-            Ok(())
-        }
-
-        /// Kill a pure proxy account for the given EVM address.
-        ///
-        /// The dispatch origin for this call must be _Signed_.
-        ///
-        /// Parameters:
-        /// - `evm_address`: The EVM address of the account to kill.
-        #[pallet::call_index(12)]
-        #[pallet::weight(T::WeightInfo::kill_evm_pure(T::MaxProxies::get()))]
-        pub fn kill_evm_pure(
-            origin: OriginFor<T>,
-            evm_address: H160,
-            proxy: T::AccountId,
-        ) -> DispatchResult {
-            let who = ensure_signed(origin)?;
-
-            let owner: T::AccountId = T::AddressMapping::into_account_id(evm_address);
-
-            ensure!(who == owner, Error::<T>::OriginNotMatchMappedEVM);
-
-            let proxies = EVMProxies::<T>::get(evm_address);
-            let index = proxies.iter().position(|p| p == &proxy);
-
-            match index {
-                Some(i) => {
-                    let (_, deposit) = Proxies::<T>::take(&proxy);
-                    T::Currency::unreserve(&who, deposit);
-                    EVMProxies::<T>::mutate(evm_address, |proxies| proxies.remove(i));
-                    Ok(())
-                }
-                None => Err(Error::<T>::EVMProxyNotFound.into()),
-            }
-        }
     }
 
     #[pallet::event]
@@ -703,12 +604,6 @@ pub mod pallet {
         Unannounced,
         /// Cannot add self as proxy.
         NoSelfProxy,
-        /// Origin not match mapped EVM address.
-        OriginNotMatchMappedEVM,
-        /// EVM proxy already exists.
-        EVMProxyDuplicate,
-        /// EVM proxy not found.
-        EVMProxyNotFound,
     }
 
     /// The set of account proxies. Maps the account which has delegated to the accounts
@@ -740,11 +635,6 @@ pub mod pallet {
         ),
         ValueQuery,
     >;
-
-    /// The EVM proxies. Maps the EVM address to the account ID.
-    #[pallet::storage]
-    pub type EVMProxies<T: Config> =
-        StorageMap<_, Twox64Concat, H160, BoundedVec<T::AccountId, T::MaxProxies>, ValueQuery>;
 }
 
 impl<T: Config> Pallet<T> {
@@ -766,11 +656,6 @@ impl<T: Config> Pallet<T> {
         BalanceOf<T>,
     ) {
         Announcements::<T>::get(account)
-    }
-
-    /// Public function to EVM proxies storage.
-    pub fn evm_proxies(address: H160) -> BoundedVec<T::AccountId, T::MaxProxies> {
-        EVMProxies::<T>::get(address)
     }
 
     /// Calculate the address of an pure account.
@@ -971,7 +856,6 @@ impl<T: Config> Pallet<T> {
         let f = |x: &ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>| -> bool {
             &x.delegate == delegate && force_proxy_type.as_ref().is_none_or(|y| &x.proxy_type == y)
         };
-
         Ok(Proxies::<T>::get(real)
             .0
             .into_iter()
@@ -1021,39 +905,5 @@ impl<T: Config> Pallet<T> {
     pub fn remove_all_proxy_delegates(delegator: &T::AccountId) {
         let (_, old_deposit) = Proxies::<T>::take(delegator);
         T::Currency::unreserve(delegator, old_deposit);
-    }
-
-    pub fn do_create_pure(
-        who: &T::AccountId,
-        proxy_type: T::ProxyType,
-        delay: BlockNumberFor<T>,
-        index: u16,
-    ) -> Result<T::AccountId, DispatchError> {
-        let pure = Self::pure_account(who, &proxy_type, index, None);
-        ensure!(!Proxies::<T>::contains_key(&pure), Error::<T>::Duplicate);
-
-        let proxy_def = ProxyDefinition {
-            delegate: who.clone(),
-            proxy_type: proxy_type.clone(),
-            delay,
-        };
-
-        let bounded_proxies: BoundedVec<_, T::MaxProxies> = vec![proxy_def]
-            .try_into()
-            .map_err(|_| Error::<T>::TooMany)?;
-
-        let deposit = T::ProxyDepositBase::get().saturating_add(T::ProxyDepositFactor::get());
-        T::Currency::reserve(who, deposit)?;
-
-        Proxies::<T>::insert(&pure, (bounded_proxies, deposit));
-
-        Self::deposit_event(Event::PureCreated {
-            pure: pure.clone(),
-            who: who.clone(),
-            proxy_type,
-            disambiguation_index: index,
-        });
-
-        Ok(pure)
     }
 }

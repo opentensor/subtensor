@@ -257,51 +257,5 @@ benchmarks! {
         assert!(!Proxies::<T>::contains_key(&pure_account));
     }
 
-    create_evm_pure {
-        let evm_address = H160::from_slice(&[1; 20]);
-        let caller: T::AccountId = T::AddressMapping::into_account_id(evm_address);
-        T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
-    }: _(
-        RawOrigin::Signed(caller.clone()),
-        T::ProxyType::default(),
-        BlockNumberFor::<T>::zero(),
-        0,
-        evm_address
-    )
-    verify {
-        let proxies = EVMProxies::<T>::get(evm_address);
-        let last_proxy = proxies.first().ok_or("last pure proxy not found")?;
-        ensure!(Proxies::<T>::contains_key(last_proxy), "pure proxy not created");
-        assert_last_event::<T>(Event::PureCreated {
-            pure: last_proxy.clone(),
-            who: caller,
-            proxy_type: T::ProxyType::default(),
-            disambiguation_index: 0,
-        }.into());
-    }
-
-    kill_evm_pure {
-        let evm_address = H160::from_slice(&[2; 20]);
-        let caller: T::AccountId = T::AddressMapping::into_account_id(evm_address);
-        T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
-
-        for index in 0..T::MaxProxies::get() {
-            Pallet::<T>::create_evm_pure(
-                RawOrigin::Signed(caller.clone()).into(),
-                T::ProxyType::default(),
-                BlockNumberFor::<T>::zero(),
-                index as u16,
-                evm_address
-            )?;
-        }
-
-        let proxies = EVMProxies::<T>::get(evm_address);
-        let last_proxy = proxies.get(T::MaxProxies::get().saturating_sub(1) as usize).ok_or("last pure proxy not found")?;
-        ensure!(Proxies::<T>::contains_key(last_proxy), "pure proxy not created");
-    }: _(RawOrigin::Signed(caller.clone()), evm_address, last_proxy.clone())
-    verify {
-        assert!(!Proxies::<T>::contains_key(last_proxy));
-    }
-
     impl_benchmark_test_suite!(Proxy, crate::tests::new_test_ext(), crate::tests::Test);
 }

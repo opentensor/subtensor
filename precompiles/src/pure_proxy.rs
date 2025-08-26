@@ -50,34 +50,32 @@ where
 {
     #[precompile::public("createPureProxy()")]
     #[precompile::payable]
-    pub fn create_pure_proxy(handle: &mut impl PrecompileHandle) -> EvmResult<()> {
+    pub fn create_pure_proxy(handle: &mut impl PrecompileHandle) -> EvmResult<H256> {
         let account_id = handle.caller_account_id::<R>();
 
         let proxy_type: ProxyType = ProxyType::Any;
         let delay = 0u32.into();
         let index = 0u16.into();
 
-        let call = pallet_proxy::Call::<R>::create_evm_pure {
+        let call = pallet_proxy::Call::<R>::create_pure {
             proxy_type,
             delay,
             index,
-            evm_address: handle.context().caller,
         };
 
-        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
-    }
+        let pure_account =
+            pallet_proxy::Pallet::<R>::pure_account(&account_id, &proxy_type, index, None);
 
-    #[precompile::public("killPureProxy(bytes32)")]
-    #[precompile::payable]
-    pub fn kill_pure_proxy(handle: &mut impl PrecompileHandle, proxy: H256) -> EvmResult<()> {
-        let account_id = handle.caller_account_id::<R>();
+        let data = pallet_proxy::Proxies::<R>::get(&pure_account);
+        if data.0.len() > 0 {
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::Other("Pure proxy already exists".into()),
+            });
+        }
 
-        let call = pallet_proxy::Call::<R>::kill_evm_pure {
-            proxy: proxy.0.into(),
-            evm_address: handle.context().caller,
-        };
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))?;
 
-        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+        Ok(H256::from(pure_account.into()))
     }
 
     #[precompile::public("pureProxyCall(bytes32,uint8[])")]
@@ -88,6 +86,7 @@ where
         call: Vec<u8>,
     ) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();
+        let real = R::Lookup::unlookup(real.0.into());
 
         let call = <R as pallet_proxy::Config>::RuntimeCall::decode_with_depth_limit(
             MAX_DECODE_DEPTH,
@@ -98,23 +97,12 @@ where
         })?;
 
         let proxy_type: ProxyType = ProxyType::Any;
-        let call = pallet_proxy::Call::<R>::evm_proxy {
+        let call = pallet_proxy::Call::<R>::proxy {
+            real,
             force_proxy_type: Some(proxy_type),
             call: Box::new(call),
-            evm_address: handle.context().caller,
-            proxy: real.0.into(),
         };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
-    }
-
-    #[precompile::public("getPureProxy()")]
-    #[precompile::view]
-    pub fn get_pure_proxy(handle: &mut impl PrecompileHandle) -> EvmResult<Vec<H256>> {
-        let proxy_account = pallet_proxy::Pallet::<R>::evm_proxies(handle.context().caller);
-        Ok(proxy_account
-            .into_iter()
-            .map(|p| H256::from(p.into()))
-            .collect())
     }
 }
