@@ -9,7 +9,7 @@ use frame_support::assert_ok;
 use pallet_subtensor_swap::position::PositionId;
 use sp_core::U256;
 use substrate_fixed::types::{I64F64, I96F32, U96F32};
-use subtensor_runtime_common::AlphaCurrency;
+use subtensor_runtime_common::{AlphaCurrency, NetUidStorageIndex};
 use subtensor_swap_interface::SwapHandler;
 
 #[allow(clippy::arithmetic_side_effects)]
@@ -2489,7 +2489,7 @@ fn test_drain_pending_emission_zero_emission() {
         run_to_block_no_epoch(netuid, 50);
 
         // Clear incentive and dividends.
-        Incentive::<Test>::remove(netuid);
+        Incentive::<Test>::remove(NetUidStorageIndex::from(netuid));
         Dividends::<Test>::remove(netuid);
 
         // Set the emission to be ZERO.
@@ -2507,7 +2507,12 @@ fn test_drain_pending_emission_zero_emission() {
         assert_eq!(new_stake, init_stake.into());
 
         // Check that the incentive and dividends are set by epoch.
-        assert!(Incentive::<Test>::get(netuid).iter().sum::<u16>() > 0);
+        assert!(
+            Incentive::<Test>::get(NetUidStorageIndex::from(netuid))
+                .iter()
+                .sum::<u16>()
+                > 0
+        );
         assert!(Dividends::<Test>::get(netuid).iter().sum::<u16>() > 0);
     });
 }
@@ -2573,7 +2578,7 @@ fn test_run_coinbase_not_started() {
         ));
 
         // Clear incentive and dividends.
-        Incentive::<Test>::remove(netuid);
+        Incentive::<Test>::remove(NetUidStorageIndex::from(netuid));
         Dividends::<Test>::remove(netuid);
 
         // Step so tempo should run.
@@ -2595,7 +2600,12 @@ fn test_run_coinbase_not_started() {
         assert_eq!(new_stake, init_stake.into());
 
         // Check that the incentive and dividends are set.
-        assert!(Incentive::<Test>::get(netuid).iter().sum::<u16>() > 0);
+        assert!(
+            Incentive::<Test>::get(NetUidStorageIndex::from(netuid))
+                .iter()
+                .sum::<u16>()
+                > 0
+        );
         assert!(Dividends::<Test>::get(netuid).iter().sum::<u16>() > 0);
     });
 }
@@ -2658,7 +2668,7 @@ fn test_run_coinbase_not_started_start_after() {
         ));
 
         // Clear incentive and dividends.
-        Incentive::<Test>::remove(netuid);
+        Incentive::<Test>::remove(NetUidStorageIndex::from(netuid));
         Dividends::<Test>::remove(netuid);
 
         // Step so tempo should run.

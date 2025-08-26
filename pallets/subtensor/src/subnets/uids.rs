@@ -22,9 +22,12 @@ impl<T: Config> Pallet<T> {
         Emission::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0.into()));
         Trust::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
         Consensus::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
-        Incentive::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
+        for subid in 0..SubsubnetCountCurrent::<T>::get(netuid).into() {
+            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+            Incentive::<T>::mutate(netuid_index, |v| Self::set_element_at(v, neuron_index, 0));
+            Bonds::<T>::remove(netuid_index, neuron_uid); // Remove bonds for Validator.
+        }
         Dividends::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
-        Bonds::<T>::remove(netuid, neuron_uid); // Remove bonds for Validator.
     }
 
     /// Replace the neuron under this uid.
@@ -93,9 +96,12 @@ impl<T: Config> Pallet<T> {
         Active::<T>::mutate(netuid, |v| v.push(true));
         Emission::<T>::mutate(netuid, |v| v.push(0.into()));
         Consensus::<T>::mutate(netuid, |v| v.push(0));
-        Incentive::<T>::mutate(netuid, |v| v.push(0));
+        for subid in 0..SubsubnetCountCurrent::<T>::get(netuid).into() {
+            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+            Incentive::<T>::mutate(netuid_index, |v| v.push(0));
+            LastUpdate::<T>::mutate(netuid_index, |v| v.push(block_number));
+        }
         Dividends::<T>::mutate(netuid, |v| v.push(0));
-        LastUpdate::<T>::mutate(netuid, |v| v.push(block_number));
         PruningScores::<T>::mutate(netuid, |v| v.push(0));
         ValidatorTrust::<T>::mutate(netuid, |v| v.push(0));
         ValidatorPermit::<T>::mutate(netuid, |v| v.push(false));

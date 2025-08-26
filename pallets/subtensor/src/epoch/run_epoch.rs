@@ -1,19 +1,155 @@
 use super::*;
 use crate::epoch::math::*;
+use alloc::collections::BTreeMap;
 use frame_support::IterableStorageDoubleMap;
 use safe_math::*;
+use sp_std::collections::btree_map::IntoIter;
 use sp_std::vec;
 use substrate_fixed::types::{I32F32, I64F64, I96F32};
-use subtensor_runtime_common::{AlphaCurrency, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, NetUid, NetUidStorageIndex, SubId};
+
+#[derive(Debug, Default)]
+pub struct EpochTerms {
+    pub uid: usize,
+    pub dividend: u16,
+    pub incentive: u16,
+    pub validator_emission: AlphaCurrency,
+    pub server_emission: AlphaCurrency,
+    pub stake_weight: u16,
+    pub active: bool,
+    pub emission: AlphaCurrency,
+    pub rank: u16,
+    pub trust: u16,
+    pub consensus: u16,
+    pub pruning_score: u16,
+    pub validator_trust: u16,
+    pub new_validator_permit: bool,
+    pub bond: Vec<(u16, u16)>,
+}
+
+pub struct EpochOutput<T: frame_system::Config>(pub BTreeMap<T::AccountId, EpochTerms>);
+
+impl<T: frame_system::Config> EpochOutput<T> {
+    pub fn as_map(&self) -> &BTreeMap<T::AccountId, EpochTerms> {
+        &self.0
+    }
+}
+
+impl<T> IntoIterator for EpochOutput<T>
+where
+    T: frame_system::Config,
+    T::AccountId: Ord,
+{
+    type Item = (T::AccountId, EpochTerms);
+    type IntoIter = IntoIter<T::AccountId, EpochTerms>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+#[macro_export]
+macro_rules! extract_from_sorted_terms {
+    ($sorted:expr, $field:ident) => {{
+        ($sorted)
+            .iter()
+            .copied()
+            .map(|t| t.$field)
+            .collect::<sp_std::vec::Vec<_>>()
+    }};
+}
 
 impl<T: Config> Pallet<T> {
-    /// Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.
-    /// (Dense version used only for testing purposes.)
-    #[allow(clippy::indexing_slicing)]
+    /// Legacy epoch function interface (TODO: Is only used for tests, remove)
+    pub fn epoch(
+        netuid: NetUid,
+        rao_emission: AlphaCurrency,
+    ) -> Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> {
+        // Run subsubnet-style epoch
+        let output = Self::epoch_subsubnet(netuid, SubId::MAIN, rao_emission);
+
+        // Persist values in legacy format
+        Self::persist_subsub_epoch_terms(netuid, SubId::MAIN, &output.as_map());
+        Self::persist_netuid_epoch_terms(netuid, &output.as_map());
+
+        // Remap and return
+        output
+            .into_iter()
+            .map(|(hotkey, terms)| (hotkey, terms.validator_emission, terms.server_emission))
+            .collect()
+    }
+
+    /// Legacy epoch_dense function interface (TODO: Is only used for tests, remove)
     pub fn epoch_dense(
         netuid: NetUid,
         rao_emission: AlphaCurrency,
     ) -> Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> {
+        Self::epoch_dense_subsubnet(netuid, SubId::MAIN, rao_emission)
+    }
+
+    /// Persists per-subsubnet epoch output in state
+    pub fn persist_subsub_epoch_terms(
+        netuid: NetUid,
+        subid: SubId,
+        output: &BTreeMap<T::AccountId, EpochTerms>,
+    ) {
+        let netuid_index = Self::get_subsubnet_storage_index(netuid, subid);
+        let mut terms_sorted: sp_std::vec::Vec<&EpochTerms> = output.values().collect();
+        terms_sorted.sort_unstable_by_key(|t| t.uid);
+
+        let incentive = extract_from_sorted_terms!(terms_sorted, incentive);
+        let bonds: Vec<Vec<(u16, u16)>> = terms_sorted
+            .iter()
+            .cloned()
+            .map(|t| t.bond.clone())
+            .collect::<sp_std::vec::Vec<_>>();
+
+        Incentive::<T>::insert(netuid_index, incentive);
+        bonds.into_iter().enumerate().for_each(|(uid_usize, bond_vec)| { 
+            let uid: u16 = uid_usize
+                .try_into()
+                .unwrap_or_default();
+            Bonds::<T>::insert(netuid_index, uid, bond_vec);
+        });
+    }
+
+    /// Persists per-netuid epoch output in state
+    pub fn persist_netuid_epoch_terms(netuid: NetUid, output: &BTreeMap<T::AccountId, EpochTerms>) {
+        let mut terms_sorted: sp_std::vec::Vec<&EpochTerms> = output.values().collect();
+        terms_sorted.sort_unstable_by_key(|t| t.uid);
+
+        let active = extract_from_sorted_terms!(terms_sorted, active);
+        let emission = extract_from_sorted_terms!(terms_sorted, emission);
+        let rank = extract_from_sorted_terms!(terms_sorted, rank);
+        let trust = extract_from_sorted_terms!(terms_sorted, trust);
+        let consensus = extract_from_sorted_terms!(terms_sorted, consensus);
+        let dividend = extract_from_sorted_terms!(terms_sorted, dividend);
+        let pruning_score = extract_from_sorted_terms!(terms_sorted, pruning_score);
+        let validator_trust = extract_from_sorted_terms!(terms_sorted, validator_trust);
+        let new_validator_permit = extract_from_sorted_terms!(terms_sorted, new_validator_permit);
+
+        Active::<T>::insert(netuid, active.clone());
+        Emission::<T>::insert(netuid, emission);
+        Rank::<T>::insert(netuid, rank);
+        Trust::<T>::insert(netuid, trust);
+        Consensus::<T>::insert(netuid, consensus);
+        Dividends::<T>::insert(netuid, dividend);
+        PruningScores::<T>::insert(netuid, pruning_score);
+        ValidatorTrust::<T>::insert(netuid, validator_trust);
+        ValidatorPermit::<T>::insert(netuid, new_validator_permit);
+    }
+
+    /// Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.
+    /// (Dense version used only for testing purposes.)
+    #[allow(clippy::indexing_slicing)]
+    pub fn epoch_dense_subsubnet(
+        netuid: NetUid,
+        subid: SubId,
+        rao_emission: AlphaCurrency,
+    ) -> Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> {
+        // Calculate netuid storage index
+        let netuid_index = Self::get_subsubnet_storage_index(netuid, subid);
+
         // Get subnetwork size.
         let n: u16 = Self::get_subnetwork_n(netuid);
         log::trace!("n: {n:?}");
@@ -35,7 +171,7 @@ impl<T: Config> Pallet<T> {
         log::trace!("activity_cutoff: {activity_cutoff:?}");
 
         // Last update vector.
-        let last_update: Vec<u64> = Self::get_last_update(netuid);
+        let last_update: Vec<u64> = Self::get_last_update(netuid_index);
         log::trace!("Last update: {:?}", &last_update);
 
         // Inactive mask.
@@ -222,12 +358,12 @@ impl<T: Config> Pallet<T> {
         let mut ema_bonds: Vec<Vec<I32F32>>;
         if Yuma3On::<T>::get(netuid) {
             // Access network bonds.
-            let mut bonds: Vec<Vec<I32F32>> = Self::get_bonds_fixed_proportion(netuid);
+            let mut bonds: Vec<Vec<I32F32>> = Self::get_bonds_fixed_proportion(netuid_index);
             inplace_mask_cols(&recently_registered, &mut bonds); // mask outdated bonds
             log::trace!("B: {:?}", &bonds);
 
             // Compute the Exponential Moving Average (EMA) of bonds.
-            ema_bonds = Self::compute_bonds(netuid, &weights_for_bonds, &bonds, &consensus);
+            ema_bonds = Self::compute_bonds(netuid_index, &weights_for_bonds, &bonds, &consensus);
             log::trace!("emaB: {:?}", &ema_bonds);
 
             // Normalize EMA bonds.
@@ -249,7 +385,7 @@ impl<T: Config> Pallet<T> {
         } else {
             // original Yuma - liquid alpha disabled
             // Access network bonds.
-            let mut bonds: Vec<Vec<I32F32>> = Self::get_bonds(netuid);
+            let mut bonds: Vec<Vec<I32F32>> = Self::get_bonds(netuid_index);
             // Remove bonds referring to neurons that have registered since last tempo.
             inplace_mask_cols(&recently_registered, &mut bonds); // mask recently registered bonds
             inplace_col_normalize(&mut bonds); // sum_i b_ij = 1
@@ -261,7 +397,7 @@ impl<T: Config> Pallet<T> {
             log::trace!("ΔB: {:?}", &bonds_delta);
 
             // Compute the Exponential Moving Average (EMA) of bonds.
-            ema_bonds = Self::compute_ema_bonds_normal(&bonds_delta, &bonds, netuid);
+            ema_bonds = Self::compute_ema_bonds_normal(&bonds_delta, &bonds, netuid_index);
             inplace_col_normalize(&mut ema_bonds); // sum_i b_ij = 1
             log::trace!("emaB: {:?}", &ema_bonds);
 
@@ -391,7 +527,7 @@ impl<T: Config> Pallet<T> {
         Rank::<T>::insert(netuid, cloned_ranks);
         Trust::<T>::insert(netuid, cloned_trust);
         Consensus::<T>::insert(netuid, cloned_consensus);
-        Incentive::<T>::insert(netuid, cloned_incentive);
+        Incentive::<T>::insert(NetUidStorageIndex::from(netuid), cloned_incentive);
         Dividends::<T>::insert(netuid, cloned_dividends);
         PruningScores::<T>::insert(netuid, cloned_pruning_scores);
         ValidatorTrust::<T>::insert(netuid, cloned_validator_trust);
@@ -408,11 +544,11 @@ impl<T: Config> Pallet<T> {
                     let new_bonds_row: Vec<(u16, u16)> = (0..n)
                         .zip(vec_fixed_proportions_to_u16(ema_bond.clone()))
                         .collect();
-                    Bonds::<T>::insert(netuid, i as u16, new_bonds_row);
+                    Bonds::<T>::insert(netuid_index, i as u16, new_bonds_row);
                 } else if validator_permit {
                     // Only overwrite the intersection.
                     let new_empty_bonds_row: Vec<(u16, u16)> = vec![];
-                    Bonds::<T>::insert(netuid, i as u16, new_empty_bonds_row);
+                    Bonds::<T>::insert(netuid_index, i as u16, new_empty_bonds_row);
                 }
             });
 
@@ -441,11 +577,27 @@ impl<T: Config> Pallet<T> {
     ///  * 'debug' ( bool ):
     ///     - Print debugging outputs.
     ///
-    #[allow(clippy::indexing_slicing)]
-    pub fn epoch(
+    pub fn epoch_subsubnet(
         netuid: NetUid,
+        subid: SubId,
         rao_emission: AlphaCurrency,
-    ) -> Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> {
+    ) -> EpochOutput<T> {
+        // Calculate netuid storage index
+        let netuid_index = Self::get_subsubnet_storage_index(netuid, subid);
+
+        // Initialize output keys (neuron hotkeys) and UIDs
+        let mut terms_map: BTreeMap<T::AccountId, EpochTerms> = Keys::<T>::iter_prefix(netuid)
+            .map(|(uid, hotkey)| {
+                (
+                    hotkey,
+                    EpochTerms {
+                        uid: uid as usize,
+                        ..Default::default()
+                    },
+                )
+            })
+            .collect();
+
         // Get subnetwork size.
         let n = Self::get_subnetwork_n(netuid);
         log::trace!("Number of Neurons in Network: {n:?}");
@@ -467,7 +619,7 @@ impl<T: Config> Pallet<T> {
         log::trace!("activity_cutoff: {activity_cutoff:?}");
 
         // Last update vector.
-        let last_update: Vec<u64> = Self::get_last_update(netuid);
+        let last_update: Vec<u64> = Self::get_last_update(netuid_index);
         log::trace!("Last update: {:?}", &last_update);
 
         // Inactive mask.
@@ -487,11 +639,6 @@ impl<T: Config> Pallet<T> {
         // ===========
         // == Stake ==
         // ===========
-
-        let hotkeys: Vec<(u16, T::AccountId)> =
-            <Keys<T> as IterableStorageDoubleMap<NetUid, u16, T::AccountId>>::iter_prefix(netuid)
-                .collect();
-        log::debug!("hotkeys: {:?}", &hotkeys);
 
         // Access network stake as normalized vector.
         let (total_stake, _alpha_stake, _tao_stake): (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) =
@@ -588,14 +735,15 @@ impl<T: Config> Pallet<T> {
 
             // helper: hotkey → uid
             let uid_of = |acct: &T::AccountId| -> Option<usize> {
-                hotkeys
-                    .iter()
-                    .find(|(_, a)| a == acct)
-                    .map(|(uid, _)| *uid as usize)
+                if let Some(terms) = terms_map.get(acct) {
+                    Some(terms.uid)
+                } else {
+                    None
+                }
             };
 
             // ---------- v2 ------------------------------------------------------
-            for (who, q) in WeightCommits::<T>::iter_prefix(netuid) {
+            for (who, q) in WeightCommits::<T>::iter_prefix(netuid_index) {
                 for (_, cb, _, _) in q.iter() {
                     if !Self::is_commit_expired(netuid, *cb) {
                         if let Some(i) = uid_of(&who) {
@@ -688,7 +836,7 @@ impl<T: Config> Pallet<T> {
         let mut ema_bonds: Vec<Vec<(u16, I32F32)>>;
         if Yuma3On::<T>::get(netuid) {
             // Access network bonds.
-            let mut bonds = Self::get_bonds_sparse_fixed_proportion(netuid);
+            let mut bonds = Self::get_bonds_sparse_fixed_proportion(netuid_index);
             log::trace!("Bonds: {:?}", &bonds);
 
             // Remove bonds referring to neurons that have registered since last tempo.
@@ -705,7 +853,8 @@ impl<T: Config> Pallet<T> {
 
             // Compute the Exponential Moving Average (EMA) of bonds.
             log::trace!("weights_for_bonds: {:?}", &weights_for_bonds);
-            ema_bonds = Self::compute_bonds_sparse(netuid, &weights_for_bonds, &bonds, &consensus);
+            ema_bonds =
+                Self::compute_bonds_sparse(netuid_index, &weights_for_bonds, &bonds, &consensus);
             log::trace!("emaB: {:?}", &ema_bonds);
 
             // Normalize EMA bonds.
@@ -727,7 +876,7 @@ impl<T: Config> Pallet<T> {
         } else {
             // original Yuma - liquid alpha disabled
             // Access network bonds.
-            let mut bonds: Vec<Vec<(u16, I32F32)>> = Self::get_bonds_sparse(netuid);
+            let mut bonds: Vec<Vec<(u16, I32F32)>> = Self::get_bonds_sparse(netuid_index);
             log::trace!("B: {:?}", &bonds);
 
             // Remove bonds referring to neurons that have registered since last tempo.
@@ -756,7 +905,7 @@ impl<T: Config> Pallet<T> {
             log::trace!("ΔB (norm): {:?}", &bonds_delta);
 
             // Compute the Exponential Moving Average (EMA) of bonds.
-            ema_bonds = Self::compute_ema_bonds_normal_sparse(&bonds_delta, &bonds, netuid);
+            ema_bonds = Self::compute_ema_bonds_normal_sparse(&bonds_delta, &bonds, netuid_index);
             // Normalize EMA bonds.
             inplace_col_normalize_sparse(&mut ema_bonds, n); // sum_i b_ij = 1
             log::trace!("Exponential Moving Average Bonds: {:?}", &ema_bonds);
@@ -855,9 +1004,9 @@ impl<T: Config> Pallet<T> {
         let pruning_scores: Vec<I32F32> = normalized_combined_emission.clone();
         log::trace!("Pruning Scores: {:?}", &pruning_scores);
 
-        // ===================
-        // == Value storage ==
-        // ===================
+        // ===========================
+        // == Populate epoch output ==
+        // ===========================
         let cloned_stake_weight: Vec<u16> = stake
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))
@@ -888,50 +1037,549 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))
             .collect::<Vec<u16>>();
-        StakeWeight::<T>::insert(netuid, cloned_stake_weight.clone());
-        Active::<T>::insert(netuid, active.clone());
-        Emission::<T>::insert(netuid, cloned_emission);
-        Rank::<T>::insert(netuid, cloned_ranks);
-        Trust::<T>::insert(netuid, cloned_trust);
-        Consensus::<T>::insert(netuid, cloned_consensus);
-        Incentive::<T>::insert(netuid, cloned_incentive);
-        Dividends::<T>::insert(netuid, cloned_dividends);
-        PruningScores::<T>::insert(netuid, cloned_pruning_scores);
-        ValidatorTrust::<T>::insert(netuid, cloned_validator_trust);
-        ValidatorPermit::<T>::insert(netuid, new_validator_permits.clone());
 
-        new_validator_permits
-            .iter()
-            .zip(validator_permits)
-            .zip(ema_bonds)
-            .enumerate()
-            .for_each(|(i, ((new_permit, validator_permit), ema_bond))| {
-                // Set bonds only if uid retains validator permit, otherwise clear bonds.
-                if *new_permit {
-                    let new_bonds_row: Vec<(u16, u16)> = ema_bond
-                        .iter()
-                        .map(|(j, value)| (*j, fixed_proportion_to_u16(*value)))
-                        .collect();
-                    Bonds::<T>::insert(netuid, i as u16, new_bonds_row);
-                } else if validator_permit {
-                    // Only overwrite the intersection.
-                    let new_empty_bonds_row: Vec<(u16, u16)> = vec![];
-                    Bonds::<T>::insert(netuid, i as u16, new_empty_bonds_row);
-                }
-            });
+        for (_hotkey, terms) in terms_map.iter_mut() {
+            terms.dividend = cloned_dividends.get(terms.uid).copied().unwrap_or_default();
+            terms.incentive = cloned_incentive.get(terms.uid).copied().unwrap_or_default();
+            terms.validator_emission = validator_emission
+                .get(terms.uid)
+                .copied()
+                .unwrap_or_default();
+            terms.server_emission = server_emission.get(terms.uid).copied().unwrap_or_default();
+            terms.stake_weight = cloned_stake_weight
+                .get(terms.uid)
+                .copied()
+                .unwrap_or_default();
+            terms.active = active.get(terms.uid).copied().unwrap_or_default();
+            terms.emission = cloned_emission.get(terms.uid).copied().unwrap_or_default();
+            terms.rank = cloned_ranks.get(terms.uid).copied().unwrap_or_default();
+            terms.trust = cloned_trust.get(terms.uid).copied().unwrap_or_default();
+            terms.consensus = cloned_consensus.get(terms.uid).copied().unwrap_or_default();
+            terms.pruning_score = cloned_pruning_scores
+                .get(terms.uid)
+                .copied()
+                .unwrap_or_default();
+            terms.validator_trust = cloned_validator_trust
+                .get(terms.uid)
+                .copied()
+                .unwrap_or_default();
+            terms.new_validator_permit = new_validator_permits
+                .get(terms.uid)
+                .copied()
+                .unwrap_or_default();
+            let old_validator_permit = validator_permits
+                .get(terms.uid)
+                .copied()
+                .unwrap_or_default();
 
-        // Emission tuples ( hotkeys, server_emission, validator_emission )
-        hotkeys
-            .into_iter()
-            .map(|(uid_i, hotkey)| {
-                (
-                    hotkey,
-                    server_emission[uid_i as usize],
-                    validator_emission[uid_i as usize],
-                )
-            })
-            .collect()
+            // Bonds
+            if terms.new_validator_permit {
+                let ema_bond = ema_bonds.get(terms.uid).cloned().unwrap_or_default();
+                terms.bond = ema_bond
+                    .iter()
+                    .map(|(j, value)| (*j, fixed_proportion_to_u16(*value)))
+                    .collect();
+            } else if old_validator_permit {
+                // Only overwrite the intersection.
+                terms.bond = vec![];
+            }
+        }
+
+        EpochOutput(terms_map)
     }
+
+    // Legacy epoch fn
+    // #[allow(clippy::indexing_slicing)]
+    // pub fn epoch(
+    //     netuid: NetUid,
+    //     rao_emission: AlphaCurrency,
+    // ) -> Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> {
+    //     // Get subnetwork size.
+    //     let n = Self::get_subnetwork_n(netuid);
+    //     log::trace!("Number of Neurons in Network: {n:?}");
+
+    //     // ======================
+    //     // == Active & updated ==
+    //     // ======================
+
+    //     // Get current block.
+    //     let current_block: u64 = Self::get_current_block_as_u64();
+    //     log::trace!("current_block: {current_block:?}");
+
+    //     // Get tempo.
+    //     let tempo: u64 = Self::get_tempo(netuid).into();
+    //     log::trace!("tempo:\n{tempo:?}\n");
+
+    //     // Get activity cutoff.
+    //     let activity_cutoff: u64 = Self::get_activity_cutoff(netuid) as u64;
+    //     log::trace!("activity_cutoff: {activity_cutoff:?}");
+
+    //     // Last update vector.
+    //     let last_update: Vec<u64> = Self::get_last_update(netuid);
+    //     log::trace!("Last update: {:?}", &last_update);
+
+    //     // Inactive mask.
+    //     let inactive: Vec<bool> = last_update
+    //         .iter()
+    //         .map(|updated| updated.saturating_add(activity_cutoff) < current_block)
+    //         .collect();
+    //     log::debug!("Inactive: {:?}", inactive.clone());
+
+    //     // Logical negation of inactive.
+    //     let active: Vec<bool> = inactive.iter().map(|&b| !b).collect();
+
+    //     // Block at registration vector (block when each neuron was most recently registered).
+    //     let block_at_registration: Vec<u64> = Self::get_block_at_registration(netuid);
+    //     log::trace!("Block at registration: {:?}", &block_at_registration);
+
+    //     // ===========
+    //     // == Stake ==
+    //     // ===========
+
+    //     let hotkeys: Vec<(u16, T::AccountId)> =
+    //         <Keys<T> as IterableStorageDoubleMap<NetUid, u16, T::AccountId>>::iter_prefix(netuid)
+    //             .collect();
+    //     log::debug!("hotkeys: {:?}", &hotkeys);
+
+    //     // Access network stake as normalized vector.
+    //     let (total_stake, _alpha_stake, _tao_stake): (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) =
+    //         Self::get_stake_weights_for_network(netuid);
+
+    //     // Get the minimum stake required.
+    //     let min_stake = Self::get_stake_threshold();
+
+    //     // Set stake of validators that doesn't meet the staking threshold to 0 as filter.
+    //     let mut filtered_stake: Vec<I64F64> = total_stake
+    //         .iter()
+    //         .map(|&s| {
+    //             if fixed64_to_u64(s) < min_stake {
+    //                 return I64F64::from(0);
+    //             }
+    //             s
+    //         })
+    //         .collect();
+    //     log::debug!("Filtered stake: {:?}", &filtered_stake);
+
+    //     inplace_normalize_64(&mut filtered_stake);
+    //     let stake: Vec<I32F32> = vec_fixed64_to_fixed32(filtered_stake);
+    //     log::debug!("Normalised Stake: {:?}", &stake);
+
+    //     // =======================
+    //     // == Validator permits ==
+    //     // =======================
+
+    //     // Get current validator permits.
+    //     let validator_permits: Vec<bool> = Self::get_validator_permit(netuid);
+    //     log::trace!("validator_permits: {validator_permits:?}");
+
+    //     // Logical negation of validator_permits.
+    //     let validator_forbids: Vec<bool> = validator_permits.iter().map(|&b| !b).collect();
+
+    //     // Get max allowed validators.
+    //     let max_allowed_validators: u16 = Self::get_max_allowed_validators(netuid);
+    //     log::trace!("max_allowed_validators: {max_allowed_validators:?}");
+
+    //     // Get new validator permits.
+    //     let new_validator_permits: Vec<bool> =
+    //         is_topk_nonzero(&stake, max_allowed_validators as usize);
+    //     log::trace!("new_validator_permits: {new_validator_permits:?}");
+
+    //     // ==================
+    //     // == Active Stake ==
+    //     // ==================
+
+    //     let mut active_stake: Vec<I32F32> = stake.clone();
+
+    //     // Remove inactive stake.
+    //     inplace_mask_vector(&inactive, &mut active_stake);
+
+    //     // Remove non-validator stake.
+    //     inplace_mask_vector(&validator_forbids, &mut active_stake);
+
+    //     // Normalize active stake.
+    //     inplace_normalize(&mut active_stake);
+    //     log::trace!("Active Stake: {:?}", &active_stake);
+
+    //     // =============
+    //     // == Weights ==
+    //     // =============
+
+    //     let owner_uid: Option<u16> = Self::get_owner_uid(netuid);
+
+    //     // Access network weights row unnormalized.
+    //     let mut weights: Vec<Vec<(u16, I32F32)>> = Self::get_weights_sparse(netuid);
+    //     log::trace!("Weights: {:?}", &weights);
+
+    //     // Mask weights that are not from permitted validators.
+    //     weights = mask_rows_sparse(&validator_forbids, &weights);
+    //     log::trace!("Weights (permit): {:?}", &weights);
+
+    //     // Remove self-weight by masking diagonal; keep owner_uid self-weight.
+    //     if let Some(owner_uid) = owner_uid {
+    //         weights = mask_diag_sparse_except_index(&weights, owner_uid);
+    //     } else {
+    //         weights = mask_diag_sparse(&weights);
+    //     }
+    //     log::trace!("Weights (permit+diag): {:?}", &weights);
+
+    //     // Remove weights referring to deregistered neurons.
+    //     weights = vec_mask_sparse_matrix(
+    //         &weights,
+    //         &last_update,
+    //         &block_at_registration,
+    //         &|updated, registered| updated <= registered,
+    //     );
+    //     log::trace!("Weights (permit+diag+outdate): {:?}", &weights);
+
+    //     if Self::get_commit_reveal_weights_enabled(netuid) {
+    //         let mut commit_blocks: Vec<u64> = vec![u64::MAX; n as usize]; // MAX ⇒ “no active commit”
+
+    //         // helper: hotkey → uid
+    //         let uid_of = |acct: &T::AccountId| -> Option<usize> {
+    //             hotkeys
+    //                 .iter()
+    //                 .find(|(_, a)| a == acct)
+    //                 .map(|(uid, _)| *uid as usize)
+    //         };
+
+    //         // ---------- v2 ------------------------------------------------------
+    //         for (who, q) in WeightCommits::<T>::iter_prefix(netuid) {
+    //             for (_, cb, _, _) in q.iter() {
+    //                 if !Self::is_commit_expired(netuid, *cb) {
+    //                     if let Some(i) = uid_of(&who) {
+    //                         commit_blocks[i] = commit_blocks[i].min(*cb);
+    //                     }
+    //                     break; // earliest active found
+    //                 }
+    //             }
+    //         }
+
+    //         // ---------- v3 ------------------------------------------------------
+    //         for (_epoch, q) in TimelockedWeightCommits::<T>::iter_prefix(netuid) {
+    //             for (who, cb, ..) in q.iter() {
+    //                 if !Self::is_commit_expired(netuid, *cb) {
+    //                     if let Some(i) = uid_of(who) {
+    //                         commit_blocks[i] = commit_blocks[i].min(*cb);
+    //                     }
+    //                 }
+    //             }
+    //         }
+
+    //         weights = vec_mask_sparse_matrix(
+    //             &weights,
+    //             &commit_blocks,
+    //             &block_at_registration,
+    //             &|cb, reg| cb < reg,
+    //         );
+
+    //         log::trace!(
+    //             "Commit-reveal column mask applied ({} masked rows)",
+    //             commit_blocks.iter().filter(|&&cb| cb != u64::MAX).count()
+    //         );
+    //     }
+
+    //     // Normalize remaining weights.
+    //     inplace_row_normalize_sparse(&mut weights);
+    //     log::trace!("Weights (mask+norm): {:?}", &weights);
+
+    //     // ================================
+    //     // == Consensus, Validator Trust ==
+    //     // ================================
+
+    //     // Compute preranks: r_j = SUM(i) w_ij * s_i
+    //     let preranks: Vec<I32F32> = matmul_sparse(&weights, &active_stake, n);
+    //     log::trace!("Ranks (before): {:?}", &preranks);
+
+    //     // Consensus majority ratio, e.g. 51%.
+    //     let kappa: I32F32 = Self::get_float_kappa(netuid);
+    //     // Calculate consensus as stake-weighted median of weights.
+    //     let consensus: Vec<I32F32> = weighted_median_col_sparse(&active_stake, &weights, n, kappa);
+    //     log::trace!("Consensus: {:?}", &consensus);
+
+    //     // Clip weights at majority consensus.
+    //     let clipped_weights: Vec<Vec<(u16, I32F32)>> = col_clip_sparse(&weights, &consensus);
+    //     log::trace!("Clipped Weights: {:?}", &clipped_weights);
+
+    //     // Calculate validator trust as sum of clipped weights set by validator.
+    //     let validator_trust: Vec<I32F32> = row_sum_sparse(&clipped_weights);
+    //     log::trace!("Validator Trust: {:?}", &validator_trust);
+
+    //     // =============================
+    //     // == Ranks, Trust, Incentive ==
+    //     // =============================
+
+    //     // Compute ranks: r_j = SUM(i) w_ij * s_i.
+    //     let mut ranks: Vec<I32F32> = matmul_sparse(&clipped_weights, &active_stake, n);
+    //     log::trace!("Ranks (after): {:?}", &ranks);
+
+    //     // Compute server trust: ratio of rank after vs. rank before.
+    //     let trust: Vec<I32F32> = vecdiv(&ranks, &preranks); // range: I32F32(0, 1)
+    //     log::trace!("Trust: {:?}", &trust);
+
+    //     inplace_normalize(&mut ranks); // range: I32F32(0, 1)
+    //     let incentive: Vec<I32F32> = ranks.clone();
+    //     log::trace!("Incentive (=Rank): {:?}", &incentive);
+
+    //     // =========================
+    //     // == Bonds and Dividends ==
+    //     // =========================
+
+    //     // Get validator bonds penalty in [0, 1].
+    //     let bonds_penalty: I32F32 = Self::get_float_bonds_penalty(netuid);
+    //     // Calculate weights for bonds, apply bonds penalty to weights.
+    //     // bonds_penalty = 0: weights_for_bonds = weights.clone()
+    //     // bonds_penalty = 1: weights_for_bonds = clipped_weights.clone()
+    //     let weights_for_bonds: Vec<Vec<(u16, I32F32)>> =
+    //         interpolate_sparse(&weights, &clipped_weights, n, bonds_penalty);
+
+    //     let mut dividends: Vec<I32F32>;
+    //     let mut ema_bonds: Vec<Vec<(u16, I32F32)>>;
+    //     if Yuma3On::<T>::get(netuid) {
+    //         // Access network bonds.
+    //         let mut bonds = Self::get_bonds_sparse_fixed_proportion(netuid);
+    //         log::trace!("Bonds: {:?}", &bonds);
+
+    //         // Remove bonds referring to neurons that have registered since last tempo.
+    //         // Mask if: the last tempo block happened *before* the registration block
+    //         // ==> last_tempo <= registered
+    //         let last_tempo: u64 = current_block.saturating_sub(tempo);
+    //         bonds = scalar_vec_mask_sparse_matrix(
+    //             &bonds,
+    //             last_tempo,
+    //             &block_at_registration,
+    //             &|last_tempo, registered| last_tempo <= registered,
+    //         );
+    //         log::trace!("Bonds: (mask) {:?}", &bonds);
+
+    //         // Compute the Exponential Moving Average (EMA) of bonds.
+    //         log::trace!("weights_for_bonds: {:?}", &weights_for_bonds);
+    //         ema_bonds = Self::compute_bonds_sparse(netuid, &weights_for_bonds, &bonds, &consensus);
+    //         log::trace!("emaB: {:?}", &ema_bonds);
+
+    //         // Normalize EMA bonds.
+    //         let mut ema_bonds_norm = ema_bonds.clone();
+    //         inplace_col_normalize_sparse(&mut ema_bonds_norm, n); // sum_i b_ij = 1
+    //         log::trace!("emaB norm: {:?}", &ema_bonds_norm);
+
+    //         // # === Dividend Calculation===
+    //         let total_bonds_per_validator: Vec<I32F32> =
+    //             row_sum_sparse(&mat_vec_mul_sparse(&ema_bonds_norm, &incentive));
+    //         log::trace!(
+    //             "total_bonds_per_validator: {:?}",
+    //             &total_bonds_per_validator
+    //         );
+
+    //         dividends = vec_mul(&total_bonds_per_validator, &active_stake);
+    //         inplace_normalize(&mut dividends);
+    //         log::trace!("Dividends: {:?}", &dividends);
+    //     } else {
+    //         // original Yuma - liquid alpha disabled
+    //         // Access network bonds.
+    //         let mut bonds: Vec<Vec<(u16, I32F32)>> = Self::get_bonds_sparse(netuid);
+    //         log::trace!("B: {:?}", &bonds);
+
+    //         // Remove bonds referring to neurons that have registered since last tempo.
+    //         // Mask if: the last tempo block happened *before* the registration block
+    //         // ==> last_tempo <= registered
+    //         let last_tempo: u64 = current_block.saturating_sub(tempo);
+    //         bonds = scalar_vec_mask_sparse_matrix(
+    //             &bonds,
+    //             last_tempo,
+    //             &block_at_registration,
+    //             &|last_tempo, registered| last_tempo <= registered,
+    //         );
+    //         log::trace!("B (outdatedmask): {:?}", &bonds);
+
+    //         // Normalize remaining bonds: sum_i b_ij = 1.
+    //         inplace_col_normalize_sparse(&mut bonds, n);
+    //         log::trace!("B (mask+norm): {:?}", &bonds);
+
+    //         // Compute bonds delta column normalized.
+    //         let mut bonds_delta: Vec<Vec<(u16, I32F32)>> =
+    //             row_hadamard_sparse(&weights_for_bonds, &active_stake); // ΔB = W◦S (outdated W masked)
+    //         log::trace!("ΔB: {:?}", &bonds_delta);
+
+    //         // Normalize bonds delta.
+    //         inplace_col_normalize_sparse(&mut bonds_delta, n); // sum_i b_ij = 1
+    //         log::trace!("ΔB (norm): {:?}", &bonds_delta);
+
+    //         // Compute the Exponential Moving Average (EMA) of bonds.
+    //         ema_bonds = Self::compute_ema_bonds_normal_sparse(&bonds_delta, &bonds, netuid);
+    //         // Normalize EMA bonds.
+    //         inplace_col_normalize_sparse(&mut ema_bonds, n); // sum_i b_ij = 1
+    //         log::trace!("Exponential Moving Average Bonds: {:?}", &ema_bonds);
+
+    //         // Compute dividends: d_i = SUM(j) b_ij * inc_j.
+    //         // range: I32F32(0, 1)
+    //         dividends = matmul_transpose_sparse(&ema_bonds, &incentive);
+    //         inplace_normalize(&mut dividends);
+    //         log::trace!("Dividends: {:?}", &dividends);
+
+    //         // Column max-upscale EMA bonds for storage: max_i w_ij = 1.
+    //         inplace_col_max_upscale_sparse(&mut ema_bonds, n);
+    //     }
+
+    //     // =================================
+    //     // == Emission and Pruning scores ==
+    //     // =================================
+
+    //     // Compute normalized emission scores. range: I32F32(0, 1)
+    //     let combined_emission: Vec<I32F32> = incentive
+    //         .iter()
+    //         .zip(dividends.clone())
+    //         .map(|(ii, di)| ii.saturating_add(di))
+    //         .collect();
+    //     let emission_sum: I32F32 = combined_emission.iter().sum();
+
+    //     let mut normalized_server_emission: Vec<I32F32> = incentive.clone(); // Servers get incentive.
+    //     let mut normalized_validator_emission: Vec<I32F32> = dividends.clone(); // Validators get dividends.
+    //     let mut normalized_combined_emission: Vec<I32F32> = combined_emission.clone();
+    //     // Normalize on the sum of incentive + dividends.
+    //     inplace_normalize_using_sum(&mut normalized_server_emission, emission_sum);
+    //     inplace_normalize_using_sum(&mut normalized_validator_emission, emission_sum);
+    //     inplace_normalize(&mut normalized_combined_emission);
+
+    //     // If emission is zero, replace emission with normalized stake.
+    //     if emission_sum == I32F32::from(0) {
+    //         // no weights set | outdated weights | self_weights
+    //         if is_zero(&active_stake) {
+    //             // no active stake
+    //             normalized_validator_emission.clone_from(&stake); // do not mask inactive, assumes stake is normalized
+    //             normalized_combined_emission.clone_from(&stake);
+    //         } else {
+    //             normalized_validator_emission.clone_from(&active_stake); // emission proportional to inactive-masked normalized stake
+    //             normalized_combined_emission.clone_from(&active_stake);
+    //         }
+    //     }
+
+    //     // Compute rao based emission scores. range: I96F32(0, rao_emission)
+    //     let float_rao_emission: I96F32 = I96F32::saturating_from_num(rao_emission);
+
+    //     let server_emission: Vec<I96F32> = normalized_server_emission
+    //         .iter()
+    //         .map(|se: &I32F32| I96F32::saturating_from_num(*se).saturating_mul(float_rao_emission))
+    //         .collect();
+    //     let server_emission: Vec<AlphaCurrency> = server_emission
+    //         .iter()
+    //         .map(|e: &I96F32| e.saturating_to_num::<u64>().into())
+    //         .collect();
+
+    //     let validator_emission: Vec<I96F32> = normalized_validator_emission
+    //         .iter()
+    //         .map(|ve: &I32F32| I96F32::saturating_from_num(*ve).saturating_mul(float_rao_emission))
+    //         .collect();
+    //     let validator_emission: Vec<AlphaCurrency> = validator_emission
+    //         .iter()
+    //         .map(|e: &I96F32| e.saturating_to_num::<u64>().into())
+    //         .collect();
+
+    //     // Only used to track emission in storage.
+    //     let combined_emission: Vec<I96F32> = normalized_combined_emission
+    //         .iter()
+    //         .map(|ce: &I32F32| I96F32::saturating_from_num(*ce).saturating_mul(float_rao_emission))
+    //         .collect();
+    //     let combined_emission: Vec<AlphaCurrency> = combined_emission
+    //         .iter()
+    //         .map(|e: &I96F32| AlphaCurrency::from(e.saturating_to_num::<u64>()))
+    //         .collect();
+
+    //     log::trace!(
+    //         "Normalized Server Emission: {:?}",
+    //         &normalized_server_emission
+    //     );
+    //     log::trace!("Server Emission: {:?}", &server_emission);
+    //     log::trace!(
+    //         "Normalized Validator Emission: {:?}",
+    //         &normalized_validator_emission
+    //     );
+    //     log::trace!("Validator Emission: {:?}", &validator_emission);
+    //     log::trace!(
+    //         "Normalized Combined Emission: {:?}",
+    //         &normalized_combined_emission
+    //     );
+    //     log::trace!("Combined Emission: {:?}", &combined_emission);
+
+    //     // Set pruning scores using combined emission scores.
+    //     let pruning_scores: Vec<I32F32> = normalized_combined_emission.clone();
+    //     log::trace!("Pruning Scores: {:?}", &pruning_scores);
+
+    //     // ===================
+    //     // == Value storage ==
+    //     // ===================
+    //     let cloned_stake_weight: Vec<u16> = stake
+    //         .iter()
+    //         .map(|xi| fixed_proportion_to_u16(*xi))
+    //         .collect::<Vec<u16>>();
+    //     let cloned_emission = combined_emission.clone();
+    //     let cloned_ranks: Vec<u16> = ranks
+    //         .iter()
+    //         .map(|xi| fixed_proportion_to_u16(*xi))
+    //         .collect::<Vec<u16>>();
+    //     let cloned_trust: Vec<u16> = trust
+    //         .iter()
+    //         .map(|xi| fixed_proportion_to_u16(*xi))
+    //         .collect::<Vec<u16>>();
+    //     let cloned_consensus: Vec<u16> = consensus
+    //         .iter()
+    //         .map(|xi| fixed_proportion_to_u16(*xi))
+    //         .collect::<Vec<u16>>();
+    //     let cloned_incentive: Vec<u16> = incentive
+    //         .iter()
+    //         .map(|xi| fixed_proportion_to_u16(*xi))
+    //         .collect::<Vec<u16>>();
+    //     let cloned_dividends: Vec<u16> = dividends
+    //         .iter()
+    //         .map(|xi| fixed_proportion_to_u16(*xi))
+    //         .collect::<Vec<u16>>();
+    //     let cloned_pruning_scores: Vec<u16> = vec_max_upscale_to_u16(&pruning_scores);
+    //     let cloned_validator_trust: Vec<u16> = validator_trust
+    //         .iter()
+    //         .map(|xi| fixed_proportion_to_u16(*xi))
+    //         .collect::<Vec<u16>>();
+    //     StakeWeight::<T>::insert(netuid, cloned_stake_weight.clone());
+    //     Active::<T>::insert(netuid, active.clone());
+    //     Emission::<T>::insert(netuid, cloned_emission);
+    //     Rank::<T>::insert(netuid, cloned_ranks);
+    //     Trust::<T>::insert(netuid, cloned_trust);
+    //     Consensus::<T>::insert(netuid, cloned_consensus);
+    //     Incentive::<T>::insert(netuid, cloned_incentive);
+    //     Dividends::<T>::insert(netuid, cloned_dividends);
+    //     PruningScores::<T>::insert(netuid, cloned_pruning_scores);
+    //     ValidatorTrust::<T>::insert(netuid, cloned_validator_trust);
+    //     ValidatorPermit::<T>::insert(netuid, new_validator_permits.clone());
+
+    //     new_validator_permits
+    //         .iter()
+    //         .zip(validator_permits)
+    //         .zip(ema_bonds)
+    //         .enumerate()
+    //         .for_each(|(i, ((new_permit, validator_permit), ema_bond))| {
+    //             // Set bonds only if uid retains validator permit, otherwise clear bonds.
+    //             if *new_permit {
+    //                 let new_bonds_row: Vec<(u16, u16)> = ema_bond
+    //                     .iter()
+    //                     .map(|(j, value)| (*j, fixed_proportion_to_u16(*value)))
+    //                     .collect();
+    //                 Bonds::<T>::insert(netuid, i as u16, new_bonds_row);
+    //             } else if validator_permit {
+    //                 // Only overwrite the intersection.
+    //                 let new_empty_bonds_row: Vec<(u16, u16)> = vec![];
+    //                 Bonds::<T>::insert(netuid, i as u16, new_empty_bonds_row);
+    //             }
+    //         });
+
+    //     // Emission tuples ( hotkeys, server_emission, validator_emission )
+    //     hotkeys
+    //         .into_iter()
+    //         .map(|(uid_i, hotkey)| {
+    //             (
+    //                 hotkey,
+    //                 server_emission[uid_i as usize],
+    //                 validator_emission[uid_i as usize],
+    //             )
+    //         })
+    //         .collect()
+    // }
 
     pub fn get_float_rho(netuid: NetUid) -> I32F32 {
         I32F32::saturating_from_num(Self::get_rho(netuid))
@@ -963,11 +1611,12 @@ impl<T: Config> Pallet<T> {
     pub fn get_weights_sparse(netuid: NetUid) -> Vec<Vec<(u16, I32F32)>> {
         let n = Self::get_subnetwork_n(netuid) as usize;
         let mut weights: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
-        for (uid_i, weights_i) in
-            <Weights<T> as IterableStorageDoubleMap<NetUid, u16, Vec<(u16, u16)>>>::iter_prefix(
-                netuid,
-            )
-            .filter(|(uid_i, _)| *uid_i < n as u16)
+        for (uid_i, weights_i) in <Weights<T> as IterableStorageDoubleMap<
+            NetUidStorageIndex,
+            u16,
+            Vec<(u16, u16)>,
+        >>::iter_prefix(NetUidStorageIndex::from(netuid))
+        .filter(|(uid_i, _)| *uid_i < n as u16)
         {
             for (uid_j, weight_ij) in weights_i.iter().filter(|(uid_j, _)| *uid_j < n as u16) {
                 weights
@@ -983,11 +1632,12 @@ impl<T: Config> Pallet<T> {
     pub fn get_weights(netuid: NetUid) -> Vec<Vec<I32F32>> {
         let n = Self::get_subnetwork_n(netuid) as usize;
         let mut weights: Vec<Vec<I32F32>> = vec![vec![I32F32::saturating_from_num(0.0); n]; n];
-        for (uid_i, weights_vec) in
-            <Weights<T> as IterableStorageDoubleMap<NetUid, u16, Vec<(u16, u16)>>>::iter_prefix(
-                netuid,
-            )
-            .filter(|(uid_i, _)| *uid_i < n as u16)
+        for (uid_i, weights_vec) in <Weights<T> as IterableStorageDoubleMap<
+            NetUidStorageIndex,
+            u16,
+            Vec<(u16, u16)>,
+        >>::iter_prefix(NetUidStorageIndex::from(netuid))
+        .filter(|(uid_i, _)| *uid_i < n as u16)
         {
             for (uid_j, weight_ij) in weights_vec
                 .into_iter()
@@ -1005,12 +1655,13 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Output unnormalized sparse bonds, input bonds are assumed to be column max-upscaled in u16.
-    pub fn get_bonds_sparse(netuid: NetUid) -> Vec<Vec<(u16, I32F32)>> {
+    pub fn get_bonds_sparse(netuid_index: NetUidStorageIndex) -> Vec<Vec<(u16, I32F32)>> {
+        let (netuid, _) = Self::get_netuid_and_subid(netuid_index).unwrap_or_default();
         let n = Self::get_subnetwork_n(netuid) as usize;
         let mut bonds: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
         for (uid_i, bonds_vec) in
-            <Bonds<T> as IterableStorageDoubleMap<NetUid, u16, Vec<(u16, u16)>>>::iter_prefix(
-                netuid,
+            Bonds::<T>::iter_prefix(
+                netuid_index,
             )
             .filter(|(uid_i, _)| *uid_i < n as u16)
         {
@@ -1025,12 +1676,13 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Output unnormalized bonds in [n, n] matrix, input bonds are assumed to be column max-upscaled in u16.
-    pub fn get_bonds(netuid: NetUid) -> Vec<Vec<I32F32>> {
+    pub fn get_bonds(netuid_index: NetUidStorageIndex) -> Vec<Vec<I32F32>> {
+        let (netuid, _) = Self::get_netuid_and_subid(netuid_index).unwrap_or_default();
         let n: usize = Self::get_subnetwork_n(netuid) as usize;
         let mut bonds: Vec<Vec<I32F32>> = vec![vec![I32F32::saturating_from_num(0.0); n]; n];
         for (uid_i, bonds_vec) in
-            <Bonds<T> as IterableStorageDoubleMap<NetUid, u16, Vec<(u16, u16)>>>::iter_prefix(
-                netuid,
+            Bonds::<T>::iter_prefix(
+                netuid_index,
             )
             .filter(|(uid_i, _)| *uid_i < n as u16)
         {
@@ -1046,7 +1698,7 @@ impl<T: Config> Pallet<T> {
         bonds
     }
 
-    pub fn get_bonds_fixed_proportion(netuid: NetUid) -> Vec<Vec<I32F32>> {
+    pub fn get_bonds_fixed_proportion(netuid: NetUidStorageIndex) -> Vec<Vec<I32F32>> {
         let mut bonds = Self::get_bonds(netuid);
         bonds.iter_mut().for_each(|bonds_row| {
             bonds_row
@@ -1056,7 +1708,7 @@ impl<T: Config> Pallet<T> {
         bonds
     }
 
-    pub fn get_bonds_sparse_fixed_proportion(netuid: NetUid) -> Vec<Vec<(u16, I32F32)>> {
+    pub fn get_bonds_sparse_fixed_proportion(netuid: NetUidStorageIndex) -> Vec<Vec<(u16, I32F32)>> {
         let mut bonds = Self::get_bonds_sparse(netuid);
         bonds.iter_mut().for_each(|bonds_row| {
             bonds_row
@@ -1078,7 +1730,7 @@ impl<T: Config> Pallet<T> {
     pub fn compute_ema_bonds_normal_sparse(
         bonds_delta: &[Vec<(u16, I32F32)>],
         bonds: &[Vec<(u16, I32F32)>],
-        netuid: NetUid,
+        netuid: NetUidStorageIndex,
     ) -> Vec<Vec<(u16, I32F32)>> {
         // Retrieve the bonds moving average for the given network ID and scale it down.
         let bonds_moving_average: I64F64 =
@@ -1112,7 +1764,7 @@ impl<T: Config> Pallet<T> {
     pub fn compute_ema_bonds_normal(
         bonds_delta: &[Vec<I32F32>],
         bonds: &[Vec<I32F32>],
-        netuid: NetUid,
+        netuid: NetUidStorageIndex,
     ) -> Vec<Vec<I32F32>> {
         // Retrieve the bonds moving average for the given network ID and scale it down.
         let bonds_moving_average: I64F64 =
@@ -1146,11 +1798,13 @@ impl<T: Config> Pallet<T> {
     /// # Returns:
     /// A vector of EMA bonds.
     pub fn compute_bonds(
-        netuid: NetUid,
+        netuid_index: NetUidStorageIndex,
         weights: &[Vec<I32F32>], // weights_for_bonds
         bonds: &[Vec<I32F32>],
         consensus: &[I32F32],
     ) -> Vec<Vec<I32F32>> {
+        let (netuid, _) = Self::get_netuid_and_subid(netuid_index).unwrap_or_default();
+
         // Check if Liquid Alpha is enabled, consensus is not empty, and contains non-zero values.
         if LiquidAlphaOn::<T>::get(netuid)
             && !consensus.is_empty()
@@ -1167,7 +1821,7 @@ impl<T: Config> Pallet<T> {
             mat_ema_alpha(weights, bonds, &alphas)
         } else {
             // Liquid Alpha is disabled, compute the liquid alpha value.
-            let alpha: I32F32 = Self::compute_disabled_liquid_alpha(netuid);
+            let alpha: I32F32 = Self::compute_disabled_liquid_alpha(netuid_index);
 
             // Compute the Exponential Moving Average (EMA) of bonds using the calculated alpha value.
             mat_ema(weights, bonds, alpha)
@@ -1186,11 +1840,13 @@ impl<T: Config> Pallet<T> {
     /// # Returns:
     /// A vector of EMA bonds.
     pub fn compute_bonds_sparse(
-        netuid: NetUid,
+        netuid_index: NetUidStorageIndex,
         weights: &[Vec<(u16, I32F32)>],
         bonds: &[Vec<(u16, I32F32)>],
         consensus: &[I32F32],
     ) -> Vec<Vec<(u16, I32F32)>> {
+        let (netuid, _) = Self::get_netuid_and_subid(netuid_index).unwrap_or_default();
+
         // Check if Liquid Alpha is enabled, consensus is not empty, and contains non-zero values.
         if LiquidAlphaOn::<T>::get(netuid)
             && !consensus.is_empty()
@@ -1207,7 +1863,7 @@ impl<T: Config> Pallet<T> {
             mat_ema_alpha_sparse(weights, bonds, &alphas)
         } else {
             // Liquid Alpha is disabled, compute the liquid alpha value.
-            let alpha: I32F32 = Self::compute_disabled_liquid_alpha(netuid);
+            let alpha: I32F32 = Self::compute_disabled_liquid_alpha(netuid_index);
 
             // Compute the Exponential Moving Average (EMA) of bonds using the calculated alpha value.
             mat_ema_sparse(weights, bonds, alpha)
@@ -1362,7 +2018,7 @@ impl<T: Config> Pallet<T> {
         clamp_value(alpha, alpha_low, alpha_high)
     }
 
-    pub fn compute_disabled_liquid_alpha(netuid: NetUid) -> I32F32 {
+    pub fn compute_disabled_liquid_alpha(netuid: NetUidStorageIndex) -> I32F32 {
         // Retrieve the bonds moving average for the given network ID and scale it down.
         let bonds_moving_average: I64F64 = I64F64::from_num(Self::get_bonds_moving_average(netuid))
             .saturating_div(I64F64::from_num(1_000_000));
@@ -1413,7 +2069,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn do_reset_bonds(netuid: NetUid, account_id: &T::AccountId) -> Result<(), DispatchError> {
+    pub fn do_reset_bonds(netuid_index: NetUidStorageIndex, account_id: &T::AccountId) -> Result<(), DispatchError> {
+        let (netuid, _) = Self::get_netuid_and_subid(netuid_index).unwrap_or_default();
+
         // check bonds reset enabled for this subnet
         let bonds_reset_enabled: bool = Self::get_bonds_reset(netuid);
         if !bonds_reset_enabled {
@@ -1421,9 +2079,9 @@ impl<T: Config> Pallet<T> {
         }
 
         if let Ok(uid) = Self::get_uid_for_net_and_hotkey(netuid, account_id) {
-            for (i, bonds_vec) in Bonds::<T>::iter_prefix(netuid) {
+            for (i, bonds_vec) in Bonds::<T>::iter_prefix(netuid_index) {
                 Bonds::<T>::insert(
-                    netuid,
+                    netuid_index,
                     i,
                     bonds_vec
                         .clone()

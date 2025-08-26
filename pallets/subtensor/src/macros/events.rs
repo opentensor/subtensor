@@ -41,7 +41,7 @@ mod events {
             TaoCurrency,
         ),
         /// a caller successfully sets their weights on a subnetwork.
-        WeightsSet(NetUid, u16),
+        WeightsSet(NetUidStorageIndex, u16),
         /// a new neuron account has been registered to the chain.
         NeuronRegistered(NetUid, u16, T::AccountId),
         /// multiple uids have been concurrently registered.

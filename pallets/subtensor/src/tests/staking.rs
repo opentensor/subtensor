@@ -13,7 +13,9 @@ use sp_core::{Get, H256, U256};
 use sp_runtime::traits::Dispatchable;
 use substrate_fixed::traits::FromFixed;
 use substrate_fixed::types::{I96F32, I110F18, U64F64, U96F32};
-use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT, NetUid, TaoCurrency};
+use subtensor_runtime_common::{
+    AlphaCurrency, Currency as CurrencyT, NetUid, NetUidStorageIndex, TaoCurrency,
+};
 use subtensor_swap_interface::{OrderType, SwapHandler};
 
 use super::mock;
@@ -2439,12 +2441,12 @@ fn test_mining_emission_distribution_validator_valiminer_miner() {
         ));
 
         // Setup YUMA so that it creates emissions
-        Weights::<Test>::insert(netuid, 0, vec![(1, 0xFFFF)]);
-        Weights::<Test>::insert(netuid, 1, vec![(2, 0xFFFF)]);
+        Weights::<Test>::insert(NetUidStorageIndex::from(netuid), 0, vec![(1, 0xFFFF)]);
+        Weights::<Test>::insert(NetUidStorageIndex::from(netuid), 1, vec![(2, 0xFFFF)]);
         BlockAtRegistration::<Test>::set(netuid, 0, 1);
         BlockAtRegistration::<Test>::set(netuid, 1, 1);
         BlockAtRegistration::<Test>::set(netuid, 2, 1);
-        LastUpdate::<Test>::set(netuid, vec![2, 2, 2]);
+        LastUpdate::<Test>::set(NetUidStorageIndex::from(netuid), vec![2, 2, 2]);
         Kappa::<Test>::set(netuid, u16::MAX / 5);
         ActivityCutoff::<Test>::set(netuid, u16::MAX); // makes all stake active
         ValidatorPermit::<Test>::insert(netuid, vec![true, true, false]);

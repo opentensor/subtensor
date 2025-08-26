@@ -2,10 +2,11 @@
 //!
 
 use super::*;
+use crate::epoch::run_epoch::EpochTerms;
 use alloc::collections::BTreeMap;
 use safe_math::*;
-use sp_runtime::SaturatedConversion;
-use subtensor_runtime_common::{AlphaCurrency, NetUid, SubId};
+use substrate_fixed::types::U64F64;
+use subtensor_runtime_common::{AlphaCurrency, NetUid, NetUidStorageIndex, SubId};
 
 pub type LeaseId = u32;
 
@@ -27,16 +28,62 @@ pub type BalanceOf<T> =
 pub const GLOBAL_MAX_SUBNET_COUNT: u16 = 1024;
 
 impl<T: Config> Pallet<T> {
-    pub fn get_subsubnet_storage_index(netuid: NetUid, sub_id: SubId) -> NetUid {
+    pub fn get_subsubnet_storage_index(netuid: NetUid, sub_id: SubId) -> NetUidStorageIndex {
         u16::from(sub_id)
             .saturating_mul(GLOBAL_MAX_SUBNET_COUNT)
             .saturating_add(u16::from(netuid))
             .into()
     }
 
+    pub fn get_netuid_and_subid(
+        sub_or_netid: NetUidStorageIndex,
+    ) -> Result<(NetUid, SubId), Error<T>> {
+        let maybe_netuid = u16::from(sub_or_netid).checked_rem(GLOBAL_MAX_SUBNET_COUNT);
+        if let Some(netuid_u16) = maybe_netuid {
+            let netuid = NetUid::from(netuid_u16);
+
+            // Make sure the base subnet exists
+            ensure!(
+                Self::if_subnet_exist(netuid),
+                Error::<T>::SubNetworkDoesNotExist
+            );
+
+            // Extract sub_id
+            let sub_id_u8 = u8::try_from(u16::from(sub_or_netid).safe_div(GLOBAL_MAX_SUBNET_COUNT))
+                .map_err(|_| Error::<T>::SubNetworkDoesNotExist)?;
+            let sub_id = SubId::from(sub_id_u8);
+
+            if SubsubnetCountCurrent::<T>::get(netuid) > sub_id {
+                Ok((netuid, sub_id))
+            } else {
+                Err(Error::<T>::SubNetworkDoesNotExist.into())
+            }
+        } else {
+            Err(Error::<T>::SubNetworkDoesNotExist.into())
+        }
+    }
+
+    pub fn ensure_subsubnet_exists(netuid: NetUid, sub_id: SubId) -> DispatchResult {
+        // Make sure the base subnet exists
+        ensure!(
+            Self::if_subnet_exist(netuid),
+            Error::<T>::SubNetworkDoesNotExist
+        );
+
+        // Make sure the subsub limit is not exceeded
+        ensure!(
+            SubsubnetCountCurrent::<T>::get(netuid) > sub_id,
+            Error::<T>::SubNetworkDoesNotExist
+        );
+        Ok(())
+    }
+
     /// Set the desired valus of sub-subnet count for a subnet identified
     /// by netuid
-    pub fn do_set_desired_subsubnet_count(netuid: NetUid, subsubnet_count: u8) -> DispatchResult {
+    pub fn do_set_desired_subsubnet_count(
+        netuid: NetUid,
+        subsubnet_count: SubId,
+    ) -> DispatchResult {
         // Make sure the subnet exists
         ensure!(
             Self::if_subnet_exist(netuid),
@@ -44,7 +91,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Count cannot be zero
-        ensure!(subsubnet_count > 0, Error::<T>::InvalidValue);
+        ensure!(subsubnet_count > 0.into(), Error::<T>::InvalidValue);
 
         // Make sure we are not exceeding the max sub-subnet count
         ensure!(
@@ -69,15 +116,14 @@ impl<T: Config> Pallet<T> {
             let super_block = super_block_tempos.saturating_mul(u64::from(Tempo::<T>::get(netuid)));
             if let Some(rem) = current_block.checked_rem(super_block) {
                 if rem == 0 {
-                    let old_count = SubsubnetCountCurrent::<T>::get(netuid);
-                    let desired_count = SubsubnetCountDesired::<T>::get(netuid);
+                    let old_count = u8::from(SubsubnetCountCurrent::<T>::get(netuid));
+                    let desired_count = u8::from(SubsubnetCountDesired::<T>::get(netuid));
                     let min_possible_count = old_count
-                        .saturating_sub(GlobalSubsubnetDecreasePerSuperblock::<T>::get())
+                        .saturating_sub(u8::from(GlobalSubsubnetDecreasePerSuperblock::<T>::get()))
                         .max(1);
                     let new_count = desired_count.max(min_possible_count);
 
                     if old_count > new_count {
-
                         todo!();
                         // Cleanup weights
                         // Cleanup StakeWeight
@@ -93,7 +139,7 @@ impl<T: Config> Pallet<T> {
                         // Cleanup ValidatorPermit
                     }
 
-                    SubsubnetCountCurrent::<T>::insert(netuid, new_count);
+                    SubsubnetCountCurrent::<T>::insert(netuid, SubId::from(new_count));
                 }
             }
         });
@@ -116,6 +162,23 @@ impl<T: Config> Pallet<T> {
         result
     }
 
+    fn weighted_acc_u16(existing: u16, added: u16, weight: U64F64) -> u16 {
+        U64F64::saturating_from_num(existing)
+            .saturating_add(U64F64::saturating_from_num(added).saturating_mul(weight))
+            .saturating_to_num::<u16>()
+    }
+
+    fn weighted_acc_alpha(
+        existing: AlphaCurrency,
+        added: AlphaCurrency,
+        weight: U64F64,
+    ) -> AlphaCurrency {
+        U64F64::saturating_from_num(existing)
+            .saturating_add(U64F64::saturating_from_num(added).saturating_mul(weight))
+            .saturating_to_num::<u64>()
+            .into()
+    }
+
     /// Splits rao_emission between different sub-subnets using `split_emissions` function.
     ///
     /// Runs the epoch function for each sub-subnet and consolidates hotkey_emission
@@ -125,37 +188,97 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         rao_emission: AlphaCurrency,
     ) -> Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> {
-        let aggregated: BTreeMap<T::AccountId, (AlphaCurrency, AlphaCurrency)> =
+        let aggregated: BTreeMap<T::AccountId, EpochTerms> =
             Self::split_emissions(netuid, rao_emission)
                 .into_iter()
                 .enumerate()
                 // Run epoch function for each subsubnet to distribute its portion of emissions
-                .flat_map(|(sub_id, emission)| {
-                    // This is subsubnet ID, e.g. a 0-7 number
-                    let sub_id_u8: u8 = sub_id.saturated_into();
-                    // This is netuid index for storing subsubnet data in storage maps and for using in
-                    // epoch function
-                    let subsub_netuid =
-                        Self::get_subsubnet_storage_index(netuid, SubId::from(sub_id_u8));
-                    // epoch returns: Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)>
-                    Self::epoch(subsub_netuid, emission).into_iter()
+                .flat_map(|(sub_id_usize, sub_emission)| {
+                    let sub_id_u8: u8 = sub_id_usize.try_into().unwrap_or_default();
+                    let sub_id = SubId::from(sub_id_u8);
+
+                    // Run epoch function on the subsubnet emission
+                    let epoch_output = Self::epoch_subsubnet(netuid, sub_id, sub_emission);
+                    Self::persist_subsub_epoch_terms(netuid, sub_id, &epoch_output.as_map());
+
+                    // Calculate subsubnet weight from the split emission (not the other way because preserving
+                    // emission accuracy is the priority)
+                    let sub_weight = U64F64::saturating_from_num(sub_emission)
+                        .safe_div(U64F64::saturating_from_num(rao_emission));
+
+                    // Produce an iterator of (hotkey, (terms, sub_weight)) tuples
+                    epoch_output
+                        .0
+                        .into_iter()
+                        .map(move |(hotkey, terms)| (hotkey, (terms, sub_weight)))
                 })
                 // Consolidate the hotkey emissions into a single BTreeMap
-                .fold(BTreeMap::new(), |mut acc, (hotkey, divs, incs)| {
+                .fold(BTreeMap::new(), |mut acc, (hotkey, (terms, sub_weight))| {
+
+                    println!("Hotkey: {:?}, terms: {:?}", hotkey, terms);
+
                     acc.entry(hotkey)
-                        .and_modify(|tot| {
-                            tot.0 = tot.0.saturating_add(divs);
-                            tot.1 = tot.1.saturating_add(incs);
+                        .and_modify(|acc_terms| {
+                            acc_terms.dividend = Self::weighted_acc_u16(
+                                acc_terms.dividend,
+                                terms.dividend,
+                                sub_weight,
+                            );
+                            acc_terms.validator_emission = Self::weighted_acc_alpha(
+                                acc_terms.validator_emission,
+                                terms.validator_emission,
+                                sub_weight,
+                            );
+                            acc_terms.server_emission = Self::weighted_acc_alpha(
+                                acc_terms.server_emission,
+                                terms.server_emission,
+                                sub_weight,
+                            );
+                            acc_terms.stake_weight = Self::weighted_acc_u16(
+                                acc_terms.stake_weight,
+                                terms.stake_weight,
+                                sub_weight,
+                            );
+                            acc_terms.active = acc_terms.active | terms.active;
+                            acc_terms.emission = Self::weighted_acc_alpha(
+                                acc_terms.emission,
+                                terms.emission,
+                                sub_weight,
+                            );
+                            acc_terms.rank =
+                                Self::weighted_acc_u16(acc_terms.rank, terms.rank, sub_weight);
+                            acc_terms.trust =
+                                Self::weighted_acc_u16(acc_terms.trust, terms.trust, sub_weight);
+                            acc_terms.consensus = Self::weighted_acc_u16(
+                                acc_terms.consensus,
+                                terms.consensus,
+                                sub_weight,
+                            );
+                            acc_terms.pruning_score = Self::weighted_acc_u16(
+                                acc_terms.pruning_score,
+                                terms.pruning_score,
+                                sub_weight,
+                            );
+                            acc_terms.validator_trust = Self::weighted_acc_u16(
+                                acc_terms.validator_trust,
+                                terms.validator_trust,
+                                sub_weight,
+                            );
+                            acc_terms.new_validator_permit =
+                                acc_terms.new_validator_permit | terms.new_validator_permit;
                         })
-                        .or_insert((divs, incs));
+                        .or_insert(terms);
                     acc
                 });
 
-        // Remap BTreeMap back to Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> format 
-        // for processing in run_coinbase
+        // State updates from epoch function
+        Self::persist_netuid_epoch_terms(netuid, &aggregated);
+
+        // Remap BTreeMap back to Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> format
+        // for processing emissions in run_coinbase
         aggregated
             .into_iter()
-            .map(|(hotkey, (divs, incs))| (hotkey, divs, incs))
+            .map(|(hotkey, terms)| (hotkey, terms.validator_emission, terms.server_emission))
             .collect()
     }
 }

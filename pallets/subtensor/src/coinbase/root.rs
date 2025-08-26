@@ -17,12 +17,11 @@
 
 use super::*;
 use frame_support::dispatch::Pays;
-use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::weights::Weight;
 use safe_math::*;
 use sp_core::Get;
 use substrate_fixed::types::I64F64;
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, NetUidStorageIndex, TaoCurrency};
 
 impl<T: Config> Pallet<T> {
     /// Fetches the total count of root network validators
@@ -410,6 +409,7 @@ impl<T: Config> Pallet<T> {
         // --- 1. Return balance to subnet owner.
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
         let reserved_amount = Self::get_subnet_locked_balance(netuid);
+        let subsubnets: u8 = SubsubnetCountCurrent::<T>::get(netuid).into();
 
         // --- 2. Remove network count.
         SubnetworkN::<T>::remove(netuid);
@@ -430,17 +430,16 @@ impl<T: Config> Pallet<T> {
         let _ = Uids::<T>::clear_prefix(netuid, u32::MAX, None);
         let keys = Keys::<T>::iter_prefix(netuid).collect::<Vec<_>>();
         let _ = Keys::<T>::clear_prefix(netuid, u32::MAX, None);
-        let _ = Bonds::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = Bonds::<T>::clear_prefix(NetUidStorageIndex::from(netuid), u32::MAX, None);
 
         // --- 8. Removes the weights for this subnet (do not remove).
-        let _ = Weights::<T>::clear_prefix(netuid, u32::MAX, None);
+        for subid in 0..subsubnets {
+            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+            let _ = Weights::<T>::clear_prefix(netuid_index, u32::MAX, None);
+        }
 
         // --- 9. Iterate over stored weights and fill the matrix.
-        for (uid_i, weights_i) in
-            <Weights<T> as IterableStorageDoubleMap<NetUid, u16, Vec<(u16, u16)>>>::iter_prefix(
-                NetUid::ROOT,
-            )
-        {
+        for (uid_i, weights_i) in Weights::<T>::iter_prefix(NetUidStorageIndex::ROOT) {
             // Create a new vector to hold modified weights.
             let mut modified_weights = weights_i.clone();
             // Iterate over each weight entry to potentially update it.
@@ -450,7 +449,7 @@ impl<T: Config> Pallet<T> {
                     *weight = 0; // Set weight to 0 for the matching subnet_id.
                 }
             }
-            Weights::<T>::insert(NetUid::ROOT, uid_i, modified_weights);
+            Weights::<T>::insert(NetUidStorageIndex::ROOT, uid_i, modified_weights);
         }
 
         // --- 10. Remove various network-related parameters.
@@ -458,11 +457,17 @@ impl<T: Config> Pallet<T> {
         Trust::<T>::remove(netuid);
         Active::<T>::remove(netuid);
         Emission::<T>::remove(netuid);
-        Incentive::<T>::remove(netuid);
+        for subid in 0..subsubnets {
+            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+            Incentive::<T>::remove(netuid_index);
+        }
         Consensus::<T>::remove(netuid);
         Dividends::<T>::remove(netuid);
         PruningScores::<T>::remove(netuid);
-        LastUpdate::<T>::remove(netuid);
+        for subid in 0..subsubnets {
+            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+            LastUpdate::<T>::remove(netuid_index);
+        }
         ValidatorPermit::<T>::remove(netuid);
         ValidatorTrust::<T>::remove(netuid);
 

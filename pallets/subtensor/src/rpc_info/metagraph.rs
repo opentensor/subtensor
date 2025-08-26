@@ -7,7 +7,7 @@ use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I64F64;
 use substrate_fixed::types::I96F32;
 use subtensor_macros::freeze_struct;
-use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, NetUid, NetUidStorageIndex, TaoCurrency};
 
 #[freeze_struct("6fc49d5a7dc0e339")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
@@ -727,7 +727,8 @@ impl<T: Config> Pallet<T> {
             liquid_alpha_enabled: Self::get_liquid_alpha_enabled(netuid), // Bonds liquid enabled.
             alpha_high: Self::get_alpha_values(netuid).1.into(),          // Alpha param high
             alpha_low: Self::get_alpha_values(netuid).0.into(),           // Alpha param low
-            bonds_moving_avg: Self::get_bonds_moving_average(netuid).into(), // Bonds moving avg
+            bonds_moving_avg: Self::get_bonds_moving_average(NetUidStorageIndex::from(netuid))
+                .into(), // Bonds moving avg
 
             // Metagraph info.
             hotkeys,  // hotkey per UID
@@ -740,7 +741,7 @@ impl<T: Config> Pallet<T> {
                 .into_iter()
                 .map(Compact::from)
                 .collect(), // Pruning per UID
-            last_update: LastUpdate::<T>::get(netuid)
+            last_update: LastUpdate::<T>::get(NetUidStorageIndex::from(netuid))
                 .into_iter()
                 .map(Compact::from)
                 .collect(), // Last update per UID
@@ -752,7 +753,7 @@ impl<T: Config> Pallet<T> {
                 .into_iter()
                 .map(Compact::from)
                 .collect(), // Dividends per UID
-            incentives: Incentive::<T>::get(netuid)
+            incentives: Incentive::<T>::get(NetUidStorageIndex::from(netuid))
                 .into_iter()
                 .map(Compact::from)
                 .collect(), // Mining incentives per UID
@@ -1113,7 +1114,9 @@ impl<T: Config> Pallet<T> {
             },
             Some(SelectiveMetagraphIndex::BondsMovingAvg) => SelectiveMetagraph {
                 netuid: netuid.into(),
-                bonds_moving_avg: Some(Self::get_bonds_moving_average(netuid).into()),
+                bonds_moving_avg: Some(
+                    Self::get_bonds_moving_average(NetUidStorageIndex::from(netuid)).into(),
+                ),
                 ..Default::default()
             },
 
@@ -1198,7 +1201,7 @@ impl<T: Config> Pallet<T> {
             Some(SelectiveMetagraphIndex::LastUpdate) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 last_update: Some(
-                    LastUpdate::<T>::get(netuid)
+                    LastUpdate::<T>::get(NetUidStorageIndex::from(netuid))
                         .into_iter()
                         .map(Compact::from)
                         .collect(),
@@ -1231,7 +1234,7 @@ impl<T: Config> Pallet<T> {
             Some(SelectiveMetagraphIndex::Incentives) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 incentives: Some(
-                    Incentive::<T>::get(netuid)
+                    Incentive::<T>::get(NetUidStorageIndex::from(netuid))
                         .into_iter()
                         .map(Compact::from)
                         .collect(),

@@ -4,7 +4,7 @@ use frame_support::storage::IterableStorageMap;
 extern crate alloc;
 use codec::Compact;
 use substrate_fixed::types::I32F32;
-use subtensor_runtime_common::{NetUid, TaoCurrency};
+use subtensor_runtime_common::{NetUid, NetUidStorageIndex, TaoCurrency};
 
 #[freeze_struct("edd6bd3273dfea76")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
@@ -286,7 +286,7 @@ impl<T: Config> Pallet<T> {
         let target_regs_per_interval = Self::get_target_registrations_per_interval(netuid);
         let min_burn = Self::get_min_burn(netuid);
         let max_burn = Self::get_max_burn(netuid);
-        let bonds_moving_avg = Self::get_bonds_moving_average(netuid);
+        let bonds_moving_avg = Self::get_bonds_moving_average(NetUidStorageIndex::from(netuid));
         let max_regs_per_block = Self::get_max_registrations_per_block(netuid);
         let serving_rate_limit = Self::get_serving_rate_limit(netuid);
         let max_validators = Self::get_max_allowed_validators(netuid);
@@ -349,7 +349,7 @@ impl<T: Config> Pallet<T> {
         let target_regs_per_interval = Self::get_target_registrations_per_interval(netuid);
         let min_burn = Self::get_min_burn(netuid);
         let max_burn = Self::get_max_burn(netuid);
-        let bonds_moving_avg = Self::get_bonds_moving_average(netuid);
+        let bonds_moving_avg = Self::get_bonds_moving_average(NetUidStorageIndex::from(netuid));
         let max_regs_per_block = Self::get_max_registrations_per_block(netuid);
         let serving_rate_limit = Self::get_serving_rate_limit(netuid);
         let max_validators = Self::get_max_allowed_validators(netuid);

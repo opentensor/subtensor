@@ -827,7 +827,7 @@ fn test_sudo_set_bonds_moving_average() {
         let netuid = NetUid::from(1);
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
-        let init_value: u64 = SubtensorModule::get_bonds_moving_average(netuid);
+        let init_value: u64 = SubtensorModule::get_bonds_moving_average(netuid.into());
         assert_eq!(
             AdminUtils::sudo_set_bonds_moving_average(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -845,7 +845,7 @@ fn test_sudo_set_bonds_moving_average() {
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
         assert_eq!(
-            SubtensorModule::get_bonds_moving_average(netuid),
+            SubtensorModule::get_bonds_moving_average(netuid.into()),
             init_value
         );
         assert_ok!(AdminUtils::sudo_set_bonds_moving_average(
@@ -853,7 +853,10 @@ fn test_sudo_set_bonds_moving_average() {
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_bonds_moving_average(netuid), to_be_set);
+        assert_eq!(
+            SubtensorModule::get_bonds_moving_average(netuid.into()),
+            to_be_set
+        );
     });
 }
 

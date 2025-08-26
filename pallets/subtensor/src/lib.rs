@@ -85,7 +85,9 @@ pub mod pallet {
     use sp_std::vec::Vec;
     use substrate_fixed::types::{I96F32, U64F64};
     use subtensor_macros::freeze_struct;
-    use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+    use subtensor_runtime_common::{
+        AlphaCurrency, Currency, NetUid, NetUidStorageIndex, SubId, TaoCurrency,
+    };
 
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
@@ -1522,7 +1524,7 @@ pub mod pallet {
     #[pallet::storage]
     /// --- MAP ( netuid ) --> incentive
     pub type Incentive<T: Config> =
-        StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+        StorageMap<_, Identity, NetUidStorageIndex, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> dividends
     pub type Dividends<T: Config> =
@@ -1533,7 +1535,7 @@ pub mod pallet {
     #[pallet::storage]
     /// --- MAP ( netuid ) --> last_update
     pub type LastUpdate<T: Config> =
-        StorageMap<_, Identity, NetUid, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
+        StorageMap<_, Identity, NetUidStorageIndex, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> validator_trust
     pub type ValidatorTrust<T: Config> =
@@ -1551,7 +1553,7 @@ pub mod pallet {
     pub type Weights<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        NetUid,
+        NetUidStorageIndex,
         Identity,
         u16,
         Vec<(u16, u16)>,
@@ -1563,7 +1565,7 @@ pub mod pallet {
     pub type Bonds<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        NetUid,
+        NetUidStorageIndex,
         Identity,
         u16,
         Vec<(u16, u16)>,
@@ -1670,7 +1672,7 @@ pub mod pallet {
     pub type WeightCommits<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
-        NetUid,
+        NetUidStorageIndex,
         Twox64Concat,
         T::AccountId,
         VecDeque<(H256, u64, u64, u64)>,
@@ -1802,13 +1804,13 @@ pub mod pallet {
     /// ======================
     #[pallet::type_value]
     /// -- ITEM (Default number of sub-subnets)
-    pub fn DefaultSubsubnetCount<T: Config>() -> u8 {
-        1
+    pub fn DefaultSubsubnetCount<T: Config>() -> SubId {
+        SubId::from(1)
     }
     #[pallet::type_value]
     /// -- ITEM (Maximum number of sub-subnets)
-    pub fn MaxSubsubnetCount<T: Config>() -> u8 {
-        8
+    pub fn MaxSubsubnetCount<T: Config>() -> SubId {
+        SubId::from(8)
     }
     #[pallet::type_value]
     /// -- ITEM (Number of tempos in subnet super-block)
@@ -1817,17 +1819,17 @@ pub mod pallet {
     }
     #[pallet::type_value]
     /// -- ITEM (Maximum allowed sub-subnet count decrease per super-block)
-    pub fn GlobalSubsubnetDecreasePerSuperblock<T: Config>() -> u8 {
-        1
+    pub fn GlobalSubsubnetDecreasePerSuperblock<T: Config>() -> SubId {
+        SubId::from(1)
     }
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Number of sub-subnets desired by root or subnet owner.
     pub type SubsubnetCountDesired<T: Config> =
-        StorageMap<_, Twox64Concat, NetUid, u8, ValueQuery, DefaultSubsubnetCount<T>>;
+        StorageMap<_, Twox64Concat, NetUid, SubId, ValueQuery, DefaultSubsubnetCount<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Current number of sub-subnets
     pub type SubsubnetCountCurrent<T: Config> =
-        StorageMap<_, Twox64Concat, NetUid, u8, ValueQuery, DefaultSubsubnetCount<T>>;
+        StorageMap<_, Twox64Concat, NetUid, SubId, ValueQuery, DefaultSubsubnetCount<T>>;
 
     /// ==================
     /// ==== Genesis =====

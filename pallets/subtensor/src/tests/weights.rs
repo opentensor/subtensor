@@ -21,7 +21,7 @@ use sp_runtime::{
 };
 use sp_std::collections::vec_deque::VecDeque;
 use substrate_fixed::types::I32F32;
-use subtensor_runtime_common::TaoCurrency;
+use subtensor_runtime_common::{NetUidStorageIndex, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 use tle::{
     curves::drand::TinyBLS381,
@@ -525,7 +525,7 @@ fn test_reveal_weights_validate() {
         );
 
         // Add the commit to the hotkey
-        WeightCommits::<Test>::mutate(netuid, hotkey, |maybe_commits| {
+        WeightCommits::<Test>::mutate(NetUidStorageIndex::from(netuid), hotkey, |maybe_commits| {
             let mut commits: VecDeque<(H256, u64, u64, u64)> =
                 maybe_commits.take().unwrap_or_default();
             commits.push_back((
@@ -2646,8 +2646,9 @@ fn test_commit_reveal_multiple_commits() {
         ));
 
         // Check that commits before the revealed one are removed
-        let remaining_commits = crate::WeightCommits::<Test>::get(netuid, hotkey)
-            .expect("expected 8 remaining commits");
+        let remaining_commits =
+            crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey)
+                .expect("expected 8 remaining commits");
         assert_eq!(remaining_commits.len(), 8); // 10 commits - 2 removed (index 0 and 1)
 
         // 4. Reveal the last commit next
@@ -2662,7 +2663,8 @@ fn test_commit_reveal_multiple_commits() {
         ));
 
         // Remaining commits should have removed up to index 9
-        let remaining_commits = crate::WeightCommits::<Test>::get(netuid, hotkey);
+        let remaining_commits =
+            crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey);
         assert!(remaining_commits.is_none()); // All commits removed
 
         // After revealing all commits, attempt to commit again should now succeed
@@ -2907,7 +2909,8 @@ fn test_commit_reveal_multiple_commits() {
         ));
 
         // Check that the first commit has been removed
-        let remaining_commits = crate::WeightCommits::<Test>::get(netuid, hotkey);
+        let remaining_commits =
+            crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey);
         assert!(remaining_commits.is_none());
 
         // Attempting to reveal the first commit should fail as it was removed
@@ -3067,7 +3070,8 @@ fn test_expired_commits_handling_in_commit_and_reveal() {
 
         // 6. Verify that the number of unrevealed, non-expired commits is now 6
         let commits: VecDeque<(H256, u64, u64, u64)> =
-            crate::WeightCommits::<Test>::get(netuid, hotkey).expect("Expected a commit");
+            crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey)
+                .expect("Expected a commit");
         assert_eq!(commits.len(), 6); // 5 non-expired commits from epoch 1 + new commit
 
         // 7. Attempt to reveal an expired commit (from epoch 0)
@@ -3113,7 +3117,7 @@ fn test_expired_commits_handling_in_commit_and_reveal() {
         ));
 
         // 10. Verify that all commits have been revealed and the queue is empty
-        let commits = crate::WeightCommits::<Test>::get(netuid, hotkey);
+        let commits = crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey);
         assert!(commits.is_none());
 
         // 11. Attempt to reveal again, should fail with NoWeightsCommitFound
@@ -3304,7 +3308,7 @@ fn test_reveal_at_exact_epoch() {
                 Error::<Test>::ExpiredWeightCommit
             );
 
-            crate::WeightCommits::<Test>::remove(netuid, hotkey);
+            crate::WeightCommits::<Test>::remove(NetUidStorageIndex::from(netuid), hotkey);
         }
     });
 }
@@ -3581,7 +3585,8 @@ fn test_commit_reveal_order_enforcement() {
 
         // Check that commits A and B are removed
         let remaining_commits =
-            crate::WeightCommits::<Test>::get(netuid, hotkey).expect("expected 1 remaining commit");
+            crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey)
+                .expect("expected 1 remaining commit");
         assert_eq!(remaining_commits.len(), 1); // Only commit C should remain
 
         // Attempt to reveal C (index 2), should succeed
@@ -3776,7 +3781,7 @@ fn test_reveal_at_exact_block() {
             );
 
             // Clean up for next iteration
-            crate::WeightCommits::<Test>::remove(netuid, hotkey);
+            crate::WeightCommits::<Test>::remove(NetUidStorageIndex::from(netuid), hotkey);
         }
     });
 }
@@ -3854,7 +3859,7 @@ fn test_successful_batch_reveal() {
         ));
 
         // 4. Ensure all commits are removed
-        let commits = crate::WeightCommits::<Test>::get(netuid, hotkey);
+        let commits = crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey);
         assert!(commits.is_none());
     });
 }
@@ -3955,8 +3960,8 @@ fn test_batch_reveal_with_expired_commits() {
         assert_err!(result, Error::<Test>::ExpiredWeightCommit);
 
         // 5. Expired commit is not removed until a successful call
-        let commits =
-            crate::WeightCommits::<Test>::get(netuid, hotkey).expect("Expected remaining commits");
+        let commits = crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey)
+            .expect("Expected remaining commits");
         assert_eq!(commits.len(), 3);
 
         // 6. Try revealing the remaining commits
@@ -3975,7 +3980,7 @@ fn test_batch_reveal_with_expired_commits() {
         ));
 
         // 7. Ensure all commits are removed
-        let commits = crate::WeightCommits::<Test>::get(netuid, hotkey);
+        let commits = crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey);
         assert!(commits.is_none());
     });
 }
@@ -4382,7 +4387,7 @@ fn test_batch_reveal_with_out_of_order_commits() {
         ));
 
         // 6. Ensure all commits are removed
-        let commits = crate::WeightCommits::<Test>::get(netuid, hotkey);
+        let commits = crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey);
         assert!(commits.is_none());
     });
 }
@@ -4446,7 +4451,7 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
         for i in 0..commits_per_hotkey {
             for hotkey in &hotkeys {
 
-                let current_commits = crate::WeightCommits::<Test>::get(netuid, hotkey)
+                let current_commits = crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey)
                     .unwrap_or_default();
                 if current_commits.len() >= max_unrevealed_commits {
                     continue;
@@ -4795,7 +4800,7 @@ fn test_get_reveal_blocks() {
         assert_err!(result, Error::<Test>::NoWeightsCommitFound);
 
         // **15. Verify that All Commits Have Been Removed from Storage**
-        let commits = crate::WeightCommits::<Test>::get(netuid, hotkey);
+        let commits = crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey);
         assert!(
             commits.is_none(),
             "Commits should be cleared after successful reveal"
@@ -4851,7 +4856,7 @@ fn test_commit_weights_rate_limit() {
 
         let neuron_uid =
             SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey).expect("expected uid");
-        SubtensorModule::set_last_update_for_uid(netuid, neuron_uid, 0);
+        SubtensorModule::set_last_update_for_uid(NetUidStorageIndex::from(netuid), neuron_uid, 0);
 
         assert_ok!(SubtensorModule::commit_weights(
             RuntimeOrigin::signed(hotkey),
@@ -5388,7 +5393,7 @@ fn test_do_commit_crv3_weights_committing_too_fast() {
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         let neuron_uid =
             SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey).expect("Expected uid");
-        SubtensorModule::set_last_update_for_uid(netuid, neuron_uid, 0);
+        SubtensorModule::set_last_update_for_uid(NetUidStorageIndex::from(netuid), neuron_uid, 0);
 
         assert_ok!(SubtensorModule::do_commit_timelocked_weights(
             RuntimeOrigin::signed(hotkey),

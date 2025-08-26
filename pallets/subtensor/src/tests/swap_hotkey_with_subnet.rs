@@ -5,7 +5,7 @@ use codec::Encode;
 use frame_support::weights::Weight;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::{Config, RawOrigin};
-use subtensor_runtime_common::{AlphaCurrency, Currency, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, Currency, NetUidStorageIndex, TaoCurrency};
 
 use super::mock::*;
 use crate::*;
@@ -343,7 +343,11 @@ fn test_swap_weight_commits() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
 
         IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
-        WeightCommits::<Test>::insert(netuid, old_hotkey, weight_commits.clone());
+        WeightCommits::<Test>::insert(
+            NetUidStorageIndex::from(netuid),
+            old_hotkey,
+            weight_commits.clone(),
+        );
 
         System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
@@ -353,9 +357,12 @@ fn test_swap_weight_commits() {
             Some(netuid)
         ));
 
-        assert!(!WeightCommits::<Test>::contains_key(netuid, old_hotkey));
+        assert!(!WeightCommits::<Test>::contains_key(
+            NetUidStorageIndex::from(netuid),
+            old_hotkey
+        ));
         assert_eq!(
-            WeightCommits::<Test>::get(netuid, new_hotkey),
+            WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), new_hotkey),
             Some(weight_commits)
         );
     });
