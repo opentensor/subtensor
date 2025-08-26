@@ -1270,9 +1270,10 @@ impl<T: Config> Pallet<T> {
                 });
                 let mut k = 0usize;
                 while leftover > 0 && k < remainders.len() {
-                    let idx = remainders[k].0;
-                    if let Some((_, amt)) = shares.get_mut(idx) {
-                        *amt = amt.saturating_add(1);
+                    if let Some((idx, _)) = remainders.get(k) {
+                        if let Some((_, amt)) = shares.get_mut(*idx) {
+                            *amt = amt.saturating_add(1);
+                        }
                     }
                     leftover = leftover.saturating_sub(1);
                     k = k.saturating_add(1);

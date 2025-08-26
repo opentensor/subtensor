@@ -26,13 +26,10 @@ pub fn migrate_subnet_limit_to_default<T: Config>() -> Weight {
     if current != target {
         total_weight = total_weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
         SubnetLimit::<T>::put(target);
-        log::info!("SubnetLimit updated: {} -> {}", current, target);
+        log::info!("SubnetLimit updated: {current} -> {target}");
     } else {
         total_weight = total_weight.saturating_add(T::DbWeight::get().reads(1));
-        log::info!(
-            "SubnetLimit already equals default ({}), no update performed.",
-            target
-        );
+        log::info!("SubnetLimit already equals default ({target}), no update performed.");
     }
 
     // Mark as done
