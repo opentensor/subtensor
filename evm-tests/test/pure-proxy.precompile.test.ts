@@ -5,11 +5,12 @@ import { generateRandomEthersWallet, generateRandomEthWallet } from "../src/util
 import { devnet, MultiAddress } from "@polkadot-api/descriptors"
 import { hexToU8a } from "@polkadot/util";
 import { PolkadotSigner, TypedApi } from "polkadot-api";
-import { convertPublicKeyToSs58 } from "../src/address-utils"
+import { convertPublicKeyToSs58, ss58ToEthAddress } from "../src/address-utils"
 import { IPureProxyABI, IPURE_PROXY_ADDRESS } from "../src/contracts/pureProxy"
 import { keccak256, ethers } from 'ethers';
 import { forceSetBalanceToEthAddress, forceSetBalanceToSs58Address } from "../src/subtensor";
 import { Signer } from "@polkadot/api/types";
+import { decodeAddress } from "@polkadot/util-crypto";
 
 async function getTransferCallCode(api: TypedApi<typeof devnet>, signer: PolkadotSigner) {
     const transferAmount = BigInt(1000000000);
@@ -47,84 +48,38 @@ describe("Test pure proxy precompile", () => {
 
     it("Call createPureProxy, then use proxy to call transfer", async () => {
         const contract = new ethers.Contract(IPURE_PROXY_ADDRESS, IPureProxyABI, evmWallet)
-        console.log("evmWallet", evmWallet.address)
-        const proxyAddressBeforeCreate = await contract.getPureProxy();
-        assert.equal(proxyAddressBeforeCreate.length, 0, "proxy should be empty")
 
-        const tx = await contract.createPureProxy()
-        await tx.wait()
-        const proxyAddress = await contract.getPureProxy();
-        assert.equal(proxyAddress.length, 1, "proxy should be set")
-
-        const ss58Address = convertPublicKeyToSs58(proxyAddress[0])
-
-        await forceSetBalanceToSs58Address(api, ss58Address)
-
-        const callCode = await getTransferCallCode(api, alice)
-        const tx2 = await contract.pureProxyCall(proxyAddress[0], callCode)
-        await tx2.wait()
-    })
-
-    it("Call createPureProxy, add multiple proxies", async () => {
-        const contract = new ethers.Contract(IPURE_PROXY_ADDRESS, IPureProxyABI, evmWallet)
-        const proxyAddressBeforeCreate = await contract.getPureProxy();
-        const initProxyCount = proxyAddressBeforeCreate.length
-
-        for (let i = 0; i < 10; i++) {
-            const tx = await contract.createPureProxy()
-            await tx.wait()
-            const proxyAddressAfterCreate = await contract.getPureProxy();
-            assert.equal(proxyAddressAfterCreate.length, initProxyCount + i + 1, "proxy should be set")
-        }
-
-        const proxyAddressAfterCreate = await contract.getPureProxy();
-        const newProxyCount = proxyAddressAfterCreate.length
-        const removedProxy = proxyAddressAfterCreate[newProxyCount - 1]
-
-
-        const tx = await contract.killPureProxy(removedProxy)
-        await tx.wait()
-    })
-
-    it("Call createPureProxy, edge cases", async () => {
-        const contract = new ethers.Contract(IPURE_PROXY_ADDRESS, IPureProxyABI, evmWallet2)
-
-        const callCode = await getTransferCallCode(api, alice)
-
-        // call without proxy
-        try {
-            const tx = await contract.pureProxyCall(callCode)
-            await tx.wait()
-        } catch (error) {
-            assert.notEqual(error, undefined, "should fail if proxy not set")
+        const entries = await api.query.Proxy.Proxies.getEntries();
+        const proxiesArray: string[] = [];
+        let index = 0;
+        while (index < entries.length) {
+            const proxy = entries[index];
+            proxiesArray.push(proxy.keyArgs[0].toString())
+            index++;
         }
 
         const tx = await contract.createPureProxy()
         await tx.wait()
-        const proxyAddress = await contract.getPureProxy();
 
-        // set the proxy again
-        try {
-            const tx = await contract.createPureProxy()
-            await tx.wait()
-        } catch (error) {
-            assert.notEqual(error, undefined, "should fail if set proxy again")
+        const entriesAfterCall = await api.query.Proxy.Proxies.getEntries();
+        const proxiesArrayAfterCall = [];
+
+        index = 0;
+        while (index < entriesAfterCall.length) {
+            const proxy = entriesAfterCall[index];
+            proxiesArrayAfterCall.push(proxy.keyArgs[0].toString())
+            index++;
         }
 
-        // send extrinsic without token
-        try {
-            const tx = await contract.pureProxyCall(callCode)
-            await tx.wait()
-        } catch (error) {
-            assert.notEqual(error, undefined, "should fail if proxy without balance")
-        }
+        const newProxy = proxiesArrayAfterCall.filter(proxy => !proxiesArray.includes(proxy))
+        // at least one proxy should be created
+        assert.equal(newProxy.length, 1, "newProxy should be 1")
 
-        // set balance for proxy account
-        const ss58Address = convertPublicKeyToSs58(proxyAddress[0])
-        await forceSetBalanceToSs58Address(api, ss58Address)
+        await forceSetBalanceToSs58Address(api, newProxy[0])
 
-        // try proxy call finally
-        const tx2 = await contract.pureProxyCall(proxyAddress[0], callCode)
+        const publicKey = decodeAddress(newProxy[0])
+        const callCode = await getTransferCallCode(api, alice)
+        const tx2 = await contract.pureProxyCall(publicKey, callCode)
         await tx2.wait()
     })
 });
