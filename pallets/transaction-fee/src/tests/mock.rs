@@ -217,7 +217,6 @@ parameter_types! {
 }
 
 impl pallet_subtensor::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type InitialIssuance = InitialIssuance;
@@ -318,7 +317,6 @@ impl pallet_crowdloan::Config for Test {
     type PalletId = CrowdloanPalletId;
     type Currency = Balances;
     type RuntimeCall = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = pallet_crowdloan::weights::SubstrateWeight<Test>;
     type Preimages = Preimage;
     type MinimumDeposit = MinimumDeposit;
@@ -395,7 +393,6 @@ parameter_types! {
 }
 
 impl pallet_subtensor_swap::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type SubnetInfo = SubtensorModule;
     type BalanceOps = SubtensorModule;
     type ProtocolId = SwapProtocolId;
@@ -437,7 +434,6 @@ impl pallet_scheduler::Config for Test {
 
 impl pallet_evm_chain_id::Config for Test {}
 impl pallet_drand::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type AuthorityId = TestAuthId;
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;
@@ -493,7 +489,7 @@ impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Test
 where
     RuntimeCall: From<LocalCall>,
 {
-    fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+    fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
         UncheckedExtrinsic::new_inherent(call)
     }
 }

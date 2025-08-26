@@ -83,7 +83,6 @@ libsecp256k1 = { version = "0.7.2", default-features = false }
 log = { version = "0.4.21", default-features = false }
 memmap2 = "0.9.4"
 ndarray = { version = "0.15.6", default-features = false }
-parity-util-mem = "0.12.0"
 rand = "0.8.5"
 scale-info = { version = "2.11.2", default-features = false }
 serde = { version = "1.0.214", default-features = false }
@@ -226,35 +225,35 @@ cumulus-primitives-proof-size-hostfunction = { git = "https://github.com/parityt
 runtime-common = { package = "polkadot-runtime-common", git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2506-1", default-features = false }
 
 # Frontier
-fp-evm = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-fp-rpc = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-fp-self-contained = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-fp-account = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-fc-storage = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-fc-db = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-fc-consensus = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-fp-consensus = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-fp-dynamic-fee = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-fc-api = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-fc-rpc = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-fc-rpc-core = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-fc-aura = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-fc-babe = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-fc-mapping-sync = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-precompile-utils = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+fp-evm = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+fp-rpc = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+fp-self-contained = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+fp-account = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+fc-storage = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+fc-db = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+fc-consensus = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+fp-consensus = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+fp-dynamic-fee = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+fc-api = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+fc-rpc = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+fc-rpc-core = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+fc-aura = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+fc-babe = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+fc-mapping-sync = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+precompile-utils = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
 
 # Frontier FRAME
-pallet-base-fee = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-pallet-dynamic-fee = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-pallet-ethereum = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-pallet-evm = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-pallet-evm-precompile-dispatch = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-pallet-evm-chain-id = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-pallet-evm-precompile-modexp = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-pallet-evm-precompile-sha3fips = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-pallet-evm-precompile-simple = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-pallet-evm-precompile-bn128 = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
-pallet-hotfix-sufficients = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+pallet-base-fee = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+pallet-dynamic-fee = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+pallet-ethereum = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+pallet-evm = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+pallet-evm-precompile-dispatch = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+pallet-evm-chain-id = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+pallet-evm-precompile-modexp = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+pallet-evm-precompile-sha3fips = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+pallet-evm-precompile-simple = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+pallet-evm-precompile-bn128 = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
+pallet-hotfix-sufficients = { git = "https://github.com/opentensor/frontier", rev = "01ea2cb91dc43b13a470e0712acb8f260d48e18a", default-features = false }
 
 #DRAND
 pallet-drand = { path = "pallets/drand", default-features = false }
