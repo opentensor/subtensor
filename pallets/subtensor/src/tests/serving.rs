@@ -2,6 +2,7 @@
 use super::mock::*;
 
 use crate::Error;
+use crate::transaction_extension::SubtensorTransactionExtension;
 use crate::*;
 use frame_support::assert_noop;
 use frame_support::pallet_prelude::Weight;
@@ -11,7 +12,7 @@ use frame_support::{
 };
 use frame_system::{Config, RawOrigin};
 use sp_core::U256;
-use sp_runtime::traits::TxBaseImplication;
+use sp_runtime::traits::{DispatchInfoOf, TransactionExtension, TxBaseImplication};
 
 mod test {
     use std::net::{Ipv4Addr, Ipv6Addr};
@@ -1402,10 +1403,10 @@ fn test_serve_axon_validate() {
             placeholder2,
         });
 
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorTransactionExtension::<Test>::new();
+        let extension = SubtensorTransactionExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_bad = extension.validate(
             RawOrigin::Signed(hotkey).into(),

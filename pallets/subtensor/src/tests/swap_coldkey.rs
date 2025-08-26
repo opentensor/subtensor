@@ -2,6 +2,7 @@
 
 use approx::assert_abs_diff_eq;
 use codec::Encode;
+use frame_support::dispatch::DispatchInfo;
 use frame_support::error::BadOrigin;
 use frame_support::traits::OnInitialize;
 use frame_support::traits::schedule::DispatchTime;
@@ -10,6 +11,7 @@ use frame_support::weights::Weight;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::{Config, RawOrigin};
 use sp_core::{Get, H256, U256};
+use sp_runtime::traits::{DispatchInfoOf, TransactionExtension};
 use sp_runtime::{DispatchError, traits::TxBaseImplication};
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaCurrency, Currency, SubnetInfo, TaoCurrency};
@@ -17,9 +19,9 @@ use subtensor_swap_interface::{OrderType, SwapHandler};
 
 use super::mock;
 use super::mock::*;
+use crate::transaction_extension::SubtensorTransactionExtension;
 use crate::*;
 use crate::{Call, ColdkeySwapScheduleDuration, Error};
-
 // // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_total_hotkey_coldkey_stakes_this_interval --exact --nocapture
 // #[test]
 // fn test_swap_total_hotkey_coldkey_stakes_this_interval() {
@@ -2245,9 +2247,9 @@ fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
         assert!(ColdkeySwapScheduled::<Test>::contains_key(who));
 
         // Setup the extension
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-        let extension = crate::SubtensorTransactionExtension::<Test>::new();
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = SubtensorTransactionExtension::<Test>::new();
 
         // Try each call
 
@@ -2567,9 +2569,9 @@ fn test_coldkey_in_swap_schedule_prevents_critical_calls() {
         assert!(ColdkeySwapScheduled::<Test>::contains_key(who));
 
         // Setup the extension
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-        let extension = crate::SubtensorTransactionExtension::<Test>::new();
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = SubtensorTransactionExtension::<Test>::new();
 
         // Try each call
 

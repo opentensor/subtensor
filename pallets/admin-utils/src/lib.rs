@@ -107,8 +107,6 @@ pub mod pallet {
         BondsMovingAverageMaxReached,
         /// Only root can set negative sigmoid steepness values
         NegativeSigmoidSteepness,
-        /// Reveal Peroid is not within the valid range.
-        RevealPeriodOutOfBounds,
     }
     /// Enum for specifying the type of precompile operation.
     #[derive(
@@ -1311,14 +1309,10 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
 
-            const MAX_COMMIT_REVEAL_PEROIDS: u64 = 100;
-            ensure!(
-                interval <= MAX_COMMIT_REVEAL_PEROIDS,
-                Error::<T>::RevealPeriodOutOfBounds
-            );
-
-            pallet_subtensor::Pallet::<T>::set_reveal_period(netuid, interval);
             log::debug!("SetWeightCommitInterval( netuid: {netuid:?}, interval: {interval:?} ) ");
+
+            pallet_subtensor::Pallet::<T>::set_reveal_period(netuid, interval)?;
+
             Ok(())
         }
 
@@ -1671,6 +1665,21 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_commit_reveal_weights_version(version);
+            Ok(())
+        }
+
+        /// Sets the number of immune owner neurons
+        #[pallet::call_index(72)]
+        #[pallet::weight(Weight::from_parts(15_000_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        pub fn sudo_set_owner_immune_neuron_limit(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            immune_neurons: u16,
+        ) -> DispatchResult {
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            pallet_subtensor::Pallet::<T>::set_owner_immune_neuron_limit(netuid, immune_neurons)?;
             Ok(())
         }
     }

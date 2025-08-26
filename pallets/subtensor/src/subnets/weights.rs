@@ -1,6 +1,8 @@
 use super::*;
 use crate::epoch::math::*;
+use crate::{Error, MAX_COMMIT_REVEAL_PEROIDS, MIN_COMMIT_REVEAL_PEROIDS};
 use codec::Compact;
+use frame_support::dispatch::DispatchResult;
 use safe_math::*;
 use sp_core::{ConstU32, H256};
 use sp_runtime::{
@@ -9,7 +11,6 @@ use sp_runtime::{
 };
 use sp_std::{collections::vec_deque::VecDeque, vec};
 use subtensor_runtime_common::NetUid;
-
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for committing weight hashes.
     ///
@@ -212,8 +213,8 @@ impl<T: Config> Pallet<T> {
     /// 4. Rejects the call when the hotkey already has ≥ 10 unrevealed commits in
     ///    the current epoch.  
     /// 5. Appends `(hotkey, commit_block, commit, reveal_round)` to  
-    ///    `CRV3WeightCommitsV2[netuid][epoch]`.  
-    /// 6. Emits `CRV3WeightsCommitted` with the Blake2 hash of `commit`.  
+    ///    `TimelockedWeightCommits[netuid][epoch]`.  
+    /// 6. Emits `TimelockedWeightsCommitted` with the Blake2 hash of `commit`.  
     /// 7. Updates `LastUpdateForUid` so subsequent rate-limit checks include this
     ///    commit.
     ///
@@ -225,7 +226,7 @@ impl<T: Config> Pallet<T> {
     /// * `TooManyUnrevealedCommits` – Caller already has 10 unrevealed commits.
     ///
     /// # Events
-    /// * `CRV3WeightsCommitted(hotkey, netuid, commit_hash)` – Fired after the commit is successfully stored.
+    /// * `TimelockedWeightsCommitted(hotkey, netuid, commit_hash, reveal_round)` – Fired after the commit is successfully stored.
     pub fn do_commit_timelocked_weights(
         origin: T::RuntimeOrigin,
         netuid: NetUid,
@@ -271,7 +272,7 @@ impl<T: Config> Pallet<T> {
             false => Self::get_epoch_index(netuid, cur_block),
         };
 
-        CRV3WeightCommitsV2::<T>::try_mutate(netuid, cur_epoch, |commits| -> DispatchResult {
+        TimelockedWeightCommits::<T>::try_mutate(netuid, cur_epoch, |commits| -> DispatchResult {
             // 7. Verify that the number of unrevealed commits is within the allowed limit.
 
             let unrevealed_commits_for_who = commits
@@ -289,10 +290,11 @@ impl<T: Config> Pallet<T> {
             commits.push_back((who.clone(), cur_block, commit, reveal_round));
 
             // 9. Emit the WeightsCommitted event
-            Self::deposit_event(Event::CRV3WeightsCommitted(
+            Self::deposit_event(Event::TimelockedWeightsCommitted(
                 who.clone(),
                 netuid,
                 commit_hash,
+                reveal_round,
             ));
 
             // 10. Update the last commit block for the hotkey's UID.
@@ -1061,9 +1063,21 @@ impl<T: Config> Pallet<T> {
         (first_reveal_block, last_reveal_block)
     }
 
-    pub fn set_reveal_period(netuid: NetUid, reveal_period: u64) {
+    pub fn set_reveal_period(netuid: NetUid, reveal_period: u64) -> DispatchResult {
+        ensure!(
+            reveal_period <= MAX_COMMIT_REVEAL_PEROIDS,
+            Error::<T>::RevealPeriodTooLarge
+        );
+
+        ensure!(
+            reveal_period >= MIN_COMMIT_REVEAL_PEROIDS,
+            Error::<T>::RevealPeriodTooSmall
+        );
+
         RevealPeriodEpochs::<T>::insert(netuid, reveal_period);
+
         Self::deposit_event(Event::CommitRevealPeriodsSet(netuid, reveal_period));
+        Ok(())
     }
     pub fn get_reveal_period(netuid: NetUid) -> u64 {
         RevealPeriodEpochs::<T>::get(netuid)
