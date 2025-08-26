@@ -23,9 +23,6 @@ frame-system.workspace = true
 sp-io.workspace = true
 sp-runtime.workspace = true
 subtensor-macros.workspace = true
-log.workspace = true
-pallet-evm.workspace = true
-sp-core.workspace = true
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
@@ -42,9 +39,6 @@ std = [
 	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"pallet-evm/std",
-	"sp-core/std",
-	"log/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -53,7 +47,6 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
-	"pallet-evm/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -61,5 +54,4 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-utility/try-runtime",
-	"pallet-evm/try-runtime",
 ]
