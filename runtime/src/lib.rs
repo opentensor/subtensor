@@ -2334,6 +2334,9 @@ impl_runtime_apis! {
         fn get_selective_metagraph(netuid: NetUid, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
             SubtensorModule::get_selective_metagraph(netuid, metagraph_indexes)
         }
+        fn get_subnet_to_prune() -> Option<NetUid> {
+        pallet_subtensor::Pallet::<Runtime>::get_network_to_prune()
+        }
 
     }
 
