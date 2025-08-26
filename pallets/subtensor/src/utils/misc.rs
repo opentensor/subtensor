@@ -576,8 +576,7 @@ impl<T: Config> Pallet<T> {
         ));
     }
 
-    pub fn get_bonds_moving_average(netuid_index: NetUidStorageIndex) -> u64 {
-        let (netuid, _) = Self::get_netuid_and_subid(netuid_index).unwrap_or_default();
+    pub fn get_bonds_moving_average(netuid: NetUid) -> u64 {
         BondsMovingAverage::<T>::get(netuid)
     }
     pub fn set_bonds_moving_average(netuid: NetUid, bonds_moving_average: u64) {

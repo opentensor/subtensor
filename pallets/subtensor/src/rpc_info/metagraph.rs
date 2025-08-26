@@ -727,7 +727,7 @@ impl<T: Config> Pallet<T> {
             liquid_alpha_enabled: Self::get_liquid_alpha_enabled(netuid), // Bonds liquid enabled.
             alpha_high: Self::get_alpha_values(netuid).1.into(),          // Alpha param high
             alpha_low: Self::get_alpha_values(netuid).0.into(),           // Alpha param low
-            bonds_moving_avg: Self::get_bonds_moving_average(NetUidStorageIndex::from(netuid))
+            bonds_moving_avg: Self::get_bonds_moving_average(netuid)
                 .into(), // Bonds moving avg
 
             // Metagraph info.
@@ -1115,7 +1115,7 @@ impl<T: Config> Pallet<T> {
             Some(SelectiveMetagraphIndex::BondsMovingAvg) => SelectiveMetagraph {
                 netuid: netuid.into(),
                 bonds_moving_avg: Some(
-                    Self::get_bonds_moving_average(NetUidStorageIndex::from(netuid)).into(),
+                    Self::get_bonds_moving_average(netuid).into(),
                 ),
                 ..Default::default()
             },

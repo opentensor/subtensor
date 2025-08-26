@@ -286,7 +286,7 @@ impl<T: Config> Pallet<T> {
         let owner_uid: Option<u16> = Self::get_owner_uid(netuid);
 
         // Access network weights row unnormalized.
-        let mut weights: Vec<Vec<I32F32>> = Self::get_weights(netuid);
+        let mut weights: Vec<Vec<I32F32>> = Self::get_weights(netuid_index);
         log::trace!("W: {:?}", &weights);
 
         // Mask weights that are not from permitted validators.
@@ -363,7 +363,7 @@ impl<T: Config> Pallet<T> {
             log::trace!("B: {:?}", &bonds);
 
             // Compute the Exponential Moving Average (EMA) of bonds.
-            ema_bonds = Self::compute_bonds(netuid_index, &weights_for_bonds, &bonds, &consensus);
+            ema_bonds = Self::compute_bonds(netuid, &weights_for_bonds, &bonds, &consensus);
             log::trace!("emaB: {:?}", &ema_bonds);
 
             // Normalize EMA bonds.
@@ -397,7 +397,7 @@ impl<T: Config> Pallet<T> {
             log::trace!("ΔB: {:?}", &bonds_delta);
 
             // Compute the Exponential Moving Average (EMA) of bonds.
-            ema_bonds = Self::compute_ema_bonds_normal(&bonds_delta, &bonds, netuid_index);
+            ema_bonds = Self::compute_ema_bonds_normal(&bonds_delta, &bonds, netuid);
             inplace_col_normalize(&mut ema_bonds); // sum_i b_ij = 1
             log::trace!("emaB: {:?}", &ema_bonds);
 
@@ -706,7 +706,7 @@ impl<T: Config> Pallet<T> {
         let owner_uid: Option<u16> = Self::get_owner_uid(netuid);
 
         // Access network weights row unnormalized.
-        let mut weights: Vec<Vec<(u16, I32F32)>> = Self::get_weights_sparse(netuid);
+        let mut weights: Vec<Vec<(u16, I32F32)>> = Self::get_weights_sparse(netuid_index);
         log::trace!("Weights: {:?}", &weights);
 
         // Mask weights that are not from permitted validators.
@@ -1608,47 +1608,42 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Output unnormalized sparse weights, input weights are assumed to be row max-upscaled in u16.
-    pub fn get_weights_sparse(netuid: NetUid) -> Vec<Vec<(u16, I32F32)>> {
+    pub fn get_weights_sparse(netuid_index: NetUidStorageIndex) -> Vec<Vec<(u16, I32F32)>> {
+        let (netuid, _) = Self::get_netuid_and_subid(netuid_index).unwrap_or_default();
         let n = Self::get_subnetwork_n(netuid) as usize;
         let mut weights: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
-        for (uid_i, weights_i) in <Weights<T> as IterableStorageDoubleMap<
-            NetUidStorageIndex,
-            u16,
-            Vec<(u16, u16)>,
-        >>::iter_prefix(NetUidStorageIndex::from(netuid))
+        for (uid_i, weights_i) in Weights::<T>::iter_prefix(netuid_index)
         .filter(|(uid_i, _)| *uid_i < n as u16)
         {
             for (uid_j, weight_ij) in weights_i.iter().filter(|(uid_j, _)| *uid_j < n as u16) {
-                weights
-                    .get_mut(uid_i as usize)
-                    .expect("uid_i is filtered to be less than n; qed")
-                    .push((*uid_j, I32F32::saturating_from_num(*weight_ij)));
+                if let Some(row) = weights.get_mut(uid_i as usize) {
+                    row.push((*uid_j, I32F32::saturating_from_num(*weight_ij)));
+                } else {
+                    log::error!("uid_i {:?} is filtered to be less than n", uid_i);
+                }
             }
         }
         weights
     }
 
     /// Output unnormalized weights in [n, n] matrix, input weights are assumed to be row max-upscaled in u16.
-    pub fn get_weights(netuid: NetUid) -> Vec<Vec<I32F32>> {
+    pub fn get_weights(netuid_index: NetUidStorageIndex) -> Vec<Vec<I32F32>> {
+        let (netuid, _) = Self::get_netuid_and_subid(netuid_index).unwrap_or_default();
         let n = Self::get_subnetwork_n(netuid) as usize;
         let mut weights: Vec<Vec<I32F32>> = vec![vec![I32F32::saturating_from_num(0.0); n]; n];
-        for (uid_i, weights_vec) in <Weights<T> as IterableStorageDoubleMap<
-            NetUidStorageIndex,
-            u16,
-            Vec<(u16, u16)>,
-        >>::iter_prefix(NetUidStorageIndex::from(netuid))
+        for (uid_i, weights_vec) in Weights::<T>::iter_prefix(netuid_index)
         .filter(|(uid_i, _)| *uid_i < n as u16)
         {
             for (uid_j, weight_ij) in weights_vec
                 .into_iter()
                 .filter(|(uid_j, _)| *uid_j < n as u16)
             {
-                *weights
+                if let Some(cell) = weights
                     .get_mut(uid_i as usize)
-                    .expect("uid_i is filtered to be less than n; qed")
-                    .get_mut(uid_j as usize)
-                    .expect("uid_j is filtered to be less than n; qed") =
-                    I32F32::saturating_from_num(weight_ij);
+                    .and_then(|row| row.get_mut(uid_j as usize))
+                {
+                    *cell = I32F32::saturating_from_num(weight_ij);
+                }
             }
         }
         weights
@@ -1730,8 +1725,10 @@ impl<T: Config> Pallet<T> {
     pub fn compute_ema_bonds_normal_sparse(
         bonds_delta: &[Vec<(u16, I32F32)>],
         bonds: &[Vec<(u16, I32F32)>],
-        netuid: NetUidStorageIndex,
+        netuid_index: NetUidStorageIndex,
     ) -> Vec<Vec<(u16, I32F32)>> {
+        let (netuid, _) = Self::get_netuid_and_subid(netuid_index).unwrap_or_default();
+
         // Retrieve the bonds moving average for the given network ID and scale it down.
         let bonds_moving_average: I64F64 =
             I64F64::saturating_from_num(Self::get_bonds_moving_average(netuid))
@@ -1764,7 +1761,7 @@ impl<T: Config> Pallet<T> {
     pub fn compute_ema_bonds_normal(
         bonds_delta: &[Vec<I32F32>],
         bonds: &[Vec<I32F32>],
-        netuid: NetUidStorageIndex,
+        netuid: NetUid,
     ) -> Vec<Vec<I32F32>> {
         // Retrieve the bonds moving average for the given network ID and scale it down.
         let bonds_moving_average: I64F64 =
@@ -1798,13 +1795,11 @@ impl<T: Config> Pallet<T> {
     /// # Returns:
     /// A vector of EMA bonds.
     pub fn compute_bonds(
-        netuid_index: NetUidStorageIndex,
+        netuid: NetUid,
         weights: &[Vec<I32F32>], // weights_for_bonds
         bonds: &[Vec<I32F32>],
         consensus: &[I32F32],
     ) -> Vec<Vec<I32F32>> {
-        let (netuid, _) = Self::get_netuid_and_subid(netuid_index).unwrap_or_default();
-
         // Check if Liquid Alpha is enabled, consensus is not empty, and contains non-zero values.
         if LiquidAlphaOn::<T>::get(netuid)
             && !consensus.is_empty()
@@ -1821,7 +1816,7 @@ impl<T: Config> Pallet<T> {
             mat_ema_alpha(weights, bonds, &alphas)
         } else {
             // Liquid Alpha is disabled, compute the liquid alpha value.
-            let alpha: I32F32 = Self::compute_disabled_liquid_alpha(netuid_index);
+            let alpha: I32F32 = Self::compute_disabled_liquid_alpha(netuid);
 
             // Compute the Exponential Moving Average (EMA) of bonds using the calculated alpha value.
             mat_ema(weights, bonds, alpha)
@@ -1863,7 +1858,7 @@ impl<T: Config> Pallet<T> {
             mat_ema_alpha_sparse(weights, bonds, &alphas)
         } else {
             // Liquid Alpha is disabled, compute the liquid alpha value.
-            let alpha: I32F32 = Self::compute_disabled_liquid_alpha(netuid_index);
+            let alpha: I32F32 = Self::compute_disabled_liquid_alpha(netuid);
 
             // Compute the Exponential Moving Average (EMA) of bonds using the calculated alpha value.
             mat_ema_sparse(weights, bonds, alpha)
@@ -2018,7 +2013,7 @@ impl<T: Config> Pallet<T> {
         clamp_value(alpha, alpha_low, alpha_high)
     }
 
-    pub fn compute_disabled_liquid_alpha(netuid: NetUidStorageIndex) -> I32F32 {
+    pub fn compute_disabled_liquid_alpha(netuid: NetUid) -> I32F32 {
         // Retrieve the bonds moving average for the given network ID and scale it down.
         let bonds_moving_average: I64F64 = I64F64::from_num(Self::get_bonds_moving_average(netuid))
             .saturating_div(I64F64::from_num(1_000_000));

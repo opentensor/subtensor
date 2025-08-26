@@ -1488,7 +1488,7 @@ fn test_set_weights_sum_larger_than_u16_max() {
         assert_ok!(result);
 
         // Get max-upscaled unnormalized weights.
-        let all_weights: Vec<Vec<I32F32>> = SubtensorModule::get_weights(netuid);
+        let all_weights: Vec<Vec<I32F32>> = SubtensorModule::get_weights(netuid.into());
         let weights_set: &[I32F32] = &all_weights[neuron_uid as usize];
         assert_eq!(weights_set[0], I32F32::from_num(u16::MAX));
         assert_eq!(weights_set[1], I32F32::from_num(u16::MAX));
@@ -5113,7 +5113,7 @@ fn test_reveal_crv3_commits_success() {
         // Step epochs to run the epoch via the blockstep
         step_epochs(3, netuid);
 
-        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         let weights = weights_sparse.get(neuron_uid1 as usize).cloned().unwrap_or_default();
 
         assert!(
@@ -5235,7 +5235,7 @@ fn test_reveal_crv3_commits_cannot_reveal_after_reveal_epoch() {
         step_epochs(3, netuid);
 
         // Verify that weights are not set
-        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         let weights = weights_sparse
             .get(neuron_uid1 as usize)
             .cloned()
@@ -5270,7 +5270,7 @@ fn test_reveal_crv3_commits_cannot_reveal_after_reveal_epoch() {
         assert_ok!(SubtensorModule::reveal_crv3_commits(netuid));
 
         // Verify that the weights for the neuron have not been set
-        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         let weights = weights_sparse
             .get(neuron_uid1 as usize)
             .cloned()
@@ -5607,7 +5607,7 @@ fn test_reveal_crv3_commits_decryption_failure() {
 
         let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey)
             .expect("Failed to get neuron UID for hotkey") as usize;
-        let weights_matrix = SubtensorModule::get_weights(netuid);
+        let weights_matrix = SubtensorModule::get_weights(netuid.into());
         let weights = weights_matrix.get(neuron_uid).cloned().unwrap_or_default();
         assert!(weights.iter().all(|&w| w == I32F32::from_num(0)));
     });
@@ -5720,7 +5720,7 @@ fn test_reveal_crv3_commits_multiple_commits_some_fail_some_succeed() {
         // Verify that weights are set for hotkey1
         let neuron_uid1 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey1)
             .expect("Failed to get neuron UID for hotkey1") as usize;
-        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         let weights1 = weights_sparse.get(neuron_uid1).cloned().unwrap_or_default();
         assert!(
             !weights1.is_empty(),
@@ -5815,7 +5815,7 @@ fn test_reveal_crv3_commits_do_set_weights_failure() {
         // Verify that weights are not set due to `do_set_weights` failure
         let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey)
             .expect("Failed to get neuron UID for hotkey") as usize;
-        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         let weights = weights_sparse.get(neuron_uid).cloned().unwrap_or_default();
         assert!(
             weights.is_empty(),
@@ -5893,7 +5893,7 @@ fn test_reveal_crv3_commits_payload_decoding_failure() {
         // Verify that weights are not set
         let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey)
             .expect("Failed to get neuron UID for hotkey") as usize;
-        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         let weights = weights_sparse.get(neuron_uid).cloned().unwrap_or_default();
         assert!(
             weights.is_empty(),
@@ -5975,7 +5975,7 @@ fn test_reveal_crv3_commits_signature_deserialization_failure() {
         // Verify that weights are not set
         let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey)
             .expect("Failed to get neuron UID for hotkey") as usize;
-        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         let weights = weights_sparse.get(neuron_uid).cloned().unwrap_or_default();
         assert!(
             weights.is_empty(),
@@ -6040,7 +6040,7 @@ fn test_reveal_crv3_commits_with_empty_commit_queue() {
 
         step_epochs(2, netuid);
 
-        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         assert!(
             weights_sparse.is_empty(),
             "Weights should be empty as there were no commits to reveal"
@@ -6127,7 +6127,7 @@ fn test_reveal_crv3_commits_with_incorrect_identity_message() {
 
         // Verify that weights are not set due to decryption failure
         let neuron_uid = neuron_uid as usize;
-        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         let weights = weights_sparse.get(neuron_uid).cloned().unwrap_or_default();
         assert!(
             weights.is_empty(),
@@ -6337,7 +6337,7 @@ fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
         step_epochs(2, netuid);
 
         // ───── assertions ───────────────────────────────────────────────────
-        let w_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let w_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         for hk in hotkeys {
             let uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hk).unwrap() as usize;
             assert!(
@@ -6452,7 +6452,7 @@ fn test_reveal_crv3_commits_max_neurons() {
         step_epochs(2, netuid);
 
         // ───── verify weights ───────────────────────────────────────────────
-        let w_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let w_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         for hk in &committing_hotkeys {
             let uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, hk).unwrap() as usize;
             assert!(
@@ -6682,7 +6682,7 @@ fn test_reveal_crv3_commits_hotkey_check() {
         // Step epochs to run the epoch via the blockstep
         step_epochs(3, netuid);
 
-        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         let weights = weights_sparse.get(neuron_uid1 as usize).cloned().unwrap_or_default();
 
         assert!(
@@ -6799,7 +6799,7 @@ fn test_reveal_crv3_commits_hotkey_check() {
         // Step epochs to run the epoch via the blockstep
         step_epochs(3, netuid);
 
-        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         let weights = weights_sparse.get(neuron_uid1 as usize).cloned().unwrap_or_default();
 
         assert!(
@@ -6937,7 +6937,7 @@ fn test_reveal_crv3_commits_retry_on_missing_pulse() {
 
         step_block(1); // automatic reveal runs here
 
-        let weights = SubtensorModule::get_weights_sparse(netuid)
+        let weights = SubtensorModule::get_weights_sparse(netuid.into())
             .get(uid as usize)
             .cloned()
             .unwrap_or_default();
@@ -7072,7 +7072,7 @@ fn test_reveal_crv3_commits_legacy_payload_success() {
         // ─────────────────────────────────────
         // 5 ▸ assertions
         // ─────────────────────────────────────
-        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid.into());
         let w1 = weights_sparse
             .get(uid1 as usize)
             .cloned()
