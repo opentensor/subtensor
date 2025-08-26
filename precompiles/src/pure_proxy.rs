@@ -67,7 +67,7 @@ where
             pallet_proxy::Pallet::<R>::pure_account(&account_id, &proxy_type, index, None);
 
         let data = pallet_proxy::Proxies::<R>::get(&pure_account);
-        if data.0.len() > 0 {
+        if !data.0.is_empty() {
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::Other("Pure proxy already exists".into()),
             });
