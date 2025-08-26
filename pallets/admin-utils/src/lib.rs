@@ -197,7 +197,7 @@ pub mod pallet {
         /// The extrinsic will call the Subtensor pallet to set the transaction rate limit.
         #[pallet::call_index(2)]
         #[pallet::weight(
-            (Weight::from_parts(7_000_000, 0)
+            (Weight::from_parts(5_400_000, 0)
 			    .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
             Pays::Yes)
@@ -903,7 +903,7 @@ pub mod pallet {
         /// The extrinsic will call the Subtensor pallet to set the issuance for the network.
         #[pallet::call_index(33)]
         #[pallet::weight((
-            Weight::from_parts(4_000_000, 0)
+            Weight::from_parts(2_875_000, 0)
 			    .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
             Pays::Yes
@@ -1008,7 +1008,7 @@ pub mod pallet {
         /// The extrinsic will call the Subtensor pallet to set the recycled RAO.
         #[pallet::call_index(39)]
         #[pallet::weight((
-            Weight::from_parts(12_000_000, 4045)
+            Weight::from_parts(15_060_000, 4045)
                 .saturating_add(T::DbWeight::get().reads(1_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
@@ -1048,7 +1048,7 @@ pub mod pallet {
         /// The extrinsic will call the Subtensor pallet to set the minimum stake required for nominators.
         #[pallet::call_index(43)]
         #[pallet::weight((
-            Weight::from_parts(23_000_000, 6792)
+            Weight::from_parts(28_050_000, 6792)
                 .saturating_add(T::DbWeight::get().reads(4_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
@@ -1076,7 +1076,7 @@ pub mod pallet {
         /// The extrinsic will call the Subtensor pallet to set the rate limit for delegate take transactions.
         #[pallet::call_index(45)]
         #[pallet::weight((
-            Weight::from_parts(4_000_000, 0).saturating_add(T::DbWeight::get().writes(1_u64)),
+            Weight::from_parts(5_019_000, 0).saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
             Pays::Yes
         ))]
@@ -1182,7 +1182,7 @@ pub mod pallet {
         /// Sets values for liquid alpha
         #[pallet::call_index(51)]
         #[pallet::weight((
-            Weight::from_parts(12_000_000, 4089)
+            Weight::from_parts(14_960_000, 4089)
                 .saturating_add(T::DbWeight::get().reads(1_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Normal,
@@ -1347,7 +1347,7 @@ pub mod pallet {
         /// # Weight
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(57)]
-        #[pallet::weight(Weight::from_parts(19_320_000, 0)
+        #[pallet::weight(Weight::from_parts(15_220_000, 0)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_commit_reveal_weights_interval(
@@ -1437,7 +1437,7 @@ pub mod pallet {
         /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
         #[pallet::call_index(61)]
         #[pallet::weight((
-            Weight::from_parts(6_000_000, 0)
+            Weight::from_parts(7_514_000, 0)
 			    .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Normal,
             Pays::Yes
@@ -1465,7 +1465,7 @@ pub mod pallet {
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(62)]
         #[pallet::weight((
-            Weight::from_parts(5_000_000, 3507)
+            Weight::from_parts(6_392_000, 3507)
 			    .saturating_add(T::DbWeight::get().reads(1_u64)),
             DispatchClass::Operational,
             Pays::Yes
@@ -1551,7 +1551,7 @@ pub mod pallet {
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(65)]
         #[pallet::weight((
-            Weight::from_parts(3_000_000, 0)
+            Weight::from_parts(3_918_000, 0)
 			    .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
             Pays::Yes
@@ -1587,7 +1587,7 @@ pub mod pallet {
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(68)]
         #[pallet::weight((
-            Weight::from_parts(10_000_000, 4045)
+            Weight::from_parts(12_160_000, 4045)
                 .saturating_add(T::DbWeight::get().reads(1_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Normal,
@@ -1628,7 +1628,7 @@ pub mod pallet {
         /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
         #[pallet::call_index(69)]
         #[pallet::weight((
-            Weight::from_parts(6_000_000, 0)
+            Weight::from_parts(7_374_000, 0)
 			    .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Normal,
             Pays::Yes
@@ -1707,7 +1707,7 @@ pub mod pallet {
         /// This function is rate-limited to one call per subnet per interval (e.g., one week).
         #[pallet::call_index(67)]
         #[pallet::weight((
-            Weight::from_parts(17_000_000, 4204)
+            Weight::from_parts(20_570_000, 4204)
                 .saturating_add(T::DbWeight::get().reads(2_u64))
                 .saturating_add(T::DbWeight::get().writes(2_u64)),
             DispatchClass::Normal,
@@ -1735,7 +1735,7 @@ pub mod pallet {
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(66)]
         #[pallet::weight((
-            Weight::from_parts(3_000_000, 0)
+            Weight::from_parts(4_448_000, 0)
 			    .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Operational,
             Pays::Yes
