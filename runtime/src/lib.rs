@@ -889,7 +889,6 @@ impl pallet_proxy::Config for Runtime {
     type CallHasher = BlakeTwo256;
     type AnnouncementDepositBase = AnnouncementDepositBase;
     type AnnouncementDepositFactor = AnnouncementDepositFactor;
-    type AddressMapping = pallet_evm::HashedAddressMapping<BlakeTwo256>;
 }
 
 pub struct Proxier;
