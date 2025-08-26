@@ -28,7 +28,9 @@ use sp_runtime::traits::{Bounded, CheckedDiv};
 
 const SEED: u32 = 0;
 
-fn assert_last_event<T: frame_system::pallet::Config>(generic_event: <T as frame_system::pallet::Config>::RuntimeEvent) {
+fn assert_last_event<T: frame_system::pallet::Config>(
+    generic_event: <T as frame_system::pallet::Config>::RuntimeEvent,
+) {
     frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 

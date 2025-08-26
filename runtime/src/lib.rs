@@ -17,6 +17,7 @@ pub mod transaction_payment_wrapper;
 extern crate alloc;
 
 use codec::{Compact, Decode, Encode};
+use ethereum::AuthorizationList;
 use frame_support::{
     PalletId,
     dispatch::{DispatchResult, DispatchResultWithPostInfo},
@@ -65,7 +66,6 @@ use sp_version::RuntimeVersion;
 use subtensor_precompiles::Precompiles;
 use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
 use subtensor_swap_interface::{OrderType, SwapHandler};
-use ethereum::AuthorizationList;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
