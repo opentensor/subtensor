@@ -158,7 +158,9 @@ impl<T: Config> Pallet<T> {
             u64::from(alpha).saturating_sub(per_subsubnet.saturating_mul(subsubnet_count));
 
         let mut result = vec![AlphaCurrency::from(per_subsubnet); subsubnet_count as usize];
-        result[0] = result[0].saturating_add(AlphaCurrency::from(rounding_err));
+        if let Some(cell) = result.first_mut() {
+            *cell = cell.saturating_add(AlphaCurrency::from(rounding_err));
+        }
         result
     }
 
@@ -199,7 +201,7 @@ impl<T: Config> Pallet<T> {
 
                     // Run epoch function on the subsubnet emission
                     let epoch_output = Self::epoch_subsubnet(netuid, sub_id, sub_emission);
-                    Self::persist_subsub_epoch_terms(netuid, sub_id, &epoch_output.as_map());
+                    Self::persist_subsub_epoch_terms(netuid, sub_id, epoch_output.as_map());
 
                     // Calculate subsubnet weight from the split emission (not the other way because preserving
                     // emission accuracy is the priority)
@@ -236,7 +238,7 @@ impl<T: Config> Pallet<T> {
                                 terms.stake_weight,
                                 sub_weight,
                             );
-                            acc_terms.active = acc_terms.active | terms.active;
+                            acc_terms.active |= terms.active;
                             acc_terms.emission = Self::weighted_acc_alpha(
                                 acc_terms.emission,
                                 terms.emission,
@@ -261,8 +263,7 @@ impl<T: Config> Pallet<T> {
                                 terms.validator_trust,
                                 sub_weight,
                             );
-                            acc_terms.new_validator_permit =
-                                acc_terms.new_validator_permit | terms.new_validator_permit;
+                            acc_terms.new_validator_permit |= terms.new_validator_permit;
                         })
                         .or_insert(terms);
                     acc

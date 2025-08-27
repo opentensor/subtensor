@@ -69,8 +69,8 @@ impl<T: Config> Pallet<T> {
         let output = Self::epoch_subsubnet(netuid, SubId::MAIN, rao_emission);
 
         // Persist values in legacy format
-        Self::persist_subsub_epoch_terms(netuid, SubId::MAIN, &output.as_map());
-        Self::persist_netuid_epoch_terms(netuid, &output.as_map());
+        Self::persist_subsub_epoch_terms(netuid, SubId::MAIN, output.as_map());
+        Self::persist_netuid_epoch_terms(netuid, output.as_map());
 
         // Remap and return
         output
@@ -735,20 +735,14 @@ impl<T: Config> Pallet<T> {
             let mut commit_blocks: Vec<u64> = vec![u64::MAX; n as usize]; // MAX ⇒ “no active commit”
 
             // helper: hotkey → uid
-            let uid_of = |acct: &T::AccountId| -> Option<usize> {
-                if let Some(terms) = terms_map.get(acct) {
-                    Some(terms.uid)
-                } else {
-                    None
-                }
-            };
+            let uid_of = |acct: &T::AccountId| terms_map.get(acct).map(|t| t.uid);
 
             // ---------- v2 ------------------------------------------------------
             for (who, q) in WeightCommits::<T>::iter_prefix(netuid_index) {
                 for (_, cb, _, _) in q.iter() {
                     if !Self::is_commit_expired(netuid, *cb) {
-                        if let Some(i) = uid_of(&who) {
-                            commit_blocks[i] = commit_blocks[i].min(*cb);
+                        if let Some(cell) = uid_of(&who).and_then(|i| commit_blocks.get_mut(i)) {
+                            *cell = (*cell).min(*cb);
                         }
                         break; // earliest active found
                     }
@@ -759,8 +753,8 @@ impl<T: Config> Pallet<T> {
             for (_epoch, q) in TimelockedWeightCommits::<T>::iter_prefix(netuid) {
                 for (who, cb, ..) in q.iter() {
                     if !Self::is_commit_expired(netuid, *cb) {
-                        if let Some(i) = uid_of(who) {
-                            commit_blocks[i] = commit_blocks[i].min(*cb);
+                        if let Some(cell) = uid_of(who).and_then(|i| commit_blocks.get_mut(i)) {
+                            *cell = (*cell).min(*cb);
                         }
                     }
                 }
@@ -1620,7 +1614,7 @@ impl<T: Config> Pallet<T> {
                 if let Some(row) = weights.get_mut(uid_i as usize) {
                     row.push((*uid_j, I32F32::saturating_from_num(*weight_ij)));
                 } else {
-                    log::error!("uid_i {:?} is filtered to be less than n", uid_i);
+                    log::error!("uid_i {uid_i:?} is filtered to be less than n");
                 }
             }
         }
