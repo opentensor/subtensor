@@ -15,10 +15,13 @@ pub use types::*;
 pub use weights::WeightInfo;
 
 use ark_serialize::CanonicalDeserialize;
-use frame_support::{BoundedVec, traits::Currency};
+use frame_support::{
+    BoundedVec,
+    traits::{Currency, Get},
+};
 use scale_info::prelude::collections::BTreeSet;
 use sp_runtime::SaturatedConversion;
-use sp_runtime::{Saturating, traits::Zero};
+use sp_runtime::{Saturating, Weight, traits::Zero};
 use sp_std::{boxed::Box, vec::Vec};
 use subtensor_runtime_common::NetUid;
 use tle::{
@@ -359,10 +362,13 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(n: BlockNumberFor<T>) -> Weight {
-            if let Err(e) = Self::reveal_timelocked_commitments() {
-                log::debug!("Failed to unveil matured commitments on block {n:?}: {e:?}");
+            match Self::reveal_timelocked_commitments() {
+                Ok(w) => w,
+                Err(e) => {
+                    log::debug!("Failed to unveil matured commitments on block {n:?}: {e:?}");
+                    Weight::from_parts(0, 0)
+                }
             }
-            Weight::from_parts(0, 0)
         }
     }
 }
@@ -399,13 +405,22 @@ pub enum CallType {
 use frame_support::{dispatch::DispatchResult, pallet_prelude::TypeInfo};
 
 impl<T: Config> Pallet<T> {
-    pub fn reveal_timelocked_commitments() -> DispatchResult {
+    pub fn reveal_timelocked_commitments() -> Result<Weight, sp_runtime::DispatchError> {
+        let mut total_weight = Weight::from_parts(0, 0);
+
         let index = TimelockedIndex::<T>::get();
+        total_weight = total_weight.saturating_add(T::DbWeight::get().reads(1));
+
         for (netuid, who) in index.clone() {
-            let Some(mut registration) = <CommitmentOf<T>>::get(netuid, &who) else {
+            let maybe_registration = <CommitmentOf<T>>::get(netuid, &who);
+            total_weight = total_weight.saturating_add(T::DbWeight::get().reads(1));
+
+            let Some(mut registration) = maybe_registration else {
                 TimelockedIndex::<T>::mutate(|idx| {
                     idx.remove(&(netuid, who.clone()));
                 });
+
+                total_weight = total_weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
                 continue;
             };
 
@@ -419,6 +434,7 @@ impl<T: Config> Pallet<T> {
                         encrypted,
                         reveal_round,
                     } => {
+                        total_weight = total_weight.saturating_add(T::DbWeight::get().reads(1));
                         let pulse = match pallet_drand::Pulses::<T>::get(reveal_round) {
                             Some(p) => p,
                             None => {
@@ -486,6 +502,7 @@ impl<T: Config> Pallet<T> {
             if !revealed_fields.is_empty() {
                 let mut existing_reveals =
                     RevealedCommitments::<T>::get(netuid, &who).unwrap_or_default();
+                total_weight = total_weight.saturating_add(T::DbWeight::get().reads(1));
 
                 let current_block = <frame_system::Pallet<T>>::block_number();
                 let block_u64 = current_block.saturated_into::<u64>();
@@ -507,6 +524,7 @@ impl<T: Config> Pallet<T> {
                 }
 
                 RevealedCommitments::<T>::insert(netuid, &who, existing_reveals);
+                total_weight = total_weight.saturating_add(T::DbWeight::get().writes(1));
             }
 
             registration.info.fields = BoundedVec::try_from(remain_fields)
@@ -515,12 +533,19 @@ impl<T: Config> Pallet<T> {
             match registration.info.fields.is_empty() {
                 true => {
                     <CommitmentOf<T>>::remove(netuid, &who);
+                    total_weight = total_weight.saturating_add(T::DbWeight::get().writes(1));
+
                     TimelockedIndex::<T>::mutate(|idx| {
                         idx.remove(&(netuid, who.clone()));
                     });
+
+                    total_weight =
+                        total_weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
                 }
                 false => {
                     <CommitmentOf<T>>::insert(netuid, &who, &registration);
+                    total_weight = total_weight.saturating_add(T::DbWeight::get().writes(1));
+
                     let has_timelock = registration
                         .info
                         .fields
@@ -530,11 +555,14 @@ impl<T: Config> Pallet<T> {
                         TimelockedIndex::<T>::mutate(|idx| {
                             idx.remove(&(netuid, who.clone()));
                         });
+
+                        total_weight =
+                            total_weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
                     }
                 }
             }
         }
 
-        Ok(())
+        Ok(total_weight)
     }
 }
