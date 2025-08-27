@@ -10,12 +10,12 @@ mod mock;
 pub mod types;
 pub mod weights;
 
-pub use pallet::*;
-pub use types::*;
-pub use weights::WeightInfo;
-
 use ark_serialize::CanonicalDeserialize;
+use codec::Encode;
+use frame_support::IterableStorageDoubleMap;
 use frame_support::{BoundedVec, traits::Currency};
+use frame_system::pallet_prelude::BlockNumberFor;
+pub use pallet::*;
 use scale_info::prelude::collections::BTreeSet;
 use sp_runtime::SaturatedConversion;
 use sp_runtime::{Saturating, traits::Zero};
@@ -26,7 +26,9 @@ use tle::{
     stream_ciphers::AESGCMStreamCipherProvider,
     tlock::{TLECiphertext, tld},
 };
+pub use types::*;
 use w3f_bls::EngineBLS;
+pub use weights::WeightInfo;
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -130,7 +132,7 @@ pub mod pallet {
     /// Identity data by account
     #[pallet::storage]
     #[pallet::getter(fn commitment_of)]
-    pub(super) type CommitmentOf<T: Config> = StorageDoubleMap<
+    pub type CommitmentOf<T: Config> = StorageDoubleMap<
         _,
         Identity,
         NetUid,
@@ -536,5 +538,29 @@ impl<T: Config> Pallet<T> {
         }
 
         Ok(())
+    }
+    pub fn get_commitments(netuid: NetUid) -> Vec<(T::AccountId, Vec<u8>)> {
+        let commitments: Vec<(T::AccountId, Vec<u8>)> =
+            <CommitmentOf<T> as IterableStorageDoubleMap<
+                NetUid,
+                T::AccountId,
+                Registration<BalanceOf<T>, T::MaxFields, BlockNumberFor<T>>,
+            >>::iter_prefix(netuid)
+            .map(|(account, registration)| {
+                let bytes = registration.encode();
+                (account, bytes)
+            })
+            .collect();
+        commitments
+    }
+}
+
+pub trait GetCommitments<AccountId> {
+    fn get_commitments(netuid: NetUid) -> Vec<(AccountId, Vec<u8>)>;
+}
+
+impl<AccountId> GetCommitments<AccountId> for () {
+    fn get_commitments(_netuid: NetUid) -> Vec<(AccountId, Vec<u8>)> {
+        Vec::new()
     }
 }

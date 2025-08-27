@@ -47,6 +47,7 @@ runtime-common.workspace = true
 subtensor-runtime-common = { workspace = true, features = ["approx"] }
 
 pallet-drand.workspace = true
+pallet-commitments.workspace = true
 pallet-collective.workspace = true
 pallet-membership.workspace = true
 hex-literal.workspace = true
@@ -87,6 +88,7 @@ std = [
 	"ndarray/std",
 	"num-traits/std",
 	"pallet-balances/std",
+	"pallet-commitments/std",
 	"pallet-collective/std",
 	"pallet-drand/std",
 	"pallet-membership/std",
@@ -132,6 +134,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
+	"pallet-commitments/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
@@ -156,6 +159,7 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 	"pallet-collective/try-runtime",
 	"pallet-drand/try-runtime",
+	"pallet-commitments/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-crowdloan/try-runtime",
 	"runtime-common/try-runtime"
