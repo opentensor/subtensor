@@ -1431,7 +1431,7 @@ impl<T: Config> Pallet<T> {
             .map(|(account, commitment)| {
                 let compact_commitment = commitment
                     .iter()
-                    .map(|c| Compact::from(c.clone()))
+                    .map(|c| Compact::from(*c))
                     .collect::<Vec<Compact<u8>>>();
                 (account.clone(), compact_commitment)
             })
