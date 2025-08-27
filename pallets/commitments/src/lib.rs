@@ -132,7 +132,7 @@ pub mod pallet {
     /// Identity data by account
     #[pallet::storage]
     #[pallet::getter(fn commitment_of)]
-    pub type CommitmentOf<T: Config> = StorageDoubleMap<
+    pub(super) type CommitmentOf<T: Config> = StorageDoubleMap<
         _,
         Identity,
         NetUid,
