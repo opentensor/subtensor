@@ -75,7 +75,7 @@ impl<T: Config> Pallet<T> {
         // Remap and return
         output
             .into_iter()
-            .map(|(hotkey, terms)| (hotkey, terms.validator_emission, terms.server_emission))
+            .map(|(hotkey, terms)| (hotkey, terms.server_emission, terms.validator_emission))
             .collect()
     }
 
@@ -105,12 +105,13 @@ impl<T: Config> Pallet<T> {
             .collect::<sp_std::vec::Vec<_>>();
 
         Incentive::<T>::insert(netuid_index, incentive);
-        bonds.into_iter().enumerate().for_each(|(uid_usize, bond_vec)| { 
-            let uid: u16 = uid_usize
-                .try_into()
-                .unwrap_or_default();
-            Bonds::<T>::insert(netuid_index, uid, bond_vec);
-        });
+        bonds
+            .into_iter()
+            .enumerate()
+            .for_each(|(uid_usize, bond_vec)| {
+                let uid: u16 = uid_usize.try_into().unwrap_or_default();
+                Bonds::<T>::insert(netuid_index, uid, bond_vec);
+            });
     }
 
     /// Persists per-netuid epoch output in state
@@ -1612,8 +1613,8 @@ impl<T: Config> Pallet<T> {
         let (netuid, _) = Self::get_netuid_and_subid(netuid_index).unwrap_or_default();
         let n = Self::get_subnetwork_n(netuid) as usize;
         let mut weights: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
-        for (uid_i, weights_i) in Weights::<T>::iter_prefix(netuid_index)
-        .filter(|(uid_i, _)| *uid_i < n as u16)
+        for (uid_i, weights_i) in
+            Weights::<T>::iter_prefix(netuid_index).filter(|(uid_i, _)| *uid_i < n as u16)
         {
             for (uid_j, weight_ij) in weights_i.iter().filter(|(uid_j, _)| *uid_j < n as u16) {
                 if let Some(row) = weights.get_mut(uid_i as usize) {
@@ -1631,8 +1632,8 @@ impl<T: Config> Pallet<T> {
         let (netuid, _) = Self::get_netuid_and_subid(netuid_index).unwrap_or_default();
         let n = Self::get_subnetwork_n(netuid) as usize;
         let mut weights: Vec<Vec<I32F32>> = vec![vec![I32F32::saturating_from_num(0.0); n]; n];
-        for (uid_i, weights_vec) in Weights::<T>::iter_prefix(netuid_index)
-        .filter(|(uid_i, _)| *uid_i < n as u16)
+        for (uid_i, weights_vec) in
+            Weights::<T>::iter_prefix(netuid_index).filter(|(uid_i, _)| *uid_i < n as u16)
         {
             for (uid_j, weight_ij) in weights_vec
                 .into_iter()
@@ -1655,10 +1656,7 @@ impl<T: Config> Pallet<T> {
         let n = Self::get_subnetwork_n(netuid) as usize;
         let mut bonds: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
         for (uid_i, bonds_vec) in
-            Bonds::<T>::iter_prefix(
-                netuid_index,
-            )
-            .filter(|(uid_i, _)| *uid_i < n as u16)
+            Bonds::<T>::iter_prefix(netuid_index).filter(|(uid_i, _)| *uid_i < n as u16)
         {
             for (uid_j, bonds_ij) in bonds_vec {
                 bonds
@@ -1676,10 +1674,7 @@ impl<T: Config> Pallet<T> {
         let n: usize = Self::get_subnetwork_n(netuid) as usize;
         let mut bonds: Vec<Vec<I32F32>> = vec![vec![I32F32::saturating_from_num(0.0); n]; n];
         for (uid_i, bonds_vec) in
-            Bonds::<T>::iter_prefix(
-                netuid_index,
-            )
-            .filter(|(uid_i, _)| *uid_i < n as u16)
+            Bonds::<T>::iter_prefix(netuid_index).filter(|(uid_i, _)| *uid_i < n as u16)
         {
             for (uid_j, bonds_ij) in bonds_vec.into_iter().filter(|(uid_j, _)| *uid_j < n as u16) {
                 *bonds
@@ -1703,7 +1698,9 @@ impl<T: Config> Pallet<T> {
         bonds
     }
 
-    pub fn get_bonds_sparse_fixed_proportion(netuid: NetUidStorageIndex) -> Vec<Vec<(u16, I32F32)>> {
+    pub fn get_bonds_sparse_fixed_proportion(
+        netuid: NetUidStorageIndex,
+    ) -> Vec<Vec<(u16, I32F32)>> {
         let mut bonds = Self::get_bonds_sparse(netuid);
         bonds.iter_mut().for_each(|bonds_row| {
             bonds_row
@@ -2064,7 +2061,10 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn do_reset_bonds(netuid_index: NetUidStorageIndex, account_id: &T::AccountId) -> Result<(), DispatchError> {
+    pub fn do_reset_bonds(
+        netuid_index: NetUidStorageIndex,
+        account_id: &T::AccountId,
+    ) -> Result<(), DispatchError> {
         let (netuid, _) = Self::get_netuid_and_subid(netuid_index).unwrap_or_default();
 
         // check bonds reset enabled for this subnet

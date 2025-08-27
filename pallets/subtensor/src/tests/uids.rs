@@ -145,7 +145,10 @@ fn test_replace_neuron() {
         assert_eq!(axon_info.ip_type, 0);
 
         // Check bonds are cleared.
-        assert_eq!(Bonds::<Test>::get(NetUidStorageIndex::from(netuid), neuron_uid), vec![]);
+        assert_eq!(
+            Bonds::<Test>::get(NetUidStorageIndex::from(netuid), neuron_uid),
+            vec![]
+        );
         assert_eq!(AssociatedEvmAddress::<Test>::get(netuid, neuron_uid), None);
     });
 }
@@ -214,7 +217,10 @@ fn test_bonds_cleared_on_replace() {
         assert_eq!(curr_hotkey.unwrap(), new_hotkey_account_id);
 
         // Check bonds are cleared.
-        assert_eq!(Bonds::<Test>::get(NetUidStorageIndex::from(netuid), neuron_uid), vec![]);
+        assert_eq!(
+            Bonds::<Test>::get(NetUidStorageIndex::from(netuid), neuron_uid),
+            vec![]
+        );
         assert_eq!(AssociatedEvmAddress::<Test>::get(netuid, neuron_uid), None);
     });
 }

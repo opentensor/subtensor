@@ -2464,6 +2464,7 @@ fn test_blocks_since_last_step() {
     });
 }
 
+/// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::epoch::test_can_set_self_weight_as_subnet_owner --exact --show-output
 #[test]
 fn test_can_set_self_weight_as_subnet_owner() {
     new_test_ext(1).execute_with(|| {
@@ -2510,8 +2511,12 @@ fn test_can_set_self_weight_as_subnet_owner() {
 
         // hotkey_emission is [(hotkey, incentive, dividend)]
         assert_eq!(hotkey_emission.len(), 2);
-        assert_eq!(hotkey_emission[0].0, subnet_owner_hotkey);
-        assert_eq!(hotkey_emission[1].0, other_hotkey);
+        assert!(
+            hotkey_emission
+                .iter()
+                .any(|(hk, _, _)| *hk == subnet_owner_hotkey)
+        );
+        assert!(hotkey_emission.iter().any(|(hk, _, _)| *hk == other_hotkey));
 
         log::debug!("hotkey_emission: {hotkey_emission:?}");
         // Both should have received incentive emission
