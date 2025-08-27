@@ -223,6 +223,7 @@ impl pallet_subtensor::Config for Test {
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
     type ProxyInterface = ();
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
+    type GetCommitments = ();
 }
 
 parameter_types! {
