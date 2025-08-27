@@ -97,6 +97,10 @@ pallet-commitments.workspace = true
 
 # for prod_or_fast! macro
 runtime-common.workspace = true
+
+# Smart contracts support
+pallet-contracts.workspace = true
+
 # NPoS
 frame-election-provider-support = { workspace = true }
 pallet-authority-discovery = { workspace = true }
@@ -267,6 +271,7 @@ std = [
 	"pallet-subtensor-swap/std",
 	"pallet-subtensor-swap-runtime-api/std",
 	"subtensor-swap-interface/std",
+	"pallet-contracts/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -301,6 +306,7 @@ runtime-benchmarks = [
 	"pallet-nomination-pools/runtime-benchmarks",
 	"pallet-offences/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"pallet-contracts/runtime-benchmarks",
 
 	# EVM + Frontier
 	"pallet-ethereum/runtime-benchmarks",
@@ -342,6 +348,7 @@ try-runtime = [
 	"pallet-babe/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking/try-runtime",
+	"pallet-contracts/try-runtime",
 	"pallet-election-provider-multi-phase/try-runtime",
 	"frame-election-provider-support/try-runtime",
 	"pallet-authority-discovery/try-runtime",
