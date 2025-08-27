@@ -214,9 +214,6 @@ impl<T: Config> Pallet<T> {
                 })
                 // Consolidate the hotkey emissions into a single BTreeMap
                 .fold(BTreeMap::new(), |mut acc, (hotkey, (terms, sub_weight))| {
-
-                    println!("Hotkey: {:?}, terms: {:?}", hotkey, terms);
-
                     acc.entry(hotkey)
                         .and_modify(|acc_terms| {
                             acc_terms.dividend = Self::weighted_acc_u16(
@@ -276,9 +273,10 @@ impl<T: Config> Pallet<T> {
 
         // Remap BTreeMap back to Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> format
         // for processing emissions in run_coinbase
+        // Emission tuples ( hotkeys, server_emission, validator_emission )
         aggregated
             .into_iter()
-            .map(|(hotkey, terms)| (hotkey, terms.validator_emission, terms.server_emission))
+            .map(|(hotkey, terms)| (hotkey, terms.server_emission, terms.validator_emission))
             .collect()
     }
 }
