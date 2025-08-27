@@ -1,4 +1,3 @@
-use core::marker::PhantomData;
 use core::ops::Neg;
 
 use frame_support::storage::{TransactionOutcome, transactional};
@@ -10,9 +9,10 @@ use substrate_fixed::types::{I64F64, U64F64, U96F32};
 use subtensor_runtime_common::{
     AlphaCurrency, BalanceOps, Currency, CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
 };
-use subtensor_swap_interface::{SwapHandler, SwapResult};
+use subtensor_swap_interface::{Order as OrderT, SwapHandler, SwapResult};
 
 use super::pallet::*;
+use super::swap_step::{SwapStep, SwapStepAction};
 use crate::{
     OrderType, SqrtPrice,
     position::{Position, PositionId},
@@ -42,247 +42,6 @@ pub struct RemoveLiquidityResult {
     pub tick_high: TickIndex,
     pub liquidity: u64,
 }
-/// A struct representing a single swap step with all its parameters and state
-struct SwapStep<T: frame_system::Config> {
-    // Input parameters
-    netuid: NetUid,
-    order_type: OrderType,
-    drop_fees: bool,
-
-    // Computed values
-    current_liquidity: U64F64,
-    possible_delta_in: u64,
-
-    // Ticks and prices (current, limit, edge, target)
-    target_sqrt_price: SqrtPrice,
-    limit_sqrt_price: SqrtPrice,
-    current_sqrt_price: SqrtPrice,
-    edge_sqrt_price: SqrtPrice,
-    edge_tick: TickIndex,
-
-    // Result values
-    action: SwapStepAction,
-    delta_in: u64,
-    final_price: SqrtPrice,
-    fee: u64,
-
-    // Phantom data to use T
-    _phantom: PhantomData<T>,
-}
-
-impl<T: Config> SwapStep<T> {
-    /// Creates and initializes a new swap step
-    fn new(
-        netuid: NetUid,
-        order_type: OrderType,
-        amount_remaining: u64,
-        limit_sqrt_price: SqrtPrice,
-        drop_fees: bool,
-    ) -> Self {
-        // Calculate prices and ticks
-        let current_tick = CurrentTick::<T>::get(netuid);
-        let current_sqrt_price = Pallet::<T>::current_price_sqrt(netuid);
-        let edge_tick = Pallet::<T>::tick_edge(netuid, current_tick, order_type);
-        let edge_sqrt_price = edge_tick.as_sqrt_price_bounded();
-
-        let fee = Pallet::<T>::calculate_fee_amount(netuid, amount_remaining, drop_fees);
-        let possible_delta_in = amount_remaining.saturating_sub(fee);
-
-        // Target price and quantities
-        let current_liquidity = U64F64::saturating_from_num(CurrentLiquidity::<T>::get(netuid));
-        let target_sqrt_price = Pallet::<T>::sqrt_price_target(
-            order_type,
-            current_liquidity,
-            current_sqrt_price,
-            possible_delta_in,
-        );
-
-        Self {
-            netuid,
-            order_type,
-            drop_fees,
-            target_sqrt_price,
-            limit_sqrt_price,
-            current_sqrt_price,
-            edge_sqrt_price,
-            edge_tick,
-            possible_delta_in,
-            current_liquidity,
-            action: SwapStepAction::Stop,
-            delta_in: 0,
-            final_price: target_sqrt_price,
-            fee,
-            _phantom: PhantomData,
-        }
-    }
-
-    /// Execute the swap step and return the result
-    fn execute(&mut self) -> Result<SwapStepResult, Error<T>> {
-        self.determine_action();
-        self.process_swap()
-    }
-
-    /// Returns True if sq_price1 is closer to the current price than sq_price2
-    /// in terms of order direction.
-    ///    For buying:  sq_price1 <= sq_price2
-    ///    For selling: sq_price1 >= sq_price2
-    ///
-    fn price_is_closer(&self, sq_price1: &SqrtPrice, sq_price2: &SqrtPrice) -> bool {
-        match self.order_type {
-            OrderType::Buy => sq_price1 <= sq_price2,
-            OrderType::Sell => sq_price1 >= sq_price2,
-        }
-    }
-
-    /// Determine the appropriate action for this swap step
-    fn determine_action(&mut self) {
-        let mut recalculate_fee = false;
-
-        // Calculate the stopping price: The price at which we either reach the limit price,
-        // exchange the full amount, or reach the edge price.
-        if self.price_is_closer(&self.target_sqrt_price, &self.limit_sqrt_price)
-            && self.price_is_closer(&self.target_sqrt_price, &self.edge_sqrt_price)
-        {
-            // Case 1. target_quantity is the lowest
-            // The trade completely happens within one tick, no tick crossing happens.
-            self.action = SwapStepAction::Stop;
-            self.final_price = self.target_sqrt_price;
-            self.delta_in = self.possible_delta_in;
-        } else if self.price_is_closer(&self.limit_sqrt_price, &self.target_sqrt_price)
-            && self.price_is_closer(&self.limit_sqrt_price, &self.edge_sqrt_price)
-        {
-            // Case 2. lim_quantity is the lowest
-            // The trade also completely happens within one tick, no tick crossing happens.
-            self.action = SwapStepAction::Stop;
-            self.final_price = self.limit_sqrt_price;
-            self.delta_in = Self::delta_in(
-                self.order_type,
-                self.current_liquidity,
-                self.current_sqrt_price,
-                self.limit_sqrt_price,
-            );
-            recalculate_fee = true;
-        } else {
-            // Case 3. edge_quantity is the lowest
-            // Tick crossing is likely
-            self.action = SwapStepAction::Crossing;
-            self.delta_in = Self::delta_in(
-                self.order_type,
-                self.current_liquidity,
-                self.current_sqrt_price,
-                self.edge_sqrt_price,
-            );
-            self.final_price = self.edge_sqrt_price;
-            recalculate_fee = true;
-        }
-
-        log::trace!("\tAction           : {:?}", self.action);
-        log::trace!(
-            "\tCurrent Price    : {}",
-            self.current_sqrt_price
-                .saturating_mul(self.current_sqrt_price)
-        );
-        log::trace!(
-            "\tTarget Price     : {}",
-            self.target_sqrt_price
-                .saturating_mul(self.target_sqrt_price)
-        );
-        log::trace!(
-            "\tLimit Price      : {}",
-            self.limit_sqrt_price.saturating_mul(self.limit_sqrt_price)
-        );
-        log::trace!(
-            "\tEdge Price       : {}",
-            self.edge_sqrt_price.saturating_mul(self.edge_sqrt_price)
-        );
-        log::trace!("\tDelta In         : {}", self.delta_in);
-
-        // Because on step creation we calculate fee off the total amount, we might need to recalculate it
-        // in case if we hit the limit price or the edge price.
-        if recalculate_fee {
-            let u16_max = U64F64::saturating_from_num(u16::MAX);
-            let fee_rate = if self.drop_fees {
-                U64F64::saturating_from_num(0)
-            } else {
-                U64F64::saturating_from_num(FeeRate::<T>::get(self.netuid))
-            };
-            let delta_fixed = U64F64::saturating_from_num(self.delta_in);
-            self.fee = delta_fixed
-                .saturating_mul(fee_rate.safe_div(u16_max.saturating_sub(fee_rate)))
-                .saturating_to_num::<u64>();
-        }
-
-        // Now correct the action if we stopped exactly at the edge no matter what was the case above
-        // Because order type buy moves the price up and tick semi-open interval doesn't include its right
-        // point, we cross on buys and stop on sells.
-        let natural_reason_stop_price =
-            if self.price_is_closer(&self.limit_sqrt_price, &self.target_sqrt_price) {
-                self.limit_sqrt_price
-            } else {
-                self.target_sqrt_price
-            };
-        if natural_reason_stop_price == self.edge_sqrt_price {
-            self.action = match self.order_type {
-                OrderType::Buy => SwapStepAction::Crossing,
-                OrderType::Sell => SwapStepAction::Stop,
-            };
-        }
-    }
-
-    /// Process a single step of a swap
-    fn process_swap(&self) -> Result<SwapStepResult, Error<T>> {
-        // Hold the fees
-        Pallet::<T>::add_fees(self.netuid, self.order_type, self.fee);
-        let delta_out = Pallet::<T>::convert_deltas(self.netuid, self.order_type, self.delta_in);
-        log::trace!("\tDelta Out        : {delta_out:?}");
-
-        if self.action == SwapStepAction::Crossing {
-            let mut tick = Ticks::<T>::get(self.netuid, self.edge_tick).unwrap_or_default();
-            tick.fees_out_tao = I64F64::saturating_from_num(FeeGlobalTao::<T>::get(self.netuid))
-                .saturating_sub(tick.fees_out_tao);
-            tick.fees_out_alpha =
-                I64F64::saturating_from_num(FeeGlobalAlpha::<T>::get(self.netuid))
-                    .saturating_sub(tick.fees_out_alpha);
-            Pallet::<T>::update_liquidity_at_crossing(self.netuid, self.order_type)?;
-            Ticks::<T>::insert(self.netuid, self.edge_tick, tick);
-        }
-
-        // Update current price
-        AlphaSqrtPrice::<T>::set(self.netuid, self.final_price);
-
-        // Update current tick
-        let new_current_tick = TickIndex::from_sqrt_price_bounded(self.final_price);
-        CurrentTick::<T>::set(self.netuid, new_current_tick);
-
-        Ok(SwapStepResult {
-            amount_to_take: self.delta_in.saturating_add(self.fee),
-            fee_paid: self.fee,
-            delta_in: self.delta_in,
-            delta_out,
-        })
-    }
-
-    /// Get the input amount needed to reach the target price
-    fn delta_in(
-        order_type: OrderType,
-        liquidity_curr: U64F64,
-        sqrt_price_curr: SqrtPrice,
-        sqrt_price_target: SqrtPrice,
-    ) -> u64 {
-        let one = U64F64::saturating_from_num(1);
-
-        (match order_type {
-            OrderType::Sell => liquidity_curr.saturating_mul(
-                one.safe_div(sqrt_price_target.into())
-                    .saturating_sub(one.safe_div(sqrt_price_curr)),
-            ),
-            OrderType::Buy => {
-                liquidity_curr.saturating_mul(sqrt_price_target.saturating_sub(sqrt_price_curr))
-            }
-        })
-        .saturating_to_num::<u64>()
-    }
-}
 
 impl<T: Config> Pallet<T> {
     pub fn current_price(netuid: NetUid) -> U96F32 {
@@ -304,10 +63,6 @@ impl<T: Config> Pallet<T> {
             }
             _ => U96F32::saturating_from_num(1),
         }
-    }
-
-    pub fn current_price_sqrt(netuid: NetUid) -> SqrtPrice {
-        AlphaSqrtPrice::<T>::get(netuid)
     }
 
     // initializes V3 swap for a subnet if needed
@@ -372,7 +127,7 @@ impl<T: Config> Pallet<T> {
             let (tao_fees, alpha_fees) = position.collect_fees();
 
             // Adjust liquidity
-            let current_sqrt_price = Pallet::<T>::current_price_sqrt(netuid);
+            let current_sqrt_price = AlphaSqrtPrice::<T>::get(netuid);
             let maybe_token_amounts = position.to_token_amounts(current_sqrt_price);
             if let Ok((tao, alpha)) = maybe_token_amounts {
                 // Get updated reserves, calculate liquidity
@@ -428,10 +183,9 @@ impl<T: Config> Pallet<T> {
     /// 2. Skips reserve checks — it may return an `amount_paid_out` greater than the available reserve.
     ///
     /// Use simulation mode to preview the outcome of a swap without modifying the blockchain state.
-    pub fn do_swap<PaidIn, PaidOut, ReserveIn, ReserveOut>(
+    pub fn do_swap<PaidIn, PaidOut, ReserveIn, ReserveOut, Order>(
         netuid: NetUid,
-        order_type: OrderType,
-        amount: PaidIn,
+        order: Order,
         limit_sqrt_price: SqrtPrice,
         drop_fees: bool,
         simulate: bool,
@@ -441,14 +195,14 @@ impl<T: Config> Pallet<T> {
         PaidOut: Currency,
         ReserveIn: CurrencyReserve<PaidIn>,
         ReserveOut: CurrencyReserve<PaidOut>,
+        Order: OrderT<PaidIn, PaidOut>,
     {
         transactional::with_transaction(|| {
             let reserve = ReserveOut::reserve(netuid.into());
 
-            let result = Self::swap_inner::<PaidIn, PaidOut, ReserveIn, ReserveOut>(
+            let result = Self::swap_inner::<PaidIn, PaidOut, ReserveIn, ReserveOut, Order>(
                 netuid,
-                order_type,
-                amount,
+                order,
                 limit_sqrt_price,
                 drop_fees,
             )
@@ -474,10 +228,9 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    fn swap_inner<PaidIn, PaidOut, ReserveIn, ReserveOut>(
+    fn swap_inner<PaidIn, PaidOut, ReserveIn, ReserveOut, Order>(
         netuid: NetUid,
-        order_type: OrderType,
-        amount: PaidIn,
+        order: Order,
         limit_sqrt_price: SqrtPrice,
         drop_fees: bool,
     ) -> Result<SwapResult<PaidIn, PaidOut>, Error<T>>
@@ -486,6 +239,7 @@ impl<T: Config> Pallet<T> {
         PaidOut: Currency,
         ReserveIn: CurrencyReserve<PaidIn>,
         ReserveOut: CurrencyReserve<PaidOut>,
+        Order: OrderT<PaidIn, PaidOut>,
     {
         ensure!(
             ReserveOut::reserve(netuid).to_u64() >= T::MinimumReserve::get().get(),
@@ -495,18 +249,12 @@ impl<T: Config> Pallet<T> {
         Self::maybe_initialize_v3(netuid)?;
 
         // Because user specifies the limit price, check that it is in fact beoynd the current one
-        match order_type {
-            OrderType::Buy => ensure!(
-                AlphaSqrtPrice::<T>::get(netuid) < limit_sqrt_price,
-                Error::<T>::PriceLimitExceeded
-            ),
-            OrderType::Sell => ensure!(
-                AlphaSqrtPrice::<T>::get(netuid) > limit_sqrt_price,
-                Error::<T>::PriceLimitExceeded
-            ),
-        };
+        ensure!(
+            order.is_beyond_price_limit(AlphaSqrtPrice::<T>::get(netuid), limit_sqrt_price),
+            Error::<T>::PriceLimitExceeded
+        );
 
-        let mut amount_remaining = amount;
+        let mut amount_remaining = order.amount();
         let mut amount_paid_out: u64 = 0;
         let mut iteration_counter: u16 = 0;
         let mut in_acc: u64 = 0;
@@ -524,13 +272,8 @@ impl<T: Config> Pallet<T> {
             );
 
             // Create and execute a swap step
-            let mut swap_step = SwapStep::<T>::new(
-                netuid,
-                order_type,
-                amount_remaining.into(),
-                limit_sqrt_price,
-                drop_fees,
-            );
+            let mut swap_step =
+                SwapStep::<T>::new(netuid, order, amount_remaining, limit_sqrt_price, drop_fees);
 
             let swap_result = swap_step.execute()?;
 
@@ -573,223 +316,29 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    /// Get the tick at the current tick edge for the given direction (order type) If
-    /// order type is Buy, then edge tick is the high tick, otherwise it is the low
-    /// tick.
-    ///
-    /// If anything is wrong with tick math and it returns Err, we just abort the deal, i.e. return
-    /// the edge that is impossible to execute
-    fn tick_edge(netuid: NetUid, current_tick: TickIndex, order_type: OrderType) -> TickIndex {
-        match order_type {
-            OrderType::Buy => ActiveTickIndexManager::<T>::find_closest_higher(
-                netuid,
-                current_tick.next().unwrap_or(TickIndex::MAX),
-            )
-            .unwrap_or(TickIndex::MAX),
-            OrderType::Sell => {
-                let current_price = Pallet::<T>::current_price_sqrt(netuid);
-                let current_tick_price = current_tick.as_sqrt_price_bounded();
-                let is_active = ActiveTickIndexManager::<T>::tick_is_active(netuid, current_tick);
-
-                if is_active && current_price > current_tick_price {
-                    ActiveTickIndexManager::<T>::find_closest_lower(netuid, current_tick)
-                        .unwrap_or(TickIndex::MIN)
-                } else {
-                    ActiveTickIndexManager::<T>::find_closest_lower(
-                        netuid,
-                        current_tick.prev().unwrap_or(TickIndex::MIN),
-                    )
-                    .unwrap_or(TickIndex::MIN)
-                }
-            }
-        }
-    }
-
     /// Calculate fee amount
     ///
     /// Fee is provided by state ops as u16-normalized value.
-    fn calculate_fee_amount(netuid: NetUid, amount: u64, drop_fees: bool) -> u64 {
+    pub(crate) fn calculate_fee_amount<C: Currency>(
+        netuid: NetUid,
+        amount: C,
+        drop_fees: bool,
+    ) -> C {
         if drop_fees {
-            0
-        } else {
-            match T::SubnetInfo::mechanism(netuid) {
-                1 => {
-                    let fee_rate = U64F64::saturating_from_num(FeeRate::<T>::get(netuid))
-                        .safe_div(U64F64::saturating_from_num(u16::MAX));
-                    U64F64::saturating_from_num(amount)
-                        .saturating_mul(fee_rate)
-                        .saturating_to_num::<u64>()
-                }
-                _ => 0,
-            }
-        }
-    }
-
-    /// Add fees to the global fee counters
-    fn add_fees(netuid: NetUid, order_type: OrderType, fee: u64) {
-        let liquidity_curr = Self::current_liquidity_safe(netuid);
-
-        if liquidity_curr == 0 {
-            return;
+            return C::ZERO;
         }
 
-        let fee_global_tao = FeeGlobalTao::<T>::get(netuid);
-        let fee_global_alpha = FeeGlobalAlpha::<T>::get(netuid);
-        let fee_fixed = U64F64::saturating_from_num(fee);
-
-        match order_type {
-            OrderType::Sell => {
-                FeeGlobalAlpha::<T>::set(
-                    netuid,
-                    fee_global_alpha.saturating_add(fee_fixed.safe_div(liquidity_curr)),
-                );
+        match T::SubnetInfo::mechanism(netuid) {
+            1 => {
+                let fee_rate = U64F64::saturating_from_num(FeeRate::<T>::get(netuid))
+                    .safe_div(U64F64::saturating_from_num(u16::MAX));
+                U64F64::saturating_from_num(amount)
+                    .saturating_mul(fee_rate)
+                    .saturating_to_num::<u64>()
+                    .into()
             }
-            OrderType::Buy => {
-                FeeGlobalTao::<T>::set(
-                    netuid,
-                    fee_global_tao.saturating_add(fee_fixed.safe_div(liquidity_curr)),
-                );
-            }
+            _ => C::ZERO,
         }
-    }
-
-    /// Convert input amount (delta_in) to output amount (delta_out)
-    ///
-    /// This is the core method of uniswap V3 that tells how much output token is given for an
-    /// amount of input token within one price tick.
-    pub(super) fn convert_deltas(netuid: NetUid, order_type: OrderType, delta_in: u64) -> u64 {
-        // Skip conversion if delta_in is zero
-        if delta_in == 0 {
-            return 0;
-        }
-
-        let liquidity_curr = SqrtPrice::saturating_from_num(CurrentLiquidity::<T>::get(netuid));
-        let sqrt_price_curr = Pallet::<T>::current_price_sqrt(netuid);
-        let delta_fixed = SqrtPrice::saturating_from_num(delta_in);
-
-        // Calculate result based on order type with proper fixed-point math
-        // Using safe math operations throughout to prevent overflows
-        let result = match order_type {
-            OrderType::Sell => {
-                // liquidity_curr / (liquidity_curr / sqrt_price_curr + delta_fixed);
-                let denom = liquidity_curr
-                    .safe_div(sqrt_price_curr)
-                    .saturating_add(delta_fixed);
-                let a = liquidity_curr.safe_div(denom);
-                // a * sqrt_price_curr;
-                let b = a.saturating_mul(sqrt_price_curr);
-
-                // delta_fixed * b;
-                delta_fixed.saturating_mul(b)
-            }
-            OrderType::Buy => {
-                // (liquidity_curr * sqrt_price_curr + delta_fixed) * sqrt_price_curr;
-                let a = liquidity_curr
-                    .saturating_mul(sqrt_price_curr)
-                    .saturating_add(delta_fixed)
-                    .saturating_mul(sqrt_price_curr);
-                // liquidity_curr / a;
-                let b = liquidity_curr.safe_div(a);
-                // b * delta_fixed;
-                b.saturating_mul(delta_fixed)
-            }
-        };
-
-        result.saturating_to_num::<u64>()
-    }
-
-    /// Get the target square root price based on the input amount
-    ///
-    /// This is the price that would be reached if
-    ///    - There are no liquidity positions other than protocol liquidity
-    ///    - Full delta_in amount is executed
-    ///
-    fn sqrt_price_target(
-        order_type: OrderType,
-        liquidity_curr: U64F64,
-        sqrt_price_curr: SqrtPrice,
-        delta_in: u64,
-    ) -> SqrtPrice {
-        let delta_fixed = U64F64::saturating_from_num(delta_in);
-        let one = U64F64::saturating_from_num(1);
-
-        // No liquidity means that price should go to the limit
-        if liquidity_curr == 0 {
-            return match order_type {
-                OrderType::Sell => {
-                    SqrtPrice::saturating_from_num(Self::min_price::<AlphaCurrency>().to_u64())
-                }
-                OrderType::Buy => {
-                    SqrtPrice::saturating_from_num(Self::max_price::<TaoCurrency>().to_u64())
-                }
-            };
-        }
-
-        match order_type {
-            OrderType::Sell => one.safe_div(
-                delta_fixed
-                    .safe_div(liquidity_curr)
-                    .saturating_add(one.safe_div(sqrt_price_curr)),
-            ),
-            OrderType::Buy => delta_fixed
-                .safe_div(liquidity_curr)
-                .saturating_add(sqrt_price_curr),
-        }
-    }
-
-    /// Update liquidity when crossing a tick
-    fn update_liquidity_at_crossing(netuid: NetUid, order_type: OrderType) -> Result<(), Error<T>> {
-        let mut liquidity_curr = CurrentLiquidity::<T>::get(netuid);
-        let current_tick_index = TickIndex::current_bounded::<T>(netuid);
-
-        // Find the appropriate tick based on order type
-        let tick = match order_type {
-            OrderType::Sell => {
-                // Self::find_closest_lower_active_tick(netuid, current_tick_index)
-                let current_price = Pallet::<T>::current_price_sqrt(netuid);
-                let current_tick_price = current_tick_index.as_sqrt_price_bounded();
-                let is_active =
-                    ActiveTickIndexManager::<T>::tick_is_active(netuid, current_tick_index);
-
-                let lower_tick = if is_active && current_price > current_tick_price {
-                    ActiveTickIndexManager::<T>::find_closest_lower(netuid, current_tick_index)
-                        .unwrap_or(TickIndex::MIN)
-                } else {
-                    ActiveTickIndexManager::<T>::find_closest_lower(
-                        netuid,
-                        current_tick_index.prev().unwrap_or(TickIndex::MIN),
-                    )
-                    .unwrap_or(TickIndex::MIN)
-                };
-                Ticks::<T>::get(netuid, lower_tick)
-            }
-            OrderType::Buy => {
-                // Self::find_closest_higher_active_tick(netuid, current_tick_index),
-                let upper_tick = ActiveTickIndexManager::<T>::find_closest_higher(
-                    netuid,
-                    current_tick_index.next().unwrap_or(TickIndex::MAX),
-                )
-                .unwrap_or(TickIndex::MAX);
-                Ticks::<T>::get(netuid, upper_tick)
-            }
-        }
-        .ok_or(Error::<T>::InsufficientLiquidity)?;
-
-        let liquidity_update_abs_u64 = tick.liquidity_net_as_u64();
-
-        // Update liquidity based on the sign of liquidity_net and the order type
-        liquidity_curr = match (order_type, tick.liquidity_net >= 0) {
-            (OrderType::Sell, true) | (OrderType::Buy, false) => {
-                liquidity_curr.saturating_sub(liquidity_update_abs_u64)
-            }
-            (OrderType::Sell, false) | (OrderType::Buy, true) => {
-                liquidity_curr.saturating_add(liquidity_update_abs_u64)
-            }
-        };
-
-        CurrentLiquidity::<T>::set(netuid, liquidity_curr);
-
-        Ok(())
     }
 
     pub fn find_closest_lower_active_tick(netuid: NetUid, index: TickIndex) -> Option<Tick> {
@@ -803,7 +352,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Here we subtract minimum safe liquidity from current liquidity to stay in the safe range
-    fn current_liquidity_safe(netuid: NetUid) -> U64F64 {
+    pub(crate) fn current_liquidity_safe(netuid: NetUid) -> U64F64 {
         U64F64::saturating_from_num(
             CurrentLiquidity::<T>::get(netuid).saturating_sub(T::MinimumLiquidity::get()),
         )
@@ -914,7 +463,7 @@ impl<T: Config> Pallet<T> {
         let position_id = PositionId::new::<T>();
         let position = Position::new(position_id, netuid, tick_low, tick_high, liquidity);
 
-        let current_price_sqrt = Pallet::<T>::current_price_sqrt(netuid);
+        let current_price_sqrt = AlphaSqrtPrice::<T>::get(netuid);
         let (tao, alpha) = position.to_token_amounts(current_price_sqrt)?;
 
         SwapV3Initialized::<T>::set(netuid, true);
@@ -993,7 +542,7 @@ impl<T: Config> Pallet<T> {
         let mut delta_liquidity_abs = liquidity_delta.unsigned_abs();
 
         // Determine the effective price for token calculations
-        let current_price_sqrt = Pallet::<T>::current_price_sqrt(netuid);
+        let current_price_sqrt = AlphaSqrtPrice::<T>::get(netuid);
         let sqrt_pa: SqrtPrice = position
             .tick_low
             .try_to_sqrt_price()
@@ -1220,6 +769,23 @@ impl<T: Config> Pallet<T> {
     pub fn protocol_account_id() -> T::AccountId {
         T::ProtocolId::get().into_account_truncating()
     }
+
+    pub(crate) fn min_price_inner<C: Currency>() -> C {
+        TickIndex::min_sqrt_price()
+            .saturating_mul(TickIndex::min_sqrt_price())
+            .saturating_mul(SqrtPrice::saturating_from_num(1_000_000_000))
+            .saturating_to_num::<u64>()
+            .into()
+    }
+
+    pub(crate) fn max_price_inner<C: Currency>() -> C {
+        TickIndex::max_sqrt_price()
+            .saturating_mul(TickIndex::max_sqrt_price())
+            .saturating_mul(SqrtPrice::saturating_from_num(1_000_000_000))
+            .saturating_round()
+            .saturating_to_num::<u64>()
+            .into()
+    }
 }
 
 impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
@@ -1292,7 +858,7 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
     }
 
     fn approx_fee_amount<C: Currency>(netuid: NetUid, amount: C) -> C {
-        Self::calculate_fee_amount(netuid, amount.to_u64(), false).into()
+        Self::calculate_fee_amount(netuid, amount, false)
     }
 
     fn current_alpha_price(netuid: NetUid) -> U96F32 {
@@ -1300,20 +866,11 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
     }
 
     fn min_price<C: Currency>() -> C {
-        TickIndex::min_sqrt_price()
-            .saturating_mul(TickIndex::min_sqrt_price())
-            .saturating_mul(SqrtPrice::saturating_from_num(1_000_000_000))
-            .saturating_to_num::<u64>()
-            .into()
+        Self::min_price()
     }
 
     fn max_price<C: Currency>() -> C {
-        TickIndex::max_sqrt_price()
-            .saturating_mul(TickIndex::max_sqrt_price())
-            .saturating_mul(SqrtPrice::saturating_from_num(1_000_000_000))
-            .saturating_round()
-            .saturating_to_num::<u64>()
-            .into()
+        Self::max_price()
     }
 
     fn adjust_protocol_liquidity(
@@ -1327,18 +884,4 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool {
         EnabledUserLiquidity::<T>::get(netuid)
     }
-}
-
-#[derive(Debug, PartialEq)]
-struct SwapStepResult {
-    amount_to_take: u64,
-    fee_paid: u64,
-    delta_in: u64,
-    delta_out: u64,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum SwapStepAction {
-    Crossing,
-    Stop,
 }

@@ -4,7 +4,9 @@ use frame_support::pallet_prelude::*;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaCurrency, Currency, CurrencyReserve, NetUid, TaoCurrency};
 
-pub mod order;
+pub use order::*;
+
+mod order;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OrderType {
