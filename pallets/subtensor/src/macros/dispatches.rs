@@ -78,7 +78,7 @@ mod dispatches {
         /// 	- Attempting to set weights with max value exceeding limit.
         #[pallet::call_index(0)]
         #[pallet::weight((Weight::from_parts(15_540_000_000, 0)
-        .saturating_add(T::DbWeight::get().reads(4111))
+        .saturating_add(T::DbWeight::get().reads(4112_u64))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn set_weights(
             origin: OriginFor<T>,
@@ -197,9 +197,9 @@ mod dispatches {
         /// 	- On failure for each failed item in the batch.
         ///
         #[pallet::call_index(80)]
-        #[pallet::weight((Weight::from_parts(95_160_000, 0)
-        .saturating_add(T::DbWeight::get().reads(14))
-        .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_parts(19_180_000, 0)
+        .saturating_add(T::DbWeight::get().reads(1_u64))
+        .saturating_add(T::DbWeight::get().writes(0_u64)), DispatchClass::Normal, Pays::No))]
         pub fn batch_set_weights(
             origin: OriginFor<T>,
             netuids: Vec<Compact<NetUid>>,
@@ -229,8 +229,8 @@ mod dispatches {
         ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
         ///
         #[pallet::call_index(96)]
-        #[pallet::weight((Weight::from_parts(55_130_000, 0)
-		.saturating_add(T::DbWeight::get().reads(7))
+        #[pallet::weight((Weight::from_parts(67_770_000, 0)
+		.saturating_add(T::DbWeight::get().reads(9_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_weights(
             origin: T::RuntimeOrigin,
@@ -295,8 +295,8 @@ mod dispatches {
         /// 	- On failure for each failed item in the batch.
         ///
         #[pallet::call_index(100)]
-        #[pallet::weight((Weight::from_parts(82_010_000, 0)
-        .saturating_add(T::DbWeight::get().reads(8))
+        #[pallet::weight((Weight::from_parts(106_600_000, 0)
+        .saturating_add(T::DbWeight::get().reads(10_u64))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn batch_commit_weights(
             origin: OriginFor<T>,
@@ -345,7 +345,7 @@ mod dispatches {
         ///
         #[pallet::call_index(97)]
         #[pallet::weight((Weight::from_parts(122_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(16))
+		.saturating_add(T::DbWeight::get().reads(17_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn reveal_weights(
             origin: T::RuntimeOrigin,
@@ -442,7 +442,7 @@ mod dispatches {
         ///
         #[pallet::call_index(99)]
         #[pallet::weight((Weight::from_parts(77_750_000, 0)
-		.saturating_add(T::DbWeight::get().reads(7_u64))
+		.saturating_add(T::DbWeight::get().reads(9_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_crv3_weights(
             origin: T::RuntimeOrigin,
@@ -537,7 +537,7 @@ mod dispatches {
         ///   - The input vectors are of mismatched lengths.
         #[pallet::call_index(98)]
         #[pallet::weight((Weight::from_parts(412_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(16))
+		.saturating_add(T::DbWeight::get().reads(17_u64))
 		.saturating_add(T::DbWeight::get().writes(2_u64)), DispatchClass::Normal, Pays::No))]
         pub fn batch_reveal_weights(
             origin: T::RuntimeOrigin,
@@ -1095,7 +1095,7 @@ mod dispatches {
         ///
         #[pallet::call_index(6)]
         #[pallet::weight((Weight::from_parts(197_900_000, 0)
-		.saturating_add(T::DbWeight::get().reads(26))
+		.saturating_add(T::DbWeight::get().reads(27_u64))
 		.saturating_add(T::DbWeight::get().writes(23)), DispatchClass::Normal, Pays::Yes))]
         pub fn register(
             origin: OriginFor<T>,
@@ -1112,7 +1112,7 @@ mod dispatches {
         /// Register the hotkey to root network
         #[pallet::call_index(62)]
         #[pallet::weight((Weight::from_parts(111_700_000, 0)
-		.saturating_add(T::DbWeight::get().reads(23))
+		.saturating_add(T::DbWeight::get().reads(24_u64))
 		.saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Normal, Pays::No))]
         pub fn root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_root_register(origin, hotkey)
@@ -1130,7 +1130,7 @@ mod dispatches {
         /// User register a new subnetwork via burning token
         #[pallet::call_index(7)]
         #[pallet::weight((Weight::from_parts(354_200_000, 0)
-		.saturating_add(T::DbWeight::get().reads(49))
+		.saturating_add(T::DbWeight::get().reads(50_u64))
 		.saturating_add(T::DbWeight::get().writes(43)), DispatchClass::Normal, Pays::Yes))]
         pub fn burned_register(
             origin: OriginFor<T>,
@@ -1399,7 +1399,7 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(235_400_000, 0)
-		.saturating_add(T::DbWeight::get().reads(36))
+		.saturating_add(T::DbWeight::get().reads(37_u64))
 		.saturating_add(T::DbWeight::get().writes(52)), DispatchClass::Normal, Pays::No))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
@@ -1744,7 +1744,7 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(79)]
         #[pallet::weight((Weight::from_parts(234_200_000, 0)
-                .saturating_add(T::DbWeight::get().reads(35))
+                .saturating_add(T::DbWeight::get().reads(36_u64))
                 .saturating_add(T::DbWeight::get().writes(51)), DispatchClass::Normal, Pays::No))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
@@ -2407,7 +2407,7 @@ mod dispatches {
         ///     - The client (bittensor-drand) version
         #[pallet::call_index(113)]
         #[pallet::weight((Weight::from_parts(64_530_000, 0)
-		.saturating_add(T::DbWeight::get().reads(7_u64))
+		.saturating_add(T::DbWeight::get().reads(9_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_timelocked_weights(
             origin: T::RuntimeOrigin,
