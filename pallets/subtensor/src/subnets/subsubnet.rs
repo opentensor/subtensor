@@ -25,7 +25,7 @@ pub type BalanceOf<T> =
 ///
 /// Changing this value will require a migration of all epoch maps.
 ///
-pub const GLOBAL_MAX_SUBNET_COUNT: u16 = 1024;
+pub const GLOBAL_MAX_SUBNET_COUNT: u16 = 4096;
 
 impl<T: Config> Pallet<T> {
     pub fn get_subsubnet_storage_index(netuid: NetUid, sub_id: SubId) -> NetUidStorageIndex {
