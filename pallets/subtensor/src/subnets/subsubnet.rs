@@ -124,19 +124,25 @@ impl<T: Config> Pallet<T> {
                     let new_count = desired_count.max(min_possible_count);
 
                     if old_count > new_count {
-                        todo!();
-                        // Cleanup weights
-                        // Cleanup StakeWeight
-                        // Cleanup Active
-                        // Cleanup Emission
-                        // Cleanup Rank
-                        // Cleanup Trust
-                        // Cleanup Consensus
-                        // Cleanup Incentive
-                        // Cleanup Dividends
-                        // Cleanup PruningScores
-                        // Cleanup ValidatorTrust
-                        // Cleanup ValidatorPermit
+                        for subid in new_count..old_count {
+                            let netuid_index =
+                                Self::get_subsubnet_storage_index(*netuid, SubId::from(subid));
+
+                            // Cleanup Weights
+                            let _ = Weights::<T>::clear_prefix(netuid_index, u32::MAX, None);
+
+                            // Cleanup Incentive
+                            Incentive::<T>::remove(netuid_index);
+
+                            // Cleanup LastUpdate
+                            LastUpdate::<T>::remove(netuid_index);
+
+                            // Cleanup Bonds
+                            let _ = Bonds::<T>::clear_prefix(netuid_index, u32::MAX, None);
+
+                            // Cleanup WeightCommits
+                            let _ = WeightCommits::<T>::clear_prefix(netuid_index, u32::MAX, None);
+                        }
                     }
 
                     SubsubnetCountCurrent::<T>::insert(netuid, SubId::from(new_count));
