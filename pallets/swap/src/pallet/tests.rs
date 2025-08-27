@@ -343,6 +343,40 @@ fn test_add_liquidity_basic() {
 }
 
 #[test]
+fn test_add_liquidity_max_limit_enforced() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        let liquidity = 2_000_000_000_u64;
+        assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+
+        let limit = MaxPositions::get() as usize;
+
+        for _ in 0..limit {
+            Pallet::<Test>::do_add_liquidity(
+                netuid,
+                &OK_COLDKEY_ACCOUNT_ID,
+                &OK_HOTKEY_ACCOUNT_ID,
+                TickIndex::MIN,
+                TickIndex::MAX,
+                liquidity,
+            )
+            .unwrap();
+        }
+
+        let test_result = Pallet::<Test>::do_add_liquidity(
+            netuid,
+            &OK_COLDKEY_ACCOUNT_ID,
+            &OK_HOTKEY_ACCOUNT_ID,
+            TickIndex::MIN,
+            TickIndex::MAX,
+            liquidity,
+        );
+
+        assert_err!(test_result, Error::<Test>::MaxPositionsExceeded);
+    });
+}
+
+#[test]
 fn test_add_liquidity_out_of_bounds() {
     new_test_ext().execute_with(|| {
         [
