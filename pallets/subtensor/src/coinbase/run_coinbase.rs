@@ -49,6 +49,7 @@ impl<T: Config> Pallet<T> {
         let total_moving_prices = acc_total_moving_prices;
         log::debug!("total_moving_prices: {total_moving_prices:?}");
 
+        let mut tao_in_total: TaoCurrency = 0.into();
         let mut alpha_out: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut is_subsidized: BTreeMap<NetUid, bool> = BTreeMap::new();
         // Only calculate for subnets that we are emitting to.
@@ -140,15 +141,17 @@ impl<T: Config> Pallet<T> {
             SubnetTAO::<T>::mutate(*netuid_i, |total| {
                 *total = total.saturating_add(tao_in_curr.into());
             });
-            TotalStake::<T>::mutate(|total| {
-                *total = total.saturating_add(tao_in_curr.into());
-            });
-            TotalIssuance::<T>::mutate(|total| {
-                *total = total.saturating_add(tao_in_curr.into());
-            });
+            tao_in_total = tao_in_total.saturating_add(tao_in_curr);
             // Adjust protocol liquidity based on new reserves
             T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_curr, alpha_in_curr);
         }
+
+        TotalStake::<T>::mutate(|total| {
+            *total = total.saturating_add(tao_in_total.into());
+        });
+        TotalIssuance::<T>::mutate(|total| {
+            *total = total.saturating_add(tao_in_total.into());
+        });
 
         log::debug!("alpha_out: {alpha_out:?}");
 
