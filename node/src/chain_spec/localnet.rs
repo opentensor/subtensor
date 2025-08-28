@@ -134,6 +134,5 @@ fn localnet_genesis(
         "evmChainId": {
             "chainId": 42,
         },
-        "contracts": {},
     })
 }
