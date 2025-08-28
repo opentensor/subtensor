@@ -129,34 +129,34 @@ impl<T: Config> Pallet<T> {
         // This operation changes the pool liquidity each block.
         for netuid_i in subnets_to_emit_to.iter() {
             // Inject Alpha in.
-            let alpha_in_i =
+            let alpha_in_curr =
                 AlphaCurrency::from(tou64!(*alpha_in.get(netuid_i).unwrap_or(&asfloat!(0))));
-            SubnetAlphaInEmission::<T>::insert(*netuid_i, alpha_in_i);
+            SubnetAlphaInEmission::<T>::insert(*netuid_i, alpha_in_curr);
             SubnetAlphaIn::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(alpha_in_i);
+                *total = total.saturating_add(alpha_in_curr);
             });
             // Injection Alpha out.
-            let alpha_out_i =
+            let alpha_out_curr =
                 AlphaCurrency::from(tou64!(*alpha_out.get(netuid_i).unwrap_or(&asfloat!(0))));
-            SubnetAlphaOutEmission::<T>::insert(*netuid_i, alpha_out_i);
+            SubnetAlphaOutEmission::<T>::insert(*netuid_i, alpha_out_curr);
             SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(alpha_out_i);
+                *total = total.saturating_add(alpha_out_curr);
             });
             // Inject TAO in.
-            let tao_in_i: TaoCurrency =
+            let tao_in_curr: TaoCurrency =
                 tou64!(*tao_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
-            SubnetTaoInEmission::<T>::insert(*netuid_i, TaoCurrency::from(tao_in_i));
+            SubnetTaoInEmission::<T>::insert(*netuid_i, TaoCurrency::from(tao_in_curr));
             SubnetTAO::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(tao_in_i.into());
+                *total = total.saturating_add(tao_in_curr.into());
             });
             TotalStake::<T>::mutate(|total| {
-                *total = total.saturating_add(tao_in_i.into());
+                *total = total.saturating_add(tao_in_curr.into());
             });
             TotalIssuance::<T>::mutate(|total| {
-                *total = total.saturating_add(tao_in_i.into());
+                *total = total.saturating_add(tao_in_curr.into());
             });
             // Adjust protocol liquidity based on new reserves
-            T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
+            T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_curr, alpha_in_curr);
         }
 
         log::debug!("tao_in: {tao_in:?}");
