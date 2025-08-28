@@ -1120,7 +1120,7 @@ fn test_sudo_set_commit_reveal_weights_enabled() {
         let netuid = NetUid::from(1);
         add_network(netuid, 10);
 
-        let to_be_set: bool = true;
+        let to_be_set: bool = false;
         let init_value: bool = SubtensorModule::get_commit_reveal_weights_enabled(netuid);
 
         assert_ok!(AdminUtils::sudo_set_commit_reveal_weights_enabled(
@@ -1459,7 +1459,7 @@ fn sudo_set_commit_reveal_weights_interval() {
                 netuid,
                 too_high
             ),
-            Error::<Test>::RevealPeriodOutOfBounds
+            pallet_subtensor::Error::<Test>::RevealPeriodTooLarge
         );
 
         let to_be_set = 55;
