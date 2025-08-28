@@ -49,14 +49,14 @@ impl<T: Config> Pallet<T> {
         let total_moving_prices = acc_total_moving_prices;
         log::debug!("total_moving_prices: {total_moving_prices:?}");
 
-        // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
-        // Computation is described in detail in the dtao whitepaper.
         let mut tao_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut alpha_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut alpha_out: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut is_subsidized: BTreeMap<NetUid, bool> = BTreeMap::new();
         // Only calculate for subnets that we are emitting to.
         for netuid_i in subnets_to_emit_to.iter() {
+            // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
+            // Computation is described in detail in the dtao whitepaper.
             // Get subnet price.
             let price_i = T::SwapInterface::current_alpha_price((*netuid_i).into());
             log::debug!("price_i: {price_i:?}");
@@ -122,29 +122,24 @@ impl<T: Config> Pallet<T> {
             tao_in.insert(*netuid_i, tao_in_i);
             alpha_in.insert(*netuid_i, alpha_in_i);
             alpha_out.insert(*netuid_i, alpha_out_i);
-        }
 
-        // --- 4. Injection.
-        // Actually perform the injection of alpha_in, alpha_out and tao_in into the subnet pool.
-        // This operation changes the pool liquidity each block.
-        for netuid_i in subnets_to_emit_to.iter() {
+            // --- 4. Injection.
+            // Actually perform the injection of alpha_in, alpha_out and tao_in into the subnet pool.
+            // This operation changes the pool liquidity each block.
             // Inject Alpha in.
-            let alpha_in_curr =
-                AlphaCurrency::from(tou64!(*alpha_in.get(netuid_i).unwrap_or(&asfloat!(0))));
+            let alpha_in_curr = AlphaCurrency::from(tou64!(alpha_in_i));
             SubnetAlphaInEmission::<T>::insert(*netuid_i, alpha_in_curr);
             SubnetAlphaIn::<T>::mutate(*netuid_i, |total| {
                 *total = total.saturating_add(alpha_in_curr);
             });
             // Injection Alpha out.
-            let alpha_out_curr =
-                AlphaCurrency::from(tou64!(*alpha_out.get(netuid_i).unwrap_or(&asfloat!(0))));
+            let alpha_out_curr = AlphaCurrency::from(tou64!(alpha_out_i));
             SubnetAlphaOutEmission::<T>::insert(*netuid_i, alpha_out_curr);
             SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
                 *total = total.saturating_add(alpha_out_curr);
             });
             // Inject TAO in.
-            let tao_in_curr: TaoCurrency =
-                tou64!(*tao_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
+            let tao_in_curr: TaoCurrency = tou64!(tao_in_i).into();
             SubnetTaoInEmission::<T>::insert(*netuid_i, TaoCurrency::from(tao_in_curr));
             SubnetTAO::<T>::mutate(*netuid_i, |total| {
                 *total = total.saturating_add(tao_in_curr.into());
