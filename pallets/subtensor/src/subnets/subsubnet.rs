@@ -27,6 +27,10 @@ pub type BalanceOf<T> =
 ///
 pub const GLOBAL_MAX_SUBNET_COUNT: u16 = 4096;
 
+// Theoretical maximum number of subsubnets per subnet
+// GLOBAL_MAX_SUBNET_COUNT * MAX_SUBSUBNET_COUNT_PER_SUBNET should be 0x10000
+pub const MAX_SUBSUBNET_COUNT_PER_SUBNET: u8 = 16;
+
 impl<T: Config> Pallet<T> {
     pub fn get_subsubnet_storage_index(netuid: NetUid, sub_id: SubId) -> NetUidStorageIndex {
         u16::from(sub_id)
@@ -36,9 +40,9 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_netuid_and_subid(
-        sub_or_netid: NetUidStorageIndex,
+        netuid_index: NetUidStorageIndex,
     ) -> Result<(NetUid, SubId), Error<T>> {
-        let maybe_netuid = u16::from(sub_or_netid).checked_rem(GLOBAL_MAX_SUBNET_COUNT);
+        let maybe_netuid = u16::from(netuid_index).checked_rem(GLOBAL_MAX_SUBNET_COUNT);
         if let Some(netuid_u16) = maybe_netuid {
             let netuid = NetUid::from(netuid_u16);
 
@@ -49,7 +53,7 @@ impl<T: Config> Pallet<T> {
             );
 
             // Extract sub_id
-            let sub_id_u8 = u8::try_from(u16::from(sub_or_netid).safe_div(GLOBAL_MAX_SUBNET_COUNT))
+            let sub_id_u8 = u8::try_from(u16::from(netuid_index).safe_div(GLOBAL_MAX_SUBNET_COUNT))
                 .map_err(|_| Error::<T>::SubNetworkDoesNotExist)?;
             let sub_id = SubId::from(sub_id_u8);
 
@@ -96,6 +100,12 @@ impl<T: Config> Pallet<T> {
         // Make sure we are not exceeding the max sub-subnet count
         ensure!(
             subsubnet_count <= MaxSubsubnetCount::<T>::get(),
+            Error::<T>::InvalidValue
+        );
+
+        // Make sure we are not allowing numbers that will break the math
+        ensure!(
+            subsubnet_count <= SubId::from(MAX_SUBSUBNET_COUNT_PER_SUBNET),
             Error::<T>::InvalidValue
         );
 
