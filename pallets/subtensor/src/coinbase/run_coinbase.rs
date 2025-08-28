@@ -49,8 +49,6 @@ impl<T: Config> Pallet<T> {
         let total_moving_prices = acc_total_moving_prices;
         log::debug!("total_moving_prices: {total_moving_prices:?}");
 
-        let mut tao_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
-        let mut alpha_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut alpha_out: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut is_subsidized: BTreeMap<NetUid, bool> = BTreeMap::new();
         // Only calculate for subnets that we are emitting to.
@@ -118,9 +116,7 @@ impl<T: Config> Pallet<T> {
                 alpha_in_i = asfloat!(0.0);
                 alpha_out_i = asfloat!(0.0);
             }
-            // Insert values into maps
-            tao_in.insert(*netuid_i, tao_in_i);
-            alpha_in.insert(*netuid_i, alpha_in_i);
+            // Insert value into map
             alpha_out.insert(*netuid_i, alpha_out_i);
 
             // --- 4. Injection.
@@ -154,8 +150,6 @@ impl<T: Config> Pallet<T> {
             T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_curr, alpha_in_curr);
         }
 
-        log::debug!("tao_in: {tao_in:?}");
-        log::debug!("alpha_in: {alpha_in:?}");
         log::debug!("alpha_out: {alpha_out:?}");
 
         // --- 5. Compute owner cuts and remove them from alpha_out remaining.
