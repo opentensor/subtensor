@@ -14,9 +14,23 @@ mod events {
         /// a network is removed.
         NetworkRemoved(NetUid),
         /// stake has been transferred from the a coldkey account onto the hotkey staking account.
-        StakeAdded(T::AccountId, T::AccountId, u64, AlphaCurrency, NetUid, u64),
+        StakeAdded(
+            T::AccountId,
+            T::AccountId,
+            TaoCurrency,
+            AlphaCurrency,
+            NetUid,
+            u64,
+        ),
         /// stake has been removed from the hotkey staking account onto the coldkey account.
-        StakeRemoved(T::AccountId, T::AccountId, u64, AlphaCurrency, NetUid, u64),
+        StakeRemoved(
+            T::AccountId,
+            T::AccountId,
+            TaoCurrency,
+            AlphaCurrency,
+            NetUid,
+            u64,
+        ),
         /// stake has been moved from origin (hotkey, subnet ID) to destination (hotkey, subnet ID) of this amount (in TAO).
         StakeMoved(
             T::AccountId,
@@ -24,7 +38,7 @@ mod events {
             NetUid,
             T::AccountId,
             NetUid,
-            u64,
+            TaoCurrency,
         ),
         /// a caller successfully sets their weights on a subnetwork.
         WeightsSet(NetUid, u16),
@@ -89,11 +103,11 @@ mod events {
         /// setting the prometheus serving rate limit.
         ServingRateLimitSet(NetUid, u64),
         /// setting burn on a network.
-        BurnSet(NetUid, u64),
+        BurnSet(NetUid, TaoCurrency),
         /// setting max burn on a network.
-        MaxBurnSet(NetUid, u64),
+        MaxBurnSet(NetUid, TaoCurrency),
         /// setting min burn on a network.
-        MinBurnSet(NetUid, u64),
+        MinBurnSet(NetUid, TaoCurrency),
         /// setting the transaction rate limit.
         TxRateLimitSet(u64),
         /// setting the delegate take transaction rate limit.
@@ -115,7 +129,7 @@ mod events {
         /// setting tempo on a network
         TempoSet(NetUid, u16),
         /// setting the RAO recycled for registration.
-        RAORecycledForRegistrationSet(NetUid, u64),
+        RAORecycledForRegistrationSet(NetUid, TaoCurrency),
         /// min stake is set for validators to set weights.
         StakeThresholdSet(u64),
         /// setting the minimum required stake amount for senate registration.
@@ -131,7 +145,7 @@ mod events {
         /// the network immunity period is set.
         NetworkImmunityPeriodSet(u64),
         /// the network minimum locking cost is set.
-        NetworkMinLockCostSet(u64),
+        NetworkMinLockCostSet(TaoCurrency),
         /// the maximum number of subnets is set
         // SubnetLimitSet(u16),
         /// the lock cost reduction is set
@@ -167,7 +181,7 @@ mod events {
             /// the account ID of new coldkey
             new_coldkey: T::AccountId,
             /// the swap cost
-            swap_cost: u64,
+            swap_cost: TaoCurrency,
         },
         /// All balance of a hotkey has been unstaked and transferred to a new coldkey
         AllBalanceUnstakedAndTransferredToNewColdkey {
@@ -189,7 +203,7 @@ mod events {
             /// The arbitration block for the coldkey swap
             execution_block: BlockNumberFor<T>,
             /// The swap cost
-            swap_cost: u64,
+            swap_cost: TaoCurrency,
         },
         /// The arbitration period has been extended
         ArbitrationPeriodExtended {
@@ -273,14 +287,14 @@ mod events {
             T::AccountId,
             NetUid,
             NetUid,
-            u64,
+            TaoCurrency,
         ),
 
         /// Stake has been swapped from one subnet to another for the same coldkey-hotkey pair.
         ///
         /// Parameters:
         /// (coldkey, hotkey, origin_netuid, destination_netuid, amount)
-        StakeSwapped(T::AccountId, T::AccountId, NetUid, NetUid, u64),
+        StakeSwapped(T::AccountId, T::AccountId, NetUid, NetUid, TaoCurrency),
 
         /// Event called when transfer is toggled on a subnet.
         ///
@@ -380,5 +394,24 @@ mod events {
             /// The symbol that has been updated.
             symbol: Vec<u8>,
         },
+
+        /// Commit Reveal Weights version has been updated.
+        ///
+        /// - **version**: The required version.
+        CommitRevealVersionSet(u16),
+
+        /// Timelocked weights have been successfully committed.
+        ///
+        /// - **who**: The account ID of the user committing the weights.
+        /// - **netuid**: The network identifier.
+        /// - **commit_hash**: The hash representing the committed weights.
+        /// - **reveal_round**: The round at which weights can be revealed.
+        TimelockedWeightsCommitted(T::AccountId, NetUid, H256, u64),
+
+        /// Timelocked Weights have been successfully revealed.
+        ///
+        /// - **netuid**: The network identifier.
+        /// - **who**: The account ID of the user revealing the weights.
+        TimelockedWeightsRevealed(NetUid, T::AccountId),
     }
 }

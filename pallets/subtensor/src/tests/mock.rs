@@ -23,7 +23,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
 };
 use sp_std::{cell::RefCell, cmp::Ordering};
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{NetUid, TaoCurrency};
 use subtensor_swap_interface::{OrderType, SwapHandler};
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -842,7 +842,7 @@ pub fn add_network_disable_subtoken(netuid: NetUid, tempo: u16, _modality: u16) 
 pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
     let netuid = SubtensorModule::get_next_netuid();
     let lock_cost = SubtensorModule::get_network_lock_cost();
-    SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost);
+    SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost.into());
 
     assert_ok!(SubtensorModule::register_network(
         RawOrigin::Signed(*coldkey).into(),
@@ -859,7 +859,7 @@ pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
 pub fn add_dynamic_network_without_emission_block(hotkey: &U256, coldkey: &U256) -> NetUid {
     let netuid = SubtensorModule::get_next_netuid();
     let lock_cost = SubtensorModule::get_network_lock_cost();
-    SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost);
+    SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost.into());
 
     assert_ok!(SubtensorModule::register_network(
         RawOrigin::Signed(*coldkey).into(),
@@ -870,10 +870,23 @@ pub fn add_dynamic_network_without_emission_block(hotkey: &U256, coldkey: &U256)
     netuid
 }
 
+#[allow(dead_code)]
+pub fn add_dynamic_network_disable_commit_reveal(hotkey: &U256, coldkey: &U256) -> NetUid {
+    let netuid = add_dynamic_network(hotkey, coldkey);
+    SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+    netuid
+}
+
+#[allow(dead_code)]
+pub fn add_network_disable_commit_reveal(netuid: NetUid, tempo: u16, _modality: u16) {
+    add_network(netuid, tempo, _modality);
+    SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+}
+
 // Helper function to set up a neuron with stake
 #[allow(dead_code)]
-pub fn setup_neuron_with_stake(netuid: NetUid, hotkey: U256, coldkey: U256, stake: u64) {
-    register_ok_neuron(netuid, hotkey, coldkey, stake);
+pub fn setup_neuron_with_stake(netuid: NetUid, hotkey: U256, coldkey: U256, stake: TaoCurrency) {
+    register_ok_neuron(netuid, hotkey, coldkey, stake.into());
     increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake, netuid);
 }
 
@@ -942,7 +955,7 @@ pub fn step_rate_limit(transaction_type: &TransactionType, netuid: NetUid) {
 pub fn increase_stake_on_coldkey_hotkey_account(
     coldkey: &U256,
     hotkey: &U256,
-    tao_staked: u64,
+    tao_staked: TaoCurrency,
     netuid: NetUid,
 ) {
     SubtensorModule::stake_into_subnet(
@@ -950,7 +963,7 @@ pub fn increase_stake_on_coldkey_hotkey_account(
         coldkey,
         netuid,
         tao_staked,
-        <Test as Config>::SwapInterface::max_price(),
+        <Test as Config>::SwapInterface::max_price().into(),
         false,
     )
     .unwrap();
@@ -962,7 +975,7 @@ pub fn increase_stake_on_coldkey_hotkey_account(
 /// * `hotkey` - The hotkey account ID.
 /// * `increment` - The amount to be incremented.
 #[allow(dead_code)]
-pub fn increase_stake_on_hotkey_account(hotkey: &U256, increment: u64, netuid: NetUid) {
+pub fn increase_stake_on_hotkey_account(hotkey: &U256, increment: TaoCurrency, netuid: NetUid) {
     increase_stake_on_coldkey_hotkey_account(
         &SubtensorModule::get_owning_coldkey_for_hotkey(hotkey),
         hotkey,
@@ -975,20 +988,20 @@ pub(crate) fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, n
     StakingOperationRateLimiter::<Test>::remove((hotkey, coldkey, netuid));
 }
 
-pub(crate) fn setup_reserves(netuid: NetUid, tao: u64, alpha: AlphaCurrency) {
+pub(crate) fn setup_reserves(netuid: NetUid, tao: TaoCurrency, alpha: AlphaCurrency) {
     SubnetTAO::<Test>::set(netuid, tao);
     SubnetAlphaIn::<Test>::set(netuid, alpha);
 }
 
-pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: u64) -> (AlphaCurrency, u64) {
+pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: TaoCurrency) -> (AlphaCurrency, u64) {
     if netuid.is_root() {
-        return (tao.into(), 0);
+        return (tao.to_u64().into(), 0);
     }
 
     let result = <Test as pallet::Config>::SwapInterface::swap(
         netuid.into(),
         OrderType::Buy,
-        tao,
+        tao.into(),
         <Test as pallet::Config>::SwapInterface::max_price(),
         false,
         true,
@@ -1008,9 +1021,9 @@ pub(crate) fn swap_alpha_to_tao_ext(
     netuid: NetUid,
     alpha: AlphaCurrency,
     drop_fees: bool,
-) -> (u64, u64) {
+) -> (TaoCurrency, u64) {
     if netuid.is_root() {
-        return (alpha.into(), 0);
+        return (alpha.to_u64().into(), 0);
     }
 
     println!(
@@ -1034,10 +1047,10 @@ pub(crate) fn swap_alpha_to_tao_ext(
     // we don't want to have silent 0 comparissons in tests
     assert!(result.amount_paid_out > 0);
 
-    (result.amount_paid_out, result.fee_paid)
+    (result.amount_paid_out.into(), result.fee_paid)
 }
 
-pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: AlphaCurrency) -> (u64, u64) {
+pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: AlphaCurrency) -> (TaoCurrency, u64) {
     swap_alpha_to_tao_ext(netuid, alpha, false)
 }
 

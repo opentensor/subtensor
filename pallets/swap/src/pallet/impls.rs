@@ -7,7 +7,9 @@ use safe_math::*;
 use sp_arithmetic::helpers_128bit;
 use sp_runtime::traits::AccountIdConversion;
 use substrate_fixed::types::{I64F64, U64F64, U96F32};
-use subtensor_runtime_common::{AlphaCurrency, BalanceOps, Currency, NetUid, SubnetInfo};
+use subtensor_runtime_common::{
+    AlphaCurrency, BalanceOps, Currency, NetUid, SubnetInfo, TaoCurrency,
+};
 use subtensor_swap_interface::{SwapHandler, SwapResult};
 
 use super::pallet::*;
@@ -21,9 +23,9 @@ const MAX_SWAP_ITERATIONS: u16 = 1000;
 
 #[derive(Debug, PartialEq)]
 pub struct UpdateLiquidityResult {
-    pub tao: u64,
+    pub tao: TaoCurrency,
     pub alpha: AlphaCurrency,
-    pub fee_tao: u64,
+    pub fee_tao: TaoCurrency,
     pub fee_alpha: AlphaCurrency,
     pub removed: bool,
     pub tick_low: TickIndex,
@@ -32,9 +34,9 @@ pub struct UpdateLiquidityResult {
 
 #[derive(Debug, PartialEq)]
 pub struct RemoveLiquidityResult {
-    pub tao: u64,
+    pub tao: TaoCurrency,
     pub alpha: AlphaCurrency,
-    pub fee_tao: u64,
+    pub fee_tao: TaoCurrency,
     pub fee_alpha: AlphaCurrency,
     pub tick_low: TickIndex,
     pub tick_high: TickIndex,
@@ -336,7 +338,7 @@ impl<T: Config> Pallet<T> {
         // Protocol liquidity makes one position from TickIndex::MIN to TickIndex::MAX
         // We are using the sp_arithmetic sqrt here, which works for u128
         let liquidity = helpers_128bit::sqrt(
-            (tao_reserve as u128).saturating_mul(u64::from(alpha_reserve) as u128),
+            (tao_reserve.to_u64() as u128).saturating_mul(alpha_reserve.to_u64() as u128),
         ) as u64;
         let protocol_account_id = Self::protocol_account_id();
 
@@ -356,7 +358,7 @@ impl<T: Config> Pallet<T> {
     /// Adjusts protocol liquidity with new values of TAO and Alpha reserve
     pub(super) fn adjust_protocol_liquidity(
         netuid: NetUid,
-        tao_delta: u64,
+        tao_delta: TaoCurrency,
         alpha_delta: AlphaCurrency,
     ) {
         // Update protocol position with new liquidity
@@ -366,12 +368,20 @@ impl<T: Config> Pallet<T> {
                 .collect::<sp_std::vec::Vec<_>>();
 
         if let Some(position) = positions.get_mut(0) {
+            // Claim protocol fees and add them to liquidity
+            let (tao_fees, alpha_fees) = position.collect_fees();
+
+            // Adjust liquidity
             let current_sqrt_price = Pallet::<T>::current_price_sqrt(netuid);
             let maybe_token_amounts = position.to_token_amounts(current_sqrt_price);
             if let Ok((tao, alpha)) = maybe_token_amounts {
                 // Get updated reserves, calculate liquidity
-                let new_tao_reserve = tao.saturating_add(tao_delta);
-                let new_alpha_reserve = alpha.saturating_add(alpha_delta.to_u64());
+                let new_tao_reserve = tao
+                    .saturating_add(tao_delta.to_u64())
+                    .saturating_add(tao_fees);
+                let new_alpha_reserve = alpha
+                    .saturating_add(alpha_delta.to_u64())
+                    .saturating_add(alpha_fees);
                 let new_liquidity = helpers_128bit::sqrt(
                     (new_tao_reserve as u128).saturating_mul(new_alpha_reserve as u128),
                 ) as u64;
@@ -444,8 +454,8 @@ impl<T: Config> Pallet<T> {
                 // Check if reserves are overused
                 if let Ok(ref swap_result) = result {
                     let checked_reserve = match order_type {
-                        OrderType::Buy => u64::from(alpha_reserve),
-                        OrderType::Sell => tao_reserve,
+                        OrderType::Buy => alpha_reserve.to_u64(),
+                        OrderType::Sell => tao_reserve.to_u64(),
                     };
 
                     if checked_reserve < swap_result.amount_paid_out {
@@ -467,12 +477,13 @@ impl<T: Config> Pallet<T> {
     ) -> Result<SwapResult, Error<T>> {
         match order_type {
             OrderType::Buy => ensure!(
-                u64::from(T::SubnetInfo::alpha_reserve(netuid.into()))
+                T::SubnetInfo::alpha_reserve(netuid.into()).to_u64()
                     >= T::MinimumReserve::get().get(),
                 Error::<T>::ReservesTooLow
             ),
             OrderType::Sell => ensure!(
-                T::SubnetInfo::tao_reserve(netuid.into()) >= T::MinimumReserve::get().get(),
+                T::SubnetInfo::tao_reserve(netuid.into()).to_u64()
+                    >= T::MinimumReserve::get().get(),
                 Error::<T>::ReservesTooLow
             ),
         }
@@ -842,7 +853,7 @@ impl<T: Config> Pallet<T> {
         let position_id = position.id;
 
         ensure!(
-            T::BalanceOps::tao_balance(coldkey_account_id) >= tao
+            T::BalanceOps::tao_balance(coldkey_account_id) >= TaoCurrency::from(tao)
                 && T::BalanceOps::alpha_balance(
                     netuid.into(),
                     coldkey_account_id,
@@ -874,7 +885,7 @@ impl<T: Config> Pallet<T> {
         liquidity: u64,
     ) -> Result<(Position<T>, u64, u64), Error<T>> {
         ensure!(
-            Self::count_positions(netuid, coldkey_account_id) <= T::MaxPositions::get() as usize,
+            Self::count_positions(netuid, coldkey_account_id) < T::MaxPositions::get() as usize,
             Error::<T>::MaxPositionsExceeded
         );
 
@@ -938,9 +949,9 @@ impl<T: Config> Pallet<T> {
         Positions::<T>::remove((netuid, coldkey_account_id, position_id));
 
         Ok(RemoveLiquidityResult {
-            tao,
+            tao: tao.into(),
             alpha: alpha.into(),
-            fee_tao,
+            fee_tao: fee_tao.into(),
             fee_alpha: fee_alpha.into(),
             tick_low: position.tick_low,
             tick_high: position.tick_high,
@@ -1010,7 +1021,8 @@ impl<T: Config> Pallet<T> {
         if liquidity_delta > 0 {
             // Check that user has enough balances
             ensure!(
-                T::BalanceOps::tao_balance(coldkey_account_id) >= tao
+                T::BalanceOps::tao_balance(coldkey_account_id)
+                    >= TaoCurrency::from(tao.saturating_to_num::<u64>())
                     && T::BalanceOps::alpha_balance(netuid, coldkey_account_id, hotkey_account_id)
                         >= AlphaCurrency::from(alpha.saturating_to_num::<u64>()),
                 Error::<T>::InsufficientBalance
@@ -1061,9 +1073,9 @@ impl<T: Config> Pallet<T> {
         }
 
         Ok(UpdateLiquidityResult {
-            tao: tao.saturating_to_num::<u64>(),
+            tao: tao.saturating_to_num::<u64>().into(),
             alpha: alpha.saturating_to_num::<u64>().into(),
-            fee_tao,
+            fee_tao: fee_tao.into(),
             fee_alpha: fee_alpha.into(),
             removed: remove,
             tick_low: position.tick_low,
@@ -1241,13 +1253,20 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
 
                 Self::swap(netuid, order_t, amount, price_limit, false, true)
             }
-            _ => Ok(SwapResult {
-                amount_paid_in: amount,
-                amount_paid_out: amount,
-                fee_paid: 0,
-                tao_reserve_delta: 0,
-                alpha_reserve_delta: 0,
-            }),
+            _ => {
+                let actual_amount = if T::SubnetInfo::exists(netuid) {
+                    amount
+                } else {
+                    0
+                };
+                Ok(SwapResult {
+                    amount_paid_in: actual_amount,
+                    amount_paid_out: actual_amount,
+                    fee_paid: 0,
+                    tao_reserve_delta: 0,
+                    alpha_reserve_delta: 0,
+                })
+            }
         }
     }
 
@@ -1274,7 +1293,11 @@ impl<T: Config> SwapHandler<T::AccountId> for Pallet<T> {
             .saturating_to_num()
     }
 
-    fn adjust_protocol_liquidity(netuid: NetUid, tao_delta: u64, alpha_delta: AlphaCurrency) {
+    fn adjust_protocol_liquidity(
+        netuid: NetUid,
+        tao_delta: TaoCurrency,
+        alpha_delta: AlphaCurrency,
+    ) {
         Self::adjust_protocol_liquidity(netuid, tao_delta, alpha_delta);
     }
 

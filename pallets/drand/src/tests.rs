@@ -16,14 +16,18 @@
 
 use crate::{
     BeaconConfig, BeaconConfigurationPayload, BeaconInfoResponse, Call, DrandResponseBody,
-    ENDPOINTS, Error, Pulse, Pulses, PulsesPayload, QUICKNET_CHAIN_HASH, mock::*,
+    ENDPOINTS, Error, HasMigrationRun, LastStoredRound, MAX_KEPT_PULSES, OldestStoredRound, Pulse,
+    Pulses, PulsesPayload, QUICKNET_CHAIN_HASH, migrations::migrate_prune_old_pulses,
+    migrations::migrate_set_oldest_round, mock::*,
 };
 use codec::Encode;
 use frame_support::{
-    assert_noop, assert_ok,
+    BoundedVec, assert_noop, assert_ok,
     pallet_prelude::{InvalidTransaction, TransactionSource},
+    weights::RuntimeDbWeight,
 };
 use frame_system::RawOrigin;
+use sp_core::Get;
 use sp_runtime::{
     offchain::{
         OffchainWorkerExt,
@@ -547,5 +551,195 @@ fn test_invalid_json_then_success() {
     t.execute_with(|| {
         let actual = Drand::fetch_drand_by_round(1000u64).unwrap();
         assert_eq!(actual, expected_pulse);
+    });
+}
+
+#[test]
+fn test_pulses_are_correctly_pruned() {
+    new_test_ext().execute_with(|| {
+        let pulse = Pulse::default();
+        let last_round: u64 = MAX_KEPT_PULSES + 2;
+        let oldest_round: u64 = 1;
+        let prune_count: u64 = 2;
+        let new_oldest: u64 = oldest_round + prune_count;
+        let middle_round: u64 = MAX_KEPT_PULSES / 2;
+
+        // Set storage bounds
+        OldestStoredRound::<Test>::put(oldest_round);
+        LastStoredRound::<Test>::put(last_round);
+
+        // Insert pulses at boundaries
+        // These should be pruned
+        Pulses::<Test>::insert(1, pulse.clone());
+        Pulses::<Test>::insert(2, pulse.clone());
+
+        // This should remain (new oldest)
+        Pulses::<Test>::insert(new_oldest, pulse.clone());
+
+        // Middle and last should remain
+        Pulses::<Test>::insert(middle_round, pulse.clone());
+        Pulses::<Test>::insert(last_round, pulse.clone());
+
+        // Trigger prune
+        Drand::prune_old_pulses(last_round);
+
+        // Assert new oldest
+        assert_eq!(OldestStoredRound::<Test>::get(), new_oldest);
+
+        // Assert pruned correctly
+        assert!(!Pulses::<Test>::contains_key(1), "Round 1 should be pruned");
+        assert!(!Pulses::<Test>::contains_key(2), "Round 2 should be pruned");
+
+        // Assert not pruned incorrectly
+        assert!(
+            Pulses::<Test>::contains_key(new_oldest),
+            "New oldest round should remain"
+        );
+        assert!(
+            Pulses::<Test>::contains_key(middle_round),
+            "Middle round should remain"
+        );
+        assert!(
+            Pulses::<Test>::contains_key(last_round),
+            "Last round should remain"
+        );
+    });
+}
+
+#[test]
+fn test_migrate_prune_old_pulses() {
+    new_test_ext().execute_with(|| {
+        let migration_name = BoundedVec::truncate_from(b"migrate_prune_old_pulses".to_vec());
+        let pulse = Pulse::default();
+
+        assert_eq!(Pulses::<Test>::iter().count(), 0);
+        assert!(!HasMigrationRun::<Test>::get(&migration_name));
+        assert_eq!(OldestStoredRound::<Test>::get(), 0);
+        assert_eq!(LastStoredRound::<Test>::get(), 0);
+
+        // Test with more pulses than MAX_KEPT_PULSES
+        let excess: u64 = 9;
+        let total: u64 = MAX_KEPT_PULSES + excess;
+        for i in 1..=total {
+            Pulses::<Test>::insert(i, pulse.clone());
+        }
+
+        let weight_large = migrate_prune_old_pulses::<Test>();
+
+        let expected_oldest = excess + 1;
+        assert_eq!(OldestStoredRound::<Test>::get(), expected_oldest);
+        assert_eq!(LastStoredRound::<Test>::get(), total);
+
+        for i in 1..=excess {
+            assert!(!Pulses::<Test>::contains_key(i));
+        }
+        for i in expected_oldest..=total {
+            assert!(Pulses::<Test>::contains_key(i));
+        }
+
+        let db_weight: RuntimeDbWeight = <Test as frame_system::Config>::DbWeight::get();
+        let num_pulses = total;
+        let num_to_delete = num_pulses - MAX_KEPT_PULSES;
+        let expected_weight = db_weight.reads(1 + num_pulses) + db_weight.writes(num_to_delete + 3);
+        assert_eq!(weight_large, expected_weight);
+    });
+}
+
+#[test]
+fn test_prune_maximum_of_100_pulses_per_call() {
+    new_test_ext().execute_with(|| {
+        // ------------------------------------------------------------
+        // 1. Arrange – create a storage layout that exceeds MAX_KEPT_PULSES
+        // ------------------------------------------------------------
+        const EXTRA: u64 = 250;
+        let oldest_round: u64 = 1;
+        let last_round: u64 = oldest_round + MAX_KEPT_PULSES + EXTRA;
+
+        OldestStoredRound::<Test>::put(oldest_round);
+        LastStoredRound::<Test>::put(last_round);
+        let pulse = Pulse::default();
+
+        // Insert the first 150 rounds so we can check they disappear / stay
+        for r in oldest_round..=oldest_round + 150 {
+            Pulses::<Test>::insert(r, pulse.clone());
+        }
+        let mid_round = oldest_round + 150;
+        Pulses::<Test>::insert(last_round, pulse.clone());
+
+        // ------------------------------------------------------------
+        // 2. Act – run the pruning function once
+        // ------------------------------------------------------------
+        Drand::prune_old_pulses(last_round);
+
+        // ------------------------------------------------------------
+        // 3. Assert – only the *first* 100 pulses were removed
+        // ------------------------------------------------------------
+        let expected_new_oldest = oldest_round + 100; // 101
+
+        // ‣ Storage bound updated correctly
+        assert_eq!(
+            OldestStoredRound::<Test>::get(),
+            expected_new_oldest,
+            "OldestStoredRound should advance by exactly 100"
+        );
+
+        // ‣ Rounds 1‑100 are gone
+        for r in oldest_round..expected_new_oldest {
+            assert!(
+                !Pulses::<Test>::contains_key(r),
+                "Round {r} should have been pruned"
+            );
+        }
+
+        // ‣ Round 101 (new oldest) and later rounds remain
+        assert!(
+            Pulses::<Test>::contains_key(expected_new_oldest),
+            "Round {expected_new_oldest} should remain after pruning"
+        );
+        assert!(
+            Pulses::<Test>::contains_key(mid_round),
+            "Mid-range round should remain after pruning"
+        );
+        assert!(
+            Pulses::<Test>::contains_key(last_round),
+            "LastStoredRound should remain after pruning"
+        );
+    });
+}
+
+#[test]
+fn test_migrate_set_oldest_round() {
+    new_test_ext().execute_with(|| {
+        let migration_name = BoundedVec::truncate_from(b"migrate_set_oldest_round".to_vec());
+        let db_weight: RuntimeDbWeight = <Test as frame_system::Config>::DbWeight::get();
+        let pulse = Pulse::default();
+
+        assert_eq!(Pulses::<Test>::iter().count(), 0);
+        assert!(!HasMigrationRun::<Test>::get(&migration_name));
+        assert_eq!(OldestStoredRound::<Test>::get(), 0);
+        assert_eq!(LastStoredRound::<Test>::get(), 0);
+
+        // Insert out-of-order rounds: oldest should be 5
+        for r in [10u64, 7, 5].into_iter() {
+            Pulses::<Test>::insert(r, pulse.clone());
+        }
+        let num_rounds = 3u64;
+
+        // Run migration
+        let weight = migrate_set_oldest_round::<Test>();
+
+        assert_eq!(OldestStoredRound::<Test>::get(), 5);
+        // Migration does NOT touch LastStoredRound
+        assert_eq!(LastStoredRound::<Test>::get(), 0);
+        // Pulses untouched
+        assert!(Pulses::<Test>::contains_key(5));
+        assert!(Pulses::<Test>::contains_key(7));
+        assert!(Pulses::<Test>::contains_key(10));
+        // Flag set
+        assert!(HasMigrationRun::<Test>::get(&migration_name));
+
+        // Weight: reads(1 + num_rounds) + writes(2) [Oldest + HasMigrationRun]
+        let expected = db_weight.reads(1 + num_rounds) + db_weight.writes(2);
+        assert_eq!(weight, expected);
     });
 }

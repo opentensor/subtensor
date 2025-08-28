@@ -11,7 +11,7 @@ use frame_support::{assert_err, assert_ok};
 use rand::{Rng, SeedableRng, distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng};
 use sp_core::{Get, U256};
 use substrate_fixed::types::I32F32;
-use subtensor_runtime_common::AlphaCurrency;
+use subtensor_runtime_common::{AlphaCurrency, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
 use super::mock::*;
@@ -159,7 +159,7 @@ fn init_run_epochs(
     bonds_penalty: u16,
 ) {
     // === Create the network
-    add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
+    add_network_disable_commit_reveal(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
 
     // === Set bonds penalty
     SubtensorModule::set_bonds_penalty(netuid, bonds_penalty);
@@ -560,7 +560,7 @@ fn test_1_graph() {
         let hotkey = U256::from(0);
         let uid: u16 = 0;
         let stake_amount: u64 = 1_000_000_000;
-        add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
+        add_network_disable_commit_reveal(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
         SubtensorModule::set_max_allowed_uids(netuid, 1);
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey,
@@ -573,7 +573,7 @@ fn test_1_graph() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            stake_amount
+            stake_amount.into()
         ));
 
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
@@ -590,7 +590,7 @@ fn test_1_graph() {
         SubtensorModule::epoch(netuid, 1_000_000_000.into());
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            stake_amount
+            stake_amount.into()
         );
         assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
         assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 0);
@@ -630,7 +630,7 @@ fn test_10_graph() {
         // each with 1 stake and self weights.
         let n: usize = 10;
         let netuid = NetUid::from(1);
-        add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
+        add_network_disable_commit_reveal(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
         SubtensorModule::set_max_allowed_uids(netuid, n as u16);
         for i in 0..10 {
             add_node(netuid, U256::from(i), U256::from(i), i as u16, 1)
@@ -652,7 +652,7 @@ fn test_10_graph() {
         for i in 0..n {
             assert_eq!(
                 SubtensorModule::get_total_stake_for_hotkey(&(U256::from(i))),
-                1
+                TaoCurrency::from(1)
             );
             assert_eq!(SubtensorModule::get_rank_for_uid(netuid, i as u16), 0);
             assert_eq!(SubtensorModule::get_trust_for_uid(netuid, i as u16), 0);
@@ -709,7 +709,7 @@ fn test_512_graph() {
                 for uid in validators {
                     assert_eq!(
                         SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
-                        max_stake_per_validator
+                        max_stake_per_validator.into()
                     );
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
                     assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 0);
@@ -727,7 +727,7 @@ fn test_512_graph() {
                 for uid in servers {
                     assert_eq!(
                         SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
-                        0
+                        TaoCurrency::ZERO
                     );
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 146); // Note R = floor(1 / (512 - 64) * 65_535) = 146
                     assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 65535);
@@ -1004,7 +1004,7 @@ fn test_bonds() {
 		let max_stake: u64 = 4;
 		let stakes: Vec<u64> = vec![1, 2, 3, 4, 0, 0, 0, 0];
         let block_number = System::block_number();
-		add_network(netuid, tempo, 0);
+		add_network_disable_commit_reveal(netuid, tempo, 0);
 		SubtensorModule::set_max_allowed_uids( netuid, n );
 		assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
 		SubtensorModule::set_max_registrations_per_block( netuid, n );
@@ -1312,13 +1312,13 @@ fn test_set_alpha_disabled() {
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
         let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
             netuid.into(),
-            DefaultMinStake::<Test>::get(),
+            DefaultMinStake::<Test>::get().into(),
         );
         assert_ok!(SubtensorModule::add_stake(
             signer.clone(),
             hotkey,
             netuid,
-            5 * DefaultMinStake::<Test>::get() + fee
+            (5 * DefaultMinStake::<Test>::get().to_u64() + fee).into()
         ));
         // Only owner can set alpha values
         assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey));
@@ -1351,7 +1351,7 @@ fn test_active_stake() {
         let tempo: u16 = 1;
         let block_number: u64 = System::block_number();
         let stake: u64 = 1;
-        add_network(netuid, tempo, 0);
+        add_network_disable_commit_reveal(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
         SubtensorModule::set_max_registrations_per_block(netuid, n);
@@ -1567,7 +1567,7 @@ fn test_outdated_weights() {
         let tempo: u16 = 0;
         let mut block_number: u64 = System::block_number();
         let stake: u64 = 1;
-        add_network(netuid, tempo, 0);
+        add_network_disable_commit_reveal(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, n);
@@ -1757,7 +1757,7 @@ fn test_zero_weights() {
         let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
         let mut block_number: u64 = 0;
         let stake: u64 = 1;
-        add_network(netuid, tempo, 0);
+        add_network_disable_commit_reveal(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, n);
@@ -1960,7 +1960,7 @@ fn test_deregistered_miner_bonds() {
         let high_tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
 
         let stake: u64 = 1;
-        add_network(netuid, high_tempo, 0);
+        add_network_disable_commit_reveal(netuid, high_tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, n);
@@ -2281,14 +2281,14 @@ fn test_get_set_alpha() {
 
         let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
             netuid.into(),
-            DefaultMinStake::<Test>::get(),
+            DefaultMinStake::<Test>::get().into(),
         );
 
         assert_ok!(SubtensorModule::add_stake(
             signer.clone(),
             hotkey,
             netuid,
-            DefaultMinStake::<Test>::get() + fee * 2
+            (DefaultMinStake::<Test>::get().to_u64() + fee * 2).into()
         ));
 
         assert_ok!(SubtensorModule::do_set_alpha_values(
@@ -2669,7 +2669,7 @@ pub fn assert_approx_eq(left: I32F32, right: I32F32, epsilon: I32F32) {
 fn setup_yuma_3_scenario(netuid: NetUid, n: u16, sparse: bool, max_stake: u64, stakes: Vec<u64>) {
     let block_number = System::block_number();
     let tempo: u16 = 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
-    add_network(netuid, tempo, 0);
+    add_network_disable_commit_reveal(netuid, tempo, 0);
 
     SubtensorModule::set_max_allowed_uids(netuid, n);
     assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
@@ -3567,7 +3567,7 @@ fn test_epoch_masks_incoming_to_sniped_uid_prevents_inheritance() {
         let reveal: u64 = 2;
 
         add_network(netuid, tempo, 0);
-        SubtensorModule::set_reveal_period(netuid, reveal);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, reveal));
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         SubtensorModule::set_max_allowed_uids(netuid, 3);
         SubtensorModule::set_target_registrations_per_interval(netuid, u16::MAX);
@@ -3709,7 +3709,7 @@ fn test_epoch_does_not_mask_outside_window_but_masks_inside() {
         let reveal: u16 = 2;
 
         add_network(netuid, tempo, 0);
-        SubtensorModule::set_reveal_period(netuid, reveal as u64);
+        assert_ok!(SubtensorModule::set_reveal_period(netuid, reveal as u64));
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         SubtensorModule::set_target_registrations_per_interval(netuid, u16::MAX);
 

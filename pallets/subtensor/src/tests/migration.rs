@@ -22,6 +22,7 @@ use sp_io::hashing::twox_128;
 use sp_runtime::traits::Zero;
 use substrate_fixed::types::I96F32;
 use substrate_fixed::types::extra::U2;
+use subtensor_runtime_common::TaoCurrency;
 
 #[allow(clippy::arithmetic_side_effects)]
 fn close(value: u64, target: u64, eps: u64) {
@@ -37,20 +38,19 @@ fn test_initialise_ti() {
 
     new_test_ext(1).execute_with(|| {
         pallet_balances::TotalIssuance::<Test>::put(1000);
-        crate::SubnetTAO::<Test>::insert(NetUid::from(1), 100);
-        crate::SubnetTAO::<Test>::insert(NetUid::from(2), 5);
+        crate::SubnetTAO::<Test>::insert(NetUid::from(1), TaoCurrency::from(100));
+        crate::SubnetTAO::<Test>::insert(NetUid::from(2), TaoCurrency::from(5));
 
         // Ensure values are NOT initialized prior to running migration
-        assert!(crate::TotalIssuance::<Test>::get() == 0);
-		assert!(crate::TotalStake::<Test>::get() == 0);
+        assert!(crate::TotalIssuance::<Test>::get().is_zero());
+		assert!(crate::TotalStake::<Test>::get().is_zero());
 
         crate::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration::<Test>::on_runtime_upgrade();
 
         // Ensure values were initialized correctly
-		assert!(crate::TotalStake::<Test>::get() == 105);
-        assert!(
-            crate::TotalIssuance::<Test>::get()
-                == 105u64.saturating_add(1000)
+		assert_eq!(crate::TotalStake::<Test>::get(), TaoCurrency::from(105));
+        assert_eq!(
+            crate::TotalIssuance::<Test>::get(), TaoCurrency::from(105 + 1000)
         );
     });
 }
@@ -64,7 +64,7 @@ fn test_migration_transfer_nets_to_foundation() {
         add_network(11.into(), 1, 0);
 
         log::info!("{:?}", SubtensorModule::get_subnet_owner(1.into()));
-        //assert_eq!(SubtensorModule::<T>::get_subnet_owner(1), );
+        //assert_eq!(SubtensorModule::<Test>::get_subnet_owner(1), );
 
         // Run the migration to transfer ownership
         let hex =
@@ -839,7 +839,7 @@ fn test_migrate_fix_root_subnet_tao() {
             expected_total_stake += stake;
         }
 
-        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), 0);
+        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), TaoCurrency::ZERO);
         assert!(
             !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
             "Migration should not have run yet"
@@ -855,7 +855,49 @@ fn test_migrate_fix_root_subnet_tao() {
             "Migration should be marked as run"
         );
         assert!(!weight.is_zero(), "Migration weight should be non-zero");
-        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), expected_total_stake);
+        assert_eq!(
+            SubnetTAO::<Test>::get(NetUid::ROOT),
+            expected_total_stake.into()
+        );
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::migration::test_migrate_fix_root_tao_and_alpha_in --exact --show-output
+#[test]
+fn test_migrate_fix_root_tao_and_alpha_in() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_fix_root_tao_and_alpha_in";
+
+        // Set counters initially
+        let initial_value = 1_000_000_000_000;
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(initial_value));
+        SubnetAlphaIn::<Test>::insert(NetUid::ROOT, AlphaCurrency::from(initial_value));
+        SubnetAlphaOut::<Test>::insert(NetUid::ROOT, AlphaCurrency::from(initial_value));
+        SubnetVolume::<Test>::insert(NetUid::ROOT, initial_value as u128);
+        TotalStake::<Test>::set(TaoCurrency::from(initial_value));
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet"
+        );
+
+        // Run the migration
+        let weight =
+            crate::migrations::migrate_fix_root_tao_and_alpha_in::migrate_fix_root_tao_and_alpha_in::<Test>();
+
+        // Verify the migration ran correctly
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as run"
+        );
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+
+        // Verify counters have changed
+        assert!(SubnetTAO::<Test>::get(NetUid::ROOT) != initial_value.into());
+        assert!(SubnetAlphaIn::<Test>::get(NetUid::ROOT) != initial_value.into());
+        assert!(SubnetAlphaOut::<Test>::get(NetUid::ROOT) != initial_value.into());
+        assert!(SubnetVolume::<Test>::get(NetUid::ROOT) != initial_value as u128);
+        assert!(TotalStake::<Test>::get() != initial_value.into());
     });
 }
 
@@ -1066,5 +1108,270 @@ fn test_migrate_crv3_commits_add_block() {
             commit_block, expected_block,
             "commit_block should equal first block of epoch key"
         );
+    });
+}
+
+#[test]
+fn test_migrate_disable_commit_reveal() {
+    const MIG_NAME: &[u8] = b"disable_commit_reveal_v1";
+    let netuids = [NetUid::from(1), NetUid::from(2), NetUid::from(42)];
+
+    // ---------------------------------------------------------------------
+    // 1. build initial state ─ all nets enabled
+    // ---------------------------------------------------------------------
+    new_test_ext(1).execute_with(|| {
+        for (i, netuid) in netuids.iter().enumerate() {
+            add_network(*netuid, 5u16 + i as u16, 0);
+            CommitRevealWeightsEnabled::<Test>::insert(*netuid, true);
+        }
+        assert!(
+            !HasMigrationRun::<Test>::get(MIG_NAME),
+            "migration flag should be unset before run"
+        );
+
+        // -----------------------------------------------------------------
+        // 2. run migration
+        // -----------------------------------------------------------------
+        let w = crate::migrations::migrate_disable_commit_reveal::migrate_disable_commit_reveal::<
+            Test,
+        >();
+
+        assert!(
+            HasMigrationRun::<Test>::get(MIG_NAME),
+            "migration flag not set"
+        );
+
+        // -----------------------------------------------------------------
+        // 3. verify every netuid is now disabled and only one value exists
+        // -----------------------------------------------------------------
+        for netuid in netuids {
+            assert!(
+                !CommitRevealWeightsEnabled::<Test>::get(netuid),
+                "commit-reveal should be disabled for netuid {netuid}"
+            );
+        }
+
+        // There should be no stray keys
+        let collected: Vec<_> = CommitRevealWeightsEnabled::<Test>::iter().collect();
+        assert_eq!(collected.len(), netuids.len(), "unexpected key count");
+        for (k, v) in collected {
+            assert!(!v, "found an enabled flag after migration for netuid {k}");
+        }
+
+        // -----------------------------------------------------------------
+        // 4. running again should be a no-op
+        // -----------------------------------------------------------------
+        let w2 = crate::migrations::migrate_disable_commit_reveal::migrate_disable_commit_reveal::<
+            Test,
+        >();
+        assert_eq!(
+            w2,
+            <Test as Config>::DbWeight::get().reads(1),
+            "second run should read the flag and do nothing else"
+        );
+    });
+}
+
+#[test]
+fn test_migrate_commit_reveal_settings() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_commit_reveal_settings";
+
+        // Set up some networks first
+        let netuid1: u16 = 1;
+        let netuid2: u16 = 2;
+        // Add networks to simulate existing networks
+        add_network(netuid1.into(), 1, 0);
+        add_network(netuid2.into(), 1, 0);
+
+        // Ensure the storage items use default values initially (but aren't explicitly set)
+        // Since these are ValueQuery storage items, they return defaults even when not set
+        assert_eq!(RevealPeriodEpochs::<Test>::get(NetUid::from(netuid1)), 1u64);
+        assert_eq!(RevealPeriodEpochs::<Test>::get(NetUid::from(netuid2)), 1u64);
+        assert!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid1)));
+        assert!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid2)));
+
+        // Check migration hasn't run
+        assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()));
+
+        // Run migration
+        let weight = crate::migrations::migrate_commit_reveal_settings::migrate_commit_reveal_settings::<Test>();
+
+        // Check migration has been marked as run
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()));
+
+        // Verify RevealPeriodEpochs was set correctly
+        assert_eq!(RevealPeriodEpochs::<Test>::get(NetUid::from(netuid1)), 1u64);
+        assert_eq!(RevealPeriodEpochs::<Test>::get(NetUid::from(netuid2)), 1u64);
+
+        // Verify CommitRevealWeightsEnabled was set correctly
+        assert!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid1)));
+        assert!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(netuid2)));
+    });
+}
+
+#[test]
+fn test_migrate_commit_reveal_settings_already_run() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_commit_reveal_settings";
+        // Mark migration as already run
+        HasMigrationRun::<Test>::insert(MIGRATION_NAME.as_bytes().to_vec(), true);
+
+        // Run migration
+        let weight = crate::migrations::migrate_commit_reveal_settings::migrate_commit_reveal_settings::<Test>();
+
+        // Should only have read weight for checking migration status
+        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads(1);
+        assert_eq!(weight, expected_weight);
+    });
+}
+
+#[test]
+fn test_migrate_commit_reveal_settings_no_networks() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_commit_reveal_settings";
+
+        // Check migration hasn't run
+        assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()));
+
+        // Run migration
+        let weight = crate::migrations::migrate_commit_reveal_settings::migrate_commit_reveal_settings::<Test>();
+
+        // Check migration has been marked as run
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()));
+
+        // Check that weight calculation is correct (no networks, so no additional reads/writes)
+        // 1 read for migration check + 0 reads for networks + 0 writes for storage + 1 write for migration flag
+        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads(1) + <Test as frame_system::Config>::DbWeight::get().writes(1);
+        assert_eq!(weight, expected_weight);
+    });
+}
+
+#[test]
+fn test_migrate_commit_reveal_settings_multiple_networks() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_commit_reveal_settings";
+
+        // Set up multiple networks
+        let netuids = vec![1u16, 2u16, 3u16, 10u16, 42u16];
+        for netuid in &netuids {
+            add_network((*netuid).into(), 1, 0);
+        }
+
+        // Run migration
+        let weight = crate::migrations::migrate_commit_reveal_settings::migrate_commit_reveal_settings::<Test>();
+
+        // Verify all networks have correct settings
+        for netuid in &netuids {
+            assert_eq!(RevealPeriodEpochs::<Test>::get(NetUid::from(*netuid)), 1u64);
+            assert!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(*netuid)));
+        }
+
+        // Check migration has been marked as run
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()));
+    });
+}
+
+#[test]
+fn test_migrate_commit_reveal_settings_values_access() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid.into(), 1, 0);
+
+        // Run migration
+        crate::migrations::migrate_commit_reveal_settings::migrate_commit_reveal_settings::<Test>();
+
+        // Test that we can access the values using the pallet functions
+        assert_eq!(
+            SubtensorModule::get_reveal_period(NetUid::from(netuid)),
+            1u64
+        );
+
+        // Test direct storage access
+        assert_eq!(RevealPeriodEpochs::<Test>::get(NetUid::from(netuid)), 1u64);
+        assert!(CommitRevealWeightsEnabled::<Test>::get(NetUid::from(
+            netuid
+        )));
+    });
+}
+
+#[test]
+fn test_migrate_crv3_v2_to_timelocked() {
+    new_test_ext(1).execute_with(|| {
+        // ------------------------------
+        // 0. Constants / helpers
+        // ------------------------------
+        const MIG_NAME: &[u8] = b"crv3_v2_to_timelocked_v1";
+        let netuid = NetUid::from(99);
+        let epoch: u64 = 7;
+
+        // ------------------------------
+        // 1. Simulate OLD storage (4‑tuple; V2 layout)
+        // ------------------------------
+        let who: U256 = U256::from(0xdeadbeef_u64);
+        let commit_block: u64 = 12345;
+        let ciphertext: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>> =
+            vec![1u8, 2, 3].try_into().unwrap();
+        let round: RoundNumber = 9;
+
+        let old_queue: VecDeque<_> =
+            VecDeque::from(vec![(who, commit_block, ciphertext.clone(), round)]);
+
+        // Insert under the deprecated alias
+        CRV3WeightCommitsV2::<Test>::insert(netuid, epoch, old_queue.clone());
+
+        // Sanity: entry decodes under old alias
+        assert_eq!(
+            CRV3WeightCommitsV2::<Test>::get(netuid, epoch),
+            old_queue,
+            "pre-migration: old queue should be present"
+        );
+
+        // Destination should be empty pre-migration
+        assert!(
+            TimelockedWeightCommits::<Test>::get(netuid, epoch).is_empty(),
+            "pre-migration: destination should be empty"
+        );
+
+        assert!(
+            !HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag should be false before run"
+        );
+
+        // ------------------------------
+        // 2. Run migration
+        // ------------------------------
+        let w = crate::migrations::migrate_crv3_v2_to_timelocked::migrate_crv3_v2_to_timelocked::<
+            Test,
+        >();
+        assert!(!w.is_zero(), "weight must be non-zero");
+
+        // ------------------------------
+        // 3. Verify results
+        // ------------------------------
+        assert!(
+            HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag not set"
+        );
+
+        // Old storage must be empty (drained)
+        assert!(
+            CRV3WeightCommitsV2::<Test>::get(netuid, epoch).is_empty(),
+            "old queue should have been drained"
+        );
+
+        // New storage must match exactly
+        let new_q = TimelockedWeightCommits::<Test>::get(netuid, epoch);
+        assert_eq!(
+            new_q, old_queue,
+            "migrated queue must exactly match the old queue"
+        );
+
+        // Verify the front element matches what we inserted
+        let (who2, commit_block2, cipher2, round2) = new_q.front().cloned().unwrap();
+        assert_eq!(who2, who);
+        assert_eq!(commit_block2, commit_block);
+        assert_eq!(cipher2, ciphertext);
+        assert_eq!(round2, round);
     });
 }

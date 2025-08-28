@@ -33,103 +33,101 @@ use subtensor_macros::freeze_struct;
 )]
 pub struct AlphaCurrency(u64);
 
-impl TypeInfo for AlphaCurrency {
-    type Identity = <u64 as TypeInfo>::Identity;
-    fn type_info() -> scale_info::Type {
-        <u64 as TypeInfo>::type_info()
-    }
-}
+#[freeze_struct("4d1bcb31c40c2594")]
+#[repr(transparent)]
+#[derive(
+    Deserialize,
+    Serialize,
+    Clone,
+    Copy,
+    Decode,
+    DecodeWithMemTracking,
+    Default,
+    Encode,
+    Eq,
+    Hash,
+    MaxEncodedLen,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    RuntimeDebug,
+)]
+pub struct TaoCurrency(u64);
 
-impl Display for AlphaCurrency {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        Display::fmt(&self.0, f)
-    }
-}
+// implements traits required by the Currency trait (ToFixed + Into<u64> + From<u64>) and CompactAs,
+// TypeInfo and Display. It expects a wrapper structure for u64 (CurrencyT(u64)).
+macro_rules! impl_currency_reqs {
+    ($currency_type:ident) => {
+        impl $currency_type {
+            pub const fn new(inner: u64) -> Self {
+                Self(inner)
+            }
+        }
 
-impl CompactAs for AlphaCurrency {
-    type As = u64;
+        impl TypeInfo for $currency_type {
+            type Identity = <u64 as TypeInfo>::Identity;
+            fn type_info() -> scale_info::Type {
+                <u64 as TypeInfo>::type_info()
+            }
+        }
 
-    fn encode_as(&self) -> &Self::As {
-        &self.0
-    }
+        impl Display for $currency_type {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                Display::fmt(&self.0, f)
+            }
+        }
 
-    fn decode_from(v: Self::As) -> Result<Self, CodecError> {
-        Ok(Self(v))
-    }
-}
+        impl CompactAs for $currency_type {
+            type As = u64;
 
-impl From<Compact<AlphaCurrency>> for AlphaCurrency {
-    fn from(c: Compact<AlphaCurrency>) -> Self {
-        c.0
-    }
-}
+            fn encode_as(&self) -> &Self::As {
+                &self.0
+            }
 
-impl From<AlphaCurrency> for u64 {
-    fn from(val: AlphaCurrency) -> Self {
-        val.0
-    }
-}
+            fn decode_from(v: Self::As) -> Result<Self, CodecError> {
+                Ok(Self(v))
+            }
+        }
 
-impl From<u64> for AlphaCurrency {
-    fn from(value: u64) -> Self {
-        Self(value)
-    }
-}
+        impl From<Compact<$currency_type>> for $currency_type {
+            fn from(c: Compact<$currency_type>) -> Self {
+                c.0
+            }
+        }
 
-impl ToFixed for AlphaCurrency {
-    fn to_fixed<F: Fixed>(self) -> F {
-        self.0.to_fixed()
-    }
+        impl From<$currency_type> for u64 {
+            fn from(val: $currency_type) -> Self {
+                val.0
+            }
+        }
 
-    fn checked_to_fixed<F: Fixed>(self) -> Option<F> {
-        self.0.checked_to_fixed()
-    }
+        impl From<u64> for $currency_type {
+            fn from(value: u64) -> Self {
+                Self(value)
+            }
+        }
 
-    fn saturating_to_fixed<F: Fixed>(self) -> F {
-        self.0.saturating_to_fixed()
-    }
-    fn wrapping_to_fixed<F: Fixed>(self) -> F {
-        self.0.wrapping_to_fixed()
-    }
+        impl ToFixed for $currency_type {
+            fn to_fixed<F: Fixed>(self) -> F {
+                self.0.to_fixed()
+            }
 
-    fn overflowing_to_fixed<F: Fixed>(self) -> (F, bool) {
-        self.0.overflowing_to_fixed()
-    }
-}
+            fn checked_to_fixed<F: Fixed>(self) -> Option<F> {
+                self.0.checked_to_fixed()
+            }
 
-impl Currency for AlphaCurrency {
-    const MAX: Self = Self(u64::MAX);
-    const ZERO: Self = Self(0);
-}
+            fn saturating_to_fixed<F: Fixed>(self) -> F {
+                self.0.saturating_to_fixed()
+            }
+            fn wrapping_to_fixed<F: Fixed>(self) -> F {
+                self.0.wrapping_to_fixed()
+            }
 
-pub trait Currency: ToFixed + Into<u64> + From<u64> + Clone + Copy {
-    const MAX: Self;
-    const ZERO: Self;
-
-    fn is_zero(&self) -> bool {
-        Into::<u64>::into(*self) == 0
-    }
-
-    fn to_u64(&self) -> u64 {
-        (*self).into()
-    }
-
-    fn saturating_add(&self, rhv: Self) -> Self {
-        Into::<u64>::into(*self).saturating_add(rhv.into()).into()
-    }
-
-    #[allow(clippy::arithmetic_side_effects)]
-    fn saturating_div(&self, rhv: Self) -> Self {
-        Into::<u64>::into(*self).saturating_div(rhv.into()).into()
-    }
-
-    fn saturating_sub(&self, rhv: Self) -> Self {
-        Into::<u64>::into(*self).saturating_sub(rhv.into()).into()
-    }
-
-    fn saturating_mul(&self, rhv: Self) -> Self {
-        Into::<u64>::into(*self).saturating_mul(rhv.into()).into()
-    }
+            fn overflowing_to_fixed<F: Fixed>(self) -> (F, bool) {
+                self.0.overflowing_to_fixed()
+            }
+        }
+    };
 }
 
 macro_rules! impl_arithmetic_operators {
@@ -208,8 +206,6 @@ macro_rules! impl_arithmetic_operators {
     };
 }
 
-impl_arithmetic_operators!(AlphaCurrency);
-
 macro_rules! impl_approx {
     ($currency_type:ident) => {
         #[cfg(feature = "approx")]
@@ -231,4 +227,50 @@ macro_rules! impl_approx {
     };
 }
 
+pub trait Currency: ToFixed + Into<u64> + From<u64> + Clone + Copy {
+    const MAX: Self;
+    const ZERO: Self;
+
+    fn is_zero(&self) -> bool {
+        Into::<u64>::into(*self) == 0
+    }
+
+    fn to_u64(&self) -> u64 {
+        (*self).into()
+    }
+
+    fn saturating_add(&self, rhv: Self) -> Self {
+        Into::<u64>::into(*self).saturating_add(rhv.into()).into()
+    }
+
+    #[allow(clippy::arithmetic_side_effects)]
+    fn saturating_div(&self, rhv: Self) -> Self {
+        Into::<u64>::into(*self).saturating_div(rhv.into()).into()
+    }
+
+    fn saturating_sub(&self, rhv: Self) -> Self {
+        Into::<u64>::into(*self).saturating_sub(rhv.into()).into()
+    }
+
+    fn saturating_mul(&self, rhv: Self) -> Self {
+        Into::<u64>::into(*self).saturating_mul(rhv.into()).into()
+    }
+}
+
+impl_arithmetic_operators!(AlphaCurrency);
 impl_approx!(AlphaCurrency);
+impl_currency_reqs!(AlphaCurrency);
+
+impl_arithmetic_operators!(TaoCurrency);
+impl_approx!(TaoCurrency);
+impl_currency_reqs!(TaoCurrency);
+
+impl Currency for AlphaCurrency {
+    const MAX: Self = Self(u64::MAX);
+    const ZERO: Self = Self(0);
+}
+
+impl Currency for TaoCurrency {
+    const MAX: Self = Self(u64::MAX);
+    const ZERO: Self = Self(0);
+}

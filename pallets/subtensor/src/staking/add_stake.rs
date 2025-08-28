@@ -1,5 +1,5 @@
 use substrate_fixed::types::I96F32;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{NetUid, TaoCurrency};
 use subtensor_swap_interface::{OrderType, SwapHandler};
 
 use super::*;
@@ -41,7 +41,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
         netuid: NetUid,
-        stake_to_be_added: u64,
+        stake_to_be_added: TaoCurrency,
     ) -> dispatch::DispatchResult {
         // 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
@@ -63,7 +63,9 @@ impl<T: Config> Pallet<T> {
 
         // 3. Ensure the remove operation from the coldkey is a success.
         let tao_staked: I96F32 =
-            Self::remove_balance_from_coldkey_account(&coldkey, stake_to_be_added)?.into();
+            Self::remove_balance_from_coldkey_account(&coldkey, stake_to_be_added.into())?
+                .to_u64()
+                .into();
 
         // 4. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
@@ -71,8 +73,8 @@ impl<T: Config> Pallet<T> {
             &hotkey,
             &coldkey,
             netuid,
-            tao_staked.saturating_to_num::<u64>(),
-            T::SwapInterface::max_price(),
+            tao_staked.saturating_to_num::<u64>().into(),
+            T::SwapInterface::max_price().into(),
             true,
         )?;
 
@@ -124,8 +126,8 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
         netuid: NetUid,
-        stake_to_be_added: u64,
-        limit_price: u64,
+        stake_to_be_added: TaoCurrency,
+        limit_price: TaoCurrency,
         allow_partial: bool,
     ) -> dispatch::DispatchResult {
         // 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
@@ -135,7 +137,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // 2. Calculate the maximum amount that can be executed with price limit
-        let max_amount = Self::get_max_amount_add(netuid, limit_price)?;
+        let max_amount: TaoCurrency = Self::get_max_amount_add(netuid, limit_price)?.into();
         let mut possible_stake = stake_to_be_added;
         if possible_stake > max_amount {
             possible_stake = max_amount;
@@ -147,7 +149,7 @@ impl<T: Config> Pallet<T> {
             &hotkey,
             netuid,
             stake_to_be_added,
-            max_amount,
+            max_amount.into(),
             allow_partial,
         )?;
 
@@ -157,7 +159,8 @@ impl<T: Config> Pallet<T> {
         }
 
         // 5. Ensure the remove operation from the coldkey is a success.
-        let tao_staked: u64 = Self::remove_balance_from_coldkey_account(&coldkey, possible_stake)?;
+        let tao_staked =
+            Self::remove_balance_from_coldkey_account(&coldkey, possible_stake.into())?;
 
         // 6. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
@@ -168,12 +171,12 @@ impl<T: Config> Pallet<T> {
     }
 
     // Returns the maximum amount of RAO that can be executed with price limit
-    pub fn get_max_amount_add(netuid: NetUid, limit_price: u64) -> Result<u64, Error<T>> {
+    pub fn get_max_amount_add(netuid: NetUid, limit_price: TaoCurrency) -> Result<u64, Error<T>> {
         // Corner case: root and stao
         // There's no slippage for root or stable subnets, so if limit price is 1e9 rao or
         // higher, then max_amount equals u64::MAX, otherwise it is 0.
         if netuid.is_root() || SubnetMechanism::<T>::get(netuid) == 0 {
-            if limit_price >= 1_000_000_000 {
+            if limit_price >= 1_000_000_000.into() {
                 return Ok(u64::MAX);
             } else {
                 return Err(Error::ZeroMaxStakeAmount);
@@ -185,7 +188,7 @@ impl<T: Config> Pallet<T> {
             netuid.into(),
             OrderType::Buy,
             u64::MAX,
-            limit_price,
+            limit_price.into(),
             false,
             true,
         )

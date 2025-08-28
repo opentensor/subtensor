@@ -8,7 +8,7 @@ use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::Saturating;
 use substrate_fixed::types::{I32F32, U96F32};
-use subtensor_runtime_common::{AlphaCurrency, NetUid};
+use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
@@ -71,7 +71,7 @@ impl<T: Config> Pallet<T> {
     // ========================
     // ==== Global Getters ====
     // ========================
-    pub fn get_total_issuance() -> u64 {
+    pub fn get_total_issuance() -> TaoCurrency {
         TotalIssuance::<T>::get()
     }
     pub fn get_current_block_as_u64() -> u64 {
@@ -270,25 +270,25 @@ impl<T: Config> Pallet<T> {
     // ========================
     // === Token Management ===
     // ========================
-    pub fn burn_tokens(amount: u64) {
+    pub fn burn_tokens(amount: TaoCurrency) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(amount));
     }
-    pub fn coinbase(amount: u64) {
+    pub fn coinbase(amount: TaoCurrency) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(amount));
     }
 
-    pub fn set_subnet_locked_balance(netuid: NetUid, amount: u64) {
+    pub fn set_subnet_locked_balance(netuid: NetUid, amount: TaoCurrency) {
         SubnetLocked::<T>::insert(netuid, amount);
     }
-    pub fn get_subnet_locked_balance(netuid: NetUid) -> u64 {
+    pub fn get_subnet_locked_balance(netuid: NetUid) -> TaoCurrency {
         SubnetLocked::<T>::get(netuid)
     }
-    pub fn get_total_subnet_locked() -> u64 {
+    pub fn get_total_subnet_locked() -> TaoCurrency {
         let mut total_subnet_locked: u64 = 0;
         for (_, locked) in SubnetLocked::<T>::iter() {
-            total_subnet_locked.saturating_accrue(locked);
+            total_subnet_locked.saturating_accrue(locked.into());
         }
-        total_subnet_locked
+        total_subnet_locked.into()
     }
 
     // ========================
@@ -481,7 +481,13 @@ impl<T: Config> Pallet<T> {
         CommitRevealWeightsEnabled::<T>::set(netuid, enabled);
         Self::deposit_event(Event::CommitRevealEnabled(netuid, enabled));
     }
-
+    pub fn get_commit_reveal_weights_version() -> u16 {
+        CommitRevealWeightsVersion::<T>::get()
+    }
+    pub fn set_commit_reveal_weights_version(version: u16) {
+        CommitRevealWeightsVersion::<T>::set(version);
+        Self::deposit_event(Event::CommitRevealVersionSet(version));
+    }
     pub fn get_rho(netuid: NetUid) -> u16 {
         Rho::<T>::get(netuid)
     }
@@ -528,25 +534,25 @@ impl<T: Config> Pallet<T> {
         ));
     }
 
-    pub fn get_burn_as_u64(netuid: NetUid) -> u64 {
+    pub fn get_burn(netuid: NetUid) -> TaoCurrency {
         Burn::<T>::get(netuid)
     }
-    pub fn set_burn(netuid: NetUid, burn: u64) {
+    pub fn set_burn(netuid: NetUid, burn: TaoCurrency) {
         Burn::<T>::insert(netuid, burn);
     }
 
-    pub fn get_min_burn_as_u64(netuid: NetUid) -> u64 {
+    pub fn get_min_burn(netuid: NetUid) -> TaoCurrency {
         MinBurn::<T>::get(netuid)
     }
-    pub fn set_min_burn(netuid: NetUid, min_burn: u64) {
+    pub fn set_min_burn(netuid: NetUid, min_burn: TaoCurrency) {
         MinBurn::<T>::insert(netuid, min_burn);
         Self::deposit_event(Event::MinBurnSet(netuid, min_burn));
     }
 
-    pub fn get_max_burn_as_u64(netuid: NetUid) -> u64 {
+    pub fn get_max_burn(netuid: NetUid) -> TaoCurrency {
         MaxBurn::<T>::get(netuid)
     }
-    pub fn set_max_burn(netuid: NetUid, max_burn: u64) {
+    pub fn set_max_burn(netuid: NetUid, max_burn: TaoCurrency) {
         MaxBurn::<T>::insert(netuid, max_burn);
         Self::deposit_event(Event::MaxBurnSet(netuid, max_burn));
     }
@@ -627,18 +633,18 @@ impl<T: Config> Pallet<T> {
         StakingHotkeys::<T>::get(coldkey)
     }
 
-    pub fn set_total_issuance(total_issuance: u64) {
+    pub fn set_total_issuance(total_issuance: TaoCurrency) {
         TotalIssuance::<T>::put(total_issuance);
     }
 
-    pub fn get_rao_recycled(netuid: NetUid) -> u64 {
+    pub fn get_rao_recycled(netuid: NetUid) -> TaoCurrency {
         RAORecycledForRegistration::<T>::get(netuid)
     }
-    pub fn set_rao_recycled(netuid: NetUid, rao_recycled: u64) {
+    pub fn set_rao_recycled(netuid: NetUid, rao_recycled: TaoCurrency) {
         RAORecycledForRegistration::<T>::insert(netuid, rao_recycled);
         Self::deposit_event(Event::RAORecycledForRegistrationSet(netuid, rao_recycled));
     }
-    pub fn increase_rao_recycled(netuid: NetUid, inc_rao_recycled: u64) {
+    pub fn increase_rao_recycled(netuid: NetUid, inc_rao_recycled: TaoCurrency) {
         let curr_rao_recycled = Self::get_rao_recycled(netuid);
         let rao_recycled = curr_rao_recycled.saturating_add(inc_rao_recycled);
         Self::set_rao_recycled(netuid, rao_recycled);
@@ -678,6 +684,7 @@ impl<T: Config> Pallet<T> {
         // Return the default minimum stake multiplied by factor
         // 21M * 10^9 * 10^6 fits u64, hence no need for fixed type usage here
         DefaultMinStake::<T>::get()
+            .to_u64()
             .saturating_mul(factor)
             .safe_div(1_000_000)
     }
@@ -686,8 +693,8 @@ impl<T: Config> Pallet<T> {
         NominatorMinRequiredStake::<T>::put(min_stake);
     }
 
-    pub fn get_key_swap_cost() -> u64 {
-        T::KeySwapCost::get()
+    pub fn get_key_swap_cost() -> TaoCurrency {
+        T::KeySwapCost::get().into()
     }
 
     pub fn get_alpha_values(netuid: NetUid) -> (u16, u16) {
@@ -796,5 +803,30 @@ impl<T: Config> Pallet<T> {
             Ok(owner_hotkey) => Uids::<T>::get(netuid, &owner_hotkey),
             Err(_) => None,
         }
+    }
+
+    /// Set the per-subnet limit (for the given `netuid`) on the number of **owner-immune**
+    /// neurons (UIDs).
+    ///
+    /// The value must lie within the inclusive bounds defined by [`MinImmuneOwnerUidsLimit`]
+    /// and [`MaxImmuneOwnerUidsLimit`]. If the bound check fails, this returns
+    /// [`Error::<T>::InvalidValue`] and leaves storage unchanged.
+    ///
+    /// # Parameters
+    /// - `netuid`: Identifier of the subnet to update.
+    /// - `limit`: New inclusive upper bound for the count of owner-immune UIDs on this subnet.
+    ///
+    /// # Returns
+    /// - `Ok(())` on success (value written to storage).
+    /// - `Err(Error::<T>::InvalidValue)` if `limit` is outside `[MinImmuneOwnerUidsLimit, MaxImmuneOwnerUidsLimit]`.
+    pub fn set_owner_immune_neuron_limit(netuid: NetUid, limit: u16) -> DispatchResult {
+        ensure!(
+            limit >= MinImmuneOwnerUidsLimit::<T>::get()
+                && limit <= MaxImmuneOwnerUidsLimit::<T>::get(),
+            Error::<T>::InvalidValue
+        );
+
+        ImmuneOwnerUidsLimit::<T>::insert(netuid, limit);
+        Ok(())
     }
 }

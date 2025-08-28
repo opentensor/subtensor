@@ -3,6 +3,10 @@ name: Try Runtime
 on:
   pull_request:
 
+concurrency:
+  group: try-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -10,10 +14,20 @@ jobs:
   check-devnet:
     name: check devnet
     if: github.base_ref != 'main'
-    runs-on: SubtensorCI
+    runs-on: [self-hosted, type-ccx33]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config unzip
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -31,10 +45,20 @@ jobs:
   check-testnet:
     name: check testnet
     if: github.base_ref != 'main'
-    runs-on: SubtensorCI
+    runs-on: [self-hosted, type-ccx33]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config unzip
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -52,10 +76,20 @@ jobs:
   check-finney:
     name: check finney
     # if: github.base_ref == 'testnet' || github.base_ref == 'devnet' || github.base_ref == 'main'
-    runs-on: SubtensorCI
+    runs-on: [self-hosted, type-ccx33]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config unzip
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2

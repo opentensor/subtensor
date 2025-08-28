@@ -1,3 +1,5 @@
+import * as assert from "assert";
+
 import { PublicClient } from "viem";
 import { ETH_LOCAL_URL } from "../src/config";
 import { generateRandomEthersWallet, getPublicClient } from "../src/utils";
@@ -11,7 +13,6 @@ import { u8aToHex } from "@polkadot/util";
 import { ILEASING_ADDRESS, ILeasingABI } from "../src/contracts/leasing";
 import { ICROWDLOAN_ADDRESS, ICrowdloanABI } from "../src/contracts/crowdloan";
 import { INEURON_ADDRESS, INeuronABI } from "../src/contracts/neuron";
-import { assert } from "chai";
 import { convertH160ToPublicKey, convertH160ToSS58 } from "../src/address-utils";
 
 describe("Test Leasing precompile", () => {
@@ -74,7 +75,7 @@ describe("Test Leasing precompile", () => {
         const lease = await api.query.SubtensorModule.SubnetLeases.getValue(nextLeaseId);
         const leaseInfo = await leaseContract.getLease(nextLeaseId);
 
-        assert.isDefined(lease);
+        assert.ok(lease);
         assert.equal(leaseInfo[0], u8aToHex(decodeAddress(lease.beneficiary)));
         assert.equal(leaseInfo[1], u8aToHex(decodeAddress(lease.coldkey)));
         assert.equal(leaseInfo[2], u8aToHex(decodeAddress(lease.hotkey)));
@@ -126,7 +127,7 @@ describe("Test Leasing precompile", () => {
         await tx.wait();
 
         const lease = await api.query.SubtensorModule.SubnetLeases.getValue(nextLeaseId);
-        assert.isDefined(lease);
+        assert.ok(lease);
         assert.equal(lease.beneficiary, convertH160ToSS58(wallet1.address));
         assert.equal(lease.emissions_share, leasingEmissionsShare);
         assert.equal(lease.end_block, leasingEndBlock);
@@ -189,14 +190,14 @@ describe("Test Leasing precompile", () => {
         await waitForFinalizedBlock(api, leasingEndBlock);
 
         let lease = await api.query.SubtensorModule.SubnetLeases.getValue(nextLeaseId);
-        assert.isDefined(lease);
+        assert.ok(lease);
         const netuid = lease.netuid;
 
         tx = await leaseContract.terminateLease(nextLeaseId, convertH160ToPublicKey(hotkey.address));
         await tx.wait();
 
         lease = await api.query.SubtensorModule.SubnetLeases.getValue(nextLeaseId);
-        assert.isUndefined(lease);
+        assert.strictEqual(lease, undefined);
 
         // Ensure that the subnet ownership has been transferred
         const ownerColdkey = await api.query.SubtensorModule.SubnetOwner.getValue(netuid);

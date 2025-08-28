@@ -12,29 +12,21 @@ use core::num::NonZeroU64;
 
 pub mod check_nonce;
 mod migrations;
+pub mod transaction_payment_wrapper;
 
 extern crate alloc;
 
 use codec::{Compact, Decode, Encode};
-use frame_support::dispatch::DispatchResult;
-use frame_support::traits::{Imbalance, InsideBoth};
 use frame_support::{
     PalletId,
-    dispatch::DispatchResultWithPostInfo,
+    dispatch::{DispatchResult, DispatchResultWithPostInfo},
     genesis_builder_helper::{build_state, get_preset},
     pallet_prelude::Get,
-    traits::{
-        Contains, LinearStoragePrice, OnUnbalanced,
-        fungible::{
-            DecreaseIssuance, HoldConsideration, Imbalance as FungibleImbalance, IncreaseIssuance,
-        },
-    },
+    traits::{Contains, InsideBoth, LinearStoragePrice, fungible::HoldConsideration},
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
-use pallet_grandpa::{
-    AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList, fg_primitives,
-};
+use pallet_grandpa::{AuthorityId as GrandpaId, fg_primitives};
 use pallet_registry::CanRegisterIdentity;
 use pallet_subtensor::rpc_info::{
     delegate_info::DelegateInfo,
@@ -45,9 +37,12 @@ use pallet_subtensor::rpc_info::{
     stake_info::StakeInfo,
     subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
 };
-use smallvec::smallvec;
+use pallet_subtensor_swap_runtime_api::SimSwapResult;
+use runtime_common::prod_or_fast;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_consensus_babe::BabeConfiguration;
+use sp_consensus_babe::BabeEpochConfiguration;
 use sp_core::{
     H160, H256, OpaqueMetadata, U256,
     crypto::{ByteArray, KeyTypeId},
@@ -57,8 +52,8 @@ use sp_runtime::generic::Era;
 use sp_runtime::{
     AccountId32, ApplyExtrinsicResult, ConsensusEngineId, generic, impl_opaque_keys,
     traits::{
-        AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, NumberFor,
-        One, PostDispatchInfoOf, UniqueSaturatedInto, Verify,
+        AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, One,
+        PostDispatchInfoOf, UniqueSaturatedInto, Verify,
     },
     transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
 };
@@ -68,7 +63,8 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use subtensor_precompiles::Precompiles;
-use subtensor_runtime_common::{AlphaCurrency, time::*, *};
+use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
+use subtensor_swap_interface::{OrderType, SwapHandler};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -88,7 +84,9 @@ pub use frame_support::{
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
-use pallet_transaction_payment::{ConstFeeMultiplier, FungibleAdapter, Multiplier};
+use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
+use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
+
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
@@ -152,8 +150,12 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
             frame_system::CheckEra::<Runtime>::from(Era::Immortal),
             check_nonce::CheckNonce::<Runtime>::from(nonce).into(),
             frame_system::CheckWeight::<Runtime>::new(),
-            pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
-            pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
+            ChargeTransactionPaymentWrapper::new(
+                pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
+            ),
+            pallet_subtensor::transaction_extension::SubtensorTransactionExtension::<Runtime>::new(
+            ),
+            pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
             frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
         );
 
@@ -218,7 +220,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 300,
+    spec_version: 306,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -445,58 +447,16 @@ impl pallet_balances::Config for Runtime {
     type DoneSlashHandler = ();
 }
 
-pub struct LinearWeightToFee;
-
-impl WeightToFeePolynomial for LinearWeightToFee {
-    type Balance = Balance;
-
-    fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-        let coefficient = WeightToFeeCoefficient {
-            coeff_integer: 0,
-            coeff_frac: Perbill::from_parts(500_000),
-            negative: false,
-            degree: 1,
-        };
-
-        smallvec!(coefficient)
-    }
-}
-
 parameter_types! {
     pub const OperationalFeeMultiplier: u8 = 5;
     pub FeeMultiplier: Multiplier = Multiplier::one();
 }
 
-/// Deduct the transaction fee from the Subtensor Pallet TotalIssuance when dropping the transaction
-/// fee.
-pub struct TransactionFeeHandler;
-impl
-    OnUnbalanced<
-        FungibleImbalance<
-            u64,
-            DecreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
-            IncreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
-        >,
-    > for TransactionFeeHandler
-{
-    fn on_nonzero_unbalanced(
-        credit: FungibleImbalance<
-            u64,
-            DecreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
-            IncreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
-        >,
-    ) {
-        let ti_before = pallet_subtensor::TotalIssuance::<Runtime>::get();
-        pallet_subtensor::TotalIssuance::<Runtime>::put(ti_before.saturating_sub(credit.peek()));
-        drop(credit);
-    }
-}
-
 impl pallet_transaction_payment::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type OnChargeTransaction = FungibleAdapter<Balances, TransactionFeeHandler>;
+    type OnChargeTransaction = SubtensorTxFeeHandler<Balances, TransactionFeeHandler<Runtime>>;
     // Convert dispatch weight to a chargeable fee.
-    type WeightToFee = LinearWeightToFee;
+    type WeightToFee = subtensor_transaction_fee::LinearWeightToFee;
     type OperationalFeeMultiplier = OperationalFeeMultiplier;
     type LengthToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
@@ -1135,17 +1095,10 @@ impl pallet_commitments::GetTempoInterface for Runtime {
     }
 }
 
-#[cfg(not(feature = "fast-blocks"))]
-pub const INITIAL_SUBNET_TEMPO: u16 = 360;
+pub const INITIAL_SUBNET_TEMPO: u16 = prod_or_fast!(360, 10);
 
-#[cfg(feature = "fast-blocks")]
-pub const INITIAL_SUBNET_TEMPO: u16 = 10;
-
-#[cfg(not(feature = "fast-blocks"))]
-pub const INITIAL_CHILDKEY_TAKE_RATELIMIT: u64 = 216000; // 30 days at 12 seconds per block
-
-#[cfg(feature = "fast-blocks")]
-pub const INITIAL_CHILDKEY_TAKE_RATELIMIT: u64 = 5;
+// 30 days at 12 seconds per block = 216000
+pub const INITIAL_CHILDKEY_TAKE_RATELIMIT: u64 = prod_or_fast!(216000, 5);
 
 // Configure the pallet subtensor.
 parameter_types! {
@@ -1207,11 +1160,8 @@ parameter_types! {
     pub const InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const SubtensorInitialTaoWeight: u64 = 971_718_665_099_567_868; // 0.05267697438728329% tao weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
-    pub const DurationOfStartCall: u64 = if cfg!(feature = "fast-blocks") {
-        10 // Only 10 blocks for fast blocks
-    } else {
-        7 * 24 * 60 * 60 / 12 // 7 days
-    };
+    // 7 * 24 * 60 * 60 / 12 = 7 days
+    pub const DurationOfStartCall: u64 = prod_or_fast!(7 * 24 * 60 * 60 / 12, 10);
     pub const SubtensorInitialKeySwapOnSubnetCost: u64 = 1_000_000; // 0.001 TAO
     pub const HotkeySwapOnSubnetInterval : BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
@@ -1313,6 +1263,7 @@ impl pallet_subtensor_swap::Config for Runtime {
     type WeightInfo = pallet_subtensor_swap::weights::DefaultWeight<Runtime>;
 }
 
+use crate::transaction_payment_wrapper::ChargeTransactionPaymentWrapper;
 use sp_runtime::BoundedVec;
 
 pub struct AuraPalletIntrf;
@@ -1604,16 +1555,10 @@ parameter_types! {
     pub const CrowdloanPalletId: PalletId = PalletId(*b"bt/cloan");
     pub const MinimumDeposit: Balance = 10_000_000_000; // 10 TAO
     pub const AbsoluteMinimumContribution: Balance = 100_000_000; // 0.1 TAO
-    pub const MinimumBlockDuration: BlockNumber = if cfg!(feature = "fast-blocks") {
-        50
-    } else {
-        50400 // 7 days minimum (7 * 24 * 60 * 60 / 12)
-    };
-    pub const MaximumBlockDuration: BlockNumber = if cfg!(feature = "fast-blocks") {
-       20000
-    } else {
-        432000 // 60 days maximum (60 * 24 * 60 * 60 / 12)
-    };
+    // 7 days minimum (7 * 24 * 60 * 60 / 12)
+    pub const MinimumBlockDuration: BlockNumber = prod_or_fast!(50400, 50);
+    // 60 days maximum (60 * 24 * 60 * 60 / 12)
+    pub const MaximumBlockDuration: BlockNumber = prod_or_fast!(432000, 20000);
     pub const RefundContributorsLimit: u32 = 50;
     pub const MaxContributors: u32 = 500;
 }
@@ -1687,8 +1632,9 @@ pub type TransactionExtensions = (
     frame_system::CheckEra<Runtime>,
     check_nonce::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
-    pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-    pallet_subtensor::SubtensorTransactionExtension<Runtime>,
+    ChargeTransactionPaymentWrapper<Runtime>,
+    pallet_subtensor::transaction_extension::SubtensorTransactionExtension<Runtime>,
+    pallet_drand::drand_priority::DrandPriority<Runtime>,
     frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
@@ -1899,7 +1845,7 @@ impl_runtime_apis! {
     }
 
     impl fg_primitives::GrandpaApi<Block> for Runtime {
-        fn grandpa_authorities() -> GrandpaAuthorityList {
+        fn grandpa_authorities() -> Vec<(GrandpaId, u64)> {
             Grandpa::grandpa_authorities()
         }
 
@@ -1908,18 +1854,23 @@ impl_runtime_apis! {
         }
 
         fn submit_report_equivocation_unsigned_extrinsic(
-            _equivocation_proof: fg_primitives::EquivocationProof<
+            equivocation_proof: fg_primitives::EquivocationProof<
                 <Block as BlockT>::Hash,
-                NumberFor<Block>,
+                sp_runtime::traits::NumberFor<Block>,
             >,
-            _key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
+            key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
         ) -> Option<()> {
-            None
+            let key_owner_proof = key_owner_proof.decode()?;
+
+            Grandpa::submit_unsigned_equivocation_report(
+                equivocation_proof,
+                key_owner_proof,
+            )
         }
 
         fn generate_key_ownership_proof(
             _set_id: fg_primitives::SetId,
-            _authority_id: GrandpaId,
+            _authority_id: fg_primitives::AuthorityId,
         ) -> Option<fg_primitives::OpaqueKeyOwnershipProof> {
             // NOTE: this is the only implementation possible since we've
             // defined our key owner proof type as a bottom type (i.e. a type
@@ -2405,19 +2356,117 @@ impl_runtime_apis! {
     }
 
     impl subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block> for Runtime {
-        fn get_network_registration_cost() -> u64 {
+        fn get_network_registration_cost() -> TaoCurrency {
             SubtensorModule::get_network_lock_cost()
         }
     }
 
+    impl sp_consensus_babe::BabeApi<Block> for Runtime {
+        fn configuration() -> BabeConfiguration {
+            let config = BabeEpochConfiguration::default();
+            BabeConfiguration {
+                slot_duration: Default::default(),
+                epoch_length: Default::default(),
+                authorities: vec![],
+                randomness: Default::default(),
+                c: config.c,
+                allowed_slots: config.allowed_slots,
+
+            }
+        }
+
+        fn current_epoch_start() -> sp_consensus_babe::Slot {
+            Default::default()
+        }
+
+        fn current_epoch() -> sp_consensus_babe::Epoch {
+            sp_consensus_babe::Epoch {
+                epoch_index: Default::default(),
+                start_slot: Default::default(),
+                duration: Default::default(),
+                authorities: vec![],
+                randomness: Default::default(),
+                config: BabeEpochConfiguration::default(),
+            }
+        }
+
+        fn next_epoch() -> sp_consensus_babe::Epoch {
+            sp_consensus_babe::Epoch {
+                epoch_index: Default::default(),
+                start_slot: Default::default(),
+                duration: Default::default(),
+                authorities: vec![],
+                randomness: Default::default(),
+                config: BabeEpochConfiguration::default(),
+            }
+        }
+
+        fn generate_key_ownership_proof(
+            _slot: sp_consensus_babe::Slot,
+            _authority_id: sp_consensus_babe::AuthorityId,
+        ) -> Option<sp_consensus_babe::OpaqueKeyOwnershipProof> {
+            None
+        }
+
+        fn submit_report_equivocation_unsigned_extrinsic(
+            _equivocation_proof: sp_consensus_babe::EquivocationProof<<Block as BlockT>::Header>,
+            _key_owner_proof: sp_consensus_babe::OpaqueKeyOwnershipProof,
+        ) -> Option<()> {
+            None
+        }
+    }
 
     impl pallet_subtensor_swap_runtime_api::SwapRuntimeApi<Block> for Runtime {
-        fn current_alpha_price(netuid: u16) -> u64 {
+        fn current_alpha_price(netuid: NetUid) -> u64 {
             use substrate_fixed::types::U96F32;
 
             pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into())
                 .saturating_mul(U96F32::from_num(1_000_000_000))
                 .saturating_to_num()
+        }
+
+        fn sim_swap_tao_for_alpha(netuid: NetUid, tao: TaoCurrency) -> SimSwapResult {
+            pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
+                netuid.into(),
+                OrderType::Buy,
+                tao.into(),
+            )
+            .map_or_else(
+                |_| SimSwapResult {
+                    tao_amount:   0.into(),
+                    alpha_amount: 0.into(),
+                    tao_fee:      0.into(),
+                    alpha_fee:    0.into(),
+                },
+                |sr| SimSwapResult {
+                    tao_amount:   sr.amount_paid_in.into(),
+                    alpha_amount: sr.amount_paid_out.into(),
+                    tao_fee:      sr.fee_paid.into(),
+                    alpha_fee:    0.into(),
+                },
+            )
+        }
+
+        fn sim_swap_alpha_for_tao(netuid: NetUid, alpha: AlphaCurrency) -> SimSwapResult {
+            pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
+                netuid.into(),
+                OrderType::Sell,
+                alpha.into(),
+            )
+            .map_or_else(
+                |_| SimSwapResult {
+                    tao_amount:   0.into(),
+                    alpha_amount: 0.into(),
+                    tao_fee:      0.into(),
+                    alpha_fee:    0.into(),
+                },
+                |sr| SimSwapResult {
+                    tao_amount:   sr.amount_paid_out.into(),
+                    alpha_amount: sr.amount_paid_in.into(),
+                    tao_fee:      0.into(),
+                    alpha_fee:    sr.fee_paid.into(),
+                },
+            )
         }
     }
 }

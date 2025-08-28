@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   handle-hotfix-pr:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, type-ccx13]
     steps:
       - name: Check if PR is a hotfix into `main`
         if: >
@@ -18,6 +18,11 @@ jobs:
           github.event.pull_request.head.ref != 'testnet'
         run: |
           echo "Hotfix PR detected. Proceeding to label and comment."
+
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" curl jq
 
       - name: Add `hotfix` label
         if: >

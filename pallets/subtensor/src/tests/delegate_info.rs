@@ -123,7 +123,7 @@ fn test_get_delegated() {
                     RuntimeOrigin::signed(*delegatee),
                     *delegate,
                     *netuid,
-                    *amount
+                    (*amount).into()
                 ));
                 let expected_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                     delegate, delegatee, *netuid,

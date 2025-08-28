@@ -48,25 +48,26 @@ unwrap-used = "deny"
 useless_conversion = "allow"     # until polkadot is patched
 
 [workspace.dependencies]
-node-subtensor-runtime = { path = "runtime", default-features = false }
-pallet-admin-utils = { path = "pallets/admin-utils", default-features = false }
-pallet-collective = { path = "pallets/collective", default-features = false }
-pallet-commitments = { path = "pallets/commitments", default-features = false }
-pallet-registry = { path = "pallets/registry", default-features = false }
-pallet-crowdloan = { path = "pallets/crowdloan", default-features = false }
-pallet-subtensor = { path = "pallets/subtensor", default-features = false }
-pallet-subtensor-swap = { path = "pallets/swap", default-features = false }
-pallet-subtensor-swap-runtime-api = { path = "pallets/swap/runtime-api", default-features = false }
-pallet-subtensor-swap-rpc = { path = "pallets/swap/rpc", default-features = false }
-safe-math = { path = "primitives/safe-math", default-features = false }
+node-subtensor-runtime = { default-features = false, path = "runtime" }
+pallet-admin-utils = { default-features = false, path = "pallets/admin-utils" }
+pallet-collective = { default-features = false, path = "pallets/collective" }
+pallet-commitments = { default-features = false, path = "pallets/commitments" }
+pallet-registry = { default-features = false, path = "pallets/registry" }
+pallet-crowdloan = { default-features = false, path = "pallets/crowdloan" }
+pallet-subtensor = { default-features = false, path = "pallets/subtensor" }
+pallet-subtensor-swap = { default-features = false, path = "pallets/swap" }
+pallet-subtensor-swap-runtime-api = { default-features = false, path = "pallets/swap/runtime-api" }
+pallet-subtensor-swap-rpc = { default-features = false, path = "pallets/swap/rpc" }
+procedural-fork = { path = "support/procedural-fork", default-features = false }
+safe-math = { default-features = false, path = "primitives/safe-math" }
 share-pool = { path = "primitives/share-pool", default-features = false }
 subtensor-macros = { path = "support/macros", default-features = false }
-subtensor-custom-rpc = { path = "pallets/subtensor/rpc", default-features = false }
-subtensor-custom-rpc-runtime-api = { path = "pallets/subtensor/runtime-api", default-features = false }
-subtensor-precompiles = { path = "precompiles", default-features = false }
-subtensor-runtime-common = { path = "common", default-features = false }
-subtensor-swap-interface = { path = "pallets/swap-interface", default-features = false }
-procedural-fork = { path = "support/procedural-fork", default-features = false }
+subtensor-custom-rpc = { default-features = false, path = "pallets/subtensor/rpc" }
+subtensor-custom-rpc-runtime-api = { default-features = false, path = "pallets/subtensor/runtime-api" }
+subtensor-precompiles = { default-features = false, path = "precompiles" }
+subtensor-runtime-common = { default-features = false, path = "common" }
+subtensor-swap-interface = { default-features = false, path = "pallets/swap-interface" }
+subtensor-transaction-fee = { default-features = false, path = "pallets/transaction-fee" }
 
 ed25519-dalek = { version = "2.1.0", default-features = false }
 async-trait = "0.1"
@@ -112,7 +113,6 @@ expander = "2"
 ahash = { version = "0.8", default-features = false }
 regex = { version = "1.11.1", default-features = false }
 
-
 frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 frame-executive = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
@@ -126,6 +126,7 @@ frame-metadata = { version = "20.0.0", default-features = false }
 
 pallet-proxy = { path = "pallets/proxy", default-features = false }
 pallet-utility = { path = "pallets/utility", default-features = false }
+pallet-babe = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 pallet-aura = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 pallet-grandpa = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
@@ -142,11 +143,29 @@ pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/polkadot
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 pallet-root-testing = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 
+# NPoS
+frame-election-provider-support = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+pallet-authority-discovery = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+pallet-authorship = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+pallet-bags-list = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+pallet-election-provider-multi-phase = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+pallet-fast-unstake = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+pallet-nomination-pools = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+pallet-nomination-pools-runtime-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+pallet-session = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+pallet-staking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+pallet-staking-runtime-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+pallet-staking-reward-fn = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+pallet-staking-reward-curve = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+pallet-offences = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+
 sc-basic-authorship = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 sc-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 sc-client-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 sc-consensus = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 sc-consensus-aura = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+sc-consensus-babe = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+sc-consensus-babe-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 sc-consensus-grandpa = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 sc-consensus-grandpa-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 sc-chain-spec-derive = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
@@ -166,11 +185,16 @@ sc-consensus-manual-seal = { git = "https://github.com/paritytech/polkadot-sdk.g
 sc-network-sync = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 
 sp-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+sp-authority-discovery = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 sp-arithmetic = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 sp-block-builder = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 sp-blockchain = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+sp-staking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 sp-consensus = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 sp-consensus-aura = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+sp-consensus-babe = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+sp-consensus-slots = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+sp-npos-elections = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 sp-consensus-grandpa = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 sp-genesis-builder = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 sp-core = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
@@ -198,35 +222,38 @@ substrate-prometheus-endpoint = { git = "https://github.com/paritytech/polkadot-
 
 cumulus-primitives-proof-size-hostfunction = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
 
+runtime-common = { package = "polkadot-runtime-common", git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2503-6", default-features = false }
+
 # Frontier
-fp-evm = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
-fp-rpc = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
-fp-self-contained = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
-fp-account = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
-fc-storage = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
-fc-db = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
-fc-consensus = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
-fp-consensus = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
-fp-dynamic-fee = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
-fc-api = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
-fc-rpc = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
-fc-rpc-core = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
-fc-aura = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
-fc-mapping-sync = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
-precompile-utils = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
+fp-evm = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+fp-rpc = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+fp-self-contained = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+fp-account = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+fc-storage = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+fc-db = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+fc-consensus = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+fp-consensus = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+fp-dynamic-fee = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+fc-api = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+fc-rpc = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+fc-rpc-core = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+fc-aura = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+fc-babe = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+fc-mapping-sync = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+precompile-utils = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
 
 # Frontier FRAME
-pallet-base-fee = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
-pallet-dynamic-fee = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
-pallet-ethereum = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
-pallet-evm = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
-pallet-evm-precompile-dispatch = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
-pallet-evm-chain-id = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
-pallet-evm-precompile-modexp = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
-pallet-evm-precompile-sha3fips = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
-pallet-evm-precompile-simple = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
-pallet-evm-precompile-bn128 = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
-pallet-hotfix-sufficients = { git = "https://github.com/opentensor/frontier", rev = "c591df98c524e1599c45f93cf4685248088ac014", default-features = false }
+pallet-base-fee = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+pallet-dynamic-fee = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+pallet-ethereum = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+pallet-evm = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+pallet-evm-precompile-dispatch = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+pallet-evm-chain-id = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+pallet-evm-precompile-modexp = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+pallet-evm-precompile-sha3fips = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+pallet-evm-precompile-simple = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+pallet-evm-precompile-bn128 = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
+pallet-hotfix-sufficients = { git = "https://github.com/opentensor/frontier", rev = "830e61f370d88f7ace1c5a5659dd58db75a19844", default-features = false }
 
 #DRAND
 pallet-drand = { path = "pallets/drand", default-features = false }

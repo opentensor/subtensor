@@ -26,10 +26,15 @@ env:
 
 jobs:
   check-label:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, type-ccx13]
     outputs:
       skip-bittensor-e2e-tests: ${{ steps.get-labels.outputs.skip-bittensor-e2e-tests }}
     steps:
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" gh jq
+
       - name: Check out repository
         uses: actions/checkout@v4
         with:
@@ -52,10 +57,15 @@ jobs:
   find-btcli-e2e-tests:
     needs: check-label
     if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, type-ccx13]
     outputs:
       test-files: ${{ steps.get-btcli-tests.outputs.test-files }}
     steps:
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" jq
+
       - name: Research preparation
         working-directory: ${{ github.workspace }}
         run: git clone https://github.com/opentensor/btcli.git
@@ -63,9 +73,6 @@ jobs:
       - name: Checkout
         working-directory: ${{ github.workspace }}/btcli
         run: git checkout staging
-
-      - name: Install dependencies
-        run: sudo apt-get install -y jq
 
       - name: Find e2e test files
         id: get-btcli-tests
@@ -77,10 +84,15 @@ jobs:
   find-sdk-e2e-tests:
     needs: check-label
     if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, type-ccx13]
     outputs:
       test-files: ${{ steps.get-sdk-tests.outputs.test-files }}
     steps:
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" jq
+
       - name: Research preparation
         working-directory: ${{ github.workspace }}
         run: git clone https://github.com/opentensor/bittensor.git
@@ -88,9 +100,6 @@ jobs:
       - name: Checkout
         working-directory: ${{ github.workspace }}/bittensor
         run: git checkout staging
-
-      - name: Install dependencies
-        run: sudo apt-get install -y jq
 
       - name: Find e2e test files
         id: get-sdk-tests
@@ -101,7 +110,7 @@ jobs:
 
   build-image-with-current-branch:
     needs: check-label
-    runs-on: SubtensorCI
+    runs-on: [self-hosted, type-ccx33]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -109,7 +118,7 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.ref }}
 
-      - name: Patch non-fast-block node
+      - name: Patch non-fast-runtime node
         run: |
           chmod +x ./scripts/localnet_patch.sh
           ./scripts/localnet_patch.sh
@@ -139,7 +148,7 @@ jobs:
       - find-btcli-e2e-tests
       - build-image-with-current-branch
     if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, type-ccx13]
     strategy:
       fail-fast: false
       max-parallel: 16
@@ -175,7 +184,7 @@ jobs:
 
       - name: Create Python virtual environment
         working-directory: ${{ github.workspace }}
-        run: uv venv ${{ github.workspace }}/venv
+        run: uv venv --seed ${{ github.workspace }}/venv
 
       - name: Clone Bittensor CLI repo
         working-directory: ${{ github.workspace }}
@@ -239,7 +248,7 @@ jobs:
       - find-sdk-e2e-tests
       - build-image-with-current-branch
     if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, type-ccx13]
     strategy:
       fail-fast: false
       max-parallel: 16
@@ -275,7 +284,7 @@ jobs:
 
       - name: Create Python virtual environment
         working-directory: ${{ github.workspace }}
-        run: uv venv ${{ github.workspace }}/venv
+        run: uv venv --seed ${{ github.workspace }}/venv
 
       - name: Clone Bittensor SDK repo
         working-directory: ${{ github.workspace }}

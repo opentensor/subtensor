@@ -110,9 +110,9 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 7. Ensure the callers coldkey has enough stake to perform the transaction.
-        let registration_cost = Self::get_burn_as_u64(netuid);
+        let registration_cost = Self::get_burn(netuid);
         ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, registration_cost),
+            Self::can_remove_balance_from_coldkey_account(&coldkey, registration_cost.into()),
             Error::<T>::NotEnoughBalanceToStake
         );
 
@@ -133,13 +133,13 @@ impl<T: Config> Pallet<T> {
 
         // --- 10. Ensure the remove operation from the coldkey is a success.
         let actual_burn_amount =
-            Self::remove_balance_from_coldkey_account(&coldkey, registration_cost)?;
+            Self::remove_balance_from_coldkey_account(&coldkey, registration_cost.into())?;
 
         // Tokens are swapped and then burned.
         let burned_alpha = Self::swap_tao_for_alpha(
             netuid,
             actual_burn_amount,
-            T::SwapInterface::max_price(),
+            T::SwapInterface::max_price().into(),
             false,
         )?
         .amount_paid_out;
@@ -154,7 +154,7 @@ impl<T: Config> Pallet<T> {
         BurnRegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
         RegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
         RegistrationsThisBlock::<T>::mutate(netuid, |val| val.saturating_inc());
-        Self::increase_rao_recycled(netuid, Self::get_burn_as_u64(netuid));
+        Self::increase_rao_recycled(netuid, Self::get_burn(netuid).into());
 
         // --- 15. Deposit successful event.
         log::debug!("NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?}  ) ");
@@ -369,7 +369,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 5. Add Balance via faucet.
         let balance_to_add: u64 = 1_000_000_000_000;
-        Self::coinbase(100_000_000_000); // We are creating tokens here from the coinbase.
+        Self::coinbase(100_000_000_000.into()); // We are creating tokens here from the coinbase.
 
         Self::add_balance_to_coldkey_account(&coldkey, balance_to_add);
 
