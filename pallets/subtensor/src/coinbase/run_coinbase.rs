@@ -123,9 +123,6 @@ impl<T: Config> Pallet<T> {
             alpha_in.insert(*netuid_i, alpha_in_i);
             alpha_out.insert(*netuid_i, alpha_out_i);
         }
-        log::debug!("tao_in: {tao_in:?}");
-        log::debug!("alpha_in: {alpha_in:?}");
-        log::debug!("alpha_out: {alpha_out:?}");
 
         // --- 4. Injection.
         // Actually perform the injection of alpha_in, alpha_out and tao_in into the subnet pool.
@@ -161,6 +158,10 @@ impl<T: Config> Pallet<T> {
             // Adjust protocol liquidity based on new reserves
             T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
         }
+
+        log::debug!("tao_in: {tao_in:?}");
+        log::debug!("alpha_in: {alpha_in:?}");
+        log::debug!("alpha_out: {alpha_out:?}");
 
         // --- 5. Compute owner cuts and remove them from alpha_out remaining.
         // Remove owner cuts here so that we can properly seperate root dividends in the next step.
