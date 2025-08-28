@@ -12,3 +12,15 @@ impl LinearCostPrecompile for BlakeTwo128 {
         Ok((ExitSucceed::Returned, ret.to_vec()))
     }
 }
+
+pub struct BlakeTwo256;
+
+impl LinearCostPrecompile for BlakeTwo256 {
+    const BASE: u64 = 60;
+    const WORD: u64 = 12;
+
+    fn execute(input: &[u8], _cost: u64) -> Result<(ExitSucceed, Vec<u8>), PrecompileFailure> {
+        let ret = sp_io::hashing::blake2_256(input);
+        Ok((ExitSucceed::Returned, ret.to_vec()))
+    }
+}
