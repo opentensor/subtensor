@@ -234,20 +234,6 @@ where
                     Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
-            Some(Call::commit_timelocked_weights {
-                netuid,
-                reveal_round,
-                ..
-            }) => {
-                if Self::check_weights_min_stake(who, *netuid) {
-                    if *reveal_round < pallet_drand::LastStoredRound::<T>::get() {
-                        return Err(CustomTransactionError::InvalidRevealRound.into());
-                    }
-                    Ok((Default::default(), Some(who.clone()), origin))
-                } else {
-                    Err(CustomTransactionError::StakeAmountTooLow.into())
-                }
-            }
             Some(Call::add_stake { .. }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
                     return Err(CustomTransactionError::ColdkeyInSwapSchedule.into());
