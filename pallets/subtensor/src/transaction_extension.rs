@@ -230,7 +230,7 @@ where
                     Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
-            Some(Call::commit_crv3_weights {
+            Some(Call::commit_timelocked_weights {
                 netuid,
                 reveal_round,
                 ..

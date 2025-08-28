@@ -249,48 +249,6 @@ mod dispatches {
             Self::do_reveal_weights(origin, netuid, uids, values, salt, version_key)
         }
 
-        /// ---- Used to commit encrypted commit-reveal v3 weight values to later be revealed.
-        ///
-        /// # Args:
-        /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
-        ///   - The committing hotkey.
-        ///
-        /// * `netuid` (`u16`):
-        ///   - The u16 network identifier.
-        ///
-        /// * `commit` (`Vec<u8>`):
-        ///   - The encrypted compressed commit.
-        ///     The steps for this are:
-        ///     1. Instantiate [`WeightsTlockPayload`]
-        ///     2. Serialize it using the `parity_scale_codec::Encode` trait
-        ///     3. Encrypt it following the steps (here)[https://github.com/ideal-lab5/tle/blob/f8e6019f0fb02c380ebfa6b30efb61786dede07b/timelock/src/tlock.rs#L283-L336]
-        ///        to produce a [`TLECiphertext<TinyBLS381>`] type.
-        ///     4. Serialize and compress using the `ark-serialize` `CanonicalSerialize` trait.
-        ///
-        /// * reveal_round (`u64`):
-        ///    - The drand reveal round which will be avaliable during epoch `n+1` from the current
-        ///      epoch.
-        ///
-        /// # Raises:
-        /// * `CommitRevealV3Disabled`:
-        ///   - Attempting to commit when the commit-reveal mechanism is disabled.
-        ///
-        /// * `TooManyUnrevealedCommits`:
-        ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
-        ///
-        #[pallet::call_index(99)]
-        #[pallet::weight((Weight::from_parts(77_750_000, 0)
-		.saturating_add(T::DbWeight::get().reads(7_u64))
-		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
-        pub fn commit_crv3_weights(
-            origin: T::RuntimeOrigin,
-            netuid: NetUid,
-            commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
-            reveal_round: u64,
-        ) -> DispatchResult {
-            Self::do_commit_timelocked_weights(origin, netuid, commit, reveal_round, 4)
-        }
-
         /// ---- The implementation for batch revealing committed weights.
         ///
         /// # Args:
@@ -2174,6 +2132,50 @@ mod dispatches {
 
             Self::deposit_event(Event::SymbolUpdated { netuid, symbol });
             Ok(())
+        }
+
+        /// ---- Used to commit timelock encrypted commit-reveal weight values to later be revealed.
+        ///
+        /// # Args:
+        /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
+        ///   - The committing hotkey.
+        ///
+        /// * `netuid` (`u16`):
+        ///   - The u16 network identifier.
+        ///
+        /// * `commit` (`Vec<u8>`):
+        ///   - The encrypted compressed commit.
+        ///     The steps for this are:
+        ///     1. Instantiate [`WeightsTlockPayload`]
+        ///     2. Serialize it using the `parity_scale_codec::Encode` trait
+        ///     3. Encrypt it following the steps (here)[https://github.com/ideal-lab5/tle/blob/f8e6019f0fb02c380ebfa6b30efb61786dede07b/timelock/src/tlock.rs#L283-L336]
+        ///        to produce a [`TLECiphertext<TinyBLS381>`] type.
+        ///     4. Serialize and compress using the `ark-serialize` `CanonicalSerialize` trait.
+        ///
+        /// * reveal_round (`u64`):
+        ///    - The drand reveal round which will be avaliable during epoch `n+1` from the current
+        ///      epoch.
+        ///
+        /// * commit_reveal_version (`u16`):
+        ///     - The client (bittensor-drand) version
+        #[pallet::call_index(113)]
+        #[pallet::weight((Weight::from_parts(64_530_000, 0)
+		.saturating_add(T::DbWeight::get().reads(7_u64))
+		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        pub fn commit_timelocked_weights(
+            origin: T::RuntimeOrigin,
+            netuid: NetUid,
+            commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
+            reveal_round: u64,
+            commit_reveal_version: u16,
+        ) -> DispatchResult {
+            Self::do_commit_timelocked_weights(
+                origin,
+                netuid,
+                commit,
+                reveal_round,
+                commit_reveal_version,
+            )
         }
     }
 }
