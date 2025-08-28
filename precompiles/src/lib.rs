@@ -27,6 +27,7 @@ use pallet_admin_utils::PrecompileEnum;
 
 use crate::alpha::*;
 use crate::balance_transfer::*;
+use crate::blake2_hash::*;
 use crate::crowdloan::*;
 use crate::ed25519::*;
 use crate::extensions::*;
@@ -41,6 +42,7 @@ use crate::uid_lookup::*;
 
 mod alpha;
 mod balance_transfer;
+mod blake2_hash;
 mod crowdloan;
 mod ed25519;
 mod extensions;
@@ -107,7 +109,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 24] {
+    pub fn used_addresses() -> [H160; 26] {
         [
             hash(1),
             hash(2),
@@ -118,6 +120,8 @@ where
             hash(7),
             hash(8),
             hash(9),
+            hash(10),
+            hash(11),
             hash(1024),
             hash(1025),
             hash(Ed25519Verify::<R::AccountId>::INDEX),
@@ -173,6 +177,8 @@ where
             a if a == hash(7) => Some(Bn128Mul::execute(handle)),
             a if a == hash(8) => Some(Bn128Pairing::execute(handle)),
             a if a == hash(9) => Some(Bn128Add::execute(handle)),
+            a if a == hash(10) => Some(BlakeTwo128::execute(handle)),
+            a if a == hash(11) => Some(BlakeTwo256::execute(handle)),
             // Non-Frontier specific nor Ethereum precompiles :
             a if a == hash(1024) => Some(Sha3FIPS256::execute(handle)),
             a if a == hash(1025) => Some(ECRecoverPublicKey::execute(handle)),
