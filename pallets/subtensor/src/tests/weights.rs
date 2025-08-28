@@ -5299,7 +5299,8 @@ fn test_do_commit_crv3_weights_success() {
 
         let cur_epoch =
             SubtensorModule::get_epoch_index(netuid, SubtensorModule::get_current_block_as_u64());
-        let commits = TimelockedWeightCommits::<Test>::get(netuid, cur_epoch);
+        let commits =
+            TimelockedWeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), cur_epoch);
         assert_eq!(commits.len(), 1);
         assert_eq!(commits[0].0, hotkey);
         assert_eq!(commits[0].2, commit_data);
@@ -6154,7 +6155,8 @@ fn test_multiple_commits_by_same_hotkey_within_limit() {
 
         let cur_epoch =
             SubtensorModule::get_epoch_index(netuid, SubtensorModule::get_current_block_as_u64());
-        let commits = TimelockedWeightCommits::<Test>::get(netuid, cur_epoch);
+        let commits =
+            TimelockedWeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), cur_epoch);
         assert_eq!(
             commits.len(),
             10,
@@ -6189,7 +6191,7 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
             let bounded_commit = vec![epoch as u8; 5].try_into().expect("bounded vec");
 
             assert_ok!(TimelockedWeightCommits::<Test>::try_mutate(
-                netuid,
+                NetUidStorageIndex::from(netuid),
                 epoch,
                 |q| -> DispatchResult {
                     q.push_back((hotkey, cur_block, bounded_commit, reveal_round));
@@ -6199,8 +6201,14 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
         }
 
         // Sanity – both epochs presently hold a commit.
-        assert!(!TimelockedWeightCommits::<Test>::get(netuid, past_epoch).is_empty());
-        assert!(!TimelockedWeightCommits::<Test>::get(netuid, reveal_epoch).is_empty());
+        assert!(
+            !TimelockedWeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), past_epoch)
+                .is_empty()
+        );
+        assert!(
+            !TimelockedWeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), reveal_epoch)
+                .is_empty()
+        );
 
         // ---------------------------------------------------------------------
         // Run the reveal pass WITHOUT a pulse – only expiry housekeeping runs.
@@ -6209,13 +6217,15 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
 
         // past_epoch (< reveal_epoch) must be gone
         assert!(
-            TimelockedWeightCommits::<Test>::get(netuid, past_epoch).is_empty(),
+            TimelockedWeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), past_epoch)
+                .is_empty(),
             "expired epoch {past_epoch} should be cleared"
         );
 
         // reveal_epoch queue is *kept* because its commit could still be revealed later.
         assert!(
-            !TimelockedWeightCommits::<Test>::get(netuid, reveal_epoch).is_empty(),
+            !TimelockedWeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), reveal_epoch)
+                .is_empty(),
             "reveal-epoch {reveal_epoch} must be retained until commit can be revealed"
         );
     });
@@ -6891,10 +6901,11 @@ fn test_reveal_crv3_commits_retry_on_missing_pulse() {
         ));
 
         // epoch in which commit was stored
-        let stored_epoch = TimelockedWeightCommits::<Test>::iter_prefix(netuid)
-            .next()
-            .map(|(e, _)| e)
-            .expect("commit stored");
+        let stored_epoch =
+            TimelockedWeightCommits::<Test>::iter_prefix(NetUidStorageIndex::from(netuid))
+                .next()
+                .map(|(e, _)| e)
+                .expect("commit stored");
 
         // first block of reveal epoch (commit_epoch + RP)
         let first_reveal_epoch = stored_epoch + SubtensorModule::get_reveal_period(netuid);
@@ -6905,7 +6916,8 @@ fn test_reveal_crv3_commits_retry_on_missing_pulse() {
         // run *one* block inside reveal epoch without pulse → commit should stay queued
         step_block(1);
         assert!(
-            !TimelockedWeightCommits::<Test>::get(netuid, stored_epoch).is_empty(),
+            !TimelockedWeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), stored_epoch)
+                .is_empty(),
             "commit must remain queued when pulse is missing"
         );
 
@@ -6933,7 +6945,8 @@ fn test_reveal_crv3_commits_retry_on_missing_pulse() {
         assert!(!weights.is_empty(), "weights must be set after pulse");
 
         assert!(
-            TimelockedWeightCommits::<Test>::get(netuid, stored_epoch).is_empty(),
+            TimelockedWeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), stored_epoch)
+                .is_empty(),
             "queue should be empty after successful reveal"
         );
     });
@@ -7076,7 +7089,8 @@ fn test_reveal_crv3_commits_legacy_payload_success() {
 
         // commit should be gone
         assert!(
-            TimelockedWeightCommits::<Test>::get(netuid, commit_epoch).is_empty(),
+            TimelockedWeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), commit_epoch)
+                .is_empty(),
             "commit storage should be cleaned after reveal"
         );
     });

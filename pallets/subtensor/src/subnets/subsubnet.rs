@@ -142,6 +142,13 @@ impl<T: Config> Pallet<T> {
 
                             // Cleanup WeightCommits
                             let _ = WeightCommits::<T>::clear_prefix(netuid_index, u32::MAX, None);
+
+                            // Cleanup TimelockedWeightCommits
+                            let _ = TimelockedWeightCommits::<T>::clear_prefix(
+                                netuid_index,
+                                u32::MAX,
+                                None,
+                            );
                         }
                     }
 

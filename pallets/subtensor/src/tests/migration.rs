@@ -22,7 +22,7 @@ use sp_io::hashing::twox_128;
 use sp_runtime::traits::Zero;
 use substrate_fixed::types::I96F32;
 use substrate_fixed::types::extra::U2;
-use subtensor_runtime_common::TaoCurrency;
+use subtensor_runtime_common::{NetUidStorageIndex, TaoCurrency};
 
 #[allow(clippy::arithmetic_side_effects)]
 fn close(value: u64, target: u64, eps: u64) {
@@ -1063,10 +1063,17 @@ fn test_migrate_crv3_commits_add_block() {
 
         let old_queue: VecDeque<_> = VecDeque::from(vec![(who, ciphertext.clone(), round)]);
 
-        CRV3WeightCommits::<Test>::insert(netuid, epoch, old_queue.clone());
+        CRV3WeightCommits::<Test>::insert(
+            NetUidStorageIndex::from(netuid),
+            epoch,
+            old_queue.clone(),
+        );
 
         // Sanity: entry decodes under old alias
-        assert_eq!(CRV3WeightCommits::<Test>::get(netuid, epoch), old_queue);
+        assert_eq!(
+            CRV3WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), epoch),
+            old_queue
+        );
 
         assert!(
             !HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
@@ -1091,11 +1098,11 @@ fn test_migrate_crv3_commits_add_block() {
 
         // Old storage must be empty (drained)
         assert!(
-            CRV3WeightCommits::<Test>::get(netuid, epoch).is_empty(),
+            CRV3WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), epoch).is_empty(),
             "old queue should have been drained"
         );
 
-        let new_q = CRV3WeightCommitsV2::<Test>::get(netuid, epoch);
+        let new_q = CRV3WeightCommitsV2::<Test>::get(NetUidStorageIndex::from(netuid), epoch);
         assert_eq!(new_q.len(), 1, "exactly one migrated element expected");
 
         let (who2, commit_block, cipher2, round2) = new_q.front().cloned().unwrap();
@@ -1318,18 +1325,23 @@ fn test_migrate_crv3_v2_to_timelocked() {
             VecDeque::from(vec![(who, commit_block, ciphertext.clone(), round)]);
 
         // Insert under the deprecated alias
-        CRV3WeightCommitsV2::<Test>::insert(netuid, epoch, old_queue.clone());
+        CRV3WeightCommitsV2::<Test>::insert(
+            NetUidStorageIndex::from(netuid),
+            epoch,
+            old_queue.clone(),
+        );
 
         // Sanity: entry decodes under old alias
         assert_eq!(
-            CRV3WeightCommitsV2::<Test>::get(netuid, epoch),
+            CRV3WeightCommitsV2::<Test>::get(NetUidStorageIndex::from(netuid), epoch),
             old_queue,
             "pre-migration: old queue should be present"
         );
 
         // Destination should be empty pre-migration
         assert!(
-            TimelockedWeightCommits::<Test>::get(netuid, epoch).is_empty(),
+            TimelockedWeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), epoch)
+                .is_empty(),
             "pre-migration: destination should be empty"
         );
 
@@ -1356,12 +1368,12 @@ fn test_migrate_crv3_v2_to_timelocked() {
 
         // Old storage must be empty (drained)
         assert!(
-            CRV3WeightCommitsV2::<Test>::get(netuid, epoch).is_empty(),
+            CRV3WeightCommitsV2::<Test>::get(NetUidStorageIndex::from(netuid), epoch).is_empty(),
             "old queue should have been drained"
         );
 
         // New storage must match exactly
-        let new_q = TimelockedWeightCommits::<Test>::get(netuid, epoch);
+        let new_q = TimelockedWeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), epoch);
         assert_eq!(
             new_q, old_queue,
             "migrated queue must exactly match the old queue"

@@ -18,7 +18,6 @@
 ///   - [ ] Epoch terms of subnet are weighted sum (or logical OR) of all subsubnet epoch terms
 ///   - [ ] Subnet epoch terms persist in state
 ///   - [ ] Subsubnet epoch terms persist in state
-
 use super::mock::*;
 
 #[test]

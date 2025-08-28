@@ -1689,7 +1689,7 @@ pub mod pallet {
     pub type TimelockedWeightCommits<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
-        NetUid,
+        NetUidStorageIndex,
         Twox64Concat,
         u64, // epoch key
         VecDeque<(
@@ -1706,7 +1706,7 @@ pub mod pallet {
     pub type CRV3WeightCommits<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
-        NetUid,
+        NetUidStorageIndex,
         Twox64Concat,
         u64, // epoch key
         VecDeque<(
@@ -1722,7 +1722,7 @@ pub mod pallet {
     pub type CRV3WeightCommitsV2<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
-        NetUid,
+        NetUidStorageIndex,
         Twox64Concat,
         u64, // epoch key
         VecDeque<(

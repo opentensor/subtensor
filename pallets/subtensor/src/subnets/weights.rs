@@ -334,37 +334,41 @@ impl<T: Config> Pallet<T> {
             false => Self::get_epoch_index(netuid, cur_block),
         };
 
-        TimelockedWeightCommits::<T>::try_mutate(netuid, cur_epoch, |commits| -> DispatchResult {
-            // 7. Verify that the number of unrevealed commits is within the allowed limit.
+        TimelockedWeightCommits::<T>::try_mutate(
+            netuid_index,
+            cur_epoch,
+            |commits| -> DispatchResult {
+                // 7. Verify that the number of unrevealed commits is within the allowed limit.
 
-            let unrevealed_commits_for_who = commits
-                .iter()
-                .filter(|(account, _, _, _)| account == &who)
-                .count();
-            ensure!(
-                unrevealed_commits_for_who < 10,
-                Error::<T>::TooManyUnrevealedCommits
-            );
+                let unrevealed_commits_for_who = commits
+                    .iter()
+                    .filter(|(account, _, _, _)| account == &who)
+                    .count();
+                ensure!(
+                    unrevealed_commits_for_who < 10,
+                    Error::<T>::TooManyUnrevealedCommits
+                );
 
-            // 8. Append the new commit with calculated reveal blocks.
-            // Hash the commit before it is moved, for the event
-            let commit_hash = BlakeTwo256::hash(&commit);
-            commits.push_back((who.clone(), cur_block, commit, reveal_round));
+                // 8. Append the new commit with calculated reveal blocks.
+                // Hash the commit before it is moved, for the event
+                let commit_hash = BlakeTwo256::hash(&commit);
+                commits.push_back((who.clone(), cur_block, commit, reveal_round));
 
-            // 9. Emit the WeightsCommitted event
-            Self::deposit_event(Event::TimelockedWeightsCommitted(
-                who.clone(),
-                netuid,
-                commit_hash,
-                reveal_round,
-            ));
+                // 9. Emit the WeightsCommitted event
+                Self::deposit_event(Event::TimelockedWeightsCommitted(
+                    who.clone(),
+                    netuid_index,
+                    commit_hash,
+                    reveal_round,
+                ));
 
-            // 10. Update the last commit block for the hotkey's UID.
-            Self::set_last_update_for_uid(netuid_index, neuron_uid, commit_block);
+                // 10. Update the last commit block for the hotkey's UID.
+                Self::set_last_update_for_uid(netuid_index, neuron_uid, commit_block);
 
-            // 11. Return success.
-            Ok(())
-        })
+                // 11. Return success.
+                Ok(())
+            },
+        )
     }
 
     /// ---- The implementation for revealing committed weights.
