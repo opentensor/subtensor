@@ -828,10 +828,13 @@ impl<T: Config> Pallet<T> {
                 parent_emission = parent_emission.saturating_sub(burn_take);
                 parent_emission = parent_emission.saturating_sub(child_take);
                 total_child_take = total_child_take.saturating_add(child_take);
-                SubnetAlphaOut::<T>::mutate( |total| *total = total.saturating_sub(burn_take) );
+                SubnetAlphaOut::<T>::mutate( netuid, |total| { *total = total.saturating_sub( AlphaCurrency::from(burn_take.saturating_to_num::<u64>()) ); });
             };
-            log::debug!("Child emission take: {child_emission_take:?} for hotkey {hotkey:?}");
-            log::debug!("Parent emission: {parent_emission:?} for hotkey {hotkey:?}");
+            log::debug!("burn_takee: {burn_take:?} for hotkey {hotkey:?}");
+            log::debug!("child_take: {child_take:?} for hotkey {hotkey:?}");
+            log::debug!("parent_emission: {parent_emission:?} for hotkey {hotkey:?}");
+            log::debug!("total_child_take: {total_child_take:?} for hotkey {hotkey:?}");
+
             log::debug!("remaining emission: {remaining_emission:?}");
 
             // Add the parent's emission to the distribution list
