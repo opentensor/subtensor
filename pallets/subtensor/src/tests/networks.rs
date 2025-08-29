@@ -1114,7 +1114,7 @@ fn prune_selection_complex_state_exhaustive() {
         // Remove n5; now n6 (price=0) should be selected.
         // This validates robustness to holes / non-contiguous netuids.
         // ---------------------------------------------------------------------
-        SubtensorModule::remove_network(n5);
+        SubtensorModule::do_dissolve_network(n5).expect("Expected not to panic");
         assert_eq!(
             SubtensorModule::get_network_to_prune(),
             Some(n6),

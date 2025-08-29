@@ -367,7 +367,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_dissolve_network(netuid: NetUid) -> dispatch::DispatchResult {
         // 1. --- The network exists?
         ensure!(
-            Self::if_subnet_exist(netuid),
+            Self::if_subnet_exist(netuid) && netuid != NetUid::ROOT,
             Error::<T>::SubNetworkDoesNotExist
         );
 
@@ -418,7 +418,7 @@ impl<T: Config> Pallet<T> {
         for (uid_i, weights_i) in <Weights<T> as frame_support::storage::IterableStorageDoubleMap<
             NetUid,
             u16,
-            sp_std::vec::Vec<(u16, u16)>,
+            Vec<(u16, u16)>,
         >>::iter_prefix(NetUid::ROOT)
         {
             let mut modified_weights = weights_i.clone();
