@@ -11,22 +11,29 @@
 //   - [x] Netuid index math (with SubsubnetCountCurrent limiting)
 //   - [x] Sub-subnet validity tests
 //   - [x] do_set_desired tests
-//   - [ ] Emissions are split proportionally
-//   - [ ] Sum of split emissions is equal to rao_emission passed to epoch
+//   - [x] Emissions are split proportionally
+//   - [x] Sum of split emissions is equal to rao_emission passed to epoch
+//   - [ ] Only subnet owner or root can set desired subsubnet count
 //   - [ ] Weights can be set/commited/revealed by subsubnet
-//   - [ ] Rate limiting is enforced by subsubnet
-//   - [ ] Bonds are applied per subsubnet
-//   - [ ] Incentives are per subsubnet
-//   - [ ] Subsubnet limit can be set up to 8 (with admin pallet)
-//   - [ ] When subsubnet limit is reduced, reduction is GlobalSubsubnetDecreasePerSuperblock per super-block
-//   - [ ] When reduction of subsubnet limit occurs, Weights, Incentive, LastUpdate, Bonds, and WeightCommits are cleared
+//   - [ ] Prevent weight setting/commitment/revealing above subsubnet_limit_in_force
+//   - [ ] When a miner is deregistered, their weights are cleaned across all subsubnets
+//   - [ ] Weight setting rate limiting is enforced by subsubnet
+//   - [x] Bonds are applied per subsubnet
+//   - [x] Incentives are per subsubnet
+//   - [x] Per-subsubnet incentives are distributed proportionally to miner weights
+//   - [x] Subsubnet limit can be set up to 8 (with admin pallet)
+//   - [x] When subsubnet limit is reduced, reduction is GlobalSubsubnetDecreasePerSuperblock per super-block
+//   - [x] When reduction of subsubnet limit occurs, Weights, Incentive, LastUpdate, Bonds, and WeightCommits are cleared
 //   - [ ] Epoch terms of subnet are weighted sum (or logical OR) of all subsubnet epoch terms
 //   - [ ] Subnet epoch terms persist in state
-//   - [ ] Subsubnet epoch terms persist in state
+//   - [x] Subsubnet epoch terms persist in state
+//   - [ ] "Yuma Emergency Mode" (consensus sum is 0 for a subsubnet), emission distributed by stake
+//   - [ ] Miner with no weights on any subsubnet receives no reward
 
 use super::mock::*;
 use crate::subnets::subsubnet::{GLOBAL_MAX_SUBNET_COUNT, MAX_SUBSUBNET_COUNT_PER_SUBNET};
 use crate::*;
+use approx::assert_abs_diff_eq;
 use frame_support::{assert_noop, assert_ok};
 use sp_core::U256;
 use sp_std::collections::vec_deque::VecDeque;
@@ -366,6 +373,207 @@ fn update_subsubnet_counts_no_change_when_not_superblock() {
 }
 
 #[test]
-fn test_subsubnet_emission_proportions() {
-    new_test_ext(1).execute_with(|| {});
+fn split_emissions_even_division() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(5u16);
+        SubsubnetCountCurrent::<Test>::insert(netuid, SubId::from(5u8)); // 5 sub-subnets
+        let out = SubtensorModule::split_emissions(netuid, AlphaCurrency::from(25u64));
+        assert_eq!(out, vec![AlphaCurrency::from(5u64); 5]);
+    });
+}
+
+#[test]
+fn split_emissions_rounding_to_first() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(6u16);
+        SubsubnetCountCurrent::<Test>::insert(netuid, SubId::from(4u8)); // 4 sub-subnets
+        let out = SubtensorModule::split_emissions(netuid, AlphaCurrency::from(10u64)); // 10 / 4 = 2, rem=2
+        assert_eq!(
+            out,
+            vec![
+                AlphaCurrency::from(4u64), // 2 + remainder(2)
+                AlphaCurrency::from(2u64),
+                AlphaCurrency::from(2u64),
+                AlphaCurrency::from(2u64),
+            ]
+        );
+    });
+}
+
+/// Seeds a 2-neuron and 2-subsubnet subnet so `epoch_subsubnet` produces non-zero
+/// incentives & dividends.
+/// Returns the sub-subnet storage index.
+pub fn mock_epoch_state(netuid: NetUid, ck0: U256, hk0: U256, ck1: U256, hk1: U256) {
+    let idx0 = SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(0));
+    let idx1 = SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(1));
+
+    // Base subnet exists; 2 neurons.
+    NetworksAdded::<Test>::insert(NetUid::from(u16::from(netuid)), true);
+    SubsubnetCountCurrent::<Test>::insert(netuid, SubId::from(2u8));
+    SubnetworkN::<Test>::insert(netuid, 2);
+
+    // Register two neurons (UID 0,1) → keys drive `get_subnetwork_n`.
+    Keys::<Test>::insert(netuid, 0u16, hk0.clone());
+    Keys::<Test>::insert(netuid, 1u16, hk1.clone());
+
+    // Make both ACTIVE: recent updates & old registrations.
+    Tempo::<Test>::insert(netuid, 1u16);
+    ActivityCutoff::<Test>::insert(netuid, u16::MAX); // large cutoff keeps them active
+    LastUpdate::<Test>::insert(idx0, vec![2, 2]);
+    LastUpdate::<Test>::insert(idx1, vec![2, 2]);
+    BlockAtRegistration::<Test>::insert(netuid, 0, 1u64); // registered long ago
+    BlockAtRegistration::<Test>::insert(netuid, 1, 1u64);
+
+    // Add stake
+    let stake_amount = AlphaCurrency::from(1_000_000_000); // 1 Alpha
+    SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        &hk0,
+        &ck0,
+        netuid,
+        stake_amount,
+    );
+    SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        &hk1,
+        &ck1,
+        netuid,
+        stake_amount,
+    );
+
+    // Non-zero stake above threshold; permit both as validators.
+    StakeThreshold::<Test>::put(0u64);
+    ValidatorPermit::<Test>::insert(netuid, vec![true, true]);
+
+    // Simple weights, setting for each other on both subsubnets
+    Weights::<Test>::insert(idx0, 0, vec![(0u16, 0xFFFF), (1u16, 0xFFFF)]);
+    Weights::<Test>::insert(idx0, 1, vec![(0u16, 0xFFFF), (1u16, 0xFFFF)]);
+    Weights::<Test>::insert(idx1, 0, vec![(0u16, 0xFFFF), (1u16, 0xFFFF)]);
+    Weights::<Test>::insert(idx1, 1, vec![(0u16, 0xFFFF), (1u16, 0xFFFF)]);
+
+    // Keep weight masking off for simplicity.
+    CommitRevealWeightsEnabled::<Test>::insert(netuid, false);
+    Yuma3On::<Test>::insert(netuid, false);
+}
+
+pub fn mock_3_neurons(netuid: NetUid, hk: U256) {
+    let idx0 = SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(0));
+    let idx1 = SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(1));
+
+    SubnetworkN::<Test>::insert(netuid, 3);
+    Keys::<Test>::insert(netuid, 2u16, hk.clone());
+    LastUpdate::<Test>::insert(idx0, vec![2, 2, 2]);
+    LastUpdate::<Test>::insert(idx1, vec![2, 2, 2]);
+    BlockAtRegistration::<Test>::insert(netuid, 2, 1u64);
+}
+
+#[test]
+fn epoch_with_subsubnets_produces_per_subsubnet_incentive() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let idx0 = SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(0));
+        let idx1 = SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(1));
+        let ck0 = U256::from(1);
+        let hk0 = U256::from(2);
+        let ck1 = U256::from(3);
+        let hk1 = U256::from(4);
+        let emission = AlphaCurrency::from(1_000_000_000);
+
+        mock_epoch_state(netuid, ck0, hk0, ck1, hk1);
+        SubtensorModule::epoch_with_subsubnets(netuid, emission);
+
+        let actual_incentive_sub0 = Incentive::<Test>::get(idx0);
+        let actual_incentive_sub1 = Incentive::<Test>::get(idx1);
+        let expected_incentive = 0xFFFF / 2;
+        assert_eq!(actual_incentive_sub0[0], expected_incentive);
+        assert_eq!(actual_incentive_sub0[1], expected_incentive);
+        assert_eq!(actual_incentive_sub1[0], expected_incentive);
+        assert_eq!(actual_incentive_sub1[1], expected_incentive);
+    });
+}
+
+#[test]
+fn epoch_with_subsubnets_updates_bonds() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let idx0 = SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(0));
+        let idx1 = SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(1));
+        let ck0 = U256::from(1);
+        let hk0 = U256::from(2);
+        let ck1 = U256::from(3);
+        let hk1 = U256::from(4);
+        let emission = AlphaCurrency::from(1_000_000_000);
+
+        mock_epoch_state(netuid, ck0, hk0, ck1, hk1);
+
+        // Cause bonds to be asymmetric on diff subsubnets
+        Weights::<Test>::insert(idx1, 0, vec![(0u16, 0xFFFF), (1u16, 0)]);
+        Weights::<Test>::insert(idx1, 1, vec![(0u16, 0xFFFF), (1u16, 0xFFFF)]);
+
+        SubtensorModule::epoch_with_subsubnets(netuid, emission);
+
+        let bonds_uid0_sub0 = Bonds::<Test>::get(idx0, 0);
+        let bonds_uid1_sub0 = Bonds::<Test>::get(idx0, 1);
+        let bonds_uid0_sub1 = Bonds::<Test>::get(idx1, 0);
+        let bonds_uid1_sub1 = Bonds::<Test>::get(idx1, 1);
+
+        // Subsubnet 0: UID0 fully bonds to UID1, UID1 fully bonds to UID0
+        assert_eq!(bonds_uid0_sub0, vec![(1, 65535)]);
+        assert_eq!(bonds_uid1_sub0, vec![(0, 65535)]);
+
+        // Subsubnet 1: UID0 no bond to UID1, UID1 fully bonds to UID0
+        assert_eq!(bonds_uid0_sub1, vec![]);
+        assert_eq!(bonds_uid1_sub1, vec![(0, 65535)]);
+    });
+}
+
+#[test]
+fn epoch_with_subsubnets_incentives_proportional_to_weights() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let idx0 = SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(0));
+        let idx1 = SubtensorModule::get_subsubnet_storage_index(netuid, SubId::from(1));
+        let ck0 = U256::from(1);
+        let hk0 = U256::from(2);
+        let ck1 = U256::from(3);
+        let hk1 = U256::from(4);
+        let hk2 = U256::from(6);
+        let emission = AlphaCurrency::from(1_000_000_000);
+
+        mock_epoch_state(netuid, ck0, hk0, ck1, hk1);
+        mock_3_neurons(netuid, hk2);
+
+        // Need 3 neurons for this: One validator that will be setting weights to 2 miners
+        ValidatorPermit::<Test>::insert(netuid, vec![true, false, false]);
+
+        // Set greater weight to uid1 on sub-subnet 0 and to uid2 on subsubnet 1
+        Weights::<Test>::insert(idx0, 0, vec![(1u16, 0xFFFF / 5 * 4), (2u16, 0xFFFF / 5)]);
+        Weights::<Test>::insert(idx1, 0, vec![(1u16, 0xFFFF / 5), (2u16, 0xFFFF / 5 * 4)]);
+
+        SubtensorModule::epoch_with_subsubnets(netuid, emission);
+
+        let actual_incentive_sub0 = Incentive::<Test>::get(idx0);
+        let actual_incentive_sub1 = Incentive::<Test>::get(idx1);
+
+        let expected_incentive_high = 0xFFFF / 5 * 4;
+        let expected_incentive_low = 0xFFFF / 5;
+        assert_abs_diff_eq!(
+            actual_incentive_sub0[1],
+            expected_incentive_high,
+            epsilon = 1
+        );
+        assert_abs_diff_eq!(
+            actual_incentive_sub0[2],
+            expected_incentive_low,
+            epsilon = 1
+        );
+        assert_abs_diff_eq!(
+            actual_incentive_sub1[1],
+            expected_incentive_low,
+            epsilon = 1
+        );
+        assert_abs_diff_eq!(
+            actual_incentive_sub1[2],
+            expected_incentive_high,
+            epsilon = 1
+        );
+    });
 }
