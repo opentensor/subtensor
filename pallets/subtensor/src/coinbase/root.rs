@@ -430,7 +430,10 @@ impl<T: Config> Pallet<T> {
         let _ = Uids::<T>::clear_prefix(netuid, u32::MAX, None);
         let keys = Keys::<T>::iter_prefix(netuid).collect::<Vec<_>>();
         let _ = Keys::<T>::clear_prefix(netuid, u32::MAX, None);
-        let _ = Bonds::<T>::clear_prefix(NetUidStorageIndex::from(netuid), u32::MAX, None);
+        for subid in 0..subsubnets {
+            let netuid_index = Self::get_subsubnet_storage_index(netuid, subid.into());
+            let _ = Bonds::<T>::clear_prefix(netuid_index, u32::MAX, None);
+        }
 
         // --- 8. Removes the weights for this subnet (do not remove).
         for subid in 0..subsubnets {
