@@ -823,8 +823,8 @@ impl<T: Config> Pallet<T> {
             let mut child_take: U96F32 = U96F32::saturating_from_num(0);
             if parent_owner != childkey_owner {
                 // The parent is from a different coldkey, we burn some proportion
-                burn_take = burn_take_proportion * parent_emission;
-                child_take = child_take_proportion * parent_emission;
+                burn_take = burn_take_proportion.saturating_mul(parent_emission);
+                child_take = child_take_proportion.saturating_mul(parent_emission);
                 parent_emission = parent_emission.saturating_sub(burn_take);
                 parent_emission = parent_emission.saturating_sub(child_take);
                 total_child_take = total_child_take.saturating_add(child_take);
