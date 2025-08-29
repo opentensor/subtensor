@@ -27,17 +27,12 @@ frame-system.workspace = true
 sp-io.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
-serde-tuple-vec-map.workspace = true
-serde_bytes = { workspace = true, features = ["alloc"] }
-serde_with = { workspace = true, features = ["macros"] }
 sp-runtime.workspace = true
 sp-std.workspace = true
 libsecp256k1.workspace = true
 log.workspace = true
 substrate-fixed.workspace = true
-pallet-transaction-payment.workspace = true
 pallet-utility.workspace = true
-ndarray.workspace = true
 hex.workspace = true
 share-pool.workspace = true
 safe-math.workspace = true
@@ -52,13 +47,11 @@ pallet-membership.workspace = true
 hex-literal.workspace = true
 num-traits = { workspace = true, features = ["libm"] }
 tle.workspace = true
-ark-bls12-381 = { workspace = true, features = ["curve"] }
 ark-serialize = { workspace = true, features = ["derive"] }
 w3f-bls.workspace = true
 sha2.workspace = true
 rand_chacha.workspace = true
 pallet-crowdloan.workspace = true
-pallet-proxy.workspace = true
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
@@ -75,7 +68,6 @@ pallet-preimage.workspace = true
 
 [features]
 std = [
-	"ark-bls12-381/std",
 	"ark-serialize/std",
 	"codec/std",
 	"frame-benchmarking/std",
@@ -84,7 +76,6 @@ std = [
 	"hex/std",
 	"libsecp256k1/std",
 	"log/std",
-	"ndarray/std",
 	"num-traits/std",
 	"pallet-balances/std",
 	"pallet-collective/std",
@@ -93,15 +84,12 @@ std = [
 	"pallet-preimage/std",
 	"pallet-scheduler/std",
 	"pallet-subtensor-swap/std",
-	"pallet-transaction-payment/std",
 	"pallet-utility/std",
 	"rand_chacha/std",
 	"safe-math/std",
 	"scale-info/std",
 	"serde/std",
-	"serde_bytes/std",
 	"serde_json/std",
-	"serde_with/std",
 	"sha2/std",
 	"share-pool/std",
 	"sp-core/std",
@@ -121,7 +109,6 @@ std = [
 	"sha2/std",
 	"share-pool/std",
 	"subtensor-runtime-common/std",
-	"pallet-proxy/std",
 	"pallet-crowdloan/std",
 	"runtime-common/std"
 ]
@@ -137,8 +124,6 @@ runtime-benchmarks = [
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-subtensor-swap/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks",
-	"pallet-proxy/runtime-benchmarks",
 	"pallet-crowdloan/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -151,12 +136,10 @@ try-runtime = [
 	"pallet-membership/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-scheduler/try-runtime",
-	"pallet-transaction-payment/try-runtime",
 	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",
 	"pallet-collective/try-runtime",
 	"pallet-drand/try-runtime",
-	"pallet-proxy/try-runtime",
 	"pallet-crowdloan/try-runtime",
 	"runtime-common/try-runtime"
 ]
