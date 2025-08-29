@@ -677,12 +677,12 @@ pub mod pallet {
             ensure!(
                 min_burn < TaoCurrency::from(1_000_000_000),
                 Error::<T>::ValueNotInBounds
-            )
+            );
             // Min burn must be less than max burn
             ensure!(
-                min_burn > pallet_subtensor::Pallet::<T>::MaxBurn(netuid),
+                min_burn > pallet_subtensor::Pallet::<T>::get_max_burn(netuid),
                 Error::<T>::ValueNotInBounds
-            )
+            );
             pallet_subtensor::Pallet::<T>::set_min_burn(netuid, min_burn);
             log::debug!("MinBurnSet( netuid: {netuid:?} min_burn: {min_burn:?} ) ");
             Ok(())
@@ -709,12 +709,12 @@ pub mod pallet {
             ensure!(
                 max_burn > TaoCurrency::from(100_000_000),
                 Error::<T>::ValueNotInBounds
-            )
+            );
             // Max burn must be greater than min burn
             ensure!(
-                max_burn > pallet_subtensor::Pallet::<T>::MinBurn(netuid),
+                max_burn > pallet_subtensor::Pallet::<T>::get_min_burn(netuid),
                 Error::<T>::ValueNotInBounds
-            )
+            );
             pallet_subtensor::Pallet::<T>::set_max_burn(netuid, max_burn);
             log::debug!("MaxBurnSet( netuid: {netuid:?} max_burn: {max_burn:?} ) ");
             Ok(())
