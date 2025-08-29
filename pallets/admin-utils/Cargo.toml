@@ -16,9 +16,6 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-subtensor-macros.workspace = true
-codec = { workspace = true, features = ["derive"] }
-scale-info = { workspace = true, features = ["derive"] }
 frame-benchmarking = { workspace = true, optional = true }
 frame-support.workspace = true
 frame-system.workspace = true
@@ -30,7 +27,6 @@ substrate-fixed.workspace = true
 pallet-evm-chain-id.workspace = true
 pallet-drand.workspace = true
 sp-consensus-grandpa.workspace = true
-subtensor-swap-interface.workspace = true
 subtensor-runtime-common.workspace = true
 
 [dev-dependencies]
@@ -49,7 +45,6 @@ pallet-preimage.workspace = true
 [features]
 default = ["std"]
 std = [
-	"codec/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
@@ -63,7 +58,6 @@ std = [
 	"pallet-subtensor/std",
 	"pallet-crowdloan/std",
 	"pallet-preimage/std",
-	"scale-info/std",
 	"sp-consensus-aura/std",
 	"sp-consensus-grandpa/std",
 	"sp-core/std",
@@ -73,7 +67,6 @@ std = [
 	"sp-tracing/std",
 	"sp-weights/std",
 	"substrate-fixed/std",
-	"subtensor-swap-interface/std",
 	"subtensor-runtime-common/std",
 ]
 runtime-benchmarks = [

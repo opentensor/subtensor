@@ -19,7 +19,6 @@ serde_json.workspace = true
 log.workspace = true
 hex = { workspace = true, features = ["serde"] }
 sha2.workspace = true
-anyhow.workspace = true
 # frame deps
 frame-benchmarking = { workspace = true, optional = true }
 frame-support.workspace = true
@@ -30,12 +29,9 @@ sp-runtime.workspace = true
 sp-std.workspace = true
 # arkworks dependencies
 sp-ark-bls12-381.workspace = true
-ark-bls12-381 = { workspace = true, features = ["curve"] }
 ark-serialize = { workspace = true, features = ["derive"] }
-ark-ff.workspace = true
 ark-ec.workspace = true
 ark-std.workspace = true
-ark-crypto-primitives = { workspace = true, features = ["r1cs", "snark"] }
 ark-scale = { workspace = true, features = ["hazmat"] }
 w3f-bls.workspace = true
 sp-keyring.workspace = true
@@ -65,16 +61,12 @@ std = [
 	"serde_json/std",
 	"hex/std",
 	"sp-ark-bls12-381/std",
-	"ark-bls12-381/std",
 	"ark-serialize/std",
-	"ark-ff/std",
 	"ark-ec/std",
 	"ark-std/std",
-	"ark-crypto-primitives/std",
 	"ark-scale/std",
 	"w3f-bls/std",
 	"tle/std",
-	"anyhow/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

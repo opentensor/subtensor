@@ -4,9 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
-codec = { workspace = true, features = ["derive"] }
 frame-support.workspace = true
-scale-info.workspace = true
 substrate-fixed.workspace = true
 subtensor-runtime-common.workspace = true
 
@@ -16,9 +14,7 @@ workspace = true
 [features]
 default = ["std"]
 std = [
-	"codec/std",
 	"frame-support/std",
-	"scale-info/std",
 	"substrate-fixed/std",
 	"subtensor-runtime-common/std",
 ]

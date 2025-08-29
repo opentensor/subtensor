@@ -327,26 +327,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ark-crypto-primitives"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f3a13b34da09176a8baba701233fdffbaa7c1b1192ce031a3da4e55ce1f1a56"
-dependencies = [
- "ark-ec 0.4.2",
- "ark-ff 0.4.2",
- "ark-r1cs-std",
- "ark-relations",
- "ark-serialize 0.4.2",
- "ark-snark",
- "ark-std 0.4.0",
- "blake2 0.10.6",
- "derivative",
- "digest 0.10.7",
- "sha2 0.10.9",
- "tracing",
-]
-
-[[package]]
 name = "ark-ec"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -615,35 +595,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ark-r1cs-std"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de1d1472e5cb020cb3405ce2567c91c8d43f21b674aef37b0202f5c3304761db"
-dependencies = [
- "ark-ec 0.4.2",
- "ark-ff 0.4.2",
- "ark-relations",
- "ark-std 0.4.0",
- "derivative",
- "num-bigint",
- "num-integer",
- "num-traits",
- "tracing",
-]
-
-[[package]]
-name = "ark-relations"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00796b6efc05a3f48225e59cb6a2cda78881e7c390872d5786aaf112f31fb4f0"
-dependencies = [
- "ark-ff 0.4.2",
- "ark-std 0.4.0",
- "tracing",
- "tracing-subscriber 0.2.25",
-]
-
-[[package]]
 name = "ark-scale"
 version = "0.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -726,18 +677,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.104",
-]
-
-[[package]]
-name = "ark-snark"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84d3cc6833a335bb8a600241889ead68ee89a3cf8448081fb7694c0fe503da63"
-dependencies = [
- "ark-ff 0.4.2",
- "ark-relations",
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
 ]
 
 [[package]]
@@ -6221,7 +6160,7 @@ dependencies = [
  "generator",
  "scoped-tls",
  "tracing",
- "tracing-subscriber 0.3.19",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -7343,8 +7282,6 @@ dependencies = [
  "pallet-scheduler",
  "pallet-subtensor",
  "pallet-subtensor-swap",
- "parity-scale-codec",
- "scale-info",
  "sp-consensus-aura",
  "sp-consensus-grandpa",
  "sp-core",
@@ -7354,9 +7291,7 @@ dependencies = [
  "sp-tracing 17.1.0",
  "sp-weights",
  "substrate-fixed",
- "subtensor-macros",
  "subtensor-runtime-common",
- "subtensor-swap-interface",
 ]
 
 [[package]]
@@ -7549,7 +7484,6 @@ name = "pallet-commitments"
 version = "4.0.0-dev"
 dependencies = [
  "ark-serialize 0.4.2",
- "enumflags2",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -7557,7 +7491,6 @@ dependencies = [
  "log",
  "pallet-balances",
  "pallet-drand",
- "pallet-subtensor",
  "parity-scale-codec",
  "rand_chacha 0.3.1",
  "scale-info",
@@ -7595,11 +7528,7 @@ dependencies = [
 name = "pallet-drand"
 version = "0.0.1"
 dependencies = [
- "anyhow",
- "ark-bls12-381 0.4.0",
- "ark-crypto-primitives",
  "ark-ec 0.4.2",
- "ark-ff 0.4.2",
  "ark-scale 0.0.11",
  "ark-serialize 0.4.2",
  "ark-std 0.4.0",
@@ -8198,11 +8127,8 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
- "pallet-subtensor-swap-runtime-api",
  "parity-scale-codec",
  "safe-math",
- "scale-info",
- "serde",
  "sp-arithmetic",
  "sp-core",
  "sp-io",
@@ -8226,7 +8152,6 @@ dependencies = [
  "sp-blockchain",
  "sp-runtime",
  "subtensor-runtime-common",
- "subtensor-swap-interface",
 ]
 
 [[package]]
@@ -8234,13 +8159,9 @@ name = "pallet-subtensor-swap-runtime-api"
 version = "1.0.0"
 dependencies = [
  "frame-support",
- "parity-scale-codec",
- "scale-info",
  "sp-api",
- "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2503-6)",
  "subtensor-macros",
  "subtensor-runtime-common",
- "subtensor-swap-interface",
 ]
 
 [[package]]
@@ -8352,7 +8273,6 @@ dependencies = [
  "pallet-root-testing",
  "pallet-timestamp",
  "parity-scale-codec",
- "scale-info",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -11485,7 +11405,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tracing",
  "tracing-log",
- "tracing-subscriber 0.3.19",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -13176,7 +13096,7 @@ dependencies = [
  "regex",
  "tracing",
  "tracing-core",
- "tracing-subscriber 0.3.19",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -13187,7 +13107,7 @@ dependencies = [
  "parity-scale-codec",
  "tracing",
  "tracing-core",
- "tracing-subscriber 0.3.19",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -13846,8 +13766,6 @@ name = "subtensor-swap-interface"
 version = "0.1.0"
 dependencies = [
  "frame-support",
- "parity-scale-codec",
- "scale-info",
  "substrate-fixed",
  "subtensor-runtime-common",
 ]
@@ -13870,7 +13788,6 @@ dependencies = [
  "frame-executive",
  "frame-support",
  "frame-system",
- "log",
  "pallet-balances",
  "pallet-crowdloan",
  "pallet-drand",
@@ -13881,7 +13798,6 @@ dependencies = [
  "pallet-subtensor",
  "pallet-subtensor-swap",
  "pallet-transaction-payment",
- "parity-scale-codec",
  "scale-info",
  "smallvec",
  "sp-consensus-aura",
@@ -14628,15 +14544,6 @@ checksum = "ee855f1f400bd0e5c02d150ae5de3840039a3f54b025156404e34c23c03f47c3"
 dependencies = [
  "log",
  "once_cell",
- "tracing-core",
-]
-
-[[package]]
-name = "tracing-subscriber"
-version = "0.2.25"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e0d2eaa99c3c2e41547cfa109e910a68ea03823cccad4a0525dcbc9b01e8c71"
-dependencies = [
  "tracing-core",
 ]
 
