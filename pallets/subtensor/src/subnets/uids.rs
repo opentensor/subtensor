@@ -177,7 +177,7 @@ impl<T: Config> Pallet<T> {
             // Trim UIDs and Keys by removing entries with UID >= max_n (since UIDs are 0-indexed)
             // UIDs range from 0 to current_n-1, so we remove UIDs from max_n to current_n-1
             for uid in max_n..current_n {
-                if let Some(hotkey) = Keys::<T>::try_get(netuid, uid).ok() {
+                if let Ok(hotkey) = Keys::<T>::try_get(netuid, uid) {
                     Uids::<T>::remove(netuid, &hotkey);
                     // Remove IsNetworkMember association for the hotkey
                     IsNetworkMember::<T>::remove(&hotkey, netuid);
@@ -201,7 +201,7 @@ impl<T: Config> Pallet<T> {
 
             // Trim axons, certificates, and prometheus info for removed hotkeys
             for uid in max_n..current_n {
-                if let Some(hotkey) = Keys::<T>::try_get(netuid, uid).ok() {
+                if let Ok(hotkey) = Keys::<T>::try_get(netuid, uid) {
                     Axons::<T>::remove(netuid, &hotkey);
                     NeuronCertificates::<T>::remove(netuid, &hotkey);
                     Prometheus::<T>::remove(netuid, &hotkey);
