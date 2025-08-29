@@ -1073,6 +1073,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::init_new_network(netuid, 1);
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::set_commit_reveal_weights_enabled(netuid, false);
 
         let reg_fee = Subtensor::<T>::get_burn(netuid);
         Subtensor::<T>::add_balance_to_coldkey_account(&hotkey, reg_fee.to_u64().saturating_mul(2));
