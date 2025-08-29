@@ -13749,12 +13749,9 @@ name = "subtensor-custom-rpc"
 version = "0.0.2"
 dependencies = [
  "jsonrpsee",
- "pallet-subtensor",
  "parity-scale-codec",
- "serde",
  "sp-api",
  "sp-blockchain",
- "sp-rpc",
  "sp-runtime",
  "subtensor-custom-rpc-runtime-api",
  "subtensor-runtime-common",
